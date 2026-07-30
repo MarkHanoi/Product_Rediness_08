@@ -20,10 +20,10 @@ cited envelope on part of its land and returns an honest cited refusal everywher
 | **S1 — parcel provider** | ✅ live | Catastro INSPIRE WFS (national); block-ring dissolve **2/2** in Barcelona (L-535). |
 | **S3 — zone source** | ✅ live | AMB MUC WMS (`CODI_QUAL_AJUNT`), per-parcel clau (`server/mucZoningProxy.js`). |
 | **13a** *ordenació segons alineacions de vial* | ✅ **SHIPPED** (constructed) | `block-derived-alignment`, ADR-0271 — depth from the block ring per PGM **Art. 242.2**; height from street width per **Art. 327.2** (`bcnAlcadaReguladora.ts`, L-525a). |
-| **13b / 12 / 20a / 22a** | ⚠️ partial / refusal | 13b config-only (not shipped); 22a = regime-neutral half + cited `regime-undetermined` refusal (ADR-0276); 12/12b/20a per `RATE.md`. |
+| **13b / 12 / 20a / 22a** | ⚠️ partial / refusal | 13b config-only (not shipped); 22a = regime-neutral half + cited `regime-undetermined` refusal (ADR-0276); 12/12b/20a per `LEGISLATION-RATE.md`. |
 | **Systems (`SX*` `6*` `7*` …) + derived-planning (`18`, PD*)** | ✅ **cited refusal SHIPPED** | L-550 / L-553 — a cited "no envelope applies" or "governed by its own plan", never a fabricated setback triple. |
 
-The measured ceiling and the field-by-field breakdown are in [`RATE.md`](./RATE.md); the phased climb
+The measured ceiling and the field-by-field breakdown are in [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md); the phased climb
 in [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md); where PRYZM stopped and why in
 [`NEXT.md`](./NEXT.md).
 
@@ -52,5 +52,5 @@ reused for L'Hospitalet / Badalona / Sant Boi (each is its own municipality with
 *Cross-refs: `ENVELOPE-REPLICATION-STANDARD.md` (ADR-0279, the 5-slot onboarding), C58 §1.2/§1.5,
 C60 §3, ADR-0270/0271 (rule kinds), ADR-0276 (regime-undetermined refusal), L-449 (source-acceptance
 gate), L-525/L-526 (13a height + source-vintage), `findings/L-590h` (the sufficiency ceiling),
-§CONTEXT-DATA-HONESTY. Siblings: `RATE.md`, `RATE-IMPLEMENTATION-PLAN.md`, `NEXT.md`,
+§CONTEXT-DATA-HONESTY. Siblings: `LEGISLATION-RATE.md`, `RATE-IMPLEMENTATION-PLAN.md`, `NEXT.md`,
 `RISK-REGISTER.md`, `L-583-LEGAL-PARAMETERS-SOURCED.md`.*

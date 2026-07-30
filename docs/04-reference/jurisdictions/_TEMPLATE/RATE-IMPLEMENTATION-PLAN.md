@@ -1,9 +1,11 @@
 # Rate Implementation Plan — `<JURISDICTION>` (`<iso>`) `<national | city>`
 
 <!-- ────────────────────────────────────────────────────────────────────────────
-COPY THIS FILE alongside RATE.md. It is the phased TO-DO / tracker that gets this
-jurisdiction from its CURRENT rate (see the sibling RATE.md) to the MAXIMUM rate
-achievable in its scope. The standard is defined in
+COPY THIS FILE alongside LEGISLATION-RATE.md. It is the phased TO-DO / tracker that
+gets this jurisdiction from its CURRENT legislation rate (see the sibling
+LEGISLATION-RATE.md) to the MAXIMUM rate achievable in its scope — which is how the
+LEGISLATION axis of the composite master RATE.md (city) / COUNTRY-RATE.md (country)
+climbs. The standard is defined in
 `docs/04-reference/jurisdictions/README.md` §"RATE-IMPLEMENTATION-PLAN.md".
 
 TWO REFERENCE POINTS, always cite them:
@@ -22,14 +24,14 @@ structured data. A jurisdiction whose numbers live only in ordinance PDFs has a
 LOWER structural ceiling UNLESS an OCR/transcription pipeline is built — and even
 then the human-verification gate (L-449) caps how fast it climbs. State this
 jurisdiction's REALISTIC ceiling and WHY, honestly. A plan that promises 96%
-where the data cannot support it is the same dishonesty RATE.md forbids.
+where the data cannot support it is the same dishonesty LEGISLATION-RATE.md forbids.
 
 ⚠ NEVER mark a phase SHIPPED/VERIFIED on this doc as a way of claiming a rate.
-The rate only moves when RATE.md is re-derived from real checks. Status here
-tracks WORK; RATE.md tracks the MEASUREMENT. Keep them distinct.
+The rate only moves when LEGISLATION-RATE.md is re-derived from real checks. Status
+here tracks WORK; LEGISLATION-RATE.md tracks the MEASUREMENT. Keep them distinct.
 ──────────────────────────────────────────────────────────────────────────── -->
 
-**Current rate:** `<NN>%` (see [`RATE.md`](./RATE.md)) · **Realistic ceiling:** `<MM>%` ·
+**Current rate:** `<NN>%` (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md)) · **Realistic ceiling:** `<MM>%` ·
 **Gap to ceiling:** `<MM−NN> pts` · **Gap to Denmark (~96%):** `<96−NN> pts` ·
 **Last updated:** `<YYYY-MM-DD>` · **Owner:** `<UNASSIGNED>`
 
@@ -47,16 +49,16 @@ tracks WORK; RATE.md tracks the MEASUREMENT. Keep them distinct.
 
 ## 2 — Phase tracker
 
-<!-- The to-do list. One row per phase. Rate delta = the honest estimated jump in the RATE.md number
-     when this phase lands (NOT a claim it has landed). Status vocabulary is FIXED — use exactly
+<!-- The to-do list. One row per phase. Rate delta = the honest estimated jump in the LEGISLATION-RATE.md
+     number when this phase lands (NOT a claim it has landed). Status vocabulary is FIXED — use exactly
      these so a reader can scan every jurisdiction's plans the same way:
         NOT STARTED · IN PROGRESS · BLOCKED · SHIPPED (code done, rate not re-measured) ·
-        VERIFIED (rate re-derived in RATE.md and confirmed) · N/A (not applicable here)
+        VERIFIED (rate re-derived in LEGISLATION-RATE.md and confirmed) · N/A (not applicable here)
      "Rate: from→to" is cumulative across phases. -->
 
 | Phase | Goal | Unlocks | Rate: from→to | Effort | Status | Owner |
 |---|---|---|---|---|---|---|
-| **0** | Assess — direct endpoint/schema checks; write RATE.md | the honest baseline number | — → `<NN>%` | | | |
+| **0** | Assess — direct endpoint/schema checks; write LEGISLATION-RATE.md | the honest baseline number | — → `<NN>%` | | | |
 | **1** | | | `<NN>` → `<..>%` | | NOT STARTED | UNASSIGNED |
 | **2** | | | | | NOT STARTED | UNASSIGNED |
 | **3** | | | → `<MM>%` (ceiling) | | NOT STARTED | UNASSIGNED |

@@ -13,7 +13,7 @@
 ## 1 — Current provenance state: heights are ESTIMATED (measured share ~1%)
 
 Barcelona's context buildings are baked from OSM footprints. Their measured-vs-estimated split is one
-of the few that HAS been measured — per `RATE.md` / **L-582**:
+of the few that HAS been measured — per `LEGISLATION-RATE.md` / **L-582**:
 
 - **0.9% surveyed** (`tagged`, explicit OSM `height`) ·
 - **79.3% `building:levels` × 3.2 m** (`derived-levels` — a real floor COUNT × an invented storey
@@ -102,4 +102,4 @@ other three have it as a TODO (derive from each municipal boundary — do NOT fa
 `tools/context-bake/bake.mjs` (`spain` region, `heightJoin:'mds'`),
 `apps/editor/src/ui/geospatial/contextBuildings.ts` (`resolveContextHeight`), L-582 (the measured
 split), L-525 (ordinance-height gap), L-459 (provenance), C62 · C58 §1.2 ·
-`GEO-DATA-SOURCING-MASTER.md`. Siblings: `RATE.md`, `ENVELOPE.md`, `NEXT.md`.*
+`GEO-DATA-SOURCING-MASTER.md`. Siblings: `LEGISLATION-RATE.md`, `ENVELOPE.md`, `NEXT.md`.*

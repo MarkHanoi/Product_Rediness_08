@@ -1,8 +1,12 @@
 # 0281 — A 7-axis City-Completion Scorecard + a fixed per-city Dossier standard (mint C63)
 
 **Status**: ACCEPTED (2026-07-30 — ratified; C63 contract minted. The scorecard schema + function are
-sequenced separately, not part of this ratification; the overall weighting vector in C63 §4 is a
-**FOUNDER DECISION**, DRAFT until signed.)
+sequenced separately, not part of this ratification.)
+**Amendment (2026-07-30, L-649)**: the overall weighting vector (C63 §4) is now **RATIFIED** by the founder;
+and the RATE **naming** is ratified (Option B) — the composite master scorecard face is **`RATE.md`** (city) /
+**`COUNTRY-RATE.md`** (country), and the legislation/data-fill metric is renamed **`LEGISLATION-RATE.md`**
+(was `RATE.md`; semantics unchanged). Rule: `RATE.md` = composite master; `<AXIS>-RATE.md` = per-axis detail
+rate. Convention master: `jurisdictions/_TEMPLATE/NAMING-CONVENTION.md`.
 **Date**: 2026-07-30
 **Deciders**: founder (city-completion scorecard directive) + architecture team
 **Related contracts**: [C63 — City Completion & Dossier](../contracts/C63-CITY-COMPLETION-AND-DOSSIER.md) (this ADR mints it), [C62 — Data Confidence, Provenance & Unknown-Reason](../contracts/C62-DATA-CONFIDENCE-PROVENANCE-MODEL.md) (each axis is a `DomainConfidence` instance; `not-assessed` carries a C62 `UnknownReason`), [C57 — Parcel Data Layer](../contracts/C57-PARCEL-DATA-LAYER.md) (PARCEL axis input), [C58 — Zoning Rules & Buildable Envelope](../contracts/C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) (LEGISLATION + ENVELOPE axes; the L-449 verification gate), [C60 — Site Entry & Jurisdiction Coverage](../contracts/C60-SITE-ENTRY-AND-JURISDICTION-COVERAGE.md) (coverage-is-derived precedent), [C12 — Geospatial](../contracts/C12-GEOSPATIAL.md) (TERRAIN axis)
@@ -15,15 +19,15 @@ PRYZM is replicating Barcelona city-by-city. The "Replicate Barcelona" recipe
 (`CITY-REPLICATION-STANDARD.md`) decomposes a city into eight independent data/geometry layers, five of
 them per-city data pipelines. Two sibling standards (`ENVELOPE-REPLICATION-STANDARD.md` ADR-0279,
 `BUILDING-HEIGHT-REPLICATION-STANDARD.md` L-646) deepen the L3 and L5 layers. Per-country
-data-readiness is tracked by a single `RATE.md` number (structured dimensional fill).
+data-readiness is tracked by a single `LEGISLATION-RATE.md` number (structured dimensional fill; was `RATE.md`).
 
 But there was **no single, comparable, honest measure of "how complete is city X"** across all the
 layers, and no enforced dossier shape. The founder's directive: *every city PRYZM tackles gets a
 well-structured dossier, and a MULTI-AXIS COMPLETION SCORECARD tracks how complete each city is across
 ALL countries.* Three concrete gaps:
 
-1. **No comparable measure.** "Madrid is ahead of Oslo" was prose, not a number; the one `RATE.md`
-   number captured only the legal-fill axis, not terrain / heights / context / parcel state.
+1. **No comparable measure.** "Madrid is ahead of Oslo" was prose, not a number; the one `LEGISLATION-RATE.md`
+   number (then `RATE.md`) captured only the legal-fill axis, not terrain / heights / context / parcel state.
 2. **Fabrication risk.** Any completeness number a human types is a §CONTEXT-DATA-HONESTY hazard (a
    guess presented as a measurement — the L-422/L-457/L-467 family). The measure had to be a *function
    of state*, not an opinion.
@@ -48,9 +52,10 @@ ALL countries.* Three concrete gaps:
    because three axes port free and two are the human-gated cost — equal weighting would let a city look
    ~43 % "done" from the free axes while holding zero certified law.
 
-3. **A fixed dossier folder standard** (C63 §5): `COMPLETION.md` (the scorecard face) + RATE / NEXT /
-   ENVELOPE / HEIGHT / RISK-REGISTER / sources / findings, with the folder identity equal to the pack
-   `jurisdictionId`. Templates at `jurisdictions/_TEMPLATE/` (country) + `_TEMPLATE/_CITY/` (city).
+3. **A fixed dossier folder standard** (C63 §5): the composite master `RATE.md` (the scorecard face; renamed
+   from `COMPLETION.md` per the L-649 amendment) + LEGISLATION-RATE / LOD-RATE / NEXT / ENVELOPE / HEIGHT /
+   RISK-REGISTER / sources / findings, with the folder identity equal to the pack `jurisdictionId`.
+   Templates at `jurisdictions/_TEMPLATE/` (country) + `_TEMPLATE/_CITY/` (city) + `NAMING-CONVENTION.md`.
 
 4. **The §3.1 honesty companion** — a `honestyOk` scalar orthogonal to completeness: a city can be
    0 % complete and 100 % honest (all cited refusals). Launch-blocking is `honestyOk`, not a completion
@@ -58,9 +63,9 @@ ALL countries.* Three concrete gaps:
 
 ## Why not the alternatives
 
-- **Extend the single `RATE.md` number.** Rejected: one number cannot express that Madrid has terrain +
-  heights but no certified envelope while Barcelona has both. The multi-axis view is the requirement.
-  `RATE.md` is *kept* as the LEGISLATION-axis input, not discarded.
+- **Extend the single `LEGISLATION-RATE.md` number** (then `RATE.md`). Rejected: one number cannot express that
+  Madrid has terrain + heights but no certified envelope while Barcelona has both. The multi-axis view is the
+  requirement. `LEGISLATION-RATE.md` is *kept* as the LEGISLATION-axis input, not discarded.
 - **Equal 1/7 axis weights.** Rejected as the default (see decision 2) — but it is expressible: the
   weight vector is config, so a founder who prefers equal weights sets it in one place.
 - **Let humans maintain the matrix by hand.** Rejected as the primary sin this contract exists to
@@ -81,6 +86,6 @@ ALL countries.* Three concrete gaps:
   logged, not hidden (C63 §8).
 - **Open founder decisions.** The §4 weighting vector; whether `derived-levels` earns partial HEIGHTS/LOD
   credit.
-- **Follow-ups.** Populate `COMPLETION.md` for the shipped Catalan cities + Madrid once the DATA-SOURCES /
-  TERRAIN / CONTEXT axes (the cheap first computes) are wired; retro-fit the `_TEMPLATE/_CITY/` shape to
-  existing dossiers.
+- **Follow-ups.** Populate the composite master `RATE.md` (the scorecard face) for the shipped Catalan cities
+  + Madrid once the DATA-SOURCES / TERRAIN / CONTEXT axes (the cheap first computes) are wired; retro-fit the
+  `_TEMPLATE/_CITY/` shape (and the L-649 rename) to existing dossiers.

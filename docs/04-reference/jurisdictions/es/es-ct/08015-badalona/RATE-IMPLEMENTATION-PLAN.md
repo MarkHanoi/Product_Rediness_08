@@ -1,6 +1,6 @@
 # Rate Implementation Plan — Badalona (`es-ct`, INE 08015)
 
-**Current rate:** NOT MEASURED (see [`RATE.md`](./RATE.md)) · **Envelope gate:**
+**Current rate:** NOT MEASURED (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md)) · **Envelope gate:**
 `BADALONA_ENVELOPE_VERIFIED = false` (cited refusal) · **Model reference:** Barcelona =
 `../08019-barcelona/RATE-IMPLEMENTATION-PLAN.md` (the pilot climb this file mirrors) ·
 **Last updated:** 2026-07-30 · **Owner:** UNASSIGNED
@@ -28,7 +28,7 @@ Status vocabulary is FIXED: **NOT STARTED · IN PROGRESS · BLOCKED · SHIPPED �
 | **0** | **Clau-coverage audit** — enumerate the distinct claus over the 08015 extent from the MUC; record each clau's PGM article + whether a municipal *modificació* alters it | the first honest denominator; the measured rate | **NOT STARTED** | UNASSIGNED |
 | **1** | **Source Badalona's own height / street-width tables** (municipal *text refós*, Ajuntament de Badalona) | the height rung Barcelona's tables cannot supply | **NOT STARTED** (BLOCKED on human sourcing) | UNASSIGNED |
 | **2** | **Author `es-08015-badalona` pack** for the most-common verified clau (or a cited per-clau equivalence ruling to the PGM construction) | the first non-refusal envelope | **NOT STARTED** | UNASSIGNED |
-| **cert** | Sign `sources/VERIFICATION.md` (L-449 gate) → flip `BADALONA_ENVELOPE_VERIFIED` for the certified clau(s) only | moves the certified clau amber→green; re-derives the RATE.md number | **NOT STARTED** | UNASSIGNED |
+| **cert** | Sign `sources/VERIFICATION.md` (L-449 gate) → flip `BADALONA_ENVELOPE_VERIFIED` for the certified clau(s) only | moves the certified clau amber→green; re-derives the LEGISLATION-RATE.md number | **NOT STARTED** | UNASSIGNED |
 | **H** | Heights: H1 probe → per-08015 MDS bbox → re-bake (see [`HEIGHT.md`](./HEIGHT.md)) | measured context heights (LoD1) instead of the 9 m assumed carpet | **NOT STARTED** | UNASSIGNED |
 
 ## 3 — The gap to Barcelona (the pilot)

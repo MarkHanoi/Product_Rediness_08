@@ -4,16 +4,19 @@
 COPY THIS FILE to start a LOD-RATE.md for a country or a city. Delete these HTML
 comments as you fill it in.
 
-⚠ THIS IS A SECOND, DISTINCT RATE. It is NOT the buildable-rule RATE.md.
-  • RATE.md answers: "do we know the RULES for a plot?" (zone / density / height-limit —
-    what you MAY build). Its ruler is the *structured dimensional fill rate*.
+⚠ THIS IS A SECOND, DISTINCT RATE. It is NOT the buildable-rule LEGISLATION-RATE.md.
+  Both are per-axis detail rates that FEED the composite master RATE.md (city) /
+  COUNTRY-RATE.md (country): LEGISLATION-RATE.md → LEGISLATION axis; LOD-RATE.md →
+  HEIGHTS/LOD axis (see NAMING-CONVENTION.md).
+  • LEGISLATION-RATE.md answers: "do we know the RULES for a plot?" (zone / density /
+    height-limit — what you MAY build). Its ruler is the *structured dimensional fill rate*.
   • LOD-RATE.md (this file) answers: "can we obtain a faithful physical model of the
     EXISTING city around the plot?" (real parcels + real building heights + attributes —
     what IS already there). Its ruler is the *LOD-200 context-building rate* below.
   They are ORTHOGONAL. A jurisdiction can be high on one and low on the other
   (France: rules ~22%, context ~80%. Saudi: rules ~55%, context ~18%). NEVER conflate
   the two numbers — that conflation is the §CONTEXT-DATA-HONESTY failure C58 forbids.
-  Cross-reference RATE.md; never merge its score into this one.
+  Cross-reference LEGISLATION-RATE.md; never merge its score into this one.
 
 ⚠ HONESTY RULES (C58 §1.2/§1.4 — the whole point of the number):
   1. The metric DEFINITION and the LOD LADDER below are FIXED and identical in every
@@ -81,7 +84,7 @@ Extra credit for LoD2 roof forms and a real parcel-join.
 
 | Sub-metric | Source | Coverage | Flag | Note |
 |---|---|---|---|---|
-| **(a) Parcel definition** (cadastral geometry) | `<cadastre / INSPIRE CP>` | `<NN>%` | | reuse what RATE.md's cadastre work found |
+| **(a) Parcel definition** (cadastral geometry) | `<cadastre / INSPIRE CP>` | `<NN>%` | | reuse what LEGISLATION-RATE.md's cadastre work found |
 | **(b) Real building HEIGHT** (per-building, measured — THE BINDING METRIC) | `<national 3D source / LiDAR nDSM>` | `<NN>%` | | measured, NOT floor-count×3 m and NOT the 9 m default |
 | **(c) Extra attributes** (roof form / storeys / use / year) | `<register / CityGML LoD2>` | `<LOW / MED / HIGH>` | | roof form is the LoD2 differentiator |
 
@@ -104,9 +107,9 @@ where even that is absent (`contextBuildings.ts` `DEFAULT_BUILDING_HEIGHT_M = 9`
 
 ---
 
-## Orthogonality with RATE.md (do not conflate)
+## Orthogonality with LEGISLATION-RATE.md (do not conflate)
 
-<!-- ONE line stating this jurisdiction's buildable-rule RATE.md score next to this
+<!-- ONE line stating this jurisdiction's buildable-rule LEGISLATION-RATE.md score next to this
      LOD-context score, and why they differ. e.g. "France: rules ~22% (numbers in PLU PDFs)
      but context ~80% (BD TOPO HAUTEUR is a national open attribute) — the numbers we lack are
      the RULES, not the physical model." This is the founder's insight made explicit. -->

@@ -4824,23 +4824,26 @@ axes move only with the founder-signed legal work.
    `heightProvenance` histogram from the bake output / context panel).
 3. **LEGISLATION + ENVELOPE** — per-clau `SOURCES.md` audit + the L-449 `VERIFICATION.md` gate + the C58
    coverage measurement. Barcelona's `BARCELONA-COMPLETE-COVERAGE-PLAN.md` is the reference track.
-4. **Populate `COMPLETION.md`** in each dossier (template: `jurisdictions/_TEMPLATE/_CITY/COMPLETION.md`)
-   and the per-country `COUNTRY-COMPLETION.md` roll-up as axes compute.
+4. **Populate the composite master `RATE.md`** in each dossier (template: `jurisdictions/_TEMPLATE/_CITY/RATE.md`)
+   and the per-country `COUNTRY-RATE.md` roll-up as axes compute.
 5. **Wire `tools/ga-gate/check-city-completion.ts`** (C63 §6) so a hand-typed cell or a fabricated render
    fails CI.
 
 **Per-city dossier + next-step index:** each Dossier link in §CC.1 is the city's evidence container
-(C63 §5); its `NEXT.md` holds the resume steps + TRIP-WIRES, its `COMPLETION.md` (once created) is the
-scorecard face. FOUNDER DECISION pending: ratify/re-weight `CITY_COMPLETION_WEIGHTS` (C63 §4).
+(C63 §5); its `NEXT.md` holds the resume steps + TRIP-WIRES, its composite master `RATE.md` (once created) is
+the scorecard face. Weighting **RATIFIED** (founder, 2026-07-30, L-649): `CITY_COMPLETION_WEIGHTS` = LEG 25 ·
+ENV 20 · PAR 15 · SRC 15 · HGT 10 · TER 10 · CTX 5 (C63 §4).
 
 ### §CC.4 — L-649: master-RATE structure + audit→map→plan (EXTENDS C63)
 
-Audit **L-649** (C63 §8.1). **BLOCKED on a founder NAMING DECISION** (Option A keep `COMPLETION.md` master +
-`RATE.md` legislation sub-metric [recommended]; Option B rename to `RATE.md` master + `LEGISLATION-RATE.md`).
-**Dependency:** parent L-648 (scorecard contract); the L-649 STRUCTURE work (tracker template + index sections)
-can proceed once naming is set, and the L-649 **AUDIT phase can run manually/agent-inspected NOW** — ahead of the
-L-648 automated scorecard function — provided every cell cites the state it read (C63 §1.1). Order after decision:
-(1) `_TEMPLATE/MASTER-COMPLETION-TRACKER.md` + INDEX cross-ref sections on the master face + country roll-up;
-(2) **Phase 1 AUDIT** all countries+cities (cheap axes first, cited derivation); (3) **Phase 2 MAP** into dossiers +
-roll-ups + the §CC.1 matrix above; (4) **Phase 3 PLAN** per-axis, per-city L-items to drive each section → 100 %.
-OWNER: UNASSIGNED · TARGET: TBD (gated on naming decision).
+Audit **L-649** (C63 §8.1). **NAMING DECIDED (founder, 2026-07-30): Option B** — composite master = `RATE.md`
+(city) / `COUNTRY-RATE.md` (country); legislation sub-rate renamed `RATE.md`→`LEGISLATION-RATE.md` (semantics
+unchanged). Rule: `RATE.md` = composite master; `<AXIS>-RATE.md` = per-axis detail. Convention master:
+`jurisdictions/_TEMPLATE/NAMING-CONVENTION.md`. **STRUCTURE DONE (docs-only pass):** `_TEMPLATE/NAMING-CONVENTION.md`
++ `_TEMPLATE/MASTER-RATE-TRACKER.md` authored; INDEX **Dossier index** cross-ref sections added to the city
+composite master (`_TEMPLATE/_CITY/RATE.md`) + country roll-up (`_TEMPLATE/COUNTRY-RATE.md`); renames applied to
+`_TEMPLATE/` + the four shipped Catalan dossiers; C63 §4 weighting ratified. **REMAINING** (audit→map→plan, ahead
+of the L-648 automated function, each cell citing the state it read — C63 §1.1): (1) **Phase 1 AUDIT** all
+countries+cities (cheap axes first: DATA-SOURCES/TERRAIN/CONTEXT, then PARCEL/HEIGHTS, then LEGISLATION/ENVELOPE);
+(2) **Phase 2 MAP** into dossiers + roll-ups + the §CC.1 matrix above; (3) **Phase 3 PLAN** per-axis, per-city
+L-items to drive each section → 100 %. OWNER: UNASSIGNED · TARGET: TBD.

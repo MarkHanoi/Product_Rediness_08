@@ -8,15 +8,16 @@
 **Pack id (== folder identity):** `<cc>-<code>-<slug>`
 **Last updated:** <DATE> · **Maintainer:** <NAME/UNASSIGNED> · **Status:** <SCAFFOLD | IN PROGRESS | LIVE>
 
-> This dossier is the evidence container C63 §5 mandates. Its scorecard face is **[`COMPLETION.md`](./COMPLETION.md)**
-> (the 7-axis completion measure). The pack is CODE; this folder is its PROVENANCE.
+> This dossier is the evidence container C63 §5 mandates. Its scorecard face is **[`RATE.md`](./RATE.md)**
+> — the composite master completion rate (the founder's "master RATE", L-649; formerly `COMPLETION.md`).
+> The per-axis `LEGISLATION-RATE.md` / `LOD-RATE.md` FEED it. The pack is CODE; this folder is its PROVENANCE.
 
 ## Required file set (C63 §5)
 
 | File | Purpose | Feeds axis |
 |---|---|---|
-| [`COMPLETION.md`](./COMPLETION.md) | **the 7-axis completion scorecard (C63 face)** | — (composes all 7) |
-| [`RATE.md`](./RATE.md) | structured dimensional-fill rate | LEGISLATION |
+| [`RATE.md`](./RATE.md) | **the 7-axis composite completion scorecard — the master RATE (C63 face)** | — (composes all 7) |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (per-axis detail) | LEGISLATION |
 | [`NEXT.md`](./NEXT.md) | where we stopped · blockers · TRIP-WIRES · resume steps | all |
 | [`ENVELOPE.md`](./ENVELOPE.md) | buildable-envelope status | ENVELOPE |
 | [`HEIGHT.md`](./HEIGHT.md) | building-height status | HEIGHTS/LOD |
@@ -26,8 +27,9 @@
 | `sources/VERIFICATION.md` | human sign-off (L-449; gates LEGISLATION/ENVELOPE `human-reviewed`) | LEGISLATION · ENVELOPE |
 | `findings/` | substantive L-NNN investigation records | — |
 
-<!-- The RATE / NEXT / ENVELOPE / HEIGHT / RISK-REGISTER / RATE-IMPLEMENTATION-PLAN / sources templates
-     live one level up in `jurisdictions/_TEMPLATE/`. Copy them alongside this file. -->
+<!-- The LEGISLATION-RATE / LOD-RATE / NEXT / ENVELOPE / HEIGHT / RISK-REGISTER / RATE-IMPLEMENTATION-PLAN /
+     sources templates live one level up in `jurisdictions/_TEMPLATE/`. Copy them alongside this file.
+     This file's own scorecard face is `RATE.md` (the composite master), copied from `_TEMPLATE/_CITY/RATE.md`. -->
 
 ## 1 — What governs here
 - **Governing-instrument chain:** `parcel → <instrument> → <classification> → <article>`.

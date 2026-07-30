@@ -94,7 +94,7 @@ If `assessed = ∅`, `overall.score = null`.
 
 ## §6 — Provenance & the CI gate
 
-- Every `AxisScore.generatedBy` + every `COMPLETION.md` carries a `<!-- generated-by: scorecard vN … -->`
+- Every `AxisScore.generatedBy` + every composite master `RATE.md` (the scorecard face; renamed from `COMPLETION.md` per L-649) carries a `<!-- generated-by: scorecard vN … -->`
   stamp. `tools/ga-gate/check-city-completion.ts` (planned, C63 §6) re-runs the function and diffs; a
   hand-edited number (no stamp, or stamp≠re-run) fails the build (enforces C63 §1.1).
 - The gate also fails a city that renders a value while its scorecard says the backing axis is

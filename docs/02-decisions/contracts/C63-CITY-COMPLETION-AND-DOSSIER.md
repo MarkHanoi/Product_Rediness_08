@@ -1,7 +1,9 @@
 # C63 — City Completion Scorecard & Dossier Standard
 
-> **Stamp**: 2026-07-30 · **Status**: DRAFT (schema + scorecard function sequenced; overall weighting is a
-> FOUNDER DECISION, see §4). **Ratified by**: [ADR-0281](../adrs/ADR-0281-city-completion-scorecard-and-dossier-standard.md).
+> **Stamp**: 2026-07-30 · **Status**: DRAFT (schema + scorecard function sequenced). **Weighting RATIFIED**
+> (founder, 2026-07-30, L-649 — see §4). **Naming RATIFIED** (L-649): composite master = `RATE.md` /
+> `COUNTRY-RATE.md`; legislation sub-rate = `LEGISLATION-RATE.md` (§5, `_TEMPLATE/NAMING-CONVENTION.md`).
+> **Ratified by**: [ADR-0281](../adrs/ADR-0281-city-completion-scorecard-and-dossier-standard.md).
 > **Spec**: [SPEC-CITY-COMPLETION-SCORECARD](../../03-execution/specs/SPEC-CITY-COMPLETION-SCORECARD.md).
 > **Scope**: the ONE way PRYZM answers *"how complete is city X, across every replication layer?"* — a
 > **7-axis, 0–100 % completion scorecard** that is a **total function of data / bake / registry state**
@@ -38,8 +40,8 @@ as the **LEGISLATION axis** input and makes it one of seven comparable axes rath
 ### §1.1 — Completion is a TOTAL FUNCTION of state, never hand-typed (the core invariant)
 Every axis percentage MUST be **computed** by the scorecard function from an inspectable input
 (registry rows, baked-tile probes, `SOURCES.md`/`VERIFICATION.md` counts, `heightSources.mjs` `impl`
-flags, terrain `layer.json` + round-trip result). A number written directly into a `COMPLETION.md` or
-the master matrix by a human is a **contract violation** — it is exactly the fabrication
+flags, terrain `layer.json` + round-trip result). A number written directly into a `RATE.md` (the
+composite master scorecard face) or the master matrix by a human is a **contract violation** — it is exactly the fabrication
 §CONTEXT-DATA-HONESTY forbids (a guess presented as a measurement). The scorecard is reproducible: same
 state in → same seven numbers out (mirrors C58 §1.1 / C56 determinism).
 
@@ -68,7 +70,7 @@ C58 §1.3): a bare `72 %` with no derivation is non-conformant.
 assessed subset** (an unassessed axis neither counts as 0 nor silently inflates the rest — it shrinks
 the denominator and the result is flagged `partial`). The weight vector is a **single config value**
 (`CITY_COMPLETION_WEIGHTS`), not hard-coded at the call site, so re-weighting is one edit. The default
-vector in §4 is a **FOUNDER DECISION** — DRAFT until signed.
+vector in §4 is **RATIFIED** (founder, 2026-07-30, L-649).
 
 ### §1.6 — Validation state is orthogonal to the score (who checked ≠ how complete)
 An axis carries a C62 [`ValidationState`](./C62-DATA-CONFIDENCE-PROVENANCE-MODEL.md)
@@ -80,7 +82,7 @@ a signed `sources/VERIFICATION.md` (the C58 L-449 gate) — completeness never l
 ### §1.7 — Every tackled city has a dossier of the FIXED shape (§5)
 A "tackled" city (any city with a `REGIONS` bake row, a parcel registry predicate, a rule pack, OR a
 scaffolded folder) MUST have a dossier at `docs/04-reference/jurisdictions/<cc>/<cc>-<subdiv>/<code>-<slug>/`
-containing at least the §5 required file set, with `COMPLETION.md` as the scorecard face. The folder
+containing at least the §5 required file set, with `RATE.md` as the composite master scorecard face. The folder
 identity MUST equal the pack `jurisdictionId` (the C58/jurisdictions-README join-key rule). A city that
 renders in the app but has no dossier is a coverage gap, logged, not hidden.
 
@@ -96,7 +98,7 @@ contract only guarantees the seven words and the arithmetic.
 
 | Artefact | What it is | Where | Authority |
 |---|---|---|---|
-| **The scorecard** | 7 axis scores + overall, computed | `CityCompletionScorecard` schema (L0) + the scorecard function (tool); face = each city's `COMPLETION.md`; aggregate = the master matrix in `master-execution-tracker.md` | this contract §3/§4 + the SPEC |
+| **The scorecard** | 7 axis scores + overall, computed | `CityCompletionScorecard` schema (L0) + the scorecard function (tool); face = each city's `RATE.md` (composite master; country roll-up = `COUNTRY-RATE.md`); aggregate = the master matrix in `master-execution-tracker.md` | this contract §3/§4 + the SPEC |
 | **The dossier** | the city's evidence container | `jurisdictions/<cc>/<cc>-<subdiv>/<code>-<slug>/` | this contract §5 + `jurisdictions/README.md` + `JURISDICTION-PLAYBOOK.md` |
 
 ---
@@ -198,14 +200,14 @@ threshold** — PRYZM ships honest-but-incomplete, never complete-but-fabricated
 
 ---
 
-## §4 — The OVERALL number + the proposed weighting (FOUNDER DECISION)
+## §4 — The OVERALL number + the weighting (RATIFIED — founder, 2026-07-30)
 
 `overall = Σ (axis.score × weight[axis]) / Σ (weight[axis] over assessed axes)` — renormalised over the
 **assessed** subset (§1.5); if any axis is `not-assessed` the result is flagged `partial:true` and the
-missing axes named. **The weight vector below is a PROPOSAL and DRAFT until the founder signs it.** It is
-stored as the config `CITY_COMPLETION_WEIGHTS`, never hard-coded (§1.5).
+missing axes named. **The weight vector below is RATIFIED (founder, 2026-07-30, audit L-649).** It is
+stored as the config `CITY_COMPLETION_WEIGHTS`, never hard-coded (§1.5) — re-weighting is one edit.
 
-| Axis | Proposed weight | Rationale (why this weight) |
+| Axis | Weight (RATIFIED 2026-07-30) | Rationale (why this weight) |
 |---|---:|---|
 | LEGISLATION | **25 %** | The rule pack is "the whole cost" — human-gated legal sourcing, PRYZM's differentiator (`barcelona-data-pipeline-map`). The most expensive axis is weighted heaviest. |
 | ENVELOPE | **20 %** | The core compliance value-prop (C58) — a certified buildable envelope is what the product sells. |
@@ -219,9 +221,10 @@ stored as the config `CITY_COMPLETION_WEIGHTS`, never hard-coded (§1.5).
 **Why not equal weights (1/7 each)?** Because the axes are not equally expensive or equally
 load-bearing: three axes (context/terrain/heights) "port free" to any covered country while two
 (legislation/envelope) are the human-gated cost. Equal weighting would let a city look ~43 % "done" from
-the three free axes alone while holding zero certified law — a misleading completeness. The proposed
-vector front-loads the expensive, differentiating axes. **This is the single most important founder
-decision in this contract; do not treat the default as ratified.**
+the three free axes alone while holding zero certified law — a misleading completeness. The ratified
+vector front-loads the expensive, differentiating axes. **RATIFIED by the founder on 2026-07-30 (L-649).**
+The one remaining open weighting question is separate: whether `derived-levels` earns partial HEIGHTS/LOD
+credit (§3 Axis 6, §8).
 
 ---
 
@@ -229,29 +232,37 @@ decision in this contract; do not treat the default as ratified.**
 
 Every tackled city's folder MUST contain (templates: `jurisdictions/_TEMPLATE/_CITY/`):
 
+> **Naming (RATIFIED — founder, 2026-07-30, L-649):** the composite master scorecard face is **`RATE.md`**
+> (the founder's "master RATE"); the narrower structured legislation/data-fill metric is **`LEGISLATION-RATE.md`**
+> (was `RATE.md`). Rule: `RATE.md` is always the composite master; `<AXIS>-RATE.md` is a per-axis detail rate
+> that FEEDS it. Full convention: `jurisdictions/_TEMPLATE/NAMING-CONVENTION.md`. The legislation metric's
+> C58/L-449 semantics are UNCHANGED — only the filename moved.
+
 | File | Purpose | Standard |
 |---|---|---|
 | `README.md` | what governs here, pack status, open questions | jurisdictions-README §"authoring contract" |
-| **`COMPLETION.md`** | **the 7-axis scorecard face (this contract)** | **§3/§4 + the SPEC** |
-| `RATE.md` | structured dimensional-fill rate (feeds Axis 2) | jurisdictions-README §RATE standard |
+| **`RATE.md`** | **the 7-axis composite completion scorecard — the master RATE (this contract)** | **§3/§4 + the SPEC** |
+| `LEGISLATION-RATE.md` | structured legislation/data-fill rate (feeds Axis 2) | jurisdictions-README §LEGISLATION-RATE standard |
+| `LOD-RATE.md` | building/terrain LOD sub-rate (feeds Axis 6) | jurisdictions-README |
 | `NEXT.md` | where we stopped · blockers · TRIP-WIRES · resume steps | JURISDICTION-PLAYBOOK §5 |
 | `ENVELOPE.md` | the L3 envelope status (feeds Axis 4) | ENVELOPE-REPLICATION-STANDARD |
 | `HEIGHT.md` | the building-height status (feeds Axis 6) | BUILDING-HEIGHT-REPLICATION-STANDARD |
 | `RISK-REGISTER.md` | the fail-safe risk log (the honesty guardrails) | Barcelona RISK-REGISTER pattern |
-| `RATE-IMPLEMENTATION-PLAN.md` | how to raise the rate | jurisdictions-README |
+| `RATE-IMPLEMENTATION-PLAN.md` | how to raise the (master) rate | jurisdictions-README |
 | `sources/SOURCES.md` | per-field citations (feeds Axis 2) | jurisdictions-README §authoring |
 | `sources/VERIFICATION.md` | the human sign-off (L-449; gates Axes 2/4 `human-reviewed`) | C58 §1.6 |
 | `findings/` | the substantive L-NNN investigation records | — |
 
-A **country** folder carries the roll-up `COUNTRY-COMPLETION.md` (the per-city matrix for that country,
-same axes) + `README.md` (national data layer) + `RATE.md` (national structured-fill). Templates:
-`jurisdictions/_TEMPLATE/`.
+A **country** folder carries the roll-up `COUNTRY-RATE.md` (the per-city matrix for that country, same
+axes — the country composite master) + `README.md` (national data layer) + `LEGISLATION-RATE.md` (national
+structured-fill). Templates: `jurisdictions/_TEMPLATE/` + `_TEMPLATE/NAMING-CONVENTION.md` +
+`_TEMPLATE/MASTER-RATE-TRACKER.md`.
 
 ---
 
 ## §6 — CI gate (planned)
 
-`tools/ga-gate/check-city-completion.ts` (SHOULD, sequenced): (a) fails any `COMPLETION.md` whose axis
+`tools/ga-gate/check-city-completion.ts` (SHOULD, sequenced): (a) fails any `RATE.md` (composite master) whose axis
 cells are hand-authored numbers not emitted by the scorecard function (§1.1 — detected by a required
 `<!-- generated-by: scorecard vN … -->` provenance stamp + a re-run diff); (b) fails a city that renders
 a value while its scorecard says the backing axis is `not-assessed` / refusal (the `honestyOk` gate,
@@ -267,7 +278,7 @@ review-discipline gate. Mirrors the C58 §1.4 fidelity-label gate + the L-647 `c
   contract is the *measure* of that recipe's per-city completeness.
 - **`ENVELOPE-REPLICATION-STANDARD.md`** (ADR-0279) — the L3 authority; the ENVELOPE axis reads its state.
 - **`BUILDING-HEIGHT-REPLICATION-STANDARD.md`** (L-646) — the HEIGHTS/LOD authority; that axis reads its state.
-- **`RATE.md`** (per country/city) — the structured-fill number; becomes the LEGISLATION axis input, not a rival.
+- **`LEGISLATION-RATE.md`** (per country/city; was `RATE.md` before L-649) — the structured-fill number; becomes the LEGISLATION axis input, not a rival to the composite master `RATE.md`.
 - **`GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md`** — the jurisdiction WHAT/WHEN axis; the completion matrix is its
   per-city quantitative face and links back to it.
 - **C62** — the confidence/unknown vocabulary each axis is an instance of; C63 is a *consumer*, not a rival scale.
@@ -279,31 +290,37 @@ review-discipline gate. Mirrors the C58 §1.4 fidelity-label gate + the L-647 `c
 - **DRAFT.** The schema + scorecard function are sequenced (SPEC §4), not yet shipped — so today **every
   matrix cell is honestly `not-assessed` / `pending-implementation`** (§1.2). This is the correct
   current state, not a shortfall: the contract defines the ruler before any city is measured with it.
-- **FOUNDER DECISION (§4):** ratify or re-weight `CITY_COMPLETION_WEIGHTS`.
-- **FOUNDER DECISION:** whether `derived-levels` earns partial HEIGHTS/LOD credit (§3 Axis 6).
+- **RATIFIED (§4):** the `CITY_COMPLETION_WEIGHTS` weight vector — founder, 2026-07-30 (L-649).
+- **RATIFIED (§5/§8.1):** the RATE naming convention — composite master `RATE.md` / `COUNTRY-RATE.md`,
+  legislation sub-rate `LEGISLATION-RATE.md` (founder, 2026-07-30, L-649).
+- **OPEN FOUNDER DECISION:** whether `derived-levels` earns partial HEIGHTS/LOD credit (§3 Axis 6).
 - **Sequencing:** DATA-SOURCES + TERRAIN + CONTEXT axes are cheap first computes (state already inspectable);
   PARCEL + HEIGHTS/LOD need a sampling run; LEGISLATION + ENVELOPE need the per-clau audit + the L-449 gate.
 
-### §8.1 — Extension L-649: "master RATE" naming + tracker template + audit→map→plan (OPEN DECISION)
+### §8.1 — Extension L-649: "master RATE" naming + tracker template + audit→map→plan
 
 Founder 2026-07-30 (audit **L-649**) asked for a "master RATE file per city and per country + a master RATE
 tracker under template, with sections cross-referencing the individual files," executed as **audit → map → plan**.
-This EXTENDS this contract; it also surfaces a **naming/role tension that is a FOUNDER DECISION, not resolved here**:
+This EXTENDS this contract.
 
-- The founder's **"master RATE"** = the composite 7-axis face — which §5 named **`COMPLETION.md`**.
-- This contract's **`RATE.md`** is the NARROWER structured legislation/data-fill metric (the C58 standard) that
-  FEEDS the LEGISLATION axis. So two artefacts are colloquially called "RATE".
+**NAMING — DECIDED (founder, 2026-07-30): Option B (literal to the ask).** The composite 7-axis master face is
+**`RATE.md`** (city) / **`COUNTRY-RATE.md`** (country) — the founder's "master RATE"; the narrower structured
+legislation/data-fill metric (the C58 standard that FEEDS the LEGISLATION axis) is renamed **`LEGISLATION-RATE.md`**.
+Rule: `RATE.md` is always the composite master; `<AXIS>-RATE.md` (`LEGISLATION-RATE.md`, `LOD-RATE.md`) is a
+per-axis detail rate. The legislation metric's C58/L-449 semantics are UNCHANGED — only the filename moved. The
+renames were applied to `_TEMPLATE/`, `_TEMPLATE/_CITY/`, and the four shipped Catalan dossiers (Barcelona,
+L'Hospitalet, Badalona, Sant Boi); other country/city scaffolds still on the legacy `RATE.md` name are pending
+migration (the audit→map→plan phases). Convention master: `_TEMPLATE/NAMING-CONVENTION.md`.
+*(Rejected Option A — keep `COMPLETION.md` as the composite + `RATE.md` as the legislation sub-metric — because
+the founder wanted the composite literally called "RATE".)*
 
-**Decision required (pick one):**
-- **Option A (recommended, least churn):** keep §5 names — `COMPLETION.md` stays the composite master face,
-  "master RATE" is its spoken alias, `RATE.md` stays the legislation sub-metric. No file renames.
-- **Option B (literal to the ask):** rename `COMPLETION.md`→`RATE.md` as the composite master and the current
-  legislation `RATE.md`→`LEGISLATION-RATE.md`. Requires editing §5, the `_TEMPLATE/_CITY/` + country templates,
-  the four shipped Catalan dossiers, and every L-449 / C58 reference.
+**STRUCTURE — DONE (L-649):** (1) `_TEMPLATE/NAMING-CONVENTION.md` (the master naming reference) +
+`_TEMPLATE/MASTER-RATE-TRACKER.md` (a copyable face of the global `master-execution-tracker.md §CITY-COMPLETION`
+matrix) authored; (2) explicit **Dossier index** cross-ref sections added to the city composite master
+(`_TEMPLATE/_CITY/RATE.md`) and the country roll-up (`_TEMPLATE/COUNTRY-RATE.md`) — each dossier file listed with
+its one-line purpose + the axis it feeds.
 
-**Sequenced after the decision (L-649):** (1) add `_TEMPLATE/MASTER-COMPLETION-TRACKER.md` (a copyable face of the
-global `master-execution-tracker.md §CITY-COMPLETION` matrix) + explicit INDEX cross-ref sections on the composite
-master face and the country roll-up (each dossier file listed with its one-line purpose + the axis it feeds);
-(2) **Phase 1 AUDIT** every tackled country+city cell-by-cell WITH CITED DERIVATION (honest ahead of the automated
-scorecard function because each cell cites the state it read, never a guess — §1.1); (3) **Phase 2 MAP** into the
-dossiers + roll-ups + global matrix; (4) **Phase 3 PLAN** a per-axis, per-city plan to drive each section → 100 %.
+**REMAINING (sequenced):** (2) **Phase 1 AUDIT** every tackled country+city cell-by-cell WITH CITED DERIVATION
+(honest ahead of the automated scorecard function because each cell cites the state it read, never a guess — §1.1);
+(3) **Phase 2 MAP** into the dossiers + roll-ups + global matrix; (4) **Phase 3 PLAN** a per-axis, per-city plan to
+drive each section → 100 %.

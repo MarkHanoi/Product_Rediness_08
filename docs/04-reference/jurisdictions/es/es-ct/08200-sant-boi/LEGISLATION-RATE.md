@@ -4,7 +4,7 @@
 
 > ⚠ **§CONTEXT-DATA-HONESTY.** No structured-fill rate is stated here because none has been measured
 > for Sant Boi. Barcelona's ~48% was *derived from direct endpoint/schema checks over 24 primary
-> documents* (`../08019-barcelona/RATE.md`); no equivalent per-clau measurement has been run here. A
+> documents* (`../08019-barcelona/LEGISLATION-RATE.md`); no equivalent per-clau measurement has been run here. A
 > borrowed Barcelona number would be a fabrication about another municipality's land — exactly the
 > harm the honesty gate in `packages/site-parcel-data/src/rulepacks/esSantBoi.ts` forbids. The rate
 > stays **not-measured** until the H1/clau audit in [`NEXT.md`](./NEXT.md) is run.

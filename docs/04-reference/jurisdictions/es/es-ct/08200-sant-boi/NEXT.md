@@ -23,7 +23,7 @@ act, not a code change** (§3.1). Heights are estimated (OSM), not measured (§3
 
 **0% full envelope by design, 100% honest.** Every Sant Boi click returns a cited refusal, not an
 envelope — the gate is closed. There is **no measured structured-fill rate** (no clau audit has been
-run); stating one would be fabrication (§CONTEXT-DATA-HONESTY). See [`RATE.md`](./RATE.md).
+run); stating one would be fabrication (§CONTEXT-DATA-HONESTY). See [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md).
 
 ## 3 — BLOCKERS (each: what it is · why it blocks · what would unblock it · the exact resume step)
 
@@ -87,6 +87,6 @@ and the first honest data point for a measured rate.
 
 ---
 
-**See also:** [`RATE.md`](./RATE.md) · [`ENVELOPE.md`](./ENVELOPE.md) · [`HEIGHT.md`](./HEIGHT.md) ·
+**See also:** [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) · [`ENVELOPE.md`](./ENVELOPE.md) · [`HEIGHT.md`](./HEIGHT.md) ·
 [`RISK-REGISTER.md`](./RISK-REGISTER.md) · `../08019-barcelona/NEXT.md` (the pilot template) ·
 `packages/site-parcel-data/src/rulepacks/esSantBoi.ts` (the honesty gate).

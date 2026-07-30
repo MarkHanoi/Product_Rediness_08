@@ -67,24 +67,33 @@ trustworthy, and it is not optional.
    wrong SHAPE — a fact of the wrong kind, which no confidence chip corrects.
 4. **Granularity, stated (C58 §1.11).** Parcel / block / sector / ámbito / municipality. A
    sector-level FAR presented as a parcel FAR is a category error, not an imprecision.
-5. **`RATE.md` — the data-readiness rate.** (Country folders AND city folders.) Copy
-   `_TEMPLATE/RATE.md`.
+5. **`LEGISLATION-RATE.md` — the legislation data-readiness rate.** (Country folders AND city
+   folders.) Copy `_TEMPLATE/LEGISLATION-RATE.md`. This is the per-axis LEGISLATION detail rate that
+   FEEDS the composite master (`RATE.md` at city level / `COUNTRY-RATE.md` at country level). Naming
+   convention: [`_TEMPLATE/NAMING-CONVENTION.md`](_TEMPLATE/NAMING-CONVENTION.md) — `RATE.md` is always
+   the composite master; `<AXIS>-RATE.md` is a per-axis detail rate. (Was `RATE.md` before L-649,
+   2026-07-30; the metric is unchanged, only the filename.)
 6. **`RATE-IMPLEMENTATION-PLAN.md` — the phased climb to the maximum rate.** (Country AND city.)
    Copy `_TEMPLATE/RATE-IMPLEMENTATION-PLAN.md`.
 
 ---
 
-## RATE.md — the data-readiness-rate standard
+## LEGISLATION-RATE.md — the legislation data-readiness-rate standard
 
-Every country folder and every city folder carries a **`RATE.md`**. It answers one question with one
-number: *what fraction of parcel-level building-rule queries return a complete, machine-readable
+> **Naming (L-649, 2026-07-30):** this file is `LEGISLATION-RATE.md` — the per-axis LEGISLATION detail
+> rate. It FEEDS the composite master completion scorecard `RATE.md` (city) / `COUNTRY-RATE.md` (country).
+> The metric below is the **C58 / L-449 ruler, unchanged** — only the filename moved (was `RATE.md`). See
+> [`_TEMPLATE/NAMING-CONVENTION.md`](_TEMPLATE/NAMING-CONVENTION.md).
+
+Every country folder and every city folder carries a **`LEGISLATION-RATE.md`**. It answers one question
+with one number: *what fraction of parcel-level building-rule queries return a complete, machine-readable
 answer without a human reading an ordinance PDF?* Precisely what it contains:
 
 | Section | What it holds | The rule |
 |---|---|---|
 | **Headline rate** | one `~NN%` (or **"NOT YET ASSESSED — scaffold only"**) | Derived from real endpoint/schema checks, **never** assumed from a country's open-data reputation. No research ⇒ no number. |
 | **Metric definition** | the fixed "structured dimensional fill rate" blockquote | **IDENTICAL in every jurisdiction** — zone/use code + a density metric (FAR/coverage/BYA/BRA/%-utilisation) + height, without a PDF. This is the shared ruler that makes scores comparable. |
-| **Benchmark table** | Denmark ~96 · Madrid ~68 · Saudi ~55 · Barcelona ~48 · Norway ~32 · Germany ~28 · France ~22, + this one | Kept in sync across all RATE.md — the same ruler in every file. |
+| **Benchmark table** | Denmark ~96 · Madrid ~68 · Saudi ~55 · Barcelona ~48 · Norway ~32 · Germany ~28 · France ~22, + this one | Kept in sync across all LEGISLATION-RATE.md — the same ruler in every file. |
 | **Field-by-field breakdown** | one row per governing field: structured? · source · score | This table **is** the derivation of the headline — the headline is a weighted read of these rows, not a separate guess. |
 | **Structural gap** | the ONE reason the number is what it is | Usually "the numeric value is delivered as prose in a PDF, not a structured field." Justify any outlier vs the benchmark. |
 | **What would raise the rate** | action · rate impact · effort | Feeds the implementation plan below. |
@@ -95,7 +104,7 @@ country rate (heritage overlay, a confirmed-open municipal WFS, a geo-fence); if
 
 ## RATE-IMPLEMENTATION-PLAN.md — the phased climb to maximum rate
 
-Alongside each `RATE.md`, a **`RATE-IMPLEMENTATION-PLAN.md`**: the to-do list / tracker that gets the
+Alongside each `LEGISLATION-RATE.md`, a **`RATE-IMPLEMENTATION-PLAN.md`**: the to-do list / tracker that gets the
 jurisdiction from its *current* rate to the *maximum rate achievable in its scope*, with a phase
 table (`Phase · Goal · Unlocks · Rate: from→to · Effort · Status · Owner`) and a fixed status
 vocabulary — `NOT STARTED · IN PROGRESS · BLOCKED · SHIPPED · VERIFIED · N/A`.
@@ -110,9 +119,9 @@ Two fixed reference points anchor every plan:
 
 ⚠ **The ceiling is not always 96%.** Denmark hits it because its numbers are already digitised; a
 PDF-bound jurisdiction has a lower structural ceiling until a transcription pipeline + the L-449
-human gate exist. State the *realistic* ceiling and why. ⚠ **Status here tracks WORK; RATE.md tracks
-the MEASUREMENT** — a phase marked SHIPPED never moves the rate until RATE.md is re-derived (then
-VERIFIED). Keep the two distinct.
+human gate exist. State the *realistic* ceiling and why. ⚠ **Status here tracks WORK; LEGISLATION-RATE.md
+tracks the MEASUREMENT** — a phase marked SHIPPED never moves the rate until LEGISLATION-RATE.md is
+re-derived (then VERIFIED). Keep the two distinct.
 
 ## What does NOT belong here
 

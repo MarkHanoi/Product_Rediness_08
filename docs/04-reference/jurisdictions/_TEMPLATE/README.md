@@ -33,6 +33,10 @@ FAR presented as a parcel FAR is a category error, not an imprecision. <…>
 <exactly which set>. **<Y>%** get a true answer OR a correct cited refusal. (P8 — see `NEXT.md` §2.)
 
 ## 5 — Files in this folder
+- `RATE.md` — the composite master completion scorecard (7 C63 axes — the "master RATE"; see `../NAMING-CONVENTION.md`).
+- `LEGISLATION-RATE.md` — the structured legislation/data-fill rate (feeds the LEGISLATION axis).
+- `LOD-RATE.md` — the building/terrain LOD rate (feeds the HEIGHTS/LOD axis).
+- `RATE-IMPLEMENTATION-PLAN.md` — the phased climb to raise the master RATE.
 - `NEXT.md` — where we stopped, blockers, TRIP-WIRES, resume steps.
 - `sources/SOURCES.md` — per-field citations (the trust gate).
 - `sources/VERIFICATION.md` — the human sign-off.

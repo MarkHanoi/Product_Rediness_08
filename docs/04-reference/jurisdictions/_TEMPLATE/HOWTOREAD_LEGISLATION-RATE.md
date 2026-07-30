@@ -1,6 +1,7 @@
-# How to read the Rate — in plain words
+# How to read the Legislation Rate — in plain words
 
-*This explains what the `%` in every `RATE.md` actually means. No jargon. Read once.*
+*This explains what the `%` in every `LEGISLATION-RATE.md` actually means (the legislation/data-fill
+rate that feeds the LEGISLATION axis of the composite master `RATE.md`). No jargon. Read once.*
 
 ---
 
@@ -68,7 +69,7 @@ Our job is to climb as high as that country's data (plus honest effort) allows.
 
 ---
 
-## How to read any RATE.md number
+## How to read any LEGISLATION-RATE.md number
 
 > **"Barcelona ~48%"** → *"For roughly half the plots in Barcelona, PRYZM can tell you what
 > you can build on its own. For the other half, the numbers are locked in planning PDFs, so

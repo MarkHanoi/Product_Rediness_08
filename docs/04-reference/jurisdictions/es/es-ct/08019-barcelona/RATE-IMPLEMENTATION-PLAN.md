@@ -1,6 +1,6 @@
 # Rate Implementation Plan — Barcelona (`es-ct`, INE 08019) city — THE CANONICAL PILOT CLIMB
 
-**Current rate:** ~48% (see [`RATE.md`](./RATE.md)) · **Realistic ceiling:** **48% MIN (proven) /
+**Current rate:** ~48% (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md)) · **Realistic ceiling:** **48% MIN (proven) /
 ~58% LIKELY / ~68% POSSIBLE** full-envelope — REVISED UP 2026-07-24, the AMB Refós GIS carries the
 volumetric floor-count as a queryable attribute (`findings/BARCELONA-GIS-AUDIT-SPIKE.md`) ·
 **Gap to ceiling:** ~10 pts proven, ~20 possible (was mis-stated ~0) · **Gap to Denmark (~96%):**
@@ -47,14 +47,14 @@ floor→metre certification — but the earlier "gap-to-ceiling ~0, ceiling is a
 ~+10 is proven and ~+20 possible, in official AMB data, reachable now.
 
 ⚠ **Two denominators, kept distinct, or the honesty invariant breaks:**
-- **Structured-fill rate (RATE.md):** ~48% — full zone+density+height without a PDF. This is the
+- **Structured-fill rate (LEGISLATION-RATE.md):** ~48% — full zone+density+height without a PDF. This is the
   MEASUREMENT. It is at/near its ceiling; the packs below *realise* it, they do not raise it past ~48%.
 - **Constructed-or-partial land coverage (this plan's native unit, from L-538 §2):** 24% today →
   ~76% after Phase 4 (of which 22a/20a are FAR/coverage caps, not boundary envelopes; 18 stays a
-  refusal). This is the WORK progression. It is NOT the RATE.md number — a phase marked SHIPPED never
-  moves the rate until RATE.md is re-derived and VERIFIED.
+  refusal). This is the WORK progression. It is NOT the LEGISLATION-RATE.md number — a phase marked SHIPPED never
+  moves the rate until LEGISLATION-RATE.md is re-derived and VERIFIED.
 
-The phase table below tracks the WORK in its native land-coverage unit; the RATE.md rate is re-derived
+The phase table below tracks the WORK in its native land-coverage unit; the LEGISLATION-RATE.md rate is re-derived
 separately after each pack certifies.
 
 ---
@@ -63,7 +63,7 @@ separately after each pack certifies.
 
 Status vocabulary is FIXED: **NOT STARTED · IN PROGRESS · BLOCKED · SHIPPED · VERIFIED · N/A**.
 "Coverage: from→to" = constructed-or-partial % of Barcelona's private buildable land (L-538 §2 probe,
-2,907-point grid). ⚠ This is WORK progression, NOT the RATE.md ~48% structured-fill number.
+2,907-point grid). ⚠ This is WORK progression, NOT the LEGISLATION-RATE.md ~48% structured-fill number.
 
 | Phase | Goal | Unlocks | Coverage: from→to | Effort | Status | Owner |
 |---|---|---|---|---|---|---|
@@ -76,7 +76,7 @@ Status vocabulary is FIXED: **NOT STARTED · IN PROGRESS · BLOCKED · SHIPPED �
 | **3** | **12** + **12b** Nucli antic | NEW KIND (ADR-0273) — Art. 316 block-occupation + REFUSAL on non-uniformly-zoned blocks + overlay-uncertainty refusal for catalogued Ciutat Vella parcels | 64.0% → 75.3% (+11.3%) | 28 d (8 src + 4 ADR + 12 impl + 4 overlay) | **NOT STARTED** | UNASSIGNED |
 | **4** | **22@** (MPGM 2000, distinct instrument) + long-tail citations | own pack; cite the tail refusals properly | 75.3% → 76.0% (+0.7%) | 8 d | **NOT STARTED** | UNASSIGNED |
 | **5** | **18** data acquisition (volumetria específica) | NOT a pack — investigate whether RPUC/NUMAMB exposes per-site approved volumetries as data. If yes → `explicit-area` engine branch + resolver. If no → cited refusal permanently. | up to +22.5% (→97.8% if it lands) | 12 d investigation; impl UNSCOPED | **NOT STARTED** | UNASSIGNED |
-| **cert** | Per-clau **L-528** certification (fitxa urbanística in the MUC/RPUC viewer) | moves packs amber → green; **re-derives the RATE.md number** | — | ~15 d, parallel | **IN PROGRESS** (13a) | UNASSIGNED |
+| **cert** | Per-clau **L-528** certification (fitxa urbanística in the MUC/RPUC viewer) | moves packs amber → green; **re-derives the LEGISLATION-RATE.md number** | — | ~15 d, parallel | **IN PROGRESS** (13a) | UNASSIGNED |
 
 **TOTAL ~106 dev-days ≈ 21 weeks at 1 dev.** Phases 0 + 1 + 1b (17 d, ~3.5 wk) take coverage from
 24% → 32.7% constructed and 100% honest — the disproportionate slice.

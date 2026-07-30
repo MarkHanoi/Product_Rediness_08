@@ -1,7 +1,7 @@
 # How to read the LOD-Rate — in plain words
 
 *This explains what the `LOD 2 · ~95%` in every `LOD-RATE.md` actually means. No jargon.
-Read once. It is a DIFFERENT number from the one in `HOWTOREAD_RATE.md` — see the last
+Read once. It is a DIFFERENT number from the one in `HOWTOREAD_LEGISLATION-RATE.md` — see the last
 section for how the two differ, because mixing them up is the one mistake to avoid.*
 
 ---
@@ -91,7 +91,7 @@ We never dress a desk guess up as a measurement. That is the one rule these docs
 
 There are **two rates** and they measure opposite things:
 
-| | `RATE.md` (the rules rate) | `LOD-RATE.md` (this one) |
+| | `LEGISLATION-RATE.md` (the rules rate) | `LOD-RATE.md` (this one) |
 |---|---|---|
 | Asks | "What MAY I build here?" (zoning) | "What IS already built here?" (physical) |
 | About | future — the legal envelope | present — the existing neighbourhood |

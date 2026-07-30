@@ -1,10 +1,15 @@
-# Data Readiness Rate — `<JURISDICTION>` (`<iso>`) `<national | city>`
+# Legislation Data-Readiness Rate — `<JURISDICTION>` (`<iso>`) `<national | city>`
 
 <!-- ────────────────────────────────────────────────────────────────────────────
-COPY THIS FILE to start a RATE.md for a country or a city. Delete these HTML
-comments as you fill it in. The RATE.md standard is defined in
-`docs/04-reference/jurisdictions/README.md` §"RATE.md — the data-readiness-rate
-standard". Read it before authoring.
+`LEGISLATION-RATE.md` is the structured legislation/data-fill rate — a PER-AXIS
+detail rate that FEEDS the LEGISLATION axis of the composite master `RATE.md`
+(city) / `COUNTRY-RATE.md` (country). Naming rule: `RATE.md` = composite master;
+`<AXIS>-RATE.md` = per-axis detail. See `NAMING-CONVENTION.md`.
+
+COPY THIS FILE to start a `LEGISLATION-RATE.md` for a country or a city. Delete
+these HTML comments as you fill it in. The standard is defined in
+`docs/04-reference/jurisdictions/README.md` §"LEGISLATION-RATE.md — the
+legislation data-readiness-rate standard". Read it before authoring.
 
 ⚠ HONESTY RULES — these are the whole point of the number (C58 §1.2/§1.4):
   1. The metric DEFINITION below is FIXED and identical in every jurisdiction, so
@@ -29,8 +34,8 @@ standard". Read it before authoring.
 > France …) so the scores are directly comparable. Derived from direct endpoint/schema checks, not
 > assumed from the jurisdiction's open-data reputation.
 
-<!-- The cross-jurisdiction benchmark. Keep this table in SYNC across every RATE.md — it is the
-     shared ruler. Insert this jurisdiction at its honest position. -->
+<!-- The cross-jurisdiction benchmark. Keep this table in SYNC across every LEGISLATION-RATE.md — it is
+     the shared ruler. Insert this jurisdiction at its honest position. -->
 | Jurisdiction | Rate |
 |---|---|
 | Denmark | ~96% |
