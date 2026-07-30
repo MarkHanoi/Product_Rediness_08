@@ -147,6 +147,9 @@ import {
     isInSantBoi,
     SANT_BOI_ENVELOPE_VERIFIED,
     santBoiUnverifiedRefusal,
+    isInCornella,
+    CORNELLA_ENVELOPE_VERIFIED,
+    cornellaUnverifiedRefusal,
     lhospitaletUnverifiedRefusal,
     // BARCELONA-GIS-AUDIT-SPIKE — clau 18 (volumetria específica) explicit-area path. The AMB Refós
     // OV_Trames resolver (footprint + PLANTES floor count, WGS84, never throws) + its UNREGISTERED
@@ -1142,6 +1145,16 @@ function applyZoning(
         // refusal, never a borrowed Barcelona number.
         if (qLat != null && qLon != null && isInSantBoi(qLat, qLon)) {
             void applySantBoiZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+            return;
+        }
+        // Envelope Phase 2 §CRN-ENVELOPE — a Cornellà de Llobregat plot. Same reasoning as Sant Boi /
+        // Badalona / L'Hospitalet above: Cornellà is inside the loose Barcelona metro box, so it is
+        // peeled off BEFORE `isInBarcelona` (its box sits in the narrow gap on the east bank of the
+        // Llobregat, east of Sant Boi and west of L'Hospitalet, disjoint from Badalona). While
+        // `CORNELLA_ENVELOPE_VERIFIED` is false the path renders a cited refusal, never a borrowed
+        // Barcelona number.
+        if (qLat != null && qLon != null && isInCornella(qLat, qLon)) {
+            void applyCornellaZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
             return;
         }
         // ADR-0271 §BCN-REAL-ENVELOPE — a Barcelona-metro plot resolves the REAL, cited
@@ -2787,6 +2800,91 @@ async function applySantBoiZoningThenFallback(
         );
     } catch (e) {
         console.warn(`${TAG} Sant Boi path failed (non-fatal) — falling back to estimated default:`, e);
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+    }
+}
+
+/**
+ * Envelope Phase 2 §CRN-ENVELOPE — Cornellà de Llobregat (INE 08073), the 5th Catalan city. Mirrors
+ * `applySantBoiZoningThenFallback` exactly: while `CORNELLA_ENVELOPE_VERIFIED === false` this
+ * dispatches a cited "routed, not yet verified" REFUSAL for EVERY Cornellà parcel — never a borrowed
+ * Barcelona number. Fully guarded; any problem falls back to the precomputed estimated envelope.
+ * `status: 'none'` keeps every numeric field null. The verified-future branch (reuse the Barcelona
+ * MUC fetch + resolver + computeBuildableEnvelope) lands WITH the sign-off + an es-08073-cornella-de-llobregat pack.
+ */
+async function applyCornellaZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+): Promise<void> {
+    const TAG = '[gis][c58] §CRN-ENVELOPE';
+    const CORNELLA_ZONE_CODE = 'cornella-pgm-unverified';
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const parcelAreaM2 = (() => {
+            try {
+                const ring = boundary.polygon;
+                const a = Math.abs(
+                    ring.reduce((acc, p, i) => {
+                        const q = ring[(i + 1) % ring.length]!;
+                        return acc + (p.x * q.z - q.x * p.z);
+                    }, 0) / 2,
+                );
+                return Number.isFinite(a) && a > 0 ? a : null;
+            } catch { return null; }
+        })();
+        const knownFacts = [
+            `Location: Cornellà de Llobregat (${lat.toFixed(5)}, ${lon.toFixed(5)}) — AMB, PGM-1976`,
+            parcelAreaM2 !== null ? `Parcel area: ${Math.round(parcelAreaM2).toLocaleString()} m²` : null,
+            'Planning source: Generalitat de Catalunya MUC + PGM-1976 (metropolitan) — clau numbers not yet verified vs Barcelona',
+        ].filter((s): s is string => typeof s === 'string');
+
+        if (!CORNELLA_ENVELOPE_VERIFIED) {
+            // ⚠⚠⚠ THE HONESTY GATE. Unverified → refuse, never a number. `status: 'none'` = attempted,
+            // value WITHHELD pending human verification (NOT `'not-applicable'` — the PGM DOES grant an
+            // envelope here; we simply have not verified we may reuse Barcelona's transcription of it).
+            const refusal = cornellaUnverifiedRefusal(null, null, knownFacts);
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(CORNELLA_ZONE_CODE, refusal, 'none'),
+                'muc-catastro',
+            );
+            console.log(
+                `${TAG} §HONESTY-GATE CORNELLA_ENVELOPE_VERIFIED=false — dispatched the ` +
+                    `routed-not-verified refusal; NO number rendered (${refusal.code}). ` +
+                    `area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m². Signs off via sources/VERIFICATION.md.`,
+            );
+            return;
+        }
+
+        // ── VERIFICATION SIGNED (future) — once a human confirms, per clau, that Cornellà's numbers/
+        // geometry equal Barcelona's (or an es-08073-cornella-de-llobregat pack is authored cited to
+        // Cornellà), this branch reuses the EXACT Barcelona machinery, identical to applyBcnZoningThenFallback.
+        // That resolver + pack land WITH the sign-off, so refusing is the only honest output until then.
+        console.warn(
+            `${TAG} verification is signed but the Cornellà pack/resolver is not wired yet ` +
+                `— dispatching the unverified refusal rather than a borrowed Barcelona number.`,
+        );
+        const refusal = cornellaUnverifiedRefusal(null, null, knownFacts);
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(CORNELLA_ZONE_CODE, refusal, 'none'),
+            'muc-catastro',
+        );
+    } catch (e) {
+        console.warn(`${TAG} Cornellà path failed (non-fatal) — falling back to estimated default:`, e);
         try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
     }
 }

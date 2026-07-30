@@ -493,6 +493,15 @@ export {
     SANT_BOI_ROADMAP_LINE,
     santBoiUnverifiedRefusal,
 } from './rulepacks/esSantBoi.js';
+// Cornellà de Llobregat (INE 08073) — 5th Catalan city; ROUTED, cited refusal until CORNELLA_ENVELOPE_VERIFIED.
+export { isInCornella, CORNELLA_BBOX } from './providers/cornellaBbox.js';
+export {
+    CORNELLA_JURISDICTION_ID,
+    CORNELLA_ENVELOPE_VERIFIED,
+    CORNELLA_PGM_INSTRUMENT_REF,
+    CORNELLA_ROADMAP_LINE,
+    cornellaUnverifiedRefusal,
+} from './rulepacks/esCornella.js';
 // ── L-608 — Madrid (INE 28079) jurisdiction gate + the NZ 1 explicit-area pack, refusal + ──
 // the `ringRef` resolver. The pack ships numeric fields null and a footprint HANDLE; the resolver
 // turns that handle into a WGS84 buildable ring per manzana (or a typed refusal — it never throws).

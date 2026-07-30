@@ -117,6 +117,12 @@ import {
     santBoiUnverifiedRefusal,
 } from './esSantBoi.js';
 import { SANT_BOI_BBOX, isInSantBoi } from '../providers/santBoiBbox.js';
+// Cornellà de Llobregat (INE 08073) — 5th Catalan city, same refusal-jurisdiction pattern as Sant Boi.
+import {
+    CORNELLA_JURISDICTION_ID,
+    cornellaUnverifiedRefusal,
+} from './esCornella.js';
+import { CORNELLA_BBOX, isInCornella } from '../providers/cornellaBbox.js';
 
 /** The jurisdiction id Barcelona packs and records use. One constant, not a scattered literal. */
 export const BCN_JURISDICTION_ID = 'es-08019-barcelona';
@@ -591,6 +597,32 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         refusalFor: () => null,
         noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
             santBoiUnverifiedRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
+    },
+    // ⚠ Cornellà de Llobregat (INE 08073) — REGISTERED AS A REFUSAL JURISDICTION, same honesty gate
+    // as Sant Boi above. Same AMB fabric, PGM-1976 instrument + Catalan MUC (S3); `packsByZone` is
+    // deliberately EMPTY (no clau's numbers verified vs Barcelona; Barcelona's height/street-width
+    // tables are municipality-specific). `noRulePackRefusal` returns the cited unverified refusal for
+    // every Cornellà parcel; the extent still lights the C60 coverage globe. WIRING TODO (L-449 gate):
+    // source Cornellà's own tables, author an `es-08073-cornella-de-llobregat` pack, move it into `packsByZone`.
+    {
+        jurisdictionId: CORNELLA_JURISDICTION_ID,
+        displayName: 'Cornellà de Llobregat',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        // SAME object `siteDispatch.ts` routes on. Checked BEFORE `isInBarcelona` (Cornellà is inside
+        // the loose Barcelona metro box), so it peels off only Cornellà's core; Barcelona byte-identical.
+        extent: CORNELLA_BBOX,
+        contains: isInCornella,
+        answerSummary:
+            "Cornellà de Llobregat is routed and shares Barcelona's metropolitan plan (PGM-1976) and " +
+            'clau source (the Catalan MUC), so the Art. 242.2 buildable-depth construction applies here ' +
+            "as across the AMB. But PRYZM has NOT verified that any clau's numbers equal Barcelona's, so " +
+            'it answers with a cited refusal — never a borrowed Barcelona figure — until per-clau ' +
+            'verification is signed.',
+        packsByZone: packMap(),
+        refusalFor: () => null,
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            cornellaUnverifiedRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
     },
 ];
 
