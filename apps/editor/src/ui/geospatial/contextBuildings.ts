@@ -538,13 +538,17 @@ export function contextBboxAround(
 /**
  * §CTX-HEIGHT-PROVENANCE (L-459) — HOW a context building's height was arrived at.
  *
- * - `tagged`         — an explicit `height` / `building:height` tag. A surveyed-ish number.
+ * - `measured-lidar` — a REAL MEASURED per-building height from a regional/national authority source
+ *                      (LiDAR nDSM / 3DBAG roof−ground / BD TOPO hauteur / DK DHM / CH swisstopo),
+ *                      stamped in the bake as `pryzm:height_src=measured-lidar`. The most authoritative
+ *                      rung — ranked ABOVE OSM `tagged` (BUILDING-HEIGHT-REPLICATION-STANDARD §1 rung 1).
+ * - `tagged`         — an explicit `height` / `building:height` tag. A surveyed-ish OSM number.
  * - `derived-levels` — computed from `building:levels` × an ASSUMED 3.2 m storey. Real storey
  *                      count, invented storey height.
  * - `assumed`        — nothing usable was tagged; this is `DEFAULT_BUILDING_HEIGHT_M` (9 m).
  *                      **A fabricated number.**
  */
-export type ContextHeightProvenance = 'tagged' | 'derived-levels' | 'assumed';
+export type ContextHeightProvenance = 'measured-lidar' | 'tagged' | 'derived-levels' | 'assumed';
 
 export interface ResolvedContextHeight {
     readonly height_m: number;
@@ -577,6 +581,21 @@ function resolveHeightWithProvenance(
     tags: Record<string, string> | undefined,
 ): ResolvedContextHeight {
     if (tags) {
+        // §CTX-HEIGHT-MEASURED-MARKER (H2, BUILDING-HEIGHT-REPLICATION-STANDARD §1 rung 1 / §5 client
+        // rung) — READ THE BAKE'S MEASURED MARKER BEFORE the OSM `height`/`levels` tags. A national/
+        // regional MEASURED source (LiDAR nDSM / 3DBAG / BD TOPO / DK DHM / CH swisstopo) writes its
+        // metres onto the same `height` tag AND stamps `pryzm:height_src=measured-lidar`; without this
+        // branch the client would resolve it as `tagged`, indistinguishable from an OSM survey. The
+        // numeric parse is IDENTICAL — only the provenance rung differs (ranked above `tagged`). If the
+        // marker is present but the height is missing/junk, fall through honestly to levels/assumed
+        // (never fabricate a number to satisfy the marker). Tag key/value mirror
+        // heightSources.mjs MEASURED_HEIGHT_SRC_TAG / MEASURED_HEIGHT_SRC_VALUE.
+        if (tags['pryzm:height_src'] === 'measured-lidar') {
+            const hm = parseFloat(tags['height'] ?? tags['building:height'] ?? '');
+            if (Number.isFinite(hm) && hm > 0) {
+                return { height_m: clampHeight(hm), provenance: 'measured-lidar' };
+            }
+        }
         const h = parseFloat(tags['height'] ?? tags['building:height'] ?? '');
         if (Number.isFinite(h) && h > 0) {
             // `height` is usually the TOTAL height; only add `roof:height` when the
@@ -605,16 +624,21 @@ function resolveHeightWithProvenance(
  * context building's height speaks the SAME confidence language as every other PRYZM datum (parcel
  * C57, envelope C58) instead of a bespoke scale. Pure + deterministic; the numeric `height_m` stays
  * as-is (the L-647 render needs a number to draw the wireframe) — this only makes the TRUST legible:
+ *   - `measured-lidar` → tier `structured` (a REAL measured height), authority `regional-gis` — ranked
+ *                        ABOVE OSM `tagged` (same tier, stronger authority; `regional-gis` outranks `osm`).
  *   - `tagged`         → tier `structured` (a surveyed-ish OSM height), authority `osm`.
  *   - `derived-levels` → tier `estimated` (real storey COUNT × our assumed storey height), authority `osm`.
  *   - `assumed`        → tier `unknown` + typed `unknownReason` (never a fabricated confidence).
  * `score` is left `null` — we never fabricate a 0..1 number (the honesty rule, C62 §1.2). Consumers
- * derive confidence from provenance via THIS function (no new field on every feature). TODO (H2/H3,
- * standard §1): a `measured-lidar` rung → `structured`/`regional-gis` and an ordinance rung →
- * `estimated`/`inspire` once those sources are wired + signed off — do NOT fabricate them here.
+ * derive confidence from provenance via THIS function (no new field on every feature). The `measured-lidar`
+ * rung (H2, standard §1 rung 1) is now WIRED — the bake stamps `pryzm:height_src=measured-lidar` where a
+ * LiDAR/nDSM/3DBAG source resolved a real height. TODO (H3, standard §1 rung 4): an ordinance rung →
+ * `estimated`/`inspire` once that source is wired + signed off — do NOT fabricate it here.
  */
 export function contextHeightConfidence(provenance: ContextHeightProvenance): DomainConfidence {
     switch (provenance) {
+        case 'measured-lidar':
+            return { tier: 'structured', score: null, authorityRank: 'regional-gis', validationState: 'not-checked' };
         case 'tagged':
             return { tier: 'structured', score: null, authorityRank: 'osm', validationState: 'not-checked' };
         case 'derived-levels':
@@ -628,6 +652,8 @@ export function contextHeightConfidence(provenance: ContextHeightProvenance): Do
 /** Tally of how a collection's heights were arrived at (§CTX-HEIGHT-PROVENANCE, L-459). */
 export interface ContextHeightProvenanceSummary {
     readonly total: number;
+    /** §CTX-HEIGHT-MEASURED-MARKER (H2) — footprints with a REAL measured height (LiDAR/nDSM/3DBAG). */
+    readonly measuredLidar: number;
     readonly tagged: number;
     readonly derivedLevels: number;
     readonly assumed: number;
@@ -640,14 +666,17 @@ export interface ContextHeightProvenanceSummary {
  *
  * PURE. Missing `heightProvenance` (a cached collection written before L-459) counts as
  * `assumed` — the pessimistic reading. Guessing `tagged` for old data would re-hide exactly what
- * this exists to expose.
+ * this exists to expose. §CTX-HEIGHT-MEASURED-MARKER (H2): a `measured-lidar` height is a REAL
+ * measurement and is counted in its OWN bucket — it must NEVER fall through to `assumed`, or the
+ * fabricated-fraction metric would over-report and label real heights as guesses.
  */
 export function summariseContextHeightProvenance(
     collection: ContextBuildingCollection,
 ): ContextHeightProvenanceSummary {
-    let tagged = 0, derivedLevels = 0, assumed = 0;
+    let measuredLidar = 0, tagged = 0, derivedLevels = 0, assumed = 0;
     for (const f of collection.features) {
         switch (f.properties.heightProvenance) {
+            case 'measured-lidar': measuredLidar++; break;
             case 'tagged': tagged++; break;
             case 'derived-levels': derivedLevels++; break;
             default: assumed++; break;
@@ -655,7 +684,7 @@ export function summariseContextHeightProvenance(
     }
     const total = collection.features.length;
     return {
-        total, tagged, derivedLevels, assumed,
+        total, measuredLidar, tagged, derivedLevels, assumed,
         assumedFraction: total > 0 ? assumed / total : 0,
     };
 }
@@ -673,7 +702,8 @@ function summariseHeightProvenance(collection: ContextBuildingCollection): strin
     if (s.total === 0) return '';
     const pct = Math.round(s.assumedFraction * 100);
     return (
-        ` §CTX-HEIGHT-PROVENANCE: ${s.tagged} tagged · ${s.derivedLevels} from levels · ` +
+        ` §CTX-HEIGHT-PROVENANCE: ${s.measuredLidar} measured · ${s.tagged} tagged · ` +
+        `${s.derivedLevels} from levels · ` +
         `${s.assumed} ASSUMED ${DEFAULT_BUILDING_HEIGHT_M} m default (${pct}% fabricated)` +
         (pct >= 50
             ? ' — ⚠ the MAJORITY of these heights are our guess, not measurements. Any shadow, ' +

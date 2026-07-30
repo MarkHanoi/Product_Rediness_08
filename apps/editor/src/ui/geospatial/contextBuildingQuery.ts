@@ -91,6 +91,16 @@ function fmtM(v: number): string {
 export function buildHeightRow(input: ContextBuildingQueryInput): ContextBuildingQueryRow {
     // Absent provenance ⇒ `assumed`. The pessimistic reading (L-459's own rule).
     const prov: ContextHeightProvenance = input.heightProvenance ?? 'assumed';
+    if (prov === 'measured-lidar') {
+        // §CTX-HEIGHT-MEASURED-MARKER (H2, standard §1 rung 1) — a REAL measured per-building height
+        // from a regional/national authority (LiDAR nDSM / 3DBAG / BD TOPO / DK DHM / CH swisstopo).
+        // The most authoritative rung; state it as a plain measured metre value.
+        return {
+            label: 'Height',
+            value: fmtM(input.heightM),
+            caveat: 'Measured — a real per-building height from a regional/national authority source (LiDAR/nDSM). The most authoritative height available.',
+        };
+    }
     if (prov === 'tagged') {
         return {
             label: 'Height',

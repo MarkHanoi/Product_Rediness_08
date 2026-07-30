@@ -51,6 +51,19 @@ const MAX_HEIGHT_M = 400;
 const METRES_PER_LEVEL = 3.2; // same assumed storey height the client uses for derived-levels.
 const clampHeight = (h) => Math.min(MAX_HEIGHT_M, Math.max(MIN_HEIGHT_M, h));
 
+// ── §CTX-HEIGHT-MEASURED-MARKER (H2 — BUILDING-HEIGHT-REPLICATION-STANDARD §1 rung 1 / §5 client rung,
+// L-646) — a DISTINCT tile tag stamped ONLY on a footprint whose height came from a REAL MEASURED
+// source (LiDAR nDSM / 3DBAG roof−ground / BD TOPO hauteur / DK DHM / CH swisstopo). Its whole reason
+// to exist: those joins write the measured metres onto the OSM `height` tag, so the client would
+// resolve them as `tagged` — INDISTINGUISHABLE from an OSM-surveyed height, collapsing the standard's
+// 5-rung ladder. This marker rides alongside `height` so the client labels the rung `measured-lidar`
+// (ranked ABOVE OSM `tagged`) instead. PURELY ADDITIVE — the numeric `height` tag is untouched, so a
+// reader that ignores the marker still extrudes the real height (the L-647 wireframe fallback). Never
+// stamped on a derived-levels floor count or an OSM-native height — only where a metre value was
+// genuinely measured. §CONTEXT-DATA-HONESTY: this labels PROVENANCE, it invents no number.
+export const MEASURED_HEIGHT_SRC_TAG = 'pryzm:height_src';
+export const MEASURED_HEIGHT_SRC_VALUE = 'measured-lidar';
+
 // ── small honest helpers ────────────────────────────────────────────────────
 /** {min,median,max,n} for an array of numbers, or null. Load-bearing evidence in probes/reports. */
 function statsOf(arr) {
@@ -1536,7 +1549,7 @@ export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
           r._done = true;
           const h = mdsHeightForBuilding(r.ext, r.interiors, mds, { erodeM, percentile, minSamples, sampleStepM });
           if (h) {
-            r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'mds_edificacion' };
+            r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'mds_edificacion', [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
             heights.push(h.height);
           }
         }
@@ -1640,7 +1653,7 @@ export async function stampDhmHeightsOnGeojsonseq(inPath, outPath, bbox, {
           r._done = true;
           const h = ndsmHeightForBuilding({ extNative: r.extNative, interiorsNative: r.interiorsNative }, dsm, dtm, { erodeM, percentile, minSamples, sampleStep });
           if (h) {
-            r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'geodanmark-dhm' };
+            r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'geodanmark-dhm', [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
             heights.push(h.height);
           }
         }
@@ -1731,7 +1744,7 @@ export async function stampSwissHeightsOnGeojsonseq(inPath, outPath, bbox, {
           r._done = true;
           const h = swissNdsmHeightForBuilding(r.ext, r.interiors, dsm, dtm, { erodeM, percentile, minSamples, sampleStepM });
           if (h) {
-            r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'swissbuildings3d' };
+            r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'swissbuildings3d', [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
             heights.push(h.height);
           }
         }
@@ -1776,6 +1789,10 @@ export function nationalBuildingTags({ heightM, floors, provenance, source, roof
   const tags = { building: 'yes' };
   if (provenance === 'tagged' && Number.isFinite(heightM) && heightM > 0) {
     tags.height = heightM; // MEASURED → client derives 'tagged'.
+    // §CTX-HEIGHT-MEASURED-MARKER — a `provenance:'tagged'` national source here is ALWAYS a real
+    // measured height (LiDAR/photogrammetry/nDSM), never an OSM survey. Mark it so the client ranks it
+    // above OSM `tagged` (`measured-lidar`) instead of collapsing the two.
+    tags[MEASURED_HEIGHT_SRC_TAG] = MEASURED_HEIGHT_SRC_VALUE;
   }
   if (Number.isFinite(floors) && floors > 0) {
     tags['building:levels'] = floors; // floor COUNT → client derives 'derived-levels' (unless a measured height is also present).

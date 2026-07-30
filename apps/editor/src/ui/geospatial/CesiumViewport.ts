@@ -7565,16 +7565,17 @@ export class CesiumViewport {
         // material was the DELIBERATE "unknown height" signal; per founder direction we drop the material
         // signal for visual parity. The honest fix is real height DATA (re-bake Madrid MDS heights) so
         // fewer footprints are 'assumed' at all. `isAssumedHeight` retained for the entity name/log only.
-        // §CTX-HEIGHT-FIDELITY-RENDER (L-647, founder) — a building whose HEIGHT is TRUSTWORTHY
-        // (heightProvenance === 'tagged': a surveyed-ish OSM height) renders SOLID = LOD200 (true
-        // boundary + true height). EVERY other height (derived-levels / assumed / unknown / untagged)
-        // is NOT accurate, so it renders as a SEE-THROUGH WIREFRAME in the amber accent — the honest
-        // signal that its height is estimated, not surveyed (§CONTEXT-DATA-HONESTY; BUILDING-HEIGHT-
+        // §CTX-HEIGHT-FIDELITY-RENDER (L-647, founder) — a building whose HEIGHT is TRUSTWORTHY renders
+        // SOLID = LOD200 (true boundary + true height). Two provenances are trustworthy: `measured-lidar`
+        // (a REAL measured height — LiDAR/nDSM/3DBAG, §CTX-HEIGHT-MEASURED-MARKER, standard §1 rung 1) and
+        // `tagged` (a surveyed-ish OSM height). EVERY other height (derived-levels / assumed / unknown /
+        // untagged) is NOT accurate, so it renders as a SEE-THROUGH WIREFRAME in the amber accent — the
+        // honest signal that its height is estimated, not surveyed (§CONTEXT-DATA-HONESTY; BUILDING-HEIGHT-
         // REPLICATION-STANDARD §3). This REFINES the L-636 parity decision (which dropped the
         // translucent signal because it read flat-white): a wireframe has no flat-white problem and
         // reads unambiguously. Drive PURELY off provenance, never off the height value (a tall
         // derived-levels block must still read as uncertain).
-        const heightAccurate = f.properties.heightProvenance === 'tagged';
+        const heightAccurate = f.properties.heightProvenance === 'tagged' || f.properties.heightProvenance === 'measured-lidar';
         const uncertainEdge = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextUncertainHeight);
         const ent = viewer.entities.add({
           name: heightAccurate
