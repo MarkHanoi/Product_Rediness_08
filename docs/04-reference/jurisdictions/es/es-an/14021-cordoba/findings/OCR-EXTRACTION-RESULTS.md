@@ -2,7 +2,7 @@
 
 > **Stamp** 2026-07-23 · **Status** RESEARCH FINDINGS — machine-extracted, **NOT human-verified**.
 > **Governs nothing.** Every numeric value below is `pipeline-extracted-unverified` (the tier defined in
-> `docs/04-reference/ORDINANCE-EXTRACTION-PIPELINE.md §3`): OCR/vision-read from a scanned PDF, gated by
+> `docs/04-reference/standards/ORDINANCE-EXTRACTION-PIPELINE.md §3`): OCR/vision-read from a scanned PDF, gated by
 > the cheap auto-checks, and awaiting a human sign-off against the source crop. A wrong number here is
 > **our pipeline's error**, so it is marked unverified until a human confirms it (§CONTEXT-DATA-HONESTY).
 >

@@ -73,7 +73,7 @@ Licence-gating (c) applies only to the height layer (PNOA LiDAR, L-584 V2), not 
 - **Blocked:** Phase 5 (heights) on the L-584 V2 PNOA-LiDAR commercial-redistribution licence — a gate
   that can veto the whole nDSM branch and therefore runs before any pipeline work.
 - **Reuse that makes the corpus cheaper than N separate builds:** the **ordinance-extraction
-  pipeline** (`docs/04-reference/ORDINANCE-EXTRACTION-PIPELINE.md`) built for Córdoba generalises to
+  pipeline** (`docs/04-reference/standards/ORDINANCE-EXTRACTION-PIPELINE.md`) built for Córdoba generalises to
   every shape-B Spanish city for free (same clean-scanned-PGOU shape); the **`explicit-area` ringRef
   resolver** designed for Madrid NZ 1 serves any jurisdiction that publishes a buildable footprint;
   the **`dissolveParcelsToBlockRing` + street-width** machinery from Barcelona serves every

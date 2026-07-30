@@ -92,7 +92,7 @@ numerator (it has no number by law), not counted as a miss.
 
 ## Step (d) — Extraction-pipeline design for this country
 
-The shared engine is **`docs/04-reference/ORDINANCE-EXTRACTION-PIPELINE.md`** (`@pryzm/ordinance-extraction`,
+The shared engine is **`docs/04-reference/standards/ORDINANCE-EXTRACTION-PIPELINE.md`** (`@pryzm/ordinance-extraction`,
 Stages 0–6 → **L-449 human gate** → emit at `pipeline-extracted-unverified`). Germany supplies only:
 
 1. **Enumerator** — list in-force B-Plans + supersession via the per-Land XPlanung WFS: query the

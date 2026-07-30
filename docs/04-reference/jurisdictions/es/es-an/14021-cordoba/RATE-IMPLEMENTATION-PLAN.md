@@ -103,7 +103,7 @@ Denmark has neither: national structured fields and national coverage. Córdoba 
   needs a Spanish/EU egress or proxy (they are also reachable via the COACo `/doc/planos/cus/` proxy).
   Phase 4 still gated on the schema growing a `pipeline-extracted-unverified` tier and Phase 3 sign-off.
 - **Reuse — Córdoba is the pipeline's proof case, and it pays forward:** the ordinance-extraction
-  pipeline (`docs/04-reference/ORDINANCE-EXTRACTION-PIPELINE.md`) built and validated here generalises
+  pipeline (`docs/04-reference/standards/ORDINANCE-EXTRACTION-PIPELINE.md`) built and validated here generalises
   to every shape-B Spanish city for free (same clean-scanned-PGOU shape). The two honesty guards it
   proved out — the **arithmetic cross-check** (catches misreads) and the **algorithm/valuation prose
   check** (catches the confident-wrong *status* number the arithmetic cannot, e.g. Barcelona's

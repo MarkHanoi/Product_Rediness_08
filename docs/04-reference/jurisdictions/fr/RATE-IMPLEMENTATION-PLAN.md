@@ -103,7 +103,7 @@ across every commune, rather than one bespoke reader per PLU.
 | **Art. 14** | (pre-ALUR COS) | `n/a — abolished loi ALUR 2014` |
 
 This maps onto the **shared** `@pryzm/ordinance-extraction` core
-(`docs/04-reference/ORDINANCE-EXTRACTION-PIPELINE.md`): the per-city *enumerator* differs (which GPU doc,
+(`docs/04-reference/standards/ORDINANCE-EXTRACTION-PIPELINE.md`): the per-city *enumerator* differs (which GPU doc,
 which EPCI), but Stages 1–6 (profile → OCR/text-pull → dual-pass → cross-checks → **L-449 human gate** →
 emit pack at `pipeline-extracted-unverified`) are identical. France adds only a *French article grammar*
 adapter — Art. 6/7/9/10 → C58 fields — not a new pipeline. The algorithm-detector (§2 Stage 4 of that

@@ -111,7 +111,7 @@ end-to-end  =  clau coverage  ×  layers 1–3  ×  layer 5 (height)  ×  layer 
 | layer-5 height rate | 78.3% | **not the production chain** — skipped tier 2 entirely; diverged on 60 of 83 parcels. True rate **92.8%** |
 
 **Shared shape: the probe RE-IMPLEMENTED what production does instead of CALLING it.** Rules in
-`docs/04-reference/PROBE-DISCIPLINE.md`.
+`docs/04-reference/standards/PROBE-DISCIPLINE.md`.
 
 ⚠ **And I then built a fifth**: the debt gate used ESLint's `--format unix`, which no longer exists —
 the command errors, emits no violations, every counter read 0, and **the gate passed while measuring

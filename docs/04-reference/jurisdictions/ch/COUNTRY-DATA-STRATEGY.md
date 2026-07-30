@@ -81,7 +81,7 @@ Shape-A scanned burden.
 
 ## Step (d) — Extraction-pipeline design for this country
 
-Shared engine: **`docs/04-reference/ORDINANCE-EXTRACTION-PIPELINE.md`** (`@pryzm/ordinance-extraction`,
+Shared engine: **`docs/04-reference/standards/ORDINANCE-EXTRACTION-PIPELINE.md`** (`@pryzm/ordinance-extraction`,
 Stages 0–6 → **L-449 human gate** → emit at `pipeline-extracted-unverified`). Switzerland supplies:
 
 1. **Enumerator** — the FAR path is NOT the extraction pipeline: it is a **per-canton INTERLIS harvest**

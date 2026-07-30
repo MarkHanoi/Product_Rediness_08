@@ -11,7 +11,7 @@ legal text, and the honest ceiling of automation. It sits ABOVE the two per-juri
   • COUNTRY-DATA-STRATEGY.md    — THIS: the reasoning that produces both, the same way in every country.
 
 It does NOT duplicate the extraction pipeline (that is the horizontal engine, spec'd once in
-`docs/04-reference/ORDINANCE-EXTRACTION-PIPELINE.md`) — it is the COUNTRY-LEVEL decision layer that
+`docs/04-reference/standards/ORDINANCE-EXTRACTION-PIPELINE.md`) — it is the COUNTRY-LEVEL decision layer that
 decides WHETHER, WHERE and HOW MUCH to point that engine.
 
 Fill every `<…>`. Delete no honesty rule. The whole value of this template is that Norway, Germany, the
@@ -106,7 +106,7 @@ this country's plan corpus:
 <!-- HOW the text-bound numbers become data. DO NOT re-spec the pipeline — reference the horizontal core
 and state ONLY this country's thin adapter. -->
 
-The shared engine is **`docs/04-reference/ORDINANCE-EXTRACTION-PIPELINE.md`** (`@pryzm/ordinance-extraction`,
+The shared engine is **`docs/04-reference/standards/ORDINANCE-EXTRACTION-PIPELINE.md`** (`@pryzm/ordinance-extraction`,
 Stages 0–6: supersession gate → profile → OCR/text-pull → dual-pass extract → cross-checks →
 **L-449 human gate** → emit pack at `pipeline-extracted-unverified`). This country supplies only:
 

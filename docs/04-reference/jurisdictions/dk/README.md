@@ -51,4 +51,4 @@ product-relevant one. See L-609 for why the "trends toward 77%" hypothesis was r
 - `server/plandataZoningProxy.js` — keyless same-origin WFS proxy + coordinate cache.
 - `packages/site-parcel-data/src/providers/DkZoningProvider.ts` — the adapter (OTel span, graceful null).
 - `packages/site-parcel-data/src/providers/mapPlandataToZoningRecord.ts` — the PURE field→ZoningRecord mapping.
-- `docs/04-reference/DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md` — the strategic architecture.
+- `docs/04-reference/jurisdictions/dk/DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md` — the strategic architecture.

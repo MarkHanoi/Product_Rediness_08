@@ -1,6 +1,6 @@
 <!-- P0 SCAFFOLD TEMPLATE — copy this whole folder to jurisdictions/<cc>/<cc>-<subdiv>/<code>-<slug>/
      then replace every <PLACEHOLDER>. Delete this comment when you do.
-     The standard is docs/04-reference/JURISDICTION-PLAYBOOK.md. This is a MUNICIPALITY README;
+     The standard is docs/04-reference/standards/JURISDICTION-PLAYBOOK.md. This is a MUNICIPALITY README;
      a country or region README is the same shape, minus the parcel/pack-specific rows. -->
 # <PLACE> (<CODE> <slug>, <REGION>, <COUNTRY>) — what is true now
 

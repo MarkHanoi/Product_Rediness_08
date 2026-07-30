@@ -187,7 +187,7 @@ the number.
 `.github/workflows/r2-cors.yml` applies it via `PutBucketCors` **and replays a browser-shaped
 request, failing the job if the header does not come back**. It is blocked ONLY because the repo's
 R2 token is object-scoped (`AccessDenied`); it needs Admin Read & Write, or two minutes in the
-Cloudflare dashboard. Exit criterion is written into `docs/04-reference/OBJECT-STORAGE-R2-DECISION.md`
+Cloudflare dashboard. Exit criterion is written into `docs/04-reference/architecture-detail/OBJECT-STORAGE-R2-DECISION.md`
 §CORS. Both clients PREFER a configured direct base, so this is a **variable change, no code change**.
 
 ---
