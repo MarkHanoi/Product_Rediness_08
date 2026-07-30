@@ -150,7 +150,7 @@ import {
   buildWorkspaceSurface,
   type WorkspaceSurface,
 } from '@pryzm/renderer-three';
-import { installGlobalHandlers } from '@pryzm/crash-reporter';
+import { installGlobalHandlers, initTracing } from '@pryzm/crash-reporter';
 import { evaluateVisibilityForManifest } from '@pryzm/visibility';
 
 const COMPOSE_TRACER_NAME = 'pryzm.runtime-composer';
@@ -770,6 +770,13 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // package-owned `showAppToast` from `./showAppToast.ts`.  The
     // `opts.showAppToast` escape hatch remains for tests.
     const toasts = buildToastsSlot(opts.showAppToast ?? null);
+    // L-392 — register a REAL global OTel tracer provider at the composition
+    // root so the codebase's P8 spans stop being no-ops. Idempotent and OFF by
+    // default: it does nothing unless PRYZM_TRACING is set (dev/test pay zero
+    // cost; prod stays opt-in until an OTLP collector is provisioned). Must run
+    // BEFORE any span is opened below.
+    initTracing({ serviceName: 'pryzm-editor' });
+
     // Wave 19 (Phase 3D) — install crash-reporter global handlers at boot.
     // Idempotent; funnels window.onerror + unhandledrejection into the lazy
     // reporter.  @pryzm/crash-reporter defaults to NoopCrashReporter until a
