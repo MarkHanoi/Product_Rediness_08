@@ -53,3 +53,38 @@ GET {endpoint}?service=WFS&version=2.0.0&request=GetFeature&typeNames=pdk:<layer
 
 All counts and the area/click measurements were run live on **2026-07-23**; see
 `../findings/L-609-click-weighted-fill-and-byggefelt.md` for the method and the numbers.
+
+---
+
+## The national geospatial platform (SDFI / Dataforsyningen) — data-axis anchors
+
+> Scope note: everything above is the **zoning-rule** per-field path (`DkZoningProvider`). This
+> section adds the **geospatial data-availability axis** — the authoritative national registers a
+> context engine consumes — folded from the founder Danish geospatial deep-dive, 2026-07-30. Full
+> catalogue: `../DENMARK-GEOSPATIAL-DATA-INVENTORY.md`; per-layer source hierarchies + badging:
+> `../findings/DENMARK-CONTEXT-DATA-DEEP-DIVE-L513.md`. All rows **`VERIFIED-PRIMARY`**
+> (authoritative national source, documented) unless the confidence column says otherwise; every
+> row **⚠ re-probe the endpoint before it gates prod** (§CONTEXT-DATA-HONESTY). None of this moves a
+> RATE % cell.
+
+**🏆 Denmark is the benchmark — the ONLY audited country with machine-readable national planning
+(PLANDATA.dk).** The RATE LEGISLATION / ENVELOPE `not-assessed` state is the **unsigned L-449
+human-verification gate**, NOT data absence: the planning data is machine-readable (national
+structured-fill prior ≈96%). See `../sources/VERIFICATION.md` for the gate.
+
+| Source | Authority | Access | API | Licence | CRS | Confidence |
+|---|---|---|---|---|---|---|
+| **SDFI / Dataforsyningen** (the platform) | Styrelsen for Dataforsyning og Infrastruktur | Datafordeler (open-with-key) + `api.dataforsyningen.dk` (keyless `token=`) | OGC API / WFS / WMS / WMTS / WCS / REST | Open | 25832 | `VERIFIED-PRIMARY` ⚠ re-probe |
+| **Matriklen** (cadastre / `jordstykke` parcels) | SDFI (Matriklen2) | Datafordeler | WFS 2.0 / OGC API / REST / bulk · GML/GeoJSON/SHP | Open | 25832 | `VERIFIED-PRIMARY` ⚠ re-probe |
+| **BBR** (Bygnings- og Boligregistret — year/use/floors/area/roof/units/energy) | Klimadatastyrelsen (Climate Data Agency) | Datafordeler | REST JSON / WFS | Open | 25832 | `VERIFIED-PRIMARY` ⚠ re-probe |
+| **DAR** (Danmarks Adresseregister — addresses / reverse-geocode) | SDFI | Datafordeler / Dataforsyningen | REST | Open | 25832 | `VERIFIED-PRIMARY` ⚠ re-probe |
+| **GeoDanmark** (national topo base — buildings/roads/hydro/rail/veg/coast) | GeoDanmark (SDFI + municipalities) | Dataforsyningen / Datafordeler | WFS 2.0 / OGC API | Open | 25832 | `VERIFIED-PRIMARY` ⚠ re-probe |
+| **National LiDAR + DTM/DSM** (DHM — ~4.5 pts/m², 0.4 m rasters) | SDFI (DHM) | Datafordeler / Dataforsyningen | LAZ tiles · WCS / GeoTIFF | Open | 25832 | `VERIFIED-PRIMARY` ⚠ re-probe |
+| **🏆 PLANDATA.dk** (national planning — Lokalplaner + Kommuneplan) | Erhvervsstyrelsen (Danish Business Authority) | `geoserver.plandata.dk` — **keyless/open** | WFS 2.0 / REST · GML/GeoJSON | Open | 25832 | **`VERIFIED-LIVE` (2026-07-23)** |
+| **Danish Environmental Portal** (Miljøportal — §3 nature / Natura2000 / wetland / flood) | Danmarks Miljøportal | Miljøportal | WMS / WFS | Open | 25832 | `VERIFIED-PRIMARY` ⚠ re-probe |
+
+**Height is Denmark's strength:** national LiDAR → DSM−DTM (P90) → **BBR floor-count VALIDATION** (a
+cross-check unique to Denmark in the study). **Cycle infrastructure** (municipal engineering GIS) and
+**machine-readable planning** (PLANDATA.dk) are the two DK differentiators. Honest weaknesses: no
+national semantic LOD3/BIM; some municipal engineering data (cycle/pedestrian/parks/trees) is local;
+utilities fragmented. Re-probe endpoints before prod even at benchmark confidence.
