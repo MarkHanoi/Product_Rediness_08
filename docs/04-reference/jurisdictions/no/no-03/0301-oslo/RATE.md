@@ -1,62 +1,46 @@
-# Data Readiness Rate — Oslo (0301)
+# City RATE — master completion scorecard — Oslo (no-03, kommune 0301)
 
-**Headline rate: ~33%**
+<!-- generated-by: MANUAL C63-Phase-1-AUDIT 2026-07-30 — scorecard function not yet shipped (C63 §8); the three CHEAP axes (DATA-SOURCES · TERRAIN · CONTEXT) are cited-derived per C63 §8.1, every other axis is not-assessed with a typed C62 reason. NO cell is a fabricated number. -->
 
-> **Structured dimensional fill rate**: the fraction of parcel-level building-rule queries that return a
-> complete, machine-readable answer (arealformål code + %-BYA or BRA + height) without reading a
-> reguleringsbestemmelser text/PDF. Methodology mirrors the cross-jurisdiction benchmark.
+**Overall completion (assessed subset): `66%` · `partial: true`** — renormalised over the ASSESSED
+axes only (DATA-SOURCES · TERRAIN · CONTEXT); the missing axes (PARCEL · LEGISLATION · ENVELOPE ·
+HEIGHTS/LOD) are honestly `not-assessed`, not 0 % (C63 §1.2/§1.5). **`honestyOk: true`** (no fabricated
+value; every unknown typed).
 
-| Jurisdiction | Rate |
-|---|---|
-| Denmark | ~96% |
-| Madrid | ~68% |
-| Barcelona | ~48% |
-| Trondheim | ~35% |
-| **Oslo** | **~33%** |
-| Norway (national) | ~32% |
-| Germany (national) | ~28% |
+> **Weighting** `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4).
 
-Oslo sits just above the national average despite having the richest tooling (per-parcel grad av utnytting faktaark, nightly plan updates, Planinnsyn) because **the machine-readable WFS status is unconfirmed** — the entire plan data layer is confirmed only as a click-in-map viewer, not a programmatic WFS. If a WFS exists behind Planinnsyn, Oslo's ceiling rises substantially; if not, it remains viewer-only and requires an automation layer. Oslo's faktaark advantage (resolving historical calculation-method era) is real but not yet automatable until its access model is confirmed.
+## The 7 axes (C63 §3 — fixed definitions)
 
----
+| # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
+|---|---|---:|---|---|---|---|
+| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | National Matrikkelen parcel provider IS wired + LIVE (`parcelProviders/registry.ts` `isInNorway`→`matrikkel-no`, `label: 'Matrikkelen (Norway · Kartverket)'`, `wfs.geonorge.no matrikkelen-eiendomskart-teig app:Teig` — HTTP 200 GML 3.2.1, real teig polygon `0301/208/644 @ Oslo`, keyless). But Axis 1 measures the parcel-quality distribution over an N-parcel sample and **no `computeParcelConfidence` run has been executed** for this bbox (C63 §8). |
+| 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | No rule pack registered for Oslo (`rulepacks/registry.ts` carries no NO pack); no `sources/VERIFICATION.md` sign-off. A structured-fill PRIOR exists — `~33 %` ([`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md)) — but that is the COARSE prior, not the L-449-verified per-clau count Axis 2 requires. Oslo's numeric utilisation lives in `reguleringsbestemmelser` prose (the national `BestemmelseUtnyttingsgrad` SOSI stub is unfilled, confirmed 2026-07-24) and Planinnsyn is a click-viewer, not a queryable WFS — inventing values is forbidden (§CONTEXT-DATA-HONESTY). |
+| 3 | **DATA-SOURCES** | 15 % | **80%** | `not-checked` | — | 5-slot checklist: cadastre-parcel **live** (Matrikkelen national, `parcelProviders/registry.ts` `isInNorway`, keyless) · regional-zone-GIS **documented** (national SOSI Plan legally mandated + Geonorge planregister framework + Oslo Planinnsyn viewer confirmed live; a programmatic WFS + `siteDispatch.ts` wiring is UNCONFIRMED → `documented` not `live`, see `LEGISLATION-RATE.md`) · building-height nDSM **documented** (`heightSources.mjs` `ndh_no` impl:`documented`, "Matrikkelen point + NDH nDSM (free path)", `REGION_SOURCE oslo:'ndh_no'`, coverage `partial`; per-city bake not landed) · terrain DEM **live** (`terrain.mjs` source `no` = Kartverket NHM DTM `wcs.geonorge.no/skwms1/wcs.hoyde-dtm-nhm-25833`, keyless, HTTP 200 WCS 1.1 Capabilities live) · context-OSM **live** (`bake.mjs` REGIONS `oslo`, `norway-latest.osm.pbf`, bbox `10.66,59.88,10.83,59.96`). Mean = (1.0+0.5+0.5+1.0+1.0)/5 = 0.8. |
+| 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | No buildable-envelope rule pack registered for Oslo; solver coverage unmeasured (C58). BCN/Madrid/Córdoba have packs — Oslo does not. See [`ENVELOPE.md`](./ENVELOPE.md). |
+| 5 | **TERRAIN** | 10 % | **50%** | `not-checked` | — | Terrain bake row present: `terrain.mjs` TERRAIN_CITY `oslo` (source `no` = Kartverket NHM DTM, keyless HTTP-200, bbox `[10.66,59.88,10.83,59.96]`). Rung **50 = baked-but-unverified** — no `terrain.verify.mjs` round-trip nor deployed `layer.json` 200 independently re-probed in this audit. |
+| 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | Measured-**CAPABLE**: NDH nDSM is a free national bare-earth+surface source (`heightSources.mjs` `ndh_no` impl:`documented`, coverage `partial` → APPEND top-up; `REGION_SOURCE oslo:'ndh_no'`). But no per-city bake has landed and no per-building `heightProvenance` histogram was probed. FKB-Bygning footprint+height is licence-gated (commercial reseller/Kartverket agreement). Capability is never reported as a measurement. See [`HEIGHT.md`](./HEIGHT.md). |
+| 7 | **CONTEXT** | 5 % | **56%** | `not-checked` | — | Inside the `oslo` context bake bbox (`bake.mjs` REGIONS `oslo`). Confirmed long-shipped layers: buildings · roads · water · parks · landuse (**5/9**). rail + trees are config-added (`bake.mjs` LAYERS, L-642) but that re-bake is not-yet-landed → excluded (honest 0). pedestrian: not a baked layer. sea: Oslo IS coastal (Oslofjord) so sea is APPLICABLE (unlike inland Paris) and rides the water/`natural=coastline` bake, but the standing sea-layer tile was not independently probed here → excluded (honest 0, not fabricated). Score 5/9. |
 
-## Field-by-field breakdown
+## §CONTEXT-DATA-HONESTY note
 
-| Field | Structured? | Source | Score |
-|---|---|---|---|
-| Parcel geometry (Matrikkelen Eiendomskart Teig) | ✅ Full | Single national WFS, confirmed live, free, no login. | **~95%** |
-| Plan existence + boundary (reguleringsplan polygon) | ⚠️ Click-viewer only (WFS TBD) | Planinnsyn confirmed as interactive viewer (nightly updates). Standalone WFS for programmatic query: not confirmed. | **~40%** (plan data clearly exists; machine-readable access not yet confirmed) |
-| Arealformål code | ⚠️ Not yet probed | National required field; whether returned by any Oslo WFS is unconfirmed. | **~40%** |
-| Hensynssone code (H570 etc.) | ⚠️ Partial | `H570` hensynssone mechanism confirmed applicable in Oslo kommuneplan. Population in any Oslo WFS: TBD. | **~35%** |
-| `BestemmelseUtnyttingsgrad` (numeric utilisation in structured field) | ❌ Confirmed stub | National SOSI Plan object-catalog entry for this type is an unfinished placeholder (confirmed 2026-07-24). | **~5%** |
-| Grad av utnytting **method** (including historical-method era) | ✅ Partially resolved | TEK17 §§5-1–5-7 + H-2300 B (national method). Oslo's faktaark resolves which historical era applies per parcel — unique to Oslo among studied cities. | **~80% (method and era identification; not the parcel-level value)** |
-| Actual %-BYA / BRA value (parcel-level) | ❌ Text/PDF | Bestemmelser-as-prose pattern confirmed nationally; Oslo factaark does not ship the numeric value itself (confirms the applicable method/era only). | **~5%** |
-| Height — plan-set (mønehøyde/gesimshøyde) | ❌ Text/PDF | Same bestemmelser-as-prose pattern. Oslo Planinnsyn confirms bestemmelser text is accessible on click; not structured in a WFS attribute. | **~5%** |
-| Height — § 29-4 national default | ✅ Shippable | gesimshøyde ≤ 8 m / mønehøyde ≤ 9 m; setback max(½H, 4 m). | **100% (for no-plan parcels only)** |
-| Oslo Gul liste (local heritage overlay) | ⚠️ Existence confirmed; format unconfirmed | Oslo Byantikvaren maintains the Gul liste separately from Askeladden. Format/access not confirmed. | **~20%** (exists; not integrable until format confirmed) |
-| Reguleringsbestemmelser text access | ✅ Via viewer | Planinnsyn confirms bestemmelser text is accessible per plan on click — access path confirmed, automation feasibility not yet assessed. | **~65%** |
-| Planstatus / supersession | ✅ Structured taxonomy | National kodeliste — machine-resolvable in any SOSI Plan-compliant WFS. | **60%** (taxonomy national; Oslo WFS existence TBD) |
-| Building points (Matrikkelen Bygningspunkt) | ✅ Open | National, free, no login — location only. | **90%** |
-| Building footprint + height (FKB-Bygning) | ⚠️ Licence-gated | Commercial use requires reseller purchase or Kartverket agreement. | **~35%** |
-| Terrain (NDH) | ✅ Complete, open | Nationwide, ≥2 pts/m², free, confirmed live. | **100%** |
-| Heritage — Kulturminnesøk.no | ✅ Open | ~220,000 objects, free, no login, confirmed live. | **60%** |
+DOES: terrain (Kartverket NHM DTM, keyless, unverified rung-50) + national Matrikkelen parcel routing (LIVE) + baked OSM context (5/9 layers) + a national SOSI Plan zone-GIS framework (viewer-confirmed). REFUSES: an envelope (no rule pack) — never a borrowed/invented number. UNKNOWN (typed): PARCEL quality (`not-queried`, provider LIVE), LEGISLATION + ENVELOPE (`pending-implementation`), HEIGHTS (`not-queried`, measured-capable via NDH). `honestyOk: true`.
 
----
+## Dossier index (C63 §5)
 
-## What would raise the rate
+This `RATE.md` is the composite master; the siblings FEED it (naming: [`../../../_TEMPLATE/NAMING-CONVENTION.md`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
 
-| Action | Rate impact | Effort |
+| File | About | Feeds axis |
 |---|---|---|
-| Confirm Oslo planregister WFS exists (Geonorge / data.oslo.kommune.no search) | If WFS found with attributes → Oslo rises to ~55–60% (same ceiling as Trondheim post-probe) | Low — 20-minute search |
-| Confirm Oslo faktaark is per-parcel dynamic (not static page) | If automatable → Oslo has a unique engine advantage; raises grad-av-utnytting era resolution from "known method" to "automatable per parcel" | Low — inspect URL parameters |
-| Confirm Oslo Gul liste format and access | Resolves city-specific heritage overlay gap | Low |
-| Resolve FKB-Bygning licence | Unlocks building footprint + height | Medium (process step) |
-
-**Realistic ceiling:**
-- If planregister WFS confirmed with arealformål attributes AND faktaark is automatable: **~65–70%** (Oslo would be the highest-rate Norwegian city — matching Madrid's range)
-- If WFS confirmed but no structured attributes (geometry + plan ID only): **~40%** (plan boundary access; NLP pipeline for numeric values)
-- If no WFS confirmed (viewer only): **~33%** (current estimate; scraping layer adds cost and fragility)
+| **`RATE.md`** (this) | 7-axis composite completion scorecard | — |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (~33 % prior; SOSI Plan / Planinnsyn research) | LEGISLATION |
+| [`ENVELOPE.md`](./ENVELOPE.md) | buildable-envelope solver status | ENVELOPE |
+| [`HEIGHT.md`](./HEIGHT.md) | building-height provenance status (NDH measured-capable) | HEIGHTS/LOD |
+| [`README.md`](./README.md) | what governs here · pack status · open questions | all |
+| [`NEXT.md`](./NEXT.md) | where we stopped · blockers · resume steps | all |
+| [`RISK-REGISTER.md`](./RISK-REGISTER.md) | honesty guardrails | — |
+| [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | phased climb to 100 % | all |
+| [`sources/SOURCES.md`](./sources/SOURCES.md) · [`sources/VERIFICATION.md`](./sources/VERIFICATION.md) | per-field citations · human sign-off (L-449) | LEGISLATION · ENVELOPE |
 
 ---
-
-*Last updated: 2026-07-24. Planinnsyn viewer and grad av utnytting faktaark confirmed live. Standalone planregister WFS not yet confirmed. `BestemmelseUtnyttingsgrad` national stub confirmed. NDH and Matrikkelen parcel WFS confirmed live.*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Composite scaffolded under audit L-649 Phase-1; the legacy `RATE.md` (legislation) was migrated to `LEGISLATION-RATE.md` this pass.*
