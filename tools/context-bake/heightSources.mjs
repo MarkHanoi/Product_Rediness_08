@@ -289,11 +289,9 @@ export const REGION_SOURCE = {
   // single whole-country query, and scanning ~10⁵ tiles is infeasible) → `documented` (keeps OSM); a CITY
   // bbox resolves exactly. So the CITY entries below carry the real value today; `spain` gets it once the
   // orchestrator either adds per-city bbox rows OR wires the bake OSM-footprint join (named in the source note).
-  // Ready per-city bboxes (spain-latest.osm.pbf already covers them all):
-  //   barcelona '2.05,41.32,2.24,41.47'   madrid '-3.80,40.33,-3.60,40.52'
-  //   cordoba   '-4.85,37.83,-4.72,37.93'  valencia '-0.42,39.42,-0.30,39.52'
-  //   sevilla   '-6.03,37.32,-5.90,37.43'  malaga '-4.50,36.66,-4.35,36.76'
-  //   zaragoza  '-0.95,41.60,-0.80,41.70'  bilbao '-2.98,43.22,-2.88,43.29'
+  // The whole-country `spain` region DOES wire that join (bake.mjs heightJoin:'mds' → stampMdsHeightsOnGeojsonseq),
+  // and its per-city ready bboxes now live in the machine-readable `MDS_CITY_BBOXES` list below (was a free-text
+  // comment here) so the join can stamp each capital FIRST — see that constant + §Phase-4.
   spain: 'mds_edificacion',
   barcelona: 'mds_edificacion', madrid: 'mds_edificacion', cordoba: 'mds_edificacion', valencia: 'mds_edificacion',
   sevilla: 'mds_edificacion', malaga: 'mds_edificacion', zaragoza: 'mds_edificacion', bilbao: 'mds_edificacion',
@@ -333,6 +331,45 @@ export const REGION_SOURCE = {
   london: { source: null, status: 'no-source', reason: 'OS Building Heights is licensed; GB not in LOD-RATE-MASTER' },
   helsinki: { source: null, status: 'no-source', reason: 'FI not in LOD-RATE-MASTER (Helsinki has open LoD2 — candidate to add)' },
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §MDS-CITY-BBOXES (PHASE-4, 2026-07-30) — the ES MDS Edificación "ready-bbox list": the tight
+// metro-core extent for every MDS-capable Spanish capital, promoted from a free-text comment (once in
+// REGION_SOURCE) to real config. The whole-country `spain` region already carries the MDS-OSM join
+// (bake.mjs heightJoin:'mds' → stampMdsHeightsOnGeojsonseq), which stamps a MEASURED `mdsn_e025` P90
+// height (`pryzm:height_src=measured-lidar`, `tagged`) onto bake's OWN OSM footprints. Passing these
+// bboxes as that join's `priorityBboxes` makes it process each capital's tiles FIRST — so every city
+// below is GUARANTEED measured heights on re-bake, exactly like Barcelona, even if the national
+// `maxTiles` cap is reached mid national sweep. No new draw (footprints are stamped in place, not
+// appended), no new sourcing — MDS is a keyless CC-BY WCS live-verified 2026-07-26.
+//
+// PROVENANCE (§CONTEXT-DATA-HONESTY — cite, don't guess): each bbox is a tight metro extent centred on
+// the municipality centroid (verified centred; span ≤0.2°, well under the 0.7° whole-country MDS
+// refusal guard in fetchSpainBuildingHeights). Cited per city in its dossier HEIGHT.md
+// (docs/04-reference/jurisdictions/es/**/HEIGHT.md — "per-city ready bbox listed for <city>"). The
+// `refcat` is the INE/Catastro municipal code (the dossier directory name). `barcelona` + `cordoba`
+// are the ALREADY-BAKED reference pair; the other six are the Phase-4 additions — the `(cap)` =
+// "measured-capable but unbaked" capitals in es/COUNTRY-RATE.md, the flagship of
+// es/RATE-IMPLEMENTATION-PLAN.md §Phase A.
+//
+// PHASE-4: re-bake these cities to realise measured heights. Re-bake + R2 upload is an INFRA step
+// (needs osmium + tippecanoe + geotiff, or the tools/context-bake Docker image, + R2 creds) — NOT run
+// here. The whole-country `spain` region already carries heightJoin:'mds', so ONE buildings re-bake
+// stamps every city below:
+//     cd tools/context-bake && node bake.mjs --layer buildings
+//     # then upload out/buildings.pmtiles to R2 (see tools/context-bake/README §Upload)
+// then re-probe each city's baked heightProvenance histogram (the dossier HEIGHT.md H1 step).
+export const MDS_CITY_BBOXES = [
+  // city        refcat    [w, s, e, n] (WGS84, osmium/-b order)          baked?
+  { city: 'barcelona', refcat: '08019', bbox: [2.05, 41.32, 2.24, 41.47],   baked: true },   // reference — SHIPPED
+  { city: 'cordoba',   refcat: '14021', bbox: [-4.85, 37.83, -4.72, 37.93], baked: true },   // reference — Córdoba pilot
+  { city: 'madrid',    refcat: '28079', bbox: [-3.80, 40.33, -3.60, 40.52], baked: false },  // PHASE-4
+  { city: 'valencia',  refcat: '46250', bbox: [-0.42, 39.42, -0.30, 39.52], baked: false },  // PHASE-4
+  { city: 'sevilla',   refcat: '41091', bbox: [-6.03, 37.32, -5.90, 37.43], baked: false },  // PHASE-4
+  { city: 'malaga',    refcat: '29067', bbox: [-4.50, 36.66, -4.35, 36.76], baked: false },  // PHASE-4
+  { city: 'zaragoza',  refcat: '50297', bbox: [-0.95, 41.60, -0.80, 41.70], baked: false },  // PHASE-4
+  { city: 'bilbao',    refcat: '48020', bbox: [-2.98, 43.22, -2.88, 43.29], baked: false },  // PHASE-4
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §PHASE1-DEDUP — replace-vs-append policy (CONTEXT-LOD-BUILD-PLAN.md §3). A FULL national source
@@ -1499,9 +1536,13 @@ function footprintFromFeature(feat) {
  * failure leaves footprints at the OSM default. Mirrors the DK/ES tile-grid raster fetch.
  * @param bbox [w,s,e,n] WGS84.
  */
+// §PHASE-4 — `priorityBboxes` (e.g. MDS_CITY_BBOXES.map((c) => c.bbox)) are stamped FIRST and UNCAPPED,
+// so each metro capital is GUARANTEED measured heights even if the national `maxTiles` cap is reached
+// mid national sweep. Default [] → behaviour is byte-identical to before (the priority loop is empty).
 export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
   timeoutMs = 120_000,
   tileSpanDeg = 0.025, maxTiles = 4000, padDeg = 0.0015,
+  priorityBboxes = [],
   erodeM = 1.0, percentile = 90, minSamples = 3, sampleStepM = 2.5,
 } = {}) {
   if (!inPath || !existsSync(inPath)) return { status: 'error', reason: `MDS join: input footprints not found (${inPath})` };
@@ -1528,32 +1569,59 @@ export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
   const [w, s, e, n] = bbox;
   const nx = Math.max(1, Math.ceil((e - w) / tileSpanDeg));
   const ny = Math.max(1, Math.ceil((n - s) / tileSpanDeg));
-  let processedTiles = 0, tileErrors = 0, emptyTiles = 0, tileCapHit = false;
+  let processedTiles = 0, tileErrors = 0, emptyTiles = 0, tileCapHit = false, priorityTiles = 0;
   const heights = [];
+  // Fetch the MDS raster for ONE tile and stamp every not-yet-done footprint whose centroid falls in it.
+  // `respectCap` (national sweep) → returns true when the cap is hit so the caller breaks; priority tiles
+  // pass false (never capped). Empty tiles bump `emptyTiles` and return false (no break).
+  const processTile = async (tw, ts, te, tn, respectCap) => {
+    const inTile = records.filter((r) => !r._done && r.clon >= tw && r.clon < te + 1e-9 && r.clat >= ts && r.clat < tn + 1e-9);
+    if (inTile.length === 0) { emptyTiles++; return false; }
+    if (respectCap && processedTiles >= maxTiles) { tileCapHit = true; return true; }
+    const rbox = [tw - padDeg, ts - padDeg, te + padDeg, tn + padDeg];
+    const rr = await httpGetBuffer(mdsCoverageUrl(rbox), { timeoutMs });
+    if (!rr.ok || !/tiff/i.test(rr.ct)) { tileErrors++; for (const r of inTile) r._done = true; return false; }
+    let mds;
+    try { mds = await readDhmRaster(rr.ab, gt); }
+    catch { tileErrors++; for (const r of inTile) r._done = true; return false; }
+    for (const r of inTile) {
+      r._done = true;
+      const h = mdsHeightForBuilding(r.ext, r.interiors, mds, { erodeM, percentile, minSamples, sampleStepM });
+      if (h) {
+        r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'mds_edificacion', [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
+        heights.push(h.height);
+      }
+    }
+    processedTiles++;
+    return false;
+  };
   try {
+    // §PHASE-4 — capitals first (UNCAPPED): guarantee each metro city's footprints are stamped before
+    // the national sweep can exhaust `maxTiles`. A priority bbox outside the region bbox stamps nothing
+    // (no footprints there) — harmless. Clamp each priority tile to the region so an overshoot fetch
+    // never leaves the covered area.
+    for (const pb of priorityBboxes) {
+      if (!Array.isArray(pb) || pb.length !== 4) continue;
+      const [pw, ps, pe, pn] = pb;
+      const pnx = Math.max(1, Math.ceil((pe - pw) / tileSpanDeg));
+      const pny = Math.max(1, Math.ceil((pn - ps) / tileSpanDeg));
+      const before = processedTiles;
+      for (let iy = 0; iy < pny; iy++) {
+        for (let ix = 0; ix < pnx; ix++) {
+          const tw = pw + ix * tileSpanDeg, ts = ps + iy * tileSpanDeg;
+          const te = Math.min(tw + tileSpanDeg, pe), tn = Math.min(ts + tileSpanDeg, pn);
+          await processTile(tw, ts, te, tn, false);
+        }
+      }
+      priorityTiles += processedTiles - before;
+    }
+    // National sweep — respects `maxTiles` for the remaining (non-priority) tiles.
     outer:
     for (let iy = 0; iy < ny; iy++) {
       for (let ix = 0; ix < nx; ix++) {
         const tw = w + ix * tileSpanDeg, ts = s + iy * tileSpanDeg;
         const te = Math.min(tw + tileSpanDeg, e), tn = Math.min(ts + tileSpanDeg, n);
-        const inTile = records.filter((r) => !r._done && r.clon >= tw && r.clon < te + 1e-9 && r.clat >= ts && r.clat < tn + 1e-9);
-        if (inTile.length === 0) { emptyTiles++; continue; }
-        if (processedTiles >= maxTiles) { tileCapHit = true; break outer; }
-        const rbox = [tw - padDeg, ts - padDeg, te + padDeg, tn + padDeg];
-        const rr = await httpGetBuffer(mdsCoverageUrl(rbox), { timeoutMs });
-        if (!rr.ok || !/tiff/i.test(rr.ct)) { tileErrors++; for (const r of inTile) r._done = true; continue; }
-        let mds;
-        try { mds = await readDhmRaster(rr.ab, gt); }
-        catch { tileErrors++; for (const r of inTile) r._done = true; continue; }
-        for (const r of inTile) {
-          r._done = true;
-          const h = mdsHeightForBuilding(r.ext, r.interiors, mds, { erodeM, percentile, minSamples, sampleStepM });
-          if (h) {
-            r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'mds_edificacion', [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
-            heights.push(h.height);
-          }
-        }
-        processedTiles++;
+        if (await processTile(tw, ts, te, tn, true)) break outer;
       }
     }
   } catch (err) {
@@ -1572,9 +1640,10 @@ export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
     status: 'ok', outPath, count: feats.length, footprintCount: records.length, measuredCount: measured,
     coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
     heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
-    tilesProcessed: processedTiles, tileErrors, emptyTiles, tileCapHit, tileGrid: `${nx}×${ny}`,
+    tilesProcessed: processedTiles, priorityTiles, tileErrors, emptyTiles, tileCapHit, tileGrid: `${nx}×${ny}`,
     note: `MDS Edificación stamped onto OSM footprints → ${measured}/${records.length} footprint(s) got a MEASURED ` +
-      `height (tagged); ${processedTiles} tile(s), ${tileErrors} raster error(s)${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}.`,
+      `height (tagged); ${processedTiles} tile(s)${priorityTiles ? ` (${priorityTiles} in ${priorityBboxes.length} priority capital bbox(es) first)` : ''}, ` +
+      `${tileErrors} raster error(s)${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}.`,
   };
 }
 

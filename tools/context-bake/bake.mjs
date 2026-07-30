@@ -29,7 +29,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // §PHASE1-HEIGHTS (North Star §6.1) — national real-height join. `heightSources.mjs` is side-effect-
 // free on import (its CLI is behind an isMain guard); `resolveHeights` never throws.
-import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq } from './heightSources.mjs';
+import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, MDS_CITY_BBOXES } from './heightSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(HERE, 'out');
@@ -348,10 +348,15 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
     // §MDS = whole `spain` (many populated tiles); §DHM = whole `denmark`. Give the national bbox a
     // generous tile cap so coverage is broad; a cap hit leaves the rest at the OSM default (honest).
     const maxTiles = 20000;
+    // §PHASE-4 (es/RATE-IMPLEMENTATION-PLAN §Phase A) — stamp the MDS-capable metro capitals FIRST so
+    // each is GUARANTEED measured heights (`pryzm:height_src=measured-lidar`) on re-bake, exactly like
+    // Barcelona, even if the national maxTiles cap is reached mid-sweep. Only the whole-`spain` mds join
+    // has capitals; the DK dhm join passes none.
+    const priorityBboxes = r.heightJoin === 'mds' ? MDS_CITY_BBOXES.map((c) => c.bbox) : [];
     let res;
     try {
       res = r.heightJoin === 'mds'
-        ? await stampMdsHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles })
+        ? await stampMdsHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, priorityBboxes })
         : await stampDhmHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles });
     } catch (e) {
       res = { status: 'error', reason: e.message };
