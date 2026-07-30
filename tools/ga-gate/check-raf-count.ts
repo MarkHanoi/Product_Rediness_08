@@ -2,9 +2,9 @@
 /**
  * Wave 1 task 3 — requestAnimationFrame owner-file tripwire.
  *
- * Spec: docs/03_PRYZM3/04-PLAN-FORWARD/02-WAVE-1-TRIPWIRES.md §4
- * Anchor: docs/03_PRYZM3/01-VISION.md §2 P3;
- *         docs/03_PRYZM3/04-PLAN-FORWARD/07-WAVE-7-CLEANUP-PHASE-F.md §2 (S85-WIRE)
+ * Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/02-WAVE-1-TRIPWIRES.md §4
+ * Anchor: docs/01-strategy/STR-03-engineering-vision.md (P3 — Single rAF);
+ *         docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/11-WAVE-7-CLEANUP-PHASE-F.md §2 (S85-WIRE)
  *
  * Hard-fail if owner-file count > HARD_FAIL (regression gate).
  * Soft-warn if > SOFT_WARN (Wave 7 absolute target = 1: the Scheduler).
@@ -231,7 +231,7 @@ function main(): number {
   if (n > HARD_FAIL) {
     console.error(`[raf-tripwire] FAIL: ${n} files own requestAnimationFrame > ${HARD_FAIL} (hard fail).`);
     console.error(`  Wave 7 target is exactly 1 file: packages/frame-scheduler/src/Scheduler.ts.`);
-    console.error(`  Read: docs/03_PRYZM3/04-PLAN-FORWARD/07-WAVE-7-CLEANUP-PHASE-F.md §2`);
+    console.error(`  Read: docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/11-WAVE-7-CLEANUP-PHASE-F.md §2`);
     return 1;
   }
   if (n > SOFT_WARN) {

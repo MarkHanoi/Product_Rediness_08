@@ -2,7 +2,7 @@
 /**
  * Gate G-NEW-04: No window.dispatchEvent(new CustomEvent(...)) from apps/editor/src/.
  *
- * Spec: docs/03_PRYZM3/04-PLAN-FORWARD/54-COMPLETE-LEGACY-ELIMINATION-PLAN.md §4 Gate P0-G4
+ * Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/54-COMPLETE-LEGACY-ELIMINATION-PLAN.md §4 Gate P0-G4
  * OI-050 (Phase F.events.2 — apps-tier migration)
  *
  * Ratchet direction: downward — hard-fail on any increase above baseline.
@@ -86,7 +86,7 @@ function main(): number {
         console.error(
             '  Fix: replace window.dispatchEvent(new CustomEvent(...)) with ' +
             'runtime.events.emit(eventName, payload) (Phase F.events.2). ' +
-            'See docs/03_PRYZM3/PRYZM3-MASTER-STATUS.md §14 item 5.',
+            'See docs/archive/pryzm3-internal/PRYZM3-MASTER-STATUS-2026-05-29-ARCHIVED.md §14 item 5.',
         );
         return 1;
     }

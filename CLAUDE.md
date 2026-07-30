@@ -100,8 +100,8 @@ every implementation decision. Before non-trivial work, read the contract for th
 are touching — e.g. `C03` (schemas/commands/state), `C04` (rendering/scheduling), `C11`
 (element creation pipeline), `C15` (hosted elements: doors/windows in walls).
 
-Conflict resolution order (strongest first): `docs/03_PRYZM3/01-VISION.md` →
-`02-ARCHITECTURE.md` → the C01–C15 contracts → ADRs (`docs/02-decisions/adrs/`) →
+Conflict resolution order (strongest first): `docs/01-strategy/STR-03-engineering-vision.md` →
+`docs/01-strategy/STR-04-architecture.md` → the C01–C15 contracts → ADRs (`docs/02-decisions/adrs/`) →
 SPECs (`reference/specs/`). **When code disagrees with a contract, the code is wrong** — fix
 the code, or raise a superseding ADR; never write a new `*-AUDIT.md` derivative doc. Edit the
-canonical `C0N-*.md` in place. Current migration status: `docs/03_PRYZM3/PRYZM3-MASTER-STATUS.md`.
+canonical `C0N-*.md` in place. Current migration status: `docs/03-execution/plans/master-execution-tracker.md`.

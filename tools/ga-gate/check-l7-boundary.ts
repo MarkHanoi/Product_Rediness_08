@@ -2,10 +2,10 @@
 /**
  * PR 4.B.3 — L7 plugin boundary violation tripwire.
  *
- * Spec: docs/03_PRYZM3/04-PLAN-FORWARD/08-WAVE-4-SLOT-TYPING-ROUTING.md §3 PR 4.B.3
- * Anchor: docs/03_PRYZM3/02-ARCHITECTURE.md §3 (L7 boundary rule — plugins must
+ * Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/08-WAVE-4-SLOT-TYPING-ROUTING.md §3 PR 4.B.3
+ * Anchor: docs/01-strategy/STR-04-architecture.md (L7 boundary rule — plugins must
  *         use @pryzm/plugin-sdk, not L0–L5 internals directly).
- *         docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
+ *         docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/10-WAVE-6-CONVERGENCE.md §2
  *         (each plugin's migration to plugin-sdk unlocks its slot-typed Phase B binding)
  *
  * Hard-fail if ANY plugin's L0–L5 import file count GROWS beyond its baseline.
@@ -169,7 +169,7 @@ function main(): number {
   if (regressions.length > 0) {
     console.error(`[l7-boundary] FAIL: ${regressions.length} plugin(s) grew their violation count.`);
     console.error(`  Violations must only DECREASE as plugins migrate to @pryzm/plugin-sdk.`);
-    console.error(`  Read: docs/03_PRYZM3/04-PLAN-FORWARD/08-WAVE-4-SLOT-TYPING-ROUTING.md §3`);
+    console.error(`  Read: docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/08-WAVE-4-SLOT-TYPING-ROUTING.md §3`);
     console.error(regressions.join('\n'));
     return 1;
   }

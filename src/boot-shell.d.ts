@@ -3,7 +3,7 @@
  *
  * These globals are set up by the inline <script> in `index.html` BEFORE any
  * module script runs.  They exist to bridge the App-Shell first-paint stage
- * (Stage 0 in `docs/03_PRYZM3/02-ARCHITECTURE.md §6`) with the runtime stage
+ * (Stage 0 in `docs/01-strategy/STR-04-architecture.md`) with the runtime stage
  * (Stage 1) once `LandingPage.ts` mounts:
  *
  *   • `__pryzmPendingActions` — a queue of pre-boot CTA clicks the user made

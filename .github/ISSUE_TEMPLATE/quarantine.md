@@ -6,7 +6,7 @@ labels: ["quarantine", "ci"]
 assignees: []
 ---
 
-> **Convention spec**: `docs/03_PRYZM3/04-PLAN-FORWARD/02-WAVE-1-TRIPWIRES.md §5` (task 4) — the directory layout (`<package>/__tests__/quarantined/`) and the `test:ci` / `test:quarantined` scripts. Every field below is **mandatory**.
+> **Convention spec**: `docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/02-WAVE-1-TRIPWIRES.md §5` (task 4) — the directory layout (`<package>/__tests__/quarantined/`) and the `test:ci` / `test:quarantined` scripts. Every field below is **mandatory**.
 
 ## Quarantined on
 <!-- ISO date, e.g. 2026-04-30 -->
@@ -63,6 +63,6 @@ the §10 weekly delta log records it as an incident. Set the date here
 -->
 
 ## Cross-references
-- `docs/03_PRYZM3/03-CURRENT-STATE.md §7` — workflow status row will be updated to "🟡 quarantined" when this issue opens, back to "✅ green" when it closes.
-- `docs/03_PRYZM3/04-PLAN-FORWARD/02-WAVE-1-TRIPWIRES.md §5` — convention.
-- `docs/03_PRYZM3/01-VISION.md §8` rule 1 — edit canonical docs on discovery; do not write new audit files.
+- `docs/archive/pryzm3-internal/03-CURRENT-STATE-ARCHIVED-2026-05-16.md §7` — workflow status row will be updated to "🟡 quarantined" when this issue opens, back to "✅ green" when it closes.
+- `docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/02-WAVE-1-TRIPWIRES.md §5` — convention.
+- `docs/01-strategy/STR-03-engineering-vision.md` — edit canonical docs on discovery; do not write new audit files.

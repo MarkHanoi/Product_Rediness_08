@@ -2,9 +2,9 @@
 /**
  * Wave 1 task 2 — `(window as any)` cast-count tripwire (monotonic ratchet).
  *
- * Spec: docs/03_PRYZM3/04-PLAN-FORWARD/02-WAVE-1-TRIPWIRES.md §3
- * Anchor: docs/03_PRYZM3/01-VISION.md §2 P4;
- *         docs/03_PRYZM3/04-PLAN-FORWARD/05-WAVE-5-CAST-DELETION.md
+ * Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/02-WAVE-1-TRIPWIRES.md §3
+ * Anchor: docs/01-strategy/STR-03-engineering-vision.md (P4 — No `(window as any)`);
+ *         docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/09-WAVE-5-CAST-DELETION.md
  *
  * Hard-fail if reach count across src/ rises above the baseline.
  * Auto-ratchets the baseline DOWN when count drops (one-way ratchet).
@@ -74,7 +74,7 @@ function main(): number {
   if (current > baseline) {
     console.error(`[cast-tripwire] FAIL: (window as any) count = ${current} > baseline ${baseline}.`);
     console.error(`  A regression added ${current - baseline} new cast(s).`);
-    console.error(`  Read: docs/03_PRYZM3/04-PLAN-FORWARD/05-WAVE-5-CAST-DELETION.md §3`);
+    console.error(`  Read: docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/09-WAVE-5-CAST-DELETION.md §3`);
     console.error(`  To fix: replace (window as any).<service> with runtime.<service>;`);
     console.error(`          if genuinely a browser global, allowlist in src/engine/subsystems/legacy/window-shim.ts.`);
     return 1;

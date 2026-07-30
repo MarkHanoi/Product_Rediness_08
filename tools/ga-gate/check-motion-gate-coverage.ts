@@ -2,9 +2,9 @@
 /**
  * R11 tripwire — motion-gate coverage in L7.5 Canvas2D view managers.
  *
- * Spec: docs/03_PRYZM3/04-PLAN-FORWARD/13-RISK-REGISTER.md §1 R11
- * Anchor: docs/03_PRYZM3/01-VISION.md §2 P3 (single rAF);
- *         docs/03_PRYZM3/04-PLAN-FORWARD/02-WAVE-1-TRIPWIRES.md §1 task 3
+ * Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/13-RISK-REGISTER.md §1 R11
+ * Anchor: docs/01-strategy/STR-03-engineering-vision.md (P3 — Single rAF);
+ *         docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/02-WAVE-1-TRIPWIRES.md §1 task 3
  *
  * RULE: Any file under src/core/views/ that BOTH
  *   (a) registers a DOM gesture handler (wheel | mousedown | mouseup | touchstart | touchmove | touchend), AND
@@ -134,7 +134,7 @@ function main(): number {
       console.error(`      has: gesture handler + camera state mutation — needs: beginMotion() + endMotion()`);
     }
     console.error('');
-    console.error('  Read: docs/03_PRYZM3/04-PLAN-FORWARD/13-RISK-REGISTER.md §1 R11');
+    console.error('  Read: docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/13-RISK-REGISTER.md §1 R11');
     console.error('  Fix:  call getFrameScheduler().beginMotion() in the gesture-start handler,');
     console.error('        and getFrameScheduler().endMotion() in the gesture-end handler.');
     console.error('        Emit a pryzm.plan-view.* OTel span per P8.');
