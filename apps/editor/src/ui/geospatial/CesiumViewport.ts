@@ -391,6 +391,12 @@ const FORMA_PALETTE = {
    *  LOD200 (true boundary + true height) set and the amber wireframes read as "estimated height".
    *  Amber = a caution/provisional tone, distinct from white context / purple massing / green / blue. */
   contextUncertainHeight: '#E8973A',
+  /** §CTX-HEIGHT-FIDELITY-RENDER (L-647, founder 2026-07-30) — the ESTIMATED-height treatment: a
+   *  NEUTRAL grey a touch DARKER than the solid `contextFill` (#D9D8D3), rendered as a TRANSLUCENT
+   *  massing (not a wireframe, not amber). Estimated buildings read as soft, slightly-darker ghost
+   *  blocks — the honest "height not surveyed" signal, in the Forma palette, replacing the founder-
+   *  rejected orange wireframe. Solid/measured buildings keep the opaque `contextFill`. */
+  contextEstimatedHeight: '#B8B6B0',
   /** Soft shadow tint (§2 Shadows) — rgba(20,20,20,0.30). */
   shadowTint: 'rgba(20,20,20,0.30)',
   /** Parcel-boundary dashed line + fill (§2 Special elements / §3). */
@@ -7565,34 +7571,35 @@ export class CesiumViewport {
         // material was the DELIBERATE "unknown height" signal; per founder direction we drop the material
         // signal for visual parity. The honest fix is real height DATA (re-bake Madrid MDS heights) so
         // fewer footprints are 'assumed' at all. `isAssumedHeight` retained for the entity name/log only.
-        // §CTX-HEIGHT-FIDELITY-RENDER (L-647, founder) — a building whose HEIGHT is TRUSTWORTHY renders
-        // SOLID = LOD200 (true boundary + true height). Two provenances are trustworthy: `measured-lidar`
-        // (a REAL measured height — LiDAR/nDSM/3DBAG, §CTX-HEIGHT-MEASURED-MARKER, standard §1 rung 1) and
-        // `tagged` (a surveyed-ish OSM height). EVERY other height (derived-levels / assumed / unknown /
-        // untagged) is NOT accurate, so it renders as a SEE-THROUGH WIREFRAME in the amber accent — the
-        // honest signal that its height is estimated, not surveyed (§CONTEXT-DATA-HONESTY; BUILDING-HEIGHT-
-        // REPLICATION-STANDARD §3). This REFINES the L-636 parity decision (which dropped the
-        // translucent signal because it read flat-white): a wireframe has no flat-white problem and
-        // reads unambiguously. Drive PURELY off provenance, never off the height value (a tall
-        // derived-levels block must still read as uncertain).
+        // §CTX-HEIGHT-FIDELITY-RENDER (L-647) — a building whose HEIGHT is TRUSTWORTHY renders SOLID =
+        // LOD200 (true boundary + true height). Two provenances are trustworthy: `measured-lidar` (a REAL
+        // measured height — LiDAR/nDSM/3DBAG, standard §1 rung 1) and `tagged` (a surveyed-ish OSM height).
+        // EVERY other height (derived-levels / assumed / unknown / untagged) is NOT accurate, so it renders
+        // as a slightly-DARKER TRANSLUCENT GREY MASSING (a soft ghost block, like the far tier) — the
+        // honest "height not surveyed" signal (§CONTEXT-DATA-HONESTY; BUILDING-HEIGHT-REPLICATION-STANDARD
+        // §3). ⚠ FOUNDER 2026-07-30: this REPLACES the amber see-through wireframe (read as a "weird
+        // orange", spiky mess of line-edges) — the distinction is opacity + a subtle darkening in the
+        // Forma neutral palette, NOT a loud colour and NOT bare edges. Drive PURELY off provenance, never
+        // off the height value (a tall derived-levels block must still read as uncertain).
         const heightAccurate = f.properties.heightProvenance === 'tagged' || f.properties.heightProvenance === 'measured-lidar';
-        const uncertainEdge = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextUncertainHeight);
+        const estimatedFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextEstimatedHeight).withAlpha(0.5);
+        const estimatedEdge = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextEstimatedHeight).withAlpha(0.85);
         const ent = viewer.entities.add({
           name: heightAccurate
             ? 'pryzm-forma-context-building'
-            : 'pryzm-forma-context-building-uncertain-height',
+            : 'pryzm-forma-context-building-estimated-height',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
             height: fBase,
             // Top preserved above ground: this footprint's own ground + its height.
             extrudedHeight: fTop + Math.max(0.1, h),
-            // Accurate → solid opaque fill (self-shadows, LOD200). Not accurate → NO fill = a
-            // see-through amber wireframe box, so it can never read as surveyed massing.
-            fill: heightAccurate,
-            material: fill,
+            // Accurate → opaque solid (self-shadows, LOD200). Estimated → a slightly-darker TRANSLUCENT
+            // GREY massing (alpha 0.5), so it reads as a soft ghost block, never as surveyed solid.
+            fill: true,
+            material: heightAccurate ? fill : estimatedFill,
             outline: true,
-            outlineColor: heightAccurate ? outline : uncertainEdge,
-            outlineWidth: heightAccurate ? 1 : 2,
+            outlineColor: heightAccurate ? outline : estimatedEdge,
+            outlineWidth: 1,
             // Accurate casts+receives; estimated buildings do NOT cast confident shadows.
             shadows: heightAccurate ? Cesium.ShadowMode.ENABLED : Cesium.ShadowMode.DISABLED,
             perPositionHeight: false,

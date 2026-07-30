@@ -89,26 +89,32 @@ if (src && heightSrc) {
       );
     }
 
-    // ── CHECK C — estimated heights are a WIREFRAME (conditional fill), not a solid ──
-    const conditionalFill = /fill:\s*heightAccurate\b/.test(block.text);
-    const unconditionalSolidFill = /fill:\s*true\b/.test(block.text);
-    if (!conditionalFill || unconditionalSolidFill) {
+    // ── CHECK C — estimated heights render TRANSLUCENT + a DISTINCT material, never the opaque solid ──
+    // Founder 2026-07-30: the estimated treatment is a slightly-darker TRANSLUCENT GREY MASSING (a soft
+    // ghost block), not a wireframe. The honesty invariant that survives that visual change: the estimated
+    // branch must NOT share the opaque solid material of the measured/tagged branch — it must be a
+    // translucent (alpha < 1), visually-distinct fill, so a fabricated/estimated height can never read as
+    // authoritative surveyed massing.
+    const conditionalMaterial = /material:\s*heightAccurate\s*\?/.test(block.text);
+    const estimatedTranslucent = /contextEstimatedHeight\b[\s\S]{0,120}?\.withAlpha\(\s*0?\.\d/.test(src);
+    if (!conditionalMaterial || !estimatedTranslucent) {
       fail(
-        'C/estimated-not-wireframe',
-        'The near-tier render must set `fill: heightAccurate` so a NON-`tagged` height draws as a see-through wireframe (fill:false), never a confident solid. ' +
-          (unconditionalSolidFill ? 'Found an unconditional `fill: true` — a fabricated height would render as authoritative massing.' : '`fill: heightAccurate` not found.'),
+        'C/estimated-not-translucent',
+        'The near-tier render must set `material: heightAccurate ? <opaque solid> : <translucent estimated>` so a NON-measured/tagged height draws as a TRANSLUCENT distinct massing, never the opaque solid used for measured/tagged. ' +
+          (!conditionalMaterial ? 'Conditional `material: heightAccurate ? …` not found. ' : '') +
+          (!estimatedTranslucent ? '`FORMA_PALETTE.contextEstimatedHeight` must be applied at a translucent alpha (`.withAlpha(0.x)`).' : ''),
         `${REL}:${lineOf(src, block.at)}`,
       );
     }
 
-    // ── CHECK D — the uncertain accent is used for the non-accurate branch ─────
-    const usesUncertainAccent =
-      /FORMA_PALETTE\.contextUncertainHeight/.test(src) &&
+    // ── CHECK D — the estimated branch uses the DISTINCT estimated palette + a conditional outline ──
+    const usesEstimatedAccent =
+      /FORMA_PALETTE\.contextEstimatedHeight/.test(src) &&
       /outlineColor:\s*heightAccurate\s*\?/.test(block.text);
-    if (!usesUncertainAccent) {
+    if (!usesEstimatedAccent) {
       fail(
-        'D/no-uncertain-accent',
-        'The estimated-height branch must render in the distinct `FORMA_PALETTE.contextUncertainHeight` accent (a conditional `outlineColor: heightAccurate ? … : uncertainEdge`), so it reads unambiguously as "estimated".',
+        'D/no-estimated-accent',
+        'The estimated-height branch must render in the distinct `FORMA_PALETTE.contextEstimatedHeight` grey (a conditional `outlineColor: heightAccurate ? outline : estimatedEdge`), so it reads unambiguously as "estimated" and never as authoritative solid massing.',
         `${REL}:${lineOf(src, block.at)}`,
       );
     }
