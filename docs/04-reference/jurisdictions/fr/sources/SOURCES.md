@@ -5,6 +5,14 @@
 > **Trust gate:** a field with NO citable source stays `null` in the pack and is listed under §B.
 > A pack may not ship confidence `structured` unless EVERY field it sets has a row in §A here.
 
+> **Context-data study folded (2026-07-30, L-515):** the geospatial layer inventory (terrain / roads /
+> water / parks / trees added below) is folded from the captured *France Geospatial + Context Deep-Dive*.
+> Physical layers are VERIFIED-STRONG (IGN, national) but flagged **`re-probe before prod`**; **height is
+> DERIVED** (no complete national attribute → nDSM shared module); **planning is PDF-based** (GPU serves
+> zoning polygons + PDF links, NOT machine-readable rules → OCR). This folds **NO** numeric rule and
+> changes **NO** RATE % cell. Full tables: `../FRANCE-GEOSPATIAL-DATA-INVENTORY.md` and
+> `../findings/FRANCE-CONTEXT-DATA-DEEP-DIVE-L515.md`.
+
 ---
 
 ## A — VERIFIED (research-cited; not yet live-probed)
@@ -31,7 +39,12 @@
 | LiDAR HD licence | Etalab 2.0 — free including commercial use, attribution only | — | Licence text | "Licence Ouverte / Open Licence version 2.0", Etalab | `data.gouv.fr/licences/licence-ouverte` | `published` |
 | LiDAR HD resolution | 10 points/m² | pts/m² | IGN LiDAR HD programme | IGN LiDAR HD programme documentation | `lidarhd.ign.fr` | `corroborated` |
 | LiDAR HD coverage (metro France) | ~80% metropolitan France covered end-2025; full national end-2026 | % area | IGN rollout tracker | IGN LiDAR HD progress map | `macarte.ign.fr/carte/mThSup/diffusionMNxLiDARHD` | `corroborated` |
-| LiDAR HD classification | 11 classes: ground, low/mid/high vegetation, buildings, water, etc. | — | IGN LiDAR HD point-cloud specification | IGN LiDAR HD classification scheme documentation | `lidarhd.ign.fr` | `corroborated` |
+| LiDAR HD classification | 11 classes: ground, low/mid/high vegetation, buildings, water, etc. | — | IGN LiDAR HD point-cloud specification | IGN LiDAR HD classification scheme documentation | `lidarhd.ign.fr` | `corroborated` — **do NOT assume ASPRS class codes; re-probe before wiring CHM veg** |
+| Terrain source (DTM/DSM) | IGN **RGE Alti** (national) + LiDAR HD DTM (progressive, finer where flown) | m | IGN product specification | "RGE ALTI® — Descriptif de contenu", IGN, current; folded from L-515 context study 2026-07-30 | `data.geopf.fr` / `lidarhd.ign.fr` | `corroborated` — VERIFIED-STRONG physical layer; **re-probe before prod** |
+| Roads source | IGN **BD TOPO® Transport** — `troncon_de_route` + class (motorway/national/departmental/local) + junctions | — | IGN product specification | "BD TOPO® — Descriptif de contenu", IGN 3.0, current; folded from L-515 | `data.geopf.fr/wfs` | `corroborated` — VERIFIED-STRONG; width-by-class buffer→terrain-drape (shared ES/FR/PT road module); **re-probe before prod** |
+| Water source | IGN **BD TOPO Hydrographie** + **Sandre** + **OFB** — rivers/canals/lakes/reservoirs/coastline (Atlantic+Med+Channel) | — | IGN / Sandre / OFB product specifications | Sandre référentiel hydrographique; OFB; folded from L-515 | `data.geopf.fr` / `sandre.eaufrance.fr` / `ofb.gouv.fr` | `corroborated` — VERIFIED-STRONG; **NEVER derive water elevation from LiDAR** (flat/gradient/MSL); **re-probe before prod** |
+| Parks / green source | IGN **OCS GE** + BD TOPO land-cover (national); municipal park polygons override | — | IGN product specification | "OCS GE — Descriptif de contenu", IGN, current; folded from L-515 | `data.geopf.fr` | `corroborated` — VERIFIED-STRONG national (too coarse for individual park boundaries → district-scale; municipal override); **re-probe before prod** |
+| Trees source | Municipal per-tree inventories (Paris/Lyon/Bordeaux/Nantes/Toulouse/Strasbourg/Rennes); else LiDAR HD CHM; else procedural | — | Municipal open-data portals | Municipal arboriculture registers; folded from L-515 | municipal portals | `corroborated` — CONVERGENT-MUNICIPAL (no national per-tree DB); **licences vary (Licence Ouverte/ODbL/custom); re-probe before prod** |
 | COS (FAR) legal status | Abolished nationwide — loi ALUR 2014 | — | Loi n° 2014-366 du 24 mars 2014 (loi ALUR), Art. 157 (Code de l'urbanisme) | "Loi pour l'accès au logement et un urbanisme rénové (ALUR)", JORF 2014-03-26 | `legifrance.gouv.fr` | `published` |
 | SRU standard national coverage | 2 pilot communes (Pechbonnieu 31, Preignan 32) as of 2026 | communes | CNIG SRU project status | "Structuration du Règlement d'Urbanisme — état d'avancement", CNIG | `cnig.fr/cnig/structuration-des-reglements` | `corroborated` |
 
