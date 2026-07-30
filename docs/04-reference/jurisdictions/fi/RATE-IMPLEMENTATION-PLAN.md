@@ -142,14 +142,51 @@ terrain 50→100. Each phase lists **goal · unlocks · axis · effort · depend
   numeric attribute) regardless. Kaavayksikkö adoption varies; retroactive migration is voluntary. Do NOT
   report the coarse national ~55–65% prior as the Axis-2 score (§CONTEXT-DATA-HONESTY).
 
+> ## 🇫🇮 = 🇩🇰-lite MILESTONE — "the second fully-automated country" (2026-07-30)
+>
+> Finland is the **second country after Denmark to be fully automated**, and the ONLY one whose sole
+> founder friction is a **self-service key** (create-it-yourself at `omatili.maanmittauslaitos.fi` — no
+> eID, no contract). The MML parcel provider is **BUILT + VERIFIED ahead of the key**:
+> `packages/site-parcel-data/src/parcelProviders/mmlParcelProvider.ts` (`isInFinland` + `FINLAND_BBOX`,
+> OGC API Features parse, EPSG:3067→4326 CRS-guard refusal, typed refusal union incl. the distinct
+> `no-api-key` blocker, never-throws, OTel span) + 25 green tests. It goes live the instant `MML_API_KEY`
+> lands and `/api/parcel/fi` is wired. **Success criteria — ALL must go green to close the milestone:**
+>
+> | # | Criterion | Gated on |
+> |---|---|---|
+> | 1 | ✅ **MML API key generated** (self-service — the ONLY founder friction) | founder |
+> | 2 | ✅ **MML parcel lookup operational** — Helsinki click → real `kiinteistötunnus` via `/api/parcel/fi` | proxy wire + key |
+> | 3 | ✅ **MML DEM operational** — same key unblocks the MML WCS terrain bake (Phase C) | key |
+> | 4 | ✅ **Ryhti exposes `tehokkuusluku`** (FAR) in the `_ix_` item `properties` | code probe (UNPROBED) |
+> | 5 | ✅ **Ryhti exposes `kerrosluku`** (height/storeys) in the `_ix_` item `properties` | code probe (UNPROBED) |
+> | 6 | ✅ **Helsinki `computeParcelConfidence` ≥95%** — cadastre reads off the footprint fallback | key + sample |
+>
+> **Founder friction = ONE self-service key.** Criteria 4/5 are the code-only Ryhti `_ix_` probe
+> (`RYHTI_IX_PROBE_URL` in the provider) — they stay ⬜ until the open no-auth GET actually runs (Phase A).
+> Ship the probe before the fix. No RATE cell moves until each criterion is measured, not projected.
+
 ### Phase B — Obtain `MML_API_KEY` → wire the MML parcel provider + `computeParcelConfidence`
 
-- **Goal.** Register for the **FREE self-service** MML open-data key (email registration via NLS "My
-  Account" — no contract). Add an `isInFinland` predicate + an `MmlParcelProvider` to
-  `parcelProviders/registry.ts` hitting the Kiinteistörekisteri OGC API Features
-  (`avoin-paikkatieto.maanmittauslaitos.fi/kiinteisto-avoin/simple-features/v3/`, CC BY 4.0, nightly refresh).
+- **Goal.** Register for the **FREE self-service** MML open-data key (create-it-yourself at
+  `omatili.maanmittauslaitos.fi` — no contract). **The `isInFinland` predicate + the `mmlParcelProvider`
+  are ALREADY BUILT** (`parcelProviders/mmlParcelProvider.ts`, verified 25 tests) hitting the
+  Kiinteistörekisteri OGC API Features
+  (`avoin-paikkatieto.maanmittauslaitos.fi/kiinteisto-avoin/simple-features/v3/`, CC BY 4.0, nightly
+  refresh); the remaining work is (a) the orchestrator registering `isInFinland→mml` in
+  `parcelProviders/registry.ts` and (b) the `/api/parcel/fi` server proxy that injects the key.
   Run `computeParcelConfidence` over an N-parcel Helsinki sample so PARCEL reads from a national cadastre
   instead of the labelled OSM-footprint fallback (a footprint is never a legal parcel — C57 §L-640).
+- **Auth shape the proxy must apply** (MML documents both — prefer Basic, fall back to the query param):
+  HTTP Basic with **username = the API key and a BLANK password** (`Authorization: Basic base64("<key>:")`
+  — note the trailing colon), OR the query param `?api-key=<key>` on the OGC items URL. The provider
+  itself carries NO key (`buildMmlItemsUrl` is key-free); the proxy owns it server-side, exactly as
+  `server/dkMatrikelProxy.js` carries the Danish credential. Key unset/rejected → the provider returns the
+  `no-api-key` refusal → OSM footprint (graceful).
+- **CRS.** MML is native ETRS-TM35FIN (**EPSG:3067**, projected metres); the proxy must request
+  `crs=EPSG:4326` (OGC URI `.../def/crs/EPSG/0/4326`) so features arrive as WGS84 lon/lat. If a native-3067
+  body ever comes back, the provider REFUSES `crs-unhandled` rather than fabricate a hand-rolled projection.
+- **Terrain (Phase C) rides the SAME key** — the MML WCS DEM (`korkeusmalli`) is key-gated with the
+  identical Basic/query-param auth. One self-service credential lights up PARCEL **and** TERRAIN.
 - **Unlocks.** **PARCEL (Axis 1)** off the footprint fallback onto a national cadastre; DATA-SOURCES
   cadastre-parcel slot (`documented`→`live`). **The same MML key also gates Phase C terrain** (the MML WCS
   bake is key-gated) — so obtaining it is the highest-leverage single credential in the whole country.
