@@ -75,7 +75,7 @@ moves on it.**
 | C63 axis | Weight | Current premise (Brussels) | Post-phase (once probed + wired) |
 |---|---:|---|---|
 | **DATA-SOURCES** | 15% | 40% — cadastre `documented`, zone-GIS `documented`, height `blocked`, terrain `blocked`, context `live` | **Rises (Phase A)** — CADMAP wired flips cadastre-slot `documented`→`live`; a PRAS wire flips zone-GIS `documented`→`live`. Height/terrain stay `blocked` for Brussels (Phase B honest). |
-| **PARCEL** | 15% | `not-assessed` — no BE cadastre provider in `registry.ts` → footprint-fallback (capped low) | **Rises (Phase A)** — CADMAP provider + `computeParcelConfidence` sample; **one federal wire serves all 3 regions** (the single cross-region efficiency). |
+| **PARCEL** | 15% | `wired-pending-probe` (Phase-4) — `FlandersGrbParcelProvider` (GRB `Adp`, Flanders-only) BUILT in `parcelProviders/flandersGrbParcelProvider.ts` + tested; **not yet in `registry.ts`** (single-writer orchestrator) and **not live-probed**, so the RATE cell stays `not-assessed`. Federal CADMAP (all-region) still unbuilt. | **Rises (Phase A)** — orchestrator registers `isInFlanders→flanders-grb`, live-probes GRB `Adp`, then draws a `computeParcelConfidence` sample; the later CADMAP wire serves all 3 regions (the single cross-region efficiency). |
 | **CONTEXT** | 5% | 56% — 5/9 baked layers (`bake.mjs brussels`) | Roughly flat — rail/trees pending the L-642 re-bake; sea N/A (inland). |
 | **HEIGHTS/LOD** | 10% | `not-assessed` — `grb_be` `blocked`; UrbIS height unprobed | **Contingent (Phase B)** — the highest-value BE height probe is the **CADMAP building sublayer** height/storey attribute; UrbIS second. Stays low for Brussels if both are negative — honest. |
 | **TERRAIN** | 10% | `not-assessed` — `be` verdict `blocked`; no Brussels DTM route | **Contingent (Phase B)** — needs a Bruxelles-Environnement/CIRB DTM route pinned + a `terrain.mjs` REGIONS row. **Blocked until located** — do not fabricate a rung. |
@@ -122,6 +122,19 @@ Each phase lists **goal · unlocks · axis · effort · dependency · blocker**.
 and the city [`be-bru/21004-brussels/NEXT.md`](./be-bru/21004-brussels/NEXT.md).
 
 ### Phase A — Wire the federal CADMAP cadastre (the verified-live win) → PARCEL + DATA-SOURCES
+
+> **Phase-4 status (2026-07-30) — Flanders GRB provider BUILT, `wired-pending-probe`.** A first BE
+> cadastre provider now exists in code: `packages/site-parcel-data/src/parcelProviders/flandersGrbParcelProvider.ts`
+> — the **Flemish GRB `Adp`** (administrative parcels: CaPaKey + NISCODE + geometry, "Gratis Open
+> Data", no key), behind an `isInFlanders` bbox predicate, resolving through a same-origin proxy
+> (`/api/parcel/be-vlg`) with the DK/NL/NO/FR server-side reprojection seam (native EPSG:31370 →
+> requested WGS84). Pure parse + 18 unit tests; typecheck + isolation clean; never throws; geometry-only
+> (no envelope). **It is `documented` not `live`:** the orchestrator has NOT yet registered it in
+> `parcelProviders/registry.ts` (single-writer), no server proxy is wired, and no `computeParcelConfidence`
+> sample has been drawn against a live GRB response. This is the **Flanders** slice, NOT the all-region
+> federal CADMAP win — GRB does not cover Brussels-Capital or Wallonia. **Live PROBEs still owed:** GRB
+> `Adp` typeName via GetCapabilities, `srsName=EPSG:4326` reprojection honoured, exact CaPaKey/area field
+> names, and the `overdrachtdiensten` vs `geo.api.vlaanderen.be` host. Ship the probe before the fix.
 
 - **Goal.** Wire the federal **CADMAP/CadGIS** parcel dataset (AGDP/SPF Finances — single national WFS
   `ccff02.minfin.fgov.be/geoservices/arcgis/rest/services/INSPIRE/CP/`, **`VERIFIED LIVE` 2026-07-24, HTTP
