@@ -4756,36 +4756,152 @@ Dependency: builds on L-621 (panel drag/resize/launcher) + supersedes L-622 (3D-
 > [SPEC-CITY-COMPLETION-SCORECARD](../specs/SPEC-CITY-COMPLETION-SCORECARD.md). Issue: audit **L-648**.
 > **This is the single source of truth for "how complete is each city."**
 >
-> ⚠ **§CONTEXT-DATA-HONESTY (C63 §1.1/§1.2).** Every axis % is a scorecard-function output — NEVER
-> hand-typed. The function is **not yet built** (C63 §8), so **every cell below is honestly
-> `not-assessed` (`pending-implementation`)** — the correct current state, not a shortfall. A cell flips
-> to a number ONLY when the function computes it; `not-assessed ≠ 0 %`. The separate **documentary
-> disposition** table is code-confirmed state (registry / `heightSources.mjs` `impl` flags / dossier
-> gate booleans), explicitly **NOT a scorecard percentage**.
+> ⚠ **§CONTEXT-DATA-HONESTY (C63 §1.1/§1.2).** Every axis % is a scorecard-shaped output — NEVER
+> hand-typed. The automated scorecard function is **not yet built** (C63 §8); the numbers below are the
+> **C63 Phase-1 manual audit** (2026-07-30), where the three cheap "port-free" axes (DATA-SOURCES ·
+> TERRAIN · CONTEXT) are **cited-derived** in each country's `COUNTRY-RATE.md` and every human-gated axis
+> (PARCEL · LEGISLATION · ENVELOPE · HEIGHTS/LOD) stays honestly `n/a` = `not-assessed`. **Every cell
+> below is transcribed verbatim from the authoritative per-country `COUNTRY-RATE.md`** (do not recompute;
+> `not-assessed ≠ 0 %`). A cell flips further only when the scorecard function computes it. The separate
+> **documentary disposition** table (§CC.2) is code-confirmed state (registry / `heightSources.mjs`
+> `impl` flags / dossier gate booleans), explicitly **NOT a scorecard percentage**.
 
 ## §CC.1 — The completion matrix (7 axes + overall — C63 §3/§4)
 
 Axes: **PAR**=Parcel · **LEG**=Legislation · **SRC**=Data-sources · **ENV**=Envelope · **TER**=Terrain ·
-**HGT**=Heights/LOD · **CTX**=Context. `n/a` below = `not-assessed (pending-implementation)`.
+**HGT**=Heights/LOD · **CTX**=Context. `Ovr`=Overall · `hOk`=`honestyOk`.
 
-| City (`code`) | PAR | LEG | SRC | ENV | TER | HGT | CTX | **Overall** | Dossier |
-|---|---|---|---|---|---|---|---|---|---|
-| Barcelona (`08019`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [es-ct/08019-barcelona](../../04-reference/jurisdictions/es/es-ct/08019-barcelona/) |
-| L'Hospitalet (`08101`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [es-ct/08101-hospitalet](../../04-reference/jurisdictions/es/es-ct/08101-hospitalet/) |
-| Badalona (`08015`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [es-ct/08015-badalona](../../04-reference/jurisdictions/es/es-ct/08015-badalona/) |
-| Sant Boi (`08200`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [es-ct/08200-sant-boi](../../04-reference/jurisdictions/es/es-ct/08200-sant-boi/) |
-| _(5th Catalan metro)_ | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | _candidate — not yet scaffolded_ |
-| Madrid (`28079`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [es-md/28079-madrid](../../04-reference/jurisdictions/es/es-md/28079-madrid/) |
-| Córdoba (`14021`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [es-an/14021-cordoba](../../04-reference/jurisdictions/es/es-an/14021-cordoba/) |
-| Munich (`09162`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [de-by/09162-munich](../../04-reference/jurisdictions/de/de-by/09162-munich/) |
-| Hamburg (`02000`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [de-hh/02000-hamburg](../../04-reference/jurisdictions/de/de-hh/02000-hamburg/) |
-| Rome (`058091`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [it-laz/058091-rome](../../04-reference/jurisdictions/it/it-laz/058091-rome/) |
-| Milan (`015146`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [it-lom/015146-milan](../../04-reference/jurisdictions/it/it-lom/015146-milan/) |
-| Turin (`001272`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [it-pie/001272-turin](../../04-reference/jurisdictions/it/it-pie/001272-turin/) |
-| Oslo (`0301`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [no-03/0301-oslo](../../04-reference/jurisdictions/no/no-03/0301-oslo/) |
-| Braga (`0303`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [pt-03/0303-braga](../../04-reference/jurisdictions/pt/pt-03/0303-braga/) |
-| Los Angeles (`0644000`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [us-ca/0644000-los-angeles](../../04-reference/jurisdictions/us/us-ca/0644000-los-angeles/) |
-| Zürich (CH) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [ch/regions/zurich](../../04-reference/jurisdictions/ch/regions/zurich/) |
+**Legend (transcribed from the per-country `COUNTRY-RATE.md` files — SOURCE, do not recompute).**
+`n/a` = **not-assessed** (a typed C62 UnknownReason lives in the city dossier's `RATE.md`; `n/a ≠ 0 %`,
+C63 §1.2). **Overall** is renormalised over the ASSESSED subset only → `partial`. Qualifier markers on an
+`n/a` cell record *why*/*capability*, unchanged: `(cap)` HEIGHTS measured-**capable** but unbaked/unwired ·
+`(der)` HEIGHTS derive-capable (e.g. EA DSM−DTM), unwired · `(nw)` cadastre verified-live but **not wired** →
+PARCEL/SRC held at `documented` · `(ns)` HEIGHTS structural **no-source** · `(blk)` TERRAIN affirmatively
+`blocked` (no open DTM) · `(out)`/`(T-out)` CONTEXT/TERRAIN `outside-coverage` (outside the bake/terrain
+clip) · `⚑` foral / footprint-fallback cadastre. **Saudi TERRAIN normalisation (tracker-only):** Riyadh &
+Jeddah `COUNTRY-RATE.md` cite TERRAIN as a **`0 %`** for a blocked-upstream source (no open GEOSA DTM); here
+it is rendered **`n/a (blocked)`** for cross-country consistency (blocked = not-measurable) — the city
+dossiers are unchanged, and each Overall (19 %) is transcribed as-published (still computed over the 0 %).
+**Denmark LEGISLATION** is `n/a` — reason **"L-449 verification pending (PLANDATA machine-readable, not
+per-city verified)."** `see dossier` rows = pre-existing / research-only dossiers NOT re-audited this pass
+(cells live in the linked dossier; never borrowed here).
+
+| City (`code`) | PAR | LEG | SRC | ENV | TER | HGT | CTX | **Ovr** | hOk | Dossier |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **🇧🇪 Belgium (be) — 1 audited + 2 see-dossier** | | | | | | | | | | |
+| Brussels (`21004`) | n/a | n/a | **40%** | n/a | n/a | n/a | **56%** | **44%** part | ✓ | [be-bru/21004-brussels](../../04-reference/jurisdictions/be/be-bru/21004-brussels/RATE.md) |
+| Antwerp (`11002`) | — | — | — | — | — | — | — | see dossier | — | [be-vlg/ant-antwerp](../../04-reference/jurisdictions/be/be-vlg/ant-antwerp/) |
+| Liège (`62063`) | — | — | — | — | — | — | — | see dossier | — | [be-wal/lie-liege](../../04-reference/jurisdictions/be/be-wal/lie-liege/) |
+| **🇨🇭 Switzerland (ch) — 3 audited** | | | | | | | | | | |
+| Zürich (`0261`) | n/a | n/a | **80%** | n/a | **50%** | n/a (cap) | **56%** | **66%** part | ✓ | [ch-zh/0261-zurich](../../04-reference/jurisdictions/ch/ch-zh/0261-zurich/RATE.md) |
+| Genève (`6621`) | n/a | n/a | **80%** | n/a | **50%** | n/a (cap) | **56%** | **66%** part | ✓ | [ch-ge/6621-geneva](../../04-reference/jurisdictions/ch/ch-ge/6621-geneva/RATE.md) |
+| Bern (`0351`) | n/a | n/a | **80%** | n/a | **50%** | n/a (cap) | **56%** | **66%** part | ✓ | [ch-be/0351-bern](../../04-reference/jurisdictions/ch/ch-be/0351-bern/RATE.md) |
+| **🇩🇪 Germany (de) — 2 audited + 1 see-dossier** | | | | | | | | | | |
+| Berlin (`11000`) ⚑ | n/a | n/a | **40%** | n/a | n/a (T-out) | n/a | **56%** | **44%** part | ✓ | [de-be/11000-berlin](../../04-reference/jurisdictions/de/de-be/11000-berlin/RATE.md) |
+| München (`09162`) ⚑ | n/a | n/a | **20%** | n/a | n/a (T-out) | n/a | **56%** | **29%** part | ✓ | [de-by/09162-munich](../../04-reference/jurisdictions/de/de-by/09162-munich/RATE.md) |
+| Hamburg (`02000`) | — | — | — | — | — | — | — | see dossier | — | [de-hh/02000-hamburg](../../04-reference/jurisdictions/de/de-hh/02000-hamburg/) |
+| **🇩🇰 Denmark (dk) — 4 audited** (LEG `n/a` = L-449 verification pending) | | | | | | | | | | |
+| Copenhagen (`0101`) | n/a | n/a | **70%** | n/a | n/a | n/a | **56%** | **66%** part | ✓ | [dk-84/0101-copenhagen](../../04-reference/jurisdictions/dk/dk-84/0101-copenhagen/RATE.md) |
+| Aarhus (`0751`) | n/a | n/a | **70%** | n/a | n/a | n/a | **56%** | **66%** part | ✓ | [dk-82/0751-aarhus](../../04-reference/jurisdictions/dk/dk-82/0751-aarhus/RATE.md) |
+| Odense (`0461`) | n/a | n/a | **70%** | n/a | n/a | n/a | **56%** | **66%** part | ✓ | [dk-83/0461-odense](../../04-reference/jurisdictions/dk/dk-83/0461-odense/RATE.md) |
+| Aalborg (`0851`) | n/a | n/a | **70%** | n/a | n/a | n/a | **56%** | **66%** part | ✓ | [dk-81/0851-aalborg](../../04-reference/jurisdictions/dk/dk-81/0851-aalborg/RATE.md) |
+| **🇪🇸 Spain (es) — 49 audited + 6 see-dossier** | | | | | | | | | | |
+| Almería (`04013`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-an/04013-almeria](../../04-reference/jurisdictions/es/es-an/04013-almeria/RATE.md) |
+| Cádiz (`11012`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-an/11012-cadiz](../../04-reference/jurisdictions/es/es-an/11012-cadiz/RATE.md) |
+| Granada (`18087`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-an/18087-granada](../../04-reference/jurisdictions/es/es-an/18087-granada/RATE.md) |
+| Huelva (`21041`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-an/21041-huelva](../../04-reference/jurisdictions/es/es-an/21041-huelva/RATE.md) |
+| Jaén (`23050`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-an/23050-jaen](../../04-reference/jurisdictions/es/es-an/23050-jaen/RATE.md) |
+| Málaga (`29067`) | n/a | n/a | **70%** | n/a | **50%** | n/a (cap) | **56%** | **61%** part | ✓ | [es-an/29067-malaga](../../04-reference/jurisdictions/es/es-an/29067-malaga/RATE.md) |
+| Sevilla (`41091`) | n/a | n/a | **70%** | n/a | **50%** | n/a (cap) | **56%** | **61%** part | ✓ | [es-an/41091-sevilla](../../04-reference/jurisdictions/es/es-an/41091-sevilla/RATE.md) |
+| Huesca (`22125`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-ar/22125-huesca](../../04-reference/jurisdictions/es/es-ar/22125-huesca/RATE.md) |
+| Teruel (`44216`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-ar/44216-teruel](../../04-reference/jurisdictions/es/es-ar/44216-teruel/RATE.md) |
+| Zaragoza (`50297`) | n/a | n/a | **70%** | n/a | **50%** | n/a (cap) | **56%** | **61%** part | ✓ | [es-ar/50297-zaragoza](../../04-reference/jurisdictions/es/es-ar/50297-zaragoza/RATE.md) |
+| Oviedo (`33044`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-as/33044-oviedo](../../04-reference/jurisdictions/es/es-as/33044-oviedo/RATE.md) |
+| Palma (`07040`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-ib/07040-palma](../../04-reference/jurisdictions/es/es-ib/07040-palma/RATE.md) |
+| Santander (`39075`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-cb/39075-santander](../../04-reference/jurisdictions/es/es-cb/39075-santander/RATE.md) |
+| Ávila (`05019`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-cl/05019-avila](../../04-reference/jurisdictions/es/es-cl/05019-avila/RATE.md) |
+| Burgos (`09059`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-cl/09059-burgos](../../04-reference/jurisdictions/es/es-cl/09059-burgos/RATE.md) |
+| León (`24089`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-cl/24089-leon](../../04-reference/jurisdictions/es/es-cl/24089-leon/RATE.md) |
+| Palencia (`34120`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-cl/34120-palencia](../../04-reference/jurisdictions/es/es-cl/34120-palencia/RATE.md) |
+| Salamanca (`37274`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-cl/37274-salamanca](../../04-reference/jurisdictions/es/es-cl/37274-salamanca/RATE.md) |
+| Segovia (`40194`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-cl/40194-segovia](../../04-reference/jurisdictions/es/es-cl/40194-segovia/RATE.md) |
+| Soria (`42173`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-cl/42173-soria](../../04-reference/jurisdictions/es/es-cl/42173-soria/RATE.md) |
+| Valladolid (`47186`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-cl/47186-valladolid](../../04-reference/jurisdictions/es/es-cl/47186-valladolid/RATE.md) |
+| Zamora (`49275`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-cl/49275-zamora](../../04-reference/jurisdictions/es/es-cl/49275-zamora/RATE.md) |
+| Albacete (`02003`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-cm/02003-albacete](../../04-reference/jurisdictions/es/es-cm/02003-albacete/RATE.md) |
+| Ciudad Real (`13034`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-cm/13034-ciudad-real](../../04-reference/jurisdictions/es/es-cm/13034-ciudad-real/RATE.md) |
+| Cuenca (`16078`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-cm/16078-cuenca](../../04-reference/jurisdictions/es/es-cm/16078-cuenca/RATE.md) |
+| Guadalajara (`19130`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-cm/19130-guadalajara](../../04-reference/jurisdictions/es/es-cm/19130-guadalajara/RATE.md) |
+| Toledo (`45168`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-cm/45168-toledo](../../04-reference/jurisdictions/es/es-cm/45168-toledo/RATE.md) |
+| Las Palmas de G.C. (`35016`) | n/a | n/a | **50%** | n/a | **50%** | n/a | n/a (out) | **50%** part | ✓ | [es-cn/35016-las-palmas-de-gran-canaria](../../04-reference/jurisdictions/es/es-cn/35016-las-palmas-de-gran-canaria/RATE.md) |
+| Santa Cruz de Tenerife (`38038`) | n/a | n/a | **50%** | n/a | **50%** | n/a | n/a (out) | **50%** part | ✓ | [es-cn/38038-santa-cruz-de-tenerife](../../04-reference/jurisdictions/es/es-cn/38038-santa-cruz-de-tenerife/RATE.md) |
+| Girona (`17079`) | n/a | n/a | **80%** | n/a | **50%** | n/a | **56%** | **66%** part | ✓ | [es-ct/17079-girona](../../04-reference/jurisdictions/es/es-ct/17079-girona/RATE.md) |
+| Lleida (`25120`) | n/a | n/a | **80%** | n/a | **50%** | n/a | **56%** | **66%** part | ✓ | [es-ct/25120-lleida](../../04-reference/jurisdictions/es/es-ct/25120-lleida/RATE.md) |
+| Tarragona (`43148`) | n/a | n/a | **80%** | n/a | **50%** | n/a | **56%** | **66%** part | ✓ | [es-ct/43148-tarragona](../../04-reference/jurisdictions/es/es-ct/43148-tarragona/RATE.md) |
+| Badajoz (`06015`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-ex/06015-badajoz](../../04-reference/jurisdictions/es/es-ex/06015-badajoz/RATE.md) |
+| Cáceres (`10037`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-ex/10037-caceres](../../04-reference/jurisdictions/es/es-ex/10037-caceres/RATE.md) |
+| A Coruña (`15030`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-ga/15030-a-coruna](../../04-reference/jurisdictions/es/es-ga/15030-a-coruna/RATE.md) |
+| Lugo (`27028`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-ga/27028-lugo](../../04-reference/jurisdictions/es/es-ga/27028-lugo/RATE.md) |
+| Ourense (`32054`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-ga/32054-ourense](../../04-reference/jurisdictions/es/es-ga/32054-ourense/RATE.md) |
+| Pontevedra (`36038`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-ga/36038-pontevedra](../../04-reference/jurisdictions/es/es-ga/36038-pontevedra/RATE.md) |
+| Murcia (`30030`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-mc/30030-murcia](../../04-reference/jurisdictions/es/es-mc/30030-murcia/RATE.md) |
+| Pamplona / Iruña (`31201`) ⚑ | n/a | n/a | **50%** | n/a | **50%** | n/a | **56%** | **51%** part | ✓ | [es-nc/31201-pamplona](../../04-reference/jurisdictions/es/es-nc/31201-pamplona/RATE.md) |
+| Vitoria-Gasteiz (`01059`) ⚑ | n/a | n/a | **50%** | n/a | **50%** | n/a | **56%** | **51%** part | ✓ | [es-pv/01059-vitoria-gasteiz](../../04-reference/jurisdictions/es/es-pv/01059-vitoria-gasteiz/RATE.md) |
+| San Sebastián (`20069`) ⚑ | n/a | n/a | **50%** | n/a | **50%** | n/a | **56%** | **51%** part | ✓ | [es-pv/20069-san-sebastian](../../04-reference/jurisdictions/es/es-pv/20069-san-sebastian/RATE.md) |
+| Bilbao (`48020`) ⚑ | n/a | n/a | **50%** | n/a | **50%** | n/a (cap) | **56%** | **51%** part | ✓ | [es-pv/48020-bilbao](../../04-reference/jurisdictions/es/es-pv/48020-bilbao/RATE.md) |
+| Logroño (`26089`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-ri/26089-logrono](../../04-reference/jurisdictions/es/es-ri/26089-logrono/RATE.md) |
+| Alicante / Alacant (`03014`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-vc/03014-alicante](../../04-reference/jurisdictions/es/es-vc/03014-alicante/RATE.md) |
+| Castelló de la Plana (`12040`) | n/a | n/a | **70%** | n/a | **50%** | n/a | **56%** | **61%** part | ✓ | [es-vc/12040-castellon-de-la-plana](../../04-reference/jurisdictions/es/es-vc/12040-castellon-de-la-plana/RATE.md) |
+| València (`46250`) | n/a | n/a | **70%** | n/a | **50%** | n/a (cap) | **56%** | **61%** part | ✓ | [es-vc/46250-valencia](../../04-reference/jurisdictions/es/es-vc/46250-valencia/RATE.md) |
+| Ceuta (`51001`) | n/a | n/a | **50%** | n/a | **50%** | n/a | n/a (out) | **50%** part | ✓ | [es-ce/51001-ceuta](../../04-reference/jurisdictions/es/es-ce/51001-ceuta/RATE.md) |
+| Melilla (`52001`) | n/a | n/a | **50%** | n/a | **50%** | n/a | n/a (out) | **50%** part | ✓ | [es-ml/52001-melilla](../../04-reference/jurisdictions/es/es-ml/52001-melilla/RATE.md) |
+| Barcelona (`08019`) | — | — | — | — | — | — | — | see dossier | — | [es-ct/08019-barcelona](../../04-reference/jurisdictions/es/es-ct/08019-barcelona/RATE.md) |
+| Madrid (`28079`) | — | — | — | — | — | — | — | see dossier | — | [es-md/28079-madrid](../../04-reference/jurisdictions/es/es-md/28079-madrid/RATE.md) |
+| Córdoba (`14021`) | — | — | — | — | — | — | — | see dossier | — | [es-an/14021-cordoba](../../04-reference/jurisdictions/es/es-an/14021-cordoba/RATE.md) |
+| L'Hospitalet (`08101`) | — | — | — | — | — | — | — | see dossier | — | [es-ct/08101-hospitalet](../../04-reference/jurisdictions/es/es-ct/08101-hospitalet/) |
+| Badalona (`08015`) | — | — | — | — | — | — | — | see dossier | — | [es-ct/08015-badalona](../../04-reference/jurisdictions/es/es-ct/08015-badalona/) |
+| Sant Boi (`08200`) | — | — | — | — | — | — | — | see dossier | — | [es-ct/08200-sant-boi](../../04-reference/jurisdictions/es/es-ct/08200-sant-boi/) |
+| **🇫🇮 Finland (fi) — 1 audited** | | | | | | | | | | |
+| Helsinki (`091`) | n/a | n/a | **60%** | n/a | **50%** | n/a (cap) | **56%** | **56%** part | ✓ | [fi-01/091-helsinki](../../04-reference/jurisdictions/fi/fi-01/091-helsinki/RATE.md) |
+| **🇫🇷 France (fr) — 2 audited + 1 see-dossier** | | | | | | | | | | |
+| Paris (`75056`) | n/a | n/a | **80%** | n/a | **50%** | n/a (cap) | **56%** | **66%** part | ✓ | [fr-idf/75056-paris](../../04-reference/jurisdictions/fr/fr-idf/75056-paris/RATE.md) |
+| Lyon (`69123`) | n/a | n/a | **80%** | n/a | **50%** | n/a (cap) | **56%** | **66%** part | ✓ | [fr-ara/69123-lyon](../../04-reference/jurisdictions/fr/fr-ara/69123-lyon/RATE.md) |
+| Marseille (`13055`) | — | — | — | — | — | — | — | see dossier | — | [fr-pac/13055-marseille](../../04-reference/jurisdictions/fr/fr-pac/13055-marseille/) |
+| **🇬🇧 United Kingdom (gb) — 1 audited** | | | | | | | | | | |
+| Greater London (`E12000007`) | n/a | n/a | **50%** | n/a | **50%** | n/a (der) | **56%** | **51%** part | ✓ | [gb-eng/E12000007-london](../../04-reference/jurisdictions/gb/gb-eng/E12000007-london/RATE.md) |
+| **🇮🇹 Italy (it) — 2 audited + 1 see-dossier** | | | | | | | | | | |
+| Roma (`058091`) | n/a (nw) | n/a | **50%** | n/a | **50%** | n/a (ns) | **56%** | **51%** part | ✓ | [it-laz/058091-rome](../../04-reference/jurisdictions/it/it-laz/058091-rome/RATE.md) |
+| Milano (`015146`) | n/a (nw) | n/a | **50%** | n/a | **50%** | n/a (ns) | **56%** | **51%** part | ✓ | [it-lom/015146-milan](../../04-reference/jurisdictions/it/it-lom/015146-milan/RATE.md) |
+| Torino / Turin (`001272`) | — | — | — | — | — | — | — | see dossier | — | [it-pie/001272-turin](../../04-reference/jurisdictions/it/it-pie/001272-turin/) |
+| **🇳🇱 Netherlands (nl) — 1 audited** (Rotterdam · Utrecht · Den Haag · Eindhoven · Groningen tackled-unscaffolded) | | | | | | | | | | |
+| Amsterdam (`0363`) | n/a | n/a | **90%** | n/a | **50%** | n/a (cap) | **56%** | **71%** part | ✓ | [nl-nh/0363-amsterdam](../../04-reference/jurisdictions/nl/nl-nh/0363-amsterdam/RATE.md) |
+| **🇳🇴 Norway (no) — 1 audited + 2 see-dossier** | | | | | | | | | | |
+| Oslo (`0301`) | n/a | n/a | **80%** | n/a | **50%** | n/a (cap) | **56%** | **66%** part | ✓ | [no-03/0301-oslo](../../04-reference/jurisdictions/no/no-03/0301-oslo/RATE.md) |
+| Bergen (`4601`) | — | — | — | — | — | — | — | see dossier | — | [no-46/4601-bergen](../../04-reference/jurisdictions/no/no-46/4601-bergen/) |
+| Trondheim (`5001`) | — | — | — | — | — | — | — | see dossier | — | [no-50/5001-trondheim](../../04-reference/jurisdictions/no/no-50/5001-trondheim/) |
+| **🇵🇹 Portugal (pt) — 2 audited + 1 see-dossier** | | | | | | | | | | |
+| Lisboa (`1106`) | n/a | n/a | **30%** | n/a | n/a (blk) | n/a (cap) | **56%** | **36%** part | ✓ | [pt-11/1106-lisboa](../../04-reference/jurisdictions/pt/pt-11/1106-lisboa/RATE.md) |
+| Porto (`1315`) | n/a | n/a | **30%** | n/a | n/a (blk) | n/a (cap) | **56%** | **36%** part | ✓ | [pt-13/1315-porto](../../04-reference/jurisdictions/pt/pt-13/1315-porto/RATE.md) |
+| Braga (`0303`) | — | — | — | — | — | — | — | see dossier | — | [pt-03/0303-braga](../../04-reference/jurisdictions/pt/pt-03/0303-braga/) |
+| **🇸🇦 Saudi Arabia (sa) — 2 audited + 1 see-dossier** (TERRAIN 0 % → `n/a (blocked)`, tracker-only) | | | | | | | | | | |
+| Riyadh (`RUH`) | n/a | n/a | **20%** | n/a | n/a (blocked) | n/a | **56%** | **19%** part | ✓ | [sa-01/ruh-riyadh](../../04-reference/jurisdictions/sa/sa-01/ruh-riyadh/RATE.md) |
+| Jeddah (`JED`) | n/a | n/a | **20%** | n/a | n/a (blocked) | n/a | **56%** | **19%** part | ✓ | [sa-02/jed-jeddah](../../04-reference/jurisdictions/sa/sa-02/jed-jeddah/RATE.md) |
+| Dammam (`DMM`) | — | — | — | — | — | — | — | see dossier | — | [sa-04/dmm-dammam](../../04-reference/jurisdictions/sa/sa-04/dmm-dammam/) |
+| **🇸🇪 Sweden (se) — 1 audited** | | | | | | | | | | |
+| Stockholm (`0180`) | n/a | n/a | **60%** | n/a | **50%** | n/a (cap) | **56%** | **56%** part | ✓ | [se-01/0180-stockholm](../../04-reference/jurisdictions/se/se-01/0180-stockholm/RATE.md) |
+| **🇺🇸 United States (us) — 2 audited + 2 see-dossier** | | | | | | | | | | |
+| New York City (`3651000`) | n/a | n/a | **50%** | n/a | **50%** | n/a (cap) | **67%** | **53%** part | ✓ | [us-ny/3651000-new-york-city](../../04-reference/jurisdictions/us/us-ny/3651000-new-york-city/RATE.md) |
+| San Francisco (`0667000`) | n/a | n/a | **50%** | n/a | **50%** | n/a (cap) | **67%** | **53%** part | ✓ | [us-ca/0667000-san-francisco](../../04-reference/jurisdictions/us/us-ca/0667000-san-francisco/RATE.md) |
+| Los Angeles (`0644000`) | — | — | — | — | — | — | — | see dossier | — | [us-ca/0644000-los-angeles](../../04-reference/jurisdictions/us/us-ca/0644000-los-angeles/) |
+| Chicago (`1714000`) | — | — | — | — | — | — | — | see dossier | — | [us-il/1714000-chicago](../../04-reference/jurisdictions/us/us-il/1714000-chicago/) |
+
+**Completeness note (L-650 Phase-2 fold).** **91 scaffolded cities folded, grouped by 15 countries** =
+**74 Phase-1-audited rows** (cheap axes cited-derived from each `COUNTRY-RATE.md`) + **17 pre-existing /
+research-only dossiers** rendered `see dossier` (not re-audited this pass). Per-country audited counts:
+be 1 · ch 3 · de 2 · dk 4 · es 49 · fi 1 · fr 2 · gb 1 · it 2 · nl 1 · no 1 · pt 2 · sa 2 · se 1 · us 2.
+`see-dossier` counts: be 2 · de 1 · es 6 · fr 1 · it 1 · no 2 · pt 1 · sa 1 · us 2. Every human-gated axis
+(PAR · LEG · ENV · HGT) remains honestly `n/a` — the automated scorecard function (C63 §8) has not run;
+these are the C63 Phase-1 cited-derived cheap-axis reads, transcribed verbatim, `not-assessed ≠ 0 %`.
 
 ## §CC.2 — Documentary disposition (code-confirmed state — NOT a scorecard %)
 
