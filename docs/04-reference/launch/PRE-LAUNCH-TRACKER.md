@@ -67,9 +67,27 @@ Tracked here so nothing is dropped; assign L-numbers via the audit register, not
 | SEC-XSS | Focused XSS pass over interpolating sinks (781 total; marketplace UGC highest risk) | P2 | 5 | NOT STARTED | — | — |
 | PERF-DEVICE-MATRIX | Define + test supported browser/device matrix (desktop-only today; mobile/tablet untested) | P2 | 6 | NOT STARTED | — | — |
 
+## Phase 7 — Infrastructure & go-live tasks
+
+Infra/ops tasks, not L-items — sourced from `PRYZM-PATH-TO-PRODUCTION.md` (the verified infra
+investigation; candidate L-650/L-652/L-653/L-654/L-659). IDs are `INFRA-N`. Severity is by
+IP/launch risk. **INFRA-1 (repo privacy) is HIGH / urgent** — the repo is public today, exposing
+the whole codebase/IP in an acquisition context; it does not wait on the parallel infra lane.
+
+| ID | Title | Severity | Phase | Status | Fix commit | Verified by |
+|---|---|---|---|---|---|---|
+| INFRA-1 | Repo is PUBLIC (Actions-billing workaround) → whole codebase/IP exposed; make it PRIVATE + keep deploys working (recommend: direct `flyctl deploy` scoped token for app + CF Pages private-repo integration for apex) | **HIGH / urgent** | 7 | NOT STARTED | — | — |
+| INFRA-2 | Domain split-brain — `.so` (C51-canonical) vs `.app` (hard-coded in shipping code) vs stray `.io` (`.env.example`); FOUNDER decision + sweep the losers, amend C51 | HIGH | 7 | NOT STARTED | — | — |
+| INFRA-3 | `pryzm.so` go-live — repoint CF Pages apex off Astro (the LANDMINE) before deletion + wire `app.`/`api.` DNS+TLS to Fly | HIGH | 7 | NOT STARTED | — | — |
+| INFRA-4 | No staging environment (all testing on prod) — add `pryzm-staging` Fly app + isolated DB + promote-on-green flow | HIGH | 7 | NOT STARTED | — | — |
+| INFRA-5 | Deploy is a manual undocumented command with sprawled secrets — commit one-command runbook + scoped Fly token + revoke/rotate flow | MEDIUM | 7 | NOT STARTED | — | — |
+
 ## Roll-up
 
 - **Launch-blocking L-items tracked:** 16 (P0: 5 · P1: 9 · P2: 2).
 - **Launch-blocking non-L tasks tracked:** 5.
-- **In progress (batch 1):** L-388, L-390, L-392, L-387. **All others:** NOT STARTED.
-- **Total effort (from the plan):** ≈ 26 eng-weeks (≈ 21.5 on the Phase-2 collab-downscope path).
+- **Phase 7 infra/go-live tasks tracked:** 5 (INFRA-1..5 — 1 HIGH/urgent · 3 HIGH · 1 MEDIUM).
+- **In progress (batch 1):** L-388, L-390, L-392, L-387. **All others (incl. all INFRA):** NOT STARTED.
+- **Total effort (from the plan):** ≈ 31 eng-weeks (≈ 26.5 on the Phase-2 collab-downscope path),
+  of which Phase 7 (infra & go-live) is 5.0 — running largely parallel to Phases 3–6, except
+  INFRA-1 (repo privacy) which is urgent/near-term.

@@ -29,6 +29,14 @@ CVEs are cleared and the embed/token surface is scoped; and we publish a support
 by real in-browser GPU numbers rather than headless proxies. Anything still "UNVERIFIED" at launch
 is either fixed or explicitly downscoped and disclosed — never assumed.
 
+Launch-ready also means the **go-live infrastructure** is real, not just the product code: the
+**repository is private** (it is public today only as a GitHub-Actions-billing workaround, which
+exposes the entire codebase/IP — unacceptable pre-acquisition), a **single canonical domain** is
+chosen and live with the other brand references swept out of the code, and a **staging
+environment exists** so a release can be proven off-prod before it reaches users (today all
+testing is on production). These are Phase 7 and trace to
+`PRYZM-PATH-TO-PRODUCTION.md` (the verified infra investigation).
+
 Because PRYZM files become **construction and legal documents**, the ordering below puts data
 integrity and collaboration correctness ahead of performance and polish: a slow editor loses a
 demo, a corrupt save loses a customer and potentially exposes them to liability.
@@ -46,13 +54,20 @@ demo, a corrupt save loses a customer and potentially exposes them to liability.
 | 4 | Backup / restore + DR | 2.0 |
 | 5 | Security hardening | 4.0 |
 | 6 | Perf at real scale + interop + device matrix | 5.5 |
-| **Total** | | **≈ 26 eng-weeks** (≈ 21.5 on the collab-downscope path) |
+| 7 | Infrastructure & go-live | 5.0 |
+| **Total** | | **≈ 31 eng-weeks** (≈ 26.5 on the collab-downscope path) |
 
 Estimates are single-engineer-weeks of focused work. Phases 0→2 are the hard serial spine (each
 unblocks the next); Phases 3–6 can be run partly in parallel once Phase 1 lands, so *calendar*
 time is shorter than the serial sum if more than one engineer is available. The collab-downscope
 alternative (Phase 2) trades ~2.5 eng-weeks for a documented LWW limitation instead of a real
-network CRDT backend — a legitimate launch decision, not a bug fix.
+network CRDT backend — a legitimate launch decision, not a bug fix. **Phase 7 (infra & go-live)
+runs largely in parallel with Phases 3–6** — it is a different team lane (ops/deploy, not the
+data-integrity code spine) — with one exception: **item 7.1 (repo privacy) is urgent and
+near-term**, not parallel-and-later, because the repo is public today and that exposes the whole
+codebase/IP in an acquisition context. The 5.0 eng-weeks for Phase 7 is mostly the
+domain-sweep, go-live wiring, and staging build-out; 7.1 itself is a small (~0.5 eng-week) but
+time-critical task.
 
 ---
 
@@ -254,6 +269,149 @@ and the supported browser/device matrix is stated and tested (or its limits disc
 
 **Effort:** 5.5 eng-weeks. **Dependency:** Phase 0 (green gate); benefits from Phase 3 observability
 to capture real-world perf. Can overlap Phase 5.
+
+---
+
+## Phase 7 — Infrastructure & go-live
+
+**Goal:** make the path to production real, private, and canonical — so the product can actually
+be exposed at a stable domain, deployed repeatably, and tested off-prod, without leaking the
+codebase in the process. This phase is the ops/deploy lane and **runs largely in parallel with
+Phases 3–6** (different team, different work). The one exception is **7.1, which is urgent and
+near-term** given the acquisition context.
+
+**Evidence base:** every item traces to `PRYZM-PATH-TO-PRODUCTION.md` (the 2026-07-30 verified
+infra investigation), which tags each claim `[VERIFIED-FROM-CODE]` / `[INFERRED]` /
+`⚠️ VERIFY IN DASHBOARD`. Items below inherit those tags; anything that lives only in an external
+dashboard (Cloudflare/Fly/DNS/GitHub billing) is a *verify*, not an *assume*.
+
+**Closes:** the pipeline gaps L-650 (no staging), L-652 (domain split-brain), L-653 (Actions
+billing fragility driving the public-repo workaround), L-654 (undocumented manual deploy),
+L-659 (secrets sprawl / no rotation story) — candidate L-numbers from the infra investigation
+(§8), to be appended to the audit register by the orchestrator, not here.
+
+### 7.1 — Repo privacy + private-repo deploy path  *(HIGH / near-term — IP exposure)*
+
+**Goal:** the repository must be **private**. It is **public today** as a deliberate workaround
+for GitHub-Actions-billing (Actions minutes are free on public repos — see memory
+`github-actions-billing-blocks-deploy` and PATH-TO-PRODUCTION §3.2/L-653). That workaround
+exposes the **entire codebase and IP** — unacceptable before an acquisition. The deploy path
+must keep working after the repo goes private.
+
+Three options — all documented, one recommended:
+- **(A) Private repo + paid Actions minutes.** Flip visibility to private and enable a paid
+  Actions plan so the existing CI/deploy/bake workflows keep running. Cheapest change to the
+  *mechanism* (nothing else moves), but reintroduces the exact Actions-billing failure mode
+  (zero-step ~3 s deaths, L-653) that drove the app deploy off Actions in the first place.
+- **(B) `flyctl deploy` direct via a committed deploy script + scoped Fly token.** Removes the
+  Actions dependency for the app deploy entirely — matches the already-chosen "Option A" direction
+  in PATH-TO-PRODUCTION §9.2 and the DEPLOYMENT-PLATFORM-AUDIT. The app already deploys manually
+  via `flyctl deploy` today (§OPTION-A); this just makes it a committed `deploy.ps1` driven by a
+  **scoped** Fly deploy token, so going private changes nothing about the app deploy. Overlaps
+  with 7.5.
+- **(C) Move the static apex to Cloudflare Pages private-repo git integration.** Cloudflare Pages
+  supports private-repo git integration (as the sister MIAWS project uses), so the apex auto-deploy
+  survives the repo going private. This only covers the **apex**, not the Fly app deploy — so it
+  pairs with (B) for the app.
+
+**Recommendation: (B) for the app deploy + (C) for the apex.** (B) removes the Actions-billing
+coupling that made "keep the repo public" tempting in the first place, and it is already the
+declared direction of travel; (C) keeps the apex auto-deploy working under a private repo without
+paying for Actions. (A) is the fastest keystroke but re-buys the billing-fragility problem, so it
+is a fallback, not the target. All three end with a private repo — the non-negotiable exit.
+
+**Exit — done when:** the GitHub repo is **private** and both the app (Fly) and the apex
+(Cloudflare Pages) still deploy successfully from the private repo, verified by one real deploy of
+each after the visibility flip.
+
+**Effort:** 0.5 eng-week (small — a visibility flip + wiring the already-manual deploy to a scoped
+token / private-repo Pages integration). **Dependency:** overlaps 7.5 (scoped token + runbook).
+**Risk if not done:** the full codebase and IP stay publicly readable — a direct threat to an
+acquisition and to competitive position; also every credential-adjacent mistake becomes a public
+disclosure.
+
+### 7.2 — Domain canonicalization (`.so` vs `.app` vs `.io` split-brain)
+
+**Goal:** resolve the domain split-brain the investigation surfaced. Per PATH-TO-PRODUCTION §4,
+`pryzm.app` is **hard-coded in shipping code** (marketplace footer link, the Revit add-in vendor
+URL + `api.pryzm.app` import endpoint, the planned `assets.pryzm.app` R2 CDN domain, the
+`pryzm.app/sunset` banner, CSP comments), there is a **stray `pryzm.io`** in `.env.example`
+(`app.pryzm.io` for `PUBLIC_BASE_URL`), while **`pryzm.so` is the C51-canonical apex** (the single
+normative source, C51 §4). Wiring DNS today would violate C51 for every `.app` reference.
+
+**FOUNDER DECISION required (blocking):** pick **one** canonical top-level domain. C51 says
+`pryzm.so`; the app code says `pryzm.app`. Whichever wins, the loser must be swept out of the code
+and, if both are owned, kept only as a 301 redirect.
+
+**Exit — done when:** one domain is canonical; the non-canonical brand references are removed from
+the code (marketplace footer, Revit add-in, R2 custom-domain plan, sunset banner, CSP comments,
+`.env.example`); and C51 §4 is amended to match (or confirmed already correct). No stray domain
+refs remain in a grep of the tree.
+
+**Effort:** 1.0 eng-week (the sweep touches several shipping surfaces + a contract amendment; the
+decision itself is the founder's, the sweep is the engineering). **Dependency:** the founder
+decision gates the sweep; must land **before** 7.3 (DNS wiring) or C51 is violated on day one.
+**Risk if not done:** DNS goes live pointing users/tools at a domain the code contradicts — broken
+marketplace links, a Revit add-in importing from the wrong host, and a live C51 contract violation.
+
+### 7.3 — `pryzm.so` go-live
+
+**Goal:** actually serve the product at its domain. Today the app is reached at `pryzm.fly.dev`,
+not `app.pryzm.so`. Two things block go-live (PATH-TO-PRODUCTION §4.1, §9.5): (1) the Cloudflare
+Pages apex must be **repointed off the old Astro docs-site** to `apps/editor/dist-apex` **before**
+the Astro pages are deleted — the "LANDMINE" in `cloudflare-pages-apex-setup.md §1` / memory
+`c51-apex-app-split-shipped`; and (2) DNS + TLS wiring for the subdomains (`app.` / `api.` front
+the Fly app via a Fly cert; `www` 301s to apex).
+
+**Exit — done when:** `pryzm.so` (the chosen canonical apex) serves the static apex from Cloudflare
+Pages with the repoint verified green *before* any Astro deletion; and `app.`/`api.` resolve, with
+valid TLS, to the running Fly app. (External state is `⚠️ VERIFY IN DASHBOARD` — the exit is a
+verified dashboard/curl check, not an assumption.)
+
+**Effort:** 1.0 eng-week. **Dependency:** 7.2 (canonical domain must be chosen first) and 7.1
+(private-repo Pages integration should be settled so the apex deploy source is stable).
+**Risk if not done:** the product has no stable public address (only a `*.fly.dev` handle), the
+apex/marketing surface can't go live, and deleting Astro before the repoint would take the apex
+down (the LANDMINE).
+
+### 7.4 — Staging environment
+
+**Goal:** stop testing on production. There is **no staging today** — only `fly.toml` exists; the
+header itself references a sibling `fly.staging.toml` that does not exist, so **all testing is on
+`pryzm.fly.dev`** (PATH-TO-PRODUCTION §8 / L-650, §9.1). Add a `pryzm-staging` Fly app (fra) with
+its **own** database (a separate Supabase project or a staging schema/branch) and its own secrets,
+deploy `main` there first, and **promote to prod on green**.
+
+**Exit — done when:** a staging URL exists (e.g. `staging.pryzm.so` or the staging Fly handle)
+running the current `main` against an isolated DB, and a **documented promote-on-green flow** takes
+a verified staging release to production.
+
+**Effort:** 1.5 eng-weeks (new Fly app + isolated DB + secrets duplication + the promote flow;
+the highest-value single addition per the investigation §9.1). **Dependency:** benefits from 7.5
+(the promote flow is part of the deploy runbook) and 7.1 (staging deploy uses the same scoped
+token). **Risk if not done:** every release is validated only by shipping it to real users; a bad
+deploy is discovered in production, on customer data — the opposite of a data-integrity posture.
+
+### 7.5 — Deploy documentation + secret hygiene
+
+**Goal:** make the deploy path **documented, one-command, and scoped-token-based** instead of an
+undocumented manual command with a broad credential. Today the live app deploy is a **manual
+`flyctl deploy` whose exact flags are not in the repo** (`deploy.ps1` is a sketch only — L-654),
+and secrets sprawl across Fly + GitHub + Cloudflare with **no rotation story** (L-659,
+PATH-TO-PRODUCTION §7). Commit the canonical deploy runbook; ensure the deploy uses a **scoped Fly
+deploy token** via secrets management (not a broad PAT); and document the **revoke/rotate** flow.
+
+**Exit — done when:** a committed runbook + `deploy.ps1` gives a **one-command documented deploy**;
+the deploy authenticates with a **scoped** token (no broad PAT in the deploy path); and a
+documented revoke/rotate procedure exists for the deploy token and the other shared secrets.
+
+**Effort:** 1.0 eng-week. **Dependency:** pairs with 7.1(B) (the committed deploy script is the
+same artifact) and feeds 7.4 (the promote flow lives in this runbook). **Risk if not done:**
+bus-factor and drift on the one command that ships the product; a broad token in the deploy path
+is an over-scoped credential that, if leaked, grants more than deploy.
+
+**Phase 7 effort:** 5.0 eng-weeks total (7.1 = 0.5 · 7.2 = 1.0 · 7.3 = 1.0 · 7.4 = 1.5 ·
+7.5 = 1.0). 7.1 is the smallest but the most time-critical.
 
 ---
 
