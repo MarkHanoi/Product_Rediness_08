@@ -131,6 +131,23 @@ national scale to "finish."**
 
 ### Phase A — Wire the flagship city parcel providers (`NYCParcelProvider` + `SFParcelProvider`)
 
+> **STATUS (2026-07-30, L-650 Phase-4): NYC PARCEL + LEGISLATION → `wired-pending-probe`.** The
+> `NycPlutoParcelProvider` is now BUILT and merged — `packages/site-parcel-data/src/parcelProviders/nycPlutoParcelProvider.ts`:
+> `isInNYC` 5-borough bbox predicate + `fetchParcelAtPoint` (injected-fetch, never throws, OTel span)
+> parsing a MapPLUTO lot feature (ArcGIS Esri-JSON **or** Socrata `64uk-42ks`) → **BBL + borough +
+> LotArea + ZoneDist1..4/overlays/SPDist + ResidFAR/CommFAR/FacilFAR/MaxAllwFAR/BuiltFAR**, with a
+> derived `farRatio` = the governing as-of-right FAR (max of resid/comm/facil), cited to the NYC
+> Zoning Resolution as PLUTO's *allowable-FAR attribute per DCP* — **not** a re-derivation. `MaxAllwFAR`
+> is carried raw but deliberately NOT folded into `farRatio` (its bonus-vs-base semantics stay the #1
+> unprobed trap). CRS guard refuses a State-Plane ring rather than mis-plot; confidence HIGH on
+> BBL + point-in-lot. Verified: `@pryzm/site-parcel-data` typecheck clean · 30 new unit tests green
+> (1028/1028 package suite) · `check:isolation` intact. **Still pending:** (1) the orchestrator
+> registers `isInNYC→nyc-pluto` in `parcelProviders/registry.ts` (a `// TODO(orchestrator)` note is
+> left in-file; this provider does not edit the registry); (2) a live probe of the MapPLUTO ArcGIS
+> FeatureServer path + `MaxAllwFAR` semantics (the Socrata FAR fill was probed 2026-07-24; the
+> FeatureServer path carries a `// PROBE:` marker). **This moves NO RATE % cell** — `wired-pending-probe`
+> is not `baked`; the number stays put until the endpoint is live-probed and the registry is wired.
+
 - **Goal.** Probe live and wire the two flagship datasets as `City*Provider`s in
   `parcelProviders/registry.ts` (today: **no US entry → footprint-fallback**):
   **(1) `NYCParcelProvider` (MapPLUTO, BBL)** — tax-lot polygons + zoning district + building footprint +
