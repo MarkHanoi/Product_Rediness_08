@@ -124,3 +124,22 @@ curl "https://apicarto.ign.fr/api/gpu/zone?lon=4.8357&lat=45.7640"
 - BD TOPO `HAUTEUR` is non-null → LOD1 context buildings are live today for Paris; fill `topics/buildings-lod-height.md §Spike evidence`.
 - Lyon GPU response includes `HBCPRINC`/`PLAFOND` → Lyon outer communes are Tier 1 (config only); start Lyon pack immediately.
 - Lyon GPU response does NOT include those fields → Lyon requires `data.grandlyon.com` as a second data source; add to §3 as a blocker and scope the integration separately.
+
+---
+
+## 9 — C63 PER-AXIS ROADMAP (the sequenced climb toward composite 100 %)
+
+The C63 per-axis climb now lives in **[`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md)** —
+it sequences the 4 `not-assessed` axes (PARCEL · LEGISLATION · ENVELOPE · HEIGHTS/LOD) by ROI, driving the
+composite [`COUNTRY-RATE.md`](./COUNTRY-RATE.md) (Paris & Lyon = 66 % `partial`, assessed subset only).
+
+- **Phase A (do first) — PARCEL.** Run `computeParcelConfidence` over an N-parcel sample in the Paris
+  (`75056`) and Lyon (`69123`) bboxes. IGN PCI Express (`ign-fr`) is already wired + live, so this is a
+  *measurement*, not a build — the cheapest `not-assessed`→number conversion, no human gate. **This is the
+  smallest next step that moves a composite cell** (supersedes §8 for the composite denominator).
+- **Phase B — HEIGHTS (BD TOPO/LiDAR HD nDSM via the shared ES/FR/PT module; solve §BDTOPO-CAP-TRUNCATE) +
+  TERRAIN (verify RGE ALTI 50→100).**
+- **Phase C — the PLU-OCR pipeline off GPU + L-449 gate → LEGISLATION + ENVELOPE** — the shared
+  ES/FR/PT/UK ~65 %-effort core; France adds only a French-article-grammar adapter. Start Paris/Lyon.
+- **Trip-wire:** §4.1 (CNIG SRU) is the Phase-C+ ceiling-lift; §4.3 (shared nDSM built elsewhere) feeds
+  Phase B.
