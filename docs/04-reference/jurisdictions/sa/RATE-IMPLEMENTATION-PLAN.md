@@ -1,202 +1,278 @@
 # Rate Implementation Plan — Saudi Arabia (`sa`) national
 
-**Current rate:** ~55% (see [`RATE.md`](./RATE.md)) · **Live-reachable-from-here ceiling:** ~55% ·
-**Compileable (AMBER) ceiling:** **~72–80%** (reframed — see §0) · **Ceiling with a Balady agreement:**
-~72% · **Gap to Denmark (~96%):** ~41 pts · **Last updated:** 2026-07-24 · **Owner:** UNASSIGNED
+**Current national legislation/data-fill:** ~55% (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) —
+the renamed structured-fill metric; the national rename to `LEGISLATION-RATE.md` is pending the L-649
+governance/migration track, so the number physically still lives in [`RATE.md`](./RATE.md) until that
+rename lands) · **Current bake-covered composite:** ~19% `partial` (Riyadh + Jeddah, DATA-SOURCES +
+CONTEXT only — see [`COUNTRY-RATE.md`](./COUNTRY-RATE.md)) ·
+**Realistic ceiling (PROJECTED, CONTINGENT on Phase-A landing; the blocked axes are gated on national
+data-access decisions OUTSIDE PRYZM):** **~30–40% best case** national · **Ceiling model — Denmark
+(~96%)** · **Last updated:** 2026-07-30 · **Owner:** UNASSIGNED
 
-> Model references: **Denmark** [`../dk/`](../dk/RATE-IMPLEMENTATION-PLAN.md) (ceiling, ~96%) ·
-> **Barcelona** [`../es/es-ct/08019-barcelona/`](../es/es-ct/08019-barcelona/RATE-IMPLEMENTATION-PLAN.md)
-> (the pilot climb). Saudi mirrors the phase SHAPE, not the position: like Barcelona, its reachable
-> ceiling ≈ its current rate, so the plan's job is to *realise* the rate as a certified product and to
-> name the BLOCKED phases honestly. **New (2026-07-24, spike):**
-> [`findings/SAUDI-DATA-RECON-SPIKE.md`](./findings/SAUDI-DATA-RECON-SPIKE.md) reframes the ceiling
-> under the green/amber/red model — the exact-vertical source is **open-data-catalogued (AMBER)**, not
-> lawyer-gated (RED), which raises the *compileable* ceiling even though nothing new was reached live.
+> **⚠ HONESTY GATE (§CONTEXT-DATA-HONESTY).** This is a PLAN. It changes **no RATE % cell** — the
+> current national legislation number stays ~55% and the Riyadh/Jeddah composite stays ~19% `partial`
+> until the Phase-A work below actually registers, signs, and re-derives. Nothing here reaches a new
+> live source; the geospatial axes remain nationally blocked. **Saudi Arabia is the LOWEST-ceiling
+> audited country in the suite**, and this roadmap reflects that honestly: it names ONE movable axis
+> (ENVELOPE, via a pack that is already authored) and marks the rest as founder-gated national-access
+> negotiations that are NOT engineering and stay `not-assessed` until national data access changes. The
+> low ceiling is the honest national reality, **not** manufactured pessimism — and it is **not** to be
+> dressed up with optimism either. **Ship the probe before the fix.**
 
----
-
-## 0 — The three-state model (green / amber / red) and the planning-compiler frame
-
-RATE = "can PRYZM **answer** a parcel automatically?" not "is it in a live database?". Three states:
-
-- **GREEN** — government publishes the numbers as queryable data → automatic today.
-- **AMBER** — government publishes the **law or the plan** (PDF / open-data table / GIS layer); PRYZM
-  compiles it **once** into a verified, cited rule pack → answers at runtime, no human, no PDF read. A
-  PDF or an open dataset is **AMBER, not a blocker** — the cost is one-time structuring, bounded by
-  *institutional coverage*, not by parsing.
-- **RED** — only a human lawyer can interpret per parcel → the true blocker.
-
-**Saudi under this model.** The footprint (setbacks + coverage — 66.7% of the envelope) is **AMBER,
-already compiled** (exact national closed-form, L-606). The 2026-07-24 recon spike found that the two
-levers L-606 filed as hard geo-fenced blockers have their **authoritative sources published as OPEN-DATA
-datasets** — **"Approved Local, Guideline & Detailed Plans"** (= المخطط المعتمد, the exact-vertical
-source, §4 cl.1) and **"Approved Land Subdivision Plans"** (parcel geometry) — catalogued via Balady's
-open-data page and served from the SDAIA national portal (`open.data.gov.sa`). **Open data is AMBER
-(compile-once), not RED (lawyer-only), and not the licensed GEOSA gate.** So the exact per-zone vertical
-value moves from "needs a MOMRAH/Balady **data agreement**" toward "needs the **public open-data portal**
-reached + the plan layer digitised" — a categorically cheaper unlock.
-
-**The architecture — a national planning compiler.** Heterogeneous sources (the MOMRAH PDF · SDAIA
-open-data plan datasets · Balady ArcGIS · dev-authority design codes · GEOSA context) →
-**one versioned, queryable national rule graph** → spatial index → parcel envelope. Balady/28 becomes a
-**VERIFICATION oracle** (confirm the compiled answer against the resolved per-parcel fields), not a
-runtime dependency. Compiler phases: **national ontology → zone compiler → municipal registry → rule
-equivalence → planning-map digitisation → parcel binding** (mapped to the phase tracker below).
-
-**Honest bound.** From *this* environment the spike reached **no** new source that serves dimensional
-rules: the SDAIA portal is network-blocked here, Balady/28 is geo-fenced (NXDOMAIN, re-confirmed), GEOSA
-publishes only templates to anonymous (licensed), and the reachable RCRC open portal carries **zero**
-rule datasets (statistical/transport only). So the **live-reachable-from-here ceiling stays ~55%**; the
-**compileable ceiling rises to ~72–80% conditionally**, on evidence that the rule sources are AMBER not
-RED — a revision of *classification*, not a claimed live gain. Full evidence + reachability matrix:
-[`findings/SAUDI-DATA-RECON-SPIKE.md`](./findings/SAUDI-DATA-RECON-SPIKE.md).
+> **Why the ceiling is LOW (and stays low): Saudi has no DGT/Plandata-equivalent open platform.**
+> Portugal's ceiling rose when the DGT OGC API surfaced open cadastre + LiDAR + terrain; Denmark is
+> ~96% because Plandata publishes zone + density + height as machine-readable structured fields. **Saudi
+> has neither.** It is a **GEO-FENCE-bound** jurisdiction: the authoritative cadastre (Balady
+> `MapServer/28`), the national building-height source (`ml_sa` / Balady `NOOFFLOORS`), and the national
+> terrain product (GEOSA) are each **geo-fenced or licensed, not open**. Five of the seven C63 axes
+> (PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 = **55% of the weight**) are
+> therefore capped nationally by *access*, not by engineering. The one axis PRYZM can move **without**
+> national data access is the **ENVELOPE / LEGISLATION** pair: the 2024 MOMRAH residential decision is a
+> *published national closed-form* for the buildable footprint, and a footprint rule pack
+> (`saRiyadhDemo.ts`, L-606) is **already authored** — it just needs registering + an L-449 sign-off.
+> That is the whole movable surface. See §1.4 and the Phase-3 roadmap.
 
 ---
 
 ## 1 — The ceiling: what "maximum" means here
 
 Saudi Arabia is **neither Denmark-like nor purely PDF-bound — it is a GEO-FENCE-bound jurisdiction**, and
-that single structural fact sets the ceiling. Two levers separate the current ~55% from Denmark's ~96%,
-and **both are geo-fenced, not PDF-locked**:
+that single structural fact sets the ceiling low. Unlike Barcelona (numbers locked in PDFs, needing OCR)
+or Portugal (numbers in PDFs but a rich open geospatial platform underneath), Saudi's *rule* for the
+footprint is **already exact and national** — the problem is that the *data* which would raise every
+other axis is behind a geo-fence or a licence.
 
-1. **The footprint rule is already exact and already credited.** Setbacks + ground coverage (4 of the 6
-   governing envelope fields — 66.7%) are a *published national closed-form* in the 2024 MOMRAH decision
-   (`plot ⊖ max(streetWidth/5, {3,2,2})`, capped by `coverage × plotArea`), read live on two government
-   hosts. There is no OCR wall and no envelope construction here — unlike Barcelona's Art. 242 depth build
-   or Norway's `BestemmelseUtnyttingsgrad` prose. So the ~55% **already fully credits the footprint**;
-   shipping it does not raise the number, it *realises* it as a certified structured answer.
+**The one movable axis without national data — ENVELOPE (via the authored footprint pack).** The
+footprint (3 setbacks + ground coverage — **4 of the 6 governing envelope fields, 66.7%**) is a
+published national closed-form in the 2024 MOMRAH decision (`plot ⊖ max(streetWidth/5, {3,2,2})`, capped
+by `coverage × plotArea`), read live on two government hosts. A rule pack encoding it
+(`packages/site-parcel-data/src/rulepacks/saRiyadhDemo.ts`, L-606) is **authored but unregistered and
+unsigned**. Registering it + passing the L-449 human-verification gate converts LEGISLATION + ENVELOPE
+from `not-assessed` / `pending-implementation` to a **certified structured** answer — country-wide, one
+formula, no per-parcel data required. **This is the only axis that moves without reaching a geo-fenced
+source**, and it is what lifts the composite from ~19% toward the ~30–40% ceiling.
 
-2. **Every lever ABOVE ~55% is behind a geo-fence, not a PDF.** The exact per-zone vertical value (height +
-   floors beneath the national ceiling) defers to the municipal approved plan (المخطط المعتمد, §4 cl. 1)
-   and is overridden by development authorities (§1 cl. 3); the entire live per-parcel path (geometry,
-   `MAINLANDUSE`, street width, resolved setbacks, `NOOFFLOORS`) lives inside the Balady `MapServer/28`
-   service. Both are **measured geo-fences** — NXDOMAIN on the ArcGIS host, a WAF-200 apology page on the
-   proxy, RCRC/ADA hosts ECONNREFUSED/WAF-rejected — asserted on *shape*, not HTTP status. This is a
-   §CONTEXT-DATA-HONESTY measured-negative-on-shape, **not** proof of absence.
+**Every lever ABOVE the footprint is behind a geo-fence or a licence, not a PDF.** The exact per-zone
+vertical value (height + floors beneath the national villa ≤14 m / apartment ≤23 m ceiling) defers to
+the municipal approved plan (المخطط المعتمد, §4 cl. 1) and is overridden by development authorities (§1
+cl. 3); the live per-parcel path (geometry, `MAINLANDUSE`, street width, resolved setbacks,
+`NOOFFLOORS`) lives inside Balady `MapServer/28`. Both are **measured geo-fences** — `umapsudp.momrah.gov.sa`
+NXDOMAIN, the Balady proxy a WAF-200 apology page — asserted on *shape*, not HTTP status
+(§CONTEXT-DATA-HONESTY: measured-negative-on-shape, **not** proof of absence).
 
-**⇒ The live-reachable-from-here ceiling is ~55%** — the footprint is exact and credited, and nothing
-reached *this pass* raises it because the two remaining levers were not pullable from here. **But the
-2026-07-24 spike reframes the two levers from RED to AMBER** (their sources are open-data-catalogued, not
-lawyer-gated), which lifts the **compileable ceiling to ~72–80%** once the SDAIA plan datasets are reached
-and digitised:
+**Ceiling model — Denmark (~96%):** Denmark's national Plandata delivers zone code, numeric density, and
+height as machine-readable structured fields. Saudi cannot approach this: its cadastre, heights, and
+terrain are geo-fenced/licensed, and the exact vertical genuinely varies per municipal plan (never a
+single national number). The Denmark ceiling is not achievable for Saudi without a national data-access
+change that is **outside PRYZM's control**.
 
-- **Exact per-zone vertical value** — its source is the **"Approved Local/Guideline/Detailed Plans"**
-  open dataset on the SDAIA portal (AMBER), *plus* dev-authority design codes (AMBER PDFs). Previously
-  filed as needing a data agreement; now shown to be **open-portal + one-time-compile**.
-- **Live per-parcel path** — Balady `MapServer/28` (resolved setbacks + use + floors) is still geo-fenced
-  (NXDOMAIN, re-confirmed), and remains the *richest* upstream and a **verification oracle**; but under the
-  reframe it is no longer the *only* route — parcel geometry also has an AMBER source in the **"Approved
-  Land Subdivision Plans"** open dataset, independent of a Balady agreement.
+**Pilot model — Barcelona (~48%):** Barcelona demonstrates the phased climb — registry, per-clau packs,
+block-derived envelopes, refusal vocabulary. Saudi mirrors the phase **shape**, not the position: like
+Barcelona its reachable ceiling ≈ its current legislation rate, so the plan's job is to *realise* the
+footprint as a certified product and to name the BLOCKED phases honestly. Mirror the shape, not the
+numbers.
 
-The ceiling **with a Balady agreement** is still ~72% (a *read* envelope, better than Barcelona). It stays
-below Denmark's 96% even then, because the *exact* vertical value genuinely varies by municipal plan (never
-a single national number) and GEOSA's national building/terrain products are licensed. This is the honest
-gap-to-Denmark: **not a transcription problem — an institutional-coverage + per-municipality-vertical
-problem, with the rule sources AMBER (compileable) rather than RED.**
+### 1.4 — The seven axes under the geo-fence (why the ceiling caps at ~30–40%)
 
-> ⚠ **Honesty (spike, §0):** the compileable-ceiling rise is a revision of *classification* (RED→AMBER),
-> not a live gain. From this environment the SDAIA portal is network-blocked, so the AMBER plan datasets
-> were **not** pulled. The rise is conditional on (a) reaching the portal from an unblocked egress and (b)
-> the plan dataset actually carrying per-zone height/floors — an open lead, not a confirmed field. Height
-> caps (villa 14 m / apt 23 m) remain **DISPUTED** and held null (see `sources/VERIFICATION.md`).
+Mapping the national reality onto the seven C63 axes and their ratified weights (LEGISLATION 25 ·
+ENVELOPE 20 · PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5):
+
+| C63 axis | Weight | Current state | Post-Phase-A / ceiling premise |
+|---|---:|---|---|
+| **ENVELOPE** | 20% | `not-assessed` (`pending-implementation`) — `saRiyadhDemo.ts` authored, unwired | **MOVABLE** — footprint compiled as amber; vertical stays a bounded cited-null. The one axis that rises without national data |
+| **LEGISLATION** | 25% | `not-assessed` (`pending-implementation`) — footprint clauses read, unsigned | **MOVABLE** — rises to the footprint clauses once L-449 signs; vertical held as bounded refusal (honest, not filled) |
+| **CONTEXT** | 5% | **56%** — Overture buildings + roads/water/parks/landuse baked (5/9) | **Held** — already baked (Phase B keeps it); rail/trees pending the L-642 re-bake |
+| **DATA-SOURCES** | 15% | **20%** — only the context-OSM slot is live; 4/5 slots blocked | **Capped** — cadastre/height/terrain slots are geo-fenced/licensed nationally |
+| **PARCEL** | 15% | `not-assessed` (`license-restriction`) — footprint-fallback only | **BLOCKED** — Balady cadastre geo-fenced; a footprint is never a legal parcel (C57 §L-640) |
+| **HEIGHTS/LOD** | 10% | `not-assessed` (`license-restriction`) — `ml_sa` `blocked` | **BLOCKED** — Balady `NOOFFLOORS` geo-fenced; Overture height ≈ 0% in Saudi |
+| **TERRAIN** | 10% | **cited 0%** — `terrain.mjs` SA rows `blocked` | **BLOCKED** — no open GEOSA national DTM; founder-gated |
+
+**The arithmetic of the ceiling.** The current composite (~19%) renormalises over the assessed subset
+{DATA-SOURCES, TERRAIN, CONTEXT} = 30 weight. Phase A assesses {LEGISLATION, ENVELOPE} — subset grows to
+75 weight; with LEGISLATION ≈ 0.5 and ENVELOPE ≈ 0.4 (footprint amber, vertical refused) the composite
+lands **~35%**. If the three geo-fenced axes were *also* assessed while still blocked (scoring ~0), the
+full-7-axis composite would sit **~26%** — assessing the blocked axes *lowers* the number, which is the
+honest tension. **So the honest ceiling is LOW: ~30–40% best case, entirely from the movable
+ENVELOPE/LEGISLATION pair, with the remaining 40% of the weight gated on national data-access decisions
+outside PRYZM.** No RATE cell moves until Phase A actually lands.
 
 ---
 
 ## 2 — Phase tracker
 
 Status vocabulary is FIXED: **NOT STARTED · IN PROGRESS · BLOCKED · SHIPPED · VERIFIED · N/A**.
-"Rate: from→to" is cumulative. ⚠ Status tracks WORK; the rate only moves when `RATE.md` is re-derived.
+"Rate: from→to" is cumulative. ⚠ Status tracks WORK; the composite only moves when the city `RATE.md`s
++ `COUNTRY-RATE.md` are re-derived. The three ordered phases are expanded below in §Phase-3.
 
-Phases are the **planning-compiler** stages: national ontology → zone compiler → municipal registry →
-rule equivalence → planning-map digitisation → parcel binding.
-
-| Phase | Compiler stage | Goal | Unlocks | Rate: from→to | Status | Owner |
+| Phase | Goal | Unlocks | Rate: from→to | Effort | Status | Owner |
 |---|---|---|---|---|---|---|
-| **0** | national ontology | **Assess** — read the primary 2024 MOMRAH decision live (2 hosts); enumerate Balady `MapServer/28` + measure its geo-fence; characterise GEOSA (licensed) + global fallbacks; write `RATE.md` | the honest baseline: exact national footprint (66.7%) + a cited vertical ceiling, all live confirmation geo-fenced | — → ~55% | **VERIFIED** (L-606) | UNASSIGNED |
-| **0b** | source recon | **Recon spike** — probe SDAIA open-data, Balady gateway, GEOSA catalog, RCRC/dev-authority + municipal GIS; classify reachable/auth/geo-fenced/licensed/absent on evidence; apply the green/amber/red reframe | the reachability matrix; the RED→AMBER reclassification of the vertical + parcel-geometry sources; the compileable ceiling ~72–80% | ~55% (reframes ceiling, holds rate) | **VERIFIED** (spike, 2026-07-24) | UNASSIGNED |
-| **1** | zone compiler | **Ship + certify the national FOOTPRINT pack (the big shippable win)** — wire `saRiyadhDemo.ts` (registry + index + per-city bbox + L5 dispatcher); apply `resolveSaudiSetbacks` (`max(w/5,{3,2,2})`) + per-class `maxCoverage`; vertical held null (DISPUTED caps refuse, C58 §1.13); human `VERIFICATION.md` sign-off (L-449) | the 66.7% national footprint — AMBER, compiled, **country-wide, one formula** — as a **certified structured** answer; pack `estimated-ruleset` → `structured` | ~55% (**realises**, holds) | **IN PROGRESS** (pack authored; wiring TODO; `VERIFICATION.md` FOOTPRINT-confirmed, height DISPUTED) | UNASSIGNED |
-| **2** | planning-map digitisation | **Exact vertical value via the SDAIA open "Approved Plans" dataset (AMBER)** — reach `open.data.gov.sa`, read the "Approved Local/Guideline/Detailed Plans" dataset schema; compile per-zone height/floors into the rule graph; cross-check dev-authority (RCRC/ADA) design codes | converts height + floors from bounded-refusal to cited per-zone values | ~55% → ~65% | **BLOCKED-here** on SDAIA network egress (public open portal, **not** a licence) + confirming the dataset carries height/floors | UNASSIGNED |
-| **3** | parcel binding | **Live/read per-parcel envelope** — Balady `MapServer/28` (geometry + `MAINLANDUSE` + resolved setbacks + `NOOFFLOORS`) as a *read* envelope + **verification oracle**; OR parcel geometry from the "Approved Land Subdivision Plans" open dataset (agreement-free) | flips Saudi from a constructed demo footprint to a **read/verified** envelope (better than Barcelona) | ~65% → ~72–80% | **BLOCKED** — Balady geo-fenced (agreement/egress); subdivision open dataset = SDAIA egress | UNASSIGNED |
-| **muni** | municipal registry | **Per-Amana + dev-authority registry** — enumerate real Amana spatial-portal hosts (Riyadh=`mapservice.alriyadh.gov.sa`, others TBD) + dev-authority regimes (RCRC/ROSHN/NEOM/Diriyah/Qiddiya) as AMBER rule overlays keyed by zone | the §1 cl.3 override surface (the R1 trap) as compiled overlays | (feeds Phase 2) | **NOT STARTED** — some hosts geo-fenced; RCRC *open data* reachable but carries no rules | UNASSIGNED |
-| **ctx** | context axis | **Context layers** — global fallbacks (Copernicus GLO-30 DEM; MS/Google ML footprints; OSM) + reachable RCRC ODS transport/demographics; pursue a GEOSA licence for national LoD2/LiDAR | buildings + terrain + transport, separate from the dimensional fill | (separate axis) | **NOT STARTED** (fallbacks + RCRC ODS available); GEOSA **BLOCKED** on a licence | UNASSIGNED |
+| **0** | **Assess** — read the primary 2024 MOMRAH decision live; enumerate + measure the Balady `MapServer/28` geo-fence; characterise GEOSA (licensed) + global fallbacks; author `saRiyadhDemo.ts`; write the city `RATE.md`s + `COUNTRY-RATE.md` | the honest baseline: exact national footprint (66.7%) + a cited vertical ceiling, all live confirmation geo-fenced; composite ~19% `partial` | — → ~19% (composite) | Done (L-606, C63 audit) | **VERIFIED** | UNASSIGNED |
+| **A** | **Register + certify the national FOOTPRINT pack (the one movable axis)** — wire `saRiyadhDemo.ts` (index export + `registry.ts` registration + per-city bbox + L5 dispatcher); apply `resolveSaudiSetbacks` + per-class `maxCoverage`; vertical held null (DISPUTED caps refuse, C58 §1.13); human `VERIFICATION.md` sign-off (L-449); hold CONTEXT | ENVELOPE + LEGISLATION as a **certified structured** answer, country-wide, one formula; pack `estimated-ruleset` → `structured` | ~19% → ~30–40% | Low–Medium (pack authored; wiring + one human sign-off) | **IN PROGRESS** (pack authored; wiring TODO; `VERIFICATION.md` FOOTPRINT-confirmed, height DISPUTED) | UNASSIGNED |
+| **B** | **Keep CONTEXT** — maintain the Overture-sourced context bake for Riyadh + Jeddah (already baked; Saudi is an OSM building-desert, 5.3×/7.2× density); land the L-642 rail/trees re-bake when it ships | holds CONTEXT (56%); adds rail/trees when the re-bake lands | (holds; feeds composite) | Low (already baked) | **SHIPPED** (buildings/roads/water/parks/landuse baked; rail/trees pending L-642) | UNASSIGNED |
+| **C** | **The BLOCKED geospatial axes** — PARCEL (Balady cadastre geo-fenced), HEIGHTS (`ml_sa` blocked), TERRAIN (GEOSA licensed). Documented as **founder-gated national-access negotiations, NOT engineering** | PARCEL + HEIGHTS + TERRAIN (35% of the weight) — ONLY if national data access is granted | (not-assessed; gated externally) | N/A engineering — founder/legal | **BLOCKED** — nationally geo-fenced/licensed; stays `not-assessed` until access changes | UNASSIGNED |
 
-> ⚠ Phases 0/0b are **VERIFIED**. Phase 1 **realises** ~55% but does not raise it — the number already
-> credits the AMBER footprint. Phases 2–3 are the rate-raising phases; the spike reframes them from
-> **geo-fence/agreement-BLOCKED (RED)** to **open-portal-AMBER** — the SDAIA plan datasets are a *public
-> open portal*, network-blocked from this environment but not licence-gated, so the unlock is egress +
-> one-time compile, not a data agreement. Balady/28 stays the richest path and a verification oracle.
+> ⚠ Phase 0 is **VERIFIED**. Phase A is the **only** rate-raising phase reachable without national data
+> access — it realises the AMBER footprint as a certified answer (~19% → ~30–40%). Phase B **holds**
+> CONTEXT (already baked; does not raise the number). Phase C is **not an engineering backlog item** —
+> it is a set of founder-gated national-access decisions (a Balady/MOMRAH data agreement or in-SA
+> egress; a GEOSA licence) that stay `not-assessed` until national data access changes. That is the
+> honest ceiling.
+
+---
+
+## Phase-3 — the ordered roadmap (goal · unlocks · axis · effort · dependency · blocker)
+
+Three ordered phases. **A** is the one movable axis (register the authored ENVELOPE pack — the only
+climb reachable from here); **B** holds the already-baked CONTEXT; **C** is the nationally-blocked
+geospatial surface, documented as founder-gated national-access negotiation rather than engineering
+work. Every rate-raising claim below is contingent on Phase A actually registering + signing — no RATE
+cell moves before that.
+
+### Phase A — Register + sign the authored footprint pack (ENVELOPE — the one movable axis)
+
+- **Goal.** Wire `packages/site-parcel-data/src/rulepacks/saRiyadhDemo.ts` (L-606): `index.ts` export,
+  `registry.ts` `JurisdictionRegistration`, a per-city bbox provider (Riyadh authored; Jeddah + Dammam
+  reuse the same pack unchanged), and the L5 class-dropdown dispatcher →
+  `saRiyadhResolvedPack(width, class)` → `computeBuildableEnvelope`. Apply `resolveSaudiSetbacks`
+  (`max(streetWidth/5, {3,2,2})`) + per-class `maxCoverage` (villa 0.75 / apartment 0.65). Hold the
+  vertical (height + floors) as a **field-level BOUNDED cited-null refusal** — the DISPUTED national caps
+  (villa ≤14 m §5-1-5 cl.3 / apt ≤23 m §3-2) refuse, they do NOT fill (C58 §1.13). Pass every field
+  through the **L-449 human-verification gate** (`sources/VERIFICATION.md` sign-off) before the pack
+  serves at `confidence: structured`.
+- **Unlocks.** **ENVELOPE + LEGISLATION** — the 66.7% national footprint, AMBER and compiled, **country-wide,
+  one formula**, as a certified structured answer. This is the phase that materially raises Saudi's
+  composite (~19% → ~30–40%) and the **only** axis that moves without reaching a geo-fenced source.
+- **Axis.** ENVELOPE (Axis 4) · LEGISLATION (Axis 2) · CONTEXT held (Axis 7).
+- **Effort.** Low–Medium. The pack is already authored + verified end-to-end against
+  `computeBuildableEnvelope` (L-606 §1); the remaining work is wiring (registry + bbox + dispatcher) plus
+  ONE human sign-off. This is the fastest win in the whole tree.
+- **Dependency.** **L-449** (human-verification gate) is mandatory before any field serves `structured`.
+  **ADR-0269** (curate-then-serve): no value serves without a citable governing article in SOURCES.md.
+  **ADR-0270** (rule kind = `setback`): the pack maps onto the existing `setback` kind + `maxCoverage` —
+  **no new `GeometricRule` schema kind** (the `esBarcelona20aAillada` precedent), so no C58 amendment is
+  required for the footprint.
+- **Blocker.** The **L-449 human sign-off** is the one non-geo-fenced blocker — FOOTPRINT fields
+  independently confirmed (2026-07-24); the height caps remain **DISPUTED** and are held null
+  (`sources/VERIFICATION.md`). Do NOT let the DISPUTED caps leak into a fill: they refuse, per C58 §1.13.
+
+### Phase B — Keep CONTEXT (the already-baked Overture layers)
+
+- **Goal.** Maintain the context bake for the two bake-covered cities — Riyadh (`bake.mjs` REGIONS
+  `riyadh`, bbox `46.60,24.58,46.83,24.80`) and Jeddah (`jeddah`, bbox `39.10,21.45,39.28,21.62`), both
+  `buildingsSource: 'overture'` because **Saudi is an OSM building-desert** (Overture is 5.3×/7.2× OSM
+  density). Land the L-642 rail/trees layers when that re-bake ships. Global fallbacks (Copernicus GLO-30
+  DEM as a coarse sanity DEM; MS/Google ML footprints) remain available but do NOT substitute for the
+  blocked national sources.
+- **Unlocks.** **CONTEXT** — already credited at 56% (buildings · roads · water · parks · landuse = 5/9);
+  rail + trees add when the L-642 re-bake lands. This phase **holds** the axis; it does not raise the
+  composite.
+- **Axis.** CONTEXT (Axis 7) · the context-OSM slot of DATA-SOURCES (Axis 3).
+- **Effort.** Low — already baked. Marginal cost is the rail/trees re-bake (L-642), shared with every
+  other jurisdiction.
+- **Dependency.** The `bake.mjs` REGIONS rows (present for Riyadh + Jeddah) and the shared context-bake
+  pipeline. No Saudi-specific dependency.
+- **Blocker.** None for the shipped layers. TERRAIN stays blocked (no open GEOSA DTM), so the context
+  bake sits on flat terrain; HEIGHTS stay `assumed` (Overture height ≈ 0% in Saudi). Both are Phase-C
+  blockers, not Phase-B ones — do not conflate the context *coverage* (baked) with terrain/height
+  *provenance* (blocked).
+
+### Phase C — The BLOCKED geospatial axes (founder-gated national-access negotiation, NOT engineering)
+
+- **Goal.** Document — **not build** — the three nationally-blocked axes as founder-gated national
+  data-access negotiations: **PARCEL** (Balady cadastre `MapServer/28`, geo-fenced), **HEIGHTS/LOD**
+  (`heightSources.mjs` `ml_sa` impl `blocked`; Balady `NOOFFLOORS` geo-fenced), **TERRAIN** (GEOSA
+  national DTM, licensed/no-open). These are the reason Saudi is the lowest-ceiling audited country. They
+  stay `not-assessed` (typed C62 reasons: `license-restriction` for PARCEL/HEIGHTS; cited-0 for TERRAIN)
+  **until national data access changes** — which is a business/legal decision, not an engineering task.
+- **Unlocks.** **PARCEL (15%) + HEIGHTS/LOD (10%) + TERRAIN (10%) = 35% of the weight** — but ONLY if a
+  national data-access route opens. With them, Saudi could flip from a constructed demo footprint toward
+  a *read/verified* envelope (Balady already carries geometry + `MAINLANDUSE` + resolved setbacks +
+  `NOOFFLOORS` per parcel — richer than we need). Without that route, they contribute nothing and are
+  correctly excluded from the assessed subset (assessing them at 0 would *lower* the composite).
+- **Axis.** PARCEL (Axis 1) · HEIGHTS/LOD (Axis 6) · TERRAIN (Axis 5).
+- **Effort.** **N/A engineering.** The engineering is trivial once data is reachable (the parcel provider
+  predicate + nDSM module + a `terrain.mjs` bake row all exist). The cost is **founder/legal
+  negotiation** for national access — a Balady/MOMRAH data agreement or an in-SA egress, and a GEOSA
+  licence — not developer time.
+- **Dependency.** A national data-access decision **outside PRYZM's control**: (a) reach Balady
+  `MapServer/28` from an in-SA egress or under a MOMRAH-Balady data agreement; (b) obtain a GEOSA licence
+  for the national DTM / LoD2 products. Both gate ALL parcel-level, height, and terrain work.
+- **Blocker.** **Nationally geo-fenced / licensed, measured on shape** (§CONTEXT-DATA-HONESTY):
+  `umapsudp.momrah.gov.sa` **NXDOMAIN** (re-confirmed); the Balady proxy returns a WAF-200 Arabic apology
+  page; GEOSA (`geocatalog.geoportal.sa`) publishes only template records to anonymous (licensed).
+  `heightSources.mjs` `ml_sa` is `blocked`; `terrain.mjs` SA rows are `blocked` ("no open national DTM
+  (GEOSA); founder-gated"). None of these is proof of absence — each is reachable-in-principle,
+  not-from-here — but none is pullable without the national-access decision above. **These stay
+  `not-assessed` until that decision changes.**
 
 ---
 
 ## 3 — The gap to Denmark (~96%)
 
 Denmark reaches ~96% because its dimensional values are **already digitised into structured national
-fields** (Plandata WFS), so almost no query reads a document. Saudi's ~41-pt gap is **not** the Barcelona/
-Madrid case (numbers in PDFs needing OCR + parcel-binding). It is a **combination of template cases (b) and
-(c)**:
+fields** (Plandata WFS), so almost no query reads a document. Saudi's gap is **not** the Barcelona/Madrid
+OCR case (numbers in PDFs needing extraction + parcel-binding), and it is **not** the Portugal case (a
+rich open geospatial platform under a PDF legal layer). It is a **geo-fence / institutional-access gap**:
 
-- **(c) A key path is geo-fenced / licence-gated — but the RULE sources are AMBER, not RED.** The live
-  per-parcel feed (Balady `MapServer/28`) is geo-fenced; GEOSA's national NSDI is licensed. **But** the
-  exact per-zone vertical's *authoritative source* — the "Approved Plans" open dataset — is a **public
-  open portal (AMBER)**, network-blocked from this environment yet not licence-gated (spike §0). So the
-  dominant half of the gap is removed by **egress + one-time compile**, not necessarily a data agreement —
-  the reframe that lifts the compileable ceiling to ~72–80%. It stays below 96% because the exact vertical
-  genuinely varies per municipal plan (case (b)) and GEOSA's context products are licensed.
-- **(b) The exact vertical is fragmented across N municipalities/authorities.** Unlike the footprint (one
-  national formula, all Amanas), the exact height/floors is per-Amana + per-development-authority — so even
-  fully reachable it needs many endpoints, one reader, and never collapses to a single national number.
+- **(a) The footprint half is already Denmark-like in SHAPE — but capped by the L-449 gate, not OCR.**
+  The 66.7% national footprint is an exact, national, structured formula (no OCR wall, no envelope
+  construction). It rises the moment Phase A registers + signs it. This is the movable half.
+- **(b) The geospatial half is geo-fenced / licensed nationally.** PARCEL (Balady cadastre), HEIGHTS
+  (`ml_sa` / `NOOFFLOORS`), and TERRAIN (GEOSA) are each behind a geo-fence or a licence — **55% of the
+  weight** is access-capped. There is no Saudi DGT/Plandata to relieve this. Closing it needs a national
+  data-access decision **outside PRYZM's control**, not engineering.
+- **(c) The exact vertical is fragmented across N municipalities/authorities.** Unlike the footprint (one
+  national formula, all Amanas), the exact height/floors is per-Amana + per-development-authority
+  (RCRC/ROSHN/NEOM/Diriyah/Qiddiya, the §1 cl.3 override surface) — so even fully reachable it never
+  collapses to a single national number.
 
-The footprint half is *already* Denmark-like in shape (exact, national, structured) — Saudi's problem is
-uniquely that its **best data (Balady, resolved per parcel) is the least reachable**. That inversion is the
-whole story: Barcelona has the data and not the rule; Saudi has the rule (and, behind the fence, the data
-too) but cannot reach the data from here.
+The inversion that defines Saudi: **its best data (Balady, resolved per parcel) is the least reachable.**
+Barcelona has the data and not the rule; Saudi has the rule (and, behind the fence, the data too) but
+cannot reach the data from here — and reaching it is a national-access decision, not a build. That is why
+Saudi is the lowest-ceiling audited country and why the honest ceiling is ~30–40%, not more.
 
 ---
 
 ## 4 — Dependencies, blockers, and cross-jurisdiction reuse
 
-**Depends on / already built (do not rebuild):**
+**Hard dependencies (must resolve in order):**
+- **L-449 (human-verification gate)** is mandatory for the footprint pack (Phase A) before any field
+  serves `confidence: structured`. FOOTPRINT fields confirmed; height caps DISPUTED, held null. This is
+  the one non-geo-fenced blocker and the fastest win.
+- **ADR-0269 (curate-then-serve):** do not serve any value without a citable governing article in
+  `sources/SOURCES.md`.
+- **ADR-0270 (rule kind = `setback`):** the pack maps onto the existing `setback` kind + `maxCoverage` —
+  no new schema kind, no C58 amendment needed for the footprint (the `esBarcelona20aAillada` precedent).
+- **A national data-access decision (Phase C)** — a Balady/MOMRAH data agreement or in-SA egress, and a
+  GEOSA licence — gates ALL parcel, height, and terrain work. This is founder/legal, not engineering,
+  and blocks 35% of the weight.
 
-- `packages/site-parcel-data/src/rulepacks/saRiyadhDemo.ts` (authored, L-606) + `resolveSaudiSetbacks`
-  (the width→triple resolver) — mapped onto the existing `setback` kind + `maxCoverage`, **no new
-  `GeometricRule` schema kind** (the `esBarcelona20aAillada` precedent). The pack is **city-agnostic**: the
-  same national footprint serves Riyadh, Jeddah, and Dammam with only a per-city bbox differing.
-- `streetWidth.ts` conceptually ports (Saudi عرض الشارع = frontage-to-frontage) but has **no inputs** on
-  the gated path (it needs Balady parcel rings); the demo takes the width from the user (L-606 §3).
-  `blockDerivedDepth.ts` does **NOT** port (Saudi uses flat coverage %, no Art-242 free-space build).
-
-**Blockers (each geo-fence measured on shape, not HTTP status — §CONTEXT-DATA-HONESTY; full matrix in
-[`findings/SAUDI-DATA-RECON-SPIKE.md`](./findings/SAUDI-DATA-RECON-SPIKE.md) §2):**
-
-- **Phase 1 — human `VERIFICATION.md` sign-off (L-449).** Only the human gate remains before the footprint
-  pack ships `structured`. FOOTPRINT fields independently confirmed 2026-07-24; height caps DISPUTED,
-  held null. → the one non-geo-fenced blocker.
-- **Phase 2 — the exact vertical value (reframed AMBER).** Its authoritative source is the **SDAIA
-  "Approved Local/Guideline/Detailed Plans" open dataset** — a *public open portal*, not a licence. From
-  this environment `open.data.gov.sa`/`od.data.gov.sa`/`data.gov.sa` **time out / ECONNREFUSED
-  (78.93.109.61)** — a network egress block, not a permission gate. Dev-authority codes (`rcrc.gov.sa`
-  WAF-rejected; `trc.alriyadh.gov.sa` / `istitlaa.ncc.gov.sa` ECONNREFUSED) are AMBER PDF overlays.
-  BLOCKED-here on egress + confirming the dataset carries height/floors.
-- **Phase 3 — the live/read parcel feed.** `umapsudp.momrah.gov.sa` **NXDOMAIN (re-confirmed 2026-07-24)**;
-  the Balady proxy returns a WAF-200 Arabic apology page. Still the richest upstream (geometry + class +
-  width + exact floors in one read) and a **verification oracle** — but no longer the *only* geometry
-  route: the "Approved Land Subdivision Plans" open dataset is an agreement-free AMBER alternative.
-- **Highest-value unlock (revised).** **Reach the SDAIA open-data portal from an unblocked egress** — it
-  is open, not licensed, and holds both the exact-vertical source (Approved Plans) and an agreement-free
-  parcel-geometry source (Subdivision Plans). Balady/28 (agreement/egress) is the fallback gold path.
+**Current blockers (each geo-fence measured on shape, not HTTP status — §CONTEXT-DATA-HONESTY):**
+- **Phase A** — the L-449 human sign-off (the only non-geo-fenced blocker). DISPUTED height caps must
+  refuse, not fill (C58 §1.13).
+- **Phase C — PARCEL:** `umapsudp.momrah.gov.sa` **NXDOMAIN** (re-confirmed); Balady proxy WAF-200. A
+  footprint-fallback is registered but is never a legal parcel (C57 §L-640) → capped low by construction.
+- **Phase C — HEIGHTS:** `heightSources.mjs` `ml_sa` impl `blocked`; Balady `NOOFFLOORS` geo-fenced (403);
+  Overture buildings carry ≈ 0% height in Saudi (GLO-30 is a coarse sanity DEM only).
+- **Phase C — TERRAIN:** `terrain.mjs` SA rows `blocked` ("no open national DTM (GEOSA); founder-gated") →
+  no quantized-mesh tileset baked → cited 0.
 - **Reachable-but-no-rules (recorded so it is not re-chased as a rule source):** `opendata.rcrc.gov.sa`
-  (Opendatasoft, 35 datasets, GeoJSON export live) carries **only statistical/transport/demographic**
-  data — zero height/FAR/setback/zoning. `apiservices.balady.gov.sa/v1/momrah-services/open-data`
-  (reachable, 200/JSON) is the MOMRAH **newsroom**, not datasets. `geocatalog.geoportal.sa/geonetwork`
-  (GEOSA) is reachable but publishes only **template records** to anonymous (licensed, empty to public).
+  (Opendatasoft, GeoJSON export live) carries **only** statistical/transport/demographic data — zero
+  height/FAR/setback/zoning. `apiservices.balady.gov.sa/.../open-data` is the MOMRAH **newsroom**, not
+  datasets. `geocatalog.geoportal.sa/geonetwork` (GEOSA) publishes only **template** records to anonymous.
 
-**Cross-jurisdiction reuse (why this is cheap breadth):**
-
-- **The residential rule is ONE national document, kingdom-wide** (Section 1 binds all Amanas) — a far
+**Cross-jurisdiction reuse (why the movable half is cheap breadth):**
+- **The residential rule is ONE national document, kingdom-wide** (Section 4 binds all Amanas) — a far
   stronger structural position than Norway's 357 kommuner or Germany's 16 Länder. One footprint pack
   covers the whole country; the per-city work is a bbox + the local vertical/heritage overlay.
 - **The footprint pack + `resolveSaudiSetbacks` is the reusable core** — Riyadh (authored), Jeddah, and
-  Dammam all reuse it unchanged; only the override/heritage overlays differ per city.
+  Dammam all reuse it unchanged (only the override/heritage overlays differ per city). Do NOT fork it.
+- **`streetWidth.ts` conceptually ports** (Saudi عرض الشارع = frontage-to-frontage) but has **no inputs**
+  on the gated path (it needs Balady parcel rings); the demo takes the width from the user (L-606 §3).
+  `blockDerivedDepth.ts` does **NOT** port (Saudi uses flat coverage %, no Art-242 free-space build).
+- **The nDSM height module (Phase C, if unblocked)** — DSM−DTM, 90th-percentile per footprint — is the
+  SAME shared module as Spain (L-511c) and France (L-512b); Saudi would feed different inputs. Do NOT
+  one-off it per country.
 - **The measured-geo-fence discipline** (assert on content-type + body, not HTTP 200) is the reusable
   honesty pattern for any jurisdiction with a WAF-200 or split-horizon backend.
 
@@ -205,9 +281,12 @@ too) but cannot reach the data from here.
 *Model references: **Denmark** `../dk/` (ceiling, ~96%) · **Barcelona**
 `../es/es-ct/08019-barcelona/` (pilot climb). Governing: **C58** (fidelity/provenance §1.2/§1.4,
 field-level bounded refusal §1.13), **ADR-0269** (curate-then-serve), **ADR-0270** (rule kind =
-`setback`), **L-449** (human-verification gate), **L-606** (Riyadh pack + the geo-fence probes). Source
-findings: [`findings/SAUDI-DATA-RECON-SPIKE.md`](./findings/SAUDI-DATA-RECON-SPIKE.md) (2026-07-24 recon +
-green/amber/red reframe + reachability matrix),
-[`findings/SAUDI-MASTER-DATA-SOURCE-STUDY.md`](./findings/SAUDI-MASTER-DATA-SOURCE-STUDY.md),
-`SAUDI-PRIMARY-DECISION-EXTRACT.md`, `SAUDI-UMAPS-API-ENUMERATION.md`; `sources/SOURCES.md`;
-`sources/VERIFICATION.md` (height caps DISPUTED — held null).*
+`setback`), **L-449** (human-verification gate), **L-606** (Riyadh pack + the geo-fence probes),
+**C63 §3/§4** (the seven axes + ratified weighting). Data layer:
+[`COUNTRY-RATE.md`](./COUNTRY-RATE.md) (per-city composite, Riyadh + Jeddah ~19% `partial`) ·
+[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (national structured-fill ~55%; rename pending L-649,
+number physically in [`RATE.md`](./RATE.md)) · [`NEXT.md`](./NEXT.md) (national resume steps) ·
+[`findings/SAUDI-DATA-RECON-SPIKE.md`](./findings/SAUDI-DATA-RECON-SPIKE.md) +
+[`findings/SAUDI-MASTER-DATA-SOURCE-STUDY.md`](./findings/SAUDI-MASTER-DATA-SOURCE-STUDY.md) (the
+reachability matrix). Saudi is nationally data-blocked — the low ceiling is the honest national reality,
+not a coverage gap. Ship the probe before the fix.*
