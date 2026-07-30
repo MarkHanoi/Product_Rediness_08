@@ -78,3 +78,13 @@ Nothing moves the **dimensional** 87% — the remaining ~13pp is missing at sour
 The smallest step that adds NEW capability is the **byggefelt footprint overlay** (a real footprint at
 6.0% of byzone clicks): cost = one C58/ADR schema decision (Blocker C) + the §4.1 wiring on a
 rebased base. Do the ADR first; don't half-wire coverage without it.
+
+## 9 — C63 CITY-COMPLETION CLIMB (probe pointer)
+
+The above is the national LEGISLATION *data-fill* story (~96%). The **per-city C63 completion** climb —
+raising the seven-axis composite (~66% · `partial` today, `COUNTRY-RATE.md`) toward ~92–96% — is
+sequenced in [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md). **First move (highest ROI in
+the whole audit):** wire PLANDATA.dk (Lokalplaner + Kommuneplan) per-city + **SIGN the L-449
+`sources/VERIFICATION.md`** for Copenhagen (§3 Blockers A + byggefelt bindingness) — this lifts the two
+heaviest axes (LEGISLATION 25 · ENVELOPE 20) off `not-assessed` with **zero OCR**, because the data is
+already machine-readable. The composite is capped by the unsigned gate, NOT by data absence.
