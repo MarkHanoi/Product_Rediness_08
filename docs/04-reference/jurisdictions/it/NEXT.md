@@ -294,3 +294,28 @@ confirmed by live probe.
 6. **Lombardy Indagine Offerta PGT schema (B8 — 0.25 dev-days).** Independent of all the above; direct download from Geoportale Lombardia or ARIA open data.
 
 **After steps 2 + 3 + 4 are completed, Italy moves from "live-probe session done" to "Tier 1 candidate (Turin) ready to estimate." The realistic dev-day estimate for a Turin pack can be committed once B2 (NTA text) is read.**
+
+---
+
+## 9 — §PROBE — Phase-3 C63 composite-RATE first moves (probe → wire → verify)
+
+> Companion to [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) (the ROI-sequenced 7-axis climb).
+> §CONTEXT-DATA-HONESTY: these are probe/wire steps — no cell moves until the backing state changes and the
+> scorecard function (not a human) re-emits the axis number (C63 §1.1). Ordered by ROI, Phase A first.
+
+- **Phase A — wire the cadastre (PARCEL + DATA-SOURCES, ~30 % of composite weight).** NO probe needed — the
+  Agenzia Entrate WFS is **VERIFIED-LIVE 2026-07-24**. Wire `AgenziaEntrateParcelProvider.ts` as an `isInItaly`
+  `kind:'cadastral'` row in `parcelProviders/registry.ts` (mirror ES `catastroParcelProvider`), add
+  `ItalyJurisdictionResolver` (ISTAT routing), then draw a `computeParcelConfidence` sample per Rome/Milan bbox
+  (C57 §2.4). **Verify:** sample returns `high` match + in-ring containment → PARCEL becomes measurable; DATA-SOURCES
+  cadastre slot flips `documented`→`live`. Guard: exclude AP Trento/Bolzano (own cadastre).
+- **Phase B — regional height adapters (HEIGHTS/LOD + DATA-SOURCES).** Probe first: ARPA Piemonte `Edifici_3D`
+  field name (§8 step 3) + Lombardia/Veneto/Emilia nDSM/DBT schemas. Then wire `ItalyHeightAdapter` through the
+  **shared ES/FR/PT nDSM module** (DSM−DTM→P90; do NOT fork). **Verify:** tagged-height fraction in the baked bbox
+  → HEIGHTS/LOD measurable; stamp `heightSource` so modeled ≠ surveyed.
+- **Phase C — verify TINITALY terrain (TERRAIN 50→100).** No new bake — run `terrain.verify.mjs --tileset` round-trip
+  for `rome` + `milan`, confirm deployed `layer.json` 200 + extent, and check `enableLighting`+octvertexnormals
+  (L-636 white-mask guard). **Verify:** round-trip passes → TERRAIN rung 50→100, `validationState`→`cross-validated`.
+- **Phase D — municipal envelope packs (LEGISLATION + ENVELOPE).** The human-gated cost; sequence
+  Milano PGT → Bologna PUG → Torino PRG → Roma PRG → Firenze. Each NTA parameter passes the **L-449 gate** before it
+  serves at `confidence: structured`. See §8 (steps 2/4/5) for the live-probe queue that de-risks Turin/Bolzano first.

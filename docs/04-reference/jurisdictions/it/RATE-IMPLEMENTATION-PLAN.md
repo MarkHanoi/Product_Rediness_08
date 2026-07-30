@@ -1,225 +1,210 @@
-# Rate Implementation Plan — Italy (`it`) national
+<!-- RATE-IMPLEMENTATION-PLAN.md — Italy (it) national. The phased, per-axis, probe→wire→verify climb
+     that raises Italy's C63 COMPOSITE RATE (the 7-axis master scorecard in COUNTRY-RATE.md) toward 100%.
+     §CONTEXT-DATA-HONESTY: this is a PLAN. It changes NO RATE % cell — every measured cell it cites
+     (DATA-SOURCES 50% · TERRAIN 50% · CONTEXT 56% · composite 51% partial) is READ from the shipped
+     Rome/Milan dossiers, never re-authored here; every "to" is an explicitly-labelled PROJECTION / TBD. -->
+# Rate Implementation Plan — Italy (`it`) national — climb toward C63 100%
 
-**Current rate: ~9–11%** · **Realistic mainland ceiling: ~25–30%** · **AP Bolzano ceiling: >50% (unverified)**
-**Gap to Denmark (~96%): ~85–87 pp** · **Gap to mainland ceiling: ~14–19 pp**
+**Current composite (C63 master RATE):** Rome & Milan each **51 % on the *assessed subset*** (DATA-SOURCES ·
+TERRAIN · CONTEXT = 30 % of the weight), `partial: true` — PARCEL · LEGISLATION · ENVELOPE · HEIGHTS/LOD
+(the other **70 % of the weight**) are honestly `not-assessed`, not 0 % (C63 §1.2). See
+[`COUNTRY-RATE.md`](./COUNTRY-RATE.md) · [Rome](./it-laz/058091-rome/RATE.md) · [Milan](./it-lom/015146-milan/RATE.md). ·
+**Realistic mainland pilot-city ceiling (PROJECTED): ~55–65 %** · **AP Bolzano ceiling (unverified): possibly >70 %** ·
+**Gap to Denmark (~96 %): ~31–41 pp at the projected pilot ceiling** · **Last updated:** 2026-07-30 ·
+**Owner:** UNASSIGNED
 
-> This plan shows the ordered sequence of actions that would move Italy's structured dimensional
-> fill rate from its current position to its realistic ceiling. Actions are sequenced by dependency
-> and cost, not alphabetically. Costs are in dev-days (1 dev-day = ~8 hours of focused engineering
-> including research, implementation, and test). Phases are cumulative — each builds on the last.
+> **Why this plan differs from the legislation climb.** The old content of this file was a *LEGISLATION-axis*
+> climb (structured dimensional fill, ~9–11 % → ~25–30 %); that reasoning now lives in
+> [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and is folded in below as **Phase D**. This plan is the
+> **C63 composite** climb — it sequences ALL SEVEN axes by return-on-investment, because the composite RATE is
+> dominated (30 % of weight) by three axes that are cheap-to-move on the Italian data estate, and the single
+> cheapest move (wiring one already-live national WFS) lifts two of them at once.
 
----
-
-## Why the ceiling is where it is
-
-Italy's mainland ceiling of ~25–30% is set by three structural facts that no amount of engineering
-can overcome without external data changes:
-
-1. **No national machine-readable zoning layer.** Unlike France (GPU WFS covers ~95% of communes)
-   or Germany (XPlanung/GeoServer per Land), Italy has no public national zoning endpoint. Every
-   zoning query must go through a per-region geoportal of uneven quality. Private platforms
-   (UrbisMap, PgtOnLine) fill this commercially; the gap is real and monetizable.
-2. **The nominally national zone taxonomy (DM 1444) is not operative in Italy's two largest
-   cities.** Milan uses a PGT territorial-index-plus-perequation mechanism; Rome uses a
-   tessuto-typology mechanism. Neither shares a schema with the other or with any DM 1444 zone
-   table. Every city with >500k population studied has independently abandoned the national taxonomy.
-3. **No building-height national product (only terrain).** PST/SIM produces DTM/DSM, not semantic
-   building layers. Germany has LoD2-DE (ZSHH-coordinated); France has BD TOPO `HAUTEUR`
-   (continuous national). Italy has Piedmont (ARPA, surveyed) plus modeled fallbacks
-   (OpenBuildingMap/OSM), with no coordinating federal body and no committed national LoD2 product.
-
-**AP Bolzano is the one jurisdiction where this ceiling may not apply.** South Tyrol's NewPlan
-system, CC0 geodata since 2007, and INSPIRE-confirmed ZoningElement WFS may put Bolzano closer to
-Denmark than to Italy's national average. This is unverified and must be confirmed by a non-Replit
-probe before any planning decision relies on it.
+> **§CONTEXT-DATA-HONESTY.** No cell moves in this document. Every current figure is a citation of a shipped
+> dossier cell; every target is a **PROJECTION** and is labelled as such (`→ TBD` / `projected`). The composite
+> only rises when the backing state actually changes (a provider wired, a bake verified, a pack signed off), and
+> only then does the scorecard function — not this plan — emit the new number (C63 §1.1).
 
 ---
 
-## Phase 0 — Unblock the three highest-value unverified leads (0.6 dev-days)
+## 1 — The ceiling: what "maximum" means for the Italian *composite*
 
-*These are the cheapest possible actions and must complete before any pack work begins. All three
-can be run in parallel from a non-Replit IP or a browser.*
+Italy's composite ceiling is **not** its legislation ceiling. The C63 master RATE is a weighted blend of seven
+axes (C63 §4: LEGISLATION 25 · ENVELOPE 20 · PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 ·
+CONTEXT 5). Italy's data estate is **inverted** relative to Portugal: the *cadastre is solved nationally*
+(Agenzia delle Entrate INSPIRE Catasto WFS, **VERIFIED-LIVE 2026-07-24**) and terrain is national and live
+(TINITALY, INGV), while the bottleneck is the same PDF-locked municipal-planning wall that caps every European
+jurisdiction. So Italy climbs the *cheap, load-bearing* axes first (PARCEL + DATA-SOURCES + TERRAIN + HEIGHTS =
+50 % of the weight) with low-effort wiring, and only then pays the human-gated LEGISLATION + ENVELOPE cost
+(45 % of the weight) city-by-city.
 
-### P0-A: AP Bolzano ZoningPlan WFS from non-Replit IP (0.25 dev-days)
+**Ceiling model — Denmark (~96 %):** Denmark's national Plandata delivers zone code, numeric density, and
+height as machine-readable structured fields — every axis is `live` at once. That is the proof that ~96 % is
+reachable only when a country fully digitises its planning rules. Italy has **no national zoning WFS** (no
+GPU/XPlanung/Plandata equivalent), so the two heaviest axes are structurally capped. Mirror Denmark's *shape*
+(all axes live), never expect its *number* on the Italian mainland.
 
-**What:** The Bolzano GeoServer WMS is confirmed live (`geoservices1.civis.bz.it`). INSPIRE
-metadata confirms WFS 2.0.0 exists for `p_bz:Inspire:LandUse.ZoningElement` (CC0, biannual
-update, 1:5000). WFS timed out from Replit — almost certainly an IP-range block, not a service
-outage.
+**Pilot model — Barcelona (~48 %):** Barcelona demonstrates the phased climb — wire the cadastre, source
+per-clau packs, derive block envelopes, build a refusal vocabulary. Italy's pilots (Milano/Bologna/Torino)
+should mirror this phase shape. Mirror the **shape**, not the numbers.
 
-**Action:**
-```bash
-# From a browser or non-Replit curl:
-curl "https://geoservices1.civis.bz.it/geoserver/p_bz-TerritorialPlans/ows?\
-SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" \
-  | grep -iE '<Name>|FeatureType' | head -40
-# If successful:
-curl "https://geoservices1.civis.bz.it/geoserver/p_bz-Inspire/ows?\
-SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" | grep -i 'Name' | head -30
-```
-Then run a GetFeature for Bolzano city centre (lat 46.4983, lon 11.3548 / ETRS-TM32 ~E686000, N5151000).
+**Italy's realistic pilot-city ceiling (PROJECTED ~55–65 %)** for a *fully-worked* mainland pilot (Milan,
+Bologna) is bounded by three structural facts, none of which engineering alone can lift:
 
-**Gate:** If WFS is confirmed public + parcel-queryable with zone-type attributes → AP Bolzano becomes
-a Tier 0 jurisdiction and must be sequenced before Turin. If WFS is login-gated or zone attributes
-absent → Bolzano stays TBD and Turin is the first pack city.
+1. **No national machine-readable zoning layer** — every zone/NTA parameter is per-region geoportal + per-city
+   PDF. Caps LEGISLATION at the mainland ~25–30 % structured-fill ceiling ([`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md))
+   and ENVELOPE proportionally.
+2. **DM 1444's zone taxonomy is abandoned in the two largest cities** — Milan runs a PGT territorial-index +
+   perequation ledger (no zone-letter key); Rome runs a tessuto-typology + direct/indirect-intervention regime.
+   Each is a **new engine kind** (C58), not a config, so ENVELOPE coverage is bought at engine cost, not pack cost.
+3. **No national building-height product** — only ARPA Piemonte (Turin) is a surveyed layer; every other region
+   is regional LiDAR nDSM (probe-gated) or modeled fallback. Caps HEIGHTS/LOD below the surveyed tier off-Piedmont.
 
-### P0-B: ARPA Piemonte Edifici 3D height field name (0.1 dev-days)
-
-**What:** FeatureServer endpoint confirmed live. `USO` field confirmed. Height field name timed
-out from Replit before full schema returned.
-
-**Action:** Open in browser:
-`https://webgis.arpa.piemonte.it/ags/rest/services/topografia_dati_di_base/Edifici_3D_2017/FeatureServer/0?f=json`
-Read the `fields` array. Expect `QUOTA_MEDIA` or `ALTEZZA`. Run one sample query for Turin bbox
-(EPSG:32632: xmin=390000, ymin=4990000, xmax=395000, ymax=4995000).
-
-**Gate:** Confirms height field name → enables Turin context-height layer in P2.
-
-### P0-C: APAR/SITAP WFS public access from non-Replit IP (0.25 dev-days)
-
-**What:** Both `sitap.cultura.gov.it` and `sitap.beniculturali.it` returned empty from Replit
-2026-07-24. The guida v2.0.0 confirms WFS 2.0.0 alignment behind `sitap.cultura.gov.it`.
-
-**Action:**
-```bash
-curl "https://sitap.cultura.gov.it/geoserver/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" \
-  | grep -i 'Name\|Title\|vincolo\|paesaggio' | head -20
-# Or try ArcGIS REST:
-curl "https://sitap.cultura.gov.it/arcgis/rest/services?f=json" | head -40
-```
-If blocked: email `cartografia@cultura.gov.it` to request the public OGC endpoint.
-
-**Gate:** If public → heritage overlay is automatable for all Italian cities simultaneously.
-If MiBACT-restricted → heritage overlay stays at ~35–40% (Vincoli in Rete partial fallback).
+**AP Bolzano is the one outlier that may break this ceiling** (NewPlan CC0 ZoningElement WFS 2.0.0, daily update,
+1:5000 per INSPIRE metadata) — potentially >70 % composite — but is **unverified from a non-Replit IP** and uses
+its **own cadastre** (statutory delegation; do NOT route it to Agenzia Entrate). It is a fast-track, not the mainline.
 
 ---
 
-## Phase 1 — Establish the Turin gate (0.5–0.75 dev-days)
+## 2 — Phase tracker (sequenced by ROI: cheapest, most load-bearing first)
 
-*Dependent on P0-B completing. Independent of P0-A and P0-C.*
+Each phase gives **goal · unlocks · axis moved · effort · dependency · blocker**. Effort in dev-days
+(1 dev-day ≈ 8 h focused engineering incl. research + test). Phases A–C are cumulative-cheap and largely
+parallelisable; Phase D is the human-gated cost and runs per city.
 
-### P1-A: Read Turin PRG NTA primary text + DCC 123 revision (0.5 dev-days)
+| Phase | Goal | Unlocks (axis moved) | Rate: from → to | Effort | Dependency | Blocker | Status |
+|---|---|---|---|---|---|---|---|
+| **A** | Wire `AgenziaEntrateParcelProvider.ts` — the national Catasto WFS — as a `kind:'cadastral'` jurisdiction in `parcelProviders/registry.ts` (+ `ItalyJurisdictionResolver` ISTAT routing) | **PARCEL** `not-assessed`→measurable (national) **+ DATA-SOURCES** cadastre slot `documented 0.5`→`live 1.0` | DATA-SRC 50 % → **~60 %** *(projected)*; PARCEL `—` → measurable *(TBD)* | **Low** (~1–2 dd — one data addition, mirrors ES `catastroParcelProvider`) | none — WFS **VERIFIED-LIVE 2026-07-24** | AP Trento/Bolzano excluded (own cadastre); `computeParcelConfidence` sample must be drawn (C57 §2.4) | NOT STARTED |
+| **B** | `ItalyHeightAdapter` over regional LiDAR nDSM (DSM−DTM→P90) via the **shared ES/FR/PT nDSM module** — Lombardia (Milan) · Veneto · Emilia-Romagna (Bologna) first; fold in ARPA Piemonte (Turin, already real) | **HEIGHTS/LOD** `not-assessed`→measurable **+ DATA-SOURCES** height slot `none 0`→`live 1.0` (per region) | DATA-SRC ~60 % → **~80 %** *(projected, per city)*; HEIGHTS `—` → measurable *(TBD)* | **Medium** (~3–5 dd — adapter + feed mapping; reuse, do NOT fork) | Phase A routing helps; regional endpoint probes (P0-B ARPA field; Lombardia/Veneto/Emilia schema) | No national height raster; regional field names TBD; Campania login-gated; `heightSource` must be stamped (modeled ≠ surveyed) | NOT STARTED |
+| **C** | Verify TINITALY terrain: `terrain.verify.mjs` independent-decoder round-trip + deployed `layer.json` 200 + lit-and-correct render for Rome/Milan bboxes | **TERRAIN** rung `50` (baked-unverified) → `100` (baked+verified) | TERRAIN 50 % → **100 %** *(projected)*; `validationState`→`cross-validated` | **Low** (~0.5–1 dd — verification pass, no new bake) | existing `terrain.mjs` rows (`rome`, `milan`) already baked+live | 10 m TINITALY grid coarser than sub-metre DTMs elsewhere (genuine but coarse); white-mask/octvertexnormals check must pass (L-636) | NOT STARTED |
+| **D** | Municipal envelope rule packs + L-449 gate: **Milano PGT → Bologna PUG → Torino PRG → Roma PRG → Firenze Piano Operativo**; register in `rulepacks/registry.ts` | **LEGISLATION** (verified cited claus) **+ ENVELOPE** (solver coverage) `not-assessed`→measurable | LEGIS `—`/~5 % → **~25–30 %** *(mainland ceiling, projected)*; ENVELOPE `—` → **~20–35 %** *(projected)* | **High** (the 65 %-of-effort part — per-city NTA transcription; Milan/Rome = new engine kinds) | Phase A (parcel to attach rules to); L-449 gate; C58 solver; NTA PDFs sourced | No national zoning WFS; DM 1444 abandoned in Milan/Rome; perequation-ledger queryability unknown; NTA numbers PDF-locked | NOT STARTED |
 
-**What:** The entire Tier 1 classification for Turin rests on the unconfirmed assumption that
-Turin's PRG NTA uses DM 1444-style zone letters with per-zone numeric tables. Additionally,
-Turin's PRG is under active revision (DCC 123, March 2026) — the incoming plan may keep or drop
-the zone-letter scheme.
-
-**Action:**
-1. Navigate `comune.torino.it/urbanistica` → Piano Regolatore Generale → Norme Tecniche di
-   Attuazione. Download the consolidated NTA PDF.
-2. Read Art. 1–15 (zone classification) + the first numeric table. Record zone letters and whether
-   they map directly to DM 1444 A/B/C/D/E/F or use local mnemonics.
-3. Search `comune.torino.it` for "DCC 123 2026" + "variante PRG". Read the preliminary revision
-   text to assess the *incoming* plan's zone-classification structure.
-4. Confirm "regime di salvaguardia" scope: does it freeze the outgoing plan's operative rules
-   (safe), or does it create a gap (risky)?
-
-**Gate:** Binary outcome:
-- Zone letters confirmed in incoming plan → Turin is Tier 1; proceed to Phase 2.
-- Bespoke mechanism revealed → Turin is Tier 2; re-estimate dev-days before committing Phase 2.
-
-### P1-B: Probe Piedmont PRG mosaic WFS from non-Replit IP (0.25 dev-days)
-
-**What:** The Piedmont regional WFS at `geoportale.piemonte.it/geoserver/ows` timed out / returned
-empty from Replit. Try workspace-specific path:
-`https://www.geoportale.piemonte.it/geoserver/Urbanistica/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities`
-
-Also attempt WMS GetFeatureInfo on the live `ZonediPiano` WMS layer — this may return zone
-attributes from the public WMS without needing the restricted vector download.
-
-**Gate:** Confirms zone identification is an API call (enables automated zone lookup for Turin)
-vs. requires institutional login for vector data (WMS-visualization-only).
+**The single highest-ROI first move is Phase A.** Wiring one already-verified-live national WFS is a *data
+addition*, not an engineering project, and it moves 30 % of the composite weight (PARCEL 15 + DATA-SOURCES 15)
+in one step — flipping Italy from "cadastre exists but unwired" to Spain-like nationally.
 
 ---
 
-## Phase 2 — Turin pack: first Italian city (10–15 dev-days if Tier 1 confirmed)
+## 3 — Phase detail (probe → wire → verify, per axis)
 
-*Dependent on P1-A and P1-B completing with Tier 1 confirmed.*
+### Phase A — Wire the national Catasto (PARCEL + DATA-SOURCES) — ~1–2 dev-days
 
-| Sub-task | What | Dev-days |
+*The highest-value first move. No probe needed — the WFS is VERIFIED-LIVE.*
+
+| Sub-task | What | Axis |
 |---|---|---|
-| **2.1 — National parcel baseline** | Catasto WFS integration (already live-confirmed; implement `CP:CadastralParcel` GetFeature for lat/lon bbox). BBOX axis order: lat_min,lon_min,lat_max,lon_max (EPSG:6706). | 1–2 |
-| **2.2 — Piedmont PRG mosaic zone lookup** | Connect to Piedmont WFS (or WMS GetFeatureInfo if vector restricted); return zone letter for parcel. Confirm currency of "Zone di Piano" layer (currently updated 2025-06-30). | 2–3 |
-| **2.3 — NTA transcription (per-zone numeric table)** | Read and source zone-by-zone numeric parameters: `indice di fabbricabilità` (mc/mq), max height, coverage %. Record source article for each value. Flag DM 1444 Art. 7–8 ceilings as upper-bound-only (not operative). | 3–5 |
-| **2.4 — ARPA Piemonte building-height context** | Integrate Edifici 3D FeatureServer; height field (name from P0-B). Flag as "surveyed existing height — not permitted height." Handle 2017 vintage: note possible staleness for new construction post-2017. | 1–2 |
-| **2.5 — SITAP/Vincoli in Rete heritage overlay** | If P0-C confirmed public: WFS integration. If not: Vincoli in Rete web-scrape / partial fallback. Flag as "informational only — NOT FOUND does not certify absence." | 1–2 |
-| **2.6 — National floor rules** | Codice Civile Art. 873 (3 m boundary setback), DM 1444 Art. 9 (10 m between facing buildings — check Piedmont's DPR 380/2001 Art. 2-bis derogation before shipping). | 0.5–1 |
+| **A.1 — `ItalyCatastoProvider`** | ONE national provider (do NOT build per-region parcel providers). `ItalyJurisdictionResolver` (ISTAT Region→Province→Comune) → Agenzia Entrate WFS `owfs01.php` `CP:CadastralParcel` GetFeature. BBOX axis order `lat_min,lon_min,lat_max,lon_max` (EPSG:6706). Model `{geometry, cadastralCode, municipality, province, area, source, confidence}`. | PARCEL |
+| **A.2 — Registry predicate** | Add `isInItaly` `kind:'cadastral'` row to `parcelProviders/registry.ts` — the exact move that turned on ES/FR/NL/NO/CH/DK. | DATA-SOURCES (cadastre `documented`→`live`) |
+| **A.3 — Confidence sample** | Draw an N-parcel `computeParcelConfidence` + `computeParcelMetrics` sample per pilot bbox (C57 §2.4): match distribution `high|medium|low` + `pointToParcelM` containment + block-dissolve (L-635/L-641). `authorityRank` = `national-cadastre`. INSPIRE geom is **not survey-grade** — caps PARCEL below 1.0. | PARCEL (makes it measurable) |
+| **A.4 — Exclusion guard** | Route AP Trento + Bolzano to their OWN cadastre, never to `wfs.cartografia.agenziaentrate.gov.it`. | PARCEL (honesty) |
 
-**Phase 2 ceiling (Tier 1 confirmed): ~25–35%** (zone + one numeric field per zone + ARPA height context)
-**Phase 2 ceiling (Tier 2 forced): re-estimate from scratch — approximately 20–25 dev-days for new engine kind**
+**Projected move:** DATA-SOURCES cadastre slot 0.5→1.0 lifts the Rome/Milan mean from 0.50 to **~0.60**; PARCEL
+becomes assessable nationally (likely `high` for the sampled pilots). *These are projections — the cells move only
+after A.3 runs and the scorecard emits them.*
 
----
+### Phase B — Regional height adapters (HEIGHTS/LOD + DATA-SOURCES) — ~3–5 dev-days
 
-## Phase 3 — Milan pack: new engine kind (20–25 dev-days)
+*Reuse the shared ES/FR/PT nDSM module (L-511c / L-512b). Do NOT one-off a per-country height path.*
 
-*Parallel to Turin; dependent on P0-C for heritage overlay. Independent of Phase 2.*
-
-| Sub-task | What | Dev-days |
+| Sub-task | What | Axis |
 |---|---|---|
-| **3.1 — Lombardy PGT WFS** | Probe Lombardy Geoportale WFS for PGT Piano delle Regole zone polygon. Previous probe returned 404/page-not-found — try workspace-specific paths. If no public WFS: document as gap. | 0.5–1 |
-| **3.2 — PGT Piano delle Regole NTA read** | Read NTA to confirm 0.35 mq/mq TUC base index, 0.70 mq/mq ceiling via perequation, ERS zone rules, agricultural carve-outs. | 2–3 |
-| **3.3 — Perequation ledger access investigation** | Dedicate a sourcing pass to determine whether the perequation ledger (transacted rights per parcel) is publicly queryable — via Milan SIT, PGT portal, UrbisMap API (licensed), or administrative request. | 1–2 |
-| **3.4 — Build TUC territorial-index engine kind** | New engine kind: single citywide index (0.35 mq/mq) applied to each parcel via lotto funzionale. Base-index answer = computable; ceiling answer = "requires perequation ledger lookup" if ledger unavailable. | 5–8 |
-| **3.5 — ERS + agricultural carve-outs** | Separate rule sets from PGT NTA; secondary sourcing after TUC dominant mechanism. | 2–3 |
-| **3.6 — Heritage overlay + national floor rules** | SITAP (if P0-C confirmed) + Vincoli in Rete + CC Art. 873 + DM 1444 Art. 9 (check Lombardy RET derogations). | 1–2 |
+| **B.1 — Probe regional endpoints** | Confirm ARPA Piemonte `Edifici_3D` height field name (`QUOTA_MEDIA`/`ALTEZZA`, P0-B) from a browser; probe Lombardia (Geoportale/ARIA) + Veneto (IDT) + Emilia-Romagna (DBTR full OGC) nDSM/DBT schemas. | DATA-SOURCES |
+| **B.2 — `ItalyHeightAdapter`** | DSM−DTM→P90 through the shared module; feed per region. Precedence `lod2 → lidar_ndsm → osm_levels → assumed`; stamp `heightSource` on every building. | HEIGHTS/LOD |
+| **B.3 — Fold in Piemonte (Turin)** | ARPA Piemonte Edifici 3D is the ONE real Italian building-height layer (`heightSources.mjs` `piedmont_it`) — the proof the pipeline works. Turin's HEIGHTS axis becomes measurable the moment a `turin` bake + terrain row exist (see COUNTRY-RATE §B). | HEIGHTS/LOD |
 
-**Phase 3 ceiling (perequation ledger unavailable): ~15–20%** (zone + base index only; ceiling = reasoned partial)
-**Phase 3 ceiling (perequation ledger publicly queryable): ~25–35%**
+**Projected move:** DATA-SOURCES height slot `none`→`live` lifts Milan/Bologna mean toward **~0.80**; HEIGHTS/LOD
+flips from structural `no-source` to a measurable tagged-fraction in the strong regions. *(projected)*
 
----
+### Phase C — Verify TINITALY terrain (TERRAIN 50→100) — ~0.5–1 dev-day
 
-## Phase 4 — Rome pack: new engine kind (25–30 dev-days)
+*The cheapest axis to top out — the bake already exists and is live; this is a verification pass, not a re-bake.*
 
-*Parallel to Milan; independent of Phases 2 and 3.*
+- **C.1** — `terrain.verify.mjs --tileset` independent-decoder round-trip for `rome` + `milan`.
+- **C.2** — deployed `layer.json` HTTP 200 + extent match (`terrainCoverage.ts` `TERRAIN_TILESET_VERSION`).
+- **C.3** — confirm lit-and-correct render: `enableLighting` + octvertexnormals present (the L-636 white-mask guard).
 
-| Sub-task | What | Dev-days |
-|---|---|---|
-| **4.1 — Roma Capitale SIT tessuto WFS probe** | Probe `sit.comune.roma.it` for PRG sistema/tessuto WFS queryability. If confirmed: tessuto type is an API call. If not: document gap. | 0.5–1 |
-| **4.2 — PRG NTA consolidated text** | Read current PRG NTA to confirm: (a) Carta per la Qualità precedence direction; (b) direct/indirect intervention regime scope for each sistema. | 2–3 |
-| **4.3 — Build direct/indirect intervention classifier** | Prerequisite engine component: classifies each parcel as direct (numeric envelope readable) vs. indirect (refusal until executive plan). Analogous to Germany's §30/§34/§35 classifier. | 3–5 |
-| **4.4 — Build tessuto typology engine kind** | New engine kind: Città Storica (per-tessuto NTA articles at 1:5,000) + Città Consolidata T1/T2/T3 typology rules. Not a zone-letter config. | 8–12 |
-| **4.5 — Città da Ristrutturare / Trasformazione refusal vocabulary** | Implement reasoned-refusal posture for indirect-intervention zones: "no numeric building envelope until executive plan adopted." | 0.5–1 |
-| **4.6 — Heritage overlay + national floor rules** | SITAP + Vincoli in Rete + Carta per la Qualità (if machine-readable) + CC Art. 873 + DM 1444 Art. 9 (check Lazio derogation). | 1–2 |
+**Projected move:** TERRAIN 0.5→1.0 (rung 50→100), `validationState`→`cross-validated` (C12 §10). Can run in
+**parallel** with Phase B. *(projected)*
 
-**Phase 4 ceiling (Consolidata T1/T2/T3 + Storica under direct intervention): ~30–35%**
+### Phase D — Municipal envelope rule packs (LEGISLATION + ENVELOPE) — high, per city
 
----
+*The human-gated cost — the 65 %-of-effort planning-rule extraction. Folds in the legacy legislation climb
+([`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md)). Every extracted numeric parameter passes the L-449 gate before
+it serves at `confidence: structured`. Order below is the founder's Phase-3 sequence.*
 
-## Phase 5 — AP Bolzano fast-track (if P0-A confirms WFS public) (5–10 dev-days)
+| City | Instrument | Mechanism / engine kind | Notes |
+|---|---|---|---|
+| **Milano** (`015146`, it-lom) | PGT — Piano delle Regole | **TUC territorial-index + perequation ledger** — no zone-letter key; parcel-and-ledger, not zone-and-table. New ledger-aware engine kind (C58). Base index (0.35 mq/mq) computable; ceiling (0.70 via perequation) needs the transacted-rights ledger — investigate queryability before promising it. | Milan's dominant mechanism cannot be a conventional zone-table pack (see Milan `ENVELOPE.md`). |
+| **Bologna** (Emilia-Romagna) | PUG | **Best pilot infra** — full OGC stack (DBTR + regional LiDAR + WMS/WFS/WCS/WPS/CS-W). Most tractable envelope pilot. | Highest-leverage first *pack* even though listed 2nd — best data estate to prove the C58 loop. |
+| **Torino** (`001272`, it-pie) | PRG | **DM 1444-style zone letters + per-zone numeric NTA table** — the simplest, most conventional mechanism; the ONLY city with a real height source (ARPA). Confirm the incoming DCC-123/2026 revision keeps zone letters (regime di salvaguardia scope). | Fastest route to a *certified* pack; a natural co-pilot with Bologna. |
+| **Roma** (`058091`, it-laz) | PRG | **Tessuto-typology + direct/indirect-intervention regime** — Città Storica per-tessuto NTA at 1:5000; needs a direct/indirect classifier (analogous to DE §30/§34/§35) + a reasoned-refusal vocabulary for indirect zones. Unresolved: *Carta per la Qualità* precedence. New engine kind. | Huge + heritage-heavy; highest engine cost. |
+| **Firenze** | Piano Operativo + vincoli | Piano Operativo zone rules + landscape constraints; Toscana PRG delivered as PDF scans (zoning-as-data negative). | Then extend to the top-20 metros. |
 
-*Triggered by P0-A gate. Independent of Phases 2–4. Potentially higher ceiling than any mainland city.*
+**National floor rules (all cities):** Codice Civile Art. 873 (3 m boundary setback) + DM 1444 Art. 9 (10 m
+between facing buildings — check each region's DPR 380/2001 Art. 2-bis derogation before shipping).
 
-If the Bolzano ZoningPlan WFS is confirmed public, parcel-queryable, and carries zone-type
-attributes (CC0, daily update, 1:5000 per INSPIRE metadata), Bolzano may approach Denmark's ~96%
-level. The fast-track would:
+**Heritage overlay (all cities):** SITAP/APAR WFS (if confirmed public from a non-Replit IP) + Vincoli in Rete
+fallback — flag "informational only; NOT FOUND does not certify absence" (a null ≠ certified absence).
 
-1. Integrate `geoservices1.civis.bz.it` WFS for parcel-level zoning
-2. Map zone attributes to PCTP (Autonomous Province planning instrument) building parameters
-3. Confirm heritage overlay integration (NewPlan reportedly merges planning + landscape constraints into one system — the "SITAP separate from PRG" split may not apply here)
-4. Confirm Bolzano's own cadastral system (separate from national Catasto — AP has its own by
-   statutory delegation; do NOT use `wfs.cartografia.agenziaentrate.gov.it` for Bolzano)
-
-**Phase 5 ceiling: TBD pending P0-A probe; potentially >50%.**
+**Projected move:** LEGISLATION `—`/~5 % → **~25–30 %** (mainland structured-fill ceiling); ENVELOPE `—` →
+**~20–35 %** per city depending on mechanism. *(projected — moves only per-clau, per L-449 sign-off.)*
 
 ---
 
-## Gap to Denmark (~96%)
+## 4 — The gap to Denmark (~96 %)
 
-| Gap component | Points lost | Bridgeable? |
-|---|---|---|
-| No national zoning WFS (GPU/XPlanung equivalent) | ~50 pp | ❌ Not without a national standard (no current Italian initiative found) |
-| Large cities have abandoned DM 1444 zone letters (Milan + Rome = new engine kinds) | ~15 pp | ⚠️ Bridgeable per city (new kinds required) |
-| No national building-height product (surveyed) | ~20 pp | ⚠️ Piedmont partially bridges; modeled fallback nationwide |
-| Municipal NTA fragmentation (numbers in PDFs, not GIS) | ~15 pp | ⚠️ PDF transcription per city |
-| AP Bolzano may not have this gap at all | — | ✅ Probe required |
+| Gap component | Axis(es) | Points bounded | Bridgeable? |
+|---|---|---|---|
+| No national zoning WFS (Plandata/GPU/XPlanung equivalent) | LEGISLATION · ENVELOPE | the dominant cap | ❌ Not without a national standard — none found in Italy today |
+| DM 1444 abandoned in Milan + Rome (bespoke engine kinds) | ENVELOPE | per-city engine cost | ⚠️ Bridgeable per city (new C58 kinds) |
+| No national surveyed building-height product | HEIGHTS/LOD · DATA-SOURCES | off-Piedmont surveyed tier | ⚠️ Regional LiDAR nDSM bridges partially (Phase B) |
+| NTA numbers PDF-locked (not GIS) | LEGISLATION | per-city transcription throughput | ⚠️ Per-city + L-449 gate caps throughput |
+| Cadastre + terrain already national + live | PARCEL · DATA-SOURCES · TERRAIN | **already bridged** | ✅ Phases A + C realise it cheaply |
+| AP Bolzano may not have the zoning gap at all | LEGISLATION · ENVELOPE | — | ✅ Non-Replit probe required |
 
-**Summary:** Italy will not reach Denmark levels on the mainland without either a national zoning
-standard (no current equivalent to Plandata.dk) or a per-city PDF-transcription programme covering
-all ~7,900 comuni. The pragmatic ceiling — building only on confirmed structured sources — is
-~25–30% for Turin, ~15–20% for Milan (without perequation ledger), and ~30–35% for Rome. AP
-Bolzano is the one outlier that may break this ceiling.
+**Summary.** Italy reaches the *cheap* axes (PARCEL + DATA-SOURCES + TERRAIN + HEIGHTS = 50 % of weight) cheaply
+via Phases A–C, but the *heavy* axes (LEGISLATION 25 + ENVELOPE 20 = 45 %) are structurally capped below Denmark
+by the absent national zoning layer. The projected pilot-city composite ceiling is **~55–65 %**; the national
+average is lower because most comuni will never get a pack. AP Bolzano is the sole candidate to approach Denmark.
 
 ---
 
-*Last updated: 2026-07-24. Maintainer: UNASSIGNED.*
+## 5 — Dependencies, blockers, and cross-jurisdiction reuse
+
+**Hard dependencies (resolve in order):**
+- **Phase A gates everything downstream.** No parcel = no land to attach a zone, rule, height, or envelope to.
+  Wire the Catasto provider before any Phase-D pack work (a pack with no parcel is untestable).
+- **L-449 human-verification gate** is mandatory for any NTA value extracted in Phase D before it serves at
+  `confidence: structured`. No transcribed number bypasses this gate.
+- **ADR-0269 (curate-then-serve):** do not serve any PGT/PRG value not verified against a citable governing
+  article in `sources/SOURCES.md` + signed `sources/VERIFICATION.md`.
+- **C58 engine kinds** for Milan (ledger-aware) + Rome (tessuto + direct/indirect classifier) are prerequisites
+  for those cities' ENVELOPE axis — a zone-table pack cannot represent either.
+
+**Current blockers (probe before they gate production — §CONTEXT-DATA-HONESTY):**
+- Regional height endpoint schemas (Lombardia/Veneto/Emilia field names) not live-probed — Phase B design-blocked.
+- ARPA Piemonte `Edifici_3D` height field name unconfirmed from a clean IP (P0-B).
+- SITAP/APAR WFS public access unconfirmed from a non-Replit IP (P0-C) — heritage overlay throttled until then.
+- AP Bolzano ZoningElement WFS 2.0.0 public access unverified from a non-Replit IP (P0-A) — fast-track gated.
+- Milan perequation-ledger queryability unknown — Milan ENVELOPE *ceiling* answer blocked until resolved.
+- Lombardy/Lazio PGT/PRG zone-GIS WFS endpoints not found/confirmed — DATA-SOURCES regional-zone-GIS slot stays 0.
+
+**Cross-jurisdiction reuse (never fork):**
+- The **nDSM height module** (DSM−DTM, P90 per footprint) is the SAME shared module as Spain (L-511c) and France
+  (L-512b). Italy feeds different regional inputs into it — do NOT build a per-country height path (Phase B).
+- The **`ItalyCatastoProvider`** is ONE national provider on the ES `catastroParcelProvider` pattern — do NOT
+  build per-region parcel providers (the fragmentation is above the cadastre, not in it).
+- The **Barcelona pack pattern** (registry → per-zone packs → block-derived envelope → refusal vocabulary) is the
+  Phase-D template; Bologna/Torino mirror its shape. The Rome direct/indirect classifier mirrors the German
+  §30/§34/§35 pattern.
+- The **CONTEXT axis** ports essentially free: rail + trees are already config-added to `bake.mjs` LAYERS (L-642)
+  and lift CONTEXT from 5/9 toward 7/9 for Rome/Milan the moment those layers re-bake — an honest 0 until then.
+
+---
+
+*Model references: **Denmark** `../dk/` (ceiling, ~96 %) · **Barcelona** `../es/es-ct/08019-barcelona/` (pilot
+climb) · **Portugal** `../pt/RATE-IMPLEMENTATION-PLAN.md` (shape of this plan). Governing: **C63** (the 7-axis
+scorecard + weights) · **C57** (parcel) · **C58** (envelope) · **ADR-0269** (curate-then-serve) · **L-449**
+(human-verification gate) · **L-649/L-650** (the completion-rollout program). Composite master:
+[`COUNTRY-RATE.md`](./COUNTRY-RATE.md). National legislation sub-rate: [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md).*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED.*
