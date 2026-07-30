@@ -5,10 +5,8 @@
      `not-assessed` with a typed C62 reason; NO cell is a hand-typed or borrowed number (C63 §1.1/§1.2). -->
 
 **National legislation/data-fill:** **~96%** digital-data / **~87%** pure-structured byzone (L-609/L-611,
-live-verified 2026-07-23). ⚠ This national number currently lives in [`RATE.md`](./RATE.md) — the **legacy**
-filename for Denmark's structured legislation/data-fill rate; per the L-649 naming convention it is pending
-rename to `LEGISLATION-RATE.md` (not renamed here to avoid colliding with the concurrent governance/migration
-work). It **feeds the per-city LEGISLATION axis** as the country prior; it is NOT a per-city measured fill.
+live-verified 2026-07-23). ⚠ This national number currently lives in [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) — Denmark's structured legislation/data-fill rate, renamed from `RATE.md`
+to `LEGISLATION-RATE.md` per the L-649 naming convention (a reconciliation banner sits atop it). It **feeds the per-city LEGISLATION axis** as the country prior; it is NOT a per-city measured fill.
 See [`README.md`](./README.md) for the national data layer + [`DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md`](./DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md).
 
 > Authority: [C63](../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Axes fixed in C63 §3.
@@ -81,7 +79,7 @@ others `pending-implementation` — no row), both resolving to `not-assessed`.
 | File | What it is about | Feeds |
 |---|---|---|
 | **`COUNTRY-RATE.md`** (this file) | the per-city 7-axis roll-up — the country composite master rate | — (rolls up all cities) |
-| [`RATE.md`](./RATE.md) | national structured legislation/data-fill rate (~96%) — **legacy name**, pending rename to `LEGISLATION-RATE.md` (L-649) | LEGISLATION axis |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | national structured legislation/data-fill rate (~96%) — renamed from `RATE.md` (L-649) | LEGISLATION axis |
 | [`LOD-RATE.md`](./LOD-RATE.md) | national building/terrain LOD sub-rate | HEIGHTS/LOD axis |
 | [`README.md`](./README.md) | the national data layer — what governs, granularity, the numbers | all |
 | [`ENVELOPE-RULES.md`](./ENVELOPE-RULES.md) | national envelope rule shape (coverage-and-FAR / height-and-storeys) | ENVELOPE |

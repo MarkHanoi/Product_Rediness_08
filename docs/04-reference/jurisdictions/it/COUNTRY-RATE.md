@@ -1,7 +1,7 @@
 <!-- COUNTRY-RATE.md — Italy composite completion roll-up (C63 §5). Country composite master
      ("master RATE" at the country level, L-649): one row per tackled city, columns = the 7 axes +
      overall. Naming per _TEMPLATE/NAMING-CONVENTION.md. Every cell is COMPUTED (cited-derived) or
-     `not-assessed`; the national legislation number lives in RATE.md (legacy) — do NOT confuse it
+     `not-assessed`; the national legislation number lives in LEGISLATION-RATE.md (renamed from RATE.md, L-649) — do NOT confuse it
      with this composite. Authored by the C63 Phase-1 audit; a future scorecard-function re-run
      replaces the manual cells (C63 §1.1/§8.1). -->
 # Italy (it) — Country RATE (master completion roll-up)
@@ -10,8 +10,7 @@
      cited-derived per C63 §8.1; all other axes `not-assessed` with a typed C62 reason. No fabricated cell. -->
 
 **National legislation/data-fill (`LEGISLATION-RATE.md` equivalent):** the legacy national structured-fill
-number is `~9–11 %` — see [`RATE.md`](./RATE.md) (NOT YET renamed `LEGISLATION-RATE.md`; the national rename
-is pending the L-649 migration, owned by governance). Every numeric PRG/PGT parameter requires the NTA PDF;
+number is `~9–11 %` — see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (renamed from `RATE.md` — L-649 migration complete; see the reconciliation banner atop that file). Every numeric PRG/PGT parameter requires the NTA PDF;
 Italy's cadastre (Agenzia delle Entrate INSPIRE WFS) is verified-live but building-rule structure is
 PDF-locked. See [`README.md`](./README.md) for the national data layer.
 
@@ -54,9 +53,9 @@ WFS; it is held back by the building-height **no-source** for Lazio/Lombardy. TE
   pass's bake-covered scope — a future pass that adds a `turin` bake + terrain row should scaffold its
   composite (its HEIGHTS axis would then be measurable, unlike Rome/Milan). Its legacy `RATE.md` (~12 %
   contingent) is the pre-L-649 legislation number, not yet migrated.
-- **National composite-RATE migration:** the national `it/RATE.md` is the legacy structured-fill (~9–11 %) —
-  its rename to `LEGISLATION-RATE.md` is owned by the governance/migration track (out of this pass's
-  write-fence). The two CITY legacy `RATE.md` files (Rome, Milan) WERE migrated to `LEGISLATION-RATE.md` this
+- **National composite-RATE migration:** the national `it/RATE.md` → `it/LEGISLATION-RATE.md` (legacy
+  structured-fill ~9–11 %) is DONE (L-649: banner + inbound links repointed). The two CITY legacy `RATE.md` files
+  (Rome, Milan) WERE migrated to `LEGISLATION-RATE.md` this
   pass.
 
 ## §C — Honesty ledger (per city: DOES / REFUSES / UNKNOWN · `honestyOk`)
@@ -77,7 +76,7 @@ Both scaffolded cities have `honestyOk: true` — they fabricate nothing. One sh
 | File | About | Feeds |
 |---|---|---|
 | **`COUNTRY-RATE.md`** (this) | per-city 7-axis roll-up — country composite master | rolls up all cities |
-| [`RATE.md`](./RATE.md) | legacy national structured-fill (~9–11 %) — pending rename to `LEGISLATION-RATE.md` | LEGISLATION |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | national structured legislation/data-fill (~9–11 %) — renamed from `RATE.md` (L-649) | LEGISLATION |
 | [`LOD-RATE.md`](./LOD-RATE.md) | national building/terrain LOD sub-rate | HEIGHTS/LOD |
 | [`README.md`](./README.md) | national data layer | all |
 | [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | national climb | LEGISLATION (+all) |

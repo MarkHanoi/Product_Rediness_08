@@ -1,7 +1,7 @@
 <!-- COUNTRY-RATE.md — Saudi Arabia composite completion roll-up (C63 §5). Country composite master
      ("master RATE" at the country level, L-649): one row per tackled+bake-covered city, columns = the
      7 axes + overall. Naming per _TEMPLATE/NAMING-CONVENTION.md. Every cell is COMPUTED (cited-derived)
-     or `not-assessed`; the national legislation number lives in RATE.md (legacy ~55 %) — do NOT confuse
+     or `not-assessed`; the national legislation number lives in LEGISLATION-RATE.md (renamed from RATE.md, L-649; ~55 %) — do NOT confuse
      it with this composite. Authored by the C63 Phase-1 audit; a future scorecard-function re-run
      replaces the manual cells (C63 §1.1/§8.1). -->
 # Saudi Arabia (sa) — Country RATE (master completion roll-up)
@@ -10,8 +10,7 @@
      cited-derived per C63 §8.1; all others `not-assessed` with a typed C62 reason. No fabricated cell. -->
 
 **National legislation/data-fill (`LEGISLATION-RATE.md` equivalent):** the legacy national structured-fill
-number is `~55 %` — see [`RATE.md`](./RATE.md) (NOT YET renamed `LEGISLATION-RATE.md`; pending the L-649
-migration, owned by governance). See [`README.md`](./README.md) for the national data layer.
+number is `~55 %` — see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (renamed from `RATE.md` — L-649 migration complete; see the reconciliation banner atop that file). See [`README.md`](./README.md) for the national data layer.
 
 > Authority: [C63](../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Axes fixed in C63 §3.
 > Weighting = `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
@@ -79,9 +78,9 @@ data-block, not a coverage gap.
   `~49.95,26.35,50.20,26.55`, likely `buildingsSource:'overture'`) + a `terrain.mjs` row so its cheap axes
   become computable, then the same 7-file scaffold + the legacy `RATE.md`→`LEGISLATION-RATE.md` migration.
   Logged here, not hidden.
-- **Composite-RATE / legislation-rename migration** for Dammam (§B) and the country-level `sa/RATE.md`
-  (legacy national ~55 %, not yet `LEGISLATION-RATE.md`) is owned by the governance/migration track (out of
-  this pass's write-fence). Riyadh + Jeddah were migrated this pass because they are the bake-covered cities.
+- **Composite-RATE / legislation-rename migration** — the country-level `sa/RATE.md` → `sa/LEGISLATION-RATE.md`
+  (legacy national ~55 %) is DONE (L-649: banner + inbound links repointed); Dammam (§B) city migration remains owned by
+  the governance/migration track. Riyadh + Jeddah were migrated this pass because they are the bake-covered cities.
 - **Other Saudi municipalities** — TACKLED for legislation only at the NATIONAL level (the 2024 MOMRAH
   footprint is country-wide, one formula, binding on all Amanas). They inherit the identical cheap-axis
   derivation once bake-covered; scaffold on demand. NEOM/ROSHN/Diriyah/Qiddiya development-authority zones
@@ -109,7 +108,7 @@ reachable-in-principle, not-from-here — never as absent (L-606; the §CONTEXT-
 | File | About | Feeds |
 |---|---|---|
 | **`COUNTRY-RATE.md`** (this) | per-city 7-axis roll-up — country composite master | rolls up all cities |
-| [`RATE.md`](./RATE.md) | legacy national structured-fill (~55 %) — pending rename to `LEGISLATION-RATE.md` | LEGISLATION |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | national structured legislation/data-fill (~55 %) — renamed from `RATE.md` (L-649) | LEGISLATION |
 | [`LOD-RATE.md`](./LOD-RATE.md) | national building/terrain LOD sub-rate | HEIGHTS/LOD |
 | [`README.md`](./README.md) | national data layer — national MOMRAH footprint + geo-fenced Balady + GEOSA-licensed context | all |
 | [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | national climb (Phase 1 ships the footprint pack; Phases 2–3 BLOCKED on the geo-fence) | LEGISLATION (+all) |

@@ -202,7 +202,7 @@ re-assert 14 m / 23 m as fact until the Chapter-5 re-read is done.**
 **Cross-refs:** [`SAUDI-MASTER-DATA-SOURCE-STUDY.md`](./SAUDI-MASTER-DATA-SOURCE-STUDY.md) ·
 [`../SAUDI-UMAPS-API-ENUMERATION.md`](../SAUDI-UMAPS-API-ENUMERATION.md) ·
 [`../SAUDI-PRIMARY-DECISION-EXTRACT.md`](../SAUDI-PRIMARY-DECISION-EXTRACT.md) ·
-[`../RATE.md`](../RATE.md) · [`../RATE-IMPLEMENTATION-PLAN.md`](../RATE-IMPLEMENTATION-PLAN.md) ·
+[`../LEGISLATION-RATE.md`](../LEGISLATION-RATE.md) · [`../RATE-IMPLEMENTATION-PLAN.md`](../RATE-IMPLEMENTATION-PLAN.md) ·
 [`../sources/VERIFICATION.md`](../sources/VERIFICATION.md) (height caps DISPUTED) ·
 [`../sa-01/ruh-riyadh/findings/L-606-RIYADH-DEMO-PACK-AND-PROBES.md`](../sa-01/ruh-riyadh/findings/L-606-RIYADH-DEMO-PACK-AND-PROBES.md).
 Live probes recorded 2026-07-24 from outside SA; every geo-fence asserted on shape, not HTTP status.

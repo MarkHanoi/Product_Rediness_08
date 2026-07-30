@@ -1,9 +1,8 @@
 # Rate Implementation Plan — Switzerland (`ch`) national
 
 **Current national legislation/data-fill:** **~20–25 % building-rule (MEASURED, Outcome B)** — zone-ID
-structured, FAR = optional-unexposed model slot, height not modelled (see [`RATE.md`](./RATE.md) — the
-legacy national structured-fill number; the national rename to `LEGISLATION-RATE.md` is pending the L-649
-governance/migration track, so the number physically still lives in `RATE.md` until that rename lands) ·
+structured, FAR = optional-unexposed model slot, height not modelled (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) — the
+national structured-fill number, renamed from `RATE.md` per the L-649 migration) ·
 **Current context-data axis (a DIFFERENT ruler):** ~85 % (physical 3D context — NOT the building-rule
 number) · **Current bake-covered composite:** **~66 % `partial`** for Zürich · Genève · Bern
 (DATA-SOURCES 80 · TERRAIN 50 · CONTEXT 56, assessed subset only — see [`COUNTRY-RATE.md`](./COUNTRY-RATE.md)) ·
@@ -290,7 +289,7 @@ national numeric anchor.
 [`./ch-zh/0261-zurich/RATE.md`](./ch-zh/0261-zurich/RATE.md) (CH pilot city — registered BZO pack).
 Governing: **C58** (fidelity/provenance), **ADR-0269** (curate-then-serve), **ADR-0270** (density-and-height
 model), **L-449** (human-verification gate), **C63 §3/§4** (the seven axes + ratified weighting). Data layer:
-[`RATE.md`](./RATE.md) (national structured-fill; the `LEGISLATION-RATE.md` rename is pending L-649) ·
+[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (national structured-fill; renamed from `RATE.md`, L-649) ·
 [`COUNTRY-RATE.md`](./COUNTRY-RATE.md) (per-city composite) ·
 [`findings/SWITZERLAND-DATA-RECON-SPIKE.md`](./findings/SWITZERLAND-DATA-RECON-SPIKE.md) (the Outcome-B
 deciding-probe transcript) · [`sources/VERIFICATION.md`](./sources/VERIFICATION.md) (the contradictory Zürich

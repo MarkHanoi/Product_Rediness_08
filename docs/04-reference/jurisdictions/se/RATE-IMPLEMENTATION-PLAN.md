@@ -1,9 +1,8 @@
 # Rate Implementation Plan — Sweden (`se`) national
 
 **Current national legislation/data-fill:** `~40 %` post-2022 optimistic / `~20–30 %` land-area-weighted
-conservative (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) — the renamed structured-fill metric; the
-national rename to `LEGISLATION-RATE.md` is pending the L-649 governance/migration track, so the number
-physically still lives in [`RATE.md`](./RATE.md) until that rename lands) · **Current bake-covered
+conservative (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) — the structured-fill metric, renamed from `RATE.md`
+per the L-649 migration) · **Current bake-covered
 composite:** ~56 % `partial` (Stockholm only, DATA-SOURCES + TERRAIN + CONTEXT — see
 [`COUNTRY-RATE.md`](./COUNTRY-RATE.md)) · **Realistic ceiling (PROJECTED, CONTINGENT on the Phase-A/B/C
 probes landing):** ~45–55 % national · ~55–65 % for a well-sourced, cadastre-confirmed city (Stockholm) ·
@@ -307,7 +306,7 @@ cheaper per axis than any PDF-bound jurisdiction.
 (human-verification gate), **C63 §3/§4** (the seven axes + ratified weighting: LEGISLATION 25 · ENVELOPE 20 ·
 PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5). Data layer:
 [`COUNTRY-RATE.md`](./COUNTRY-RATE.md) (per-city composite) · [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md)
-(national structured-fill; rename pending L-649, number lives in [`RATE.md`](./RATE.md)) ·
+(national structured-fill; renamed from `RATE.md`, L-649) ·
 [`README.md`](./README.md) (national data layer) · [`NEXT.md`](./NEXT.md) (blockers + resume steps) ·
 [`findings/SWEDEN-MASTER-DATA-SOURCE-STUDY.md`](./findings/SWEDEN-MASTER-DATA-SOURCE-STUDY.md). Stockholm
 dossier: [`se-01/0180-stockholm/`](./se-01/0180-stockholm/RATE.md). Findings are `documented`/`stated` (one

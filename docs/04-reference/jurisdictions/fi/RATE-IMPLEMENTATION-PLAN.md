@@ -1,9 +1,8 @@
 # Rate Implementation Plan — Finland (`fi`) national
 
 **Current national legislation/data-fill:** `~55–65%` (Ryhti live regions, est.) / `~30–35%` (non-Ryhti)
-(see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) — the renamed structured-fill metric; the national
-rename to `LEGISLATION-RATE.md` is pending the L-649 governance/migration track, so the number physically
-still lives in [`RATE.md`](./RATE.md) until that rename lands) · **Current bake-covered composite:** ~56%
+(see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) — the structured-fill metric, renamed from `RATE.md`
+per the L-649 migration) · **Current bake-covered composite:** ~56%
 `partial` (Helsinki, DATA-SOURCES + TERRAIN + CONTEXT only — see [`COUNTRY-RATE.md`](./COUNTRY-RATE.md)) ·
 **Realistic ceiling (PROJECTED, CONTINGENT on the `_ix_` probe + Phase A/B/C landing):** `~80–85%`
 national **if Ryhti `_ix_` = attributes** · `~40–50%` national **if Ryhti `_ix_` = index-only** ·
@@ -262,6 +261,5 @@ work.** That is the essential difference from Portugal, where the *schema itself
 **ADR-0269** (curate-then-serve), **L-449** (human-verification gate), **C63 §3/§4** (the seven axes + the
 RATIFIED weighting). Data layer: [`README.md`](./README.md) (national — Ryhti / MML / KMTK reach + the
 `_ix_` schema gap) · [`COUNTRY-RATE.md`](./COUNTRY-RATE.md) (per-city composite; Helsinki ~56%) ·
-[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (structured-fill; national rename pending L-649, physically in
-[`RATE.md`](./RATE.md)) · [`NEXT.md`](./NEXT.md) (probe queue). All Ryhti/geospatial findings are
+[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (structured-fill; renamed from `RATE.md`, L-649) · [`NEXT.md`](./NEXT.md) (probe queue). All Ryhti/geospatial findings are
 `CONVERGENT-SECONDARY` until live-probed — ship the probe before the fix.*

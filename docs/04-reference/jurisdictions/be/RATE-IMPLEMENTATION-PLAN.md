@@ -1,9 +1,7 @@
 # Rate Implementation Plan — Belgium (`be`) national
 
-**Current national legislation/data-fill:** ~10–14% blended (see [`LEGISLATION-RATE.md`](./RATE.md) —
-the structured-fill metric; the national rename to `LEGISLATION-RATE.md` is pending the L-649
-governance/migration track, so the number physically still lives in [`RATE.md`](./RATE.md) until that
-rename lands) · **Current bake-covered composite:** ~44% `partial` (Brussels only, DATA-SOURCES 40 +
+**Current national legislation/data-fill:** ~10–14% blended (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) —
+the structured-fill metric, renamed from `RATE.md` per the L-649 migration) · **Current bake-covered composite:** ~44% `partial` (Brussels only, DATA-SOURCES 40 +
 CONTEXT 56 — see [`COUNTRY-RATE.md`](./COUNTRY-RATE.md)) ·
 **Realistic COMPOSITE ceiling (PROJECTED, CONTINGENT on the Phase-A/B/C probes landing):** ~30–40%
 national · ~40–50% for the best-sourced region (Brussels) · **Realistic LEGISLATION ceiling (unchanged,
@@ -290,8 +288,7 @@ require a **policy change**, not better data engineering — `README.md §1.6`.
 weighting), **CoBAT · PRAS · RRU Titre I · VCRO · CoDT**, special laws **8 Aug 1980 + 12 Jan 1989**. Data
 layer: [`findings/BELGIUM-MASTER-DATA-SOURCE-STUDY.md`](./findings/BELGIUM-MASTER-DATA-SOURCE-STUDY.md)
 (federal cadastre + three regional systems) · [`COUNTRY-RATE.md`](./COUNTRY-RATE.md) (per-city composite) ·
-[`LEGISLATION-RATE.md`](./RATE.md) (structured-fill; national rename pending L-649, number in
-[`RATE.md`](./RATE.md)) · [`LOD-RATE.md`](./LOD-RATE.md) (building/terrain LOD) · [`NEXT.md`](./NEXT.md)
+[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (structured-fill; renamed from `RATE.md`, L-649) · [`LOD-RATE.md`](./LOD-RATE.md) (building/terrain LOD) · [`NEXT.md`](./NEXT.md)
 (probe queue). All Phase-A/B/C findings are `documented`/`CONVERGENT-SECONDARY` until live-probed +
 wired — ship the probe before the fix. The region-split ceiling is structural, not a defect.*
 

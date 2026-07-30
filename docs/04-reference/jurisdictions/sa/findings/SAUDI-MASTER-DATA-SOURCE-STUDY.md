@@ -307,7 +307,7 @@ carries all of them resolved per parcel.
 **Cross-refs:** [`../SAUDI-ARABIA-ENTRY-ASSESSMENT.md`](../SAUDI-ARABIA-ENTRY-ASSESSMENT.md) ·
 [`../SAUDI-PRIMARY-DECISION-EXTRACT.md`](../SAUDI-PRIMARY-DECISION-EXTRACT.md) ·
 [`../SAUDI-UMAPS-API-ENUMERATION.md`](../SAUDI-UMAPS-API-ENUMERATION.md) ·
-[`../RATE.md`](../RATE.md) · [`../regions/README.md`](../regions/README.md) · [`../topics/`](../topics/) ·
+[`../LEGISLATION-RATE.md`](../LEGISLATION-RATE.md) · [`../regions/README.md`](../regions/README.md) · [`../topics/`](../topics/) ·
 `no/findings/NORWAY-MASTER-DATA-SOURCE-STUDY.md` (the parallel study, same method) ·
 `es/es-ct/08019-barcelona/L-590c-PLA-PARCIAL-REGIME-RESOLVED.md` (the trap, in Barcelona). Key legal
 sources: قرار وزاري 1/4500943139 (1446 H); نظام البلديات والقرى (م/5); نظام تطبيق كود البناء السعودي (م/43);

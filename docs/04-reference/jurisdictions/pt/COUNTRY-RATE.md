@@ -1,7 +1,7 @@
 <!-- COUNTRY-RATE.md — Portugal composite completion roll-up (C63 §5). Country composite master
      ("master RATE" at the country level, L-649): one row per tackled city, columns = the 7 axes +
      overall. Naming per _TEMPLATE/NAMING-CONVENTION.md. Every cell is COMPUTED (cited-derived) or
-     `not-assessed`; the national legislation number lives in RATE.md (legacy) — do NOT confuse it
+     `not-assessed`; the national legislation number lives in LEGISLATION-RATE.md (renamed from RATE.md, L-649) — do NOT confuse it
      with this composite. Authored by the C63 Phase-1 audit; a future scorecard-function re-run
      replaces the manual cells (C63 §1.1/§8.1). -->
 # Portugal (pt) — Country RATE (master completion roll-up)
@@ -11,8 +11,7 @@
      No fabricated cell. -->
 
 **National legislation/data-fill (`LEGISLATION-RATE.md` equivalent):** the legacy national structured-fill
-number is `~0 %` — see [`RATE.md`](./RATE.md) (NOT YET renamed `LEGISLATION-RATE.md`; the national rename is
-pending the L-649 migration, owned by governance). Portugal's numeric planning values (índice, altura da
+number is `~0 %` — see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (renamed from `RATE.md` — L-649 migration complete; see the reconciliation banner atop that file). Portugal's numeric planning values (índice, altura da
 edificação / cércea, afastamentos) live in PDM/PDMP **PDFs**; no structured machine-readable equivalent
 exists, and the Lisboa/Porto cadastral regime for the urban cores is unconfirmed. See [`README.md`](./README.md)
 + [`PORTUGAL-CONTEXT-DEEP-DIVE.md`](./PORTUGAL-CONTEXT-DEEP-DIVE.md) for the national data layer.
@@ -53,8 +52,8 @@ the one axis that is affirmatively blocked rather than merely un-run (no open DG
   ~41.55 N, −8.42 W lies outside the `porto` clip `-8.70,41.12,-8.55,41.20`). It is "tackled" per C63 §1.7
   (scaffolded folder) but out of THIS pass's bake-covered scope; its legacy `RATE.md` is the pre-L-649
   legislation number, not yet migrated to a composite. Scaffold on demand once a Braga bake row exists.
-- **National composite-RATE migration:** the national `pt/RATE.md` is the legacy structured-fill (~0 %) — its
-  rename to `LEGISLATION-RATE.md` is owned by the governance/migration track (out of this pass's write-fence).
+- **National composite-RATE migration:** the national `pt/RATE.md` → `pt/LEGISLATION-RATE.md` (legacy
+  structured-fill ~0 %) is DONE (L-649: banner + inbound links repointed).
   The two CITY legacy `RATE.md` files (Lisboa, Porto) WERE migrated to `LEGISLATION-RATE.md` this pass.
 
 ## §C — Honesty ledger (per city: DOES / REFUSES / UNKNOWN · `honestyOk`)
@@ -75,7 +74,7 @@ Both scaffolded cities have `honestyOk: true` — they fabricate nothing. One sh
 | File | About | Feeds |
 |---|---|---|
 | **`COUNTRY-RATE.md`** (this) | per-city 7-axis roll-up — country composite master | rolls up all cities |
-| [`RATE.md`](./RATE.md) | legacy national structured-fill (~0 %) — pending rename to `LEGISLATION-RATE.md` | LEGISLATION |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | national structured legislation/data-fill (~0 %) — renamed from `RATE.md` (L-649) | LEGISLATION |
 | [`LOD-RATE.md`](./LOD-RATE.md) | national building/terrain LOD sub-rate | HEIGHTS/LOD |
 | [`README.md`](./README.md) | national data layer | all |
 | [`PORTUGAL-CONTEXT-DEEP-DIVE.md`](./PORTUGAL-CONTEXT-DEEP-DIVE.md) | national context/data recon | DATA-SOURCES |

@@ -232,7 +232,7 @@ is inferred. This is the evidence base for the "physical layers strong, numbers 
 *Model references: **Denmark** `../dk/` (ceiling, ~96 %) · **Barcelona** `../es/es-ct/08019-barcelona/`
 (pilot climb) · **Portugal** `../pt/RATE-IMPLEMENTATION-PLAN.md` (mirrored structure; shared OCR core).
 Composite this drives: [`COUNTRY-RATE.md`](./COUNTRY-RATE.md). National LEGISLATION number:
-[`RATE.md`](./RATE.md) — pending the L-649 rename to `LEGISLATION-RATE.md`. Per-city plans:
+[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) — renamed from `RATE.md` (L-649). Per-city plans:
 [Paris](./fr-idf/75056-paris/RATE-IMPLEMENTATION-PLAN.md) · [Lyon](./fr-ara/69123-lyon/RATE-IMPLEMENTATION-PLAN.md).
 Governing: **C63** (`../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md`, axes §3 /
 weighting §4) · **C58** (fidelity/provenance) · **ADR-0269** (curate-then-serve) · **L-449** (human gate).

@@ -1,9 +1,7 @@
 # Rate Implementation Plan — Saudi Arabia (`sa`) national
 
 **Current national legislation/data-fill:** ~55% (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) —
-the renamed structured-fill metric; the national rename to `LEGISLATION-RATE.md` is pending the L-649
-governance/migration track, so the number physically still lives in [`RATE.md`](./RATE.md) until that
-rename lands) · **Current bake-covered composite:** ~19% `partial` (Riyadh + Jeddah, DATA-SOURCES +
+the structured-fill metric, renamed from `RATE.md` per the L-649 migration) · **Current bake-covered composite:** ~19% `partial` (Riyadh + Jeddah, DATA-SOURCES +
 CONTEXT only — see [`COUNTRY-RATE.md`](./COUNTRY-RATE.md)) ·
 **Realistic ceiling (PROJECTED, CONTINGENT on Phase-A landing; the blocked axes are gated on national
 data-access decisions OUTSIDE PRYZM):** **~30–40% best case** national · **Ceiling model — Denmark
@@ -284,8 +282,7 @@ field-level bounded refusal §1.13), **ADR-0269** (curate-then-serve), **ADR-027
 `setback`), **L-449** (human-verification gate), **L-606** (Riyadh pack + the geo-fence probes),
 **C63 §3/§4** (the seven axes + ratified weighting). Data layer:
 [`COUNTRY-RATE.md`](./COUNTRY-RATE.md) (per-city composite, Riyadh + Jeddah ~19% `partial`) ·
-[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (national structured-fill ~55%; rename pending L-649,
-number physically in [`RATE.md`](./RATE.md)) · [`NEXT.md`](./NEXT.md) (national resume steps) ·
+[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (national structured-fill ~55%; renamed from `RATE.md`, L-649) · [`NEXT.md`](./NEXT.md) (national resume steps) ·
 [`findings/SAUDI-DATA-RECON-SPIKE.md`](./findings/SAUDI-DATA-RECON-SPIKE.md) +
 [`findings/SAUDI-MASTER-DATA-SOURCE-STUDY.md`](./findings/SAUDI-MASTER-DATA-SOURCE-STUDY.md) (the
 reachability matrix). Saudi is nationally data-blocked — the low ceiling is the honest national reality,

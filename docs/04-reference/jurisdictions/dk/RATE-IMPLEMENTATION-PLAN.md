@@ -13,8 +13,7 @@ below the data by the L-449 gate, NOT by data absence ·
 > not by missing data.** Denmark is therefore the ONE country whose completion rate can rise **furthest,
 > fastest, and cheapest**: the numbers already exist as machine-readable fields in one open national
 > register (Plandata.dk, ~96% digital-data byzone fill — see
-> [`LEGISLATION-RATE.md`](./RATE.md), *currently `RATE.md`, pending the L-649 rename to
-> `LEGISLATION-RATE.md`*). No OCR pipeline, no rule-transcription, no cadastral reconstruction. The whole
+> [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md), *renamed from `RATE.md` per the L-649 migration*). No OCR pipeline, no rule-transcription, no cadastral reconstruction. The whole
 > climb is **wiring + one human sign-off**. §CONTEXT-DATA-HONESTY: this is a PLAN — it moves no RATE cell;
 > a phase only lifts an axis when that axis's probe runs and the scorecard re-derives.
 
@@ -183,7 +182,7 @@ only reason the ceiling is ~92–96% and not a literal 100%.
 ---
 
 *Model references: **Denmark** is itself the ceiling exemplar (~96% data-readiness — see
-[`LEGISLATION-RATE.md`](./RATE.md), currently `RATE.md` pending the L-649 rename) and the C63 composite
+[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md), renamed from `RATE.md` per the L-649 migration) and the C63 composite
 master [`COUNTRY-RATE.md`](./COUNTRY-RATE.md). Per-city climbs: `dk-84/0101-copenhagen/`,
 `dk-82/0751-aarhus/`, `dk-83/0461-odense/`, `dk-81/0851-aalborg/`. Pilot climb: **Barcelona**
 `../es/es-ct/08019-barcelona/`. Governing: **C63** (city completion / 7 axes / §1.6 gate),

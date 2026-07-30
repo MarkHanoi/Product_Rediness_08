@@ -9,9 +9,9 @@
      cited-derived per C63 §8.1; all others `not-assessed` with a typed C62 reason. No fabricated cell. -->
 
 **National legislation/data-fill (`LEGISLATION-RATE.md` equivalent):** `NOT YET ASSESSED` — the legacy
-national structured-fill number lives in [`RATE.md`](./RATE.md) (honestly unassessed: the omgevingsplan/DSO
-"Regels op de kaart" probe has not been run; the Omgevingswet era began 1 Jan 2024). `RATE.md` is NOT YET
-renamed `LEGISLATION-RATE.md` — pending the L-649 migration, owned by governance (mirrors the FR/BE pattern).
+national structured-fill number lives in [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (honestly unassessed: the omgevingsplan/DSO
+"Regels op de kaart" probe has not been run; the Omgevingswet era began 1 Jan 2024). The file has been
+renamed `RATE.md` → `LEGISLATION-RATE.md` per the L-649 migration (mirrors the FR/BE pattern); a reconciliation banner sits atop it.
 See [`README.md`](./README.md) for the national data layer and [`LOD-RATE.md`](./LOD-RATE.md) (LoD2.2 ~97%,
 the world's context-data ceiling — 3DBAG).
 
@@ -78,9 +78,8 @@ overall ~71 %), since 3DBAG + AHN + PDOK BRK are national. Scaffold on demand.
 | Eindhoven (`0772`) | nl-nb | ✅ `5.42,51.40,5.52,51.48` | measured-capable | same |
 | Groningen (`0014`) | nl-gr | ❌ (no terrain row) | measured-capable | in the `heightSources.mjs` per-city bbox comment `6.52,53.20,6.60,53.25`; national bake covers it; TERRAIN would be `not-assessed` until a terrain row is added |
 
-**Migration notes:** the country-level legislation number lives in the legacy `nl/RATE.md` (`NOT YET
-ASSESSED` — the omgevingsplan/DSO probe has not been run); its rename to `LEGISLATION-RATE.md` is
-governance-owned (L-649 migration). The pre-existing `nl/` research files (`README.md`, `LOD-RATE.md`,
+**Migration notes:** the country-level legislation number lives in `nl/LEGISLATION-RATE.md` (renamed from
+`nl/RATE.md`, L-649; still `NOT YET ASSESSED` — the omgevingsplan/DSO probe has not been run). The pre-existing `nl/` research files (`README.md`, `LOD-RATE.md`,
 `NEXT.md`, `RATE-IMPLEMENTATION-PLAN.md`, `regions/`, `topics/`) were LEFT UNTOUCHED this pass — only the
 composite `COUNTRY-RATE.md`, the Amsterdam dossier, and `sources/`+`findings/` were added. All other NL
 cities scaffold on demand with the standard 7-file set.
@@ -104,7 +103,7 @@ The single scaffolded city has `honestyOk: true` — it fabricates nothing.
 | File | About | Feeds |
 |---|---|---|
 | **`COUNTRY-RATE.md`** (this) | per-city 7-axis roll-up — country composite master | rolls up all cities |
-| [`RATE.md`](./RATE.md) | legacy national structured legislation/data-fill rate (NOT YET ASSESSED) — pending rename to `LEGISLATION-RATE.md` | LEGISLATION |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | national structured legislation/data-fill rate (NOT YET ASSESSED) — renamed from `RATE.md` (L-649) | LEGISLATION |
 | [`LOD-RATE.md`](./LOD-RATE.md) | national building/terrain LOD sub-rate (LoD2.2 ~97% — 3DBAG + AHN) | HEIGHTS/LOD |
 | [`README.md`](./README.md) | national data layer — Kadaster BRK, 3DBAG, AHN, omgevingsplan/DSO | all |
 | [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | national climb | LEGISLATION (+all) |

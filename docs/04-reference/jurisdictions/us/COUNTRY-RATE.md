@@ -1,7 +1,7 @@
 <!-- COUNTRY-RATE.md — USA composite completion roll-up (C63 §5). Country composite master
      ("master RATE" at the country level, L-649): one row per tackled city, columns = the 7 axes +
      overall. Naming per _TEMPLATE/NAMING-CONVENTION.md. Every cell is COMPUTED (cited-derived) or
-     `not-assessed`; the legacy national legislation number lives in RATE.md — do NOT confuse it with
+     `not-assessed`; the national legislation number lives in LEGISLATION-RATE.md (renamed from RATE.md, L-649) — do NOT confuse it with
      this composite. Authored by the C63 Phase-1 audit; a future scorecard-function re-run replaces the
      manual cells (C63 §1.1/§8.1). -->
 # United States (us) — Country RATE (master completion roll-up)
@@ -10,8 +10,8 @@
      cited-derived per C63 §8.1; all others `not-assessed` with a typed C62 reason. No fabricated cell. -->
 
 **National legislation/data-fill (`LEGISLATION-RATE.md` equivalent):** the legacy national structured-fill number
-is **`~12 % (free sources)` / `~55 % (with commercial APIs)`** — see [`RATE.md`](./RATE.md) (the pre-existing
-national legislation file; NOT YET renamed `LEGISLATION-RATE.md`, pending the L-649 migration owned by governance).
+is **`~12 % (free sources)` / `~55 % (with commercial APIs)`** — see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (the pre-existing
+national legislation file; renamed from `RATE.md` — L-649 migration complete; see the reconciliation banner atop that file).
 See [`README.md`](./README.md) for the national data layer.
 
 > Authority: [C63](../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Axes fixed in C63 §3.
@@ -73,9 +73,9 @@ scaffolded this pass (baked but previously unscaffolded — per governance).
 - **Los Angeles + Chicago (§B)** — to enter §A each needs a `bake.mjs` REGIONS row (California / Illinois extract)
   + a `terrain.mjs` row (`source:'us'`) so its cheap axes become computable, then the full 7-file scaffold + the
   legacy `RATE.md`→`LEGISLATION-RATE.md` migration. Logged here, not hidden.
-- **Legislation-rename migration** for the country-level `us/RATE.md` (legacy national ~12 % free / ~55 %
-  commercial, not yet `LEGISLATION-RATE.md`) is owned by the governance/migration track (out of this pass's
-  write-fence). NYC was migrated this pass because it was a worked bake-covered city.
+- **Legislation-rename migration** for the country-level `us/RATE.md` → `us/LEGISLATION-RATE.md` (legacy
+  national ~12 % free / ~55 % commercial) — DONE (L-649: banner + inbound links repointed). NYC was migrated this pass
+  because it was a worked bake-covered city.
 - **Other US municipalities** (~33,000 zoning authorities) are TACKLED for legislation only at the national/
   commercial level; they inherit the identical cheap-axis derivation once bake-covered. Scaffold on demand.
 
@@ -99,7 +99,7 @@ Both scaffolded cities have `honestyOk: true` — they fabricate nothing.
 | File | About | Feeds |
 |---|---|---|
 | **`COUNTRY-RATE.md`** (this) | per-city 7-axis roll-up — country composite master | rolls up all cities |
-| [`RATE.md`](./RATE.md) | legacy national structured-fill (~12 % free / ~55 % commercial) — pending rename to `LEGISLATION-RATE.md` | LEGISLATION |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | national structured legislation/data-fill (~12 % free / ~55 % commercial) — renamed from `RATE.md` (L-649) | LEGISLATION |
 | [`LOD-RATE.md`](./LOD-RATE.md) | national building/terrain LOD sub-rate | HEIGHTS/LOD |
 | [`README.md`](./README.md) | national data layer — fragmentation, commercial ceiling, institutional-graph model | all |
 | [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | national climb | LEGISLATION (+all) |

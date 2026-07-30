@@ -1,7 +1,7 @@
 <!-- COUNTRY-RATE.md — Germany composite completion roll-up (C63 §5). Country composite master
      ("master RATE" at the country level, L-649): one row per tackled city, columns = the 7 axes +
      overall. Naming per _TEMPLATE/NAMING-CONVENTION.md. Every cell is COMPUTED (cited-derived) or
-     `not-assessed`; the national legislation number lives in RATE.md (legacy) — do NOT confuse it
+     `not-assessed`; the national legislation number lives in LEGISLATION-RATE.md (renamed from RATE.md, L-649) — do NOT confuse it
      with this composite. Authored by the C63 Phase-1 audit; a future scorecard-function re-run
      replaces the manual cells (C63 §1.1/§8.1). -->
 # Germany (de) — Country RATE (master completion roll-up)
@@ -11,8 +11,7 @@
      DE terrain covers NRW only); all human-gated axes `not-assessed` with a typed C62 reason. No fabricated cell. -->
 
 **National legislation/data-fill (`LEGISLATION-RATE.md` equivalent):** the legacy national structured-fill
-number is `~28 %` — see [`RATE.md`](./RATE.md) (national; NOT YET renamed `LEGISLATION-RATE.md` — pending the
-L-649 migration, owned by governance). See [`README.md`](./README.md) (national data layer, four-regime structure)
+number is `~28 %` — see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (national; renamed from `RATE.md` — L-649 migration complete; see the reconciliation banner atop that file). See [`README.md`](./README.md) (national data layer, four-regime structure)
 and [`COUNTRY-DATA-STRATEGY.md`](./COUNTRY-DATA-STRATEGY.md).
 
 > Authority: [C63](../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Axes fixed in C63 §3.
@@ -93,7 +92,7 @@ Both scaffolded cities have `honestyOk: true` — they fabricate nothing.
 | File | About | Feeds |
 |---|---|---|
 | **`COUNTRY-RATE.md`** (this) | per-city 7-axis roll-up — country composite master | rolls up all cities |
-| [`RATE.md`](./RATE.md) | legacy national structured-fill (~28 %) — pending rename to `LEGISLATION-RATE.md` | LEGISLATION |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | national structured legislation/data-fill (~28 %) — renamed from `RATE.md` (L-649) | LEGISLATION |
 | [`LOD-RATE.md`](./LOD-RATE.md) | national building/terrain LOD sub-rate | HEIGHTS/LOD |
 | [`README.md`](./README.md) | national data layer — four-regime BauGB/BauNVO structure, federal sources | all |
 | [`COUNTRY-DATA-STRATEGY.md`](./COUNTRY-DATA-STRATEGY.md) | national data-sourcing strategy | all |

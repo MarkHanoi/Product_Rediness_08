@@ -1,5 +1,11 @@
 # Data Readiness Rate — Finland (`fi`) national
 
+> **Naming note (L-649 reconciliation, 2026-07-30).** This file was `RATE.md`; its content is the
+> **structured national legislation / data-fill rate** (the C58/L-449 cross-jurisdiction ruler), which
+> [`NAMING-CONVENTION`](../_TEMPLATE/NAMING-CONVENTION.md) §1 names `LEGISLATION-RATE.md`. It feeds the
+> country composite master [`COUNTRY-RATE.md`](./COUNTRY-RATE.md) as **Axis 2 (LEGISLATION)**. Content
+> below is unchanged — only the filename moved (§CONTEXT-DATA-HONESTY: no rate value was altered).
+
 **Headline rate: ~55–65% (Ryhti live regions) / ~30–35% (non-Ryhti regions)**
 *(documentation-level estimate only — no live API probes have been run; see §3 for the bimodal breakdown)*
 

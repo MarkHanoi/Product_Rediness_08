@@ -1,7 +1,7 @@
 <!-- COUNTRY-RATE.md — Switzerland composite completion roll-up (C63 §5). Country composite master
      ("master RATE" at the country level, L-649): one row per tackled city, columns = the 7 axes +
      overall. Naming per _TEMPLATE/NAMING-CONVENTION.md. Every cell is COMPUTED (cited-derived) or
-     `not-assessed`; the national legislation number lives in RATE.md (legacy) — do NOT confuse it
+     `not-assessed`; the national legislation number lives in LEGISLATION-RATE.md (renamed from RATE.md, L-649) — do NOT confuse it
      with this composite. Authored by the C63 Phase-1 audit; a future scorecard-function re-run
      replaces the manual cells (C63 §1.1/§8.1). -->
 # Switzerland (ch) — Country RATE (master completion roll-up)
@@ -11,8 +11,7 @@
 
 **National legislation/data-fill (`LEGISLATION-RATE.md` equivalent):** the legacy national structured-fill
 number is `~20–25 %` on the comparable building-rule ruler (MEASURED, Outcome B — zone-ID structured, the
-Ausnützungsziffer/height model+PDF-bound) — see [`RATE.md`](./RATE.md) (NOT YET renamed `LEGISLATION-RATE.md`;
-pending the L-649 migration, owned by governance). The `~85 %` figure that also appears there is a *different
+Ausnützungsziffer/height model+PDF-bound) — see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (renamed from `RATE.md` — L-649 migration complete; see the reconciliation banner atop that file). The `~85 %` figure that also appears there is a *different
 ruler* — the context-data (physical 3D) axis, not the building-rule fill. See [`README.md`](./README.md) for
 the national data layer.
 
@@ -92,13 +91,12 @@ RATE-IMPLEMENTATION-PLAN.md).
   "`<code>` = Swiss BFS Gemeinde number" rule, the es/fr/de precedent (pure-numeric INE/INSEE/AGS codes,
   no letter prefix), and the real cadastre value (`bfsnr 261`). If the `z` prefix is deliberate, rename the
   three folders + this matrix's links in one edit — logged here, not silently diverged.
-- **Composite-RATE / legislation-rename migration** for the country-level `ch/RATE.md` (legacy national
-  legislation number, not yet `LEGISLATION-RATE.md`) is owned by the governance/migration track (out of this
-  pass's write-fence). The three worked cities were scaffolded fresh (no legacy city `RATE.md` existed to
+- **Composite-RATE / legislation-rename migration** for the country-level legislation file — DONE (L-649):
+  `ch/RATE.md` → `ch/LEGISLATION-RATE.md` (legacy national legislation number) with a reconciliation banner + inbound links repointed. The three worked cities were scaffolded fresh (no legacy city `RATE.md` existed to
   migrate — the composite `RATE.md` + `LEGISLATION-RATE.md` are both authored new this pass).
 - **Other Swiss municipalities** (~2,100 Gemeinden) are TACKLED for legislation only at the national level
   (ÖREB zone-ID reaches 25/26 cantons + the national Nutzungsplanung WFS ~19 cantons, but the numeric FAR is
-  a per-canton INTERLIS `Typ`-catalogue harvest and height is Baureglement-PDF-bound — see `RATE.md`). They
+  a per-canton INTERLIS `Typ`-catalogue harvest and height is Baureglement-PDF-bound — see `LEGISLATION-RATE.md`). They
   inherit the identical cheap-axis derivation once bake-covered; scaffold on demand.
 
 ## §D — Honesty ledger (per city: DOES / REFUSES / UNKNOWN · `honestyOk`)
@@ -133,7 +131,7 @@ All three scaffolded cities have `honestyOk: true` — they fabricate nothing.
 | File | About | Feeds |
 |---|---|---|
 | **`COUNTRY-RATE.md`** (this) | per-city 7-axis roll-up — country composite master | rolls up all cities |
-| [`RATE.md`](./RATE.md) | legacy national structured-fill (~20–25 % building-rule; ~85 % context-data) — pending rename to `LEGISLATION-RATE.md` | LEGISLATION |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | national structured legislation/data-fill (~20–25 % building-rule; ~85 % context-data) — renamed from `RATE.md` (L-649) | LEGISLATION |
 | [`LOD-RATE.md`](./LOD-RATE.md) | national building/terrain LOD sub-rate | HEIGHTS/LOD |
 | [`README.md`](./README.md) | national data layer — ÖREB/geodienste/swisstopo reach + the per-canton PDF bottleneck | all |
 | [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | national climb | LEGISLATION (+all) |

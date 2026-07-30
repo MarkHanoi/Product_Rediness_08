@@ -1,9 +1,8 @@
 # Rate Implementation Plan — USA (`us`) national
 
 **Current national legislation/data-fill:** `~12 % (free sources)` / `~55 % (with commercial APIs)`
-(see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) — the renamed structured-fill metric; national
-rename to `LEGISLATION-RATE.md` is pending the L-649 governance/migration track, so the number
-physically still lives in [`RATE.md`](./RATE.md) until that rename lands) ·
+(see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) — the structured-fill metric, renamed from `RATE.md`
+per the L-649 migration) ·
 **Current bake-covered composite:** ~53 % `partial` (New York City + San Francisco, DATA-SOURCES +
 TERRAIN + CONTEXT only — see [`COUNTRY-RATE.md`](./COUNTRY-RATE.md)) ·
 **Realistic ceiling (PROJECTED, per well-sourced city, CONTINGENT on the Phase-A/B/C probes
@@ -299,6 +298,5 @@ becomes even more critical than in jurisdictions with a national numeric anchor.
 [`USA.md`](./USA.md) (national architecture — INVERSE-of-Germany city-federation) ·
 [`CITIES/`](./CITIES/) (the primary atlas — `NEW_YORK_CITY.md` + `SAN_FRANCISCO.md` FULL) ·
 [`COUNTRY-RATE.md`](./COUNTRY-RATE.md) (per-city composite — NYC/SF 53 % `partial`) ·
-[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (structured-fill; national rename pending L-649,
-number lives in [`RATE.md`](./RATE.md)) · [`NEXT.md`](./NEXT.md) (probe queue). All flagship findings are
+[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (structured-fill; renamed from `RATE.md`, L-649) · [`NEXT.md`](./NEXT.md) (probe queue). All flagship findings are
 `CONVERGENT-SECONDARY` until wired — ship the probe before the fix.*

@@ -1,7 +1,7 @@
 <!-- COUNTRY-RATE.md — Finland composite completion roll-up (C63 §5). Country composite master
      ("master RATE" at the country level, L-649): one row per tackled city, columns = the 7 axes +
      overall. Naming per _TEMPLATE/NAMING-CONVENTION.md. Every cell is COMPUTED (cited-derived) or
-     `not-assessed`; the national legislation number lives in RATE.md (legacy) — do NOT confuse it
+     `not-assessed`; the national legislation number lives in LEGISLATION-RATE.md (renamed from RATE.md, L-649) — do NOT confuse it
      with this composite. Authored by the C63 Phase-1 audit; a future scorecard-function re-run
      replaces the manual cells (C63 §1.1/§8.1). -->
 # Finland (fi) — Country RATE (master completion roll-up)
@@ -10,8 +10,8 @@
      cited-derived per C63 §8.1; all others `not-assessed` with a typed C62 reason. No fabricated cell. -->
 
 **National legislation/data-fill (`LEGISLATION-RATE.md` equivalent):** the legacy national structured-fill
-number is `~55–65 %` (Ryhti live regions, est.) / `~30–35 %` (non-Ryhti) — see [`RATE.md`](./RATE.md)
-(NOT YET renamed `LEGISLATION-RATE.md`; pending the L-649 migration, owned by governance). See
+number is `~55–65 %` (Ryhti live regions, est.) / `~30–35 %` (non-Ryhti) — see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md)
+(renamed from `RATE.md` — L-649 migration complete; see the reconciliation banner atop that file). See
 [`README.md`](./README.md) for the national data layer.
 
 > Authority: [C63](../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Axes fixed in C63 §3.
@@ -72,10 +72,10 @@ None. Finland had no city-level dossier before this pass (only the national `RAT
   here, not hidden.
 - **Tampere (`837`, fi-06 Pirkanmaa)** — same: needs a REGIONS row (bbox `~23.70,61.47,23.86,61.53`) + a
   terrain row. Logged, not hidden.
-- **National-level migration** — the country-level `fi/RATE.md` (legacy national ~55–65 %/~30–35 %) is not yet
-  renamed `LEGISLATION-RATE.md`; owned by the governance/migration track (out of this pass's write-fence).
+- **National-level migration** — the country-level `fi/RATE.md` → `fi/LEGISLATION-RATE.md` (legacy national
+  ~55–65 %/~30–35 %) — DONE (L-649): reconciliation banner + inbound links repointed.
 - **Other Finnish kunnat** (~309) are TACKLED for legislation only at the national level (Ryhti reaches live
-  regions nationally but the item schema is unconfirmed — see `RATE.md`). They inherit the identical cheap-axis
+  regions nationally but the item schema is unconfirmed — see `LEGISLATION-RATE.md`). They inherit the identical cheap-axis
   derivation once bake-covered; scaffold on demand.
 
 ## §D — Honesty ledger (per city: DOES / REFUSES / UNKNOWN · `honestyOk`)
@@ -97,7 +97,7 @@ The one scaffolded city has `honestyOk: true` — it fabricates nothing.
 | File | About | Feeds |
 |---|---|---|
 | **`COUNTRY-RATE.md`** (this) | per-city 7-axis roll-up — country composite master | rolls up all cities |
-| [`RATE.md`](./RATE.md) | legacy national structured-fill (~55–65 %/~30–35 %) — pending rename to `LEGISLATION-RATE.md` | LEGISLATION |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | national structured legislation/data-fill (~55–65 %/~30–35 %) — renamed from `RATE.md` (L-649) | LEGISLATION |
 | [`README.md`](./README.md) | national data layer — Ryhti / MML / open LoD2 reach + item-schema gap | all |
 | [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | national climb | LEGISLATION (+all) |
 | [`NEXT.md`](./NEXT.md) | national resume steps · blockers | all |

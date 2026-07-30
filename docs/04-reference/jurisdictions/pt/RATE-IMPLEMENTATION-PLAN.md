@@ -1,9 +1,7 @@
 # Rate Implementation Plan — Portugal (`pt`) national
 
 **Current national legislation/data-fill:** ~0% (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) —
-the renamed structured-fill metric; national rename to `LEGISLATION-RATE.md` is pending the L-649
-governance/migration track, so the number physically still lives in [`RATE.md`](./RATE.md) until that
-rename lands) · **Current bake-covered composite:** ~36% `partial` (Lisboa + Porto, DATA-SOURCES +
+the structured-fill metric, renamed from `RATE.md` per the L-649 migration) · **Current bake-covered composite:** ~36% `partial` (Lisboa + Porto, DATA-SOURCES +
 CONTEXT only — see [`COUNTRY-RATE.md`](./COUNTRY-RATE.md)) ·
 **Realistic ceiling (PROJECTED, post-DGT, CONTINGENT on the Phase-A/B/C probes landing):** ~45–55%
 national · ~55–65% for a well-sourced cadastre-confirmed city · **Pre-DGT ceiling (superseded):**

@@ -1,7 +1,7 @@
 <!-- COUNTRY-RATE.md — Norway composite completion roll-up (C63 §5). Country composite master
      ("master RATE" at the country level, L-649): one row per tackled city, columns = the 7 axes +
      overall. Naming per _TEMPLATE/NAMING-CONVENTION.md. Every cell is COMPUTED (cited-derived) or
-     `not-assessed`; the national legislation number lives in RATE.md (legacy) — do NOT confuse it
+     `not-assessed`; the national legislation number lives in LEGISLATION-RATE.md (renamed from RATE.md, L-649) — do NOT confuse it
      with this composite. Authored by the C63 Phase-1 audit; a future scorecard-function re-run
      replaces the manual cells (C63 §1.1/§8.1). -->
 # Norway (no) — Country RATE (master completion roll-up)
@@ -10,8 +10,7 @@
      cited-derived per C63 §8.1; all others `not-assessed` with a typed C62 reason. No fabricated cell. -->
 
 **National legislation/data-fill (`LEGISLATION-RATE.md` equivalent):** the legacy national structured-fill
-number is `~32 %` — see [`RATE.md`](./RATE.md) (NOT YET renamed `LEGISLATION-RATE.md`; pending the L-649
-migration, owned by governance). See [`README.md`](./README.md) for the national data layer.
+number is `~32 %` — see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (renamed from `RATE.md` — L-649 migration complete; see the reconciliation banner atop that file). See [`README.md`](./README.md) for the national data layer.
 
 > Authority: [C63](../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Axes fixed in C63 §3.
 > Weighting = `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
@@ -74,11 +73,11 @@ composite `RATE.md` + `ENVELOPE.md` + `HEIGHT.md` + `RISK-REGISTER.md` + `RATE-I
   the same 7-file scaffold + the legacy `RATE.md`→`LEGISLATION-RATE.md` migration. Logged here, not hidden.
 - **Trondheim (`5001`)** — same: needs a REGIONS row (bbox `~10.35,63.40,10.50,63.46`) + a terrain row, then
   scaffold + migrate. Logged, not hidden.
-- **Composite-RATE / legislation-rename migration** for Bergen + Trondheim (§B) and the country-level
-  `no/RATE.md` (legacy national ~32 %, not yet `LEGISLATION-RATE.md`) is owned by the governance/migration
-  track (out of this pass's write-fence). Oslo was migrated this pass because it was the bake-covered city.
+- **Composite-RATE / legislation-rename migration** — the country-level `no/RATE.md` → `no/LEGISLATION-RATE.md`
+  (legacy national ~32 %) is DONE (L-649: banner + inbound links repointed); Bergen + Trondheim (§B) city migrations
+  remain owned by the governance/migration track. Oslo was migrated this pass because it was the bake-covered city.
 - **Other Norwegian kommuner** (~356) are TACKLED for legislation only at the national level (Matrikkelen +
-  SOSI Plan reach nationally, but numeric utilisation lives in bestemmelser PDFs — see `RATE.md`). They inherit
+  SOSI Plan reach nationally, but numeric utilisation lives in bestemmelser PDFs — see `LEGISLATION-RATE.md`). They inherit
   the identical cheap-axis derivation once bake-covered; scaffold on demand.
 
 ## §D — Honesty ledger (per city: DOES / REFUSES / UNKNOWN · `honestyOk`)
@@ -99,7 +98,7 @@ The one scaffolded city has `honestyOk: true` — it fabricates nothing.
 | File | About | Feeds |
 |---|---|---|
 | **`COUNTRY-RATE.md`** (this) | per-city 7-axis roll-up — country composite master | rolls up all cities |
-| [`RATE.md`](./RATE.md) | legacy national structured-fill (~32 %) — pending rename to `LEGISLATION-RATE.md` | LEGISLATION |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | national structured legislation/data-fill (~32 %) — renamed from `RATE.md` (L-649) | LEGISLATION |
 | [`LOD-RATE.md`](./LOD-RATE.md) | national building/terrain LOD sub-rate | HEIGHTS/LOD |
 | [`README.md`](./README.md) | national data layer — Matrikkelen / SOSI Plan / NDH / Kartverket reach + bestemmelser-PDF bottleneck | all |
 | [`NEXT.md`](./NEXT.md) | national resume steps · blockers | all |

@@ -1,9 +1,7 @@
 # Rate Implementation Plan — Norway (`no`) national
 
 **Current national legislation/data-fill:** ~32% (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) —
-the renamed structured-fill metric; the national rename to `LEGISLATION-RATE.md` is pending the L-649
-governance/migration track, so the number physically still lives in [`RATE.md`](./RATE.md) until that
-rename lands) · **Current bake-covered composite:** ~66% `partial` (Oslo, DATA-SOURCES + TERRAIN +
+the structured-fill metric, renamed from `RATE.md` per the L-649 migration) · **Current bake-covered composite:** ~66% `partial` (Oslo, DATA-SOURCES + TERRAIN +
 CONTEXT only — see [`COUNTRY-RATE.md`](./COUNTRY-RATE.md)) ·
 **Realistic ceiling (PROJECTED, CONTINGENT on the Phase-A/B/C probes landing):** ~40–50% national ·
 ~55–65% for a well-sourced Oslo · **Ceiling model — Denmark (~96%)** · **Pilot model — Barcelona
@@ -299,7 +297,6 @@ endpoints are unconfirmed (`NEXT.md §3.3/§3.4`).
 (curate-then-serve), **L-449** (human-verification gate), **C63 §3/§4** (the seven axes + ratified
 weighting), **ADR-0277** (geo-data-sourcing map / derived heights). Data layer:
 [`README.md`](./README.md) · [`COUNTRY-RATE.md`](./COUNTRY-RATE.md) (per-city composite) ·
-[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (structured-fill ~32%; national rename pending L-649,
-number still in [`RATE.md`](./RATE.md)) · [`NEXT.md`](./NEXT.md) (resume queue) ·
+[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (structured-fill ~32%; renamed from `RATE.md`, L-649) · [`NEXT.md`](./NEXT.md) (resume queue) ·
 [`findings/NORWAY-MASTER-DATA-SOURCE-STUDY.md`](./findings/NORWAY-MASTER-DATA-SOURCE-STUDY.md). This is
 a PLAN — it changes no RATE cell; ship the probe before the fix.*
