@@ -228,6 +228,25 @@ const LAYERS = [
   // grey/brown drape would be silently incomplete for it. `garages`/`harbour` (urban) +
   // `animal_keeping` (rural) were classified client-side but not emitted here; added to match.
   { id: 'landuse',   filter: ['nwr/landuse=residential,commercial,industrial,retail,garages,farmland,meadow,orchard,vineyard,farmyard,allotments,greenhouse_horticulture,plant_nursery,animal_keeping,quarry,brownfield,construction,railway,port,harbour'], geom: 'polygon', minz: 9, maxz: 16, extra: ['--drop-densest-as-needed'] },
+  // §FORMA-CTX-RAIL (L-642 Phase C — SPEC-3D-SITE-PRODUCTION-CONTEXT §2). Rail lines are the T1
+  // near-ring's transport skeleton: heavy rail, light rail, subway/metro, trams. `w/railway` (WAYS
+  // ONLY) takes the linear track ways; `--geometry-types linestring` keeps them as strands (mirrors
+  // the `roads` layer exactly — the client draws them as thin dark ground ribbons, distinct from the
+  // pale road grid). NOT `nwr/` — `railway=*` NODES (level_crossings, buffer_stops, signals) carry no
+  // line and would be dropped by `--geometry-types linestring` after costing a pass. The client
+  // (contextRail.ts) keeps only the active rail classes (rail/light_rail/subway/tram/…) and skips
+  // platform/construction/abandoned/disused. Cheap linework — same zoom range + drop-densest as roads.
+  { id: 'rail',      filter: ['w/railway'],                                       geom: 'linestring',         minz: 10, maxz: 16, extra: ['--drop-densest-as-needed'] },
+  // §FORMA-CTX-TREES (L-642 Phase C — SPEC §2). Individually-mapped street/park trees as POINTS
+  // (`n/natural=tree` — NODES ONLY; `--geometry-types point`). Canopy AREAS (natural=wood /
+  // landuse=forest) already ride the `parks` layer, so this layer is strictly the point trees the
+  // client instances as capped low-poly canopy blobs (ADR-0094: one Primitive, nearest-first cap —
+  // trees are the most numerous element, so instancing is mandatory). NOT `nwr/` — only nodes carry a
+  // `natural=tree` point. Trees only read at close zoom, so bake z14–16 (not z10) to bound tile bytes,
+  // and `--drop-densest-as-needed` caps a pathologically tree-dense tile at source (the client also
+  // caps nearest-first, so a dropped far tree is never visible). Point geometry: the tile reader
+  // (contextTiles.ts, LAYER_IS_POINT) carries single-vertex features for this layer only.
+  { id: 'trees',     filter: ['n/natural=tree'],                                  geom: 'point',              minz: 14, maxz: 16, extra: ['--drop-densest-as-needed'] },
 ];
 
 // ── args ─────────────────────────────────────────────────────────────────────

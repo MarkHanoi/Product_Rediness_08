@@ -70,6 +70,9 @@ import { fetchContextWater, buildSeaMaskFromCoastline, type ContextWaterCollecti
 import { contextTilesEnabled } from "./contextTiles";
 import { fetchContextParks, type ContextParkCollection } from "./contextParks";
 import { fetchContextLanduse, type ContextLanduseCollection } from "./contextLanduse";
+// §FORMA-CTX-RAIL / §FORMA-CTX-TREES (L-642 Phase C) — the two new baked-only T1 context layers.
+import { fetchContextRail, type ContextRailCollection } from "./contextRail";
+import { fetchContextTrees, type ContextTreeCollection } from "./contextTrees";
 // PW.2 (§DIAG-PARTY-WALL) — capture neighbour footprints for the layout pipeline
 // (party/blind-wall detection in resolveBlindFacades). Editor-side store, no engine dep.
 import { setNeighbourFootprints } from "../site/neighbourFootprintStore";
@@ -432,6 +435,15 @@ const FORMA_PALETTE = {
    *  so agricultural ground reads brown, matching the founder's "brown in rural areas". */
   rural: '#CDB98C',
   ruralEdge: '#B8A374',
+  /** §FORMA-CTX-RAIL (L-642 Phase C) — rail/tram track ribbons, a DISTINCT DARK cool-grey so the
+   *  transport lines read as railways over/among the pale road grid (road = #C9C7C2), not as another
+   *  street. Dark but not pure black (matches the graphite silhouette family). */
+  rail: '#6E6E76',
+  railEdge: '#54545C',
+  /** §FORMA-CTX-TREES (L-642 Phase C) — canopy green for the instanced low-poly tree blobs. A touch
+   *  DEEPER/cooler than the park fill (#A9C77E) so individual street trees read as foliage volumes
+   *  sitting on the ground rather than dissolving into the flat park green. */
+  tree: '#7FA25C',
 } as const;
 
 /**
@@ -508,6 +520,20 @@ const CONTEXT_SEA_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 12.5;                 // 0.
  * when it bites it drops the FARTHEST footprints (least visible), never an arbitrary slice.
  */
 const CONTEXT_FAR_TIER_MAX_INSTANCES = 4000;
+
+/**
+ * §FORMA-CTX-TREES (L-642 Phase C) — hard NEAREST-FIRST cap on the instanced tree canopies. Trees are
+ * the most numerous context element (a dense city bbox holds many thousands of `natural=tree` nodes),
+ * so — exactly like the far-tier building cap and per the ADR-0094 large-scene budget + the WebGPU
+ * device-loss memory (`webgpu-heavy-scene-crash-and-instancing`) — they are batched into ONE Primitive
+ * (one shared low-poly canopy geometry, one shared material, shadowless) AND bounded by this count.
+ * Nearest-first, so when it bites it drops the FARTHEST (least visible) trees, never an arbitrary slice.
+ * 1500 low-poly blobs in one draw call is comfortably inside the budget beside the building tiers.
+ */
+const CONTEXT_TREES_MAX_INSTANCES = 1500;
+/** §FORMA-CTX-TREES — radial cull for tree canopies: the T1 near disc (SPEC §2 lists trees under "what
+ *  T1 needs"). Beyond it a canopy blob is a sub-pixel speck, so cull rather than spend an instance. */
+const CONTEXT_TREES_RENDER_RADIUS_M = CONTEXT_NEAR_RENDER_RADIUS_M;
 
 /**
  * §FACADE-STUDY-SUBJECT (L-596) × C58 §1.14 — collapse the envelope's `MassingSolid[]` to the ONE
@@ -1201,6 +1227,16 @@ export class CesiumViewport {
   private contextParkAbort: AbortController | null = null;
   private contextLanduseEntities: Cesium.Entity[] = [];
   private contextLanduseAbort: AbortController | null = null;
+  /** §FORMA-CTX-RAIL (L-642 Phase C) — OSM rail/tram track ribbons (visual-only context), drawn with
+   *  the roads in the ground stack. Mirrors contextRoadEntities' lifecycle exactly. */
+  private contextRailEntities: Cesium.Entity[] = [];
+  private contextRailAbort: AbortController | null = null;
+  /** §FORMA-CTX-TREES (L-642 Phase C) — ALL context tree canopies batched into ONE instanced,
+   *  shadowless, single-material Primitive (nearest-first capped — ADR-0094 budget + the instancing
+   *  memory), NOT one entity per tree. Its own clear + abort give it a lifecycle independent of the
+   *  entity layers; kept OUT of every entity list so no per-tree entity is ever created. */
+  private contextTreesPrimitive: Cesium.Primitive | null = null;
+  private contextTreesAbort: AbortController | null = null;
   /** Abort handle for an in-flight context-building fetch (cancelled on a newer
    *  load / dispose so a stale response can't repaint the wrong site). */
   private contextBuildingsAbort: AbortController | null = null;
@@ -3523,6 +3559,12 @@ export class CesiumViewport {
         this.clearContextParks();
         this.contextLanduseAbort?.abort();
         this.clearContextLanduse();
+        // §FORMA-CTX-RAIL / §FORMA-CTX-TREES (L-642 Phase C) — same FORMA-only suppression on the
+        // photoreal globe (the 3D tiles already carry the real rail + trees); mirrors roads/parks.
+        this.contextRailAbort?.abort();
+        this.clearContextRail();
+        this.contextTreesAbort?.abort();
+        this.clearContextTrees();
       } else {
         const loc = this.readSiteLocation();
         if (loc) void this.loadContextBuildings(loc.lat, loc.lon, true);
@@ -5244,6 +5286,8 @@ export class CesiumViewport {
           void this.loadContextWater(originLat, originLon);   // FORMA-CTX-WATER
           void this.loadContextParks(originLat, originLon);   // §FORMA-CTX-PARKS
           void this.loadContextLanduse(originLat, originLon); // §FORMA-CTX-LANDUSE (grey urban / brown rural)
+          void this.loadContextRail(originLat, originLon);    // §FORMA-CTX-RAIL (L-642 Phase C — dark track ribbons)
+          void this.loadContextTrees(originLat, originLon);   // §FORMA-CTX-TREES (L-642 Phase C — instanced canopies)
         } catch (e) {
           console.warn('[CesiumViewport][forma] context kickoff threw — envelope/massing kept:', e);
         }
@@ -8363,6 +8407,91 @@ export class CesiumViewport {
   }
 
   /**
+   * §FORMA-CTX-RAIL (L-642 Phase C — SPEC-3D-SITE-PRODUCTION-CONTEXT §2) — read the BAKED `rail`
+   * layer (contextRail.ts) and draw each active track (rail/light_rail/subway/tram) as a thin DARK
+   * flat ground ribbon, seated in the SAME ground stack as the road ribbons (a hair ABOVE roads so
+   * tracks read over the pale street grid at crossings). Mirrors loadContextRoads' ENU bridge +
+   * §CTX-ABS-SEAT absolute-height seat exactly. Rail is cheap linework. Visual-only: NO layout/model
+   * impact. §CONTEXT-DATA-HONESTY: un-baked → a quiet no-op (contextRail returns empty). Never throws.
+   */
+  public async loadContextRail(lat: number, lon: number, force = false): Promise<void> {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
+    if (!force && this.contextRailEntities.length > 0 && this.contextBuildingsAt &&
+        Math.abs(this.contextBuildingsAt.lat - lat) < 1e-6 &&
+        Math.abs(this.contextBuildingsAt.lon - lon) < 1e-6) return;
+
+    this.contextRailAbort?.abort();
+    this.contextRailAbort = new AbortController();
+    const signal = this.contextRailAbort.signal;
+
+    let collection: ContextRailCollection;
+    try { collection = await fetchContextRail(lat, lon, signal); }
+    catch { return; }
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
+    this.clearContextRail();
+    if (collection.ways.length === 0) return; // honest no-op when the layer is un-baked/empty.
+
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
+      Cesium.Cartesian3.fromDegrees(lon, lat, 0),
+    );
+    const invEnu = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
+    // §CTX-ABS-SEAT (L-635) — absolute settled ground, NOT clampToGround (Forma sets
+    // depthTestAgainstTerrain=false, so clamped features render nothing on baked terrain). A hair
+    // above the road ribbons (roads sit at base + 0.02) so the tracks read over the street grid.
+    const base = this.formaTerrainBaseHeight + 0.022;
+    const railColor = Cesium.Color.fromCssColorString(FORMA_PALETTE.rail).withAlpha(0.95);
+
+    // Metric ribbon width by rail class — trams/light rail are narrower than heavy rail corridors.
+    const railWidthM = (railway: string): number => {
+      switch (railway) {
+        case 'rail': case 'preserved': return 5;
+        case 'light_rail': case 'subway': case 'narrow_gauge': return 4;
+        case 'tram': case 'monorail': case 'funicular': case 'miniature': return 3;
+        default: return 4;
+      }
+    };
+
+    let placed = 0;
+    for (const way of collection.ways) {
+      try {
+        const positions = way.coords.map(([flon, flat]) => {
+          const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+          const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+          return this.enuToCartesian(enu, off.x, off.y, base);
+        });
+        if (positions.length < 2) continue;
+        const ent = viewer.entities.add({
+          name: 'pryzm-forma-context-rail',
+          corridor: {
+            positions,
+            width: railWidthM(way.railway),
+            height: base, // §CTX-ABS-SEAT — absolute settled ground (renders on any provider).
+            cornerType: Cesium.CornerType.ROUNDED,
+            material: railColor,
+            outline: false,
+          },
+        });
+        this.contextRailEntities.push(ent);
+        placed++;
+      } catch { /* skip one malformed track */ }
+    }
+    viewer.scene.requestRender();
+    console.log(`[CesiumViewport][forma] §FORMA-CTX-RAIL flat ground rail ribbon(s) rendered: ${placed} track(s).`);
+  }
+
+  /** §FORMA-CTX-RAIL — remove all rail ribbons (idempotent). */
+  public clearContextRail(): void {
+    const viewer = this.viewer;
+    if (viewer) for (const ent of this.contextRailEntities) {
+      try { viewer.entities.remove(ent); } catch { /* gone */ }
+    }
+    this.contextRailEntities = [];
+  }
+
+  /**
    * FORMA-CTX-WATER (founder 2026-06-19) — fetch OSM water bodies + waterways
    * for the site and draw them as flat blue polygons / polylines on the Forma
    * flat-ground study, mirroring loadContextRoads' ENU bridge. Visual-only: NO
@@ -8802,6 +8931,118 @@ export class CesiumViewport {
       try { viewer.entities.remove(ent); } catch { /* gone */ }
     }
     this.contextLanduseEntities = [];
+  }
+
+  /**
+   * §FORMA-CTX-TREES (L-642 Phase C — SPEC-3D-SITE-PRODUCTION-CONTEXT §2) — read the BAKED `trees`
+   * layer (contextTrees.ts, `natural=tree` points) and draw the canopies as cheap low-poly blobs.
+   *
+   * THE BINDING CONSTRAINT (ADR-0094 large-scene budget + the WebGPU device-loss memory
+   * `webgpu-heavy-scene-crash-and-instancing`): trees are the MOST NUMEROUS context element, so they
+   * are rendered EXACTLY like the far-tier buildings — CHEAP BY CONSTRUCTION:
+   *   • ONE batched `Cesium.Primitive` (all canopies share ONE low-poly ellipsoid geometry, combined
+   *     into one vertex buffer → one draw call), NEVER one entity per tree;
+   *   • ONE shared appearance/material (`PerInstanceColorAppearance`, every canopy the same green);
+   *   • SHADOWLESS (`ShadowMode.DISABLED` — the shadow pass is the perf driver);
+   *   • RADIALLY culled to the near disc + a hard NEAREST-FIRST count cap (`CONTEXT_TREES_MAX_INSTANCES`).
+   * Each canopy seats on its OWN per-point relief (`sampleGround`, the same §SITEFRAME-GROUND seat the
+   * building tiers use) so trees sit on the terrain, not one flat plane. §CONTEXT-DATA-HONESTY:
+   * un-baked → a quiet no-op (contextTrees returns empty). Visual-only; never throws.
+   */
+  public async loadContextTrees(lat: number, lon: number, force = false): Promise<void> {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
+    if (!force && this.contextTreesPrimitive && this.contextBuildingsAt &&
+        Math.abs(this.contextBuildingsAt.lat - lat) < 1e-6 &&
+        Math.abs(this.contextBuildingsAt.lon - lon) < 1e-6) return;
+
+    this.contextTreesAbort?.abort();
+    this.contextTreesAbort = new AbortController();
+    const signal = this.contextTreesAbort.signal;
+
+    let collection: ContextTreeCollection;
+    try { collection = await fetchContextTrees(lat, lon, signal); }
+    catch { return; }
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
+    this.clearContextTrees();
+    if (collection.trees.length === 0) { viewer.scene.requestRender(); return; } // honest no-op.
+
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
+      Cesium.Cartesian3.fromDegrees(lon, lat, 0),
+    );
+    const invEnu = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
+
+    // RADIAL (circle) cull + NEAREST-FIRST count cap → bounded by construction, like the far tier.
+    const withDist = collection.trees.map((t) => {
+      const off = Cesium.Matrix4.multiplyByPoint(
+        invEnu, Cesium.Cartesian3.fromDegrees(t.lon, t.lat, 0), new Cesium.Cartesian3());
+      return { t, distM: Math.hypot(off.x, off.y) };
+    }).filter((d) => d.distM <= CONTEXT_TREES_RENDER_RADIUS_M)
+      .sort((a, b) => a.distM - b.distM);
+    const bounded = withDist.length > CONTEXT_TREES_MAX_INSTANCES
+      ? withDist.slice(0, CONTEXT_TREES_MAX_INSTANCES) : withDist;
+    if (bounded.length === 0) { viewer.scene.requestRender(); return; }
+
+    // §CTX-BUILDINGS-RENDER-FIRST (L-635) — the same safe base the building tiers use: a footprint
+    // under still-streaming relief falls back to the settled ground, never a depth-culling ~0.
+    const contextSafeBase = this.resolveContextSafeBase(lat, lon);
+    const treeColor = Cesium.Color.fromCssColorString(FORMA_PALETTE.tree).withAlpha(1.0);
+    // ONE shared low-poly canopy geometry (~6×6 ellipsoid) reused by every instance — the truest
+    // form of "one InstancedMesh per geometry×material" (the instancing memory). ~3 m radius, ~6 m tall.
+    const canopyGeom = new Cesium.EllipsoidGeometry({
+      radii: new Cesium.Cartesian3(2.8, 2.8, 3.2),
+      stackPartitions: 6,
+      slicePartitions: 6,
+      vertexFormat: Cesium.PerInstanceColorAppearance.VERTEX_FORMAT,
+    });
+    const CANOPY_CENTRE_M = 3.6; // canopy centre above ground → blob spans ~0.4–6.8 m.
+
+    const instances: Cesium.GeometryInstance[] = [];
+    for (const { t } of bounded) {
+      try {
+        const ground = this.sampleGround(t.lat, t.lon, contextSafeBase);
+        const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(
+          Cesium.Cartesian3.fromDegrees(t.lon, t.lat, ground + CANOPY_CENTRE_M),
+        );
+        instances.push(new Cesium.GeometryInstance({
+          geometry: canopyGeom,
+          modelMatrix,
+          attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(treeColor) },
+        }));
+      } catch { /* skip one malformed tree */ }
+    }
+    if (instances.length === 0) { viewer.scene.requestRender(); return; }
+    try {
+      const prim = new Cesium.Primitive({
+        geometryInstances: instances,
+        // ONE shared appearance for the whole batch; `flat` = no lighting/shadow shading → cheap.
+        appearance: new Cesium.PerInstanceColorAppearance({ flat: true, translucent: false, closed: true }),
+        asynchronous: true,            // build off the main thread (single-rAF friendly; no jank).
+        shadows: Cesium.ShadowMode.DISABLED,
+      });
+      viewer.scene.primitives.add(prim);
+      this.contextTreesPrimitive = prim;
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] §FORMA-CTX-TREES primitive build failed:', e);
+    }
+    viewer.scene.requestRender();
+    console.log(
+      `[CesiumViewport][forma] §FORMA-CTX-TREES (L-642) instanced canopies: ${instances.length} ` +
+        `low-poly blob(s) in ONE shadowless shared-material primitive (radial ≤${Math.round(CONTEXT_TREES_RENDER_RADIUS_M)} m, ` +
+        `cap ${CONTEXT_TREES_MAX_INSTANCES}, of ${collection.trees.length} baked tree(s)).`,
+    );
+  }
+
+  /** §FORMA-CTX-TREES — remove the instanced tree-canopy primitive (idempotent; `primitives.remove`
+   *  also destroys it). */
+  public clearContextTrees(): void {
+    const viewer = this.viewer;
+    if (viewer && this.contextTreesPrimitive) {
+      try { viewer.scene.primitives.remove(this.contextTreesPrimitive); } catch { /* gone / destroyed with viewer */ }
+    }
+    this.contextTreesPrimitive = null;
   }
 
   /** Log the "context buildings unavailable / degraded" message at most once. */

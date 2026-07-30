@@ -65,7 +65,7 @@ import { PbfReader } from 'pbf';
 export type TileBbox = readonly [number, number, number, number];
 
 /** The layers baked by `tools/context-bake/` — the tile file is `<layer>.pmtiles`. */
-export type ContextTileLayer = 'buildings' | 'roads' | 'water' | 'parks' | 'landuse';
+export type ContextTileLayer = 'buildings' | 'roads' | 'water' | 'parks' | 'landuse' | 'rail' | 'trees';
 
 /** One decoded tile feature: GeoJSON-ish rings in lon/lat plus the OSM tags that rode along. */
 export interface ContextTileFeature {
@@ -115,6 +115,8 @@ const LAYER_ZOOM: Record<ContextTileLayer, number> = {
     water: 16,
     parks: 16,
     landuse: 16,
+    rail: 16,
+    trees: 16,
 };
 
 /**
@@ -127,6 +129,8 @@ const LAYER_DEFINING_TAGS: Record<ContextTileLayer, readonly string[]> = {
     water: ['natural', 'water', 'waterway'],
     parks: ['leisure', 'landuse', 'natural'],
     landuse: ['landuse'],
+    rail: ['railway'],
+    trees: ['natural'], // trees.pmtiles is baked from `natural=tree` NODES only — no collision with parks.
 };
 
 /** Whether the layer's payload is areal (polygons) or linear (ways). */
@@ -136,6 +140,27 @@ const LAYER_IS_AREAL: Record<ContextTileLayer, boolean> = {
     water: false, // mixed: areas AND waterways — accept both, the consumer splits them.
     parks: true,
     landuse: true,
+    rail: false, // linestring track ways — like roads.
+    trees: false,
+};
+
+/**
+ * §FORMA-CTX-TREES (L-642 Phase C) — whether the layer's payload is POINTS (single-vertex features).
+ * ⚠ `trees` is the ONLY point layer: its bake (`n/natural=tree`, `--geometry-types point`) emits one
+ * Point per tree. Every OTHER layer keeps the default reader behaviour — points are the `entrance=*`
+ * node NOISE `osmium tags-filter` drags in, and are discarded. A point layer carries each feature as a
+ * degenerate one-vertex "ring" (`[[lon,lat]]`), so the ≥3-vertex ring floor below is relaxed to ≥1 for
+ * it and only for it. Keeping this a SEPARATE map (not folded into IS_AREAL) means the existing
+ * roads/water linear path is byte-for-byte unchanged.
+ */
+const LAYER_IS_POINT: Record<ContextTileLayer, boolean> = {
+    buildings: false,
+    roads: false,
+    water: false,
+    parks: false,
+    landuse: false,
+    rail: false,
+    trees: true,
 };
 
 /**
@@ -349,8 +374,17 @@ function ringsFor(
             return areal ? [] : [geometry.coordinates as number[][]];
         case 'MultiLineString':
             return areal ? [] : (geometry.coordinates as number[][][]);
+        case 'Point':
+            // §FORMA-CTX-TREES (L-642 Phase C) — a point becomes a degenerate one-vertex "ring"
+            // `[[lon,lat]]`, but ONLY for a POINT layer (trees). For every other layer a Point is the
+            // `entrance=*` node noise the reader has always dropped.
+            return LAYER_IS_POINT[layer] ? [[geometry.coordinates as unknown as number[]]] : [];
+        case 'MultiPoint':
+            return LAYER_IS_POINT[layer]
+                ? (geometry.coordinates as unknown as number[][]).map((p) => [p])
+                : [];
         default:
-            return []; // Point / MultiPoint / Unknown — the `entrance=*` node noise.
+            return []; // Unknown geometry.
     }
 }
 
@@ -433,7 +467,10 @@ export async function readContextTileFeatures(
             const tags = toTags(f.properties);
             if (!belongsToLayer(tags, layer)) continue;
             const geometry = f.toGeoJSON(r.x, r.y, z).geometry as { type: string; coordinates: unknown };
-            const rings = ringsFor(geometry, layer).filter((ring) => ring.length >= 3 && ringIntersectsBbox(ring, bbox));
+            // §FORMA-CTX-TREES — a POINT layer carries one-vertex features; every other layer needs a
+            // real ring/strand (≥3 vertices). `ringIntersectsBbox` handles a single point (degenerate box).
+            const minVerts = LAYER_IS_POINT[layer] ? 1 : 3;
+            const rings = ringsFor(geometry, layer).filter((ring) => ring.length >= minVerts && ringIntersectsBbox(ring, bbox));
             if (rings.length === 0) continue;
             features.push({
                 rings,
