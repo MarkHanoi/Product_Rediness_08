@@ -185,3 +185,29 @@ If yes, the smallest engineering step is a fixture test from the captured AI fea
 dimensions null. If the priority is instead the *numbers*, the smallest step is a one-canton `Typ`-catalogue
 harvest (ili2pg) to prove FAR-as-data on a single canton before scaling. Either way, a numeric provider is
 NOT authorised by the probe (it disproved structured numbers via the national delivery).
+
+---
+
+## 9 — §probe — Phase-3 probe/run queue (feeds [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md))
+
+The C63 Phase-3 roadmap decomposes into three ROI-ordered phases. Each row below is the *next executable
+step* for its phase — a run or a probe, not a doc edit. All are `CONVERGENT-SECONDARY` until executed; none
+moves a RATE cell until it runs (§CONTEXT-DATA-HONESTY).
+
+- **§probe A1 — PARCEL confidence run.** Run `computeParcelConfidence` + `computeParcelMetrics` over an
+  N-parcel sample in each of the Zürich / Genève / Bern bboxes (provider `swisstopo-av` is already wired,
+  keyless, ZH+GE live-verified). → measures Axis 1 (PARCEL). **Gated on** the C63 scorecard harness (§8).
+- **§probe A2 — DATA-SOURCES `live` upgrade.** Land the zone-GIS proxy (`siteDispatch.ts` / `/api/ch/zurich-bzo`
+  + CSP) and confirm the geodienste WFS fee/licence (email `support@geodienste.kgk-cgc.ch`, §3.4). → moves two
+  Axis-3 slots `documented`→`live`.
+- **§probe B1 — nDSM height bake.** Build the STAC→COG-stitch + LV95↔WGS84 reprojector (§SWISS-NDSM-STAC-BUILD,
+  shared ES/FR module) and bake per-city `tagged` heights from swissSURFACE3D DSM − swissALTI3D DTM. → Axis 6.
+- **§probe B2 — terrain verify.** Run `terrain.verify.mjs --tileset` against the deployed
+  `terrain/<city>/layer.json` for all three cities. → lifts Axis 5 rung 50 → 100.
+- **§probe C1 — Zürich sign-off reconcile.** Reconcile the contradictory `sources/VERIFICATION.md` (RISK R3),
+  close open items (a)/(b) — including the image-only docid **6808** — and land the L-449 human sign-off. →
+  unlocks Axis 2/4 for Zürich (`human-reviewed`).
+- **§probe C2 — one-canton FAR harvest.** ili2pg the populated `Typ.Nutzungsziffer` slot for a single canton
+  to prove FAR-as-data before scaling. → Axis 2 FAR.
+- **§probe C3 — Baureglement pipeline pilot.** Point `@pryzm/ordinance-extraction` at one cantonal BZO PDF
+  (height + setback), one-parser-per-article, L-449-gated. → Axis 2 height/setback + Axis 4.
