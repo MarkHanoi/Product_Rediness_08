@@ -152,6 +152,18 @@ moves on this section — it is the PLAN.**
   (whose **13a envelope SHIPPED**) to Madrid and the other capitals: source each city's MUC/PGOM zone
   ordinances, transcribe zone→number, author the pack, and pass every value through L-449 before it
   serves at `confidence: structured`.
+- **Madrid = the LEAD legislation city (2026-07-30).** Madrid is the chosen lead for the LEGISLATION
+  axis, and its **extraction template is READY**:
+  [`es-md/28079-madrid/MADRID-LEGISLATION-EXTRACTION-TEMPLATE.md`](./es-md/28079-madrid/MADRID-LEGISLATION-EXTRACTION-TEMPLATE.md)
+  — a per-zone worksheet (Normas Zonales 1–9, grado-structured) matching the Barcelona
+  `esBarcelona*.ts` pack shape, pre-seeded with the confirmed PGOUM chapter structure (Cap. 8.1–8.9),
+  every numeric value left `TODO`. It is now **awaiting founder-sourced numeric values** from the
+  **PGOUM Compendio 2024** (Normas Urbanísticas del PG-1997, updated 2024-10-24; madrid.es /
+  sede.madrid.es) — FAR/edificabilidad · altura · ocupación · retranqueos · fondo edificable · nº
+  plantas, per grado, **article-cited or it does not ship**. This is the **human-gated ~65 %** step:
+  the classification + the template are done; the numbers are the remaining SOURCING cost. Filled
+  values wire into `rulepacks/registry.ts`'s existing Madrid registration (today a refusal
+  jurisdiction) exactly as the template's *How this wires* section specifies — no code until signed.
 - **Unlocks.** **LEGISLATION (Axis 2) + ENVELOPE (Axis 4)** — the two axes that are 45% of the C63
   weight and Spain's **surviving cap**. The geospatial phases (A/B) do **not** touch these; only sourced,
   cited, human-verified ordinance values raise them.
