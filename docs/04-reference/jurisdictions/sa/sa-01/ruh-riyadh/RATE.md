@@ -1,98 +1,53 @@
-# Data Readiness Rate — Riyadh (`sa-ruh-riyadh`) — THE DEMO CITY
+# City RATE — master completion scorecard — Riyadh (sa-01, RUH)
 
-**Headline rate: ~54%**
+<!-- generated-by: MANUAL C63-Phase-1-AUDIT 2026-07-30 — scorecard function not yet shipped (C63 §8); the CHEAP axes (DATA-SOURCES · TERRAIN · CONTEXT) are cited-derived per C63 §8.1, every human-gated axis is not-assessed with a typed C62 reason. NO cell is a fabricated number. Saudi is nationally data-blocked (geo-fenced Balady cadastre + no open GEOSA DTM); the resulting LOW cheap-axis scores are CORRECT, not a failure. -->
 
-**Last updated:** 2026-07-24 · **Maintainer:** UNASSIGNED
+**Overall completion (assessed subset): `19%` · `partial: true`** — renormalised over the ASSESSED
+axes only (DATA-SOURCES · TERRAIN · CONTEXT); the missing axes (PARCEL · LEGISLATION · ENVELOPE ·
+HEIGHTS/LOD) are honestly `not-assessed`, not 0 % (C63 §1.2/§1.5). **`honestyOk: true`** (no fabricated
+value; every unknown typed; the geo-fenced fields are scored reachable-in-principle-not-from-here, never absent).
 
-> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
-> return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
-> BYA / BRA / %-utilisation] + height**) **without reading an ordinance text/PDF**. This definition
-> is IDENTICAL across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany /
-> France …) so the scores are directly comparable. Derived from direct endpoint/schema checks, not
-> assumed from the jurisdiction's open-data reputation.
+> **Weighting** `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4).
+> Arithmetic: (DATA-SOURCES 0.20×15 + TERRAIN 0.00×10 + CONTEXT 0.56×5) ÷ (15+10+5) = 5.78 ÷ 30 = **~19 %**.
 
-| Jurisdiction | Rate |
-|---|---|
-| Denmark | ~96% |
-| Madrid | ~68% |
-| Saudi Arabia (national) | ~55% |
-| **Riyadh** | **~54%** |
-| Barcelona | ~48% |
-| Norway (national) | ~32% |
-| Germany (national) | ~28% |
-| France (national) | ~22% |
+## The 7 axes (C63 §3 — fixed definitions)
 
-Riyadh is the **Saudi demo city** — the home of the authored national-footprint pack
-(`packages/site-parcel-data/src/rulepacks/saRiyadhDemo.ts`, L-606). Its national footprint is
-**byte-identical** to the national picture: the same exact closed-form setback formula
-(`max(streetWidth/5, {3,2,2})`, villa §4-1 cl. 4 / apt §4-2 cl. 4), the same flat per-class ground
-coverage (villa 0.75 §4-1 cl. 1 / apt 0.65 §4-2 cl. 1), the same national vertical CEILING (villa
-≤ 14 m §5-1-5 cl. 3 / apt ≤ 23 m §3-2), and the same geo-fenced Balady `MapServer/28` live parcel path.
+| # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
+|---|---|---:|---|---|---|---|
+| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `license-restriction` | A Saudi provider IS registered (`parcelProviders/registry.ts` `isInSaudiArabia`, `regionCode:'SA'`) but it is **footprint-fallback** — the authoritative Balady/U-Maps cadastre is IP geo-fenced (WAF-blocks non-SA IPs, L-606); a footprint is never a legal parcel (C57 §L-640, capped-low-by-construction). No `computeParcelConfidence` sample run. |
+| 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | A national-footprint rule pack IS authored (`rulepacks/saRiyadhDemo.ts`, L-606: `sa-villa` 0.75 / `sa-apartment` 0.65 + `resolveSaudiSetbacks`) but is **NOT registered and NOT signed** (`sources/VERIFICATION.md` unsigned → `estimated-ruleset`); C63 Axis 2 needs the L-449 human sign-off + a clau audit. The `~54 %` in `LEGISLATION-RATE.md` is the structured-fill PRIOR, not this axis's verified score. |
+| 3 | **DATA-SOURCES** | 15 % | **20%** | `not-checked` | — | 5-slot checklist: cadastre-parcel **blocked** (Balady geo-fenced, footprint-fallback only) · regional-zone-GIS **none** (no SA-01 regional zoning instrument, `sa-01/README.md`) · building-height nDSM **blocked** (`heightSources.mjs` `ml_sa` impl:`blocked`; Balady `NOOFFLOORS` geo-fenced, GLO-30 = sanity DEM only) · terrain DEM **blocked** (`terrain.mjs` source `sa` verdict `blocked`, GEOSA no open national DTM) · context-OSM **live** (`bake.mjs` REGIONS `riyadh`, buildings via Overture). Mean = 1/5 = 0.20. |
+| 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | The `saRiyadhDemo.ts` pack is authored but unwired; solver coverage is unmeasured (C58). Height/floors are a field-level BOUNDED cited-null refusal (villa ≤14 m §5-1-5 cl.3 / apt ≤23 m §3-2) — an HONEST refusal, not a fill (C63 §3.1). No `packsByZone × buildable-land-share` measurement exists. |
+| 5 | **TERRAIN** | 10 % | **0%** | `not-checked` | — | `terrain.mjs` HAS a `riyadh` row (`source:'sa'`, bbox `46.60,24.58,46.83,24.80`) but it is **`blocked`** (`'SA — no open national DTM (GEOSA). Founder-gated.'`) → NO quantized-mesh tileset is baked → rung **0 = none**. This is a cited 0 (the pipeline was inspected and produces no tileset by a cited blocker), not `not-assessed`. |
+| 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `license-restriction` | No measured height baked. `heightSources.mjs` `ml_sa` impl:`blocked` — the national per-building source (Balady `NOOFFLOORS`) is geo-fenced (403), GLO-30 is a coarse DEM sanity layer only. Overture buildings carry ~0 % height in Saudi (ML footprints, `CONTEXT-BUILDING-SOURCE-EVALUATION.md`) → context renders the honest 9 m `assumed`. No provenance histogram probed. |
+| 7 | **CONTEXT** | 5 % | **56%** | `not-checked` | — | Inside the `riyadh` context bake bbox (`bake.mjs` REGIONS `riyadh`; buildings = **Overture** 2026-07-22.0, ~299,918 footprints vs OSM 56,278 — 5.3×). Confirmed long-shipped layers: buildings · roads · water · parks · landuse (**5/9**). rail + trees are config-added (`bake.mjs`, L-642) but the re-bake is not-yet-landed → excluded (honest 0). pedestrian: not a baked layer. sea: Riyadh is INLAND (no coastline) → 0. Score 5/9 = 56 %. |
 
-Riyadh sits **~1 point below the clean national ~55%** for one city-specific reason: the **pervasiveness
-of the RCRC / ROSHN / ADA development-authority density zones**. Riyadh is the Kingdom's densest
-concentration of §1 cl. 3 development-authority land (Royal Commission for Riyadh City, ROSHN
-mega-communities, King Salman Park, Diriyah Gate, Qiddiya-adjacent corridors) — where the
-development-authority regulations *prevail on any conflict* with the national decision, and can override
-not only the vertical but, in principle, the footprint itself (§1 cl. 3). A larger fraction of Riyadh
-parcels therefore fall on land where the national footprint is not the governing answer than in Dammam
-(no giga-project density authority) — a modest downward pressure (**−1 pt vs the clean national
-baseline**), smaller than Jeddah's −2 pt Al-Balad heritage *removal* because a development-authority
-override typically still yields a *different footprint*, not a pure conservation refusal. On strictly
-**ordinary residential fabric** (the demo denominator — development-authority master-plan zones excluded,
-Riyadh README §4), Riyadh equals the national ~55%.
+## §CONTEXT-DATA-HONESTY note
 
-**Failure and empty are not the same value:** the geo-fenced fields (parcel geometry, classification,
-street width, exact floors/height) are scored as reachable-in-principle, not-reachable-from-here — never
-as absent. The Balady service provably carries them, resolved per parcel; it is provably geo-fenced (the
-`R1` trap surface for the exact vertical is RCRC/ADA corridor tables, measured on shape as geo-fenced,
-not proven absent — L-606 §4).
+DOES: baked OSM/Overture context (5/9 layers, dense Overture buildings). REFUSES: an envelope (pack
+authored but unwired/unsigned) + the exact vertical value (field-level BOUNDED refusal with the national
+ceiling cited) — never a borrowed/invented number. UNKNOWN (typed): PARCEL quality (`license-restriction`
+— Balady geo-fenced), LEGISLATION + ENVELOPE (`pending-implementation`), HEIGHTS (`license-restriction`),
+TERRAIN cited 0 (no open GEOSA DTM). **Failure ≠ empty**: every geo-fenced field is reachable-in-principle,
+not-reachable-from-here — scored so, never as absent (L-606). `honestyOk: true`.
 
----
+## Dossier index (C63 §5)
 
-## Field-by-field breakdown (deltas from national in **bold**)
+This `RATE.md` is the composite master; the siblings FEED it (naming: `../../../_TEMPLATE/NAMING-CONVENTION.md`).
 
-| Field | Structured? | Source | Score |
-|---|---|---|---|
-| Classification | ✅ National taxonomy | §3-1..§3-4; per-parcel assignment (`MAINLANDUSE` on Balady `MapServer/28`) geo-fenced (demo = user-picked) | ~70% |
-| Ground coverage | ✅ Exact national constant | villa 0.75 §4-1 cl. 1 / apt 0.65 §4-2 cl. 1 — the single cleanest field | ~95% |
-| Front / side / rear setback | ✅ Exact national formula | `max(w/5, {3,2,2})` §4-1/§4-2 cl. 4; resolved by `resolveSaudiSetbacks` (L-606 §2) | ~75% each |
-| Max height — national CEILING | 🟡 Ceiling published; exact geo-fenced | villa ≤14 m §5-1-5 cl. 3 / apt ≤23 m §3-2; exact = Amanat Riyadh approved plan (§4 cl. 1) + RCRC/ADA override (§1 cl. 3), geo-fenced | ~20% blended |
-| Max floors — national CEILING | 🟡 Ceiling published; exact geo-fenced | villa ≤ G+1+annex §3-1; exact geo-fenced (`NOOFFLOORS` behind the Balady WAF) | ~20% blended |
-| **RCRC / ROSHN / ADA development-authority zones** | **🟠 Refuse/override — not held** | **§1 cl. 3 authorities prevail on conflict; per-corridor FAR/height in PDF design-guide volumes (`rcrc.gov.sa` WAF-rejected, `trc.alriyadh.gov.sa` ECONNREFUSED — L-606 §4). A parcel inside → override, not the national footprint.** | **~15% (the R1 trap surface; excluded from the ordinary-fabric denominator)** |
-| Residential FAR | ❌ Genuine absence | 0 hits in the 42-page decision; the "FAR" figures for Riyadh corridors are high-rise/commercial (>23 m, out of scope). Excluded from denominator | N/A |
-| Parcel geometry | 🟡 Exists, geo-fenced | Balady `MapServer/28` (deed boundary + geometry); NXDOMAIN on the ArcGIS host + WAF on the proxy from outside SA; demo = user-drawn | ~15% |
-| Context buildings / terrain | ⚠️ Global fallback | Microsoft/Google ML footprints (KSA covered); Copernicus GLO-30 DEM. No confirmed open national LoD2/LiDAR (GEOSA licensed) | ~45–70% |
-
----
-
-## Why ~54% and not ~55%
-
-The national footprint and vertical fields are **identical** to the national score. The ~1-point
-reduction is the **RCRC/ROSHN/ADA development-authority pervasiveness**: Riyadh carries the Kingdom's
-largest share of §1 cl. 3 land, so a non-trivial fraction of demo-worthy central/northern parcels fall
-where a development authority — not the national decision — governs. This is the same *kind* of downward
-pressure as Jeddah's Al-Balad, but a **densification/override** surface rather than a **conservation
-removal**, and quantified smaller (−1 vs −2) because an override still generally produces a footprint,
-whereas Al-Balad removes the parcel from the national-footprint denominator entirely. Dammam, with no
-giga-project density authority, has neither pressure and lands exactly on the national ~55% — which is why
-Dammam is the cleanest of the three and Riyadh sits just below it.
-
----
-
-## What would raise the rate
-
-| Action | Rate impact | Effort |
+| File | About | Feeds axis |
 |---|---|---|
-| Wire + human `VERIFICATION.md` sign-off on the authored footprint pack (`saRiyadhDemo.ts`) | Realises Riyadh's ~54% as a **certified structured** footprint answer (lifts the pack `estimated-ruleset` → `structured`); does not raise the number (already credited) but converts it to a shippable product — Riyadh is the furthest-along of the three cities (pack authored, L-606) | Low (wiring TODO + one human sign-off) |
-| In-SA egress / Balady data agreement (Riyadh bbox) | Converts parcel geometry + `MAINLANDUSE` + resolved setbacks + `NOOFFLOORS` (exact floors) from geo-fenced to live-structured → toward Madrid's band (~68–75%) | High (business/legal, not engineering) |
-| Read RCRC/ADA per-corridor height tables from in-SA | Converts the exact vertical + the R1 development-authority surface from a refusal/override to a cited number for the giga-project corridors | Medium (in-SA read; assert on content, not HTTP 200) |
-| Open RCRC/ROSHN master-plan boundary wired as an override/flag overlay | Converts the R1 zones from a silent wrong-footprint risk to a correct, cited override refusal (raises *trust*, not fill) | Medium (boundary sourcing) |
+| **`RATE.md`** (this) | 7-axis composite completion scorecard | — |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (~54 %) — the authored MOMRAH footprint | LEGISLATION |
+| [`ENVELOPE.md`](./ENVELOPE.md) | buildable-envelope solver status | ENVELOPE |
+| [`HEIGHT.md`](./HEIGHT.md) | building-height provenance status | HEIGHTS/LOD |
+| [`README.md`](./README.md) | what governs here · pack status · municipal-code choice | all |
+| [`NEXT.md`](./NEXT.md) | where we stopped · blockers · TRIP-WIRES · resume steps | all |
+| [`RISK-REGISTER.md`](./RISK-REGISTER.md) | honesty guardrails | — |
+| [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | phased climb to 100 % | all |
+| `sources/` | per-field citations + human sign-off (L-449 gate) | LEGISLATION · ENVELOPE |
+| `findings/` | L-606 Riyadh demo pack + geo-fence probes | — |
 
 ---
-
-*Last updated: 2026-07-24. National footprint identical to Dammam/Jeddah; the Riyadh-specific delta is the
-pervasive RCRC/ROSHN/ADA §1 cl. 3 development-authority surface (a −1 pt override pressure vs the clean
-national baseline). Exact vertical + live parcel path geo-fenced nationally (measured on shape, L-606 §4).
-Footprint pack authored (`saRiyadhDemo.ts`), NOT wired, `estimated-ruleset` pending `VERIFICATION.md`.
-Context data via global ML fallbacks. The phased climb: [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md).*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Scaffolded under audit L-649 Phase-1; axis state from `tools/context-bake/{bake,terrain,heightSources}.mjs` + `packages/site-parcel-data/src/parcelProviders/registry.ts`.*

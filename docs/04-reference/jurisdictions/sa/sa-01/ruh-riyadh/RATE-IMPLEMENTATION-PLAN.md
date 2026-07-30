@@ -1,6 +1,6 @@
 # Rate Implementation Plan — Riyadh (`sa-ruh-riyadh`) — THE DEMO CITY
 
-**Current rate:** ~54% (see [`RATE.md`](./RATE.md)) · **Realistic ceiling (reachable from outside SA):**
+**Current LEGISLATION rate:** ~54% (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md); composite master [`RATE.md`](./RATE.md) = ~19 %) · **Realistic ceiling (reachable from outside SA):**
 ~54% · **Ceiling with a geo-fence break (BLOCKED):** ~72% · **Gap to reachable ceiling:** ~0 pts (the work
 is REALISING the 54, not raising it) · **Gap to Denmark (~96%):** ~42 pts ·
 **Last updated:** 2026-07-24 · **Owner:** UNASSIGNED

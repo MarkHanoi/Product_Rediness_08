@@ -45,8 +45,10 @@ excluding development-authority master-plan zones.
 
 ## 5 — Files in this folder
 - `NEXT.md` — where we stopped, blockers, TRIP-WIRES, resume steps.
-- `RATE.md` — the readiness rate for Riyadh (~54%; national footprint −1 pt for the pervasive RCRC/ROSHN/ADA
-  development-authority surface).
+- `RATE.md` — **the composite 7-axis completion scorecard (C63; ~19 % on the assessed subset)** — the master.
+- `LEGISLATION-RATE.md` — the legislation/data-fill readiness rate for Riyadh (~54%; national footprint −1 pt
+  for the pervasive RCRC/ROSHN/ADA development-authority surface). Feeds C63 Axis 2.
+- `ENVELOPE.md` · `HEIGHT.md` · `RISK-REGISTER.md` — the C63 per-axis + honesty companions (scaffolded 2026-07-30).
 - `RATE-IMPLEMENTATION-PLAN.md` — the phased climb (Phase 1 = wire + certify the authored footprint pack;
   Phases 2–3 BLOCKED on the geo-fence).
 - `sources/SOURCES.md` — per-field citations for the two zones (the trust gate).

@@ -63,7 +63,8 @@ the whole conservation regime).
 
 ## 5 — Files in this folder
 - `NEXT.md` — where we stopped, blockers, TRIP-WIRES, resume steps.
-- `RATE.md` — the readiness rate for Jeddah (~53%; national number −2 pt for the Al-Balad heritage removal).
+- `RATE.md` — **the composite 7-axis completion scorecard (C63; ~19 % on the assessed subset)** — the master.
+- `LEGISLATION-RATE.md` — the legislation/data-fill readiness rate for Jeddah (~53%; national number −2 pt for the Al-Balad heritage removal). Feeds C63 Axis 2.
 - `RATE-IMPLEMENTATION-PLAN.md` — the phased climb (Phase 1 reuses the footprint pack; 1b/1c = the Al-Balad
   refusal overlay + JHD GIS fill; Phases 2–3 BLOCKED on the geo-fence).
 - `sources/SOURCES.md` — per-field citations (national footprint + the Jeddah-local layers).
@@ -86,4 +87,4 @@ as an open, stable identifier. The pack id `sa-jed-jeddah` omits the region segm
 
 **Related:** [`../../README.md`](../../README.md) (country umbrella) · [`../../NEXT.md`](../../NEXT.md) ·
 [`../../findings/SAUDI-MASTER-DATA-SOURCE-STUDY.md`](../../findings/SAUDI-MASTER-DATA-SOURCE-STUDY.md) §D.2 ·
-[`../README.md`](../README.md) (region index) · `sources/SOURCES.md` · `NEXT.md` · `RATE.md`.
+[`../README.md`](../README.md) (region index) · `sources/SOURCES.md` · `NEXT.md` · `RATE.md` (composite) · `LEGISLATION-RATE.md`.
