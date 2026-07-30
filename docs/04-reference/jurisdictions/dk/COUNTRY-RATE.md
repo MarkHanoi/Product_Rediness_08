@@ -9,6 +9,17 @@ live-verified 2026-07-23). ⚠ This national number currently lives in [`LEGISLA
 to `LEGISLATION-RATE.md` per the L-649 naming convention (a reconciliation banner sits atop it). It **feeds the per-city LEGISLATION axis** as the country prior; it is NOT a per-city measured fill.
 See [`README.md`](./README.md) for the national data layer + [`DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md`](./DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md).
 
+> **⚑ 2026-07-30 SCOPE — "offline legislation + deferred live data" (founder ruling, mirrors Sweden).**
+> **Legislation = DERIVED (L-449 SIGNED):** the PLANDATA → buildable-envelope mapping is signed against
+> BR18 §168–186 (`maksbebyggelsesprocent → FAR = pct/100`, `maksbygningshojde → height`, `maxetager →
+> storeys`, **densityScope** parcel/property/planning-area preserved + honoured) — see
+> [`dk-PLANDATA-ENVELOPE-MAPPING.md`](./dk-PLANDATA-ENVELOPE-MAPPING.md), implemented as the DK planning
+> rule pack. **Live cadastre / PLANDATA = DEFERRED:** a Datafordeler admin account cannot be bootstrapped
+> (Danish **MitID** identity gate, same access class as Swedish **BankID**), so the DK parcel provider is a
+> deferred stub (OSM footprint fallback). Honest scoring: Legislation axis credited on the signed mapping;
+> **PARCEL + live DATA-SOURCES = access-deferred (a MitID/BankID-class access gap, NOT a code gap).** Do
+> NOT claim the country is live.
+
 > Authority: [C63](../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Axes fixed in C63 §3.
 > Weighting = `CITY_COMPLETION_WEIGHTS` — **RATIFIED (founder, 2026-07-30)**: LEGISLATION 25 · ENVELOPE 20 ·
 > PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4). Every cell is a

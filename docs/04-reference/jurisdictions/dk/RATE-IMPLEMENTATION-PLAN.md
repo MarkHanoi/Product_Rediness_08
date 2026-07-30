@@ -1,10 +1,29 @@
 # Rate Implementation Plan — Denmark (`dk`) national — C63 city-completion climb
 
 **Current rate:** ~66% · `partial:true` (per-city C63 composite, see [`COUNTRY-RATE.md`](./COUNTRY-RATE.md)) ·
-**Realistic ceiling:** ~92–96% (near-100% of the *assessable* axes) ·
-**Gap to ceiling:** ~26–30 pts · **Gap to Denmark's own data-readiness (~96%):** the composite is held
-below the data by the L-449 gate, NOT by data absence ·
+**Realistic near-term target:** **~70–80%** (Legislation axis credited on the signed mapping; the
+rest pending per-city ingestion validation — **NOT auto-100**) ·
+**Realistic ceiling:** ~92–96% of the *assessable* axes, minus the **access-deferred** parcel/live-data axes ·
 **Last updated:** 2026-07-30 · **Owner:** UNASSIGNED
+
+> ### ⚑ 2026-07-30 SCOPE — "OFFLINE LEGISLATION + DEFERRED LIVE DATA" (founder ruling, mirrors Sweden)
+> - **Legislation = DERIVED (L-449 SIGNED, 2026-07-30).** The PLANDATA → buildable-envelope mapping is
+>   signed against BR18 §168–186: `maksbebyggelsesprocent → FAR = pct/100`, `maksbygningshojde → height`,
+>   `maxetager → storeys`, with the **densityScope** (parcel / property / planning-area) preserved and
+>   HONOURED — FAR is stated only at parcel scope, else withheld. Recorded in
+>   [`dk-PLANDATA-ENVELOPE-MAPPING.md`](./dk-PLANDATA-ENVELOPE-MAPPING.md); implemented as the DK planning
+>   **rule pack** (`packages/site-parcel-data/src/rulepacks/dkPlandataEnvelope.ts`). This offline-legislation
+>   half is complete and **shippable with no live-data dependency**.
+> - **Live cadastre / PLANDATA = DEFERRED.** A Datafordeler administrator account cannot be bootstrapped —
+>   it is gated behind Danish **MitID** identity, the **same access class as Swedish BankID**. So there are
+>   **no** live Datafordeler/PLANDATA credentials. The DK **parcel provider**
+>   (`parcelProviders/dkMatrikelParcelProvider.ts`) is a **deferred stub** on the canonical interface
+>   (returns `null` → OSM footprint fallback; Datafordeler adapter = a single method-body swap behind a
+>   `// DEFERRED:` seam). **This is an access gap, NOT a code gap** — do not claim the country is live.
+> - **Honest scoring:** Legislation axis credited (signed mapping); PARCEL + the live DATA-SOURCES slots =
+>   **access-deferred** (MitID/BankID-class), not `not-assessed`-for-code-reasons. Target ~70–80% pending
+>   per-city ingestion validation; the residual is data-quality/scope-encoding + access-deferral, both
+>   honest (not fabricatable — C58 §1.4).
 
 > **Denmark is the benchmark ceiling proof — and this plan is why.** Every other jurisdiction's plan
 > points at Denmark as the ~96% data-readiness exemplar. But its C63 *completion* composite is only
@@ -83,10 +102,14 @@ it is descriptive, not a measured cell — the composite only re-derives when th
   `bygkunifelt` / `iomfangreg`). Both need a human planner; C63 §1.6 forbids `human-reviewed` until they
   are signed. ENVELOPE also depends on replacing the Copenhagen `dkPerimeterBlock` STUDY band with cited
   per-plan setback/coverage once A's sign-off lands (C58 certifiability).
-- **Phase B — dependency:** `DATAFORDELER_USERNAME/PASSWORD` present in the bake/deploy env; the
-  `matrikel-dk` provider (`parcelProviders/registry.ts`, `isInDenmark`) is already wired. **Blocker:** the
-  Datafordeler cadastre is **credential-gated, NOT keyless** — anonymous probes return HTTP 404; without
-  the secret PARCEL cannot be sampled and the parcel/height/terrain DATA-SOURCES slots stay `documented`.
+- **Phase B — dependency:** the DK **parcel provider** now exists on the canonical interface as a
+  **deferred stub** (`parcelProviders/dkMatrikelParcelProvider.ts` — returns `null` → OSM footprint
+  fallback; the Datafordeler adapter is a one-method-body swap behind the `// DEFERRED:` seam). **Blocker
+  is ACCESS, not code:** the Datafordeler cadastre is credential-gated and a service-user/admin account
+  cannot be bootstrapped — it requires **Danish MitID** identity (the **same access class as Swedish
+  BankID**). So `DATAFORDELER_USERNAME/PASSWORD` cannot be obtained, PARCEL stays **access-deferred**, and
+  the parcel/height/terrain DATA-SOURCES slots stay `documented`. This is deferral, not a defect — the
+  buildability engine + rule pack do not depend on it (proven in `dkPlandataEnvelope.test.ts`).
 - **Phase C — dependency:** `DATAFORDELER_API_KEY` in env; the DHM WCS/nDSM join (`heightSources.mjs`
   `geodanmark` impl:`live`; `bake.mjs` denmark `heightJoin:'dhm'`) and the `terrain.mjs` `copenhagen`
   source `dk` row already exist. **Blocker:** both are **apikey-gated** — the Copenhagen adapter "skips
@@ -159,7 +182,10 @@ only reason the ceiling is ~92–96% and not a literal 100%.
   field + a downstream C57 parcel-intersection + the bindingness gate). Denmark's ONLY coverage source
   (~1.4% of byzone clicks); keep DISTINCT from the dimensional fill (`bebygpct` is FAR×100, NOT coverage —
   a measured dead-end, do not "fix" it by reusing the FAR number).
-- **Datafordeler credentials not confirmed in env** — hard-blocks Phases B and C until present.
+- **Datafordeler credentials DEFERRED (not obtainable)** — admin/service-user bootstrap is gated behind
+  Danish **MitID** identity (same access class as Swedish **BankID**), so Phases B and C are **access-
+  deferred**, not merely env-pending. The parcel provider is a deferred stub (OSM fallback); the live
+  Datafordeler adapter is a single method-body swap the day access exists. NOT a code gap.
 - **DK context spike NOT STARTED** (`dk/topics/`) — CONTEXT stays at 5/9 until the L-642 rail/trees bake
   lands; an honest 0 on the missing layers, not a fabricated presence.
 
