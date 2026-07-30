@@ -33,6 +33,19 @@
 | Berlin Baunutzungsplan voidance risk | Figures can be judicially struck down as *funktionslos*; OVG Berlin-Brandenburg 2020 voided GFZ 1.5 in Neukölln as no longer realizable | — | OVG Berlin-Brandenburg, 15 Sep 2020 (Az. 2 B 10.17) | Court ruling | — | `published` — treat any Baunutzungsplan-derived figure as `corroborated, subject to functional-voidance risk`, NOT `published` |
 | Signature gate (all cities) | Printed, signed official B-Plan (Satzung) is legally binding; XPlanGML/INSPIRE is informational only | — | German constitutional principle (Rechtsstaat / Urkundlichkeit) | National legal principle | — | `published` |
 | Denkmalschutz fragmentation | Heritage protection is Land law; no federal register; Landesdenkmalamt per Land; not assumed to be a queryable GIS layer | — | Each Land's Denkmalschutzgesetz | 16 separate Denkmalschutzgesetze | Per-Land heritage authority portals | `published` (fact of fragmentation) |
+| **VG250 — admin routing (AGS)** | Verwaltungsgebiete 1:250 000; carries AGS to Gemeinde level; download + WFS; EPSG 25832/4326 | — | BKG (Bundesamt für Kartographie und Geodäsie) | "Verwaltungsgebiete VG250", BKG, current | `gdz.bkg.bund.de` | `corroborated` — CONVERGENT-SECONDARY, licence DL-DE BY 2.0; not live-probed |
+| **DGM — terrain (LiDAR)** | DGM1/2/5/10 digital terrain models; per-Land WCS/GeoTIFF; datum DHHN2016 (NHN) | m | Per-Land Vermessungsverwaltung (AdV/ATKIS) | Per-Land DGM product pages | Per-Land geoportals; discovery via `govdata.de` | `corroborated` — CONVERGENT-SECONDARY; per-Land licence (DL-DE Zero/BY); not live-probed |
+| **DOP — orthophotos** | DOP20 (20 cm) / DOP10 (10 cm); per-Land WMTS/WMS/download; often annual | m/px | Per-Land Vermessungsverwaltung (ATKIS) | Per-Land DOP product pages | Per-Land geoportals | `corroborated` — CONVERGENT-SECONDARY; per-Land licence; not live-probed |
+| **ATKIS Basis-DLM — topographic context** | Roads/water/land-use object model; per-Land WFS/download; one AdV object catalogue | — | Per-Land (AdV ATKIS standard) | "ATKIS Basis-DLM Objektartenkatalog", AdV, current | `adv-online.de`; per-Land geoportals | `corroborated` — CONVERGENT-SECONDARY; OSM = national fallback; not live-probed |
+| **BfN — Natura2000 + landscape** | Protected-area + landscape geodata; WFS/WMS | — | BfN (Bundesamt für Naturschutz) | BfN Geodienste | `geodienste.bfn.de` | `corroborated` — CONVERGENT-SECONDARY; not live-probed |
+| **BGR — soil / geology** | National soil + geology geodata; WMS/download | — | BGR (Bundesanstalt für Geowissenschaften und Rohstoffe) | BGR GeoViewer | `geoviewer.bgr.de` | `corroborated` — CONVERGENT-SECONDARY; not live-probed |
+| **UBA / LAWA — flood + water** | EU Flood Directive + water-body geodata (INSPIRE); federal frame, per-Land delivery; some PDF-only | — | UBA (Umweltbundesamt) / LAWA + Länder | EU Flood Directive INSPIRE services | `umweltbundesamt.de`; per-Land water authorities | `corroborated` — CONVERGENT-SECONDARY; mixed WMS/WFS/PDF; not live-probed |
+
+> **Federation atlas cross-reference:** the national architecture, the Priority-1..4 dataset
+> inventory, and the 16-Land endpoint matrix built from these rows live in
+> `../GERMANY.md`, `../GERMANY-GEOSPATIAL-DATA-INVENTORY.md`, and `../LAND-REGISTRY.md`.
+> All rows above are CONVERGENT-SECONDARY (multi-source, unprobed) except NRW LoD2, which is
+> VERIFIED-LIVE (see `../LOD-RATE.md` probe appendix).
 
 ---
 
