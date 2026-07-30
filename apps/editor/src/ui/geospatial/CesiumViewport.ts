@@ -8304,11 +8304,23 @@ export class CesiumViewport {
     // Forma-only (see doc): the photoreal path keeps its tiles untouched.
     if (!this.formaMode || this.photorealTilesActive) return;
     try {
-      // Feature-detect ClippingPolygon (Cesium 1.111+). Absent → NO clip forms, so the slab never
-      // forms → do NOT draw a skirt (that would be a fabricated cut); the FULL terrain remains.
+      // Feature-detect ClippingPolygon (Cesium 1.111+) AND the WebGL-2 support it REQUIRES. ⚠ L-645
+      // ROOT CAUSE: the class EXISTING is NOT sufficient. `ClippingPolygonCollection.update()` hard-THROWS
+      // `RuntimeError: … only supported for WebGL 2` on EVERY frame of `GlobeSurfaceTileProvider.beginUpdate`
+      // when the context is WebGL 1 — and that throw fires INSIDE Cesium's render loop, OUTSIDE this
+      // try/catch, so it escapes our guard. The clip is assigned (the constructor does NOT check), the skirt
+      // is drawn, then every frame throws: the globe surface renders UN-clipped (outside terrain fully
+      // visible) with a broken-shader edge + skirt wall at the disc boundary — EXACTLY the founder's report
+      // ("bright red ring + whole city/mountains/sea still render", half-broken on some machines). It shipped
+      // green because dev machines run WebGL 2, where the clip works. Gate on `isSupported(scene)` — Cesium's
+      // own predicate (`scene.context.webgl2`) — so a WebGL-1 context (or a build lacking the class) degrades
+      // HONESTLY to the full terrain: no clip, no skirt, never a half-broken globe (§CONTEXT-DATA-HONESTY).
+      // The `||` short-circuits, so `isSupported` is only reached once the class is confirmed present.
       const CP = (Cesium as unknown as { ClippingPolygon?: unknown; ClippingPolygonCollection?: unknown });
-      if (typeof CP.ClippingPolygon !== 'function' || typeof CP.ClippingPolygonCollection !== 'function') {
-        console.warn('[CesiumViewport][forma] §CTX-EARTH-SLAB — ClippingPolygon unavailable in this Cesium build; full terrain left un-clipped (no slab).');
+      if (typeof CP.ClippingPolygon !== 'function'
+          || typeof CP.ClippingPolygonCollection !== 'function'
+          || !Cesium.ClippingPolygonCollection.isSupported(viewer.scene)) {
+        console.warn('[CesiumViewport][forma] §CTX-EARTH-SLAB — clipping polygons unsupported here (needs WebGL 2); full terrain left un-clipped (no slab).');
         this.clearContextEarthSlab();
         return;
       }
