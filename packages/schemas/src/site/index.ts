@@ -36,3 +36,5 @@ export * from './zoning/index.js';
 export * from './context/index.js';
 // §C62 (ADR-0280) — the shared data-confidence / provenance / unknown-reason model.
 export * from './metadata/DataConfidence.js';
+// §C63 (ADR-0281) — the 7-axis city-completion scorecard (composes C62).
+export * from './completion/CityCompletionScorecard.js';
