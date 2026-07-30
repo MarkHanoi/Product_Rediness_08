@@ -28,8 +28,22 @@
  *               @opentelemetry/semantic-conventions
  */
 
+import { initTracing } from '@pryzm/crash-reporter';
+
 const SERVICE_NAME = process.env.OTEL_SERVICE_NAME ?? 'pryzm-server';
 const ENDPOINT     = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+
+// L-392 — register a REAL global tracer provider at the server composition root
+// so the codebase's P8 spans (`trace.getTracer(...).startSpan()`) actually record
+// instead of silently no-op'ing against @opentelemetry/api's NoopTracerProvider.
+//
+// This runs synchronously as the very first server import (before any app module
+// can create a tracer at module load). It is SELF-GUARDED — a no-op unless
+// `PRYZM_TRACING` is set (see @pryzm/crash-reporter Tracing.ts) — so local dev,
+// CI, and default production are byte-for-byte unchanged. When the richer OTLP
+// NodeSDK path below is actually installed AND configured, it registers its own
+// provider afterwards and takes over. `initTracing()` is idempotent.
+initTracing({ serviceName: SERVICE_NAME });
 
 if (ENDPOINT) {
     // Use dynamic imports so missing packages produce a clear warning rather

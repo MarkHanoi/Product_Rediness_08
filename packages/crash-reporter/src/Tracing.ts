@@ -28,7 +28,7 @@ import {
   type SpanExporter,
   type SpanProcessor,
 } from '@opentelemetry/sdk-trace-base';
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 
 export interface TracingEnv {
   /**
@@ -122,16 +122,23 @@ export function initTracing(opts: InitTracingOptions = {}): TracingHandle {
   if (env.PRYZM_RELEASE) attrs['service.version'] = env.PRYZM_RELEASE;
   if (env.PRYZM_ENV) attrs['deployment.environment'] = env.PRYZM_ENV;
 
-  const provider = new BasicTracerProvider({ resource: new Resource(attrs) });
-
+  // sdk-trace-base 2.x: span processors are supplied to the constructor
+  // (`addSpanProcessor()` was removed) and the resource is built via the
+  // `resourceFromAttributes()` factory (`new Resource()` was removed).
   const processor: SpanProcessor = opts.exporter
     ? new SimpleSpanProcessor(opts.exporter)
     : new BatchSpanProcessor(new ConsoleSpanExporter());
-  provider.addSpanProcessor(processor);
+
+  const provider = new BasicTracerProvider({
+    resource: resourceFromAttributes(attrs),
+    spanProcessors: [processor],
+  });
 
   // Sets the API's global tracer provider → every `trace.getTracer(...)` in
   // the codebase now returns a recording tracer instead of the no-op.
-  provider.register();
+  // sdk-trace-base 2.x removed `BasicTracerProvider.register()`; the API's
+  // `trace.setGlobalTracerProvider()` is the supported registration path.
+  trace.setGlobalTracerProvider(provider);
 
   _handle = {
     enabled: true,
