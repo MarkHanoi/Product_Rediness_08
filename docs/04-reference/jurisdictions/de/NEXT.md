@@ -141,3 +141,24 @@ curl "https://geodienste.hamburg.de/HH_WFS_Bebauungsplaene\
 - WFS returns B-Plan polygon with GRZ/GFZ/Höhe attributes non-null → Hamburg is fully addressable via XPlanGML; start Hamburg pack immediately (§30 path only, no regime classifier needed for Hamburg given full coverage).
 - WFS returns geometry only (no numeric attributes) → B-Plan values are in the signed Satzung PDF only; revert to PDF-transcription path (~10–12 d estimate holds but with PDF sourcing, not API ingestion).
 - WFS returns auth error → check Hamburg Transparenzportal for open-data access token / registration requirement.
+
+---
+
+## 9 — Composite (C63 seven-axis) resume — the geospatial probes come FIRST
+
+> This §8 Hamburg probe is the **LEGISLATION-axis** resume step. The composite Phase-3 climb —
+> [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) — front-loads the six geospatial axes
+> (PARCEL · DATA-SOURCES · HEIGHTS/LOD · TERRAIN · CONTEXT) *before* the legal ones, because in Germany
+> they are the high-ROI wins. The smallest composite-moving steps, in order:
+
+- **Phase 0 probe (VERY LOW):** VG250 WFS `GetCapabilities` at BKG, then one point-in-polygon resolve
+  (`lon/lat → VG250 polygon → AGS → Land`). Enabler for all per-Land wiring; moves no cell itself.
+- **Phase A probe (the first big win — NRW "German Barcelona"):** confirm `opengeodata.nrw.de` LoD2 tile
+  (VERIFIED-LIVE 2026-07-24) + NRW ALKIS reverse-lookup endpoint; then wire `AbstractALKISProvider` +
+  `NRWProvider`, **consume LoD2 TRUE heights directly (skip nDSM)**, add a Köln `bake.mjs` REGION, scaffold
+  `de-nw/05315-koln/`. Lifts PARCEL + DATA-SOURCES + HEIGHTS + CONTEXT + TERRAIN for Köln at once.
+- **Trip-wire:** the NRW data spine is *already partly wired* (`alkis-nrw`, `fetchLod2DeNrw`, `terrain.mjs
+  koln`) — Köln is unscaffolded only because it lacks a bake region + dossier (`COUNTRY-RATE.md §C`).
+
+*(Every claim here is CONVERGENT-SECONDARY except the NRW LoD2 anchor — probe each Land before it moves a
+RATE cell. Added 2026-07-30 alongside the Phase-3 composite plan.)*

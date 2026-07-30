@@ -1,210 +1,238 @@
-# Rate Implementation Plan — Germany (`de`) national
+# Rate Implementation Plan — Germany (`de`) national — PHASE-3 (C63 composite)
 
-**Current rate:** ~28% (see [`RATE.md`](./RATE.md)) · **Realistic ceiling:** ~35–40% (national, scan-corpus / PDF path)
-→ ~55–65% (content-vectorised-corpus path, conditional on the per-Land vectorisation fraction) ·
-**Human-review ceiling:** **~65–70%** (NOT ~95% — capped by the legally-mandated ~30% §34 floor) ·
-**Gap to Denmark (~96%):** ~68 pts · **Last updated:** 2026-07-24 · **Owner:** UNASSIGNED ·
-**Status:** DiPlanung/structured-attribute gate RESOLVED via live spike 2026-07-24 (`findings/GERMANY-DATA-RECON-SPIKE.md`)
+**What this plan climbs:** the **C63 seven-axis city completion RATE** (PARCEL · LEGISLATION ·
+DATA-SOURCES · ENVELOPE · TERRAIN · HEIGHTS/LOD · CONTEXT), *not* only the national structured-fill
+number. The structured-fill number is the **LEGISLATION axis input** — its own climb lives in
+[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) *(currently `RATE.md`; rename pending the L-649/Phase-2
+migration, owned by governance)*. This document sequences the **other six axes** in front of it,
+because in Germany they are the high-ROI wins.
+
+**Current composite state (do NOT edit these cells — they live in the dossiers):**
+Berlin `44% partial` · München `29% partial` (both assessed over only 2 of 7 axes — DATA-SOURCES +
+CONTEXT; see [`COUNTRY-RATE.md`](./COUNTRY-RATE.md)). Köln (NRW) is **not yet scored** (no dossier, no
+bake region). National LEGISLATION structured-fill prior `~28%`. ·
+**Realistic composite ceiling:** ~75–85% for a fully-wired **NRW** city (Köln); lower nationally,
+capped by the LEGISLATION axis (~65–70%, the permanent §34 floor) and per-municipality ENVELOPE
+sourcing. · **Gap to Denmark (~96%):** the un-closeable part is the §34 ~30% legal floor. ·
+**Last updated:** 2026-07-30 · **Owner:** UNASSIGNED · **Model:** federated (16-Land, thin adapters).
+
+> **§CONTEXT-DATA-HONESTY banner.** This is a **PLAN**. It changes **no** RATE % cell — every arrow
+> below is a *planning target*, not a score, and every geospatial claim it rests on is
+> **CONVERGENT-SECONDARY** (multi-source, unprobed) **EXCEPT one**: **NRW LoD2 CityGML open download is
+> VERIFIED-LIVE** (`opengeodata.nrw.de`, 2026-07-24). Empty and failed are the same value. No phase
+> moves an axis until that Land's service is **probed live, wired, and verified** — every phase below is
+> ordered **probe → wire → verify**. Ship the probe before the fix.
 
 ---
 
 ## 1 — The ceiling: what "maximum" means here
 
-**The DiPlanung fork is RESOLVED (live spike 2026-07-24) — and the binary was the wrong axis.** The
-gating question was *"does the structured German B-Plan delivery return machine-readable GRZ/GFZ/Höhe, or
-only a boundary + a PDF link?"* The measured answer: **both delivery patterns exist, side by side, and
-which one you get is a property of the individual plan's digitisation depth — not of the DiPlanung
-platform:**
+Germany is the **inverse of Portugal**: PT is centralised-but-sparse; DE is **rich-data-but-federated**.
+National *standards* exist (AdV's AFIS / ALKIS / ATKIS, one schema, national identifiers, VG250 routing);
+national *services* do not (16 Länder, 16 endpoints, 16 licence regimes, no federal reverse-coordinate
+lookup). The whole climb is therefore an exercise in **service orchestration, not data quality** — and its
+top object is a **router**, not a monolithic provider (`GERMANY.md §1`).
 
-- **Content-vectorised (inhaltlich strukturiert) plans → structured attributes, LIVE-PROVEN.** The MV
-  XPlanung WFS (`demo.bauleitplaene-mv.de/ows/xplanung`, `ms:bp_baugebietsteilflaeche_polygons`) returns
-  **populated** `grz` (0.2–0.9), `z` (storeys), `allgArtDerBaulNutzung`, `dachform` — Denmark-style — for
-  real adopted plans (Cramonshagen, Greifswald, Neubrandenburg). So the **~55–65% ceiling is achievable**;
-  the numbers exist as fields, not fiction.
-- **Georeferenced (scan + boundary) plans → PDF-link-only, CONFIRMED.** Hamburg (`planrecht=…/TB3.pdf`)
-  and Berlin (`scan_www=…/0100002b.pdf`) both serve plan-outline geometry + a scanned Satzung PDF and
-  **no** GRZ/GFZ/Höhe attribute — schema-absent, not merely null. This is the bulk-migrated big-city
-  corpus, and it holds the ~28% baseline.
+**Per-axis ceilings — why the six geospatial axes climb fast and the two legal axes do not:**
 
-**DiPlanung is a plan-authoring + participation platform, not a structured-data API** (its
-`/schnittstellen` page documents XÖV process interfaces, and its wiki a DiPlan REST *process* endpoint —
-neither is a GRZ/GFZ tap). Plans authored/re-vectorised in it *are* stored as content-model XPlanGML, so
-DiPlanung raises the ceiling **prospectively**; it does not retroactively structure the scanned corpus.
+| Axis | Weight (C63 §4) | Reachable ceiling | Why |
+|---|---:|---|---|
+| **DATA-SOURCES** | 15 % | **~80–100%** | 5 slots; for NRW, cadastre (`alkis-nrw`) + LoD2 (`fetchLod2DeNrw`) + terrain (`koln`) + OSM are already wired — only the zone-GIS slot lags. |
+| **HEIGHTS/LOD** | 10 % | **~90–100%** | **LoD2-DE carries TRUE height (measuredHeight / traufhoehe / firsthoehe) directly — SKIP the nDSM pipeline.** Germany is the *easiest* of ES/PT/DE for heights. |
+| **CONTEXT** | 5 % | **~56% now → higher** | OSM bake — ports free; a `bake.mjs` REGIONS row is the whole cost (rail/trees pending the L-642 landing). |
+| **TERRAIN** | 10 % | **~100%** | DGM1/2/5 LiDAR per-Land = the Spanish PNOA workflow (GeoTIFF → quantized mesh); one `REGIONS` row + a bake per Land. |
+| **PARCEL** | 15 % | **~100% (NRW) → per-Land** | ALKIS is one national schema; NRW is keyless-open (DL-DE Zero). Other Länder are licence-gated → the ceiling is per-Land until the licence clears. |
+| **ENVELOPE** | 20 % | **partial** | Buildable envelope is a **municipal** matter — per-Bebauungsplan rule packs, human-gated (like Barcelona). The expensive axis. |
+| **LEGISLATION** | 25 % | **~65–70% (capped)** | The §34 "fit-the-neighbourhood" fraction (~30% of Germany) yields **no numeric answer by law** — a permanent structural floor, not a data gap. Detail: [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md). |
 
-**So the single gating action is no longer "probe DiPlanung" — it is: measure the *content-vectorised
-fraction* of the in-force B-Plan corpus, per Land / per city.** That fraction multiplies the achievable
-ceiling: a Land whose corpus is largely content-vectorised (MV-style) approaches ~55–65%; a city serving a
-scanned corpus (Hamburg, Berlin) stays at the ~35–40% PDF-transcription ceiling until its plans are either
-re-vectorised (an authority action) or OCR-transcribed (Engine 2, behind the L-449 gate).
+**The anchor — NRW is the "German Barcelona".** NRW (readiness 9.6) is the one Land where the top of the
+LOD ladder is **VERIFIED-LIVE**: LoD2 CityGML open download, keyless ALKIS (DL-DE Zero), DGM1 LiDAR,
+DOP10, flood, OGC API Features. Wiring one NRW city (Köln) lights five of the seven axes at once and
+proves the federated adapter pattern end-to-end. Everything downstream of `ParcelFeature` is **identical to
+the Barcelona replication model**; only the legal rule pack stays municipality-specific.
 
-> **Metric-definition correction (carry into `RATE.md`):** the German density envelope is **GRZ + Z
-> (Vollgeschosse / storeys)**, *not* GFZ + height in metres. In the MV sample GRZ populated on ~33% of
-> features and storeys on ~30%, but GFZ on ~5% and metric height on **0/162**. A rate metric that
-> demands "density + **height in metres**" under-counts Germany — count `Z` as a valid height determinant.
+**The federated architecture (build ONCE, subclass per Land).**
+`GermanyBoundaryResolver (VG250 → AGS → Land) → provider registry → { NRWProvider, BerlinProvider,
+BayernProvider, … }`. `AbstractALKISProvider` is written **once** (one national ALKIS schema); each Land
+subclass overrides only `endpoint / auth / CRS / reverse-lookup`. One `GermanyTerrainProvider`, one CityGML
+LoD2 reader, one BauNVO §17 table — all national, configured per Land. This is why per-Land expansion
+(Phase B/C) is *thin adapters*, not 16 re-implementations.
 
-**The permanent §34 floor (~30%):** unlike France's PDF ceiling (which CNIG SRU could eventually
-fix), Germany's §34 fraction is a legal design choice, not a data gap. BauGB §34 deliberately
-provides no numeric envelope — the standard is the character of the surrounding area, assessed
-case-by-case. A system that fills a number for §34 parcels is stating a rule that does not exist.
-This floor is permanent absent a legislative change to BauGB.
-
-**Denmark comparison (~96%):** Denmark's Plandata delivers GRZ/GFZ/height as structured fields per
-plan polygon. Germany's XPlanGML schema contains those same field names — the infrastructure is
-architecturally equivalent. The gap is that German municipalities were never required to populate
-those fields. DiPlanung is the mechanism that could close this gap — it is Germany's Plandata
-equivalent, if implemented with structured attributes rather than PDF links.
+**Denmark comparison (~96%):** Denmark's Plandata delivers zone + density + height as structured fields
+per plan polygon. Germany's *geospatial* stack is architecturally at parity (LoD2 heights arguably richer);
+the composite gap to Denmark is entirely in the two **legal** axes — the §34 floor (permanent) and
+per-municipality XPlanung/Bebauungsplan sourcing (buildable, human-gated). Mirror Barcelona's **shape**
+(routing → per-Land data → per-city rule packs), not its numbers.
 
 ---
 
 ## 2 — Phase tracker
 
-| Phase | Goal | Unlocks | Rate: from→to | Effort | Status | Owner |
+ROI-ordered. "Axes" = which C63 axes the phase lifts. "Target" = a *planning* arrow, **never a RATE cell**;
+measurement-only phases explicitly move nothing.
+
+| Phase | Goal | Axes lifted | Target (plan only) | Effort | Status | Owner |
 |---|---|---|---|---|---|---|
-| **0** | Assess — Hamburg and Berlin XPlanung WFS confirmed live; GRZ/GFZ/Höhe confirmed absent from both schemas; BayBO Art. 6 setback confirmed; four-regime taxonomy characterised; RATE.md written | Honest baseline: ~28% confirmed; XPlanung structural gap characterised; DiPlanung as the pivotal unknown identified | — → ~28% | Complete | VERIFIED | UNASSIGNED |
-| **1** | **DiPlanung / structured-attribute gate (RESOLVED):** probed `diplanung.de/schnittstellen` (process API, not a data tap); Hamburg + Berlin XPlanung WFS (GRZ/GFZ/Höhe schema-absent, PDF-link-only); MV XPlanung WFS (`grz`/`z` **populated** — structured path proven live) | The pivotal gate — resolved: the path is **per-plan digitisation-depth-dependent**, not platform-dependent. Structured ceiling (~55–65%) proven *achievable*; big-city scan corpus stays PDF-bound | ~28% → ~28% (evidence only) | Low — one spike | **VERIFIED** (`findings/GERMANY-DATA-RECON-SPIKE.md`, 2026-07-24) | — |
-| **1b** | **NEW gate — content-vectorised-fraction measurement:** for each target Land/city, query the XPlanung WFS for whether it serves `bp_baugebietsteilflaeche` object layers with populated `grz`/`gfz`/`z` (MV-style) vs plan-outline + scan only (HH/BE-style); count the fraction | Replaces the old single DiPlanung probe — this fraction multiplies the achievable ceiling per Land; required before committing per-city dev-day budgets | ~28% → ~28% (measurement only) | Low — per-Land WFS probe | NOT STARTED | UNASSIGNED |
-| **2** | **§34 fraction measurement:** grid-sample probe for Hamburg and Berlin bboxes — classify each sample point as §30 B-Plan / §34 / §35 using XPlanung WFS presence/absence (method in §3.5) | Converts the §34 floor from an assumption (~30% national) to a measurement per city; required before committing per-city dev-day budgets | ~28% → ~28% (measurement only) | Medium — grid query | NOT STARTED | UNASSIGNED |
-| **3** | Hamburg: read LBO formula (HBauO §6) via headless browser or PDF; Berlin: read BauO Bln §6; wire per-Land setback config values alongside confirmed BayBO Art. 6 | Completes the Abstandsflächen formula set for all three studied cities — the one structured field that is a formula, not a PDF attribute | ~28% → ~30% | Medium | NOT STARTED | UNASSIGNED |
-| **4 (structured path)** | *For a Land/city whose corpus is content-vectorised (Phase 1b positive, MV-style):* wire the XPlanung-WFS `grz`/`gfz`/`z` ingestion (the MV probe is the reference query); implement the four-regime classifier (§30 / §34 / §35) | Reference city for structured ingestion; regime classifier reused everywhere | ~30% → ~42–48% (city-weighted; blended national lower) | Medium — ~10–12 dev-days | NOT STARTED | UNASSIGNED |
-| **4 (PDF / scan path)** | *For a scan-corpus city (Hamburg, Berlin — Phase 1b negative):* download and text-layer-check one Satzung PDF (HH `TB3.pdf`, BE `0100002b.pdf` confirmed reachable); confirm OCR viability; scope the Engine-2 Nutzungsschablone-transcription programme behind the L-449 gate | Determines whether the Barcelona-style OCR pipeline is viable for the German scan corpus | ~30% → ~30% (viability check only) | Low | NOT STARTED | UNASSIGNED |
-| **5** | Munich: find WFS/DiPlanung endpoint; implement regime classifier; wire structured or scan path per Phase 1b result | Second German city; reuses Phase 4 classifier; resolves DiPlanung October 2026 migration risk | ~42–48% → ~47–53% (blended) | Medium — ~12–15 dev-days | NOT STARTED | UNASSIGNED |
-| **6** | Berlin: implement four-regime classifier (modern B-Plan + 1958/60 Baunutzungsplan legacy layer + §34 + §35); source Baustufen-translation table; wire structured or scan path | Most complex German city — adds Baunutzungsplan layer and §34 East-Berlin carve-out to the classifier built in Phases 4–5. NB: Berlin's own corpus is scan-backed (confirmed `scan_www` PDFs) → Engine-2 path unless re-vectorised | ~47–53% → ~55–65% (content-vectorised-corpus ceiling) | High — ~30–35 dev-days | NOT STARTED | UNASSIGNED |
+| **0** | **National routing** — `GermanyBoundaryResolver` (VG250 polygon → AGS → Land) + provider registry | (enabler — no axis) | no cell moves — prerequisite | **VERY LOW** | NOT STARTED | UNASSIGNED |
+| **A** | **Wire NRW as the German Barcelona (Köln)** — `AbstractALKISProvider` + `NRWProvider`; **consume LoD2 TRUE heights directly (SKIP nDSM)**; add Köln `bake.mjs` REGION + Köln dossier | PARCEL · DATA-SOURCES · HEIGHTS/LOD · CONTEXT · TERRAIN | Köln new dossier → highest DE composite (plan est. ~55–75%) | MED | NOT STARTED | UNASSIGNED |
+| **B** | **Per-Land parcel + height expansion** — `BerlinProvider` → `HamburgProvider` → `BayernProvider` → `BWProvider` (LAND-REGISTRY onboarding order); per-Land LoD2 fetchers | PARCEL · DATA-SOURCES · HEIGHTS/LOD | Berlin `44%→↑` · München `29%→↑` (plan) | MED / Land | NOT STARTED | UNASSIGNED |
+| **C** | **Per-Land terrain + orthophoto** — `GermanyTerrainProvider` → Land DGM1 GeoTIFF → quantized mesh (PNOA workflow); DOP10/20 wiring | TERRAIN · (DATA-SOURCES) | Berlin/München TERRAIN `outside-coverage → 50/100` (plan) | LOW-MED / Land | NOT STARTED | UNASSIGNED |
+| **D** | **Municipal envelope packs** — four-regime classifier (§30/§34/§35) + XPlanung content-vectorised ingestion / Satzung-PDF path + BauNVO §17 sanity + per-Land Abstandsflächen + **L-449 gate** | LEGISLATION · ENVELOPE | toward the ~65–70% LEGISLATION cap (per city) — see `LEGISLATION-RATE.md` | HIGH / municipality | NOT STARTED | UNASSIGNED |
+
+---
+
+## 2.1 — Phase 0 — National routing (prerequisite)
+
+- **Goal.** `lon/lat → GermanyBoundaryResolver (VG250 polygon → AGS → Land) → provider registry`. No parcel,
+  terrain, height, or ortho call is made before this resolves the Land.
+- **Unlocks.** Every per-Land wiring in Phases A–D. The AGS join key (== PT DICOFRE / FR INSEE / EU LAU) is
+  the routing spine; Land = first 2 digits, Landkreis = first 5.
+- **Axis.** None directly — an *enabler*. Moves no cell.
+- **Effort.** VERY LOW (★★★★★). VG250 is national, open (DL-DE BY 2.0), download + WFS.
+- **Dependency.** None — this is the floor.
+- **Blocker.** None known. Probe: VG250 WFS `GetCapabilities` + one point-in-polygon resolve (`NEXT.md §8`).
+
+## 2.2 — Phase A — Wire NRW as the "German Barcelona" (first big win)
+
+- **Goal.** Stand up `AbstractALKISProvider` (written once) + `NRWProvider` (endpoint/auth/CRS/reverse-lookup
+  only), **consume LoD2-DE TRUE height directly** (measuredHeight / eaves / ridge — **explicitly skip the
+  DSM/nDSM derivation**), add a Köln `bake.mjs` REGION, and scaffold the `de-nw/05315-koln/` dossier of the
+  fixed C63 shape.
+- **Unlocks.** Proves the federated adapter end-to-end; Köln becomes the highest-scoring DE city and the
+  reference implementation every later Land reuses.
+- **Axis.** **PARCEL** (NRW keyless ALKIS `alkis-nrw`, DL-DE Zero → cadastral, not footprint-fallback) ·
+  **DATA-SOURCES** (cadastre + LoD2 `fetchLod2DeNrw` + terrain `koln` are *already wired* — only the
+  zone-GIS slot lags → slot mean climbs toward ~4–5/5) · **HEIGHTS/LOD** (LoD2 `tagged` provenance replaces
+  the 9 m assumed carpet) · **CONTEXT** (Köln bake → 5/9) · **TERRAIN** (`terrain.mjs koln` = DGM1 NRW already
+  present → verify + score).
+- **Effort.** MEDIUM. Much of the NRW data spine already exists in code (`alkis-nrw`, `fetchLod2DeNrw`,
+  `terrain.mjs koln`); the net-new work is the `AbstractALKISProvider` refactor, the Köln bake REGION, and
+  the dossier scaffold.
+- **Dependency.** Phase 0 (routing resolves the Land before any NRW call).
+- **Blocker.** Köln has **no bake region and no dossier** today (`COUNTRY-RATE.md §C`). ALKIS reverse-lookup
+  endpoint URL, DOP10 tiling scheme, and flood field names are probe items (`LANDS/NORDRHEIN-WESTFALEN.md §20`)
+  — none blocks the LoD2 wire.
+
+## 2.3 — Phase B — Per-Land parcel + height expansion
+
+- **Goal.** Add `BerlinProvider → HamburgProvider → BayernProvider → BWProvider` as thin `AbstractALKISProvider`
+  subclasses, in the `LAND-REGISTRY.md` onboarding order (NRW → Berlin/Hamburg → Bayern/BW → rest); wire each
+  Land's LoD2 fetcher.
+- **Unlocks.** Lifts the two currently-scaffolded cities off footprint-fallback: Berlin (44%) and München (29%).
+- **Axis.** **PARCEL** (per-Land ALKIS) · **DATA-SOURCES** (cadastre + LoD2 slots per Land) · **HEIGHTS/LOD**
+  (per-Land LoD2 tiles — Berlin FIS-Broker open convergent; BW / Sachsen-Anhalt open convergent).
+- **Effort.** MEDIUM per Land — endpoint/auth/CRS differ, but the schema and downstream are shared.
+- **Dependency.** Phase A (the `AbstractALKISProvider` + LoD2 reader must exist first).
+- **Blocker.** **Every Land row is CONVERGENT-SECONDARY — probe before wiring.** Known snags:
+  **Bavaria LoD2 licence** is `blocked` (München HEIGHTS = `license-restriction`; ZSHH INSPIRE-restricted) —
+  München heights cannot move until Bavaria's terms clear (trip-wire `NEXT.md §4.4`). Hamburg ALKIS auth TBD.
+  Berlin CRS is 25833 (east zone) — confirm the declared service CRS on probe.
+
+## 2.4 — Phase C — Per-Land terrain + orthophoto
+
+- **Goal.** One `GermanyTerrainProvider` → the resolved Land's DGM1 WCS/GeoTIFF → quantized mesh → Cesium
+  (the Spanish PNOA workflow, no parser difference); wire DOP10/20 orthophotos alongside.
+- **Unlocks.** Berlin and München currently score TERRAIN `outside-coverage` (the DE DTM source covers NRW/`koln`
+  only). Wiring their Land DGM lifts TERRAIN off the floor.
+- **Axis.** **TERRAIN** (0 → 50 baked → 100 baked+verified) · secondary **DATA-SOURCES** (terrain-DEM slot).
+- **Effort.** LOW-MED per Land — one `REGIONS`/terrain row + a bake per Land.
+- **Dependency.** Phase 0 routing (which Land's DGM to fetch). Independent of Phases A/B otherwise.
+- **Blocker.** Per-Land DGM endpoint + CRS probe. Apply the **white-mask fix** on every bake (normals in bake +
+  `enableLighting` + `requestVertexNormals`; ADR-0278) — flat-lit terrain with no octvertexnormals is the known
+  L-636/L-639 defect. Score stays at rung-50 until `terrain.verify.mjs` round-trips (C63 §3 Axis 5).
+
+## 2.5 — Phase D — Municipal envelope packs + L-449 → LEGISLATION
+
+- **Goal.** Build the **four-regime classifier** (§30 B-Plan / §34 unplanned-interior / §35 outlying, + Berlin's
+  Baunutzungsplan-1958/60 legacy layer) **once**, then per municipality: ingest XPlanung WFS where the corpus is
+  **content-vectorised** (MV-style populated `grz`/`z`) or transcribe the Satzung PDF where it is a **scan corpus**
+  (Hamburg/Berlin, Engine-2 behind the L-449 gate); use BauNVO §17 as an **upper-bound sanity only, never a parcel
+  default**; wire per-Land Abstandsflächen (BayBO Art. 6 confirmed; HBauO §6 / BauO Bln §6 pending).
+- **Unlocks.** The LEGISLATION and ENVELOPE axes — PRYZM's differentiator, and the bulk of the composite weight
+  (45%). This is the existing national legislation climb, folded in as the final, most expensive phase.
+- **Axis.** **LEGISLATION** (verified-cited claus / total claus, hardened by L-449) · **ENVELOPE** (rule-pack
+  solver coverage per buildable-land share; `rulepacks/registry.ts` currently holds **zero DE packs**).
+- **Effort.** HIGH, per-municipality, human-gated — the SOURCING is the whole cost.
+- **Dependency.** Phase A (a trustworthy parcel to attach the rule to) **and** the regime classifier (no numeric
+  sourcing runs until a parcel's regime is fixed).
+- **Blocker.** The **content-vectorised fraction per Land** (measure before budgeting a city — cheap WFS probe);
+  the scan corpus needs OCR + the L-449 gate; **Berlin's Baunutzungsplan carries a judicial *funktionslos* voidance
+  risk** (OVG Bln-Bbg 2020, Az. 2 B 10.17) — those figures can never ship above `corroborated`. Full detail and the
+  spike evidence live in [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and `findings/GERMANY-DATA-RECON-SPIKE.md`.
 
 ---
 
 ## 3 — The gap to Denmark (~96%)
 
-**(a) §34 is a permanent structural floor — ~30% of Germany.** Denmark has no equivalent
-"discretionary character of neighbourhood" regime covering a third of its parcels. Every
-German implementation plan must account for this: the correct output for §34 parcels is not a
-fill but a legally-grounded, positively-worded refusal. The gap to Denmark is partially
-irresolvable — not by data engineering, and not by DiPlanung — because §34 BauGB deliberately
-provides no numeric standard.
+Denmark reaches ~96% because one national Plandata serves zone + density + height as structured fields. Germany's
+composite gap decomposes into one *irreducible* part and one *buildable* part:
 
-**(b) XPlanGML populated ≠ XPlanung compliant — CONFIRMED, and now precisely characterised.** Germany's
-legal mandate (IT-Planungsrat 2017, transition closed 2023) requires the geometry; it does not require
-GRZ/GFZ/Höhe to be populated. The 2026-07-24 spike measured both faces: Hamburg's and Berlin's migrations
-delivered geometry + a scanned-Satzung PDF link and **no** numeric attribute (schema-absent), while MV's
-content-vectorised service delivers populated `grz`/`z`. So a municipality can be fully XPlanung-compliant
-with either. DiPlanung does not *enforce* numeric-field population — plans authored in it are
-content-model XPlanGML, but the legacy scanned corpus is untouched. **The gap is therefore real and
-measurable per Land as the content-vectorised fraction (Phase 1b), not a binary platform switch.**
+**(a) The §34 floor is permanent — ~30% of Germany, and it caps the LEGISLATION axis, not the geospatial ones.**
+BauGB §34 deliberately provides no numeric envelope; the correct output for a §34 parcel is a **cited refusal**,
+not a fill. This caps LEGISLATION at ~65–70% by law — no data engineering closes it. Crucially it does **not** cap
+PARCEL/DATA-SOURCES/HEIGHTS/TERRAIN/CONTEXT, which is exactly why this plan front-loads those axes.
 
-**(c) 16 Länder, 16 ALKIS licence regimes, 16 XPlanung delivery platforms.** Denmark has one
-Plandata. Germany has 16 separate access points sharing one data model. Building a national
-German pipeline requires 16 separate licence/access integrations — confirmed open for NRW and
-Sachsen-Anhalt; partially confirmed for Berlin/Brandenburg; unknown for Bavaria; fee-based
-suspected for others. This is not an insurmountable engineering problem, but it is a sustained
-operations commitment, not a one-time build.
+**(b) 16 Länder = 16 access integrations — buildable, but a sustained operations commitment.** Denmark has one
+Plandata; Germany has 16 endpoints sharing one data model. Open confirmed for NRW and Sachsen-Anhalt; partially for
+Berlin/Brandenburg (GDI-BE); licence-TBD for Bavaria; unknown for the rest. The `AbstractALKISProvider` +
+`GermanyTerrainProvider` + one CityGML reader collapse this to *thin adapters*, but each Land still needs its own
+probe + licence clearance. This is the federated tax, and it is the reason Phases B/C are per-Land, not national.
 
-**(d) Berlin's Baunutzungsplan and voidance risk.** Berlin's 1958/60 legacy plan covers large
-parts of West Berlin using pre-BauNVO "Baustufen" grading. OVG Berlin-Brandenburg 2020 established
-that figures from this plan can be voided as *funktionslos* without warning. A Baunutzungsplan-
-derived value can never ship above `corroborated, voidance-risk` confidence — permanently below the
-`published` / `certified` tier achievable from a current B-Plan. This imposes a quality ceiling on
-West Berlin parcels regardless of the DiPlanung outcome.
+**(c) XPlanung populated ≠ XPlanung compliant.** The legal mandate requires the geometry, not that GRZ/GFZ/Höhe be
+populated — so the achievable LEGISLATION ceiling per Land is the **content-vectorised fraction** of its in-force
+corpus (MV-style ~33% populated vs Hamburg/Berlin scan-corpus ~0%). Measured, not assumed (Phase D blocker).
 
-### 3.5 — Measurement recipes (Phase 1b content-vectorised fraction; Phase 2 §34 fraction)
-
-Both are *measurements*, not builds — each converts an assumption into a number and neither moves the
-rate until a pack ships. Both reuse the same XPlanung WFS endpoints already confirmed live in the spike.
-
-**(i) Content-vectorised-fraction recipe (Phase 1b) — "how much of this Land's corpus carries the
-numbers as fields?"** For the target Land's XPlanung WFS:
-1. `GetCapabilities` → does the service expose per-object-class layers (`bp_baugebietsteilflaeche_*`,
-   `bp_gebaeudeflaeche_*`, …, MV-style) or only a plan-outline + scan layer (`hh_hh_festgestellt` /
-   `b_bp_fs`, HH/BE-style)? Object-class layers are the necessary condition for structured attributes.
-2. If object-class layers exist, `DescribeFeatureType` on `bp_baugebietsteilflaeche` → confirm
-   `grz`/`gfz`/`z`/`hoehenangabe` elements are in the schema.
-3. `GetFeature` a sample (count≈300) → count the fraction of features with a **populated** `grz`/`z`.
-   The MV baseline: **~33% GRZ, ~30% Z, ~5% GFZ, 0% metric height** across 162 features.
-4. That populated fraction × the §30 fraction (from Phase 2) = the Land's structured-numeric ceiling.
-
-**(ii) §34-fraction recipe (Phase 2) — "how much of this city has no number by law?"** Take a ~300 m
-lattice grid over the municipal bbox. For each point, query the XPlanung `festgesetzt` B-Plan layer
-(`GetFeature`, point-in-polygon):
-- **B-Plan polygon covers the point** → §30 (a numeric envelope may exist — subject to (i)).
-- **No B-Plan, point inside the built-up `Ortsteil` fabric** → §34 (no numeric envelope — the correct
-  output is a cited refusal). *(Berlin: also test the FIS-Broker Baunutzungsplan legacy layer before
-  concluding §34 — a covering Baustufe means regime (b), voidance-risk, not §34.)*
-- **No B-Plan, outside the built-up fabric** → §35 (presumptively not buildable — refusal).
-
-Report the three fractions per city. This is the same method as Barcelona's `probe-bcn-clau-distribution`
-grid. The §34 fraction directly sets the *unfillable-by-law* share of each city's denominator — and thus
-how far below the ~65–70% national ceiling that city sits.
+**(d) Germany's counter-advantage — heights.** Unlike Denmark's structured-field parity, Germany's LoD2-DE carries
+TRUE roof geometry, so the HEIGHTS/LOD axis can *exceed* what a levels-derived estimate gives elsewhere. This is the
+one axis where DE is ahead — bank it early (Phase A), skip the nDSM pipeline entirely.
 
 ---
 
 ## 4 — Dependencies, blockers, and cross-jurisdiction reuse
 
-**Hard dependencies:**
-- **Phase 1 (DiPlanung / structured-attribute gate) is RESOLVED** (spike 2026-07-24). The gating
-  action for a *specific* city is now **Phase 1b** — measure whether that Land's WFS serves the
-  content-vectorised object model (structured ingestion, ~10–12 d) or a scan corpus (Engine-2 OCR
-  transcription, higher and throughput-bound). Do not schedule a city's implementation before its
-  Phase 1b returns.
-- **Phase 1b + Phase 2 are cheap, independent measurements** that can run in parallel on the already-
-  confirmed-live XPlanung WFS endpoints (HH `geodienste.hamburg.de/HH_WFS_Bebauungsplaene`, BE
-  `gdi.berlin.de/services/wfs/bplan`, MV `demo.bauleitplaene-mv.de/ows/xplanung`).
-- **Phase 3 (setback formulas) is independent** of Phases 1–2 — BayBO Art. 6 is already confirmed;
-  HBauO §6 and BauO Bln §6 are a headless-browser or PDF-fetch task.
-- **Phase 4 (Hamburg) must precede Phase 5 (Munich) and Phase 6 (Berlin)** — Hamburg is the
-  reference implementation. The regime classifier and DiPlanung ingestion pattern built for Hamburg
-  are reused for Munich and Berlin, reducing their costs.
-- **Phase 6 (Berlin) must follow Phase 4–5** — Berlin adds the Baunutzungsplan legacy layer and
-  §34 East-Berlin carve-out on top of the classifier built for Hamburg/Munich. Berlin is not a
-  starting point; it is the terminal city.
+**Hard dependencies (must resolve in order):**
+- **Phase 0 routing gates everything.** No per-Land call is designed or built before `GermanyBoundaryResolver`
+  resolves the Land. Very low effort — do it first.
+- **Phase A `AbstractALKISProvider` + LoD2 reader gate Phase B.** Build the abstraction once on NRW (the
+  VERIFIED-LIVE anchor); every later Land is a subclass override, not a rebuild.
+- **The four-regime classifier (Phase D) gates all numeric sourcing.** No GRZ/GFZ/Höhe value is served until a
+  parcel's regime (§30/§34/§35) is fixed — shipping a number for a §34 parcel is a legal fabrication.
+- **L-449 human-verification gate** is mandatory for any XPlanung/Satzung-extracted value before it serves above
+  `corroborated`. ADR-0269 (curate-then-serve): never serve a value not cross-checked to a citable article.
+- **Per-Land licence clearance gates that Land's PARCEL/HEIGHTS.** Bavaria LoD2 (`blocked`) blocks München HEIGHTS
+  until its terms clear; Hamburg ALKIS auth is TBD.
 
-**Cross-jurisdiction reuse:**
-- The BauNVO §17 table is a one-time national lookup, shared across all 16 Länder — built once, used
-  everywhere. **Store it as *Orientierungswerte* (orientation values for upper limits), not binding
-  ceilings** (spike §6), and use it only as a sanity check, never a parcel rule.
-- **The four-regime classifier (§30 / §34 / §35 + Berlin §173(3)) is Germany's single most reusable
-  asset — build it ONCE, reuse it in every German city.** It is the *prerequisite* step (README §1.2,
-  master study §A.1): no numeric sourcing runs until a parcel's regime is fixed. Its core is the
-  XPlanung-WFS point-in-polygon presence/absence check — **identical machinery in Hamburg, Berlin, Munich
-  and every other Land** (only the endpoint URL and layer name differ). Hamburg builds it (Phase 4);
-  Munich reuses it unchanged (Phase 5, adding only the §34-fraction measurement); Berlin extends it with
-  one extra layer test (the FIS-Broker Baunutzungsplan legacy layer → regime (b)) (Phase 6). The
-  classifier is what makes the §34 refusal *automatic and correct* rather than a fabricated `null`-as-gap.
-- The **content-vectorised-vs-scan detector** (Phase 1b recipe, §3.5(i)) is likewise one probe reused per
-  Land — it decides, before any dev-day is spent, whether that Land takes the structured-ingestion path
-  or the Engine-2 OCR path.
-- The `setback` (height-proportional) `GeometricRule` kind is shared across all 16 Länder;
-  only the multiplier/minimum is a per-Land config value. Build the kind once; configure per Land.
-- The L-449 human-verification gate (Satzung cross-check before shipping a DiPlanung-derived value
-  above `corroborated`) is the same gate used for every sourced jurisdiction.
-- LoD2-DE (where open) delivers building heights in CityGML LoD2 — the same format as Barcelona's
-  context buildings and France's LiDAR-derived LOD2. The ingestion pipeline can share the CityGML
-  reader.
+**Current blockers (all CONVERGENT-SECONDARY unless flagged — probe before any wire):**
+- VG250 WFS `GetCapabilities` not run — cannot finalise the routing resolver field names.
+- Köln has **no bake region and no dossier** — the highest-ROI DE city is unscaffolded (`COUNTRY-RATE.md §C`).
+- Per-Land ALKIS reverse-lookup / auth / declared-CRS unconfirmed for every Land except NRW's LoD2 cell.
+- Bavaria LoD2 licence TBD (ZSHH INSPIRE-restricted); Hamburg LoD2 openness TBD (Transparenzportal).
+- XPlanung content-vectorised fraction unmeasured per Land; scan-corpus OCR viability unconfirmed.
 
-**Governing documents:** C58 (fidelity/provenance) · ADR-0269 (curate-then-serve) · L-449
-(human-verification gate) · BauGB §§30/34/35 · BauNVO (§§2–11 zone taxonomy; §17 density
-orientation values; §20 floor-area definition) · IT-Planungsrat resolution 5 Oct 2017 (XPlanung mandate) ·
-XPlanGML v6.1 (exchange format schema) · Per-Land LBO (Abstandsflächen formula; read before each
-city). Country-agnostic method + 5-engine framing: `COUNTRY-DATA-STRATEGY.md`.
+**Cross-jurisdiction reuse (build once, configure per Land/city):**
+- **`AbstractALKISProvider`** — one national ALKIS schema, 16 endpoint subclasses. Never write a monolithic
+  `GermanyProvider`.
+- **`GermanyTerrainProvider`** — the ES PNOA workflow (GeoTIFF → quantized mesh); one provider → Land DGM endpoint,
+  no parser difference. Reuses the shared terrain bake + the white-mask normals fix (ADR-0278).
+- **One CityGML LoD2 reader** — the same format as Barcelona context buildings and France LiDAR LoD2. The
+  height-provenance stamp is shared; **the nDSM/DSM module is ABSENT by design for Germany — do not build it.**
+- **The four-regime classifier** — Germany's single most reusable legal asset; its core is a XPlanung-WFS
+  point-in-polygon presence/absence check, identical machinery in every Land (only the endpoint + layer name differ).
+- **The BauNVO §17 table** — a fixed national closed list; hard-code once as *Orientierungswerte* (upper-bound
+  sanity), reuse in all 16 Länder, never as a parcel default.
+- **The L-449 gate** — the same human-verification gate used for every sourced jurisdiction.
+- **VG250 → AGS routing** — mirrors PT DICOFRE / FR INSEE / ES INE resolvers; the same municipality-key pattern.
 
 ---
 
-## Appendix A — Live-probe evidence (2026-07-24)
+*Model references: **Denmark** `../dk/` (ceiling, ~96%) · **Barcelona** `../es/es-ct/08019-barcelona/`
+(the replication-model shape DE maps onto once routing exists) · **NRW / Köln**
+`LANDS/NORDRHEIN-WESTFALEN.md` (the VERIFIED-LIVE anchor — wire first). National architecture:
+[`GERMANY.md`](./GERMANY.md) · 16-Land matrix [`LAND-REGISTRY.md`](./LAND-REGISTRY.md) · dataset inventory
+[`GERMANY-GEOSPATIAL-DATA-INVENTORY.md`](./GERMANY-GEOSPATIAL-DATA-INVENTORY.md) · composite roll-up
+[`COUNTRY-RATE.md`](./COUNTRY-RATE.md) · LEGISLATION climb [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md).
+Governing: **C63** (seven-axis completion) · **C58** (fidelity/provenance) · **ADR-0269** (curate-then-serve) ·
+**L-449** (human-verification gate) · **ADR-0278** (terrain white-mask normals).*
 
-All asserted on Content-Type + response body; no value below is inferred. Full transcript:
-`findings/GERMANY-DATA-RECON-SPIKE.md`.
-
-| Endpoint · query | Result (verbatim sample) | What it proves |
-|---|---|---|
-| `geodienste.hamburg.de/HH_WFS_Bebauungsplaene` · `DescribeFeatureType` + `GetFeature` `app:hh_hh_festgestellt` | schema = `geltendes_planrecht, planrecht, begruendung, feststellungsdatum, geom`; feature `geltendes_planrecht='TB3'`, `planrecht='https://daten-hamburg.de/.../bplan/TB3.pdf'`, `feststellungsdatum='11.10.1949'` | Hamburg XPlanung WFS is **PDF-link-only** — `planrecht` is literally a PDF URL; **GRZ/GFZ/Höhe schema-absent, not null**. Confirms the ~28% baseline. Georeferenced (scan) corpus. |
-| `gdi.berlin.de/services/wfs/bplan` · `GetFeature` `fis:b_bp_fs` (GeoJSON) | `planname='1-2b'`, `planartname='Qualifizierter B-Plan'`, `bp_rechtsstand='In Kraft getreten'`, `scan_www='https://mitte.gis-broker.de/bplaene/0100002b.pdf'`, `inhalt='Kerngebiet, Straßenverkehrsfläche'`; `AccessConstraints='keine Zugriffsbeschränkungen'`; `numberMatched=2839` | Berlin XPlanung WFS is **PDF-link-only + open**; use-type recoverable from `inhalt` prose (`Kerngebiet`→`MK`), **GRZ/GFZ/Höhe absent**. Confirms baseline. Georeferenced corpus. |
-| `demo.bauleitplaene-mv.de/ows/xplanung` · `GetFeature` `ms:bp_baugebietsteilflaeche_polygons` | real plans (Cramonshagen, Greifswald, Neubrandenburg…): `grz='0.4'`, `z='1'`, `allgartderbaulnutzung_text='WohnBauflaeche'`, `dachform_text='Satteldach…'`. Across 162 features: **GRZ populated 54 (~33%, 0.2–0.9), Z 48 (~30%), GFZ 8 (~5%), metric height 0** | **The structured path is LIVE-PROVEN.** A German XPlanung WFS delivers populated GRZ + storeys + BauNVO use + roof-form as fields — Denmark-style — for content-vectorised plans. Resolves the ~55–65% ceiling as *achievable*. German density = GRZ+Z, not GFZ+metres. |
-| `diplanung.de/schnittstellen/` + `wiki.diplanung.de` | process interfaces only (XPlanverfahren, XBeteiligung); a DiPlan REST *process* API; **no** GRZ/GFZ data endpoint; contact `diplanung@bsw.hamburg.de` | DiPlanung is a **plan-authoring + participation platform, not a structured-data tap.** The data tap is the per-Land XPlanung WFS. "Probe DiPlanung for GRZ" was the wrong probe. |
-| `gesetze-im-internet.de/baunvo/__17.html` | heading `'§ 17 Orientierungswerte für die Bestimmung des Maßes der baulichen Nutzung'`; `MU` (Urbane Gebiete) GRZ **0,8** / GFZ 3,0; full table captured | §17 is national + structured but is **Orientierungswerte** (orientation values for upper limits), not binding ceilings. **Doc catch:** README §1.3 mislabels these as ceilings and gives `MU` GRZ 0.60 — should be **0.80**. |
-| `opengeodata.nrw.de/produkte/geobasis/3dg/lod2_gml/` | HTTP 200, `application/json` product index (open, free) | A per-Land **LoD2-DE building-height source is open and reachable** (NRW), independent of the INSPIRE-restricted ZSHH national feed. Confirms trip-wire 4.3. |
-
----
-
-*Model references: **Denmark** `../dk/` (ceiling, ~96%) · **France** `../fr/` (two-denominator honesty
-sibling) · **Hamburg** `de-hh/02000-hamburg/` (reference city — start here). Country-agnostic method +
-5-engine framing: `COUNTRY-DATA-STRATEGY.md`. Evidence: `findings/GERMANY-DATA-RECON-SPIKE.md`.
-Governing: **C58** · **ADR-0269** · **L-449**.*
-
-*Last updated: 2026-07-24. Maintainer: UNASSIGNED.*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. This PHASE-3 plan supersedes the prior legislation-only
+climb, which is now Phase D. No RATE cell changed.*
