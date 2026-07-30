@@ -1,67 +1,54 @@
-# Data Readiness Rate — Munich / München (09162)
+# City RATE — master completion scorecard — Munich / München (de-by, AGS 09162)
 
-**Headline rate: ~18%**
+<!-- generated-by: MANUAL C63-Phase-1-AUDIT 2026-07-30 — scorecard function not yet shipped (C63 §8); the two
+     ASSESSED cheap axes (DATA-SOURCES · CONTEXT) are cited-derived per C63 §8.1, every other axis is
+     not-assessed with a typed C62 reason. NO cell is a fabricated number. TERRAIN is honestly
+     not-assessed (no bake row for Bavaria — the DE DTM source covers NRW only). -->
 
-> **Structured dimensional fill rate**: the fraction of parcel-level building-rule queries that return a complete, machine-readable answer (zone + GRZ/GFZ/Höhe) without reading a B-Plan PDF.
+**Overall completion (assessed subset): `29%` · `partial: true`** — renormalised over the ASSESSED
+axes only (DATA-SOURCES · CONTEXT); the missing axes (PARCEL · LEGISLATION · ENVELOPE · TERRAIN ·
+HEIGHTS/LOD) are honestly `not-assessed`, not 0 % (C63 §1.2/§1.5). **`honestyOk: true`** (no fabricated
+value; every unknown typed).
 
-| Jurisdiction | Rate |
-|---|---|
-| Denmark | ~96% |
-| Madrid | ~68% |
-| Barcelona | ~48% |
-| Hamburg | ~30% |
-| Germany (national) | ~28% |
-| Berlin | ~28% |
-| **Munich** | **~18%** |
-| Marseille | ~18% |
+> **Weighting** `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4).
+> Arithmetic: `(0.20·15 + 0.56·5) / (15+5) = 5.8/20 = 0.29`.
 
-Munich shares the lowest rating with Marseille. The gap is **not architectural** — Munich's data infrastructure almost certainly mirrors Hamburg's (XPlanung WFS with PDF-link-only schema). The low rate reflects that **no WFS endpoint has been discovered** yet: all probed Munich and Bavaria endpoints returned 404 or connection refused. Until the endpoint is found, the structured rate is effectively the BauNVO national floor only.
+## The 7 axes (C63 §3 — fixed definitions)
 
----
+| # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
+|---|---|---:|---|---|---|---|
+| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | Munich routes to **footprint-fallback**, NOT cadastre: `parcelProviders/registry.ts` sends non-NRW German points via `isInGermany` → `providerId:'footprint'`, `kind:'footprint-fallback'` ("ALKIS outside NRW is per-Land licence-gated"). Bavaria (Bayerische Vermessungsverwaltung ALKIS) is not keylessly reachable; the open `alkis-nrw` cadastre does not cover it. Axis 1 also needs a `computeParcelConfidence` sample (not run). Footprint-fallback is capped low by construction (C57 §L-640). |
+| 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | A structured-fill PRIOR exists (**~18 %**, hand-authored — see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md): **no B-Plan WFS endpoint discovered** — all probed Munich/Bavaria paths 404; DiPlanung mandatory statewide from 31 Oct 2026 but API schema unknown; BayBO Art. 6 Abstandsflächen = 0.4H / min 3 m confirmed). But it is a hand figure with **no signed `sources/VERIFICATION.md`** (L-449) and **no rule pack** (`rulepacks/registry.ts` has zero DE packs), so C63 §1.1/§1.6 keep the composite axis `not-assessed`. |
+| 3 | **DATA-SOURCES** | 15 % | **20%** | `not-checked` | — | 5-slot checklist: cadastre-parcel **blocked** (ALKIS Bavaria licence-gated → footprint, `registry.ts`) · regional-zone-GIS **none** (no Munich/Bavaria B-Plan WFS endpoint found — all 404; DiPlanung not yet a reachable API) · building-height LoD2 **blocked** (`heightSources.mjs` `REGION_SOURCE.munich = { source:'lod2de', status:'blocked', reason:'Bavaria LoD2 licence TBD (ZSHH INSPIRE-restricted)' }`) · terrain DEM **none** (no wired DTM for Bavaria — `terrain.mjs` `de`=DGM1 NRW only; Munich BLOCKED) · context-OSM **live** (`bake.mjs` REGIONS `munich`, bbox `11.44,48.09,11.66,48.20`, from `bayern-latest.osm.pbf`). Mean = (0+0+0+0+1.0)/5 = **0.20**. |
+| 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | No buildable-envelope rule pack for Munich (`rulepacks/registry.ts` = zero DE packs). Solver coverage unmeasured (C58). The §34 fraction is unmeasured (README §"critical scheduling risk"), so even the denominator is unknown. Inventing a value is forbidden (§CONTEXT-DATA-HONESTY). |
+| 5 | **TERRAIN** | 10 % | `not-assessed` | `not-checked` | `outside-coverage` | **No terrain bake row for Munich.** `terrain.mjs` TERRAIN_CITY has only `koln` (source `de` = DGM1 NRW) for Germany; comment L302-303 explicitly keeps **Berlin/Munich BLOCKED (different Länder, separate portals)**. Bavaria has no wired DTM → cannot reach rung-50. Honest `not-assessed`, never a fabricated rung. |
+| 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `license-restriction` | Measured source **BLOCKED**: `heightSources.mjs` marks `munich` LoD2-DE `status:'blocked'` — Bavaria LoD2 licence TBD (ZSHH INSPIRE-restricted). ZSHH is hosted at the Bavarian survey office but hosting ≠ open terms (README §6). Context buildings render OSM/`assumed` (9 m). No provenance histogram probed. |
+| 7 | **CONTEXT** | 5 % | **56%** | `not-checked` | — | Inside the `munich` context bake bbox (`bake.mjs` REGIONS `munich`). Confirmed long-shipped layers: buildings · roads · water · parks · landuse (**5/9**). rail + trees are config-added (L-642) but recorded as not-yet-landed → excluded (honest 0). pedestrian: not a baked layer. sea: Munich is inland. Score 5/9 = **0.56**. |
 
-## Field-by-field breakdown
+## §CONTEXT-DATA-HONESTY note
 
-| Field | Structured? | Source | Score |
-|---|---|---|---|
-| Parcel geometry (ALKIS) | ⚠️ Unconfirmed | Bayerische Vermessungsverwaltung ALKIS — standard schema; access terms and endpoint TBD. `geodaten.bayern.de` confirmed as OpenData portal. | **~30%** (ALKIS standard confirmed; Munich-specific endpoint TBD) |
-| B-Plan boundary + identity | ❌ Endpoint not found | All probed Munich/Bavaria WFS paths returned 404 or connection refused (2026-07-23): `geoportal.muenchen.de/geoserver/wfs`, `/geoserver/opendata/wfs`, `stadtplan.muenchen.de/stadtplan/ows` (000), `geoservices.bayern.de/wfs/bplan`, Munich CKAN. BayernAtlas HTTP 200 but no WFS URL extracted. | **~0%** (endpoint not yet discovered) |
-| DiPlanung (Bavaria pilot) | ⚠️ Operational | DiPlanung mandatory statewide from 31 Oct 2026; **already live in Bayern as of 2026-07-23** (Fachliche Leitstelle: Hamburg BSW). API endpoint at `diplanung.de/schnittstellen` not yet fetched. If DiPlanung delivers structured XPlanGML attributes, this is the highest-impact path for Munich. | **~20%** (operational; endpoint and attribute schema unknown) |
-| **GRZ (Grundflächenzahl)** | ❌ Inaccessible | No WFS endpoint found; even if found, Hamburg's XPlanung WFS confirmed GRZ absent from schema — Munich likely same. | **~0%** |
-| **GFZ (Geschossflächenzahl)** | ❌ Inaccessible | Same. | **~0%** |
-| **Höhe (max height)** | ❌ Inaccessible | Same. | **~0%** |
-| BauNVO §17 ceilings | ✅ Published | National published upper bounds per zone type. | **100% (ceiling only; never the parcel answer)** |
-| **Abstandsflächen (BayBO Art. 6)** | ✅ **Confirmed formula** | **Live-extracted 2026-07-23**: BayBO Art. 6(5) — setback = **0.4H** (general), **0.2H** in GE/GI zones, minimum **3 m**. H = wall height + 1/3 roof height (roof ≤70° pitch). Source: `gesetze-bayern.de/Content/Document/BayBO-6`, text valid from 01.05.2026. | **100% (formula; Bavaria only — applies nationally to Bavaria)** |
-| §34 coverage fraction | ❓ Unknown | Munich is a large city with comprehensive B-Plan coverage assumed (like Hamburg) but not grid-sampled. | **~10%** (assumed low; unconfirmed) |
-| Existing building heights (LoD2-DE) | ⚠️ TBD | ZSHH (Zentrale Stelle für Hauskoordinaten und Hausumringe) hosted at Bayerische Vermessungsverwaltung. `geodaten.bayern.de` OpenData portal confirmed; LoD2 licence terms and download endpoint TBD. | **~35%** (portal confirmed open; terms TBD) |
+DOES: baked OSM context (5/9 layers, `bake.mjs munich`) + honestly-labelled OSM footprint selection. REFUSES:
+an envelope (no rule pack; §34 fraction unknown) — never a borrowed/invented number. UNKNOWN (typed): PARCEL
+quality (`not-queried`; footprint-fallback), LEGISLATION + ENVELOPE (`pending-implementation`, ~18 % unverified
+prior — no WFS endpoint found), TERRAIN (`outside-coverage` — no DTM for Bavaria), HEIGHTS (`license-restriction`
+— Bavaria LoD2 blocked). `honestyOk: true`.
 
----
+## Dossier index (C63 §5)
 
-## Why Munich scores lower than Hamburg and Berlin
+This `RATE.md` is the composite master; the siblings FEED it (naming: `../../../_TEMPLATE/NAMING-CONVENTION.md`).
 
-Munich's low score is primarily an **endpoint discovery gap**, not a data quality gap:
-
-1. **No WFS found** — Hamburg has a live WFS at `geodienste.hamburg.de`. Berlin has one at `gdi.berlin.de`. Munich's equivalent endpoint location is unknown after exhausting the obvious paths.
-2. **DiPlanung is the most likely path** — Bavaria mandated DiPlanung and it is already operational. If the DiPlanung API (`diplanung.de/schnittstellen`) returns structured XPlanGML with GRZ/GFZ/Höhe, Munich jumps from ~18% to ~50–65% in one probe.
-3. **BayBO Art. 6 is a bright spot** — Bavaria's Abstandsflächen formula is confirmed and published, giving Munich the clearest setback rule of any city studied.
-
----
-
-## What would raise the rate
-
-| Action | Rate impact | Effort |
+| File | About | Feeds axis |
 |---|---|---|
-| Fetch `diplanung.de/schnittstellen` — check API endpoint and attribute schema | +30–40 pp if structured GRZ/GFZ/Höhe returned | **Low — one API probe** |
-| Try `mapserver.gis.muenchen.de` and `geoportal.bayern.de/bayernatlas` WFS | Discovers the Munich B-Plan WFS endpoint | Low |
-| Confirm Bavarian LoD2 open terms and download path | +10 pp on context buildings | Low |
-| Confirm ALKIS endpoint and terms for Munich | +15 pp on parcel access | Medium |
-
-**Realistic ceiling:**
-- If DiPlanung structured: **~60–70%** (the Bavaria mandate means this is the most likely scenario post-Oct 2026)
-- If DiPlanung PDF-link-only (like Hamburg WFS): **~30–35%** after endpoint discovery
-- BayBO Art. 6 confirmed means setbacks are the **best-sourced field** for Munich of any city studied
-
-Munich is the **highest-potential** German city: if DiPlanung delivers structured attributes — and Bavaria's Oct 2026 mandate strongly incentivises this — Munich could leapfrog Hamburg and Berlin.
+| **`RATE.md`** (this) | 7-axis composite completion scorecard | — |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (~18 % prior) | LEGISLATION |
+| [`README.md`](./README.md) | jurisdiction pack — B-Plan/§34 structure, DiPlanung timing, BayBO Art. 6 | all |
+| [`ENVELOPE.md`](./ENVELOPE.md) | buildable-envelope solver status | ENVELOPE |
+| [`HEIGHT.md`](./HEIGHT.md) | building-height provenance status | HEIGHTS/LOD |
+| [`NEXT.md`](./NEXT.md) | where we stopped · blockers · resume steps | all |
+| [`RISK-REGISTER.md`](./RISK-REGISTER.md) | honesty guardrails | — |
+| [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | phased climb to 100 % | all |
+| [`sources/SOURCES.md`](./sources/SOURCES.md) · [`sources/VERIFICATION.md`](./sources/VERIFICATION.md) | per-field citations + human sign-off | LEGISLATION / ENVELOPE |
 
 ---
-
-*Last updated: 2026-07-23. No WFS endpoint discovered. BayBO Art. 6 setback formula confirmed via live text extraction. DiPlanung operational in Bavaria; API attributes unknown.*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Scaffolded/migrated under audit L-649 Phase-1. AGS from `de/README.md`; axis state from `tools/context-bake/{bake,terrain,heightSources}.mjs` + `packages/site-parcel-data/src/parcelProviders/registry.ts`.*
