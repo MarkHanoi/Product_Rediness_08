@@ -5,6 +5,14 @@ Bolzano GeoServer WMS and ARPA Piemonte WMS are PARTIALLY VERIFIED-LIVE. No oper
 height field value has been confirmed by live probe. All zoning, FAR, and height rows remain
 research-level citations; live-probed items are annotated with ✅ or ⚠️.
 
+> **Layer-catalogue companion:** [`../ITALY-GEOSPATIAL-DATA-INVENTORY.md`](../ITALY-GEOSPATIAL-DATA-INVENTORY.md)
+> holds the full parcel / terrain / height / context / envelope dataset table with
+> `[Authority|Access|API|Licence|CRS|National?|prod-ready|Confidence]` columns, and
+> [`../findings/ITALY-HEIGHT-ENVELOPE-STUDY.md`](../findings/ITALY-HEIGHT-ENVELOPE-STUDY.md) holds the
+> height hierarchy + 3-DB envelope model + code structure. Both default to `CONVERGENT-SECONDARY`,
+> flagging **only** the Agenzia Entrate Catasto WFS (`VERIFIED-LIVE 2026-07-24`, the `✅` row in §A
+> below) and TINITALY DEM (`live`) distinctly.
+
 ---
 
 ## A — VERIFIED (research-level citations; live probe required before pack use)
