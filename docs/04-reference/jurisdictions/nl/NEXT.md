@@ -35,3 +35,11 @@ None live-probed yet — leads only.
 ## 8 — THE SMALLEST NEXT STEP
 Query the DSO "Regels op de kaart" API at one address and see whether numeric building rules come back
 as data. Add `nl-<subdiv>/` + `<CBS>-<slug>/` only then.
+
+> **Note (2026-07-30):** this §8 is the DSO probe = **Phase D0** of the C63 composite roadmap
+> ([`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md)). But under the C63 axes it is **no
+> longer the first move** — the cheap already-wired physical axes bank first. **First move = Phase A:
+> run `computeParcelConfidence` over an Amsterdam bbox against the already-registered
+> `KadasterBRKParcelProvider` (`pdok-nl`)** → moves PARCEL (15 %) from `not-assessed` to measured with
+> near-zero risk. Then Phase B (3DBAG heights) → Phase C (AHN terrain verify) → Phase D (this DSO probe
+> + omgevingsplan pack). NL is the closest audited country to Denmark's ~96 % machine-readable ceiling.
