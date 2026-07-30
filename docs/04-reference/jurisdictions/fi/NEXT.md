@@ -198,3 +198,23 @@ Two outcomes:
 - Properties contain only plan ID + geometry + PDF link → **rate is ~30–40%**, Phase 4 PDF-extraction pipeline is the next lever.
 
 This is the highest-value measurement remaining in the entire Finland research programme. Everything else is secondary to this.
+
+---
+
+## 9 — C63 PHASE-3 MAP (which blocker feeds which axis phase — 2026-07-30)
+
+> The [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) Phase-3 roadmap re-frames the probes
+> above into three C63 seven-axis phases keyed to the RATIFIED weights (LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS 10 · TERRAIN 10 · CONTEXT 5). **Honesty gate:** each stays
+> `CONVERGENT-SECONDARY` until live-probed; no RATE cell moves on an unprobed claim. Ship the probe before
+> the fix.
+
+- **Phase A (LEGISLATION + ENVELOPE + DATA-SOURCES zone-GIS slot) — the second-Denmark move, biggest gain.**
+  Feeds off **Blocker 3.1** (`_ix_` schema — the single rate-defining GET) + **3.5** (Uusimaa VOOKA date).
+  If `_ix_` = attributes, Ryhti fills LEGISLATION from a structured API with NO OCR — inverting the Portugal
+  ordering where LEGISLATION is the surviving cap.
+- **Phase B (PARCEL + DATA-SOURCES cadastre slot).** Feeds off **Blocker 3.2** (`MML_API_KEY` — free,
+  self-service; the same key also unblocks Phase-C terrain). Exclude Åland (**3.6**).
+- **Phase C (HEIGHTS/LOD + TERRAIN + DATA-SOURCES height slot).** Feeds off **Blocker 3.3** (KMTK 3D building
+  field names) + the Phase-B MML key (terrain bake is key-gated → `terrain.verify.mjs` moves rung 50→100).
+  nDSM module is SHARED with ES/FR — do NOT one-off. RHR is a DEAD END (GDPR; use KMTK).
