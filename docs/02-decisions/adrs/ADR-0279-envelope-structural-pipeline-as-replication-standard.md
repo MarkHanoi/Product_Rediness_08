@@ -5,7 +5,7 @@
 **Deciders**: founder (envelope-rollout directive, 2026-07-29) + architecture team
 **Related contracts**: [C58 — Zoning Rules & Buildable Envelope](../contracts/C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) (the envelope authority — a new "structural pipeline & replication" section records this), [C57 — Parcel Data Layer](../contracts/C57-PARCEL-DATA-LAYER.md), [C19 — Site Model](../contracts/C19-SITE-MODEL-AND-PARCEL.md), [C60 — Site Entry & Jurisdiction Coverage](../contracts/C60-SITE-ENTRY-AND-JURISDICTION-COVERAGE.md)
 **Related ADRs**: [ADR-0269](./ADR-0269-compliance-authoring-parcel-zoning-envelope-strategy.md) (the jurisdiction-agnostic-core strategy this standardises), [ADR-0270](./ADR-0270-geometric-rule-model-setback-vs-alignment.md) (the `GeometricRule` union), [ADR-0271](./ADR-0271-block-derived-buildable-depth.md) (Art. 242.2 construction), [ADR-0272](./ADR-0272-coverage-and-far-governed-zones.md), [ADR-0273](./ADR-0273-tiered-occupation-envelopes.md), [ADR-0274](./ADR-0274-tolerant-cadastral-block-dissolve.md), [ADR-0275](./ADR-0275-street-width-construction-and-provenance-ladder.md), [ADR-0276](./ADR-0276-regime-undetermined-refusal.md), [ADR-0277](./ADR-0277-geo-data-sourcing-map-open-datasets-derived-heights.md)
-**Reference docs**: [ENVELOPE-REPLICATION-STANDARD.md](../../04-reference/ENVELOPE-REPLICATION-STANDARD.md) (**the canonical recipe this ADR ratifies**), [CITY-REPLICATION-STANDARD.md](../../04-reference/CITY-REPLICATION-STANDARD.md) (the terrain/context sibling), [GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md](../../04-reference/GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md), [jurisdictions/ENVELOPE-REALISM-MATRIX.md](../../04-reference/jurisdictions/ENVELOPE-REALISM-MATRIX.md)
+**Reference docs**: [ENVELOPE-REPLICATION-STANDARD.md](../../04-reference/standards/ENVELOPE-REPLICATION-STANDARD.md) (**the canonical recipe this ADR ratifies**), [CITY-REPLICATION-STANDARD.md](../../04-reference/standards/CITY-REPLICATION-STANDARD.md) (the terrain/context sibling), [GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md](../../04-reference/GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md), [jurisdictions/ENVELOPE-REALISM-MATRIX.md](../../04-reference/jurisdictions/ENVELOPE-REALISM-MATRIX.md)
 
 ## Context
 
@@ -25,7 +25,7 @@ exact pipeline stages / data model / honesty model, and surfaced the concrete ga
 
 ## Decision
 
-1. **Ratify [`ENVELOPE-REPLICATION-STANDARD.md`](../../04-reference/ENVELOPE-REPLICATION-STANDARD.md) as
+1. **Ratify [`ENVELOPE-REPLICATION-STANDARD.md`](../../04-reference/standards/ENVELOPE-REPLICATION-STANDARD.md) as
    the canonical, to-be-followed recipe** for bringing any city's buildable envelope to production
    quality. It is the L3 authority-by-reference for `CITY-REPLICATION-STANDARD.md`.
 

@@ -481,7 +481,7 @@ suites are required for which trigger (PR vs push-to-main vs deploy); that a *de
 gated on the same evidence as a *merge*; that a missing test script is a **failure**, not a skip;
 and the lifecycle by which an advisory gate becomes blocking. Owner: UNASSIGNED. Related: C01,
 C10, C14, C57 §6, C58 §6, C19 §6, `tools/ga-gate/`, L-540, L-542,
-`docs/04-reference/STATUS-REPORT-2026-07-21.md` §5.
+`docs/04-reference/launch/STATUS-REPORT-2026-07-21.md` §5.
 
 
 ---
@@ -642,7 +642,7 @@ governed by **no ratified C-contract**. Verified, not assumed:
   scopes context-building ingestion OUT of itself and names the missing contract.
 - **C12** owns the coordinate frame the tiles render in, not the bake/serve/coverage pipeline.
 - The de-facto authority today is the **reference** doc
-  `docs/04-reference/CONTEXT-3D-PERFORMANCE-ARCHITECTURE.md` + **ADR-0268** (Cesium georeferenced
+  `docs/04-reference/geospatial/CONTEXT-3D-PERFORMANCE-ARCHITECTURE.md` + **ADR-0268** (Cesium georeferenced
   placement) + the **L-513** issue chain. A reference doc + ADR is not a contract.
 
 ⇒ **This is NOT a violation (nothing is claimed that the code contradicts) and NOT closeable in an

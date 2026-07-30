@@ -19,7 +19,7 @@ specific doc for the stage you're touching.
 | Concern | Owning doc | This master's role |
 |---|---|---|
 | **Engine internals** (P1–P9, 8 strategies, Pareto, determinism) | [SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE](SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md) | index §3 → defers detail |
-| **Code walkthrough** (source-grounded, file:line) | [LAYOUT-GENERATION-ALGORITHM](../../04-reference/layout-generation-algorithm.md) | index §1/§4 → defers detail |
+| **Code walkthrough** (source-grounded, file:line) | [LAYOUT-GENERATION-ALGORITHM](../../04-reference/architecture-detail/layout-generation-algorithm.md) | index §1/§4 → defers detail |
 | **Apartment AI workflow** (generate→preview→execute) | [SPEC-APARTMENT-LAYOUT-GENERATOR](SPEC-APARTMENT-LAYOUT-GENERATOR.md) | index §1 (stages 1,7,9) |
 | **Per-room rationale + room×element matrix** | [apartment/driving-principles](../plans/apartment/driving-principles.md) | index §2/§6 (relationships) |
 | **Constraint DB** (DB-001…DB-248, the minima) | [SPEC-LAYOUT-CONSTRAINT-DATABASE](SPEC-LAYOUT-CONSTRAINT-DATABASE.md) | index §3.4/§6 |

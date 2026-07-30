@@ -153,7 +153,7 @@ Contracts + ADRs assessed above. Stray `02-decisions/specs/` folder (§3) should
 
 ### §6.3 — `03-execution/`
 Mostly well-structured (`analysis/`, `plans/`, `specs/`, `status/`, `spikes/`, `queue/`). **Root-level strays** (violate C31 §1.1 — everything lives in a subfolder):
-- `03-execution/layout-generation-algorithm.md` (2026-06-13) — duplicate-ish of `04-reference/layout-generation-algorithm.md` (newer, cleaner). Consolidate: archive the 03-execution copy, keep the reference copy. **SAFE-ish move** (flag).
+- `03-execution/layout-generation-algorithm.md` (2026-06-13) — duplicate-ish of `04-reference/architecture-detail/layout-generation-algorithm.md` (newer, cleaner). Consolidate: archive the 03-execution copy, keep the reference copy. **SAFE-ish move** (flag).
 - `03-execution/session-status-2026-06-08.md` — belongs in `status/`. Flag move.
 - `03-execution/README.md` — legit.
 Naming: `analysis/` + `plans/` mix UPPERCASE-dated working docs (e.g. `house-gen-audit-2026-06-21.md`) which is fine for dated snapshots, but many are `*-AUDIT-*.md` — the exact pattern C31 §4/README §4 says "never write alongside a canonical doc." They're isolated in `analysis/` so acceptable as working material, but the volume signals the anti-pattern is still happening.

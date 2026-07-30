@@ -6,7 +6,7 @@
 **Related contracts**: [C53 — Generative Layout Engine Architecture](../contracts/C53-GENERATIVE-LAYOUT-ENGINE-ARCHITECTURE.md) (§1 topology-before-geometry), [C52 — Editable Building Graph](../contracts/C52-EDITABLE-BUILDING-GRAPH.md), [C19 — Site Model & Parcel](../contracts/C19-SITE-MODEL-AND-PARCEL.md)
 **Related ADRs**: [ADR-0061](./ADR-0061-building-graph-bidirectional-edit-substrate.md) (determinism substrate), [ADR-0062](./ADR-0062-layout-engine-deterministic-graph-solver.md) (deterministic graph solver), [ADR-0063](./ADR-0063-house-generative-layout-doctrine.md) (per-storey apartment pipeline + multi-storey spine)
 **Related SPECs**: [SPEC-ACCESS-GRAPH-AND-SPATIAL-GRAMMAR](../../03-execution/specs/SPEC-ACCESS-GRAPH-AND-SPATIAL-GRAMMAR.md) (the normative companion), [SPEC-ARCHITECTURAL-PROGRAM-RULES](../../03-execution/specs/SPEC-ARCHITECTURAL-PROGRAM-RULES.md) (the room DB this doctrine governs)
-**Context docs**: [LAYOUT-GENERATION-ALGORITHM](../../04-reference/layout-generation-algorithm.md) (the master engine walkthrough), master-execution-tracker §47.
+**Context docs**: [LAYOUT-GENERATION-ALGORITHM](../../04-reference/architecture-detail/layout-generation-algorithm.md) (the master engine walkthrough), master-execution-tracker §47.
 
 ## Context
 

@@ -7,7 +7,7 @@
 > **Companion specs**: [SPEC-ARCHITECTURAL-PROGRAM-RULES](./SPEC-ARCHITECTURAL-PROGRAM-RULES.md) (the room DB)
 > · [SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE](./SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md) (the P1→P9 pipeline)
 > · [SPEC-CASA-UNIFAMILIAR-TYPOLOGY](./SPEC-CASA-UNIFAMILIAR-TYPOLOGY.md) (the multi-storey house).
-> **Reference**: [LAYOUT-GENERATION-ALGORITHM](../../04-reference/layout-generation-algorithm.md) (engine walkthrough, file:line).
+> **Reference**: [LAYOUT-GENERATION-ALGORITHM](../../04-reference/architecture-detail/layout-generation-algorithm.md) (engine walkthrough, file:line).
 > **Tracker**: master-execution-tracker §47.
 
 This SPEC is the normative companion to ADR-0066. It is written as an **honest ledger**: each rule is

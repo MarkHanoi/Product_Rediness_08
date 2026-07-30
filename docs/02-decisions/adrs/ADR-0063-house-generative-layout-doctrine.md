@@ -5,7 +5,7 @@
 **Deciders**: architecture team (founder-driven — "why don't you use for the house the same principles we use for apartment? apartment looks way more mature")
 **Related contracts**: [C53 — Generative Layout Engine Architecture](../contracts/C53-GENERATIVE-LAYOUT-ENGINE-ARCHITECTURE.md), [C20 — Building & Apartment Aggregates](../contracts/C20-BUILDING-AND-APARTMENT-AGGREGATES.md), [C11 — Element Creation Pipeline](../contracts/C11-ELEMENT-CREATION-PIPELINE.md)
 **Related ADRs**: [ADR-0062](./ADR-0062-layout-engine-deterministic-graph-solver.md) (D5 vertical structural stacking is a HARD constraint), [ADR-0061](./ADR-0061-building-graph-bidirectional-edit-substrate.md) (determinism)
-**Context docs**: [HOUSE-APARTMENT-UNIFICATION-AUDIT-2026-06-09](../../03-execution/plans/house-apartment-unification-audit-2026-06-09.md), [SPEC-CASA-UNIFAMILIAR-TYPOLOGY](../../03-execution/specs/SPEC-CASA-UNIFAMILIAR-TYPOLOGY.md), [STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS](../../04-reference/stair-creation-pipeline-and-anchor-analysis.md)
+**Context docs**: [HOUSE-APARTMENT-UNIFICATION-AUDIT-2026-06-09](../../03-execution/plans/house-apartment-unification-audit-2026-06-09.md), [SPEC-CASA-UNIFAMILIAR-TYPOLOGY](../../03-execution/specs/SPEC-CASA-UNIFAMILIAR-TYPOLOGY.md), [STAIR-CREATION-PIPELINE-AND-ANCHOR-ANALYSIS](../../04-reference/architecture-detail/stair-creation-pipeline-and-anchor-analysis.md)
 
 ## Context
 

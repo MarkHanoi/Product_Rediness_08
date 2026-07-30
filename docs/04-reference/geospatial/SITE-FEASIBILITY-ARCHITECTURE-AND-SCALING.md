@@ -380,7 +380,7 @@ describes an engine that does not exist.
 | **Read before assuming a dataset exists** | `docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/BARCELONA-DATA-PIPELINE.md` |
 | Every legal parameter + confidence tier | `.../barcelona-catalonia/L-583-LEGAL-PARAMETERS-SOURCED.md` |
 | Source coverage, heights, terrain, the plan | `docs/04-reference/jurisdictions/es/SPAIN-GEODATA-SOURCE-COVERAGE.md` |
-| Context tile performance architecture | `docs/04-reference/CONTEXT-3D-PERFORMANCE-ARCHITECTURE.md` |
+| Context tile performance architecture | `docs/04-reference/geospatial/CONTEXT-3D-PERFORMANCE-ARCHITECTURE.md` |
 | Live issue log (rows L-576 → L-585) | `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` |
 
 ---

@@ -3,7 +3,7 @@
 - **Status:** Audit / spike (no production code changed by this doc) — 2026-06-18
 - **Author:** Claude Opus 4.8 (code-reading audit)
 - **Scope:** the house-creation execution pipeline only — wall joints, welds, perimeter realisation, preview↔execution parity. The apartment generator is the clean reference.
-- **Governing docs:** ADR-0070 (Project North vs True North), ADR-0073 (house↔apartment frame parity), ADR-0075 (preview↔execution parity contract), C12-GEOSPATIAL, C19-SITE-MODEL, SPEC-PROJECT-NORTH-AUTHORING-FRAME, `docs/04-reference/layout-generation-algorithm.md §17`.
+- **Governing docs:** ADR-0070 (Project North vs True North), ADR-0073 (house↔apartment frame parity), ADR-0075 (preview↔execution parity contract), C12-GEOSPATIAL, C19-SITE-MODEL, SPEC-PROJECT-NORTH-AUTHORING-FRAME, `docs/04-reference/architecture-detail/layout-generation-algorithm.md §17`.
 - **Method:** every claim below cites real `file:line`. Files were opened and read; nothing is paraphrased from memory.
 
 ---

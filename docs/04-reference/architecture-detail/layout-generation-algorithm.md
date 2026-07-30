@@ -1458,7 +1458,7 @@ the rotated shell. A 2.0×2.8 m axis-aligned core rect, after a ~−44° rotatio
 whose far corners swing outside the rotated polygon; near 45° (the worst case for axis-snap
 quantisation) a centre-ward nudge can't contain it, so only the centre + one corner end up inside.
 This is documented in full in
-`docs/04-reference/stair-creation-pipeline-and-anchor-analysis.md` (§2 — "the founder's
+`docs/04-reference/architecture-detail/stair-creation-pipeline-and-anchor-analysis.md` (§2 — "the founder's
 hypothesis is correct: it's an ANCHOR problem"; the 5-stage pipeline + the file map in §4).
 
 ### 8.5.4 The cure — upstream containment (step 1 SHIPPED 2026-06-09)

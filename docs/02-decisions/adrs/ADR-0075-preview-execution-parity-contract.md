@@ -5,7 +5,7 @@
 **Deciders**: architecture team (founder-driven — *"I feel like we are moving blind — without a proper vision and architecture — there are new regressions and defects constantly. There is no contract that says built == previewed."*)
 **Related ADRs**: [0069](./ADR-0069-graph-authoritative-room-identity-at-execution.md) (graph-authoritative ROOM identity — the room slice of this contract, already shipped), [0073](./ADR-0073-house-execution-frame-parity-with-apartment.md) (house↔apartment frame parity), [0070](./ADR-0070-project-north-vs-true-north-authoring-frame.md) (the weld frame), [0061](./ADR-0061-building-graph-bidirectional-edit-substrate.md) (determinism / projection)
 **Related contracts**: C53 §1 (topology is source of truth, geometry is its projection), C11 (element creation pipeline), C16 (command authoring)
-**Related reference**: [layout-generation-algorithm.md §17](../../04-reference/layout-generation-algorithm.md) (the authoritative preview→execution map + divergence table + parity-diagnostic spec)
+**Related reference**: [layout-generation-algorithm.md §17](../../04-reference/architecture-detail/layout-generation-algorithm.md) (the authoritative preview→execution map + divergence table + parity-diagnostic spec)
 
 ## Context
 

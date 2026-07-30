@@ -8,7 +8,7 @@
 **Related ADRs**: [ADR-0058](./ADR-0058-unified-building-graph.md) (unified building graph), [ADR-0060](./ADR-0060-living-design-parameters.md) (sliders bind to existing substrate, not a parallel scorer), [ADR-0061](./ADR-0061-building-graph-bidirectional-edit-substrate.md) (determinism substrate), [ADR-0062](./ADR-0062-layout-engine-deterministic-graph-solver.md) (deterministic graph solver), [ADR-0066](./ADR-0066-access-graph-first-generative-layout-doctrine.md) (access-graph-first doctrine — the immediate predecessor)
 **Related SPECs**: [SPEC-LIVING-BUILDING-GRAPH](../../03-execution/specs/SPEC-LIVING-BUILDING-GRAPH.md), [SPEC-ACCESS-GRAPH-AND-SPATIAL-GRAMMAR](../../03-execution/specs/SPEC-ACCESS-GRAPH-AND-SPATIAL-GRAMMAR.md), [SPEC-LIVING-DESIGN-PARAMETERS](../../03-execution/specs/SPEC-LIVING-DESIGN-PARAMETERS.md)
 **Strategy docs**: [GENERATIVE-LAYOUT-WORLD-MODEL-STRATEGY](../../01-strategy/STR-13-generative-layout-world-model-strategy.md), [PRYZM-BUILDING-GRAPH-AND-RELATIONAL-AI-FOUNDATION](../../01-strategy/STR-14-pryzm-building-graph-and-relational-ai-foundation.md)
-**Context docs**: [LAYOUT-GENERATION-ALGORITHM](../../04-reference/layout-generation-algorithm.md) (the master engine walkthrough), master-execution-tracker §47 + §48.
+**Context docs**: [LAYOUT-GENERATION-ALGORITHM](../../04-reference/architecture-detail/layout-generation-algorithm.md) (the master engine walkthrough), master-execution-tracker §47 + §48.
 
 ## Context
 

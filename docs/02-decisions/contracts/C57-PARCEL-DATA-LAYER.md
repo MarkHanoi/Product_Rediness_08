@@ -7,7 +7,7 @@
 > **Downstream**: [C58 Zoning Rules & Buildable Envelope](./C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) (consumes the fetched parcel ring + jurisdiction id); [SPEC-COMPLIANCE-REPORT](../../03-execution/specs/SPEC-COMPLIANCE-REPORT.md) (renders parcel provenance); [SPEC-PARCEL-SELECTION](../../03-execution/specs/SPEC-PARCEL-SELECTION.md) (proposed — the map interaction).
 > **Key principles**: **P5** (schemas pure — no THREE / no I/O in `packages/schemas/src/elements/site/parcel/`), **P1** (providers are wired once, not re-instantiated ad hoc), **P4** (no `(window as any)` reach-through for the fetch), **P8** (every exported provider / proxy fn opens an OTel span `pryzm.parcel.<verb>`).
 > **Strategy**: [ADR-0269](../adrs/ADR-0269-compliance-authoring-parcel-zoning-envelope-strategy.md) (compliance-authoring pillar; Denmark-first reference, jurisdiction-agnostic core).
-> **Audit context**: [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](../../04-reference/ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md) (G-DATA-1..5), [PARCEL-ZONING-FEATURE-SCOPING.md](../../04-reference/PARCEL-ZONING-FEATURE-SCOPING.md) §3/§6.1, [DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md](../../04-reference/DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md) §2/§4. This contract fills the reserved slot C19 §9 ("jurisdiction-specific building-code databases — future contract; §10.2 registry pending") jointly with C58.
+> **Audit context**: [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](../../04-reference/audit/ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md) (G-DATA-1..5), [PARCEL-ZONING-FEATURE-SCOPING.md](../../04-reference/geospatial/PARCEL-ZONING-FEATURE-SCOPING.md) §3/§6.1, [DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md](../../04-reference/DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md) §2/§4. This contract fills the reserved slot C19 §9 ("jurisdiction-specific building-code databases — future contract; §10.2 registry pending") jointly with C58.
 
 ---
 
@@ -438,7 +438,7 @@ The Denmark reference proposes an optional PostGIS + Martin MVT tier (normalise 
 - [ADR-0269](../adrs/ADR-0269-compliance-authoring-parcel-zoning-envelope-strategy.md) — the strategy decision.
 - [SPEC-PARCEL-SELECTION](../../03-execution/specs/SPEC-PARCEL-SELECTION.md) (proposed) · [SPEC-COMPLIANCE-REPORT](../../03-execution/specs/SPEC-COMPLIANCE-REPORT.md).
 
-External (non-contract): [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](../../04-reference/ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md) (G-DATA), [PARCEL-ZONING-FEATURE-SCOPING.md](../../04-reference/PARCEL-ZONING-FEATURE-SCOPING.md), [DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md](../../04-reference/DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md).
+External (non-contract): [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](../../04-reference/audit/ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md) (G-DATA), [PARCEL-ZONING-FEATURE-SCOPING.md](../../04-reference/geospatial/PARCEL-ZONING-FEATURE-SCOPING.md), [DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md](../../04-reference/DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md).
 
 ---
 

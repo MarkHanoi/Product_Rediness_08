@@ -280,7 +280,7 @@ points: `fetchContextBuildingsNearAndFar` (near+far split) and `fetchContextBuil
 ## §9 — The SiteFrame authority — ONE owner of origin + project-north θ + ground (STRUCTURAL-SEAM-2)
 
 *(Added 2026-07-26. The normative form of the "named frame flag" §1.5 defers to. Grounds
-`docs/04-reference/SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md` Part 3 §3.2. **Status: DRAFT — the
+`docs/04-reference/geospatial/SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md` Part 3 §3.2. **Status: DRAFT — the
 target architecture; the AS-IS below is a KNOWN VIOLATION recorded so this contract stops implying a
 single frame the code does not have.**)*
 

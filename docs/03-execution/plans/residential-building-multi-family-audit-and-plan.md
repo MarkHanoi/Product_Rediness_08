@@ -4,7 +4,7 @@
 > **Scope**: a NEW generative typology — **"Residential building — multi-family"** — added as a peer
 > typology pack alongside the apartment (`apartment`) and house (`casa-unifamiliar`) packs.
 > **Reads grounded in** (cite-anchors used throughout):
-> `docs/04-reference/layout-generation-algorithm.md` (HE.0–HE.5, §13–§20),
+> `docs/04-reference/architecture-detail/layout-generation-algorithm.md` (HE.0–HE.5, §13–§20),
 > `packages/ai-host/src/workflows/houseLayout/`, `packages/ai-host/src/workflows/apartmentLayout/`,
 > `apps/editor/src/ui/house-layout/`, the stair/curtain-wall element stacks, and the contract suite
 > (C11 / C15 / C19 / C50 / C53) + ADRs (0063 / 0067 / 0068 / 0069 / 0075).

@@ -3,7 +3,7 @@
 **Date:** 2026-07-17 · **Author:** Principal GIS / Digital-Twin / Real-Time-Graphics architect (design pass)
 **Status:** DESIGN — no code changed, no contract flipped. Evidence-grounded (`file:line`).
 **Tracker:** L-374 (Context Engine initiative) · new sub-tasks **L-374g+** proposed in §8.
-**Builds on:** `docs/04-reference/FORMA-CONTEXT-ENGINE-AUDIT.md` (the L-374 audit — provider comparison, Context Engine sketch, phased roadmap). This doc is the concrete **VIEW + UI** design that audit called for. **Read the audit first** — it is not re-derived here.
+**Builds on:** `docs/04-reference/audit/FORMA-CONTEXT-ENGINE-AUDIT.md` (the L-374 audit — provider comparison, Context Engine sketch, phased roadmap). This doc is the concrete **VIEW + UI** design that audit called for. **Read the audit first** — it is not re-derived here.
 
 ---
 

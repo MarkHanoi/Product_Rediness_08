@@ -88,7 +88,7 @@ already does today. **A claimed 100% is the tell of a dishonest system.**
 ---
 
 *Grounded in the shipped miniatures: `ADR-0270` (the GeometricRule union = nascent IR) ·
-`docs/04-reference/ORDINANCE-EXTRACTION-PIPELINE.md` (the compiler front-end) · `C58` (the pure evaluator
+`docs/04-reference/standards/ORDINANCE-EXTRACTION-PIPELINE.md` (the compiler front-end) · `C58` (the pure evaluator
 + the honesty rules) · `L-449` (the human-verification gate that caps automation). Measured reality lives
 in `docs/04-reference/jurisdictions/*/RATE.md`; the country-agnostic evaluation method in
 `jurisdictions/_TEMPLATE/COUNTRY-DATA-STRATEGY-TEMPLATE.md`. This file is the horizon those point toward,

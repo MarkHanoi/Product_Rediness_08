@@ -72,8 +72,8 @@ contract asserts the shared vocabulary exists + is exported, not that every cons
 [ADR-0280](../adrs/ADR-0280-data-confidence-provenance-unknown-reason-model.md) ·
 [C57](./C57-PARCEL-DATA-LAYER.md) · [C58](./C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) ·
 [C55](./C55-GEODATA-ANALYTICAL-LAYERS.md) · [C23](./C23-PROVENANCE-AND-AI-AUDIT.md) ·
-[PARCEL-METADATA-MODEL-REVIEW.md](../../04-reference/PARCEL-METADATA-MODEL-REVIEW.md) (the review that
-motivated this) · [PARCEL-METADATA-MODEL-IMPLEMENTATION-PLAN.md](../../04-reference/PARCEL-METADATA-MODEL-IMPLEMENTATION-PLAN.md).
+[PARCEL-METADATA-MODEL-REVIEW.md](../../04-reference/geospatial/PARCEL-METADATA-MODEL-REVIEW.md) (the review that
+motivated this) · [PARCEL-METADATA-MODEL-IMPLEMENTATION-PLAN.md](../../04-reference/geospatial/PARCEL-METADATA-MODEL-IMPLEMENTATION-PLAN.md).
 
 ## §5 — Contract history
 | Date | Change |

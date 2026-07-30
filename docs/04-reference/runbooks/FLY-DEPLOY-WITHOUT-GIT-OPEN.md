@@ -9,7 +9,7 @@ document. Every claim below is tagged **[VERIFIED-FROM-CODE]** (read out of the 
 gives a ranked set of ways to remove that dependency, with the exact setup commands for the
 recommended one.
 
-Sibling doc: `docs/04-reference/DEPLOYMENT-RUNBOOK.md` (the normal happy-path). This runbook is
+Sibling doc: `docs/04-reference/runbooks/DEPLOYMENT-RUNBOOK.md` (the normal happy-path). This runbook is
 narrower — it is only about the *credential / trigger* coupling that makes "Git open" matter.
 
 ---

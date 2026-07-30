@@ -22,10 +22,10 @@ Material that's stable, exact, and fact-based. Not strategic, not bound, not sta
 | File | Purpose |
 |---|---|
 | [GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md](./GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md) | 🗺️ **START HERE for "how far along are we?"** — the jurisdiction axis: Barcelona's six layers, per-*clau* coverage, phases by value, then Spain and other countries. Links to the audit + implementation plan |
-| [SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md](./SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md) | The one document for *how site feasibility works and what a new city costs* — Part 1 business-readable, Part 2 engineering |
-| [visibility-and-selection.md](./visibility-and-selection.md) | The architectural reference for visibility-intent + selection (P7 deep-dive) |
-| [pascalorg-editor-research.md](./pascalorg-editor-research.md) | Research notes on the Pascal editor (cousin architecture; informed several PRYZM decisions) |
-| [typecheck-error-queue.md](./typecheck-error-queue.md) | Live queue of TypeScript errors with triage state |
+| [SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md](./geospatial/SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md) | The one document for *how site feasibility works and what a new city costs* — Part 1 business-readable, Part 2 engineering |
+| [visibility-and-selection.md](./architecture-detail/visibility-and-selection.md) | The architectural reference for visibility-intent + selection (P7 deep-dive) |
+| [pascalorg-editor-research.md](./architecture-detail/pascalorg-editor-research.md) | Research notes on the Pascal editor (cousin architecture; informed several PRYZM decisions) |
+| [typecheck-error-queue.md](./_archive/typecheck-error-queue.md) | Live queue of TypeScript errors with triage state |
 | [typecheck-errors-2026-05-24.txt](./typecheck-errors-2026-05-24.txt) | Snapshot of compiler errors at that date |
 
 ## §3 — Naming + content conventions
