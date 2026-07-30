@@ -38,6 +38,14 @@ any pipeline or pack may ship `confidence: structured`.
 
 ### A.2 — Data endpoints (VERIFIED-LEAD; not live-probed this session)
 
+> **DGT OGC API platform (2026-07-30 expert review — `CONVERGENT-SECONDARY`, pending-probe).** The
+> review reports that DGT delivers its national layers through a coherent **OGC API platform**
+> (`dgterritorio.gov.pt` / `snig.dgterritorio.gov.pt`), **CC BY 4.0 platform-wide**. This upgrades
+> several rows below from `VERIFIED-LEAD` to `CONVERGENT-SECONDARY` (corroborated by an expert
+> second source, still not live-probed). See `../PORTUGAL-GEOSPATIAL-DATA-INVENTORY.md` for the full
+> inventory + §Probe steps. **A corroborated source is not a wired/probed source — confirm the OGC
+> API base URL + each collection by direct probe before any row gates production or a RATE cell.**
+
 | Source / layer | Provides | Endpoint / locator | Access | Confidence | Licence / attribution | Currency | Notes |
 |---|---|---|---|---|---|---|---|
 | **SNIC / DGT** — Carta Cadastral (parcel geometry + NIC) | Parcel geometry + area + NIC identifier, per-prédio | INSPIRE WMS/WFS via SNIG (`snig.dgterritorio.gov.pt`); per-parcel download Shapefile / GeoPackage / DXF / GeoJSON | Open (EU High-Value Dataset, Reg. 2023/138); keyless or registration TBD | `VERIFIED-LEAD` | Open (HVD mandate — specific attribution string TBD) | In-progress national update under DL 72/2023 | OGC API planned 2025 — verify if live. Urban parcel coverage limited to CGPR/SiNErGIC munis (~134). Do NOT assume Lisbon/Porto city-centre coverage. |
@@ -46,7 +54,11 @@ any pipeline or pack may ship `confidence: structured`.
 | **BGE (INE)** — Base Geográfica de Edifícios | National vector building footprints; mainland + Madeira/Azores; 1:10,000 | INE open data portal (`ine.pt`) | CC-BY-4.0 | `VERIFIED-LEAD` | CC-BY-4.0 — "Instituto Nacional de Estatística" | Census-vintage; exact year to confirm | Built for census population/dwelling counting. Height / storey attribute NOT confirmed — verify before assuming a `HAUTEUR`-equivalent field. |
 | **DGPC Atlas do Património Classificado** | ZGP / ZEP / ZNA / Restrições — 4 distinct queryable heritage layers | `patrimoniocultural.gov.pt` — DGPC geoportal | Open | `VERIFIED-LEAD` | Open; attribution "Direção-Geral do Património Cultural (DGPC)" | Living dataset | Variable ZEP radius per asset — NOT a fixed circle. National single service, no per-region gating. |
 | **SNIRH + DGT hydrography** | National water-resources system + hydrography network | `snirh.apambiente.pt` / SNIG INSPIRE | Open (INSPIRE) | `VERIFIED-LEAD` | Open | Living | Do NOT derive water surfaces from LiDAR (NIR absorption) — use SNIRH geometry + DTM elevation referencing. |
-| **COS / COSc (DGT)** — land cover | National land-cover (Carta de Uso e Ocupação do Solo); COSc = AI/ML-derived, more frequent | DGT SNIG | Open | `VERIFIED-LEAD` | Open | Multi-year; COSc more frequent | Too coarse for individual park boundaries — use as fallback/district-scale context only. |
+| **COS / COSc (DGT)** — land cover | National land-cover (Carta de Uso e Ocupação do Solo); COSc = AI/ML-derived, more frequent | **DGT OGC API platform** (`dgterritorio.gov.pt` / `snig.dgterritorio.gov.pt`) — *review upgrades from SNIG WMS/WFS lead* | Open | `CONVERGENT-SECONDARY` — 2026-07-30 review upgrade; pending-probe | **CC BY 4.0** *(review; DGT platform-wide — pending-probe)* | Multi-year; COSc more frequent | Too coarse for individual park boundaries — use as fallback/district-scale context only. Confirm OGC API + CC BY 4.0 by direct probe before it gates production. |
+| **CAOP (DGT)** — administrative boundaries | distrito + concelho + freguesia polygons + DICOFRE — jurisdiction routing (== DE AGS / FR INSEE) | **DGT OGC API platform** — *base URL + FeatureType pending-probe* | Open | `CONVERGENT-SECONDARY` — 2026-07-30 review; pending-probe | **CC BY 4.0** *(review — pending-probe)* | Living | Reviewer ★★★★★ "easiest win". Probe: FeatureType + DICOFRE attribute name. Confirm by direct probe before it gates production. |
+| **CRUS (DGT)** — Classificação e Uso do Solo | territorial classification polygons — planning context | **DGT OGC API platform** — *collection name pending-probe* | Open | `CONVERGENT-SECONDARY` — 2026-07-30 review; pending-probe | **CC BY 4.0** *(review — pending-probe)* | Living | Reviewer ★★★★★. Probe: CRUS collection + classification attribute schema. Confirm by direct probe before it gates production. |
+| **Orthophotos 30 cm (DGT)** — national imagery | 30 cm national orthoimagery base (== PNOA for ES) | **DGT OGC API platform** / tiled imagery — *pending-probe* | Open | `CONVERGENT-SECONDARY` — 2026-07-30 review; pending-probe | **CC BY 4.0** *(review — pending-probe)* | National | Reviewer ★★★★★. Confirm OGC API access + CC BY 4.0 by direct probe before it gates production. |
+| **Copernicus DEM (~30 m)** — terrain fallback | GLO-30 terrain, fills the NW-mainland ~10% gap outside DGT LiDAR | Copernicus Data Space — GLO-30 tiles | Open | `CONVERGENT-SECONDARY` — 2026-07-30 review; pending-probe | Copernicus open licence | Global | **Terrain fallback, NOT a building-height source** — do NOT conflate. Confirm gap boundary by direct probe before it gates production. |
 | **Lisbon CML — "Modelo Tridimensional"** | Council-wide 3D model, 1:1,000, LOD2/3-ish (balconies, setbacks, sidewalks, tunnel entries, walls >0.5 m) | `geodados-cml.hub.arcgis.com` | **LICENCE UNVERIFIED** | `COULD-NOT-VERIFY` (licence) | **MUST NOT redistribute until licence confirmed** | Phase 2 adds 1:5,000 tree clusters | Check redistribution licence before any integration. |
 | **Lisbon CML — "Arvoredo"** | Per-tree dataset; legally-mandated municipal register (Regulamento Municipal do Arvoredo) | Lisboa Aberta / `dados.gov.pt` | CC-BY | `VERIFIED-LEAD` | CC-BY (Lisa-Aberta / dados.gov.pt terms) | Actively maintained | |
 | **Infraestruturas de Portugal (IP)** | National road network | UNCONFIRMED | Open-data status **UNCONFIRMED** | `COULD-NOT-VERIFY` | UNVERIFIED | — | Do NOT use until licence and access confirmed. |
@@ -59,6 +71,16 @@ any pipeline or pack may ship `confidence: structured`.
 | Braga PDM — cércea máxima (espaços residenciais) | 7.5 m | m | Braga PDM regulamento — specific article NOT confirmed | Research citation | `CONVERGENT-SECONDARY` — upgrade by reading primary PDM text |
 | Porto PDM — Art. 11 urban space categories | Two operative categories of urban space, delimited on Planta de Ordenamento by degree of urbanization | — | PDMP — Aviso n.º 12773/2021 (8 Jul 2021) | Research citation from Aviso n.º 12773/2021 | `CONVERGENT-SECONDARY` |
 | Lisbon PDM — operative date | In force since revision published 30 Aug 2012, DR 2.ª série, n.º 168 | — | PDM Lisboa | Research citation | `CONVERGENT-SECONDARY` |
+
+### A.4 — National labs & environmental providers (CONVERGENT-SECONDARY; 2026-07-30 review)
+
+> Two similarly-named national labs are **distinct bodies** and must not be conflated.
+
+| Source / layer | Body | Provides | Endpoint / locator | Access | Licence | Confidence |
+|---|---|---|---|---|---|---|
+| **LNEG** — geology | Laboratório Nacional de **Energia e Geologia** (energy + geology lab) | Geological mapping | LNEG geoportal — **modern OGC API** *(pending-probe)* | Open | *pending-probe* | `CONVERGENT-SECONDARY` — 2026-07-30 review; reviewer ★★★★★. Probe: LNEG OGC API base URL + one collection. |
+| **LNEC** — civil engineering / geotech | Laboratório Nacional de **Engenharia Civil** | Civil-engineering / geotechnical data (distinct from LNEG) | LNEC — *pending-probe* | *pending-probe* | *pending-probe* | `CONVERGENT-SECONDARY` — listed to keep it **distinct from LNEG**; do NOT conflate. |
+| **Environmental (REN / RAN / Natura 2000 / Protected / Flood)** | APA / LNEG / CCDR (scattered) | Environmental restriction layers | Multiple portals — **no single portal** | Open *(pending-probe)* | *pending-probe* | `CONVERGENT-SECONDARY` — reviewer ★★★★☆ "available but scattered". Each layer traces to a different provider. |
 
 ---
 

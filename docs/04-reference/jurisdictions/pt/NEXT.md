@@ -246,3 +246,38 @@ curl "https://snit-mais.dgterritorio.gov.pt/api/pdm?lon=-8.426&lat=41.545"
   transcription for all Portuguese cities (~8–12 d per city estimate holds).
 - Braga confirmed as CGPR-covered → Braga becomes Tier 1 candidate; start Braga pack next.
 - Braga not confirmed → Braga drops to Tier 0/2; check Porto/Lisboa before committing.
+
+---
+
+## 9 — GEOSPATIAL PROBE QUEUE (DGT OGC API platform — 2026-07-30 review)
+
+> **Source.** Founder-supplied *Portugal Geospatial Infrastructure Review* (2026-07-30), folded into
+> `../PORTUGAL-GEOSPATIAL-DATA-INVENTORY.md` + `findings/PORTUGAL-GEOSPATIAL-INFRASTRUCTURE-REVIEW.md`.
+> **Confidence: `CONVERGENT-SECONDARY`** (expert review, NOT live-probed). The review reports a
+> coherent **DGT OGC API platform** (`dgterritorio.gov.pt` / `snig.dgterritorio.gov.pt`), CC BY 4.0
+> platform-wide, plus a modern **LNEG OGC API** for geology and **Copernicus DEM** as a terrain
+> fallback. It **upgrades many prior `VERIFIED-LEAD` entries to `CONVERGENT-SECONDARY`** but moves
+> **no** rate cell — a corroborated source is not a wired/probed source (§CONTEXT-DATA-HONESTY).
+> These probes are what would, once PROBED + WIRED, become Phase-3 PLAN items.
+
+- **9.1 — Confirm the DGT OGC API base URL.** Navigate `dgterritorio.gov.pt` /
+  `snig.dgterritorio.gov.pt` → find the OGC API landing (`/collections`) → record the canonical base
+  URL + whether it is OGC API Features / Tiles / Maps. Anchor for every DGT row.
+- **9.2 — Probe CAOP OGC API.** Enumerate the CAOP FeatureType/collection → confirm distrito +
+  concelho + freguesia polygons + a **DICOFRE attribute**; record the exact attribute name (the join
+  key for every PT municipality folder — links to Trip-wire 4.2). Reviewer's "easiest win".
+- **9.3 — Probe CRUS collection.** Confirm the CRUS collection exists, returns territorial-
+  classification polygons, and record the classification attribute schema.
+- **9.4 — Probe LNEG OGC API.** Confirm the LNEG (geology) OGC API endpoint is live and distinct from
+  any LNEC (civil-eng) service; record base URL + one collection. Do NOT conflate the two labs.
+- **9.5 — Confirm COS + 30 cm ortho as OGC API + CC BY 4.0.** Verify COS is served via OGC API (not
+  only WMS/WFS) and that the DGT platform licence is genuinely CC BY 4.0 platform-wide (read the
+  licence field, don't infer).
+- **9.6 — Confirm Cadastro Predial OGC API + coverage.** Confirm the parcel OGC API is live,
+  mainland-only, returns geometry + NIC; check CGPR/SiNErGIC coverage for Lisboa (1106) / Porto
+  (1315) / Braga (0303). Feeds the standing #1 blocker (§3.1).
+- **9.7 — Confirm Copernicus DEM fallback boundary.** Record which NW-mainland municipalities fall in
+  the ~10% DGT-LiDAR gap that Copernicus GLO-30 backfills (terrain only, NOT height).
+
+**Honesty gate:** each item stays `CONVERGENT-SECONDARY` until live-probed; do NOT bump any
+DATA-SOURCES / TERRAIN / LOD-RATE cell on these unprobed claims. Ship the probe before the fix.

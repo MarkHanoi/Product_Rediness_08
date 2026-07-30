@@ -50,6 +50,15 @@ headline (~42%) is dragged down by parcel, not height — the opposite drag from
 **OSM height-tag floor:** ESTIMATED ~5–12% explicit-height; OSM/Overture footprints are the national
 footprint baseline (Portugal has no national footprint dataset).
 
+> **Geospatial-review note (2026-07-30 · `CONVERGENT-SECONDARY`, pending-probe — no % cell changed).**
+> The founder-supplied Portugal geospatial review confirms there is **no national building-height
+> raster** (unlike Spain's CNIG MDS Edificación): height must be derived in-module as **nDSM =
+> DSM − DTM** from DGT LiDAR, with no floor-count attribute and no published RMSE-Z — i.e. the (b)
+> sub-metric stays single-source with a lower confidence ceiling. **Copernicus DEM (~30 m) is a
+> TERRAIN fallback** for the NW-mainland ~10% gap outside DGT LiDAR — **terrain, NOT building
+> height; do not conflate.** This is corroboration, not a live probe: it moves **no** rate cell.
+> See `PORTUGAL-GEOSPATIAL-DATA-INVENTORY.md` + `findings/PORTUGAL-GEOSPATIAL-INFRASTRUCTURE-REVIEW.md`.
+
 ---
 
 ## Data strategy — footprint (2D) vs height (3D)
