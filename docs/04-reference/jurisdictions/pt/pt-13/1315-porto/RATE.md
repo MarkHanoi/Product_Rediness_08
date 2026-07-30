@@ -1,96 +1,51 @@
-# Data Readiness Rate — Porto (`pt-13 / 1315-porto`) city
+# City RATE — master completion scorecard — Porto (pt-13, 1315)
 
-**Headline rate: ~0%**
+<!-- generated-by: MANUAL C63-Phase-1-AUDIT 2026-07-30 — scorecard function not yet shipped (C63 §8); the CHEAP axes (DATA-SOURCES · CONTEXT) are cited-derived per C63 §8.1, every other axis is not-assessed with a typed C62 reason. NO cell is a fabricated number. -->
 
-> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
-> return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
-> BYA / BRA / %-utilisation] + height**) **without reading an ordinance text/PDF**. This definition
-> is IDENTICAL across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany /
-> France …) so the scores are directly comparable. Derived from direct endpoint/schema checks, not
-> assumed from the jurisdiction's open-data reputation.
+**Overall completion (assessed subset): `36%` · `partial: true`** — renormalised over the ASSESSED
+axes only (DATA-SOURCES · CONTEXT); the missing axes (PARCEL · LEGISLATION · ENVELOPE · TERRAIN ·
+HEIGHTS/LOD) are honestly `not-assessed`, not 0 % (C63 §1.2/§1.5). **`honestyOk: true`** (no fabricated
+value; every unknown typed).
 
-> **Why ~0%:** Porto's numeric planning values (índice de edificação, cércea / moda da cércea,
-> afastamentos) live in the PDMP regulamento (Aviso n.º 12773/2021) — PDF only. No SNIT WFS probe
-> has been run, no PDMP text has been read for any category, and Porto's cadastral regime is
-> unconfirmed. Additionally, Porto's fabric-derived height rule (moda da cércea) requires a new
-> C58 `fabricDerivedHeight` GeometricRule kind that does not yet exist — so even with a complete
-> OCR pipeline, moda-da-cércea zones cannot be packed until the schema amendment is approved.
+> **Weighting** `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4). Assessed subset here =
+> DATA-SOURCES (15) + CONTEXT (5) = 20; overall = (0.30·15 + 0.556·5) / 20 = **36 %**.
 
-<!-- The cross-jurisdiction benchmark. Keep this table in SYNC across every RATE.md — it is the
-     shared ruler. Insert this jurisdiction at its honest position. -->
-| Jurisdiction | Rate |
-|---|---|
-| Denmark | ~96% |
-| Madrid | ~68% |
-| Saudi (national) | ~55% |
-| Barcelona | ~48% |
-| Norway (national) | ~32% |
-| Germany (national) | ~28% |
-| France (national) | ~22% |
-| Portugal (national) | ~0% |
-| **Porto** | **~0%** |
+## The 7 axes (C63 §3 — fixed definitions)
 
-> Porto matches the national ~0% floor. It does not rate higher because no live probe, no primary
-> PDMP read, and no confirmed cadastral geometry exist. Moda da cércea zones cannot exceed ~0%
-> even after OCR extraction, until the C58 `fabricDerivedHeight` kind is added.
+| # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
+|---|---|---:|---|---|---|---|
+| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | **No PT parcel provider is wired** — `parcelProviders/registry.ts` routes only ES/FR/NL/NO/DE/NRW/CH/DK/SA (no `isInPortugal`). The national Carta Cadastral (DGT) **does not cover the Porto urban core** (`heightSources.mjs` `dgt_pt` note: "weak parcels … NOT Lisbon/Porto cores"). No `computeParcelConfidence` sample drawn (C57 §2.4). |
+| 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | No rule pack for Porto (`rulepacks/registry.ts` is ES-only); no clau audit; no signed `sources/VERIFICATION.md`. PDMP numeric values (índice de edificação, cércea / *moda da cércea*, afastamentos — Aviso n.º 12773/2021) are **PDF-only** → legacy structured-fill ≈ **~0 %** (`LEGISLATION-RATE.md`). Inventing legal parameters is forbidden (§CONTEXT-DATA-HONESTY). |
+| 3 | **DATA-SOURCES** | 15 % | **30%** | `not-checked` | — | 5-slot checklist: cadastre-parcel **none** (not wired; Carta Cadastral misses the core) · regional-zone-GIS **none** (SNIT PDMP zone WFS not wired) · building-height nDSM **documented** (`heightSources.mjs` `dgt_pt` = DGT national LiDAR nDSM, impl:`documented`, provenance `tagged`; unbaked) · terrain DEM **blocked** (`terrain.mjs` `pt` — no open national bare-earth DTM, verdict `blocked`) · context-OSM **live** (`bake.mjs` REGIONS `porto`). Mean = (0+0+0.5+0+1.0)/5 = **0.30**. |
+| 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | No buildable-envelope rule pack registered (`rulepacks/registry.ts` ES-only); solver coverage unmeasured (C58). Porto additionally needs a C58 `fabricDerivedHeight` GeometricRule kind before *moda da cércea* zones can be packed (`LEGISLATION-RATE.md`). |
+| 5 | **TERRAIN** | 10 % | `not-assessed` | `not-checked` | `license-restriction` | `terrain.mjs` cities list HAS a `porto` row (`source:'pt'`) but it is flagged **`blocked: 'PT — no open national bare-earth DTM (DGT)'`**; the `pt` source verdict is `blocked` (no open national high-res bare-earth DTM). No tileset can be baked → honestly `not-assessed`, **not** rung-0 (§1.2). |
+| 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | No measured height baked; context buildings render OSM/assumed (9 m). `dgt_pt` DGT LiDAR nDSM (impl:`documented`, provenance `tagged`) is **capable** via an Overture/OSM footprint join but **unbaked** — no per-city provenance histogram probed. Capability ≠ measurement. |
+| 7 | **CONTEXT** | 5 % | **56%** | `not-checked` | — | Inside the `porto` city-clip bake (`bake.mjs` REGIONS `porto`, bbox `-8.70,41.12,-8.55,41.20`). Long-shipped layers: buildings · roads · water · parks · landuse (**5/9**). rail + trees are config-added (`bake.mjs` LAYERS, L-642) but not yet re-baked → excluded (honest 0). pedestrian: not a baked layer. sea: coastal (Douro mouth / Atlantic) via water/coastline, not tile-probed here → excluded. Score 5/9 = **56 %**. |
 
----
+## §CONTEXT-DATA-HONESTY note
 
-## Field-by-field breakdown
+DOES: baked OSM context (5/9 layers) + a documented (unbaked) national LiDAR height source. REFUSES: an
+envelope (no rule pack), a parcel (no PT provider wired + cadastre misses the core), and terrain (national
+DTM blocked) — never a borrowed/invented number. UNKNOWN (typed): PARCEL (`not-queried`), LEGISLATION +
+ENVELOPE (`pending-implementation`), TERRAIN (`license-restriction`), HEIGHTS (`not-queried`).
+`honestyOk: true`.
 
-| Field | Structured? | Source | Score |
-|---|---|---|---|
-| Parcel geometry | ❌ not confirmed | Carta Cadastral (SNIC/DGT): Porto is north of the Tagus — CGPR coverage was concentrated south of the Tagus and on rural land. Whether Porto's urban core is inside CGPR, SiNErGIC, or no-cadastre coverage is unconfirmed. Do NOT assume coverage. Not probed. | 0 |
-| Plan/zone existence + boundary | ⚠️ partial | SNIT (`snit-mais.dgterritorio.gov.pt`): PDMP zone polygon confirmed to exist in SNIT; WFS attributes not probed. PDMP in force (Aviso n.º 12773/2021, 8 Jul 2021); updated since. | 0 — not confirmed queryable |
-| Zone/use code (categoria de espaço) | ❌ not confirmed | SNIT WFS — not probed. Art. 11 PDMP defines two urban space categories by degree of urbanisation; Art. 12-family defines functional categories. Structured WFS attribute delivery unconfirmed. | 0 |
-| Density metric (índice de edificação) | ❌ PDF only | PDMP regulamento (Aviso 12773/2021) — PDF only. Porto uses "índice de edificação" (not "índice de utilização"). The definitional formula (what counts as "área de edificação") at PDMP Art. 11 has NOT been read — even the formula, not just the number, is per-PDM. No values sourced. | 0 — confirmed PDF-only |
-| Max height (cércea / moda da cércea, ALLOWED) | ❌ PDF only + schema gap | PDMP regulamento — PDF only. Porto introduces "moda da cércea" — the cércea value with greatest linear extension along the urban front — a fabric-derived height rule that cannot be expressed by any existing C58 §2.2 GeometricRule kind. A C58 `fabricDerivedHeight` amendment is required before any moda-da-cércea zone can be packed, regardless of data availability. | 0 — PDF-only + engine blocker |
-| Setback / alignment (afastamentos / recuos) | ❌ PDF only | PDMP regulamento — PDF only. No values sourced. Alignment-governed vs. setback-governed distinction NOT determined for any Porto PDM category (ADR-0270). | 0 |
-| Building footprint + height (EXISTING, LOD1/2) | ⚠️ partial | BGE (INE, CC-BY-4.0): national building footprints; VERIFIED-LEAD, not probed. DGT LiDAR PRR 2024–25: nDSM height derivable; VERIFIED-LEAD, not probed. No Porto-specific municipal LOD2/3 dataset identified (unlike Lisbon's CML model). | VERIFIED-LEAD |
-| Terrain (DTM/DSM) | ⚠️ partial | DGT LiDAR PRR 2024–25, DTM 50 cm + DSM 2 m; open; ~90% continental; `cdd.dgterritorio.gov.pt`; VERIFIED-LEAD, not probed | VERIFIED-LEAD |
-| Heritage overlay | ⚠️ partial | DGPC Atlas (`patrimoniocultural.gov.pt`): ZGP/ZEP/ZNA layers; VERIFIED-LEAD. Porto Historic Centre (Ribeira/Barredo) is a UNESCO World Heritage Site with a DGPC ZEP overlay — extent and any ZNA sub-zones not sourced. | VERIFIED-LEAD — UNESCO ZEP extent unconfirmed |
+## Dossier index (C63 §5)
 
----
+This `RATE.md` is the composite master; the siblings FEED it (naming: `../../../_TEMPLATE/NAMING-CONVENTION.md`).
 
-## The structural gap
-
-Porto's fill-rate limitation has the same two layers as the national position — PDF-only numeric
-values and unconfirmed parcel geometry — plus a Porto-specific third:
-
-**Layers 1 & 2 (shared with national):** Numeric planning values are PDF-only in the PDMP
-regulamento; parcel geometry is unconfirmed because Porto is north of the Tagus and likely outside
-the CGPR rural-focused cadastral coverage. No structured source for the fill-rate triplet (zone +
-density + height) has been confirmed for any Porto parcel.
-
-**Layer 3 — moda da cércea requires a new engine rule kind.** Porto's PDMP defines height through
-"moda da cércea" — the cércea value with the greatest linear extension along a given urban front.
-This is a **numeric but context-derived rule**: it is not a fixed table value, it is derived by
-surveying the existing built fabric of the street. It sits between Barcelona's fixed
-amplada-de-vial table and Germany's §34 "fits the character" discretion. No existing C58 §2.2
-GeometricRule kind can express it. A `fabricDerivedHeight` kind must be added to C58 by ADR — this
-is an engine change, not a data-sourcing step. Until the ADR is approved and implemented, Porto
-moda-da-cércea zones cannot be packed at all, regardless of how well the data layer is sourced.
-
-Additionally, the Porto Historic Centre (Ribeira/Barredo) UNESCO World Heritage ZEP overlay layers
-on top of whichever PDM categoria applies underneath. The ZEP spatial extent and any ZNA (non-
-aedificandi) sub-zones have not been sourced.
-
----
-
-## What would raise the rate
-
-| Action | Rate impact | Effort |
+| File | About | Feeds axis |
 |---|---|---|
-| Confirm Porto cadastral regime (DICOFRE 1315) via DGT SNIC | Gate-unlocking — no parcel pipeline can start | ~0.25 dev-days |
-| Run SNIT WFS probe for Porto zone layer | Confirms whether zona category is a queryable structured attribute | ~0.5 dev-days |
-| Read PDMP Art. 11 from Aviso n.º 12773/2021: confirm índice de edificação formula + source numeric values per categoria | First Porto-specific verified values; partial unblock for non-moda-da-cércea zones | ~1–2 dev-days |
-| Draft and approve C58 `fabricDerivedHeight` GeometricRule kind amendment | Unblocks ALL moda-da-cércea zones in Porto (and any future jurisdiction using fabric-derived height) | ~1 dev-day (ADR + schema); then pack authoring |
-| Probe DGPC Atlas live: download Porto Historic Centre ZEP polygon + ZNA sub-zones | Heritage overlay for UNESCO area; surface zoning risk for Ribeira/Barredo | ~0.5 dev-days |
-| Build/reuse OCR pipeline + L-449 gate for PDMP PDF extraction | Required to serve any extracted value at `confidence: structured` | High — shared with PT national |
+| **`RATE.md`** (this) | 7-axis composite completion scorecard | — |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (was legacy `RATE.md`; renamed L-649) | LEGISLATION |
+| [`ENVELOPE.md`](./ENVELOPE.md) | buildable-envelope solver status | ENVELOPE |
+| [`HEIGHT.md`](./HEIGHT.md) | building-height provenance status | HEIGHTS/LOD |
+| [`README.md`](./README.md) | what governs here · instrument chain · open questions | all |
+| [`NEXT.md`](./NEXT.md) | where we stopped · blockers · resume steps | all |
+| [`RISK-REGISTER.md`](./RISK-REGISTER.md) | honesty guardrails | — |
+| [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | phased climb to 100 % | all |
+| `sources/` | per-field citations + human sign-off (L-449 gate) | LEGISLATION · ENVELOPE |
 
 ---
-
-*Last updated: 2026-07-24. Legal structure characterised at country level; no Porto-specific live
-probe run; PDMP text not read; cadastral regime unconfirmed. Moda da cércea documented; C58
-`fabricDerivedHeight` amendment required before moda-da-cércea zones can be packed.
-Maintainer: UNASSIGNED.*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Scaffolded under audit L-649 Phase-1.*

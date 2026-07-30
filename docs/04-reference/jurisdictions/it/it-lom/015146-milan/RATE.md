@@ -1,87 +1,51 @@
-# Data Readiness Rate — Milan (`015146`)
+# City RATE — master completion scorecard — Milano (it-lom, 015146)
 
-**Headline rate: ~5%**
+<!-- generated-by: MANUAL C63-Phase-1-AUDIT 2026-07-30 — scorecard function not yet shipped (C63 §8); the CHEAP axes (DATA-SOURCES · TERRAIN · CONTEXT) are cited-derived per C63 §8.1, every other axis is not-assessed with a typed C62 reason. NO cell is a fabricated number. -->
 
-> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
-> return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
-> BYA / BRA / %-utilisation] + height**) **without reading an ordinance text/PDF**. This definition
-> is IDENTICAL across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany /
-> France …) so the scores are directly comparable. Derived from direct endpoint/schema checks, not
-> assumed from the jurisdiction's open-data reputation.
+**Overall completion (assessed subset): `51%` · `partial: true`** — renormalised over the ASSESSED
+axes only (DATA-SOURCES · TERRAIN · CONTEXT); the missing axes (PARCEL · LEGISLATION · ENVELOPE ·
+HEIGHTS/LOD) are honestly `not-assessed`, not 0 % (C63 §1.2/§1.5). **`honestyOk: true`** (no fabricated
+value; every unknown typed).
 
-| Jurisdiction | Rate |
-|---|---|
-| Denmark | ~96% |
-| Madrid | ~68% |
-| Saudi (national) | ~55% |
-| Barcelona | ~48% |
-| Norway (national) | ~32% |
-| Germany (national) | ~28% |
-| France (national) | ~22% |
-| Italy (national) | ~9–11% |
-| Turin | ~12% (contingent) |
-| **Milan** | **~5%** |
-| Rome | ~5% |
+> **Weighting** `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4). Assessed subset here =
+> DATA-SOURCES (15) + TERRAIN (10) + CONTEXT (5) = 30; overall = (0.50·15 + 0.50·10 + 0.556·5) / 30 = **51 %**.
 
-Milan's 5% reflects three compounding problems: (1) the Catasto WFS provides parcel geometry but
-not zoning data; (2) there is no zone-letter key for the dominant TUC mechanism — the operative
-question is parcel-and-ledger, not zone-and-table; (3) the perequation ledger (which parcels have
-already transacted rights) is not evidently exposed as queryable GIS. The only data that is
-structurally queryable today is the national floor (DM 1444 ceiling — useless as an operative
-value) and SITAP/Vincoli in Rete heritage overlays (informational only).
+## The 7 axes (C63 §3 — fixed definitions)
 
----
+| # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
+|---|---|---:|---|---|---|---|
+| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | A national cadastre WFS EXISTS and was verified-live — Agenzia delle Entrate INSPIRE `wfs.cartografia.agenziaentrate.gov.it/inspire/wfs/owfs01.php` (CC-BY-4.0; **VERIFIED-LIVE 2026-07-24** for Milano, Belfiore `F205`; `LEGISLATION-RATE.md` field table). BUT it is **not wired** into `parcelProviders/registry.ts` (no `isInItaly`), and no `computeParcelConfidence` sample has been drawn (C57 §2.4). Not survey-grade. |
+| 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | No rule pack for Milano (`rulepacks/registry.ts` is ES-only); no clau audit; no signed `sources/VERIFICATION.md`. The PGT dominant **TUC** mechanism has **no zone-letter key** (the operative question is parcel-and-ledger, not zone-and-table), and the **perequation ledger** (which parcels have transacted rights) is not evidently queryable GIS → legacy structured-fill ≈ **~5 %** (`LEGISLATION-RATE.md`). Inventing values is forbidden (§CONTEXT-DATA-HONESTY). |
+| 3 | **DATA-SOURCES** | 15 % | **50%** | `not-checked` | — | 5-slot checklist: cadastre-parcel **documented** (Agenzia Entrate INSPIRE WFS verified-live but NOT wired → 0.5, not `live`) · regional-zone-GIS **none** (no wired Lombardy/PGT zone-GIS) · building-height nDSM **none** (`heightSources.mjs` REGION_SOURCE `milan` = `piedmont_it` **status `no-source`** — Lombardy layer unconfirmed) · terrain DEM **live** (`terrain.mjs` `it` = TINITALY/01 INGV national 10 m, keyless HTTP 200, covers Milan) · context-OSM **live** (`bake.mjs` REGIONS `milan`). Mean = (0.5+0+0+1.0+1.0)/5 = **0.50**. |
+| 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | No buildable-envelope rule pack registered (`rulepacks/registry.ts` ES-only); solver coverage unmeasured (C58). Milan's TUC/perequation model needs a ledger-aware envelope, not a zone-table pack. |
+| 5 | **TERRAIN** | 10 % | **50%** | `not-checked` | — | Terrain bake row present: `terrain.mjs` cities `milan` (`source:'it'` = TINITALY/01 DEM, INGV, national 10 m bare-earth, CC-BY-4.0, keyless, verdict `keyless`/LIVE 2026-07-25). Rung **50 = baked-but-unverified** — no `terrain.verify.mjs` round-trip nor deployed `layer.json` 200 independently re-probed in this audit. (Milan is on the flat Po plain — low relief, but the drape is still real terrain.) |
+| 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | No measured height baked; context buildings render OSM/assumed (9 m). Milan is a **structural no-source**: `heightSources.mjs` REGION_SOURCE `milan` status `no-source` ("Lombardy building-height layer unconfirmed"); the only real Italian building-height layer is ARPA Piemonte (Turin only). No provenance histogram probed. |
+| 7 | **CONTEXT** | 5 % | **56%** | `not-checked` | — | Inside the `milan` city-clip bake (`bake.mjs` REGIONS `milan`, bbox `9.10,45.40,9.28,45.55`). Long-shipped layers: buildings · roads · water · parks · landuse (**5/9**). rail + trees are config-added (`bake.mjs` LAYERS, L-642) but not yet re-baked → excluded (honest 0). pedestrian: not a baked layer. sea: inland (Po plain / Navigli canals) — no coastline in bbox. Score 5/9 = **56 %**. |
 
-## Field-by-field breakdown
+## §CONTEXT-DATA-HONESTY note
 
-| Field | Structured? | Source | Score |
-|---|---|---|---|
-| Parcel geometry (Catasto) | ✅ Full (with caveat) | Agenzia delle Entrate WFS `https://wfs.cartografia.agenziaentrate.gov.it/inspire/wfs/owfs01.php` — CC BY 4.0. **✅ VERIFIED-LIVE 2026-07-24** for Milan (ISTAT code F205). Not survey-grade. | **~90%** (nationwide; precision caveat; URL confirmed) |
-| Heritage overlay (SITAP/APAR) | ⚠️ Informational | APAR/SITAP — re-engineered with genuine OGC WMS/WFS (confirmed in documentation). **Unreachable from Replit 2026-07-24** — public access requires probe from non-cloud IP. Informational only; acknowledged incomplete. Milan contains many listed assets (Duomo zone, Liberty buildings). | **~35%** (Milan centro storico density likely high; SITAP incompleteness applies; public WFS access unconfirmed) |
-| Heritage overlay (Vincoli in Rete) | ⚠️ Informational | Same caveat as SITAP. | **~30%** |
-| **PGT zone identification (Piano delle Regole)** | ❌ Not confirmed | Lombardy Geoportale hosts PGT archive; Lombardy Geoportale GeoServer WFS paths return 404 or page-not-found HTML — **no WFS access path confirmed**. PGT portal `pgt.comune.milano.it` has tavole but as map service only. | **~10%** (unconfirmed WFS; research-level only) |
-| **TUC territorial index (base: 0.35 mq/mq)** | ❌ PDF (NTA) | In Piano delle Regole NTA — confirmed at research level but not live-sourced. Single citywide figure — but the perequation adjustment is parcel-and-ledger, not structurally queryable. | **~0%** (figure known at research level; operative value requires ledger lookup) |
-| **TUC ceiling (0.70 mq/mq via perequation)** | ❌ PDF + ledger | Achievable only through transferable rights, bonuses, and social-housing quota — requires the perequation ledger, which is not confirmed as publicly queryable GIS. | **~0%** |
-| **Perequation ledger** | ❌ Not found | Which Milan parcels have already transacted rights (and for what volume) is the critical operative unknown. Not confirmed as publicly queryable. | **~0%** |
-| **ERS zone rules** | ❌ PDF | ERS (*Edilizia Residenziale Sociale*) zones are explicitly excluded from the TUC unified index; they follow a separate rule set from the PGT NTA. | **~0%** |
-| DM 1444 Art. 7–8 density ceilings | ✅ Published ceiling | National published upper bounds only — **not operative for Milan**, which has superseded the DM 1444 zone-letter mechanism entirely for TUC parcels. | **100% (ceiling; not an operative value for any Milan TUC parcel)** |
-| Existing building heights | ❌ Unconfirmed | Lombardy building-height GIS layer not confirmed. Milan's own SIT may carry building data; regional aggregation unknown. PST/SIM is terrain only. OpenBuildingMap provides a modeled national estimate (~40–50%) but must be flagged as modeled. | **~0% (surveyed); ~40–50% (modeled — lower confidence tier)** |
-| Regolamento Edilizio-Tipo (RET) setbacks | ❌ Not read | Lombardy RET governs setbacks in Milan; multipliers and minimums not yet read. | **~0%** |
+DOES: baked OSM context (5/9 layers) + TINITALY national terrain (rung-50 unverified) + points at a
+verified-live national Catasto WFS. REFUSES: an envelope (no rule pack), a parcel (Catasto not wired,
+no sample), a measured height (Lombardy no-source) — never a borrowed/invented number. UNKNOWN (typed):
+PARCEL (`not-queried`), LEGISLATION + ENVELOPE (`pending-implementation`), HEIGHTS (`not-queried`).
+`honestyOk: true`.
 
----
+## Dossier index (C63 §5)
 
-## Why Milan requires a new engine kind
+This `RATE.md` is the composite master; the siblings FEED it (naming: `../../../_TEMPLATE/NAMING-CONVENTION.md`).
 
-The TUC territorial-index mechanism is the most structurally surprising finding in the Italy study.
-The dominant operative mechanism for Milan's built-up area is:
-
-1. **Not a zone table** — there is no list of zones with associated GRZ/GFZ-equivalent values.
-2. **A single citywide index** (0.35 mq/mq base) applied to every TUC parcel via its
-   *lotto funzionale* (functional lot construct).
-3. **A cap-and-trade overlay** for the ceiling (0.70 mq/mq) that depends on the parcel's
-   transacted perequation rights — a ledger that may not be publicly queryable.
-
-This is not "different numbers in the same schema" — it is a different schema entirely. The closest
-analogue from other cities studied is Paris's reference-surface-plus-gabarit finding (structurally
-new, not a config change), except here the rights-trading layer adds a data-access problem that
-Paris does not have.
-
----
-
-## What would raise the rate
-
-| Action | Rate impact | Effort |
+| File | About | Feeds axis |
 |---|---|---|
-| Live-probe Lombardy Geoportale WFS for PGT Piano delle Regole zone polygon per parcel | Determines whether zone identification is an API call (raises to ~15%) or requires PDF navigation (~5%); previous probe returned 404 — try workspace-specific paths | Low |
-| Read PGT Piano delle Regole NTA — extract TUC mechanism articles, ERS zone rules, and agricultural rules | Confirms the 0.35/0.70 mq/mq figures as primary-source; scopes ERS and agricultural carve-outs | Medium |
-| Sourcing check: is the perequation ledger exposed as queryable GIS (Milan SIT, PGT portal, commercial)? | If yes: Milan may be computable for TUC parcels without perequation burden; if no: TUC ceiling answers require administrative lookup | Medium |
-| Check Lombardy Geoportale for 3D/Edifici layer (building heights) | Fills context-height gap for Milan | Low |
-
-**Realistic ceiling:**
-- If PGT Piano delle Regole WFS is queryable + NTA read + perequation ledger unavailable: **~15–20%** (zone + base index only; ceiling answer = "requires ledger lookup")
-- If perequation ledger is publicly queryable: **~25–35%** (full TUC envelope computable)
-- Without perequation ledger: TUC ceiling answer is always a reasoned partial (base confirmed; ceiling requires further lookup)
+| **`RATE.md`** (this) | 7-axis composite completion scorecard | — |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (was legacy `RATE.md`; renamed L-649) | LEGISLATION |
+| [`ENVELOPE.md`](./ENVELOPE.md) | buildable-envelope solver status | ENVELOPE |
+| [`HEIGHT.md`](./HEIGHT.md) | building-height provenance status | HEIGHTS/LOD |
+| [`README.md`](./README.md) | what governs here · instrument chain · open questions | all |
+| [`NEXT.md`](./NEXT.md) | where we stopped · blockers · resume steps | all |
+| [`RISK-REGISTER.md`](./RISK-REGISTER.md) | honesty guardrails | — |
+| [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | phased climb to 100 % | all |
+| `sources/` | per-field citations + human sign-off (L-449 gate) | LEGISLATION · ENVELOPE |
 
 ---
-
-*Last updated: 2026-07-24. Catasto WFS VERIFIED LIVE for Milan (ISTAT F205) 2026-07-24; Lombardy PGT WFS endpoint not confirmed; all PGT rule-value rows research-level only. Maintainer: UNASSIGNED.*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Scaffolded under audit L-649 Phase-1.*
