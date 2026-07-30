@@ -79,6 +79,14 @@ export function computeFarLimitedHeight(input: FarLimitedHeightInput): FarLimite
     ) {
         return NO_BIND;
     }
+    // ⚠ L-449 TODO — THE FAR DENOMINATOR IS CHOSEN HERE, and it is HARDWIRED to the PARCEL area.
+    // This is correct only when the FAR is a genuine per-parcel ratio. Denmark's bebyggelsesprocent
+    // has a legally-variable denominator scope (parcel / property / planning-area — BR18 §168–186);
+    // a whole-area value is NOT a per-lot allowance. The engine is jurisdiction-agnostic (C58 §1.5),
+    // so it cannot branch on DK scope: the DK pack (`rulepacks/dkPlandataEnvelope.ts`) instead
+    // WITHHOLDS `plotRatioFAR` (emits null) for any non-parcel scope, so only a parcel-scoped FAR
+    // ever reaches this line. If a future `densityScope` parameter is threaded through the engine,
+    // property scope would denominate by property area and planning-area would refuse here.
     const maxGFA = maxFAR * parcelAreaM2;
     const floorsByFAR = maxGFA / footprintAreaM2;
     const floorHeightAssumed = !(typeof maxFloors === 'number' && maxFloors > 0);

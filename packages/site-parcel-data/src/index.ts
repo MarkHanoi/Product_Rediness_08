@@ -459,6 +459,21 @@ export {
     // STRUCTURAL-SEAM-4 — the DK transient (source did not answer) refusal, distinct from no-plan.
     dkPlandataUnreachableRefusal,
 } from './rulepacks/dkPlandataRefusal.js';
+// ── L-449 SIGNED — the DK Plandata → buildable-envelope rule pack (BR18 §168–186 signed mapping;
+//    FAR = bebyggelsesprocent/100 with the density-scope caveat honoured). ──
+export {
+    DK_PLANDATA_JURISDICTION_ID,
+    DK_PLANDATA_FIELD,
+    DK_PLANDATA_DEFAULT_ZONE_CODE,
+    DK_BR18_ENVELOPE_REF,
+    parseDkDensityScope,
+    resolveDkPlanEnvelope,
+    dkPlandataResolvedPack,
+    type DkDensityScope,
+    type DkPlanFields,
+    type DkPlanEnvelopeResolution,
+    type DkFarWithheldReason,
+} from './rulepacks/dkPlandataEnvelope.js';
 export { isInDenmark, DENMARK_BBOX } from './providers/denmarkBbox.js';
 // ── ADR-0271 — Barcelona metropolitan jurisdiction gate (bbox). ──
 export { isInBarcelona, BARCELONA_BBOX } from './providers/barcelonaBbox.js';
@@ -808,3 +823,18 @@ export {
     isInSaudiArabia, SAUDI_ARABIA_BBOX,
     type CountryBbox,
 } from './parcelProviders/countryBbox.js';
+// ── L-449 (Denmark, deferred-data half) — the Denmark (Matriklen) parcel provider on the canonical
+//    interface, a DEFERRED STUB (returns null → OSM fallback) until a Datafordeler admin bootstrap
+//    exists (MitID-gated, same class as SE BankID). The live adapter is a single method-body swap. ──
+export {
+    dkMatrikelParcelProvider,
+    fetchParcelAtPoint as dkMatrikelFetchParcelAtPoint,
+    DK_MATRIKEL_PROVIDER_ID,
+    DK_MATRIKEL_PROVIDER_LABEL,
+    DK_MATRIKEL_PARCEL_PROXY_PATH,
+    type CadastralParcel,
+    type LonLat,
+    type ParcelHttpFetch,
+    type ParcelHttpResponse,
+    type DkMatrikelProviderDeps,
+} from './parcelProviders/dkMatrikelParcelProvider.js';
