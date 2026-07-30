@@ -2,7 +2,28 @@
 
 **Current rate:** ~34% (see [`RATE.md`](./RATE.md)) · **Realistic ceiling:** ~55% ·
 **Gap to ceiling:** ~21 pts · **Gap to Denmark (~96%):** ~62 pts ·
-**Last updated:** 2026-07-24 · **Owner:** UNASSIGNED
+**Last updated:** 2026-07-30 · **Owner:** UNASSIGNED
+
+> **⚠ HONESTY GATE (§CONTEXT-DATA-HONESTY).** This is a PLAN. It changes **no RATE % cell** — the
+> national number stays ~34% and every [`COUNTRY-RATE.md`](./COUNTRY-RATE.md) axis cell stays exactly
+> where the C63 audit set it until each phase below actually lands and the scorecard is re-derived.
+> Spain is the **reference country** (VERIFIED-PRIMARY: Barcelona ships on this stack), so — unlike the
+> PT/DE/IT/US aspirational plans — the sources here are real and mostly wired. But "already wired for
+> Barcelona" is **not** "re-probed for the next city": every geospatial row is
+> **`VERIFIED-PRIMARY · captured, re-probe before prod`** (see
+> [`ES-GEOSPATIAL-DATA-INVENTORY.md`](./ES-GEOSPATIAL-DATA-INVENTORY.md)). **Ship the probe before the
+> fix.** The Phase-3 roadmap (§Phase-3) is the ROI sequence; the "Rate: from→to" cells in §2 are the
+> plan's own honest *estimates* of the jump, not claims a jump has landed.
+
+> **Why Spain leads the rollout: it is the most-wired country.** Where PT's ceiling *rose* on a
+> **discovery** (the DGT platform, all `CONVERGENT-SECONDARY`), Spain's advantage is that the
+> geospatial half is **already real and partly baked**: Catastro parcels + footprints are the
+> production zoning spine, **MDS Edificación** gives a national building-height raster (the edge no
+> other country has), and **PNOA** terrain + ortho + LiDAR are open and national. So Spain's roadmap
+> is not "discover + probe" — it is **"bake + verify + extend the pilot,"** which is why the
+> highest-leverage first move (§Phase A) is a *re-bake*, not a sourcing hunt. Full source catalogue:
+> [`ES-GEOSPATIAL-DATA-INVENTORY.md`](./ES-GEOSPATIAL-DATA-INVENTORY.md); per-layer analysis:
+> [`findings/SPAIN-CONTEXT-DATA-DEEP-DIVE-L512.md`](./findings/SPAIN-CONTEXT-DATA-DEEP-DIVE-L512.md).
 
 ---
 
@@ -25,6 +46,29 @@ answers for the shape-B long tail — but **not** the parcel-level heights that 
 vectorisation, and **not** the ~15% of the country whose PGOUs are pre-digital scans behind heritage
 regimes. The number climbs one region and one city at a time; it does not jump.
 
+### 1.4 — The geospatial half is VERIFIED-PRIMARY (what raises Spain fastest)
+
+The ~55% ceiling above is set by the **LEGISLATION + ENVELOPE** PDF cap (45% of the C63 weight). But
+the *fastest* movement available today is on the **geospatial half** (55% of the weight), because for
+Spain those axes are not blocked — they are real, open, and partly baked. Mapping the deep-dive onto
+the seven C63 axes and their ratified weights (C63 §4):
+
+| C63 axis | Weight | Spain state (VERIFIED-PRIMARY, captured) | Phase |
+|---|---:|---|---|
+| **DATA-SOURCES** | 15% | **Highest-wired in the set** — Catastro + MDS Edif + PNOA terrain live; `heightSources.mjs` already maps ES cities to `mds_edificacion` | A/B |
+| **HEIGHTS / LOD** | 10% | **measured-capable** — MDS Edificación ready-bbox; Barcelona baked, other capitals `(cap)` unbaked | **A** |
+| **PARCEL** | 15% | Tier-A country (Catastro national geom+id+area); sample-runs not yet drawn per city (foral cities need the adapter) | **B** |
+| **TERRAIN** | 10% | PNOA MDT baked for pilots; needs per-city bake + `terrain.verify.mjs` round-trip | **B** |
+| **CONTEXT** | 5% | ~5/9 layers baked; rail + trees + pedestrian are the L-642 additions still absent | B (trail) |
+| **LEGISLATION** | 25% | PDF-bound; the surviving cap (§1/§3) — Barcelona clau packs the only depth | **C** |
+| **ENVELOPE** | 20% | Barcelona 13a envelope SHIPPED; every other city `not-assessed` | **C** |
+
+The five geospatial axes are **fillable now** (bake + verify + extend), so the ROI sequence front-loads
+them: **A** (heights re-bake, cheapest + flagship) → **B** (parcel + terrain verify) → **C** (the
+human-gated rule-pack expansion that is the real ceiling). This is **CONTINGENT on the re-probes in
+[`ES-GEOSPATIAL-DATA-INVENTORY.md` §Probe steps](./ES-GEOSPATIAL-DATA-INVENTORY.md)** landing; **no RATE
+cell moves until a phase lands and the scorecard is re-derived.**
+
 ---
 
 ## 2 — Phase tracker
@@ -42,6 +86,91 @@ it has landed. ⚠ Status tracks WORK; the rate only moves when RATE.md is re-de
 | **3** | Tier-1 region zone→number transcription (Cataluña / Madrid / Valencia most-common zones), L-449-gated | structured density+height for ~42% of the SEED-318 tier | +~10% → ~47% | High (human, per-region) | NOT STARTED | UNASSIGNED |
 | **4** | Ordinance-extraction (OCR) pipeline for shape-B cities (clean scanned PGOU → values → sign-off) | partial numeric answers for the long-tail municipalities (Córdoba is the proof case) | +~6% → ~53% | High | **IN PROGRESS** (Córdoba pilot extracted, unverified) | UNASSIGNED |
 | **5** | PNOA LiDAR nDSM (heights) — licence-gated | measured building height replacing coarse floor-count | +~2% → ~55% (ceiling) | Med–High; **BLOCKED on L-584 V2 licence** | BLOCKED | UNASSIGNED |
+
+---
+
+## Phase-3 — Geospatial ROI roadmap (NEW, 2026-07-30)
+
+The reference-country ROI decomposes into three ordered phases keyed to how wired Spain already is.
+**A** is the flagship heights re-bake (the cheapest, highest-leverage win — a bake, not a sourcing
+hunt); **B** verifies the parcel + terrain axes on the already-wired feeds; **C** is the human-gated
+rule-pack expansion that is Spain's surviving ceiling. Each phase lists **goal · unlocks · axis ·
+effort · dependency · blocker**. Every row is `VERIFIED-PRIMARY · captured` until the named re-probe
+runs — the queue lives in
+[`ES-GEOSPATIAL-DATA-INVENTORY.md` §Probe steps](./ES-GEOSPATIAL-DATA-INVENTORY.md). **No RATE cell
+moves on this section — it is the PLAN.**
+
+### Phase A — Barcelona MDS re-bake (the flagship heights fix) — start HERE
+
+- **Goal.** Re-bake the metro-capital context PMTiles through the **MDS Edificación join** so building
+  heights flip from **estimated** (OSM 9 m assumed / Catastro `ALTURAS`×3 m derived-levels) →
+  **measured** (`mdsn_e025` P90, `tagged`) → **solid** (real skyline). Concretely: extend the ready
+  per-city bboxes in `tools/context-bake/heightSources.mjs` MDS join to the remaining metro capitals
+  and re-bake. **Barcelona's bbox is already in the ready list** (`'2.05,41.32,2.24,41.47'`,
+  `barcelona → mds_edificacion`, baked + shipping) — the other capitals are mapped in `REGION_SOURCE`
+  but their per-city bbox bake rows are **not yet added**, so they render honest-9 m today (the
+  `(cap)` = "measured-capable but unbaked" flag in [`COUNTRY-RATE.md`](./COUNTRY-RATE.md)).
+- **Unlocks.** A **HEIGHTS / LOD jump** (Axis 6) — every ready-bbox city flips from `not-assessed`/
+  `derived-levels` to `tagged` measured heights the moment its bake lands. This is the single cheapest
+  axis gain in the whole ES plan (`heightSources.mjs` already holds the wiring; the whole-country
+  `spain` bbox is refused per-tile, so the work is per-city bbox rows, not new sourcing).
+- **Axis.** HEIGHTS / LOD (Axis 6) — with a DATA-SOURCES (Axis 3) knock-on as more cities read `live`.
+- **Effort.** **Low.** No new sourcing. Add the metro-capital bboxes (Madrid, Valencia, Sevilla,
+  Málaga, Zaragoza, Bilbao…) to the MDS join ready-list + re-bake per city (~1 bake/city). MDS is a
+  keyless CC-BY WCS already live-verified 2026-07-26.
+- **Dependency.** The shared nDSM/height module (already built for Barcelona); `spain-latest.osm.pbf`
+  (already covers every metro bbox); the MDS Edificación WCS re-probe (§Probe step 3).
+- **Blocker.** None hard. The whole-country `spain` bbox cannot be baked in one pass (Catastro has no
+  single whole-country query) — heights land **per city bbox**, so this is a widening loop, not one
+  shot. Foral cities (País Vasco / Navarra) still need the parcel adapter for the *parcel* axis, but
+  **heights are unaffected** (MDS is national and foral-agnostic).
+
+### Phase B — Parcel sample-runs + terrain verify
+
+- **Goal.** Draw the C57 **parcel-confidence sample** per metro city over the wired Catastro feed
+  (`computeParcelConfidence` / `computeParcelMetrics` on an N-parcel bbox sample) so PARCEL flips from
+  `not-assessed` to a cited-derived score; and **bake + verify** the PNOA MDT terrain tileset per city
+  (`terrain.verify.mjs` independent-decoder round-trip) so TERRAIN moves off the unverified rung.
+- **Unlocks.** **PARCEL (Axis 1) + TERRAIN (Axis 5)** — both on already-wired national feeds (Catastro
+  parcels, PNOA MDT). Spain is a Tier-A parcel country, so the sample should score high on the common
+  regime (foral cities score low until the adapter lands — an honest cap, not a bug).
+- **Axis.** PARCEL (Axis 1) · TERRAIN (Axis 5) · CONTEXT (Axis 7, trailing — rail/trees/pedestrian are
+  the L-642 bake additions).
+- **Effort.** **Low–Medium.** Parcel sample is a script run per city (no sourcing). Terrain is one
+  `REGIONS` row + a bake + the verify round-trip per city.
+- **Dependency.** Phase A tooling (per-city bake loop) reused; the Catastro INSPIRE WFS re-probe
+  (§Probe step 2, native `EPSG::25830/25831` to dodge the 4326 axis-order exception); the foral
+  cadastre adapter for País Vasco / Navarra cities (parcel only).
+- **Blocker.** Foral cadastres (`CatastroEus` / `CatastroNav`) are **not** served by the national DGC
+  WFS — 16 SEED municipalities' PARCEL axis stays capped until the adapter exists (already logged for
+  zoning; solve once). The high-relief white-mask terrain defect (L-636) must not regress on re-bake.
+
+### Phase C — Envelope rule-pack expansion (the human-gated ceiling)
+
+- **Goal.** Extend the proven Barcelona pattern — the **per-clau rule pack + block-derived construction
+  envelope + refusal vocabulary**, all behind the **L-449 human-verification gate** — from Barcelona
+  (whose **13a envelope SHIPPED**) to Madrid and the other capitals: source each city's MUC/PGOM zone
+  ordinances, transcribe zone→number, author the pack, and pass every value through L-449 before it
+  serves at `confidence: structured`.
+- **Unlocks.** **LEGISLATION (Axis 2) + ENVELOPE (Axis 4)** — the two axes that are 45% of the C63
+  weight and Spain's **surviving cap**. The geospatial phases (A/B) do **not** touch these; only sourced,
+  cited, human-verified ordinance values raise them.
+- **Axis.** LEGISLATION (Axis 2) · ENVELOPE (Axis 4).
+- **Effort.** **High** — this is the "whole cost": human-gated legal **SOURCING**, per municipality.
+  Bounded by the two facts the Barcelona measurements proved: OCR of the derived-planning corpus yields
+  a sector FAR but **~0% parcel-level height** (height is on un-OCR-able plànol block-labels, L-590h),
+  and delivery is per-municipality (~8,131 separate ingestion problems, not one). Reusable machinery:
+  the `dissolveParcelsToBlockRing` + street-width from Barcelona, the `explicit-area` ringRef resolver
+  from Madrid NZ 1, and the Córdoba ordinance-extraction pipeline (shared ES/FR/PT/UK OCR investment).
+- **Dependency.** L-449 (mandatory gate before any extracted number serves `structured`); ADR-0269
+  (curate-then-serve — no value without a cited governing article in `SOURCES.md`); ADR-0271
+  (Barcelona's block-derived depth construction); the `dissolveParcelsToBlockRing` geometry stage,
+  which succeeds Barcelona 2/2 but **Madrid 2/4 · Córdoba 0/3** — the dissolve fix is sequenced
+  *before* rule work outside Barcelona (`SPAIN-CADASTRAL-DISSOLVE-PROBE.md`).
+- **Blocker.** **The MUC/PGOM ordinance-sourcing cap is human-gated and per-municipality** — no
+  national structured planning field exists (the zone CODE is served, the dimensional NUMBER never
+  was). This is the same cap as §1/§3; it does not jump, it climbs city-by-city. Parcel-level heights
+  need plànol vectorisation (out of scope for OCR).
 
 ---
 
@@ -87,5 +216,12 @@ Licence-gating (c) applies only to the height layer (PNOA LiDAR, L-584 V2), not 
 ---
 
 *Model references: **Denmark** `../dk/` (ceiling, ~96%) · **Barcelona**
-`./es-ct/08019-barcelona/` (pilot climb). Governing: **C58** (fidelity/provenance),
-**ADR-0269** (curate-then-serve), **L-449** (human-verification gate).*
+`./es-ct/08019-barcelona/` (pilot climb) · **Portugal** `../pt/RATE-IMPLEMENTATION-PLAN.md` (the
+Phase-3 A/B/C shape this mirrors). Governing: **C58** (fidelity/provenance), **ADR-0269**
+(curate-then-serve), **L-449** (human-verification gate), **C63 §3/§4** (the seven axes + ratified
+weighting). Data layer: [`ES-GEOSPATIAL-DATA-INVENTORY.md`](./ES-GEOSPATIAL-DATA-INVENTORY.md)
+(21-row national inventory, all `VERIFIED-PRIMARY · captured`) ·
+[`findings/SPAIN-CONTEXT-DATA-DEEP-DIVE-L512.md`](./findings/SPAIN-CONTEXT-DATA-DEEP-DIVE-L512.md)
+(per-layer hierarchies + 3-tier badging matrix) · [`COUNTRY-RATE.md`](./COUNTRY-RATE.md) (per-city
+composite) · [`RATE.md`](./RATE.md) (national structured-fill). Spain = reference country
+(VERIFIED-PRIMARY, Barcelona ships) — but re-probe before prod; no RATE cell moves on this PLAN.*
