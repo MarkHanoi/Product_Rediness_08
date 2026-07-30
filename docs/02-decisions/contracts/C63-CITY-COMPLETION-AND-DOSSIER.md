@@ -283,3 +283,27 @@ review-discipline gate. Mirrors the C58 §1.4 fidelity-label gate + the L-647 `c
 - **FOUNDER DECISION:** whether `derived-levels` earns partial HEIGHTS/LOD credit (§3 Axis 6).
 - **Sequencing:** DATA-SOURCES + TERRAIN + CONTEXT axes are cheap first computes (state already inspectable);
   PARCEL + HEIGHTS/LOD need a sampling run; LEGISLATION + ENVELOPE need the per-clau audit + the L-449 gate.
+
+### §8.1 — Extension L-649: "master RATE" naming + tracker template + audit→map→plan (OPEN DECISION)
+
+Founder 2026-07-30 (audit **L-649**) asked for a "master RATE file per city and per country + a master RATE
+tracker under template, with sections cross-referencing the individual files," executed as **audit → map → plan**.
+This EXTENDS this contract; it also surfaces a **naming/role tension that is a FOUNDER DECISION, not resolved here**:
+
+- The founder's **"master RATE"** = the composite 7-axis face — which §5 named **`COMPLETION.md`**.
+- This contract's **`RATE.md`** is the NARROWER structured legislation/data-fill metric (the C58 standard) that
+  FEEDS the LEGISLATION axis. So two artefacts are colloquially called "RATE".
+
+**Decision required (pick one):**
+- **Option A (recommended, least churn):** keep §5 names — `COMPLETION.md` stays the composite master face,
+  "master RATE" is its spoken alias, `RATE.md` stays the legislation sub-metric. No file renames.
+- **Option B (literal to the ask):** rename `COMPLETION.md`→`RATE.md` as the composite master and the current
+  legislation `RATE.md`→`LEGISLATION-RATE.md`. Requires editing §5, the `_TEMPLATE/_CITY/` + country templates,
+  the four shipped Catalan dossiers, and every L-449 / C58 reference.
+
+**Sequenced after the decision (L-649):** (1) add `_TEMPLATE/MASTER-COMPLETION-TRACKER.md` (a copyable face of the
+global `master-execution-tracker.md §CITY-COMPLETION` matrix) + explicit INDEX cross-ref sections on the composite
+master face and the country roll-up (each dossier file listed with its one-line purpose + the axis it feeds);
+(2) **Phase 1 AUDIT** every tackled country+city cell-by-cell WITH CITED DERIVATION (honest ahead of the automated
+scorecard function because each cell cites the state it read, never a guess — §1.1); (3) **Phase 2 MAP** into the
+dossiers + roll-ups + global matrix; (4) **Phase 3 PLAN** a per-axis, per-city plan to drive each section → 100 %.

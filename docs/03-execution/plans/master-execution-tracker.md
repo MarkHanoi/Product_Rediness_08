@@ -4832,3 +4832,15 @@ axes move only with the founder-signed legal work.
 **Per-city dossier + next-step index:** each Dossier link in §CC.1 is the city's evidence container
 (C63 §5); its `NEXT.md` holds the resume steps + TRIP-WIRES, its `COMPLETION.md` (once created) is the
 scorecard face. FOUNDER DECISION pending: ratify/re-weight `CITY_COMPLETION_WEIGHTS` (C63 §4).
+
+### §CC.4 — L-649: master-RATE structure + audit→map→plan (EXTENDS C63)
+
+Audit **L-649** (C63 §8.1). **BLOCKED on a founder NAMING DECISION** (Option A keep `COMPLETION.md` master +
+`RATE.md` legislation sub-metric [recommended]; Option B rename to `RATE.md` master + `LEGISLATION-RATE.md`).
+**Dependency:** parent L-648 (scorecard contract); the L-649 STRUCTURE work (tracker template + index sections)
+can proceed once naming is set, and the L-649 **AUDIT phase can run manually/agent-inspected NOW** — ahead of the
+L-648 automated scorecard function — provided every cell cites the state it read (C63 §1.1). Order after decision:
+(1) `_TEMPLATE/MASTER-COMPLETION-TRACKER.md` + INDEX cross-ref sections on the master face + country roll-up;
+(2) **Phase 1 AUDIT** all countries+cities (cheap axes first, cited derivation); (3) **Phase 2 MAP** into dossiers +
+roll-ups + the §CC.1 matrix above; (4) **Phase 3 PLAN** per-axis, per-city L-items to drive each section → 100 %.
+OWNER: UNASSIGNED · TARGET: TBD (gated on naming decision).
