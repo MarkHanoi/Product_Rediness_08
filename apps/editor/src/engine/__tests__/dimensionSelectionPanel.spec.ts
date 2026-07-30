@@ -13,7 +13,7 @@
 // Docs: docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md L-173; C03 / DOC-2.x /
 //       ADR-0119. Root vitest (happy-dom) — apps/editor/src/engine/__tests__/**.
 
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import type { AnnotationElement } from '@pryzm/plugin-annotations';
 import {
     openDimensionPropertiesOnSelect,
@@ -51,8 +51,8 @@ function makeLinearDim(id = 'annotation_DIM1', overrides: Partial<AnnotationElem
 // ── 1. Selection → panel wiring ─────────────────────────────────────────────────
 
 describe('openDimensionPropertiesOnSelect (L-173 selection wiring)', () => {
-    function makePanel(): DimensionPanelLike & { showLinearDimension: ReturnType<typeof vi.fn> } {
-        return { showLinearDimension: vi.fn() };
+    function makePanel(): DimensionPanelLike & { showLinearDimension: Mock<(ann: AnnotationElement, selectedWallId?: string) => void> } {
+        return { showLinearDimension: vi.fn<(ann: AnnotationElement, selectedWallId?: string) => void>() };
     }
 
     it('opens the Properties Panel for a plan-view dimension pick (annotationId)', () => {
@@ -175,10 +175,10 @@ describe('deleteSelectedDimension (L-173 keyboard-delete seam, P6)', () => {
         bim?: boolean;
         selectedId?: string | null;
         store?: Map<string, AnnotationElement>;
-        del?: ReturnType<typeof vi.fn>;
+        del?: Mock<(annotationId: string) => void>;
     } = {}) {
         const store = over.store ?? new Map<string, AnnotationElement>();
-        const del = over.del ?? vi.fn();
+        const del = over.del ?? vi.fn<(annotationId: string) => void>();
         return {
             del,
             deps: {

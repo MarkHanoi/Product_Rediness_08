@@ -164,7 +164,12 @@ export async function convertPDFPage1ToImage(file: File): Promise<PDFConversionR
     canvas.height = scaledViewport.height;
     const ctx = canvas.getContext('2d')!;
 
-    await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+    // pdfjs-dist v5 RenderParameters requires the `canvas` field; passing
+    // `canvas: null` selects the backwards-compatible path that renders into the
+    // exact `canvasContext` we already created (see api.js:
+    // `_canvasContext = params.canvas ? null : params.canvasContext`), so the
+    // rendered output is byte-for-byte identical to the pre-v5 call.
+    await page.render({ canvas: null, canvasContext: ctx, viewport: scaledViewport }).promise;
 
     // ── Export as JPEG (full colour) ──────────────────────────────────────────
     // Grayscale conversion removed (Phase A): colour preserved so Claude can
