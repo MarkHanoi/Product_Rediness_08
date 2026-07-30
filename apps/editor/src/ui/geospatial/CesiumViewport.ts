@@ -496,6 +496,25 @@ const FORMA_SEA_MASK_CACHE = new Map<string, Array<Array<readonly [number, numbe
 const CONTEXT_NEAR_RENDER_RADIUS_M = CONTEXT_BBOX_HALF_DEG * 111_320;      // ~890 m (near bbox on-axis)
 const CONTEXT_FAR_RENDER_RADIUS_M = CONTEXT_BBOX_FAR_HALF_DEG * 111_320;   // ~1225 m (far bbox on-axis)
 /**
+ * §CTX-EARTH-SLAB (L-645, founder-decided) — the round "cut slab of earth" radius. ONE SOURCE OF TRUTH
+ * = the L-642 far render radius, so the disc of KEPT ground is exactly the far tier's extent: the city
+ * you can see is the city that stays, and everything beyond is CUT (founder: slab shape = DISC, outside
+ * the slab = CUT EVERYTHING → sea + far terrain all stop at the disc edge, a clean floating site model).
+ */
+const CONTEXT_SLAB_RADIUS_M = CONTEXT_FAR_RENDER_RADIUS_M;                 // ~1225 m (== the far tier disc)
+/**
+ * §CTX-EARTH-SLAB (L-645) — how far the slab's cut-section SKIRT drops below the cut-edge ground, so the
+ * disc reads as a SOLID block of earth (a thick slab with a visible side wall) rather than a paper-thin
+ * cut-out floating in space. Purely visual (the skirt is decorative geometry — no model/layout impact).
+ */
+const CONTEXT_SLAB_SKIRT_DEPTH_M = 60;
+/**
+ * §CTX-EARTH-SLAB (L-645) — disc tessellation: points sampled on the slab circle for the clip polygon +
+ * the skirt ring. 64 keeps the cut edge visually round at a 3D-Site zoom without a heavy clip polygon
+ * (founder DESIGN: 48–64 points).
+ */
+const CONTEXT_SLAB_RING_SEGMENTS = 64;
+/**
  * §FORMA-CTX-WIDE-EXTENT (L-642, founder 2026-07-29 — "the grey should cover all urban areas out of
  * the circle" → "not all the urban areas are greyed") — the CHEAP land-use drape is fetched + drawn
  * over a MUCH wider extent than the buildings so the whole visible city reads as coloured ground, not
@@ -1228,6 +1247,13 @@ export class CesiumViewport {
   private contextFarTierState:
     | { features: readonly ContextBuildingFeature[]; lat: number; lon: number }
     | null = null;
+  /** §CTX-EARTH-SLAB (L-645) — the "cut slab of earth": the globe is clipped to a DISC at the L-642
+   *  far radius (`scene.globe.clippingPolygons`, `inverse:true` → only the disc kept). These entities
+   *  are the cut-section SKIRT wall + bottom cap that make the disc read as a solid slab. `contextSlabAt`
+   *  is the origin the slab is built around, so the terrain-settle re-seat can rebuild it in place
+   *  (mirrors the far-tier lifecycle). Forma-only; cleared with the context on parcel-clear / dispose. */
+  private contextSlabSkirtEntities: Cesium.Entity[] = [];
+  private contextSlabAt: { lat: number; lon: number } | null = null;
   /** §FORMA-CTX-PARKS — OSM park / green-space polygons (visual-only context). */
   private contextParkEntities: Cesium.Entity[] = [];
   private contextParkAbort: AbortController | null = null;
@@ -6242,6 +6268,10 @@ export class CesiumViewport {
       // relief instead of sitting ~700 m under it. Cheap (bounded count), no re-fetch — same in-place
       // principle as the near-ring re-seat above.
       this.rebuildContextFarTierForBase();
+      // §CTX-EARTH-SLAB (L-645) — the cut-section skirt is seated on the sampled cut-edge relief too,
+      // so rebuild it on the risen base (re-samples the ring + rebuilds the wall). The globe clip is
+      // height-independent; re-applying keeps the add/remove symmetry. No-op when no slab is drawn.
+      this.rebuildContextEarthSlabForBase();
     }
   }
 
@@ -7696,6 +7726,14 @@ export class CesiumViewport {
     const farSplit = this.plotClearSplit(far.features, parcelLonLat);
     this.renderContextFarTierInstanced([...farSplit.kept, ...demotedToFar], lat, lon, viewer);
 
+    // §CTX-EARTH-SLAB (L-645) — cut the round slab of earth on the SAME funnel as the L-642 bounded
+    // context: the terrain base is already resolved here (ensureGroundBaseForContext was awaited above),
+    // so the globe can be clipped to the far-radius disc and the cut-section skirt sampled + built. The
+    // skirt's terrain sample is awaited INSIDE applyContextEarthSlab (never a stale base); a Cesium
+    // lacking clippingPolygons — or any clip failure — degrades to the FULL terrain (§CONTEXT-DATA-
+    // HONESTY). Forma-only + guarded; rebuilds on the terrain settle, clears with the context.
+    this.applyContextEarthSlab(lat, lon);
+
     // §CTX-USE-COLOUR (L-599) — if the use MODE is on, colour the freshly-placed set (and refresh
     // the legend counts, which describe THIS scene). No-op when the mode is off.
     this.refreshContextUseColouringAfterLoad();
@@ -8236,6 +8274,215 @@ export class CesiumViewport {
   }
 
   /**
+   * §CTX-EARTH-SLAB (L-645) — the "cut slab of earth": a round DISC of terrain at the L-642 far radius
+   * with EVERYTHING OUTSIDE it cut away (founder DESIGN: slab shape = DISC, outside = CUT EVERYTHING →
+   * a clean floating site model — sea, far city + terrain all stop at the disc edge), plus a base SKIRT
+   * (the cut-section side wall) so the disc reads as a solid slab, not a paper cut-out.
+   *
+   * TWO mechanisms, in order:
+   *   1. GLOBE CLIP — `scene.globe.clippingPolygons` with ONE disc polygon + `inverse:true` keeps ONLY
+   *      the disc; the surrounding terrain/sea vanishes for free. Cesium 1.111+
+   *      (`ClippingPolygonCollection`, we ship 1.140); FEATURE-DETECTED + try/catch that NULLS the clip
+   *      on any failure so a Cesium lacking it — or any clip error — leaves the FULL terrain
+   *      (§CONTEXT-DATA-HONESTY: a failed clip degrades to full terrain, never a black globe or a
+   *      fabricated cut). Mirrors §PLOT-CLEAR-PHOTOREAL's feature-detect + silent-degrade.
+   *   2. SKIRT — a Wall entity around the disc ring: top = terrain sampled along the ring, bottom = a
+   *      flat floor SKIRT_DEPTH below the cut edge, + a bottom cap so the slab reads solid. Built ONLY
+   *      when the clip actually applied (a skirt with no clip would be a wall standing in open terrain
+   *      = a fabricated cut) and only AFTER the ring terrain sample resolves (never against a stale
+   *      `formaTerrainBaseHeight`, the L-635/L-639 sequencing).
+   *
+   * Forma-only: on the photoreal globe the Google 3D tiles carry the ground, so clipping the globe
+   * would gouge terrain UNDER the tiles for no gain — that path is left exactly as it was. Runs on the
+   * SAME funnel as the L-642 bounded context (loadContextBuildings), rebuilds on terrain settle, and is
+   * cleared with the context (parcel-clear / project switch / dispose). Never throws.
+   */
+  private applyContextEarthSlab(lat: number, lon: number): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
+    // Forma-only (see doc): the photoreal path keeps its tiles untouched.
+    if (!this.formaMode || this.photorealTilesActive) return;
+    try {
+      // Feature-detect ClippingPolygon (Cesium 1.111+). Absent → NO clip forms, so the slab never
+      // forms → do NOT draw a skirt (that would be a fabricated cut); the FULL terrain remains.
+      const CP = (Cesium as unknown as { ClippingPolygon?: unknown; ClippingPolygonCollection?: unknown });
+      if (typeof CP.ClippingPolygon !== 'function' || typeof CP.ClippingPolygonCollection !== 'function') {
+        console.warn('[CesiumViewport][forma] §CTX-EARTH-SLAB — ClippingPolygon unavailable in this Cesium build; full terrain left un-clipped (no slab).');
+        this.clearContextEarthSlab();
+        return;
+      }
+      // Disc ring in the site ENU frame (§CTX-ABS-SEAT bridge): 64 points on a circle of the L-642 far
+      // radius → world Cartesian3, reused for BOTH the clip polygon and the skirt ring lon/lat.
+      const enu = Cesium.Transforms.eastNorthUpToFixedFrame(Cesium.Cartesian3.fromDegrees(lon, lat, 0));
+      const ringPositions: Cesium.Cartesian3[] = [];
+      const ringCartos: Cesium.Cartographic[] = [];
+      for (let i = 0; i < CONTEXT_SLAB_RING_SEGMENTS; i++) {
+        const t = (i / CONTEXT_SLAB_RING_SEGMENTS) * Math.PI * 2;
+        const east = Math.cos(t) * CONTEXT_SLAB_RADIUS_M;
+        const north = Math.sin(t) * CONTEXT_SLAB_RADIUS_M;
+        // up=0: a ring on the ellipsoid. The clip polygon is a vertical curtain (height-independent);
+        // the skirt reseats each vertex to its own sampled terrain height below.
+        const p = this.enuToCartesian(enu, east, north, 0);
+        const carto = Cesium.Cartographic.fromCartesian(p);
+        if (!carto) continue;
+        ringPositions.push(p);
+        ringCartos.push(carto);
+      }
+      if (ringPositions.length < 3) { this.clearContextEarthSlab(); return; }
+      // 1) GLOBE CLIP — keep ONLY the disc (inverse:true). Replaces any existing clip (idempotent
+      //    rebuild). Any failure is caught below and NULLS the clip → full terrain.
+      const polygon = new Cesium.ClippingPolygon({ positions: ringPositions });
+      viewer.scene.globe.clippingPolygons = new Cesium.ClippingPolygonCollection({ polygons: [polygon], inverse: true });
+      this.contextSlabAt = { lat, lon };
+      viewer.scene.requestRender();
+      console.log(
+        `[CesiumViewport][forma] §CTX-EARTH-SLAB (L-645) — globe clipped to a ${Math.round(CONTEXT_SLAB_RADIUS_M)} m ` +
+          `DISC (inverse: only the disc kept — sea + far terrain cut at the edge). Building the cut-section skirt…`,
+      );
+      // 2) SKIRT — needs the terrain sampled along the ring; build async AFTER the sample. Only reached
+      //    because the clip applied, so the skirt always accompanies a real cut (never a fabricated one).
+      void this.buildContextSlabSkirt(lat, lon, ringCartos, viewer);
+    } catch (e) {
+      // §CONTEXT-DATA-HONESTY — a clip failure must NEVER leave a black globe or a partial cut. Drop the
+      // clip + skirt → the FULL terrain is restored, exactly as if the slab had never been attempted.
+      console.warn('[CesiumViewport][forma] §CTX-EARTH-SLAB failed — full terrain restored (no slab):', e);
+      this.clearContextEarthSlab();
+    }
+  }
+
+  /**
+   * §CTX-EARTH-SLAB (L-645) — build the cut-section SKIRT + bottom cap. Samples the terrain along the
+   * disc ring (`sampleTerrainMostDetailed`, the SAME provider call the centroid seat uses at
+   * frameSiteLocationOnResolvedGround) so the skirt TOP follows the real relief at the cut edge, and
+   * sets the skirt BOTTOM a flat SKIRT_DEPTH below the LOWEST cut-edge ground (so the wall fully
+   * encloses the relief above it). ⚠ Awaits the sample before building — never against a stale
+   * `formaTerrainBaseHeight` (L-635/L-639). Flat/keyless city (no provider) or a sample failure → a
+   * flat slab at the settled centroid ground, honest, never a stale 0. Replaces any existing skirt.
+   * Never throws.
+   */
+  private async buildContextSlabSkirt(
+    lat: number, lon: number,
+    ringCartos: readonly Cesium.Cartographic[],
+    viewer: Cesium.Viewer,
+  ): Promise<void> {
+    try {
+      // Settled centroid ground (ensureGroundBaseForContext resolved it before this load's render).
+      const groundBase = this.resolveContextSafeBase(lat, lon);
+      // Terrain heights along the ring — the cut-edge relief. On a flat/keyless city or a sample
+      // failure each stays at the settled centroid ground (a flat slab), never a stale 0.
+      const topHeights: number[] = ringCartos.map(() => groundBase);
+      const provider = viewer.terrainProvider as Cesium.TerrainProvider | undefined;
+      if (provider && this.terrainProviderHasElevationData(provider)) {
+        try {
+          const samples = await Cesium.sampleTerrainMostDetailed(provider, ringCartos.map((c) => c.clone()));
+          for (let i = 0; i < samples.length; i++) {
+            const h = samples[i]?.height;
+            if (typeof h === 'number' && Number.isFinite(h)) topHeights[i] = h;
+          }
+        } catch { /* keep the flat centroid ground — never a stale 0 */ }
+      }
+      // A concurrent load / origin change / dispose may have superseded us while sampling; bail without
+      // touching the scene (mirrors the far-tier at-guard) so we never draw a skirt at a stale origin.
+      if (!this.viewer || this.viewer !== viewer) return;
+      if (!this.contextSlabAt
+          || Math.abs(this.contextSlabAt.lat - lat) > 1e-9
+          || Math.abs(this.contextSlabAt.lon - lon) > 1e-9) return;
+
+      this.clearContextSlabSkirt();
+      // Floor of the slab: SKIRT_DEPTH below the LOWEST cut-edge ground, so the skirt fully spans the
+      // relief above it (no gap where a high edge would otherwise float above a shallow floor).
+      let minTop = Infinity;
+      for (const h of topHeights) if (h < minTop) minTop = h;
+      if (!Number.isFinite(minTop)) minTop = groundBase;
+      const slabFloor = minTop - CONTEXT_SLAB_SKIRT_DEPTH_M;
+      // Wall = a closed loop (repeat the first vertex); top on the sampled relief, bottom on the floor.
+      const wallPositions: Cesium.Cartesian3[] = [];
+      const maximumHeights: number[] = [];
+      const minimumHeights: number[] = [];
+      for (let i = 0; i <= ringCartos.length; i++) {
+        const c = ringCartos[i % ringCartos.length];
+        wallPositions.push(Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, 0));
+        maximumHeights.push(topHeights[i % ringCartos.length]);
+        minimumHeights.push(slabFloor);
+      }
+      const sideMat = Cesium.Color.fromCssColorString(FORMA_PALETTE.ground);
+      const wallEnt = viewer.entities.add({
+        name: 'pryzm-forma-context-slab-skirt',
+        wall: {
+          positions: wallPositions,
+          maximumHeights,
+          minimumHeights,
+          material: sideMat,
+          outline: false,
+        },
+      });
+      this.contextSlabSkirtEntities.push(wallEnt);
+      // Bottom cap so the slab reads SOLID from below (a flat disc floor at slabFloor).
+      const capPositions = ringCartos.map((c) => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, slabFloor));
+      const capEnt = viewer.entities.add({
+        name: 'pryzm-forma-context-slab-cap',
+        polygon: {
+          hierarchy: new Cesium.PolygonHierarchy(capPositions),
+          perPositionHeight: true,
+          material: Cesium.Color.fromCssColorString(FORMA_PALETTE.rural),
+          outline: false,
+        },
+      });
+      this.contextSlabSkirtEntities.push(capEnt);
+      viewer.scene.requestRender();
+      console.log(
+        `[CesiumViewport][forma] §CTX-EARTH-SLAB (L-645) — cut-section skirt: ${ringCartos.length}-segment wall ` +
+          `(top on real relief, floor ${slabFloor.toFixed(1)} m = ${CONTEXT_SLAB_SKIRT_DEPTH_M} m below the cut edge) + bottom cap.`,
+      );
+    } catch (e) {
+      // The clip is already applied (the disc is cut); only the decorative skirt failed — leave the cut.
+      console.warn('[CesiumViewport][forma] §CTX-EARTH-SLAB skirt build failed — clip kept, no skirt:', e);
+    }
+  }
+
+  /**
+   * §CTX-EARTH-SLAB (L-645) — rebuild the slab (clip + skirt) on the settled terrain base, from the
+   * terrain-settle in-place re-seat (mirrors {@link rebuildContextFarTierForBase}). The clip polygon is
+   * height-independent so it need not move, but re-applying is cheap and keeps the add/remove symmetry;
+   * the skirt DOES need the risen ground, so re-applying re-samples + rebuilds it. No-op when no slab is
+   * drawn. Never throws (applyContextEarthSlab is fully guarded).
+   */
+  private rebuildContextEarthSlabForBase(): void {
+    const at = this.contextSlabAt;
+    if (!at || !this.viewer) return;
+    this.applyContextEarthSlab(at.lat, at.lon);
+  }
+
+  /**
+   * §CTX-EARTH-SLAB (L-645) — remove the slab: RESTORE THE FULL globe terrain (null the clip) and drop
+   * the skirt. Idempotent. This is the honest-degradation target — after this the terrain is whole
+   * again, exactly as a Cesium lacking `clippingPolygons` (or any clip failure) leaves it.
+   */
+  public clearContextEarthSlab(): void {
+    const viewer = this.viewer;
+    if (viewer?.scene?.globe) {
+      try {
+        if (viewer.scene.globe.clippingPolygons) {
+          viewer.scene.globe.clippingPolygons = undefined as unknown as Cesium.ClippingPolygonCollection;
+          viewer.scene.requestRender();
+        }
+      } catch { /* leave the globe as-is; never throw out of a clear */ }
+    }
+    this.clearContextSlabSkirt();
+    this.contextSlabAt = null;
+  }
+
+  /** §CTX-EARTH-SLAB (L-645) — remove just the skirt + cap entities (idempotent). */
+  private clearContextSlabSkirt(): void {
+    const viewer = this.viewer;
+    if (viewer) for (const ent of this.contextSlabSkirtEntities) {
+      try { viewer.entities.remove(ent); } catch { /* gone */ }
+    }
+    this.contextSlabSkirtEntities = [];
+  }
+
+  /**
    * §A.21.D-GLOBE (2026-06-05) — refresh context buildings as the camera PANS so
    * they don't render only in one fixed square around the site origin and then
    * vanish when the user moves (founder-reported "buildings stop showing as I move").
@@ -8299,6 +8546,11 @@ export class CesiumViewport {
     // a re-load / project switch.
     this.clearContextFarTier();
     this.contextFarTierState = null;
+    // §CTX-EARTH-SLAB (L-645) — the earth slab (globe clip + cut-section skirt) belongs to THIS context,
+    // so tear it down with the buildings: restore the FULL globe terrain + drop the skirt (the add/remove
+    // symmetry the far tier already has). On a re-load the slab is re-applied after the far tier renders;
+    // on parcel-clear / project switch / photoreal-swap / dispose the terrain is left whole.
+    this.clearContextEarthSlab();
     // §PLOT-CLEAR-ENVELOPE (L-418) — the entity refs are gone, so drop their footprint
     // pairings too (they are repopulated on the next placement).
     this.contextBuildingPlacements = [];
