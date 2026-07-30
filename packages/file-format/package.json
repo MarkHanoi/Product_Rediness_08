@@ -41,7 +41,7 @@
     "@pryzm/geometry-wall": "workspace:*",
     "@pryzm/room-topology": "workspace:*",
     "@thatopen/components": "^3.4.2",
-    "jspdf": "^2.5.2",
+    "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "pdfjs-dist": "^4.4.168",
     "svg2pdf.js": "^2.2.3",
