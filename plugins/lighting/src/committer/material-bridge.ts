@@ -14,8 +14,12 @@ function parseColor(token: string | undefined): string {
   if (/^[0-9a-fA-F]{6}$/.test(token)) return `#${token}`;
   // tuple form "1,1,1" → multiply 255
   if (token.includes(',')) {
-    const [r, g, b] = token.split(',').map((v) => Math.max(0, Math.min(1, Number(v) || 0)));
-    const c = new THREE.Color(r, g, b);
+    // Under noUncheckedIndexedAccess each channel is `number | undefined`;
+    // default missing channels to 0 (consistent with the `Number(v) || 0`
+    // fallback above) so THREE.Color always receives numbers. For a well-formed
+    // "r,g,b" tuple every channel is present, so this is a no-op at runtime.
+    const rgb = token.split(',').map((v) => Math.max(0, Math.min(1, Number(v) || 0)));
+    const c = new THREE.Color(rgb[0] ?? 0, rgb[1] ?? 0, rgb[2] ?? 0);
     return `#${c.getHexString()}`;
   }
   return FALLBACK_COLOR;

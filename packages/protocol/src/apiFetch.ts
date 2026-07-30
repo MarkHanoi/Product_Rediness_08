@@ -40,7 +40,9 @@ export function getCurrentUserId(): string | null {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     try {
-        let b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        // `parts.length === 3` guarantees parts[1] exists; the `?? ''` only
+        // satisfies noUncheckedIndexedAccess and is a no-op at runtime.
+        let b64 = (parts[1] ?? '').replace(/-/g, '+').replace(/_/g, '/');
         const pad = b64.length % 4;
         if (pad) b64 += '='.repeat(4 - pad);
         const json = atob(b64);

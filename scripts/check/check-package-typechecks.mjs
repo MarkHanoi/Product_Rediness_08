@@ -73,7 +73,7 @@ const KNOWN_FAILING = Object.fromEntries(
     'packages/geometry-slab', 'packages/geometry-stair', 'packages/geometry-wall',
     'packages/geometry-window', 'packages/headless', 'packages/input-host',
     'packages/persistence-client', 'packages/physics-host', 'packages/picking',
-    'packages/plugin-sdk', 'packages/protocol', 'packages/render-runtime',
+    'packages/plugin-sdk', 'packages/render-runtime',
     'packages/renderer', 'packages/room-topology', 'packages/runtime-composer',
     'packages/scene-committer', 'packages/snapping', 'packages/spatial-index',
     'packages/speculative-engine', 'packages/types-builtin',
