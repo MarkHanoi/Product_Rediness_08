@@ -1,5 +1,11 @@
 # Dammam (`dmm`, DMM, Eastern Province SA-04, Saudi Arabia) — what is true now
 
+> **Dossier note (C63 naming, L-649/L-650).** This dossier's master scorecard face is now
+> [`RATE.md`](./RATE.md) — the 7-axis composite completion rate (**research-only / NOT bake-covered** →
+> all axes `not-assessed`, no scorecard computed). The legislation/data-fill rate was renamed
+> `RATE.md` → [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and now FEEDS it as Axis 2 (see
+> [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
+
 **Level:** municipality (demo scaffold) · **ISO/statistical id:** `sa-04` region · `dmm` municipality
 (UN/LOCODE `SA DMM` — see §municipal-code-choice) · **Pack id (= folder identity):** `sa-dmm-dammam`
 **Last updated:** 2026-07-24 · **Maintainer:** UNASSIGNED · **Status:** SCAFFOLD — national footprint
@@ -56,7 +62,7 @@ denominator is the widest of the three cities.**
 
 ## 5 — Files in this folder
 - `NEXT.md` — where we stopped, blockers, TRIP-WIRES, resume steps.
-- `RATE.md` — the readiness rate for Dammam (~55% = national; no heritage or density carve-out — the cleanest).
+- `LEGISLATION-RATE.md` — the legislation/data-fill readiness rate for Dammam (~55% = national; no heritage or density carve-out — the cleanest).
 - `RATE-IMPLEMENTATION-PLAN.md` — the phased climb (Phase 1 reuses the footprint pack, widest denominator;
   Phases 2–3 BLOCKED on the geo-fence).
 - `sources/SOURCES.md` — per-field citations (national footprint + the Dammam-local Amana).
@@ -79,4 +85,4 @@ pack is Dammam-city scoped, DMM being the metro's principal UN/LOCODE.)
 
 **Related:** [`../../README.md`](../../README.md) (country umbrella) · [`../../NEXT.md`](../../NEXT.md) ·
 [`../../findings/SAUDI-MASTER-DATA-SOURCE-STUDY.md`](../../findings/SAUDI-MASTER-DATA-SOURCE-STUDY.md) §D.3 ·
-[`../README.md`](../README.md) (region index) · `sources/SOURCES.md` · `NEXT.md` · `RATE.md`.
+[`../README.md`](../README.md) (region index) · `sources/SOURCES.md` · `NEXT.md` · `RATE.md` (composite) · `LEGISLATION-RATE.md`.

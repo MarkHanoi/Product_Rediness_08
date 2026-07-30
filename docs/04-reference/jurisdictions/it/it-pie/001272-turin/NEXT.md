@@ -122,7 +122,7 @@ as the Piedmont mosaic probe (B2) — both can be run in one 0.5-day session.
   from "ASSUMED" to "CONFIRMED"; update dev-day estimate to ~10–15; begin build plan. Port BauNVO
   zone-letter reader concept to DM 1444 mc/mq metric (same abstraction, different units).
 - **4.2 — If NTA reveals a bespoke mechanism** → Turin becomes Tier 2. Update `README.md §1`,
-  RATE.md, and all estimates. Re-scope as a new engine kind. Update the country-level `README.md §5`
+  LEGISLATION-RATE.md, and all estimates. Re-scope as a new engine kind. Update the country-level `README.md §5`
   tier assignment.
 - **4.3 — If the Piedmont PRG mosaic WFS is confirmed current for Turin** → zone identification is
   an API call. The mosaic endpoint + field schema should be shared with any other Piedmont city

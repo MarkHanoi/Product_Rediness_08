@@ -1,5 +1,11 @@
 # Chicago (1714000, Illinois, USA) — what is true now
 
+> **Dossier note (C63 naming, L-649/L-650).** This dossier's master scorecard face is now
+> [`RATE.md`](./RATE.md) — the 7-axis composite completion rate (**research-only / NOT bake-covered** →
+> all axes `not-assessed`, no scorecard computed). The legislation/data-fill rate was renamed
+> `RATE.md` → [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and now FEEDS it as Axis 2 (see
+> [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
+
 **Level:** municipality · **ISO/statistical id:** `us-il` state · `1714000` place FIPS (state 17 + place 14000) · **Pack id:** `us-il-1714000-chicago`
 **Last updated:** 2026-07-24 · **Maintainer:** UNASSIGNED · **Status:** SCAFFOLD
 
@@ -45,7 +51,7 @@ Chicago's zoning rules are applied at the **parcel level** via the Chicago Zonin
 ## 5 — Files in this folder
 
 - `NEXT.md` — where we stopped, blockers, TRIP-WIRES, resume steps.
-- `RATE.md` — city-level data readiness rate.
+- `LEGISLATION-RATE.md` — city-level legislation/data-fill readiness rate.
 - `RATE-IMPLEMENTATION-PLAN.md` — phased plan from 0% to ceiling.
 - `sources/SOURCES.md` — per-field citations (the trust gate).
 - `sources/VERIFICATION.md` — the human sign-off.

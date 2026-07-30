@@ -1,5 +1,11 @@
 # Hamburg (`02000`) — Jurisdiction Pack
 
+> **Dossier note (C63 naming, L-649/L-650).** This dossier's master scorecard face is now
+> [`RATE.md`](./RATE.md) — the 7-axis composite completion rate (**research-only / NOT bake-covered** →
+> all axes `not-assessed`, no scorecard computed). The legislation/data-fill rate was renamed
+> `RATE.md` → [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and now FEEDS it as Axis 2 (see
+> [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
+
 **Country:** `de` · **Land:** Hamburg (city-state) · **ISO 3166-2:** `DE-HH` · **AGS:** `02000000` ·
 **Pack id:** `de-02000-hamburg` ·
 **Governing instrument:** Bebauungsplan (B-Plan) per BauGB §30 — fully digitised in XPlanung (1,900 plans + 900 pre-1960 plans); no modern §34 gap documented ·

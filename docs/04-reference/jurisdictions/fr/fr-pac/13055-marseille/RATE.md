@@ -1,106 +1,59 @@
-# Data Readiness Rate — Marseille / AMP Territoire 1 (`13055`) city
+# City RATE — master completion scorecard — Marseille (fr-pac, 13055)
 
-**Headline rate: ~18%**
+<!-- generated-by: MANUAL C63 dossier normalization 2026-07-30 (L-649/L-650 Phase-0) — RESEARCH-ONLY
+     city, NOT bake-covered. The scorecard function has NOT run and its cheap axes (DATA-SOURCES ·
+     TERRAIN · CONTEXT) are NOT computable here (no bake REGION, no terrain row). EVERY axis is
+     `not-assessed` with a typed C62 reason. NO cell is a fabricated number (§CONTEXT-DATA-HONESTY). -->
 
-> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
-> return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
-> %-utilisation] + height**) **without reading an ordinance text/PDF**. This definition is IDENTICAL
-> across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany / France …) so
-> the scores are directly comparable. Derived from direct endpoint/schema checks, not assumed from
-> Marseille's open-data infrastructure.
+**Overall completion: `not-assessed`** — this is a **research-only dossier, NOT bake-covered** (C63 §1.7):
+no `bake.mjs` REGION, no `terrain.mjs` row, no wired city height source, no rule pack → the cheap axes
+(DATA-SOURCES · TERRAIN · CONTEXT) are **not computable**, and no scorecard has run. `partial: true`.
+**`honestyOk: true`** (renders no fabricated value; every axis is a typed `not-assessed`). Logged in the
+country roll-up [`COUNTRY-RATE.md`](../../COUNTRY-RATE.md) **§B** (research-only / NOT bake-covered this
+pass). The legislation detail (the legacy structured-fill prior) lives in
+[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and FEEDS Axis 2.
 
-| Jurisdiction | Rate |
-|---|---|
-| Denmark | ~96% |
-| Madrid | ~68% |
-| Saudi (national) | ~55% |
-| Barcelona | ~48% |
-| Lyon Métropole | ~42% |
-| Paris | ~35% |
-| Norway (national) | ~32% |
-| Germany (national) | ~28% |
-| France (national) | ~22% |
-| **Marseille / AMP T1** | **~18%** |
+> **Weighting** `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4). With zero axes assessed,
+> overall is honestly `not-assessed`, not 0 % (C63 §1.2/§1.5).
 
-Marseille is the **lowest-rated city** in this study. It sits below the national average (~22%)
-despite having excellent GPU WFS zone coverage because the PLUi Territoire 1 establishes a
-**graphic-primacy rule** — the règlement graphique (the drawing) overrides the règlement écrit
-(the text) for height. The authoritative source for height on most Marseille parcels is not a
-table or a GIS attribute but a zoning plan drawing, creating a structural barrier equivalent to
-the Barcelona Pla Parcial height wall.
+## The 7 axes (C63 §3 — fixed definitions)
 
----
+| # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
+|---|---|---:|---|---|---|---|
+| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | France IS wired cadastral nationally — `parcelProviders/registry.ts` `isInFrance`→`ign-fr` (IGN PARCELLAIRE-EXPRESS WFS, keyless, live). But no `computeParcelConfidence` sample was drawn for Marseille (C57 §2.4). |
+| 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | Legacy structured-fill prior only — see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (graphic-primacy PLU). No rule pack (`rulepacks/registry.ts` is ES/DK/NL/SA-only), no signed `sources/VERIFICATION.md`, no clau-inventory scorecard run. |
+| 3 | **DATA-SOURCES** | 15 % | `not-assessed` | `not-checked` | `outside-coverage` | Not bake-covered: no `bake.mjs` REGION (only `paris` + `lyon` for France), no `terrain.mjs` row, no wired city height `REGION_SOURCE` key. The national FR cadastre (`ign-fr`) is live but is the only feed — the 5-slot checklist is not computable. |
+| 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | No buildable-envelope rule pack registered (`rulepacks/registry.ts`); solver coverage unmeasured (C58). |
+| 5 | **TERRAIN** | 10 % | `not-assessed` | `not-checked` | `outside-coverage` | No `terrain.mjs` TERRAIN_CITY row for Marseille → no baked quantized-mesh to verify. |
+| 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | `heightSources.mjs` has only `paris`/`lyon` (`bdtopo`) for France — no `marseille` REGION_SOURCE key. No provenance histogram probed. |
+| 7 | **CONTEXT** | 5 % | `not-assessed` | `not-checked` | `outside-coverage` | Not inside any `bake.mjs` REGION bbox → no baked context layers to probe. |
 
-## Field-by-field breakdown
+## §CONTEXT-DATA-HONESTY note
 
-| Field | Structured? | Source | Score |
-|---|---|---|---|
-| Parcel geometry | ✅ Full | IGN PCI Express — `apicarto.ign.fr/api/cadastre` | ~100% |
-| Zone code | ✅ Full | GPU WFS (`data.geopf.fr/wfs?...&apikey=gpu`) VERIFIED LIVE 2026-07-23 — returns `libelle` (e.g. "UAe4", "UEc2", "UEsN1"), `libelong` (description), `typezone` | ~100% |
-| Zone description | ✅ Full | GPU `libelong` field — e.g. "Centre-ville de Marseille en évolution" for UAe4 | ~100% |
-| FAR / COS | ✅ N/A — definitively abolished | Abolished — loi ALUR 2014. Definitively "n/a" for every Marseille parcel. | 100% (N/A is the correct answer) |
-| Règlement PDF link | ✅ Full | GPU `urlfic` field — direct PDF URL with page anchor: `https://plui.ampmetropole.fr/assets/documents/PLUi_CT1_L_Reglement.pdf#page=N`. VERIFIED LIVE 2026-07-23 (UAe4 → p.80, UEc2 → p.248, UQG → p.328, UEsN1 → p.274). | ~100% (link to PDF; not a numeric rule) |
-| Max height | ❌ Graphic-primary | PLUi Territoire 1 règlement states explicitly: *"le règlement graphique prime sur le règlement écrit des zones."* GPU `zone_urba` schema has no height attributes (schema confirmed 2026-07-23). Height is on the graphic plan — a drawing. `sig.ampmetropole.fr` graphic layer machine-readability NOT YET CONFIRMED. | ~0–5% |
-| Ground coverage (`emprise au sol`) | ❌ PDF | Règlement écrit — not in GPU WFS schema. | ~0% |
-| Setback rules | ❌ PDF | Règlement écrit. | ~0% |
-| Euroméditerranée OIN (Article 29) | ❌ Not yet confirmed | OIN Euroméditerranée (EPAEM) has derogating rules. Boundary GIS layer not yet found. | ~0% |
-| SUP overlays (ABF, PSMV) | ⚠️ GPU only | GPU WFS `wfs_sup:assiette_sup_s` — GetFeature endpoint issue nationally; ABF sub-type not confirmed. PSMV (Vieux-Port / Panier) not confirmed in GPU. | ~15% |
-| Existing building heights | ✅ Full | BD TOPO® `BATIMENT.hauteur` — national | ~90% |
+Research-only, not bake-covered. DOES: nothing rendered in 3D Site (no bake/terrain); a national FR
+cadastre click would resolve a real parcel but that path is unsampled here. REFUSES: an envelope (no rule
+pack), a measured height, any scorecard number it cannot compute. UNKNOWN (typed): all 7 axes
+`not-assessed` — `outside-coverage` for the three cheap axes, `not-queried`/`pending-implementation` for
+the rest. No fabricated value anywhere. `honestyOk: true`.
 
----
+## Dossier index (C63 §5)
 
-## The structural gap
+This `RATE.md` is the composite master; the siblings FEED it (naming: [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
 
-Marseille's gap from the national average (~22%) and from all other studied cities is caused by a
-single explicit legal choice in the PLUi règlement: **the graphic plan is the primary source; the
-written text is the fallback**. The règlement states verbatim: *"le règlement graphique prime sur
-le règlement écrit des zones. Ainsi, à défaut d'indication sur le règlement graphique, c'est le
-règlement écrit des zones qui s'applique."*
-
-This creates the same structural ceiling as Barcelona's Pla Parcial height-on-plànol situation:
-- A text-pull of the PDF règlement écrit yields the written height article (e.g. "zone UA: max
-  R+4–6 storeys"). This is the fallback — the legally correct answer only where the graphic plan
-  is silent.
-- The graphic plan is the binding source for all other parcels. Without machine-reading the graphic
-  plan, any height extracted from the written règlement is **potentially wrong** for any specific
-  parcel.
-- Whether the graphic plan is published as a machine-readable GIS layer or as scanned PDF plates is
-  **NOT YET CONFIRMED** — this single probe determines whether the Marseille ceiling is ~20–25%
-  (written fallback only, graphic-primacy flag) or ~45–55% (machine-readable graphic layer).
-
-The **Euroméditerranée OIN** (EPAEM) is a state-led development zone inside Marseille with
-derogating rules (analogous to Barcelona clau 18). Its boundary layer has not been found. Until
-found and integrated, any parcel inside the OIN receives the wrong PLUi rules — this is a silent
-accuracy risk, not a coverage gap.
-
----
-
-## What would raise the rate
-
-| Action | Rate impact | Effort |
+| File | About | Feeds axis |
 |---|---|---|
-| Probe `sig.ampmetropole.fr` / AMP geoserver for graphic règlement vector layer machine-readability | +20 pp if machine-readable GIS layer confirmed — transforms Marseille ceiling from ~20–25% to ~45–55% | Medium — one API probe + schema inspection |
-| Read PLUi Territoire 1 dispositions générales — confirm graphic-primacy text verbatim; record clause citation in `sources/SOURCES.md` | Required before any height can be shipped — converts "corroborated" to "VERIFIED" for the graphic-primacy rule itself | Low — one PDF section |
-| Read zones UA and UB written height articles from the règlement écrit (fallback only) | +5 pp (written-règlement fallback tier for parcels where graphic plan is silent) | Low |
-| Probe EPAEM for Euroméditerranée OIN boundary GIS layer | Closes the silent-accuracy risk for OIN-interior parcels; enables explicit refusal for derogating-rule zone | Medium |
-| Fix GPU WFS `wfs_sup:assiette_sup_s` GetFeature nationally | Closes the ABF overlay gap for Marseille (high heritage density in the historic core) | Low |
+| **`RATE.md`** (this) | 7-axis composite completion scorecard — research-only stub (no scorecard computed) | — |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (was legacy `RATE.md`; renamed L-649) | LEGISLATION |
+| [`README.md`](./README.md) | what governs here · instrument chain · open questions | all |
+| [`NEXT.md`](./NEXT.md) | where we stopped · blockers · resume steps | all |
+| [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | phased climb to 100 % | LEGISLATION (+ all) |
+| `sources/` | per-field citations + human sign-off (L-449 gate) | LEGISLATION |
 
-### Ceiling analysis
-
-| Path | Full-envelope ceiling |
-|---|---|
-| Written règlement fallback only (graphic plan not machine-readable) | ~20–25% |
-| Machine-readable graphic layer confirmed on `sig.ampmetropole.fr` | ~45–55% |
-
-The graphic-primacy rule makes Marseille architecturally closer to Barcelona's Pla Parcial problem
-than to Lyon or Paris. The correct sequencing is to confirm the graphic layer's machine-readability
-**before** committing any implementation resources — the answer to that probe determines whether
-Marseille is a medium-cost or high-cost city.
+> **Not scaffolded (research-only):** `ENVELOPE.md` · `HEIGHT.md` · `RISK-REGISTER.md` are the TACKLED-city
+> standard files (C63 §5); Marseille is not bake-covered, so they are deliberately omitted rather than
+> shipped as empty placeholders. A future pass that adds a `bake.mjs` REGION + `terrain.mjs` row for
+> Marseille should scaffold them from `_TEMPLATE/_CITY/` (see `COUNTRY-RATE.md` §B/§C).
 
 ---
-
-*Last updated: 2026-07-24. GPU WFS `zone_urba` VERIFIED LIVE 2026-07-23 (23 features in bbox for
-Marseille; full schema including `urlfic` with page anchors confirmed for UAe4, UEc2, UQG, UEsN1).
-GPU schema has no height attributes (confirmed). `sig.ampmetropole.fr` graphic layer machine-
-readability: NOT YET CONFIRMED — the ceiling-determining probe. Euroméditerranée OIN boundary layer:
-NOT YET FOUND. Maintainer: UNASSIGNED.*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Research-only dossier normalized to C63 naming under audit L-649/L-650 (Phase-0).*

@@ -1,105 +1,59 @@
-# Data Readiness Rate — Turin (`001272`)
+# City RATE — master completion scorecard — Turin (it-pie, 001272)
 
-**Headline rate: ~12% (contingent)**
+<!-- generated-by: MANUAL C63 dossier normalization 2026-07-30 (L-649/L-650 Phase-0) — RESEARCH-ONLY
+     city, NOT bake-covered. The scorecard function has NOT run and its cheap axes (DATA-SOURCES ·
+     TERRAIN · CONTEXT) are NOT computable here (no bake REGION, no terrain row). EVERY axis is
+     `not-assessed` with a typed C62 reason. NO cell is a fabricated number (§CONTEXT-DATA-HONESTY). -->
 
-> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
-> return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
-> BYA / BRA / %-utilisation] + height**) **without reading an ordinance text/PDF**. This definition
-> is IDENTICAL across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany /
-> France …) so the scores are directly comparable. Derived from direct endpoint/schema checks, not
-> assumed from the jurisdiction's open-data reputation.
+**Overall completion: `not-assessed`** — this is a **research-only dossier, NOT bake-covered** (C63 §1.7):
+no `bake.mjs` REGION, no `terrain.mjs` row, no wired city height `REGION_SOURCE` key, no rule pack → the
+cheap axes (DATA-SOURCES · TERRAIN · CONTEXT) are **not computable**, and no scorecard has run.
+`partial: true`. **`honestyOk: true`** (renders no fabricated value; every axis is a typed `not-assessed`).
+Logged in the country roll-up [`COUNTRY-RATE.md`](../../COUNTRY-RATE.md) **§B** (Turin is the one Italian
+city with a real building-height source but is out of the bake-covered scope this pass). The legislation
+detail (the legacy ~12 % contingent prior) lives in [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and
+FEEDS Axis 2.
 
-> ⚠ **The ~12% figure is contingent on the unconfirmed assumption that Turin's current PRG NTA
-> uses DM 1444-style zone letters with per-zone numeric tables.** If the NTA has been reformed
-> toward a bespoke mechanism (as Milan and Rome have), the rate drops to ~5% and the dev-day
-> estimate rises from ~10–15 to ~20–25+. Additionally, **Turin's PRG is actively being rewritten
-> in 2026** — "regime di salvaguardia" is in effect (DCC 123, March 16, 2026). The incoming plan
-> may keep or drop the zone-letter scheme; the ~12% estimate applies to whichever version is
-> current at implementation time.
+> **Weighting** `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4). With zero axes assessed,
+> overall is honestly `not-assessed`, not 0 % (C63 §1.2/§1.5).
 
-| Jurisdiction | Rate |
-|---|---|
-| Denmark | ~96% |
-| Madrid | ~68% |
-| Saudi (national) | ~55% |
-| Barcelona | ~48% |
-| Norway (national) | ~32% |
-| Germany (national) | ~28% |
-| France (national) | ~22% |
-| **Turin** | **~12% (contingent)** |
-| Italy (national) | ~9–11% |
-| Milan | ~5% |
-| Rome | ~5% |
+## The 7 axes (C63 §3 — fixed definitions)
 
-Turin rates higher than Milan or Rome because: (1) Catasto WFS provides parcel geometry
-(**VERIFIED-LIVE 2026-07-24**); (2) the Piedmont PRG mosaic WMS *plausibly* covers Turin's zone
-letters at current-date currency — **WMS confirmed live (updated 2025-06-30); vector download
-"accesso riservato"**; (3) ARPA Piemonte Edifici 3D provides building-height context data
-(**WMS + FeatureServer confirmed live 2026-07-24; height field name TBD**); (4) if the PRG NTA
-confirms zone letters in the *incoming* plan, the numeric rules follow directly from the NTA PDF
-with no new engine kind required. Every one of these factors is contingent on live probes and a
-primary-text NTA read that have not yet been completed.
+| # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
+|---|---|---:|---|---|---|---|
+| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | No Italian cadastre is wired (`parcelProviders/registry.ts` has no `isInItaly`) → universal footprint-fallback. The Agenzia delle Entrate INSPIRE WFS was verified-live for Turin (ISTAT L219; see `LEGISLATION-RATE.md`) but is not wired, and no `computeParcelConfidence` sample was drawn (C57 §2.4). |
+| 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | Legacy structured-fill prior only — see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (~12 % **contingent** on the unconfirmed PRG NTA zone-letter mechanism; PRG in active 2026 rewrite). No rule pack (`rulepacks/registry.ts` is ES/DK/NL/SA-only), no signed `sources/VERIFICATION.md`, no clau-inventory scorecard run. |
+| 3 | **DATA-SOURCES** | 15 % | `not-assessed` | `not-checked` | `outside-coverage` | Not bake-covered: no `bake.mjs` REGION (only `rome` + `milan` for Italy), no `terrain.mjs` row for Turin, no wired city height `REGION_SOURCE` key. The 5-slot checklist is not computable. |
+| 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | No buildable-envelope rule pack registered (`rulepacks/registry.ts`); solver coverage unmeasured (C58). |
+| 5 | **TERRAIN** | 10 % | `not-assessed` | `not-checked` | `outside-coverage` | No `terrain.mjs` TERRAIN_CITY row for Turin → no baked quantized-mesh to verify. |
+| 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | Turin is the ONE Italian city with a documented real building-height source — `heightSources.mjs` source catalogue `piedmont_it` = ARPA Piemonte Edifici 3D (Turin-only, LoD1-real-height, impl `documented`) — but it is NOT wired to a `REGION_SOURCE` key (no `turin` entry), so no provenance histogram has been probed. A future bake would make this axis measurable (unlike Rome/Milan, which are structural no-source). |
+| 7 | **CONTEXT** | 5 % | `not-assessed` | `not-checked` | `outside-coverage` | Not inside any `bake.mjs` REGION bbox (Turin ~45.07 N, 7.69 E lies outside the `milan` clip) → no baked context layers to probe. |
 
----
+## §CONTEXT-DATA-HONESTY note
 
-## Field-by-field breakdown
+Research-only, not bake-covered. DOES: nothing rendered in 3D Site (no bake/terrain). REFUSES: an envelope
+(no rule pack), a measured height (ARPA Piemonte documented but unwired), any scorecard number it cannot
+compute. UNKNOWN (typed): all 7 axes `not-assessed` — `outside-coverage` for the three cheap axes,
+`not-queried`/`pending-implementation` for the rest. No fabricated value anywhere. `honestyOk: true`.
 
-| Field | Structured? | Source | Score |
-|---|---|---|---|
-| Parcel geometry (Catasto) | ✅ Full (with caveat) | Agenzia delle Entrate WFS `https://wfs.cartografia.agenziaentrate.gov.it/inspire/wfs/owfs01.php` — CC BY 4.0. **✅ VERIFIED-LIVE 2026-07-24** for Turin (ISTAT code L219). Not survey-grade. | **~90%** (precision caveat; URL and schema confirmed) |
-| Heritage overlay (SITAP/APAR) | ⚠️ Informational | APAR/SITAP — re-engineered with genuine OGC WMS/WFS (confirmed in documentation). **Unreachable from Replit 2026-07-24.** Informational only; acknowledged incomplete. Turin's centro storico (Savoy royal buildings — UNESCO listed) is high-heritage density. | **~35%** (public WFS access unconfirmed) |
-| Heritage overlay (Vincoli in Rete) | ⚠️ Informational | Same caveat. | **~35%** |
-| **Zone identification (Piedmont PRG mosaic WMS)** | ⚠️ Partially confirmed | **✅ PARTIALLY VERIFIED-LIVE 2026-07-24:** Turin PRG "Zone di Piano" WMS live at `geomap.reteunitaria.piemonte.it/…/wms_sicc23_prg_azzonamento`. Layers confirmed: `ZonediPiano`, `LimitiZoneDiPiano`, `AreeDiPiano`. Dataset updated **2025-06-30**. Vector download (`zone_di_piano.zip`) is **"accesso riservato"** (institutional login required). Piedmont regional WFS timed out from Replit — must probe from non-Replit IP. Zone-letter field name TBD. | **~25%** (WMS confirmed; vector layer and field schema unconfirmed; mechanism contingent on NTA) |
-| **DM 1444 zone letter (A/B/C/D/E/F)** | ⚠️ Contingent | If PRG NTA confirms DM 1444 zone letters as operative mechanism in the *incoming* plan: zone letter queryable from Piedmont mosaic. If NTA uses bespoke mechanism or if the 2026 revision drops zone letters: zone letter is wrong key. | **~20%** (contingent on NTA confirmation of incoming plan) |
-| **Indice di fabbricabilità** (`mc/mq`) | ❌ PDF (NTA) | In PRG NTA per-zone article — no regional GIS layer for this attribute. DM 1444 Art. 7–8 ceilings are published upper bounds only. | **~0%** (NTA PDF required) |
-| **Max height** | ❌ PDF (NTA) | In PRG NTA per-zone article. | **~0%** |
-| **Coverage / footprint** | ❌ PDF (NTA) | In PRG NTA per-zone article. | **~0%** |
-| DM 1444 Art. 7–8 density ceilings | ✅ Published ceiling | National published upper bounds. **Ceilings only, not operative values.** | **100% (ceiling only)** |
-| Existing building heights | ✅ **Partially confirmed live** | **ARPA Piemonte Edifici 3D — ✅ PARTIALLY VERIFIED-LIVE 2026-07-24.** WMS live: `webgis.arpa.piemonte.it/…/Edifici_3D_2017/MapServer/WMSServer`. ArcGIS FeatureServer live: `…/FeatureServer/0`. Field `USO` confirmed (P/R/S). Height field name TBD — full schema timed out from Replit; expected `QUOTA_MEDIA` or `ALTEZZA`. 2017 dataset — may be outdated for new construction. | **~60%** (dataset confirmed live; height field name and urban-core reliability TBD) |
-| Regolamento Edilizio setbacks | ❌ Not read | Turin RE governs setbacks; field names and multipliers not read. National floors (CC Art. 873: 3 m; DM 1444 Art. 9: 10 m) are the only confirmed values. | **~5%** (national floor only) |
+## Dossier index (C63 §5)
 
----
+This `RATE.md` is the composite master; the siblings FEED it (naming: [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
 
-## The contingency that matters most
-
-**If NTA confirms DM 1444 zone letters in the incoming plan:** Turin is a zone-letter config case.
-The Piedmont PRG mosaic WMS (if the WFS is confirmed current for Turin) provides zone
-identification; the NTA PDF provides the per-zone numeric table. No new engine kind is needed.
-Realistic ceiling after NTA read + mosaic probe: **~25–35%** (zone + national distance floors +
-ARPA Piemonte building height context).
-
-**If NTA reveals a bespoke mechanism:** Turin becomes Tier 2. The dev-day estimate rises to
-~20–25+ and a new engine kind must be scoped. The ARPA Piemonte building-height advantage remains,
-but the numeric rule pipeline starts from scratch.
-
-**If the 2026 PRG revision (DCC 123) drops zone letters entirely:** same consequence as above —
-the mechanism changes mid-project. The "regime di salvaguardia" currently in effect means the
-outgoing plan's operative rules may be frozen while the new plan is adopted; this scope must be
-confirmed.
-
-This single binary question — confirmed by reading ~20 pages of NTA — is the cheapest possible
-research step and should be the first action before any Turin build decision.
-
----
-
-## What would raise the rate
-
-| Action | Rate impact | Effort |
+| File | About | Feeds axis |
 |---|---|---|
-| Read Turin PRG NTA — confirm zone-letter mechanism in the *incoming* plan AND scope of "regime di salvaguardia" | Binary: either confirms Tier 1 (+15 pp potential) or reveals Tier 2 need (rate stays ~5%) | Medium — one PDF read (~20–40 pages) + DCC 123 check |
-| Confirm ARPA Piemonte Edifici 3D height field name — open FeatureServer `?f=json` in browser | Confirms or adjusts building-height score; low-hanging fruit | Very low (0.1 dev-days) |
-| Live-probe Piedmont PRG mosaic WFS from non-Replit IP — confirm zone-letter field and Turin layer currency | Confirms zone identification is API vs WMS-only; prerequisite for automated zone lookup | Low |
-| Read NTA per-zone articles — extract height, coverage, density for each zone type | +10–20 pp (NTA transcription, zone by zone) | High — full NTA read |
+| **`RATE.md`** (this) | 7-axis composite completion scorecard — research-only stub (no scorecard computed) | — |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (was legacy `RATE.md`; renamed L-649) | LEGISLATION |
+| [`README.md`](./README.md) | what governs here · instrument chain · open questions | all |
+| [`NEXT.md`](./NEXT.md) | where we stopped · blockers · resume steps | all |
+| [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | phased climb to 100 % | LEGISLATION (+ all) |
+| `sources/` | per-field citations + human sign-off (L-449 gate) | LEGISLATION |
 
-**Realistic ceiling after full NTA read + mosaic + ARPA probes (if Tier 1 confirmed):**
-- Zone + one numeric field per zone: **~30–40%**
-- Full NTA transcription for all zone types: **~45–55%** — approaching Barcelona levels
-- ARPA Piemonte building-height context: adds context data, not envelope data; does not raise the
-  fill rate but substantially improves the 3D context product quality
-
-Turin is Italy's best near-term opportunity: if the NTA assumption holds, it could reach
-Barcelona-comparable structured fill rates with moderate transcription investment.
+> **Not scaffolded (research-only):** `ENVELOPE.md` · `HEIGHT.md` · `RISK-REGISTER.md` are the TACKLED-city
+> standard files (C63 §5); Turin is not bake-covered, so they are deliberately omitted rather than shipped
+> as empty placeholders. A future pass that adds a `bake.mjs` REGION + `terrain.mjs` row + the ARPA
+> Piemonte height wiring for Turin should scaffold them from `_TEMPLATE/_CITY/` (see `COUNTRY-RATE.md` §B).
 
 ---
-
-*Last updated: 2026-07-24. Catasto WFS VERIFIED LIVE for Turin (ISTAT L219) 2026-07-24; PRG "Zone di Piano" WMS confirmed live (updated 2025-06-30); ARPA Piemonte Edifici 3D WMS + FeatureServer confirmed live; height field name TBD; PRG NTA zone-letter mechanism unconfirmed. Maintainer: UNASSIGNED.*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Research-only dossier normalized to C63 naming under audit L-649/L-650 (Phase-0).*

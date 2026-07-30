@@ -1,5 +1,11 @@
 # Braga (`pt-03 / 0303-braga`) — Municipality Overview
 
+> **Dossier note (C63 naming, L-649/L-650).** This dossier's master scorecard face is now
+> [`RATE.md`](./RATE.md) — the 7-axis composite completion rate (**research-only / NOT bake-covered** →
+> all axes `not-assessed`, no scorecard computed). The legislation/data-fill rate was renamed
+> `RATE.md` → [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and now FEEDS it as Axis 2 (see
+> [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
+
 **Level:** municipality · **DICOFRE:** 0303 (approximate — VERIFY: Distrito de Braga (03), third
 municipality within district) · **District:** Braga · **ISO 3166-2:** `pt-03` ·
 **Pack id:** `pt-0303-braga` · **Last updated:** 2026-07-23 · **Maintainer:** UNASSIGNED ·

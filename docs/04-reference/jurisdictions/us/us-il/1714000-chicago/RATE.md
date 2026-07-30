@@ -1,74 +1,58 @@
-# Data Readiness Rate — Chicago (`us-il-1714000`) city
+# City RATE — master completion scorecard — Chicago (us-il, 1714000)
 
-**Headline rate: NOT YET ASSESSED — scaffold only**
+<!-- generated-by: MANUAL C63 dossier normalization 2026-07-30 (L-649/L-650 Phase-0) — RESEARCH-ONLY
+     city, NOT bake-covered. The scorecard function has NOT run and its cheap axes (DATA-SOURCES ·
+     TERRAIN · CONTEXT) are NOT computable here (no bake REGION, no terrain row). EVERY axis is
+     `not-assessed` with a typed C62 reason. NO cell is a fabricated number (§CONTEXT-DATA-HONESTY). -->
 
-> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
-> return a complete, machine-readable answer (zone/use code + FAR/density metric + height)
-> without reading an ordinance PDF. Definition identical across all jurisdictions. No live
-> endpoint probe has been run for Chicago yet.
+**Overall completion: `not-assessed`** — this is a **research-only dossier, NOT bake-covered** (C63 §1.7):
+no `bake.mjs` REGION, no `terrain.mjs` row, no wired city height `REGION_SOURCE` key, no rule pack → the
+cheap axes (DATA-SOURCES · TERRAIN · CONTEXT) are **not computable**, and no scorecard has run.
+`partial: true`. **`honestyOk: true`** (renders no fabricated value; every axis is a typed `not-assessed`).
+Logged in the country roll-up [`COUNTRY-RATE.md`](../../COUNTRY-RATE.md) **§B** (strong open-data city, but
+out of the bake-covered scope this pass). The legislation detail (the legacy structured-fill prior) lives
+in [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and FEEDS Axis 2.
 
-| Jurisdiction | Rate |
-|---|---|
-| Denmark | ~96% |
-| Madrid | ~68% |
-| Saudi (national) | ~55% |
-| Barcelona | ~48% |
-| Norway (national) | ~32% |
-| Germany (national) | ~28% |
-| France (national) | ~22% |
-| USA (national, commercial) | ~55% |
-| USA (national, free) | ~12% |
-| **Chicago (city, not yet assessed)** | **NOT YET ASSESSED** |
+> **Weighting** `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4). With zero axes assessed,
+> overall is honestly `not-assessed`, not 0 % (C63 §1.2/§1.5).
 
----
+## The 7 axes (C63 §3 — fixed definitions)
 
-## Field-by-field breakdown (pre-probe estimates)
+| # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
+|---|---|---:|---|---|---|---|
+| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | No US cadastre is wired (`parcelProviders/registry.ts` has no US entry) → universal footprint-fallback; a click resolves an OSM footprint, not a legal parcel. Unsampled (C57 §2.4). |
+| 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | Legacy structured-fill prior only — see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (Chicago zoning ordinance; strong open-data portal). No rule pack (`rulepacks/registry.ts` is ES/DK/NL/SA-only), no signed `sources/VERIFICATION.md`, no clau-inventory scorecard run. |
+| 3 | **DATA-SOURCES** | 15 % | `not-assessed` | `not-checked` | `outside-coverage` | Not bake-covered: no `bake.mjs` REGION (only `newyork` + `sanfrancisco` for the US), no `terrain.mjs` row, no wired city height `REGION_SOURCE` key. The 5-slot checklist is not computable. |
+| 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | No buildable-envelope rule pack registered (`rulepacks/registry.ts`); solver coverage unmeasured (C58). |
+| 5 | **TERRAIN** | 10 % | `not-assessed` | `not-checked` | `outside-coverage` | No `terrain.mjs` TERRAIN_CITY row for Chicago → no baked quantized-mesh to verify. |
+| 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | `heightSources.mjs` has only `newyork`/`sanfrancisco` (`overture_us`) for the US — no `chicago` REGION_SOURCE key (LoD2-mesh per-city is a `lodNext` future). No provenance histogram probed. |
+| 7 | **CONTEXT** | 5 % | `not-assessed` | `not-checked` | `outside-coverage` | Not inside any `bake.mjs` REGION bbox → no baked context layers to probe. |
 
-| Field | Structured? | Source | Pre-probe estimate |
-|---|---|---|---|
-| Parcel geometry | ⚠️ Partial | Cook County Assessor open data + `data.cityofchicago.org` building footprints | **~80%** (Cook County well-covered; confirm field schema) |
-| Zone / use code | ⚠️ Unknown | `data.cityofchicago.org` Zoning Districts dataset (zone code confirmed present; numeric attributes unknown) | **~60%** (zone code likely available free; numeric fields TBD) |
-| Density metric (FAR) | ❌ Unknown | Chicago ordinance tables; possibly Zoneomics (paid) | **~0% free / ~55% Zoneomics** |
-| Max height (parcel-level) | ❌ Unknown | Chicago ordinance; Zoneomics | **~0% free / ~55% Zoneomics** |
-| Setback / alignment | ❌ Unknown | Chicago ordinance tables; Zoneomics partial | **~0%** |
-| Building footprint + height (LOD1) | ✅ Footprint good; height partial | Microsoft Footprints (ODbL) + Overture/USGS height (Chicago pilot confirmed) | **~75%** footprint; **~40%** height (Chicago pilot area) |
-| Terrain (DTM/DSM) | ✅ Available | USGS 3DEP — Chicago confirmed in pilot coverage area | **~85%** |
-| Heritage overlay | ✅ Good | NRHP via NPS ArcGIS; Chicago Landmarks (city layer) | **~75%** NRHP + city landmarks dataset |
+## §CONTEXT-DATA-HONESTY note
 
-**City-specific advantage over national average:** Chicago benefits from confirmed Overture/USGS
-height pilot coverage and a strong open-data portal. The city rate may exceed the national ~12%
-free estimate once the zoning portal attributes are probed.
+Research-only, not bake-covered. DOES: nothing rendered in 3D Site (no bake/terrain). REFUSES: an envelope
+(no rule pack), a measured height, any scorecard number it cannot compute. UNKNOWN (typed): all 7 axes
+`not-assessed` — `outside-coverage` for the three cheap axes, `not-queried`/`pending-implementation` for
+the rest. No fabricated value anywhere. `honestyOk: true`.
 
-**City-specific complication:** Planned Developments (PDs) — a significant portion of downtown
-and major redevelopment sites are governed by PD agreements that supersede the base zone. PD
-coverage fraction is the key unknown that determines the ceiling.
+## Dossier index (C63 §5)
 
----
+This `RATE.md` is the composite master; the siblings FEED it (naming: [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
 
-## The structural gap
-
-Chicago's zoning is governed by Title 17 of the Chicago Municipal Code — one of the more
-legible US zoning codes, but still a PDF-based ordinance. Unlike Denmark's Plandata.dk (numeric
-fields in a structured API) or Germany's XPlanung (schema defines FAR/height as attributes),
-Chicago's ordinance tables exist only in PDF and HTML text. Zoneomics has parsed these tables
-commercially; free access requires reading the ordinance text.
-
-The Planned Development complication mirrors Germany's §34 challenge: PD-governed parcels
-have no simple numeric lookup — each PD is a separately-adopted ordinance with its own rules.
-The correct output for a PD parcel without the PD text is a cited refusal, not a null.
-
----
-
-## What would raise the rate
-
-| Action | Rate impact | Effort |
+| File | About | Feeds axis |
 |---|---|---|
-| Probe Chicago `data.cityofchicago.org` zoning dataset for FAR/height attributes | High if present (+15 pts free); confirms commercial dependency if absent | Low — 0.25 dev-days |
-| Contract Zoneomics for Chicago | +45–50 pts (zone + FAR + height for all non-PD zones) | Low (integration); cost TBD |
-| Confirm Overture/USGS height coverage extent for Chicago | +10–15 pts on building height context | Low — download + inspect |
-| Map PD-governed parcel fraction | Calibrates ceiling — if PDs are <10% of parcels, ceiling is high; if >30%, ceiling is lower | Medium |
+| **`RATE.md`** (this) | 7-axis composite completion scorecard — research-only stub (no scorecard computed) | — |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (was legacy `RATE.md`; renamed L-649) | LEGISLATION |
+| [`README.md`](./README.md) | what governs here · instrument chain · open questions | all |
+| [`NEXT.md`](./NEXT.md) | where we stopped · blockers · resume steps | all |
+| [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | phased climb to 100 % | LEGISLATION (+ all) |
+| `sources/` | per-field citations + human sign-off (L-449 gate) | LEGISLATION |
+
+> **Not scaffolded (research-only):** `ENVELOPE.md` · `HEIGHT.md` · `RISK-REGISTER.md` are the TACKLED-city
+> standard files (C63 §5); Chicago is not bake-covered, so they are deliberately omitted rather than shipped
+> as empty placeholders. A future pass that adds a `bake.mjs` REGION + `terrain.mjs` row for Chicago should
+> scaffold them from `_TEMPLATE/_CITY/` (see `COUNTRY-RATE.md` §B).
 
 ---
-
-*Last updated: 2026-07-24. Scaffold only — no live probes run. Rate will be re-derived after
-the Chicago open-data zoning probe (see `NEXT.md §8`). Maintainer: UNASSIGNED.*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Research-only dossier normalized to C63 naming under audit L-649/L-650 (Phase-0).*

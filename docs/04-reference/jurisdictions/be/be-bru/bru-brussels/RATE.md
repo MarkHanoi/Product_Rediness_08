@@ -1,111 +1,63 @@
-# Data Readiness Rate — Brussels-Capital Region (`be-bru-brussels`) city
+# City RATE — master completion scorecard — Brussels-Capital Region (be-bru, bru · NIS 21000)
 
-**Headline rate: ~5–10%**
+<!-- generated-by: MANUAL C63 dossier normalization 2026-07-30 (L-649/L-650 Phase-0) — RESEARCH-ONLY
+     region-level legacy dossier, NOT itself bake-covered. The scorecard function has NOT run. EVERY axis
+     is `not-assessed` with a typed C62 reason. NO cell is a fabricated number (§CONTEXT-DATA-HONESTY). -->
 
-> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
-> return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
-> %-utilisation] + height**) **without reading an ordinance text/PDF**. This definition is IDENTICAL
-> across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany / France …) so
-> the scores are directly comparable. Derived from direct endpoint/schema checks, not assumed from
-> Brussels' open-data reputation.
+**Overall completion: `not-assessed`** — this is the **pre-C63 legacy region dossier** for Brussels-Capital
+(`bru-brussels`, NIS 21000), a **research-only** scaffold ("research complete; no pack implemented"). It is
+**NOT itself bake-covered**: the `bake.mjs` `brussels` REGION + `terrain.mjs` row + `heightSources.mjs`
+`brussels` key describe the **City-of-Brussels municipality**, whose C63-standard dossier is the sibling
+[`21004-brussels`](../21004-brussels/RATE.md) (scored there, ~44 % on the assessed subset — do not
+double-count here). `partial: true`. **`honestyOk: true`** (renders no fabricated value; every axis is a
+typed `not-assessed`). Logged in the country roll-up [`COUNTRY-RATE.md`](../../COUNTRY-RATE.md) **§C**
+(legacy folder; its move/merge into `21004-brussels` is orchestrator-owned Phase-0, C63 §8.2). The
+legislation detail (the legacy ~5–10 % RRU Titre I structured-fill prior) lives in
+[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and FEEDS Axis 2.
 
-| Jurisdiction | Rate |
-|---|---|
-| Denmark | ~96% |
-| Madrid | ~68% |
-| Saudi (national) | ~55% |
-| Barcelona | ~48% |
-| Norway (national) | ~32% |
-| Germany (national) | ~28% |
-| France (national) | ~22% |
-| Belgium (national, blended) | ~10–14% |
-| **Brussels-Capital Region** | **~5–10%** |
+> **Weighting** `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4). With zero axes assessed,
+> overall is honestly `not-assessed`, not 0 % (C63 §1.2/§1.5).
 
-Brussels is **Belgium's highest-scoring region** — and still sits below France (~22%). It is the
-one Belgian region with something resembling a region-wide numeric-leaning gabarit text (RRU Titre
-I: H = P + 3.00 + D), which prevents its score from collapsing to Wallonia's near-zero. The small
-non-zero credit (~5–10%) reflects:
-- structured GIS layers that DO exist as confirmed queryable attributes (PRAS land-use affectation
-  zones; accessibility A/B/C zones under RRU Titre VIII; office-quota "soldes de bureaux admissibles"
-  zones under PRAS); and
-- the RRU Titre I formula itself, which is computable from geometric inputs (rue width P, parcel
-  depth D) — the only such computable formula in any Belgian region.
+## The 7 axes (C63 §3 — fixed definitions)
 
-What prevents Brussels from scoring higher is that **the RRU Titre I formula lives in a PDF
-regulation, not a queryable API attribute**; the instrument-priority check (PPAS/RRUZ/PAD > RRU
-Titre I) must run per parcel before any formula can be applied; and the origin server for the PRAS
-WFS (`gis.urban.brussels/geoserver/PERSPECTIVE_FR/ows`) is bot-blocked from non-Belgian IPs —
-making live access to the PRAS and PPAS/RRUZ layers the prerequisite gate for all pack work.
+| # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
+|---|---|---:|---|---|---|---|
+| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | No Belgian cadastre provider is wired (`parcelProviders/registry.ts` has no BE entry) → universal footprint-fallback. Unsampled (C57 §2.4). |
+| 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | Legacy structured-fill prior only — see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (RRU Titre I `H = P + 3.00 + D` formula, needs a new engine KIND; PRAS/RRU/RRUZ/PPAS precedence unresolved). No rule pack (`rulepacks/registry.ts` is ES/DK/NL/SA-only), no signed `sources/VERIFICATION.md`, no clau-inventory scorecard run. |
+| 3 | **DATA-SOURCES** | 15 % | `not-assessed` | `not-checked` | `outside-coverage` | This region dossier is not itself the bake-covered entity — the `bake.mjs` `brussels` REGION, `terrain.mjs` `brussels` row (verdict `blocked`), and `heightSources.mjs` `brussels` key (`grb_be`, `blocked`) are scored on the municipality dossier `21004-brussels` (§A). Not re-derived here to avoid double-counting. |
+| 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | No buildable-envelope rule pack registered (`rulepacks/registry.ts`); RRU Titre I is a formula-in-PDF, not a zone-table (C58). |
+| 5 | **TERRAIN** | 10 % | `not-assessed` | `not-checked` | `outside-coverage` | `terrain.mjs` `be` verdict is `blocked` (Brussels-Capital DTM route/licence unsourced); scored on `21004-brussels`. |
+| 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `adapter-limitation` | `heightSources.mjs` `brussels` = `grb_be` status `blocked` (UrbIS height unprobed; GRB LiDAR height is Flanders-only). No provenance histogram probed. |
+| 7 | **CONTEXT** | 5 % | `not-assessed` | `not-checked` | `outside-coverage` | The `brussels` context bake is scored on `21004-brussels`; not re-derived here. |
 
-**Why Brussels differs from the national average (~10–14%):**
-Brussels scores at or below the national average — not above it, despite being the "best" Belgian
-region — because the national blend benefits from near-universal zone-boundary hit across all three
-regions (which Brussels shares), while the structured-numeric-fill credit from the RRU Titre I is
-bounded by its formula-in-PDF nature and the unresolved bot-detection access problem.
+## §CONTEXT-DATA-HONESTY note
 
----
+Research-only region dossier, not itself bake-covered. DOES: nothing rendered in 3D Site from THIS folder
+(the municipality dossier `21004-brussels` carries the baked context). REFUSES: an envelope (no rule pack;
+RRU formula needs a new engine KIND), a real parcel (no BE cadastre wired), a measured height (UrbIS
+unprobed / GRB Flanders-only), any scorecard number it cannot compute. UNKNOWN (typed): all 7 axes
+`not-assessed`. No fabricated value anywhere. `honestyOk: true`.
 
-## Field-by-field breakdown
+## Dossier index (C63 §5)
 
-| Field | Structured? | Source | Score |
-|---|---|---|---|
-| Parcel geometry | ✅ Federal cadastre | CADMAP/CadGIS WFS (AGDP/SPF Finances); CC-equivalent open; VERIFIED LIVE 2026-07-24 | ~90% |
-| PRAS zone / land-use affectation | ✅ Structured layer | `PERSPECTIVE_FR:Affectations` on urban.brussels GeoServer; confirmed via cache — direct fetch bot-blocked | ~85% (confirmed by cache; live reachability blocked) |
-| Instrument-priority check (PPAS / RRUZ / PAD > RRU) | ⚠️ Partial | PPAS and RRUZ as separate GeoServer layers (cached); what fraction of Brussels parcels fall under a PPAS/RRUZ override vs. the RRU default is unknown — not probed | ~30% (instrument-priority check unrun; which instrument governs is undetermined for each parcel) |
-| Height — RRU Titre I formula (H = P + 3.00 + D) | ⚠️ Computable-in-principle; access blocked | Formula confirmed from secondary sources (RRU Titre I Art. 4); canonical primary-text read not completed; live PRAS/RRU WFS access blocked; rue-width (P) source (UrbIS) unconfirmed | ~5% (formula identified; no live computation path confirmed) |
-| Setbacks / implantation / profondeur de bâti (RRU Titre I) | ⚠️ Prose formula; access blocked | RRU Titre I Art. 6 — context-relative, same access prerequisite as height | ~5% |
-| FAR / floor-area ratio | ❌ Not a primary RRU metric | Brussels uses land-use affectation + gabarit (H = P + 3.00 + D) rather than a FAR ratio; office-quota "soldes de bureaux admissibles" zones are structured but are a quota, not a FAR for residential development | ~0% |
-| PPAS numeric provisions (instrument-priority path) | ❔ Exists, not probed | PPAS layers confirmed in cached capabilities; whether any PPAS feature carries a populated numeric height/gabarit attribute is the key open question — not confirmed present, not exhaustively confirmed absent | ~0% (not yet probed) |
-| Heritage overlay | ⚠️ Register exists; GIS unconfirmed | Direction du Patrimoine culturel / urban.brussels; queryable geographic layer not independently confirmed live | ~50% |
-| CBS+ (Coefficient de Biotope par Surface) | ⚠️ Structured GIS layer (adjacent constraint) | Confirmed as a structured layer in Brussels — a permitting gate, not a height/FAR metric | ~60% (structured but not a fill metric) |
-| Existing building footprints / heights | ❔ UrbIS; not independently probed | UrbIS WMS/WFS (`geoservices-urbis.irisnet.be`) confirmed as base map; building-height attribute and LiDAR programme not confirmed | ~30% |
-| Terrain / LiDAR | ❔ Unconfirmed standing programme | No standalone Brussels LiDAR programme identified in this pass; UrbIS is not confirmed as a LiDAR-derived building-height product | ~15% |
+This `RATE.md` is the composite master; the siblings FEED it (naming: [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
 
----
-
-## The structural gap
-
-Brussels' gap from Denmark (~96%) and Spain/Madrid has two components, not one:
-
-**1. The PDF formula barrier.** Brussels' RRU Titre I is the most structured gabarit text in any
-Belgian region — but "structured" here means "a formula written in a PDF regulation," not "a
-queryable numeric field." H = P + 3.00 + D cannot be looked up from an API; it must be computed
-from geometric inputs (rue width P from the UrbIS road layer, parcel depth D from the CADMAP
-boundary). Whether the UrbIS road layer carries a queryable `largeur_rue` attribute is unconfirmed.
-If it does not, P must be derived geometrically — a different and more complex implementation path.
-Until this computation path is confirmed, the formula produces zero structured fills.
-
-**2. The instrument-priority check.** The RRU Titre I is a regional default — it applies only
-where a PPAS (commune-level detailed plan), a RRUZ (zoned regional override), or a PAD (Plan
-d'Aménagement Directeur) does not provide otherwise. The fraction of Brussels parcels governed by
-a PPAS/RRUZ rather than the RRU default is unknown. A grid-sample probe (same method as Germany's
-§34-fraction probe) is the prerequisite before any rate estimate can be tightened. In addition,
-high-rise construction (> a threshold to be confirmed) requires a per-project RRU derogation with a
-*bon-aménagement-des-lieux* justification — a structured numeric answer is unavailable for those
-parcels regardless of the formula path.
-
-The consequence is that Brussels' ~5–10% rate is driven almost entirely by the PRAS zone layer
-(a boundary + affectation label, not a height/FAR number) and the adjacent structured-but-non-
-dimensional CBS+/office-quota GIS layers — not by the RRU Titre I formula, which is confirmed in
-theory but unconfirmable in practice until the bot-detection block is resolved and the computation
-inputs are verified.
-
----
-
-## What would raise the rate
-
-| Action | Rate impact | Effort |
+| File | About | Feeds axis |
 |---|---|---|
-| Resolve bot-detection block on `gis.urban.brussels` (Belgian-IP deployment or alternative access) | Unblocks PRAS zone query + PPAS/RRUZ layer access — prerequisite for all further Brussels work; rate unchanged until Phase 2 | Low–Medium |
-| Probe UrbIS road layer for a `largeur_rue` / `width` attribute | If confirmed: rue-width (P) is directly queryable; enables the RRU Titre I formula computation for parcels under the RRU default | Low (one GetFeature call once bot-block resolved) |
-| Run instrument-priority probe: what fraction of Brussels parcels are governed by a PPAS/RRUZ vs. RRU Titre I default? | Converts the PPAS/RRUZ coverage from unknown to a measured fraction; sets the denominator for the formula-computation path | Medium (grid-sample against PPAS/RRUZ layer once access confirmed) |
-| Build the RRU Titre I formula encoder as a new rule KIND (context-relative H = P + 3.00 + D) | For every parcel under the RRU Titre I default with queryable P and D: converts from 0% fill to a computable cited envelope; could raise Brussels from ~5–10% to ~20–30% | High (new rule KIND; requires all prerequisites above) |
-| Confirm Brussels heritage overlay as a live, queryable GIS layer | Converts heritage from "register confirmed" to a correctly-refused overlay for protected parcels — raises trust, not fill rate | Medium |
+| **`RATE.md`** (this) | 7-axis composite completion scorecard — research-only stub (no scorecard computed) | — |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (was legacy `RATE.md`; renamed L-649) | LEGISLATION |
+| [`README.md`](./README.md) | what governs here · instrument-precedence chain · open questions | all |
+| [`NEXT.md`](./NEXT.md) | where we stopped · blockers · resume steps | all |
+| [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | phased climb to 100 % | LEGISLATION (+ all) |
+| `sources/` | per-field citations + human sign-off (L-449 gate) | LEGISLATION |
+
+> **Not scaffolded (research-only):** `ENVELOPE.md` · `HEIGHT.md` · `RISK-REGISTER.md` are the TACKLED-city
+> standard files (C63 §5); this legacy region dossier is not itself bake-covered, so they are deliberately
+> omitted. The C63-standard Brussels dossier is the municipality sibling
+> [`21004-brussels`](../21004-brussels/); the move/merge of this legacy `bru-brussels` folder into it is
+> **orchestrator-owned Phase-0** (C63 §8.2 — no folder `git mv` by a scoped agent), logged in
+> `COUNTRY-RATE.md` §C.
 
 ---
-
-*Last updated: 2026-07-24. PRAS/RRUZ layers confirmed via cache only — direct fetch bot-blocked.
-RRU Titre I formula identified from secondary sources; primary text not read; no live computation
-path confirmed. Federal cadastre VERIFIED LIVE. UrbIS building-height and LiDAR programme
-unconfirmed. CBS+ confirmed as structured Brussels GIS layer — adjacent constraint, not a height/FAR
-fill metric. Maintainer: UNASSIGNED.*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Research-only legacy region dossier normalized to C63 naming under audit L-649/L-650 (Phase-0).*

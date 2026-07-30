@@ -1,5 +1,11 @@
 # Marseille / Aix-Marseille-Provence (`13055`) — Jurisdiction Pack
 
+> **Dossier note (C63 naming, L-649/L-650).** This dossier's master scorecard face is now
+> [`RATE.md`](./RATE.md) — the 7-axis composite completion rate (**research-only / NOT bake-covered** →
+> all axes `not-assessed`, no scorecard computed). The legislation/data-fill rate was renamed
+> `RATE.md` → [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and now FEEDS it as Axis 2 (see
+> [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
+
 **Country:** `fr` · **Region:** Provence-Alpes-Côte d'Azur (`fr-pac`) · **INSEE:** `13055` ·
 **Governing document:** PLUi Métropole Aix-Marseille-Provence — **Territoire 1 "Marseille-Provence"** (approved 19/12/2019). ⚠ This is NOT the same document as "Pays d'Aix" (separate Territoire, approved 5/12/2024) — a Marseille pack covers Territoire 1 only. ·
 **Last updated:** 2026-07-23 · **Maintainer:** UNASSIGNED · **Status:** SCAFFOLD — research complete; no pack implemented

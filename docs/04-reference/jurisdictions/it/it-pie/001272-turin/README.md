@@ -1,5 +1,11 @@
 # Turin (`001272`) — Jurisdiction Pack
 
+> **Dossier note (C63 naming, L-649/L-650).** This dossier's master scorecard face is now
+> [`RATE.md`](./RATE.md) — the 7-axis composite completion rate (**research-only / NOT bake-covered** →
+> all axes `not-assessed`, no scorecard computed). The legislation/data-fill rate was renamed
+> `RATE.md` → [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and now FEEDS it as Axis 2 (see
+> [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
+
 **Country:** `it` · **Region:** Piedmont (Piemonte) · **ISO 3166-2:** `IT-21` · **ISTAT:** `001272` ·
 **Pack id:** `it-001272-turin` ·
 **Governing instrument:** PRG (Piano Regolatore Generale) — Piedmont uses the classic 1942-law instrument. Likely DM 1444 zone letters with numeric tables — **unconfirmed; primary-text read required**. ·
@@ -138,4 +144,4 @@ mosaic. A single live probe confirms whether it is usable.
 
 ---
 
-**Related files:** `../../README.md` (country umbrella) · `../../findings/ITALY-MASTER-DATA-SOURCE-STUDY.md §B.3` (full Turin analysis) · `../../topics/buildings-lod-height.md` (ARPA Piemonte Edifici 3D) · `sources/SOURCES.md` · `NEXT.md` · `RATE.md`
+**Related files:** `../../README.md` (country umbrella) · `../../findings/ITALY-MASTER-DATA-SOURCE-STUDY.md §B.3` (full Turin analysis) · `../../topics/buildings-lod-height.md` (ARPA Piemonte Edifici 3D) · `sources/SOURCES.md` · `NEXT.md` · `RATE.md` (composite) · `LEGISLATION-RATE.md`

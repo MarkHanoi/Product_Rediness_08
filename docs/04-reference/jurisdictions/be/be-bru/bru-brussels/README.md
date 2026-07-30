@@ -1,5 +1,11 @@
 # Brussels-Capital Region (`bru-brussels`) — Jurisdiction Pack
 
+> **Dossier note (C63 naming, L-649/L-650).** This dossier's master scorecard face is now
+> [`RATE.md`](./RATE.md) — the 7-axis composite completion rate (**research-only / NOT bake-covered** →
+> all axes `not-assessed`, no scorecard computed). The legislation/data-fill rate was renamed
+> `RATE.md` → [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and now FEEDS it as Axis 2 (see
+> [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
+
 **Country:** `be` · **Region:** Brussels-Capital · **ISO 3166-2:** `BE-BRU` · **NIS code:** `21000` ·
 **Pack id:** `be-bru-brussels` ·
 **Governing instruments:** PRAS (land-use affectation) + RRU Titre I (regional gabarit default) +
@@ -72,7 +78,7 @@ numeric content, AND (b) the street-width (P) and parcel-depth (D) inputs are qu
 the output formula can be evaluated. This denominator is itself unknown until access to the PRAS
 and RRU endpoints is confirmed.
 
-**Research estimate for Brussels specifically: ~5–10%** structured-numeric-fill rate (see `RATE.md §2`).
+**Research estimate for Brussels specifically: ~5–10%** structured-numeric-fill rate (see `LEGISLATION-RATE.md §2`).
 The non-zero credit reflects structured-but-non-dimensional GIS layers (accessibility zones A/B/C
 under Titre VIII, office-quota zones under PRAS) rather than the height/gabarit path itself.
 

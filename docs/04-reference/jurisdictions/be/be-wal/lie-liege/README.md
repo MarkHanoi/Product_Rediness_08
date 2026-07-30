@@ -1,5 +1,11 @@
 # Liège (`lie-liege`) — Jurisdiction Pack (Wallonia / CoDT)
 
+> **Dossier note (C63 naming, L-649/L-650).** This dossier's master scorecard face is now
+> [`RATE.md`](./RATE.md) — the 7-axis composite completion rate (**research-only / NOT bake-covered** →
+> all axes `not-assessed`, no scorecard computed). The legislation/data-fill rate was renamed
+> `RATE.md` → [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and now FEEDS it as Axis 2 (see
+> [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
+
 **Country:** `be` · **Region:** Wallonia · **ISO 3166-2:** `BE-WAL` · **NIS code:** `62063` ·
 **Pack id:** `be-wal-liege` ·
 **Governing instruments:** Plan de secteur (1977–1987) + Guide communal d'urbanisme (GCU, if adopted) +
@@ -70,7 +76,7 @@ provision or a refusal (bon aménagement des lieux as operative standard) is iss
 **The denominator itself is the research task** — confirming whether Liège has a GCU with real
 numeric content is the prerequisite before any fill-rate estimate can be made.
 
-**Research estimate for Wallonia: ~0–2%** structured-numeric-fill rate (see `RATE.md §2`). The
+**Research estimate for Wallonia: ~0–2%** structured-numeric-fill rate (see `LEGISLATION-RATE.md §2`). The
 operative standard for most Liège envelope questions is bon aménagement des lieux, not a table.
 
 ---

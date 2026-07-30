@@ -1,77 +1,58 @@
-# Data Readiness Rate — Dammam (`sa-dmm-dammam`)
+# City RATE — master completion scorecard — Dammam (sa-04, DMM)
 
-**Headline rate: ~55%**
+<!-- generated-by: MANUAL C63 dossier normalization 2026-07-30 (L-649/L-650 Phase-0) — RESEARCH-ONLY
+     city, NOT bake-covered. The scorecard function has NOT run and its cheap axes (DATA-SOURCES ·
+     TERRAIN · CONTEXT) are NOT computable here (no bake REGION, no terrain row). EVERY axis is
+     `not-assessed` with a typed C62 reason. NO cell is a fabricated number (§CONTEXT-DATA-HONESTY). -->
 
-**Last updated:** 2026-07-24 · **Maintainer:** UNASSIGNED
+**Overall completion: `not-assessed`** — this is a **research-only dossier, NOT bake-covered** (C63 §1.7):
+no `bake.mjs` REGION, no `terrain.mjs` row, no wired city height `REGION_SOURCE` key, no rule pack → the
+cheap axes (DATA-SOURCES · TERRAIN · CONTEXT) are **not computable**, and no scorecard has run.
+`partial: true`. **`honestyOk: true`** (renders no fabricated value; every axis is a typed `not-assessed`).
+Logged in the country roll-up [`COUNTRY-RATE.md`](../../COUNTRY-RATE.md) **§B** (the cleanest of the three
+Saudi dossiers, but out of the bake-covered scope). The legislation detail (the legacy ~55 % national prior)
+lives in [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and FEEDS Axis 2.
 
-> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
-> return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
-> BYA / BRA / %-utilisation] + height**) **without reading an ordinance text/PDF**. This definition
-> is IDENTICAL across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany /
-> France …) so the scores are directly comparable. Derived from direct endpoint/schema checks, not
-> assumed from the jurisdiction's open-data reputation.
+> **Weighting** `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4). With zero axes assessed,
+> overall is honestly `not-assessed`, not 0 % (C63 §1.2/§1.5).
 
-| Jurisdiction | Rate |
-|---|---|
-| Denmark | ~96% |
-| Madrid | ~68% |
-| Saudi Arabia (national) | ~55% |
-| **Dammam** | **~55%** |
-| Barcelona | ~48% |
-| Norway (national) | ~32% |
-| Germany (national) | ~28% |
-| France (national) | ~22% |
+## The 7 axes (C63 §3 — fixed definitions)
 
-Dammam scores **exactly at the Saudi national average (~55%)** — it is the **cleanest** of the three cities
-because it carries *no* city-specific downward pressure. Unlike Jeddah (the Al-Balad UNESCO overlay removes
-central parcels from the national-footprint denominator, −2 pts) and Riyadh (the pervasive RCRC/ROSHN
-development-authority density zones are the R1 trap surface), Dammam's only local layer is the ordinary Amanat
-Eastern Province approved plan for the exact vertical value — the same geo-fenced municipal value every Saudi
-city has. So Dammam's rate *is* the national rate: the exact published footprint rule (4 of 6 fields) lifts it
-above Barcelona; the geo-fenced exact vertical and geo-fenced live parcel path hold it well below Madrid.
+| # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
+|---|---|---:|---|---|---|---|
+| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | Saudi Arabia is `footprint-fallback` (`parcelProviders/registry.ts` `isInSaudiArabia`→`footprint`; the Balady / U-Maps cadastre is IP geo-fenced, L-606). A click resolves an OSM footprint, not a legal parcel. Unsampled (C57 §2.4). |
+| 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | Legacy structured-fill prior only — see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (~55 % = national; no heritage/density carve-out). No rule pack for Dammam (`rulepacks/registry.ts` ships only the `saRiyadhDemo` pack), no signed `sources/VERIFICATION.md`, no clau-inventory scorecard run. |
+| 3 | **DATA-SOURCES** | 15 % | `not-assessed` | `not-checked` | `outside-coverage` | Not bake-covered: no `bake.mjs` REGION (only `riyadh` + `jeddah` for Saudi), no `terrain.mjs` row, no wired city height `REGION_SOURCE` key. The 5-slot checklist is not computable. |
+| 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | No buildable-envelope rule pack registered for Dammam (`rulepacks/registry.ts`); solver coverage unmeasured (C58). |
+| 5 | **TERRAIN** | 10 % | `not-assessed` | `not-checked` | `outside-coverage` | No `terrain.mjs` TERRAIN_CITY row for Dammam → no baked quantized-mesh to verify. |
+| 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | `heightSources.mjs` has only `riyadh`/`jeddah` (`ml_sa`) for Saudi — no `dammam` REGION_SOURCE key. No provenance histogram probed. |
+| 7 | **CONTEXT** | 5 % | `not-assessed` | `not-checked` | `outside-coverage` | Not inside any `bake.mjs` REGION bbox → no baked context layers to probe. |
 
-**Failure and empty are not the same value:** Dammam's geo-fenced fields are scored as reachable-in-principle,
-not-reachable-from-here — never as absent.
+## §CONTEXT-DATA-HONESTY note
 
----
+Research-only, not bake-covered. DOES: nothing rendered in 3D Site (no bake/terrain). REFUSES: an envelope
+(no rule pack), a real parcel (Balady geo-fenced → footprint), a measured height, any scorecard number it
+cannot compute. UNKNOWN (typed): all 7 axes `not-assessed` — `outside-coverage` for the three cheap axes,
+`not-queried`/`pending-implementation` for the rest. No fabricated value anywhere. `honestyOk: true`.
 
-## Field-by-field breakdown (identical to national)
+## Dossier index (C63 §5)
 
-| Field | Structured? | Source | Score |
-|---|---|---|---|
-| Classification | ✅ National taxonomy | §3-1..§3-4; per-parcel assignment geo-fenced (demo = user-picked) | ~70% |
-| Ground coverage | ✅ Exact national constant | villa 0.75 §4-1 cl. 1 / apt 0.65 §4-2 cl. 1 | ~95% |
-| Front / side / rear setback | ✅ Exact national formula | `max(w/5, {3,2,2})` §4-1/§4-2 cl. 4 | ~75% each |
-| Max height — national CEILING | 🟡 Ceiling published; exact geo-fenced | villa ≤14 m §5-1-5 cl. 3 / apt ≤23 m §3-2; exact = Amanat Eastern Province (§4 cl. 1), geo-fenced | ~20% blended |
-| Max floors — national CEILING | 🟡 Ceiling published; exact geo-fenced | villa ≤ G+1+annex §3-1; exact geo-fenced | ~20% blended |
-| Residential FAR | ❌ Genuine absence | 0 hits; excluded from denominator | N/A |
-| Parcel geometry | 🟡 Exists, geo-fenced | Balady `MapServer/28`; demo = user-drawn | ~15% |
-| Context buildings / terrain | ⚠️ Global fallback | Microsoft/Google ML footprints; Copernicus GLO-30 | ~45–70% |
-| **Heritage overlay** | **✅ None identified** | **No UNESCO-scale conservation district — no refusal surface subtracted (contrast Jeddah's Al-Balad)** | **N/A (no penalty)** |
+This `RATE.md` is the composite master; the siblings FEED it (naming: [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
 
----
-
-## Why ~55% (= national) and not lower
-
-Dammam has **no city-specific carve-out** that removes parcels from the national-footprint denominator. Jeddah
-loses ~2 points to Al-Balad; Dammam loses nothing to heritage. The remaining geo-fence pressures (exact
-vertical, live parcel path) are national and apply equally everywhere, so Dammam lands exactly on the national
-number. It is the **most defensible ordinary-fabric demo** — the national footprint applies with the fewest
-local exceptions.
-
----
-
-## What would raise the rate
-
-| Action | Rate impact | Effort |
+| File | About | Feeds axis |
 |---|---|---|
-| In-SA egress / Balady data agreement | Geometry + classification + `NOOFFLOORS` (exact floors) live per parcel → toward Madrid's band | High (business/legal) |
-| Amanat Eastern Province per-zone height table (in-SA) | Converts the exact vertical from refusal to cited | Medium (in-SA read) |
-| Human `VERIFICATION.md` sign-off on the footprint clauses | Lifts the footprint pack from `estimated-ruleset` to `structured` | Low |
-| Confirm Microsoft/Google ML footprint completeness for Dammam | Firms the context building layer from "covered" to a measured fraction | Low (one bbox extract) |
+| **`RATE.md`** (this) | 7-axis composite completion scorecard — research-only stub (no scorecard computed) | — |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (was legacy `RATE.md`; renamed L-649) | LEGISLATION |
+| [`README.md`](./README.md) | what governs here · instrument chain · open questions | all |
+| [`NEXT.md`](./NEXT.md) | where we stopped · blockers · resume steps | all |
+| [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | phased climb to 100 % | LEGISLATION (+ all) |
+| `sources/` | per-field citations + human sign-off (L-449 gate) | LEGISLATION |
+
+> **Not scaffolded (research-only):** `ENVELOPE.md` · `HEIGHT.md` · `RISK-REGISTER.md` are the TACKLED-city
+> standard files (C63 §5); Dammam is not bake-covered, so they are deliberately omitted rather than shipped
+> as empty placeholders. A future pass that adds a `bake.mjs` REGION + `terrain.mjs` row for Dammam should
+> scaffold them from `_TEMPLATE/_CITY/` (see `COUNTRY-RATE.md` §B).
 
 ---
-
-*Last updated: 2026-07-24. National footprint identical to Riyadh/Jeddah; no city-specific heritage or density
-carve-out, so Dammam's rate equals the national ~55%. Exact vertical + live parcel path geo-fenced nationally.
-Context data via global ML fallbacks.*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Research-only dossier normalized to C63 naming under audit L-649/L-650 (Phase-0).*

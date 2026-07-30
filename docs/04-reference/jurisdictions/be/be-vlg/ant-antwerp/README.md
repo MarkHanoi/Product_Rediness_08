@@ -1,5 +1,11 @@
 # Antwerp (`ant-antwerp`) — Jurisdiction Pack (Flanders / VCRO)
 
+> **Dossier note (C63 naming, L-649/L-650).** This dossier's master scorecard face is now
+> [`RATE.md`](./RATE.md) — the 7-axis composite completion rate (**research-only / NOT bake-covered** →
+> all axes `not-assessed`, no scorecard computed). The legislation/data-fill rate was renamed
+> `RATE.md` → [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and now FEEDS it as Axis 2 (see
+> [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
+
 **Country:** `be` · **Region:** Flanders · **ISO 3166-2:** `BE-VLG` · **NIS code:** `11002` ·
 **Pack id:** `be-vlg-antwerp` ·
 **Governing instruments:** Gewestplan (still-effective designations) superseded by RUPs
@@ -73,7 +79,7 @@ which (a) the gewestplan/RUP determination places it under a RUP with a stated n
 provision, AND (b) that provision survives the Art. 7.4.2/2 nullification check. This denominator
 is itself unknown until the DSI WFS is accessed live.
 
-**Research estimate for Flanders: ~0–5%** structured-numeric-fill rate (see `RATE.md §2`). The
+**Research estimate for Flanders: ~0–5%** structured-numeric-fill rate (see `LEGISLATION-RATE.md §2`). The
 low ceiling reflects that many RUPs leave height "vrij" and the goede-ruimtelijke-ordening test is
 the load-bearing mechanism for most envelope questions.
 

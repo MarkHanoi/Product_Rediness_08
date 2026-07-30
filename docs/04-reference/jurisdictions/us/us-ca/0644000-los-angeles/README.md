@@ -1,5 +1,11 @@
 # Los Angeles (0644000, California, USA) — what is true now
 
+> **Dossier note (C63 naming, L-649/L-650).** This dossier's master scorecard face is now
+> [`RATE.md`](./RATE.md) — the 7-axis composite completion rate (**research-only / NOT bake-covered** →
+> all axes `not-assessed`, no scorecard computed). The legislation/data-fill rate was renamed
+> `RATE.md` → [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and now FEEDS it as Axis 2 (see
+> [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
+
 **Level:** municipality · **ISO/statistical id:** `us-ca` state · `0644000` place FIPS (state 06 + place 44000) · **Pack id:** `us-ca-0644000-los-angeles`
 **Last updated:** 2026-07-24 · **Maintainer:** UNASSIGNED · **Status:** SCAFFOLD
 
@@ -48,7 +54,7 @@ guidance at the neighbourhood level but the parcel-level rule comes from the zon
 ## 5 — Files in this folder
 
 - `NEXT.md` — where we stopped, blockers, TRIP-WIRES, resume steps.
-- `RATE.md` — city-level data readiness rate.
+- `LEGISLATION-RATE.md` — city-level legislation/data-fill readiness rate.
 - `RATE-IMPLEMENTATION-PLAN.md` — phased plan from 0% to ceiling.
 - `sources/SOURCES.md` — per-field citations (the trust gate).
 - `sources/VERIFICATION.md` — the human sign-off.

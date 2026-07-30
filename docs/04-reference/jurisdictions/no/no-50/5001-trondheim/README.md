@@ -1,5 +1,11 @@
 # Trondheim (`5001`) — Jurisdiction Pack
 
+> **Dossier note (C63 naming, L-649/L-650).** This dossier's master scorecard face is now
+> [`RATE.md`](./RATE.md) — the 7-axis composite completion rate (**research-only / NOT bake-covered** →
+> all axes `not-assessed`, no scorecard computed). The legislation/data-fill rate was renamed
+> `RATE.md` → [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and now FEEDS it as Axis 2 (see
+> [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
+
 **Country:** `no` · **Fylke:** Trøndelag · **ISO 3166-2:** `NO-50` · **Kommunenummer:** `5001` ·
 **Pack id:** `no-5001-trondheim` ·
 **Governing instrument:** Reguleringsplan (detaljregulering/områderegulering) per pbl. kap. 12; kommuneplan arealdel per pbl. kap. 11; pbl. § 29-4 numeric default where no plan governs ·
@@ -96,4 +102,4 @@ Where no reguleringsplan governs:
 
 **Related files:** `../../README.md` (country umbrella) · `../../NEXT.md` (national blockers + resume) ·
 `../../findings/NORWAY-MASTER-DATA-SOURCE-STUDY.md §B.3` (full Trondheim analysis) ·
-`sources/SOURCES.md` · `NEXT.md` · `RATE.md`
+`sources/SOURCES.md` · `NEXT.md` · `RATE.md` (composite) · `LEGISLATION-RATE.md`

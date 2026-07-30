@@ -52,7 +52,7 @@ all private-buildable parcels within the Chicago municipal boundary (~600,000 pa
 - **4.1 — If Zoneomics FAR/height fields confirmed non-null for Chicago** → Chicago commercial
   rate rises to ~55–60%; begin Phase 2 implementation (§RATE-IMPLEMENTATION-PLAN).
 - **4.2 — If Chicago open zoning dataset confirmed to include numeric FAR/height** → free source
-  rate for Chicago rises by ~10–15 pts; update RATE.md and replicate probe for LA and NYC.
+  rate for Chicago rises by ~10–15 pts; update LEGISLATION-RATE.md and replicate probe for LA and NYC.
 - **4.3 — If Regrid MCP server evaluated** → check whether parcel jurisdiction routing from
   Regrid MCP eliminates need for a custom Regrid API integration for Chicago.
 - **4.4 — If Overture/USGS height coverage confirmed city-wide for Chicago** → building height
@@ -91,5 +91,5 @@ curl "https://data.cityofchicago.org/api/views/5s3e-9pji.json" \
   | python3 -m json.tool | grep -E '"name|fieldName|dataTypeName"' | head -40
 ```
 
-If FAR/height present → Chicago free source rate rises significantly; document in RATE.md and
+If FAR/height present → Chicago free source rate rises significantly; document in LEGISLATION-RATE.md and
 start Phase 1b. If zone-code only → Zoneomics contract is the next gate; move to §3.3.

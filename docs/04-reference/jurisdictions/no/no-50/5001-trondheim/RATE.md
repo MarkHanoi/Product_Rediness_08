@@ -1,59 +1,58 @@
-# Data Readiness Rate — Trondheim (5001)
+# City RATE — master completion scorecard — Trondheim (no-50, 5001)
 
-**Headline rate: ~35%**
+<!-- generated-by: MANUAL C63 dossier normalization 2026-07-30 (L-649/L-650 Phase-0) — RESEARCH-ONLY
+     city, NOT bake-covered. The scorecard function has NOT run and its cheap axes (DATA-SOURCES ·
+     TERRAIN · CONTEXT) are NOT computable here (no bake REGION, no terrain row). EVERY axis is
+     `not-assessed` with a typed C62 reason. NO cell is a fabricated number (§CONTEXT-DATA-HONESTY). -->
 
-> **Structured dimensional fill rate**: the fraction of parcel-level building-rule queries that return a
-> complete, machine-readable answer (arealformål code + %-BYA or BRA + height) without reading a
-> reguleringsbestemmelser text/PDF. Methodology mirrors the cross-jurisdiction benchmark.
+**Overall completion: `not-assessed`** — this is a **research-only dossier, NOT bake-covered** (C63 §1.7):
+no `bake.mjs` REGION, no `terrain.mjs` row, no wired city height `REGION_SOURCE` key, no rule pack → the
+cheap axes (DATA-SOURCES · TERRAIN · CONTEXT) are **not computable**, and no scorecard has run.
+`partial: true`. **`honestyOk: true`** (renders no fabricated value; every axis is a typed `not-assessed`).
+Logged in the country roll-up [`COUNTRY-RATE.md`](../../COUNTRY-RATE.md) **§B** (research-only / NOT
+bake-covered this pass). The legislation detail (the legacy structured-fill prior) lives in
+[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) and FEEDS Axis 2.
 
-| Jurisdiction | Rate |
-|---|---|
-| Denmark | ~96% |
-| Madrid | ~68% |
-| Barcelona | ~48% |
-| **Trondheim** | **~35%** |
-| Norway (national) | ~32% |
-| Germany (national) | ~28% |
+> **Weighting** `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4). With zero axes assessed,
+> overall is honestly `not-assessed`, not 0 % (C63 §1.2/§1.5).
 
-Trondheim scores slightly above the Norwegian national average because it is the **only studied Norwegian city with a confirmed-open planregister WFS** — which raises confidence on the plan-existence and arealformål-code fields relative to Bergen (not found) and Oslo (viewer-only confirmed). The rate is still held below 40% because (a) `BestemmelseUtnyttingsgrad` is a confirmed unfinished stub in the national SOSI Plan object catalog, and (b) no live GetFeature probe has been run to confirm whether arealformål/hensynssone codes are actually returned as attributes.
+## The 7 axes (C63 §3 — fixed definitions)
 
----
+| # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
+|---|---|---:|---|---|---|---|
+| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | Norway IS wired cadastral nationally — `parcelProviders/registry.ts` `isInNorway`→`geonorge-no` (Matrikkelen `app:Teig` WFS, keyless, live). But no `computeParcelConfidence` sample was drawn for Trondheim (C57 §2.4). |
+| 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | Legacy structured-fill prior only — see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (~35 % prior, contingent on the arealformål-attribute probe). No rule pack (`rulepacks/registry.ts` is ES/DK/NL/SA-only), no signed `sources/VERIFICATION.md`, no clau-inventory scorecard run. |
+| 3 | **DATA-SOURCES** | 15 % | `not-assessed` | `not-checked` | `outside-coverage` | Not bake-covered: no `bake.mjs` REGION (only `oslo` for Norway), no `terrain.mjs` row, no wired city height `REGION_SOURCE` key. The national Matrikkelen cadastre is live but is the only feed — the 5-slot checklist is not computable. |
+| 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | No buildable-envelope rule pack registered (`rulepacks/registry.ts`); solver coverage unmeasured (C58). |
+| 5 | **TERRAIN** | 10 % | `not-assessed` | `not-checked` | `outside-coverage` | No `terrain.mjs` TERRAIN_CITY row for Trondheim → no baked quantized-mesh to verify. |
+| 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | `heightSources.mjs` has only `oslo` (`ndh_no`) for Norway — no `trondheim` REGION_SOURCE key. No provenance histogram probed. |
+| 7 | **CONTEXT** | 5 % | `not-assessed` | `not-checked` | `outside-coverage` | Not inside any `bake.mjs` REGION bbox (Trondheim ~10.4 E / 63.43 N is far outside the `oslo` clip) → no baked context layers to probe. |
 
-## Field-by-field breakdown
+## §CONTEXT-DATA-HONESTY note
 
-| Field | Structured? | Source | Score |
-|---|---|---|---|
-| Parcel geometry (Matrikkelen Eiendomskart Teig) | ✅ Full | Single national WFS, confirmed live, free, no login. | **~95%** |
-| Plan existence + boundary (reguleringsplan polygon) | ✅ Confirmed open | Geonorge kartkatalog — "Planregister Trondheim kommune" confirmed open, UUID `21c83653-b9c2-4931-bad0-a67e4c0f6be6`. Live WFS endpoint URL not yet fetched; access terms confirmed. | **~70%** (access confirmed; live attribute schema not yet probed) |
-| Arealformål code | ⚠️ Expected, not yet probed | SOSI Plan national required field on all plans; confirmed in national produktspesifikasjon. Whether Trondheim's WFS actually returns it as an attribute: TBD from B2 probe. | **~55%** (national requirement; local population unconfirmed) |
-| Hensynssone code (H570 etc.) | ⚠️ Expected, not yet probed | Same as arealformål — national kodeliste, national requirement, local population unconfirmed. | **~40%** |
-| `BestemmelseUtnyttingsgrad` (numeric utilisation in structured field) | ❌ Confirmed stub | National object-catalog entry for this type is an unfinished placeholder (confirmed 2026-07-24). Do not expect a structured attribute for %-BYA or BRA from any standard WFS call. | **~5%** |
-| Grad av utnytting **method** (BYA/%-BYA/BRA/%-BRA) | ✅ Published | TEK17 §§5-1–5-7, H-2300 B — nationally uniform. | **100% (method only; not the parcel-level value)** |
-| Actual %-BYA / BRA value (parcel-level) | ❌ Text/PDF | Confirmed for Trondheim example (Brannkvartalet, 2004): prose paragraphs (§1 Avgrensning, §2 Formålet, …). No WFS attribute carrying a numeric value found. | **~5%** |
-| Height — plan-set (mønehøyde/gesimshøyde) | ❌ Text/PDF | Same bestemmelser-as-prose pattern. Expression type (relative/kotehøyde) not yet confirmed for Trondheim specifically. | **~5%** |
-| Height — § 29-4 national default | ✅ Shippable | gesimshøyde ≤ 8 m / mønehøyde ≤ 9 m; setback max(½H, 4 m). Applies where no plan governs. Confirmed from primary statute. | **100% (for no-plan parcels only)** |
-| Setback — § 29-4 fallback | ✅ Shippable | max(½H, 4 m) from neighbour boundary — national, citable. | **100% (for no-plan parcels only)** |
-| Reguleringsbestemmelser text access | ✅ HTML/text (1 plan confirmed) | Brannkvartalet (2004) published as parseable HTML — marginally better than Hamburg's PDF-only. Not surveyed broadly. | **~75%** (access; NLP/parsing still required) |
-| Planstatus / supersession | ✅ Structured taxonomy | National kodeliste — machine-resolvable. Population in Trondheim WFS: TBD. | **70%** |
-| Building points (Matrikkelen Bygningspunkt) | ✅ Open | National, free, no login — location only, no footprint. | **90%** |
-| Building footprint + height (FKB-Bygning) | ⚠️ Licence-gated | Free for Norge digitalt parties; commercial use requires reseller purchase. | **~35%** |
-| Terrain (NDH) | ✅ Complete, open | nationwide, ≥2 pts/m², free, confirmed live. | **100%** |
-| Heritage — Kulturminnesøk.no | ✅ Open | ~220,000 objects, free, no login, confirmed live. | **60%** |
+Research-only, not bake-covered. DOES: nothing rendered in 3D Site (no bake/terrain); a national Matrikkelen
+click would resolve a real parcel but that path is unsampled here. REFUSES: an envelope (no rule pack), a
+measured height, any scorecard number it cannot compute. UNKNOWN (typed): all 7 axes `not-assessed` —
+`outside-coverage` for the three cheap axes, `not-queried`/`pending-implementation` for the rest. No
+fabricated value anywhere. `honestyOk: true`.
 
----
+## Dossier index (C63 §5)
 
-## What would raise the rate
+This `RATE.md` is the composite master; the siblings FEED it (naming: [`NAMING-CONVENTION`](../../../_TEMPLATE/NAMING-CONVENTION.md)).
 
-| Action | Rate impact | Effort |
+| File | About | Feeds axis |
 |---|---|---|
-| Run B1+B2 probe (fetch WFS endpoint + GetFeature for Trondheim parcel) | If arealformål/hensynssone attributes are present → raises "plan existence + arealformål" fields to ~85%. If geometry only → confirms NLP-pipeline path | Low — 1 dev-day |
-| Read one 2020+ Trondheim reguleringsbestemmelser | Confirms whether newer plans have a more structured format than the 2004 Brannkvartalet example | Low |
-| Resolve FKB-Bygning licence | Unlocks building footprint + height for the massing engine | Medium (process step, not engineering) |
+| **`RATE.md`** (this) | 7-axis composite completion scorecard — research-only stub (no scorecard computed) | — |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (was legacy `RATE.md`; renamed L-649) | LEGISLATION |
+| [`README.md`](./README.md) | what governs here · instrument chain · open questions | all |
+| [`NEXT.md`](./NEXT.md) | where we stopped · blockers · resume steps | all |
+| `sources/` | per-field citations + human sign-off (L-449 gate) | LEGISLATION |
 
-**Realistic ceiling after WFS probe:**
-- If WFS carries arealformål + planstatus attributes: **~55–60%** (zone code structured; numeric values still text)
-- If WFS returns geometry + plan ID only: **~35%** (plan boundary confirmed; all numeric values require NLP pipeline)
+> **Not scaffolded (research-only):** `ENVELOPE.md` · `HEIGHT.md` · `RISK-REGISTER.md` · `RATE-IMPLEMENTATION-PLAN.md`
+> are part of the fuller dossier standard (C63 §5); Trondheim is not bake-covered, so they are deliberately
+> omitted rather than shipped as empty placeholders. A future pass that adds a `bake.mjs` REGION +
+> `terrain.mjs` row for Trondheim should scaffold them from `_TEMPLATE/_CITY/` (see `COUNTRY-RATE.md` §B/§C).
 
 ---
-
-*Last updated: 2026-07-24. Planregister access terms confirmed open; WFS endpoint URL not yet fetched; no GetFeature probe run. `BestemmelseUtnyttingsgrad` national stub confirmed. NDH and Matrikkelen parcel WFS confirmed live.*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Research-only dossier normalized to C63 naming under audit L-649/L-650 (Phase-0).*

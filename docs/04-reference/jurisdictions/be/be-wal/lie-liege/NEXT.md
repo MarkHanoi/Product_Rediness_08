@@ -44,7 +44,7 @@ for a Liège parcel is the immediate next step.
 ## 4 — TRIP-WIRES
 
 - **4.1 — If Liège's GCU is found and contains numeric height provisions** → update the Liège fill-rate estimate immediately; scope a Liège-specific pack using the GCU as the numeric instrument rather than bon-aménagement-des-lieux alone.
-- **4.2 — If the plan de secteur GetFeature returns a numeric attribute for any zone** → this changes the Wallonia rate ceiling materially; update `RATE.md §4` and the country README.
+- **4.2 — If the plan de secteur GetFeature returns a numeric attribute for any zone** → this changes the Wallonia rate ceiling materially; update `LEGISLATION-RATE.md §4` and the country README.
 - **4.3 — If any other Walloon commune's GCU is found with a structured numeric format** → assess whether the same extraction method applies to Liège; the GCU format may be standardised at the Wallonia level.
 
 ## 5 — WHAT IS ALREADY BUILT (do not redo)
