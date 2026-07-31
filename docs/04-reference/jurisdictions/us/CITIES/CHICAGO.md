@@ -22,9 +22,21 @@
 `ChicagoParcelProvider` · `ChicagoZoningProvider` · `ChicagoEnvelopeProvider` (per-city rule pack).
 Note: probe whether the Chicago zoning attribute table carries numeric FAR/height or district code only.
 
+> **BUILT (2026-07-31, L-650 Phase-4): `ChicagoParcelProvider` → `wired-pending-probe`.**
+> `packages/site-parcel-data/src/parcelProviders/chicagoParcelProvider.ts` — `isInChicago` bbox
+> predicate + `fetchParcelAtPoint` (injected-fetch, never throws, OTel span) parsing a Cook County
+> parcel feature (ArcGIS Esri-JSON **or** GeoJSON/Socrata) → **14-digit PIN + WGS84 ring + shoelace
+> area**, with an OPTIONAL DRAFT zoning-district code (Title 17) folded in only when the proxy joins
+> `data.cityofchicago.org` `5s3e-9pji` (code-only; `far`/`maxHeightM` stay null). CRS guard refuses
+> a State-Plane ring; confidence HIGH on PIN + point-in-lot. 30 unit tests green; typecheck +
+> `check:isolation` clean. Registry wiring (`isInChicago→chicago-cook`) + a live endpoint probe are
+> the orchestrator's follow-up — the provider leaves a `// TODO(orchestrator)` note and does NOT edit
+> `parcelProviders/registry.ts`. Moves no RATE % cell.
+
 ## Pending-probe checklist
-- [ ] Cook County / Chicago parcel REST endpoint probed live
-- [ ] Zoning attribute table numeric FAR/height vs code-only
+- [ ] Cook County / Chicago parcel REST endpoint probed live (`ChicagoParcelProvider` carries a `// PROBE:` marker on the Cook County FeatureServer path + PIN field)
+- [ ] Zoning attribute table numeric FAR/height vs code-only (field name of the `5s3e-9pji` companion layer)
 - [ ] Overture/3DEP height coverage confirmed
+- [ ] Orchestrator registers `isInChicago→chicago-cook` in `parcelProviders/registry.ts`
 
 **Honesty:** everything above is CONVERGENT-SECONDARY (not probed). "Unprobed" ≠ "no data."

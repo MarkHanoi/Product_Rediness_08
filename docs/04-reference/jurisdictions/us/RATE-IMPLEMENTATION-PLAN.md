@@ -249,6 +249,42 @@ national scale to "finish."**
   (a lot that bought air-rights has more FAR than MapPLUTO shows). **SF:** Discretionary Review + area
   plans (Eastern Neighborhoods, Central SoMa) overlay the base district. All `CONVERGENT-SECONDARY`.
 
+### Phase A addendum — Chicago (`ChicagoParcelProvider`, Cook County / PIN) → PARCEL `wired-pending-probe`
+
+> **STATUS (2026-07-31, L-650 Phase-4): Chicago PARCEL → `wired-pending-probe`.** The
+> `ChicagoParcelProvider` is now BUILT —
+> `packages/site-parcel-data/src/parcelProviders/chicagoParcelProvider.ts`: `isInChicago` city /
+> inner-Cook bbox predicate + `CHICAGO_BBOX` + `fetchParcelAtPoint` (injected-fetch, never throws,
+> OTel span `pryzm.parcel.chicagoCookCounty`) parsing a **Cook County parcel feature** (ArcGIS
+> Esri-JSON **or** GeoJSON/Socrata) → **14-digit PIN + a WGS84 ring + a shoelace-DERIVED `areaM2`**
+> (Cook County's `shape_area` is ambiguous State-Plane ft², so area comes from the geometry we plot,
+> tagged `derived-from-ring`). CRS guard refuses a State-Plane ring (`crs-unprojected`) rather than
+> mis-plot; confidence HIGH on PIN + point-in-lot. **Unlike NYC's single BBL-keyed MapPLUTO, Chicago's
+> payload is SPLIT:** Cook County owns the parcel fabric, the City of Chicago owns zoning. So the
+> strong output is **geometry + PIN only**; a Chicago **zoning-district code** is folded in as an
+> OPTIONAL, **DRAFT-caveated** head-start (cited to the Chicago Zoning Ordinance, Title 17) **only when
+> the same-origin proxy joins the companion layer** (`data.cityofchicago.org` `5s3e-9pji`) — and even
+> then it is a district CODE only: `far`/`maxHeightM` stay `null` (they live in Title 17 ordinance
+> tables, not the boundary layer), and a Planned Development supersedes the base district. Verified:
+> `@pryzm/site-parcel-data` typecheck clean · 30 new unit tests green (1158/1158 package suite) ·
+> `check:isolation` intact. **Still pending:** (1) the orchestrator registers `isInChicago→chicago-cook`
+> in `parcelProviders/registry.ts` (a `// TODO(orchestrator)` note is left in-file; this provider does
+> not edit the registry / `index.ts` / `server.js`); (2) a live probe of the Cook County parcel
+> FeatureServer path + PIN field name (both carry `// PROBE:` markers), and of the Chicago zoning
+> companion field name + whether it carries numeric FAR/height (the dossier's highest-value free probe).
+> **This moves NO RATE % cell** — `wired-pending-probe` is not `baked`; the number stays put until the
+> endpoint is live-probed and the registry is wired.
+
+- **Endpoints (documented, `// PROBE:` — not live-wired).** Parcel: Cook County parcel FeatureServer
+  (`gis.cookcountyil.gov/.../cookVwrDynmMapSrvc/MapServer/44/query`, `outSR=4326`). Zoning companion:
+  `data.cityofchicago.org/resource/5s3e-9pji.geojson` (VERIFIED-LEAD in the Chicago dossier's
+  `sources/SOURCES.md`, NOT live-probed). Proxy path `/api/parcel/us-chi` (mirrors `/api/parcel/us-nyc`).
+- **Axis.** PARCEL (Axis 1) · DATA-SOURCES (Axis 3) · a partial, DRAFT LEGISLATION touch (district code
+  only — no numeric FAR/height, so no ENVELOPE head-start, unlike NYC's MapPLUTO FAR).
+- **Blocker.** All source claims are `CONVERGENT-SECONDARY` (unprobed as a *wired provider*). Chicago's
+  split parcel/zoning ownership means the LEGISLATION head-start is code-only; the numeric FAR/height +
+  the Planned-Development fraction are the surviving cap (`us-il/1714000-chicago/` Phase 3–4).
+
 ---
 
 ## 3 — The gap to Denmark (~96 %)
