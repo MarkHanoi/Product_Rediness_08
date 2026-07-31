@@ -17,8 +17,8 @@ RRUZ / PPAS / PAD (local overrides) ·
 ## 1 — What governs here
 
 - **Governing-instrument chain:** `parcel → PRAS zone → RRU Titre I (default) | RRUZ | PPAS | PAD → CoBAT + bon-aménagement-des-lieux derogation test`.
-- **Rule KIND (ADR-0270 / C58 §2.2):** NEW KIND REQUIRED — Brussels' RRU Titre I governs gabarit via context-relative formulas (H = P + 3.00 + D, where H = maximum height, P = rue width, D = parcel depth), not a fixed lookup. This is closer to Porto's *moda-da-cércea* mechanism than to a simple coverage-and-FAR table. The KIND must encode the context-relative formula, not a static numeric value.
-- **Setback-governed vs alignment-governed:** Brussels uses the RRU Titre I "implantation" and "profondeur de bâti" framework, which governs both the front alignment to the street and the rear depth of construction. These are formula-derived from the surrounding built fabric, not fixed setback distances.
+- **Rule KIND (ADR-0270 / C58 §2.2):** NEW KIND REQUIRED — a **context-relative computed-envelope** KIND. Founder primary-source dig (2026-07-31, official RRU Titre I `urbanisme.irisnet.be/pdf/RRU_Titre_1_FR.pdf` + etaamb): **buildable DEPTH is a confirmed Art. 4 resolver** — `depthLimit = min(0.75·parcelDepth, neighbourRule())` (≤¾ parcel depth + neighbour rule). **HEIGHT is contextual** — there is NO per-zone table, and the widely-cited `H = P + 3 + D` formula is **NOT located in the official text (UNCONFIRMED — do NOT encode)**; height is instead **geometry-derived** from the official UrbIS-3D CityGML product (`height = maxRoofZ − minGroundZ`, a reusable CityGML parser). The KIND encodes the depth resolver + geometric height, never a static height number. FAR is genuinely absent (`n-a`).
+- **Setback-governed vs alignment-governed:** RRU Titre I **Art. 3 implantation** sets the front façade at the **alignment / building line** (categorical — encode "alignment", NOT a metre value), with construction permitted on/against the shared lateral boundary. Rear **profondeur de bâti** is the Art. 4 depth resolver above.
 - **Legal-structure trap watch (P1):** the RRU is a **regional default** — it applies only where a PPAS (commune-level detailed plan), RRUZ (zoned regional override), or PAD (Plan d'Aménagement Directeur) does NOT provide otherwise. The precedence check (PPAS/RRUZ/PAD > RRU) must run before any RRU rule can be shipped. This is the Brussels analogue of Germany's §30/§34/§35 classifier — a three-step instrument-priority check.
 - **Additional constraint layers (§A.8 of master study):** CBS+ (Coefficient de Biotope par Surface) and the TOTEM life-cycle gate (demolitions > 1,000 m²) are adjacent constraints from the current RRU reform project. Confirm their regulatory status before authoring any Brussels demolition/rebuild card.
 
@@ -29,7 +29,7 @@ RRUZ / PPAS / PAD (local overrides) ·
 | 1 (highest) | **PAD** (Plan d'Aménagement Directeur) | Specific project/district | Contains its own gabarit rules; overrides all below |
 | 2 | **RRUZ** (Règlement Régional d'Urbanisme Zoné) | Specific district | Locally replaces RRU Titre I; e.g. "Projet Urbain Loi" tower district |
 | 3 | **PPAS** (Plan Particulier d'Affectation du Sol) | Commune-level detailed plan | Contains its own gabarit/siting rules; overrides RRU |
-| 4 (default) | **RRU Titre I** | All 19 Brussels communes | Context-relative formulas (H = P + 3.00 + D) — the regional default |
+| 4 (default) | **RRU Titre I** | All 19 Brussels communes | The regional default: Art. 4 depth resolver (≤¾ parcel depth + neighbour rule) + Art. 3 alignment; height contextual/geometry-derived (`H = P + 3 + D` UNCONFIRMED, not encoded) |
 
 ⚠ The PRAS governs **land-use affectation** (what can be built), not gabarit (how tall/deep). The
 PRAS query gives the zone type; the RRU/PPAS/RRUZ/PAD query gives the envelope rules.
@@ -84,18 +84,22 @@ under Titre VIII, office-quota zones under PRAS) rather than the height/gabarit 
 
 ---
 
-## 5 — Height mechanism (RRU Titre I Titre I)
+## 5 — Envelope mechanism (RRU Titre I) — depth confirmed, height contextual
 
-Brussels' RRU Titre I Article 4 (Hauteur) applies H = P + 3.00 + D where:
-- **H** = maximum height of the new construction (in metres above the reference point)
-- **P** = width of the public road (rue) in front of the parcel
-- **D** = depth of the parcel from the street alignment to the rear boundary
+> **⚠ Corrected 2026-07-31 (founder primary-source dig, official RRU Titre I).** The prior worked
+> example applied `H = P + 3.00 + D` as the height rule. That formula is **NOT located in the official
+> RRU Titre I text — it is UNCONFIRMED and must NOT be encoded.** What the official text DOES specify:
 
-This formula is context-relative — **it cannot be looked up from a static table**; it requires:
-1. Confirming the parcel is subject to RRU Titre I (not a PPAS/RRUZ override)
-2. Measuring or querying the rue width P (from UrbIS road layer or geometric derivation)
-3. Measuring or querying the parcel depth D (from the CADMAP parcel geometry)
-4. Evaluating the formula: H = P + 3.00 + D
+**Buildable DEPTH — Art. 4 (CONFIRMED + encodable):**
+`depthLimit = min(0.75·parcelDepth, neighbourRule())`
+- **¾ rule:** depth ≤ ¾ of parcel depth (Art. 4 §1(1)) — measured excluding the front-setback area, along the parcel median axis.
+- **both neighbours built:** ≤ the deeper neighbouring profile, AND ≤ shallower neighbour **+3 m** unless a **≥3 m lateral setback** is provided.
+- **one neighbour:** neighbour depth **+3 m** unless a 3 m side setback. **no neighbours:** only the ¾ rule.
+- Inputs: parcel geometry + neighbour footprints (via the UrbIS combined product `BL_ID` block) — a resolver, never a stored number.
+
+**Implantation — Art. 3:** front façade at the **alignment / building line** (categorical, NOT metres); construction on/against the shared lateral boundary. Encode "alignment".
+
+**HEIGHT — contextual, geometry-derived:** there is **no per-zone height table** in RRU Titre I, and `H = P + 3 + D` is **UNCONFIRMED** (not in the official text — do NOT encode). The tractable path is a **geometric derivation** from the official **UrbIS-3D CityGML** product: `height = maxRoofZ − minGroundZ` (RoofSurface/GroundSurface Z) — a reusable CityGML parser. Base UrbIS Buildings has NO height attribute; UrbIS-3D schema/CRS/LoD is unprobed (honest blocker).
 
 **Demolition/rebuild special rule:** a RRUZ's height/siting articles apply in full to demolition/
 reconstruction — a demolition/rebuild resets which numeric regime applies, and may trigger the
@@ -109,15 +113,16 @@ CBS+ and TOTEM life-cycle gate requirements under the current RRU reform.
 
 - **PRAS live access:** `gis.urban.brussels/geoserver/PERSPECTIVE_FR/ows` is bot-blocked. A Belgian-IP
   deployment or alternative access path is the prerequisite for all Brussels pack work.
-- **RRU Titre I current text:** the formula H = P + 3.00 + D is research-confirmed from secondary
-  sources; the canonical Article 4 text (including all conditions, exceptions, and calculation method
-  for P and D) has not been independently read from the primary RRU text in this pass.
-- **PPAS/RRUZ coverage in Brussels:** what fraction of Brussels parcels are governed by a PPAS or
-  RRUZ rather than the RRU default? This is the Brussels analogue of Germany's §34-fraction probe —
-  measure before committing a dev-day budget.
-- **Street-width (P) source:** UrbIS road layer carries road polygons but whether it carries a
-  queryable `width` or `largeur_rue` attribute is unconfirmed. If not, P must be derived geometrically
-  from the UrbIS road polygon width — requiring a different implementation path.
+- **RRU Titre I height:** the `H = P + 3 + D` formula is **NOT in the official text (UNCONFIRMED — do
+  NOT encode)**; there is no per-zone height table. Height must be geometry-derived from UrbIS-3D CityGML
+  (`maxRoofZ − minGroundZ`) whose schema/CRS/LoD is unprobed. (Art. 4 depth + Art. 3 implantation ARE
+  read verbatim — see §5 — but their consolidated article citations must be pinned by a verifier.)
+- **PPAS/RRUZ/PAD coverage in Brussels:** what fraction of Brussels parcels are governed by a PPAS,
+  RRUZ, or PAD rather than the RRU default? This instrument-priority chain is the Brussels analogue of
+  Germany's §34-fraction probe — measure before committing a dev-day budget (needs live access).
+- **Street-width (P):** P is geometrically computable (road-polygon median cross-section / façade-to-
+  façade) — NOT blocked on a `largeur_rue` attribute. NB with the height formula unconfirmed, P is not
+  needed for any confirmed height rule.
 - **Brussels LiDAR/building height:** no standalone Brussels LiDAR programme identified. UrbIS is
   not confirmed as a LiDAR-derived building-height product.
 - **CBS+ regulatory status:** appears in the current RRU reform project documentation; confirm

@@ -46,9 +46,10 @@ numeric-leaning baseline text (**RRU Titre I**) — but the number is still low 
 |---|---|---|---|
 | Parcel geometry | ✅ Full (federal) | CADMAP/CadGIS federal WFS (AGDP/SPF Finances) — verified live 2026-07-24 | ~90% |
 | Zone/use boundary hit (PRAS) | ✅ Structured | `gis.urban.brussels/geoserver/PERSPECTIVE_FR:Affectations` (bot-blocked direct; cache-confirmed) | ~90% |
-| Height / gabarit — numeric field | ⚠️ PDF formula | RRU Titre I — `H = P + 3.00 + D` context-relative, in PDF; no queryable attribute | ~5–10% |
-| FAR / plot ratio | ❌ Not found | No Brussels FAR-equivalent as a queryable attribute | ~0% |
-| Setbacks / implantation | ⚠️ PDF formula | RRU Titre I "implantation"/"profondeur de bâti" as prose formulas | ~0% |
+| Buildable depth (RRU Titre I Art. 4) | ✅ CONFIRMED + encodable | `depthLimit = min(0.75·parcelDepth, neighbourRule())` — ≤¾ parcel depth + neighbour rule (read verbatim `urbanisme.irisnet.be/pdf/RRU_Titre_1_FR.pdf`); resolver, not a stored number | ~40% (rule confirmed; fill pending resolver + neighbour join) |
+| Implantation (RRU Titre I Art. 3) | ✅ Categorical | Front façade at the alignment/building line (NOT metres); on/against shared boundary — encode "alignment" | ~30% |
+| Height / gabarit | ⚠️ Contextual — formula UNCONFIRMED | No per-zone table; `H = P + 3 + D` is NOT in the official RRU Titre I → UNCONFIRMED, do NOT encode. Geometry-derivable from UrbIS-3D CityGML (`maxRoofZ − minGroundZ`) | ~10% |
+| FAR / plot ratio | ❌ Genuinely absent | No Brussels FAR-equivalent — record `n-a`/`unknown`, NEVER 0 (regulated by affectation + gabarit) | `n-a` |
 | CBS+ (Coefficient de Biotope par Surface) | ✅ Structured GIS layer | Brussels ecological-potential indicator (RRU reform) — an adjacent gating layer, not height/FAR | contributes the small non-zero credit |
 | Heritage overlay | ⚠️ Register exists; live GIS layer unconfirmed | Direction du Patrimoine culturel / urban.brussels | ~50% |
 | Provision-code semantic catalogue | ❌ Does not exist | No Belgian region publishes a Sweden-style Planbestämmelsekatalog | 0% |

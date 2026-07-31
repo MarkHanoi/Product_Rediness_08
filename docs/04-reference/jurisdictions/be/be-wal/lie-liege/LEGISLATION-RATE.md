@@ -51,20 +51,37 @@ provisions for some zones.
 
 ---
 
-## Field-by-field breakdown
+> **⚠ Founder research (2026-07-31) — Wallonia is the INVERSE of Brussels: GIS-RICH, legislation-poor.**
+> Wallonia has **no PRAS**; its planning data is unusually machine-readable, exposed through the SPW
+> **`geoservices.wallonie.be` ArcGIS REST catalogue** (+ downloadable GeoPackage/FileGDB + INSPIRE OGC
+> API, **CC-BY**). What is thin is the *legal-semantic* layer: the dimensional numbers (height, setback,
+> coverage, buildable depth, floors) are **not regional GIS attributes** — they require article-level
+> extraction from **CoDT + local instruments** (SOL, communal guides). So the honest model is a
+> **resolution-STRATEGY per field**, not one blended rate:
+> - `spatial_join` — zoning/affectation (PDS) and its intersecting prescriptions/perimeters/overlays.
+> - `legislation_lookup` / `hierarchy_lookup` — dimensional rules: priority **SOL → communal guide →
+>   CoDT**; value stays `null` until an instrument specifies it, but the resolution PATH is deterministic.
+> - `explicitly_not_defined` — FAR (no regional FAR): value `null`, **never 0**.
+> - `spatial_overlay` — heritage / flood / terrain / soil / land-cover (all REST overlays).
+>
+> ⚠ HONESTY: **GIS existence ≠ schema audited.** ArcGIS layer + field names below are marked `PROBE:`
+> until a live GetFeature confirms them — do not assert an attribute unseen.
 
-| Field | Structured? | Source | Score |
+| Field | Resolution strategy | Source (PROBE: names unaudited) | Score |
 |---|---|---|---|
-| Parcel geometry | ✅ Federal cadastre | CADMAP/CadGIS WFS (AGDP/SPF Finances); VERIFIED LIVE 2026-07-24 | ~90% |
-| Plan de secteur zone / affectation | ✅ VERIFIED LIVE | SPW Géoportail `geoservices.wallonie.be/geoserver/inspire_lu/ows`; layers `LU.ZoningElement_pds`, `LU.SpatialPlan_pds`, `LU.SupplementaryRegulation_pds`; full OGC API Features also live; HTTP 200 confirmed 2026-07-24; free, no key | ~95% (zone boundary fully queryable; affectation label = zone d'habitat / activité économique / etc. — no numeric envelope dimension) |
-| Height / max floors — structured field | ❌ Not present in plan de secteur | The plan de secteur carries no height or FAR dimension. The GRU is explicitly indicative (non-binding). *Bon aménagement des lieux* (CoDT Art. D.IV.13) is the operative standard — not a lookup table | ~0% |
-| FAR / plot ratio | ❌ Not present | No Wallonia-wide FAR metric; plan de secteur does not carry one | ~0% |
-| Setbacks | ❌ Discretionary | Folded entirely into the *bon aménagement des lieux* judgment; no structured setback formula confirmed in any Wallonia-wide instrument | ~0% |
-| Guide communal d'urbanisme (GCU) — numeric provisions | ❔ NOT YET ASSESSED | Whether Liège has adopted a GCU with real numeric content is unconfirmed. A GCU could add numeric height/coverage provisions for specific zones — or it could be primarily qualitative (design guidance). **This is the highest-value remaining research action for Liège.** | ~0% until GCU status confirmed |
-| Schéma de développement communal (SDC) / schéma d'orientation local (SOL) | ⚠️ Strategic, not binding | Confirmed as layers in the Wallonia WMS capabilities (`LU.SpatialPlan_sdc`, `LU.SpatialPlan_sol`); strategic orientation tools — not binding numeric instruments | ~0% fill (orientation guidance, not a numeric envelope) |
-| Heritage overlay (AWaP) | ✅ Confirmed (stated) | SPW Géoportail "Patrimoine — biens classés et zones de protection," CC-BY 4.0; existence and licence confirmed; GetCapabilities + GetFeature not independently re-fetched this pass | ~85% (stated — not independently re-probed) |
-| Existing building footprints (PICC) | ⚠️ Exists, not probed | PICC (Projet Informatique de Cartographie Continue) — confirmed as a named service via aggregator; field schema and licence not independently fetched | ~40% |
-| Terrain / LiDAR | ⚠️ Exists, not independently confirmed | Wallonia LiDAR-derived terrain products via SPW Géoportail; coverage/density parity with Flanders DHMV II not probed | ~40% |
+| Parcel geometry | `spatial_join` (federal) | CADMAP/CadGIS WFS (AGDP/SPF Finances); VERIFIED LIVE 2026-07-24 — same source as Flanders/Brussels (survey-grade, national) | ~90% |
+| Plan de Secteur (PDS) — zoning backbone | `spatial_join` — query ALL intersecting layers, not just the zone polygon | SPW ArcGIS REST `PROBE: AMENAGEMENT_TERRITOIRE/PDS` (+ GeoServer `inspire_lu` `LU.ZoningElement_pds` VERIFIED LIVE 2026-07-24; GeoPackage/FileGDB + INSPIRE OGC API; CC-BY). Richer than zones: **prescriptions supplémentaires, périmètres de protection, mesures d'aménagement, landscape/cultural/ecological overlays, revisions** | ~95% (zone + overlays queryable; NO numeric envelope dimension) |
+| GRU (Guide Régional d'Urbanisme) — spatial overlays | `spatial_overlay` | SPW ArcGIS REST `PROBE: AMENAGEMENT_TERRITOIRE/GRU` — GRU is **SPATIAL** (GIS overlay layers: protected urban areas, rural building regs, accessibility, acoustic), not just text | ~60% (overlay presence queryable; still legally indicative for numbers) |
+| Height / floors / setbacks / buildable-depth | `legislation_lookup` / `hierarchy_lookup` (SOL → communal guide → CoDT) | NOT a regional GIS attribute. Article-level extraction from **CoDT + local instruments**. Value `null` until an instrument specifies it; resolution PATH deterministic (priority SOL → communal guide → CoDT). *Bon aménagement des lieux* (CoDT Art. D.IV.13) sits over all of it | ~0% fill (deterministic PATH, no stored number) |
+| FAR / plot ratio | `explicitly_not_defined` | No Wallonia-wide FAR metric — genuine absence. Value `null`, **NEVER 0** | `n-a` (explicit non-definition) |
+| Guide communal d'urbanisme (GCU) — numeric provisions | `hierarchy_lookup` (communal tier) | Whether Liège has adopted a GCU with numeric content is unconfirmed — the highest-value LEGAL research action. Feeds the `SOL → communal guide → CoDT` cascade | ~0% until GCU status confirmed |
+| SOL (schéma d'orientation local) / SDC | `hierarchy_lookup` (top priority when present) | ArcGIS REST / GeoServer `LU.SpatialPlan_sol` / `_sdc` `PROBE:` — the SOL is the highest-priority tier in the dimensional cascade where adopted | ~0% fill (path node, not a stored number) |
+| Heritage overlay (AWaP) | `spatial_overlay` | SPW Géoportail "Patrimoine — biens classés et zones de protection," CC-BY 4.0 `PROBE:` field schema; existence + licence confirmed, GetFeature not re-fetched | ~85% (stated) |
+| Flood (zones inondables) | `spatial_overlay` | SPW ArcGIS REST `PROBE: EAU/ZI` — flood/aléa d'inondation overlay | ~70% (layer named; schema unaudited) |
+| Soil (potentially polluted) | `spatial_overlay` | SPW ArcGIS REST `PROBE: CNSW` (Carte des sols de Wallonie / soil register) | ~60% (layer named; schema unaudited) |
+| Land cover | `spatial_overlay` | SPW ArcGIS REST `PROBE: COSW` (Carte d'occupation du sol de Wallonie) | ~60% (layer named; schema unaudited) |
+| Terrain / LiDAR | `spatial_overlay` | Official **LiDAR MNT 2021–22 (50 cm)** — SPW ArcGIS REST `PROBE: RELIEF` folder; parity with Flanders DHMV II now credible (official 50 cm product) | ~65% (official product identified; schema unaudited) |
+| Existing building footprints (PICC) | `spatial_join` | PICC (Projet Informatique de Cartographie Continue) `PROBE:` field schema; confirmed by name | ~40% |
 
 ---
 
@@ -106,11 +123,25 @@ honest rate estimate above ~0–2% is possible.
 | Probe Wallonia PICC building-footprint WFS and LiDAR terrain product for field schema + coverage | Confirms context-data layer parity with Flanders; required before any Liège context-data dev-day estimate | Low–Medium |
 | Regional policy change: Wallonia adopts a provision-code catalogue or a binding numeric GRU | The structural intervention — if the GRU were binding and its provisions numeric, Wallonia's rate could approach ~20–30%; if a Planbestämmelsekatalog equivalent were adopted, higher still | Political/administrative — not currently underway |
 
+> **STRATEGIC DIRECTION (record only — do NOT build now).** Because Wallonia is GIS-rich and its
+> planning data is exposed through one SPW **ArcGIS REST catalogue** (PDS + GRU + SDT + RELIEF + the
+> flood/soil/land-cover/heritage overlays), the reusable win is a **Wallonia Planning SDK** wrapping that
+> catalogue once — then **Liège, Namur, Charleroi, Mons, Tournai reuse it wholesale**; only the local
+> instruments (SOL, communal guides, GCU) are per-city. This is the Wallonia analogue of the Barcelona
+> per-clau infrastructure: build the spatial-join/overlay plumbing once regionally, pay the legal-SOURCING
+> cost per municipality. The parcel provider (`walloniaParcelProvider.ts`, federal CadGIS) is the first
+> brick; the SDK is future Phase-C direction, not this pass.
+
 ---
 
-*Last updated: 2026-07-24. Plan de secteur WMS + OGC API Features VERIFIED LIVE — HTTP 200,
-full capabilities returned; GetFeature for a specific Liège parcel not yet run. Federal cadastre
-VERIFIED LIVE. AWaP heritage layer existence + CC-BY 4.0 licence stated — not independently
-re-fetched. PICC building footprints and Wallonia LiDAR terrain product confirmed by name via
-aggregator — not independently probed. Whether Liège has adopted a GCU is NOT YET ASSESSED —
-the rate cannot be revised above ~0–2% until this is confirmed. Maintainer: UNASSIGNED.*
+*Last updated: 2026-07-31. Founder research folded in: Wallonia is GIS-rich / legislation-poor (the
+inverse of Brussels), exposed through the SPW `geoservices.wallonie.be` ArcGIS REST catalogue (PDS + GRU
+spatial overlays + RELIEF LiDAR MNT 2021–22 50 cm + EAU/ZI flood + CNSW soil + COSW land-cover), CC-BY.
+Resolution-strategy model per field: `spatial_join` (PDS + intersecting layers) · `legislation_lookup`/
+`hierarchy_lookup` SOL→communal-guide→CoDT (dimensional) · `explicitly_not_defined` (FAR, null not 0) ·
+`spatial_overlay` (heritage/flood/terrain/soil/land-cover). ⚠ ArcGIS layer/field names are `PROBE:` until
+a live GetFeature confirms them — GIS existence ≠ schema audited. Plan de secteur GeoServer WFS + OGC API
+Features VERIFIED LIVE 2026-07-24; federal cadastre VERIFIED LIVE. Whether Liège has adopted a GCU is NOT
+YET ASSESSED — no dimensional cell rises above ~0–2% until a SOL/communal-guide/GCU instrument specifies a
+number. Strategic direction: a reusable Wallonia Planning SDK around the ArcGIS REST catalogue (record
+only, not built). Maintainer: UNASSIGNED.*
