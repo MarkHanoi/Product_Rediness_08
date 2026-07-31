@@ -82,9 +82,33 @@ The dossier's `lod2-source.json` recorded a 404 and marked the endpoint PROBE-GA
 
 The German free-text extractor now exists as `@pryzm/ordinance-extraction` (`textExtract/` core +
 `grammars/german.ts` + `envelope/` mapper + `gates/regimeGate.ts`), 167 tests, on main
-(`2cb81d81`...`43166863`). It parses the section-4 verbatim fragment into cited **GRZ 0,3 / GFZ 0,9**
-at the `pipeline-extracted-unverified` tier. **The 8-30 row remains `pending-L449`** - the code reads
-the values, it does not sign them off.
+(`2cb81d81`...`43166863`). It parses the section-4 verbatim fragment into cited values at the
+`pipeline-extracted-unverified` tier. **The 8-30 row remains `pending-L449`** - the code reads the
+values, it does not sign them off.
+
+### CORRECTION 2026-07-31 (later the same day): the quoted fragment is the SUPERSEDED instrument
+
+An earlier version of this section reported the extraction as **GRZ 0,3 / GFZ 0,9**, quoting section 4
+of this verdict. **That is the wrong instrument, and a pack built on it would be wrong.**
+
+Running the full ingestion chain over the real 8-30 document yields **four** GRZ readings - `0,3`,
+`0,39`, `0,4`, `0,8` - and **every one is a correct reading of the text**. Only one binds:
+
+| Value | Instrument | Status |
+|---|---|---|
+| **GRZ 0,4 / GFZ 1,2** | **B-Plan 8-30 Festsetzung** | **BINDING** |
+| GRZ 0,3 / GFZ 0,9 | 1958/60 Baunutzungsplan, *dargestellt* (section 5 BauGB) | **superseded depiction** |
+| 0,39 | derived/contextual | not a Festsetzung |
+| 0,8 | elsewhere in document | **taking this overstates footprint 2x** |
+
+The verdict's section-4 quote is the **Baunutzungsplan's depiction**, not 8-30's Festsetzung. Fixture
+and tests are corrected accordingly.
+
+> **This is the core lesson of the whole German phase.** The grammar was never wrong - it read every
+> value correctly. What no parser could do was decide **which correctly-read value binds**. That is
+> semantic attribution (instrument + zone), and it is a **document-model** problem, not a grammar or
+> normalisation problem. See
+> [`../../findings/GERMANY-PDF-INGESTION-WP1-WP6.md`](../../findings/GERMANY-PDF-INGESTION-WP1-WP6.md).
 
 > **The first real fragment BROKE the parser.** `"(GRZ) von 0,3 ..."` starts mid-sentence, so the bare
 > abbreviation arrived carrying a closing parenthesis and the matcher died on it. Every hand-written
@@ -93,11 +117,33 @@ the values, it does not sign them off.
 > ligatures, soft hyphens) is outstanding. Treat "167 tests green" as *not* evidence of working on
 > real documents.
 
-**Still missing:** PDF acquisition (`grund_www` fetch/download), production text-layer extraction (the
-637,988-character extraction lives in the founder's probe, not this repo - we hold the *report*), OCR
-fallback, **Baugebiet (zone) attribution** (conflicts are detected but never resolved - the single
-biggest remaining gap), and the **Nutzungsschablone** 2D table grid. The text-vs-scan mix rate across
-~7,000 Berlin plans (section 5) is **still unsampled**.
+**Status of the gaps this verdict originally listed** (all measured 2026-07-31, see
+[`../../findings/GERMANY-PDF-INGESTION-WP1-WP6.md`](../../findings/GERMANY-PDF-INGESTION-WP1-WP6.md)):
+
+| Gap | Now |
+|---|---|
+| PDF acquisition | **BUILT** - polite caching fetcher, per-host serialised, SHA-256, fetch-once-ever |
+| Text-layer extraction | **BUILT** - 209/209 pages yielded text on 8-30 (591,289 chars) |
+| Normalisation | **BUILT** - the GRZ-class failure is now structural, replacing the point fix |
+| Text-vs-scan mix (section 5) | **MEASURED, no longer unsampled** - see below |
+| OCR fallback | still missing |
+| **Baugebiet / instrument attribution** | still missing - **and now identified as THE bottleneck** |
+| Nutzungsschablone table grid | still missing; a seeded sample of the drawing-only population found **21/21 pure raster, 0 chars**, so this is OCR-then-table-on-image, not text-table parsing |
+
+**The section-5 sampling gap is closed.** Census of the full in-force population (**n = 2,840, not a
+sample**): 43.3% carry a Begründung link, **56.3% expose only the drawing**, 0.3% nothing. Of 258
+documents examined (500 requested, **258 actually examined and 258 reported**), 250 classified:
+**63.2% born-digital, 36.8% scanned, ZERO hybrids** - the corpus is strictly bimodal, so routing is a
+clean binary with no partial-salvage tier to build.
+
+**Combined: ~27.4% of in-force Berlin B-Plans are reachable by the text pipeline today** - not 43.3%,
+because a third of the Begründungen are themselves scans.
+
+> A politeness failure nearly corrupted this figure: a first run earned **284 x HTTP 429** from
+> `www.berlin.de`, recorded as `http-error`. That would have reported ~31% download success and made
+> the corpus look a third smaller. `rate-limited` is now its own reason code, requests are serialised
+> per host, and the 343 poisoned records were purged and re-examined. **Rate-limited, errored, and
+> absent are three different results.**
 
 ## WHERE THE REAL EFFORT IS
 
