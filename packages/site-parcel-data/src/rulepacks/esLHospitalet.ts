@@ -85,6 +85,46 @@ export const LHOSPITALET_ROADMAP_LINE =
     'never to a borrowed L\'Hospitalet number.';
 
 /**
+ * §AMB-PGM-SCOPE (2026-07-31) — WHAT THE PRIMARY TEXT ACTUALLY SAYS ABOUT L'HOSPITALET.
+ *
+ * The PGM NNUU declare their own per-municipality overrides: each base article heading carries a
+ * numbered footnote of the form `NN. Veure modificació per al Municipi de <X> a la pàg. <P>`. Read
+ * positionally (the two-column layout + the ±29 font shifts defeat a plain text pass), those
+ * footnotes name L'Hospitalet on **Art. 29** (actuació poligonal), **Art. 225** (habitatge en planta
+ * baixa) and **Arts. 296/298/299/300** (aparcaments) — and on NOTHING ELSE.
+ *
+ * ⇒ **No zone/envelope article carries an L'Hospitalet modification**: not 306, 314, 316, 320, 322,
+ *   323, 326, 327, 328, 330, 342, 343, 345, 350, nor 355–368. So the metropolitan Art. 327/328
+ *   *alçada* tables and the Art. 242.2 depth construction are the best available reading of the law
+ *   here — which means the refusal's ORIGINAL reason ("Barcelona's height tables are Barcelona's
+ *   own") was the wrong reason. Two better ones replace it:
+ *
+ *   1. **THE BLOCKER IS AN INPUT, NOT THE ORDINANCE.** Art. 327.2 keys its table to the *ample
+ *      oficial del carrer* — the officially DECLARED street width. PRYZM holds an official-width
+ *      source for Barcelona only (`bcnOfficialStreetWidths.ts`). The bands are STEPS: at the 20 m
+ *      edge, 19.99 m ⇒ PB+4 and 20.00 m ⇒ PB+5. Feeding a GIS-measured frontage gap would fabricate
+ *      a height with the SHAPE of a legal answer (the L-459 / L-525a defect class).
+ *   2. **THE SOURCE CANNOT CERTIFY AN ABSENCE.** The compendium states of itself: «no hi figuren
+ *      totes les modificacions … només aquelles que s'han considerat més rellevants», and «no es
+ *      tracta d'una publicació oficial sinó merament divulgativa» — consolidated only to
+ *      31-12-2009. So "no footnote" means *no modification RECORDED*, never *no modification*.
+ *
+ * See `esAmbPgmScope.ts` (machine-readable) and
+ * `docs/04-reference/jurisdictions/es/es-ct/AMB-PGM-SCOPE-MAP.md` (verbatim quotes + PDF pages).
+ */
+export const LHOSPITALET_PGM_SCOPE_FINDING =
+    "PGM scope map (2026-07-31): the metropolitan text's own footnotes name L'Hospitalet only on " +
+    'Arts. 29, 225 and 296/298/299/300 — actuació poligonal, ground-floor housing and parking. NO ' +
+    'zone or envelope article (306, 314, 316, 320, 322, 323, 326, 327, 328, 330, 342, 343, 345, ' +
+    '350, 355–368) carries an  L’Hospitalet modification. The blocker is therefore NOT the ' +
+    'ordinance but its INPUT: Art. 327.2 keys its height table to the *ample oficial del carrer*, ' +
+    'and PRYZM holds an official-width source for Barcelona only. The bands are steps — a ' +
+    'centimetre of measurement noise moves a building a whole storey — so the height stays UNKNOWN ' +
+    'rather than measured. And the compendium consulted is expressly non-official, expressly not ' +
+    'exhaustive and consolidated only to 31-12-2009, so "no modification recorded" is not "no ' +
+    'modification".';
+
+/**
  * THE HONESTY-GATE refusal: shown for EVERY L'Hospitalet parcel while `LHOSPITALET_ENVELOPE_VERIFIED`
  * is false. It is what makes "the jurisdiction is wired but renders no number" TRUE.
  *
@@ -117,10 +157,11 @@ export function lhospitaletUnverifiedRefusal(
             '(PGM-1976) and its zoning is read from the same Catalan MUC, so the parcel is correctly ' +
             'identified and the Art. 242.2 buildable-depth CONSTRUCTION would apply. But PRYZM has ' +
             "NOT verified, clau by clau, that L'Hospitalet's height, FAR and coverage match the " +
-            "Barcelona rule pack — and Barcelona's *alçada reguladora* and official-street-width " +
-            "tables are Barcelona's own, not L'Hospitalet's. Reusing a Barcelona number here would be " +
-            'a confident mis-citation on another municipality\'s land, so PRYZM shows none rather than ' +
-            'something wrong. ' + LHOSPITALET_ROADMAP_LINE,
+            'Barcelona rule pack. Reusing a Barcelona number here would be a confident mis-citation ' +
+            "on another municipality's land, so PRYZM shows none rather than something wrong. " +
+            LHOSPITALET_PGM_SCOPE_FINDING +
+            ' ' +
+            LHOSPITALET_ROADMAP_LINE,
         ordinanceRef: null,
         legallyGrounded: false,
         knownFacts: [...knownFacts],

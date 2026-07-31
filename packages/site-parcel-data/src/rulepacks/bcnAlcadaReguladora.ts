@@ -22,10 +22,43 @@
 //
 // ✅ THE 20.75-vs-22.40 QUESTION IS RESOLVED (L-528 → L-583 §3), AND OUR NUMBER WAS RIGHT.
 // The whole table was independently corroborated band-for-band (all six) against a consolidated
-// PGM text that flags its own local rewrites and carries none on this article. And 22.40 m was
-// never a rival *alçada reguladora*: it is the ***alçada reguladora incrementada*** of Art. 21 of
-// Barcelona's own Ordenança de Rehabilitació i Millora de l'Eixample (22-11-2002) — a cornice
-// increment of up to 2.25 m over the ARM. See `EIXAMPLE_CORNICE_INCREMENT_MAX_M`.
+// PGM text. And 22.40 m was never a rival *alçada reguladora* **in the sense L-528 asked about**:
+// it is the ***alçada reguladora incrementada*** of Art. 21 of Barcelona's own Ordenança de
+// Rehabilitació i Millora de l'Eixample (22-11-2002) — a cornice increment of up to 2.25 m over the
+// ARM. See `EIXAMPLE_CORNICE_INCREMENT_MAX_M`.
+//
+// ⚠⚠⚠ CORRECTION (§AMB-PGM-SCOPE, 2026-07-31) — ONE CLAUSE ABOVE WAS FALSE, AND IT MATTERS.
+// ---------------------------------------------------------------------------------------
+// This header used to add that the consolidated PGM "flags its own local rewrites and **carries
+// none on this article**". IT CARRIES TWO. Read positionally, the footnote printed against Art. 327
+// (PDF p.108, col. 1) is:
+//
+//     49.  Veure modificació per al Municipi de Badalona a la pàg. 137
+//          Veure modificació per al Municipi de Barcelona a la pàg. 276
+//
+// (and footnote 50, on Art. 328, names the same two municipalities). Printed p.276 = PDF p.277 sits
+// inside «Modificació de les Normes urbanístiques del PGM per a la modificació de les **alçades
+// reguladores** en el tipus d'ordenació segons alineació de vial, al terme muncipal de Barcelona»,
+// approved by the Subcomissió d'Urbanisme del Municipi de Barcelona on **02-03-2007**, DOGC núm.
+// **4893** de **29/05/2007** — and it restates Art. 327.2a as:
+//
+//     < 8 m → 9,00 m PB+1 · 8–12 → 12,35 PB+2 · 12–15 → 15,70 PB+3
+//     15–20 → 19,05 PB+4 · 20–30 → 22,40 PB+5 · ≥ 30 → 25,75 PB+6
+//
+// i.e. EXACTLY the 3,35 m/floor table `EXTRACTION-PROTOCOL.md` Step 4 rejected as "never located in
+// the accepted source". It is now located, in the primary source. (The protocol's other premise was
+// also a conflation: the modified article KEEPS «l'alçada mínima de les plantes … 3,05 m» as a
+// storey MINIMUM while stepping the bands by 3,35 m — the two figures were never rivals.)
+//
+// ⇒ THE TABLE BELOW IS THE **BASE / METROPOLITAN** Art. 327 TABLE (3,05 m ladder). If the 2007
+//   modification is in force, it is the SUPERSEDED one for Barcelona — while remaining the correct
+//   metropolitan reading for AMB municipalities that did not rewrite Art. 327 (L'Hospitalet,
+//   Cornellà, Sant Boi all have no Art. 327 footnote entry).
+//
+// ⚠ NOTHING WAS CHANGED HERE. Confirming the 2007 modification's force is a dated legal act (L-449)
+//   and it needs the BINDING DOGC 4893 text — the compendium consulted says of itself «no es tracta
+//   d'una publicació oficial sinó merament divulgativa». Raised, cited and left for the founder:
+//   see `docs/04-reference/jurisdictions/es/es-ct/AMB-PGM-SCOPE-MAP.md` §5 and `esAmbPgmScope.ts`.
 //
 // ⚠⚠ AND THE INPUT IS THE DANGEROUS PART — READ BEFORE FEEDING THIS A MEASURED WIDTH
 // ---------------------------------------------------------------------------------

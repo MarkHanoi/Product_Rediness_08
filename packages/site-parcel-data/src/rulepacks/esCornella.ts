@@ -69,6 +69,43 @@ export const CORNELLA_ROADMAP_LINE =
     'never to a borrowed Cornellà number.';
 
 /**
+ * §AMB-PGM-SCOPE (2026-07-31) — CORNELLÀ MODIFIES NO BASE ARTICLE AT ALL.
+ *
+ * The PGM NNUU declare their per-municipality overrides via numbered footnotes on each base article
+ * (`NN. Veure modificació per al Municipi de <X> a la pàg. <P>`). Read positionally across the whole
+ * base text (PDF pp.24–123):
+ *
+ *   • **Cornellà de Llobregat appears in ZERO base-article footnotes.**
+ *   • Its annex section (PDF pp.294–303) contains a site-specific requalification (the cinema
+ *     Avenida parcel, clau 7 → a new *dotacions comercials* zone) and a *habitatge dotacional
+ *     públic* system modification. Neither rewrites a base zone article — which is precisely why no
+ *     footnote points at it.
+ *
+ * ⇒ No zone/envelope article carries a Cornellà modification, so the metropolitan Art. 327/328
+ *   tables and the Art. 242.2 depth construction are the best available reading here. The refusal
+ *   stands on the same two grounds as L'Hospitalet:
+ *
+ *   1. **THE BLOCKER IS AN INPUT, NOT THE ORDINANCE.** Art. 327.2 keys its table to the *ample
+ *      oficial del carrer*; PRYZM holds an official-width source for Barcelona only, and the bands
+ *      are STEPS (19.99 m ⇒ PB+4, 20.00 m ⇒ PB+5), so a measured width would fabricate a storey.
+ *   2. **THE SOURCE CANNOT CERTIFY AN ABSENCE.** The compendium is expressly non-official,
+ *      expressly not exhaustive («només aquelles que s'han considerat més rellevants») and
+ *      consolidated only to 31-12-2009.
+ *
+ * See `esAmbPgmScope.ts` and `docs/04-reference/jurisdictions/es/es-ct/AMB-PGM-SCOPE-MAP.md`.
+ */
+export const CORNELLA_PGM_SCOPE_FINDING =
+    'PGM scope map (2026-07-31): Cornellà de Llobregat appears in none of the metropolitan text’s ' +
+    'per-article modification footnotes. Its two recorded modifications are a site-specific ' +
+    'requalification (the cinema Avenida parcel) and a public dotational-housing system — neither ' +
+    'rewrites a base zone article. That makes the metropolitan Art. 327/328 tables the best ' +
+    'available reading, but the height still cannot be published: Art. 327.2 keys the table to the ' +
+    '*ample oficial del carrer*, and PRYZM holds an official-width source for Barcelona only. The ' +
+    'bands are steps, so a measured street width would invent a storey rather than report one. And ' +
+    'the compendium is expressly non-official and not exhaustive, so "no modification recorded" is ' +
+    'not "no modification".';
+
+/**
  * THE HONESTY-GATE refusal: shown for EVERY Cornellà parcel while `CORNELLA_ENVELOPE_VERIFIED` is
  * false. `code: 'no-rule-pack'`, `legallyGrounded: false`, `ordinanceRef: null` — a statement about
  * PRYZM's verification status, NOT about the law (the PGM DOES grant an envelope here; PRYZM has
@@ -95,10 +132,11 @@ export function cornellaUnverifiedRefusal(
             'Cornellà de Llobregat is governed by the same metropolitan plan as Barcelona (PGM-1976) ' +
             'and its zoning is read from the same Catalan MUC, so the parcel is correctly identified ' +
             'and the Art. 242.2 buildable-depth CONSTRUCTION would apply. But PRYZM has NOT verified, ' +
-            "clau by clau, that Cornellà's height, FAR and coverage match the Barcelona rule pack — " +
-            "and Barcelona's *alçada reguladora* and official-street-width tables are Barcelona's own, " +
-            "not Cornellà's. Reusing a Barcelona number here would be a confident mis-citation on " +
-            'another municipality\'s land, so PRYZM shows none rather than something wrong. ' +
+            "clau by clau, that Cornellà's height, FAR and coverage match the Barcelona rule pack. " +
+            'Reusing a Barcelona number here would be a confident mis-citation on another ' +
+            "municipality's land, so PRYZM shows none rather than something wrong. " +
+            CORNELLA_PGM_SCOPE_FINDING +
+            ' ' +
             CORNELLA_ROADMAP_LINE,
         ordinanceRef: null,
         legallyGrounded: false,

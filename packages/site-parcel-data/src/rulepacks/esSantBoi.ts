@@ -68,6 +68,44 @@ export const SANT_BOI_ROADMAP_LINE =
     'never to a borrowed Sant Boi number.';
 
 /**
+ * §AMB-PGM-SCOPE (2026-07-31) — SANT BOI HAS THE THINNEST EVIDENCE BASE OF THE FOUR.
+ *
+ * The PGM NNUU declare their per-municipality overrides via numbered footnotes on each base article
+ * (`NN. Veure modificació per al Municipi de <X> a la pàg. <P>`), and the *Modificacions* annex
+ * reproduces each one under its municipality's own heading. Read positionally:
+ *
+ *   • **Sant Boi has NO standalone modification section in the annex at all.**
+ *   • It appears exactly ONCE in the whole compendium, inside a JOINT four-municipality instrument:
+ *     «Modificació puntual del **Sistema Aeroportuari** del PGM, als termes municipals del Prat de
+ *     Llobregat, **Sant Boi de Llobregat**, Viladecans i Gavà» (Acord del Govern 06-03-2001, DOGC
+ *     núm. 3361 de 03/04/01) — a *sistema general* (Arts. 186–190), NOT a zone.
+ *
+ * ⇒ No zone/envelope article carries a Sant Boi modification, so the metropolitan Art. 327/328
+ *   tables and the Art. 242.2 depth construction are the best available reading here. The refusal
+ *   nonetheless stands, for the same two reasons as L'Hospitalet:
+ *
+ *   1. **THE BLOCKER IS AN INPUT.** Art. 327.2 keys its table to the *ample oficial del carrer*;
+ *      PRYZM holds an official-width source for Barcelona only. The bands are STEPS, so a measured
+ *      frontage gap would fabricate a storey (L-459 / L-525a).
+ *   2. **THE SOURCE CANNOT CERTIFY AN ABSENCE** — and for Sant Boi that bites hardest, because a
+ *      single joint-instrument mention is exactly what a NON-EXHAUSTIVE compendium («no hi figuren
+ *      totes les modificacions … només aquelles que s'han considerat més rellevants») looks like
+ *      when it is under-reporting. Silence about Sant Boi is weak evidence, not strong evidence.
+ *
+ * See `esAmbPgmScope.ts` and `docs/04-reference/jurisdictions/es/es-ct/AMB-PGM-SCOPE-MAP.md`.
+ */
+export const SANT_BOI_PGM_SCOPE_FINDING =
+    'PGM scope map (2026-07-31): Sant Boi has no standalone modification section in the ' +
+    'metropolitan compendium, and appears in it exactly once — inside a joint four-municipality ' +
+    'modification of the airport SYSTEM (Prat, Sant Boi, Viladecans, Gavà; DOGC núm. 3361 de ' +
+    '03/04/01), not of any zone. No zone or envelope article carries a Sant Boi modification. That ' +
+    'makes the metropolitan Art. 327/328 tables the best available reading — but the height still ' +
+    'cannot be published, because Art. 327.2 keys the table to the *ample oficial del carrer* and ' +
+    'PRYZM holds an official-width source for Barcelona only. And because the compendium is ' +
+    'expressly non-exhaustive, near-total silence about Sant Boi is weak evidence of an absence, ' +
+    'not strong evidence.';
+
+/**
  * THE HONESTY-GATE refusal: shown for EVERY Sant Boi parcel while `SANT_BOI_ENVELOPE_VERIFIED` is
  * false. `code: 'no-rule-pack'`, `legallyGrounded: false`, `ordinanceRef: null` — a statement about
  * PRYZM's verification status, NOT about the law (the PGM DOES grant an envelope here; PRYZM has
@@ -94,10 +132,11 @@ export function santBoiUnverifiedRefusal(
             'Sant Boi de Llobregat is governed by the same metropolitan plan as Barcelona (PGM-1976) ' +
             'and its zoning is read from the same Catalan MUC, so the parcel is correctly identified ' +
             'and the Art. 242.2 buildable-depth CONSTRUCTION would apply. But PRYZM has NOT verified, ' +
-            "clau by clau, that Sant Boi's height, FAR and coverage match the Barcelona rule pack — " +
-            "and Barcelona's *alçada reguladora* and official-street-width tables are Barcelona's own, " +
-            "not Sant Boi's. Reusing a Barcelona number here would be a confident mis-citation on " +
-            'another municipality\'s land, so PRYZM shows none rather than something wrong. ' +
+            "clau by clau, that Sant Boi's height, FAR and coverage match the Barcelona rule pack. " +
+            'Reusing a Barcelona number here would be a confident mis-citation on another ' +
+            "municipality's land, so PRYZM shows none rather than something wrong. " +
+            SANT_BOI_PGM_SCOPE_FINDING +
+            ' ' +
             SANT_BOI_ROADMAP_LINE,
         ordinanceRef: null,
         legallyGrounded: false,

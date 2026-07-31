@@ -623,6 +623,28 @@ export {
 export { isInDenmark, DENMARK_BBOX } from './providers/denmarkBbox.js';
 // ── ADR-0271 — Barcelona metropolitan jurisdiction gate (bbox). ──
 export { isInBarcelona, BARCELONA_BBOX } from './providers/barcelonaBbox.js';
+// ── §AMB-PGM-SCOPE — the article-by-article map of WHICH PGM-1976 articles are metropolitan and
+// WHICH municipality rewrote each one, transcribed from the base text's own numbered footnotes
+// (`NN. Veure modificació per al Municipi de <X> a la pàg. <P>`).
+//
+// ⚠ It carries NO dimension. It answers only "does Art. N stand in its metropolitan form here?",
+// and answers `'unknown'` whenever the source does not say. `'metropolitan-no-recorded-modification'`
+// is NOT "verified unmodified" — the compendium is expressly non-official, expressly NOT exhaustive
+// and consolidated only to 31-12-2009 (`AMB_PGM_SCOPE_CAVEATS`). It is the evidence a founder
+// signature would rest on, never a substitute for one.
+// Derivation + verbatim quotes: `docs/04-reference/jurisdictions/es/es-ct/AMB-PGM-SCOPE-MAP.md`.
+export {
+    AMB_PGM_ARTICLE_SCOPE,
+    AMB_PGM_SCOPE_CAVEATS,
+    AMB_PGM_METROPOLITAN_INSTRUMENT,
+    ambArticleScopeFor,
+    ambModifiedArticlesFor,
+    type AmbPgmModification,
+    type AmbPgmArticleScope,
+    type AmbArticleScopeVerdict,
+    type AmbArticleScopeAnswer,
+} from './rulepacks/esAmbPgmScope.js';
+
 // ── Envelope Phase 2 — L'Hospitalet de Llobregat (INE 08101), the SECOND Catalan municipality. ──
 // The S2 router predicate + the S5 honesty gate + cited refusal. Registered as a REFUSAL
 // jurisdiction: it is ROUTED (shares Barcelona's MUC + PGM-1976), but `LHOSPITALET_ENVELOPE_VERIFIED`
@@ -634,6 +656,7 @@ export {
     LHOSPITALET_ENVELOPE_VERIFIED,
     LHOSPITALET_PGM_INSTRUMENT_REF,
     LHOSPITALET_ROADMAP_LINE,
+    LHOSPITALET_PGM_SCOPE_FINDING,
     lhospitaletUnverifiedRefusal,
 } from './rulepacks/esLHospitalet.js';
 // Badalona (INE 08015) — 3rd Catalan city; ROUTED, cited refusal until BADALONA_ENVELOPE_VERIFIED.
@@ -643,6 +666,7 @@ export {
     BADALONA_ENVELOPE_VERIFIED,
     BADALONA_PGM_INSTRUMENT_REF,
     BADALONA_ROADMAP_LINE,
+    BADALONA_PGM_SCOPE_FINDING,
     badalonaUnverifiedRefusal,
 } from './rulepacks/esBadalona.js';
 // Sant Boi de Llobregat (INE 08200) — 4th Catalan city; ROUTED, cited refusal until SANT_BOI_ENVELOPE_VERIFIED.
@@ -652,6 +676,7 @@ export {
     SANT_BOI_ENVELOPE_VERIFIED,
     SANT_BOI_PGM_INSTRUMENT_REF,
     SANT_BOI_ROADMAP_LINE,
+    SANT_BOI_PGM_SCOPE_FINDING,
     santBoiUnverifiedRefusal,
 } from './rulepacks/esSantBoi.js';
 // Cornellà de Llobregat (INE 08073) — 5th Catalan city; ROUTED, cited refusal until CORNELLA_ENVELOPE_VERIFIED.
@@ -661,6 +686,7 @@ export {
     CORNELLA_ENVELOPE_VERIFIED,
     CORNELLA_PGM_INSTRUMENT_REF,
     CORNELLA_ROADMAP_LINE,
+    CORNELLA_PGM_SCOPE_FINDING,
     cornellaUnverifiedRefusal,
 } from './rulepacks/esCornella.js';
 // ── Murcia (INE 30030), Región de Murcia — the CITED-REFUSAL jurisdiction, wired end to end. ──

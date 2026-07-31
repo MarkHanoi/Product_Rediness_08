@@ -67,6 +67,44 @@ export const BADALONA_ROADMAP_LINE =
     'outside this municipality fall back to their own jurisdiction, never to a borrowed Badalona number.';
 
 /**
+ * §AMB-PGM-SCOPE (2026-07-31) — BADALONA IS THE OPPOSITE CASE, AND THE REFUSAL WAS UNDERSTATED.
+ *
+ * The PGM NNUU declare their own per-municipality overrides via numbered footnotes on each base
+ * article (`NN. Veure modificació per al Municipi de <X> a la pàg. <P>`). Read positionally, those
+ * footnotes name **Badalona on essentially every envelope article PRYZM cares about**:
+ * **238** (fn 13), **242** (fn 15), **320** (fn 46), **323** (fn 47), **327** (fn 49), **328**
+ * (fn 50), **330** (fn 52), **342** (fn 55), **343** (fn 56), **363** (fn 59) — plus 225, 229, 231,
+ * 249–253, 278/279, 296, 298 and 317/318/325/329/336/341.
+ *
+ * Concretely, Badalona has **its own *alçada reguladora* tables for BOTH 13a and 13b** (PDF p.138),
+ * **adds subapartats c/d/e to Art. 242.8** — the very depth construction ADR-0271 implements (PDF
+ * p.136) — and **rewrites the 20a subzone quadres** (PDF pp.133–135: subzones VI–IX at 9,15 m,
+ * separations 5/3/5 · 8/5/8 · 12/10/12 m, reduced *índex* 0,75 m²st/m²s). Its governing instrument
+ * for most of that is the *Modificació puntual de les NNUU del PGM en l'àmbit del municipi de
+ * Badalona*, approved 06-06-2008 (DOGC núm. 5224 de 29/09/2008).
+ *
+ * ⇒ **Badalona is the LAST AMB municipality whose numbers may be borrowed from anywhere.** Where
+ *   L'Hospitalet / Cornellà / Sant Boi refuse because an INPUT is missing, Badalona refuses because
+ *   the ORDINANCE ITSELF DIFFERS — and PRYZM has not transcribed Badalona's own tables. Borrowing a
+ *   Barcelona figure here would be both a mis-citation AND a wrong number.
+ *
+ * ⚠ This also means Badalona is the highest-value AMB municipality to transcribe next: unlike its
+ *   neighbours it is not blocked on a missing street-width source — its numbers are written down,
+ *   in this document, at known pages. What it needs is transcription + a founder signature.
+ *
+ * See `esAmbPgmScope.ts` and `docs/04-reference/jurisdictions/es/es-ct/AMB-PGM-SCOPE-MAP.md`.
+ */
+export const BADALONA_PGM_SCOPE_FINDING =
+    'PGM scope map (2026-07-31): unlike its AMB neighbours, Badalona has rewritten the metropolitan ' +
+    'plan across almost every envelope article — the base text’s own footnotes name Badalona on ' +
+    'Arts. 238, 242, 320, 323, 327, 328, 330, 342, 343 and 363. It has its own *alçada reguladora* ' +
+    'tables for both 13a and 13b, its own additions to the Art. 242.8 buildable-depth rule, and its ' +
+    'own 20a subzone quadres, chiefly under the *Modificació puntual de les NNUU del PGM en l’àmbit ' +
+    'del municipi de Badalona* approved 06-06-2008 (DOGC núm. 5224 de 29/09/2008). So a Barcelona ' +
+    'figure would be wrong here on the numbers as well as on the citation. PRYZM has not yet ' +
+    'transcribed Badalona’s own tables, so it publishes none.';
+
+/**
  * THE HONESTY-GATE refusal: shown for EVERY Badalona parcel while `BADALONA_ENVELOPE_VERIFIED` is
  * false. `code: 'no-rule-pack'`, `legallyGrounded: false`, `ordinanceRef: null` — a statement about
  * PRYZM's verification status, NOT about the law (the PGM DOES grant an envelope here; PRYZM has
@@ -92,10 +130,13 @@ export function badalonaUnverifiedRefusal(
             'Badalona is governed by the same metropolitan plan as Barcelona (PGM-1976) and its zoning ' +
             'is read from the same Catalan MUC, so the parcel is correctly identified and the Art. 242.2 ' +
             'buildable-depth CONSTRUCTION would apply. But PRYZM has NOT verified, clau by clau, that ' +
-            "Badalona's height, FAR and coverage match the Barcelona rule pack — and Barcelona's " +
-            '*alçada reguladora* and official-street-width tables are Barcelona\'s own, not Badalona\'s. ' +
-            'Reusing a Barcelona number here would be a confident mis-citation on another ' +
-            'municipality\'s land, so PRYZM shows none rather than something wrong. ' + BADALONA_ROADMAP_LINE,
+            "Badalona's height, FAR and coverage match the Barcelona rule pack — and the primary " +
+            'text shows they do NOT. Reusing a Barcelona number here would be a confident ' +
+            "mis-citation on another municipality's land, so PRYZM shows none rather than something " +
+            'wrong. ' +
+            BADALONA_PGM_SCOPE_FINDING +
+            ' ' +
+            BADALONA_ROADMAP_LINE,
         ordinanceRef: null,
         legallyGrounded: false,
         knownFacts: [...knownFacts],
