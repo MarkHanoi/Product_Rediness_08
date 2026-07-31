@@ -29,7 +29,6 @@ import {
     DK_BYGGEFELT_RING_REF,
     type Bbox25832,
     type DkByggefeltFeature,
-    type PlacementEvidence,
 } from '../src/index.js';
 import {
     ADVISORY_FEATURE,
