@@ -1,0 +1,57 @@
+{
+  "dossier": "de-be-11000-berlin",
+  "title": "Berlin — buildability dossier",
+  "country": "DE",
+  "state": "Berlin",
+  "iso3166_2": "DE-BE",
+  "ags": "11000000",
+  "municipality": "Berlin",
+  "capturedBy": "founder-research",
+  "capturedDate": "2026-07-31",
+  "status": "ARCHITECTURE COMPLETE — data acquisition pending (human/L-449-gated). Every numeric planning value is null/unknown.",
+  "hardTruth": "The B-Plan WFS is a plan LOCATOR, not a rule table. GRZ/GFZ/Vollgeschosse/height/Baugrenze live ONLY in the linked Satzung PDF and are NEVER populated from GIS/WFS metadata.",
+  "regimeModel": {
+    "§30-bplan": "modern B-Plan -> extract Festsetzungen (GRZ/GFZ/Vollgeschosse/Höhe/Baugrenze); coverage-and-far",
+    "baunutzungsplan-1958-60": "legacy West-Berlin plan (§173(3) BBauG); separate Baustufe parser; capped corroborated,voidance-risk (funktionslos); never structured",
+    "§34-bauGB": "unplanned interior -> cited REFUSAL (a positive answer; no numeric envelope by law)",
+    "§35-bauGB": "outlying -> cited refusal (rare in city-state)"
+  },
+  "endpoints": {
+    "bplanWfs": {
+      "discrepancyFlagged": true,
+      "candidates": [
+        { "id": "plu_bplan", "endpoint": "https://gdi.berlin.de/services/wfs/plu_bplan", "confidence": "VERIFIED-SCHEMA", "documentField": "inhalt" },
+        { "id": "bplan", "endpoint": "https://gdi.berlin.de/services/wfs/bplan", "confidence": "CONVERGENT-SECONDARY", "documentField": "scan_www" }
+      ],
+      "resolvedBy": "live GetCapabilities on each — see NEXT.md"
+    },
+    "alkis": "https://gdi.berlin.de/services/wfs/alkis_flurstuecke",
+    "lod2": "gdi.berlin.de/services/wfs/lod2_gebaeude (PROBE-GATED — prior URL 404)",
+    "terrain": "GDI-BE DGM1 (WCS) + DOP20 (WMTS) — PROBE-GATED"
+  },
+  "crs": "EPSG:25833",
+  "licence": "DL-DE/Zero-2.0 (B-Plan WFS, VERIFIED) / DL-DE BY 2.0 (GDI-BE broadly per LAND-REGISTRY) — flagged",
+  "confidenceLadder": ["unknown", "extracted", "corroborated", "verified (verified-primary)"],
+  "honesty": {
+    "bauNVO17": "national orientation ceiling — NEVER a parcel answer",
+    "setbacks": "BauO Bln §6 formula; multiplier PROBE-REQUIRED — do NOT copy NRW 0.4H",
+    "noInference": ["OSM", "neighbouring parcels", "typical-district rules", "existing-building heights", "uncited OCR"],
+    "baunutzungsplanCap": "corroborated, voidance-risk (OVG Berlin-Brandenburg Az. 2 B 10.17, 15 Sep 2020)"
+  },
+  "rateFraming": {
+    "today": "~28%",
+    "targetAfterCompletion": "~55-70% (DEPENDENT on the vectorised-B-Plan fraction — corpus digitisation-split decides)",
+    "criticalPath": "B-Plan PDF extractor (2-4 weeks; the real blocker)"
+  },
+  "files": {
+    "gis": ["gis/bplan-source.json", "gis/alkis-source.json", "gis/parcel-source.json", "gis/lod2-source.json", "gis/terrain-source.json", "gis/legislation-record.json"],
+    "extraction": ["EXTRACTION-PIPELINE.md", "BERLIN-RULEPACK.design.ts (DESIGN — not wired)", "BERLIN-COMPLETION-PLAN.md"],
+    "legislation": ["LEGISLATION.md", "LEGISLATION.csv"],
+    "sources": ["SOURCES.md", "sources/SOURCES.md (live-probe log)"],
+    "parcel": ["PARCEL.md"],
+    "fixtures": ["plans/8-30-neukoelln/metadata.json"],
+    "next": ["NEXT.md"]
+  },
+  "productionHomeFuture": "packages/site-parcel-data/src/rulepacks/ (Berlin pack) — future CODE work, not created here",
+  "allNumericValuesNull": true
+}

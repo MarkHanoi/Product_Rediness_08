@@ -1,0 +1,76 @@
+{
+  "record": "berlin-legislation-record-template",
+  "title": "Berlin LegislationRecord — EMPTY legal-ingestion template",
+  "jurisdiction": { "country": "DE", "state": "Berlin", "ags": "11000000", "municipality": "Berlin" },
+  "capturedBy": "founder-research",
+  "capturedDate": "2026-07-31",
+  "purpose": "Deliberately starts EMPTY. This is the object that receives GRZ/GFZ/Höhe/Vollgeschosse ONLY after the B-Plan PDF + Festsetzungen are verified and cited. It NEVER invents Berlin values and is NEVER populated from GIS/WFS metadata.",
+  "sourcePriority": [
+    "binding Bebauungsplan",
+    "textliche Festsetzungen",
+    "Planzeichnung",
+    "Berlin Bauordnung (BauO Bln) — where applicable (e.g. Abstandsflächen §6)",
+    "BauGB / BauNVO — framework only"
+  ],
+  "forbiddenSources": [
+    "neighbouring parcels",
+    "typical-district assumptions",
+    "BauNVO §17 as a parcel rule",
+    "OSM",
+    "building inventory (LoD2/ALKIS Gebäude)"
+  ],
+  "A_LEGISLATION": {
+    "zoneCode": { "value": null, "citation": { "title": null, "articleParagraph": null, "page": null } },
+    "officialDesignation": { "value": null, "citation": { "title": null, "articleParagraph": null, "page": null } },
+    "farRatio_GFZ": {
+      "value": null,
+      "allowedDensityScopes": ["parcel", "property", "planning-area"],
+      "citation": { "title": null, "articleParagraph": null, "page": null }
+    },
+    "maxCoverage_GRZ": {
+      "value": null,
+      "allowedDensityScopes": ["parcel", "property", "planning-area"],
+      "citation": { "title": null, "articleParagraph": null, "page": null }
+    },
+    "maxHeight": {
+      "value": null,
+      "allowedMeasurements": ["OK Gebäude", "Traufhöhe", "Firsthöhe", "unknown"],
+      "citation": { "title": null, "articleParagraph": null, "page": null }
+    },
+    "maxFloors_Vollgeschosse": {
+      "value": null,
+      "citation": { "title": null, "articleParagraph": null, "page": null }
+    },
+    "setbacks": {
+      "value": null,
+      "note": "Per BauO Bln §6 formula; exact multiplier PROBE-REQUIRED — do NOT copy NRW 0.4H unverified for Berlin.",
+      "citation": { "title": null, "articleParagraph": null, "page": null }
+    },
+    "buildableDepth": { "value": null, "citation": { "title": null, "articleParagraph": null, "page": null } },
+    "permittedUse": { "value": null, "citation": { "title": null, "articleParagraph": null, "page": null } }
+  },
+  "B_PARCEL": {
+    "flurstueckskennzeichen": null,
+    "gemarkung": null,
+    "flur": null,
+    "zaehler": null,
+    "nenner": null
+  },
+  "C_META": {
+    "planid": null,
+    "crs": "EPSG:25833",
+    "effectiveDate": null,
+    "regime": null
+  },
+  "verification": {
+    "requiredBeforeProduction": [
+      "B-Plan PDF obtained from an official source",
+      "Festsetzungen identified",
+      "each numeric value linked to the exact clause",
+      "effective date confirmed",
+      "human legal verification (L-449)"
+    ]
+  },
+  "confidenceLevels": ["unknown", "extracted", "corroborated", "verified"],
+  "relatedFiles": ["EXTRACTION-PIPELINE.md", "gis/bplan-source.json", "LEGISLATION.md", "plans/8-30-neukoelln/metadata.json"]
+}

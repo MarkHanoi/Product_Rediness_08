@@ -1,0 +1,40 @@
+{
+  "fixture": "berlin-bplan-8-30-neukoelln",
+  "title": "Bebauungsplan 8-30 (Neukölln) — first real Berlin B-Plan fixture",
+  "confidence": "VERIFIED_DOCUMENT_EXISTENCE",
+  "confidenceNote": "The plan's EXISTENCE, identity, legal status and publication are verified. ZERO planning numbers are extracted — every GRZ/GFZ/Vollgeschosse/Höhe/setback is null pending L-449 extraction of the Textliche Festsetzungen.",
+  "capturedBy": "founder-research",
+  "capturedDate": "2026-07-31",
+  "jurisdiction": { "country": "DE", "state": "Berlin", "ags": "11000000", "municipality": "Berlin" },
+  "bplanNumber": "8-30",
+  "officialDesignation": "Bebauungsplan 8-30",
+  "district": "Neukölln",
+  "authority": "Bezirksamt Neukölln / Stadtentwicklungsamt",
+  "legalStatus": "festgesetzt",
+  "effectiveDate": "2018-11-20",
+  "publication": { "gazette": "GVBl Berlin", "date": "2018-12-15", "page": "678" },
+  "sourcePage": "https://www.berlin.de/ba-neukoelln/…/bebauungsplan-festgesetzt/artikel.773796.php",
+  "ordinanceUrl": "official page identified, PDF URL extraction pending",
+  "zoneRows": [
+    {
+      "zoneCode": null,
+      "GRZ": null,
+      "GFZ": null,
+      "Vollgeschosse": null,
+      "Hoehe": null,
+      "setbacks": null,
+      "permittedUse": null,
+      "confidence": "pending-L449",
+      "legalSource": { "document": "Textliche Festsetzungen Bebauungsplan 8-30" }
+    }
+  ],
+  "EXTRACTION_QUEUE": [
+    "(1) Textliche Festsetzungen 8-30 -> extract Art der baulichen Nutzung / GRZ / GFZ / Vollgeschosse / Gebäudehöhe / Baugrenzen",
+    "(2) Planzeichnung -> Baufenster / Nutzungsschablonen / height annotations",
+    "(3) L-449 validation"
+  ],
+  "CURRENT_OUTPUT": {
+    "buildabilityAnswer": "not yet available — legal numbers withheld until primary-text verification"
+  },
+  "relatedFiles": ["../../EXTRACTION-PIPELINE.md", "../../gis/legislation-record.json", "../../gis/bplan-source.json"]
+}

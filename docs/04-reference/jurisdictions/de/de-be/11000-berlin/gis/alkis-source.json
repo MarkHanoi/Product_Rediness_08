@@ -1,0 +1,28 @@
+{
+  "adapter": "berlin-alkis-parcels",
+  "title": "ALKIS Berlin — parcels (Flurstücke)",
+  "jurisdiction": { "country": "DE", "state": "Berlin", "ags": "11000000", "municipality": "Berlin" },
+  "authority": "GDI-BE / FIS-Broker (Geodateninfrastruktur Berlin)",
+  "capturedBy": "founder-research",
+  "capturedDate": "2026-07-31",
+  "note": "Endpoint record for the Berlin ALKIS parcel service. See gis/parcel-source.json for the fuller parcel-spine join semantics (parcel is the object the buildability answer attaches to).",
+  "endpoint": "https://gdi.berlin.de/services/wfs/alkis_flurstuecke",
+  "endpointConfidence": "VERIFIED-per-founder",
+  "protocol": "WFS",
+  "protocolConfidence": "PROBE-REQUIRED (assume WFS 2.0.0; confirm via GetCapabilities)",
+  "crs": "EPSG:25833",
+  "crsConfidence": "VERIFIED",
+  "coverage": "Complete Berlin",
+  "licence": "Datenlizenz Deutschland – Zero 2.0 (DL-DE/Zero-2.0)",
+  "licenceConfidence": "PROBE-REQUIRED — founder-stated DL-DE/Zero-2.0; de/LAND-REGISTRY.md records DL-DE BY 2.0 for GDI-BE broadly. Flag, do not resolve.",
+  "parcelId": {
+    "concept": "Flurstück = Gemarkung / Flur / Flurstück",
+    "exactFieldName": "unknown",
+    "fieldConfidence": "PROBE-REQUIRED — exact ALKIS id field name to be locked via GetCapabilities / DescribeFeatureType"
+  },
+  "probeRequired": [
+    "Exact ALKIS Flurstück feature type name and id field name (GetCapabilities + DescribeFeatureType).",
+    "Confirm WFS version and licence per this specific service."
+  ],
+  "relatedFiles": ["gis/parcel-source.json", "PARCEL.md", "gis/bplan-source.json"]
+}

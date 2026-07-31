@@ -1,0 +1,103 @@
+{
+  "adapter": "berlin-bplan-wfs",
+  "title": "Berlin B-Plan (Bebauungsplan) WFS — plan LOCATOR adapter",
+  "jurisdiction": {
+    "country": "DE",
+    "state": "Berlin",
+    "ags": "11000000",
+    "municipality": "Berlin"
+  },
+  "authority": "Senatsverwaltung für Stadtentwicklung, Bauen und Wohnen Berlin (GDI-BE / FIS-Broker)",
+  "capturedBy": "founder-research",
+  "capturedDate": "2026-07-31",
+  "CRITICAL_locatorNotRuleTable": "⚠ This WFS is a plan LOCATOR, NOT a rule table. GRZ / GFZ / Vollgeschosse / height / Baugrenze are NOT present as attributes in the B-Plan WFS schema. They live ONLY in the linked Satzung PDF (the legal plan document). Therefore farRatio, maxHeight_m, maxFloors, maxCoverage and setbacks MUST stay `unknown` and are NEVER populated from GIS/WFS metadata — only from extracted, human-verified, cited plan text attached to the exact planid. See gis/bplan-document.json and gis/bplan-parser.json for the extraction bridge.",
+  "candidateEndpoints": [
+    {
+      "id": "plu_bplan",
+      "role": "primary-candidate",
+      "endpoint": "https://gdi.berlin.de/services/wfs/plu_bplan",
+      "service": "GDI-BE OGC WFS (newer, INSPIRE PLU aligned)",
+      "protocol": "WFS 2.0.0",
+      "confidence": "VERIFIED-SCHEMA",
+      "confidenceBasis": "Field schema per official Datenformatbeschreibung: gdi.berlin.de/data/bplan/docs/Datenformatbeschreibung_Bebauungsplanverfahren.pdf",
+      "featureTypes": [
+        { "name": "plu_bplan:SpatialPlan", "describes": "B-Plan spatial extent (plan boundary polygon)" },
+        { "name": "plu_bplan:OfficialDocumentation", "describes": "Linked legal / document objects for the plan" }
+      ],
+      "documentLinkageField": "inhalt",
+      "documentLinkageNote": "`inhalt` = official content / document reference (the legal-document linkage). Whether it resolves directly to a Satzung PDF is PROBE-REQUIRED."
+    },
+    {
+      "id": "bplan",
+      "role": "secondary-candidate",
+      "endpoint": "https://gdi.berlin.de/services/wfs/bplan",
+      "alternateHost": "https://fbinter.stadt-berlin.de (FIS-Broker)",
+      "service": "GDI-BE / FIS-Broker legacy B-Plan WFS",
+      "protocol": "WFS 2.0.0",
+      "confidence": "CONVERGENT-SECONDARY",
+      "confidenceBasis": "2026-07-24 reconnaissance; layer `bplan` (feature types bplan:b_bp_fs festgesetzt / bplan:a_bp_iv im Verfahren / bplan:c_bp_ak außer Kraft). Document field `scan_www` -> e.g. .../0100002b.pdf. MATCHES the existing de/LAND-REGISTRY.md Berlin row (scan_www=…pdf). See sources/SOURCES.md §A (live probe 2026-07-23).",
+      "featureTypes": [
+        { "name": "bplan:b_bp_fs", "describes": "festgesetzt (in-force plans)" },
+        { "name": "bplan:a_bp_iv", "describes": "im Verfahren (drafts / in procedure)" },
+        { "name": "bplan:c_bp_ak", "describes": "außer Kraft gesetzt (repealed)" }
+      ],
+      "documentLinkageField": "scan_www",
+      "documentLinkageNote": "`scan_www` = direct PDF URL of the scanned plan (e.g. https://mitte.gis-broker.de/bplaene/<planid>.pdf). Live-probed 2026-07-23."
+    }
+  ],
+  "DISCREPANCY": "⚠ DISCREPANCY: plu_bplan/inhalt (new GDI-BE OGC service, VERIFIED-SCHEMA from Datenformatbeschreibung) vs bplan/scan_www (FIS-Broker legacy, CONVERGENT-SECONDARY, matches LAND-REGISTRY Berlin row). BOTH are recorded; NO winner is asserted. Resolve which is the production endpoint via a live GetCapabilities on each — see NEXT.md.",
+  "protocol": "WFS 2.0.0",
+  "protocolConfidence": "VERIFIED",
+  "crs": "EPSG:25833",
+  "crsConfidence": "VERIFIED",
+  "licence": "Datenlizenz Deutschland – Zero 2.0 (DL-DE/Zero-2.0)",
+  "licenceConfidence": "VERIFIED",
+  "fieldMapping": {
+    "confidence": "VERIFIED-SCHEMA",
+    "source": "gdi.berlin.de/data/bplan/docs/Datenformatbeschreibung_Bebauungsplanverfahren.pdf",
+    "appliesTo": "plu_bplan candidate",
+    "fields": {
+      "planid": "Name des Plans (plan identifier)",
+      "gisid": "Fachverfahrensschlüssel (internal key)",
+      "planname": "Plan name",
+      "planartname": "Plan type (e.g. Qualifizierter / Einfacher / Vorhabenbezogener B-Plan)",
+      "bereich": "Area / sub-area description",
+      "bezirk": "District (Bezirk)",
+      "bp_rechtsstand": "Legal status (e.g. In Kraft getreten)",
+      "inhalt": "Official content / document reference — the legal-document linkage",
+      "ausleg_www": "Participation / document link (Auslegung / public display URL)"
+    }
+  },
+  "directPDF": {
+    "field": null,
+    "status": "PROBE-REQUIRED",
+    "note": "No direct Satzung-PDF field asserted for plu_bplan. For the bplan legacy candidate the PDF is `scan_www`. Whether plu_bplan `inhalt` resolves directly to a Satzung PDF is PROBE-REQUIRED."
+  },
+  "extractedRuleFields": {
+    "note": "These are the buildability fields the product needs. NONE are served by this WFS. All resolve ONLY via gis/bplan-document.json + gis/bplan-parser.json (extraction + L-449 human verification).",
+    "maxCoverage_GRZ": "unknown",
+    "farRatio_GFZ": "unknown",
+    "maxFloors_Vollgeschosse": "unknown",
+    "maxHeight_m": "unknown",
+    "buildable_Baugrenze": "unknown",
+    "setbacks": "unknown"
+  },
+  "probeRequired": [
+    "Live GetCapabilities on plu_bplan AND bplan to lock exact FeatureType names + geometry field name (resolves the endpoint discrepancy — do not assert a winner beforehand).",
+    "Whether plu_bplan `inhalt` resolves directly to a Satzung PDF (vs an intermediary OfficialDocumentation object reference).",
+    "Whether polygons include only in-force (festgesetzt) plans or also drafts (im Verfahren) and repealed (außer Kraft).",
+    "Confirm the DL-DE/Zero-2.0 licence applies to plu_bplan specifically (LAND-REGISTRY records DL-DE BY 2.0 for GDI-BE broadly — flag, do not resolve here)."
+  ],
+  "relatedFiles": [
+    "gis/bplan-document.json",
+    "gis/bplan-parser.json",
+    "gis/parcel-source.json",
+    "gis/alkis-source.json",
+    "gis/lod2-source.json",
+    "gis/terrain-source.json",
+    "gis/legislation-record.json",
+    "LEGISLATION.md",
+    "SOURCES.md",
+    "sources/SOURCES.md"
+  ]
+}

@@ -1,6 +1,38 @@
 # NEXT — Berlin (11000, DE-BE)
 
-> **Last updated:** 2026-07-23 · **Maintainer:** UNASSIGNED · **Status:** SCAFFOLD
+> **Last updated:** 2026-07-31 · **Maintainer:** UNASSIGNED · **Status:** BUILDABILITY DOSSIER COMPLETE (architecture saturated) — regime research below retained.
+
+---
+
+## 0 — BUILDABILITY DOSSIER (2026-07-31) — ARCHITECTURE COMPLETE
+
+The Berlin buildability dossier (founder research) is **structurally complete — architecture saturated**. Every numeric planning value is `null`/`unknown`. Remaining work is **NON-architecture** (live probing + human/L-449-gated extraction + CODE).
+
+**What is captured (the stack):**
+
+- `gis/bplan-source.json` — B-Plan WFS LOCATOR with **dual endpoint candidates** (`plu_bplan/inhalt` VERIFIED-SCHEMA vs `bplan/scan_www` CONVERGENT-SECONDARY) + flagged DISCREPANCY (no winner asserted). CRS EPSG:25833, DL-DE/Zero-2.0 — VERIFIED.
+- `gis/parcel-source.json` + `gis/alkis-source.json` — ALKIS Flurstück parcel spine (id field PROBE-REQUIRED).
+- `gis/lod2-source.json` — LoD2 context/heights only (PROBE-GATED; prior URL 404).
+- `gis/terrain-source.json` — DGM1/DOP20 context/visual-QA only (PROBE-GATED).
+- `gis/legislation-record.json` — the EMPTY legal-ingestion template (all values null).
+- `EXTRACTION-PIPELINE.md` — document-resolution bridge + PDF parser design + regime classifier + known_bombshells + **city-scale corpus** (batch ingestor, digitisation classifier, coverage metrics, first-district target, rule-pack pointer).
+- `BERLIN-RULEPACK.design.ts` — **DESIGN SKELETON, NOT wired** into `packages/site-parcel-data/src/rulepacks/`; imported types are the founder's proposed shape, unverified against the real @pryzm interface.
+- `BERLIN-COMPLETION-PLAN.md` — costed roadmap + "Berlin DONE when" definition; ~28% today → ~55-70% target.
+- `plans/8-30-neukoelln/metadata.json` — first real fixture (Bebauungsplan 8-30, festgesetzt 2018-11-20; VERIFIED_DOCUMENT_EXISTENCE, ZERO numbers).
+
+**The one hard truth:** the B-Plan WFS is a plan **LOCATOR, not a rule table** — GRZ/GFZ/Vollgeschosse/height/Baugrenze are absent from the WFS schema and are NEVER populated from GIS metadata, only from L-449-verified, cited Satzung PDF text.
+
+**THE NEXT PROBE (the smallest step that moves the number):**
+
+1. **Live `GetCapabilities` on BOTH `plu_bplan` and `bplan`** — locks exact FeatureType names + geometry field AND **resolves the endpoint discrepancy** (which is production). Do not assert a winner beforehand.
+2. **Resolve `inhalt` → PDF** — confirm whether `plu_bplan:OfficialDocumentation`/`inhalt` resolves directly to a Satzung PDF, or via an intermediary document object (legacy `bplan` uses `scan_www` → direct `.pdf`).
+3. **First 3 test plans:** one modern **§30** plan · one **mixed-use** plan · one **Baunutzungsplan-legacy** area — to exercise all three regimes.
+4. **8-30 extraction** — the human/L-449-gated pull of the actual 8-30 Textliche Festsetzungen PDF → the **first verified GRZ/GFZ/Vollgeschosse/Höhe row**, which becomes the template for Berlin's ~1000+ B-Pläne.
+5. **Corpus digitisation-split measurement** — is Berlin ~0% structured (PDF-only) or is there a meaningful XPlanung attribute fraction? This decides the climb path (see `EXTRACTION-PIPELINE.md §4.2`).
+6. **BauO Bln §6 setbacks** — read the exact Abstandsflächen multiplier (**PROBE-REQUIRED — do NOT copy NRW's 0.4H**).
+7. **Rule-pack CODE** — wire verified rows into `packages/site-parcel-data/src/rulepacks/` (future CODE; not created here).
+
+> The detailed regime blockers (B1–B5), verified sources, and measured dead-ends from the 2026-07-23/24 reconnaissance are retained verbatim below (§1–§8).
 
 ---
 

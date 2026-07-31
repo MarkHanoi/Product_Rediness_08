@@ -1,0 +1,42 @@
+{
+  "adapter": "berlin-lod2-gebaeude",
+  "title": "3D-Gebäudemodell LoD2 Berlin — CONTEXT / HEIGHTS ONLY",
+  "jurisdiction": { "country": "DE", "state": "Berlin", "ags": "11000000", "municipality": "Berlin" },
+  "authority": "GDI-BE / FIS-Broker (Geodateninfrastruktur Berlin)",
+  "capturedBy": "founder-research",
+  "capturedDate": "2026-07-31",
+  "notUsedFor": [
+    "maximum permitted height (legal Höhe)",
+    "FAR / GFZ",
+    "legal building envelope"
+  ],
+  "notUsedForNote": "⚠ LoD2 supplies EXISTING built form only. It is CONTEXT, not a rule. Never substitute a LoD2 measured height for the legal maximum height of a plan.",
+  "endpoint": "https://gdi.berlin.de/services/wfs/lod2_gebaeude",
+  "endpointConfidence": "PROBE-GATED",
+  "knownIssue": "Previous WFS URL returned 404; publication route changed. Reconfirm via FIS-Broker 'S 3D-Gebäudemodell LoD2' / GDI-BE service listing before use.",
+  "format": "CityGML LoD2",
+  "fields": {
+    "measuredHeight": "building height in metres (verify)",
+    "RoofSurface": "roof surface geometry (verify)",
+    "roofType": "roof form (verify)",
+    "storeysAboveGround": "storeys above ground (verify)",
+    "buildingFunction": "building function code (verify)"
+  },
+  "fieldsConfidence": "PROBE-REQUIRED (all fields verify via schema)",
+  "crs": "EPSG:25833",
+  "verticalDatum": "DHHN2016",
+  "targetLOD": "LOD-200 (minimum LOD-150)",
+  "heightFallbackChain": [
+    { "source": "LoD2 CityGML measuredHeight", "badge": "authoritative-measured" },
+    { "source": "ALKIS Gebäude", "badge": "secondary" },
+    { "source": "OSM building:levels", "badge": "estimated" },
+    { "source": "default extrusion", "badge": "fabricated" }
+  ],
+  "renderNote": "Ties to the known white-mask terrain defect: the terrain bake MUST enable vertex normals + terrain lighting (see MEMORY: City Replication Standard). LoD2 supplies context massing atop that terrain.",
+  "probeRequired": [
+    "Reconfirm the live LoD2 WFS endpoint (404 on prior URL).",
+    "Confirm CityGML LoD2 field names (measuredHeight, storeysAboveGround, roofType, buildingFunction).",
+    "Confirm CRS EPSG:25833 + vertical DHHN2016 and licence."
+  ],
+  "relatedFiles": ["gis/terrain-source.json", "gis/parcel-source.json", "gis/bplan-source.json"]
+}

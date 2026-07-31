@@ -1,0 +1,49 @@
+{
+  "adapter": "berlin-terrain-dgm-dop",
+  "title": "DGM1 + DOP20 Berlin — TERRAIN / CONTEXT / visual-QA ONLY",
+  "jurisdiction": { "country": "DE", "state": "Berlin", "ags": "11000000", "municipality": "Berlin" },
+  "authority": "GDI-BE (Geodateninfrastruktur Berlin)",
+  "capturedBy": "founder-research",
+  "capturedDate": "2026-07-31",
+  "notALegalConstraint": "⚠ Terrain and orthophoto are CONTEXT / visual-QA only — NOT a legal buildability constraint. They do not contribute any numeric planning value.",
+  "status": "PROBE-GATED",
+  "layers": {
+    "dgm1": {
+      "title": "Digitales Geländemodell DGM1",
+      "resolution": "1 m",
+      "format": "GeoTIFF / WCS",
+      "crs": "EPSG:25833",
+      "verticalDatum": "DHHN2016"
+    },
+    "dop20": {
+      "title": "Digitale Orthophotos DOP20",
+      "resolution": "20 cm",
+      "format": "WMTS / WMS"
+    }
+  },
+  "licence": "DL-DE BY family",
+  "licenceConfidence": "PROBE-REQUIRED (verify)",
+  "bakePipeline": {
+    "steps": [
+      "DGM GeoTIFF -> quantized-mesh",
+      "quantized-mesh -> Cesium terrain provider"
+    ],
+    "requirements": [
+      "vertex-normals enabled",
+      "terrain-lighting verified",
+      "no white-mask defect (see MEMORY: City Replication Standard — white mask = flat-lit terrain with no oct vertex normals)"
+    ],
+    "executed": false,
+    "executedNote": "Adapter record only — the bake is NOT executed here."
+  },
+  "nationalFallback": {
+    "source": "Copernicus DEM 30 m",
+    "badge": "not equivalent",
+    "note": "Coarse national fallback; not equivalent to DGM1."
+  },
+  "probeRequired": [
+    "Confirm live DGM1 WCS + DOP20 WMTS/WMS endpoints and licence.",
+    "Confirm CRS EPSG:25833 + vertical DHHN2016."
+  ],
+  "relatedFiles": ["gis/lod2-source.json"]
+}

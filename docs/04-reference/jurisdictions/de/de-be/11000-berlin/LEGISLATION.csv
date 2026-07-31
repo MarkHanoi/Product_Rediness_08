@@ -1,0 +1,5 @@
+zoneCode,regime,maxCoverage_GRZ,farRatio_GFZ,maxFloors_Vollgeschosse,maxHeight_m,setback_rule,buildable_geometry_Baugrenze,confidence,source_chain,reason
+unknown,§30 B-Plan (modern),unknown,unknown,unknown,unknown,unknown,unknown,PENDING,"value->document->section->confidence (empty)","no plan extracted; values live only in the linked Satzung PDF, never in WFS metadata"
+unknown,Baunutzungsplan 1958/60 (legacy),unknown,unknown,unknown,unknown,unknown,unknown,PENDING (capped: corroborated voidance-risk),"Baustufe->historic plan legend->case-law","separate parser; judicially voidable as funktionslos (OVG Berlin-Brandenburg Az. 2 B 10.17); never structured"
+n/a,§34 BauGB (unplanned interior),n/a,n/a,n/a,n/a,n/a,n/a,REFUSAL (positive answer),"BauGB §34 -> Einfügen standard -> no numeric table","no numeric envelope exists by law; cited refusal is the correct output"
+n/a,§35 BauGB (outlying),n/a,n/a,n/a,n/a,n/a,n/a,REFUSAL (positive answer),"BauGB §35 -> outlying area -> presumptively not buildable","rare in a city-state; cited refusal"

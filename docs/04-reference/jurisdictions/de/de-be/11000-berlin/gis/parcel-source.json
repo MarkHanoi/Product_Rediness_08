@@ -1,0 +1,44 @@
+{
+  "adapter": "berlin-alkis-flurstuecke",
+  "title": "ALKIS Flurstücke — the legal parcel spine",
+  "jurisdiction": { "country": "DE", "state": "Berlin", "ags": "11000000", "municipality": "Berlin" },
+  "authority": "GDI-BE / FIS-Broker (Geodateninfrastruktur Berlin)",
+  "capturedBy": "founder-research",
+  "capturedDate": "2026-07-31",
+  "role": "PARCEL SPINE — must exist before the B-Plan join, because the buildability answer attaches to the Flurstück (point-in-polygon of the parcel against the applicable plan).",
+  "endpoint": "https://gdi.berlin.de/services/wfs",
+  "endpointConfidence": "CONVERGENT-SECONDARY — base GDI-BE WFS host; exact ALKIS Flurstück feature-type name to be locked via GetCapabilities (see also gis/alkis-source.json which records the /alkis_flurstuecke form; reconcile which is production).",
+  "protocol": "WFS 2.0.0",
+  "protocolConfidence": "PROBE-REQUIRED (verify)",
+  "crs": "EPSG:25833",
+  "crsConfidence": "PROBE-REQUIRED (verify — 25833 expected for Berlin)",
+  "parcelIdField": "flurstueckskennzeichen",
+  "parcelIdFieldConfidence": "PROBE-REQUIRED — AAA/ALKIS id; verify exact field name via DescribeFeatureType",
+  "administrativeKeys": {
+    "gemarkung": "cadastral district",
+    "flur": "field/section",
+    "zaehler": "parcel numerator",
+    "nenner": "parcel denominator"
+  },
+  "quality": {
+    "geometry": "survey-grade cadastral geometry",
+    "ownershipBoundary": false,
+    "ownershipNote": "⚠ NOT a substitute for the ownership register (Grundbuch). ALKIS is the cadastral geometry/id spine only; it does not certify ownership."
+  },
+  "licence": "DL-DE BY 2.0 family",
+  "licenceConfidence": "PROBE-REQUIRED (verify)",
+  "coverage": {
+    "extent": "Complete Berlin",
+    "edgeCases": ["railway parcels", "water parcels", "public-space parcels", "merged / re-parcelled Flurstücke"]
+  },
+  "joins": {
+    "parcelToPlan": "point-in-polygon (parcel geometry vs B-Plan SpatialPlan polygon) -> applicable planid",
+    "parcelToBuilding": "LoD2 CityGML / ALKIS Gebäude (existing built form; see gis/lod2-source.json)"
+  },
+  "probeRequired": [
+    "Exact ALKIS Flurstück feature-type name + geometry field (GetCapabilities / DescribeFeatureType).",
+    "Confirm parcelIdField `flurstueckskennzeichen` and the four administrative key fields.",
+    "Confirm CRS EPSG:25833 and the applicable licence."
+  ],
+  "relatedFiles": ["gis/alkis-source.json", "gis/bplan-source.json", "gis/lod2-source.json", "PARCEL.md"]
+}
