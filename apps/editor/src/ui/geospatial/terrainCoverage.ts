@@ -702,7 +702,7 @@ export function decideBakedTerrainAttach(inp: TerrainAttachInputs): TerrainAttac
  * string to every derived request (layer.json AND {z}/{x}/{y}.terrain), so `?v=…` busts the browser
  * cache for the whole tileset. BUMP this whenever the terrain BAKE changes so clients pull fresh tiles.
  */
-export const TERRAIN_TILESET_VERSION = 'L639g';
+export const TERRAIN_TILESET_VERSION = 'L639h';
 export function terrainTilesetUrl(city: string): string | null {
     const base = contextTilesBaseUrl();
     if (!base) return null;
