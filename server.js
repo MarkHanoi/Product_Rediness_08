@@ -77,6 +77,12 @@ import {
     CORDOBA_ORDENANZAS_PATH, cordobaOrdenanzasHandler,
     CORDOBA_VCATASTRO_PATH, cordobaVcatastroHandler,
 } from './server/cordobaZoningProxy.js';
+// §MURCIA-PGOU-PROXY (INE 30030) — the municipal GeoServer calificación (`Murcia:pgou_alineaciones`)
+// + ámbito (`Murcia:pgou_sectores`) point lookup. Client consumer: @pryzm/site-parcel-data →
+// resolveMurciaZoning. ⚠ Returns IDENTITY only — neither layer publishes altura/edificabilidad/
+// ocupación/retranqueo, so the client's honest output is a CITED REFUSAL (PGOU Arts. 6.6.1–6.6.2 /
+// 5.24.5 remit the ordering to a prior instrument). This route makes that refusal SPECIFIC.
+import { MURCIA_PGOU_PATH, murciaPgouHandler } from './server/murciaPgouProxy.js';
 // SWITZERLAND: same-origin KEYLESS national Nutzungsplanung WFS proxy (geodienste.ch) — returns the
 // zone-identification GML so the client renders the real zone; the buildable envelope refuses (Outcome B).
 import { CH_GRUNDNUTZUNG_PATH, chGrundnutzungHandler } from './server/chGrundnutzungProxy.js';
@@ -485,6 +491,12 @@ app.get(NL_BESTEMMINGSPLAN_PATH, apiLimiter, nlBestemmingsplanHandler);
 // path that turns on with the L-449 sign-off. Same-origin, apiLimiter, never crashes.
 app.get(CORDOBA_ORDENANZAS_PATH, apiLimiter, cordobaOrdenanzasHandler);
 app.get(CORDOBA_VCATASTRO_PATH, apiLimiter, cordobaVcatastroHandler);
+// §MURCIA-PGOU-PROXY — same-origin KEYLESS municipal GeoServer WFS point lookup.
+// GET /api/es/murcia-pgou?lat=&lon= → { calificaciones, sectores } (7-day coord cache). Each key is
+// `null` when THAT layer's upstream did not answer and `[]` when it answered empty — failure and
+// absence never collapse; both layers down → 502. Identity RENDERS in the refusal card; the
+// buildable envelope REFUSES (the numbers live in a prior, separately approved instrument).
+app.get(MURCIA_PGOU_PATH, apiLimiter, murciaPgouHandler);
 // SWITZERLAND — same-origin KEYLESS national Nutzungsplanung WFS proxy (geodienste.ch, NOT
 // geo-blocked). GET /api/ch/grundnutzung?lat=&lon= → the zone GML at the point (24-h coord cache).
 // Zone RENDERS client-side; buildable envelope REFUSES (density/height model+PDF-bound — Outcome B).

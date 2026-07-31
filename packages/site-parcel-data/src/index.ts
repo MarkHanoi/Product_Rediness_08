@@ -655,6 +655,61 @@ export {
     CORNELLA_ROADMAP_LINE,
     cornellaUnverifiedRefusal,
 } from './rulepacks/esCornella.js';
+// ── Murcia (INE 30030), Región de Murcia — the CITED-REFUSAL jurisdiction, wired end to end. ──
+//
+// ⚠ NOT a Catalan city and NOT routed through any Catalan code path: its instrument is the PGOU de
+// Murcia and its zone source is the MUNICIPAL GeoServer, so it gets its own S2 predicate, its own
+// S5 registration and its own L5 dispatch branch.
+//
+// THE THREE PIECES, in the order a click uses them:
+//   1. `isInMurcia` / `composeIneCode` — the routing gate. ⚠ Route from the DATA (Catastro's own
+//      `<cp>`+`<cm>` compose to 30030), never from a name: "Murcia" is also a town in the
+//      Philippines, and a competitor shipped PORTUGUESE tax law onto this Spanish parcel.
+//   2. `resolveMurciaZoning` — the ONE impure seam: the live calificación + ámbito at the point,
+//      through the same-origin `/api/es/murcia-pgou` proxy. Never throws; failure and absence stay
+//      distinct; superseded records (`f_fin` passed) are filtered out, never quoted.
+//   3. `murciaEnvelopeDisposition` — PURE. Decides what PRYZM may say. For the TA/TM/UA/UH/UM
+//      ámbitos that is a LEGALLY GROUNDED `derived-plan` refusal (PGOU Arts. 6.6.2 / 5.24.5.1 remit
+//      the building conditions to a prior instrument, named by its expediente number); everywhere
+//      else the weaker `no-rule-pack` coverage refusal. ⚠ There is deliberately NO envelope branch:
+//      the layers publish no numeric buildable parameter, so any figure here would be invented.
+// `detectDerivedPlanMarkers` reads the instrument named in the CADASTRAL ADDRESS (a nationally
+// available signal) to sharpen the refusal — it never adds a number and never upgrades a refusal.
+export { isInMurcia, MURCIA_BBOX, MURCIA_INE_CODE, composeIneCode } from './providers/murciaBbox.js';
+export {
+    MURCIA_JURISDICTION_ID,
+    MURCIA_ENVELOPE_VERIFIED,
+    MURCIA_ROADMAP_LINE,
+    murciaNoRulePackRefusal,
+    detectDerivedPlanMarkers,
+    type DerivedPlanMarker,
+} from './rulepacks/esMurciaEnvelope.js';
+export {
+    murciaEnvelopeDisposition,
+    isInForce,
+    parseSectorCode,
+    isRemittedAmbito,
+    REMITTED_AMBITO_PREFIXES,
+    REMITTED_RESIDENTIAL_CALIFICACION,
+    MURCIA_FICHA_BASE,
+    type MurciaCalificacionFeature,
+    type MurciaSectorFeature,
+    type MurciaEnvelopeDisposition,
+} from './providers/murciaZoningProvider.js';
+export {
+    resolveMurciaZoning,
+    readMurciaCalificacion,
+    readMurciaSector,
+    MURCIA_PGOU_PATH,
+    MURCIA_CALIFICACION_LAYER,
+    MURCIA_SECTOR_LAYER,
+    type MurciaLatLon,
+    type MurciaZoningDeps,
+    type MurciaZoningRecords,
+    type MurciaZoningResolution,
+    type MurciaZoningRefusalReason,
+} from './providers/resolveMurciaZoning.js';
+
 // ── L-608 — Madrid (INE 28079) jurisdiction gate + the NZ 1 explicit-area pack, refusal + ──
 // the `ringRef` resolver. The pack ships numeric fields null and a footprint HANDLE; the resolver
 // turns that handle into a WGS84 buildable ring per manzana (or a typed refusal — it never throws).

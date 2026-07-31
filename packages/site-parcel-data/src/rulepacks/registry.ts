@@ -123,6 +123,14 @@ import {
     cornellaUnverifiedRefusal,
 } from './esCornella.js';
 import { CORNELLA_BBOX, isInCornella } from '../providers/cornellaBbox.js';
+// ── Murcia (INE 30030), Región de Murcia — NOT Catalonia, NOT the AMB, NOT the PGM. ──
+// A REFUSAL jurisdiction on its own regional footing: its instrument is the PGOU de Murcia and its
+// zone source is the MUNICIPAL GeoServer (`Murcia:pgou_alineaciones` / `Murcia:pgou_sectores`),
+// resolved LIVE per parcel by the L5 dispatch, not from a static zone-code table. So `packsByZone`
+// is deliberately EMPTY, exactly like Denmark's and Switzerland's; this registration lights the C60
+// coverage globe and gives `resolveZoneDisposition` an honest answer for a Murcia zone code.
+import { MURCIA_JURISDICTION_ID, murciaNoRulePackRefusal } from './esMurciaEnvelope.js';
+import { MURCIA_BBOX, isInMurcia } from '../providers/murciaBbox.js';
 // ── L-449 SIGNED — Denmark (national, Plandata.dk). The FIRST fully-automated jurisdiction: its
 //    buildable-envelope pack is resolved LIVE per parcel (`dkPlandataResolvedPack`) by the L5 DK
 //    dispatch, so it registers with an EMPTY `packsByZone` and exists here to light the C60 coverage
@@ -629,6 +637,63 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         refusalFor: () => null,
         noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
             cornellaUnverifiedRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
+    },
+    // ── Murcia (INE 30030) — Región de Murcia. ───────────────────────────────────────────────────
+    //
+    // ⚠⚠ NOT A CATALAN CITY, AND NOT ROUTED LIKE ONE. The five registrations above share ONE
+    // metropolitan instrument (PGM-1976) and ONE zone source (the Catalonia-wide MUC), which is why
+    // each is a two-line variation on its neighbour. Murcia shares NEITHER: its instrument is the
+    // PGOU de Murcia (Normas Urbanísticas) and its zone source is the MUNICIPAL GeoServer. Reusing
+    // any Catalan predicate, pack or citation here would be the mis-citation §CONTEXT-DATA-HONESTY
+    // forbids, on another autonomous community's land. The only thing shared is the SHAPE of the
+    // slot — which is the whole point of the registry (C58 §1.5).
+    //
+    // ⚠ REGISTERED AS A REFUSAL JURISDICTION, ON PURPOSE, AND FOR A STRONGER REASON THAN COVERAGE.
+    // The municipal service publishes the zone IDENTITY, the official designation, the land class
+    // and a validity interval — and publishes NO numeric buildable parameter as an attribute (no
+    // altura, no edificabilidad, no ocupación, no retranqueo; verified against the WFS
+    // `DescribeFeatureType` schemas, not merely against one response). For the TA/TM/UA/UH/UM
+    // families the PGOU says so ITSELF (Arts. 6.6.1–6.6.2, 5.24.5.1): the ordering is that of a
+    // PRIOR, separately-approved instrument, identified by the expediente number after the ámbito
+    // code. That is a LEGALLY GROUNDED `derived-plan` refusal, produced per-parcel from live data by
+    // the L5 dispatch (`murciaEnvelopeDisposition`), not from this table.
+    //
+    // ⇒ `packsByZone` is EMPTY (no static zone code maps to a pack), `refusalFor` returns null, and
+    // `noRulePackRefusal` returns the Murcia COVERAGE refusal — the honest answer on the REGISTRY
+    // path, which has no live records and therefore cannot make the stronger legal claim. The
+    // dispatcher path supplies the specific, cited one. Same division as Switzerland and Madrid.
+    //
+    // WIRING TODO (orchestrator, when a governing instrument is sourced + human-signed into
+    // `es/es-mc/30030-murcia/sources/VERIFICATION.md`): author the pack cited to THAT instrument
+    // (a Plan Parcial, not the general plan — the general plan expressly declines the question),
+    // move it into `packsByZone` and flip `MURCIA_ENVELOPE_VERIFIED`. That is a legal act.
+    {
+        jurisdictionId: MURCIA_JURISDICTION_ID, // 'es-30030-murcia'
+        displayName: 'Murcia',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        // ⚠ THE SAME OBJECT/FUNCTION `siteDispatch.ts` routes on — imported, not restated.
+        extent: MURCIA_BBOX,
+        contains: isInMurcia,
+        answerSummary:
+            'The PARCEL half is complete and live: the national Catastro path resolves the referencia ' +
+            'catastral, the official boundary, the officially registered area and the existing ' +
+            'buildings with their floor counts. The ZONING half resolves the calificación, its ' +
+            'official designation, the ámbito, the land class and the record\'s validity interval ' +
+            "live from Murcia's own municipal planning service. The buildable ENVELOPE REFUSES, and " +
+            'for the TA/TM/UA/UH/UM ámbitos that refusal is the ordinance\'s own answer: PGOU Arts. ' +
+            '6.6.2 / 5.24.5.1 remit the building conditions to a prior, separately-approved ' +
+            'instrument, which PRYZM does not hold. No height, buildability, occupation or setback ' +
+            'is published here — never an estimate, never a proxy figure.',
+        // Resolved live per-parcel from the municipal GeoServer — no static zone-code pack table.
+        packsByZone: packMap(),
+        // No per-zone legal refusal TABLE: the legal refusal is a function of the live ámbito code
+        // (`murciaEnvelopeDisposition`), not of a static enumeration.
+        refusalFor: () => null,
+        // The registry path has no live records, so it makes the weaker, honest claim: a statement
+        // about PRYZM's coverage, never about the law.
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            murciaNoRulePackRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
     },
     // ── L-449 SIGNED (Denmark, national) — Plandata.dk → buildable envelope, the FIRST fully-automated
     //    (OFFLINE-legislation) jurisdiction. UNLIKE the ES refusal-jurisdictions above, Denmark

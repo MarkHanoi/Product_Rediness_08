@@ -151,6 +151,22 @@ import {
     CORNELLA_ENVELOPE_VERIFIED,
     cornellaUnverifiedRefusal,
     lhospitaletUnverifiedRefusal,
+    // ── Murcia (INE 30030), Región de Murcia — the CITED-REFUSAL jurisdiction. ──
+    // ⚠ NOT Catalonia. Murcia shares NO instrument, NO zone source and NO predicate with the five
+    // AMB municipalities above: its instrument is the PGOU de Murcia and its zoning comes from the
+    // MUNICIPAL GeoServer, so it gets its own gate (`isInMurcia`), its own live resolver
+    // (`resolveMurciaZoning` → `/api/es/murcia-pgou`) and its own PURE disposition
+    // (`murciaEnvelopeDisposition`). The disposition is a REFUSAL in every branch — the layers
+    // publish no numeric buildable parameter at all — but for the TA/TM/UA/UH/UM ámbitos it is the
+    // ORDINANCE'S OWN answer (`derived-plan`, `legallyGrounded: true`), citing PGOU Arts. 6.6.2 /
+    // 5.24.5.1 and naming the expediente of the instrument the user must obtain.
+    isInMurcia,
+    MURCIA_ENVELOPE_VERIFIED,
+    murciaEnvelopeDisposition,
+    murciaNoRulePackRefusal,
+    detectDerivedPlanMarkers,
+    resolveMurciaZoning,
+    type DerivedPlanMarker,
     // BARCELONA-GIS-AUDIT-SPIKE — clau 18 (volumetria específica) explicit-area path. The AMB Refós
     // OV_Trames resolver (footprint + PLANTES floor count, WGS84, never throws) + its UNREGISTERED
     // pack. Gated on `BCN_REFOS_OV_CERTIFIED` (default OFF): while closed, clau 18 keeps its cited
@@ -1198,6 +1214,17 @@ function applyZoning(
         // dispatches a cited "machine-extracted, unverified" refusal, never a fabricated envelope.
         if (qLat != null && qLon != null && isInCordoba(qLat, qLon)) {
             void applyCordobaZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+            return;
+        }
+        // §MURCIA-ENVELOPE — a Murcia (INE 30030) plot. ⚠ A REGIONALLY DISTINCT branch, not a
+        // variation on the Catalan ones above: Región de Murcia, PGOU de Murcia, municipal
+        // GeoServer. Its box is ~450 km from every other registered Spanish jurisdiction, so the
+        // ORDER of this test is not load-bearing the way the AMB peel-offs are — it is placed with
+        // the other Spanish branches for legibility, not for precedence. Like Madrid/Córdoba its
+        // fallback is a cited REFUSAL, never the estimated triple: the municipal layers publish no
+        // numeric buildable parameter, so a front/side/rear estimate would be pure invention.
+        if (qLat != null && qLon != null && isInMurcia(qLat, qLon)) {
+            void applyMurciaZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
             return;
         }
         // SWITZERLAND — a Swiss plot resolves its REAL land-use zone from the national Nutzungsplanung
@@ -3169,6 +3196,191 @@ async function applyCornellaZoningThenFallback(
     } catch (e) {
         console.warn(`${TAG} Cornellà path failed (non-fatal) — falling back to estimated default:`, e);
         try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+    }
+}
+
+/**
+ * §MURCIA-ENVELOPE — the Murcia (INE 30030) path. Región de Murcia, PGOU de Murcia.
+ *
+ * ⚠⚠ READ THIS BEFORE "FINISHING" IT: THERE IS NO NUMBER TO DRAW HERE, AND THAT IS A FINDING, NOT A
+ * GAP. Murcia's municipal GeoServer publishes the calificación, its official designation, the
+ * ámbito, the land class and the record's validity interval — and NO altura, edificabilidad,
+ * ocupación or retranqueo in any schema. For the TA/TM/UA/UH/UM ámbitos the PGOU explains why in its
+ * own articles: Art. 6.6.2 says an ámbito coded `TA` carries the ordering of the previous plan
+ * *convalidada plenamente*, identified by the expediente number after the code, and Art. 5.24.5.1
+ * says the same of the generic residential calificación `RR`. The governing numbers are in THAT
+ * instrument, which PRYZM does not hold. A figure lifted from a general-plan zone table would cite a
+ * document that expressly declines the question — which is exactly what a competitor screening
+ * report did on this parcel (~262 m² as a "proxy PGOU"). An uncited number from PRYZM would be
+ * WORSE than their proxy, because it would claim a rigour we have not earned (L-616, L-526).
+ *
+ * ⇒ EVERY branch of this function dispatches a REFUSAL. What the live fetch buys is not a number but
+ * SPECIFICITY: the refusal names the user's ámbito, calificación, land class, pedanía and the
+ * expediente of the document they must obtain, and it is `legallyGrounded: true` when the ordinance
+ * itself is the source of the "no". `status: 'none'` keeps every numeric field null and clears any
+ * stale `buildableRing` (`dispatchEnvelope` writes a ring only on `'ok'`).
+ *
+ * THE CHAIN: `isInMurcia` (S2 gate) → `catastroParcelProvider` (refcat + address, national, already
+ * live) → `detectDerivedPlanMarkers` (the instrument named in the address) → `resolveMurciaZoning`
+ * (S3, live municipal records via `/api/es/murcia-pgou`) → `murciaEnvelopeDisposition` (PURE, S4) →
+ * `buildRefusedEnvelope` → `dispatchEnvelope` (P6 — `site.updateZoning`, never a direct store write).
+ *
+ * Fully guarded: it never throws into the commit path, and it never falls back to the estimated
+ * triple on a jurisdiction we DO answer — a fabricated estimate where an honest refusal exists is
+ * the §CONTEXT-DATA-HONESTY failure. Only a structurally impossible dispatch (no polygon, no site)
+ * leaves the path.
+ */
+async function applyMurciaZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+): Promise<void> {
+    const TAG = '[gis][c58] §MURCIA-ENVELOPE';
+    const JURISDICTION_REF = 'murcia-pgou';
+    /** Fallback zone code when the live records carry none — names the plan, asserts nothing. */
+    const MURCIA_FALLBACK_ZONE_CODE = 'murcia-pgou';
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        const parcelAreaM2 = (() => {
+            try {
+                const ring = boundary.polygon;
+                const a = Math.abs(
+                    ring.reduce((acc, p, i) => {
+                        const q = ring[(i + 1) % ring.length]!;
+                        return acc + (p.x * q.z - q.x * p.z);
+                    }, 0) / 2,
+                );
+                return Number.isFinite(a) && a > 0 ? a : null;
+            } catch { return null; }
+        })();
+
+        // (1) The PARCEL half — already live nationally through the same Catastro proxy every
+        // Spanish click uses. It supplies the referencia catastral (an identifier join, not a pin
+        // guess) and the cadastral ADDRESS, which is where Murcia happens to publish its
+        // derived-plan marker (`PL U.A. 5ª DEL P.P. CR-5 …`). Best-effort: a miss costs the refusal
+        // some specificity and nothing else.
+        let refcat: string | null = null;
+        let address: string | null = null;
+        try {
+            const parcel = await catastroParcelProvider.fetchParcelAtPoint(lon, lat);
+            refcat = parcel?.refcat ?? null;
+            address = parcel?.address ?? null;
+        } catch { /* the parcel leg is enrichment, never a precondition */ }
+        const derivedPlans: readonly DerivedPlanMarker[] = detectDerivedPlanMarkers(address);
+
+        // (2) The ZONING half — the live municipal records at the parcel point. Never throws; a
+        // failure and an absence stay DIFFERENT answers all the way to the card.
+        const asOf = new Date().toISOString().slice(0, 10);
+        const resolution = await resolveMurciaZoning({ lat, lon }, { asOf });
+
+        const knownFacts: string[] = [
+            `Location: Murcia (${lat.toFixed(5)}, ${lon.toFixed(5)}) — Región de Murcia, PGOU de Murcia`,
+            refcat !== null ? `Referencia catastral: ${refcat}` : null,
+            parcelAreaM2 !== null ? `Parcel area: ${Math.round(parcelAreaM2).toLocaleString()} m²` : null,
+        ].filter((s): s is string => typeof s === 'string');
+
+        // ⚠⚠⚠ THE HONESTY GATE. No transcribed, human-signed Murcia instrument exists, so there is
+        // no compute branch to reach — and there must not be one authored without the sign-off
+        // (`sources/VERIFICATION.md`, a founder act). Stated explicitly so the absence is a DECISION
+        // in the code, not an oversight a later agent "fixes" with a zone-table figure.
+        if (!MURCIA_ENVELOPE_VERIFIED && resolution.ok) {
+            const disposition = murciaEnvelopeDisposition(
+                resolution.records.calificacion,
+                resolution.records.sector,
+                asOf,
+                derivedPlans,
+            );
+            if (disposition.kind === 'refusal') {
+                const zoneCode =
+                    resolution.records.calificacion?.calificacion ??
+                    resolution.records.sector?.sector ??
+                    MURCIA_FALLBACK_ZONE_CODE;
+                const refusal = {
+                    ...disposition.refusal,
+                    // The parcel facts PRYZM established independently, ahead of the zoning facts
+                    // the disposition read from the municipal records (L-553 — the card is never a
+                    // blank panel, and it opens with the user's own land).
+                    knownFacts: [...knownFacts, ...disposition.refusal.knownFacts],
+                };
+                dispatchEnvelope(
+                    ctx,
+                    site.id,
+                    buildRefusedEnvelope(zoneCode, refusal, 'none'),
+                    JURISDICTION_REF,
+                );
+                console.log(
+                    `${TAG} live records resolved (calificación=${resolution.records.calificacion?.calificacion ?? 'n/a'} ` +
+                        `ámbito=${resolution.records.sector?.sector ?? resolution.records.calificacion?.sector ?? 'n/a'}` +
+                        `${resolution.records.supersededCount > 0 ? `, ${resolution.records.supersededCount} superseded record(s) dropped` : ''}) ` +
+                        `— dispatched the ${refusal.code} refusal (legallyGrounded=${refusal.legallyGrounded}); ` +
+                        `NO number rendered. area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m².`,
+                );
+                return;
+            }
+            // `unresolved` — the records did not identify the land. Fall through to the coverage
+            // refusal below, which says so without claiming the ordinance grants nothing.
+            console.log(`${TAG} disposition unresolved: ${disposition.reason}`);
+        }
+
+        // (3) No live records (or the disposition could not identify the land) → the COVERAGE
+        // refusal. ⚠ `no-rule-pack` / `legallyGrounded: false` deliberately: this is a statement
+        // about PRYZM, and asserting a legal "no" on urban land the ordinance probably DOES allow
+        // building on is the opposite error, and the worse one.
+        const why = resolution.ok
+            ? 'the municipal records did not identify this land'
+            : `the municipal planning service answered "${resolution.reason}"`;
+        if (!resolution.ok) {
+            // Failure vs absence, kept apart on the CARD as well as in the code (§CONTEXT-DATA-HONESTY).
+            knownFacts.push(
+                resolution.reason === 'endpoint-unreachable'
+                    ? '⚠ Murcia\'s municipal planning service did not answer this request. That is a ' +
+                      'temporary data-path failure, NOT a finding that the parcel carries no planning record.'
+                    : resolution.reason === 'only-superseded-records'
+                      ? '⚠ Every planning record covering this point is outside its validity interval ' +
+                        '(superseded). PRYZM will not quote a repealed rule under a current-sounding citation.'
+                      : resolution.reason === 'ambiguous-zone'
+                        ? '⚠ More than one calificación covers this point (a zone boundary). PRYZM will ' +
+                          'not pick one at random.'
+                        : 'Murcia\'s municipal planning service published no record covering this point.',
+            );
+        }
+        const coverage = murciaNoRulePackRefusal(null, null, knownFacts, derivedPlans);
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(MURCIA_FALLBACK_ZONE_CODE, coverage, 'none'),
+            JURISDICTION_REF,
+        );
+        console.log(
+            `${TAG} ${why} — dispatched the coverage refusal (${coverage.code}); NO number rendered. ` +
+                `derivedPlans=${derivedPlans.map((d) => `${d.kind}${d.ref ? ` ${d.ref}` : ''}`).join(' · ') || 'none'}.`,
+        );
+    } catch (e) {
+        // Best-effort — never block the commit, and never leave an ESTIMATE on a jurisdiction we
+        // answer. Try for the cited refusal instead (the Swiss posture, not the Córdoba one).
+        console.warn(`${TAG} Murcia path failed (non-fatal) — attempting a cited refusal:`, e);
+        try {
+            const site = ctx.store.getSite();
+            if (site) {
+                dispatchEnvelope(
+                    ctx,
+                    site.id,
+                    buildRefusedEnvelope(MURCIA_FALLBACK_ZONE_CODE, murciaNoRulePackRefusal(), 'none'),
+                    JURISDICTION_REF,
+                );
+            }
+        } catch { /* refusal dispatch is best-effort too */ }
     }
 }
 
