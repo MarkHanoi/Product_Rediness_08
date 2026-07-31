@@ -26,6 +26,12 @@
 //   Envelope         — toEnvelopeParameters(extraction) — cited rules → ONE typed
 //                      parameter set, grouped by parameter key, gated, and honestly
 //                      three-valued (resolved / conflicted / unknown).
+//   Attribution      — ParameterEvidence<T> + resolveParameter(candidates, table) —
+//                      the LEGAL ATTRIBUTION layer that decides WHICH correctly-read
+//                      value BINDS (instrument kind, legalStatus, per-jurisdiction
+//                      priority tables as data). Extends the three-outcome contract
+//                      above; deliberately wired to nothing yet — see
+//                      standards/LEGAL-ATTRIBUTION-MODEL.md §8.
 //
 // Strategic context — docs/04-reference/ORDINANCE-EXTRACTION-PIPELINE.md.
 
@@ -38,4 +44,5 @@ export * from './pipeline.js';
 export * from './textExtract/index.js';
 export * from './grammars/index.js';
 export * from './envelope/index.js';
+export * from './attribution/index.js';
 export * from './ingest/index.js';
