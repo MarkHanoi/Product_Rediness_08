@@ -57,10 +57,16 @@ describe('resolveParcelJurisdiction — documented footprint-fallback jurisdicti
 });
 
 describe('resolveParcelJurisdiction — universal footprint + never-throws', () => {
-    it('a US point outside NYC (Chicago) routes to the universal footprint (no cadastre wired)', () => {
-        const j = resolveParcelJurisdiction(41.8781, -87.6298);
+    // L-651: Chicago USED to be the "no US cadastre beyond NYC" example. It now has a live Cook
+    // County row, so the example moved to Denver — a US city with no wired parcel source. (The US has
+    // no national cadastre, so it is wired city by city; every unwired city still lands here.)
+    it('a US point in an unwired city (Denver) routes to the universal footprint', () => {
+        const j = resolveParcelJurisdiction(39.7392, -104.9903);
         expect(j).toBe(UNIVERSAL_FOOTPRINT_JURISDICTION);
         expect(j.kind).toBe('footprint-fallback');
+    });
+    it('Chicago now routes to the Cook County cadastre (L-651 wired it)', () => {
+        expect(resolveParcelJurisdiction(41.8781, -87.6298).providerId).toBe('chicago-cook');
     });
     it('mid-ocean routes to the universal footprint', () => {
         expect(resolveParcelJurisdiction(0, -30)).toBe(UNIVERSAL_FOOTPRINT_JURISDICTION);

@@ -357,8 +357,19 @@ export function parseSfParcelFeature(feature: unknown): SfParcelResolution {
     // Attributes: ArcGIS nests them under `attributes`; Socrata is flat (the row itself).
     const attributes =
         (f.attributes && typeof f.attributes === 'object' ? (f.attributes as Record<string, unknown>) : f);
-    // Geometry: ArcGIS under `geometry`; Socrata under `the_geom`.
-    const geometry = f.geometry ?? attributes.the_geom ?? (f as Record<string, unknown>).the_geom;
+    // Geometry: ArcGIS under `geometry`; Socrata under `shape` (⚠ NOT `the_geom`).
+    // L-651 LIVE-PROBE CORRECTION (2026-07-31): the DataSF `acdm-wktn` resource names its geometry
+    // column **`shape`**. This module previously looked only at `geometry` / `the_geom`, so a REAL
+    // Socrata row parsed to `degenerate-geometry` — an SF click would have refused on live data while
+    // every fixture test passed, because the fixtures were written to the documented-but-wrong
+    // `the_geom` name. `the_geom` is retained in the chain (other DataSF resources do use it, and the
+    // Cook County parcel resource genuinely does) so both spellings resolve.
+    const geometry =
+        f.geometry ??
+        attributes.shape ??
+        (f as Record<string, unknown>).shape ??
+        attributes.the_geom ??
+        (f as Record<string, unknown>).the_geom;
 
     const apn = toStr(attr(attributes, 'blklot', 'blocklot', 'apn', 'mapblklot'));
     if (!apn) return { ok: false, reason: 'no-apn' };

@@ -64,6 +64,17 @@ import { isInFlanders, FLANDERS_BBOX } from './flandersGrbParcelProvider.js';
 import { isInNYC, NYC_BBOX } from './nycPlutoParcelProvider.js';
 import { isInFinland, FINLAND_BBOX } from './mmlParcelProvider.js';
 import { isInEngland, ENGLAND_BBOX } from './gbOsInspireParcelProvider.js';
+// L-651 Phase-5 batch — the SIX providers that were BUILT + UNIT-TESTED but never registered here,
+// so nothing routed to them and every click in their territory silently fell to OSM. Wiring them is
+// this file's whole job: a provider with no registry row is inert code, and its own unit tests can
+// never notice (they call the provider directly and never exercise reachability). See the per-row
+// `note` for each one's LIVE-PROBE verdict (2026-07-31) — three resolve real parcels, three do not.
+import { isInPortugal, PORTUGAL_BBOX } from './dgtParcelProvider.js';
+import { isInSF, SF_BBOX } from './sfParcelProvider.js';
+import { isInChicago, CHICAGO_BBOX } from './chicagoParcelProvider.js';
+import { isInBrussels, BRUSSELS_BBOX } from './brusselsParcelProvider.js';
+import { isInWallonia, WALLONIA_BBOX } from './walloniaParcelProvider.js';
+import { isInScotland, SCOTLAND_BBOX } from './scotlandRosParcelProvider.js';
 
 const _tracer = trace.getTracer('pryzm.parcel');
 
@@ -121,6 +132,23 @@ export interface ParcelJurisdiction {
  */
 const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
     {
+        // PT BEFORE ES: PORTUGAL_BBOX (36.9–42.2°N, −9.6..−6.1°E) sits ENTIRELY INSIDE SPAIN_BBOX
+        // (Catastro's box reaches −18.5°E for the Canaries), so Lisbon/Porto/Faro would first-match
+        // Spain without this precedence. The specificity resolver reaches the same verdict on its own
+        // (PT ≈ 18.6 deg² ≪ ES ≈ 378 deg²); the row order only keeps the LEGACY single-verdict
+        // `resolveParcelJurisdiction` honest for coverage/inspection callers. The reverse casualty is
+        // the Spanish strip west of −6.1°E (Badajoz), which self-corrects: the SNIC WFS returns no
+        // feature outside Portugal → fall through to Catastro.
+        regionCode: 'PT',
+        countryName: 'Portugal (Continente)',
+        providerId: 'dgt-cadastro-predial',
+        label: 'Cadastro Predial (Portugal · DGT / SNIC)',
+        proxyPath: '/api/parcel/pt',
+        kind: 'cadastral',
+        contains: isInPortugal,
+        note: 'DGT SNIC INSPIRE WFS 2.0 snicws.dgterritorio.gov.pt/geoserver/inspire/ows, typeName inspire:cadastralparcel, native EPSG:3763 → srsName=EPSG:4326 honoured server-side. VERIFIED-LIVE 2026-07-31 by this wiring pass: HTTP 200 application/json, real WGS84 MultiPolygon (feature cadastralparcel.1108210701 @ −7.5566,39.6702), CC BY 4.0 declared on GetCapabilities. Survey-grade, so `high` confidence IS earned on a point-in-parcel fact — but national coverage is INCOMPLETE (mainland only; built out per-município), so an unmapped município returns an honest no-parcel-here → footprint, NEVER a fabricated ring. Geometry-only: no ownership, no FAR, no height.',
+    },
+    {
         regionCode: 'ES',
         countryName: 'Spain',
         providerId: 'catastro',
@@ -129,6 +157,52 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         kind: 'cadastral',
         contains: isInSpain,
         note: 'OVC reverse-geocode + INSPIRE WFS GetParcel — keyless, live (the original L-380 pilot).',
+    },
+    {
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        // BELGIUM — THREE REGIONAL PREDICATES, NOT ONE `isInBelgium`. The argument (L-651).
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        // The ROI tracker floated "Wallonia/Brussels next behind one `isInBelgium`". That shape is
+        // WRONG here, and the live probe (2026-07-31) is what settles it:
+        //
+        //  1. ONE PREDICATE FORCES ONE ROW, AND A ROW CARRIES ONE VERDICT. A `ParcelJurisdiction`
+        //     has exactly one `providerId`, one `proxyPath`, one `kind` and one `note`. The three
+        //     Belgian regions do NOT share any of those: Flanders GRB is a live keyless WFS
+        //     (`cadastral`), while Brussels and Wallonia are — as probed below — NOT reachable at
+        //     all (`footprint-fallback`). Collapsing them would have to pick ONE verdict for all
+        //     three, which necessarily lies about two of them. That is the C58 §1.4 false-provenance
+        //     failure, and it is exactly the "failure and absence collapse into one value" bug
+        //     (§CONTEXT-DATA-HONESTY, L-422/457/467/469) this registry exists to prevent.
+        //  2. THE ENCLAVE IS ALREADY SOLVED, BY MEASUREMENT NOT BY ORDERING. Brussels-Capital is an
+        //     enclave inside Flemish Brabant, so BRUSSELS_BBOX ⊂ FLANDERS_BBOX and a naïve router
+        //     WOULD hand Brussels clicks to GRB. The L-650 specificity resolver already prevents it
+        //     without any manual tie-break: BRUSSELS_BBOX ≈ 0.038 deg² vs FLANDERS_BBOX ≈ 2.87 deg²,
+        //     a 75× ratio, so Brussels always ranks first for its own points. Proven by test
+        //     ("Brussels-Capital is NOT claimed by Flanders"), which fails if this row is removed.
+        //  3. THE THREE REGIONS ARE DIFFERENT LEGAL SYSTEMS ANYWAY (VCRO / CoBAT / CoDT) with
+        //     different portals, licences and blockers. The per-region `note` is what makes the C63
+        //     DATA-SOURCES axis scorable per region; one merged row would erase that granularity.
+        //  4. IT IS NOT EVEN THE CHEAPER PATH. The "one Belgium" efficiency was premised on the
+        //     FEDERAL CADMAP/CadGIS service serving all three regions at once. PROBED 2026-07-31 and
+        //     it does NOT: eservices.minfin.fgov.be/geoservices/inspire/wfs answers HTTP 302 to
+        //     idp.iamfas.belgium.be (the Belgian federal FAS/SAML identity provider) and
+        //     ccff02.minfin.fgov.be answers 403. The federal cadastre is IDENTITY-BOOTSTRAP-GATED —
+        //     the same access class as SE BankID / DK MitID — so there is no single endpoint to put
+        //     behind a single predicate. When federal access is ever obtained it should be added as
+        //     a FOURTH, coarse `isInBelgium` row owning `/api/parcel/be`; being the largest box it
+        //     sorts LAST by specificity and becomes the natural cross-region fall-through UNDER the
+        //     three regional rows. Additive, not a replacement — which is only possible because the
+        //     regions were kept separate.
+        //
+        // BE-BRU FIRST (tightest enclave first), then BE-VLG, then BE-WAL.
+        regionCode: 'BE-BRU',
+        countryName: 'Belgium (Brussels-Capital Region)',
+        providerId: 'brussels-cadastre',
+        label: 'Building footprint (OSM)',
+        proxyPath: null,
+        kind: 'footprint-fallback',
+        contains: isInBrussels,
+        note: 'Brussels-Capital has NO reachable keyless parcel endpoint — PROBED 2026-07-31, four surfaces, all negative: (a) gis.urban.brussels/geoserver ADVERTISES layer GAPD:AGDP_CAPA (Title "Cadastral parcels", DefaultCRS urn:ogc:def:crs:EPSG::31370) in GetCapabilities but every GetFeature form — WFS 2.0 + 1.1.0, global + workspace-scoped endpoint, bare `EPSG:4326` + `urn:ogc:def:crs:EPSG::4326` + native 31370 bbox — returns ExceptionReport "Feature type GAPD:AGDP_CAPA unknown", i.e. catalogued-but-not-served; (b) data.mobility.brussels/geoserver is live with 273 layers but its bm_urbis:urbadm_* set is addresses/municipalities/streets only, NO parcel layer; (c) geoservices-urbis.irisnet.be/geoserver needs a workspace and UrbAdm/UrbisAdm 404; (d) the FEDERAL CADMAP fallback is identity-gated (see the Belgium block comment above). datastore.brussels IS reachable (HTTP 200) but publishes the UrbIS "Parcels and buildings" product as a DOWNLOADABLE GeoPackage, which cannot serve a per-click point query — wiring it needs a nightly GPKG→PostGIS sync job, i.e. INFRASTRUCTURE, not a proxy line. STATUS = to-build (sync-first), deliberately NOT a dead `cadastral` row: this registers as a footprint so the C63 DATA-SOURCES axis reads an honest "no source wired" instead of a false "measured".',
     },
     {
         // BE-Flanders BEFORE FR + NL: Flanders' core (Antwerp/Ghent/Brussels enclave) sits inside
@@ -144,6 +218,20 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         note: 'GRB Adp (administratieve percelen) — CAPAKEY + NIScode + geometry, EPSG:31370 → WGS84, open data (no key). FLANDERS ONLY: Brussels (CoBAT/UrbIS) + Wallonia (CoDT/PICC) are different systems; a Brussels/Wallonia click returns no ADP feature → footprint. ⚠ Proxy /api/parcel/be-vlg not yet wired server-side → resolves null → OSM footprint until then.',
     },
     {
+        // BE-WAL AFTER BE-VLG: the two boxes overlap in Walloon Brabant (50.67–50.85°N), where
+        // Flanders' smaller box wins and self-corrects on a GRB miss. Wallonia does NOT enclose the
+        // Brussels enclave (Brussels is enclaved in Flemish Brabant, north of the Walloon border),
+        // so BE-BRU vs BE-WAL is a partial overlap only and Brussels still wins its own points.
+        regionCode: 'BE-WAL',
+        countryName: 'Belgium (Walloon Region)',
+        providerId: 'wallonia-cadastre',
+        label: 'Building footprint (OSM)',
+        proxyPath: null,
+        kind: 'footprint-fallback',
+        contains: isInWallonia,
+        note: "Wallonia's DOCUMENTED cadastral endpoint DOES NOT EXIST — PROBED 2026-07-31 and this is the finding, not a timeout: geoservices.wallonie.be/geoserver/wfs answers a valid HTTP 200 GetCapabilities (104 KB) that advertises exactly 18 layers, ALL of them in the `Orthos` workspace (orthophoto mosaics) — there is NO cadastral/parcel layer, so the provider's documented typeName `CP:CadastralParcel` cannot resolve and would have returned silently empty forever. Workspace sweep cp / inspire_cp / cadastre / CADMAP all 404 (inspire_lu exists but is land-USE, not parcels); the ArcGIS REST tree (geoservices.wallonie.be/arcgis/rest/services) lists 26 folders and neither DONNEES_BASE nor LIMITES carries a cadastral MapServer. The FEDERAL CADMAP fallback is identity-gated (see the Belgium block comment above). STATUS = access-deferred: the SPW cadastral redistribution is either not public or lives on a surface not yet identified; needs a sourcing pass against the Géoportail de Wallonie catalogue, not a code change. Registered as a footprint so a Walloon click is honestly labelled, never silently attributed to a cadastre that does not answer.",
+    },
+    {
         // GB-England BEFORE FR: England's south coast (Brighton/Portsmouth/Plymouth) sits inside
         // FRANCE_BBOX, so this must win first. Calais (inside ENGLAND_BBOX) is the reverse casualty.
         // `kind:'cadastral'` is for ROUTING only — the ownership general-boundary honesty + MEDIUM
@@ -156,6 +244,27 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         kind: 'cadastral',
         contains: isInEngland,
         note: 'HMLR INSPIRE Index Polygons (freehold ownership INDEX extents, OGL v3), EPSG:27700 → WGS84. ⚠ OWNERSHIP with GENERAL BOUNDARIES (s.60 LRA 2002) — NOT a survey cadastre; confidence capped MEDIUM (generalBoundary:true), NEVER survey-grade like FR/ES/DK/CH. Per-LPA ATOM/GML download — proxy must aggregate/serve a point query. CONVERGENT-SECONDARY: endpoint + OGL redistribution NOT live-probed. ⚠ Proxy /api/parcel/gb not yet wired → null → OSM footprint until then.',
+    },
+    {
+        // GB-SCT AFTER GB-ENG. ⚠ SPECIFICITY NEAR-TIE, read before reordering: SCOTLAND_BBOX ≈ 50.4
+        // deg² is FRACTIONALLY SMALLER than ENGLAND_BBOX ≈ 51.2 deg², so in the Anglo-Scottish border
+        // band (54.6–55.9°N, where both boxes overlap) Scotland is ranked FIRST by area even though
+        // this row sits second. That is HARMLESS here and only because this row is a
+        // `footprint-fallback` with `proxyPath: null`: the priority resolver calls it, the editor's
+        // fetchFor returns null immediately (there is no proxy to call), and it falls THROUGH to the
+        // live HMLR England cadastre. Asserted by the "Newcastle still resolves England" test. If a
+        // real Scottish proxy is ever wired this row becomes `cadastral` and that near-tie turns into
+        // a REAL border regression — at which point the right fix is a kind-aware sort (a
+        // footprint-fallback must never outrank a cadastral candidate), NOT a hand-tuned bbox.
+        // Flagged to the orchestrator rather than changed here, because the sort is shared state.
+        regionCode: 'GB-SCT',
+        countryName: 'United Kingdom (Scotland)',
+        providerId: 'gb-sct-ros',
+        label: 'Building footprint (OSM)',
+        proxyPath: null,
+        kind: 'footprint-fallback',
+        contains: isInScotland,
+        note: 'Registers of Scotland Cadastral Map has NO reachable keyless endpoint — PROBED 2026-07-31: inspire.ros.gov.uk and cagemap.ros.gov.uk DO NOT RESOLVE (DNS failure, not a timeout), www.ros.gov.uk answers HTTP 403 (bot-blocked), api.ros.gov.uk 404, and the Scottish Government ArcGIS host maps.gov.scot serves only NRS / ScotGov / Testing / Utilities folders with no cadastral service. The RoS Cadastral Map is delivered through ScotLIS as a LICENSED/subscription product, so this is an access + licence gate, not an outage. STATUS = access-deferred; NEEDS A CREDENTIAL — a Registers of Scotland / ScotLIS data agreement plus (once granted) a ROS_SCOTLIS_API_KEY carried server-side by the proxy. ⚠ Even once wired it is OWNERSHIP with GENERAL BOUNDARIES (Land Registration etc. (Scotland) Act 2012) — confidence capped MEDIUM (generalBoundary:true), NEVER survey-grade like FR/ES/PT/DK/CH — and registered land ≠ the whole landscape (the Sasine→Land-Register migration is incomplete), so a Sasine-only click is an honest no-parcel, not a defect.',
     },
     {
         // FI BEFORE NO: FINLAND_BBOX sits ENTIRELY inside NORWAY_BBOX (Kartverket's box reaches
@@ -181,6 +290,28 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         kind: 'cadastral',
         contains: isInNYC,
         note: 'NYC DCP MapPLUTO lot FeatureServer (BBL) — tax-lot polygon + ZoneDist1 + ResidFAR/CommFAR/FacilFAR + LotArea, keyless. // PROBE: verify the ArcGIS FeatureServer path live before prod (Socrata 64uk-42ks probed 2026-07-24). ⚠ Proxy /api/parcel/us-nyc not yet wired → null → OSM footprint until then.',
+    },
+    {
+        // US-SF — no overlap with any other registered box (Western hemisphere, and far from NYC).
+        regionCode: 'US-CA-SF',
+        countryName: 'United States (San Francisco)',
+        providerId: 'sf-datasf',
+        label: 'Assessor parcels (San Francisco · DataSF)',
+        proxyPath: '/api/parcel/us-sf',
+        kind: 'cadastral',
+        contains: isInSF,
+        note: "DataSF assessor parcels (Socrata resource acdm-wktn) — VERIFIED-LIVE 2026-07-31 by this wiring pass: a SoQL spatial point query returns the real lot under the click (blklot 3584032, 3976 19TH ST) with a WGS84 MultiPolygon. ⚠ PROVIDER-DOC CORRECTION FOUND BY THE PROBE: the geometry column is `shape`, NOT `the_geom` as sfParcelProvider.ts documents — a query against `the_geom` is rejected, so this would have been a silently-empty wire. The live rows ALSO carry zoning_code/zoning_district inline (e.g. RH-2), which the parser surfaces only as an optional DRAFT lead. SF governs by height-and-bulk district, NOT a citywide FAR (ADR-0270), so NO farRatio is ever emitted. Area is geometry-derived (the upstream area field has ambiguous units), which is a geometry fact, not a legal claim.",
+    },
+    {
+        // US-CHI — no overlap with any other registered box.
+        regionCode: 'US-IL-CHI',
+        countryName: 'United States (Chicago / Cook County)',
+        providerId: 'chicago-cook',
+        label: 'Parcels (Chicago · Cook County Assessor)',
+        proxyPath: '/api/parcel/us-chi',
+        kind: 'cadastral',
+        contains: isInChicago,
+        note: "Cook County parcel fabric — VERIFIED-LIVE 2026-07-31 by this wiring pass, but ONLY AFTER ROUTING AROUND BOTH DOCUMENTED ENDPOINTS, which are dead: gis.cookcountyil.gov/traditional/.../MapServer/44/query does not respond at all (connection timeout, and the gis12 alternate too), and the Chicago zoning companion data.cityofchicago.org/resource/5s3e-9pji is HTTP 404 (retired resource id). The WORKING surfaces are datacatalog.cookcountyil.gov/resource/77tz-riq7 (Socrata; SoQL intersects(the_geom,…) returned real PIN 0101100119 with a WGS84 MultiPolygon) and, for zoning, data.cityofchicago.org/resource/dj47-wfun. Parcel identity is the 10-digit PIN; area is geometry-derived. Zoning is a DRAFT lead only — Chicago's FAR/height live in the Zoning Ordinance, never inferred here.",
     },
     {
         regionCode: 'FR',
@@ -332,6 +463,16 @@ const REGION_BBOX: Readonly<Record<string, RectBbox>> = {
     'GB-ENG': ENGLAND_BBOX,
     FI: FINLAND_BBOX,
     'US-NY-NYC': NYC_BBOX,
+    // L-651 Phase-5 batch. ⚠ A row MISSING from this map scores +Infinity and therefore sorts LAST
+    // among its candidates — which for an enclave like Brussels would silently hand its points to the
+    // enclosing Flanders row and undo the whole point of registering it. Every new row needs an entry
+    // here; `parcelRegistryWiring.test.ts` asserts that invariant for ALL rows so it cannot regress.
+    PT: PORTUGAL_BBOX,
+    'BE-BRU': BRUSSELS_BBOX,
+    'BE-WAL': WALLONIA_BBOX,
+    'GB-SCT': SCOTLAND_BBOX,
+    'US-CA-SF': SF_BBOX,
+    'US-IL-CHI': CHICAGO_BBOX,
 };
 
 /** The routing-bbox area (degree²) of a jurisdiction — its specificity metric. Smaller = wins first. */
