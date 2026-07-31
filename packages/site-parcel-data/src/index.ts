@@ -89,6 +89,65 @@ export {
     type DkTierOutcome,
 } from './rulepacks/dkEnvelopePlacement.js';
 
+// ── DK gap G3 — PLACEMENT EVIDENCE: the jurisdiction-agnostic "geometry + what makes it binding" ──
+// vocabulary that feeds the G6 resolver. Separates GEOMETRY production (`geometrySource`) from
+// LEGAL-STATUS production (`legalStatusSource`), so the resolver never learns WHY something binds.
+// Denmark is the first jurisdiction with `legalStatusSource: 'metadata'`; Madrid is expected to be
+// `'statute'` and Germany `'plan_text'`, with no resolver change (ADR-0279 §2). PURE.
+export {
+    rankPlacementEvidence,
+    strongestBindingEvidence,
+    collectEvidenceConflicts,
+    EVIDENCE_CONFIDENCE,
+    type PlacementEvidence,
+    type EvidenceGeometry,
+    type EvidencePolygon,
+    type EvidenceLineString,
+    type EvidenceCrs,
+    type EvidenceCitation,
+    type EvidenceAuthority,
+    type GeometrySource,
+    type LegalStatus,
+    type LegalStatusSource,
+    type LegalStatusUnknownCause,
+} from './evidence/placementEvidence.js';
+
+// ── DK gap G3 — the BYGGEFELT LEGAL-STATUS CLASSIFIER (pure). `bygkunifelt`/`bygvejledende` → ──
+// `legalStatus`, incl. the three distinct causes of `unknown` (not-declared / metadata-conflict /
+// metadata-unavailable) and the paranoid tier-1 adapter (CRS, holes and multi-part all REFUSE).
+export {
+    classifyByggefeltLegalStatus,
+    byggefeltFeatureToEvidence,
+    byggefeltCollectionToEvidence,
+    dkByggefeltFromEvidence,
+    wfsBool,
+    DK_BYGGEFELT_LAYER,
+    type DkByggefeltProperties,
+    type DkByggefeltFeature,
+    type DkByggefeltClassification,
+    type DkByggefeltAdaptRefusal,
+    type DkByggefeltAdaptResult,
+    type ByggefeltEvidenceOptions,
+    type EvidenceProjector,
+} from './evidence/byggefeltEvidence.js';
+
+// ── DK gap G3/G6 — the PLANDATA WFS CLIENT (the one impure surface). Returns `FetchOutcome`, so a ──
+// 500, a timeout and zero features stay three different answers; only durable answers are cached.
+// Polite: identifying UA, min-interval queue, in-flight de-dup, bounded jittered backoff, LRU cache.
+export {
+    createByggefeltProducer,
+    byggefeltResultToTierOne,
+    PLANDATA_WFS_URL,
+    PLANDATA_NATIVE_CRS,
+    PLANDATA_USER_AGENT,
+    type ByggefeltProducer,
+    type ByggefeltProducerConfig,
+    type ByggefeltQueryOptions,
+    type ByggefeltFetchResult,
+    type ByggefeltTierOneInput,
+    type Bbox25832,
+} from './providers/ByggefeltProducer.js';
+
 // L-402 — the compliance "explain-why" report model (pure; explains an envelope, never recomputes it).
 export {
     buildComplianceReport,

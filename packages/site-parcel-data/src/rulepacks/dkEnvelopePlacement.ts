@@ -47,8 +47,16 @@
 // 4. §BYGGEFELT-BINDING-GATE (G3). `vedtaget` = ADOPTED ≠ BINDING; Danish plans mix binding
 //    provisions with explanatory graphics. Using an advisory or unproven-bindingness byggefelt as
 //    the footprint would overstate exactly as the DK audit caught. So tier 1 fires ONLY on
-//    `binding: 'binding'`, and `'unknown'` (today's honest default until the `bygvejledende` /
-//    `iomfangreg` flag is DescribeFeatureType-probed and planner-signed) falls through.
+//    `binding: 'binding'`, and `'unknown'` falls through.
+//
+//    ✅ THE GATE IS NOW OPEN (2026-07-31). Bindingness is MACHINE-READABLE: `DescribeFeatureType`
+//    on `theme_pdk_byggefelt_vedtaget` exposes `bygkunifelt` (*byggeri kun i felt* → binding) and
+//    `bygvejledende` (advisory). 13,629 of 57,035 adopted byggefelter (23.9%) are declared binding.
+//    `providers/ByggefeltProducer.ts` fetches them and `evidence/byggefeltEvidence.ts` classifies
+//    them, so tier 1 now receives a real `binding: 'binding'` instead of a permanent `'unknown'`.
+//    ⚠ The gate itself is UNCHANGED and must stay that way — what changed is that a producer can
+//    finally PROVE the precondition. See
+//    docs/04-reference/jurisdictions/dk/findings/DK-BYGGEFELT-PRODUCER.md.
 //
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 // WHAT THIS MODULE IS NOT
@@ -98,11 +106,14 @@ const SAME_LINE_EPS_M = 0.05;
  * G3 — a `byggefelt` (buildable-field polygon), with its BINDINGNESS as a first-class, closed
  * label rather than an assumption.
  *
- * ⚠ `'unknown'` is the honest default TODAY and is NOT a synonym for `'binding'`. Plandata's
- * `theme_pdk_byggefelt_vedtaget` publishes `vedtaget` (adopted) — which does not by itself make a
- * provision binding — and the candidate binding flags (`bygvejledende` / `iomfangreg` /
- * `bygkunifelt`) are not yet DescribeFeatureType-probed or planner-signed. Until they are, a
- * byggefelt is evidence of intent, not a footprint we may draw.
+ * ⚠ `'unknown'` is NOT a synonym for `'binding'` — it means no determination is available, and it
+ * still falls through. `vedtaget` (adopted) does not by itself make a provision binding.
+ *
+ * ✅ RESOLVED 2026-07-31: the determination is published. `bygkunifelt=true AND bygvejledende=false`
+ * ⇒ `'binding'`; `bygvejledende=true` ⇒ `'advisory'`; both-false / both-true / null ⇒ `'unknown'`
+ * (three legally distinct causes — see `LegalStatusUnknownCause`). Do NOT construct this by hand:
+ * `evidence/byggefeltEvidence.ts::classifyByggefeltLegalStatus` is the single classifier, and
+ * `providers/ByggefeltProducer.ts::byggefeltResultToTierOne` is the single bridge into this field.
  */
 export type DkByggefeltBinding = 'binding' | 'advisory' | 'unknown';
 
