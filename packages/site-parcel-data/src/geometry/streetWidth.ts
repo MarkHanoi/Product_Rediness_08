@@ -188,7 +188,26 @@ function rayHitSegment(origin: Pt, dirX: number, dirZ: number, a: Pt, b: Pt): nu
  * little — and where they do differ, the minimum is both the ordinance's answer and the
  * conservative one. **We would rather under-state a height than over-state it.**
  *
- * ⚠ **NOT IMPLEMENTED, DELIBERATELY — two clauses of Art. 238 this does NOT satisfy:**
+ * ⚠ **AND THE ROBUSTNESS CONCERN IS PINNED, NOT ONLY ARGUED.** `ampladaArt238Minimum.test.ts` holds
+ * the honest failure mode as an executable fixture: a 2,5 m deep setback niche that one ray enters
+ * becomes the width, turning a 20 m street into 17,5 m. Art. 238.1.c genuinely says *"la menor de
+ * les distàncies"*, but our five sample points are arbitrary places on a cadastral edge rather than
+ * the ordinance's continuous infimum over a *tram*, so a niche we happen to hit is over-weighted and
+ * one we happen to miss is invisible. It is tolerated because it errs LOW and because `maxSpread_m`
+ * bounds it at 3 m — and it is recorded rather than left to be rediscovered.
+ *
+ * ⚠ **NOT IMPLEMENTED, DELIBERATELY — four things Art. 238 requires that this does NOT satisfy:**
+ *   0. **The alignments themselves.** Art. 238.1.c measures between a point of an *alineació de
+ *      vialitat* and *"els punts de l'alineació oposada"*, and Art. 236.3.a defines that alignment as
+ *      *"la línia que estableix límits a l'edificació al llarg dels vials"* — the PLANNING line. We
+ *      measure between **cadastral parcel boundaries**, which are a third thing: neither the built
+ *      façade nor a guaranteed copy of the official alignment. Under this ordination type the two
+ *      normally coincide (the building sits ON the alignment, Art. 237.1), so the substitution is
+ *      usually exact — but it is NOT exact wherever a *reculada* is permitted (Art. 237.2) or an
+ *      alignment has been modified on paper and not yet executed on the ground. Barcelona publishes
+ *      an official alignment layer only as a WMS raster with no queryable geometry, so the
+ *      substitution cannot currently be removed; it is priced by `BAND_EDGE_GUARD_M`'s 0.5 m
+ *      allowance and carried in the tier as `measured-cadastral`, never as an *ample oficial*.
  *   1. **238.1.b's partition.** The minimum is required per side per ***tram* between two
  *      cross-streets**. We take it per CADASTRAL EDGE, which is a different partition — one edge may
  *      span several *trams*, and one *tram* several edges.
