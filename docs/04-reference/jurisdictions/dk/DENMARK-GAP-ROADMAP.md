@@ -69,7 +69,7 @@ national byzone rate.
 | **G3** | Byggefelt semantics / binding flag | ENVELOPE (coverage + placement) | **unchanged** | `binding:'unknown'` until DescribeFeatureType-probed; NEVER `area/parcel` |
 | **G4** | LoD2 building context adapter | HEIGHTS/LOD + CONTEXT | **unchanged** | ESTIMATED → VERIFIED only after the N=500 measurement runs |
 | **G5** | Buildable-depth from lokalplan TEXT | ENVELOPE (depth) | **unchanged** | ordinance-pipeline text extraction; study-mode fallback, NEVER `legalDepth` |
-| **G6** | Courtyard / friareal / perimeter-block | ENVELOPE (biggest realism failure) | **unchanged** | reuse Barcelona profunditat engine; NEVER FAR→footprint |
+| **G6** | Courtyard / friareal / perimeter-block | ENVELOPE (biggest realism failure) | **SCHEMA + RESOLVER SHIPPED** (`24ad515a`, `6250193f`); **tier-1 gate now OPEN** - byggefelt bindingness is machine-readable, see [`findings/BYGGEFELT-BINDINGNESS-PROBE-2026-07-31.md`](./findings/BYGGEFELT-BINDINGNESS-PROBE-2026-07-31.md). **NOT YET LIVE:** no L5 producer yet, so every parcel currently refuses and falls back to the `footprintIsUpperBound` envelope. Remaining work is provider/probe, not rules. | reuse Barcelona profunditat engine; NEVER FAR→footprint |
 | **G7** | maxCoverage (ground-coverage %) | ENVELOPE (coverage) | **unchanged** | keep `null` today (CORRECT); 4-tier resolver; NEVER `farRatio` |
 | **G8** | Parcel provider (Matriklen) | PARCEL (independent of legislation) | **unchanged** | access-deferred (MitID); 3 solution paths; OSM fallback |
 | **G9** | The honest ceiling (last ~4%) | — (a truth statement) | **is** the ~96% ceiling | ~96% digital / ~87% pure-structured; **NOT 100%** — structural + measurement, not fabricatable |

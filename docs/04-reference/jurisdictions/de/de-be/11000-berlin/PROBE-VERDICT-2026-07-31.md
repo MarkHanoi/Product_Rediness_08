@@ -78,6 +78,27 @@ The dossier's `lod2-source.json` recorded a 404 and marked the endpoint PROBE-GA
 
 ---
 
+## STATUS 2026-07-31 (code)
+
+The German free-text extractor now exists as `@pryzm/ordinance-extraction` (`textExtract/` core +
+`grammars/german.ts` + `envelope/` mapper + `gates/regimeGate.ts`), 167 tests, on main
+(`2cb81d81`...`43166863`). It parses the section-4 verbatim fragment into cited **GRZ 0,3 / GFZ 0,9**
+at the `pipeline-extracted-unverified` tier. **The 8-30 row remains `pending-L449`** - the code reads
+the values, it does not sign them off.
+
+> **The first real fragment BROKE the parser.** `"(GRZ) von 0,3 ..."` starts mid-sentence, so the bare
+> abbreviation arrived carrying a closing parenthesis and the matcher died on it. Every hand-written
+> test had passed because they all supplied the long form. Fixed via `KEYWORD_TAIL` - but that is a
+> **point fix**; generalised normalisation (dangling punctuation, wrapped lines, page furniture,
+> ligatures, soft hyphens) is outstanding. Treat "167 tests green" as *not* evidence of working on
+> real documents.
+
+**Still missing:** PDF acquisition (`grund_www` fetch/download), production text-layer extraction (the
+637,988-character extraction lives in the founder's probe, not this repo - we hold the *report*), OCR
+fallback, **Baugebiet (zone) attribution** (conflicts are detected but never resolved - the single
+biggest remaining gap), and the **Nutzungsschablone** 2D table grid. The text-vs-scan mix rate across
+~7,000 Berlin plans (section 5) is **still unsampled**.
+
 ## WHERE THE REAL EFFORT IS
 
 The effort is **NOT** where the dossier's blocker list weighted it:

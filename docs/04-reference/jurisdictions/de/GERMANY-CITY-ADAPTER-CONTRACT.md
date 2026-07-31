@@ -2,7 +2,7 @@
 
 **Country:** `de` · **Scope:** all German cities · **Kind:** DESIGN / architecture doc —
 **proposed interfaces, NOT yet built** · **Last updated:** 2026-07-31 ·
-**Maintainer:** UNASSIGNED · **Status:** ARCHITECTURE FRAMING (founder-directed) — no code shipped;
+**Maintainer:** UNASSIGNED · **Status:** ARCHITECTURE FRAMING (founder-directed) — **PARTLY BUILT (2026-07-31).** The `documentExtractor` and `legalRuleMapper` slots of §2, and the §30/§34/§35 regime classifier of §3, are now SHIPPED horizontally in `@pryzm/ordinance-extraction` (main `2cb81d81`...`43166863`, 167 tests) - NOT under `packages/site-parcel-data/src/germany/` as §5 proposed, because they are jurisdiction-agnostic. ⚠ The parser input is **TEXT**: PDF acquisition, text-layer extraction, OCR fallback and Nutzungsschablone table parsing **do not exist yet** (in progress). Baugebiet/zone attribution is unresolved - conflicts are detected, never resolved. The parcel / planning / setback provider slots remain unbuilt and `rulepacks/registry.ts` still has **zero** DE packs. Original framing note follows —
 `packages/site-parcel-data/src/rulepacks/registry.ts` has **zero** DE packs today.
 
 > **What this document is.** A design contract that captures the founder's strategic framing for

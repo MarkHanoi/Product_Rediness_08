@@ -289,3 +289,42 @@ Bold = hard blocker; a city cannot produce a sound envelope without it.
 (parcel provider, router predicate, zone source, curated rule pack, registration) — the rule pack being
 the entire, human-gated legal cost — and every number carries provenance so an estimate is never dressed
 as published and an empty is never dressed as zero.**
+
+
+## S4 has a second shape - jurisdiction-shaped internals (added 2026-07-31)
+
+Barcelona's placement is stated **by the zone** (clau 13a *is* an alignment zone), so one static pack
+per clau suffices. Where a jurisdiction publishes placement evidence **per parcel**, across datasets
+of differing legal authority (Denmark: byggefelt / byggelinjer / lokalplan text), S4 additionally
+requires a **placement resolver** that ranks that evidence before the engine runs, and stamps
+`placement` / `openSpace` provenance after. `rulepacks/dkEnvelopePlacement.ts` is the reference
+implementation.
+
+This does **not** fork the spine - the resolver only chooses which existing `GeometricRule` the
+jurisdiction-agnostic engine is handed. Its four invariants are the reusable part:
+
+1. a **source hierarchy with a proven-bindingness gate**;
+2. **`FetchOutcome` inputs so failure is not absence**;
+3. **refusal as a typed value**, with a complete per-tier diagnostic trail;
+4. **never synthesise a missing constraint**.
+
+### Legal status is an evidence attribute, not a conclusion
+
+Producers emit `legalStatus` in `{binding, illustrative, unknown}` together with `legalStatusSource`
+in `{metadata, plan_text, statute}`.
+
+| Jurisdiction | `legalStatusSource` | Evidence |
+|---|---|---|
+| **Denmark** | **`metadata`** | Plandata publishes `bygkunifelt` / `bygvejledende` as booleans - [`dk/findings/BYGGEFELT-BINDINGNESS-PROBE-2026-07-31.md`](../jurisdictions/dk/findings/BYGGEFELT-BINDINGNESS-PROBE-2026-07-31.md) |
+| Madrid | `statute` (expected) | the PGOUM determines legal force |
+| Germany | `plan_text` (expected) | the B-Plan wording determines whether a Baugrenze / Baulinie binds |
+
+The resolver consumes `legalStatus` and never learns *why*. That is what lets Sweden (*Byggratt*),
+Finland (*Rakennusala*) and Norway (*Byggegrense*) be added as **producers** rather than as new
+resolvers.
+
+### Evidence that S4 internals are jurisdiction-shaped more often than ADR-0279 assumed
+
+Denmark needed a per-parcel placement resolver Barcelona does not. Madrid needs grade inheritance
+(`Zona -> Grado -> Nivel`) Barcelona does not. Berlin needs a bplan-shaped document model Madrid does
+not. **Three consecutive cities, three structural additions - and the five slots held every time.**
