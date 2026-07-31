@@ -26,6 +26,10 @@
    "Vejledende byggefelt" and "Byggefelt med begrænsende byggeret" as official categories (§2.1).
 6. **O3 delivered:** all 179 contradictory records listed, and they cluster into **63 lokalplaner**,
    not 179 (§7).
+7. **⚠ Tier-1 reach is ~10,900, not 13,629.** Only **79-81%** of binding byggefelter are
+   single-part and hole-free, and today's single-ring `explicit-area` primitive refuses the rest.
+   Multi-part is the whole story (19.4%). Fixing the primitive to take multiple rings is a
+   jurisdiction-agnostic win (§2.4).
 
 ---
 
@@ -131,7 +135,36 @@ is a mild urban skew, not concentration. **Binding byggefelter are a nationally-
 instrument**, which means the capability this producer unlocks generalises across Denmark rather
 than being a big-city feature.
 
-### §2.4 — A third flag exists and is negligible
+### §2.4 — ⚠ **Only ~4 in 5 binding byggefelter are actually placeable today** (S5, measured)
+
+The 13,629 binding records are **not** 13,629 placeable footprints. `ExplicitAreaSource.footprintRing`
+is a **single ring**, so the tier-1 adapter refuses multi-part and holed geometry (§3.6). That
+subtraction was previously unquantified. It now is.
+
+**Method:** systematic sample of the binding set — 40 strata × 25 records = **n = 1,000**, spread
+evenly across `startIndex` 0…13,600, 0 discarded. *(Systematic over storage order, not random —
+better than a head sample, but storage order is not a random permutation, so treat this as a good
+estimate rather than an exact proportion.)*
+
+| Geometry property | Share of binding set |
+|---|---:|
+| single-part (`Polygon`, or 1-part `MultiPolygon`) | **80.6%** (806/1,000) |
+| hole-free | **98.8%** (988/1,000) |
+| **both — i.e. placeable at tier 1 today** | **79.4 – 80.6%** *(bounds from the marginals; the joint was not separately counted)* |
+
+**So tier-1 reach is ≈ 10,900 of 13,629 binding byggefelter, not 13,629.**
+
+Multi-part is the whole story (19.4%); holes are negligible (1.2%). The tail is long — sampled
+records carried up to **55 parts** — i.e. a single lokalplan feature holding many separate building
+fields.
+
+> **The fix is well-defined and worth doing.** Nothing legal blocks these: they are binding,
+> published geometry that PRYZM simply cannot represent. Teaching the `explicit-area` primitive to
+> accept **multiple rings** (a multi-polygon footprint) would recover ~19% of DK tier-1 reach, and it
+> is a **jurisdiction-agnostic engine improvement** — Madrid and Córdoba fondos have the same shape.
+> Until then the refusal is right: silently taking part 0 would discard published buildable fields.
+
+### §2.5 — A third flag exists and is negligible
 
 `bygtillagtosh` (a third boolean on the same feature) is `true` on **345** records, **268** of which
 sit in the both-false bucket. It dents the 6,101 by ~4% and does not constitute a fourth state. It
@@ -405,7 +438,7 @@ empirical anchor behind weighting an explicitly-declared binding flag at 0.95 ra
 | **S2** | **No L5 wiring.** Nothing in `apps/editor` calls `createByggefeltProducer` yet. The producer, classifier, bridge and resolver are unit-wired and tested together, but the **live DK dispatch path does not use them** — a real user click still does not hit tier 1. | not started |
 | **S3** | **No same-origin proxy route.** `server/plandataZoningProxy.js` has no byggefelt endpoint, so the browser cannot call this politely (UA dropped, rate limit per-tab). §3.7. | not started |
 | **S4** | **No projector supplied.** The producer emits EPSG:25832 unless given a `project` fn; the CRS interlock then **refuses** every record. Whoever wires S2 must pass the scene-XZ projector or tier 1 silently never fires (loudly, at least — it refuses rather than misplaces). | by design, unwired |
-| **S5** | **Multi-part + holed binding byggefelter are refused, and the volume is unmeasured.** How many of the 13,629 are MultiPolygon or holed is **not known** — it needs a geometry-level scan, not a `hits` count. This is a direct, unquantified subtraction from tier-1 reach. | unmeasured |
+| **S5** | **Multi-part binding byggefelter are refused — now MEASURED at ~19% of the binding set.** See §2.5. The refusal is correct for today's single-ring primitive, but it is the largest single subtraction from tier-1 reach and the fix is well-defined. | **measured**, unfixed |
 | **S6** | **O1 not fully closed.** Semantics are corroborated by the codelist (§2.1) but not confirmed against Plandata's published data specification / UML model. | one doc read |
 | **S7** | **Tier 2 has no data source (O4).** Not a wiring gap — a **different authority**. `buildingLineOffset.ts` and the tier-2 branch are dead code until vejbyggelinjer are sourced from the road authority. | re-scope needed |
 | **S8** | **Pagination not implemented.** `pageSize` defaults to 500 and truncation is *detected and reported honestly* (§3.5) but never *followed*. A dense urban bbox returns a page and a `transient`. | detected, not resolved |
@@ -460,7 +493,7 @@ No auth, no API key. CRS EPSG:25832 throughout.
 | P6 | Tier 1 places a footprint end-to-end (§6) | 48 tests over recorded real responses | 2026-07-31 | **VERIFIED (test)** |
 | P7 | Danish semantics of the two field names | name + data pattern + codelist | 2026-07-31 | **CORROBORATED** → S6 |
 | P8 | **Parcel-side coverage** | — **nothing computed** — | — | **UNKNOWN** → S1 |
-| P9 | Multi-part / holed share of binding set | — not measured — | — | **UNKNOWN** → S5 |
+| P9 | Multi-part / holed share of binding set (§2.4) | systematic n=1,000 sample over startIndex, 0 discarded | 2026-07-31 | **MEASURED** (systematic, not random) |
 
 ---
 
