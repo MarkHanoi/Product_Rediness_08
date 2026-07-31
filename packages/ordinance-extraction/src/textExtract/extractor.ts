@@ -227,6 +227,8 @@ export function extractRules(
         const result: TextExtractionSuccess = {
             ok: true,
             jurisdiction: grammar.jurisdiction,
+            locale: grammar.locale,
+            document: source.document,
             rules,
             unknowns,
             rejected,

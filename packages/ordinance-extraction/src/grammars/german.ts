@@ -102,6 +102,19 @@ const CONNECTIVE =
     '(?:(?:von|=|:|beträgt|betragen|betragt|darf|dürfen|auf|mit|wird|werden|max\\.?|maximal|höchstens|bis zu|ein(?:e|er|en)?)\\s*)*';
 const NUM = '([0-9]+(?:[.,][0-9]+)?)'; // a decimal-comma or dot number token.
 
+// An optional bracket CLOSING an abbreviation, allowed between the keyword and its
+// connective.
+//
+// ⚠ REGRESSION GUARD — this exists because of real data, not theory. The Berlin
+// probe's verbatim fragment (PROBE-VERDICT-2026-07-31.md §4) begins mid-sentence at
+// "(GRZ) von 0,3": the long form "Grundflächenzahl" is on the previous line, so what
+// reaches the matcher is the bare abbreviation still wearing its closing paren.
+// Without this the `GRZ` alternative matched the letters and then died on ")", and
+// GRZ silently came back `not-stated-in-text` on the one string we KNOW states it.
+// Every hand-written test sentence had passed, because they all supplied the long
+// form. Real extracted text is ragged; the grammar has to survive it.
+const KEYWORD_TAIL = '\\s*[)\\]]?\\s*';
+
 /** Build a ratio matcher (GRZ/GFZ) — keyword, optional connective, then a number. */
 function ratioMatcher(
     id: string,
@@ -113,7 +126,7 @@ function ratioMatcher(
         id,
         field,
         unit: 'ratio',
-        pattern: new RegExp(`(?:${keyword})\\s*${CONNECTIVE}\\s*${NUM}`, 'gi'),
+        pattern: new RegExp(`(?:${keyword})${KEYWORD_TAIL}${CONNECTIVE}\\s*${NUM}`, 'gi'),
         keyword: new RegExp(`(?:${keyword})`, 'gi'),
         interpret: (m, ctx) => {
             const value = ctx.parseNumber(m[1]!);
@@ -137,7 +150,7 @@ function heightMatcher(
         unit: 'm',
         // The trailing `m` unit is REQUIRED — it disambiguates a height from a bare
         // number and stops the matcher grabbing an unrelated figure.
-        pattern: new RegExp(`(?:${keyword})\\s*${CONNECTIVE}\\s*${NUM}\\s*m\\b`, 'gi'),
+        pattern: new RegExp(`(?:${keyword})${KEYWORD_TAIL}${CONNECTIVE}\\s*${NUM}\\s*m\\b`, 'gi'),
         keyword: new RegExp(`(?:${keyword})`, 'gi'),
         interpret: (m, ctx) => {
             const value = ctx.parseNumber(m[1]!);
@@ -164,7 +177,7 @@ const MATCHERS: readonly FieldMatcher[] = [
         field: 'maxFloors',
         unit: 'storeys',
         pattern: new RegExp(
-            `(?:Zahl der Vollgeschosse|Vollgeschoss(?:e|zahl|igkeit)?)\\s*${CONNECTIVE}\\s*([0-9]{1,2}|[IVXLC]+)\\b`,
+            `(?:Zahl der Vollgeschosse|Vollgeschoss(?:e|zahl|igkeit)?)${KEYWORD_TAIL}${CONNECTIVE}\\s*([0-9]{1,2}|[IVXLC]+)\\b`,
             'gi',
         ),
         keyword: /Vollgeschoss(?:e|zahl|igkeit)?/gi,

@@ -54,6 +54,11 @@ export const GateNameSchema = z.enum([
     'range',
     'locale',
     'algorithm',
+    // `coherence` checks one extracted parameter against ANOTHER extracted
+    // parameter of the same envelope (e.g. FAR ≤ coverage × floors), rather than
+    // checking a value against its own source text. It is therefore a whole-
+    // envelope gate, not a per-value one (see `envelope/coherence.ts`).
+    'coherence',
 ]);
 export type GateName = z.infer<typeof GateNameSchema>;
 

@@ -23,6 +23,9 @@
 //                      TEXT-PARSE path (no OCR / no LLM), + ExtractedRule and the
 //                      JurisdictionGrammar contract a per-country adapter supplies.
 //   Grammars         — GERMAN_GRAMMAR (the first, proven on the Berlin corpus).
+//   Envelope         — toEnvelopeParameters(extraction) — cited rules → ONE typed
+//                      parameter set, grouped by parameter key, gated, and honestly
+//                      three-valued (resolved / conflicted / unknown).
 //
 // Strategic context — docs/04-reference/ORDINANCE-EXTRACTION-PIPELINE.md.
 
@@ -34,3 +37,4 @@ export * from './adapters/index.js';
 export * from './pipeline.js';
 export * from './textExtract/index.js';
 export * from './grammars/index.js';
+export * from './envelope/index.js';

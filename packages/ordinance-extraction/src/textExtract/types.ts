@@ -182,6 +182,14 @@ export interface TextExtractionSuccess {
     readonly ok: true;
     /** The jurisdiction the grammar served (e.g. `'de'`). */
     readonly jurisdiction: string;
+    /**
+     * The number locale the values were parsed under. Carried so a downstream
+     * consumer can re-run the locale gate on `rawText` WITHOUT having to guess the
+     * convention — guessing is exactly how the `2.000`→`2.0` 1000× trap fires.
+     */
+    readonly locale: NumberLocale;
+    /** The source document the text came from (mirrors every citation). */
+    readonly document: string;
     /** The cited rules parsed (each at `pipeline-extracted-unverified`). */
     readonly rules: readonly ExtractedRule[];
     /** Fields sought but not emitted, each with an honest reason (never silent). */
