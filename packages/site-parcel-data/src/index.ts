@@ -358,6 +358,24 @@ export {
     type BlockConcentricBandResult,
 } from './geometry/blockConcentricBand.js';
 
+// ── §L-619 / DK G2 — BYGGELINJER (building lines) → parcel-edge matching. ──
+// A byggelinje is published as GEOMETRY in a separate Plandata dataset, with no stated binding and
+// no stated distance, so the only honest way to turn it into an envelope constraint is to MEASURE
+// its offset to the parcel edge it runs along. These primitives do that by direction + proximity —
+// never by an assumed orientation (`front = north` is a fabrication on a Copenhagen karré, whose
+// frontage may point any way). Jurisdiction-agnostic geometry; the DK-specific reading of what a
+// measured offset MEANS lives in `rulepacks/dkEnvelopePlacement.ts`.
+export {
+    matchBuildingLineToParcelEdge,
+    inwardEdgeNormal,
+    signedDepthAlongNormal,
+    lineParallelToEdge,
+    firstFrontEdgeIndex,
+    type BuildingLineConstraint,
+    type BuildingLineEdgeMatch,
+    type MatchBuildingLineOptions,
+} from './geometry/buildingLineOffset.js';
+
 
 
 // ── L-590 / §L-590b — Barcelona clau 22a (*zona industrial*), PGM Art. 350. ──

@@ -93,6 +93,11 @@ export function buildRefusedEnvelope(
         // §L-619 — a refusal draws no footprint at all; false like every other flag (this literal
         // never goes through `.parse()`, so the schema default would not apply otherwise).
         footprintIsUpperBound: false,
+        // §L-619 — a refusal has no footprint, so there is nothing to have PLACED and no void to
+        // attribute. Null like every other field (this literal never goes through `.parse()`, so
+        // the schema default would not apply and the fields would be structurally absent).
+        placement: null,
+        openSpace: null,
         permittedUse: [],
         confidence: 'not-determined',
         // The refusal is a statement about THIS parcel's zone — a parcel-level answer, even

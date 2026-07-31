@@ -383,6 +383,87 @@ export function principalTier(tiers: ReadonlyArray<EnvelopeTier>): EnvelopeTier 
     return best;
 }
 
+/**
+ * §L-619 / DK-ENVELOPE-REALISM — HOW the buildable footprint was PLACED (its geometric provenance),
+ * for the perimeter-block (karré) family the DK resolver serves.
+ *
+ * A THIRD provenance axis, orthogonal to `confidence` (fidelity) and `granularity` (about-what): two
+ * envelopes may both be `structured` and both be `parcel`-granular while one was shaped by a published
+ * building-field polygon and the other constructed from a conservative block-depth STUDY. That
+ * difference is legally load-bearing on a courtyard block, so it is a first-class label, not a caveat.
+ *
+ *  - `byggefelt`    — the footprint is a PUBLISHED building-field polygon (byggefelt), clipped against
+ *                     the parcel. The strongest DK placement — the plan drew the footprint.
+ *  - `buildingLine` — the footprint was derived by offsetting the parcel to byggelinjer (building-line)
+ *                     GEOMETRY, edge-matched to the parcel. Official plan geometry, measured.
+ *  - `derived`      — the footprint was CONSTRUCTED (a depth band from a cited lokalplan depth, or the
+ *                     conservative Barcelona block-depth study) rather than read from an explicit
+ *                     building-line/field geometry. ⚠ `derived` alone says nothing about legal status —
+ *                     read `confidence` + `openSpace.source`: a cited-lokalplan band is official, a
+ *                     block-depth band is a STUDY. The honesty lives in those two fields, not here.
+ *
+ * Nullable + default null: every zone shipped before this (all setback/alignment/tiered/explicit-area
+ * envelopes) leaves it null and is unchanged — the field annotates only envelopes a placement resolver
+ * built.
+ */
+export const EnvelopePlacementSourceSchema = z.enum(['byggefelt', 'buildingLine', 'derived']);
+export type EnvelopePlacementSource = z.infer<typeof EnvelopePlacementSourceSchema>;
+
+export const EnvelopePlacementSchema = z.object({
+    source: EnvelopePlacementSourceSchema,
+});
+export type EnvelopePlacement = z.infer<typeof EnvelopePlacementSchema>;
+
+/**
+ * §L-619 / DK-ENVELOPE-REALISM — WHERE the open-space (courtyard) determination came from. A closed
+ * vocabulary, because "the plan left this hole", "the byggelinje geometry left this depth", "a cited
+ * lokalplan depth left it" and "a conservative study left it" are DIFFERENT legal statements about the
+ * same void and a free-text string would let them blur (§CONTEXT-DATA-HONESTY).
+ *
+ *  - `byggefelt-hole`      — the void is the part of the parcel a published byggefelt polygon does NOT cover.
+ *  - `building-line-band`  — the void lies beyond a depth band MEASURED from byggelinjer geometry.
+ *  - `lokalplan-depth`     — the void lies beyond a depth band from a CITED lokalplan §X depth (official).
+ *  - `block-derived-study` — the void is the interior left by the conservative Barcelona block-depth
+ *                            STUDY (DK_PERIMETER_BLOCK_COURTYARD_RULE). ⚠ A study, not a surveyed courtyard.
+ */
+export const EnvelopeOpenSpaceSourceSchema = z.enum([
+    'byggefelt-hole',
+    'building-line-band',
+    'lokalplan-depth',
+    'block-derived-study',
+]);
+export type EnvelopeOpenSpaceSource = z.infer<typeof EnvelopeOpenSpaceSourceSchema>;
+
+export const EnvelopeOpenSpaceSchema = z.object({
+    /** TRUE when the envelope leaves a genuine interior open space (the karré courtyard). */
+    courtyard: z.boolean(),
+    /** Where that determination came from — see `EnvelopeOpenSpaceSourceSchema`. */
+    source: EnvelopeOpenSpaceSourceSchema,
+});
+export type EnvelopeOpenSpace = z.infer<typeof EnvelopeOpenSpaceSchema>;
+
+/**
+ * §L-619 / DK-ENVELOPE-REALISM — WHICH open-space sources each placement source may legally claim.
+ *
+ * ⚠ THIS TABLE IS THE POINT, not a convenience. `placement.source` states how strong the footprint
+ * evidence is; `openSpace.source` states how strong the VOID evidence is. Letting them disagree —
+ * a footprint the resolver CONSTRUCTED (`derived`) while its courtyard claims to be the hole in a
+ * published `byggefelt` polygon — would launder a study into official plan geometry, which is the
+ * over-statement direction C58 §1.4 forbids. The refinement below pins the pairing so a producer
+ * physically cannot emit the mismatched combination.
+ *
+ * `derived` maps to TWO voids because a constructed band has two legally distinct origins: a CITED
+ * lokalplan depth (official text) and the conservative block-depth STUDY. Both are constructions,
+ * so both sit under `derived`; `confidence` is what separates them (see `EnvelopeOpenSpaceSource`).
+ */
+export const OPEN_SPACE_SOURCES_BY_PLACEMENT: Readonly<
+    Record<EnvelopePlacementSource, readonly EnvelopeOpenSpaceSource[]>
+> = Object.freeze({
+    byggefelt: ['byggefelt-hole'],
+    buildingLine: ['building-line-band'],
+    derived: ['lokalplan-depth', 'block-derived-study'],
+} as const);
+
 export const BuildableEnvelopeSchema = z.object({
     /** `parcel ⊖ setbacks` in scene-XZ metres (see DEVIATION note). Empty when
      *  `status !== 'ok'`. */
@@ -425,6 +506,18 @@ export const BuildableEnvelopeSchema = z.object({
      * Additive with a default, so persisted envelopes remain valid.
      */
     footprintIsUpperBound: z.boolean().default(false),
+    /**
+     * §L-619 / DK-ENVELOPE-REALISM — HOW the footprint was placed (its geometric provenance). Null
+     * for every zone whose footprint came from the setback/alignment/tiered/explicit-area paths;
+     * populated only by a placement resolver (the DK perimeter-block resolver). Additive, default null.
+     */
+    placement: EnvelopePlacementSchema.nullable().default(null),
+    /**
+     * §L-619 / DK-ENVELOPE-REALISM — the interior open space (karré courtyard) the footprint leaves,
+     * and where that determination came from. Null when the envelope makes no open-space statement
+     * (the norm — a filled setback/alignment footprint leaves no courtyard). Additive, default null.
+     */
+    openSpace: EnvelopeOpenSpaceSchema.nullable().default(null),
     permittedUse: z.array(PermittedUseSchema).default([]),
     /** MANDATORY confidence label (C58 §1.2) — there is no unlabelled envelope. */
     confidence: EnvelopeConfidenceSchema,
@@ -514,6 +607,49 @@ export const BuildableEnvelopeSchema = z.object({
             'massing, the C58 §1.8 generator bounds — renders a prism that is not part of the ' +
             'solid (ADR-0273; C58 §1.4).',
         path: ['tiers'],
+    },
+).refine(
+    // §L-619 — AN OPEN-SPACE STATEMENT REQUIRES A PLACEMENT.
+    //
+    // "This footprint leaves a courtyard" is only meaningful once you can say WHERE the footprint
+    // came from. An `openSpace` with a null `placement` would be a void attributed to nothing — a
+    // courtyard claim no reader could audit, which is precisely the un-sourced number C58 §1.6
+    // exists to prevent. (The converse IS allowed: a placement resolver may place a footprint and
+    // make no open-space statement at all.)
+    (e) => e.openSpace === null || e.placement !== null,
+    {
+        message:
+            '`openSpace` requires a non-null `placement` — a courtyard determination is only ' +
+            'auditable alongside the footprint placement it came from (§L-619; C58 §1.6).',
+        path: ['openSpace'],
+    },
+).refine(
+    // §L-619 — THE PLACEMENT AND THE VOID MUST CITE THE SAME EVIDENCE CLASS.
+    // See `OPEN_SPACE_SOURCES_BY_PLACEMENT` for why this pairing is load-bearing.
+    (e) =>
+        e.openSpace === null ||
+        e.placement === null ||
+        OPEN_SPACE_SOURCES_BY_PLACEMENT[e.placement.source].includes(e.openSpace.source),
+    {
+        message:
+            '`openSpace.source` must belong to `placement.source` (see ' +
+            'OPEN_SPACE_SOURCES_BY_PLACEMENT). A constructed footprint may not claim a published ' +
+            'byggefelt hole as its courtyard — that launders a study into plan geometry (C58 §1.4).',
+        path: ['openSpace', 'source'],
+    },
+).refine(
+    // §L-619 — A REAL COURTYARD AND A FULL-PARCEL UPPER BOUND ARE MUTUALLY EXCLUSIVE.
+    //
+    // `footprintIsUpperBound` means "the ring is the WHOLE parcel only because the setbacks are
+    // unknown". A footprint that genuinely leaves a courtyard is, by definition, not the whole
+    // parcel — so asserting both would let a UI hatch a ring as unknown while simultaneously
+    // reporting a solved void inside it. Exactly the Copenhagen karré defect read both ways at once.
+    (e) => !(e.openSpace?.courtyard === true && e.footprintIsUpperBound),
+    {
+        message:
+            '`openSpace.courtyard` and `footprintIsUpperBound` cannot both be true — a footprint ' +
+            'that leaves a courtyard is not the whole parcel drawn as an upper bound (§L-619).',
+        path: ['openSpace', 'courtyard'],
     },
 );
 export type BuildableEnvelope = z.infer<typeof BuildableEnvelopeSchema>;

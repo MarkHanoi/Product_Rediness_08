@@ -925,6 +925,19 @@ export function computeBuildableEnvelope(
             // are unknown; a consumer must hatch it, not draw a confident solid. See the flag's
             // schema docstring and the computation above.
             footprintIsUpperBound,
+            // §L-619 — NULL HERE, AND THAT IS THE ARCHITECTURE, NOT AN OMISSION.
+            //
+            // `placement` / `openSpace` name the evidence class behind a footprint's PLACEMENT
+            // (`byggefelt` / `buildingLine` / `derived`) and behind the void it leaves — a
+            // per-jurisdiction vocabulary. ADR-0279 §2 fixes this engine as jurisdiction-agnostic:
+            // it solves whichever `GeometricRule` it is handed and never learns that a band came
+            // from a Danish byggelinje rather than a Catalan alineació. So the stamp is applied one
+            // layer out, by the jurisdiction's own placement resolver
+            // (`rulepacks/dkEnvelopePlacement.ts::applyDkPlacement`), which is the only code that
+            // knows which source tier actually fired. Null = "this solver makes no placement
+            // statement", which is the honest answer for every zone it solves.
+            placement: null,
+            openSpace: null,
             permittedUse,
             confidence,
             status,

@@ -2172,6 +2172,12 @@ async function applyParisZoningThenFallback(
             // The drawn ring is the published ECM footprint geometry (never parcel×%), so it is a real
             // solved footprint — not a full-parcel upper bound (L-619 flag stays false here).
             footprintIsUpperBound: false,
+            // §L-619 — `placement` / `openSpace` are the DK placement-resolver's vocabulary
+            // (byggefelt / byggelinje / derived band). Paris ECM is a different pipeline and makes
+            // no such statement, so both stay null — the honest "no placement claim" (this literal
+            // never goes through `.parse()`, so the schema defaults would not apply otherwise).
+            placement: null,
+            openSpace: null,
             // The engine's NET buildable area (gross ECM footprint − any EAL strip) is the authoritative
             // figure; the drawn ring is the gross ECM outline (EAL is a scalar deduction, per the caveats).
             insetAreaM2: result.footprintAreaM2,
