@@ -52,7 +52,7 @@ Sorted by phase, then severity (P0 → P1 → P2).
 | L-395 | `/embed` echoes projectId+token with NO server-side token validation; scope unmapped | P1 | 5 | NOT STARTED | — | — |
 | L-366 | Auto-WebGL heavy-scene fallback doesn't fire for real ~1,300-elem/6-level building → WebGPU device loss | P0 | 6 | NOT STARTED | — | — |
 | L-389 | Real in-browser 60fps + tool-latency-with-renderer UNVERIFIED (headless proxies only); no scale SLA | P1 | 6 | NOT STARTED | — | — |
-| L-393 | No IFC/DXF/Rhino round-trip fidelity test; adversarial-input parser behaviour unverified | P1 | 6 | NOT STARTED | — | — |
+| L-393 | No IFC/DXF/Rhino round-trip fidelity test; adversarial-input parser behaviour unverified | P1 | 6 | IN PROGRESS (DXF adversarial slice) | `03430515` | DXF malformed-input hardened (non-finite vertices stripped at parse boundary) + `dxf-parser.adversarial.test.ts` 7/7 (batch-5) — closes the DXF half of L-393b; IFC/Rhino round-trip fidelity (L-393a) + IFC/Rhino adversarial still OPEN |
 
 ## Launch-blocking tasks without an L-number
 
