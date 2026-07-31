@@ -86,6 +86,11 @@ import { MURCIA_PGOU_PATH, murciaPgouHandler } from './server/murciaPgouProxy.js
 // SWITZERLAND: same-origin KEYLESS national Nutzungsplanung WFS proxy (geodienste.ch) — returns the
 // zone-identification GML so the client renders the real zone; the buildable envelope refuses (Outcome B).
 import { CH_GRUNDNUTZUNG_PATH, chGrundnutzungHandler } from './server/chGrundnutzungProxy.js';
+// §ZURICH-BZO-PROXY (BFS-Nr 261) — the CITY-of-Zürich BZO zone-ID lookup, finer than the national
+// Grundnutzung above. Client consumer: @pryzm/site-parcel-data → resolveZurichBzoZone. ⚠ THIS ROUTE
+// WAS MISSING: the client resolver and the §L-616 computed-envelope dispatch both shipped without
+// it, so every Zürich parcel resolved `endpoint-unreachable` and fell to the national refusal.
+import { CH_ZURICH_BZO_PATH, zurichBzoHandler } from './server/chZurichBzoProxy.js';
 // §PARIS-PLU-PROXY — the Ville-de-Paris PLU bioclimatique zone (GPU zone_urba) + numeric hauteur
 // plafond (opendata plub_hauteur) same-origin lookup. Client consumer: resolveParisPluZone. Zone +
 // height RENDER; the buildable envelope refuses unless FR_PARIS_PLU_CERTIFIED is signed (emprise PDF-bound).
@@ -501,6 +506,13 @@ app.get(MURCIA_PGOU_PATH, apiLimiter, murciaPgouHandler);
 // geo-blocked). GET /api/ch/grundnutzung?lat=&lon= → the zone GML at the point (24-h coord cache).
 // Zone RENDERS client-side; buildable envelope REFUSES (density/height model+PDF-bound — Outcome B).
 app.get(CH_GRUNDNUTZUNG_PATH, apiLimiter, chGrundnutzungHandler);
+// §ZURICH-BZO-PROXY — same-origin KEYLESS City-of-Zürich BZO WFS point lookup (BFS-Nr 261).
+// GET /api/ch/zurich-bzo?lat=&lon= → { gml } (7-day coord cache), the `bzo_zone_v` zone IDENTITY:
+// the municipal `typ` code + a DIRECT link to THIS parcel's BZO 700.100 ordinance. Returns NO
+// number (the layer publishes none); the AZ/height come from the owner-signed BZO transcription
+// client-side. Every upstream form failing → 502 (distinct from an empty answer, so the client
+// returns endpoint-unreachable, never a false "no BZO zone here"). Never crashes.
+app.get(CH_ZURICH_BZO_PATH, apiLimiter, zurichBzoHandler);
 // §PARIS-PLU-PROXY — same-origin KEYLESS GPU zone_urba WFS + opendata plub_hauteur point lookups.
 // GET /api/paris/plu?lat=&lon= → { zone, hauteur }. Zone + numeric height RENDER; buildable envelope
 // refuses (emprise au sol PDF-bound) unless FR_PARIS_PLU_CERTIFIED. Never crashes.
