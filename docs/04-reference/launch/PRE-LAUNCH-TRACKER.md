@@ -64,7 +64,7 @@ Tracked here so nothing is dropped; assign L-numbers via the audit register, not
 | SEC-PAT | Revoke/rotate the session PAT used this cycle (repo itself is clean per §A5) | P0 (hygiene) | 0 | NOT STARTED | — | — |
 | PERSIST-SNAP-VALIDATE | Server validates only the `furniture` array — extend to full snapshot schema on write | P0 | 1 | NOT STARTED | — | — |
 | SEC-EVENTLOG | `/api/event-log` unauthenticated mutating write — auth or prove tenant-safe | P2 | 5 | NOT STARTED | — | — |
-| SEC-XSS | Focused XSS pass over interpolating sinks (781 total; marketplace UGC highest risk) | P2 | 5 | NOT STARTED | — | — |
+| SEC-XSS | Focused XSS pass over interpolating sinks (781 total; marketplace UGC highest risk) | P2 | 5 | PARTIAL (batch-6) | `806bba43` | Marketplace-web UGC download-`href` scheme sink hardened — `safeHref()` scheme-allowlist neutralises `javascript:`/`data:`/`vbscript:` (escapeHtml alone did not); `browse.security.test.ts` 9/9. Full 781-sink sweep + CI sink-scan STILL OPEN (see audit L-407). |
 | PERF-DEVICE-MATRIX | Define + test supported browser/device matrix (desktop-only today; mobile/tablet untested) | P2 | 6 | NOT STARTED | — | — |
 
 ## Phase 7 — Infrastructure & go-live tasks
