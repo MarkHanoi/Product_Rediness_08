@@ -1,52 +1,117 @@
 # ENVELOPE — Madrid (INE 28079)
 
 > Per-municipality envelope status (ADR-0279 / `ENVELOPE-REPLICATION-STANDARD.md`; feeds C63 Axis 4).
-> **Last updated:** 2026-07-30. **Maintainer:** UNASSIGNED.
+> **Last updated:** 2026-07-31. **Maintainer:** UNASSIGNED.
 
-## Status: REGISTERED refusal jurisdiction · engine + provider SHIPPED · live envelope still a cited refusal · `not-assessed` (`pending-implementation`) — ~0 % shippable today
+## Status: REGISTERED refusal jurisdiction · **Axis 4 = a MEASURED 0 %** · honesty **100 %**
 
-Madrid's data is **richer than Barcelona's** (`LEGISLATION-RATE.md`, ~68 % vs ~48 %), and the engine work
-is **materially further along** than Barcelona's document wall — but its live shippable envelope is still
-**≈ 0 %**. The gate has moved: it is no longer the engine, it is a **missing same-origin proxy +
-unverified calificación mapping**.
+Madrid's data is **richer than Barcelona's** and the engine work is **materially further along** —
+the `explicit-area` solver and the NZ-1 provider/adapter are built and tested. Its live shippable
+envelope is nonetheless **0 %**, and that 0 % is now a **measurement, not a sentinel**.
+
+### Why 0 % is computed, not `not-assessed`
+
+C63 §3 Axis 4 scores `Σ (buildable_land_share × pack_tier_weight)`. Both inputs were inspected:
+
+- **`rulepacks/registry.ts` registers Madrid with an EMPTY `packsByZone`**, and
+  `noRulePackRefusal → madridNZ1Refusal` for every zone code. Every clau's tier is therefore
+  `cited-refusal`, whose **completion weight is 0.0**.
+- The per-NZ land-share split is **UNSOURCED** — but it does not need to be sourced for this
+  computation: **`Σ(share × 0) = 0` for any share distribution whatsoever.**
+
+So `not-assessed` would have been the *wrong* sentinel here: the state was inspectable and it is
+empty. Per C63 §3.1 the same 0 % scores **100 % on honesty** — Madrid fabricates nothing; every
+parcel receives a cited refusal.
+
+⚠ Do not read this as a regression. Nothing was undone; the axis simply moved from "not measured" to
+"measured, and the answer is zero".
+
+## Slot status (ADR-0279 five-slot model)
 
 | Slot / regime | State | Basis |
 |---|---|---|
-| **S1 — parcel provider** | ✅ live | Catastro INSPIRE WFS (national); block-ring dissolve **2/4** in Madrid (tolerant-mode gap). |
+| **S1 — parcel provider** | ✅ live | Catastro INSPIRE WFS (national). Block-ring dissolve **2/4** in Madrid (tolerant-mode gap; weaker than Barcelona's 2/2). ⚠ Whether a Catastro *connector* is architecturally required at all is **unresolved** (`sources/SOURCES.md` §G2). |
 | **S2 — router predicate** | ✅ wired | `isInMadrid` / `MADRID_BBOX` (`providers/madridBbox.ts`); Madrid registered in `rulepacks/registry.ts` (L-608). |
-| **S3 — zone source** | ⚠️ live but mapping unverified | PGOUM-97 planes on `sigma.madrid.es/.../pgoum97` (12 services). `PG_ORDENACION` calificación mapping **UNVERIFIED** (HTTP 500 on the 2026-07-23 re-probe). |
-| **S4/S5 — rule pack + registration** | ✅ **SHIPPED, refusal-only** | `esMadridNZ1.ts` declares the `explicit-area` kind + `ringRef`; registered as `noRulePackRefusal → madridNZ1Refusal` for every Madrid zone code. The `explicit-area` **solver + NZ 1 provider/adapter are built + tested** (`esMadridNZ1Provider.ts`, C58 §2.2 **KG-4 open**, `findings/L-608-*-SHIPPED.md`). |
-| **NZ 1** (Protección del Patrimonio Histórico) | ⚠️ **live DATA, proxy-gated** | `COEF_Z` + `Fondo de la Edificación` polyline are **published ArcGIS geometry+attributes** (verified live 2026-07-23) — the first real `explicit-area` case. The solver exists, but `resolveMadridNZ1Ring` has **no same-origin Madrid proxy wired**, so the ring can't be fetched at runtime → the dispatcher renders the cited `madridNZ1Refusal` (a TRANSIENT "held rule, footprint not fetched" refusal, not a legal no-envelope). |
-| **NZ 4 / 8 / 5 / 7** | ⚠️ **document-gated** | *fondo edificable* / retranqueos / *altura de cornisa* are grado-structured in the **NNUU Compendio 2023** (a prose PDF), not sourced this pass. The Zod schema (`AlignmentRuleSchema.buildableDepth_m .positive()`, full `SetbackRuleSchema` triple) forbids authoring an NZ 4/8 pack without the numbers. |
-| **NZ 3 + ~35 % derived-ámbito (APR/APE/API/Plan Parcial)** | ✅ refusal | `derived-plan` — the general plan points at a per-site document → a cited refusal, not an envelope (the Madrid analogue of Barcelona's derived-planning wall). |
+| **S3 — zone source** | ✅ **live and VERIFIED** | `DESARROLLO_URBANO_ACTUALIZADO/NORMAS_ZONALES/MapServer/0`, field `AMB_TX_ETIQ` — **34 distinct claus**, spatial point-intersect, all zones. Independently reached by the founder's 2026-07-31 recon. ⚠ Supersedes older "calificación mapping unverified / `PG_ORDENACION` down" notes: that outage was **transient** (HTTP 200, 17 layers, 2026-07-24) and is **off the critical path**. |
+| **S4 — rule pack** | 🔴 **EMPTY** | `packsByZone` holds nothing. `esMadridNZ1.ts` declares the `explicit-area` kind + `ringRef` but is **UNREGISTERED**. This is the entire Axis-4 zero. |
+| **S5 — registration** | ✅ refusal-only | Registered as `noRulePackRefusal → madridNZ1Refusal` for every Madrid zone code. |
 
-## Why the answer is ~0 % shippable despite ~68 % data-readiness
+## Coverage by zone — the refusal ledger
 
-The ~68 % is a **DATA-readiness** figure (`LEGISLATION-RATE.md` §caveat 1) — it credits structured
-layers PRYZM has not yet fully consumed. The KG-4 engine gate is now **open** (solver + provider
-shipped); what still holds live resolution at ~0 %:
+| Zone (claus) | Kind | Disposition | Refusal reason class | Note |
+|---|---|---|---|---|
+| **NZ 1** (`1.1`–`1.6`, 6) | `explicit-area` | **cited-refusal** *(transient)* | `construction-incomplete` | Footprint + `COEF_Z` are **published live geometry** — the first real `explicit-area` case. Solver + provider **SHIPPED and tested**. Held by wiring, not law: no same-origin proxy, plus the `explicitAreaFootprint` interface defect. A **plumbing** refusal, not a legal no-envelope. |
+| **NZ 3** (`3.1`–`3.2`, 5) | `derived-plan` | **cited-refusal** *(legal)* | `legal` | Buildable volume fixed **per parcel** by its ficha. A cited refusal is the *correct terminal answer*, legally stronger than an estimate. ⚠ The refusal working ≠ the zone's rules being known — those are separate claims (`sources/SOURCES.md` §D). |
+| **NZ 4** (`4`, 1) | `alignment` | **no-pack** | `regime-undetermined` | Madrid's dominant residential typology and the **highest-ROI extraction**. `Alineaciones` published as a layer, so the official line is structured; *fondo edificable* is document-gated. |
+| **NZ 5** (`5.1`–`5.3`, 3) | ⚠ **UNDETERMINED** | **no-pack** | `regime-undetermined` | Rule KIND itself is unresolved — see the shape warning below. |
+| **NZ 7** (`7.1.a`–`7.2.e`, 3) | `setback` (likely) | **no-pack** | `regime-undetermined` | May use *parcela mínima* + *separación a linderos* rather than occupation. |
+| **NZ 8** (`8.1.a`–`8.6`, 10) | `setback` | **no-pack** | `regime-undetermined` | 10 grado codes ⇒ **10 rule rows**, never one. |
+| **NZ 9** (`9.1`–`9.5`, 6) | ⚠ unknown | **no-pack** | `regime-undetermined` | Name, chapter and kind all unknown; **absent from the founder corpus entirely**. Likely non-residential. |
+| Derived ámbitos (APR/APE/API/Plan Parcial) | `derived-plan` | **cited-refusal** *(legal)* | `legal` | Detection VERIFIED-LIVE. Share asserted at ~35 % of residential land — **UNSOURCED**, not asserted as coverage. |
+| Zones 2 / 6 / 10 / 11 | — | ⚠ **no route** | *unknown* | Absent from `AMB_TX_ETIQ`. NZ 2 and NZ 6 have ordinance chapters, so "they don't exist" is eliminated. If parcels exist here they currently fall to a blanket refusal **citing the wrong reason** (`RISK-REGISTER.md` R13). |
 
-1. **Proxy gate (NZ 1).** `resolveMadridNZ1Ring` fetches the published footprint LIVE from
-   `sigma.madrid.es`, but **no same-origin Madrid proxy is wired**, so the fetch can't complete at
-   runtime → the dispatcher refuses (honestly, transiently) rather than solve.
-2. **Verification gate (NZ 1 calificación).** The `PG_ORDENACION` code→pack mapping is UNVERIFIED (that
-   plane returned HTTP 500 on 2026-07-23); the pack answers the NZ 1 refusal for every code until the
-   mapping is confirmed.
-3. **Document gate (NZ 4/8, the dominant residential typology).** The numbers live in the NNUU Compendio
-   2023 (Cap. 8.x) prose PDF; they were not citeably transcribable this pass (compendio returned as
-   compressed streams; web-search mixed a specific APR plan's values with the general norm — the exact
-   secondary-source trap). Requires a human, per-grado read (L-449).
+**Honesty:** every row above is either a *cited refusal* or an explicit *no-pack* — no row fabricates
+a value. `honestyOk: true`.
 
-⚠ **Do NOT stamp NZ 4/8 numbers from a secondary source** — an absent envelope costs nothing; a confident
-wrong one costs credibility (§CONTEXT-DATA-HONESTY).
+## ⚠ Two shape warnings that outrank any number
 
-## The human / wiring work to flip the gate
+**1 — NZ 4: depth is measured from the STREET LINE, not by shrinking the parcel.**
 
-1. **Wire a same-origin Madrid proxy** for `resolveMadridNZ1Ring` (the sigma.madrid.es footprint fetch) → the shipped solver would then return a real NZ 1 envelope.
-2. **Verify the `PG_ORDENACION` calificación mapping** (`returnCountOnly` before believing any zero; re-probe the HTTP-500 plane) → replace `noRulePackRefusal` with the VERIFIED NZ 1 code(s).
-3. **Human-source NZ 4 *fondo edificable* + NZ 8 retranqueos** from Compendio 2023 Cap. 8.x, per grado (L-449) — the highest-leverage residential move.
-4. **Verify `COEF_Z` coding + parse** (an un-asserted `parseFloat` on a coded string is a silent-zero risk); ship the NZ 3 `derived-plan` refusal copy in `sources/SOURCES.md`.
+```
+official alignment line
+        |<---- fondo edificable ---->|
+        ███████████████████████
+        ███████████████████████
+```
 
-*Cross-refs: C58 §1.2/§1.11/§2.2, ADR-0279, C63 §3 Axis 4, `findings/L-608-MADRID-PACK-SPEC.md`,
-`findings/L-608-NZ1-PROVIDER-SHIPPED.md`, `findings/L-608-EXPLICIT-AREA-SOLVER-SHIPPED.md`. Sibling:
-[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md).*
+*Fondo edificable* is measured **inward from the official alignment**, not as an inset of the parcel
+ring. An implementation that insets the ring by the depth is a plausible-looking model that is
+**wrong** — precisely the error class that produced two confidently-wrong theories and burned
+significant time in the Barcelona inset-collapse saga (L-529/L-581). Probe the geometry, not the
+number.
+
+**2 — NZ 5: the rule KIND is undetermined, and a wrong kind is a wrong SHAPE.**
+
+Open-block zones frequently regulate ***distancia entre edificios*** (building separation) rather
+than ***retranqueo a linderos*** (parcel-edge setback). Test the ordinance's wording **before** any
+code:
+
+| Wording | Consequence |
+|---|---|
+| *"retranqueo / separación a linderos"* | `SetbackRule` fits — proceed |
+| *"distancia entre edificios"* | `SetbackRule` does **NOT** fit → new `OpenBlockRule` → **raise an ADR** |
+
+Forcing separation regulation into the setback triple is a wrong SHAPE, not a wrong number
+(ADR-0270) — the worse of the two failures. NZ 5 is therefore recorded as **UNDETERMINED**, not
+`setback`.
+
+## What would raise the ENVELOPE axis (in leverage order)
+
+| Action | Unlocks | Effort | Needs the ordinance? |
+|---|---|---|---|
+| **Source NZ 4 *fondo edificable* + *altura* per grado** (Compendio 2025 Cap. 8.4) + L-449 sign-off | the dominant residential typology — the largest single share of the ceiling | High (one human read) | **Yes** |
+| **Fix `ComputeBuildableEnvelopeInput.explicitAreaFootprint`** — 🔴 a build-breaking tsc defect, one line, masked by green tests | unblocks NZ 1 at the base | Trivial | No |
+| **Wire a same-origin Madrid proxy** for `resolveMadridNZ1Ring` | NZ 1's shipped solver returns a real envelope for the historic core | Low–Medium | No |
+| **Register NZ-1 codes `['1.1'…'1.6']`** on `AMB_TX_ETIQ` (not the placeholder `['NZ1']`) | correct routing for NZ 1 | Trivial | No |
+| **Source NZ 8 retranqueos** per grado (10 codes) | detached residential | High | **Yes** |
+| **Build the override-precedence branches** (protected / ficha / ámbito) | ⚠ **a precondition, not a follow-up** — see below | Medium | Partly |
+| **Determine NZ 5's rule kind** from the wording | unblocks NZ 5/7 and may require an ADR | Low (read) | **Yes** |
+
+🔴 **Ordering constraint that is not negotiable:** the override-precedence branches must exist
+**before** the first pack registers. A parcel can carry NZ 1 + a protected building + a *ficha* + an
+ámbito simultaneously; today an override-bearing parcel would silently receive the general zone
+answer. That false-positive path is currently **masked by the blanket refusal** and goes live the
+moment `packsByZone` gains its first entry (`RISK-REGISTER.md` R17).
+
+⚠ **Do NOT stamp NZ 4/8 numbers from a secondary source.** An absent envelope costs nothing; a
+confident wrong one costs credibility. Web search mixes APR-plan values — which carry site overrides
+that *contradict* the general norm — with the general rule. The Zod schema
+(`AlignmentRuleSchema.buildableDepth_m .positive()`, the full `SetbackRuleSchema` triple)
+structurally forbids a placeholder pack; that is a feature, not an obstacle.
+
+---
+*Authority: C58 §1.2/§1.4/§1.11/§2.2 · ADR-0270 (rule-kind union) · ADR-0279
+(`ENVELOPE-REPLICATION-STANDARD.md`) · C63 §3 Axis 4 / §3.1. Evidence: `sources/SOURCES.md`,
+`findings/MADRID-DATA-RECON-SPIKE.md`, `findings/L-608-*`. Feeds: [`RATE.md`](./RATE.md). Siblings:
+[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) · [`NEXT.md`](./NEXT.md) ·
+[`RISK-REGISTER.md`](./RISK-REGISTER.md).*

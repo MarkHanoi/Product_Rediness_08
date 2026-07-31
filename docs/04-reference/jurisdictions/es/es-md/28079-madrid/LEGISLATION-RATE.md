@@ -38,7 +38,7 @@ calificación / Norma-Zonal plane (`PG_ORDENACION`), the `Alineaciones` layer, a
 ⚠ **Two honesty caveats that qualify the 68%, stated up front (C58 §1.4):**
 1. **The metric measures DATA readiness, not PRYZM's current wiring.** Madrid's *shippable* envelope
    resolution TODAY ≈ 0% — NZ 4/8 are document-gated (numbers in the NNUU PDF) and NZ 1 is
-   engine-gated (the `explicit-area` solver branch does not exist, C58 §2.2 KG-4). The ceiling once
+   WIRING-gated (⚠ the `explicit-area` solver **has since SHIPPED** — C58 §2.2 KG-4 is OPEN; what remains is a same-origin proxy + a one-line `explicitAreaFootprint` interface fix + L-449). The ceiling once
    the four Normas Zonales are sourced and NZ 1's solver ships is **~60–62% of residential clicks**
    (0.65 × 0.96). The ~68% data-readiness rate sits *above* that engine ceiling because it credits
    structured layers PRYZM has not yet consumed.
@@ -56,7 +56,7 @@ calificación / Norma-Zonal plane (`PG_ORDENACION`), the `Alineaciones` layer, a
 | Parcel geometry | ✅ Structured | Catastro INSPIRE WFS (national). Block ring: `dissolveParcelsToBlockRing` **2/4 in Madrid** (`SPAIN-CADASTRAL-DISSOLVE-PROBE`) — weaker than Barcelona's 2/2. | **~90%** (geometry national; block-ring tolerant-mode gap) |
 | Plan/zone existence + boundary | ✅ Structured | PGOUM-97 planes on `sigma.madrid.es/hosted/rest/services/pgoum97` — 12 services, live. | **~85%** |
 | Zone/use code (Norma Zonal) | ✅ Structured (PRIOR-VERIFIED) | `PG_ORDENACION` calificación plane — per-parcel Norma Zonal + uso pormenorizado. (⚠ returned HTTP 500 on the 2026-07-23 re-probe; PRIOR-VERIFIED, not re-confirmed this pass.) `PG_ORDENACION_SIN_AMBITO` L4 = a dedicated NZ 1.5 polygon, L5 = Alineaciones. | **~75%** |
-| Density metric (edificabilidad / FAR) | ⚠️ Partial — split by NZ | **NZ 1: LIVE DATA** — `COEF_Z` (String, coded, per-manzana, parsed under assertion) on layer 6. Ámbito-level `Visor_Edificabilidad` (Jan-2024) — **wrong granularity** (C58 §1.11), context only. **NZ 4/8/5/7: PDF** — grado-structured *fondo/edificabilidad* in the NNUU Compendio 2023. | **~40%** |
+| Density metric (edificabilidad / FAR) | ⚠️ Partial — split by NZ | **NZ 1: LIVE DATA** — `COEF_Z` (String, coded, per-manzana, parsed under assertion) on layer 6. Ámbito-level `Visor_Edificabilidad` (Jan-2024) — **wrong granularity** (C58 §1.11), context only. **NZ 4/8/5/7: PDF** — grado-structured *fondo/edificabilidad* in the NNUU **Compendio 2025 (24-09-2025)**. | **~40%** |
 | Max height (parcel-level) | ⚠️ Partial | NZ 1 conditions ride with the footprint plane. NZ 4/8 *altura de cornisa / nº plantas*: grado-structured in the NNUU PDF, not sourced this pass. | **~30%** |
 | Setback / alignment (ADR-0270) | ✅ Kind resolved; ⚠️ numbers split | NZ 1 → `explicit-area` (footprint published); NZ 4 → `alignment` (**`Alineaciones` published as a layer** — the official line is structured; the *fondo edificable* depth is PDF); NZ 8/5/7 → `setback` (retranqueos PDF); NZ 3 → `derived-plan` refusal. The SHAPE is fully resolved; the numbers are the gate. | **~50%** |
 | Building footprint + height (LOD1/2) | ✅ / ⚠️ | Catastro constructions (national footprint). **NZ 1's `Fondo de la Edificación` polyline IS the published buildable boundary** — Madrid publishes buildable depth as a *line you build to*, not a setback (the reason `explicit-area` exists, `es/README.md`). Height coarse. | **~55%** |
@@ -90,7 +90,7 @@ the sourced numbers.
 
 | Action | Rate impact | Effort |
 |---|---|---|
-| Human-source NZ 4 *fondo edificable* + NZ 8 retranqueos from Compendio 2023 Cap. 8.x, per grado (L-449) | The single highest-leverage move — NZ 4 is central Madrid's dominant residential typology | High (human, per-grado read) |
+| Human-source NZ 4 *fondo edificable* + NZ 8 retranqueos from **Compendio 2025 (24-09-2025)** Cap. 8.x, per grado (L-449) | The single highest-leverage move — NZ 4 is central Madrid's dominant residential typology | High (human, per-grado read) |
 | Build the `explicit-area` engine branch + the NZ 1 ringRef resolver (KG-4) | Unblocks NZ 1's live footprint data into a shipped envelope; reusable for every footprint-publishing jurisdiction | Medium (one engine unit) |
 | Re-verify `PG_ORDENACION` live + run `returnCountOnly` before believing any zero | Re-confirms the calificación endpoint (currently PRIOR-VERIFIED only) | Low — one probe |
 | Ship the NZ 3 `derived-plan` refusal (copy in `sources/SOURCES.md`) | Turns the volumetría-específica share into a cited answer now | Low |
@@ -100,6 +100,6 @@ the sourced numbers.
 
 *Last updated: 2026-07-24. NZ 1 `COEF_Z` + `Fondo de la Edificación` footprint confirmed LIVE DATA
 (2026-07-23). `PG_ORDENACION` calificación plane PRIOR-VERIFIED (HTTP 500 on re-probe, not
-re-confirmed this pass). NZ 4/8/5/7 numbers DOCUMENT-gated (NNUU Compendio 2023), unsourced. Shippable
-envelope resolution today ≈ 0% (engine-gated + document-gated); data-readiness ~68%; engine ceiling
+re-confirmed this pass). NZ 4/8/5/7 numbers DOCUMENT-gated (NNUU **Compendio 2025 (24-09-2025)**), unsourced. Shippable
+envelope resolution today = 0% (MEASURED: `packsByZone` empty — wiring-gated + document-gated); data-readiness ~68%; engine ceiling
 ~60–62%; per-NZ land-share split UNSOURCED. Maintainer: UNASSIGNED.*

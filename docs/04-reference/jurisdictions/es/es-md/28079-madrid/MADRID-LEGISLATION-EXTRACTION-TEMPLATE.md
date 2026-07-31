@@ -16,18 +16,47 @@
 
 ---
 
-## Source (fill from these — the two official Compendio links)
+## Source — 🔴 READ THIS BEFORE OPENING ANY PDF (verified 2026-07-31)
 
-| # | Source | URL | Note |
+**Two Madrid portals serve DIFFERENT consolidations of the same ordinance, simultaneously, with no
+on-page warning.** Opening the wrong one silently stamps the whole extraction with a superseded
+version. Both were probed live on 2026-07-31.
+
+| # | Source | URL | Verdict |
 |---|---|---|---|
-| 1 | **madrid.es — Compendio de las Normas Urbanísticas del PGOUM-97** (living consolidated text) | `https://www.madrid.es/UnidadesDescentralizadas/UDCUrbanismo/PGOUM/CompendioNNUU/` → the **`Compendio 2024/`** edition PDF (the 2023 analogue read this repo used was `.../Compendio 2023/1 Compendio 2023.pdf`, `sources/SOURCES.md` §C) | ⚠ Confirm the exact **2024** deep-link/filename at fill time. The Compendio is the CONSOLIDATED NNUU updated **2024-10-24**. |
-| 2 | **sede.madrid.es — sede electrónica, PGOUM normativa (Compendio)** | `https://sede.madrid.es/` → Urbanismo / PGOUM 1997 / Normas Urbanísticas (Compendio) | ⚠ Confirm the exact sede path at fill time. Second official mirror of the same consolidated text — cite whichever PDF you actually read (per **L-438**: a citation is only citable from the document you opened, never from portal prose). |
+| **1 ✅** | **Compendio 2025 de las NNUU del PGOUM-97 (actualizado a 24.09.2025)** — the CURRENT consolidation | `https://transparencia.madrid.es/UnidadesDescentralizadas/UDCUrbanismo/PGOUM/CompendioNNUU/Compendio_2025_septiembre/COMPENDIO_MPG_NNUU_24_09_2025.pdf` | **USE THIS.** HTTP 200, `application/pdf`, ~24.5 MB, `Last-Modified` 2025-10-20. Portal page also mirrored at `www.madrid.es/.../Vivienda-urbanismo-y-obras/Normativa/`. |
+| **2 🔴** | `COMPENDIO_MPG_NNUU_07_07_2025.pdf` ("COMPENDIO JULIO 2025") | `https://geoportal.madrid.es/fsdescargas/IDEAM_WBGEOPORTAL/ESTATICOS_VISORES_URBANISTICOS/PG97/TEXTOS/…` | **DO NOT USE.** Live (HTTP 200, 26 318 633 B) but the **SUPERSEDED July consolidation**. This is the trap — the *visores urbanísticos* path leads here. |
+| 3 🔴 | "Compendio 2023" / "Compendio 2024" | — | **Stale.** At least two consolidations behind. Never cite. |
 
-**Base plan of record:** PGOUM-97 (Plan General de Ordenación Urbana de Madrid, **BOE 19-04-1997**),
-**Normas Urbanísticas**, **Título 8 — Normas de la edificación en las distintas zonas (Normas Zonales)**.
-The numeric building rules live in **Capítulos 8.1 – 8.9**, one chapter per Norma Zonal (the confirmed
-`Cap. 8.<n>` = `NZ <n>` pattern — see §Confirmed structure). Every Norma Zonal is **grado-structured**:
-key every value on `NZ<n>.<grado>`, never a bare NZ scalar (`sources/SOURCES.md` §C).
+⚠ **The founder-supplied URL** `madrid.es/.../Listado-de-Publicaciones/Compendio-2025-…` returns
+**HTTP 404**. Its claim was right; the locator was not.
+
+### 🔴 The Compendio is NOT the legal source — record TWO date fields, not one
+
+The publisher states verbatim: *"El Compendio tiene carácter informativo"* and *"la versión oficial
+de las normas … han sido publicadas en el **Boletín Oficial** correspondiente."* Therefore:
+
+| Field | Value | Meaning |
+|---|---|---|
+| `readFrom` | `"Compendio 2025 (24-09-2025)"` | which consolidation you actually opened |
+| `effectiveDate` | the **BOE** date of the article, or of the *modificación puntual* that set it | when the rule became law |
+
+**These are different fields and must never be merged.** An article in force since 1997 does not
+become "effective 2025" because a 2025 booklet reprinted it. The Compendio's own annex — *"una
+relación actualizada de los artículos que han sido modificados o aclarados"* — is the index that
+supplies the real dates. (Per **L-438**: cite from the document you opened, never from portal prose.)
+
+**Base plan of record:** PGOUM-97 (Plan General de Ordenación Urbana de Madrid, **BOE 19-04-1997** —
+*asserted, not re-verified*), **Normas Urbanísticas**, **Título VIII — Condiciones particulares de
+las zonas de suelo urbano**. The numeric building rules live in **Capítulos 8.x**, one chapter per
+Norma Zonal. Every Norma Zonal is **grado-structured** *except NZ 4* (a bare `"4"`): key every value
+on the exact `AMB_TX_ETIQ` string, never a bare NZ scalar, and **never invent grados**
+(`sources/SOURCES.md` §0.3, §C).
+
+⚠ **The `Cap. 8.<n>` = `NZ <n>` pattern is INFERRED, not confirmed, above NZ 8.** The two
+founder-supplied chapter maps disagree with each other (one includes 8.2/8.6, the other omits NZ 6),
+and **neither contains NZ 9** although NZ 9 has six live GIS codes. **Read the Compendio's own Título
+VIII table of contents first** and correct the table below before filling anything.
 
 ---
 
@@ -59,17 +88,19 @@ The zone identities/chapters below are what the Madrid dossier has already estab
 **chapters** marked `TODO` are NOT yet confirmed in-repo — confirm from the Compendio at fill, do not
 guess. Every **Value** is left blank/`TODO` by design.
 
-| Norma Zonal | Name | Cap. | `geometricRule.kind` (ADR-0270) | Confidence of the *structure* (not the values) |
-|---|---|---|---|---|
-| **NZ 1** | Protección del Patrimonio Histórico | 8.1 | `explicit-area` (footprint `Fondo de la Edificación` + `COEF_Z` PUBLISHED as geometry) | CONFIRMED (declared in `rulepacks/esMadridNZ1.ts`; live 2026-07-23) |
-| **NZ 2** | `TODO` — confirm name (heritage / colonias históricas per `LEGISLATION-RATE.md`) | 8.2 `TODO` | `TODO` (likely alignment/explicit-area) | PARTIAL (named only in prose) |
-| **NZ 3** | Volumetría específica | 8.3 | `derived-plan` **REFUSAL** — buildable volume fixed per parcel by its ficha, not a zone parameter | CONFIRMED (refusal copy in `sources/SOURCES.md` §D) |
-| **NZ 4** | Edificación en manzana cerrada | 8.4 | `alignment` — Alineaciones PUBLISHED as a layer; *fondo edificable* depth is PDF | CONFIRMED (`sources/SOURCES.md` §C) |
-| **NZ 5** | Edificación abierta (bloques abiertos) | 8.5 | `setback` (retranqueos) | CONFIRMED (§C) |
-| **NZ 6** | `TODO` — confirm name | 8.6 `TODO` | `TODO` | UNCONFIRMED (chapter inferred from the 8.<n>=NZ<n> pattern) |
-| **NZ 7** | Edificación de baja densidad | 8.7 | `setback` | CONFIRMED (§C) |
-| **NZ 8** | Edificación en vivienda unifamiliar | 8.8 | `setback` (retranqueos) | CONFIRMED (§C) |
-| **NZ 9** | `TODO` — confirm name (actividades económicas / industrial?) | 8.9 `TODO` | `TODO` | UNCONFIRMED (chapter inferred from the pattern) |
+| Norma Zonal | Name | Cap. | **VERIFIED `AMB_TX_ETIQ` codes** (n) | `geometricRule.kind` (ADR-0270) | Structure confidence |
+|---|---|---|---|---|---|
+| **NZ 1** | Protección del Patrimonio Histórico | 8.1 | `1.1 1.2 1.3 1.4 1.5 1.6` (6) | `explicit-area` (footprint + `COEF_Z` PUBLISHED as geometry) | CONFIRMED (live 2026-07-23/24) |
+| **NZ 2** | `TODO` — confirm name | 8.2 (asserted) | **none** ❌ | `TODO` | ⚠ chapter exists per one founder map; **absent from GIS** — see §0.3 of `sources/SOURCES.md` |
+| **NZ 3** | Volumetría específica | 8.3 | `3.1 3.1.a 3.1.b 3.1.c 3.2` (5) | `derived-plan` **REFUSAL** — volume fixed per parcel by ficha | CONFIRMED (refusal copy §D) |
+| **NZ 4** | Edificación en manzana cerrada | 8.4 | **`4` only — NO grados** (1) | `alignment` — Alineaciones published; *fondo* is PDF | CONFIRMED. ⚠ **Do NOT invent `4.1`/`4.2`** |
+| **NZ 5** | Edificación abierta (bloques abiertos) | 8.5 | `5.1 5.2 5.3` (3) | ⚠ **UNDETERMINED** — `setback` *or* building-separation | ⚠ **KIND NOT CONFIRMED.** Test the wording (§C) before any code; may need an ADR |
+| **NZ 6** | `TODO` — confirm name | 8.6 (contested) | **none** ❌ | `TODO` | ⚠ the two founder chapter maps **disagree** on whether 8.6 exists |
+| **NZ 7** | Edificación de baja densidad | 8.7 | `7.1.a 7.1.b 7.2.e` (3) | `setback` (likely) | PARTIAL — may use *parcela mínima* instead of ocupación |
+| **NZ 8** | Edificación en vivienda unifamiliar | 8.8 | `8.1.a 8.1.c 8.2.a 8.2.b 8.2.c 8.3.a 8.3.c 8.4 8.5 8.6` (**10**) | `setback` (retranqueos) | CONFIRMED. **10 rows required** |
+| **NZ 9** | `TODO` — confirm name (actividades económicas?) | 8.9 **INFERRED** | `9.1 9.2 9.3 9.4.a 9.4.b 9.5` (6) | `TODO` | ⚠ **codes are LIVE but the zone is absent from every founder chapter map** — confirm name + chapter |
+| NZ 10 / 11 | — | — | **none** ❌ | — | ⚠ entirely unexplained; every chapter map stops at 8.8 |
+| | | | **Σ 34 live claus** | | |
 
 > ⚠ **Grados.** Each NZ subdivides into grados (e.g. NZ 1 = `1.1 … 1.6`, verified in
 > `rulepacks/esMadridNZ1.ts`). The numeric rules differ per grado. Add one grado-row block per grado
@@ -204,7 +235,7 @@ ordinance-extraction (OCR) pipeline for the Compendio PDF where a manual read is
 ## What the founder must fill to close Madrid's LEGISLATION axis (the ask, in one list)
 
 Per **grado** of each parametric Norma Zonal (**NZ 4, 5, 7, 8** first — NZ 4 is the dominant residential
-typology and the highest-leverage), transcribe from the Compendio 2024 **with the Cap. 8.x article**:
+typology and the highest-leverage), transcribe from the **Compendio 2025 (24-09-2025)** with the Cap. 8.x article, recording `readFrom` AND `effectiveDate` separately:
 
 - **`plotRatioFAR`** — edificabilidad (m²/m²)
 - **`maxHeight_m`** — altura de cornisa (m)

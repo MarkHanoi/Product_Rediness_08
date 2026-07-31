@@ -213,6 +213,16 @@ fields, separately. The Compendio's modified-articles annex (§0.2) is where the
 - **Never convert floors → metres.** `6 floors ≈ 20 m` is fabrication. `height_m: null, floors: 6`.
 - **Never invent an article number.** `8.4.x` is a search target in prose, never a citation in a row.
 - **Failure ≠ empty** (L-422/457/467/469). An endpoint that errored is `MEASURED-NEGATIVE`, not `0`.
+- **Resolution must never INCREASE confidence** (capture-note C-27). If `height = unknown` at
+  extraction, no override/precedence/resolution step may produce `22`. Unknown survives resolution.
+  This governs a stage the other rules do not: a resolver that picks "the best available candidate"
+  will silently launder an unsourced default into a confident answer and defeat every `null`
+  discipline upstream. Same invariant as L-616, applied one layer later.
+- **A value's measurement DATUM and its SAMPLING RULE are two separate required fields**
+  (capture-notes C-13 / C-24, and **L-584**). Recording `measurement: "cornisa"` +
+  `referencePlane: "rasante_oficial"` and stopping there **still reproduces L-584 exactly** — that
+  defect was sampling one point at the block centroid where the ordinance measures at the **façade**.
+  Capture *where along the reference plane the measurement is taken*, or the height is unusable.
 
 ### §0.6 — Conflicts carried forward from the captures (not resolved by assumption)
 
@@ -471,6 +481,76 @@ only because Madrid blanket-refuses; it becomes live the moment the first pack r
 - **Licence text** for `sigma.madrid.es` services — not established. "no auth observed" is an
   *access* observation, **not** a licence grant.
 - **GIS update frequency** — unknown. Cannot be inferred.
+
+---
+
+## G. Asserted-but-unprobed (batches 3–6) — hypotheses, not sources
+
+Everything in this section arrived in the founder captures and **has not been queried once**. Field
+names, layer contents, and behaviours below are **hypotheses**. None may be cited, and none may be
+counted toward any completeness axis, until a `MapServer` response returns it.
+
+### G1 — `AMB_TX_DENOM` — the cheapest open probe in the dossier (capture-note C-7)
+
+Batch 3 states that `NORMAS_ZONALES/MapServer/0` carries a second field **`AMB_TX_DENOM`** returning
+the official designation per code — `ZONA 1 GRADO 3º`, `NZ 4`, `ZONA 8 GRADO 2º NIVEL a`.
+
+- **If real, it closes a gap batch 2 scored at 70 % with no ordinance read at all** — the *"exact
+  legal names per grado"* task disappears.
+- **Corroboration exists in-repo:** this repo's own 2026-07-24 recon recorded `AMB_TX_DENOM` as the
+  "human denomination" field on the same layer, with examples of the same shape. That raises
+  confidence but is still **not a verification of the full 34-code mapping**.
+- **Cost to verify:** one query returning both fields for all 34 codes.
+- ⚠ **It does not move C63 Axis 2.** A designation is not a cited numeric rule, and nothing is
+  L-449-signed. It closes a *labelling* gap, not a *legislation* gap. Do not let a 100 % on
+  `officialDesignation` read as progress on the parameters.
+
+### G2 — Parcel join: a direct contradiction, **NOT resolved here** (capture-note C-8)
+
+| Batch 2 (§WS7) | Batch 3 (PART B) |
+|---|---|
+| Build a **Catastro connector**; `parcelSource.identifier = "REFCAT"`; flow `user click → Catastro parcel → centroid → Madrid GIS` | **"Madrid does NOT use Catastro refcat as join."** Flow `clicked coordinate → NORMAS_ZONALES → CONDICIONES_EDIFICACION`, explicitly **not** `refcat → CODMANZANA` |
+
+**What IS verified (this repo, 2026-07-24):** `CODMANZANA` has **no string relationship to a Catastro
+refcat** — disproved against three real refcats — and the planning join is **spatial**. That
+confirms batch 3's *negative* claim.
+
+**What is NOT settled:** whether Madrid needs a Catastro connector *at all*. The two positions may be
+talking past each other — batch 2's Catastro need is partly about the **user-facing parcel boundary**
+(the polygon the user clicks and sees), which batch 3's coordinate-first flow does not supply.
+**This reading is offered as a candidate reconciliation and is deliberately NOT adopted**; it is
+recorded so nobody implements either architecture on the assumption the question is closed. It
+determines whether a Catastro **licence** is needed — itself an open PART-B item (§F).
+
+### G3 — Four GIS layers named, none probed (capture-note C-17)
+
+| Layer | Asserted purpose | State |
+|---|---|---|
+| **`PG_ANALISIS_EDIFICACION`** | existing building footprint / floors / volume | **NET-NEW, UNPROBED.** If real it changes the product question from *"what may be built on an empty parcel"* to *"what may be done given what already stands"* — new build vs extension vs rehab vs replacement |
+| `PG_EDIFICIOS_PROTEGIDOS` | heritage catalogue; asserted fields `NORMATIVA`, `COEF_Z`, `CATALOGO`, `NIVEL` | service **exists** (seen in the service directory); **field inventory and behaviour UNPROBED** |
+| `PG_USOS_Y_ACTIVIDADES` | use graph — *uso cualificado* / *uso compatible*, coded | service **exists**; **legend UNDECODED** |
+| `PG_GESTION/Alineaciones` | alignment polylines (critical for NZ 4) | service **exists**; the geometry has **not** been retrieved or validated as an NZ-4 depth reference |
+
+⚠ Two of these were also claimed to carry `COEF_Z` (`PG_EDIFICIOS_PROTEGIDOS`). If so, the §B2
+quarantine applies there **too** — a coded value does not become interpretable by appearing on a
+second layer.
+
+### G4 — Structural requirements Madrid surfaces that the current schema lacks
+
+Recorded because they change what a Madrid pack must be able to *represent*, not merely what values
+it holds. These are **schema findings**, not data:
+
+| # | Requirement | Why it matters here |
+|---|---|---|
+| G4.1 | **Grade inheritance** — `Zona → grado → nivel` as a three-level tree with selective override (`{ base: "Zona 8", override: "8.2.a" }`) | Barcelona's *claus* are flat and self-contained. Madrid's 10 NZ-8 codes would otherwise duplicate hundreds of rules. Third consecutive city needing a structural addition the Barcelona template lacks. |
+| G4.2 | **Per-parameter resolution** — an APR may override *height* but not *coverage* | A rule stored as one atomic record with one priority **cannot express this**. The resolved value for one parameter may come from a different instrument, at a different priority, than its neighbour. |
+| G4.3 | **Exception trees, not scalars** — *"retranqueo mínimo salvo parcelas inferiores a…"* | A setback is `{ default, exceptions: [{condition, value}] }`. A scalar loses the condition silently. |
+| G4.4 | **Two independent grade dimensions** — `zoning.grade` vs `buildingCondition.grade` | See §A: proven in-repo. Must be a **type-level** distinction, not a naming convention. |
+| G4.5 | **Per-field confidence**, not per-zone | `NZ4 confidence = 80 %` hides that `zoneCode` is 100 % and `farRatio` is 0 %. |
+
+⚠ These belong in the shared contract / ADR-0279 discussion, **not** in a Madrid rule pack — they are
+the third city's evidence that slot S4's internal structure is jurisdiction-shaped. Flagged here, not
+designed here.
 
 ---
 

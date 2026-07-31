@@ -27,7 +27,7 @@ fabricated value; every unknown is typed and every buildable zone returns a cite
 | # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
 |---|---|---:|---|---|---|---|
 | 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | National Catastro parcel provider IS wired (`parcelProviders/registry.ts` `isInSpain`→`catastro`), and the planning join is confirmed **spatial** (`CODMANZANA` has no string relation to a refcat — proven false against three real refcats). But the axis measures the *geometry-quality distribution* over an N-parcel sample and **no `computeParcelConfidence` run exists for this bbox**. Known drag: the block-ring dissolve is **2/4 in Madrid** (`SPAIN-CADASTRAL-DISSOLVE-PROBE`, tolerant-mode gap; weaker than Barcelona's 2/2). |
-| 2 | **LEGISLATION** | 25 % | **0%** *(measured)* | `not-checked` | — | **`verified_cited_claus / total_claus_present` = 0 / 34.** *Denominator:* the live `NORMAS_ZONALES/0` `AMB_TX_ETIQ` distinct-value read returned **34** claus (`sources/SOURCES.md` §0.3 — a response, not an estimate). *Numerator:* **zero** rows in `sources/SOURCES.md` carry the full citation atom (value·unit·article·document·URL) **and** zero are covered by a signed `sources/VERIFICATION.md` (`§3` = empty; the file's own status line is "NOTHING LEGALLY SIGNED"). ⚠ **This is a MEASURED zero, not `not-assessed`** — both inputs were inspected; the answer is genuinely "we hold no cited, signed clause". |
+| 2 | **LEGISLATION** | 25 % | **0%** *(measured)* | `not-checked` | — | **`verified_cited_claus / total_claus_present` = 0 / 34.** *Denominator:* the live `NORMAS_ZONALES/0` `AMB_TX_ETIQ` distinct-value read returned **34** claus (`sources/SOURCES.md` §0.3 — a response, not an estimate). *Numerator:* **zero** rows in `sources/SOURCES.md` carry the full citation atom (value·unit·article·document·URL) **and** zero are covered by a signed `sources/VERIFICATION.md` (`§3` = empty; the file's own status line is "NOTHING LEGALLY SIGNED"). ⚠ **This is a MEASURED zero, not `not-assessed`** — both inputs were inspected; the answer is genuinely "we hold no cited, signed clause". ⚠ **`AMB_TX_DENOM` does not move this axis** (see note below). |
 | 3 | **DATA-SOURCES** | 15 % | **90%** | `not-checked` | — | 5-slot checklist, unchanged: cadastre-parcel **live** (Catastro national) · regional-zone-GIS **live** (`sigma.madrid.es` PGOUM-97, 12 services + the master `NORMAS_ZONALES/0` routing layer — **independently re-confirmed by the founder's 2026-07-31 recon**, which reached the same endpoint) · building-height nDSM **documented** (`heightSources.mjs` `REGION_SOURCE.madrid='mds_edificacion'`; per-city bake not confirmed landed) · terrain DEM **live** (`terrain.mjs` TERRAIN_CITY `madrid`, source `es` = PNOA MDT) · context-OSM **live** (`bake.mjs` REGIONS `spain`). Mean = (1+1+0.5+1+1)/5 = **0.90**. |
 | 4 | **ENVELOPE** | 20 % | **0%** *(measured)* · **honesty 100 %** | `not-checked` | — | **`Σ(buildable_land_share × pack_tier_weight)` = 0.** `rulepacks/registry.ts` registers Madrid with an **EMPTY `packsByZone`** and `noRulePackRefusal → madridNZ1Refusal` for every zone code. Every clau's tier is therefore `cited-refusal`, whose completion weight is **0.0** (C63 §3 Axis 4). ⚠ The unsourced per-NZ land-share split does **not** block this computation: `Σ(share × 0) = 0` for *any* share distribution. `not-assessed` would have been the wrong sentinel — the state was inspectable and it is empty. Per C63 §3.1 the same 0 % scores **100 % on honesty**. See [`ENVELOPE.md`](./ENVELOPE.md). |
 | 5 | **TERRAIN** | 10 % | **50%** | `not-checked` | — | Terrain bake row present: `terrain.mjs` TERRAIN_CITY `madrid` (source `es` = PNOA MDT) + control points (Puerta del Sol / Retiro / North M-30). Rung **50 = baked-but-unverified** — no `terrain.verify.mjs` round-trip re-probed here. Same rasant-datum caveat as Barcelona (L-584) — which is *also* a legislation concern for Madrid, since *altura de cornisa* is measured from rasant at the façade. |
@@ -45,32 +45,54 @@ overall = 21.28 / 75 = 0.284  →  28 %   ·   partial: true
 not-assessed: PARCEL (15) · HEIGHTS/LOD (10)
 ```
 
-## The founder's own figures — recorded, NOT merged (capture-note C-2)
+## The founder's own figures — recorded, NOT merged (capture-notes C-2 / C-10)
 
-The founder's captures contain **two mutually irreconcilable completeness scales**. Per the capture
-note they are **not averaged and not silently chosen between**; C63 above is the ratified basis, and
-these are preserved here as *as-supplied, differing basis* so the evidence chain stays intact.
+The seven founder captures contain **at least five mutually irreconcilable completeness scales**, and
+several disagree *internally*. Per the capture notes they are **not averaged and not silently chosen
+between**; C63 above is the ratified basis, and these are preserved as *as-supplied, differing basis*
+so the evidence chain stays intact.
 
-| Metric | Recon §2 (as supplied) | Recon §3 (as supplied) | Roadmap §49 (as supplied) | C63 (ratified, this file) |
-|---|---|---|---|---|
-| Legislation | ~25–35 % | ~35 % (table) / 25 % (prose) | ≈35–40 % weighted residential | **0 %** (0 cited+signed of 34 claus) |
-| Parcel / spatial | ~85–95 % | ~75 % | ≈95 % spatial | **`not-assessed`** (different definition: geometry *quality*, not source availability) |
-| Meta / sources | ~80–90 % | ~60 % | — | **90 %** DATA-SOURCES (5-slot wiring checklist) |
-| Engine / envelope | — | — | ≈70 % engine | **0 %** completion / **100 %** honesty |
-| **Overall** | **~40–50 %** | **≈55–60 % production-ready** | — | **28 %** (partial, 5 of 7 axes) |
+| Metric | Recon §2 | Recon §3 | Roadmap §49 | Feasibility (batch 3) | Execution (batches 4–6) | **C63 (ratified, this file)** |
+|---|---|---|---|---|---|---|
+| Legislation | ~25–35 % | ~35 % / 25 % | ≈35–40 % | law 40 % · citations 30 % | legal structuring 40 % | **0 %** (0 cited+signed of 34 claus) |
+| GIS / spatial | — | — | ≈95 % | GIS 95 % · routing 100 % | GIS maturity 95 % | *not a C63 axis* — closest is DATA-SOURCES **90 %** |
+| Parcel | ~85–95 % | ~75 % | — | join 100 % | — | **`not-assessed`** (geometry *quality*, a different question from source availability) |
+| Meta / sources | ~80–90 % | ~60 % | — | — | — | **90 %** DATA-SOURCES (5-slot wiring) |
+| Engine / envelope | — | — | ≈70 % engine | — | engine adaptation 80 % | **0 %** completion / **100 %** honesty |
+| **Overall** | **~40–50 %** | **≈55–60 %** | — | **~65 %** total · **35–40 %** engine | **≈45–50 %** production-ready | **28 %** (partial, 5 of 7 axes) |
 
 **Why they diverge, stated plainly rather than reconciled:**
 
-1. **They score different things.** §2 scores schema-field coverage; §3 scores "production-ready";
-   §49 splits spatial/legal/engine. C63 Axis 2 scores *cited **and** human-signed clauses* — a
-   strictly harder bar than "we know where the number lives".
-2. **§2 and §3 disagree in direction.** §3 is *more pessimistic* on PART B and PART C yet *more
-   optimistic* overall. That is not a rounding difference; it means the two passes are not
-   commensurable and averaging them would manufacture a number neither pass supports.
+1. **They score different things.** Recon §2 scores schema-field coverage; §3 scores
+   "production-ready"; §49 splits spatial/legal/engine; batch 3 scores GIS-vs-law; batches 4–6 score
+   an implementation forecast. C63 Axis 2 scores *cited **and** human-signed clauses* — a strictly
+   harder bar than "we know where the number lives".
+2. **They disagree in direction, not just magnitude.** Recon §3 is *more pessimistic* on PART B and
+   PART C yet *more optimistic* overall; batch 3 scores NZ 1 geometry at **100 %** in one table and
+   **80–90 %** in the next. Averaging would manufacture a number no pass supports.
 3. **The founder's high figures are about DATA AVAILABILITY; C63 Axis 2 is about EVIDENCE HELD.**
-   Both are true statements about Madrid. Madrid genuinely has excellent, machine-readable
-   *routing* data — and genuinely holds zero signed legal citations. The 0 % is not a judgement on
-   the recon quality; the recon is what makes the remaining work *bounded*.
+   Both are true statements about Madrid. Madrid genuinely has excellent, machine-readable *routing*
+   data — and genuinely holds zero signed legal citations. The 0 % is not a judgement on the recon
+   quality; the recon is precisely what makes the remaining work *bounded* rather than open-ended.
+4. **The forecasts are consistent with each other and are NOT scored here.** Batches 4, 5 and 6
+   independently land on ~5–8 weeks to a Madrid first release and ~90–95 % ceiling. That consistency
+   is notable — but a forecast is not a measurement, and C63 scores state, not plans. ⚠ The *scope*
+   those weeks buy also grew between batches (batch 6 adds heritage, existing-building analysis, the
+   use graph, alignment geometry, per-field confidence and version management at the *same* estimate);
+   read the 5–8 weeks as covering the GIS provider + legal compiler only.
+
+### ⚠ `AMB_TX_DENOM` — a real gain that must not be misread as legislation progress
+
+Batch 3 asserts (capture-note C-7) that `NORMAS_ZONALES/0` also serves **`AMB_TX_DENOM`** — the
+official designation per code (`ZONA 1 GRADO 3º`, `ZONA 8 GRADO 2º NIVEL a`) — which would take the
+`officialDesignation` field batch 2 scored at 70 % to complete **with no ordinance read**. This repo's
+own 2026-07-24 recon independently recorded the same field on the same layer, which corroborates it.
+
+**It is nonetheless ASSERTED, not verified — nobody has queried the field** (`sources/VERIFICATION.md`
+§1a P1, the cheapest open probe in the dossier). And even fully verified it **does not move C63 Axis
+2 off 0 %**: a designation is a *label*, not a cited numeric rule, and nothing is L-449-signed. It
+closes a naming gap, not a legislation gap. Recording it as legislation progress would be exactly the
+completeness inflation this scorecard exists to prevent.
 
 Also distinct, and long-standing in this dossier: [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md)'s
 **~68 % data-readiness** — the cross-jurisdiction C58/L-449 ruler ("can a parcel query return
@@ -88,9 +110,15 @@ refusal — NZ 3 and the derived ámbitos a *legal* `derived-plan` refusal, NZ 1
 "held rule, footprint not fetched" refusal (distinct codes, deliberately).
 **LEAVES UNKNOWN (typed):** PARCEL quality (`not-queried`), HEIGHTS (`not-queried`), every NZ
 4/5/7/8/9 parameter (`not extracted`), `COEF_Z`'s legal meaning (**quarantined** — never bound to
-`farRatio`, `sources/SOURCES.md` §B2), the cause of the zones 2/6/10/11 absence, NZ 9's identity, and
-NZ 5's rule kind.
+`farRatio`, `sources/SOURCES.md` §B2), the cause of the zones 2/6/10/11 absence, NZ 9's identity,
+NZ 5's rule kind, whether Madrid needs a Catastro connector at all (§G2), and the contents of four
+named-but-unprobed GIS layers (§G3).
 `honestyOk: true` — nothing above is rendered as a value.
+
+⚠ **One live hazard is documented rather than fixed:** `geoportal.madrid.es` serves a **superseded**
+Compendio consolidation (July 2025) alongside the current one (September 2025) on
+`transparencia.madrid.es`, with no on-page signal. Any extraction that quotes a `07_07_2025` filename
+is version-suspect (`sources/SOURCES.md` §0.1, `RISK-REGISTER.md` R10).
 
 ## Dossier index (C63 §5)
 

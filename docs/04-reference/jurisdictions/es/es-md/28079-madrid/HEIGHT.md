@@ -31,11 +31,30 @@ Distinct from the context-bake ladder above: Madrid's NZ 1 envelope is an `expli
 NZ 1 height *conditions* ride with that plane. That is an ordinance-massing concern (see
 [`ENVELOPE.md`](./ENVELOPE.md)), not the measured building-height render this file tracks.
 
+## ⚠ Guardrails for ORDINANCE height (distinct from the measured render above)
+
+When NZ 4/8 *altura* is finally extracted, three rules bind — each corresponds to a way this has gone
+wrong before:
+
+1. **Never convert floors → metres.** `6 floors ≈ 20 m` is fabrication. If only a floor count is
+   stated, record `maxHeight_m: null, maxFloors: 6`. *Altura de cornisa* and *número de plantas* are
+   **two different legal constraints**, not two views of one.
+2. **Keep *cornisa* and *total* as separate fields.** Merging them loses which constraint binds.
+3. 🔴 **Record the measurement DATUM *and* the SAMPLING RULE — two fields, not one.** Madrid measures
+   from the *rasante oficial*. Recording `referencePlane: "rasante_oficial"` and stopping there
+   **still reproduces L-584 exactly** — that defect sampled one point at the block centroid where the
+   ordinance measures at the **façade**. Capture *where along the plane* the height is taken, or the
+   value is unusable.
+
+⚠ **Never use GIS building heights or existing footprints as ordinance height.** They are
+**descriptive** (what stands), not **normative** (what is allowed). `PG_ANALISIS_EDIFICACION` — if it
+exists; it is unprobed — describes existing buildings and must never feed a *maxHeight* field.
+
 ## Resume (H1–H5)
 
 1. **H1** — run the coverage probe for the 28079 bbox (the `tagged`/`derived-levels`/`assumed` split — the default-fire rate). *(NOT STARTED.)*
 2. **H2** — confirm/land the per-city `mds_edificacion` join for Madrid; re-bake. *(source configured; landing NOT confirmed.)*
-3. **H3** — ordinance height (NZ 4/8 *altura de cornisa / nº plantas*) is grado-structured in the NNUU Compendio 2023 PDF, unsourced (see [`ENVELOPE.md`](./ENVELOPE.md)). *(BLOCKED on human sourcing.)*
+3. **H3** — ordinance height (NZ 4/8 *altura de cornisa / nº plantas*) is grado-structured in the NNUU **Compendio 2025 (24-09-2025)** PDF, unsourced (see [`ENVELOPE.md`](./ENVELOPE.md)). *(BLOCKED on human sourcing.)*
 4. **H4/H5** — confidence stamping (shared) + a human signs `sources/VERIFICATION.md` (L-449) → heights graduate to verified. *(NOT STARTED.)*
 
 A fabricated height is never emitted (§CONTEXT-DATA-HONESTY).

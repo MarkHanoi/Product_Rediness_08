@@ -4,6 +4,13 @@
 today:** ≈ 0% · **Realistic engine ceiling:** ~60–62% of residential clicks · **Gap to Denmark
 (~96%):** ~28 pts · **Last updated:** 2026-07-24 · **Owner:** UNASSIGNED
 
+> 🔴 **PHASE ORDER IS NOT DECIDED (2026-07-31).** The phase *table* below is a work inventory, **not a
+> sequence**. Across seven founder captures the "highest-value next step" moved **five times** and NZ 1
+> travelled from 2nd to last. The material resolution is that **NZ 1 splits in two** — the engine/wiring
+> piece (engineering-only, can go early) and its legal semantics (extraction-blocked, naturally late).
+> **The sequencing call is the founder's and is recorded as OPEN in [`NEXT.md`](./NEXT.md) §3.** Do not
+> read the phase numbers as an execution order.
+
 > ⚠ Madrid has two numbers and they must not be conflated. **68%** is the DATA-readiness rate (how
 > much is structured/machine-readable in principle — the fixed metric). **~0% today / ~60–62% ceiling**
 > is PRYZM's ENGINE resolution (what actually ships an envelope). The gap between them is wiring +
@@ -37,7 +44,7 @@ is envelopes, and the envelope ceiling is ~62%.
 > **What still holds the ~62% envelope ceiling in place, unchanged:** the *parametric scalars* for
 > NZ 4/8/5/7 (fondo edificable, retranqueos, altura) are **absent from GIS** — no
 > ALTURA/FONDO/RETRANQUEO attribute exists on any of the six services, and there are no coded-value
-> domains — so those numbers still need the Compendio 2023 Cap. 8.x human read. Net: Madrid can reach
+> domains — so those numbers still need the **Compendio 2025 (24-09-2025)** Cap. 8.x human read. Net: Madrid can reach
 > the ceiling **without any further routing/geometry research**; the only remaining research is the
 > bounded parametric-number PDF read for four zones plus the NZ-1 `COEF_Z` legend.
 
@@ -53,8 +60,8 @@ Status vocabulary is FIXED: **NOT STARTED · IN PROGRESS · BLOCKED · SHIPPED �
 |---|---|---|---|---|---|---|
 | **0** | Assess — live ArcGIS probe of `pgoum97`; rule-kind decision per NZ; write RATE.md | the honest baseline + the four rule kinds | — → 0% (SPEC) | done | **VERIFIED** (`findings/L-608-MADRID-PACK-SPEC.md`) | UNASSIGNED |
 | **1** | **NZ 3** `derived-plan` refusal (volumetría específica) | a cited "no envelope — see the per-parcel ficha" answer; +the ~35% derived-ámbito refusals | 0% → 0% envelopes (but cited answers ship) | Low | **NOT STARTED** (authorable now, copy in `sources/SOURCES.md`) | UNASSIGNED |
-| **2** | **`explicit-area` engine branch + NZ 1 ringRef resolver** (KG-4) | NZ 1's live footprint+`COEF_Z` data becomes a shipped envelope; reusable for every footprint-publishing jurisdiction | 0% → the NZ 1 core share | Medium (one engine unit) | **BLOCKED** on the KG-4 engine work + the `explicitAreaFootprint` interface-field fix (pre-existing tsc defect) | UNASSIGNED |
-| **3** | **NZ 4** `alignment` — source *fondo edificable* per grado (NNUU Compendio 2023 Cap. 8.4), L-449 | the dominant central-Madrid residential envelope; `Alineaciones` layer already published | → most of the ~62% ceiling | High (human read, per grado) | **NOT STARTED** — DOCUMENT-gated | UNASSIGNED |
+| **2** | **`explicit-area` engine branch + NZ 1 ringRef resolver** (KG-4) | NZ 1's live footprint+`COEF_Z` data becomes a shipped envelope; reusable for every footprint-publishing jurisdiction | 0% → the NZ 1 core share | Low (wiring only) | **SOLVER + PROVIDER SHIPPED** (`findings/L-608-*-SHIPPED.md`); residual = a same-origin proxy + the 🔴 one-line `explicitAreaFootprint` interface fix (a build-breaking tsc defect masked by green tests) + registering codes `1.1`…`1.6` + L-449. **No research required.** | UNASSIGNED |
+| **3** | **NZ 4** `alignment` — source *fondo edificable* per grado (NNUU **Compendio 2025 (24-09-2025)** Cap. 8.4), L-449 | the dominant central-Madrid residential envelope; `Alineaciones` layer already published | → most of the ~62% ceiling | High (human read, per grado) | **NOT STARTED** — DOCUMENT-gated | UNASSIGNED |
 | **4** | **NZ 8 (+5, 7)** `setback` — source retranqueos per grado, L-449 | detached/open residential envelopes | → toward ceiling | High (human read) | **NOT STARTED** — DOCUMENT-gated | UNASSIGNED |
 | **5** | ~~Re-verify `PG_ORDENACION` live~~ + `COEF_Z` parse under assertion | calificación endpoint **RESOLVED** — the master `NORMAS_ZONALES/0` layer (`AMB_TX_ETIQ`, all-zone, spatial) is live + verified; NZ-1 code = `1.1…1.6` (not placeholder `NZ1`); `COEF_Z` semantics still need one legend read | confidence, not resolution | Low | **VERIFIED (routing) · COEF_Z legend NOT STARTED** (`findings/MADRID-DATA-RECON-SPIKE.md`) | UNASSIGNED |
 | **cert** | Per-NZ L-449 sign-off (`sources/VERIFICATION.md` — currently DRAFT, nothing signed) | moves packs to shippable; **re-derives the rate** | — | parallel | **NOT STARTED** | UNASSIGNED |
@@ -68,7 +75,7 @@ Status vocabulary is FIXED: **NOT STARTED · IN PROGRESS · BLOCKED · SHIPPED �
 - **(a) Numbers in PDFs — but only for NZ 4/8/5/7.** Unlike Barcelona, Madrid's problem is *narrower*:
   the calificación code and the NZ 1 footprint are already structured, so only the parametric-zone
   scalars (fondo, retranqueos, altura) need transcription + the L-449 gate. That is a bounded human
-  read of the Compendio 2023, not an open-ended OCR programme.
+  read of the Compendio 2025, not an open-ended OCR programme.
 - **(b) Fragmentation — the derived-ámbito ~35%.** APR/APE/API/Plan Parcial land points at per-site
   documents PRYZM does not hold — the same shape as Barcelona clau 18, and it caps the envelope ceiling
   at ~62% by construction.
@@ -83,7 +90,7 @@ narrows the gap.
 
 ## 4 — Dependencies, blockers, and cross-jurisdiction reuse
 
-- **Blocked:** Phase 2 on the KG-4 engine work — the `explicit-area` solver branch does not exist
+- **⚠ CORRECTED 2026-07-31 — Phase 2 is NOT blocked on the solver: it SHIPPED.** The older text below is superseded; the founder corpus (batches 2/4/5/6) is also stale on this point. The residual is wiring + one interface field. Historical claim: the `explicit-area` solver branch does not exist
   (declared in the schema, no engine branch), and the discriminated-union solver is exhaustive so
   adding NZ 1 is a compile error until the branch lands. Plus the `ComputeBuildableEnvelopeInput.
   explicitAreaFootprint` interface-field fix (a pre-existing tsc defect, engine owner).

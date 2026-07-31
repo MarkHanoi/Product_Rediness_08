@@ -24,10 +24,33 @@ registered) until this file records a human sign-off (the L-449 gate).**
 | V6 | NZ 1 ring = `PG_CONDICIONES_EDIFICACION/6`; `COEF_Z` is a coded **String** | direct `?f=json` + `/query` | 2026-07-23 | ✅ **VERIFIED-LIVE** (shape only — see §2 for meaning) |
 | V7 | No `ALTURA`/`PLANTAS`/`FONDO`/`RETRANQUEO` attribute or coded-value domain on **any** PGOUM-97 service | full field inventory across six services | 2026-07-24 | ✅ **VERIFIED-NEGATIVE** — the parametric numbers are genuinely not in GIS |
 | V8 | `PG_ORDENACION` outage was transient | re-probe → HTTP 200, 17 layers | 2026-07-24 | ✅ **VERIFIED** — supersedes the "service is down" claim in older files |
+| V9 | **Two distinct Compendio consolidations are live simultaneously** — July 2025 on `geoportal`, September 2025 on `transparencia` | `curl -I` on both; distinct sizes and `Last-Modified` | 2026-07-31 | ✅ **VERIFIED** — settles C-6/C-16 by fetching, not by counting mentions |
+| V10 | 🔴 `geoportal.madrid.es` serves the **superseded** July edition with no on-page signal | ↑ same | 2026-07-31 | ✅ **VERIFIED HAZARD** — cite transparencia, never geoportal |
+| V11 | `CODMANZANA` is **not** a Catastro refcat substring; the planning join is spatial | tested against three real refcats | 2026-07-24 | ✅ **VERIFIED-NEGATIVE** — confirms batch 3's negative claim, but does **not** settle whether a Catastro connector is needed (`SOURCES.md` §G2) |
 
 **What §1 does NOT establish:** any numeric rule value, any article number, `COEF_Z`'s meaning, the
-cause of the 2/6/10/11 absence, NZ 9's identity, NZ 5's rule kind, any land-share figure, or any
-licence grant. Those are §2 and §3.
+cause of the 2/6/10/11 absence, NZ 9's identity, NZ 5's rule kind, any land-share figure, any licence
+grant, or the contents of any of the four unprobed layers. Those are §2, §1a, and §3.
+
+---
+
+## §1a — CHEAP PROBES still open (agent-performable, no ordinance read, none run)
+
+These cost one query each and would each retire a documented unknown. **None has been run.** They are
+listed here rather than in §2 because a human legal reader is *not* required.
+
+| # | Probe | Retires |
+|---|---|---|
+| P1 | Query `NORMAS_ZONALES/0` returning `AMB_TX_ETIQ` **and** `AMB_TX_DENOM` for all 34 codes | C-7 — the `officialDesignation` gap (⚠ does **not** move C63 Axis 2) |
+| P2 | Unfiltered `returnCountOnly` on `NORMAS_ZONALES/0` + read the Compendio Título VIII table of contents | C-5/C-9 — whether zones 2/6/10/11 leave parcels routing nowhere |
+| P3 | `?f=json` field inventory on `PG_ANALISIS_EDIFICACION` | C-17 — does the existing-building layer exist, and with what fields |
+| P4 | `?f=json` field inventory + a sample `query` on `PG_EDIFICIOS_PROTEGIDOS` | whether protection **replaces** or **modifies** the envelope (`SOURCES.md` §E) |
+| P5 | `?f=json` + legend read on `PG_USOS_Y_ACTIVIDADES` | the coded use matrix |
+| P6 | Retrieve an `Alineaciones` polyline near a known NZ-4 parcel | whether the official line is usable as the NZ-4 depth reference |
+| P7 | Re-check for any Compendio edition **later than 24-09-2025** | `readFrom` staleness (V9 residual) |
+
+⚠ A probe that returns **empty** must be recorded as `MEASURED-EMPTY`, not as absence — and never as
+`0`. Run `returnCountOnly` unfiltered before believing any zero.
 
 ---
 
@@ -119,6 +142,15 @@ LEGISLATION axis is a **measured 0 %**, not `not-assessed`. See [`../RATE.md`](.
 
 **2026-07-31 (Phase-4 documentation pass, this pass)**
 - No NZ 4/5/7/8/9 numeric value was sourced. All remain `null` / `not extracted`.
+- **Neither Compendio PDF was opened.** Only identity, size, and reachability were verified (V9).
+  Nothing in either document has been read, and no check was made for an edition later than
+  24-09-2025.
+- **None of P1–P7 (§1a) was run.** `AMB_TX_DENOM`, `PG_ANALISIS_EDIFICACION`,
+  `PG_USOS_Y_ACTIVIDADES`, `PG_EDIFICIOS_PROTEGIDOS`, and `PG_GESTION/Alineaciones` remain
+  **asserted, unqueried hypotheses** — every field name attributed to them is unverified.
+- The Catastro-connector question (`SOURCES.md` §G2) was **not** settled; both positions stand.
+- The NZ-1 sequencing question was **not** settled — it is recorded as the founder's open call
+  (`../NEXT.md` §3).
 - `COEF_Z` semantics and denominator remain unverified; the field stays quarantined.
 - The cause of the zones 2/6/10/11 absence was **not** determined — three candidates stand.
 - NZ 9's name, chapter, and rule kind were **not** determined.
