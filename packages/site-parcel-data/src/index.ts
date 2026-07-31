@@ -69,6 +69,26 @@ export {
     DK_PERIMETER_BLOCK_STUDY_CAVEAT,
 } from './rulepacks/dkPerimeterBlock.js';
 
+// ── §L-619 / DK gap G6 — the DENMARK FOOTPRINT-PLACEMENT RESOLVER. ──
+// Decides WHERE a building may stand on a Danish parcel under the G6 source hierarchy
+// (binding byggefelt → byggelinjer → cited lokalplan depth → conservative block study → REFUSE),
+// and stamps the resulting `placement` / `openSpace` provenance onto the solved envelope. The
+// engine stays jurisdiction-agnostic (ADR-0279 §2) — this is the DK slot that keeps it that way.
+export {
+    resolveDkEnvelopePlacement,
+    applyDkPlacement,
+    DK_BYGGEFELT_RING_REF,
+    type DkByggefelt,
+    type DkByggefeltBinding,
+    type DkLokalplanDepth,
+    type DkPlacementInputs,
+    type DkPlacementResolution,
+    type DkPlacementDiagnostic,
+    type DkPlacementTier,
+    type DkPlacementRefusalReason,
+    type DkTierOutcome,
+} from './rulepacks/dkEnvelopePlacement.js';
+
 // L-402 — the compliance "explain-why" report model (pure; explains an envelope, never recomputes it).
 export {
     buildComplianceReport,
