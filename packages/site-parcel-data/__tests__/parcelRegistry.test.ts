@@ -17,8 +17,14 @@ describe('resolveParcelJurisdiction — cadastral routing (live-probed open cada
         ['Amsterdam → PDOK', 52.373, 4.8925, 'pdok-nl'],
         ['Oslo → Kartverket', 59.9139, 10.7522, 'geonorge-no'],
         ['Düsseldorf → ALKIS NRW', 51.2277, 6.7735, 'alkis-nrw'],
-        ['Copenhagen → Matriklen (credential-gated, still routed cadastral)', 55.6761, 12.5683, 'matrikel-dk'],
+        ['Copenhagen → Matriklen (deferred stub, still routed cadastral)', 55.6761, 12.5683, 'matrikel-dk'],
         ['Zürich → swisstopo AV (federal identify, keyless)', 47.3769, 8.5417, 'swisstopo-av'],
+        // L-650 Phase-4 batch (proxy-pending → route cadastral now, fetch falls to OSM until wired).
+        ['Rome → Agenzia Entrate (national INSPIRE cadastre)', 41.9028, 12.4964, 'agenzia-entrate'],
+        ['Antwerp → GRB (Flanders, before NL+FR)', 51.2194, 4.4025, 'flanders-grb'],
+        ['Helsinki → MML (Finland, before NO which encloses it)', 60.1699, 24.9384, 'mml'],
+        ['London → HMLR INSPIRE (England, before FR)', 51.5074, -0.1278, 'gb-os-inspire'],
+        ['New York City → MapPLUTO (no overlap with any box)', 40.7128, -74.006, 'nyc-pluto'],
     ];
     for (const [name, lat, lon, providerId] of cadastral) {
         it(name, () => {
@@ -47,8 +53,8 @@ describe('resolveParcelJurisdiction — documented footprint-fallback jurisdicti
 });
 
 describe('resolveParcelJurisdiction — universal footprint + never-throws', () => {
-    it('New York routes to the universal footprint (no cadastre wired)', () => {
-        const j = resolveParcelJurisdiction(40.7128, -74.006);
+    it('a US point outside NYC (Chicago) routes to the universal footprint (no cadastre wired)', () => {
+        const j = resolveParcelJurisdiction(41.8781, -87.6298);
         expect(j).toBe(UNIVERSAL_FOOTPRINT_JURISDICTION);
         expect(j.kind).toBe('footprint-fallback');
     });
@@ -79,6 +85,12 @@ describe('resolveParcelJurisdiction — universal footprint + never-throws', () 
     });
     it('lists all registered jurisdictions (cadastral + fallback)', () => {
         const codes = listParcelJurisdictions().map((j) => j.regionCode);
-        expect(codes).toEqual(expect.arrayContaining(['ES', 'FR', 'NL', 'NO', 'DE-NW', 'DE', 'CH', 'DK', 'SA']));
+        expect(codes).toEqual(
+            expect.arrayContaining([
+                'ES', 'FR', 'NL', 'NO', 'DE-NW', 'DE', 'CH', 'DK', 'SA',
+                // L-650 Phase-4 batch.
+                'IT', 'BE-VLG', 'GB-ENG', 'FI', 'US-NY-NYC',
+            ]),
+        );
     });
 });

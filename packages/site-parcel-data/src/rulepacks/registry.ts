@@ -123,6 +123,12 @@ import {
     cornellaUnverifiedRefusal,
 } from './esCornella.js';
 import { CORNELLA_BBOX, isInCornella } from '../providers/cornellaBbox.js';
+// ── L-449 SIGNED — Denmark (national, Plandata.dk). The FIRST fully-automated jurisdiction: its
+//    buildable-envelope pack is resolved LIVE per parcel (`dkPlandataResolvedPack`) by the L5 DK
+//    dispatch, so it registers with an EMPTY `packsByZone` and exists here to light the C60 coverage
+//    globe. `DK_PLANDATA_JURISDICTION_ID` names the same jurisdiction the live DK ZoningRecord carries.
+import { DK_PLANDATA_JURISDICTION_ID } from './dkPlandataEnvelope.js';
+import { DENMARK_BBOX, isInDenmark } from '../providers/denmarkBbox.js';
 
 /** The jurisdiction id Barcelona packs and records use. One constant, not a scattered literal. */
 export const BCN_JURISDICTION_ID = 'es-08019-barcelona';
@@ -623,6 +629,35 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         refusalFor: () => null,
         noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
             cornellaUnverifiedRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
+    },
+    // ── L-449 SIGNED (Denmark, national) — Plandata.dk → buildable envelope, the FIRST fully-automated
+    //    (OFFLINE-legislation) jurisdiction. UNLIKE the ES refusal-jurisdictions above, Denmark
+    //    genuinely ANSWERS with real structured numbers — but its pack is resolved LIVE, PER PARCEL,
+    //    from the Plandata WFS attributes by the L5 dispatch (`applyDkZoningThenFallback` →
+    //    `dkPlandataResolvedPack`), not from a static zone-code table. So `packsByZone` is deliberately
+    //    EMPTY and this registration's job is to LIGHT THE C60 COVERAGE GLOBE (Denmark is covered).
+    //    The per-parcel HONEST outcomes (no-numbers / no-plan / unreachable refusals) are owned by that
+    //    dispatch path, which does NOT consult `resolveZoneDisposition`; hence `refusalFor` returns null
+    //    and no coverage-gap `noRulePackRefusal` is declared (a DK parcel is never handed the generic
+    //    estimated fallback — the DK dispatch answers or honestly refuses it).
+    {
+        jurisdictionId: DK_PLANDATA_JURISDICTION_ID, // 'dk'
+        displayName: 'Denmark (Plandata.dk)',
+        countryCode: 'DK',
+        countryName: 'Denmark',
+        // ⚠ THE SAME OBJECT/FUNCTION the DK dispatch routes on — imported, not restated.
+        extent: DENMARK_BBOX,
+        contains: isInDenmark,
+        answerSummary:
+            'National Plandata.dk structured planning attributes → a buildable envelope under the ' +
+            'L-449 signed BR18 §168–186 mapping (FAR = bebyggelsesprocent/100 with the density-scope ' +
+            'caveat honoured; maximum height + storeys pass through). Resolved LIVE per parcel; when a ' +
+            'plan publishes no renderable number (or none is adopted at the point) PRYZM refuses ' +
+            'honestly, never an estimate.',
+        // Resolved live per-parcel via `dkPlandataResolvedPack` — no static zone-code pack table.
+        packsByZone: packMap(),
+        // The live DK dispatch owns the per-parcel refusal outcomes; the registry path has no live plan.
+        refusalFor: () => null,
     },
 ];
 

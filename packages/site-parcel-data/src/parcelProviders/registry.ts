@@ -45,6 +45,15 @@ import {
     isInDenmark,
     isInSaudiArabia,
 } from './countryBbox.js';
+// L-650 Phase-4 batch — the new cadastral predicates live in their own provider modules (each
+// provider owns its bbox + WFS/CRS knowledge, so the predicate ships beside the parser it gates).
+// Imported here purely for ROUTING. ⚠ These coarse boxes DO overlap existing jurisdictions at
+// borders — see the `// TODO: bbox-intersection + priority-fallback` note on PARCEL_JURISDICTIONS.
+import { isInItaly } from './agenziaEntrateParcelProvider.js';
+import { isInFlanders } from './flandersGrbParcelProvider.js';
+import { isInNYC } from './nycPlutoParcelProvider.js';
+import { isInFinland } from './mmlParcelProvider.js';
+import { isInEngland } from './gbOsInspireParcelProvider.js';
 
 /** How a click resolves to parcel geometry. */
 export type ParcelProviderKind = 'cadastral' | 'footprint-fallback';
@@ -82,6 +91,23 @@ export interface ParcelJurisdiction {
  * A misroute to a neighbour's CADASTRAL proxy is self-correcting (that proxy returns null for a
  * point outside its territory → the client falls to the footprint), so the only hard requirement
  * is that each country's INTERIOR routes to its own cadastre — which the tightened boxes ensure.
+ *
+ * ── L-650 Phase-4 batch (IT / BE-Flanders / GB-England / FI / US-NYC) — READ THE ORDERING ──────
+ * The four European additions are COARSE rectangles that overlap the interiors of existing broad
+ * boxes, so first-match order is load-bearing and they are placed to protect the NEW cadastre's core:
+ *   • BE-Flanders, GB-England, FI are placed BEFORE FR/NL/NO because each is enclosed by one of them
+ *     (FI sits ENTIRELY inside NORWAY_BBOX; Flanders inside NL+FR; England's south coast inside FR).
+ *     Placing them first routes Antwerp/Ghent, London/Brighton and Helsinki to their OWN cadastre.
+ *   • IT is placed AFTER CH (so Bern/Lugano keep swisstopo) and after FR (Nice keeps IGN); the NW
+ *     Italian border strip west of 8.3°E (Turin) is the self-correcting casualty.
+ *   • US-NYC has NO overlap with any box (Western hemisphere) — position is free.
+ * ⚠ KNOWN BORDER REGRESSIONS from these coarse boxes (documented, self-correcting to the footprint,
+ * NOT a real cadastre): the Dutch SE strip inside FLANDERS_BBOX (Eindhoven/Maastricht), the NE
+ * Norwegian Finnmark inside FINLAND_BBOX (Kirkenes), and Calais inside ENGLAND_BBOX now route to the
+ * NEW (proxy-pending) provider → null → footprint instead of their own live cadastre.
+ * // TODO: bbox-intersection + priority-fallback — replace this first-match ordering with a real
+ * // per-point priority resolver (try the most-specific cadastre, fall THROUGH to the next box on a
+ * // null result instead of straight to the footprint) or polygon gates. Additive rows only for now.
  */
 const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
     {
@@ -93,6 +119,58 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         kind: 'cadastral',
         contains: isInSpain,
         note: 'OVC reverse-geocode + INSPIRE WFS GetParcel — keyless, live (the original L-380 pilot).',
+    },
+    {
+        // BE-Flanders BEFORE FR + NL: Flanders' core (Antwerp/Ghent/Brussels enclave) sits inside
+        // both FRANCE_BBOX and NETHERLANDS_BBOX, so this must win first to route them to GRB. The
+        // Dutch SE strip (Eindhoven/Maastricht) is the documented self-correcting casualty.
+        regionCode: 'BE-VLG',
+        countryName: 'Belgium (Flemish Region)',
+        providerId: 'flanders-grb',
+        label: 'GRB (Belgium · Flanders · Digitaal Vlaanderen)',
+        proxyPath: '/api/parcel/be-vlg',
+        kind: 'cadastral',
+        contains: isInFlanders,
+        note: 'GRB Adp (administratieve percelen) — CAPAKEY + NIScode + geometry, EPSG:31370 → WGS84, open data (no key). FLANDERS ONLY: Brussels (CoBAT/UrbIS) + Wallonia (CoDT/PICC) are different systems; a Brussels/Wallonia click returns no ADP feature → footprint. ⚠ Proxy /api/parcel/be-vlg not yet wired server-side → resolves null → OSM footprint until then.',
+    },
+    {
+        // GB-England BEFORE FR: England's south coast (Brighton/Portsmouth/Plymouth) sits inside
+        // FRANCE_BBOX, so this must win first. Calais (inside ENGLAND_BBOX) is the reverse casualty.
+        // `kind:'cadastral'` is for ROUTING only — the ownership general-boundary honesty + MEDIUM
+        // confidence cap live in the parcel resolver (generalBoundary:true), NEVER scored HIGH.
+        regionCode: 'GB-ENG',
+        countryName: 'United Kingdom (England)',
+        providerId: 'gb-os-inspire',
+        label: 'HM Land Registry INSPIRE (England · ownership, general boundaries)',
+        proxyPath: '/api/parcel/gb',
+        kind: 'cadastral',
+        contains: isInEngland,
+        note: 'HMLR INSPIRE Index Polygons (freehold ownership INDEX extents, OGL v3), EPSG:27700 → WGS84. ⚠ OWNERSHIP with GENERAL BOUNDARIES (s.60 LRA 2002) — NOT a survey cadastre; confidence capped MEDIUM (generalBoundary:true), NEVER survey-grade like FR/ES/DK/CH. Per-LPA ATOM/GML download — proxy must aggregate/serve a point query. CONVERGENT-SECONDARY: endpoint + OGL redistribution NOT live-probed. ⚠ Proxy /api/parcel/gb not yet wired → null → OSM footprint until then.',
+    },
+    {
+        // FI BEFORE NO: FINLAND_BBOX sits ENTIRELY inside NORWAY_BBOX (Kartverket's box reaches
+        // 31.3°E), so Helsinki/Tampere/Rovaniemi would misroute to Norway without this precedence.
+        // NE Norwegian Finnmark (Kirkenes) inside FINLAND_BBOX is the self-correcting casualty.
+        regionCode: 'FI',
+        countryName: 'Finland',
+        providerId: 'mml',
+        label: 'Kiinteistörekisteri (Finland · Maanmittauslaitos)',
+        proxyPath: '/api/parcel/fi',
+        kind: 'cadastral',
+        contains: isInFinland,
+        note: 'MML kiinteisto-avoin OGC API Features (PalstanSijaintitiedot), EPSG:3067 → WGS84. KEY-GATED (self-service): needs a free MML_API_KEY (create at omatili.maanmittauslaitos.fi) carried server-side by the proxy as HTTP Basic (key as username / blank password). Resolves real Finnish parcels once the key is set; else null → OSM footprint. Åland excluded.',
+    },
+    {
+        // US-NYC — no overlap with any box (Western hemisphere); position is free. Ordered here
+        // BEFORE any future coarser US/footprint entry, per the nycPlutoParcelProvider note.
+        regionCode: 'US-NY-NYC',
+        countryName: 'United States (New York City)',
+        providerId: 'nyc-pluto',
+        label: 'MapPLUTO (NYC · Dept. of Finance + City Planning)',
+        proxyPath: '/api/parcel/us-nyc',
+        kind: 'cadastral',
+        contains: isInNYC,
+        note: 'NYC DCP MapPLUTO lot FeatureServer (BBL) — tax-lot polygon + ZoneDist1 + ResidFAR/CommFAR/FacilFAR + LotArea, keyless. // PROBE: verify the ArcGIS FeatureServer path live before prod (Socrata 64uk-42ks probed 2026-07-24). ⚠ Proxy /api/parcel/us-nyc not yet wired → null → OSM footprint until then.',
     },
     {
         regionCode: 'FR',
@@ -152,6 +230,19 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         note: 'api3.geo.admin.ch identify ch.kantone.cadastralwebmap-farbe → Esri-JSON rings; real Grundstück carrying egris_egrid (CH119192997709 @ Zürich), local number (AA8048), canton ak — keyless, all-canton (ZH + GE live-verified 2026-07-26). geo.admin.ch FSDI terms: free + commercial OK + fair-use (~20 req/min avg) + attribution © swisstopo + canton. See ch/findings/ZURICH-PARCEL-SOURCE.md.',
     },
     {
+        // IT AFTER CH (Bern/Lugano keep swisstopo — ITALY_BBOX would otherwise swallow them) and
+        // after FR (Nice keeps IGN). The NW Italian border strip west of 8.3°E (Turin) is the
+        // self-correcting casualty. Italy's interior (lon > 8.3°E) routes here regardless of order.
+        regionCode: 'IT',
+        countryName: 'Italy',
+        providerId: 'agenzia-entrate',
+        label: 'Catasto (Italy · Agenzia delle Entrate)',
+        proxyPath: '/api/parcel/it',
+        kind: 'cadastral',
+        contains: isInItaly,
+        note: 'Agenzia delle Entrate INSPIRE Cartografia Catastale WFS 2.0 (CP:CadastralParcel), EPSG:6706 (ETRS89 ≈ WGS84 at BIM scale, no reprojection), keyless CC BY 4.0, verified-live 2026-07-24 (Rome/H501, Milan/F205, Turin/L219). AP Trento + Bolzano excluded (own Catasto tavolare / Libro Fondiario). ⚠ Proxy /api/parcel/it not yet wired server-side → resolves null → OSM footprint until then.',
+    },
+    {
         regionCode: 'DE',
         countryName: 'Germany (other Länder)',
         providerId: 'footprint',
@@ -162,12 +253,13 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         note: 'ALKIS outside NRW is per-Land licence-gated (no keyless national WFS). Footprint fallback until a per-Land open WFS or a licence is wired.',
     },
     {
-        // L-613 Denmark slice — WIRED as a cadastral clone of Catastro, credential-gated. The
-        // Matrikel is not keyless (all anonymous probes → HTTP 404, Datafordeler's unauthenticated
-        // response; host reachable at 87.60.242.40), so `server/dkMatrikelProxy.js` carries a free
-        // Datafordeler service-user server-side. With the credential set, a Copenhagen click returns
-        // a REAL Danish parcel (same flow as a Spanish one); WITHOUT it the proxy returns null and
-        // the client falls to the OSM footprint — graceful, never a crash, never a guess.
+        // L-449 (founder ruling 2026-07-30) — Denmark is now a DEFERRED STUB, not a credential-gated
+        // clone. Bootstrapping a Datafordeler ADMIN account requires a Danish MitID identity (the same
+        // access-gate class that blocks the Swedish BankID path), which PRYZM cannot obtain — so there
+        // will be no live Matriklen parcel access. `dkMatrikelParcelProvider` conforms to the canonical
+        // shape but NEVER attempts a live fetch and returns null → the registry falls to the OSM
+        // footprint. The `// DEFERRED:` seam is a single-method swap the day an admin bootstrap exists.
+        // (The OFFLINE legislation half — the Plandata → envelope mapping — is SIGNED and needs no data.)
         regionCode: 'DK',
         countryName: 'Denmark',
         providerId: 'matrikel-dk',
@@ -175,7 +267,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/dk',
         kind: 'cadastral',
         contains: isInDenmark,
-        note: 'Datafordeler Matrikel WFS (mat:Jordstykke), EPSG:25832 → WGS84. CREDENTIAL-GATED: needs a free Datafordeler service user (DATAFORDELER_USERNAME/PASSWORD) carried server-side by the proxy — not keyless (anonymous probes returned HTTP 404). Wired as a Catastro clone; resolves real parcels once the credential is set.',
+        note: 'Datafordeler Matrikel WFS (mat:Jordstykke), EPSG:25832 → WGS84 — DEFERRED STUB (L-449, founder-ruled 2026-07-30): a Datafordeler admin bootstrap is MitID-gated (same class as SE BankID), unobtainable, so the provider never attempts live access and returns null → OSM footprint (graceful, honestly labelled a footprint, never a legal parcel). Single method-body swap-in when access lands. The signed OFFLINE legislation half (Plandata → buildable envelope) is separate and complete.',
     },
     {
         regionCode: 'SA',
