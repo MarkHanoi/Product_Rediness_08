@@ -1,6 +1,6 @@
 # Germany — PDF ingestion stack (WP1–WP6): build + live corpus measurement
 
-> **Status:** IN PROGRESS (written as measured, not after the fact) · **Started:** 2026-07-31
+> **Status:** COMPLETE for WP1-WP6 as scoped (written as measured, not after the fact) · **Date:** 2026-07-31
 > **Scope:** the four ingestion layers between a Berlin plan id and parseable German text
 > **Code:** `packages/ordinance-extraction/src/ingest/**` (pure) · `tools/ordinance-ingest/**` (I/O adapters)
 > **Governs:** supersedes the ingestion assumptions in `de-be/11000-berlin/EXTRACTION-PIPELINE.md` §3/§4
@@ -260,19 +260,60 @@ minimum gap; a 429 backs this process off from the **whole host**, honouring `Re
   corpus can be re-classified without re-downloading): a page is a *text page* at ≥ 100 chars;
   a document is `born-digital-text` at ≥ 90 % text pages, `scanned` below 10 %, `hybrid` between.
 
-### Results
+### 6.1 — RESULTS (VERIFIED, 2026-07-31)
 
-> ⏳ **RUN IN PROGRESS at time of writing.** Final counts and the actual n are filled in at §6.1
-> below when the run completes. Interim figures are deliberately NOT reported as the headline —
-> a partial sample stated as a result is how a statistic becomes a rumour.
+**The sample requested was 500. The sample actually examined was 258. This section reports 258.**
+The run was bounded by a wall-clock budget, and per-host serialisation (the fix above) makes each
+document take seconds rather than milliseconds — deliberately. A smaller honest n beats a larger
+claimed one.
+
+| | Count | Share of **classified** |
+|---|---:|---:|
+| **born-digital text** | **158** | **63.2 %** |
+| **hybrid** | **0** | **0.0 %** |
+| **scanned** | **92** | **36.8 %** |
+| empty | 0 | 0.0 % |
+| **Classified (the statistic's denominator)** | **250** | 100 % |
+| Unclassified — *not examined, not scans* | 8 | — |
+| ↳ rate-limited 4 · http-not-found 2 · network-error 1 · http-error 1 | | |
+| **Attempted (n)** | **258** | — |
+
+- **Download success: 250 / 258 = 96.9 %** (target was 95 %). Before per-host throttling it was 31 %.
+- Volume actually read: **14,015 pages, 35,916,752 characters**.
+
+**Striking result: ZERO hybrids.** Across 250 documents not one landed between 10 % and 90 %
+text pages. Berlin's Begründung corpus is **strictly bimodal** — a document either has a full
+text layer or none at all. That is a genuinely useful property: routing is a clean binary
+decision, with no partial-document salvage tier to build.
+
+### 6.2 — What this means for coverage (combining §2 and §6.1)
+
+| Segment of in-force Berlin B-Plans | Share | Path |
+|---|---:|---|
+| Begründung, born-digital → **text pipeline works today** | **27.4 %** | shipped |
+| Begründung, scanned → needs OCR | 15.9 % | not built |
+| Drawing only, raster (§8) → needs OCR **+** table reconstruction | 56.3 % | not built |
+| No document at all | 0.3 % | unreachable |
+
+> 🔴 **The headline coverage number: ~27 % of in-force Berlin B-Plans are reachable by the text
+> extraction pipeline as it stands.** Not 100 %, and not the 43.3 % that have a Begründung —
+> because a third of those Begründungen are scans.
+>
+> This is the honest denominator the Berlin dossier asked for ("Rate target = known denominator
+> + verified coverage, NOT 100 % extraction", EXTRACTION-PIPELINE.md §4.3). It is now known.
+
+**Method caveats, stated:**
+- Frame is the 1,231 plans **with** a `grund_www` link, not all 2,840 — percentages above are
+  re-based onto the full population explicitly in §6.2.
+- Page reads capped at 250 pages/document; documents longer than that are classified on a prefix.
+  Given zero observed hybrids, prefix bias appears negligible here, but it is not zero.
+- Thresholds (100 chars/page; 90 % / 10 % ratios) are a **choice** — carried on every record so
+  the corpus can be reclassified without re-downloading.
 
 Raw per-document records: `.cache/ordinance-ingest/characterization-seed20260731.jsonl`
 (one JSON object per document, appended as completed, so an interrupted run still yields an
-honestly-sized sample).
-
-#### 6.1 — Final tally
-
-*(pending — see above)*
+honestly-sized sample). Reproduce with
+`npx tsx tools/ordinance-ingest/characterize.ts --n 500 --seed 20260731`.
 
 ---
 
