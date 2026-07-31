@@ -52,6 +52,10 @@ export default defineConfig({
       // for the buildable-envelope flat render (confident violet vs provisional grey vs upper-bound
       // maximum-extent) — a thin adapter over the shared L2 completeness classifier.
       'apps/editor/src/ui/site/__tests__/**/*.spec.ts',
+      // §XSS-SINK-SCAN (L-407): the GA-gate HTML-sink classifier + the repo-wide
+      // ratchet assertion. Pure Node (fs + string analysis); lives here because
+      // `test:root` is the only suite CI runs over non-package tooling.
+      'tools/ga-gate/__tests__/**/*.spec.ts',
     ],
     testTimeout: 10_000,
     // Wave A18-T27: coverage reporting via @vitest/coverage-v8 (c8/Istanbul).

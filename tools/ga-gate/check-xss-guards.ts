@@ -2,188 +2,146 @@
 /**
  * @file tools/ga-gate/check-xss-guards.ts
  *
- * GA Gate — P0 XSS / innerHTML safety ratchet.
+ * GA Gate — §XSS-SINK-SCAN (L-407): repo-wide HTML-sink regression lock.
  *
- * Contract C08 §3.1 — All dynamic innerHTML assignments that interpolate
- * runtime values MUST wrap each interpolated expression in a recognised
- * safe guard:  escHtml() / escAttr() from @pryzm/ui-base,
- *              escapeHtml() (local alias used in AIPanel + marketplace-web),
- *              or DOMPurify.sanitize().
+ * Contract C08 §3.1 — every dynamic HTML-sink assignment that interpolates a
+ * runtime value MUST route that value through a recognised safety guard
+ * (`escHtml`/`escAttr`, the local `escapeHtml`/`esc`/`escape` aliases a file
+ * declares for itself, `safeHref`/`safeHttpUrl`, `safeCssColor`, or
+ * `DOMPurify.sanitize`). See `lib/xssSinkScan.ts` for the classifier and the
+ * three structural blindnesses this gate replaces.
  *
- * Strategy (single-line assignments only — multi-line require code review):
- * ─────────────────────────────────────────────────────────────────────────
- * 1. Scan every .ts / .tsx file under SCAN_DIRS.
- * 2. For each line that contains `.innerHTML` (assignment) and `${`:
- *    a. SAFE if the line also contains an accepted guard.
- *    b. SAFE if every ${…} block on the line is provably numeric / static
- *       (e.g. .toFixed(, .length, number literals, emoji / arrow chars).
- *    c. SAFE if the line is clearly SVG-only markup (starts with <svg).
- *    d. SAFE if the interpolated variable name starts with `safe` (Wave A14
- *       convention — already manually escaped before assignment).
- *    e. SAFE if the interpolation is a boolean ternary producing only
- *       emoji / short ASCII symbol literals (toggle icons, ON/OFF, etc.).
- * 3. Anything else is a VIOLATION.
- * 4. Exit 1 if violations > RATCHET.
+ * Enforcement model — a PER-FILE RATCHET, not a global count:
+ * ─────────────────────────────────────────────────────────────────────────────
+ *   • ZERO-TOLERANCE sinks (`eval`, interpolating `new Function`, `srcdoc`,
+ *     `dangerouslySetInnerHTML`, `createContextualFragment`) fail on sight.
+ *     The repo has none today, so this is a standing guarantee, not a ratchet.
+ *   • A file with NO baseline entry may have NO unguarded interpolation. Every
+ *     new file is therefore born clean.
+ *   • A file WITH a baseline entry may not exceed it. Known debt is frozen and
+ *     can only shrink.
+ *   • Improvements are reported so the baseline gets tightened, never loosened
+ *     silently.
  *
- * Ratchet baseline (2026-05-16, after P0 hardening sprint):
- *   0 unguarded single-line innerHTML interpolations with external data.
- *   Remaining flagged sites (≤ RATCHET) are internal-config or numeric
- *   patterns that a future sprint will migrate to textContent or escHtml.
+ * A global count-ratchet cannot do this: it lets a brand-new unguarded sink in
+ * one file hide behind an unrelated fix in another.
  *
- * Usage: pnpm tsx tools/ga-gate/check-xss-guards.ts
+ * Usage:
+ *   pnpm tsx tools/ga-gate/check-xss-guards.ts            # gate
+ *   pnpm tsx tools/ga-gate/check-xss-guards.ts --update   # rewrite the baseline
+ *   pnpm tsx tools/ga-gate/check-xss-guards.ts --list     # print every finding
+ *
+ * Exit codes:
+ *   0 — clean (or within baseline)
+ *   1 — new or grown unguarded sinks
+ *   2 — gate misconfigured (scanned too few files / baseline unreadable)
  */
 
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, extname } from 'node:path';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { scanRepo, tally, diffBaseline, MIN_SCANNED_FILES, type SinkBaseline } from './lib/xssSinkWalk.js';
+import { ZERO_TOLERANCE_SINKS } from './lib/xssSinkScan.js';
 
-const ROOT = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
+// §HONESTY — `new URL(...).pathname` yields `/C:/…` on Windows, every readdir
+// then throws, the walker swallows it and the gate prints "✅ 0 violations"
+// having scanned nothing. `fileURLToPath` is the cross-platform form.
+const ROOT = fileURLToPath(new URL('../..', import.meta.url)).replace(/[\\/]$/, '');
+const BASELINE_FILE = join(ROOT, 'tools', 'ga-gate', 'xss-sink-baseline.json');
 
-// ── Ratchet ──────────────────────────────────────────────────────────────────
-// Calibrated 2026-05-16 after fixing external-data risks in:
-//   Step4AnalysisView, DataWorkbench, VariantBrowserPanel, ConflictResolution,
-//   SplitViewManager, initUI, LeftNavRail.
-// Remaining sites are internal-config labels, CSS color constants, SVG markup,
-// and numeric calculations — tracked for future escHtml / textContent adoption.
-const RATCHET = 45;
+const argv = process.argv.slice(2);
+const UPDATE = argv.includes('--update');
+const LIST = argv.includes('--list');
 
-const SCAN_DIRS = ['apps', 'packages', 'src', 'plugins'];
-const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.turbo', 'coverage', '__snapshots__']);
-const EXT_OK    = new Set(['.ts', '.tsx']);
+const { findings, filesScanned } = scanRepo(ROOT);
 
-// Accepted HTML-safety guards (recognised on the same line)
-const SAFE_GUARD_PATTERNS = [
-  'escHtml(',
-  'escAttr(',
-  'escapeHtml(',   // AIPanel + marketplace-web local alias
-  'DOMPurify.sanitize(',
-];
-
-// Numeric / safe-only interpolation detectors
-// If ALL ${…} blocks on a line match at least one of these, the line is safe.
-const NUMERIC_EXPR_PATTERNS: RegExp[] = [
-  /^\d+(\.\d+)?$/,                                         // literal numbers
-  /^[a-zA-Z0-9_.]+\.(toFixed|toLocaleString|toString)\(/, // .toFixed() etc.
-  /^(Number|parseInt|parseFloat|Math\.)\(/,                // numeric casts
-  /^[a-zA-Z0-9_.]+\.length$/,                              // .length
-  /^\([^)]+\)\s*\*\s*\d+/,                                 // arithmetic
-  /^[a-zA-Z0-9_]+\s*[><=!]+\s*\d/,                        // numeric comparison result
-];
-
-// Boolean ternary that only produces safe emoji / ASCII symbols / short words
-const SAFE_TERNARY = /^[a-zA-Z0-9_.?:\s]+\?\s*['"][^'"<>&]{1,10}['"]\s*:\s*['"][^'"<>&]{1,10}['"]$/;
-
-interface Violation {
-  file: string;
-  line: number;
-  text: string;
+// ── Coverage assertion ───────────────────────────────────────────────────────
+if (filesScanned < MIN_SCANNED_FILES) {
+  console.error(
+    `[xss-guards] ⚠ MISCONFIGURED — scanned only ${filesScanned} file(s) ` +
+    `(expected ≥ ${MIN_SCANNED_FILES}). Root resolved to: ${ROOT}\n` +
+    'Refusing to report a pass on an unscanned tree.',
+  );
+  process.exit(2);
 }
 
-function walkFiles(dir: string): string[] {
-  const results: string[] = [];
-  let entries: string[];
-  try { entries = readdirSync(dir); } catch { return results; }
-  for (const entry of entries) {
-    if (SKIP_DIRS.has(entry)) continue;
-    const full = join(dir, entry);
-    let st;
-    try { st = statSync(full); } catch { continue; }
-    if (st.isDirectory()) {
-      results.push(...walkFiles(full));
-    } else if (EXT_OK.has(extname(full))) {
-      results.push(full);
-    }
-  }
-  return results;
+if (LIST) {
+  for (const f of findings) console.log(`${f.file}:${f.line} [${f.kind}] \${${f.expr}}`);
 }
 
-function interpolations(line: string): string[] {
-  return [...line.matchAll(/\$\{([^}]+)\}/g)].map(m => m[1].trim());
-}
+const actual = tally(findings);
 
-function isSafeLine(line: string): boolean {
-  // Must be an innerHTML assignment (= or +=)
-  if (!/\.innerHTML\s*[+]?=/.test(line)) return true;
-  // Must contain template interpolation
-  if (!line.includes('${')) return true;
-
-  // Guard on same line?
-  if (SAFE_GUARD_PATTERNS.some(g => line.includes(g))) return true;
-
-  // Variables with `safe` prefix (manually pre-escaped, Wave A14 convention)
-  if (/\$\{safe[A-Z_]/.test(line)) return true;
-
-  // SVG-only line (inline SVG markup is not a script-injection vector)
-  const rhsStart = line.indexOf('`');
-  if (rhsStart !== -1 && line.slice(rhsStart + 1).trimStart().startsWith('<svg')) return true;
-
-  // Check every interpolated expression
-  const exprs = interpolations(line);
-  if (exprs.length === 0) return true;
-
-  return exprs.every(expr => {
-    // CSS color constant object access (e.g. ${C.textMuted}, ${COLORS.red})
-    if (/^[A-Z_][A-Z0-9_]*\.[a-zA-Z]+$/.test(expr)) return true;
-    // Short constant: single quoted string, emoji, symbol chars only
-    if (/^'[^'<>&]*'$/.test(expr) || /^"[^"<>&]*"$/.test(expr)) return true;
-    // Boolean ternary producing only safe symbol / word strings
-    if (SAFE_TERNARY.test(expr)) return true;
-    // Numeric expressions
-    if (NUMERIC_EXPR_PATTERNS.some(p => p.test(expr))) return true;
-    // Ternary where both branches are safe (e.g. ${isCollapsed ? '▼' : '▲'})
-    const ternaryMatch = expr.match(/^(.+?)\s*\?\s*(.+?)\s*:\s*(.+)$/);
-    if (ternaryMatch) {
-      const [, , thenBranch, elseBranch] = ternaryMatch;
-      const safeValue = (v: string) =>
-        /^'[^'<>&]{0,20}'$/.test(v.trim()) ||
-        /^"[^"<>&]{0,20}"$/.test(v.trim()) ||
-        NUMERIC_EXPR_PATTERNS.some(p => p.test(v.trim()));
-      if (safeValue(thenBranch) && safeValue(elseBranch)) return true;
-    }
-    return false;
-  });
-}
-
-const violations: Violation[] = [];
-
-for (const dir of SCAN_DIRS) {
-  const absDir = join(ROOT, dir);
-  const files = walkFiles(absDir);
-
-  for (const file of files) {
-    let src: string;
-    try { src = readFileSync(file, 'utf8'); } catch { continue; }
-
-    const lines = src.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      // Skip comment lines
-      if (/^\s*(\/\/|\/\*|\*)/.test(line)) continue;
-      // Must have innerHTML and template interpolation
-      if (!line.includes('.innerHTML') || !line.includes('${')) continue;
-
-      if (!isSafeLine(line)) {
-        violations.push({
-          file: file.replace(ROOT + '/', ''),
-          line: i + 1,
-          text: line.trim().slice(0, 130),
-        });
-      }
-    }
-  }
-}
-
-if (violations.length === 0) {
-  console.log(`[xss-guards] ✅ 0 unguarded innerHTML interpolations found. Ratchet: ${RATCHET}.`);
+if (UPDATE) {
+  const sorted: SinkBaseline = {};
+  for (const key of Object.keys(actual).sort()) sorted[key] = actual[key];
+  writeFileSync(BASELINE_FILE, JSON.stringify(sorted, null, 2) + '\n', 'utf8');
+  console.log(`[xss-guards] baseline written: ${Object.keys(sorted).length} file(s), ${findings.length} finding(s).`);
   process.exit(0);
-} else if (violations.length <= RATCHET) {
-  console.log(`[xss-guards] ✅ ${violations.length} known-safe-or-internal sites (≤ ratchet ${RATCHET}). No new violations.`);
-  process.exit(0);
-} else {
-  console.error(`[xss-guards] ❌ ${violations.length} unguarded innerHTML interpolation(s) found (ratchet: ${RATCHET}):\n`);
-  for (const v of violations) {
-    console.error(`  ${v.file}:${v.line}`);
-    console.error(`    ${v.text}`);
-  }
-  console.error('\nFix: wrap each interpolated ${expr} with escHtml(expr) from @pryzm/ui-base.');
+}
+
+if (!existsSync(BASELINE_FILE)) {
+  console.error(`[xss-guards] ⚠ MISCONFIGURED — baseline missing: ${BASELINE_FILE}\nRun with --update to create it.`);
+  process.exit(2);
+}
+
+let baseline: SinkBaseline;
+try {
+  baseline = JSON.parse(readFileSync(BASELINE_FILE, 'utf8')) as SinkBaseline;
+} catch (err) {
+  console.error(`[xss-guards] ⚠ MISCONFIGURED — baseline unreadable: ${(err as Error).message}`);
+  process.exit(2);
+}
+
+// ── Zero-tolerance sinks ─────────────────────────────────────────────────────
+const zeroTol = findings.filter((f) => ZERO_TOLERANCE_SINKS.has(f.kind));
+if (zeroTol.length > 0) {
+  console.error(`[xss-guards] ❌ ${zeroTol.length} zero-tolerance sink(s) — these are never permitted:\n`);
+  for (const f of zeroTol) console.error(`  ${f.file}:${f.line}  ${f.kind}\n    ${f.text}`);
   process.exit(1);
 }
+
+// ── Per-file ratchet ─────────────────────────────────────────────────────────
+const { newFiles, grown, shrunk, cleared } = diffBaseline(actual, baseline);
+
+if (newFiles.length > 0 || grown.length > 0) {
+  console.error('[xss-guards] ❌ new unguarded HTML-sink interpolation(s) detected.\n');
+  for (const file of newFiles) {
+    console.error(`  NEW FILE  ${file}  (${actual[file]} finding(s))`);
+    for (const f of findings.filter((x) => x.file === file)) {
+      console.error(`      :${f.line} [${f.kind}]  \${${f.expr}}`);
+    }
+  }
+  for (const g of grown) {
+    console.error(`  GREW      ${g.file}  ${g.baseline} → ${g.actual}`);
+    for (const f of findings.filter((x) => x.file === g.file)) {
+      console.error(`      :${f.line} [${f.kind}]  \${${f.expr}}`);
+    }
+  }
+  console.error(
+    '\nFix: wrap each interpolated ${expr} in escHtml() from @pryzm/ui-base ' +
+    '(or safeHref/safeHttpUrl for an href, safeCssColor for a colour), or set ' +
+    'the value with element.textContent instead of innerHTML.\n' +
+    'The baseline may only be lowered, never raised — do not run --update to silence this.',
+  );
+  process.exit(1);
+}
+
+const total = findings.length;
+if (shrunk.length > 0 || cleared.length > 0) {
+  const removed =
+    shrunk.reduce((n, s) => n + (s.baseline - s.actual), 0) +
+    cleared.reduce((n, f) => n + (baseline[f] ?? 0), 0);
+  console.log(
+    `[xss-guards] ✅ ${total} baselined finding(s) across ${Object.keys(actual).length} file(s); ` +
+    `${filesScanned} files scanned. ${removed} finding(s) FIXED since the baseline — ` +
+    'please tighten it with `--update`.',
+  );
+  if (cleared.length > 0) console.log(`             cleared: ${cleared.join(', ')}`);
+  process.exit(0);
+}
+
+console.log(
+  `[xss-guards] ✅ no new unguarded HTML-sink interpolations. ` +
+  `${total} baselined finding(s) across ${Object.keys(actual).length} file(s); ${filesScanned} files scanned.`,
+);
+process.exit(0);

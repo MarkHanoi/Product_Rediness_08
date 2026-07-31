@@ -26,7 +26,7 @@
  *   17. check-custom-event-packages.ts      — CustomEvent dispatches in packages/ (OI-048 / Phase F.events)
  *   18. check-commandmanager-any.ts         — commandManager: any typed params (OI-049 / Phase E.types)
  *   19. check-structuredclone-new-commands.ts — structuredClone undo in command-registry (OI-050 / Phase E.undo)
- *   20. check-xss-guards.ts                 — innerHTML interpolation safety ratchet (P0/OI-051)
+ *   20. check-xss-guards.ts                 — repo-wide HTML-sink scan, per-file ratchet (P0/OI-051, L-407)
  *   21. check-custom-event-apps.ts          — CustomEvent dispatches in apps/editor/src/ (OI-050 / Phase F.events.2)
  *   22. check-zoning-fidelity-label.ts      — estimated zoning value never rendered authoritative (C58 §6 / ADR-0279 BLOCKER-1)
  *
@@ -71,7 +71,7 @@ const GATES: Gate[] = [
   { name: 'custom-event-packages (OI-048/F.events)',  script: 'check-custom-event-packages.ts' },
   { name: 'commandmanager-any (OI-049/E.types)',      script: 'check-commandmanager-any.ts' },
   { name: 'structuredclone-commands (OI-050/E.undo)', script: 'check-structuredclone-new-commands.ts' },
-  { name: 'xss-guards (P0/OI-051)',                   script: 'check-xss-guards.ts' },
+  { name: 'xss-sink-scan (P0/OI-051/L-407)',          script: 'check-xss-guards.ts' },
   { name: 'custom-event-apps (OI-050/F.events.2)',    script: 'check-custom-event-apps.ts' },
   { name: 'zoning-fidelity-label (C58§6/ADR-0279)',   script: 'check-zoning-fidelity-label.ts' },
   { name: 'height-fidelity (L-646/L-647)',            script: 'check-height-fidelity.ts' },
