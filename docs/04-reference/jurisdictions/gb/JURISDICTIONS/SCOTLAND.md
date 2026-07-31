@@ -21,9 +21,18 @@ heritage adapters. Section headers mirror `ENGLAND.md`; every substantive cell i
    Sensing Portal (SRSP)** + **SEPA**. Heritage: **Historic Environment Scotland (HES)**. Nature:
    **NatureScot**. Water/flood: **SEPA**. *unprobed.*
 2. **CRS** — OSGB36 / British National Grid (EPSG:27700); ODN height datum. *unprobed.*
-3. **Parcels** — **Registers of Scotland Land Register** (ownership, map-based, general boundaries).
-   ⚠ NOT a survey cadastre. Sasine → Land Register migration incomplete. INSPIRE-equivalent index
-   TBD. *status: unprobed.*
+3. **Parcels** — **Registers of Scotland Cadastral Map / Land Register** (ownership, map-based, general
+   boundaries). ⚠ NOT a survey cadastre. Sasine → Land Register migration incomplete → registered land ≠
+   whole landscape. *status: **`wired-pending-probe`** (2026-07-31).* The provider
+   `packages/site-parcel-data/src/parcelProviders/scotlandRosParcelProvider.ts` is BUILT (a mirror of the
+   England `gbOsInspireParcelProvider.ts`): `isInScotland` + `SCOTLAND_BBOX`, `fetchParcelAtPoint` → RoS
+   Cadastral Map via the same-origin proxy `/api/parcel/gb-sct`, EPSG:27700→WGS84 with a `crs-unhandled`
+   refusal, typed refusal union (incl. `no-parcel-here` for Sasine-only / unregistered land), never-throws,
+   OTel span, 20 unit tests. **Confidence is CAPPED MEDIUM by construction** (`SctParcelMatchTier` has no
+   `high` member) + `generalBoundary:true` + cited caveat — NEVER survey-grade. **Moves NO RATE cell.**
+   Awaits (1) the orchestrator registry row (`isInScotland→gb-sct-ros`, after the England row) and (2) a
+   LIVE probe of the RoS Cadastral Map endpoint + redistribution terms (both `CONVERGENT-SECONDARY`,
+   `// PROBE:` documented-not-live).
 4. **Buildings** — OS MasterMap / OS Open Buildings (GB-wide). *unprobed.*
 5. **Height** — DERIVED via shared nDSM module; **SRSP LiDAR** (DSM − DTM P90). ⚠ no national height
    attribute. *unprobed.*

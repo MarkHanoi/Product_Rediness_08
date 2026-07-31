@@ -192,6 +192,26 @@ per-layer probe list in [`GEOSPATIAL-DATA-INVENTORY.md`](./GEOSPATIAL-DATA-INVEN
 > `CONVERGENT-SECONDARY` today — the per-LPA ATOM/GML endpoint and the proxy point-query aggregation are
 > NOT yet live-probed). Scotland (RoS) / Wales (HMLR-Wales) / NI (LPS) are the same pattern, later.
 
+> **STATUS (2026-07-31) — Scotland PARCEL axis: `wired-pending-probe`.** The Scotland provider
+> `packages/site-parcel-data/src/parcelProviders/scotlandRosParcelProvider.ts` is BUILT as a DELIBERATE
+> MIRROR of the England exemplar — `isInScotland` + `SCOTLAND_BBOX` routing predicate (54.6–60.9°N,
+> −8.7–−0.7°W), `fetchParcelAtPoint(point, deps)` → **Registers of Scotland Cadastral Map** via the
+> same-origin proxy `/api/parcel/gb-sct`, EPSG:27700→WGS84 with a `crs-unhandled` refusal (never
+> fabricated lat/lon), typed refusal union, never-throws, OTel span, unit-tested (20 tests: fixture parse
+> + the honesty cap + CRS guard + refusal vocabulary). **THE HONESTY INVARIANT IS ENCODED:** every
+> resolved parcel carries `generalBoundary: true` + a cited caveat (`GB_SCT_GENERAL_BOUNDARY_CAVEAT`,
+> Land Registration etc. (Scotland) Act 2012), and confidence is **CAPPED MEDIUM by construction** — the
+> `SctParcelMatchTier` union has NO `high` member, so Scotland can never be scored survey-grade like
+> ES/IT/CH. **Coverage honesty is encoded too:** the Sasine→Land-Register migration is incomplete, so
+> registered land ≠ the whole landscape — a Sasine-only / unregistered click returns `no-parcel-here`
+> (distinct from `endpoint-unreachable`) → the registry falls to the OSM footprint. **This moves NO RATE
+> % cell.** It stays `wired-pending-probe` until (1) the orchestrator registers `isInScotland→gb-sct-ros`
+> in `parcelProviders/registry.ts` — placed AFTER the England row so the Anglo-Scottish border band
+> (54.6–55.9°N) routes to HMLR first (the ready-to-paste row is in the provider header + the Phase-4
+> report), and (2) a LIVE probe of the RoS Cadastral Map endpoint + redistribution terms runs (both
+> `CONVERGENT-SECONDARY` today — the endpoint host, feed shape, WGS84 output, and proxy point-query
+> aggregation are `// PROBE:` documented-not-live). Wales (HMLR-Wales) / NI (LPS) are the same pattern, next.
+
 - **Goal.** Probe + wire the **HM Land Registry INSPIRE Index Polygons** (OGL, freehold ownership **index**
   extents) as a parcel-routing / footprint-fallback-plus source for England, and add a GB entry to
   `parcelProviders/registry.ts`. For the devolved jurisdictions, wire the corresponding **ownership** registry:
