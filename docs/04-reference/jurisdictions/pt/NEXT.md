@@ -3,9 +3,40 @@
 > **What this file is.** The single place recording where we stopped on Portugal, exactly why, and
 > precisely what to do to go further the moment it becomes possible — so a source or technique found
 > while working on ANY other jurisdiction can be brought straight back here.
-> **Last updated:** 2026-07-31 · **Maintainer:** UNASSIGNED
-> **Status:** RESEARCH COMPLETE — legal structure fully characterised; cadastral-regime confirmation
-> gates every city; no rule pack implemented; no live endpoints probed.
+> **Last updated:** 2026-07-31 (live-probe pass) · **Maintainer:** UNASSIGNED
+> **Status:** RESEARCH COMPLETE + **LIVE-PROBED**. Legal structure characterised; **zoning geometry
+> and cadastre endpoints now VERIFIED**; Porto's numeric rules primary-sourced; no rule pack implemented.
+
+---
+
+## 0 — ⚠ READ FIRST: this file's §3 blockers were written before any endpoint was probed
+
+The 2026-07-31 live pass **invalidated several resume steps below.** Corrections:
+
+| §  | Prescribed step | Status after live probe |
+|---|---|---|
+| **3.1** | *"Cadastral-regime confirmation is the #1 blocker; query DGT/SNIC coverage"* | **ANSWERED.** Open INSPIRE WFS `snicws.dgterritorio.gov.pt/geoserver/inspire/ows` (`numberMatched=1789404`, no auth). **Measured: Porto 0 · Braga 0 · Lisboa 1,747 (0 in core)** vs Loulé 63,834 · Penafiel 23,906 · Tavira 11,015. The blocker is **resolved as a question and confirmed as a problem.** |
+| **3.2** | *"probe `snit-mais.dgterritorio.gov.pt/geoserver/wfs`"* | **CANNOT SUCCEED.** That host returns **401** and is not a GeoServer. **The real vector route is CRUS**: `servicos.dgterritorio.pt/SDISNITWFSCRUS_<DICOFRE>_1/WFService.aspx` — VERIFIED for 1106 + 1312. Its 11 fields are **categorical only**; the question *"structured attribute or PDF link?"* is answered: **PDF.** Lisboa's schema even carries `ART_RPDM`, a pointer to an article. |
+| — | TERRAIN treated as blocked | **REFUTED** — see `COUNTRY-RATE.md` §D. |
+
+**Full evidence:** [`findings/PORTUGAL-DATA-RECON.md`](./findings/PORTUGAL-DATA-RECON.md).
+
+## 0.1 — The next five steps, in priority order
+
+1. **Email `snit.web@dgterritorio.pt`** for the `IDESTADO` / `VALIDADE` codelists and the
+   `IDDEPOSITO` grammar. Cheapest high-value item in the whole PT file. **Do not hard-code
+   `IDESTADO=2` = "in force" until it lands.**
+2. **Sweep municipal portals for a vector PDM with NUMERIC attributes.** Porto's ArcGIS is open but
+   categorical; if *any* município publishes numerics, it reorders every target. Do not assume none
+   does — only 2 municipalities were checked in depth.
+3. **Retrieve the Lisboa RPDML regulamento** and extract it (Porto's equivalent extracted cleanly —
+   text PDF, 319,459 chars). Lisboa's numeric tables are entirely UNKNOWN.
+4. **Scope Loulé** (63,834 parcels — the best cadastre sampled): pull its PDM regulamento and CRUS.
+5. **Write the C58 amendments** — `fabricDerivedHeight` (Porto's *moda da cércea*) and
+   `transferableRights` (Lisboa's *créditos de construção*, with two alíneas suspended).
+
+**Use long timeouts.** `servicos.dgterritorio.pt` took **148 s** for a GetCapabilities and returned a
+**502** at 204 s. A 30 s timeout will report it dead when it is merely slow.
 
 ---
 
