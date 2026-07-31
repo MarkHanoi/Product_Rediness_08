@@ -750,9 +750,10 @@ export interface ByggefeltTierOneInput {
     /** The self-contradictory records found in this bbox — a QA output, never silently resolved. */
     readonly conflicts: readonly PlacementEvidence[];
     /**
-     * Binding evidence that PRYZM could not adapt into a footprint, with the reason. These are OUR
-     * capability limits (multi-part, holed, unprojected), not the register's gaps, and they are
-     * reported separately so a coverage statistic never quietly absorbs them as "no data".
+     * Binding FOOTPRINTS that PRYZM could not adapt, with the reason — ONE ENTRY PER FEATURE (the
+     * feature's strongest record stands for it), not one per part. These are OUR capability limits,
+     * not the register's gaps, and they are reported separately so a coverage statistic never
+     * quietly absorbs them as "no data".
      */
     readonly unusableBinding: readonly { readonly evidence: PlacementEvidence; readonly detail: string }[];
 }
@@ -824,7 +825,11 @@ export function byggefeltResultToTierOne(result: ByggefeltFetchResult): Byggefel
         if (adapted.ok) {
             return { outcome: fetchFound(adapted.byggefelt), evidence: ranked, conflicts, unusableBinding };
         }
-        for (const e of group) unusableBinding.push({ evidence: e, detail: adapted.detail });
+        // ⚠ ONE ENTRY PER FEATURE, not per part. The refusal is now a judgement about the whole
+        // published footprint, so pushing all N parts would both inflate any coverage subtraction and
+        // make a UI print the identical sentence N times for a 95-part field. The other parts remain
+        // fully visible on `evidence`; this channel counts UNPLACEABLE FOOTPRINTS.
+        unusableBinding.push({ evidence: best, detail: adapted.detail });
     }
 
     // ── Nothing placeable. Decide DURABLE-vs-UNRESOLVED honestly. ─────────────────────────────

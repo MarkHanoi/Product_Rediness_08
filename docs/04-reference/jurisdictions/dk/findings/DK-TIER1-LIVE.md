@@ -351,10 +351,20 @@ curl -sS -A "$UA" "$U?...&startIndex=1&CQL_FILTER=BBOX(geometri,531400,6224400,5
 curl -sS "https://api.dataforsyningen.dk/jordstykker?x=531460&y=6224480&srid=25832&format=geojson"
 ```
 
-**Verification run this session:** `pnpm --filter @pryzm/site-parcel-data test` → **1415 passed**
+**Verification run this session:** `pnpm --filter @pryzm/site-parcel-data test` → **1416 passed**
 (was 1380); `npm run test:server` → +19 new, one **pre-existing** unrelated failure in
 `catastroBlock.test.ts` (verified failing on the parent commit too); root `npx tsc --noEmit` →
-**88 = 88**; `npm run check:isolation` → clean.
+**88 = 88**; `npm run check:isolation` → clean; `eslint` on every changed path → clean.
+
+⚠ **Two honest verification limits.**
+1. **The `apps/editor` vitest suite could not be run** — this worktree has no `node_modules`, so
+   every editor test fails at import (`Cannot find package '@pryzm/climate-host'`), unrelated to this
+   change. The L5 edit is therefore covered by typecheck and review, **not** by its own suite.
+2. For the same reason the ROOT `tsc` cannot resolve `@pryzm/site-parcel-data`, so it was silently
+   **skipping** the new `siteDispatch.ts` calls rather than checking them. That hole was closed by
+   typechecking the exact call shapes against the real package types through a temporary
+   path-mapped `tsconfig` (clean; the only error was an unrelated missing `ulid` dev dependency).
+   Without that step the "88 = 88" figure would have been a measurement of nothing.
 
 ---
 

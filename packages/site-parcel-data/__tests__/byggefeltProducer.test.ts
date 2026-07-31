@@ -810,6 +810,16 @@ describe('the bridge into G6 tier 1', () => {
         expect(mixed.ok === false && mixed.reason).toBe('incomplete-parts');
     });
 
+    it('reports ONE unusable entry per FEATURE, not one per part', async () => {
+        // A 95-part field that cannot be adapted must not produce 95 identical rows: that inflates
+        // any coverage subtraction and makes a UI repeat the same sentence 95 times. The parts stay
+        // fully visible on `evidence`; this channel counts UNPLACEABLE FOOTPRINTS.
+        const { producer } = producerWith([{ status: 200, body: collection([TWO_PART_BINDING]) }]);
+        const bridged = byggefeltResultToTierOne(await producer.fetchByBbox(BBOX)); // no projector
+        expect(bridged.evidence).toHaveLength(2); // ← both parts ARE visible …
+        expect(bridged.unusableBinding).toHaveLength(1); // … but the FOOTPRINT is one gap, not two
+    });
+
     it('groups a mixed response by FEATURE, never merging two features into one footprint', () => {
         const evidence = byggefeltCollectionToEvidence([TWO_PART_BINDING, ADVISORY_FEATURE], { project });
         const groups = groupEvidenceByFeature(evidence);
