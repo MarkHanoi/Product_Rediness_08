@@ -17,6 +17,7 @@ import {
     describeSiteEntryPanel,
     extentCentre,
     jurisdictionAt,
+    jurisdictionClaimAt,
     listCoveredCountries,
     reduceSiteEntry,
     siteEntryPaneIntent,
@@ -32,6 +33,10 @@ import {
     BARCELONA_BBOX,
     registeredPackZoneCodes,
     BCN_JURISDICTION_ID,
+    LHOSPITALET_JURISDICTION_ID,
+    BADALONA_JURISDICTION_ID,
+    SANT_BOI_JURISDICTION_ID,
+    CORNELLA_JURISDICTION_ID,
 } from '@pryzm/site-parcel-data';
 
 // ── Fixtures ────────────────────────────────────────────────────────────────────────
@@ -45,6 +50,7 @@ const ALPHA: CoverageEntry = {
     countryName: 'Xanadu',
     extent: { minLat: 10, maxLat: 11, minLon: 20, maxLon: 21 },
     contains: (lat, lon) => lat >= 10 && lat <= 11 && lon >= 20 && lon <= 21,
+    extentResolution: 'municipal',
     answerSummary: 'The Alpha ordinance.',
     packZoneCodes: ['a1', 'a2'],
 };
@@ -55,6 +61,7 @@ const BETA: CoverageEntry = {
     countryName: 'Xanadu',
     extent: { minLat: 12, maxLat: 13, minLon: 22, maxLon: 23 },
     contains: (lat, lon) => lat >= 12 && lat <= 13 && lon >= 22 && lon <= 23,
+    extentResolution: 'municipal',
     answerSummary: 'The Beta ordinance.',
     packZoneCodes: ['b1'],
 };
@@ -62,6 +69,33 @@ const BETA: CoverageEntry = {
 const GATED: SiteEntryContext = { entries: [ALPHA, BETA], mode: 'coverage-gated' };
 const OPEN: SiteEntryContext = { entries: [ALPHA, BETA], mode: 'open' };
 const EMPTY_CTX: SiteEntryContext = { entries: [], mode: 'coverage-gated' };
+
+// §JURISDICTION-SPECIFICITY fixtures (L-652). `METRO` is the shape of the real defect: a COARSER
+// box that FULLY CONTAINS `ALPHA`'s, listed FIRST so that first-match would answer Alphaville's
+// land with Metropolis's ordinance. `TWIN` is the shape the rule must REFUSE rather than decide:
+// an equally-specific box overlapping `ALPHA`.
+const METRO: CoverageEntry = {
+    jurisdictionId: 'xx-metro',
+    displayName: 'Metropolis',
+    countryCode: 'XX',
+    countryName: 'Xanadu',
+    extent: { minLat: 9, maxLat: 12, minLon: 19, maxLon: 22 },
+    contains: (lat, lon) => lat >= 9 && lat <= 12 && lon >= 19 && lon <= 22,
+    extentResolution: 'metropolitan',
+    answerSummary: 'The Metropolis proximity gate.',
+    packZoneCodes: ['m1'],
+};
+const TWIN: CoverageEntry = {
+    jurisdictionId: 'xx-twin',
+    displayName: 'Twinville',
+    countryCode: 'XX',
+    countryName: 'Xanadu',
+    extent: { minLat: 10.5, maxLat: 11.5, minLon: 20.5, maxLon: 21.5 },
+    contains: (lat, lon) => lat >= 10.5 && lat <= 11.5 && lon >= 20.5 && lon <= 21.5,
+    extentResolution: 'municipal',
+    answerSummary: 'The Twin ordinance.',
+    packZoneCodes: ['t1'],
+};
 
 /** Reduce a run of intents, asserting each succeeds. Returns the final state. */
 function run(
@@ -424,15 +458,144 @@ describe('coverage is derived from the rule-pack registry, and cannot drift', ()
     it('a point outside every registered jurisdiction is refused the parcel stage', () => {
         const entries = siteEntryCoverageEntries();
         const ctx: SiteEntryContext = { entries, mode: 'coverage-gated' };
-        // Madrid — real, real ordinances, and PRYZM holds none of them.
+        // ⚠ FIXTURE MOVED (L-652). This used to be MADRID — which was correct when it was written
+        // and became FALSE the day `es-28079-madrid` registered (L-608): the assertion was then
+        // pinning "Madrid is uncovered", the opposite of the truth, and it failed. The replacement
+        // is LISBON: real city, real ordinances (PDM Lisboa), and PRYZM holds none of them —
+        // Portugal appears in the PARCEL provider registry but has no zoning rule pack, which is
+        // exactly the state this case is about. The guard below makes the coupling explicit, so
+        // the day Lisbon registers this fails with a legible reason instead of a bare `ok`.
+        const LISBON = { lat: 38.7223, lon: -9.1393 };
+        expect(
+            jurisdictionAt(entries, LISBON.lat, LISBON.lon),
+            'Lisbon is now registered — move this fixture to a still-uncovered city',
+        ).toBeNull();
+        expect(jurisdictionClaimAt(entries, LISBON.lat, LISBON.lon).kind).toBe('none');
         const city: SiteEntryState = {
             stage: 'city',
-            focus: { lat: 40.4168, lon: -3.7038 },
+            focus: LISBON,
             countryCode: null,
             jurisdictionId: null,
         };
-        const r = reduceSiteEntry(city, { type: 'site.entry.descend', lat: 40.4168, lon: -3.7038 }, ctx);
+        const r = reduceSiteEntry(city, { type: 'site.entry.descend', ...LISBON }, ctx);
         expect(r.ok).toBe(false);
+    });
+});
+
+// ── §JURISDICTION-SPECIFICITY (L-652) — the wrong-jurisdiction defect and its rule ───────────
+//
+// THE DEFECT. `jurisdictionAt` was FIRST-MATCH over registration order, and `BARCELONA_BBOX` is a
+// loose METROPOLITAN proximity gate that FULLY CONTAINS the municipal boxes of L'Hospitalet,
+// Badalona, Sant Boi and Cornellà — all four registered LATER. So every point in those four
+// municipalities resolved to `es-08019-barcelona`: another municipality's land answered with
+// Barcelona's packed numbers and Barcelona's citations, which is precisely what each of those
+// registrations exists to prevent (their `packsByZone` is EMPTY because no human has verified that
+// any of their claus equals Barcelona's). These cases pin the rule that fixed it, and — the part
+// that matters for the future — pin that any NEW overlapping registration fails CI.
+
+describe('§JURISDICTION-SPECIFICITY — the finer claim governs, and a tie is refused', () => {
+    it('a coarser box listed FIRST does not swallow the municipal claim inside it', () => {
+        // The synthetic reproduction of the exact defect: METRO is listed first and contains ALPHA.
+        const ctx: readonly CoverageEntry[] = [METRO, ALPHA];
+        expect(jurisdictionAt(ctx, 10.5, 20.5)?.jurisdictionId).toBe('xx-alpha');
+        // …and the coarse claim still governs its own remainder.
+        expect(jurisdictionAt(ctx, 9.5, 19.5)?.jurisdictionId).toBe('xx-metro');
+    });
+
+    it('registration ORDER is not load-bearing — both orderings give the same verdict', () => {
+        for (const entries of [[METRO, ALPHA], [ALPHA, METRO]] as const) {
+            expect(jurisdictionAt(entries, 10.5, 20.5)?.jurisdictionId).toBe('xx-alpha');
+        }
+    });
+
+    it('an EQUALLY specific overlap is AMBIGUOUS — never a coin flip, in either order', () => {
+        for (const entries of [[ALPHA, TWIN], [TWIN, ALPHA]] as const) {
+            const r = jurisdictionClaimAt(entries, 10.75, 20.75);
+            expect(r.kind).toBe('ambiguous');
+            if (r.kind !== 'ambiguous') continue;
+            expect(r.candidates.map((c) => c.jurisdictionId).sort()).toEqual(['xx-alpha', 'xx-twin']);
+        }
+        // …and it does NOT silently become a covered verdict.
+        expect(jurisdictionAt([ALPHA, TWIN], 10.75, 20.75)).toBeNull();
+    });
+
+    it('an ambiguity is explained as an OVERLAP, never as "no rule pack is registered"', () => {
+        // A false explanation of a refusal is the same class of defect as a false answer.
+        const ctx: SiteEntryContext = { entries: [ALPHA, TWIN], mode: 'coverage-gated' };
+        const p = describeSiteEntryPanel(
+            { stage: 'city', focus: { lat: 10.75, lon: 20.75 }, countryCode: null, jurisdictionId: null },
+            ctx,
+        );
+        expect(p.verdict).toBe('not-covered');
+        expect(p.title).toBe('Overlapping jurisdictions');
+        const copy = p.lines.join(' ');
+        expect(copy).toMatch(/Two registered jurisdictions claim this point/i);
+        expect(copy).toMatch(/Alphaville and Twinville|Twinville and Alphaville/);
+        expect(copy).not.toMatch(/has no zoning rule pack registered/i);
+        // Still a statement about PRYZM, never about the law (C60 §3 copy rule 2).
+        expect(copy).toMatch(/statement about PRYZM, not about the law/i);
+    });
+
+    it('an ambiguous point cannot descend to the parcel stage — no coin-flipped site', () => {
+        const ctx: SiteEntryContext = { entries: [ALPHA, TWIN], mode: 'coverage-gated' };
+        const city: SiteEntryState = {
+            stage: 'city',
+            focus: { lat: 10.75, lon: 20.75 },
+            countryCode: null,
+            jurisdictionId: null,
+        };
+        expect(reduceSiteEntry(city, { type: 'site.entry.descend', lat: 10.75, lon: 20.75 }, ctx).ok).toBe(
+            false,
+        );
+    });
+
+    it('THE REGRESSION: real AMB points resolve to their OWN municipality, never Barcelona', () => {
+        // Real WGS84 points inside each municipality — the same reference points the routing tests
+        // in `@pryzm/site-parcel-data` use. Before the fix every one of these answered
+        // `es-08019-barcelona`, i.e. Barcelona's ordinance cited on another town's land.
+        const entries = siteEntryCoverageEntries();
+        const cases: ReadonlyArray<readonly [string, number, number]> = [
+            [LHOSPITALET_JURISDICTION_ID, 41.3593, 2.1004],
+            [BADALONA_JURISDICTION_ID, 41.4450, 2.2480],
+            [SANT_BOI_JURISDICTION_ID, 41.3430, 2.0390],
+            [CORNELLA_JURISDICTION_ID, 41.3585, 2.0710],
+        ];
+        for (const [id, lat, lon] of cases) {
+            // Barcelona's metropolitan gate genuinely claims the point — the rule, not the geometry,
+            // is what decides. (If this stops being true the peel-off has become geometric and this
+            // case no longer tests what it says it does.)
+            expect(isInBarcelona(lat, lon), id).toBe(true);
+            expect(jurisdictionAt(entries, lat, lon)?.jurisdictionId, id).toBe(id);
+            const claim = jurisdictionClaimAt(entries, lat, lon);
+            expect(claim.kind, id).toBe('resolved');
+            if (claim.kind !== 'resolved') continue;
+            // …and Barcelona is recorded as OUTRANKED, not as absent — the honest description.
+            expect(claim.outranked.map((c) => c.jurisdictionId), id).toContain(BCN_JURISDICTION_ID);
+        }
+    });
+
+    it('Barcelona itself is UNCHANGED — the fix peels off neighbours, it does not shrink Barcelona', () => {
+        const entries = siteEntryCoverageEntries();
+        // Passeig de Gràcia (Eixample) + Sants, the district adjacent to L'Hospitalet.
+        for (const [lat, lon] of [[41.3916, 2.165], [41.375, 2.138]] as const) {
+            expect(jurisdictionAt(entries, lat, lon)?.jurisdictionId).toBe(BCN_JURISDICTION_ID);
+        }
+    });
+
+    it('the covered panel states the resolution it actually has, per registration', () => {
+        // C60 §2.2 — a bbox is a coarse claim and must be labelled as one. This line used to read
+        // "metropolitan-area resolution" for EVERY jurisdiction, which is false for the national
+        // registrations and overstated the precision of their claim.
+        const entries = siteEntryCoverageEntries();
+        const ctx: SiteEntryContext = { entries, mode: 'coverage-gated' };
+        const panelFor = (jurisdictionId: string) =>
+            describeSiteEntryPanel(
+                { stage: 'city', focus: null, countryCode: null, jurisdictionId },
+                ctx,
+            ).lines.join(' ');
+        expect(panelFor(BCN_JURISDICTION_ID)).toMatch(/metropolitan-area resolution/);
+        expect(panelFor(LHOSPITALET_JURISDICTION_ID)).toMatch(/municipal resolution/);
+        expect(panelFor('nl-bestemmingsplan')).toMatch(/national resolution/);
     });
 });
 

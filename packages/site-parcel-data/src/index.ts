@@ -265,6 +265,14 @@ export {
     listJurisdictionCoverage,
     type JurisdictionCoverage,
     type JurisdictionExtent,
+    // §JURISDICTION-SPECIFICITY (L-652) — the ONE rule deciding which registration governs a point
+    // two of them claim, and the explicit ambiguity refusal when neither is more specific.
+    resolveJurisdictionClaim,
+    resolveRegisteredJurisdictionAt,
+    JURISDICTION_EXTENT_RESOLUTIONS,
+    type JurisdictionExtentResolution,
+    type JurisdictionClaim,
+    type JurisdictionClaimResolution,
 } from './rulepacks/registry.js';
 
 // ── L-550 Phase 0.3 / 1b — THE REFUSAL VOCABULARY. ──

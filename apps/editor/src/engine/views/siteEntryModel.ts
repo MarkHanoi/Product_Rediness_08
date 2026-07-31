@@ -40,6 +40,20 @@
 // `site.entry.select-parcel` — and `SiteEntryModel.test.ts` pins that as a property over
 // every other intent, not as a code-reading promise.
 
+// §JURISDICTION-SPECIFICITY (L-652) — the resolution rule is IMPORTED, never restated. Two
+// jurisdictions can claim one point (Barcelona's metropolitan proximity box fully contains
+// L'Hospitalet's, Badalona's, Sant Boi's and Cornellà's municipal boxes), and this module used to
+// answer that with FIRST MATCH over registration order — so every L'Hospitalet point resolved to
+// `es-08019-barcelona`, i.e. one municipality's land answered with another's packed numbers and
+// citations. The rule that decides it lives on the registration in `@pryzm/site-parcel-data`
+// (L2), because that is where the extents and predicates live; a second copy of the ordering here
+// is a second statement that can silently disagree — the same reason `siteEntryCoverage.ts` holds
+// no data. This module stays pure: `resolveJurisdictionClaim` is a pure function over a list.
+import {
+    resolveJurisdictionClaim,
+    type JurisdictionClaimResolution,
+    type JurisdictionExtentResolution,
+} from '@pryzm/site-parcel-data';
 import type { PaneId } from './paneViewModel';
 
 // ── Vocabulary ──────────────────────────────────────────────────────────────────────
@@ -74,6 +88,12 @@ export interface CoverageEntry {
     readonly extent: GeoExtent;
     /** The dispatcher's own routing predicate for this jurisdiction. */
     readonly contains: (lat: number, lon: number) => boolean;
+    /**
+     * §JURISDICTION-SPECIFICITY — what `extent` IS (`district` ≺ `municipal` ≺ `metropolitan` ≺
+     * `national`), declared by the registration. REQUIRED: a fixture that omitted it would be a
+     * `tsc` error, not a synthetic city that silently wins or loses an overlap.
+     */
+    readonly extentResolution: JurisdictionExtentResolution;
     readonly answerSummary: string;
     readonly packZoneCodes: readonly string[];
 }
@@ -232,22 +252,41 @@ export interface SiteEntryContext {
 // ── Coverage lookup (pure) ──────────────────────────────────────────────────────────
 
 /**
- * The registered jurisdiction containing a point, or `null`.
+ * WHO GOVERNS A POINT — the full three-valued answer (`none` / `resolved` / `ambiguous`).
+ *
+ * A thin re-export of the L2 rule, bound to this module's `CoverageEntry` shape, so there is
+ * exactly one place in the product where "two jurisdictions claim this point" is decided.
+ * P8: span-exempt as a pure re-projection — the span is on `resolveJurisdictionClaim` itself
+ * (`pryzm.zoning.resolveJurisdictionClaim`), which is where the decision is actually made.
+ */
+export function jurisdictionClaimAt(
+    entries: readonly CoverageEntry[],
+    lat: number,
+    lon: number,
+): JurisdictionClaimResolution<CoverageEntry> {
+    return resolveJurisdictionClaim(entries, lat, lon);
+}
+
+/**
+ * The registered jurisdiction governing a point, or `null`.
  *
  * Uses each entry's OWN `contains` predicate — the dispatcher's — rather than re-testing
  * the bbox here, so this lookup can never light a region the dispatcher would refuse to
  * route into. `extent` exists for framing maths only.
+ *
+ * ⚠ AN AMBIGUITY YIELDS `null`, DELIBERATELY. Where two equally-specific registrations claim the
+ * same point there is no honest single answer, and returning either would be a confident answer
+ * under possibly the wrong ordinance. `null` routes to the "PRYZM cannot answer here" path, and
+ * `describeSiteEntryPanel` uses `jurisdictionClaimAt` to say WHY it cannot — an ambiguity refusal,
+ * not a coverage gap. Callers that need to tell the two apart must use `jurisdictionClaimAt`.
  */
 export function jurisdictionAt(
     entries: readonly CoverageEntry[],
     lat: number,
     lon: number,
 ): CoverageEntry | null {
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    for (const e of entries) {
-        if (e.contains(lat, lon)) return e;
-    }
-    return null;
+    const r = jurisdictionClaimAt(entries, lat, lon);
+    return r.kind === 'resolved' ? r.jurisdiction : null;
 }
 
 /** Distinct covered countries, in registry order. Derived — never a second list. */
@@ -515,20 +554,51 @@ export interface SiteEntryPanel {
     readonly actions: readonly SiteEntryPanelAction[];
 }
 
+/**
+ * C60 §2.2 — a bbox is a COARSE claim and must be labelled as one, at the resolution it actually
+ * has. DERIVED from the registration's declared `extentResolution` rather than hard-coded: the
+ * line used to read "metropolitan-area resolution" for every jurisdiction, which is simply false
+ * for the three NATIONAL registrations (NL/DK/CH) and overstated the precision of their claim.
+ */
+const EXTENT_RESOLUTION_COPY: Readonly<Record<JurisdictionExtentResolution, string>> = {
+    district: 'district resolution',
+    municipal: 'municipal resolution',
+    metropolitan: 'metropolitan-area resolution',
+    national: 'national resolution — a point near a border may fall outside the country',
+};
+
 function coveredLines(entry: CoverageEntry): string[] {
     return [
         `PRYZM can answer in ${entry.displayName}, ${entry.countryName}.`,
         entry.answerSummary,
         `${entry.packZoneCodes.length} zone code${entry.packZoneCodes.length === 1 ? '' : 's'} ` +
             'have a curated rule pack; the rest of the city is answered with a cited refusal.',
-        'Coverage is recorded at metropolitan-area resolution here — the exact answer is ' +
-            'resolved from the parcel itself once you select one.',
+        `Coverage is recorded at ${EXTENT_RESOLUTION_COPY[entry.extentResolution]} — the exact ` +
+            'answer is resolved from the parcel itself once you select one.',
     ];
 }
 
 const NOT_COVERED_LINE =
     'PRYZM has no zoning rule pack registered for this location, so it cannot tell you ' +
     'what may be built here. This is a statement about PRYZM, not about the law.';
+
+/**
+ * §JURISDICTION-SPECIFICITY — the copy for a point TWO equally-specific registrations claim.
+ *
+ * ⚠ It is deliberately NOT `NOT_COVERED_LINE`. "No rule pack is registered here" would be FALSE —
+ * two are — and a false explanation of a refusal is the same class of defect as a false answer.
+ * The verdict stays `not-covered` (PRYZM cannot answer) because C60 §3's three-valued vocabulary
+ * has no soft fourth value, but the reason given is the true one.
+ */
+function ambiguousLines(candidates: readonly CoverageEntry[]): string[] {
+    return [
+        'Two registered jurisdictions claim this point at the same level of detail — ' +
+            `${candidates.map((c) => c.displayName).join(' and ')} — and PRYZM will not guess ` +
+            'which ordinance governs it. This is a statement about PRYZM, not about the law.',
+        'A wrong answer here would be a real number cited to the wrong ordinance, which is worse ' +
+            'than no answer, so PRYZM gives none until the overlap is resolved.',
+    ];
+}
 
 /**
  * Project the state (plus the registry-derived coverage) into the panel for its stage.
@@ -540,12 +610,18 @@ export function describeSiteEntryPanel(
     ctx: SiteEntryContext,
 ): SiteEntryPanel {
     const countries = listCoveredCountries(ctx.entries);
+    // §JURISDICTION-SPECIFICITY — the FULL resolution, so an ambiguity can be explained truthfully
+    // instead of being reported as an absence of coverage (see `ambiguousLines`).
+    const claim: JurisdictionClaimResolution<CoverageEntry> | null = state.focus
+        ? jurisdictionClaimAt(ctx.entries, state.focus.lat, state.focus.lon)
+        : null;
     const covering =
         state.jurisdictionId != null
             ? (ctx.entries.find((e) => e.jurisdictionId === state.jurisdictionId) ?? null)
-            : state.focus
-              ? jurisdictionAt(ctx.entries, state.focus.lat, state.focus.lon)
+            : claim?.kind === 'resolved'
+              ? claim.jurisdiction
               : null;
+    const ambiguous = covering == null && claim?.kind === 'ambiguous' ? claim.candidates : null;
 
     const back: SiteEntryPanelAction = {
         intent: { type: 'site.entry.ascend' },
@@ -626,10 +702,10 @@ export function describeSiteEntryPanel(
         if (!covering) {
             return {
                 stage: 'city',
-                title: 'Not covered yet',
+                title: ambiguous ? 'Overlapping jurisdictions' : 'Not covered yet',
                 verdict: 'not-covered',
                 lines: [
-                    NOT_COVERED_LINE,
+                    ...(ambiguous ? ambiguousLines(ambiguous) : [NOT_COVERED_LINE]),
                     ctx.mode === 'coverage-gated'
                         ? 'You can look, but you cannot select a parcel here — PRYZM would have ' +
                           'nothing to answer with.'
@@ -654,10 +730,10 @@ export function describeSiteEntryPanel(
         // Reachable only in `open` mode — the gate blocks it in `coverage-gated`.
         return {
             stage: 'parcel',
-            title: 'Not covered yet',
+            title: ambiguous ? 'Overlapping jurisdictions' : 'Not covered yet',
             verdict: 'not-covered',
             lines: [
-                NOT_COVERED_LINE,
+                ...(ambiguous ? ambiguousLines(ambiguous) : [NOT_COVERED_LINE]),
                 'You can still select a plot and draw on it, but PRYZM will not produce a ' +
                     'buildable envelope here — it will say so rather than estimate one.',
             ],

@@ -40,6 +40,9 @@ export function siteEntryCoverageEntries(): readonly CoverageEntry[] {
             countryName: c.countryName,
             extent: c.extent,
             contains: c.contains,
+            // §JURISDICTION-SPECIFICITY — forwarded, never inferred here. This adapter must not
+            // know that Barcelona's box is metropolitan; the registration declares it.
+            extentResolution: c.extentResolution,
             answerSummary: c.answerSummary,
             packZoneCodes: c.packZoneCodes,
         }),

@@ -39,7 +39,82 @@
 // PURITY: L2-pure. Data + a lookup. No I/O.
 //
 // Strategic context — BARCELONA-COMPLETE-COVERAGE-PLAN.md §5 Phase 0.1, C58 §1.5, ADR-0272.
+//
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §JURISDICTION-SPECIFICITY (L-652) — WHICH REGISTRATION GOVERNS A POINT TWO OF THEM CLAIM.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+//
+// THE DEFECT THIS SECTION CLOSES. `listJurisdictionCoverage()` used to be consumed by a
+// FIRST-MATCH lookup (`jurisdictionAt` in `siteEntryModel.ts`), and `REGISTRATIONS` happens to
+// list Barcelona first. `BARCELONA_BBOX` is a LOOSE METROPOLITAN proximity gate (its own module
+// says so) and it FULLY CONTAINS the boxes of L'Hospitalet, Badalona, Sant Boi and Cornellà. So
+// every point in those four municipalities resolved to `es-08019-barcelona` — the coverage globe
+// answered another municipality's land with Barcelona's packed numbers and Barcelona's citations,
+// which is the exact mis-citation each of those four registrations was created to prevent. Their
+// own comments say they are "peeled off before `isInBarcelona`"; that intent existed ONLY in the
+// L5 dispatcher's hand-ordered `if` chain and had NO expression here at all. A wrong-jurisdiction
+// answer is worse than no answer: it is a confident number attributed to the wrong law.
+//
+// THE RULE CHOSEN: **the claim with the FINEST DECLARED EXTENT RESOLUTION wins; an unbroken tie
+// is an AMBIGUITY and is refused, never resolved.** Each registration declares
+// `extentResolution` — `district` ≺ `municipal` ≺ `metropolitan` ≺ `national` — a statement about
+// WHAT ITS OWN BOX IS, made on the same object as the box. `resolveJurisdictionClaim()` applies it
+// once, for every registration, everywhere.
+//
+// WHY THIS AND NOT THE ALTERNATIVES (all of which were considered and rejected):
+//
+//   ✗ ROW ORDER. "List the specific one first" is what the dispatcher does today, and it is why
+//     this bug existed: the ordering is invisible to any other consumer, and a registration
+//     APPENDED at the bottom (the natural way to add a city) is silently the LOWEST priority —
+//     exactly backwards, since a new registration is usually the more specific one.
+//
+//   ✗ SMALLEST-BBOX-WINS (the L-650 rule used by `parcelProviders/registry.ts`). It would give
+//     the right answer for all four AMB pairs today, and it is still WRONG AS A RULE, for two
+//     reasons this repo already has a live counter-example for. (1) It is KIND-BLIND:
+//     `SCOTLAND_BBOX` ≈ 50.4 deg² is FRACTIONALLY SMALLER than `ENGLAND_BBOX` ≈ 51.2 deg², so on
+//     the parcel side Scotland already outranks England across the whole 54.6–55.9°N border band —
+//     inert only because that row is a proxy-less `footprint-fallback`. (2) It reads a
+//     0.8-deg² measurement difference as a legal precedence claim, which it is not: two boxes of
+//     similar size carry no information about which ordinance governs. Area is a proxy for
+//     specificity; `extentResolution` IS specificity, declared by the party that knows.
+//     ⚠ The parcel registry legitimately keeps the area rule: it resolves by WALKING every
+//     candidate and falling through on a miss, so a mis-rank there costs one wasted fetch. Here
+//     there is no walk — the verdict IS the answer — so the rule must be right the first time.
+//
+//   ✗ PEELING THE MUNICIPALITIES OUT OF `isInBarcelona`. Non-overlapping predicates would make
+//     first-match safe, but it inverts the dependency (the metropolitan gate would import its four
+//     neighbours) and it re-introduces the SECOND EDIT that C60 §2 exists to forbid: registering a
+//     6th AMB city would require editing `barcelonaBbox.ts` too, and forgetting is silent.
+//
+//   ✗ REAL POLYGON EXTENTS. Correct in principle and the only thing that would also fix the
+//     §EXTENT-SPILLS-A-BORDER limitation below — but PRYZM holds no municipal or national boundary
+//     geometry, and inventing one is the fabrication this whole subsystem exists to refuse.
+//
+// ⚠ WIRING-TODO (owner: whoever next touches `siteDispatch.ts`) — THE ORDERING IS STILL STATED
+// TWICE. The L5 dispatcher routes a committed parcel through a hand-ordered `if` chain
+// (`isInLHospitalet` … before `isInBarcelona`), which today reaches the SAME verdict this rule
+// does — `jurisdictionSpecificity.test.ts` asserts the four AMB points resolve to their own
+// municipality, which is exactly what that chain produces. But two statements of one rule can
+// drift, and only one of them is derived. The chain should become
+// `resolveRegisteredJurisdictionAt(lat, lon)` + a switch on the resolved id, so registering a city
+// stops requiring an edit to an L5 file at all (the same argument C58 §1.5 makes about packs, one
+// layer up). Deliberately NOT done in this pass: it is a large diff in a file this change does not
+// own, and correctness here does not depend on it.
+//
+// ⚠ §EXTENT-SPILLS-A-BORDER — A MEASURED, UNFIXED LIMITATION, RECORDED HERE SO IT IS NOT
+// MISTAKEN FOR SOLVED. A rectangle cannot follow a national border, so the three NATIONAL
+// registrations claim real foreign land: `NETHERLANDS_BBOX` claims Brussels, Antwerp, Düsseldorf
+// and Cologne; `DENMARK_BBOX` claims Malmö, Gothenburg and Flensburg; `SWITZERLAND_BBOX` claims
+// Como, Vaduz, Annecy and Konstanz. A click there is answered with the WRONG COUNTRY'S
+// instrument (no number is drawn — the NL/DK/CH paths refuse — so it is a wrong CITATION rather
+// than a fabricated value, but it is the same class). **The rule below cannot fix it**: there is
+// no registered Belgian/German/Swedish/Italian jurisdiction to out-rank the national claim, and
+// rectangle-minus-rectangle cannot separate the neighbours (`GERMANY_BBOX` alone swallows the
+// eastern third of the Netherlands). The fix is a DATA addition — register the neighbour, and
+// this rule resolves it with no engine edit — which `jurisdictionSpecificity.test.ts` proves with
+// a synthetic Belgian claim so the closing move is pinned rather than described.
 
+import { trace, SpanStatusCode } from '@opentelemetry/api';
 import type { JurisdictionZoningContract, EnvelopeRefusal } from '@pryzm/schemas';
 import { ES_BARCELONA_ENSANCHE_PACK, BCN_ENSANCHE_ZONE_CODES } from './esBarcelonaEnsanche.js';
 import {
@@ -199,6 +274,40 @@ export interface JurisdictionExtent {
     readonly maxLon: number;
 }
 
+/**
+ * §JURISDICTION-SPECIFICITY — WHAT A REGISTRATION'S OWN `extent` IS, in administrative terms.
+ *
+ * This is NOT a measurement and NOT a description of the LAW's reach — it describes the BOX. A
+ * registration knows what its own box was drawn to do, and nothing else does: `BARCELONA_BBOX`
+ * is documented as "a loose gate that keeps the whole of Barcelona + its metropolitan neighbours
+ * in", so it is `'metropolitan'` even though the pack it carries is the municipality's; Córdoba's
+ * box is a 2-district pilot, so it is `'district'` even though its ordinance is municipal.
+ *
+ * Ordered FINEST → COARSEST. The finer claim governs a point both claim, because a coarser box is
+ * by construction a PROXIMITY GATE that swept in land it does not speak for. `'regional'` is
+ * deliberately absent: no registration has a regional extent today, and an unused rung is a rung
+ * nobody has had to justify. Add it (between `municipal` and `national`) with the registration
+ * that needs it.
+ */
+export type JurisdictionExtentResolution =
+    | 'district'
+    | 'municipal'
+    | 'metropolitan'
+    | 'national';
+
+/** Finest → coarsest. The single source of the ordering; `RANK` is derived from it. */
+export const JURISDICTION_EXTENT_RESOLUTIONS: readonly JurisdictionExtentResolution[] = [
+    'district',
+    'municipal',
+    'metropolitan',
+    'national',
+];
+
+/** Lower = finer = wins. Derived from the array above so the two cannot disagree. */
+function extentResolutionRank(r: JurisdictionExtentResolution): number {
+    return JURISDICTION_EXTENT_RESOLUTIONS.indexOf(r);
+}
+
 interface JurisdictionRegistration {
     readonly jurisdictionId: string;
     /** Human name of the covered area, in the ordinance's own terms. */
@@ -213,6 +322,15 @@ interface JurisdictionRegistration {
     readonly extent: JurisdictionExtent;
     /** The routing predicate itself. `extent` is its bbox; this is its decision. */
     readonly contains: (lat: number, lon: number) => boolean;
+    /**
+     * §JURISDICTION-SPECIFICITY — what `extent` IS (see `JurisdictionExtentResolution`). REQUIRED,
+     * for the same reason `extent` is: a registration that omitted it would be a `tsc` error, not
+     * a city that silently loses (or silently wins) an overlap. It is the ONE input to
+     * `resolveJurisdictionClaim()`, so declaring it wrong is the only way to route a point wrongly
+     * — and `jurisdictionSpecificity.test.ts` re-derives every overlap from the shipped boxes, so
+     * a wrong declaration fails CI rather than reaching a user.
+     */
+    readonly extentResolution: JurisdictionExtentResolution;
     /**
      * What the entry UI may honestly promise at this jurisdiction, in one line. Written
      * per-jurisdiction because "we hold the ordinance's depth construction and height
@@ -306,6 +424,14 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // ⚠ THE SAME OBJECT/FUNCTION `siteDispatch.ts` routes on — imported, not restated.
         extent: BARCELONA_BBOX,
         contains: isInBarcelona,
+        // ⚠ `'metropolitan'`, NOT `'municipal'`, AND THIS IS THE LINE THAT FIXES §LH-ENVELOPE.
+        // `barcelonaBbox.ts` states plainly that its box "only needs to keep the whole of
+        // Barcelona + its metropolitan neighbours in" — it is a PROXIMITY GATE ~44 × 42 km, four
+        // times the municipality, and it fully contains the boxes of L'Hospitalet, Badalona, Sant
+        // Boi and Cornellà. Declaring what it actually is makes those four municipal claims win
+        // their own land by RULE, which is what the dispatcher's hand-ordered peel-off chain has
+        // always done by ORDER. Calling this `'municipal'` would re-open the mis-citation.
+        extentResolution: 'metropolitan',
         answerSummary:
             'Zoning (clau) from the Catalan MUC, the Art. 242 buildable-depth construction ' +
             'and the ordinance height tables — for the registered claus only. Everything ' +
@@ -403,6 +529,8 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // ⚠ THE SAME OBJECT/FUNCTION `siteDispatch.ts` routes on — imported, not restated.
         extent: RIYADH_BBOX,
         contains: isInRiyadh,
+        // The Riyadh municipal area (Amanat Ar-Riyadh). Overlaps nothing registered.
+        extentResolution: 'municipal',
         answerSummary:
             'National MOMRAH residential FOOTPRINT (setbacks + ground coverage) for the ' +
             'villa and apartment classes — the class is user-picked and the street width ' +
@@ -444,6 +572,8 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // ⚠ THE SAME OBJECT/FUNCTION `siteDispatch.ts` routes on — imported, not restated.
         extent: MADRID_BBOX,
         contains: isInMadrid,
+        // The Madrid municipal term (INE 28079). Overlaps nothing registered.
+        extentResolution: 'municipal',
         answerSummary:
             'Madrid PGOUM-97 Norma Zonal 1 is modelled as an explicit-area zone (the buildable ' +
             'footprint is published as geometry). PRYZM answers here with a cited refusal until the ' +
@@ -472,6 +602,11 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // ⚠ THE SAME OBJECT/PREDICATE `siteDispatch.ts` routes on — imported, not restated.
         extent: CORDOBA_BBOX,
         contains: isInCordoba,
+        // ⚠ `'district'` — the box is the SUR + NOROESTE 2-district pilot (≈ 4.8 × 3.4 km), not
+        // Córdoba's municipal term. Declaring `'municipal'` would let this pilot out-rank nothing
+        // today but would wrongly TIE with a future whole-Córdoba registration instead of beating
+        // it inside the pilot area.
+        extentResolution: 'district',
         answerSummary:
             'PGOU-2001 ordenanzas for the Sur + Noroeste districts only (a 2-district pilot, ≈ the ' +
             'historic centre) — 13 setback/alignment subzones (PAS/OA/UAD full; CTP-1/MC partial, ' +
@@ -529,6 +664,10 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // ⚠ THE SAME OBJECT/FUNCTION `siteDispatch.ts` routes on — imported, not restated.
         extent: SWITZERLAND_BBOX,
         contains: isInSwitzerland,
+        // National. ⚠ §EXTENT-SPILLS-A-BORDER (header): this rectangle also claims Como, Vaduz,
+        // Annecy and Konstanz. Registering IT / LI / FR / DE closes each by rule, with no edit here.
+        // Zürich is NOT a second registration — see §ZURICH-BZO above on why that is deliberate.
+        extentResolution: 'national',
         answerSummary:
             'Land-use ZONE identity from the national Nutzungsplanung WFS (geodienste.ch ' +
             'ms:grundnutzung) — code, label, main-use, the local abbreviation (e.g. W2), canton. ' +
@@ -579,6 +718,11 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // off only L'Hospitalet's core and leaves every Barcelona parcel byte-identical.
         extent: LHOSPITALET_BBOX,
         contains: isInLHospitalet,
+        // ⚠ THE PEEL-OFF, NOW EXPRESSED AS A RULE AND NOT ONLY AS AN `if` ORDER. `'municipal'`
+        // beats Barcelona's `'metropolitan'` box, which fully contains this one, so an
+        // L'Hospitalet point resolves to `es-08101-hospitalet` for every consumer — the coverage
+        // globe included — instead of only inside `siteDispatch`'s hand-ordered chain.
+        extentResolution: 'municipal',
         answerSummary:
             "L'Hospitalet de Llobregat is routed and shares Barcelona's metropolitan plan (PGM-1976) " +
             'and clau source (the Catalan MUC), so the Art. 242.2 buildable-depth construction applies ' +
@@ -608,6 +752,8 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // the loose Barcelona metro box), so it peels off only Badalona's core; Barcelona byte-identical.
         extent: BADALONA_BBOX,
         contains: isInBadalona,
+        // Municipal — beats Barcelona's metropolitan box, which fully contains this one.
+        extentResolution: 'municipal',
         answerSummary:
             "Badalona is routed and shares Barcelona's metropolitan plan (PGM-1976) and clau source " +
             '(the Catalan MUC), so the Art. 242.2 buildable-depth construction applies here as across ' +
@@ -634,6 +780,8 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // the loose Barcelona metro box), so it peels off only Sant Boi's core; Barcelona byte-identical.
         extent: SANT_BOI_BBOX,
         contains: isInSantBoi,
+        // Municipal — beats Barcelona's metropolitan box, which fully contains this one.
+        extentResolution: 'municipal',
         answerSummary:
             "Sant Boi de Llobregat is routed and shares Barcelona's metropolitan plan (PGM-1976) and " +
             'clau source (the Catalan MUC), so the Art. 242.2 buildable-depth construction applies here ' +
@@ -660,6 +808,11 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // the loose Barcelona metro box), so it peels off only Cornellà's core; Barcelona byte-identical.
         extent: CORNELLA_BBOX,
         contains: isInCornella,
+        // Municipal — beats Barcelona's metropolitan box, which fully contains this one. ⚠ Its box
+        // clears Sant Boi's by 0.002° of longitude and L'Hospitalet's by 0.003°: the four AMB
+        // municipal boxes are mutually DISJOINT, so no same-rank ambiguity exists between them —
+        // asserted, not assumed, by `jurisdictionSpecificity.test.ts`.
+        extentResolution: 'municipal',
         answerSummary:
             "Cornellà de Llobregat is routed and shares Barcelona's metropolitan plan (PGM-1976) and " +
             'clau source (the Catalan MUC), so the Art. 242.2 buildable-depth construction applies here ' +
@@ -708,6 +861,10 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // ⚠ THE SAME OBJECT/FUNCTION `siteDispatch.ts` routes on — imported, not restated.
         extent: MURCIA_BBOX,
         contains: isInMurcia,
+        // The Murcia municipal term (INE 30030 — one of Spain's largest, ≈ 45 × 48 km, which is
+        // why its box dwarfs the Catalan municipal ones without being any less specific: this is
+        // precisely why the ladder is a DECLARATION and not a measured area).
+        extentResolution: 'municipal',
         answerSummary:
             'The PARCEL half is complete and live: the national Catastro path resolves the referencia ' +
             'catastral, the official boundary, the officially registered area and the existing ' +
@@ -746,6 +903,9 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // ⚠ THE SAME OBJECT/FUNCTION the DK dispatch routes on — imported, not restated.
         extent: DENMARK_BBOX,
         contains: isInDenmark,
+        // National. ⚠ §EXTENT-SPILLS-A-BORDER (header): this rectangle also claims Malmö,
+        // Gothenburg and Flensburg. Registering SE / DE closes each by rule, with no edit here.
+        extentResolution: 'national',
         answerSummary:
             'National Plandata.dk structured planning attributes → a buildable envelope under the ' +
             'L-449 signed BR18 §168–186 mapping (FAR = bebyggelsesprocent/100 with the density-scope ' +
@@ -799,6 +959,10 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // ⚠ THE SAME OBJECT/FUNCTION `siteDispatch.ts` routes on — imported, not restated.
         extent: PARIS_BBOX,
         contains: isInParis,
+        // The Ville de Paris commune (INSEE 75056). Overlaps nothing registered — and would BEAT a
+        // future Île-de-France / Grand Paris registration on its own territory, which is correct:
+        // the PLU bioclimatique is the commune's own instrument.
+        extentResolution: 'municipal',
         answerSummary:
             'PLU bioclimatique (règlement voted by the Conseil de Paris). PRYZM draws the PUBLISHED ' +
             'emprise constructible maximale — the real buildable-footprint polygon from Paris ' +
@@ -851,6 +1015,12 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // ⚠ THE SAME OBJECT/FUNCTION the NL dispatch routes on — imported, not restated.
         extent: NETHERLANDS_BBOX,
         contains: isInNetherlands,
+        // National. ⚠ §EXTENT-SPILLS-A-BORDER (header) — the WORST of the three: this rectangle
+        // claims Brussels, Antwerp, Düsseldorf and Cologne, so a Belgian or NRW click is answered
+        // with `nlNoPlanRefusal`, a DUTCH instrument cited on foreign land. Registering BE / DE-NW
+        // closes it by rule with no edit here; nothing short of real boundary geometry closes it
+        // otherwise, and PRYZM holds none.
+        extentResolution: 'national',
         answerSummary:
             'Every officially-published bestemmingsplan, nationwide and keyless, via the PDOK ' +
             '"Ruimtelijke plannen" WMS. PRYZM clips your parcel to the published bouwvlak ' +
@@ -929,6 +1099,8 @@ export interface JurisdictionCoverage {
     readonly countryName: string;
     readonly extent: JurisdictionExtent;
     readonly contains: (lat: number, lon: number) => boolean;
+    /** §JURISDICTION-SPECIFICITY — the ONE input to `resolveJurisdictionClaim()`. */
+    readonly extentResolution: JurisdictionExtentResolution;
     readonly answerSummary: string;
     /** Zone codes a curated pack answers for, live from `packsByZone`. */
     readonly packZoneCodes: readonly string[];
@@ -950,7 +1122,136 @@ export function listJurisdictionCoverage(): readonly JurisdictionCoverage[] {
         countryName: r.countryName,
         extent: r.extent,
         contains: r.contains,
+        extentResolution: r.extentResolution,
         answerSummary: r.answerSummary,
         packZoneCodes: [...r.packsByZone.keys()],
     }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §JURISDICTION-SPECIFICITY — THE ONE RESOLUTION RULE. Read the header for what was rejected.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+const _tracer = trace.getTracer('pryzm.zoning');
+
+/**
+ * The minimum a value must declare to take part in the resolution rule.
+ *
+ * Structural, so the rule is applied to `JurisdictionCoverage` in production AND to the pure
+ * editor-side `CoverageEntry` fixtures — ONE implementation, never a second copy of the ordering.
+ * That is the same argument as `listJurisdictionCoverage()` one level up: a rule stated twice is a
+ * rule that can disagree with itself, and the disagreement is invisible.
+ */
+export interface JurisdictionClaim {
+    readonly jurisdictionId: string;
+    readonly contains: (lat: number, lon: number) => boolean;
+    readonly extentResolution: JurisdictionExtentResolution;
+}
+
+/**
+ * Who governs a point.
+ *
+ * ⚠ THERE IS NO FOURTH CASE AND THERE MUST NOT BE. `'ambiguous'` exists because the only other way
+ * to answer two equally-specific overlapping claims is to pick one — and picking one is a
+ * confident answer under the wrong ordinance, which this whole subsystem exists to refuse. An
+ * ambiguity is a legitimate shippable answer ("PRYZM will not guess which ordinance governs this
+ * point"); a coin flip is not.
+ */
+export type JurisdictionClaimResolution<T extends JurisdictionClaim> =
+    /** No registration claims this point. */
+    | { readonly kind: 'none' }
+    /** Exactly one registration is strictly the most specific claimant. */
+    | {
+          readonly kind: 'resolved';
+          readonly jurisdiction: T;
+          /** Coarser registrations that also claim the point, finest-first. Diagnostics only. */
+          readonly outranked: readonly T[];
+      }
+    /** ≥2 registrations tie at the finest resolution. Refuse — never pick. */
+    | { readonly kind: 'ambiguous'; readonly candidates: readonly T[] };
+
+/**
+ * Apply the §JURISDICTION-SPECIFICITY rule to a list of claims. PURE; never throws; a non-finite
+ * point yields `'none'`.
+ *
+ * Uses each claim's OWN `contains` predicate — the dispatcher's — rather than re-testing a bbox
+ * here, so this can never light a region the dispatcher would refuse to route into (C60 §2).
+ *
+ * P8 span: `pryzm.zoning.resolveJurisdictionClaim`.
+ */
+export function resolveJurisdictionClaim<T extends JurisdictionClaim>(
+    claims: readonly T[],
+    lat: number,
+    lon: number,
+): JurisdictionClaimResolution<T> {
+    const span = _tracer.startSpan('pryzm.zoning.resolveJurisdictionClaim');
+    try {
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+            span.setAttribute('pryzm.zoning.resolution', 'none');
+            span.setStatus({ code: SpanStatusCode.OK });
+            return { kind: 'none' };
+        }
+        const matched = claims.filter((c) => c.contains(lat, lon));
+        span.setAttribute('pryzm.zoning.lat', lat);
+        span.setAttribute('pryzm.zoning.lon', lon);
+        span.setAttribute('pryzm.zoning.claimCount', matched.length);
+        if (matched.length === 0) {
+            span.setAttribute('pryzm.zoning.resolution', 'none');
+            span.setStatus({ code: SpanStatusCode.OK });
+            return { kind: 'none' };
+        }
+        // Stable: `filter` preserves registration order, and `sort` is stable in ES2019+, so equal
+        // ranks keep registration order — which matters only for the DIAGNOSTIC `outranked` list,
+        // never for the verdict (a rank tie is an ambiguity, not a first-wins).
+        const ordered = [...matched].sort(
+            (a, b) => extentResolutionRank(a.extentResolution) - extentResolutionRank(b.extentResolution),
+        );
+        const finest = extentResolutionRank(ordered[0]!.extentResolution);
+        const tied = ordered.filter((c) => extentResolutionRank(c.extentResolution) === finest);
+        if (tied.length > 1) {
+            span.setAttribute('pryzm.zoning.resolution', 'ambiguous');
+            span.setAttribute(
+                'pryzm.zoning.candidates',
+                tied.map((c) => c.jurisdictionId).join(','),
+            );
+            span.setStatus({ code: SpanStatusCode.OK });
+            return { kind: 'ambiguous', candidates: tied };
+        }
+        span.setAttribute('pryzm.zoning.resolution', 'resolved');
+        span.setAttribute('pryzm.zoning.jurisdictionId', ordered[0]!.jurisdictionId);
+        span.setStatus({ code: SpanStatusCode.OK });
+        return { kind: 'resolved', jurisdiction: ordered[0]!, outranked: ordered.slice(1) };
+    } catch (err) {
+        // A registration whose `contains` throws must not take the whole lookup down; the honest
+        // outcome of "we could not decide" is the same as "nobody claims it" — never a guess.
+        span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error)?.message });
+        return { kind: 'none' };
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * **Which REGISTERED jurisdiction governs a WGS84 point.** The production entry point — the same
+ * rule applied to `listJurisdictionCoverage()`, so no caller can supply a different claim list and
+ * reach a different verdict for real land.
+ *
+ * P8 span: `pryzm.zoning.resolveRegisteredJurisdictionAt`.
+ */
+export function resolveRegisteredJurisdictionAt(
+    lat: number,
+    lon: number,
+): JurisdictionClaimResolution<JurisdictionCoverage> {
+    const span = _tracer.startSpan('pryzm.zoning.resolveRegisteredJurisdictionAt');
+    try {
+        const r = resolveJurisdictionClaim(listJurisdictionCoverage(), lat, lon);
+        span.setAttribute('pryzm.zoning.resolution', r.kind);
+        if (r.kind === 'resolved') {
+            span.setAttribute('pryzm.zoning.jurisdictionId', r.jurisdiction.jurisdictionId);
+        }
+        span.setStatus({ code: SpanStatusCode.OK });
+        return r;
+    } finally {
+        span.end();
+    }
 }

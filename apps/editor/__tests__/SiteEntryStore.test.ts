@@ -20,6 +20,7 @@ const ALPHA: CoverageEntry = {
     countryName: 'Xanadu',
     extent: { minLat: 10, maxLat: 11, minLon: 20, maxLon: 21 },
     contains: (lat, lon) => lat >= 10 && lat <= 11 && lon >= 20 && lon <= 21,
+    extentResolution: 'municipal',
     answerSummary: 'The Alpha ordinance.',
     packZoneCodes: ['a1'],
 };
