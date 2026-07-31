@@ -25,8 +25,17 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { hasPermission, ROLES } from '../permissions.js';
 import { canUserAccessProject } from '../projectAccess.js';
+import {
+    scanWriteRoutes,
+    extractPathConstants,
+    reconcileExemptions,
+    MIN_WRITE_ROUTES,
+    type Exemption,
+} from '../../tools/ga-gate/lib/writeRouteScan.js';
 
 // ── §1 — hasPermission() tests ────────────────────────────────────────────────
 
@@ -226,74 +235,90 @@ describe('canUserAccessProject() — transient DB error resilience (L-136)', () 
     });
 });
 
-// ── §3 — Route permission coverage matrix (documentation test) ────────────────
+// ── §3 — Write-route auth coverage, DERIVED FROM SOURCE (L-406) ───────────────
 //
-// This test documents which enforcement mechanism protects each write route,
-// providing a machine-readable audit record for C08 §2.1 compliance.
-// Each entry is { route, method, mechanism, exempt } — failing this test means
-// the audit matrix is incomplete and a route may be unprotected.
+// WHAT THIS REPLACES — and why the replacement is a different KIND of test.
+//
+// This section previously held a hand-typed "C08 §2.1 write route coverage
+// matrix": a 37-entry array literal of { route, method, mechanism, exempt },
+// whose three assertions were
+//
+//     it('T19 — audit matrix covers all 37 write routes', () =>
+//         expect(auditMatrix).toHaveLength(37));
+//     it('T20 — every non-exempt route has an explicit enforcement mechanism', …)
+//     it('T21 — every route in the matrix has a non-empty route string', …)
+//
+// Every one of those assertions was about the literal declared four lines above
+// it. The matrix was never compared to server.js. It was therefore GREEN BY
+// CONSTRUCTION and could not, even in principle, detect an unprotected route.
+//
+// Two live consequences, both true on main when this was rewritten:
+//
+//   • The matrix declared `/api/event-log` `exempt: true` with the mechanism
+//     "rate-limited, no project write". That route WAS L-406 — the P1
+//     unauthenticated cross-tenant audit-write spoof. The audit whose job was
+//     to catch L-406 is the document that certified it safe, and it still said
+//     so after the route was fixed (065c23e2), because nothing connected the
+//     two.
+//   • The matrix claimed 37 write routes; server.js registers 46. Nine routes
+//     had drifted in unaudited — /api/security/csp-report, /api/leads,
+//     /api/overpass, /api/ai/cache/lookup, /api/ai/cache/store,
+//     /marketplace/api/publishers/register-key and the three
+//     /marketplace/api/plugins/:id/* writes — while the suite stayed green.
+//
+// The replacement enumerates only the EXCEPTIONS and derives the rest by
+// scanning server.js, reconciling in both directions. A route added tomorrow
+// without authMiddleware fails this test with no hand-maintenance at all.
+//
+// Deep parser specs live in tools/ga-gate/__tests__/writeRouteScan.spec.ts;
+// the CI gate is tools/ga-gate/check-write-route-auth.ts.
 
-describe('C08 §2.1 write route coverage matrix', () => {
-    const auditMatrix: Array<{
-        route:     string;
-        method:    'POST' | 'PATCH' | 'PUT' | 'DELETE';
-        mechanism: string;
-        exempt:    boolean;
-    }> = [
-        // Project-scoped mutations
-        { route: '/api/projects/:id/visibility-intents',        method: 'POST',   mechanism: '_httpCanAccess',           exempt: false },
-        { route: '/api/projects/:id/visibility-intents/:id',    method: 'PUT',    mechanism: '_httpCanAccess',           exempt: false },
-        { route: '/api/projects/:id/visibility-intents/:id',    method: 'DELETE', mechanism: '_httpCanAccess',           exempt: false },
-        { route: '/api/projects/:id/members',                   method: 'POST',   mechanism: 'hasPermission(invite_member)', exempt: false },
-        { route: '/api/projects/:id/members/:uid/role',         method: 'PATCH',  mechanism: 'hasPermission(change_role)',   exempt: false },
-        { route: '/api/projects/:id/members/:uid',              method: 'DELETE', mechanism: 'hasPermission(remove_member)', exempt: false },
-        { route: '/api/projects/:projectId/ifc-uploads',        method: 'POST',   mechanism: '_httpCanAccess',           exempt: false },
-        { route: '/api/projects/:projectId/ifc-uploads/:id',    method: 'DELETE', mechanism: '_httpCanAccess',           exempt: false },
-        { route: '/api/projects/:id/versions/:vid/transition',  method: 'POST',   mechanism: 'resolveProjectRole',       exempt: false },
-        { route: '/api/projects/:id/versions',                  method: 'POST',   mechanism: 'owner_id+ignoreDuplicates:true upsert', exempt: false },
-        { route: '/api/projects/:id',                           method: 'DELETE', mechanism: 'owner_id WHERE clause',    exempt: false },
-        { route: '/api/projects/:id/thumbnail',                 method: 'PATCH',  mechanism: 'owner_id WHERE clause',    exempt: false },
-        // User-level (exempt — user acts on their own resources)
-        { route: '/api/projects',                               method: 'POST',   mechanism: 'req.auth.userId = owner',  exempt: true  },
-        { route: '/api/render/save',                            method: 'POST',   mechanism: 'authMiddleware + userId-scoped', exempt: true },
-        { route: '/api/render/:id',                             method: 'DELETE', mechanism: 'authMiddleware + userId-scoped', exempt: true },
-        { route: '/api/panorama/save',                          method: 'POST',   mechanism: 'authMiddleware + userId-scoped', exempt: true },
-        { route: '/api/panorama/:id',                           method: 'DELETE', mechanism: 'authMiddleware + userId-scoped', exempt: true },
-        { route: '/api/import/dwg',                             method: 'POST',   mechanism: 'authMiddleware + userId-scoped', exempt: true },
-        { route: '/api/export/pdf',                             method: 'POST',   mechanism: 'authMiddleware + authorizeExport', exempt: true },
-        // System / public (exempt with documented rationale)
-        { route: '/api/auth/signup',                            method: 'POST',   mechanism: 'public — creates own account',   exempt: true },
-        { route: '/api/auth/signin',                            method: 'POST',   mechanism: 'public — read-only auth',        exempt: true },
-        { route: '/api/auth/set-plan',                          method: 'POST',   mechanism: 'INTERNAL_PLAN_SECRET header',    exempt: true },
-        { route: '/api/admin/set-plan',                         method: 'POST',   mechanism: 'owner plan check',               exempt: true },
-        { route: '/api/stripe/webhook',                         method: 'POST',   mechanism: 'Stripe-Signature verification',  exempt: true },
-        { route: '/api/event-log',                              method: 'POST',   mechanism: 'rate-limited, no project write', exempt: true },
-        { route: '/marketplace/api/plugins/submit',             method: 'POST',   mechanism: 'authMiddleware + Ed25519 sig',   exempt: true },
-        // AI routes (all exempt — user-level quota, not project mutation)
-        { route: '/api/anthropic/v1/messages',                  method: 'POST',   mechanism: 'authMiddleware + enforceAIQuota', exempt: true },
-        { route: '/api/ai/brief/parse',                         method: 'POST',   mechanism: 'authMiddleware + enforceAIQuota', exempt: true },
-        { route: '/api/ai/generative/advise',                   method: 'POST',   mechanism: 'authMiddleware + enforceAIQuota', exempt: true },
-        { route: '/api/ai/compliance/advise',                   method: 'POST',   mechanism: 'authMiddleware + enforceAIQuota', exempt: true },
-        { route: '/api/ai/portfolio/query',                     method: 'POST',   mechanism: 'authMiddleware + enforceAIQuota', exempt: true },
-        { route: '/api/ai/voice/parse',                         method: 'POST',   mechanism: 'authMiddleware + enforceAIQuota', exempt: true },
-        { route: '/api/ai/ambient/analyse',                     method: 'POST',   mechanism: 'authMiddleware + enforceAIQuota', exempt: true },
-        { route: '/api/ai/rooms/suggest-name',                  method: 'POST',   mechanism: 'authMiddleware + enforceAIQuota', exempt: true },
-        { route: '/api/ai/rooms/suggest-finishes',              method: 'POST',   mechanism: 'authMiddleware + enforceAIQuota', exempt: true },
-        { route: '/api/ai/rooms/generate-programme',            method: 'POST',   mechanism: 'authMiddleware + enforceAIQuota', exempt: true },
-        { route: '/api/ai/rooms/analyse-adjacency',             method: 'POST',   mechanism: 'authMiddleware + enforceAIQuota', exempt: true },
-    ];
+describe('C08 §1.2/§2.1 — write-route auth coverage (scanned from server.js)', () => {
+    const ROOT = process.cwd();
+    const EXEMPTIONS_FILE = join(ROOT, 'tools', 'ga-gate', 'write-route-auth-exemptions.json');
 
-    it('T19 — audit matrix covers all 37 write routes (C08 §2.1 full coverage)', () => {
-        expect(auditMatrix).toHaveLength(37);
+    const constants: Record<string, string> = {};
+    for (const f of readdirSync(join(ROOT, 'server'))) {
+        if (!f.endsWith('.js')) continue;
+        Object.assign(constants, extractPathConstants(readFileSync(join(ROOT, 'server', f), 'utf8')));
+    }
+    const { routes } = scanWriteRoutes(readFileSync(join(ROOT, 'server.js'), 'utf8'), constants);
+    const declared: Exemption[] = JSON.parse(readFileSync(EXEMPTIONS_FILE, 'utf8')).exemptions;
+
+    it('T28 — the scan actually read server.js (failure and empty are NOT the same value)', () => {
+        // The predecessor matrix passed while reading nothing. This assertion is
+        // the floor that makes every assertion below meaningful.
+        expect(routes.length).toBeGreaterThanOrEqual(MIN_WRITE_ROUTES);
     });
 
-    it('T20 — every non-exempt route has an explicit enforcement mechanism', () => {
-        const unprotected = auditMatrix.filter(r => !r.exempt && !r.mechanism);
-        expect(unprotected).toHaveLength(0);
+    it('T29 — every mutating route is behind authMiddleware or declared-exempt with a rationale', () => {
+        const { undeclared, unjustified } = reconcileExemptions(routes, declared);
+        expect(undeclared.map(r => `${r.method} ${r.route} (server.js:${r.line})`)).toEqual([]);
+        expect(unjustified.map(e => `${e.method} ${e.route}`)).toEqual([]);
     });
 
-    it('T21 — every route in the matrix has a non-empty route string', () => {
-        const blank = auditMatrix.filter(r => !r.route);
-        expect(blank).toHaveLength(0);
+    it('T30 — the exemption list has not rotted: no stale or obsolete entries', () => {
+        const { stale, obsolete } = reconcileExemptions(routes, declared);
+        expect(stale.map(e => `${e.method} ${e.route}`)).toEqual([]);
+        expect(obsolete.map(e => `${e.method} ${e.route}`)).toEqual([]);
+    });
+
+    it('T31 — L-406 REGRESSION: POST /api/event-log is behind authMiddleware', () => {
+        const ev = routes.find(r => r.route === '/api/event-log' && r.method === 'POST');
+        expect(ev, 'POST /api/event-log must be registered in server.js').toBeDefined();
+        expect(ev!.authenticated).toBe(true);
+    });
+
+    it('T32 — every project-scoped write route is authenticated (§2.2 cross-tenant)', () => {
+        const scoped = routes.filter(r => r.route.startsWith('/api/projects'));
+        expect(scoped.length).toBeGreaterThan(0);
+        expect(scoped.filter(r => !r.authenticated).map(r => `${r.method} ${r.route}`)).toEqual([]);
+    });
+
+    it('T33 — every marketplace write route is authenticated (UGC + purchase surface)', () => {
+        const mk = routes.filter(r => r.route.startsWith('/marketplace/'));
+        expect(mk.length).toBeGreaterThan(0);
+        expect(mk.filter(r => !r.authenticated).map(r => `${r.method} ${r.route}`)).toEqual([]);
     });
 });
+

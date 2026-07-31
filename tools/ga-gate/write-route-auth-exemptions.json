@@ -1,0 +1,59 @@
+{
+  "$comment": [
+    "§WRITE-ROUTE-AUTH (L-406) — the ONLY mutating routes in server.js permitted to be",
+    "mounted outside the authMiddleware chain. Contract C08 §1.2/§2.1/§2.2.",
+    "",
+    "This file lists EXCEPTIONS ONLY. Every other write route is proven authenticated by",
+    "the scan itself (tools/ga-gate/lib/writeRouteScan.ts) and needs no entry here — that",
+    "is the point. The predecessor of this gate was a hand-typed 37-row matrix inside",
+    "permissions.test.ts that enumerated EVERY route and asserted its own length; it",
+    "drifted 9 routes behind server.js and declared the L-406 vulnerability exempt, all",
+    "while reporting green. A list of exceptions cannot drift the same way, because the",
+    "gate reconciles it against the source in BOTH directions: an undeclared authless",
+    "route fails, and a declared route that no longer exists (or has since gained",
+    "authMiddleware) also fails.",
+    "",
+    "Adding an entry here is a SECURITY DECISION. The rationale must explain what",
+    "prevents an anonymous caller from abusing the write, not merely restate that the",
+    "route is public.",
+    "",
+    "Each entry was traced against server.js at the line cited, 2026-07-31 (batch-10)."
+  ],
+  "exemptions": [
+    {
+      "route": "/api/security/csp-report",
+      "method": "POST",
+      "rationale": "C51 §3.1.2.2 CSP violation sink. The browser's CSP reporting agent posts these; the User-Agent cannot attach a Bearer token, so requiring auth would disable the report channel entirely. Writes no database row and no user-attributed state — the handler answers 204 and rate-caps console telemetry. Nothing an anonymous caller submits is persisted or read back. (server.js:377)"
+    },
+    {
+      "route": "/api/leads",
+      "method": "POST",
+      "rationale": "IP-A3 A.5.e RAC onboarding lead capture. Deliberately pre-authentication: the visitor has not signed up yet, so there is no session to require. The row is a self-attributed marketing lead with no tenant, no project and no permission consequence; it is never read back into an authorisation decision. Rate-capped + size-capped by leadsBodyParser. (server.js:383)"
+    },
+    {
+      "route": "/api/overpass",
+      "method": "POST",
+      "rationale": "§OVERPASS-PROXY. POST only because Overpass-QL is sent in the body; semantically a READ-THROUGH cache of public OpenStreetMap data. Persists nothing user-attributed — the cache key is the query, the value is public OSM geometry identical for every caller. Guarded by apiLimiter (60/min/IP) + globalLimiter. (server.js:395)"
+    },
+    {
+      "route": "/api/auth/set-plan",
+      "method": "POST",
+      "rationale": "Internal plan-provisioning hook. Gated on the x-internal-secret header matching INTERNAL_PLAN_SECRET, and FAIL-CLOSED: when the env var is unset the first condition is falsy and every request gets 403, so an unconfigured deployment denies rather than accepts. Not a session route — the caller is a backend, which has no user session to present. (server.js:1800)"
+    },
+    {
+      "route": "/api/auth/signup",
+      "method": "POST",
+      "rationale": "Account creation. Authentication cannot precede the creation of the account it would authenticate. The write is confined to a new self-owned pryzm_users row; the caller cannot name an existing tenant or project. (server.js:1881)"
+    },
+    {
+      "route": "/api/auth/signin",
+      "method": "POST",
+      "rationale": "Credential exchange — the route that MINTS the session, so it cannot require one. POST only because the password travels in the body; it mutates no domain state, it verifies a hash and issues a JWT. (server.js:1904)"
+    },
+    {
+      "route": "/api/stripe/webhook",
+      "method": "POST",
+      "rationale": "Stripe calls this server-to-server and has no PRYZM session. Authenticated by a STRONGER mechanism than authMiddleware: constructWebhookEvent() HMAC-verifies the raw body against STRIPE_WEBHOOK_SECRET before ANY business logic, a missing stripe-signature header is 400, and a missing STRIPE_SECRET_KEY/STRIPE_WEBHOOK_SECRET is 503 (fail-closed, and 5xx so Stripe retries rather than silently dropping a paid subscription). Verified by reading the handler, not by trusting the previous matrix's claim. (server.js:2078)"
+    }
+  ]
+}
