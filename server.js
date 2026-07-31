@@ -53,6 +53,13 @@ import { CATASTRO_PARCEL_PATH, catastroParcelHandler, CATASTRO_BLOCK_PATH, catas
 // §MUC-ZONING-PROXY (L-480) — the Catalan clau lookup: the ONE missing input that keeps
 // Barcelona envelopes at 'estimated'. Probed live before it was written (L-473's lesson).
 import { MUC_ZONING_PATH, mucZoningHandler } from './server/mucZoningProxy.js';
+// §BCN-REFOS-OV-PROXY — the AMB Refós `OV_Trames` seam for Barcelona clau 18 (*ordenació en
+// volumetria específica*, 17.5 % of private buildable land). PGM Art. 306 states NO envelope — it
+// points at a per-site approved volumetric ordering — but the AMB publishes those orderings as
+// queryable geometry (footprint + PLANTES storey count). The client resolver + rule pack + L5
+// dispatch were already written; this route is the same-origin seam they were missing under the
+// C57 CSP. ⚠ Rendering is STILL gated on `BCN_REFOS_OV_CERTIFIED` (default OFF, L-449).
+import { BCN_REFOS_OV_PATH, bcnRefosOvHandler } from './server/bcnRefosOvProxy.js';
 // §PLANDATA-ZONING-PROXY (L-399a): same-origin KEYLESS Denmark zoning proxy + cache (real DK envelope)
 import {
     PLANDATA_ZONING_PATH,
@@ -456,6 +463,11 @@ app.get(CATASTRO_PARCEL_PATH, apiLimiter, catastroParcelHandler);
 // and same posture as the parcel route: resolves to null on any doubt, never fabricates.
 app.get(CATASTRO_BLOCK_PATH, apiLimiter, catastroBlockHandler);
 app.get(MUC_ZONING_PATH, apiLimiter, mucZoningHandler);
+// §BCN-REFOS-OV-PROXY — the clau-18 volumetric-ordering lookup. Same posture as the MUC route:
+// same-origin (so `connect-src 'self'` already covers it — NO CSP change), keyless public AMB data,
+// never crashes. 200 { features: [...] } (possibly empty = a genuine "no OV published here") vs 502
+// (upstream outage) are DELIBERATELY distinct — §CONTEXT-DATA-HONESTY.
+app.get(BCN_REFOS_OV_PATH, apiLimiter, bcnRefosOvHandler);
 
 // §PLANDATA-ZONING-PROXY (L-399a) — same-origin KEYLESS Denmark zoning proxy for the
 // FIRST genuine-data jurisdiction of the compliance pilot (C58 §1.2 fidelity 1). Public
