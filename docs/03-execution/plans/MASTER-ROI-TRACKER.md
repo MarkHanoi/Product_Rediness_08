@@ -96,6 +96,40 @@ blocked on billing:** Murcia terrain canary → full 590-region sharded rollout 
 envelope wiring FR/NL/CH · L-456 compliance panel · parcel-provider batch wire · Madrid PGOUM-97 pack ·
 Köln "German Barcelona" bake + LoD2 heights · CI gate restoration (L-651).
 
+### §0.5.2 — ⚖ FOUNDER RATIFICATION 2026-07-31: the PARCEL and ENVELOPE denominator is **BUILDABLE LAND**
+
+> **"For the RATE / ROI we should also consider not all lands for parcel and envelopes — but all parcels
+> where you CAN build."** — founder, 2026-07-31.
+
+**The rule.** For the **PARCEL** and **ENVELOPE** axes the denominator is **land where building is
+legally possible** — private buildable land — **not all municipal land, and not all clicks.**
+
+**Why it is the correct denominator, not a flattering one.** Scoring against all municipal ground
+punishes a city for its parks, streets, rail, port and protected soil — land where *no envelope can
+exist by law*, so a "miss" there is not a miss. In Barcelona that is not a rounding error: systems +
+`27`/`28`/`29` protected soil are **~17.9 % of all municipal ground**, and **only 27.1 % of the city is
+private buildable at all** (31.8 M m² of 101.78 M m², live AMB census 2026-07-31). Under the old
+reading Barcelona could never exceed ~27 % however perfect the work. Under the ratified reading its
+measured coverage is **56.0 %** with a **~70 %** legal ceiling.
+
+**Three numbers that must never be conflated** — each answers a different question:
+
+| Metric | Denominator | Barcelona today | Answers |
+|---|---|---|---|
+| **Axis score** (C63 PARCEL/ENVELOPE) | private **buildable** land area | **56.0 %** | *how much of the buildable city do we govern?* |
+| **Click coverage** | all clicks anywhere | **~15 %** get an envelope | *what does a random user see?* |
+| **Answer correctness** | all clicks anywhere | **~100 %** | *does every click get a TRUE answer — envelope **or** cited refusal?* |
+
+⚠ **A cited refusal is a CORRECT ANSWER, not a gap** — but it is **not an envelope**, and the two must
+never be blurred into one headline. Land excluded from the denominator (systems, Collserola, parks) is
+**excluded, not scored zero**: `not-applicable ≠ 0 %`, exactly as `not-assessed ≠ 0 %` (C63 §1.2/§1.5).
+
+**Consequences to apply.** (1) Every per-city `RATE.md` PARCEL/ENVELOPE cell must **name its
+denominator and its measurement date** — the Barcelona audit found the same headline "24 %" resting on
+two different denominators. (2) Cross-city comparison only becomes fair under this rule; a park-heavy
+city is no longer penalised. (3) **C63 §3/§4 should be amended to state this explicitly** — the ceiling
+audit already measured ENVELOPE this way (31.8 M m²), so the contract is trailing the practice.
+
 **Founder decisions locked this session (govern the board):**
 - 🇩🇰 DK + 🇸🇪 SE = **offline-legislation + deferred-live-data** — authoritative cadastre is identity-bootstrap-gated (MitID / BankID) and un-clearable by a foreign founder; both ship on canonical **stub adapters** (fill one method later, no engine change). Parcel axis = *access-deferred*, scored honestly, **not** a code gap.
 - 🇫🇮 FI = **only self-service unblock** — MML API key is create-it-yourself online; the one easy full-country win (pending founder key).
