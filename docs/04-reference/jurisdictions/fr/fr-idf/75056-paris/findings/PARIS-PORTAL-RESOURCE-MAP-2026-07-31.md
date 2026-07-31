@@ -209,3 +209,68 @@ Then **open the PDF and read its title page.** Do not infer the version from the
 *Related: [`SOURCE-founder-paris-extraction-roadmap-2026-07-31.md`](./SOURCE-founder-paris-extraction-roadmap-2026-07-31.md) ·
 [`../RATE-IMPLEMENTATION-PLAN.md`](../RATE-IMPLEMENTATION-PLAN.md) ·
 [`../../findings/SOURCE-founder-france-machine-readable-legislation-schema-2026-07-31.md`](../../findings/SOURCE-founder-france-machine-readable-legislation-schema-2026-07-31.md)*
+
+
+---
+
+## §8 — CORRECTION to §1: `id=191` is ORPHANED, and the resource map is page-scoped
+
+A second pass read the **complete** resource list on each portal page (the first pass truncated at 25
+matches — my error, and it produced a wrong conclusion in §1).
+
+**`document_id=198` (the Règlement page) links exactly:**
+`128–176 · 186 · 188 · 189 · 190 · 749 · 750 · 751`
+
+**`id=191` (REG1.pdf, Tome 1, Version 59) is NOT among them.** It is not linked from the Règlement
+page, nor from `document_id=` 199/201/202/203/204/205/226/249/250/251, nor from the *Anciennes
+versions* page (789, which links `790–815+`). It is reachable only by direct URL.
+
+⇒ **`id=191` is an orphaned attachment.** It was found by search-engine indexing, not by navigation.
+That is *why* it serves a superseded version: nothing on the live site points at it any more.
+
+Link labels recovered from the page markup:
+
+| id | label on page | file |
+|---:|---|---|
+| **137** | **"plan des hauteurs"** | `DG_E_HAUTEUR.pdf` (6,075,133 B) |
+| 146 | zonage | `DG_A_ZONAGE.pdf` |
+| 188 | Volume 1 du Tome 2 | — |
+| 189 | Volume 2 du Tome 2 | `REG2A10_1DE2.pdf` |
+| 190 | Volume 3 du Tome 2 | `REG2A10_2DE2.pdf` |
+| 186 · 749–751 | Montmartre / maisons-villas / 1:2000 consultation guides | — |
+
+**Other pages use entirely disjoint id ranges** — `doc 201 → 192–197, 385, 391, 787–788, 863` ·
+`doc 202 → 444–461` · `doc 203 → 413–435` · `doc 204 → 437–443` · `doc 205 → 463–470`. So **id ranges
+are page-scoped, not chronological**, and blind numeric enumeration is the wrong instrument: a range
+sweep finds orphans and misses live links.
+
+### ⇒ The Règlement page does not link Tome 1 at all
+
+Graphics and Tome 2 only. The Tome 1 text link is therefore behind **client-side JS** or inside the
+"Télécharger l'intégralité" bundle. **Static fetching cannot reach it.**
+
+**Next step — Playwright** (available in this repo): open `Portal.jsp?document_id=198` and `page_id=4`,
+click every download control, capture request URL → redirect chain → `Location` → `Content-Disposition`
+→ bytes, then extract page 1 and stop at the PDF whose **title page** says *Modification simplifiée n°2*
+or a **2026** Conseil de Paris deliberation. Filenames and `Last-Modified` remain inadmissible as
+version evidence.
+
+### ⇒ NEW LEAD for §5 (`plub_hauteur` provenance)
+
+**`id=137` is labelled "plan des hauteurs" on the Règlement page itself** — a *page-asserted* label,
+which is stronger evidence than `id=239`'s filename (`Plan___Hauteurs_des_constructions.pdf`, found by
+range sweep and unlinked in the label scan). `DG_E_HAUTEUR.pdf`, 6.07 MB, `DG_` = *Documents
+Graphiques*.
+
+⇒ **Probe `id=137` before `id=239`** when testing whether `plub_hauteur` is the GIS rendering of the
+*Plan général des hauteurs* that UG.3.2.2's substitution rule is defined against.
+
+### Evidence-chain update
+
+| # | Claim | State |
+|---|---|---|
+| P1 | id→filename map for the swept range | **VERIFIED-LIVE** (but §1's framing corrected here) |
+| P10 | `document_id=198` links 128–176/186/188–190/749–751; **191 absent** | **VERIFIED-LIVE** |
+| P11 | `id=191` unlinked from 11 portal pages checked | **VERIFIED-LIVE** (negative, not exhaustive) |
+| P12 | `id=137` = "plan des hauteurs" per page markup | **VERIFIED-LIVE** |
+| P9 | The June 2026 Tome 1 binary | **UNKNOWN** — behind JS; needs Playwright |
