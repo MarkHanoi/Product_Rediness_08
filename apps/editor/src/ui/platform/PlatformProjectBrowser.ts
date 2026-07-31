@@ -58,7 +58,7 @@ export class PlatformProjectBrowser {
         this.toolbarInner = document.createElement('div');
         this.toolbarInner.className = 'plat-toolbar-inner';
         this.toolbarInner.innerHTML = `
-            <input class="plat-project-name" id="plat-project-name" value="${this.ctx.projectName}" title="Click to rename">
+            <input class="plat-project-name" id="plat-project-name" value="${this.escHtml(this.ctx.projectName)}" title="Click to rename">
             <div class="plat-divider"></div>
             <div class="plat-status">
                 <div class="plat-status-dot" id="plat-status-dot"></div>
@@ -941,7 +941,7 @@ export class PlatformProjectBrowser {
                                             `<span style="font-size:10px;padding:1px 6px;background:rgba(102,0,255,0.1);color:#6600FF;border-radius:8px;">${esc(ev)}</span>`
                                         ).join('')}
                                     </div>
-                                    <div style="font-size:10px;color:#aaa;margin-top:3px;">${wh.id}</div>
+                                    <div style="font-size:10px;color:#aaa;margin-top:3px;">${esc(String(wh.id))}</div>
                                 </div>
                                 <button data-del="${esc(wh.id)}" style="flex-shrink:0;background:none;border:1px solid #fca5a5;color:#dc2626;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;">Delete</button>
                             </div>

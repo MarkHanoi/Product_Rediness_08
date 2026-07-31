@@ -30,6 +30,7 @@ import { EntitlementStore } from '@pryzm/core-app-model';
 import { Feature } from '@pryzm/core-app-model';
 import { UiPreferences } from '../UiPreferences';
 import { showToast, generateId } from './PlatformToastSystem';
+import { escHtml } from './ProjectHubTemplates';
 import type { VersionRecord, SaveStatus, ShellCtx, IProjectSnapshot } from './PlatformShellTypes';
 
 export class PlatformSaveController {
@@ -123,7 +124,7 @@ export class PlatformSaveController {
                 <div class="plat-modal-body">
                     <div class="plat-field">
                         <label class="plat-label">Project Name</label>
-                        <input class="plat-input" id="plat-save-projname" value="${this.ctx.projectName}">
+                        <input class="plat-input" id="plat-save-projname" value="${escHtml(this.ctx.projectName)}">
                     </div>
                     <div class="plat-field">
                         <label class="plat-label">Version Label</label>
