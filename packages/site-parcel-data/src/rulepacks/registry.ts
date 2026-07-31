@@ -137,6 +137,16 @@ import { MURCIA_BBOX, isInMurcia } from '../providers/murciaBbox.js';
 //    globe. `DK_PLANDATA_JURISDICTION_ID` names the same jurisdiction the live DK ZoningRecord carries.
 import { DK_PLANDATA_JURISDICTION_ID } from './dkPlandataEnvelope.js';
 import { DENMARK_BBOX, isInDenmark } from '../providers/denmarkBbox.js';
+// ── PARIS (INSEE 75056, Ville de Paris) — PLU bioclimatique. Like Denmark, an ANSWERING jurisdiction
+//    whose envelope is resolved LIVE per parcel by the L5 dispatch, so `packsByZone` is EMPTY and this
+//    registration's job is to light the C60 coverage globe. See the block comment at the registration.
+import { PARIS_JURISDICTION_ID } from './frParisPluBioclimatique.js';
+import { PARIS_BBOX, isInParis } from '../providers/parisBbox.js';
+// ── NETHERLANDS (national) — bestemmingsplan bouwvlak + maatvoering, keyless via the PDOK RP WMS.
+//    Same live-resolved shape as Denmark/Paris. ⚠ The routing predicate is the NATIONAL bbox the
+//    dispatch itself gates on (`isInNetherlands`), imported — never restated — per the header rule.
+import { NL_JURISDICTION_ID } from './nlBestemmingsplan.js';
+import { NETHERLANDS_BBOX, isInNetherlands } from '../parcelProviders/countryBbox.js';
 
 /** The jurisdiction id Barcelona packs and records use. One constant, not a scattered literal. */
 export const BCN_JURISDICTION_ID = 'es-08019-barcelona';
@@ -494,6 +504,23 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
     // WIRING TODO (orchestrator, when a canton's Typ catalogue is harvested + L-449-signed): author a
     // per-canton FAR pack (see `resolveChFarFromCantonCatalogue`), move it into `packsByZone` under the
     // verified zone codes, and narrow `noRulePackRefusal` to the still-unpacked cantons/zones.
+    //
+    // ── §ZURICH-BZO — THE CITY OF ZÜRICH IS NOW AN EXCEPTION TO "THE ENVELOPE REFUSES". ──────────
+    // ⚠ THIS IS A CORRECTION TO THE SUMMARY BELOW, NOT A SECOND SWISS REGISTRATION, AND IT MUST NOT
+    // BECOME ONE. Zürich (BFS-Nr 261) is inside `SWITZERLAND_BBOX`, so a second registration would
+    // give the globe two overlapping Swiss claims with no rule for which wins — the drift C60 §2
+    // exists to forbid. The city is handled INSIDE the Swiss dispatch instead: `isInZurichCity`
+    // prefers the municipal `bzo_zone_v` zone-ID over the national Grundnutzung, and under the
+    // owner-signed `CH_FAR_CERTIFIED` gate the §L-616 path COMPUTES a real AZ-capped envelope from
+    // the BZO 700.100 transcription (`chZurichBzoCatalogue.ts`). The summary is worded to state that
+    // exception rather than let the globe promise a blanket refusal the engine no longer performs.
+    //
+    // ⚠ `CH_ZURICH_BZO_PACK` STILL CANNOT ENTER `packsByZone`, and this is not an oversight: it
+    // declares `zones: []`. It is a jurisdiction DECLARATION with no zone codes to key, so there is
+    // literally nothing to map. The Zürich numbers are resolved live per parcel from the signed
+    // catalogue by the dispatch — the same live-resolution shape as Denmark, Paris and the NL below.
+    // The WIRING TODO above (a per-CANTON pack keyed by verified zone codes) is a different and still
+    // open piece of work; do not mark it done because Zürich-city now answers.
     {
         jurisdictionId: CH_JURISDICTION_ID,
         displayName: 'Switzerland (national Grundnutzung)',
@@ -505,8 +532,14 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         answerSummary:
             'Land-use ZONE identity from the national Nutzungsplanung WFS (geodienste.ch ' +
             'ms:grundnutzung) — code, label, main-use, the local abbreviation (e.g. W2), canton. ' +
-            'The buildable envelope REFUSES: density (Nutzungsziffer) is model-slotted + PDF-bound ' +
-            'and height/floors are not modelled, so PRYZM shows the zone but never a fabricated number.',
+            'Nationally the buildable envelope REFUSES: density (Nutzungsziffer) is model-slotted + ' +
+            'PDF-bound and height/floors are not modelled, so PRYZM shows the zone but never a ' +
+            'fabricated number. ONE EXCEPTION — the City of Zürich (BFS-Nr 261), where the municipal ' +
+            'BZO WFS gives the finer zone code (e.g. W2bIII) plus a direct link to that parcel\'s ' +
+            'BZO 700.100 ordinance, and an owner-signed transcription of the BZO Bauordnung table ' +
+            'supplies the Ausnützungsziffer, Gebäudehöhe and Vollgeschosse — so a Zürich parcel gets ' +
+            'a real GFA-capped envelope, shipped at estimated-ruleset because those numbers are a ' +
+            'human transcription of the ordinance table, not a live structured attribute.',
         // No code maps to a pack yet — the zone is identified live and its envelope refuses.
         packsByZone: packMap(),
         // No per-zone legal refusal table; the coverage-gap refusal below covers all Swiss parcels.
@@ -722,6 +755,113 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // Resolved live per-parcel via `dkPlandataResolvedPack` — no static zone-code pack table.
         packsByZone: packMap(),
         // The live DK dispatch owns the per-parcel refusal outcomes; the registry path has no live plan.
+        refusalFor: () => null,
+    },
+    // ── PARIS (INSEE 75056, Ville de Paris) — PLU bioclimatique, `FR_PARIS_PLU_CERTIFIED` ON. ────
+    //
+    // ⚠⚠ THIS REGISTRATION IS THE SLOT THAT WAS MISSING, AND ONLY THAT SLOT. Unlike Murcia, Paris
+    // was NOT an orphan: the S2 gate (`isInParis`), the S3 resolver (`resolveParisEnvelope`) and the
+    // L5 dispatch (`applyParisZoningThenFallback`) all shipped and all run on a click. What did not
+    // ship was S5 — so France was DARK on the C60 coverage globe while the engine was, in fact,
+    // drawing real published geometry there. A globe that under-states what the engine does is the
+    // same class of defect as one that over-states it: both make the globe a second, drifting
+    // statement of coverage, which is exactly what C60 §2 forbids.
+    //
+    // ⚠ DENMARK'S SHAPE, NOT BARCELONA'S — `packsByZone` IS DELIBERATELY EMPTY. Paris genuinely
+    // ANSWERS with real numbers, but they are not in a static zone→pack table: `computeParisEnvelope`
+    // extrudes the PUBLISHED `plub_ecm` buildable-footprint POLYGON (real geometry, resolved live per
+    // parcel) to the published `plub_hauteur` ceiling. `FR_PARIS_PLU_PACK` exists but is a
+    // DECLARATION of the rule's SHAPE; its UG zone carries `setbacks: 0/0/0`, which is the SUPERSEDED
+    // "emprise = the parcel" assumption the ECM engine replaced. Putting it in `packsByZone` would
+    // let any registry-path consumer inset a Paris parcel by 0/0/0 — i.e. publish the WHOLE PARCEL as
+    // buildable under a Paris citation. That is the §L-616 OVERSTATES defect, and an empty map is
+    // what forecloses it.
+    //
+    // ⚠ AND NO `noRulePackRefusal`, FOR A REASON WORTH READING. Madrid/Murcia/CH declare one; Paris
+    // must not. Every Paris refusal that exists (`parisPluEnvelopeRefusal`, the engine's component
+    // refusals) is a statement ABOUT A LIVE FETCH — "the ECM did not cover this point", "no published
+    // height here". On the registry path no fetch happened, so quoting any of them would assert a
+    // query PRYZM never made. Authoring a new coverage refusal instead would be a fiction about a
+    // jurisdiction that is fully covered. Denmark faced the identical choice and resolved it the same
+    // way: the dispatch owns every per-parcel outcome and never falls to the estimated triple (it
+    // returns before `applyEstimatedZoning` in all branches), so nothing is left for this slot to say.
+    //
+    // GRANULARITY: PARCEL. The ECM footprint and the hauteur plafond are both published per-parcel
+    // (the ECM carries the `c_asp` cadastral join), not per-block and not per-arrondissement.
+    // RULE KIND: `explicit-area` (ADR-0270) — the ordinance publishes the buildable footprint AS
+    // GEOMETRY. It is NOT a setback rule and NOT an alignment rule; a front/side/rear triple here
+    // would be a wrong SHAPE, not a wrong number, and no confidence chip corrects that (C58 §2.2).
+    {
+        jurisdictionId: PARIS_JURISDICTION_ID, // 'fr-75056-paris'
+        displayName: 'Paris (Ville de Paris)',
+        countryCode: 'FR',
+        countryName: 'France',
+        // ⚠ THE SAME OBJECT/FUNCTION `siteDispatch.ts` routes on — imported, not restated.
+        extent: PARIS_BBOX,
+        contains: isInParis,
+        answerSummary:
+            'PLU bioclimatique (règlement voted by the Conseil de Paris). PRYZM draws the PUBLISHED ' +
+            'emprise constructible maximale — the real buildable-footprint polygon from Paris ' +
+            'opendata plub_ecm — extruded to the published hauteur plafond (plub_hauteur, ' +
+            'UG.3.2.1), with the zone identity read from the national Géoportail de l\'urbanisme. ' +
+            'Per-parcel, never parcel-area × height. Where no ECM polygon covers the point, or no ' +
+            'height is published, PRYZM refuses with a citation rather than estimate; the ' +
+            'couronnement (UG.3.2.4) is a cited PARTIAL refusal when the crown code is withheld.',
+        // Resolved live per parcel from the published ECM geometry — no static zone-code pack table.
+        // ⚠ See the block comment: registering the pack here would re-enable a full-parcel envelope.
+        packsByZone: packMap(),
+        // The live Paris dispatch owns every per-parcel outcome; the registry path has no live ECM.
+        refusalFor: () => null,
+    },
+    // ── NETHERLANDS (national) — bestemmingsplan, `NL_BESTEMMINGSPLAN_CERTIFIED` ON. ─────────────
+    //
+    // ⚠ SAME MISSING SLOT AS PARIS ABOVE, AND THE PACK ITSELF ASKED FOR THIS. `nlBestemmingsplan.ts`
+    // carries a REGISTRATION NOTE reading: "This file is intentionally NOT imported by registry.ts…
+    // If a `JurisdictionRegistration` is ever added to the coverage globe, its extent is the national
+    // NL bbox + `contains` predicate." That is precisely what this is — the national bbox and the
+    // national predicate the dispatch ALREADY gates on (`isInNetherlands`), imported rather than
+    // restated so the globe cannot light a region the dispatcher would not route into.
+    //
+    // ⚠ `packsByZone` EMPTY — and here the reason is sharper than Paris's. `NL_ZONE_CODE` is
+    // `'nl:bouwvlak'`, a SYNTHETIC handle PRYZM invented to key one explicit-area rule; it is not a
+    // Dutch bestemming and appears in no plan. Listing it as a covered "zone code" on the globe would
+    // publish our own internal token as though it were a legal category. The real bestemming (Wonen /
+    // Gemengd / Bedrijf …) rides on the per-parcel ZoningRecord, live.
+    //
+    // NL is the strongest structured case PRYZM holds: the `maatvoering` objects carry SVBP2012
+    // typeringen with STATED units, so a clean "maximum bouwhoogte (m)" is a genuine
+    // `published-structured` metre value (Rotterdam 40 m / Utrecht 26 m / Groningen 24 m, verified
+    // live 2026-07-26) — unlike Madrid's COEF_Z, whose FAR semantics stay withheld.
+    //
+    // ⚠ NO `noRulePackRefusal`, for the identical reason given at Paris: both NL refusals
+    // (`nlBestemmingsplanRefusal` = "the PDOK service was temporarily unreachable…retried
+    // automatically"; `nlNoPlanRefusal` = "PRYZM queried the WMS at this parcel and it answered…")
+    // assert a fetch that the registry path did not perform. Quoting either would be a false
+    // statement about our own data path — the §CONTEXT-DATA-HONESTY failure in miniature.
+    //
+    // GRANULARITY: PARCEL for the bouwvlak case; the §NL-SPARSE-FALLBACK case is the ZONE
+    // (bestemmingsvlak) extent, which the dispatch renders as an explicit UPPER BOUND at reduced
+    // confidence with a caveat saying so — never presented as a parcel-precise footprint.
+    // RULE KIND: `explicit-area` (ADR-0270) — the plan publishes the bouwvlak AS GEOMETRY.
+    {
+        jurisdictionId: NL_JURISDICTION_ID, // 'nl-bestemmingsplan'
+        displayName: 'Netherlands (bestemmingsplan)',
+        countryCode: 'NL',
+        countryName: 'Netherlands',
+        // ⚠ THE SAME OBJECT/FUNCTION the NL dispatch routes on — imported, not restated.
+        extent: NETHERLANDS_BBOX,
+        contains: isInNetherlands,
+        answerSummary:
+            'Every officially-published bestemmingsplan, nationwide and keyless, via the PDOK ' +
+            '"Ruimtelijke plannen" WMS. PRYZM clips your parcel to the published bouwvlak ' +
+            '(IMRO2012 / SVBP2012 — real geometry) and applies the plan\'s own maatvoering: ' +
+            'maximum bouwhoogte (m), maximum bebouwingspercentage (%), maximum aantal bouwlagen — ' +
+            'structured values with stated units. Where a plan publishes no bouwvlak, the zone ' +
+            'extent is drawn as a clearly-labelled UPPER BOUND at reduced confidence; where neither ' +
+            'is published, PRYZM refuses with a citation rather than estimate.',
+        // Resolved live per parcel from the plan's bouwvlak + maatvoering — no static zone-code table.
+        packsByZone: packMap(),
+        // The live NL dispatch owns every per-parcel outcome; the registry path has no live plan.
         refusalFor: () => null,
     },
 ];
