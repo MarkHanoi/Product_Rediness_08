@@ -381,7 +381,7 @@ export class VariantBrowserPanel {
             row.innerHTML = `
                 <input type="checkbox" ${this._mergeSelected.has(r.id) ? 'checked' : ''}>
                 <span style="background:${roomColour(r.roomType)};width:10px;height:10px;display:inline-block;border-radius:2px;margin:0 4px"></span>
-                <span>${r.name} (${r.area_m2.toFixed(0)}m²)</span>
+                <span>${escHtml(r.name)} (${r.area_m2.toFixed(0)}m²)</span>
             `;
             const cb = row.querySelector('input')!;
             cb.addEventListener('change', () => {

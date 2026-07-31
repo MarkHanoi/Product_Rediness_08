@@ -17,6 +17,7 @@
 import { UpdateTemplateCommand, CreateTemplateCommand, DuplicateTemplateCommand, DeleteTemplateCommand } from '@pryzm/command-registry';
 import type { TemplateDefinition, TemplateScope, TemplateRequirements } from '@pryzm/core-app-model';
 import { apiFetch } from '@pryzm/core-app-model';
+import { escHtml } from '@pryzm/ui-base';
 
 const SCOPE_LABELS: Record<string, string> = {
     site: 'Site', building: 'Building', level: 'Level', unit: 'Unit', room: 'Room', element: 'Element',
@@ -216,7 +217,7 @@ export class TemplateEditorPanel {
             .catch((err: Error) => {
                 container.innerHTML = `
                     <div style="padding:16px;color:#E24B4A;font-size:12px;">
-                        Failed to load shared library: ${err.message}
+                        Failed to load shared library: ${escHtml(err.message)}
                     </div>
                 `;
             });
@@ -233,8 +234,8 @@ export class TemplateEditorPanel {
         const nameCol = document.createElement('div');
         nameCol.style.cssText = 'flex:1;min-width:0;';
         nameCol.innerHTML = `
-            <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${entry.name ?? 'Unnamed'}</div>
-            <div style="font-size:11px;color:var(--app-text-muted,#7a8aaa);">${entry.code ?? ''}</div>
+            <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(entry.name ?? 'Unnamed')}</div>
+            <div style="font-size:11px;color:var(--app-text-muted,#7a8aaa);">${escHtml(entry.code ?? '')}</div>
         `;
         row.appendChild(nameCol);
 
@@ -316,8 +317,8 @@ export class TemplateEditorPanel {
         const nameCol = document.createElement('div');
         nameCol.style.cssText = 'flex:1;min-width:0;';
         nameCol.innerHTML = `
-            <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.name}</div>
-            <div style="font-size:11px;color:var(--app-text-muted,#7a8aaa);">${t.code}${t.description ? ' — ' + t.description.substring(0, 40) : ''}</div>
+            <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(t.name)}</div>
+            <div style="font-size:11px;color:var(--app-text-muted,#7a8aaa);">${escHtml(t.code)}${t.description ? ' — ' + escHtml(t.description.substring(0, 40)) : ''}</div>
         `;
         row.appendChild(nameCol);
 

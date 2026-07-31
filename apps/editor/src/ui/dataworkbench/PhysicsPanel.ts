@@ -27,6 +27,7 @@
  *   - Auto-refreshes when pryzm-physics-updated fires
  */
 
+import { escHtml } from '@pryzm/ui-base';
 import type { RoomPhysicsResult, PhysicsOverlayMode } from '@pryzm/physics-host';
 import { setPhysicsOverlayMode } from '@pryzm/physics-host';
 import { physicsEngine } from '@pryzm/physics-host';
@@ -295,8 +296,8 @@ export class PhysicsPanel {
         tr.dataset.roomId = room.id;
         tr.style.cssText = 'border-bottom:1px solid var(--app-border,#f0f4f8);';
         tr.innerHTML = `
-            <td style="padding:5px 8px;white-space:nowrap;font-weight:500;">${room.name ?? room.id}</td>
-            <td style="padding:5px 8px;color:var(--app-text-muted,#7a8aaa);white-space:nowrap;">${room.occupancyType ?? '—'}</td>
+            <td style="padding:5px 8px;white-space:nowrap;font-weight:500;">${escHtml(room.name ?? room.id)}</td>
+            <td style="padding:5px 8px;color:var(--app-text-muted,#7a8aaa);white-space:nowrap;">${escHtml(room.occupancyType ?? '—')}</td>
             <td style="padding:5px 8px;text-align:center;">${result ? thermalBadge(result)  : '<span style="color:#94a3b8;font-size:10px;">–</span>'}</td>
             <td style="padding:5px 8px;text-align:center;">${result ? acousticBadge(result) : '<span style="color:#94a3b8;font-size:10px;">–</span>'}</td>
             <td style="padding:5px 8px;text-align:center;">${result ? daylightBadge(result) : '<span style="color:#94a3b8;font-size:10px;">–</span>'}</td>

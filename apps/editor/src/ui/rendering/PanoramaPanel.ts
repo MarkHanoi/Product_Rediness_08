@@ -19,6 +19,7 @@
  *   5. Viewer     — inline interactive sphere viewer (shown on "View" click)
  */
 
+import { escHtml } from '@pryzm/ui-base';
 import { apiFetch } from '@pryzm/core-app-model';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import * as THREE from '@pryzm/renderer-three/three';
@@ -331,7 +332,7 @@ export class PanoramaPanel {
                        </div>`
                 }
                 <div style="padding:6px 8px;">
-                    <div style="font-size:11px; font-weight:600; color:#e0e0e0;">${entry.name}</div>
+                    <div style="font-size:11px; font-weight:600; color:#e0e0e0;">${escHtml(entry.name)}</div>
                     <div style="font-size:10px; color:#666; margin-top:1px;">
                         ${entry.width}×${entry.height} · ${(entry.durationMs / 1000).toFixed(1)}s
                     </div>
@@ -406,7 +407,7 @@ export class PanoramaPanel {
         const header = document.createElement('div');
         header.className = 'pn-viewer-header';
         header.innerHTML = `
-            <div class="pn-viewer-title">🌐 360° Viewer — ${entry.name}</div>
+            <div class="pn-viewer-title">🌐 360° Viewer — ${escHtml(entry.name)}</div>
             <div class="pn-viewer-meta">
                 <span class="pn-viewer-hint">Click &amp; drag to look around</span>
                 <button id="pn-viewer-close" class="pn-viewer-close">✕ Close</button>

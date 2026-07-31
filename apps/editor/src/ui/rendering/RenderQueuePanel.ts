@@ -20,6 +20,7 @@
  *   - 've-recording-complete' (from VideoExportPanel)
  */
 
+import { escHtml } from '@pryzm/ui-base';
 import { panelManager } from '../PanelManager';
 
 export type RenderJobType   = 'render' | 'panorama' | 'video';
@@ -267,7 +268,7 @@ export class RenderQueuePanel {
                 <div style="flex:1; min-width:0;">
                     <div style="font-size:11px; font-weight:600; color:#e0e0e0;
                         white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                        ${job.name}
+                        ${escHtml(job.name)}
                     </div>
                     <div style="font-size:10px; color:#555; margin-top:1px;">
                         ${TYPE_LABELS[job.type]}

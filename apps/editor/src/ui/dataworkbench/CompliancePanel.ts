@@ -18,6 +18,7 @@
  * CSS prefix: dw- (shared with Data Workbench stylesheet)
  */
 
+import { escHtml } from '@pryzm/ui-base';
 import type { ValidationResult } from '@pryzm/constraint-solver/compliance';
 
 const SEV_ICON: Record<string, string> = {
@@ -189,11 +190,11 @@ export class CompliancePanel {
             .map(r => `
                 <tr>
                     <td>${r.severity === 'error' ? '🔴' : r.severity === 'warning' ? '⚠️' : 'ℹ️'}</td>
-                    <td style="font-family:monospace;font-size:10px;">${r.ruleId}</td>
-                    <td>${r.elementType ?? '—'}</td>
-                    <td>${r.message}</td>
-                    <td>${r.regulation ?? '—'}</td>
-                    <td>${r.suggestion ?? '—'}</td>
+                    <td style="font-family:monospace;font-size:10px;">${escHtml(r.ruleId)}</td>
+                    <td>${escHtml(r.elementType ?? '—')}</td>
+                    <td>${escHtml(r.message)}</td>
+                    <td>${escHtml(r.regulation ?? '—')}</td>
+                    <td>${escHtml(r.suggestion ?? '—')}</td>
                 </tr>`)
             .join('');
 
@@ -432,11 +433,11 @@ export class CompliancePanel {
 
         tr.innerHTML = `
             <td style="padding:7px 8px;text-align:center;font-size:13px;">${icon}</td>
-            <td style="padding:7px 4px;color:var(--app-text-muted,#7a8aaa);white-space:nowrap;font-family:monospace;font-size:10px;">${result.ruleId}</td>
-            <td style="padding:7px 4px;color:${colour};font-weight:600;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="${result.elementId}">${result.elementType}</td>
-            <td style="padding:7px 4px;color:var(--app-text,#1e293b);line-height:1.4;max-width:200px;">${result.message}</td>
-            <td style="padding:7px 4px;color:var(--app-text-muted,#7a8aaa);font-size:10px;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis;" title="${result.regulation ?? ''}">${result.regulation ?? '—'}</td>
-            <td style="padding:7px 4px;color:#6366f1;font-size:10px;line-height:1.4;max-width:160px;">${result.suggestion ?? '—'}</td>
+            <td style="padding:7px 4px;color:var(--app-text-muted,#7a8aaa);white-space:nowrap;font-family:monospace;font-size:10px;">${escHtml(result.ruleId)}</td>
+            <td style="padding:7px 4px;color:${colour};font-weight:600;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="${escHtml(result.elementId)}">${escHtml(result.elementType)}</td>
+            <td style="padding:7px 4px;color:var(--app-text,#1e293b);line-height:1.4;max-width:200px;">${escHtml(result.message)}</td>
+            <td style="padding:7px 4px;color:var(--app-text-muted,#7a8aaa);font-size:10px;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis;" title="${escHtml(result.regulation ?? '')}">${escHtml(result.regulation ?? '—')}</td>
+            <td style="padding:7px 4px;color:#6366f1;font-size:10px;line-height:1.4;max-width:160px;">${escHtml(result.suggestion ?? '—')}</td>
         `;
 
         return tr;

@@ -20,6 +20,7 @@
  */
 
 import { selectionBus } from '@pryzm/core-app-model';
+import { escHtml } from '@pryzm/ui-base';
 import {
   type AttrOption,
   type InspectElementType,
@@ -205,8 +206,8 @@ export function renderDiscoveryMode(contentZone: HTMLElement, state: DiscoveryMo
       : '';
 
     vals.innerHTML = `
-      <span class="aud-disc-metric">${attrOpt?.label ?? attrKey}</span>
-      <span class="aud-disc-value">${attrValStr}</span>
+      <span class="aud-disc-metric">${escHtml(attrOpt?.label ?? attrKey)}</span>
+      <span class="aud-disc-value">${escHtml(attrValStr)}</span>
       ${secondaryHtml}
     `;
 
@@ -273,7 +274,7 @@ export function showDiscoveryTooltipFull(
     : '';
 
   tooltip.innerHTML = `
-    <div class="aud-disc-tt-title">${roomName}</div>
+    <div class="aud-disc-tt-title">${escHtml(roomName)}</div>
     ${activeRow}${areaRow}${perimRow}
   `;
 

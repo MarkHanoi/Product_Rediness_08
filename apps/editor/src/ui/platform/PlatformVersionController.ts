@@ -17,6 +17,7 @@
 
 import { projectRepository, versionRepository } from './ProjectRepository';
 import { showToast, syncBadge, formatDate } from './PlatformToastSystem';
+import { escHtml } from './ProjectHubTemplates';
 import type { VersionRecord, ILoadResult, ShellCtx } from './PlatformShellTypes';
 import type { PlatformSaveController } from './PlatformSaveController';
 
@@ -118,7 +119,7 @@ export class PlatformVersionController {
                 <div class="plat-version-icon plat-version-icon--svg ${isEmergency ? 'plat-version-icon--warn' : ''}">${iconSvg}</div>
                 <div class="plat-version-info">
                     <div class="plat-version-label">
-                        ${v.label}
+                        ${escHtml(v.label)}
                         ${isLatest ? '<span class="plat-version-latest-badge">Latest</span>' : ''}
                         ${syncBadge(v.syncStatus)}
                     </div>
@@ -177,7 +178,7 @@ export class PlatformVersionController {
             <div class="plat-modal" style="max-width:320px;padding:32px 24px;text-align:center">
                 <div class="plat-loading">
                     <div class="plat-spinner"></div>
-                    Entering preview: "${version.label}"…
+                    Entering preview: "${escHtml(version.label)}"…
                 </div>
             </div>
         `;
@@ -223,7 +224,7 @@ export class PlatformVersionController {
         banner.id = 'plat-preview-banner';
         banner.innerHTML = `
             <span class="plat-preview-banner-label">
-                ⚑ PREVIEW MODE — "${version.label}"
+                ⚑ PREVIEW MODE — "${escHtml(version.label)}"
             </span>
             <div class="plat-preview-banner-actions">
                 <button class="plat-preview-banner-btn plat-preview-banner-btn-restore" id="plat-preview-restore">
@@ -337,7 +338,7 @@ export class PlatformVersionController {
             <div class="plat-modal" style="max-width:320px;padding:32px 24px;text-align:center">
                 <div class="plat-loading">
                     <div class="plat-spinner"></div>
-                    Loading "${version.label}"...
+                    Loading "${escHtml(version.label)}"...
                 </div>
             </div>
         `;

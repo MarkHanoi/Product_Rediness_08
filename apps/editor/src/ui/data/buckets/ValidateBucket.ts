@@ -13,6 +13,7 @@
  * Updates on 'pryzm-delta-updated' event.
  */
 
+import { escHtml } from '@pryzm/ui-base';
 import { requirementStore } from '@pryzm/core-app-model';
 
 // ── STC lookup table ──────────────────────────────────────────────────────────
@@ -146,7 +147,7 @@ export class ValidateBucket {
         <tbody>
           ${rows.map(r => `
             <tr>
-              <td>${r.roomName}</td>
+              <td>${escHtml(r.roomName)}</td>
               <td>${r.wallType}</td>
               <td>${r.actualStc}</td>
               <td>${r.reqStc}</td>
@@ -198,7 +199,7 @@ export class ValidateBucket {
         <tbody>
           ${rows.map(r => `
             <tr>
-              <td>${r.roomName}</td>
+              <td>${escHtml(r.roomName)}</td>
               <td>${r.windowArea}</td>
               <td>${r.floorArea}</td>
               <td>${r.wwr}%</td>
@@ -249,7 +250,7 @@ export class ValidateBucket {
         <tbody>
           ${rows.map(r => `
             <tr>
-              <td>${r.roomName}</td>
+              <td>${escHtml(r.roomName)}</td>
               <td>${r.volume}</td>
               <td>${r.reqAch}</td>
               <td>${r.reqM3h}</td>

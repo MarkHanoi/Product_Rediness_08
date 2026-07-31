@@ -22,6 +22,8 @@
  * localStorage key: pryzm_query_presets
  */
 
+import { escHtml } from '@pryzm/ui-base';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type QueryField = 'name' | 'occupancyType' | 'department' | 'area' | 'level' | 'unit' | 'syncState' | 'templateId';
@@ -581,9 +583,9 @@ export class SpatialQueryPanel {
             });
 
             tr.innerHTML = `
-                <td style="padding:7px 8px;color:var(--app-text,#1e293b);font-weight:600;">${room.name || '—'}</td>
-                <td style="padding:7px 8px;color:var(--app-text-muted,#7a8aaa);">${(room.occupancyType ?? '—').replace(/-/g, ' ')}</td>
-                <td style="padding:7px 8px;color:var(--app-text-muted,#7a8aaa);">${levelName}</td>
+                <td style="padding:7px 8px;color:var(--app-text,#1e293b);font-weight:600;">${escHtml(room.name || '—')}</td>
+                <td style="padding:7px 8px;color:var(--app-text-muted,#7a8aaa);">${escHtml((room.occupancyType ?? '—').replace(/-/g, ' '))}</td>
+                <td style="padding:7px 8px;color:var(--app-text-muted,#7a8aaa);">${escHtml(levelName)}</td>
                 <td style="padding:7px 8px;text-align:right;color:var(--app-text,#1e293b);">${area}</td>
                 <td style="padding:4px 8px;text-align:center;"></td>
             `;

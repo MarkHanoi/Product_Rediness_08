@@ -1005,7 +1005,7 @@ export async function initUI(p: UIParams): Promise<void> {
                     ">
                         <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,0.7);margin-bottom:4px;">IFC Import</div>
                         <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
-                             title="${file.name}">${file.name}</div>
+                             title="${escHtml(file.name)}">${escHtml(file.name)}</div>
                         <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px;">${sizeMB} MB — Choose how to open this file</div>
                     </div>
 
