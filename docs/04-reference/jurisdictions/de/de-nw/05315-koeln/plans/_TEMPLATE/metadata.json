@@ -1,0 +1,9 @@
+{
+  "$comment": "TEMPLATE — copy to plans/<PLAN-ID>/metadata.json. No fabricated values.",
+  "planId": "unknown",
+  "officialTitle": "unknown",
+  "rechtskraeftig": "unknown",
+  "effectiveDate": "unknown",
+  "authority": "Stadt Köln",
+  "confidence": "PENDING"
+}

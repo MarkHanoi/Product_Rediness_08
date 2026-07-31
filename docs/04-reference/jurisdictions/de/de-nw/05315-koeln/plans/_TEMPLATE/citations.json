@@ -1,0 +1,14 @@
+{
+  "$comment": "TEMPLATE — copy to plans/<PLAN-ID>/citations.json. One entry per numeric value: value -> document -> section/page -> Festsetzung number -> confidence.",
+  "planId": "unknown",
+  "citations": [
+    {
+      "field": "unknown",
+      "value": "unknown",
+      "document": "unknown (ordinance.pdf | planzeichnung.pdf | xplan.gml)",
+      "sectionOrPage": "unknown",
+      "festsetzungNumber": "unknown",
+      "confidence": "PENDING"
+    }
+  ]
+}

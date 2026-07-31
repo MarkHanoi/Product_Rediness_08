@@ -1,0 +1,10 @@
+{
+  "$comment": "Köln B-Plan registry. SCAFFOLD — empty. No plan captured. Populate one entry per plans/<PLAN-ID>/ bundle. No invented content.",
+  "jurisdictionId": "de-05315-koeln",
+  "ags": "05315000",
+  "land": "de-nw",
+  "crs": "EPSG:25832",
+  "authority": "Stadt Köln",
+  "status": "PENDING",
+  "plans": []
+}

@@ -1,0 +1,6 @@
+{
+  "$comment": "TEMPLATE — copy to plans/<PLAN-ID>/geometry.geojson. Plan boundary polygon in EPSG:25832. SCAFFOLD — no geometry captured.",
+  "type": "FeatureCollection",
+  "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::25832" } },
+  "features": []
+}

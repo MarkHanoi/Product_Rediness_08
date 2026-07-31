@@ -1,0 +1,18 @@
+{
+  "$comment": "TEMPLATE — copy to plans/<PLAN-ID>/extraction.json. PER-FIELD confidence; empty stays unknown. No defaults back-filled.",
+  "planId": "unknown",
+  "zones": [
+    {
+      "zoneCode": "unknown",
+      "baugebiet": "unknown",
+      "fields": {
+        "maxCoverage_GRZ": { "value": "unknown", "confidence": "PENDING", "sourceChainRef": null },
+        "farRatio_GFZ": { "value": "unknown", "unit": "GFZ", "densityScope": "unknown", "confidence": "PENDING", "sourceChainRef": null },
+        "maxFloors_Z": { "value": "unknown", "confidence": "PENDING", "sourceChainRef": null },
+        "maxHeight_m": { "value": "unknown", "heightMeasurement": "unknown", "reference": "rasant", "confidence": "PENDING", "sourceChainRef": null },
+        "buildableDepth_m": { "value": "unknown", "derivation": "geometry-from-Baugrenze", "confidence": "PENDING", "sourceChainRef": null },
+        "setback": { "value": "unknown", "rule": "BauO NRW 2018 §6 (per-Land formula, computed from H)", "confidence": "PENDING", "sourceChainRef": null }
+      }
+    }
+  ]
+}
