@@ -14,7 +14,7 @@
 import { writeFileSync } from 'node:fs';
 import { crawlArcGisRoot, type CrawlReport, type DiscoveredLayer } from './arcgisCrawler.js';
 import { bestFieldFor, classifyFields, rankLayers, type RankedLayer } from './scoring.js';
-import { FIELD_RULES, FIELD_SIGNAL_TOKENS, LAYER_NAME_NEGATIVE_TOKENS, LAYER_NAME_TOKENS } from './heuristics.js';
+import { FIELD_RULES, FIELD_SIGNAL_TOKENS, LAYER_NAME_TOKENS } from './heuristics.js';
 
 export interface ProbeReport {
   readonly root: string;
