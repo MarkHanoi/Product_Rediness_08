@@ -11,8 +11,24 @@
 
 import { type GateResult } from '../types.js';
 
-/** Supported source locales. `es` covers Castilian AND Catalan (same convention). */
-export type NumberLocale = 'es' | 'en';
+/**
+ * Supported source locales. `es` covers Castilian AND Catalan; `de` (German)
+ * shares the SAME numeric convention (`.`=thousands, `,`=decimal) — so
+ * `"0,9"` → 0.9 and `"2.000"` → 2000 under both. `en` is the anglophone inverse.
+ */
+export type NumberLocale = 'es' | 'en' | 'de';
+
+/** The separators a locale uses. `es` and `de` are identical; `en` is inverse. */
+function localeSeparators(locale: NumberLocale): { thousands: string; decimal: string } {
+    return locale === 'en'
+        ? { thousands: ',', decimal: '.' }
+        : { thousands: '.', decimal: ',' };
+}
+
+/** The opposite convention — used to compute the "naive anglophone" trap value. */
+function oppositeLocale(locale: NumberLocale): NumberLocale {
+    return locale === 'en' ? 'es' : 'en';
+}
 
 export interface LocaleParseResult {
     /** The correctly parsed value under the source locale, or null if unparseable. */
@@ -38,8 +54,7 @@ export function parseLocaleNumber(raw: string, locale: NumberLocale): number | n
     const sign = t.startsWith('-') ? -1 : 1;
     const body = t.replace(/^[+-]/, '').replace(/\s/g, '');
 
-    const thousands = locale === 'es' ? '.' : ',';
-    const decimal = locale === 'es' ? ',' : '.';
+    const { thousands, decimal } = localeSeparators(locale);
 
     // Reject a second decimal separator (ambiguous / malformed).
     if (body.split(decimal).length > 2) return null;
@@ -61,7 +76,7 @@ export function parseLocaleNumber(raw: string, locale: NumberLocale): number | n
  */
 export function normaliseLocaleNumber(raw: string, locale: NumberLocale): LocaleParseResult {
     const value = parseLocaleNumber(raw, locale);
-    const naiveValue = parseLocaleNumber(raw, locale === 'es' ? 'en' : 'es');
+    const naiveValue = parseLocaleNumber(raw, oppositeLocale(locale));
     const trapPresent =
         value !== null && naiveValue !== null && Math.abs(value - naiveValue) > 1e-9;
     return { value, naiveValue, trapPresent };

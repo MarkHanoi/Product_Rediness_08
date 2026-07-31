@@ -19,6 +19,10 @@
 //   Adapters         — BarcelonaRpucEnumerator (stub).
 //   Orchestrator     — runDocumentExtraction(plan, extractor), the DualPassExtractor
 //                      PORT the caller implements (routing through ai-host per C23).
+//   Text-parse       — extractRules(text, grammar, source) — the born-digital
+//                      TEXT-PARSE path (no OCR / no LLM), + ExtractedRule and the
+//                      JurisdictionGrammar contract a per-country adapter supplies.
+//   Grammars         — GERMAN_GRAMMAR (the first, proven on the Berlin corpus).
 //
 // Strategic context — docs/04-reference/ORDINANCE-EXTRACTION-PIPELINE.md.
 
@@ -28,3 +32,5 @@ export * from './gates/index.js';
 export * from './enumerator.js';
 export * from './adapters/index.js';
 export * from './pipeline.js';
+export * from './textExtract/index.js';
+export * from './grammars/index.js';
