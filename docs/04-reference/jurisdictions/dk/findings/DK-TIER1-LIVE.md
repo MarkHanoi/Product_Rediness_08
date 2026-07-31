@@ -1,7 +1,7 @@
 # DK — tier 1 goes LIVE: multi-part `explicit-area` + the L5 wiring
 
 > **Status: SHIPPED, 2026-07-31.** Commit on `worktree-agent-aa0ee3918e3332b72`.
-> Package suite **1380 → 1415 green**; server suite +19; root `tsc` **88 errors before and after —
+> Package suite **1380 → 1416 green**; server suite +19; root `tsc` **88 errors before and after —
 > zero net-new** (measured by reverting the changed paths to the parent commit and re-counting, not
 > by eyeballing); `check:isolation` clean.
 >
