@@ -131,6 +131,57 @@ describe('house modal renders the notice in the result rail', () => {
     });
 });
 
+// ── §XSS-SINK-SCAN (L-407, batch-10) — HouseLayoutModal.ts:651 sink chain ─────
+//
+// `HouseLayoutModal.refresh()` does
+//     result.outerHTML = buildHouseResultHtml(cards[0], this._noticeHtml);
+// which the batch-9 repo-wide sink scan BASELINED rather than fixed, on the
+// grounds that "the builder has its own escaping". These specs verify that claim
+// end-to-end instead of assuming it, and lock it so a later edit cannot quietly
+// remove the guard.
+//
+// The sink has exactly one RAW (deliberately unescaped) input: `noticeHtml`, a
+// documented pre-built-HTML pass-through. Its safety is therefore a property of
+// its PRODUCERS, not of the sink — so the producer is tested too. Every other
+// interpolation is either escHtml()-guarded or a `number` field.
+describe('§XSS — buildHouseResultHtml escapes its model fields (HouseLayoutModal:651 sink)', () => {
+    const hostile = '"><img src=x onerror=alert(1)>';
+
+    it('escapes a hostile card title', () => {
+        const html = buildHouseResultHtml({ ...houseCard(), title: hostile }, '');
+        expect(html).not.toContain('<img src=x');
+        expect(html).toContain('&lt;img');
+    });
+
+    it('escapes a hostile roofKind (reaches the meta line via roofLabel)', () => {
+        const html = buildHouseResultHtml({ ...houseCard(), roofKind: hostile }, '');
+        expect(html).not.toContain('<img src=x');
+        expect(html).toContain('&lt;img');
+    });
+
+    it('numeric fields stay numeric in the width style + data-index attribute', () => {
+        // A string leaking into `style="width:${overall}%"` would be a CSS-injection
+        // sink; the model types these as `number`, and this asserts the rendered form.
+        const html = buildHouseResultHtml(houseCard(), '');
+        expect(html).toContain('style="width:82%"');
+        expect(html).toContain('data-index="0"');
+    });
+
+    it('the RAW noticeHtml pass-through is only ever fed escaped producer output', () => {
+        // The generic fallback in roomTypeLabel() Title-cases and passes through an
+        // UNKNOWN room type, so a hostile type reaches the notice summary — and must
+        // be neutralised by the producer, because the sink will not escape it.
+        const notice = buildReducedProgramNoticeHtml([
+            { type: hostile, requested: 2, built: 1, dropped: 1 },
+        ]);
+        expect(notice).not.toContain('<img src=x');
+        expect(notice).toContain('&lt;img');
+
+        const html = buildHouseResultHtml(houseCard(), notice);
+        expect(html).not.toContain('<img src=x');
+    });
+});
+
 describe('apartment modal renders the notice region', () => {
     it('places the notice between the legend and the cards', () => {
         const notice = buildReducedProgramNoticeHtml([{ type: 'bedroom', requested: 3, built: 2, dropped: 1 }]);
