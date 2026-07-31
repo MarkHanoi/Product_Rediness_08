@@ -67,14 +67,42 @@ State the **rule KIND** explicitly — `setback` / `alignment` / `block-derived-
 `tiered-occupation` / `coverage-and-far`. **The wrong KIND is a wrong SHAPE, not a wrong number,
 and no confidence value corrects it** (ADR-0270 / C58 §2.2).
 
-## Step 4 — Refuse the plausible number
+## Step 4 — Refuse the plausible number… but never conclude "it does not exist"
 
 A height table circulates for the Barcelona Eixample: **9,00 / 12,35 / 15,70 / 19,05 / 22,40 /
-25,75 m at 3,35 m per floor**. It was **never located in the accepted source**; what verification
-repeatedly confirmed was the **generic PGM at 3,05 m/floor**, whose band values we also do not
-hold. So `maxHeight_m` and `maxFloors` ship as **null**.
+25,75 m**. Three rounds of verification failed to locate it in the accepted source and concluded it
+was folklore. So `maxHeight_m` and `maxFloors` shipped as **null**.
 
 > **An absent number is honest; a plausible one is not.**
+
+### ⚠ AND THEN IT WAS FOUND — 2026-07-31, at PDF p.277
+
+`bcnAlcadaReguladora.ts` asserted the source *"carries none on this article"*. **Footnote 49 carries
+two modifications of Art. 327, and one of them is Barcelona's own**: a 2007 municipal modification
+(**DOGC 4893, 29-05-2007**) restating Art. 327.2a as exactly **9,00 / 12,35 / 15,70 / 19,05 / 22,40 /
+25,75 m, PB+1…PB+6**. The circulating table was real all along.
+
+**The "3,35 vs 3,05 m/floor" argument that justified rejecting it was a conflation**: the modified
+article keeps **3,05 m as a storey MINIMUM** while stepping the *bands* by 3,35 m. Those are different
+quantities. A wrong reason produced a right-looking refusal, and the refusal outlived the reason.
+
+**Why three rounds missed it** — this is the reusable lesson, and it is not "read positionally":
+the annex pages embed **subset fonts with no ToUnicode, glyph-shifted by +29 and −29**. A text pass
+**drops every DIGIT**. So the article reads as *absent* **and its entire height table silently
+vanishes** — the extractor reports nothing rather than garbage, which is indistinguishable from
+"the modification does not exist". Decode the shift, or render the page (`get_pixmap(dpi=150)`) and
+read the raster.
+
+### The rule this replaces Step 4's naive form with
+
+**"Not located" is NOT "does not exist" — and the accepted source says so about itself.** The PGM
+refós states plainly: *«no hi figuren totes les modificacions… només aquelles que s'han considerat més
+rellevants»* and *«merament divulgativa»*, consolidated only to **31-12-2009**. **A document that
+declares itself incomplete cannot certify an absence.** So:
+
+- **Refuse the unlocated number** — still correct, still the default.
+- **Record the refusal as `not-located-in-source`, never as `does-not-exist`.**
+- **Never write "the source carries none"** unless the source claims completeness. This one does not.
 
 The cost of getting this wrong is not abstract: before the height construction existed, the Cesium
 massing path fell back to a **hardcoded 9 m** and extruded it in the *same purple study volume as a
