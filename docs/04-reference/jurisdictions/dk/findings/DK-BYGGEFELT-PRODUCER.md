@@ -4,6 +4,12 @@
 > `worktree-agent-a6dfd20492b0791ee`. Package suite 1332 → **1380 green**; root `tsc` **88 errors
 > before and after — zero net-new**; `check:isolation` clean.
 >
+> **UPDATE 2026-07-31 (same day): S2/S3/S4/S5/S8/S10 are CLOSED** — multi-part `explicit-area`
+> support plus the L5 wiring shipped. **⚠ Read [`DK-TIER1-LIVE.md`](./DK-TIER1-LIVE.md) before
+> quoting §2.4 or §8:** adapter reach went 78.6% → 100.0%, but END-TO-END reach on a real cadastral
+> parcel moved only 44.0% → 47.5%, because the dominant blocker turned out to be the PRE-EXISTING
+> convex-clip contract (47.2% `non-convex-both`), not multi-part.
+>
 > Input: [`BYGGEFELT-BINDINGNESS-PROBE-2026-07-31.md`](./BYGGEFELT-BINDINGNESS-PROBE-2026-07-31.md).
 > This document reports the **independent re-verification**, the **producer**, and the answers to
 > that probe's open items **O1 / O3 / O4 / O5**. **O2 (parcel coverage) is answered in §5 — read the
@@ -158,11 +164,13 @@ Multi-part is the whole story (19.4%); holes are negligible (1.2%). The tail is 
 records carried up to **55 parts** — i.e. a single lokalplan feature holding many separate building
 fields.
 
-> **The fix is well-defined and worth doing.** Nothing legal blocks these: they are binding,
-> published geometry that PRYZM simply cannot represent. Teaching the `explicit-area` primitive to
-> accept **multiple rings** (a multi-polygon footprint) would recover ~19% of DK tier-1 reach, and it
-> is a **jurisdiction-agnostic engine improvement** — Madrid and Córdoba fondos have the same shape.
-> Until then the refusal is right: silently taking part 0 would discard published buildable fields.
+> **✅ FIXED the same day — but read the outcome before reusing this framing.** The `explicit-area`
+> primitive now accepts multiple rings and holes, and adapter reach went **78.6% → 100.0%**
+> (re-measured n=1,000, which independently reproduced this section's 79.4–80.6%; max part count is
+> **95**, not 55). ⚠ **The predicted "~19% of DK tier-1 reach" did NOT materialise end-to-end**: on a
+> real DAWA cadastral parcel, placement moved only **44.0% → 47.5%**, because the convex-clip
+> contract refuses 47.2% first. The prediction was right about the ADAPTER and wrong about the USER.
+> See [`DK-TIER1-LIVE.md`](./DK-TIER1-LIVE.md) §4.
 
 ### §2.5 — A third flag exists and is negligible
 
@@ -435,15 +443,16 @@ empirical anchor behind weighting an explicitly-declared binding flag at 0.95 ra
 | # | Item | State |
 |---|---|---|
 | **S1** | **Parcel-side coverage (O2)** | **NOT COMPUTED.** §5. The single most important open number. |
-| **S2** | **No L5 wiring.** Nothing in `apps/editor` calls `createByggefeltProducer` yet. The producer, classifier, bridge and resolver are unit-wired and tested together, but the **live DK dispatch path does not use them** — a real user click still does not hit tier 1. | not started |
-| **S3** | **No same-origin proxy route.** `server/plandataZoningProxy.js` has no byggefelt endpoint, so the browser cannot call this politely (UA dropped, rate limit per-tab). §3.7. | not started |
-| **S4** | **No projector supplied.** The producer emits EPSG:25832 unless given a `project` fn; the CRS interlock then **refuses** every record. Whoever wires S2 must pass the scene-XZ projector or tier 1 silently never fires (loudly, at least — it refuses rather than misplaces). | by design, unwired |
-| **S5** | **Multi-part binding byggefelter are refused — now MEASURED at ~19% of the binding set.** See §2.5. The refusal is correct for today's single-ring primitive, but it is the largest single subtraction from tier-1 reach and the fix is well-defined. | **measured**, unfixed |
+| **S2** | **L5 wiring.** ✅ **CLOSED 2026-07-31** — `siteDispatch.ts::resolveDkByggefeltPlacement` runs in the live DK dispatch path and feeds `computeBuildableEnvelope` via `geometricRule` + `explicitAreaFootprintParts`. ⚠ Wired and unit-tested, **not yet exercised against production** (DK-TIER1-LIVE §9 T9). | **closed** |
+| **S3** | **Same-origin proxy route.** ✅ **CLOSED** — `GET /api/plandata/byggefelt` (`server/plandataZoningProxy.js`, registered in `server.js`). Takes a bbox, never a URL/CQL filter. Upstream failure → 502; a truncated 200 → 502; a clean empty → 200 with 0 features. | **closed** |
+| **S4** | **Projector supplied.** ✅ **CLOSED** — and the CRS choice changed: the producer is asked for **EPSG:4326** (bbox axis order lon/lat, VERIFIED LIVE), so the existing `latLonToSceneXZ` + θ transform is the whole projector and no UTM inverse exists to get wrong. The interlock is unchanged and still armed. | **closed** |
+| **S5** | **Multi-part + holed byggefelter.** ✅ **FIXED** — `explicit-area` takes N parts with holes; the refusal moved from a property of the SOURCE to a property of the ANSWER on this parcel. Adapter reach **78.6% → 100.0%** (n=1,000, 2026-07-31). ⚠ **It was NOT the largest subtraction** from end-to-end reach — see the new S11. | **fixed** |
 | **S6** | **O1 not fully closed.** Semantics are corroborated by the codelist (§2.1) but not confirmed against Plandata's published data specification / UML model. | one doc read |
 | **S7** | **Tier 2 has no data source (O4).** Not a wiring gap — a **different authority**. `buildingLineOffset.ts` and the tier-2 branch are dead code until vejbyggelinjer are sourced from the road authority. | re-scope needed |
-| **S8** | **Pagination not implemented.** `pageSize` defaults to 500 and truncation is *detected and reported honestly* (§3.5) but never *followed*. A dense urban bbox returns a page and a `transient`. | detected, not resolved |
+| **S8** | **Pagination.** ✅ **CLOSED** — the producer follows `startIndex` to `numberMatched`, bounded by `maxPages`, and a ceiling hit is still reported `truncated` so a bound we imposed never becomes a coverage fact. A mid-pagination failure DISCARDS the partial read rather than report it as the whole bbox. | **closed** |
 | **S9** | **`PlacementEvidence` lives in `@pryzm/site-parcel-data`, not L0.** It is pure and could be promoted to `packages/schemas`, but the L0 contract surface is ADR-governed. Promote when a **second** jurisdiction consumes it — not before. | deliberate |
-| **S10** | **Advisory/unknown evidence is produced but nothing consumes it.** The ranked list, `unknownCause` and the conflict channel are all populated and returned; no UI surfaces them. | produced, unconsumed |
+| **S10** | **Advisory/unknown evidence.** ✅ **CLOSED** — surfaced as envelope caveats (advisory / not-declared / metadata-unavailable / self-contradictory, plus the `pryzm-limitation:` records), each naming its own remedy. Dropping them rendered a REFUSAL as an ABSENCE. | **closed** |
+| **S11** | ⚠ **NEW, and now the biggest tier-1 blocker: the CONVEX-CLIP CONTRACT.** `polygonClip.ts` is exact only when one of the two rings is convex; real Danish parcels and byggefelter are frequently both concave, so **47.2%** of binding byggefelter refuse `non-convex-both` against a real cadastral parcel (n=1,000, 2026-07-31). PRE-EXISTING — it limited the old single-ring path identically. A general concave clipper is worth ~47 pp against the ~3.5 pp S5 delivered end-to-end. | **measured**, unfixed |
 
 ---
 
@@ -497,7 +506,8 @@ No auth, no API key. CRS EPSG:25832 throughout.
 
 ---
 
-*Related: [`BYGGEFELT-BINDINGNESS-PROBE-2026-07-31.md`](./BYGGEFELT-BINDINGNESS-PROBE-2026-07-31.md)
+*Related: [`DK-TIER1-LIVE.md`](./DK-TIER1-LIVE.md) (the follow-up that closes S2/S3/S4/S5/S8/S10) ·
+[`BYGGEFELT-BINDINGNESS-PROBE-2026-07-31.md`](./BYGGEFELT-BINDINGNESS-PROBE-2026-07-31.md)
 (the input probe) · `DENMARK-GAP-ROADMAP.md` G2/G3/G5/G6/G11 · ADR-0279 §2/§6 · C57 §1.5 ·
 C58 §1.4/§1.9 · L-449 · L-616 · L-619 · [[context-data-honesty-family]] ·
 [[probe-can-be-wrong-three-ways]] · [[identity-bootstrap-gate-offline-legislation-pattern]].*

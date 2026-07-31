@@ -1549,9 +1549,17 @@ async function resolveDkByggefeltPlacement(
  */
 function dkByggefeltEvidenceNotes(tierOne: ByggefeltTierOneInput): string[] {
     const notes: string[] = [];
-    const advisory = tierOne.evidence.filter((e) => e.legalStatus === 'illustrative').length;
-    const notDeclared = tierOne.evidence.filter((e) => e.unknownCause === 'not-declared').length;
-    const unavailable = tierOne.evidence.filter((e) => e.unknownCause === 'metadata-unavailable').length;
+    // Counted with an explicit loop rather than three `.filter()` passes: one traversal, and no
+    // callback parameter whose type depends on this package resolving (the root `tsc` runs with
+    // `noImplicitAny` and currently cannot resolve `@pryzm/site-parcel-data`).
+    let advisory = 0;
+    let notDeclared = 0;
+    let unavailable = 0;
+    for (const e of tierOne.evidence) {
+        if (e.legalStatus === 'illustrative') advisory += 1;
+        if (e.unknownCause === 'not-declared') notDeclared += 1;
+        if (e.unknownCause === 'metadata-unavailable') unavailable += 1;
+    }
     const conflicts = tierOne.conflicts.length;
 
     if (advisory > 0) {
@@ -1717,9 +1725,11 @@ async function applyDkZoningThenFallback(
             // envelope here" (§NO-SILENT-FALLBACK, read in the other direction).
             let placementDroppedReason: string | null = null;
             if (placed && envelope.status !== 'ok') {
-                placementDroppedReason =
-                    envelope.caveats.find((c) => c.startsWith('Explicit-area zone:')) ??
-                    'the published byggefelt could not be clipped to this parcel exactly';
+                for (const c of envelope.caveats) {
+                    if (c.startsWith('Explicit-area zone:')) { placementDroppedReason = c; break; }
+                }
+                placementDroppedReason ??=
+                    'the published byggefelt could not be clipped to this parcel exactly.';
                 envelope = computeBuildableEnvelope(baseEnvelopeInput);
             }
             // A resolvable HEIGHT (published OR storey-derived) means a study volume can be drawn.
