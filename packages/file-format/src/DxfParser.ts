@@ -55,7 +55,12 @@ export const DXF_UNITS_TO_METRES: Record<number, number> = {
 
 /**
  * Parse a DXF string.  Dynamically imports `dxf` to keep it off the
- * main bundle.  Throws on malformed input.
+ * main bundle.
+ *
+ * Robust to adversarial/malformed input: empty, garbage, or truncated
+ * text degrades to an empty (but well-formed, finite-bbox) DxfDocument
+ * rather than throwing, and non-finite (NaN/±Infinity) vertices are
+ * dropped so no corrupt geometry escapes downstream (L-393).
  */
 export async function parseDxfString(dxfText: string): Promise<DxfDocument> {
     // Dynamic import keeps dxf off the initial bundle (lazy-loaded on first use)
@@ -102,14 +107,30 @@ export async function parseDxfString(dxfText: string): Promise<DxfDocument> {
         const layerName = (raw.layer as any)?.name ?? '0';
         const rgb = raw.rgb ?? [255, 255, 255];
 
-        for (const [x, y] of raw.vertices) {
+        // Adversarial-input guard (§31; L-393 malformed-parser hardening):
+        // the underlying `dxf` package passes malformed coordinate groups through
+        // verbatim, so a corrupt/hostile file can yield NaN or ±Infinity vertices.
+        // Left unchecked these flow into DxfGeometryBuilder (`x * metersPerUnit`)
+        // and produce NaN geometry — an invisible/broken import with no error.
+        // Drop every non-finite vertex here, then skip the polyline entirely if
+        // fewer than 2 finite vertices survive.
+        const cleanVertices: Array<[number, number]> = [];
+        for (const v of raw.vertices) {
+            const x = Number(v?.[0]);
+            const y = Number(v?.[1]);
+            if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+            cleanVertices.push([x, y]);
+        }
+        if (cleanVertices.length < 2) continue;
+
+        for (const [x, y] of cleanVertices) {
             if (x < minX) minX = x;
             if (y < minY) minY = y;
             if (x > maxX) maxX = x;
             if (y > maxY) maxY = y;
         }
 
-        polylines.push({ layer: layerName, rgb, vertices: raw.vertices });
+        polylines.push({ layer: layerName, rgb, vertices: cleanVertices });
     }
 
     if (!isFinite(minX)) { minX = 0; minY = 0; maxX = 0; maxY = 0; }
