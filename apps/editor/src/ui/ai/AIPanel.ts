@@ -31,7 +31,10 @@ import type { ElementSchema } from '@app/engine/preview/PreviewManager';
 // dispatched through the SAME path (dispatchBatchEntry → Path-A commandManager.execute).
 import { groupCatalogue, dispatchBatchEntry, type BatchDeps } from '../create/batchCatalogue';
 // SPEC-SEMANTIC §3.1 / Phase 2 — surface the existing room auto-organise (tag-by-type) flow.
-import { openAutoOrganiseModal } from '../property-inspector/RoomAutoOrganiser';
+// Loaded LAZILY (dynamic import at the call site) so RoomAutoOrganiser code-splits into
+// its own chunk instead of being pulled into the eager AI-panel bundle. The two other call
+// sites (RoomPropertySection, CreatePanelLayout) already lazy-load it; a single static import
+// here defeated the split (Rollup: "dynamically imported … but also statically imported"). L-408.
 // #51 (SPEC-APARTMENT-LAYOUT-GENERATOR §11/§12) — the AI apartment-layout flow.
 // Single shared trigger (also exposed as the console command
 // pryzmGenerateApartmentLayout()), so the leaf + console behave identically.
@@ -159,7 +162,9 @@ const COMMAND_TREE: SuggestionNode[] = [
                     const lid = (window.bimManager as { getActiveLevel?: () => { id: string } | undefined } | undefined)
                         ?.getActiveLevel?.()?.id;
                     if (lid) {
-                        openAutoOrganiseModal(lid);
+                        void import('../property-inspector/RoomAutoOrganiser').then(m => {
+                            m.openAutoOrganiseModal(lid);
+                        });
                     } else {
                         window.runtime?.events?.emit('pryzm:toast', {
                             message: 'No active level — create or open a level first.',
