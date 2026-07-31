@@ -1,0 +1,79 @@
+{
+  "dossier": "de-by-09162-munich",
+  "title": "Munich / München — buildability dossier (STUB)",
+  "country": "DE",
+  "state": "Bayern",
+  "iso3166_2": "DE-BY",
+  "ags": "09162000",
+  "municipality": "München",
+  "crs": "EPSG:25832",
+  "capturedBy": "founder-research",
+  "capturedDate": "2026-07-31",
+  "status": "STUB — architectural framing only. Full PART-A/B/C dossier AWAITS founder Munich DATA (endpoint probes + one B-Plan sample). Every numeric planning value is null/unknown.",
+  "isStub": true,
+  "allNumericValuesNull": true,
+  "reuse": {
+    "sharedPipelineReuse": "~80-85% of the Berlin pipeline reuses",
+    "bavariaSpecific": "~15-20%",
+    "harderThanBerlin": "different building law (BayBO not BauO Bln) + harder data access (Bayern Geoportal)",
+    "simplerThanBerlin": "Munich mostly LACKS Berlin's Baunutzungsplan 1958/60 legacy layer (unconfirmed-absent, not systematically checked)"
+  },
+  "regimeModel": {
+    "§30-bplan": "modern B-Plan -> extract Festsetzungen (GRZ/GFZ/Vollgeschosse/Höhe/Baugrenze); coverage-and-far",
+    "§34-bauGB": "unplanned interior -> cited REFUSAL (a positive answer; no numeric envelope by law)",
+    "§35-bauGB": "outlying -> cited refusal (rare)",
+    "baunutzungsplan-legacy": "NOT identified for Munich — unconfirmed-absent (not systematically probed); a simplification vs Berlin IF confirmed"
+  },
+  "bavariaSpecific": {
+    "setback": {
+      "rule": "BayBO Art. 6 Abstandsflächen = 0.4·H, min 3 m",
+      "articleConfidence": "VERIFIED-per-founder (article = BayBO Art. 6)",
+      "exactParagraphConfidence": "PROBE (exact Absatz/paragraph + H-measurement clauses to be read from BayBO primary text; README notes historical 1H reduced to 0.4H in dense zones per Art. 6 Abs. 5)",
+      "doNotCopy": "do NOT assume this equals NRW/Berlin without reading BayBO primary text"
+    },
+    "dataAccess": {
+      "difficulty": "harder than Berlin",
+      "portal": "Bayern Geoportal",
+      "xplanungDepth": "population depth uncertain — PROBE (no B-Plan WFS endpoint discovered; all probed Munich/Bavaria paths 404 per LEGISLATION-RATE.md)",
+      "diplanung": "mandatory statewide XPlanung delivery from 31 Oct 2026 — API schema unknown; MONITORING"
+    },
+    "lod2": {
+      "route": "ZSHH (Zentrale Stelle Hauskoordinaten/Hausumringe, Bavarian survey office)",
+      "licence": "UNCLEAR — LAND-REGISTRY flags Bayern LoD2 'TBD'; hosting at survey office != confirmed open terms"
+    }
+  },
+  "buildingHeightProviderPriority": [
+    "Bayern LoD2 (ZSHH route — licence UNCLEAR, PROBE)",
+    "ALKIS Traufhöhe (eaves height fallback)",
+    "fallback (assumed / OSM context only — NEVER a legal height for the subject site)"
+  ],
+  "rateFraming": {
+    "note": "PROJECTED / CONVERGENT only — NO RATE cell asserted. See RATE.md (composite = not-assessed for the legal axes).",
+    "legislationToday": "~18% (hand-authored structured-fill prior, LEGISLATION-RATE.md; UNVERIFIED, no signed VERIFICATION.md, no rule pack)",
+    "heights": "licence-blocked (Bayern LoD2 TBD)",
+    "parcel": "partial (ALKIS Bavaria licence-gated -> footprint-fallback today)",
+    "projectedAfterWiring": "~55-65% (PROJECTED)",
+    "projectedAfterExtraction": "~65-75% (PROJECTED — after PDF-extraction + rulepacks)"
+  },
+  "firstMvpTarget": "München Innenstadt — one working, cited legal answer (NOT all of Munich)",
+  "honesty": {
+    "§34": "cited REFUSAL is the correct answer, not a gap; §34 fraction for Munich UNMEASURED",
+    "bauNVO17": "national orientation ceiling — NEVER a parcel answer",
+    "noInference": ["OSM", "neighbouring parcels", "typical-district rules", "existing-building heights", "uncited OCR"],
+    "allNumbersPending": "GRZ/GFZ/Vollgeschosse/height all null — DATA PENDING from founder"
+  },
+  "pendingFounderData": [
+    "Munich/Bavaria B-Plan WFS (or DiPlanung) endpoint URL + feature-type + field names",
+    "one sample B-Plan (Satzung PDF + its XPlanGML record) to validate the extractor",
+    "confirm BayBO Art. 6 exact Absatz + H-measurement clauses (primary-text read)",
+    "Bavaria LoD2 (ZSHH) licence terms",
+    "§34 coverage fraction over the Munich bbox (grid-sample probe)"
+  ],
+  "files": {
+    "framing": ["MUNICH-FRAMING.md", "dossier.json"],
+    "scorecard": ["RATE.md", "LEGISLATION-RATE.md"],
+    "pack": ["README.md", "ENVELOPE.md", "HEIGHT.md", "NEXT.md", "RATE-IMPLEMENTATION-PLAN.md", "RISK-REGISTER.md"],
+    "sources": ["sources/SOURCES.md", "sources/VERIFICATION.md"]
+  },
+  "productionHomeFuture": "packages/site-parcel-data/src/germany/rulepacks/de/munich/ + providers/{alkis,planning,buildings}/Munich*.ts — future CODE work, not created here"
+}

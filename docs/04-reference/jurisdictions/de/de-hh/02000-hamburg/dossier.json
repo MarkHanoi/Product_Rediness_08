@@ -1,0 +1,76 @@
+{
+  "dossier": "de-hh-02000-hamburg",
+  "title": "Hamburg — buildability dossier (STUB)",
+  "country": "DE",
+  "state": "Hamburg",
+  "iso3166_2": "DE-HH",
+  "ags": "02000000",
+  "municipality": "Hamburg",
+  "crs": "EPSG:25832",
+  "capturedBy": "founder-research",
+  "capturedDate": "2026-07-31",
+  "status": "STUB — architectural framing only. Full dossier AWAITS founder Hamburg DATA (live WFS probe + one B-Plan sample). Every numeric planning value is null/unknown.",
+  "isStub": true,
+  "allNumericValuesNull": true,
+  "thesis": "Hamburg is the BEST validation of the core thesis: the GIS exists; the missing piece is converting DOCUMENTS into cited legal rules. Excellent digital infrastructure (mature XPlanung) but SHALLOW structured planning attributes — GRZ/GFZ/height often NOT populated in the WFS.",
+  "reuse": {
+    "sharedPipelineReuse": "~90% of the pipeline reuses",
+    "regimeClassifier": "EASIER than Berlin — NO Baunutzungsplan legacy branch; just §30/§34/§35"
+  },
+  "regimeModel": {
+    "§30-bplan": "modern B-Plan -> extract Festsetzungen (GRZ/GFZ/Vollgeschosse/Höhe/Baugrenze); coverage-and-far",
+    "§34-bauGB": "unplanned interior -> cited REFUSAL (a positive answer; no numeric envelope by law)",
+    "§35-bauGB": "outlying -> cited refusal (rare in city-state)",
+    "baunutzungsplan-legacy": "NONE identified — no Berlin-style pre-BauNVO Baustufe stratum (900 pre-1960 Hamburg-law plans exist but are migrated into XPlanGML; citation preservation is the open item, not a separate parser)"
+  },
+  "gisAdapter": {
+    "portal": "Geoportal Hamburg",
+    "protocol": "WFS (XPlanung, mature — city-state, full coverage)",
+    "endpointHint": "geodienste.hamburg.de (B-Plan WFS) — mark per founder; live-probe PENDING",
+    "idField": "plan_id",
+    "documentField": "planrecht",
+    "crs": "EPSG:25832",
+    "failureMode": "WFS exposes plan geometry + plan_id + PDF/document link, but GRZ/GFZ/height OFTEN NOT populated -> document-first extraction required",
+    "liveProbe": "PENDING (endpoint + field names to be confirmed by founder)"
+  },
+  "hamburgSpecific": {
+    "setback": {
+      "rule": "Hamburgische Bauordnung (HBauO) §6 Abstandsflächen",
+      "articleConfidence": "VERIFIED-per-founder (Land building code = HBauO §6)",
+      "exactMultiplierConfidence": "PROBE — do NOT copy Berlin/NRW 0.4H unverified for Hamburg; read HBauO §6 primary text",
+      "doNotCopy": "Berlin/NRW 0.4H is NOT assumed to hold for HH"
+    },
+    "lod2": {
+      "route": "Hamburg 3D-Gebäudemodell (CityGML)",
+      "licence": "PROBE — if open, one of Germany's strongest LoD2; if restricted, ALKIS Traufhöhe fallback"
+    }
+  },
+  "rateFraming": {
+    "note": "PROJECTED / CONVERGENT only — NO RATE cell asserted. RATE.md composite = not-assessed (research-only, not bake-covered).",
+    "legislationToday": "~30% (legacy structured-fill prior, LEGISLATION-RATE.md; UNVERIFIED)",
+    "projectedAfterAdapter": "~40-60% (PROJECTED)",
+    "projectedAfterExtraction": "~60-70% (PROJECTED — after PDF extraction)",
+    "projectedComposite": "~65-75% (PROJECTED)"
+  },
+  "firstMvpTarget": "Hamburg-Mitte — dense, many B-Plans; one working, cited legal answer (NOT all of Hamburg)",
+  "honesty": {
+    "§34": "cited REFUSAL is the correct answer, not a gap; §34 fraction for Hamburg UNMEASURED",
+    "bauNVO17": "national orientation ceiling — NEVER a parcel answer",
+    "noInference": ["OSM", "neighbouring parcels", "typical-district rules", "existing-building heights", "uncited OCR"],
+    "allNumbersPending": "GRZ/GFZ/Vollgeschosse/height all null — DATA PENDING from founder"
+  },
+  "pendingFounderData": [
+    "Hamburg B-Plan WFS endpoint URL + feature-type + confirmed field names (plan_id / planrecht)",
+    "one sample B-Plan (Satzung PDF + its XPlanGML record) to validate the extractor and measure the GRZ/GFZ/Höhe null-rate",
+    "confirm HBauO §6 exact multiplier + minimum (primary-text read)",
+    "Hamburg 3D-Gebäudemodell (LoD2 CityGML) licence terms",
+    "§34 coverage fraction over the Hamburg bbox (grid-sample probe)"
+  ],
+  "files": {
+    "framing": ["HAMBURG-FRAMING.md", "dossier.json"],
+    "scorecard": ["RATE.md", "LEGISLATION-RATE.md"],
+    "pack": ["README.md", "NEXT.md", "RATE-IMPLEMENTATION-PLAN.md"],
+    "sources": ["sources/SOURCES.md", "sources/VERIFICATION.md"]
+  },
+  "productionHomeFuture": "packages/site-parcel-data/src/germany/rulepacks/de/hamburg/ + providers/{alkis,planning,buildings}/Hamburg*.ts — future CODE work, not created here"
+}
