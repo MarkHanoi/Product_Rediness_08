@@ -3,7 +3,7 @@
 import { unpackFamily } from '@pryzm/file-format';
 
 import { api } from '../api/client.js';
-import { escapeHtml } from './browse.js';
+import { escapeHtml, safeHref } from './browse.js';
 
 interface FamilyDetail {
   readonly id: string;
@@ -79,7 +79,7 @@ export async function renderDetail(root: HTMLElement, id: string): Promise<void>
 
       <div class="actions">
         ${downloadAvailable
-          ? `<a class="btn" href="${escapeHtml(detail.downloadUrl)}" download>Download .pryzm-family</a>`
+          ? `<a class="btn" href="${escapeHtml(safeHref(detail.downloadUrl))}" download>Download .pryzm-family</a>`
           : '<button disabled>Download disabled — failed integrity check</button>'}
       </div>
     </section>`;

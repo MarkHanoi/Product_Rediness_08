@@ -61,3 +61,30 @@ export function escapeHtml(s: string): string {
     }
   });
 }
+
+/**
+ * safeHref — neutralises dangerous URL schemes in an attacker-influenced URL
+ * before it is placed in an `href`/`src` attribute (marketplace UGC surface).
+ *
+ * `escapeHtml` alone does NOT stop `javascript:` / `data:` / `vbscript:`
+ * execution, because those payloads contain no HTML-special characters — the
+ * quoting stays intact and the browser still runs the scheme on click. This is
+ * a scheme ALLOWLIST: an explicit scheme is permitted only when it is http/https.
+ * Relative, root-relative, protocol-relative (`//host`) and hash (`#…`) links
+ * carry no scheme and pass through unchanged. Anything else collapses to the
+ * inert placeholder `'#'`.
+ *
+ * Control characters are stripped before scheme detection because browsers
+ * ignore them inside a scheme token (the classic `java\tscript:` / `java\nscript:`
+ * bypasses). The returned value must STILL be passed through `escapeHtml` for
+ * attribute-context quoting.
+ */
+export function safeHref(url: string): string {
+  const raw = (url ?? '').trim();
+  const probe = raw.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(probe);
+  if (scheme && !/^https?$/i.test(scheme[1] ?? '')) {
+    return '#';
+  }
+  return raw;
+}
