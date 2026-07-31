@@ -17,7 +17,29 @@ The three cheap axes are already assessed; this plan drives the four human-gated
 The expensive axes (LEGISLATION 25 · ENVELOPE 20) are the human-gated sourcing cost — the whole
 differentiator. They are LAST because they cannot be automated.
 
-## P4.5 — Planning GIS Intelligence (added 2026-07-31)
+## P4.5 — Planning GIS Intelligence (added 2026-07-31) — ✅ **RUN 2026-07-31**
+
+> **GATE CLOSED. Verdict: P5 LEGISLATION is an ORDINANCE-EXTRACTION project, not a GIS-linkage one.**
+>
+> Deliverable: [`findings/VALENCIA-DATA-RECON.md`](./findings/VALENCIA-DATA-RECON.md).
+> Experiment: [`../../findings/GENOME-TEST-01-MADRID-TO-VALENCIA.md`](../../findings/GENOME-TEST-01-MADRID-TO-VALENCIA.md).
+>
+> Headlines that change this plan:
+> - ArcGIS REST **is** public (`geoportal.valencia.es/server/rest/services`, 10.81); zoning is
+>   `OPENDATA/UrbanismoEInfraestructuras/MapServer/231`, zone code = `califi`, grade = `tipoca`.
+> - **No buildable-envelope layer exists.** There is no NZ1 equivalent and **no numeric planning
+>   parameter is published as an attribute** — every one is in the PGOU text. ENVELOPE (20) depends
+>   entirely on P5.
+> - **109 base zone codes / 551 code+grade combinations** — ~15× Madrid's ~7. Re-cost P5 accordingly;
+>   founder discovery D6 ("zones are finite") does not hold here.
+> - Derived plans are an **attribute taxonomy** (`origen`, 494 instruments incl. the predicted `PRI`
+>   and `PEPRI`), not a layer. ~482 are documents PRYZM will not hold → route the refusal path early.
+> - `refcat` **is** published on the municipal parcel layer → **no Catastro licence needed**.
+> - **17 of 33 folders are auth-gated** (ArcGIS 499), incl. `Patrimonio_Historico`. Heritage is
+>   **UNKNOWN, not absent** — re-probe with credentials before P6.
+>
+> The axis stars below remain unmoved, as intended: P4.5 scores no points.
+
 
 **Why it exists.** Madrid's reconnaissance *inverted* its implementation strategy: it looked like a
 PDF-centric city, and the probe found public ArcGIS services carrying zoning, planning areas, and

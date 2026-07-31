@@ -30,13 +30,15 @@ export const MADRID: CityConfig = {
   notes: 'EPSG:25830 native. Ground truth: DESARROLLO_URBANO_ACTUALIZADO/NORMAS_ZONALES/MapServer.',
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CH5 MEASUREMENT — València's complete city-specific configuration.
+// Found by `discoverRoots.ts valencia.es` at ladder rung R0 (generic patterns,
+// zero city knowledge). No folder filter was needed; the blind run crawled all
+// 33 folders. No new heuristic, regex or algorithm was added for València.
+// ─────────────────────────────────────────────────────────────────────────────
 export const VALENCIA: CityConfig = {
   code: '46250',
   name: 'València',
-  arcgisRoots: [
-    // Filled at run time by the root-discovery step; see PRE-REGISTRATION.md.
-    // Any root listed here was found by generic host probing, NOT by reading a
-    // València-specific document.
-  ],
-  notes: 'EPSG:25830 expected (UTM 30N). Roots to be discovered.',
+  arcgisRoots: ['https://geoportal.valencia.es/server/rest/services'],
+  notes: 'EPSG:25830. Zoning: OPENDATA/UrbanismoEInfraestructuras/MapServer/231, zoneCode=califi, grade=tipoca, derivedPlan=origen. 17/33 folders are auth-gated (ArcGIS 499).',
 };
