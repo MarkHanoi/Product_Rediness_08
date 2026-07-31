@@ -276,13 +276,75 @@ honestly-sized sample).
 
 ---
 
-## 7 — WP5 Real-corpus regression / WP6 Table extraction
+## 7 — WP5 Real-corpus regression
 
-*(in progress — filled in as measured)*
+**Shipped.** `packages/ordinance-extraction/__tests__/berlinRealCorpus.test.ts` — every
+sentence in it was read out of an actual Berlin Begründung by the ingestion stack on
+2026-07-31. Suite total **181 tests** (was 167). The synthetic suites are retained — they
+encode real reasoning — but the corpus file is what now speaks for the corpus.
+
+**Real-document cases pinned:** the binding p56 Festsetzung (GRZ 0,4 / GFZ 1,2); the p8
+`dargestellt` legacy-instrument rejection; the p47 §19(4) overrun rejection; the p58
+one-sentence-two-jobs `unless` escape; the pdf.js double-newline defect end-to-end; word-gap
+restoration; orphan-bracket and gloss normalization.
+
+### What real documents broke that synthetic fixtures had hidden (all VERIFIED)
+
+| # | Defect | Why no synthetic fixture could catch it |
+|---|---|---|
+| 1 | **pdf.js emits TWO newlines per line break** (`hasEOL` + baseline move) | Requires real item geometry. The normalizer read the blank line as a paragraph boundary, so nothing merged — and the `dargestellt` verb was severed from its clause, letting a superseded instrument's value through as the plan's. |
+| 2 | **Words run together** — `"Begründunggemäß"` (plan 1-14 p1) | PDFs encode many word gaps as horizontal jumps, not space characters. Only real font metrics expose it. |
+| 3 | **Statutory citation between keyword and value** — `"GFZ gemäß § 20 Abs. 2 BauNVO auf 1,2"` (8-30 p56) | Blocked the plan's actual FAR. Nobody writes this shape into a hand-made fixture. |
+| 4 | **Regex backtracking bound `GRZ = 9`** (8-30 p87) | Introduced by the fix for #3: `§ 19` backtracked to `§ 1`, leaving `9` as the value. Caught by the range gate — defence in depth working — but the grammar was wrong. |
+| 5 | **Over-broad reject killed a real Festsetzung** | A first `Überschreitung` pattern matched the bare verb and mis-fired on `"darf 18 m nicht überschreiten"`, the standard binding phrasing for heights. `nicht` is the discriminator. |
+| 6 | **Rate limiting misread as data absence** | 284 × HTTP 429 recorded as `http-error`. See §6. |
+
+Measured effect of the whole pass on 8-30: **13 → 10 resolved parameters**, the wrong readings
+progressively eliminated, and **GRZ 0,4 / GFZ 1,2 / 5 Vollgeschosse** — the plan's actual
+Festsetzung — all now surfacing.
 
 ---
 
-## 8 — Still missing / still assumed
+## 8 — 🔴 WP6 Table extraction: the probe that changed the scope
+
+**VERIFIED, 2026-07-31.** Before building a Nutzungsschablone reconstructor, one thing had to
+be measured: *do the Planzeichnungen carry a text layer at all?* The WP1 census says **1,600
+in-force plans (56.3 %) expose only `scan_www`** — the drawing — so for those plans every
+planning number lives in a table on that sheet.
+
+Seeded random sample of the drawing-only population (seed 20260731):
+
+| Planzeichnung digitisation | Count |
+|---|---:|
+| text layer | **0** |
+| hybrid | **0** |
+| **raster (0 characters recovered)** | **21** |
+| acquisition failed (rate-limited) | 1 |
+| **ACTUAL n examined** | **21** |
+
+**Every single one is a pure raster scan — 1 or 2 pages, exactly 0 characters.**
+
+### Consequence
+
+For the 56.3 % drawing-only majority, Nutzungsschablone reconstruction is **not** the
+positioned-text geometry problem WP6 was scoped as. It is **OCR *plus* table detection on an
+image** — the two highest-risk components in the stack, stacked. The founder's risk table rates
+table reconstruction High/High and OCR Medium/Medium; for this corpus segment they are not
+independent rows, they compose.
+
+**Decision taken: the positioned-text table prototype was NOT built.** Building it would have
+produced a component that works only on tables inside born-digital Begründungen — a genuine but
+much smaller case — while appearing to address the 56.3 %. That would be a prototype that
+solves the wrong problem and reports success. The measurement is the deliverable here.
+
+*(This also independently confirms, rather than contradicts, PROBE VERDICT §5's "mixed corpus"
+qualifier — and locates the scan half precisely: it is the drawings, near-totally.)*
+
+---
+
+---
+
+## 9 — Still missing / still assumed
 
 **KNOWN-OPEN (measured, not fixed):**
 
