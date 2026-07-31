@@ -409,7 +409,7 @@ function renderLayerList(panel: HTMLElement): void {
     container.innerHTML = filtered.map(l => `
         <div class="dxf-layer-row" data-layer="${escHtml(l.name)}">
             <input type="checkbox" class="dxf-layer-eye" ${l.visible ? 'checked' : ''}>
-            <span class="dxf-layer-swatch" style="background:${l.color}"></span>
+            <span class="dxf-layer-swatch" style="background:${safeCssColor(l.color)}"></span>
             <span class="dxf-layer-name" title="${escHtml(l.name)}">${escHtml(l.name)}</span>
         </div>
     `).join('');
@@ -523,6 +523,22 @@ function clearError(panel: HTMLElement): void {
 
 function escHtml(s: string): string {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/**
+ * §DXF-SWATCH-COLOR-XSS (L-407 / SEC-XSS) — the DXF layer colour is
+ * imported-file / snapshot-restored data (`DxfLayerStore.restore()` re-hydrates
+ * it from a `.passthrough()`-validated snapshot), so it must not reach the
+ * inline `style="background:…"` swatch sink unescaped. escHtml alone would stop
+ * an attribute breakout but not a `;`-delimited CSS-property injection; a colour
+ * has a narrow, allowlistable grammar, so validate it and fall back otherwise.
+ */
+function safeCssColor(value: unknown, fallback = '#888888'): string {
+    const v = String(value ?? '').trim();
+    if (/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v)) return v;
+    if (/^(?:rgb|rgba|hsl|hsla)\([0-9.,%/deg\s]+\)$/i.test(v)) return v;
+    if (/^[a-zA-Z]{3,20}$/.test(v)) return v;
+    return fallback;
 }
 
 // ── Import Manager event bridge (§32) ─────────────────────────────────────────
