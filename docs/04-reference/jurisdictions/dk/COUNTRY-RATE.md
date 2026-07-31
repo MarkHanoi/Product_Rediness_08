@@ -69,16 +69,28 @@ against the DAGI register per the C57 join-key rule.
 
 | City (`code`) | PARCEL | LEGIS­LATION | DATA-SRC | ENVELOPE | TERRAIN | HEIGHTS/LOD | CONTEXT | **Overall** | Dossier |
 |---|---|---|---|---|---|---|---|---|---|
-| Copenhagen (`0101`) | `not-assessed` | `not-assessed` | **70%** | `not-assessed` | `not-assessed` | `not-assessed` | **56%** | **66% · partial** | [dossier](./dk-84/0101-copenhagen/RATE.md) |
-| Aarhus (`0751`) | `not-assessed` | `not-assessed` | **70%** | `not-assessed` | `not-assessed` | `not-assessed` | **56%** | **66% · partial** | [dossier](./dk-82/0751-aarhus/RATE.md) |
-| Odense (`0461`) | `not-assessed` | `not-assessed` | **70%** | `not-assessed` | `not-assessed` | `not-assessed` | **56%** | **66% · partial** | [dossier](./dk-83/0461-odense/RATE.md) |
-| Aalborg (`0851`) | `not-assessed` | `not-assessed` | **70%** | `not-assessed` | `not-assessed` | `not-assessed` | **56%** | **66% · partial** | [dossier](./dk-81/0851-aalborg/RATE.md) |
+| Copenhagen (`0101`) | `not-assessed` | `derived-ready` † | **70%** | `not-assessed` | `not-assessed` | `not-assessed` | **56%** | **66% · partial** | [dossier](./dk-84/0101-copenhagen/RATE.md) |
+| Aarhus (`0751`) | `not-assessed` | `derived-ready` † | **70%** | `not-assessed` | `not-assessed` | `not-assessed` | **56%** | **66% · partial** | [dossier](./dk-82/0751-aarhus/RATE.md) |
+| Odense (`0461`) | `not-assessed` | `derived-ready` † | **70%** | `not-assessed` | `not-assessed` | `not-assessed` | **56%** | **66% · partial** | [dossier](./dk-83/0461-odense/RATE.md) |
+| Aalborg (`0851`) | `not-assessed` | `derived-ready` † | **70%** | `not-assessed` | `not-assessed` | `not-assessed` | **56%** | **66% · partial** | [dossier](./dk-81/0851-aalborg/RATE.md) |
 
-**Assessed axes:** DATA-SOURCES (70%) + CONTEXT (56%) only; overall renormalised over that subset (C63 §1.5),
-so `partial:true` and the five missing axes are honestly named per city. The four cities score identically
-because DATA-SOURCES + CONTEXT are composed from **national** state that reaches every DK bbox equally; the only
-per-city difference is TERRAIN's *reason* (Copenhagen `license-restriction` — a gated bake row exists; the
-others `pending-implementation` — no row), both resolving to `not-assessed`.
+**† LEGISLATION = `derived-ready` (a `structured-national-prior`, NOT a measured per-city %).** Denmark's
+legislation is **structured + signed** — the L-449 Plandata FIELD→C63 mapping is signed and machine-readable
+(`bebygpct→FAR`, `maxbygnhjd→height`, `maxetager→storeys`, densityScope honoured) — see the new
+[`DENMARK-LEGISLATION-EXTRACTION.md`](./DENMARK-LEGISLATION-EXTRACTION.md) (+ `.json`). So the axis is **DERIVED-ready**
+off the ~96% national structured ceiling. **But no per-city % is hand-typed:** the per-city fill = *the fraction of
+that city's lokalplaner/rammer with populated Plandata fields*, a **MEASUREMENT still to run** (a byzone
+click-weighted fill scoped to the 0101/0751/0461/0851 bbox). Borrowing the ~96% country prior as a city cell would
+be the §CONTEXT-DATA-HONESTY country-borrow trap, so the cell stays **out of the composite** until that measurement
+runs and the Danish-planner sign-off lands (`sources/VERIFICATION.md`). `derived-ready` ≠ a score.
+
+**Assessed axes (composite):** DATA-SOURCES (70%) + CONTEXT (56%) only; overall renormalised over that subset (C63
+§1.5), so `partial:true` and the remaining axes are honestly named per city. **LEGISLATION is `derived-ready` but
+carries no measured %, so it does NOT enter the composite** (the honest residual is the per-city Plandata-population
+measurement; ~96% national ceiling). The four cities score identically because DATA-SOURCES + CONTEXT are composed
+from **national** state that reaches every DK bbox equally; the only per-city difference is TERRAIN's *reason*
+(Copenhagen `license-restriction` — a gated bake row exists; the others `pending-implementation` — no row), both
+resolving to `not-assessed`.
 
 <!-- More DK cities become "tackled" as they gain a terrain row / per-city pack / scaffolded folder; add a row
      then, filling cells only from the scorecard function. -->
@@ -91,6 +103,9 @@ others `pending-implementation` — no row), both resolving to `not-assessed`.
 |---|---|---|
 | **`COUNTRY-RATE.md`** (this file) | the per-city 7-axis roll-up — the country composite master rate | — (rolls up all cities) |
 | [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | national structured legislation/data-fill rate (~96%) — renamed from `RATE.md` (L-649) | LEGISLATION axis |
+| [`DENMARK-LEGISLATION-EXTRACTION.md`](./DENMARK-LEGISLATION-EXTRACTION.md) (+ [`.json`](./DENMARK-LEGISLATION-EXTRACTION.json)) | the signed Plandata FIELD→C63 mapping (PART A/B/C), **per-plan not per-zone** — what's `structured` vs `unknown` | LEGISLATION axis |
+| [`dk-PLANDATA-ENVELOPE-MAPPING.md`](./dk-PLANDATA-ENVELOPE-MAPPING.md) | the L-449 signed rule-pack source (the mapping's legal basis) | LEGISLATION axis |
+| [`DENMARK-GAP-ROADMAP.md`](./DENMARK-GAP-ROADMAP.md) | the gap-by-gap **envelope-realism** roadmap (G1–G9 + tail) — lifts ENVELOPE/LOD/CONTEXT/PARCEL, **NOT** the ~96% rate | ENVELOPE (+ HEIGHTS/LOD, CONTEXT, PARCEL) |
 | [`LOD-RATE.md`](./LOD-RATE.md) | national building/terrain LOD sub-rate | HEIGHTS/LOD axis |
 | [`README.md`](./README.md) | the national data layer — what governs, granularity, the numbers | all |
 | [`ENVELOPE-RULES.md`](./ENVELOPE-RULES.md) | national envelope rule shape (coverage-and-FAR / height-and-storeys) | ENVELOPE |

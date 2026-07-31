@@ -1,0 +1,174 @@
+{
+  "$comment": [
+    "DENMARK LEGISLATION EXTRACTION — the SIGNED L-449 Plandata FIELD→C63 mapping, applied PER-PLAN.",
+    "Denmark's legislation is per-PLAN (lokalplan / lokalplandelomraade / kommuneplanramme), NOT a static",
+    "per-zone dictionary like Zurich's BZO. So this file is NOT a zone table with one row per zone — it is",
+    "the extraction RULE: the mapping from each machine-readable Plandata WFS attribute to a C63 envelope",
+    "output, with its BR18 citation, densityScope treatment, and confidence. The 'values' are resolved",
+    "per-parcel at query time from whatever governing plan Plandata returns; what is fixed (and signed) is",
+    "the MAPPING below. This mirrors the Sweden 'offline-legislation + deferred-live-data' shape.",
+    "HONESTY: no per-city composite % is hand-typed here. 'structured' = Plandata delivers the field",
+    "machine-readably; 'unknown' = the field is legitimately empty/unencoded per-plan (a data-quality or",
+    "scope-encoding residual), NOT a code gap. Every mapped output cites a BR18 section or a WFS field."
+  ],
+  "schema": "jurisdiction-legislation-extraction/part-abc",
+  "schemaVersion": 1,
+  "jurisdictionId": "dk-plandata",
+  "country": { "iso": "DK", "name": "Denmark" },
+  "structure": "per-plan",
+  "structureNote": "A parcel resolves to its governing instrument via the chain point → byggefelt → lokalplandelomraade → lokalplan → kommuneplanramme (tightest that publishes a number; §USABLE-FALLBACK, L-608). The mapping below applies to whichever instrument governs; it is NOT keyed to a fixed zone list.",
+  "signedBy": "L-449 (founder, 2026-07-30)",
+  "primaryLegalSource": "BR18 — Bygningsreglementet (bygningsreglementet.dk) §168–186",
+  "nationalStructuredCeiling": "~96% digital-data / ~87% pure-structured byzone fill (L-609/L-611, VERIFIED-LIVE 2026-07-23)",
+
+  "partA_legislation": {
+    "description": "The reachable win — Plandata WFS attributes mapped to C63 envelope outputs. These are the ~96% that IS reachable because Plandata delivers them machine-readably (no PDF read).",
+    "fields": [
+      {
+        "wfsField": "bebygpct",
+        "legalName": "bebyggelsesprocent (maksbebyggelsesprocent)",
+        "presentOnLayers": ["lokalplan", "lokalplandelomraade", "kommuneplanramme"],
+        "mapsTo": "structuredFields.plotRatioFAR",
+        "rule": "FAR = bebygpct / 100",
+        "legalBasis": "BR18 §168–186: bebyggelsesprocent = 'etagearealets procentvise andel af grundens areal' (gross floor area / site area × 100) — a floor-area ratio, NOT ground coverage.",
+        "densityScope": {
+          "attribute": "beregningsgrundlag (denominator scope) — NOT yet ingested by the current mapper",
+          "values": {
+            "parcel": "det enkelte matrikelnummer / grundens areal → FAR = pct/100 is a usable envelope number",
+            "property": "den enkelte ejendom (may span several matrikler) → FAR WITHHELD (null + cited reason)",
+            "planningArea": "området som helhed / under ét (shared budget) → FAR WITHHELD (null + cited reason)"
+          },
+          "honoured": true,
+          "default": "unknown → FAR withheld (unknown != parcel; assuming per-parcel would mis-scale a whole-area value — §CONTEXT-DATA-HONESTY / envelope-solid-overstates-partial-data)",
+          "note": "Height and storeys are absolute caps → scope-independent → always pass through. Only the FAR ratio is scope-gated. The engine's FAR denominator (farLimitedHeight.ts) is hardwired to parcel area, so only a parcel-scoped FAR is correct to feed it."
+        },
+        "confidence": "structured",
+        "unknownWhen": "Plandata leaves bebygpct empty for the governing plan → honest 'unknown' (per-plan data-quality, not a code gap). Also 'unknown' whenever densityScope is not parcel or not encoded → FAR withheld."
+      },
+      {
+        "wfsField": "maxbygnhjd",
+        "legalName": "maks. bygningshøjde (maksbygningshojde)",
+        "presentOnLayers": ["lokalplan", "lokalplandelomraade", "kommuneplanramme", "byggefelt"],
+        "mapsTo": "structuredFields.maxHeight_m",
+        "rule": "direct passthrough (metres)",
+        "measurement": "metres, per BR18 height-measurement convention (BR18 §168–186)",
+        "legalBasis": "BR18 §168–186 (bygningshøjde)",
+        "densityScope": "n/a — absolute cap, scope-independent",
+        "confidence": "structured",
+        "unknownWhen": "Plandata leaves maxbygnhjd empty for the governing plan → honest 'unknown'."
+      },
+      {
+        "wfsField": "maxetager",
+        "legalName": "maks. antal etager",
+        "presentOnLayers": ["lokalplan", "lokalplandelomraade", "kommuneplanramme", "byggefelt"],
+        "mapsTo": "structuredFields.maxFloors",
+        "rule": "floor to an int (decimal in source e.g. 3.5 incl. attic → floored; never over-stated)",
+        "legalBasis": "BR18 §168–186 (antal etager)",
+        "densityScope": "n/a — absolute cap, scope-independent",
+        "confidence": "structured",
+        "unknownWhen": "Plandata leaves maxetager empty for the governing plan → honest 'unknown'."
+      },
+      {
+        "wfsField": "anvendelsegenerel / anvgen",
+        "legalName": "generel anvendelse (permitted use)",
+        "presentOnLayers": ["lokalplan", "lokalplandelomraade", "kommuneplanramme"],
+        "mapsTo": "structuredFields.permittedUse[]",
+        "rule": "classified onto the C58 closed vocabulary (mapPlandataToZoningRecord)",
+        "legalBasis": "Planloven anvendelseskategori (use category on the adopted plan feature)",
+        "confidence": "structured",
+        "unknownWhen": "use code absent/unclassifiable → honest 'unknown'."
+      },
+      {
+        "wfsField": "doklink",
+        "legalName": "plan-document link",
+        "presentOnLayers": ["lokalplan", "lokalplandelomraade", "kommuneplanramme", "byggefelt"],
+        "mapsTo": "ordinanceRef",
+        "rule": "governing-document PDF citation (C58 §1.3)",
+        "confidence": "structured"
+      },
+      {
+        "wfsField": null,
+        "legalName": "grundoverdækning / bebyggelsesgrad (ground coverage %)",
+        "presentOnLayers": [],
+        "mapsTo": "structuredFields.maxCoverage",
+        "rule": "null — NO plan-field source. Plandata's standard plan fields publish no ground-coverage %. bebygpct is FAR not coverage; reusing it would be a fabrication. byggefelt gives a footprint polygon (not a %); coverage would need parcel geometry (absent in the pure mapper). See L-609/L-611.",
+        "confidence": "unknown",
+        "unknownReason": "no-source (Denmark is coverage-and-FAR / height-and-storeys governed, not coverage-published). ~1.4% of byzone clicks could derive a byggefelt-footprint coverage via an ADR-gated cross-layer path — kept DISTINCT from the dimensional fill; see roadmap G3/G7."
+      },
+      {
+        "wfsField": null,
+        "legalName": "byggelinjer (per-edge setbacks / alignment)",
+        "presentOnLayers": [],
+        "mapsTo": "structuredFields.setbacks",
+        "rule": "null — SEPARATE Plandata dataset, not carried on the plan feature. null != 0 (an absent setback is unknown, not a required-zero). NEVER map any line to front/rear/side = 5. See roadmap G2.",
+        "confidence": "unknown",
+        "unknownReason": "separate-dataset (future layer wiring; ~0% delivered today)."
+      }
+    ]
+  },
+
+  "partB_parcel": {
+    "description": "PARCEL geometry provider — national survey-grade, but credential/access-DEFERRED. This is an access gap (MitID identity gate), NOT a code gap and NOT fabricatable (C58 §1.4).",
+    "primary": {
+      "register": "Matriklen / matrikel-dk (jordstykke parcels)",
+      "authority": "SDFI (Matriklen2)",
+      "quality": "national, survey-grade cadastre",
+      "crs": "EPSG:25832",
+      "access": "Datafordeler — administrator/service-user bootstrap requires a Danish MitID identity PRYZM cannot obtain (same access class as Swedish BankID)",
+      "accessStatus": "access-deferred",
+      "liveClaim": "NONE — do not claim live parcel access",
+      "code": "packages/site-parcel-data/src/parcelProviders/dkMatrikelParcelProvider.ts — a DEFERRED STUB on the canonical interface: fetchParcelAtPoint returns null (no live access attempted), never-throws, typed OTel span. The Datafordeler adapter is a single method-body swap behind the '// DEFERRED:' seam.",
+      "registryKey": "parcelProviders/registry.ts matrikel-dk (isInDenmark)"
+    },
+    "fallback": {
+      "source": "OSM building footprint",
+      "behaviour": "when the stub returns null the registry falls back to the OSM footprint — graceful, honestly labelled, never a fabricated parcel"
+    }
+  },
+
+  "partC_meta": {
+    "description": "META — the register the PART A mapping reads from.",
+    "register": "Plandata.dk — the Danish national plan register (Erhvervsstyrelsen / Danish Business Authority)",
+    "endpoint": "https://geoserver.plandata.dk/geoserver/wfs",
+    "protocol": "WFS 2.0",
+    "access": "keyless / open",
+    "machineReadable": true,
+    "coverage": "national (all of Denmark; one register, no per-municipality variation of the schema)",
+    "crs": "EPSG:25832 (ETRS89 / UTM 32N) — metric; shoelace yields m² directly",
+    "license": "Open public data (Plandata.dk)",
+    "verified": "VERIFIED-LIVE 2026-07-23 (GetCapabilities + DescribeFeatureType + resultType=hits, unauthenticated 200s)",
+    "proxy": "server/plandataZoningProxy.js (keyless same-origin WFS proxy + coordinate cache)",
+    "adapter": "packages/site-parcel-data/src/providers/DkZoningProvider.ts + mapPlandataToZoningRecord.ts (pure field→ZoningRecord mapping)"
+  },
+
+  "honestResidual": {
+    "statement": "Denmark's legislation is structured + signed → the C63 LEGISLATION axis is DERIVED-READY as a structured-national-prior (~96% national ceiling). The remaining measurement, still to run, is the PER-CITY Plandata-population fraction: the fraction of a city's lokalplaner/rammer with populated Plandata fields. That is a MEASUREMENT, not a hand-typed number. Until it is run per city, the per-city LEGISLATION cell stays not-assessed (no country-prior borrow — §CONTEXT-DATA-HONESTY).",
+    "openItems": [
+      "densityScope (beregningsgrundlag) WFS attribute not yet ingested — scope treated as unknown → FAR withheld until wired (probe-don't-assume the exact field name; parseDkDensityScope ready). See roadmap G1.",
+      "§USABLE-FALLBACK instrument precedence — Danish-planner legal sign-off PENDING (VERIFICATION.md).",
+      "byggefelt bindingness semantics (bygvejledende / bygkunifelt / iomfangreg) — Danish-planner sign-off PENDING; gates any byggefelt→maxCoverage treatment. See roadmap G3/G7."
+    ],
+    "l449Gate": "No field serves at confidence 'human-reviewed' until sources/VERIFICATION.md carries the Danish-planner sign-off. The published numbers are already cited to doklink at confidence 'structured'."
+  },
+
+  "gapRoadmap": {
+    "description": "The envelope-REALISM roadmap (see DENMARK-GAP-ROADMAP.md for full prose + implementation detail). These gaps affect ENVELOPE / HEIGHTS-LOD / CONTEXT / PARCEL / TERRAIN realism, NOT the ~96% legislation rate — the rate stays. Every gap keeps an honest unknown/withhold; no fabricated coverage/setback/courtyard/height.",
+    "canonical": "G1..G9 + tail queue; founder topic-labels reconciled in the roadmap doc",
+    "gaps": [
+      { "id": "G1", "name": "density denominator scope (beregningsgrundlag)", "affects": "ENVELOPE — FAR usability", "priority": "MOST IMPORTANT", "status": "current rule 'unknown scope → withhold FAR' is CORRECT — keep it; probe DescribeFeatureType for the scope attribute", "legislationRate": "unchanged" },
+      { "id": "G2", "name": "setbacks (byggelinjer)", "affects": "ENVELOPE — geometry", "status": "model as BuildingLineConstraint{binding:'unknown', distanceM:null}; never front/rear/side numbers; distinguish byggelinje vs vejbyggelinje vs byggefelt; edge-match by geometry not orientation; 3-phase P1 byggelinjer/P2 Barcelona-alignment/P3 lokalplan-text", "legislationRate": "unchanged" },
+      { "id": "G3", "name": "byggefelt semantics / binding flag", "affects": "ENVELOPE — coverage + placement", "priority": "HIGH", "status": "binding:'unknown' until DescribeFeatureType-probe of bygvejledende/iomfangreg/bygkunifelt + model-doc + Danish-planner sign-off; gates G6 placement and G7 coverage; never coverage=byggefelt.area/parcel.area", "legislationRate": "unchanged" },
+      { "id": "G4", "name": "LoD2 building context adapter (GeoDanmark + Danmark i 3D + DHM + BBR)", "affects": "HEIGHTS/LOD + CONTEXT", "status": "ESTIMATED (~93-95%) → VERIFIED only after the N=500 measurement runs; LoD2 roof surfaces not LOD1 extrusion; physical height = DSM-DTM, not planning maxbygnhjd", "legislationRate": "unchanged" },
+      { "id": "G5", "name": "buildable-depth from lokalplan TEXT", "affects": "ENVELOPE — depth", "status": "ordinance-pipeline text extraction (byggedybde/bygningens dybde/maksimal dybde) → buildableDepthM{source:'lokalplan §X.X', confidence:'official-text'}; study-mode fallback only, NEVER legalDepth", "legislationRate": "unchanged" },
+      { "id": "G6", "name": "courtyard / friareal / perimeter-block (karré)", "affects": "ENVELOPE — biggest realism failure (courtyards vanish → density overstated)", "status": "dkEnvelopeGeometryProvider hierarchy binding-byggefelt→byggelinjer→lokalplan-depth-text→study-mode; REUSE the Barcelona profunditat-edificable engine; never FAR→footprint; never fabricate courtyard dims", "legislationRate": "unchanged" },
+      { "id": "G7", "name": "maxCoverage (ground-coverage %)", "affects": "ENVELOPE — coverage", "status": "null today (CORRECT); 4-tier resolver binding-byggefelt(official)/lokalplan-clause(text-derived)/kommuneplan/null; classifier rejects bebyggelsesprocent+etageareal (those are FAR); expected usable ~10-30% nationally; NEVER maxCoverage=farRatio", "legislationRate": "unchanged" },
+      { "id": "G8", "name": "parcel provider (Matriklen)", "affects": "PARCEL (independent of legislation)", "status": "access-deferred (MitID gate); 3 solution paths (A official Datafordeler via MitID Erhverv / B municipal-open mirrors confidence:'regional' / C partner ingestion — most practical); env DK_DATAFORDELER_CLIENT_ID/_SECRET; area via shoelace on EPSG:25832 never WGS84; OSM fallback labeled source:'OSM' confidence:'approximate' never cadastre", "legislationRate": "unchanged" },
+      { "id": "G9", "name": "the honest ceiling (last ~4%)", "affects": "truth statement — IS the ~96% rate", "status": "~96% digital / ~87% pure-structured; NOT 100% (structural + measurement, not fabricatable); residual = born-digital-text + scan-OCR minority + plan-omitted; mirrors Germany §34-floor honesty", "legislationRate": "is the ~96% ceiling" }
+    ],
+    "tailQueue": [
+      { "name": "terrain (DHM)", "affects": "TERRAIN", "status": "national source known; apikey-gated bake; only Copenhagen bbox row registered; live-probe before prod" },
+      { "name": "heritage (FBB)", "affects": "CONTEXT/overlay", "status": "FBB national register + zonestatus overlays; not yet per-parcel probed; live-probe follow-up" },
+      { "name": "article-level citation completeness", "affects": "provenance confidence", "status": "deepen BR18 §/Plandata-field citations per field; land Danish-planner sign-off (§USABLE-FALLBACK + byggefelt bindingness); structured → human-reviewed" }
+    ]
+  }
+}
