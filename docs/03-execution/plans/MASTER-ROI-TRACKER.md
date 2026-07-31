@@ -140,6 +140,67 @@ audit already measured ENVELOPE this way (31.8 M m²), so the contract is traili
 
 ---
 
+## §0.6 — 🇪🇸 BARCELONA (`08019`) — measured ROI board
+
+> **Stamp 2026-07-31.** Denominator per **L-656**: **private buildable land area = 31,801,618 m²**
+> (of 101.78 M m² city area — only **27.1 %** of Barcelona is private buildable). Source: live AMB
+> `qualificacio_refos_3857/MapServer/16` census, n = 89 clau codes. Cross-checked by the repo's
+> independent 275-point MUC grid at **53.5 %** — two publishers, 2.5 pp apart.
+> ⚠ **The long-quoted "24 %" was 13a ALONE and stale since 2026-07-21.** `RATE.md` Axis 4,
+> `LEGISLATION-RATE.md` and `ENVELOPE.md` still carry it and are **wrong**; the ceiling audit is
+> authoritative. `ENVELOPE.md` also says 13b/12/20a are "not shipped" — all three shipped 2026-07-22.
+
+### ENVELOPE — where the 20 weighted points stand
+
+**Today: 56.0 % coverage × 0.7 (`block-constructed`) = 39.2 axis pts → 7.84 of 20 weighted.**
+**Ceiling: ~70 % → 49 axis pts → 9.8 of 20.** The residual ~30 % is the derived-planning wall
+(**62.8 % of city land is `PD*`**) — a document-acquisition programme, not rule authoring.
+
+| clau | share | disposition | what moves it | human-h | eng-days | axis pts | weighted | gated on |
+|---|---:|---|---|---:|---:|---:|---:|---|
+| `13a`/`13E` | 22.98 % | ✅ packed | — | — | — | — | — | done (L-449 signed 2026-07-20/21) |
+| `13b` | 12.52 % | ✅ packed | — | — | — | — | — | done (shipped 2026-07-22) |
+| `20a/*` ×10 | 10.62 % | ✅ packed | — | — | — | — | — | done — the one **native `setback`** family |
+| `12` | 9.38 % | ✅ packed | ⚠ Ciutat Vella predicate untested | — | 0.5 | — | — | **RISK, see below** |
+| **`18`** | **17.51 %** | ⏸ cited refusal | wire `/api/bcn-refos/ov` + measure coverage + L-449 sign | **2–4** | **1.5–2.5** | **+4.0…+7.8** | **+0.80…+1.56** | ⭐ **ENGINEERING** |
+| `22@` | 2.06 % | ⏸ coverage-gap | transcribe MPGM 22@ — **PDF already in repo** | 4–8 | 0.5–1 | +1.4 | +0.29 | **SOURCING** (the only one left) |
+| `12b` | 2.44 % | ⏸ coverage-gap | LiDAR neighbour heights (the rule *is* "mean of neighbours") | 2 | 3–5 | +1.7 | +0.34 | **DATA AVAILABILITY** |
+| bare `20a` | 1.55 % | ⏸ coverage-gap | a subzone-granular municipal layer | 2 | 0.5 | +1.1 | +0.22 | **DATA AVAIL.** — may not exist; refusing judged correct |
+| **`22a`** | **15.60 %** | ⏸ cited refusal | ~2,595 *Pla Parcial* docs — **98.9 % is `PD*` ⇒ Art. 350.1** | *programme* | *programme* | **0** | **0** | ⛔ **LAW** — fully sourced already, worth zero |
+| `15` `16` `17/*` `14a/b` `8a` | 3.58 % | ⏸ legal refusal | **nothing — refusing IS the right answer** | — | — | 0 | 0 | ⛔ LAW (permanent) |
+
+**⭐ Highest-ROI action: wire the clau-18 proxy AND measure its coverage in the same change** —
+~1.5–2.5 eng-days + 2–4 human-hours for the largest available movement on the axis. The measurement is
+part of the action, not a follow-up: the only prior estimate (32.5–63.8 %, n=80) rested on an
+"independent cross-check" that the audit **refuted** (it divided the *whole* OV layer's area — 98.6 % of
+whose polygons have an empty `CLAU` — by clau 18's area). Hard ceiling: OV_Trames' entire area is
+**11.2 %** of the denominator.
+
+### The other six axes
+
+| axis | W | today | the honest read |
+|---|---:|---|---|
+| PARCEL | 15 | `not-assessed` | Catastro live+keyless, **block dissolve 2/2 — best in Spain**; never sampled |
+| LEGISLATION | 25 | `not-assessed` | sub-rate **~48 %**, and **~48 % is also the ceiling** — past it is **plànol vectorisation, not OCR** |
+| DATA-SOURCES | 15 | **90 %** | 4.5/5 slots live |
+| **HEIGHTS/LOD** | 10 | `not-assessed` | ⚠ shipped tiles report **`measuredMarkerCount: 0`** — 0.9 % surveyed · 79.3 % levels×3.2 m · **19.8 % a fabricated 9 m**. Re-bake in flight; **coverage unmeasured until probed** |
+| TERRAIN | 10 | **50 %** | baked-but-unverified; one centroid sample, not façade *rasant* (L-584) |
+| CONTEXT | 5 | **56 %** | 5/9 layers |
+
+### Landed for Barcelona 2026-07-31
+
+- `a937a023` — block-route parcels carried `areaM2: undefined`, feeding **PGM Art. 242.2 *profunditat edificable*** (L-652)
+- `24d324bd` — **L'Hospitalet / Badalona / Sant Boi / Cornellà land was answered with Barcelona's rule pack and citation.** All four register a *deliberately empty* `packsByZone`; first-match handed them Barcelona's numbers — the exact mis-citation each registration exists to prevent (L-654 family)
+- `b81d758d` — the 13a extraction protocol, made replicable; **Arts. 322 / 323 / 326 / 327 / 328 recovered verbatim** from the committed PDF (the Art. 327 and 328 street-width→height tables were the standing blocker)
+
+### Open risks
+
+1. ⚠ **Clau `12` is mapped unconditionally with NO geographic predicate** while the legal argument (Art. 315.2) is that the pack governs the *annexed* nuclis antics and that Ciutat Vella is `12b`. If the MUC returns `12` on a Ciutat Vella parcel it gets an Art. 320.3a envelope under a citation that does not govern it. **9.38 % of buildable land rides on an untested assumption.** No probe exists.
+2. ⚠ **Street width uses the MEDIAN of ray samples; PGM Art. 238.1.b/c requires the MINIMUM** — median ≥ minimum ⇒ higher band ⇒ **over-stated permitted height on the 44.9 % already shipped** (L-591). Fix in flight.
+3. **C63 tier vocabulary does not match the code** — C63 §3 names `certified`/`constructed-amber`; `EnvelopeConfidenceSchema` has `authoritative | structured | block-constructed | estimated-ruleset | …`. Neither top tier is reachable for a *constructed* Art. 242.2 depth, so **0.7 is the honest cap** and the "certify to 1.0" lever may not exist. Needs a C63 ruling; likely why Axis 4 reads `not-assessed`.
+
+---
+
 ## §1 — Per-country ranked board (top → bottom by score-gain-per-effort)
 
 | # | Country | Current composite | Ceiling (proj.) | Gap | Phase-A first move | Effort | Code-verified? | ROI |
@@ -226,7 +287,7 @@ assessed-subset renormalised, `n/a ≠ 0 %`). **74 Phase-1-audited** rows carry 
 | Porto (`1315`) | 🇵🇹 PT | **36 %** | probe+wire DGT OGC API |
 | Riyadh (`RUH`) | 🇸🇦 SA | **19 %** (lowest) | register+sign `saRiyadhDemo.ts` (ENV only) |
 | Jeddah (`JED`) | 🇸🇦 SA | **19 %** | register+sign `saRiyadhDemo.ts` (ENV only) |
-| **Barcelona** (`08019`) | 🇪🇸 ES | *see dossier* — **flagship**, only rendering envelope | Phase-A = MDS re-bake (heights measured) |
+| **Barcelona** (`08019`) | 🇪🇸 ES | **ENV 56.0 %** (measured 2026-07-31) — see **§0.6** | ⭐ wire `/api/bcn-refos/ov` (clau 18) — ENGINEERING, not sourcing |
 | Madrid (`28079`) | 🇪🇸 ES | *see dossier* | NZ-1 explicit-area refusal jurisdiction |
 | Córdoba (`14021`) | 🇪🇸 ES | *see dossier* | OCR pack refusing (VERIFICATION unsigned) |
 | L'Hospitalet/Badalona/Sant Boi (`08101/08015/08200`) | 🇪🇸 ES | *see dossier* | cited-refusal jurisdictions (L-449 gate) |
