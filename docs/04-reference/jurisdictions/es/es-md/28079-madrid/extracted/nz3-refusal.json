@@ -1,0 +1,120 @@
+{
+  "$meta": {
+    "normaZonal": "3",
+    "designation": "Volumetría específica",
+    "capitulo": "8.3",
+    "capituloHeading": "CAPÍTULO 8.3. CONDICIONES PARTICULARES DE LA ZONA 3: VOLUMETRÍA ESPECÍFICA",
+    "grados": ["3.1", "3.2"],
+    "gradosNote": "Art. 8.3.2.2: 'se distinguen dos grados … con los códigos 1º y 2º'. No niveles.",
+    "pdfPageRange": [397, 409],
+    "printedPageOffset": -2,
+    "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+    "readFrom": "Compendio 2025 (24-09-2025)",
+    "verdict": "REFUSAL",
+    "verdictSummary": "NZ 3 has NO extractable buildability parameters. It is not a rule-bearing zone: Chapter 8.3 declares the urban process complete and the aprovechamiento exhausted, then routes every numeric parameter either to the envelope of the EXISTING building on the parcel, to the ANTECEDENT planning instrument, or to OTHER Normas Zonales (NZ 5 grado 2º/3º, NZ 8 grado 4º) as a borrowed reference. There is no table, no coefficient and no dimension to extract. Any envelope generator must refuse for NZ 3 and demand the per-parcel antecedent instrument.",
+    "chapterAmendment": "Capítulo modificado por la MPG 00/335 (aprobación definitiva 10.05.2016 BOCM 19.05.2016)",
+    "extractedFromCounts": { "table": 0, "prose": 0 },
+    "recordCount": 0
+  },
+
+  "records": [],
+
+  "refusalEvidence": [
+    {
+      "claim": "The zone exists precisely because buildability is already consumed — there is nothing left to allocate by rule.",
+      "articulo": "8.3.1",
+      "apartado": null,
+      "pdfPage": 397,
+      "printedPage": 395,
+      "verbatim": "Corresponde a áreas de suelo urbano donde, totalmente o en su mayor parte, se considera concluido el proceso de ocupación del espacio y, consecuentemente, en la misma medida se ha agotado el aprovechamiento urbanístico."
+    },
+    {
+      "claim": "The Plan General deliberately declines to impose a model on this zone — it consolidates whatever the prior instruments produced.",
+      "articulo": "8.3.1",
+      "apartado": null,
+      "pdfPage": 397,
+      "printedPage": 395,
+      "verbatim": "En esta zona el Plan General asume la consolidación de la ciudad resultante de la aplicación de una diversidad de instrumentos y regulaciones de ordenación pormenorizada precedentes, dispersos en el espacio y en el tiempo, sin imponer un nuevo modelo pero articulando medidas para la adecuación, mejora funcional y renovación del tejido urbano existente."
+    },
+    {
+      "claim": "Typology is not fixed either — the zone spans several, so no single geometric rule set can apply.",
+      "articulo": "8.3.1",
+      "apartado": null,
+      "pdfPage": 397,
+      "printedPage": 395,
+      "verbatim": "La tipología edificatoria se corresponde generalmente con la de edificación aislada o en bloques abiertos, si bien se presentan otras tipologías como la edificación entre medianeras y las correspondientes a vivienda unifamiliar e industria tradicional."
+    },
+    {
+      "claim": "Even the qualified USE is not stated by the Plan — it is inherited from the antecedent instrument, per parcel.",
+      "articulo": "8.3.3",
+      "apartado": "1.b) and 2",
+      "pdfPage": 398,
+      "printedPage": 396,
+      "verbatim": "En los suelos no dotacionales incluidos en el grado 2º de la Zona 3, el uso cualificado será el derivado de la calificación de las parcelas en los instrumentos de planeamiento inmediatamente anteriores a su inclusión en la presente Zona 3 (Volumetría Específica) del vigente Plan General de 1997."
+    },
+    {
+      "claim": "Buildability for works on existing buildings equals the existing built area — a survey figure, not a plan parameter.",
+      "articulo": "8.3.5",
+      "apartado": "1",
+      "pdfPage": 399,
+      "printedPage": 397,
+      "verbatim": "En las obras en los edificios, las intervenciones que supongan incremento de la superficie edificada serán admisibles cuando no ocasionen la superación de la edificabilidad permitida, entendiendo como tal la superficie edificada total del edificio existente incrementada, en el caso de edificios susceptibles de obras de ampliación, con la edificabilidad específicamente establecida para estas obras en los artículos 8.3.6, 8.3.7 y 8.3.8."
+    },
+    {
+      "claim": "New buildings on substitution must fit inside the EXISTING building's envelope — the envelope is the datum, not a rule.",
+      "articulo": "8.3.5",
+      "apartado": "3.a)i)",
+      "pdfPage": 399,
+      "printedPage": 397,
+      "verbatim": "Condiciones para la sustitución de edificios: La nueva edificación deberá inscribirse dentro de la envolvente exterior del edificio existente, constituida por sus cubiertas, fachadas exteriores y, en su caso, medianeras, y respetará la superficie total edificada del mismo."
+    },
+    {
+      "claim": "Where geometry IS defined, NZ 3 borrows it from other Normas Zonales rather than stating its own.",
+      "articulo": "8.3.5",
+      "apartado": "3.a)i)",
+      "pdfPage": 400,
+      "printedPage": 398,
+      "verbatim": "La volumetría específica de la nueva edificación, configurada virtualmente conforme a las anteriores condiciones, podrá variar su posición respetando los parámetros correspondientes establecidos por la Norma Zonal 5 para edificación aislada y por la Norma Zonal 8, Grado 4º, para la edificación en vivienda unifamiliar.",
+      "borrowedFrom": ["NZ 5 (see nz5.json)", "NZ 8 grado 4º (see nz8.json, zoneCode 8.4)"]
+    },
+    {
+      "claim": "A reordering via Estudio de Detalle still borrows NZ 5 grado 2º / NZ 8 grado 4º ocupación and altura.",
+      "articulo": "8.3.5",
+      "apartado": "3.a)i)",
+      "pdfPage": 400,
+      "printedPage": 398,
+      "verbatim": "En edificación aislada en bloques abiertos, se respetará el resto de los parámetros de la Norma Zonal 5, Grado 2º, pudiendo acogerse a la ocupación y altura de este grado."
+    },
+    {
+      "claim": "The one numeric figure in the chapter belongs to a borrowed NZ 5 grado 3º rule for dotacional parcels, not to NZ 3 itself.",
+      "articulo": "8.3.5",
+      "apartado": "3.b)ii)b)",
+      "pdfPage": 401,
+      "printedPage": 399,
+      "verbatim": "En parcelas calificadas como equipamiento, servicios públicos, servicios de la administración y servicios infraestructurales, se admiten obras de nueva planta sometidas a las condiciones de edificación de la Norma Zonal 5, grado 3º, incluida la edificabilidad de 1,4 metros cuadrados por metro cuadrado.",
+      "note": "This 1,4 m²/m² is NZ 5 grado 3º's figure (art. 8.5.8.c), applied by reference to dotacional parcels only. It is NOT an NZ 3 FAR and must not be generalised to NZ 3 parcels."
+    },
+    {
+      "claim": "For genuinely vacant buildable parcels the chapter defers to a future plan especial — an explicit admission that no parameters exist.",
+      "articulo": "8.3.5",
+      "apartado": "3.b)iii)",
+      "pdfPage": 401,
+      "printedPage": 399,
+      "verbatim": "Mediante plan especial se completarán las condiciones de edificación necesarias para materializar la edificabilidad y uso asignados por el planeamiento antecedente, con el fin de garantizar su concordancia con los parámetros y condiciones generales de la edificación establecidos en el Título 6 de estas Normas y su adecuada inserción en el entorno inmediato consolidado."
+    },
+    {
+      "claim": "Even parcelación is deferred to a plan especial in grado 1º, and to the antecedent instrument in grado 2º.",
+      "articulo": "8.3.4",
+      "apartado": "1 and 2",
+      "pdfPage": 399,
+      "printedPage": 397,
+      "verbatim": "En el grado 2º se admite la parcelación con las condiciones establecidas en el planeamiento antecedente que se asume. En ausencia de dichas condiciones de parcelación, se aplicará lo establecido para el grado 1º."
+    }
+  ],
+
+  "whatWouldBeNeeded": [
+    "The per-parcel ANTECEDENT planning instrument (Plan General de 1985 Zona 3 'Mantenimiento de la Edificación' for grado 1º; the specific ordenación específica / APD / remitted plan for grado 2º). Not in the Compendio.",
+    "A survey of the EXISTING building on the parcel: its outer envelope (cubiertas, fachadas exteriores, medianeras) and its total built floor area. Not a planning input.",
+    "For vacant non-dotacional parcels: the plan especial contemplated by art. 8.3.5.3.b)iii), which does not yet exist."
+  ]
+}

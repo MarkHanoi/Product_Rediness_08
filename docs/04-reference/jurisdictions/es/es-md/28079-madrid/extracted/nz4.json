@@ -1,0 +1,392 @@
+{
+  "$meta": {
+    "normaZonal": "4",
+    "designation": "Edificación en manzana cerrada",
+    "capitulo": "8.4",
+    "capituloHeading": "CAPÍTULO 8.4. CONDICIONES PARTICULARES DE LA ZONA 4: EDIFICACIÓN EN MANZANA CERRADA",
+    "grados": ["4"],
+    "gradosNote": "NZ 4 has NO grados. Art. 8.4.1 defines a single undivided ámbito ('las áreas grafiadas en el Plano de Ordenación con el código 4'); there is no 'Clasificación en grados' article in Chapter 8.4 (contrast 8.9.3, 8.8.3). zoneCode is therefore '4' for every record.",
+    "pdfPageRange": [410, 418],
+    "printedPageOffset": -2,
+    "printedPageRange": [408, 416],
+    "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+    "readFrom": "Compendio 2025 (24-09-2025)",
+    "extractedFromCounts": { "table": 8, "prose": 11 }
+  },
+
+  "records": [
+    {
+      "zoneCode": "4",
+      "parameter": "buildableDepth_m",
+      "value": 12,
+      "unit": "m",
+      "measurement": "fondo máximo edificable, medido perpendicularmente desde la alineación oficial",
+      "referencePlane": "alineación oficial",
+      "denominatorScope": null,
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4",
+        "articulo": "8.4.7",
+        "apartado": "1",
+        "pdfPage": 412,
+        "printedPage": 410,
+        "table": null,
+        "verbatim": "Se establece un fondo máximo edificable de doce (12) metros."
+      },
+      "measuredFromCitation": {
+        "articulo": "8.4.9",
+        "apartado": "1",
+        "pdfPage": 414,
+        "printedPage": 412,
+        "verbatim": "La superficie edificable de la parcela viene definida por el resultado de multiplicar la altura en número de plantas que le corresponda en función del ancho de calle, según el art. 8.4.10., por la superficie de parcela edificable comprendida dentro del polígono definido por la alineación oficial, los linderos laterales y una línea paralela a dicha alineación trazada a doce (12) metros de distancia, medidos perpendicularmente en todos sus puntos."
+      },
+      "exception": {
+        "articulo": "8.4.6",
+        "apartado": "1.b)ii",
+        "pdfPage": 412,
+        "printedPage": 410,
+        "verbatim": "En este caso el fondo máximo edificable se tomará desde la fachada retranqueada",
+        "note": "Only when the whole manzana-front is set back ≥3 m from the alineación oficial (actuaciones sobre frente de manzana completo). Then the 12 m is measured from the set-back façade, not the alineación oficial."
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)",
+      "effectiveDate": null,
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "extractedFrom": "prose",
+      "confidence": "exact"
+    },
+
+    {
+      "zoneCode": "4",
+      "parameter": "maxFloors",
+      "value": 3,
+      "unit": "plantas",
+      "measurement": "número de plantas",
+      "referencePlane": null,
+      "denominatorScope": null,
+      "condition": { "variable": "ancho de calle", "unit": "m", "expr": "< 12", "verbatim": "Menos de 12" },
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.10", "apartado": "cuadro de relación",
+        "pdfPage": 415, "printedPage": 413,
+        "table": "Cuadro de relación ancho de calle / Nº de plantas / Altura de cornisa",
+        "verbatim": "Menos de 12 | 3 | 11,50"
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "extractedFrom": "table", "confidence": "exact"
+    },
+    {
+      "zoneCode": "4",
+      "parameter": "maxHeight_m",
+      "value": 11.5,
+      "unit": "m",
+      "measurement": "cornisa",
+      "referencePlane": null,
+      "referencePlaneNote": "Art. 8.4.10 states only 'altura de la edificación en plantas y en metros a la cornisa'. The datum (rasante) is NOT stated in Chapter 8.4; it is governed by the general rule in Título 6 (altura de cornisa) which was outside the scope read. Recorded as null rather than assumed.",
+      "denominatorScope": null,
+      "condition": { "variable": "ancho de calle", "unit": "m", "expr": "< 12", "verbatim": "Menos de 12" },
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.10", "apartado": "cuadro de relación",
+        "pdfPage": 415, "printedPage": 413,
+        "table": "Cuadro de relación ancho de calle / Nº de plantas / Altura de cornisa",
+        "verbatim": "Menos de 12 | 3 | 11,50"
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "extractedFrom": "table", "confidence": "exact"
+    },
+
+    {
+      "zoneCode": "4", "parameter": "maxFloors", "value": 4, "unit": "plantas",
+      "measurement": "número de plantas", "referencePlane": null, "denominatorScope": null,
+      "condition": { "variable": "ancho de calle", "unit": "m", "expr": ">= 12 && < 18", "verbatim": "De 12 a menos de 18" },
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.10", "apartado": "cuadro de relación",
+        "pdfPage": 415, "printedPage": 413,
+        "table": "Cuadro de relación ancho de calle / Nº de plantas / Altura de cornisa",
+        "verbatim": "De 12 a menos de 18 | 4 | 15,00"
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "extractedFrom": "table", "confidence": "exact"
+    },
+    {
+      "zoneCode": "4", "parameter": "maxHeight_m", "value": 15.0, "unit": "m",
+      "measurement": "cornisa", "referencePlane": null,
+      "referencePlaneNote": "Datum not stated in Chapter 8.4 — see the 11,50 record.",
+      "denominatorScope": null,
+      "condition": { "variable": "ancho de calle", "unit": "m", "expr": ">= 12 && < 18", "verbatim": "De 12 a menos de 18" },
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.10", "apartado": "cuadro de relación",
+        "pdfPage": 415, "printedPage": 413,
+        "table": "Cuadro de relación ancho de calle / Nº de plantas / Altura de cornisa",
+        "verbatim": "De 12 a menos de 18 | 4 | 15,00"
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "extractedFrom": "table", "confidence": "exact"
+    },
+
+    {
+      "zoneCode": "4", "parameter": "maxFloors", "value": 5, "unit": "plantas",
+      "measurement": "número de plantas", "referencePlane": null, "denominatorScope": null,
+      "condition": { "variable": "ancho de calle", "unit": "m", "expr": ">= 18 && < 24", "verbatim": "De 18 a menos de 24" },
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.10", "apartado": "cuadro de relación",
+        "pdfPage": 415, "printedPage": 413,
+        "table": "Cuadro de relación ancho de calle / Nº de plantas / Altura de cornisa",
+        "verbatim": "De 18 a menos de 24 | 5 | 18,50"
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "extractedFrom": "table", "confidence": "exact"
+    },
+    {
+      "zoneCode": "4", "parameter": "maxHeight_m", "value": 18.5, "unit": "m",
+      "measurement": "cornisa", "referencePlane": null,
+      "referencePlaneNote": "Datum not stated in Chapter 8.4 — see the 11,50 record.",
+      "denominatorScope": null,
+      "condition": { "variable": "ancho de calle", "unit": "m", "expr": ">= 18 && < 24", "verbatim": "De 18 a menos de 24" },
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.10", "apartado": "cuadro de relación",
+        "pdfPage": 415, "printedPage": 413,
+        "table": "Cuadro de relación ancho de calle / Nº de plantas / Altura de cornisa",
+        "verbatim": "De 18 a menos de 24 | 5 | 18,50"
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "extractedFrom": "table", "confidence": "exact"
+    },
+
+    {
+      "zoneCode": "4", "parameter": "maxFloors", "value": 6, "unit": "plantas",
+      "measurement": "número de plantas", "referencePlane": null, "denominatorScope": null,
+      "condition": { "variable": "ancho de calle", "unit": "m", "expr": ">= 24", "verbatim": "De 24 en adelante" },
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.10", "apartado": "cuadro de relación",
+        "pdfPage": 415, "printedPage": 413,
+        "table": "Cuadro de relación ancho de calle / Nº de plantas / Altura de cornisa",
+        "verbatim": "De 24 en adelante | 6 | 21,50"
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "extractedFrom": "table", "confidence": "exact"
+    },
+    {
+      "zoneCode": "4", "parameter": "maxHeight_m", "value": 21.5, "unit": "m",
+      "measurement": "cornisa", "referencePlane": null,
+      "referencePlaneNote": "Datum not stated in Chapter 8.4 — see the 11,50 record.",
+      "denominatorScope": null,
+      "condition": { "variable": "ancho de calle", "unit": "m", "expr": ">= 24", "verbatim": "De 24 en adelante" },
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.10", "apartado": "cuadro de relación",
+        "pdfPage": 415, "printedPage": 413,
+        "table": "Cuadro de relación ancho de calle / Nº de plantas / Altura de cornisa",
+        "verbatim": "De 24 en adelante | 6 | 21,50"
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "extractedFrom": "table", "confidence": "exact"
+    },
+
+    {
+      "zoneCode": "4",
+      "parameter": "farRatio",
+      "value": null,
+      "unit": null,
+      "unknownReason": "NZ 4 does NOT state a FAR. Art. 8.4.9 defines edificabilidad as a CONSTRUCTION, not a ratio: buildable area = (nº de plantas from the 8.4.10 street-width table) × (area of the polygon bounded by the alineación oficial, the linderos laterales, and a line parallel to the alineación at 12 m). Deriving a single m²/m² number requires parcel geometry and street width, so no constant exists. Do not substitute a number.",
+      "measurement": "superficie edificable (construida), computed",
+      "referencePlane": null,
+      "denominatorScope": "parcela (specifically: only the sub-area of the parcel inside the 12 m fondo polygon — NOT the whole parcel, NOT the manzana)",
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.9", "apartado": "1",
+        "pdfPage": 414, "printedPage": 412, "table": null,
+        "verbatim": "La superficie edificable de la parcela viene definida por el resultado de multiplicar la altura en número de plantas que le corresponda en función del ancho de calle, según el art. 8.4.10., por la superficie de parcela edificable comprendida dentro del polígono definido por la alineación oficial, los linderos laterales y una línea paralela a dicha alineación trazada a doce (12) metros de distancia, medidos perpendicularmente en todos sus puntos."
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "extractedFrom": "prose", "confidence": "exact"
+    },
+
+    {
+      "zoneCode": "4",
+      "parameter": "farRatio",
+      "value": 2.4,
+      "unit": "m²/m²",
+      "measurement": "edificabilidad total resultante — CEILING, applies ONLY to the enlargement of EXISTING exclusively-industrial buildings, not to new-build",
+      "referencePlane": null,
+      "denominatorScope": "parcela edificable",
+      "scopeWarning": "NOT a general NZ 4 FAR. Art. 8.4.2.2 governs 'Los edificios existentes de uso exclusivo industrial' undergoing reestructuración/ampliación. Do not apply to new construction.",
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.2", "apartado": "2.e)",
+        "pdfPage": 410, "printedPage": 408, "table": null,
+        "verbatim": "En ningún caso, la edificabilidad total resultante podrá rebasar los dos con cuatro (2,4) metros cuadrados por cada metro cuadrado de parcela edificable."
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "extractedFrom": "prose", "confidence": "exact"
+    },
+
+    {
+      "zoneCode": "4",
+      "parameter": "maxCoverage",
+      "value": null,
+      "unit": null,
+      "unknownReason": "NZ 4 states NO coverage percentage above grade. Art. 8.4.8.1 makes ocupación a RESIDUAL of the setback/alignment/depth rules (8.4.5, 8.4.6, 8.4.7). null means 'not stated as a number', NOT zero.",
+      "measurement": "ocupación en plantas sobre rasante",
+      "referencePlane": null, "denominatorScope": "parcela",
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.8", "apartado": "1",
+        "pdfPage": 413, "printedPage": 411, "table": null,
+        "verbatim": "En plantas sobre rasante la ocupación es la resultante de aplicar las condiciones fijadas en los artículos 8.4.5, 8.4.6. y 8.4.7."
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "extractedFrom": "prose", "confidence": "exact"
+    },
+    {
+      "zoneCode": "4",
+      "parameter": "maxCoverage",
+      "value": 100,
+      "unit": "%",
+      "measurement": "ocupación en plantas bajo rasante",
+      "referencePlane": "bajo rasante",
+      "denominatorScope": "parcela",
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.8", "apartado": "2",
+        "pdfPage": 413, "printedPage": 411, "table": null,
+        "verbatim": "Las plantas bajo rasante podrán ocupar la totalidad de la parcela."
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "extractedFrom": "prose", "confidence": "exact"
+    },
+
+    {
+      "zoneCode": "4",
+      "parameter": "setbackFront_m",
+      "value": 0,
+      "unit": "m",
+      "measurement": "alineación obligatoria — the façade must SIT ON the alineación oficial for its full height; this is a mandatory build-to line, not a permissive zero setback",
+      "referencePlane": "alineación oficial",
+      "denominatorScope": null,
+      "exceptions": "Art. 8.4.6.1 a)-d): manzana completa; frente de manzana completo (≥3 m displacement, and then the 12 m fondo is measured from the set-back façade); áticos y patios abiertos; chaflanes of 4 m on corner parcels.",
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.6", "apartado": "1",
+        "pdfPage": 412, "printedPage": 410, "table": null,
+        "verbatim": "El edificio situará una de sus fachadas exteriores sobre y a lo largo de la alineación oficial en toda su altura, salvo lo dispuesto en los puntos siguientes en los que se podrá separar paralelamente:"
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "extractedFrom": "prose", "confidence": "exact"
+    },
+
+    {
+      "zoneCode": "4",
+      "parameter": "setbackSide_m",
+      "value": 0,
+      "unit": "m",
+      "measurement": "party-wall abutment mandatory (adosamiento a linderos laterales)",
+      "referencePlane": "lindero lateral",
+      "denominatorScope": null,
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.5", "apartado": "1",
+        "pdfPage": 411, "printedPage": 409, "table": null,
+        "verbatim": "La edificación se adosará a los linderos laterales, salvo:"
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "extractedFrom": "prose", "confidence": "exact"
+    },
+    {
+      "zoneCode": "4",
+      "parameter": "setbackSide_m",
+      "value": 3,
+      "unit": "m",
+      "measurement": "MINIMUM separation, conditional exception — applies only where the adjoining building has licensed habitable-room openings on the party wall (or a non-conforming court abutting the boundary), or on dotacional parcels where functionality justifies it",
+      "referencePlane": "lindero lateral",
+      "denominatorScope": null,
+      "condition": { "verbatim": "Si las condiciones de la edificación colindante lo hicieran necesario, por disponer de huecos de piezas habitables, conformes a licencia, en el lienzo medianero…" },
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.5", "apartado": "1.a)",
+        "pdfPage": 411, "printedPage": 409, "table": null,
+        "verbatim": "la nueva edificación deberá separarse del lindero lateral con un ancho mínimo de tres (3) metros"
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "extractedFrom": "prose", "confidence": "exact"
+    },
+    {
+      "zoneCode": "4",
+      "parameter": "setbackSide_m",
+      "value": 3,
+      "unit": "m",
+      "measurement": "MINIMUM separation where the parcel adjoins a parcel of a DIFFERENT tipología edificatoria (not manzana cerrada)",
+      "referencePlane": "lindero común",
+      "denominatorScope": null,
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.5", "apartado": "5",
+        "pdfPage": 411, "printedPage": 409, "table": null,
+        "verbatim": "Cuando la parcela colinde con una parcela correspondiente a tipología edificatoria distinta a edificación en manzana cerrada, deberá separarse un mínimo de tres (3) metros de dicho lindero común o adosarse a él según las condiciones de los apartados 2, 3 y 4 del artículo 6.3.13."
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "extractedFrom": "prose", "confidence": "exact"
+    },
+
+    {
+      "zoneCode": "4",
+      "parameter": "setbackRear_m",
+      "value": 3,
+      "unit": "m",
+      "measurement": "FLOOR of a height-proportional rule. The governing rule is a formula: separation ≥ 1/3 of the altura de coronación of each facing building body, with an absolute minimum of 3 m. 3 binds only when (1/3)·H ≤ 3, i.e. H ≤ 9 m. Above that the formula governs and the value is parcel-specific. Do NOT use 3 as a fixed rear setback.",
+      "referencePlane": "lindero testero",
+      "denominatorScope": null,
+      "formula": "max(3, altura_de_coronación / 3)",
+      "heightDatumNote": "The formula uses altura de CORONACIÓN — distinct from the altura de CORNISA in the 8.4.10 table. Do not interchange.",
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.5", "apartado": "2",
+        "pdfPage": 411, "printedPage": 409, "table": null,
+        "verbatim": "La edificación se separará del lindero testero una distancia igual o superior a un tercio (1/3) de la altura de coronación de cada uno de los cuerpos de edificación enfrentados al mismo, efectuándose dicha medición de la misma forma que para patios determina el artículo 6.7.14, con un mínimo de tres (3) metros."
+      },
+      "exemption": {
+        "articulo": "8.4.5", "apartado": "4",
+        "verbatim": "No son de aplicación las condiciones establecidas en los apartados 2 y 3 en parcelas con fondos menores o iguales a doce (12) metros, cuando resuelvan su organización interior sin que existan piezas que recaigan a las fachadas posteriores."
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "extractedFrom": "prose", "confidence": "exact"
+    },
+
+    {
+      "zoneCode": "4",
+      "parameter": "permittedUse",
+      "value": "residencial",
+      "unit": null,
+      "measurement": "uso cualificado",
+      "referencePlane": null, "denominatorScope": null,
+      "source": {
+        "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
+        "capitulo": "8.4", "articulo": "8.4.1", "apartado": "3",
+        "pdfPage": 410, "printedPage": 408, "table": null,
+        "verbatim": "Su uso cualificado es el residencial."
+      },
+      "compatibleUses": {
+        "articulo": "8.4.15", "apartado": "a)-c)", "pdfPage": 417, "printedPage": 415,
+        "asociado": "per Capítulo 7.2",
+        "complementario": ["Industrial (planta inferior a la baja y baja)", "Terciario: Oficinas / Comercial (mediano comercio) / Recreativo cat. ii) / Otros servicios terciarios / Hospedaje (planta inferior a la baja, baja y primera; Recreativo cat. i) only inferior a la baja y baja)", "Dotacional (planta inferior a la baja, baja y primera)"],
+        "alternativo": ["Terciario: Hospedaje en edificio exclusivo", "Dotacional en edificio exclusivo"],
+        "amendment": "Artículo modificado por MPG 00/346 (aprobación definitiva 27.08.2025 BOCM 22.09.2025) y MPG 00/343 (08.11.2023 BOCM 27.11.2023)"
+      },
+      "authorisableUses": {
+        "articulo": "8.4.16", "pdfPage": 417, "printedPage": 415,
+        "value": ["Industrial en edificio exclusivo (conditioned)", "Terciario: Oficinas, recreativo y otros servicios terciarios en edificio exclusivo"]
+      },
+      "readFrom": "Compendio 2025 (24-09-2025)", "effectiveDate": null,
+      "extractedFrom": "prose", "confidence": "exact"
+    }
+  ]
+}
