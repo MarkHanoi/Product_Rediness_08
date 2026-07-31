@@ -19,6 +19,47 @@
 
 ---
 
+## DK completion vs the ORIGINAL extraction spec — **the scoping capstone**
+
+> **Re-scope (read this first).** The original task was **structured legislation extraction**
+> (PART A / B / C) — **NOT** a digital twin, LOD2, or 3D city reconstruction. Measured against
+> *that* target, **Denmark is ~85% complete** and is the **benchmark jurisdiction**. The gaps below
+> (G1–G11) mix *legislation-extraction* finishing work with *context/geometry-realization* work; this
+> capstone separates the two so the ~85% figure is not confused with the envelope-realism queue.
+
+| Part | Target | Completion | SOLVED | PARTIAL / honest-absence |
+|---|---|---|---|---|
+| **A — legislation** | structured zoning record | **~85–90%** | zoneCode · officialDesignation · farRatio · unit · maxHeight_m · maxFloors · permittedUse · legalSource · effectiveDate · confidence | densityScope (ingest denominator attr, G1) · how-measured · article+paragraph (evidence resolver, G11) · buildableDepth (lokalplan text, G5) · **`maxCoverage` = `verified-null`** · **setbacks = `null` pending byggelinjer** |
+| **B — parcel** | authoritative geometry | **~75–85%** | CRS EPSG:25832 (shoelace) | Matriklen / Datafordeler **access-deferred** (MitID service-identity — official source EXISTS, access not completed; **NOT** missing-data, **NOT** low-quality) |
+| **C — meta** | provenance / freshness | **~90%** | ordinanceUrl · version · officialGIS · machineReadable | updateFrequency (capture) |
+
+**⚠ `maxCoverage` is an HONEST ABSENCE, not a gap.** Denmark exposes FAR / `bebyggelsesprocent`, **NOT**
+a universal ground-coverage %. The correct output is
+`{ maxCoverage: null, confidence: 'verified-null', reason: 'DK regulates FAR/bebyggelsesprocent, not universal ground coverage' }`
+— **never `0.4`** or any fabricated coverage. Likewise `setbacks = null` (never `0`) until byggelinjer
+(G2) is wired.
+
+**The 5 remaining gaps to FINISH DK for the original task** (all *legislation-extraction* work, not 3D):
+
+- **A) Legal-citation resolver** — Plandata feature → Lokalplan §X.Y (this is **G11**).
+- **B) Density-scope ingestion** — the denominator attribute (this is **G1**).
+- **C) Coverage-honesty decision** — binding byggefelt geometry **OR** keep `verified-null` (this is **G3/G7**).
+- **D) Parcel official access** — administrative (MitID / partner), not code (this is **G8**).
+- **E) Update-metadata capture** — `updateFrequency` (PART C tail).
+
+**EXPLICITLY OUT OF SCOPE for the original extraction task** (these belong to the **CONTEXT-building
+rate**, not the legislation rate): Danmark-i-3D · LOD2 buildings · BBR enrichment · DHM terrain ·
+shadows · city-reconstruction. Cross-ref: these are the **G4** LoD2 adapter + tail-queue terrain work —
+valuable, but **NOT** a legislation blocker.
+
+**Conclusion.** *"Can Denmark produce the requested structured legislation dataset?"* → **YES.** Denmark
+is the benchmark jurisdiction; the remaining ~15% is making the output **auditable + non-overclaiming**
+(citations G11, scope G1, honest nulls) — **NOT** more extraction. **Legislation ceiling stays ~96%**
+(G9); this capstone measures the *original-task* fill, which is a different denominator than the
+national byzone rate.
+
+---
+
 ## The queue at a glance
 
 | # | Gap | Axis it lifts | Legislation rate | Honest status |
@@ -32,6 +73,8 @@
 | **G7** | maxCoverage (ground-coverage %) | ENVELOPE (coverage) | **unchanged** | keep `null` today (CORRECT); 4-tier resolver; NEVER `farRatio` |
 | **G8** | Parcel provider (Matriklen) | PARCEL (independent of legislation) | **unchanged** | access-deferred (MitID); 3 solution paths; OSM fallback |
 | **G9** | The honest ceiling (last ~4%) | — (a truth statement) | **is** the ~96% ceiling | ~96% digital / ~87% pure-structured; **NOT 100%** — structural + measurement, not fabricatable |
+| **G10** | Land-use semantics (`anvendelsegenerel` → use vocab) — *net-new* | ENVELOPE/AI (program semantics) | **unchanged** | `dkUseClassification` mapper; **Centerområde = mixed_use**; raw `sourceValue` NEVER discarded |
+| **G11** | Legal evidence chain / provenance (C58 §1.6) — *net-new* | provenance (auditability) | **unchanged** | BR18 = concept, lokalplan = number; `article:'unknown'` where field-authoritative; NEVER fabricate a citation |
 | *tail* | Terrain (DHM) · Heritage (FBB) · Article-level citation completeness | TERRAIN / CONTEXT / provenance | **unchanged** | live-probe follow-ups; queued, not fabricated |
 
 > Numbering note: this canonical set consolidates four iterative steers. The fixed anchors are
@@ -258,6 +301,85 @@ footprint / land = coverage (the same FAR admits many coverages). So **NEVER `ma
 
 ---
 
+## G10 — Land-use semantics (`anvendelsegenerel` → universal use vocabulary) — **net-new**
+
+**The problem.** The Danish general-use value carried on a plan (`anvendelsegenerel`) is a *category
+label*, not a program. AI generation needs the **universal use vocabulary** behind it, and the mapping
+is **NOT one-to-one** — the trap is reading `Centerområde` as "residential" and generating a bare
+apartment tower where the plan mandates a **mixed, active-frontage** program.
+
+- **Official source.** Plandata — the `anvendelsegenerel` field on the `kommuneplanramme` / `lokalplan`
+  feature. Source hierarchy for the actual permitted program: **lokalplan (binding, exact) >
+  kommuneplanramme (framework) > BR18 (regulates construction, NOT zoning use)**.
+- **Extraction method.** A `dkUseClassification` mapper →
+  `ZoningUse { primaryUse, permittedUses[], prohibitedUses[], conditionalUses[], sourceValue, confidence }`.
+  **`sourceValue` carries the raw Danish string and is NEVER discarded.** Confidence starts
+  `structured` (it is a Plandata field) and is **refined by lokalplan text** where present.
+- **The value map (⚠ NOT one-to-one):**
+
+  | `anvendelsegenerel` | `primaryUse` | Notes |
+  |---|---|---|
+  | Boligområde | `residential` | housing |
+  | Erhvervsområde | `employment` | office / industry / warehouse |
+  | **Centerområde** | **`mixed_use`** | **residential + retail + office + restaurant + service — NOT residential-only** |
+  | Offentlige formål | `public` | school / hospital / civic |
+  | Rekreativt område | `recreation` | caps no building in many cases |
+
+- **Conditional preservation.** Values such as *"Boliger og erhverv"* / *"Bolig og service"* carry
+  `conditional: true` and populate `conditionalUses[]` — **do not collapse** them to a single primary.
+- **Why it matters for AI generation.** A `Centerområde` parcel → **active ground-floor frontage +
+  mixed program**, not a bare apartment tower. The mapper is what makes the generator honor the plan's
+  intended character.
+- **Result / honest state.** Net-new **semantics** layer over already-extracted fields — it adds
+  meaning, **not a new number**. `sourceValue` preserved always; unmapped/novel values keep
+  `primaryUse: 'unknown'` + raw string, never a guess. **Legislation rate: unchanged.**
+
+---
+
+## G11 — Legal evidence chain / provenance (C58 §1.6) — **net-new**
+
+**The problem.** A machine-readable Plandata field is *evidence*, but a value with no traceable chain
+back to the ordinance clause is **not auditable**. The critical failure is **fabricating a citation**
+to make a value look sourced.
+
+- **⚠ THE CRITICAL HONESTY RULE — BR18 defines the CONCEPT, the LOKALPLAN sets the NUMBER, Plandata is
+  the machine-readable field.** So do **NOT** cite *"BR18 §168 → maxHeight = 24 m"* — **BR18 does not
+  create the 24 m limit; the lokalplan §X does.** BR18 defines `bebyggelsesprocent` as a concept;
+  the lokalplan sets the actual value; Plandata exposes it as a field. Conflating the three
+  manufactures a false article citation.
+- **Schema.**
+  `PlanningEvidence { value, sourceSystem: 'Plandata', dataset, featureId, fieldName, documentUrl (doklink), ordinanceTitle, article, paragraph, effectiveDate, extractionMethod: 'structured-field' | 'document-text', confidence }`.
+- **`article: unknown` where the GIS field is itself authoritative.** When the value comes straight
+  from a structured Plandata field and no clause was read, **do NOT fabricate an article/paragraph** —
+  emit `article: 'unknown'`. Where `densityScope` is unknown → **withhold FAR** (already the rule, G1).
+- **Paragraph-extraction tiers (cheapest-first):**
+  1. **structured-field** — value is a Plandata attribute; **no text extraction**, `article: unknown`.
+  2. **born-digital PDF** — search the lokalplan text for `maksimal bygningshøjde` / `etager` /
+     `bebyggelsesprocent`; capture the `§X.Y` that sets the number → `extractionMethod: 'document-text'`.
+  3. **OCR** — **old scans only**, last resort.
+- **Result / honest state.** Net-new **provenance** layer — it makes existing values auditable, it does
+  **not** produce new values. No citation is invented; the honest fallback is `article: unknown`.
+  **Legislation rate: unchanged.**
+
+---
+
+## Cross-reference — founder "Gap #15/#18/#19/#20" are already captured (NOT re-added)
+
+The founder's later gap labels **#15/#18/#19/#20 RESTATE gaps already in this roadmap** — they are
+**not** new deliverables and are **not** re-added:
+
+| Founder label | Restates | Already captured as |
+|---|---|---|
+| **#15** byggelinjer / courtyard | setbacks + perimeter-block void | **G6** (courtyard/friareal) + **G2** (byggelinjer) |
+| **#18** parcel-access | Matriklen / Datafordeler access | **G8** (parcel provider, access-deferred) |
+| **#19** coverage | ground-coverage % | **G7** (maxCoverage, keep `null`/`verified-null`) |
+| **#20** LoD2 | LoD2 building context | **G4** (LoD2 context adapter) |
+
+**Only G10 (land-use semantics) and G11 (evidence chain) are net-new** in this pass — and both are
+**semantics + provenance**, not new numbers. The honest ceiling is **unchanged (~96% legislation)**.
+
+---
+
 ## Tail queue (live-probe follow-ups — queued, not fabricated)
 
 - **Terrain (DHM).** Danmarks Højdemodel — national LiDAR DTM/DSM (~4.5 pts/m², 0.4 m rasters), SDFI;
@@ -281,6 +403,8 @@ footprint / land = coverage (the same FAR admits many coverages). So **NEVER `ma
 > asserted. Where footprint bindingness is unproven (G3), coverage/placement stay **withheld** rather
 > than overstated.
 
-*Authority: C58 · C63 §3/§4 · ADR-0269 · ADR-0270 · ADR-0271 (Barcelona block-derived depth, the
-engine to reuse for G6) · L-449 · BR18 §168–186. Feeds ENVELOPE / HEIGHTS-LOD / CONTEXT / PARCEL /
-TERRAIN axis realism — NOT the LEGISLATION rate. Created 2026-07-30. Maintainer: UNASSIGNED.*
+*Authority: C58 (§1.4 access-deferred · §1.6 evidence chain, G11) · C63 §3/§4 · ADR-0269 · ADR-0270 ·
+ADR-0271 (Barcelona block-derived depth, the engine to reuse for G6) · L-449 · BR18 §168–186. Feeds
+ENVELOPE / HEIGHTS-LOD / CONTEXT / PARCEL / TERRAIN axis realism + program-semantics (G10) +
+provenance/auditability (G11) — NOT the LEGISLATION rate. Created 2026-07-30; G10/G11 + original-spec
+capstone added 2026-07-31. Maintainer: UNASSIGNED.*
