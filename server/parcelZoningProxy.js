@@ -177,7 +177,7 @@ export function parseReverseGeocode(xml) {
  * Never throws.
  *
  * @param {string} gml
- * @returns {{ ring: {lat:number,lon:number}[], areaM2: number } | null}
+ * @returns {{ ring: {lat:number,lon:number}[], areaOfficialM2: number|null, areaSigM2: number } | null}
  */
 export function parseParcelGml(gml) {
     if (typeof gml !== 'string' || gml.length === 0) return null;
@@ -719,7 +719,21 @@ export function parseParcelCollectionGml(gml) {
         const rcMatch = chunk.match(/<(?:[\w.-]+:)?nationalCadastralReference>([^<]+)</i);
         const refcat = rcMatch && rcMatch[1] ? rcMatch[1].trim() : null;
         const parsed = parseParcelGml(chunk);
-        if (refcat && parsed) out.push({ refcat, ring: parsed.ring, areaM2: parsed.areaM2 });
+        // §L-640 — `parseParcelGml` returns the SPLIT areas (`areaOfficialM2` / `areaSigM2`); it has
+        // no `areaM2`. This path was missed when the single-parcel path (see `areaM2:` above) was
+        // migrated, so every sibling parcel on the block route carried `areaM2: undefined` — and the
+        // block route feeds PGM Art. 242.2 *profunditat edificable*. Mirror the single-parcel
+        // semantics EXACTLY (official ?? derived) and propagate the split signals un-collapsed, so a
+        // consumer can still tell a published area from one we measured off the ring.
+        if (refcat && parsed) {
+            out.push({
+                refcat,
+                ring: parsed.ring,
+                areaM2: parsed.areaOfficialM2 != null ? parsed.areaOfficialM2 : parsed.areaSigM2,
+                areaOfficialM2: parsed.areaOfficialM2,
+                areaSigM2: parsed.areaSigM2,
+            });
+        }
     }
     return out;
 }
