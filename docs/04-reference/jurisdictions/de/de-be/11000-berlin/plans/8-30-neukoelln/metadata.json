@@ -2,7 +2,8 @@
   "fixture": "berlin-bplan-8-30-neukoelln",
   "title": "Bebauungsplan 8-30 (Neukölln) — first real Berlin B-Plan fixture",
   "confidence": "VERIFIED_DOCUMENT_EXISTENCE",
-  "confidenceNote": "The plan's EXISTENCE, identity, legal status and publication are verified. ZERO planning numbers are extracted — every GRZ/GFZ/Vollgeschosse/Höhe/setback is null pending L-449 extraction of the Textliche Festsetzungen.",
+  "confidenceNote": "The plan's EXISTENCE, identity, legal status and publication are verified. The Begründung is a CONFIRMED born-digital TEXT PDF (live probe 2026-07-31) and the probe SAW GRZ 0,3 / GFZ 0,9 in the source — but ZERO numbers are yet extracted into a served row: the zoneRows values stay null pending formal L-449 extraction + sign-off of the Textliche Festsetzungen.",
+  "PROBE_VERDICT_2026_07_31": "⚠ CORRECTED by live probe 2026-07-31 — see ../../PROBE-VERDICT-2026-07-31.md. GetFeature on bplan:b_bp_fs (CQL planname LIKE '8-30%') returns 8-30 with grund_www (Begründung) + scan_www (Planzeichnung) populated. The Begründung is a TEXT-LAYER (born-digital) PDF — 215 pages, 637,988 chars of clean German extracted from Flate content streams — NOT a scan, so NO OCR is needed. It contains verbatim: '(GRZ) von 0,3 sowie einer Geschossflächenzahl (GFZ) von 0,9', Vollgeschosse, §13a BauGB. The row below stays pending-L449: the probe SAW the numbers; formal extraction + L-449 sign-off into a served row is the NEXT step — do NOT fabricate the row as verified.",
   "capturedBy": "founder-research",
   "capturedDate": "2026-07-31",
   "jurisdiction": { "country": "DE", "state": "Berlin", "ags": "11000000", "municipality": "Berlin" },
@@ -11,10 +12,28 @@
   "district": "Neukölln",
   "authority": "Bezirksamt Neukölln / Stadtentwicklungsamt",
   "legalStatus": "festgesetzt",
+  "legalBasis": "§13a BauGB (confirmed in the Begründung text, live probe 2026-07-31)",
   "effectiveDate": "2018-11-20",
   "publication": { "gazette": "GVBl Berlin", "date": "2018-12-15", "page": "678" },
   "sourcePage": "https://www.berlin.de/ba-neukoelln/…/bebauungsplan-festgesetzt/artikel.773796.php",
-  "ordinanceUrl": "official page identified, PDF URL extraction pending",
+  "wfsSource": {
+    "endpoint": "https://gdi.berlin.de/services/wfs/bplan",
+    "featureType": "bplan:b_bp_fs",
+    "query": "CQL_FILTER planname LIKE '8-30%'",
+    "probedDate": "2026-07-31"
+  },
+  "documents": {
+    "begruendung": { "field": "grund_www", "url": ".../begruendung/begruendung-8-30.pdf", "pdfType": "text-layer (born-digital)", "pages": 215, "extractedChars": 637988, "ocrRequired": false, "probedDate": "2026-07-31" },
+    "planzeichnung": { "field": "scan_www", "url": ".../planzeichnung/8-30.pdf", "note": "the drawing" }
+  },
+  "ordinanceUrl": ".../begruendung/begruendung-8-30.pdf (grund_www — confirmed text-PDF, live probe 2026-07-31)",
+  "probeSawInSource": {
+    "note": "SEEN in the primary source but NOT yet extracted+signed-off into the served zoneRows below. Held at pending-L449 deliberately.",
+    "GRZ": "0,3",
+    "GFZ": "0,9",
+    "verbatim": "(GRZ) von 0,3 sowie einer Geschossflächenzahl (GFZ) von 0,9",
+    "legalBasis": "§13a BauGB"
+  },
   "zoneRows": [
     {
       "zoneCode": null,
@@ -29,12 +48,12 @@
     }
   ],
   "EXTRACTION_QUEUE": [
-    "(1) Textliche Festsetzungen 8-30 -> extract Art der baulichen Nutzung / GRZ / GFZ / Vollgeschosse / Gebäudehöhe / Baugrenzen",
-    "(2) Planzeichnung -> Baufenster / Nutzungsschablonen / height annotations",
-    "(3) L-449 validation"
+    "(1) Parse the grund_www Begründung TEXT (no OCR needed) -> extract Art der baulichen Nutzung / GRZ / GFZ / Vollgeschosse / Gebäudehöhe / Baugrenzen (GRZ 0,3 / GFZ 0,9 already SEEN in source, live probe 2026-07-31)",
+    "(2) Planzeichnung (scan_www) -> Baufenster / Nutzungsschablonen / height annotations",
+    "(3) L-449 validation + sign-off into a served zoneRow"
   ],
   "CURRENT_OUTPUT": {
-    "buildabilityAnswer": "not yet available — legal numbers withheld until primary-text verification"
+    "buildabilityAnswer": "not yet a served row — the Begründung text PROVABLY contains GRZ 0,3 / GFZ 0,9 (probe 2026-07-31), but legal numbers stay withheld from zoneRows until formal L-449 extraction + sign-off"
   },
-  "relatedFiles": ["../../EXTRACTION-PIPELINE.md", "../../gis/legislation-record.json", "../../gis/bplan-source.json"]
+  "relatedFiles": ["../../PROBE-VERDICT-2026-07-31.md", "../../EXTRACTION-PIPELINE.md", "../../gis/legislation-record.json", "../../gis/bplan-source.json"]
 }

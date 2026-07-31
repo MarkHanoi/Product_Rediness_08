@@ -10,71 +10,72 @@
   "authority": "Senatsverwaltung für Stadtentwicklung, Bauen und Wohnen Berlin (GDI-BE / FIS-Broker)",
   "capturedBy": "founder-research",
   "capturedDate": "2026-07-31",
-  "CRITICAL_locatorNotRuleTable": "⚠ This WFS is a plan LOCATOR, NOT a rule table. GRZ / GFZ / Vollgeschosse / height / Baugrenze are NOT present as attributes in the B-Plan WFS schema. They live ONLY in the linked Satzung PDF (the legal plan document). Therefore farRatio, maxHeight_m, maxFloors, maxCoverage and setbacks MUST stay `unknown` and are NEVER populated from GIS/WFS metadata — only from extracted, human-verified, cited plan text attached to the exact planid. See gis/bplan-document.json and gis/bplan-parser.json for the extraction bridge.",
-  "candidateEndpoints": [
-    {
-      "id": "plu_bplan",
-      "role": "primary-candidate",
-      "endpoint": "https://gdi.berlin.de/services/wfs/plu_bplan",
-      "service": "GDI-BE OGC WFS (newer, INSPIRE PLU aligned)",
-      "protocol": "WFS 2.0.0",
-      "confidence": "VERIFIED-SCHEMA",
-      "confidenceBasis": "Field schema per official Datenformatbeschreibung: gdi.berlin.de/data/bplan/docs/Datenformatbeschreibung_Bebauungsplanverfahren.pdf",
-      "featureTypes": [
-        { "name": "plu_bplan:SpatialPlan", "describes": "B-Plan spatial extent (plan boundary polygon)" },
-        { "name": "plu_bplan:OfficialDocumentation", "describes": "Linked legal / document objects for the plan" }
-      ],
-      "documentLinkageField": "inhalt",
-      "documentLinkageNote": "`inhalt` = official content / document reference (the legal-document linkage). Whether it resolves directly to a Satzung PDF is PROBE-REQUIRED."
-    },
-    {
-      "id": "bplan",
-      "role": "secondary-candidate",
-      "endpoint": "https://gdi.berlin.de/services/wfs/bplan",
-      "alternateHost": "https://fbinter.stadt-berlin.de (FIS-Broker)",
-      "service": "GDI-BE / FIS-Broker legacy B-Plan WFS",
-      "protocol": "WFS 2.0.0",
-      "confidence": "CONVERGENT-SECONDARY",
-      "confidenceBasis": "2026-07-24 reconnaissance; layer `bplan` (feature types bplan:b_bp_fs festgesetzt / bplan:a_bp_iv im Verfahren / bplan:c_bp_ak außer Kraft). Document field `scan_www` -> e.g. .../0100002b.pdf. MATCHES the existing de/LAND-REGISTRY.md Berlin row (scan_www=…pdf). See sources/SOURCES.md §A (live probe 2026-07-23).",
-      "featureTypes": [
-        { "name": "bplan:b_bp_fs", "describes": "festgesetzt (in-force plans)" },
-        { "name": "bplan:a_bp_iv", "describes": "im Verfahren (drafts / in procedure)" },
-        { "name": "bplan:c_bp_ak", "describes": "außer Kraft gesetzt (repealed)" }
-      ],
-      "documentLinkageField": "scan_www",
-      "documentLinkageNote": "`scan_www` = direct PDF URL of the scanned plan (e.g. https://mitte.gis-broker.de/bplaene/<planid>.pdf). Live-probed 2026-07-23."
+  "PROBE_VERDICT": "⚠ CORRECTED by live probe 2026-07-31 — see ../PROBE-VERDICT-2026-07-31.md. The dual-endpoint DISCREPANCY is RESOLVED: the production extraction endpoint is the LEGACY `bplan` WFS (NOT `plu_bplan`). The document-link field is `grund_www` (NOT `inhalt`). Live GetCapabilities/GetFeature confirmed.",
+  "CRITICAL_locatorNotRuleTable": "⚠ This WFS is a plan LOCATOR, NOT a rule table. GRZ / GFZ / Vollgeschosse / height / Baugrenze are NOT present as attributes in the B-Plan WFS schema. They live ONLY in the linked Begründung/Satzung PDF (the legal plan document). Therefore farRatio, maxHeight_m, maxFloors, maxCoverage and setbacks MUST stay `unknown` and are NEVER populated from GIS/WFS metadata — only from extracted, human-verified, cited plan text attached to the exact planid. See EXTRACTION-PIPELINE.md for the extraction bridge.",
+  "productionEndpoint": {
+    "id": "bplan",
+    "role": "PRODUCTION (live-probed 2026-07-31)",
+    "endpoint": "https://gdi.berlin.de/services/wfs/bplan",
+    "alternateHost": "https://fbinter.stadt-berlin.de (FIS-Broker)",
+    "service": "GDI-BE / FIS-Broker B-Plan WFS",
+    "protocol": "WFS 2.0.0",
+    "confidence": "LIVE-PROBED",
+    "confidenceBasis": "Live GetCapabilities + GetFeature 2026-07-31 (see ../PROBE-VERDICT-2026-07-31.md). CRS EPSG:25833, licence DL-DE/Zero-2.0, no access restriction. GetFeature CQL_FILTER planname LIKE '8-30%' returns Neukölln 8-30 with grund_www + scan_www populated.",
+    "accessRestriction": "none",
+    "featureTypes": [
+      { "name": "bplan:b_bp_fs", "describes": "festgesetzt (in-force plans) — CARRIES document fields — the extraction target" },
+      { "name": "bplan:c_bp_ak", "describes": "außer Kraft gesetzt (repealed) — carries document fields" },
+      { "name": "bplan:a_bp_iv", "describes": "in Verfahren (in procedure / drafts) — NO document fields (expected: not adopted)" }
+    ],
+    "extractionQueryRule": "Query bplan:b_bp_fs (festgesetzt) / bplan:c_bp_ak (außer Kraft) for the document links.",
+    "documentLinkageField": "grund_www",
+    "documentFields": {
+      "grund_www": "Link zum Begründungstext — THE EXTRACTOR'S TARGET (GRZ/GFZ/height/storeys stated here in prose + Festsetzungen).",
+      "scan_www": "Link zur Planzeichnung — the drawing PDF (not the reasoning text).",
+      "url_www": "portal page (human-facing)."
     }
-  ],
-  "DISCREPANCY": "⚠ DISCREPANCY: plu_bplan/inhalt (new GDI-BE OGC service, VERIFIED-SCHEMA from Datenformatbeschreibung) vs bplan/scan_www (FIS-Broker legacy, CONVERGENT-SECONDARY, matches LAND-REGISTRY Berlin row). BOTH are recorded; NO winner is asserted. Resolve which is the production endpoint via a live GetCapabilities on each — see NEXT.md.",
+  },
+  "inspireEndpoint": {
+    "id": "plu_bplan",
+    "role": "INSPIRE interchange only (NOT the extraction endpoint)",
+    "endpoint": "https://gdi.berlin.de/services/wfs/plu_bplan",
+    "service": "GDI-BE OGC WFS (INSPIRE PLU aligned)",
+    "protocol": "WFS 2.0.0",
+    "confidence": "LIVE-PROBED (responds, but document link is indirect)",
+    "confidenceBasis": "Live probe 2026-07-31: plu_bplan responds, but its document link is INSPIRE-modeled and INDIRECT (via OfficialDocumentation object, not a direct PDF). Use for INSPIRE-conformant interchange, NOT for pulling the Begründung PDF.",
+    "featureTypes": [
+      { "name": "plu_bplan:SpatialPlan", "describes": "B-Plan spatial extent (plan boundary polygon)" },
+      { "name": "plu_bplan:OfficialDocumentation", "describes": "Linked legal / document objects (INSPIRE-modeled, indirect)" }
+    ],
+    "documentLinkageNote": "The former assumption `documentLinkageField: inhalt` was the plu_bplan/INSPIRE model — it is NOT the production path. Corrected to bplan/grund_www. See ../PROBE-VERDICT-2026-07-31.md §2."
+  },
+  "DISCREPANCY_RESOLVED": "The former DISCREPANCY (plu_bplan/inhalt VERIFIED-SCHEMA vs bplan/scan_www CONVERGENT-SECONDARY, no winner asserted) is RESOLVED by live probe 2026-07-31: `bplan` is the production extraction endpoint, document link is `grund_www`. `plu_bplan` also responds but its link is INSPIRE-indirect.",
   "protocol": "WFS 2.0.0",
-  "protocolConfidence": "VERIFIED",
+  "protocolConfidence": "LIVE-PROBED",
   "crs": "EPSG:25833",
-  "crsConfidence": "VERIFIED",
+  "crsConfidence": "LIVE-PROBED",
   "licence": "Datenlizenz Deutschland – Zero 2.0 (DL-DE/Zero-2.0)",
-  "licenceConfidence": "VERIFIED",
+  "licenceConfidence": "LIVE-PROBED (no access restriction on bplan)",
   "fieldMapping": {
-    "confidence": "VERIFIED-SCHEMA",
-    "source": "gdi.berlin.de/data/bplan/docs/Datenformatbeschreibung_Bebauungsplanverfahren.pdf",
-    "appliesTo": "plu_bplan candidate",
+    "confidence": "LIVE-PROBED (bplan production layer)",
+    "source": "Live GetCapabilities/GetFeature 2026-07-31; corroborated by Datenformatbeschreibung gdi.berlin.de/data/bplan/docs/Datenformatbeschreibung_Bebauungsplanverfahren.pdf",
+    "appliesTo": "bplan production endpoint",
     "fields": {
+      "planname": "Plan name (CQL-filterable, e.g. planname LIKE '8-30%')",
       "planid": "Name des Plans (plan identifier)",
-      "gisid": "Fachverfahrensschlüssel (internal key)",
-      "planname": "Plan name",
-      "planartname": "Plan type (e.g. Qualifizierter / Einfacher / Vorhabenbezogener B-Plan)",
-      "bereich": "Area / sub-area description",
       "bezirk": "District (Bezirk)",
-      "bp_rechtsstand": "Legal status (e.g. In Kraft getreten)",
-      "inhalt": "Official content / document reference — the legal-document linkage",
-      "ausleg_www": "Participation / document link (Auslegung / public display URL)"
+      "grund_www": "Link zum Begründungstext — the legal-document (reasoning-text) linkage — EXTRACTION TARGET",
+      "scan_www": "Link zur Planzeichnung — the drawing PDF",
+      "url_www": "portal page (human-facing)"
     }
   },
   "directPDF": {
-    "field": null,
-    "status": "PROBE-REQUIRED",
-    "note": "No direct Satzung-PDF field asserted for plu_bplan. For the bplan legacy candidate the PDF is `scan_www`. Whether plu_bplan `inhalt` resolves directly to a Satzung PDF is PROBE-REQUIRED."
+    "field": "grund_www",
+    "status": "LIVE-PROBED",
+    "note": "grund_www resolves directly to the Begründung PDF (e.g. …/begruendung/begruendung-8-30.pdf). scan_www resolves to the Planzeichnung PDF. Confirmed live 2026-07-31."
   },
   "extractedRuleFields": {
-    "note": "These are the buildability fields the product needs. NONE are served by this WFS. All resolve ONLY via gis/bplan-document.json + gis/bplan-parser.json (extraction + L-449 human verification).",
+    "note": "These are the buildability fields the product needs. NONE are served by this WFS. All resolve ONLY via the Begründung-text extractor (EXTRACTION-PIPELINE.md) + L-449 human verification. For 8-30 the probe SAW GRZ 0,3 / GFZ 0,9 in the grund_www PDF — but formal extraction+sign-off is still pending; values below stay unknown until an L-449 row exists.",
     "maxCoverage_GRZ": "unknown",
     "farRatio_GFZ": "unknown",
     "maxFloors_Vollgeschosse": "unknown",
@@ -82,20 +83,25 @@
     "buildable_Baugrenze": "unknown",
     "setbacks": "unknown"
   },
-  "probeRequired": [
-    "Live GetCapabilities on plu_bplan AND bplan to lock exact FeatureType names + geometry field name (resolves the endpoint discrepancy — do not assert a winner beforehand).",
-    "Whether plu_bplan `inhalt` resolves directly to a Satzung PDF (vs an intermediary OfficialDocumentation object reference).",
-    "Whether polygons include only in-force (festgesetzt) plans or also drafts (im Verfahren) and repealed (außer Kraft).",
-    "Confirm the DL-DE/Zero-2.0 licence applies to plu_bplan specifically (LAND-REGISTRY records DL-DE BY 2.0 for GDI-BE broadly — flag, do not resolve here)."
+  "resolvedByProbe": [
+    "Endpoint discrepancy RESOLVED: bplan is production (not plu_bplan).",
+    "Document field RESOLVED: grund_www (Begründung) + scan_www (Planzeichnung), NOT inhalt.",
+    "grund_www resolves DIRECTLY to a Begründung PDF (live 2026-07-31).",
+    "FeatureTypes confirmed: b_bp_fs (festgesetzt) + c_bp_ak (außer Kraft) carry doc fields; a_bp_iv (in-Verfahren) does not.",
+    "Licence DL-DE/Zero-2.0 + no access restriction confirmed live on bplan."
+  ],
+  "stillOpen": [
+    "Corpus text-vs-scan mix-rate across the ~7,000-plan corpus — UNRUN sampling question (some legacy plans, e.g. Mitte 0100002b, have grund_www=null + only scan_www → OCR fallback). See ../PROBE-VERDICT-2026-07-31.md §5.",
+    "The German free-text Begründung EXTRACTOR itself (parse GRZ/GFZ/height/storeys out of running prose + Festsetzungen tables) — the real remaining effort."
   ],
   "relatedFiles": [
-    "gis/bplan-document.json",
-    "gis/bplan-parser.json",
+    "../PROBE-VERDICT-2026-07-31.md",
     "gis/parcel-source.json",
     "gis/alkis-source.json",
     "gis/lod2-source.json",
     "gis/terrain-source.json",
     "gis/legislation-record.json",
+    "EXTRACTION-PIPELINE.md",
     "LEGISLATION.md",
     "SOURCES.md",
     "sources/SOURCES.md"

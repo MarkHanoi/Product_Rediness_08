@@ -1,18 +1,33 @@
 # NEXT — Berlin (11000, DE-BE)
 
-> **Last updated:** 2026-07-31 · **Maintainer:** UNASSIGNED · **Status:** BUILDABILITY DOSSIER COMPLETE (architecture saturated) — regime research below retained.
+> **Last updated:** 2026-07-31 · **Maintainer:** UNASSIGNED · **Status:** PIPELINE LIVE-PROBED — VERDICT YES (mixed-corpus). See `PROBE-VERDICT-2026-07-31.md`. Regime research below retained.
+
+---
+
+## 0.0 — PROBE VERDICT (live-tested 2026-07-31): **YES — pipeline succeeds end-to-end** (mixed-corpus)
+
+Live probing on 2026-07-31 (`PROBE-VERDICT-2026-07-31.md`) **resolved the dossier's open dead-ends**. Corrections that supersede §0/§3/§6/§7 below:
+
+- **Production endpoint RESOLVED:** it is the **legacy `bplan` WFS** (`https://gdi.berlin.de/services/wfs/bplan`), **NOT `plu_bplan`**. FeatureTypes `bplan:b_bp_fs` (festgesetzt) + `bplan:c_bp_ak` (außer Kraft) carry doc fields; `bplan:a_bp_iv` (in-Verfahren) does not. CRS EPSG:25833, DL-DE/Zero-2.0, no access restriction. The former DISCREPANCY is **closed**.
+- **Document field RESOLVED:** it is **`grund_www`** ("Link zum Begründungstext" — the extractor's target) + `scan_www` (Planzeichnung/drawing) + `url_www` (portal). **NOT `inhalt`** (that was the plu_bplan/INSPIRE assumption).
+- **NO OCR for modern plans:** the 8-30 Begründung is a **born-digital TEXT PDF** (215 pp, 637,988 chars from Flate streams) containing verbatim **"(GRZ) von 0,3 sowie einer Geschossflächenzahl (GFZ) von 0,9"**, §13a BauGB. The "scanned" worry was a FALSE ALARM.
+- **MIXED corpus (the honest qualifier):** modern §13a plans ship born-digital text; **some legacy plans (e.g. Mitte `0100002b`) have `grund_www=null` + only a scan** → OCR fallback still worth building but NOT the common case. Text-vs-scan mix-rate across ~7,000 plans is an UNRUN sampling question.
+- **ALKIS = live WFS** (`alkis_flurstuecke:flurstuecke`) + **bonus `alkis_gebaeude:gebaeude`** (building footprints, WFS).
+- **LoD2 404 is REAL:** LoD2 is **not a WFS** — it is a **CityGML ATOM bulk-download** (`gdi.berlin.de/data/a_lod2/atom/`). Use `alkis_gebaeude` WFS as the live building substitute.
+- **WHERE THE REAL EFFORT IS:** NOT WFS plumbing, NOT OCR for modern plans — it is the **German free-text Begründung EXTRACTOR** (parse "GRZ von 0,3" out of running prose + Festsetzungen tables → structured GRZ/GFZ/height/storey). Secondary: scan/OCR fallback for legacy plans + a LoD2 CityGML-ATOM ingestion path.
 
 ---
 
 ## 0 — BUILDABILITY DOSSIER (2026-07-31) — ARCHITECTURE COMPLETE
 
-The Berlin buildability dossier (founder research) is **structurally complete — architecture saturated**. Every numeric planning value is `null`/`unknown`. Remaining work is **NON-architecture** (live probing + human/L-449-gated extraction + CODE).
+The Berlin buildability dossier (founder research) is **structurally complete — architecture saturated**. Every numeric planning value is `null`/`unknown` (though §0.0 records that the 8-30 GRZ 0,3 / GFZ 0,9 were SEEN in the source and await L-449 sign-off). Remaining work is **NON-architecture** (extractor CODE + human/L-449-gated extraction).
 
 **What is captured (the stack):**
 
-- `gis/bplan-source.json` — B-Plan WFS LOCATOR with **dual endpoint candidates** (`plu_bplan/inhalt` VERIFIED-SCHEMA vs `bplan/scan_www` CONVERGENT-SECONDARY) + flagged DISCREPANCY (no winner asserted). CRS EPSG:25833, DL-DE/Zero-2.0 — VERIFIED.
-- `gis/parcel-source.json` + `gis/alkis-source.json` — ALKIS Flurstück parcel spine (id field PROBE-REQUIRED).
-- `gis/lod2-source.json` — LoD2 context/heights only (PROBE-GATED; prior URL 404).
+- `PROBE-VERDICT-2026-07-31.md` — **the live-probe verdict (YES, mixed-corpus)** that corrects the endpoint / field / scan assumptions below.
+- `gis/bplan-source.json` — B-Plan WFS LOCATOR. **CORRECTED by probe:** production endpoint = `bplan` (not `plu_bplan`); doc field = `grund_www` (not `inhalt`); DISCREPANCY RESOLVED. CRS EPSG:25833, DL-DE/Zero-2.0.
+- `gis/parcel-source.json` + `gis/alkis-source.json` — ALKIS Flurstück parcel spine. **Probe: `alkis_flurstuecke:flurstuecke` live WFS + bonus `alkis_gebaeude:gebaeude` (building footprints, WFS).**
+- `gis/lod2-source.json` — LoD2 context/heights only. **Probe: the 404 is REAL — LoD2 is NOT a WFS; it is a CityGML ATOM bulk-download (`gdi.berlin.de/data/a_lod2/atom/`). Use `alkis_gebaeude` WFS as the live building substitute.**
 - `gis/terrain-source.json` — DGM1/DOP20 context/visual-QA only (PROBE-GATED).
 - `gis/legislation-record.json` — the EMPTY legal-ingestion template (all values null).
 - `EXTRACTION-PIPELINE.md` — document-resolution bridge + PDF parser design + regime classifier + known_bombshells + **city-scale corpus** (batch ingestor, digitisation classifier, coverage metrics, first-district target, rule-pack pointer).
@@ -22,15 +37,17 @@ The Berlin buildability dossier (founder research) is **structurally complete �
 
 **The one hard truth:** the B-Plan WFS is a plan **LOCATOR, not a rule table** — GRZ/GFZ/Vollgeschosse/height/Baugrenze are absent from the WFS schema and are NEVER populated from GIS metadata, only from L-449-verified, cited Satzung PDF text.
 
-**THE NEXT PROBE (the smallest step that moves the number):**
+**THE NEXT STEPS (post-verdict — WFS plumbing is DONE; see §0.0 / `PROBE-VERDICT-2026-07-31.md`):**
 
-1. **Live `GetCapabilities` on BOTH `plu_bplan` and `bplan`** — locks exact FeatureType names + geometry field AND **resolves the endpoint discrepancy** (which is production). Do not assert a winner beforehand.
-2. **Resolve `inhalt` → PDF** — confirm whether `plu_bplan:OfficialDocumentation`/`inhalt` resolves directly to a Satzung PDF, or via an intermediary document object (legacy `bplan` uses `scan_www` → direct `.pdf`).
-3. **First 3 test plans:** one modern **§30** plan · one **mixed-use** plan · one **Baunutzungsplan-legacy** area — to exercise all three regimes.
-4. **8-30 extraction** — the human/L-449-gated pull of the actual 8-30 Textliche Festsetzungen PDF → the **first verified GRZ/GFZ/Vollgeschosse/Höhe row**, which becomes the template for Berlin's ~1000+ B-Pläne.
-5. **Corpus digitisation-split measurement** — is Berlin ~0% structured (PDF-only) or is there a meaningful XPlanung attribute fraction? This decides the climb path (see `EXTRACTION-PIPELINE.md §4.2`).
-6. **BauO Bln §6 setbacks** — read the exact Abstandsflächen multiplier (**PROBE-REQUIRED — do NOT copy NRW's 0.4H**).
-7. **Rule-pack CODE** — wire verified rows into `packages/site-parcel-data/src/rulepacks/` (future CODE; not created here).
+1. ~~Live GetCapabilities on both endpoints~~ **DONE (2026-07-31):** production = `bplan`; doc field = `grund_www`; DISCREPANCY resolved.
+2. ~~Resolve `inhalt` → PDF~~ **DONE:** `grund_www` resolves DIRECTLY to the Begründung PDF (`inhalt` was the plu_bplan/INSPIRE assumption — dropped).
+3. **BUILD the German free-text Begründung EXTRACTOR** — parse GRZ/GFZ/Vollgeschosse/Höhe out of running German prose + Festsetzungen tables into structured params. **This is the real remaining effort**, not plumbing.
+4. **8-30 extraction + L-449 sign-off** — the Begründung is a confirmed text-PDF and GRZ 0,3 / GFZ 0,9 are PRESENT in the source (probe SAW them); the next step is the formal extraction + sign-off into the first served row. Do NOT fabricate it as verified before sign-off.
+5. **Corpus text-vs-scan mix-rate measurement** — sample the ~7,000-plan corpus: what fraction has a born-digital text `grund_www` vs scan-only (`grund_www=null`, e.g. Mitte `0100002b`)? Decides how much the OCR fallback matters (`EXTRACTION-PIPELINE.md §4.2`).
+6. **Scan/OCR fallback** — build for the legacy scan-only plans (secondary; NOT the modern critical path).
+7. **LoD2 CityGML-ATOM ingestion path** — bulk download from `gdi.berlin.de/data/a_lod2/atom/` (LoD2 is NOT a WFS); use `alkis_gebaeude` WFS for live footprints meanwhile.
+8. **BauO Bln §6 setbacks** — read the exact Abstandsflächen multiplier (**PROBE-REQUIRED — do NOT copy NRW's 0.4H**).
+9. **Rule-pack CODE** — wire verified rows into `packages/site-parcel-data/src/rulepacks/` (future CODE; not created here).
 
 > The detailed regime blockers (B1–B5), verified sources, and measured dead-ends from the 2026-07-23/24 reconnaissance are retained verbatim below (§1–§8).
 
