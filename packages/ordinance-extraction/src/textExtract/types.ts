@@ -168,6 +168,10 @@ export type RefusalReason =
     | 'empty-input' // text was empty / whitespace only
     | 'no-document-id' // the source carried no document id → nothing citeable
     | 'no-matchers' // the grammar defined no field matchers
+    // The parcel's LEGAL REGIME defines no numeric envelope (German §34/§35). ⚠ This
+    // is a POSITIVE product answer, not a pipeline failure — `detail` carries the
+    // cited sentence a user should read. See `gates/regimeGate.ts`.
+    | 'regime-forbids-extraction'
     | 'internal-error'; // an unexpected error was caught and contained
 
 /** The extractor refused to parse — an honest, typed non-result (never a throw). */

@@ -25,6 +25,7 @@ import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { type GateResult, type ExtractableField } from '../types.js';
 import { localeGate } from '../gates/localeGate.js';
 import { rangeSanityGate, type FieldBounds } from '../gates/rangeSanityGate.js';
+import { type RegimeGateResult } from '../gates/regimeGate.js';
 import {
     type ExtractedRule,
     type FieldOutcome,
@@ -53,6 +54,20 @@ export interface EnvelopeMappingOptions {
      * genuinely taller stock widens `maxHeight_m`). Defaults are per-field.
      */
     readonly bounds?: Partial<Record<ExtractableField, FieldBounds>>;
+    /**
+     * The parcel's legal-regime verdict (`gates/regimeGate.ts`), when the caller has
+     * classified it. Supplying it makes the regime binding here:
+     *   - a regime that defines NO numeric envelope (German §34/§35) turns the whole
+     *     mapping into a `regime-forbids-extraction` refusal carrying the cited
+     *     positive answer — never an envelope full of unknowns, which would read as
+     *     "we could not find the numbers" rather than "the law sets none";
+     *   - a `conditional` regime's caveat is stamped on every resolved value and
+     *     clears its auto-acceptance (mirrors the supersession caveat in
+     *     `pipeline.ts`).
+     * Omitting it leaves the mapping regime-blind — the caller is then responsible
+     * for having gated upstream.
+     */
+    readonly regime?: RegimeGateResult;
 }
 
 /** The mapper's outcome — the envelope, or the extractor's refusal, verbatim. */
@@ -152,6 +167,16 @@ function resolveOne(
     };
 }
 
+/**
+ * Stamp a regime caveat onto a resolved parameter. A caveated value can NEVER
+ * auto-accept: the caveat is precisely the statement that a human must look at it
+ * (e.g. the Berlin Baunutzungsplan's funktionslos voidance risk).
+ */
+function caveated(param: ResolvedParameter, caveat: string | null): ResolvedParameter {
+    if (caveat === null) return param;
+    return { ...param, flags: [...param.flags, caveat], autoAccepted: false };
+}
+
 /** Build the conflicted outcome for a key with several distinct values. */
 function conflict(
     key: ParameterKey,
@@ -207,9 +232,23 @@ export function toEnvelopeParameters(
     // A refusal is a refusal all the way down — never flattened to "no parameters".
     if (!extraction.ok) return extraction;
 
+    // ── Regime FIRST (the contract's Stage -1). A parcel whose legal basis defines
+    // no numeric envelope must answer with the cited refusal, not with an envelope
+    // of unknowns — "the law sets no number here" and "we could not find the number"
+    // are different answers to the user.
+    const regime = options.regime;
+    if (regime && !regime.shouldExtract) {
+        return {
+            ok: false,
+            reason: 'regime-forbids-extraction',
+            detail: regime.refusal ?? regime.gate.detail,
+        };
+    }
+
     const span = tracer.startSpan('pryzm.ordinance-extraction.toEnvelopeParameters');
     try {
         span.setAttribute('pryzm.jurisdiction', extraction.jurisdiction);
+        if (regime?.regime) span.setAttribute('pryzm.regime', regime.regime.id);
 
         const outcomes: EnvelopeParameterOutcome[] = [];
         const resolved: ResolvedParameter[] = [];
@@ -217,7 +256,10 @@ export function toEnvelopeParameters(
         for (const [key, rules] of groupByKey(extraction.rules)) {
             const candidates = toCandidates(rules);
             if (candidates.length === 1) {
-                const one = resolveOne(key, rules, candidates[0]!, extraction.locale, options.bounds);
+                const one = caveated(
+                    resolveOne(key, rules, candidates[0]!, extraction.locale, options.bounds),
+                    regime?.caveat ?? null,
+                );
                 resolved.push(one);
                 outcomes.push(one);
             } else {

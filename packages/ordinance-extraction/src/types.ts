@@ -54,6 +54,10 @@ export const GateNameSchema = z.enum([
     'range',
     'locale',
     'algorithm',
+    // `regime` classifies the parcel's LEGAL basis before anything is extracted —
+    // some regimes (German §34/§35) define no numeric envelope at all, and their
+    // cited refusal is a positive answer (see `gates/regimeGate.ts`).
+    'regime',
     // `coherence` checks one extracted parameter against ANOTHER extracted
     // parameter of the same envelope (e.g. FAR ≤ coverage × floors), rather than
     // checking a value against its own source text. It is therefore a whole-

@@ -2,6 +2,7 @@
 // Each is a pure, unit-tested function; the pipeline orchestrator composes them.
 
 export * from './supersessionGate.js';
+export * from './regimeGate.js';
 export * from './dualPassAgreement.js';
 export * from './arithmeticCrossCheck.js';
 export * from './rangeSanityGate.js';
