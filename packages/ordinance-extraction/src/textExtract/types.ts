@@ -287,6 +287,19 @@ export interface RejectPattern {
     readonly id: string;
     /** The pattern; if it matches a sentence, no value is emitted from that sentence. */
     readonly pattern: RegExp;
+    /**
+     * An ESCAPE HATCH: if this also matches, the reject does NOT fire.
+     *
+     * Needed because real ordinance sentences are not single-purpose. A measured
+     * example from Berlin 8-30 p58 both cites the §19(4) BauNVO overrun rule AND
+     * states the binding value in the same breath:
+     *   "…mit der Beschränkung der Überschreitung der GRZ auf den § 19 Abs. 4
+     *    BauNVO sichergestellt, dass die Hauptanlagen weiterhin entsprechend der
+     *    FESTGESETZTEN GRZ von 0,4 … zu errichten sind."
+     * A blanket §19(4) reject would discard the correct value. The `unless` clause
+     * lets a reject stay narrow without needing an unreadable negative-lookahead.
+     */
+    readonly unless?: RegExp;
     /** One line explaining why this is not a parcel rule. */
     readonly detail: string;
 }

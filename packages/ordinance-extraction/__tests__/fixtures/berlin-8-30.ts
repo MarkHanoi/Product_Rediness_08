@@ -30,9 +30,48 @@
  * Note it begins mid-sentence, at an opening parenthesis — that is how the probe
  * reported it, and it is left exactly so. Real extracted text is ragged; a parser
  * that only works on tidy full sentences is a parser that works on our imagination.
+ *
+ * 🔴 CRITICAL — WHAT THESE NUMBERS ARE **NOT**.
+ * On 2026-07-31 the full 209-page Begründung was downloaded and parsed end-to-end
+ * (see `de/findings/GERMANY-PDF-INGESTION-WP1-WP6.md` §4). In context this clause
+ * reads:
+ *
+ *   "Der [Baunutzungsplan], DER WEITER GILT, hat für den Geltungsbereich folgende
+ *    Ausweisungen: … wird ein Allgemeines Wohngebiet mit einer zulässigen
+ *    Grundflächenzahl (GRZ) von 0,3 sowie einer Geschossflächenzahl (GFZ) von 0,9
+ *    DARGESTELLT."
+ *
+ * The verb is `dargestellt` (§5 BauGB — a preparatory instrument DEPICTS) and the
+ * subject is the superseded 1958/60 Baunutzungsplan. **These are NOT B-Plan 8-30's
+ * Festsetzungen.** 8-30's own binding values, stated on p56 with `begrenzt` and
+ * §19 Abs. 2 / §20 Abs. 2 BauNVO, are **GRZ 0,4 / GFZ 1,2**.
+ *
+ * So this constant is a valid fixture for "can the pipeline READ this sentence",
+ * and must NEVER be used as ground truth for what plan 8-30 permits.
  */
 export const BERLIN_8_30_VERBATIM =
     '(GRZ) von 0,3 sowie einer Geschossflächenzahl (GFZ) von 0,9';
+
+/**
+ * ✅ VERBATIM, from the full-document run of 2026-07-31 — B-Plan 8-30's ACTUAL
+ * binding Festsetzung (p56). This, not the constant above, is what the plan permits.
+ */
+export const BERLIN_8_30_ACTUAL_FESTSETZUNG =
+    'Für das ca. 35.020 m² große Allgemeine Wohngebiet wird die zulässige Grundfläche gemäß § 19 Abs. 2 BauNVO auf eine Grundflächenzahl GRZ von 0,4 (dies entspricht ca. 14.010 m²) und die zulässige Geschossflächenzahl GFZ gemäß § 20 Abs. 2 BauNVO auf 1,2 (dies entspricht ca. 42.020 m²) begrenzt.';
+
+/**
+ * ✅ VERBATIM, from the same run (p8 context) — the legacy-instrument sentence in
+ * full, so the `dargestellt` attribution reject can be tested against real text.
+ */
+export const BERLIN_8_30_LEGACY_INSTRUMENT_SENTENCE =
+    'Für die im Plangebiet gelegenen Grundstücksflächen entlang der Buschkrugallee wird ein Allgemeines Wohngebiet mit einer zulässigen Grundflächenzahl (GRZ) von 0,3 sowie einer Geschossflächenzahl (GFZ) von 0,9 dargestellt.';
+
+/**
+ * ✅ VERBATIM, from the same run (p47) — a §19(4) BauNVO OVERRUN ceiling. Reading
+ * this 0,8 as the GRZ overstates buildable footprint 2×.
+ */
+export const BERLIN_8_30_UEBERSCHREITUNG_SENTENCE =
+    'Die Grundflächenzahl darf durch die Flächen für Stellplätze und Nebenanlagen überschritten werden, das einer GRZ von 0,8 entspricht.';
 
 /**
  * ⚠ RECONSTRUCTED, NOT VERBATIM. The verbatim fragment above with a plausible

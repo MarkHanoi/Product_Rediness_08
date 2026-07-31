@@ -115,6 +115,30 @@ const NUM = '([0-9]+(?:[.,][0-9]+)?)'; // a decimal-comma or dot number token.
 // form. Real extracted text is ragged; the grammar has to survive it.
 const KEYWORD_TAIL = '\\s*[)\\]]?\\s*';
 
+// A STATUTORY CITATION appearing between a keyword and its value, consumed as ONE
+// unit. Measured need (Berlin 8-30 p56, the plan's actual binding Festsetzung):
+//   "…die zulässige Geschossflächenzahl GFZ gemäß § 20 Abs. 2 BauNVO auf 1,2 …"
+// Without this the GFZ keyword cannot reach `1,2` and the plan's real FAR is
+// silently missed.
+//
+// ⚠ WHY A STRUCTURED SKIP AND NOT A WILDCARD. A citation is full of digits —
+// `§ 20 Abs. 2` — so a lazy `.*?` between keyword and number would happily bind
+// GFZ to **20** or **2**. This alternative matches the citation as a whole named
+// unit and consumes its digits, so the first number left for `NUM` is the real
+// value. Same discipline as CONNECTIVE: a closed grammar of attested forms.
+//
+// ⚠ EVERY `\d+` CARRIES A `\b`, AND THAT IS LOAD-BEARING. Without it the regex
+// engine backtracks: on "Die GRZ nach § 19 Abs. 2 BauNVO …" it happily matches the
+// citation number as `§ 1`, leaves the `9` unconsumed, and binds **GRZ = 9**.
+// Measured on Berlin 8-30 p87 the moment this skip was introduced. (The range gate
+// did flag it — 9 ∉ [0,1] — which is defence-in-depth working, but a grammar that
+// relies on a downstream gate to catch its own backtracking is a grammar with a
+// bug.) `\d+\b` forces the whole digit run to be consumed.
+const CITATION_SKIP =
+    '(?:(?:gemäß|gemaess|nach|entsprechend|i\\.?\\s?V\\.?\\s?m\\.?)\\s*)?' +
+    '§+\\s*\\d+\\b\\s*[a-z]?\\s*(?:Abs\\.?\\s*\\d+\\b\\s*)?(?:Satz\\s*\\d+\\b\\s*)?' +
+    '(?:Nr\\.?\\s*\\d+\\b\\s*)?(?:[A-ZÄÖÜ][A-Za-zÄÖÜäöüß]*\\s*)?';
+
 /** Build a ratio matcher (GRZ/GFZ) — keyword, optional connective, then a number. */
 function ratioMatcher(
     id: string,
@@ -126,7 +150,10 @@ function ratioMatcher(
         id,
         field,
         unit: 'ratio',
-        pattern: new RegExp(`(?:${keyword})${KEYWORD_TAIL}${CONNECTIVE}\\s*${NUM}`, 'gi'),
+        pattern: new RegExp(
+            `(?:${keyword})${KEYWORD_TAIL}(?:${CITATION_SKIP})?${CONNECTIVE}\\s*${NUM}`,
+            'gi',
+        ),
         keyword: new RegExp(`(?:${keyword})`, 'gi'),
         interpret: (m, ctx) => {
             const value = ctx.parseNumber(m[1]!);
@@ -150,7 +177,10 @@ function heightMatcher(
         unit: 'm',
         // The trailing `m` unit is REQUIRED — it disambiguates a height from a bare
         // number and stops the matcher grabbing an unrelated figure.
-        pattern: new RegExp(`(?:${keyword})${KEYWORD_TAIL}${CONNECTIVE}\\s*${NUM}\\s*m\\b`, 'gi'),
+        pattern: new RegExp(
+            `(?:${keyword})${KEYWORD_TAIL}(?:${CITATION_SKIP})?${CONNECTIVE}\\s*${NUM}\\s*m\\b`,
+            'gi',
+        ),
         keyword: new RegExp(`(?:${keyword})`, 'gi'),
         interpret: (m, ctx) => {
             const value = ctx.parseNumber(m[1]!);
@@ -224,6 +254,74 @@ const REJECTS: readonly RejectPattern[] = [
         id: 'baunvo-17-obergrenze-prose',
         pattern: /Obergrenze[n]?[^.]*BauNVO/gi,
         detail: 'A reference to the BauNVO Obergrenzen (national ceiling), not a parcel value.',
+    },
+
+    // ── INSTRUMENT ATTRIBUTION ────────────────────────────────────────────────
+    // Added because the REAL corpus forced it, not from theory. Running the parser
+    // over the full 209-page Berlin 8-30 Begründung showed it happily reading GRZ
+    // values of 0,3 · 0,4 · 0,8 · 0,39 out of one document, all cited, all correct
+    // as READINGS, and only one of them the plan's binding Festsetzung (0,4).
+    //
+    // German planning law marks the difference with specific verbs, and the
+    // distinction is legally exact:
+    //   • "festgesetzt" / "begrenzt auf"  → §9 BauGB — THIS plan binds. The value.
+    //   • "dargestellt"                   → §5 BauGB — a PREPARATORY instrument
+    //                                        (FNP / Baunutzungsplan) merely DEPICTS.
+    //   • "Überschreitung … §19 Abs. 4"   → a permitted OVERRUN ceiling for
+    //                                        Garagen/Nebenanlagen, never the base.
+    //   • "rechnerische GRZ"              → a figure the author COMPUTED to describe
+    //                                        an existing building, not a rule.
+    //
+    // ⚠ WHY THIS MATTERS MORE THAN A PARSING NICETY. On 8-30 the un-attributed
+    // reading yields GRZ 0,8 (the §19(4) overrun) or 0,3 (the superseded 1958/60
+    // Baunutzungsplan) where the binding value is 0,4 — a 2× error on buildable
+    // footprint in one direction and a 25% understatement in the other. This is the
+    // L-616 "solid overstates on partial data" class arriving through the parser.
+    {
+        id: 'de-dargestellt-not-festgesetzt',
+        // "…wird ein Allgemeines Wohngebiet mit einer GRZ von 0,3 … dargestellt."
+        pattern: /\bdargestellt\b|\bAusweisungen\b|\bFlächennutzungsplan\b|\bBaunutzungsplan\b/gi,
+        // …but not when the same sentence states a binding Festsetzung.
+        unless: /\bfestgesetzt|\bfestsetz|\bbegrenzt\b/gi,
+        detail:
+            'Value is DEPICTED (dargestellt) by a preparatory instrument — FNP (§5 BauGB) or the legacy Baunutzungsplan — not FESTGESETZT (§9 BauGB) by this B-Plan. It is another instrument’s number.',
+    },
+    {
+        id: 'de-ueberschreitung-19-4',
+        // "…überschritten werden darf, das einer GRZ von 0,8 entspricht."
+        //
+        // ⚠ NARROWLY SCOPED, and it has to be. A first, broader version matched the
+        // bare verb `überschreiten` and immediately mis-fired on
+        // "Die Gebäudehöhe darf 18 m nicht überschreiten" — which is the STANDARD
+        // binding phrasing for a height Festsetzung, not an overrun at all. The
+        // §19(4) allowance is specifically about the GRZ / Grundfläche, so the
+        // pattern requires either the explicit article reference or the overrun
+        // noun/participle CO-OCCURRING with a coverage term.
+        pattern:
+            /§\s*19\s*Abs\.?\s*4|(?:Überschreitung|überschritten|überschreiten)[^.]{0,90}(?:GRZ|Grundflächenzahl|Grundfläche)|(?:GRZ|Grundflächenzahl|Grundfläche)[^.]{0,90}(?:Überschreitung|überschritten|überschreiten)/gi,
+        // ⚠ The escape must require the Festsetzung term to actually CARRY A VALUE.
+        // A first version matched any "festgesetzte <term>", which let Berlin 8-30
+        // p47 through — "…§ 14 BauNVO die FESTGESETZTE GRUNDFLÄCHE bis zu einem Maß
+        // zu überschreiten, das einer GRZ von 0,8 entspricht" — a sentence that
+        // names the festgesetzte Grundfläche only to say what may EXCEED it. The
+        // trailing "von <digit>" is what distinguishes "the Festsetzung is 0,4" from
+        // "the Festsetzung may be exceeded".
+        //
+        // The second alternative is the German idiom that separates a BINDING CAP
+        // from an OVERRUN: an ordinance that says a value "darf … NICHT
+        // überschreiten" is setting the limit; one that says something may "zu
+        // überschreiten" / "überschritten werden" is granting permission to exceed
+        // it. The presence of `nicht` flips the meaning, so it must veto the reject.
+        unless: /festgesetzte[nrs]?\s+(?:GRZ|GFZ|Grundflächenzahl|Geschossflächenzahl)\s+von\s+\d|nicht\s+(?:zu\s+)?überschreiten/gi,
+        detail:
+            'Value is the §19(4) BauNVO OVERRUN ceiling (Garagen/Nebenanlagen may exceed the GRZ up to this), not the base Festsetzung. Using it as the GRZ overstates buildable footprint.',
+    },
+    {
+        id: 'de-rechnerisch',
+        // "…entspricht die zulässige Überbauung einer rechnerischen GRZ von 0,39."
+        pattern: /rechnerisch\w*|ergibt sich rechnerisch/gi,
+        detail:
+            'A COMPUTED descriptive figure (rechnerische GRZ) characterising existing or permitted building, not a Festsetzung.',
     },
 ];
 

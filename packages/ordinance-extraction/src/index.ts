@@ -38,3 +38,4 @@ export * from './pipeline.js';
 export * from './textExtract/index.js';
 export * from './grammars/index.js';
 export * from './envelope/index.js';
+export * from './ingest/index.js';

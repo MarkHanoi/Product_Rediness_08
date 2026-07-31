@@ -164,8 +164,12 @@ export function extractRules(
 
         for (const sentence of segments) {
             // Is this whole sentence a non-binding reference (reject-scoped)?
-            const reject = grammar.rejectPatterns.find((rp) =>
-                freshGlobal(rp.pattern).test(sentence),
+            const reject = grammar.rejectPatterns.find(
+                (rp) =>
+                    freshGlobal(rp.pattern).test(sentence) &&
+                    // …unless the sentence ALSO carries the escape phrase, which
+                    // means it is doing two jobs at once (see `RejectPattern.unless`).
+                    !(rp.unless !== undefined && freshGlobal(rp.unless).test(sentence)),
             );
             // Does this sentence say "the value is a rule / on the drawing"?
             const ruleRef = ruleReferences.find((rr) => freshGlobal(rr.pattern).test(sentence));

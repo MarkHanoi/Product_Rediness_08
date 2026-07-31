@@ -40,8 +40,13 @@ function resolved(env: EnvelopeExtraction, key: string): ResolvedParameter {
     return o;
 }
 
-describe('Berlin 8-30 — the VERBATIM probe fragment (the only real-provenance string)', () => {
-    it('reads GRZ 0,3 and GFZ 0,9 out of the fragment exactly as the probe reported them', () => {
+describe('Berlin 8-30 — the VERBATIM probe fragment (a READING, not the plan’s values)', () => {
+    // 🔴 These tests assert what the pipeline READS from this sentence. They do NOT
+    // assert what plan 8-30 permits. The full-document run of 2026-07-31 established
+    // that this clause describes the superseded 1958/60 Baunutzungsplan
+    // ("dargestellt"), and that 8-30's binding Festsetzung is GRZ 0,4 / GFZ 1,2.
+    // See findings/GERMANY-PDF-INGESTION-WP1-WP6.md §4.
+    it('reads GRZ 0,3 and GFZ 0,9 out of the bare fragment, as the probe reported', () => {
         const env = envelopeOf(BERLIN_8_30_VERBATIM);
         expect(resolved(env, 'maxCoverage').value).toBeCloseTo(0.3, 10);
         expect(resolved(env, 'maxFAR').value).toBeCloseTo(0.9, 10);
