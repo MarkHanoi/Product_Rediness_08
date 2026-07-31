@@ -19,6 +19,17 @@
  *   • NO  wfs.geonorge.no matrikkelen-eiendomskart-teig app:Teig            (GML 3.2.1, lon,lat) — 2026-07-24
  *   • DE-NRW www.wfs.nrw.de wfs_nw_alkis_vereinfacht ave:Flurstueck          (GML 3.2.1, lat,lon) — 2026-07-24
  *   • CH  api3.geo.admin.ch identify ch.kantone.cadastralwebmap-farbe        (Esri JSON, lon,lat) — 2026-07-26
+ *   • PT  snicws.dgterritorio.gov.pt inspire:cadastralparcel (DGT SNIC)     (GeoJSON, lon,lat) — 2026-07-31
+ *   • US-SF  data.sfgov.org acdm-wktn (DataSF assessor parcels)             (Socrata, lon,lat) — 2026-07-31
+ *   • US-CHI datacatalog.cookcountyil.gov 77tz-riq7 (Cook County parcels)   (Socrata, lon,lat) — 2026-07-31
+ *
+ * ⚠ NOT WIRED HERE, DELIBERATELY (L-651 live probe, 2026-07-31): Brussels, Wallonia and Scotland
+ * have parcel PROVIDERS in packages/site-parcel-data but no reachable upstream — Brussels'
+ * GAPD:AGDP_CAPA is advertised in GetCapabilities yet every GetFeature returns "Feature type
+ * unknown"; Wallonia's documented WFS root serves only orthophoto layers; Registers of Scotland is
+ * DNS-dead / 403 / ScotLIS-licensed. Adding dead `cc` entries here would make every click in those
+ * regions look like an empty cadastre, so they are registered as honest footprint-fallbacks in
+ * registry.ts instead. An unknown `cc` 404s — a route that does not exist, not a parcel that does not.
  *
  * The WFS services are BBOX-queryable (unlike Catastro's id-only WFS), so the flow is one call:
  * a small bbox around the click → keep the parcel whose ring CONTAINS the point (else the nearest
@@ -171,6 +182,28 @@ function parseEsriJsonCandidates(text) {
     return out;
 }
 
+// ── Socrata parse (US-SF, US-CHI) — a BARE JSON ARRAY of flat rows, not a FeatureCollection ──
+// DataSF / Cook County publish through Socrata, whose SoQL point query
+// (`$where=intersects(<geomcol>, 'POINT (lon lat)')`) returns `[ {…row}, … ]` with the geometry
+// inline as a GeoJSON object on ONE of the row's columns. ⚠ The column name is NOT standardised:
+// Cook County's parcel resource uses `the_geom`, DataSF's `acdm-wktn` uses **`shape`** (live-probed
+// 2026-07-31 — the SF provider's documented `the_geom` is wrong and silently yields no geometry).
+// Both spellings are accepted so one parser serves both cities.
+function parseSocrataCandidates(text) {
+    let json;
+    try { json = JSON.parse(text); } catch { return []; }
+    const rows = Array.isArray(json) ? json : Array.isArray(json?.features) ? json.features : [];
+    const out = [];
+    for (const r of rows) {
+        if (!r || typeof r !== 'object') continue;
+        const props = r.properties && typeof r.properties === 'object' ? r.properties : r;
+        const geom = r.geometry ?? props.shape ?? props.the_geom ?? r.shape ?? r.the_geom;
+        const ring = outerRingFromGeoJson(geom);
+        if (ring.length >= 3) out.push({ ring, props });
+    }
+    return out;
+}
+
 // ── GML parse (NO, DE-NRW) — split into members, take each member's first posList ──
 function gmlText(block, tag) {
     const m = block.match(new RegExp(`<(?:[\\w.-]+:)?${tag}\\b[^>]*>\\s*([^<]*?)\\s*</(?:[\\w.-]+:)?${tag}>`, 'i'));
@@ -247,6 +280,51 @@ function chUrl(lat, lon) {
         limit: '20',
     });
     return `https://api3.geo.admin.ch/rest/services/all/MapServer/identify?${params.toString()}`;
+}
+
+/**
+ * PORTUGAL — DGT SNIC INSPIRE WFS (Cadastro Predial). VERIFIED-LIVE 2026-07-31.
+ * ⚠ The layer's DefaultCRS is the PROJECTED EPSG:3763 (PT-TM06, metres), which is exactly the case
+ * where a BARE `EPSG:4326` bbox is silently accepted and returns ZERO features — the documented
+ * Córdoba/Murcia gotcha. The bbox therefore carries the explicit `urn:ogc:def:crs:EPSG::4326`
+ * AUTHORITY form (lat/lon axis order), which GeoServer honours, and `srsName=EPSG:4326` asks for
+ * WGS84 degrees back (probed: real degrees are returned even though GetCapabilities advertises only
+ * 3763). A silently-empty answer here is the single most likely way this wire looks fine and is
+ * wrong, so it is pinned by `euCadastreProxy.test.ts`.
+ */
+function ptUrl(lat, lon) {
+    const bbox = `${lat - HALF_DEG},${lon - HALF_DEG},${lat + HALF_DEG},${lon + HALF_DEG},urn:ogc:def:crs:EPSG::4326`;
+    return 'https://snicws.dgterritorio.gov.pt/geoserver/inspire/ows?service=WFS&version=2.0.0&request=GetFeature' +
+        '&typeNames=inspire:cadastralparcel&srsName=EPSG:4326' +
+        `&count=20&outputFormat=application/json&bbox=${encodeURIComponent(bbox)}`;
+}
+
+/**
+ * SAN FRANCISCO — DataSF assessor parcels (Socrata `acdm-wktn`). VERIFIED-LIVE 2026-07-31: a SoQL
+ * spatial point query returns the lot under the click (blklot 3584032 @ 3976 19th St). Socrata is
+ * already WGS84, so there is no CRS/axis trap here — the trap is the COLUMN NAME (`shape`).
+ */
+function sfUrl(lat, lon) {
+    const qs = new URLSearchParams({
+        $where: `intersects(shape, 'POINT (${lon} ${lat})')`,
+        $limit: '20',
+    });
+    return `https://data.sfgov.org/resource/acdm-wktn.json?${qs.toString()}`;
+}
+
+/**
+ * CHICAGO — Cook County parcels (Socrata `77tz-riq7` on datacatalog.cookcountyil.gov).
+ * VERIFIED-LIVE 2026-07-31. ⚠ This deliberately does NOT use the endpoint the Chicago provider
+ * documents (`gis.cookcountyil.gov/traditional/.../MapServer/44/query`): that host does not respond
+ * at all from our environment (connection timeout on both it and the gis12 alternate), so wiring it
+ * would have produced a permanently unreachable route. Socrata is already WGS84 (`the_geom`).
+ */
+function chiUrl(lat, lon) {
+    const qs = new URLSearchParams({
+        $where: `intersects(the_geom, 'POINT (${lon} ${lat})')`,
+        $limit: '20',
+    });
+    return `https://datacatalog.cookcountyil.gov/resource/77tz-riq7.json?${qs.toString()}`;
 }
 
 function jsonProp(props, ...keys) {
@@ -342,6 +420,59 @@ export const EU_CADASTRE_SOURCES = {
             return { refcat, areaM2: ringAreaM2(c.ring), address };
         },
     },
+    // ── L-651 Phase-5: the three formerly-inert providers whose upstream LIVE-PROBED clean ────────
+    // (Brussels / Wallonia / Scotland are deliberately absent — their upstreams do not answer, so
+    // they are registered as footprint-fallbacks in registry.ts rather than as dead routes here. An
+    // unknown `cc` 404s, which is the honest "no route" answer, not a silent empty parcel.)
+    pt: {
+        guard: (lat, lon) => lat >= 36.9 && lat <= 42.2 && lon >= -9.6 && lon <= -6.1,
+        url: ptUrl,
+        format: 'geojson',
+        source: 'dgt-cadastro-predial',
+        normalise: (c) => {
+            const p = c.props || {};
+            // `label` is the human NIC ("AAA 001 318 684"); `nationalcadastralreference` is the
+            // compact key; `inspireid` (PT.DGT.CP.…) is the stable INSPIRE id. Prefer the national
+            // reference, fall back to the INSPIRE id — never invent one.
+            const refcat = String(
+                jsonProp(p, 'nationalcadastralreference', 'inspireid', 'label') ?? '',
+            ).trim();
+            // `areavalue` is the registry-declared area in m²; fall back to the ring shoelace.
+            const areaM2 = Number(jsonProp(p, 'areavalue')) || ringAreaM2(c.ring);
+            const admin = jsonProp(p, 'administrativeunit');
+            return { refcat, areaM2, address: admin ? String(admin) : null };
+        },
+    },
+    'us-sf': {
+        guard: (lat, lon) => lat >= 37.7 && lat <= 37.84 && lon >= -122.53 && lon <= -122.35,
+        url: sfUrl,
+        format: 'socrata',
+        source: 'sf-datasf',
+        normalise: (c) => {
+            const p = c.props || {};
+            const refcat = String(jsonProp(p, 'blklot', 'mapblklot') ?? '').trim();
+            // The DataSF area field has ambiguous units, so area is ALWAYS geometry-derived here —
+            // a geometry fact rather than a guessed unit conversion.
+            const street = [
+                jsonProp(p, 'from_address_num'),
+                jsonProp(p, 'street_name'),
+                jsonProp(p, 'street_type'),
+            ].filter(Boolean).join(' ');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: street || null };
+        },
+    },
+    'us-chi': {
+        guard: (lat, lon) => lat >= 41.6 && lat <= 42.1 && lon >= -87.95 && lon <= -87.5,
+        url: chiUrl,
+        format: 'socrata',
+        source: 'chicago-cook',
+        normalise: (c) => {
+            const p = c.props || {};
+            const refcat = String(jsonProp(p, 'pin10', 'pin14', 'pin') ?? '').trim();
+            const muni = jsonProp(p, 'municipality');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: muni ? String(muni) : null };
+        },
+    },
 };
 
 async function fetchTextOnce(url, deps = {}) {
@@ -377,24 +508,52 @@ async function fetchTextOnce(url, deps = {}) {
  * `{ ring, refcat, areaM2, address }` or null. NEVER throws. `deps.fetchImpl` is injectable.
  */
 export async function fetchEuParcelAtPoint(cc, lon, lat, deps = {}) {
+    return (await resolveEuParcelOutcome(cc, lon, lat, deps)).parcel;
+}
+
+/**
+ * §CONTEXT-DATA-HONESTY (L-422/457/467/469) — the same resolution as `fetchEuParcelAtPoint`, but
+ * keeping the two states that a bare `parcel | null` COLLAPSES:
+ *
+ *   • `outcome: 'unreachable'` — the upstream cadastre did not answer (network failure, timeout,
+ *     non-OK status, empty body). We do NOT know whether a parcel exists here.
+ *   • `outcome: 'empty'`       — the cadastre ANSWERED and published nothing at this point. This is
+ *     a real, authoritative "no parcel here".
+ *   • `outcome: 'ok'`          — a parcel was resolved.
+ *
+ * Before this split, an outage and a genuine coverage gap both returned `null`, so a cadastre
+ * falling over degraded silently into "this country has no parcels" and the client dropped to the
+ * OSM footprint without ever learning the authoritative source had failed — exactly the bug family
+ * this repo keeps re-encountering. `fetchEuParcelAtPoint` keeps its old signature for existing
+ * callers; new callers should prefer this.
+ *
+ * @returns {Promise<{ outcome:'ok'|'empty'|'unreachable'|'unknown-source'|'bad-input'|'out-of-area', parcel: object|null }>}
+ */
+export async function resolveEuParcelOutcome(cc, lon, lat, deps = {}) {
     const cfg = EU_CADASTRE_SOURCES[cc];
-    if (!cfg) return null;
-    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
-    if (!cfg.guard(lat, lon)) return null;
+    if (!cfg) return { outcome: 'unknown-source', parcel: null };
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return { outcome: 'bad-input', parcel: null };
+    // Outside the source's own territory: an authoritative "not covered", NOT a failure.
+    if (!cfg.guard(lat, lon)) return { outcome: 'out-of-area', parcel: null };
 
     const text = await fetchTextOnce(cfg.url(lat, lon), deps);
-    if (!text) return null;
+    // A null body means the upstream never answered — the ONE case that must not read as "empty".
+    if (!text) return { outcome: 'unreachable', parcel: null };
 
     const candidates = cfg.format === 'geojson'
         ? parseGeoJsonCandidates(text)
         : cfg.format === 'esrijson'
             ? parseEsriJsonCandidates(text)
-            : parseGmlCandidates(text, cfg.axis);
+            : cfg.format === 'socrata'
+                ? parseSocrataCandidates(text)
+                : parseGmlCandidates(text, cfg.axis);
     const chosen = pickCandidate(candidates, lat, lon);
-    if (!chosen) return null;
+    if (!chosen) return { outcome: 'empty', parcel: null };
 
     const meta = cfg.normalise(chosen);
-    if (!meta.refcat) return null;
+    // A feature with geometry but no usable identifier is not a parcel we can cite — treat it as an
+    // authoritative empty rather than an outage (the source DID answer).
+    if (!meta.refcat) return { outcome: 'empty', parcel: null };
     const result = {
         ring: chosen.ring,
         refcat: meta.refcat,
@@ -402,7 +561,7 @@ export async function fetchEuParcelAtPoint(cc, lon, lat, deps = {}) {
         address: meta.address,
     };
     cacheSet(`${cc}:${meta.refcat}`, result);
-    return result;
+    return { outcome: 'ok', parcel: result };
 }
 
 function setProxyCacheHeaders(res) {
@@ -434,21 +593,30 @@ export function makeEuParcelHandler(deps = {}) {
 
         // The refcat cache lives inside fetchEuParcelAtPoint (keyed by the WFS-returned id);
         // a point→refcat cache is impossible before the WFS answers, exactly like the Catastro proxy.
+        let outcome = 'unreachable';
         let parcel = null;
         try {
-            parcel = await fetchEuParcelAtPoint(cc, lon, lat, deps);
+            ({ outcome, parcel } = await resolveEuParcelOutcome(cc, lon, lat, deps));
         } catch (err) {
             console.warn(`[eu-cadastre] unexpected error (${cc}):`, err?.message ?? err);
+            outcome = 'unreachable';
             parcel = null;
         }
 
         setProxyCacheHeaders(res);
         if (!parcel) {
+            // §CONTEXT-DATA-HONESTY: `parcel: null` is kept for back-compat, but `outcome` now says
+            // WHY it is null, so a caller can tell "this cadastre is down" from "this cadastre says
+            // there is nothing here". An unreachable answer is NOT cached and is not revalidated as
+            // though it were a real empty.
+            if (outcome === 'unreachable') res.setHeader('Cache-Control', 'no-store');
             res.setHeader('X-Cadastre-Cache', 'MISS-EMPTY');
-            return res.status(200).json({ parcel: null });
+            res.setHeader('X-Cadastre-Outcome', outcome);
+            return res.status(200).json({ parcel: null, outcome });
         }
         res.setHeader('X-Cadastre-Cache', 'HIT-OR-FETCH');
-        return res.status(200).json({ parcel: { ...parcel, source: cfg.source } });
+        res.setHeader('X-Cadastre-Outcome', 'ok');
+        return res.status(200).json({ parcel: { ...parcel, source: cfg.source }, outcome: 'ok' });
     };
 }
 
