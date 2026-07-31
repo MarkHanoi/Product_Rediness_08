@@ -94,6 +94,7 @@ ch/
     VERIFICATION.md              ← human sign-off status
   findings/
     SWITZERLAND-MASTER-DATA-SOURCE-STUDY.md  ← full country study (Part 1–9)
+    SWITZERLAND-FORENSIC-RESEARCH-2026-07-31.md  ← L1/L2/L3 model + Zürich BZO + Stadt-Zürich WFS live probe
   topics/
     buildings-lod-height.md      ← LOD2, GWR schema confirmed, CityGML 2.0 confirmed
     roads-pedestrian.md          ← swissTLM3D (GATE PASSED)

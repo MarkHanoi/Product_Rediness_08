@@ -258,7 +258,8 @@ be/
 │   ├── SOURCES.md                      ← per-field national data source citations
 │   └── VERIFICATION.md                 ← human sign-off (open)
 ├── findings/
-│   └── BELGIUM-MASTER-DATA-SOURCE-STUDY.md  ← full source/legal-mechanism study
+│   ├── BELGIUM-MASTER-DATA-SOURCE-STUDY.md  ← full source/legal-mechanism study
+│   └── BELGIUM-FORENSIC-RESEARCH-2026-07-31.md  ← Brussels + Wallonia forensic research (PDS→Wallex live probe)
 ├── topics/
 │   ├── buildings-lod-height.md
 │   ├── parks-trees.md
