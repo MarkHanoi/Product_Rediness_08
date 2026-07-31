@@ -59,6 +59,43 @@
 | 🇪🇸 Madrid | Legislation extraction template (Barcelona-format, PGOUM Compendio 2024, article-cited) | **IN-FLIGHT (docs)** — then BLOCKED on founder-sourced numeric values | *(agent)* | LEGISLATION (25 %, heaviest): template ready; values are the human-gated 65 % |
 | C63 scorecard | `CityCompletionScorecard` P5 schema + `computeScorecard.mjs` + `computeParcelConfidence` helper | **IN-FLIGHT (enabler)** | *(agent)* | Unblocks the NL/FR/NO/CH "measure-already-wired" moves + **recomputes every composite %** |
 
+### §0.5.1 — 2026-07-31 session (stamp: `a937a023`)
+
+> ⚠ **THE §0.5 TABLE ABOVE WAS MATERIALLY STALE and is corrected here.** Verified directly against
+> `parcelProviders/registry.ts` on `60d11aea`: **IT, BE-Flanders, US-NYC, FI and GB-England are ALREADY
+> WIRED** (predicates `isInItaly`, `isInFlanders`, `isInNYC`, `isInFinland`, `isInEngland` all imported
+> and registered) — the table lists them as pending. **Rule going forward: verify a wire against
+> `registry.ts`, never against this tracker.** (L-654)
+
+| Move | Status | Commit |
+|---|---|---|
+| 🇪🇸 **Murcia (30030) wired end to end** — S2 gate + live S3 WFS resolver + S5 registry + L5 dispatch + same-origin proxy | **LANDED + DEPLOYED** (v-current) | `60d11aea` |
+| 🇪🇸 **Murcia refusal correctness** — founder's parcel returned the WEAK refusal; now RR / TA-379 legally-grounded (L-653) | **LANDED, NOT DEPLOYED** | `7333374f` |
+| 🇪🇸 **Catastro block-route `areaM2: undefined`** — fed PGM Art. 242.2 *profunditat edificable* (L-652) | **LANDED, NOT DEPLOYED** | `a937a023` |
+
+**The structural finding that should reorder this board (L-654).** The binding constraint is **WIRING, not
+sourcing**. Authored, tested and **inert** on `60d11aea`: 6 parcel providers (`brussels`, `wallonia`,
+`dgt`/PT, `scotlandRos`, `sf`, `chicago`) with **0 refs** in `parcelProviders/registry.ts`; and 5 envelope
+packs (`frParisPluBioclimatique`, `nlBestemmingsplan`, `chZurichBzo`, `dkPerimeterBlock`,
+`esBarcelonaVolumetria18`) with **0 refs** in `rulepacks/registry.ts` — Switzerland registered as a
+*refusal* jurisdiction with an empty `packsByZone` while its own BZO pack sits unwired beside it.
+**ENVELOPE (20 pts) still has exactly one shipped city.** Several §1 "Phase-A first move" cells therefore
+overstate remaining effort: for FR/NL/CH the pack already exists and the cost is the 5-slot wire, not
+authoring. `60d11aea` is the canonical wiring exemplar.
+
+**⚠ Infrastructure gate on the HEIGHTS/TERRAIN axes (L-655).** GitHub Actions is under an intermittent
+**account-level billing block** (4 on/off flips in 30 h; repo is already public and all jobs are plain
+`ubuntu-latest`, so this is not a minutes quota). It killed the Murcia terrain bake (run 30633298436, 12 s).
+**Consequence: no HEIGHTS or TERRAIN axis can move until the founder clears it** — those axes ship as baked
+PMTiles / quantized-mesh to R2 via `context-bake.yml` / `terrain-bake.yml`, not via a Fly code deploy.
+LEGISLATION / ENVELOPE / PARCEL axes are unaffected (code deploys fine). **Plan approved by the founder,
+blocked on billing:** Murcia terrain canary → full 590-region sharded rollout (`terrain-bake-all.yml`,
+12 shards) → Spain buildings re-bake with measured MDS heights.
+
+**Agents in flight this session (8 launched):** CI diagnosis ✅ · Murcia live-prod verification ✅ ·
+envelope wiring FR/NL/CH · L-456 compliance panel · parcel-provider batch wire · Madrid PGOUM-97 pack ·
+Köln "German Barcelona" bake + LoD2 heights · CI gate restoration (L-651).
+
 **Founder decisions locked this session (govern the board):**
 - 🇩🇰 DK + 🇸🇪 SE = **offline-legislation + deferred-live-data** — authoritative cadastre is identity-bootstrap-gated (MitID / BankID) and un-clearable by a foreign founder; both ship on canonical **stub adapters** (fill one method later, no engine change). Parcel axis = *access-deferred*, scored honestly, **not** a code gap.
 - 🇫🇮 FI = **only self-service unblock** — MML API key is create-it-yourself online; the one easy full-country win (pending founder key).
