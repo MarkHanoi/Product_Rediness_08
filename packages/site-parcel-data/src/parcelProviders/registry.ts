@@ -34,6 +34,7 @@
 //
 // LIVE-PROBE EVIDENCE (2026-07-24) is in docs/04-reference/jurisdictions/PARCEL-SELECT-COVERAGE.md.
 
+import { trace, SpanStatusCode } from '@opentelemetry/api';
 import {
     isInSpain,
     isInFrance,
@@ -44,16 +45,27 @@ import {
     isInSwitzerland,
     isInDenmark,
     isInSaudiArabia,
+    SPAIN_BBOX,
+    FRANCE_BBOX,
+    NETHERLANDS_BBOX,
+    NORWAY_BBOX,
+    NRW_BBOX,
+    GERMANY_BBOX,
+    SWITZERLAND_BBOX,
+    DENMARK_BBOX,
+    SAUDI_ARABIA_BBOX,
 } from './countryBbox.js';
 // L-650 Phase-4 batch — the new cadastral predicates live in their own provider modules (each
 // provider owns its bbox + WFS/CRS knowledge, so the predicate ships beside the parser it gates).
-// Imported here purely for ROUTING. ⚠ These coarse boxes DO overlap existing jurisdictions at
-// borders — see the `// TODO: bbox-intersection + priority-fallback` note on PARCEL_JURISDICTIONS.
-import { isInItaly } from './agenziaEntrateParcelProvider.js';
-import { isInFlanders } from './flandersGrbParcelProvider.js';
-import { isInNYC } from './nycPlutoParcelProvider.js';
-import { isInFinland } from './mmlParcelProvider.js';
-import { isInEngland } from './gbOsInspireParcelProvider.js';
+// Imported here for ROUTING (the predicate) AND for SPECIFICITY (the bbox → area, so the smallest
+// enclosing box wins the per-point priority resolver below — no manual tie-break order).
+import { isInItaly, ITALY_BBOX } from './agenziaEntrateParcelProvider.js';
+import { isInFlanders, FLANDERS_BBOX } from './flandersGrbParcelProvider.js';
+import { isInNYC, NYC_BBOX } from './nycPlutoParcelProvider.js';
+import { isInFinland, FINLAND_BBOX } from './mmlParcelProvider.js';
+import { isInEngland, ENGLAND_BBOX } from './gbOsInspireParcelProvider.js';
+
+const _tracer = trace.getTracer('pryzm.parcel');
 
 /** How a click resolves to parcel geometry. */
 export type ParcelProviderKind = 'cadastral' | 'footprint-fallback';
@@ -80,34 +92,32 @@ export interface ParcelJurisdiction {
 }
 
 /**
- * ORDER MATTERS — first match wins, and these are COARSE rectangles that overlap at borders, so
- * the order encodes the tie-breaks:
- *   • NRW precedes NL so Düsseldorf (in both boxes) routes to the open ALKIS cadastre, not to the
- *     Dutch proxy (which would return null there → a wasted round-trip). Twente border towns are the
- *     inverse casualty and self-correct to footprint — acceptable for a proximity gate.
- *   • CH precedes the whole-Germany footprint entry so Zurich (which pokes into GERMANY_BBOX at
- *     47.37°N) routes to the Swiss AV cadastre, not to the German footprint. Since L-627 CH is
- *     cadastral, so this ordering now genuinely protects a real cadastre (not just the label).
- * A misroute to a neighbour's CADASTRAL proxy is self-correcting (that proxy returns null for a
- * point outside its territory → the client falls to the footprint), so the only hard requirement
- * is that each country's INTERIOR routes to its own cadastre — which the tightened boxes ensure.
+ * ROW ORDER IS NO LONGER LOAD-BEARING (L-650 fix). The dispatch below (`resolveParcelCandidates` /
+ * `resolveParcelWithFallback`) is a per-point PRIORITY-FALLBACK resolver, not first-match: it finds
+ * EVERY jurisdiction whose `contains` is true, orders them by SPECIFICITY (smallest bbox area first
+ * — `parcelJurisdictionSpecificity`, derived from the row's bbox, never a manual order), then tries
+ * them in that order and falls THROUGH to the next candidate whenever a provider yields null / no
+ * parcel / an unreachable proxy. The most-specific enclosing box therefore wins, and a proxy-pending
+ * NEW provider transparently yields to the enclosing LIVE cadastre.
  *
- * ── L-650 Phase-4 batch (IT / BE-Flanders / GB-England / FI / US-NYC) — READ THE ORDERING ──────
- * The four European additions are COARSE rectangles that overlap the interiors of existing broad
- * boxes, so first-match order is load-bearing and they are placed to protect the NEW cadastre's core:
- *   • BE-Flanders, GB-England, FI are placed BEFORE FR/NL/NO because each is enclosed by one of them
- *     (FI sits ENTIRELY inside NORWAY_BBOX; Flanders inside NL+FR; England's south coast inside FR).
- *     Placing them first routes Antwerp/Ghent, London/Brighton and Helsinki to their OWN cadastre.
- *   • IT is placed AFTER CH (so Bern/Lugano keep swisstopo) and after FR (Nice keeps IGN); the NW
- *     Italian border strip west of 8.3°E (Turin) is the self-correcting casualty.
- *   • US-NYC has NO overlap with any box (Western hemisphere) — position is free.
- * ⚠ KNOWN BORDER REGRESSIONS from these coarse boxes (documented, self-correcting to the footprint,
- * NOT a real cadastre): the Dutch SE strip inside FLANDERS_BBOX (Eindhoven/Maastricht), the NE
- * Norwegian Finnmark inside FINLAND_BBOX (Kirkenes), and Calais inside ENGLAND_BBOX now route to the
- * NEW (proxy-pending) provider → null → footprint instead of their own live cadastre.
- * // TODO: bbox-intersection + priority-fallback — replace this first-match ordering with a real
- * // per-point priority resolver (try the most-specific cadastre, fall THROUGH to the next box on a
- * // null result instead of straight to the footprint) or polygon gates. Additive rows only for now.
+ * This eliminates the coarse-bbox border regressions the Phase-4 batch (56d6970f) introduced — the
+ * overlaps below are now RESOLVED, not merely tolerated:
+ *   • NRW ⊂ NL ⊂ Germany: Düsseldorf's smallest box is NRW → ALKIS wins; a Twente miss falls
+ *     through to NL, no wasted dead-end.
+ *   • CH ⊂ Germany: Zürich's smallest box is CH → swisstopo AV wins.
+ *   • FI ⊂ NO: Helsinki's smallest box is FI → MML wins; NE Finnmark (Kirkenes) sits in FI∩NO, and
+ *     when the FI proxy returns null the resolver falls THROUGH to NO → the live Kartverket cadastre.
+ *   • BE-Flanders ⊂ NL+FR: Antwerp/Ghent's smallest box is Flanders → GRB wins; the Dutch SE strip
+ *     (Eindhoven/Maastricht) sits in BE∩NL, and when the (proxy-pending) BE provider yields null the
+ *     resolver falls THROUGH to NL → the live PDOK cadastre.
+ *   • GB-England ⊂ FR: London/Brighton's smallest box is England; Calais sits in GB∩FR, and when the
+ *     (proxy-pending) GB provider yields null the resolver falls THROUGH to FR → the live IGN cadastre.
+ *   • IT ⊂ (near CH/FR): Italy's interior is IT; a NW border point (Turin strip / Bern / Nice) whose
+ *     smaller enclosing box is CH or FR is tried first and self-corrects on the containing cadastre.
+ *   • US-NYC has NO overlap with any box (Western hemisphere).
+ * A misroute to a neighbour's CADASTRAL proxy remains self-correcting (that proxy returns null for a
+ * point outside its territory → fall through), and every unmatched point ends at the universal
+ * footprint. Rows stay ADDITIVE — order is purely cosmetic now; specificity decides everything.
  */
 const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
     {
@@ -294,10 +304,72 @@ export const UNIVERSAL_FOOTPRINT_JURISDICTION: ParcelJurisdiction = {
 };
 
 /**
- * Route a WGS84 click-point to the parcel jurisdiction that answers there. The ONE question the
- * editor's parcel registry asks. NEVER throws and ALWAYS returns a verdict: an unmatched point
- * yields `UNIVERSAL_FOOTPRINT_JURISDICTION`, so a click is never dead (C58 §1.4 — selection works
- * everywhere; the footprint is honestly labelled).
+ * SPECIFICITY — the degree² area of a jurisdiction's coarse routing bbox (the row's own box, keyed
+ * by `regionCode` so the two `footprint` rows — DE / SA — stay distinct). SMALLER = more specific =
+ * higher priority. Derived from the bbox constants each provider already exports; NEVER a hand-kept
+ * order. The exclusion holes (Åland, Trentino) shrink the effective territory but not the outer box,
+ * which is exactly the right relative signal for "the smallest enclosing box wins". The universal
+ * fallback (and any unmapped region) sorts LAST (`+Infinity`).
+ */
+interface RectBbox {
+    readonly minLat: number;
+    readonly maxLat: number;
+    readonly minLon: number;
+    readonly maxLon: number;
+}
+const REGION_BBOX: Readonly<Record<string, RectBbox>> = {
+    ES: SPAIN_BBOX,
+    FR: FRANCE_BBOX,
+    NL: NETHERLANDS_BBOX,
+    NO: NORWAY_BBOX,
+    'DE-NW': NRW_BBOX,
+    DE: GERMANY_BBOX,
+    CH: SWITZERLAND_BBOX,
+    DK: DENMARK_BBOX,
+    SA: SAUDI_ARABIA_BBOX,
+    IT: ITALY_BBOX,
+    'BE-VLG': FLANDERS_BBOX,
+    'GB-ENG': ENGLAND_BBOX,
+    FI: FINLAND_BBOX,
+    'US-NY-NYC': NYC_BBOX,
+};
+
+/** The routing-bbox area (degree²) of a jurisdiction — its specificity metric. Smaller = wins first. */
+export function parcelJurisdictionSpecificity(jur: ParcelJurisdiction): number {
+    const b = REGION_BBOX[jur.regionCode];
+    if (!b) return Number.POSITIVE_INFINITY;
+    return (b.maxLat - b.minLat) * (b.maxLon - b.minLon);
+}
+
+/**
+ * Every jurisdiction whose coarse bbox CONTAINS the point, ordered MOST-SPECIFIC first (smallest
+ * bbox area), with the registration order as a stable tie-break. The candidate list a per-point
+ * priority-fallback resolver walks: try the tightest enclosing cadastre first, fall through to the
+ * next when it yields nothing. PURE + never throws; a non-finite / unmatched point yields `[]`.
+ */
+export function resolveParcelCandidates(lat: number, lon: number): readonly ParcelJurisdiction[] {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return [];
+    const matches: ParcelJurisdiction[] = [];
+    for (const j of PARCEL_JURISDICTIONS) {
+        if (j.contains(lat, lon)) matches.push(j);
+    }
+    return matches.sort((a, b) => {
+        const d = parcelJurisdictionSpecificity(a) - parcelJurisdictionSpecificity(b);
+        if (d !== 0) return d;
+        // Deterministic tie-break: earlier registration wins (never a coin-flip on equal areas).
+        return PARCEL_JURISDICTIONS.indexOf(a) - PARCEL_JURISDICTIONS.indexOf(b);
+    });
+}
+
+/**
+ * Route a WGS84 click-point to a SINGLE primary parcel jurisdiction (legacy first-match by row
+ * order), or the universal OSM footprint when nothing matches. NEVER throws and ALWAYS returns a
+ * verdict, so a click is never dead (C58 §1.4). Kept for coverage/inspection callers.
+ *
+ * ⚠ This is a COARSE single verdict — with overlapping boxes it cannot know which provider actually
+ * ANSWERS (a Barcelona click is inside FRANCE_BBOX too, but only Catastro serves it). Callers doing
+ * the real fetch MUST use `resolveParcelWithFallback`, which walks EVERY enclosing box most-specific
+ * first and falls THROUGH on a miss — that is the path that fixes the border regressions.
  */
 export function resolveParcelJurisdiction(lat: number, lon: number): ParcelJurisdiction {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return UNIVERSAL_FOOTPRINT_JURISDICTION;
@@ -305,6 +377,72 @@ export function resolveParcelJurisdiction(lat: number, lon: number): ParcelJuris
         if (j.contains(lat, lon)) return j;
     }
     return UNIVERSAL_FOOTPRINT_JURISDICTION;
+}
+
+/** A successful priority-fallback resolution: the parcel and the jurisdiction whose provider yielded it. */
+export interface ParcelFallbackHit<T> {
+    readonly jurisdiction: ParcelJurisdiction;
+    readonly parcel: T;
+}
+
+/**
+ * PER-POINT PRIORITY-FALLBACK dispatch — the L-650 border-regression fix. Walks the point's
+ * candidates most-specific first (`resolveParcelCandidates`) and calls the injected per-jurisdiction
+ * `fetchFor` on each, returning the FIRST non-null parcel together with its jurisdiction. Falls
+ * THROUGH to the next candidate whenever a provider returns null / no-parcel / an unreachable proxy
+ * (or throws — swallowed, never propagated), so a proxy-pending NEW provider transparently yields to
+ * the enclosing LIVE cadastre (Eindhoven BE→NL, Kirkenes FI→NO, Calais GB→FR). Returns `null` when
+ * every candidate yields nothing — the caller then applies its universal footprint fallback.
+ *
+ * The impure fetch is INJECTED (`fetchFor`) so this stays pure of network I/O and unit-testable; the
+ * editor passes a callback that hits each jurisdiction's same-origin cadastre proxy. NEVER throws.
+ * P8 span: `pryzm.parcel.resolveParcelWithFallback`.
+ */
+export async function resolveParcelWithFallback<T>(
+    lat: number,
+    lon: number,
+    fetchFor: (jurisdiction: ParcelJurisdiction) => Promise<T | null> | T | null,
+): Promise<ParcelFallbackHit<T> | null> {
+    const span = _tracer.startSpan('pryzm.parcel.resolveParcelWithFallback');
+    try {
+        const candidates = resolveParcelCandidates(lat, lon);
+        span.setAttribute('pryzm.parcel.lat', Number.isFinite(lat) ? lat : Number.NaN);
+        span.setAttribute('pryzm.parcel.lon', Number.isFinite(lon) ? lon : Number.NaN);
+        span.setAttribute('pryzm.parcel.candidateCount', candidates.length);
+        span.setAttribute(
+            'pryzm.parcel.candidates',
+            candidates.map((c) => c.providerId).join(','),
+        );
+        for (const jurisdiction of candidates) {
+            let parcel: T | null = null;
+            try {
+                parcel = await fetchFor(jurisdiction);
+            } catch (err) {
+                // A provider that throws is treated as a miss — fall through, never propagate.
+                console.warn(
+                    `[parcel-registry] ${jurisdiction.providerId} threw (non-fatal) — falling through:`,
+                    (err as Error)?.message ?? err,
+                );
+                parcel = null;
+            }
+            if (parcel != null) {
+                span.setAttribute('pryzm.parcel.hit', true);
+                span.setAttribute('pryzm.parcel.resolvedBy', jurisdiction.providerId);
+                span.setAttribute('pryzm.parcel.region', jurisdiction.regionCode);
+                span.setStatus({ code: SpanStatusCode.OK });
+                return { jurisdiction, parcel };
+            }
+        }
+        span.setAttribute('pryzm.parcel.hit', false);
+        span.setStatus({ code: SpanStatusCode.OK });
+        return null;
+    } catch (err) {
+        // Defensive: the whole path is best-effort — never throw into the caller.
+        span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
+        return null;
+    } finally {
+        span.end();
+    }
 }
 
 /** Every registered parcel jurisdiction — read by the coverage doc / a future coverage globe. */

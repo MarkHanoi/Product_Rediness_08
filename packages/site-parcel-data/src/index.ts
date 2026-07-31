@@ -808,10 +808,14 @@ export {
 //    (isInSwitzerland / SWITZERLAND_BBOX come from the CH block above — the canonical export.)
 export {
     resolveParcelJurisdiction,
+    resolveParcelCandidates,
+    resolveParcelWithFallback,
+    parcelJurisdictionSpecificity,
     listParcelJurisdictions,
     UNIVERSAL_FOOTPRINT_JURISDICTION,
     type ParcelJurisdiction,
     type ParcelProviderKind,
+    type ParcelFallbackHit,
 } from './parcelProviders/registry.js';
 export {
     isInSpain, SPAIN_BBOX,

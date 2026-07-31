@@ -18,7 +18,12 @@
 // · 'alkis-nrw' · 'swisstopo-av' · 'footprint (OSM)') is the honest per-parcel provenance the info card renders.
 
 import { trace } from '@opentelemetry/api';
-import { resolveParcelJurisdiction, type ParcelJurisdiction } from '@pryzm/site-parcel-data';
+import {
+    resolveParcelJurisdiction,
+    resolveParcelCandidates,
+    resolveParcelWithFallback,
+    type ParcelJurisdiction,
+} from '@pryzm/site-parcel-data';
 import type { ParcelFeature, ParcelProvider } from './ParcelProvider.js';
 import { catastroParcelProvider } from './CatastroParcelProvider.js';
 import { dkMatrikelParcelProvider } from './DkMatrikelParcelProvider.js';
@@ -76,26 +81,35 @@ export const registryParcelProvider: ParcelProvider = {
                 span.setAttribute('pryzm.parcel.hit', false);
                 return null;
             }
-            const jur = resolveParcelJurisdiction(lat, lon);
-            span.setAttribute('pryzm.parcel.region', jur.regionCode);
-            span.setAttribute('pryzm.parcel.provider', jur.providerId);
-            span.setAttribute('pryzm.parcel.kind', jur.kind);
             span.setAttribute('pryzm.parcel.lon', lon);
             span.setAttribute('pryzm.parcel.lat', lat);
+            span.setAttribute(
+                'pryzm.parcel.candidates',
+                resolveParcelCandidates(lat, lon).map((c) => c.providerId).join(','),
+            );
 
-            const cadastral = cadastralProviderFor(jur);
-            if (cadastral) {
-                const hit = await cadastral.fetchParcelAtPoint(lon, lat);
-                if (hit) {
-                    span.setAttribute('pryzm.parcel.hit', true);
-                    span.setAttribute('pryzm.parcel.resolvedBy', 'cadastral');
-                    return hit;
-                }
-                console.log(
-                    `[gis] parcel-registry: ${jur.providerId} (cadastral) miss at ` +
-                    `${lat.toFixed(5)},${lon.toFixed(5)} — falling back to the OSM footprint.`,
-                );
+            // PER-POINT PRIORITY-FALLBACK (L-650) — try each enclosing cadastre most-specific first,
+            // falling THROUGH to the next when a provider misses. This is what fixes the coarse-bbox
+            // border regressions: a proxy-pending NEW cadastre (BE/GB/IT/FI) that returns null hands
+            // off to the enclosing LIVE one (Eindhoven BE→NL, Kirkenes FI→NO, Calais GB→FR) instead of
+            // dropping straight to the footprint. Footprint-fallback jurisdictions have no cadastral
+            // provider → they contribute nothing and the resolver continues.
+            const hit = await resolveParcelWithFallback<ParcelFeature>(lat, lon, (jur) => {
+                const cadastral = cadastralProviderFor(jur);
+                return cadastral ? cadastral.fetchParcelAtPoint(lon, lat) : null;
+            });
+            if (hit) {
+                span.setAttribute('pryzm.parcel.region', hit.jurisdiction.regionCode);
+                span.setAttribute('pryzm.parcel.provider', hit.jurisdiction.providerId);
+                span.setAttribute('pryzm.parcel.kind', hit.jurisdiction.kind);
+                span.setAttribute('pryzm.parcel.hit', true);
+                span.setAttribute('pryzm.parcel.resolvedBy', 'cadastral');
+                return hit.parcel;
             }
+            console.log(
+                `[gis] parcel-registry: no cadastre answered at ` +
+                `${lat.toFixed(5)},${lon.toFixed(5)} — falling back to the OSM footprint.`,
+            );
 
             const footprint = await footprintParcelProvider.fetchParcelAtPoint(lon, lat);
             span.setAttribute('pryzm.parcel.hit', footprint !== null);
