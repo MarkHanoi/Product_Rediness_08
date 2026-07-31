@@ -29,7 +29,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // §PHASE1-HEIGHTS (North Star §6.1) — national real-height join. `heightSources.mjs` is side-effect-
 // free on import (its CLI is behind an isMain guard); `resolveHeights` never throws.
-import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, MDS_CITY_BBOXES } from './heightSources.mjs';
+import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, MDS_CITY_BBOXES } from './heightSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(HERE, 'out');
@@ -105,6 +105,23 @@ const REGIONS = [
   { name: 'milan',      pbfUrl: 'https://download.geofabrik.de/europe/italy/nord-ovest-latest.osm.pbf',               pbf: resolve(OUT, 'italy-nordovest-latest.osm.pbf'),        bbox: '9.10,45.40,9.28,45.55',    clipped: resolve(OUT, 'clip-milan.osm.pbf') },
   { name: 'berlin',     pbfUrl: 'https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf',                 pbf: resolve(OUT, 'germany-berlin-latest.osm.pbf'),         bbox: '13.28,52.44,13.55,52.58',  clipped: resolve(OUT, 'clip-berlin.osm.pbf') },
   { name: 'munich',     pbfUrl: 'https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf',                 pbf: resolve(OUT, 'germany-bayern-latest.osm.pbf'),         bbox: '11.44,48.09,11.66,48.20',  clipped: resolve(OUT, 'clip-munich.osm.pbf') },
+  // §BAKE-KOLN (2026-07-31) — ⚠ THE GAP THIS CLOSES. Köln already had a live cadastral parcel provider
+  // (`alkis-nrw`, keyless, behind `isInNRW`), a live measured HEIGHT source (`fetchLod2DeNrw`,
+  // impl:'live'), and a live TERRAIN region (terrain.mjs `koln` on the Geobasis NRW DGM1 WCS) — but NO
+  // bake REGION, so it had NO baked context tiles at all. A Köln parcel therefore resolved, and then
+  // rendered into an empty world ("No surrounding building data for this area" — the exact L-607 defect).
+  //
+  // bbox is BYTE-IDENTICAL to terrain.mjs's `koln` row (6.85,50.88,7.02,50.99) — deliberately, so the
+  // baked context and the baked terrain cover exactly the same ground. A context extent wider than the
+  // terrain extent is the "buildings floating off the edge of the DEM" defect; narrower is a visible
+  // context cliff inside real terrain. One number, one place to change it.
+  //
+  // §LOD2-NRW-OSM-JOIN — Köln is the FIRST German region with REAL measured heights: `heightJoin:'lod2nrw'`
+  // stamps LoD2-DE·NRW `bldg:measuredHeight` (keyless, DL-DE Zero 2.0, ~1 m accuracy) onto these OSM
+  // footprints, exactly as `spain` does with MDS and `denmark` with DHM. Live-measured 2026-07-31: this
+  // bbox is 182 NRW Kacheln / 3.90 GB, all present in the NRW index, ~18 MB/s → ~4 min of streaming.
+  // Berlin/Munich do NOT get this — LoD2-DE is per-LAND and they are different Länder (see REGION_SOURCE).
+  { name: 'koln',       pbfUrl: 'https://download.geofabrik.de/europe/germany/nordrhein-westfalen-latest.osm.pbf',    pbf: resolve(OUT, 'germany-nordrhein-westfalen-latest.osm.pbf'), bbox: '6.85,50.88,7.02,50.99', clipped: resolve(OUT, 'clip-koln.osm.pbf'), heightJoin: 'lod2nrw' },
   { name: 'london',     pbfUrl: 'https://download.geofabrik.de/europe/great-britain/england/greater-london-latest.osm.pbf', pbf: resolve(OUT, 'greater-london-latest.osm.pbf'),  bbox: '-0.20,51.44,0.02,51.55',   clipped: resolve(OUT, 'clip-london.osm.pbf') },
   // ⚠ Copenhagen's own city region was REMOVED 2026-07-26 — the whole-`denmark` region above
   // (national bbox, same denmark-latest.osm.pbf) fully contains it, so a separate Copenhagen clip
@@ -338,26 +355,32 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
     return;
   }
 
-  // §MDS-OSM-JOIN / §DHM-OSM-JOIN (L-6xx) — whole-country regions (spain/denmark) can't enumerate
-  // footprints via their national register per-tile, so they STAMP real heights onto bake's OWN OSM
-  // footprints (baseGeo). The stamped file has the SAME footprints with `height` added → a REPLACE
-  // input (no double-draw). Anything other than a measured `ok` keeps baseGeo at the honest OSM default.
-  if (r.heightJoin === 'mds' || r.heightJoin === 'dhm') {
+  // §MDS-OSM-JOIN / §DHM-OSM-JOIN / §LOD2-NRW-OSM-JOIN — regions whose authoritative height source
+  // can't be enumerated per-tile as FOOTPRINTS (spain/denmark: the national register refuses a
+  // whole-country query; koln: LoD2-DE is per-Land CityGML, and replacing the OSM clip would desync
+  // the buildings from the roads/water/landuse baked from that SAME clip). All three therefore STAMP
+  // real heights onto bake's OWN OSM footprints (baseGeo). The stamped file has the SAME footprints
+  // with `height` added → a REPLACE input (no double-draw). Anything other than a measured `ok` keeps
+  // baseGeo at the honest OSM default — never a fabricated height.
+  if (r.heightJoin === 'mds' || r.heightJoin === 'dhm' || r.heightJoin === 'lod2nrw') {
     const stamped = resolve(OUT, `${r.name}-buildings-stamped.geojsonseq`);
     const wsen = r.bbox.split(',').map(Number);
-    // §MDS = whole `spain` (many populated tiles); §DHM = whole `denmark`. Give the national bbox a
-    // generous tile cap so coverage is broad; a cap hit leaves the rest at the OSM default (honest).
-    const maxTiles = 20000;
+    // §MDS = whole `spain` (many populated raster tiles); §DHM = whole `denmark`. Give the national bbox
+    // a generous tile cap so coverage is broad; a cap hit leaves the rest at the OSM default (honest).
+    // §LOD2-NRW is a CITY bbox over 1 km CityGML Kacheln at ~20 MB each — 400 is ~2× the live-measured
+    // 182 Köln Kacheln, i.e. real headroom, while still stopping a mis-set bbox from downloading tens of
+    // GB before anyone notices (the join refuses a >0.6° span outright for the same reason).
+    const maxTiles = r.heightJoin === 'lod2nrw' ? 400 : 20000;
     // §PHASE-4 (es/RATE-IMPLEMENTATION-PLAN §Phase A) — stamp the MDS-capable metro capitals FIRST so
     // each is GUARANTEED measured heights (`pryzm:height_src=measured-lidar`) on re-bake, exactly like
     // Barcelona, even if the national maxTiles cap is reached mid-sweep. Only the whole-`spain` mds join
-    // has capitals; the DK dhm join passes none.
+    // has capitals; the DK dhm + DE lod2nrw joins pass none.
     const priorityBboxes = r.heightJoin === 'mds' ? MDS_CITY_BBOXES.map((c) => c.bbox) : [];
     let res;
     try {
-      res = r.heightJoin === 'mds'
-        ? await stampMdsHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, priorityBboxes })
-        : await stampDhmHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles });
+      if (r.heightJoin === 'mds') res = await stampMdsHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, priorityBboxes });
+      else if (r.heightJoin === 'dhm') res = await stampDhmHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles });
+      else res = await stampLod2NrwHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles });
     } catch (e) {
       res = { status: 'error', reason: e.message };
     }

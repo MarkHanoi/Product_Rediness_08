@@ -311,7 +311,11 @@ export const REGION_SOURCE = {
   paris: 'bdtopo', lyon: 'bdtopo',
   // CH
   zurich: 'swissbuildings3d', geneva: 'swissbuildings3d', bern: 'swissbuildings3d',
-  // DE — Berlin open; Munich (Bavaria) licence TBD → blocked per-Land.
+  // DE — per-LAND routing, not per-country. Köln (NRW) is the one German city whose height source is
+  // both open AND wired: `lod2de_nrw` is `impl:'live'` and the whole-city OSM join is built
+  // (bake.mjs heightJoin:'lod2nrw' → stampLod2NrwHeightsOnGeojsonseq). Berlin/Munich are DIFFERENT
+  // Länder with different endpoints — mapping them to NRW would be a lie, so they stay as they were.
+  koln: 'lod2de_nrw',
   berlin: 'lod2de',
   munich: { source: 'lod2de', status: 'blocked', reason: 'Bavaria LoD2 licence TBD (ZSHH INSPIRE-restricted)' },
   // DK
@@ -1837,6 +1841,381 @@ export async function stampSwissHeightsOnGeojsonseq(inPath, outPath, bbox, {
     tilesProcessed: processedTiles, tileErrors, emptyTiles, tileCapHit, tileGrid: `${nx}×${ny}`,
     note: `swisstopo nDSM (P90 of swissSURFACE3D−swissALTI3D) stamped onto OSM footprints → ${measured}/${records.length} ` +
       `footprint(s) got a MEASURED height (tagged); ${processedTiles} tile(s), ${tileErrors} raster error(s)${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}.`,
+  };
+}
+
+// ── DE/NRW WHOLE-CITY join — stamp LoD2-DE·NRW `measuredHeight` onto bake's OWN OSM footprints. ──
+// §LOD2-NRW-OSM-JOIN (2026-07-31) — the DE analogue of the ES MDS / DK DHM / CH swisstopo joins above,
+// and the Köln ("the German Barcelona") real-height path. It differs from those three in ONE structural
+// way, and the difference is the whole design:
+//
+//   • ES/DK/CH join a RASTER. Per footprint they sample an nDSM grid and take a P90 — the height is
+//     COMPUTED from pixels, so the honest failure mode is "too few clean samples → no height".
+//   • NRW publishes VECTORS. `LoD2-DE · NRW` is 35,022 keyless 1 km CityGML Kacheln in which EVERY
+//     <bldg:Building> already carries an authoritative `bldg:measuredHeight` (LiDAR/photogrammetric,
+//     ~1 m accuracy) plus its own LoD0 `bldg:GroundSurface` ring. So there is NOTHING to compute: the
+//     join is a SPATIAL MATCH between two footprint sets, and the height is transcribed, not derived.
+//
+// WHY JOIN AT ALL rather than REPLACE the OSM clip with the NRW buildings (SOURCE_COVERAGE marks
+// `lod2de_nrw` 'full' → 'replace')? Because REPLACE would swap out the footprints the rest of the bake
+// is coherent with: `roads`/`water`/`landuse`/`rail`/`trees` all come from the SAME OSM clip, and OSM's
+// `building=*` subtypes drive the client's `belongsToLayer()`. Stamping keeps ONE footprint set (no
+// double-draw, no id churn, no client change) and adds only what NRW uniquely has — a measured metre.
+// This is the exact property §MDS-OSM-JOIN was built for; the source shape changed, the pattern did not.
+//
+// KEYLESS (opengeodata.nrw.de, DL-DE Zero 2.0 — NO api key, NO repo secret; unlike DK's DATAFORDELER_API_KEY).
+//
+// §CONTEXT-DATA-HONESTY — the three different values this function keeps DIFFERENT:
+//   1. index unreachable        → `blocked` (the service is down; we know nothing) — LOUD, no partial.
+//   2. every tile absent from   → `no-source` (the bbox is not in NRW) — a genuine "there is no data
+//      the NRW index               here", NOT a failure.
+//   3. tile fetched, footprint  → the footprint keeps its ORIGINAL OSM tags untouched (its own
+//      matched nothing             height/levels, else the client's assumed 9 m default). Never a
+//                                  fabricated number, never a neighbour's height borrowed by proximity.
+// A raster/parse error or the `maxTiles` cap leaves those footprints at the OSM default and is COUNTED
+// in the return (tileErrors / tileCapHit), so a partial join can never read as a complete one.
+const NRW_TILE_M = 1000;          // the NRW Kachel edge — the tiling grid IS the publisher's own grid.
+const NRW_MATCH_GRID_M = 50;      // uniform spatial index cell for candidate lookup within a Kachel.
+
+/**
+ * Stream ONE 1 km NRW CityGML Kachel and yield its buildings WITHOUT ever holding the whole file.
+ *
+ * ⚠ WHY STREAMING AND NOT `httpGet`. A Köln-area LoD2 Kachel is 14–77 MB of GML (live-measured
+ * 2026-07-31: the Köln city grid is 182 tiles / 3.90 GB, ~20.6 MB mean). `res.text()` on that is a
+ * ~77 MB JS string, and `.match(/<bldg:Building…/g)` then allocates a second copy of it as an array of
+ * substrings — ~300 MB peak per tile, on a runner that is also holding the OSM footprint set. Reading
+ * the body as a stream and slicing complete <bldg:Building>…</bldg:Building> blocks out of a rolling
+ * buffer keeps peak memory at one building (a few KB) regardless of tile size. `fetchLod2DeNrw` above
+ * keeps its simpler whole-body form deliberately — it is a single-tile PROBE, not a 182-tile sweep.
+ *
+ * Per building: `bldg:measuredHeight` + the LoD0 `bldg:GroundSurface` ring in NATIVE EPSG:25832.
+ * Native is the point — the OSM footprints are projected INTO UTM32 once, so the match is exact metres
+ * with no reprojection of the (far more numerous) NRW rings and no lat/lon anisotropy.
+ * Never throws; returns `{ ok:false, reason }` on any transport/parse failure.
+ */
+async function streamNrwKachel(url, { timeoutMs = 120_000, maxBufferBytes = 32_000_000 } = {}) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), timeoutMs);
+  const out = [];
+  try {
+    const res = await fetch(url, { redirect: 'follow', signal: ctl.signal });
+    if (!res.ok) return { ok: false, status: res.status, reason: `HTTP ${res.status}` };
+    if (!res.body) return { ok: false, status: res.status, reason: 'no response body' };
+    const dec = new TextDecoder('utf-8');
+    let buf = '';
+    const OPEN = '<bldg:Building ', CLOSE = '</bldg:Building>';
+    const drain = () => {
+      for (;;) {
+        const a = buf.indexOf(OPEN);
+        if (a < 0) {
+          // No open tag in the buffer — keep only a short tail (a tag may straddle the chunk edge).
+          if (buf.length > OPEN.length) buf = buf.slice(-OPEN.length);
+          return;
+        }
+        const b = buf.indexOf(CLOSE, a);
+        if (b < 0) {
+          buf = buf.slice(a);                       // hold the incomplete block, drop everything before it
+          return;
+        }
+        const block = buf.slice(a, b + CLOSE.length);
+        buf = buf.slice(b + CLOSE.length);
+        const rec = nrwBuildingFromBlock(block);
+        if (rec) out.push(rec);
+      }
+    };
+    for await (const chunk of res.body) {
+      buf += dec.decode(chunk, { stream: true });
+      drain();
+      // A pathological file with no closing tag must not grow the buffer without bound.
+      if (buf.length > maxBufferBytes) return { ok: false, reason: `unterminated <bldg:Building> past ${maxBufferBytes} chars` };
+    }
+    buf += dec.decode();
+    drain();
+    return { ok: true, buildings: out };
+  } catch (err) {
+    return { ok: false, reason: String(err?.message ?? err) };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/** ONE <bldg:Building> block → `{ E, N, areaM2, h, roof, ring }` in native EPSG:25832, or null.
+ *  Regexes are DELIBERATELY the same ones `fetchLod2DeNrw` uses, so both paths transcribe the SAME
+ *  field from the SAME element — the probe and the bake can never disagree about what NRW said. */
+function nrwBuildingFromBlock(block) {
+  const hm = block.match(/measuredHeight[^>]*>\s*([\d.]+)\s*</i);
+  if (!hm) return null;
+  const h = Number(hm[1]);
+  if (!Number.isFinite(h) || h <= 0) return null;
+  const gs = block.match(/GroundSurface[\s\S]*?<gml:posList[^>]*>([\s\S]*?)<\/gml:posList>/i);
+  if (!gs) return null;
+  const ring = parseNativeRing(gs[1], 3);           // X Y Z, constant Z → native [E,N] ring
+  if (!ring) return null;
+  // Shoelace area + area centroid (not the vertex mean — an L-shaped Gebäudeteil's vertex mean can sit
+  // outside the ring, which would make the containment test lie about which footprint owns it).
+  let a2 = 0, cx = 0, cy = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const cross = ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1];
+    a2 += cross;
+    cx += (ring[j][0] + ring[i][0]) * cross;
+    cy += (ring[j][1] + ring[i][1]) * cross;
+  }
+  const areaM2 = Math.abs(a2) / 2;
+  let E, N;
+  if (Math.abs(a2) > 1e-6) { E = cx / (3 * a2); N = cy / (3 * a2); }
+  else {                                             // degenerate ring → honest vertex mean fallback
+    E = 0; N = 0;
+    for (const [x, y] of ring) { E += x; N += y; }
+    E /= ring.length; N /= ring.length;
+  }
+  if (!Number.isFinite(E) || !Number.isFinite(N)) return null;
+  const rtCode = (block.match(/roofType[^>]*>\s*(\d+)\s*</i) ?? [])[1];
+  // ⚠ DELIBERATE DIVERGENCE from `fetchLod2DeNrw`'s `NRW_ROOF[rtCode] ?? rtCode`. That fallback
+  // resurrects an UNMAPPED AdV code as the tag value — including 9999, which NRW_ROOF maps to
+  // `undefined` precisely because it MEANS "Sonstiges/unknown". Emitting `roof_type=9999` presents an
+  // unknown roof as a known one to the client's LoD2 tier. Here an unmapped or explicitly-unknown code
+  // emits NO `roof_type` at all: an absent tag is honest, a numeric code masquerading as a shape is not.
+  const roof = rtCode && rtCode in NRW_ROOF ? NRW_ROOF[rtCode] : undefined;
+  return { E, N, areaM2, h, roof, ring };
+}
+
+/** AREA-WEIGHTED P90 of a set of matched LoD2 parts — the vector analogue of the P90 the ES/DK/CH nDSM
+ *  joins take over a raster (see the HEIGHT RULE note on stampLod2NrwHeightsOnGeojsonseq). Sort by
+ *  height ascending, walk cumulative ground area, return the height at the 90th area percentile. A
+ *  single part returns its own height exactly; zero-area parts fall back to an equal weighting rather
+ *  than dividing by zero. */
+function areaWeightedP90(parts, p = 90) {
+  if (parts.length === 1) return parts[0].h;
+  const sorted = [...parts].sort((a, b) => a.h - b.h);
+  let total = 0;
+  for (const b of sorted) total += Math.max(0, b.areaM2);
+  if (!(total > 0)) return sorted[Math.min(sorted.length - 1, Math.round((p / 100) * (sorted.length - 1)))].h;
+  const target = (p / 100) * total;
+  let acc = 0;
+  for (const b of sorted) {
+    acc += Math.max(0, b.areaM2);
+    if (acc >= target) return b.h;
+  }
+  return sorted[sorted.length - 1].h;
+}
+
+/** The roof SHAPE of the largest-area matched part (a shape has no percentile — see the call site). */
+function dominantRoof(parts) {
+  let best = null;
+  for (const b of parts) if (!best || b.areaM2 > best.areaM2) best = b;
+  return best?.roof;
+}
+
+/**
+ * Stamp REAL LoD2-DE·NRW `measuredHeight` onto an EXISTING OSM buildings GeoJSONSeq (bake's own clip).
+ *
+ * Reads `inPath`, walks the NRW 1 km Kachel grid over `bbox`, fetches ONLY Kacheln that actually contain
+ * OSM footprints, and for each footprint sets `height` = the measured height of the LoD2 building part it
+ * spatially owns (+ `roof_type`, + the `pryzm:height_src=measured-lidar` marker so the client ranks it
+ * ABOVE an OSM-surveyed `tagged` height). Writes every footprint — stamped or original — to `outPath`,
+ * so the result is a REPLACE input for the region with no double-draw. Never throws.
+ *
+ * MATCH RULE (both directions, tightest first — no proximity guessing anywhere):
+ *   1. FORWARD  — LoD2 ground-ring centroids that fall INSIDE the OSM exterior ring (and in no hole).
+ *      This is the normal case and handles the common German shape of one OSM way over N Gebäudeteile.
+ *   2. REVERSE  — else, the OSM centroid inside a LoD2 ground ring. Catches an OSM footprint drawn
+ *      smaller/offset than the cadastral outline.
+ *   3. NEITHER  → NO stamp. The footprint keeps its own OSM tags and the client's honest provenance.
+ *
+ * HEIGHT RULE when a footprint owns SEVERAL LoD2 parts — the AREA-WEIGHTED P90 of the parts' heights,
+ * i.e. the height at or below which 90% of the matched roof AREA sits. ⚠ This is not a free choice: the
+ * ES MDS, DK DHM and CH swisstopo joins above all take the P90 of the nDSM raster over the footprint,
+ * and a probe must not mean one thing in Barcelona and another in Köln. NRW gives vectors instead of
+ * pixels, so the P90 is taken over parts weighted by their ground area — the same statistic, computed
+ * from the same physical quantity, by the only means the source allows.
+ *   • NOT the max — one stair tower or lift overrun would define a whole block.
+ *   • NOT the mean — it invents a height no part of the building actually has.
+ *   • NOT the largest-area part alone — that is the P90's answer in the common case anyway, but it
+ *     discards a genuinely tall wing that occupies a legitimate share of the roof.
+ * ⚠ MEASURED WORKED EXAMPLE, so the limit of LoD1 is legible rather than discovered later: the KÖLNER
+ * DOM matches 20+ LoD2 parts. OSM tags it `height=157.38` (the SPIRES); the area-weighted P90 lands on
+ * the nave, ~48–61 m. Neither number is "the Dom" — a single extruded prism cannot be — but 48 m over
+ * the real footprint is far closer to the true massing than a 157 m slab covering the whole cathedral,
+ * and it is what the raster P90 would return in Barcelona for the same shape. `multiPartFootprints`
+ * counts how often this reduction was exercised, so the simplification is measured, not hidden.
+ *
+ * @param bbox [w,s,e,n] WGS84.
+ */
+export async function stampLod2NrwHeightsOnGeojsonseq(inPath, outPath, bbox, {
+  timeoutMs = 120_000, maxTiles = 400, maxSpanDeg = 0.6, edgePadM = 30,
+} = {}) {
+  if (!inPath || !existsSync(inPath)) return { status: 'error', reason: `NRW LoD2 join: input footprints not found (${inPath})` };
+  if (!bbox || bbox.length !== 4) return { status: 'error', reason: 'NRW LoD2 join: no bbox supplied' };
+  // The source is a 1 km tile service, so cost is O(area). A whole-Land/whole-country bbox is ~10⁴–10⁵
+  // tiles × ~20 MB — refuse it EXPLICITLY rather than start a sweep that would be killed half-done and
+  // ship a tileset measured only in its top-left corner (mirrors fetchSpainBuildingHeights's guard).
+  if (bboxTooLargeForWfs(bbox, maxSpanDeg)) {
+    return {
+      status: 'documented',
+      reason: `NRW LoD2 join: bbox span > ${maxSpanDeg}° — LoD2-DE·NRW is a 1 km CityGML tile service ` +
+        '(~20 MB/tile), so a Land-wide sweep is infeasible in one bake. Use a CITY bbox (Köln = ' +
+        '6.85,50.88,7.02,50.99 → 182 tiles / 3.9 GB, live-measured 2026-07-31). Footprints keep OSM default.',
+    };
+  }
+  const idx = await nrwTileIndex(timeoutMs);
+  if (!idx) {
+    // §CONTEXT-DATA-HONESTY value 1 — the service is unreachable. We know NOTHING about coverage here,
+    // which is a different value from "NRW has no tiles for this bbox". Say so, loudly.
+    return { status: 'blocked', reason: `NRW LoD2 join: ${SOURCES.lod2de_nrw.endpoint}index.json unreachable — cannot tell "no data" from "service down". Footprints keep OSM default.` };
+  }
+
+  const feats = [];
+  for (const line of readFileSync(inPath, 'utf8').split('\n')) {
+    const s = line.trim();
+    if (!s) continue;
+    try { feats.push(JSON.parse(s)); } catch { /* skip a malformed line honestly */ }
+  }
+  if (feats.length === 0) return { status: 'documented', reason: 'NRW LoD2 join: 0 OSM footprint(s) in the clip; nothing to stamp.' };
+  // Each stampable footprint → native EPSG:25832 rings (NRW's own CRS) + native centroid + native bbox.
+  const records = [];
+  for (const feat of feats) {
+    const fp = footprintFromFeature(feat);
+    if (!fp) continue;
+    const extNative = fp.ext.map(([lon, lat]) => wgs84ToUtm32(lat, lon));
+    const interiorsNative = fp.interiors.map((r) => r.map(([lon, lat]) => wgs84ToUtm32(lat, lon)));
+    let cx = 0, cy = 0, minE = Infinity, minN = Infinity, maxE = -Infinity, maxN = -Infinity;
+    for (const [X, Y] of extNative) {
+      cx += X; cy += Y;
+      if (X < minE) minE = X; if (X > maxE) maxE = X;
+      if (Y < minN) minN = Y; if (Y > maxN) maxN = Y;
+    }
+    cx /= extNative.length; cy /= extNative.length;
+    if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
+    records.push({ feat, extNative, interiorsNative, cx, cy, minE, minN, maxE, maxN });
+  }
+
+  // The tiling grid IS the publisher's grid — one iteration step = exactly one downloadable Kachel, so a
+  // Kachel is never fetched twice and never half-covered.
+  const c = [wgs84ToUtm32(bbox[1], bbox[0]), wgs84ToUtm32(bbox[1], bbox[2]), wgs84ToUtm32(bbox[3], bbox[0]), wgs84ToUtm32(bbox[3], bbox[2])];
+  const xs = c.map((p) => p[0]), ys = c.map((p) => p[1]);
+  const kE0 = Math.floor(Math.min(...xs) / NRW_TILE_M), kE1 = Math.floor(Math.max(...xs) / NRW_TILE_M);
+  const kN0 = Math.floor(Math.min(...ys) / NRW_TILE_M), kN1 = Math.floor(Math.max(...ys) / NRW_TILE_M);
+
+  let processedTiles = 0, tileErrors = 0, emptyTiles = 0, tileCapHit = false;
+  let matchedForward = 0, matchedReverse = 0, multiPartFootprints = 0, nrwBuildingsRead = 0;
+  const tilesNotInIndex = [];
+  const errorTiles = [];
+  const heights = [];
+  try {
+    outer:
+    for (let ke = kE0; ke <= kE1; ke++) {
+      for (let kn = kN0; kn <= kN1; kn++) {
+        const t0 = ke * NRW_TILE_M, tn0 = kn * NRW_TILE_M;
+        // `edgePadM`: a footprint sitting on a Kachel seam is offered to BOTH neighbours. NRW files a
+        // building in exactly one Kachel by its own position, so without this an edge footprint could
+        // never see its own LoD2 part. A record is only retired (`_done`) once MATCHED, so being offered
+        // twice costs nothing and fetches nothing extra (each Kachel is fetched at most once anyway).
+        const inTile = records.filter((r) => !r._done
+          && r.cx >= t0 - edgePadM && r.cx < t0 + NRW_TILE_M + edgePadM
+          && r.cy >= tn0 - edgePadM && r.cy < tn0 + NRW_TILE_M + edgePadM);
+        if (inTile.length === 0) { emptyTiles++; continue; }   // ← the cost control: no footprints, no download
+        const name = `LoD2_32_${ke}_${kn}_1_NW.gml`;
+        if (!idx.has(name)) { tilesNotInIndex.push(name); continue; }
+        if (processedTiles >= maxTiles) { tileCapHit = true; break outer; }
+        const res = await streamNrwKachel(`${SOURCES.lod2de_nrw.endpoint}${name}`, { timeoutMs });
+        if (!res.ok) { tileErrors++; if (errorTiles.length < 10) errorTiles.push(`${name}: ${res.reason}`); continue; }
+        processedTiles++;
+        nrwBuildingsRead += res.buildings.length;
+        // Uniform grid over THIS Kachel's LoD2 parts — a dense city Kachel holds ~1–3k parts, so the
+        // naive O(footprints × parts) scan would be ~10⁶ point-in-polygon tests per tile.
+        const grid = new Map();
+        const key = (E, N) => `${Math.floor(E / NRW_MATCH_GRID_M)}:${Math.floor(N / NRW_MATCH_GRID_M)}`;
+        for (const b of res.buildings) {
+          const k = key(b.E, b.N);
+          let cell = grid.get(k);
+          if (!cell) { cell = []; grid.set(k, cell); }
+          cell.push(b);
+        }
+        const cellsCovering = (minE, minN, maxE, maxN) => {
+          const acc = [];
+          for (let gx = Math.floor(minE / NRW_MATCH_GRID_M); gx <= Math.floor(maxE / NRW_MATCH_GRID_M); gx++) {
+            for (let gy = Math.floor(minN / NRW_MATCH_GRID_M); gy <= Math.floor(maxN / NRW_MATCH_GRID_M); gy++) {
+              const cell = grid.get(`${gx}:${gy}`);
+              if (cell) acc.push(...cell);
+            }
+          }
+          return acc;
+        };
+        for (const r of inTile) {
+          // 1. FORWARD — LoD2 part centroids inside this OSM footprint.
+          const owned = [];
+          for (const b of cellsCovering(r.minE, r.minN, r.maxE, r.maxN)) {
+            if (!_pointInRing(b.E, b.N, r.extNative)) continue;
+            let inHole = false;
+            for (const hole of r.interiorsNative) if (_pointInRing(b.E, b.N, hole)) { inHole = true; break; }
+            if (inHole) continue;
+            owned.push(b);
+          }
+          let via = 'forward';
+          // 2. REVERSE — else this OSM footprint's centroid inside a LoD2 ground ring.
+          if (owned.length === 0) {
+            via = 'reverse';
+            for (const b of cellsCovering(r.cx, r.cy, r.cx, r.cy)) {
+              if (_pointInRing(r.cx, r.cy, b.ring)) owned.push(b);
+            }
+          }
+          // 3. NEITHER — leave the footprint's OSM tags untouched (honest assumed/tagged default).
+          if (owned.length === 0) continue;
+          r._done = true;
+          if (via === 'forward') { matchedForward++; if (owned.length > 1) multiPartFootprints++; } else matchedReverse++;
+          const h = clampHeight(areaWeightedP90(owned));
+          r.feat.properties = {
+            ...(r.feat.properties ?? {}),
+            // `nationalBuildingTags` is the ONE place that knows which tags the client re-derives
+            // provenance from (§WIRE-HONEST) — go through it rather than hand-rolling the bag, then
+            // preserve the footprint's own `building` subtype (nationalBuildingTags defaults 'yes',
+            // which would flatten e.g. building=church → building=yes and lose client styling).
+            // `roof_type` comes from the LARGEST-AREA part, not the P90 part: a roof SHAPE has no
+            // meaningful percentile, so the dominant part's shape is the only non-invented answer.
+            ...nationalBuildingTags({ heightM: h, provenance: 'tagged', source: 'lod2de_nrw', roofType: dominantRoof(owned) }),
+            building: r.feat.properties?.building ?? 'yes',
+            height: Number(h.toFixed(1)),
+          };
+          heights.push(h);
+        }
+      }
+    }
+  } catch (err) {
+    // Network cut mid-grid — write whatever we stamped so far (honest partial), never abort the bake.
+    tileCapHit = true;
+    void err;
+  }
+
+  mkdirSync(dirname(outPath), { recursive: true });
+  writeFileSync(outPath, feats.map((f) => JSON.stringify(f)).join('\n') + '\n');
+  const measured = heights.length;
+  heights.sort((a, b) => a - b);
+  // §CONTEXT-DATA-HONESTY value 2 — every candidate Kachel was absent from the NRW index and nothing was
+  // fetched: the bbox is simply not in Nordrhein-Westfalen. That is a genuine EMPTY, not a failure, and
+  // it must not read as one.
+  if (processedTiles === 0 && tileErrors === 0 && tilesNotInIndex.length > 0) {
+    return {
+      status: 'no-source', outPath, count: feats.length, footprintCount: records.length, measuredCount: 0,
+      tilesNotInIndex: tilesNotInIndex.length, tilesNotInIndexSample: tilesNotInIndex.slice(0, 6),
+      reason: `NRW LoD2 join: all ${tilesNotInIndex.length} candidate Kachel(n) are absent from the NRW index — ` +
+        'this bbox is outside Nordrhein-Westfalen (LoD2-DE is per-Land; another Land needs its own adapter). ' +
+        'Footprints keep OSM default.',
+    };
+  }
+  return {
+    status: 'ok', outPath, count: feats.length, footprintCount: records.length, measuredCount: measured,
+    coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
+    matchedForward, matchedReverse, multiPartFootprints, nrwBuildingsRead,
+    heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
+    tilesProcessed: processedTiles, tileErrors, errorTiles, emptyTiles, tileCapHit,
+    tilesNotInIndex: tilesNotInIndex.length, tilesNotInIndexSample: tilesNotInIndex.slice(0, 6),
+    tileGrid: `${kE1 - kE0 + 1}×${kN1 - kN0 + 1}`,
+    note: `LoD2-DE·NRW measuredHeight stamped onto OSM footprints → ${measured}/${records.length} footprint(s) ` +
+      `got a MEASURED height (tagged; ${matchedForward} forward, ${matchedReverse} reverse, ${multiPartFootprints} ` +
+      `multi-part), from ${nrwBuildingsRead} LoD2 building part(s) across ${processedTiles} Kachel(n)` +
+      `${tileErrors ? `, ${tileErrors} tile error(s)` : ''}` +
+      `${tilesNotInIndex.length ? `, ${tilesNotInIndex.length} Kachel(n) not in the NRW index (outside NRW)` : ''}` +
+      `${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}.`,
   };
 }
 
