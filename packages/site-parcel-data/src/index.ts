@@ -78,6 +78,7 @@ export {
     resolveDkEnvelopePlacement,
     applyDkPlacement,
     DK_BYGGEFELT_RING_REF,
+    dkByggefeltFromRing,
     type DkByggefelt,
     type DkByggefeltBinding,
     type DkLokalplanDepth,
@@ -114,12 +115,18 @@ export {
 
 // ── DK gap G3 — the BYGGEFELT LEGAL-STATUS CLASSIFIER (pure). `bygkunifelt`/`bygvejledende` → ──
 // `legalStatus`, incl. the three distinct causes of `unknown` (not-declared / metadata-conflict /
-// metadata-unavailable) and the paranoid tier-1 adapter (CRS, holes and multi-part all REFUSE).
+// metadata-unavailable) and the paranoid tier-1 adapters (an unprojected CRS always REFUSES).
+// §MULTI-PART-EXPLICIT-AREA — `dkByggefeltFromFeatureEvidence` is the REAL chokepoint: it re-assembles
+// all of one feature's per-part records into a multi-part footprint, so the 19.4% of binding
+// byggefelter that are multi-part are now placeable. `dkByggefeltFromEvidence` sees ONE part and
+// therefore still refuses a multi-part feature - that is a limit of its input, not of the pipeline.
 export {
     classifyByggefeltLegalStatus,
     byggefeltFeatureToEvidence,
     byggefeltCollectionToEvidence,
     dkByggefeltFromEvidence,
+    dkByggefeltFromFeatureEvidence,
+    groupEvidenceByFeature,
     wfsBool,
     DK_BYGGEFELT_LAYER,
     type DkByggefeltProperties,
@@ -140,11 +147,15 @@ export {
     PLANDATA_WFS_URL,
     PLANDATA_NATIVE_CRS,
     PLANDATA_USER_AGENT,
+    PLANDATA_BYGGEFELT_PROXY_PATH,
     type ByggefeltProducer,
     type ByggefeltProducerConfig,
     type ByggefeltQueryOptions,
     type ByggefeltFetchResult,
     type ByggefeltTierOneInput,
+    type PlandataBbox,
+    type PlandataRequestCrs,
+    type ByggefeltRequestStyle,
     type Bbox25832,
 } from './providers/ByggefeltProducer.js';
 
@@ -455,7 +466,37 @@ export {
     type MatchBuildingLineOptions,
 } from './geometry/buildingLineOffset.js';
 
+// ── C58 §2.2 (KG-4) / ADR-0270 / §MULTI-PART-EXPLICIT-AREA — the `explicit-area` PRIMITIVE. ──
+// The shared solver for any ordinance that PUBLISHES the buildable footprint as geometry rather than
+// as parameters: Madrid NZ 1 (*Fondo de la Edificación*), Córdoba *fondos*, Danish byggefelter.
+// It accepts MULTI-PART footprints and interior holes; parts provably clear of the parcel (disjoint
+// bounding boxes) are skipped, the rest are clipped, and it REFUSES with a typed reason when the
+// answer on this parcel is disjoint or a published hole bites. Jurisdiction-agnostic, PURE.
+export {
+    resolveExplicitAreaRing,
+    solveExplicitArea,
+    type ExplicitAreaPart,
+    type ExplicitAreaSource,
+    type ExplicitAreaResolution,
+    type ExplicitAreaRefusalReason,
+    type ExplicitAreaSolveInput,
+    type ExplicitAreaSolveResult,
+    type ExplicitAreaSolveRefusal,
+} from './geometry/explicitArea.js';
 
+// ── §MULTI-PART-EXPLICIT-AREA — RING VALIDATION. Names a geometry defect; NEVER repairs one. ──
+// A silent repair is a wrong answer with no error raised (the L-616 shape), so these report
+// `self-intersecting` / `zero-area` / `unclosed` / `non-finite-coordinate` and let the caller refuse.
+export {
+    validateRing,
+    normaliseRing,
+    describeRingDefect,
+    ringBounds,
+    boundsDisjoint,
+    type RingDefect,
+    type RingValidationOptions,
+    type RingBounds,
+} from './geometry/ringValidation.js';
 
 // ── L-590 / §L-590b — Barcelona clau 22a (*zona industrial*), PGM Art. 350. ──
 // ⚠ AUTHORED FROM THE PRIMARY PDF, AND STILL **NOT REGISTERED** in `registry.ts` — but for ONE

@@ -34,7 +34,7 @@ import { clipToDepthBand, clipBeyondDepthBand } from './geometry/depthBandClip';
 import { insetPolygonPerEdge, type PerEdgeSetbacks } from './geometry/insetPolygon.js';
 import { solveBlockDerivedDepth, type BlockDepthBinding } from './geometry/blockDerivedDepth.js';
 import { solveBlockConcentricBandDepth } from './geometry/blockConcentricBand.js';
-import { solveExplicitArea } from './geometry/explicitArea.js';
+import { solveExplicitArea, type ExplicitAreaPart } from './geometry/explicitArea.js';
 import { computeFarLimitedHeight, farLimitedHeightCaveat } from './farLimitedHeight.js';
 
 const tracer = trace.getTracer('pryzm.zoning');
@@ -82,6 +82,17 @@ export interface ComputeBuildableEnvelopeInput {
      * fall-through). Scene-XZ metres, same frame as `parcelRing`.
      */
     readonly explicitAreaFootprint?: ReadonlyArray<Pt> | null;
+    /**
+     * §MULTI-PART-EXPLICIT-AREA — the published footprint as N PARTS (each with its own holes),
+     * for the many ordinances that publish a multi-polygon buildable field. Mutually exclusive with
+     * `explicitAreaFootprint`; when both are supplied the solve refuses `ambiguous-input` rather
+     * than pick one.
+     *
+     * Measured need: 19.4 % of Denmark's 13,629 binding byggefelter are multi-part and 1.2 % carry
+     * holes (n = 1,000 systematic, 2026-07-31); Madrid NZ 1 and Córdoba publish the same shape. The
+     * single-ring field could represent none of them.
+     */
+    readonly explicitAreaFootprintParts?: ReadonlyArray<ExplicitAreaPart> | null;
 }
 
 /** A single numeric field resolution (C58 §1.2 priority order). */
@@ -678,8 +689,16 @@ export function computeBuildableEnvelope(
                     // rides the maxFAR row already emitted above; the footprint is recorded as a
                     // caveat here (a dedicated `explicitArea.*` derivation constraint is the P4-parity
                     // follow-up — WIRING TODO diff-sketch at the foot of this file).
-                    const footprint = input.explicitAreaFootprint ?? null;
-                    if (!footprint || footprint.length < 3) {
+                    // §MULTI-PART-EXPLICIT-AREA — parts win where supplied; a single ring is the
+                    // one-part case. Supplying BOTH is a caller bug and the solve refuses it.
+                    const footprintParts: ExplicitAreaPart[] | null =
+                        input.explicitAreaFootprintParts && input.explicitAreaFootprintParts.length > 0
+                            ? input.explicitAreaFootprintParts.map((p) => ({ outer: p.outer, holes: p.holes ?? [] }))
+                            : input.explicitAreaFootprint && input.explicitAreaFootprint.length >= 3
+                              ? [{ outer: input.explicitAreaFootprint, holes: [] }]
+                              : null;
+                    const footprint = footprintParts;
+                    if (!footprint) {
                         // HARD FAIL, not a fall-through to the parcel inset. `explicit-area` means the
                         // footprint IS the rule; without it there is nothing to clip to, and returning
                         // the whole-parcel inset would publish a confidently-wrong buildable area on
@@ -693,7 +712,10 @@ export function computeBuildableEnvelope(
                             '(C58 §1.2, §1.4).',
                         );
                     } else {
-                        const solved = solveExplicitArea({ parcelRing: insetPolygon, footprintRing: footprint });
+                        const solved = solveExplicitArea({
+                            parcelRing: insetPolygon,
+                            footprintParts: footprint,
+                        });
                         if (!solved.ok) {
                             status = 'degenerate';
                             insetPolygon = [];
@@ -706,6 +728,23 @@ export function computeBuildableEnvelope(
                                       'is convex, so their intersection cannot be computed exactly on this ' +
                                       'plot. Refusing rather than publish an approximate buildable area ' +
                                       '(C58 §1.4). A general concave clipper is the follow-up.'
+                                    // §MULTI-PART-EXPLICIT-AREA — two NEW refusals, and both are about
+                                    // THIS parcel rather than about the source's shape. They are the
+                                    // narrow residue left after multi-part support: the footprint fits
+                                    // the plot in more than one piece, or a published courtyard falls
+                                    // inside it. Both are cases where a single-ring inset would state
+                                    // something other than the ordinance's answer.
+                                    : solved.reason === 'multi-region-on-parcel'
+                                    ? 'Explicit-area zone: the published buildable footprint leaves TWO OR ' +
+                                      'MORE separate buildable regions on this parcel, and a single-ring ' +
+                                      'envelope can carry only one. Refusing rather than publish the ' +
+                                      'largest and under-state the permitted footprint ' +
+                                      `(C58 §1.4). ${solved.detail ?? ''}`.trim()
+                                    : solved.reason === 'hole-intersects-parcel'
+                                    ? 'Explicit-area zone: the plan cuts a HOLE ("do not build here") that ' +
+                                      'falls inside this parcel, and a single-ring envelope cannot carry ' +
+                                      'it. Dropping the hole would OVER-STATE the buildable area, so this ' +
+                                      `refuses (C58 §1.4). ${solved.detail ?? ''}`.trim()
                                     : 'Explicit-area zone: degenerate parcel or footprint geometry — no envelope.',
                             );
                         } else {
@@ -719,6 +758,17 @@ export function computeBuildableEnvelope(
                                     : 'Buildable envelope clipped to the published footprint ' +
                                       '(explicit-area, ADR-0270).',
                             );
+                            if (solved.partsConsidered > 1) {
+                                // ⚠ SAY THAT THE OTHER PARTS WERE NOT LOST. A user looking at a plan
+                                // drawing with five building fields, next to an envelope showing one,
+                                // is owed the reason: the rest were PROVEN not to touch this plot.
+                                caveats.push(
+                                    `The published footprint has ${solved.partsConsidered} separate parts; ` +
+                                        `${solved.partsProvablyDisjoint} were shown not to touch this parcel ` +
+                                        'and the remainder were clipped to it. No part was discarded ' +
+                                        'unexamined (§MULTI-PART-EXPLICIT-AREA).',
+                                );
+                            }
                         }
                     }
                 }

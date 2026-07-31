@@ -14,6 +14,7 @@ import { describe, it, expect } from 'vitest';
 import type { ParcelEdgeClassification, Pt, ZoningRecord } from '@pryzm/schemas';
 import {
     resolveDkEnvelopePlacement,
+    dkByggefeltFromRing,
     applyDkPlacement,
     computeBuildableEnvelope,
     DK_BYGGEFELT_RING_REF,
@@ -104,11 +105,7 @@ describe('G6 tier hierarchy — the strongest available source places the footpr
     it('TIER 1: a PROVEN-BINDING byggefelt wins, even with byggelinjer and a cited depth present', () => {
         const r = resolveDkEnvelopePlacement(
             inputs({
-                byggefelt: fetchFound({
-                    ring: rect(2, 2, 38, 14),
-                    binding: 'binding',
-                    featureId: 'byggefelt.4711',
-                }),
+                byggefelt: fetchFound(dkByggefeltFromRing(rect(2, 2, 38, 14), 'binding', 'byggefelt.4711')),
                 byggelinjer: fetchFound([FACADE_LINE, REAR_LINE]),
                 lokalplanDepth: fetchFound({ depthM: 12, citation: 'Lokalplan 123 §7.2' }),
                 blockRingAvailable: true,
@@ -119,7 +116,7 @@ describe('G6 tier hierarchy — the strongest available source places the footpr
         expect(r.placement).toEqual({ source: 'byggefelt' });
         expect(r.openSpace).toEqual({ courtyard: true, source: 'byggefelt-hole' });
         expect(r.geometricRule).toEqual({ kind: 'explicit-area', ringRef: DK_BYGGEFELT_RING_REF });
-        expect(r.explicitAreaSource?.footprintRing).toEqual(rect(2, 2, 38, 14));
+        expect(r.explicitAreaSource?.footprintParts).toEqual([{ outer: rect(2, 2, 38, 14), holes: [] }]);
     });
 
     it('TIER 2: byggelinjer place the band when no binding byggefelt exists', () => {
@@ -177,7 +174,7 @@ describe('G6 tier hierarchy — the strongest available source places the footpr
 
     it('records EVERY tier exactly once, so "not reached" never reads as "found nothing"', () => {
         const r = resolveDkEnvelopePlacement(
-            inputs({ byggefelt: fetchFound({ ring: rect(2, 2, 38, 14), binding: 'binding' }) }),
+            inputs({ byggefelt: fetchFound(dkByggefeltFromRing(rect(2, 2, 38, 14), 'binding')) }),
         );
         expect(r.diagnostics.map((d) => d.tier)).toEqual([
             'byggefelt',
@@ -200,7 +197,7 @@ describe('§BYGGEFELT-BINDING-GATE (G3) — vedtaget = adopted ≠ binding', () 
         it(`does NOT draw a byggefelt with binding='${binding}' as the footprint`, () => {
             const r = resolveDkEnvelopePlacement(
                 inputs({
-                    byggefelt: fetchFound({ ring: rect(2, 2, 38, 14), binding }),
+                    byggefelt: fetchFound(dkByggefeltFromRing(rect(2, 2, 38, 14), binding)),
                     byggelinjer: fetchAbsent('no-byggelinje'),
                     lokalplanDepth: fetchAbsent('no-depth-clause'),
                     blockRingAvailable: true,
@@ -216,7 +213,7 @@ describe('§BYGGEFELT-BINDING-GATE (G3) — vedtaget = adopted ≠ binding', () 
 
     it('does not treat an unproven byggefelt as a fetch failure either — it is present, just unusable', () => {
         const r = resolveDkEnvelopePlacement(
-            inputs({ byggefelt: fetchFound({ ring: rect(2, 2, 38, 14), binding: 'unknown' }) }),
+            inputs({ byggefelt: fetchFound(dkByggefeltFromRing(rect(2, 2, 38, 14), 'unknown')) }),
         );
         // The distinction matters: a retry will not make it binding, so this is NOT retryable.
         expect(r.higherAuthorityUnresolved).toBe(false);
@@ -378,7 +375,7 @@ describe('§NO-SILENT-FALLBACK — a refusal is a typed value that names the fal
         const r = resolveDkEnvelopePlacement({
             parcelRing: [{ x: 0, z: 0 }, { x: 1, z: 1 }],
             parcelEdgeClassifications: ['front', 'front'],
-            byggefelt: fetchFound({ ring: rect(0, 0, 1, 1), binding: 'binding' }),
+            byggefelt: fetchFound(dkByggefeltFromRing(rect(0, 0, 1, 1), 'binding')),
         });
         expect(r.refusalReason).toBe('degenerate-parcel');
         expect(r.diagnostics).toHaveLength(4);
@@ -386,7 +383,7 @@ describe('§NO-SILENT-FALLBACK — a refusal is a typed value that names the fal
 
     it('rejects a degenerate byggefelt ring rather than drawing a 2-point footprint', () => {
         const r = resolveDkEnvelopePlacement(
-            inputs({ byggefelt: fetchFound({ ring: [{ x: 0, z: 0 }, { x: 1, z: 0 }], binding: 'binding' }) }),
+            inputs({ byggefelt: fetchFound(dkByggefeltFromRing([{ x: 0, z: 0 }, { x: 1, z: 0 }], 'binding')) }),
         );
         expect(r.diagnostics.find((d) => d.tier === 'byggefelt')!.outcome).toBe('degenerate');
         expect(r.placed).toBe(false);

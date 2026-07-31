@@ -54,7 +54,12 @@ import { CATASTRO_PARCEL_PATH, catastroParcelHandler, CATASTRO_BLOCK_PATH, catas
 // Barcelona envelopes at 'estimated'. Probed live before it was written (L-473's lesson).
 import { MUC_ZONING_PATH, mucZoningHandler } from './server/mucZoningProxy.js';
 // §PLANDATA-ZONING-PROXY (L-399a): same-origin KEYLESS Denmark zoning proxy + cache (real DK envelope)
-import { PLANDATA_ZONING_PATH, plandataZoningHandler } from './server/plandataZoningProxy.js';
+import {
+    PLANDATA_ZONING_PATH,
+    plandataZoningHandler,
+    PLANDATA_BYGGEFELT_PATH,
+    plandataByggefeltHandler,
+} from './server/plandataZoningProxy.js';
 // §L-441 Tier B — Spain's NATIONAL clasificacion-del-suelo (SIU). Same cache/forward/
 // fallback shape as the Plandata proxy above.
 import { SIU_CLASSIFICATION_PATH, siuClassificationHandler } from './server/siuClassificationProxy.js';
@@ -452,6 +457,18 @@ app.get(MUC_ZONING_PATH, apiLimiter, mucZoningHandler);
 // no plan / upstream failure → 200 { zoning: null } so the client falls back to the estimated
 // default pack (the envelope is never broken).
 app.get(PLANDATA_ZONING_PATH, apiLimiter, plandataZoningHandler);
+// §BYGGEFELT-PROXY (DK G3/G6 tier 1) — GET /api/plandata/byggefelt?minx=&miny=&maxx=&maxy=&crs=
+// &count=&startIndex=&binding= → the adopted BUILDING-FIELD polygons intersecting the bbox.
+//
+// ⚠ THIS ROUTE EXISTS BECAUSE `User-Agent` IS A FORBIDDEN BROWSER HEADER. A browser calling
+// geoserver.plandata.dk directly is an anonymous client on a public, taxpayer-funded endpoint that
+// Erhvervsstyrelsen cannot attribute or contact (and CORS + CSP `connect-src 'self'` block it
+// anyway). Going through our origin makes the identifying UA and the rate limit real, once for the
+// product rather than once per tab. It takes a BBOX, never a URL or a CQL filter, so it cannot be
+// turned into an open forwarder. Public + unauthenticated, exactly like the zoning route above.
+// STRUCTURAL-SEAM-4: upstream failure → 502 (never 200 with an empty collection, which the client
+// would read as a durable "no byggefelt at this parcel"); a clean empty → 200 with 0 features.
+app.get(PLANDATA_BYGGEFELT_PATH, apiLimiter, plandataByggefeltHandler);
 // §L-441 — SIU national land classification (urbano / urbanizable / rustico) by point.
 app.get(SIU_CLASSIFICATION_PATH, apiLimiter, siuClassificationHandler);
 // §MADRID-CONDICIONES-PROXY (L-608) — Madrid PGOUM-97 NZ 1 buildable footprint (explicit-area) at a

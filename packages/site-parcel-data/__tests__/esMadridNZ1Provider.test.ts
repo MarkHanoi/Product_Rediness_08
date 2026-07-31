@@ -148,8 +148,8 @@ describe('mapMadridConditionsToExplicitAreaSource — ArcGIS layer 6 → Explici
         });
         expect(res.ok).toBe(true);
         if (!res.ok) return;
-        expect(res.source.footprintRing[0]).toEqual({ x: 0, z: 0 });
-        expect(res.source.footprintRing[2]).toEqual({ x: 30, z: 20 });
+        expect(res.source.footprintRing![0]).toEqual({ x: 0, z: 0 });
+        expect(res.source.footprintRing![2]).toEqual({ x: 30, z: 20 });
     });
 
     it('refuses (typed) on no feature / no geometry — never an empty envelope', () => {
@@ -170,7 +170,8 @@ describe('THE CHAIN — mapper source feeds the MERGED solver (resolve → solve
         const resolved = resolveExplicitAreaRing(MADRID_RULE, mapped.source);
         expect(resolved.ok).toBe(true);
         if (!resolved.ok) return;
-        expect(resolved.footprintRing).toHaveLength(4);
+        expect(resolved.footprintParts).toHaveLength(1);
+        expect(resolved.footprintParts[0]!.outer).toHaveLength(4);
         expect(resolved.edificabilidad).toBeNull();
     });
 
@@ -199,7 +200,7 @@ describe('THE CHAIN — mapper source feeds the MERGED solver (resolve → solve
         const resolved = resolveExplicitAreaRing(MADRID_RULE, mapped.source);
         expect(resolved.ok).toBe(true);
         if (!resolved.ok) return;
-        const solved = solveExplicitArea({ parcelRing: PARCEL, footprintRing: resolved.footprintRing });
+        const solved = solveExplicitArea({ parcelRing: PARCEL, footprintParts: resolved.footprintParts });
         expect(solved.ok).toBe(true);
         if (!solved.ok) return;
         expect(solved.areaM2).toBeCloseTo(600, 4);

@@ -38,7 +38,8 @@ describe('resolveExplicitAreaRing — the ringRef resolver', () => {
         const res = resolveExplicitAreaRing(RULE, source());
         expect(res.ok).toBe(true);
         if (res.ok) {
-            expect(polygonArea(res.footprintRing)).toBeCloseTo(600, 6);
+            expect(res.footprintParts).toHaveLength(1);
+            expect(polygonArea(res.footprintParts[0]!.outer)).toBeCloseTo(600, 6);
             expect(res.edificabilidad).toBe(3.2);
         }
     });
@@ -60,23 +61,24 @@ describe('resolveExplicitAreaRing — the ringRef resolver', () => {
     });
 
     it('refuses `no-footprint` for an empty/too-small ring', () => {
-        expect(resolveExplicitAreaRing(RULE, source({ footprintRing: [] })))
-            .toEqual({ ok: false, reason: 'no-footprint' });
-        expect(resolveExplicitAreaRing(RULE, source({ footprintRing: [{ x: 0, z: 0 }, { x: 1, z: 1 }] })))
-            .toEqual({ ok: false, reason: 'no-footprint' });
+        expect(resolveExplicitAreaRing(RULE, source({ footprintRing: [] })).ok).toBe(false);
+        const r1 = resolveExplicitAreaRing(RULE, source({ footprintRing: [] }));
+        expect(r1.ok === false && r1.reason).toBe('no-footprint');
+        const r2 = resolveExplicitAreaRing(RULE, source({ footprintRing: [{ x: 0, z: 0 }, { x: 1, z: 1 }] }));
+        expect(r2.ok === false && r2.reason).toBe('no-footprint');
     });
 
     it('refuses `degenerate-footprint` for a zero-area (collinear) ring', () => {
         const collinear: Pt[] = [{ x: 0, z: 0 }, { x: 5, z: 0 }, { x: 10, z: 0 }];
-        expect(resolveExplicitAreaRing(RULE, source({ footprintRing: collinear })))
-            .toEqual({ ok: false, reason: 'degenerate-footprint' });
+        const res = resolveExplicitAreaRing(RULE, source({ footprintRing: collinear }));
+        expect(res.ok === false && res.reason).toBe('degenerate-footprint');
     });
 
     it('returns a fresh ring copy (no aliasing of the source geometry)', () => {
         const src = source();
         const res = resolveExplicitAreaRing(RULE, src);
         expect(res.ok).toBe(true);
-        if (res.ok) expect(res.footprintRing).not.toBe(src.footprintRing);
+        if (res.ok) expect(res.footprintParts[0]!.outer).not.toBe(src.footprintRing);
     });
 });
 
@@ -145,8 +147,9 @@ describe('solveExplicitArea — the geometric solve (parcel ∩ footprint)', () 
             { x: 0, z: 0 }, { x: 8, z: 0 }, { x: 8, z: 3 },
             { x: 3, z: 3 }, { x: 3, z: 8 }, { x: 0, z: 8 },
         ];
-        expect(solveExplicitArea({ parcelRing: concaveParcel, footprintRing: concaveFootprint }))
-            .toEqual({ ok: false, reason: 'non-convex-both' });
+        const res = solveExplicitArea({ parcelRing: concaveParcel, footprintRing: concaveFootprint });
+        expect(res.ok).toBe(false);
+        expect(res.ok === false && res.reason).toBe('non-convex-both');
     });
 
     it('is deterministic', () => {

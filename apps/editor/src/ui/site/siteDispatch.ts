@@ -195,6 +195,18 @@ import {
     // refusal (names the zone + links the plan PDF), NEVER the generic `estimated-default` triple.
     dkPlandataNoNumbersRefusal,
     dkPlandataNoPlanRefusal,
+    // ── §DK-BYGGEFELT-TIER-1 (DK gap G3/G6) — WHERE on the parcel the building may stand. ──
+    // Plandata publishes an envelope's NUMBERS but nothing about placement, so a Copenhagen karré
+    // was drawn as a solid block over its own courtyard (L-619). A BINDING byggefelt is the plan's
+    // own answer, and it is machine-readable (`bygkunifelt` / `bygvejledende`). These four wire the
+    // producer → classifier → G6 resolver chain into the live DK click path.
+    createByggefeltProducer,
+    byggefeltResultToTierOne,
+    resolveDkEnvelopePlacement,
+    applyDkPlacement,
+    type ByggefeltProducer,
+    type ByggefeltTierOneInput,
+    type DkPlacementResolution,
     // STRUCTURAL-SEAM-4 (C57 §1.5 / C58 §1.13.8) — the shared fetch-outcome union + bounded retry, and
     // the genuine-absence refusal siblings. A transient fetch failure (`unreachable`) is retried and
     // shown as "temporarily unavailable"; a genuine empty (`absent`/`no-plan-at-point`) is shown as
@@ -1379,6 +1391,206 @@ function applyRiyadhZoningThenFallback(
     }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §DK-BYGGEFELT-TIER-1 — the live wiring for DK gap G6 tier 1 (stubs S2 / S3 / S4)
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+//
+// WHAT THIS CLOSES. `ByggefeltProducer`, the classifier and the G6 resolver all shipped tested and
+// wired to each other — and to NOTHING. A real user click never reached tier 1, so the strongest
+// piece of evidence Denmark publishes about WHERE a building may stand was inert. This is the
+// L5 seam that makes a click reach it.
+//
+// THREE THINGS HAD TO BE TRUE AT ONCE, which is why they land together:
+//   S3  a SAME-ORIGIN PROXY. `User-Agent` is a forbidden header in browser `fetch` and is silently
+//       dropped, so a browser hitting Plandata directly is an anonymous client on a public,
+//       taxpayer-funded endpoint (and CORS + CSP would block it anyway). `requestStyle: 'proxy'`
+//       points the producer at `/api/plandata/byggefelt`, where the real UA and one shared rate
+//       limit actually apply.
+//   S4  a PROJECTOR. Without one the producer emits geometry in its source CRS and the tier-1 CRS
+//       interlock refuses EVERY record — loudly, which is right, but permanently. Supplying the
+//       projector is what lets the interlock go quiet honestly instead of being switched off.
+//   S8  PAGINATION, now followed inside the producer, so a dense urban bbox is a complete read
+//       rather than one page plus an unresolved answer.
+//
+// ⚠ THE CRS CHOICE IS DELIBERATE AND IT REMOVES A WHOLE FAILURE CLASS. The producer is asked for
+// **EPSG:4326**, not Plandata's native EPSG:25832, and the bbox filter is sent in 4326 too (axis
+// order lon/lat — VERIFIED LIVE against geoserver.plandata.dk on 2026-07-31, since a swapped bbox
+// lands off-map and returns zero features, which would masquerade as "no byggefelt here"). The
+// alternative — 25832 metres — would need a UTM inverse in this path, and a projection bug there
+// produces a plausible-looking building in the wrong place rather than an error. In 4326 the
+// existing `latLonToSceneXZ` + θ transform (the exact one the parcel ring and the Madrid footprint
+// already use) is the whole projector, so there is no second projection to get wrong.
+
+/**
+ * The ONE producer instance. It owns the rate-limit queue, the in-flight de-duplication map and the
+ * LRU cache, and all three only work if they are SHARED — a per-click instance would silently
+ * disable every one of them (and de-dup nothing, the L-585 lesson).
+ *
+ * Created lazily rather than at module scope: a top-level singleton is a module-load side effect,
+ * and this file is imported by the editor bootstrap (§scc-no-barrel-access-at-module-load).
+ */
+let _dkByggefeltProducer: ByggefeltProducer | null = null;
+function dkByggefeltProducer(): ByggefeltProducer {
+    _dkByggefeltProducer ??= createByggefeltProducer({
+        requestStyle: 'proxy',
+        requestCrs: 'EPSG:4326',
+        // A parcel-sized bbox holds a handful of building fields; the pages exist for dense blocks.
+        pageSize: 200,
+        maxPages: 5,
+    });
+    return _dkByggefeltProducer;
+}
+
+/** Half the padding, in metres, added around the parcel bbox when asking for byggefelter. */
+const DK_BYGGEFELT_BBOX_PAD_M = 25;
+
+interface DkByggefeltPlacement {
+    readonly resolution: DkPlacementResolution;
+    readonly tierOne: ByggefeltTierOneInput;
+}
+
+/**
+ * Resolve DK tier-1 placement for a drawn parcel: fetch the byggefelter around it, classify them,
+ * and ask the G6 resolver which (if any) may place the footprint.
+ *
+ * NEVER throws and never blocks the commit — returns `null` when the path cannot even be attempted,
+ * which the caller treats exactly like "not consulted", never like "nothing published here".
+ */
+async function resolveDkByggefeltPlacement(
+    boundary: ZoningBoundary,
+    site: { location: { latitude: number; longitude: number; trueNorth?: number } },
+): Promise<DkByggefeltPlacement | null> {
+    try {
+        const ring = boundary.polygon;
+        if (!Array.isArray(ring) || ring.length < 3) return null;
+        const originLat = site.location.latitude;
+        const originLon = site.location.longitude;
+        if (!Number.isFinite(originLat) || !Number.isFinite(originLon)) return null;
+        const rawTheta = site.location.trueNorth;
+        const theta = Number.isFinite(rawTheta) ? (rawTheta as number) : 0;
+
+        // ── THE FRAME ROUND-TRIP. The parcel ring lives in the PROJECT-north authoring frame, so θ
+        // must be undone to reach true north before the lat/lon inverse, and re-applied on the way
+        // back. Skipping either direction on a rotated site yields a byggefelt that is plausibly
+        // sized and rotated off the plot — the failure mode that looks like a render bug.
+        const toTrueNorth = (p: Pt): Pt => {
+            if (theta === 0) return p;
+            const e = trueVectorToProjectNorth({ east: p.x, north: -p.z }, -theta);
+            return { x: e.east, z: -e.north };
+        };
+        const toAuthoringFrame = (ll: LatLon): Pt => {
+            const xz = latLonToSceneXZ(ll, originLat, originLon);
+            if (theta === 0) return { x: xz.x, z: xz.z };
+            const e = trueVectorToProjectNorth({ east: xz.x, north: -xz.z }, theta);
+            return { x: e.east, z: -e.north };
+        };
+
+        // The parcel's lon/lat bbox, padded so a byggefelt that merely touches the plot is included.
+        let minLat = Infinity;
+        let maxLat = -Infinity;
+        let minLon = Infinity;
+        let maxLon = -Infinity;
+        for (const p of ring) {
+            const ll = sceneXZToLatLon(toTrueNorth(p), originLat, originLon);
+            if (!Number.isFinite(ll.lat) || !Number.isFinite(ll.lon)) return null;
+            minLat = Math.min(minLat, ll.lat);
+            maxLat = Math.max(maxLat, ll.lat);
+            minLon = Math.min(minLon, ll.lon);
+            maxLon = Math.max(maxLon, ll.lon);
+        }
+        const padLat = DK_BYGGEFELT_BBOX_PAD_M / 111_320;
+        const padLon = padLat / Math.max(0.2, Math.cos((originLat * Math.PI) / 180));
+
+        // ⚠ THE PROJECTOR (S4). The producer hands GeoJSON coordinates through unchanged, so in
+        // EPSG:4326 a point arrives as `{ x: LONGITUDE, z: LATITUDE }` — GeoJSON order, not lat/lon
+        // order. Getting this pair the wrong way round puts a Danish parcel in the Indian Ocean; it
+        // is spelled out rather than inferred for exactly that reason.
+        const project = (p: Pt): Pt => toAuthoringFrame({ lat: p.z, lon: p.x });
+
+        const fetched = await dkByggefeltProducer().fetchByBbox(
+            {
+                minX: minLon - padLon,
+                minY: minLat - padLat,
+                maxX: maxLon + padLon,
+                maxY: maxLat + padLat,
+            },
+            { project },
+        );
+        const tierOne = byggefeltResultToTierOne(fetched);
+        const resolution = resolveDkEnvelopePlacement({
+            parcelRing: ring,
+            parcelEdgeClassifications: boundary.edgeClassifications,
+            byggefelt: tierOne.outcome,
+            // Tiers 2–4 are NOT wired here, and `null` says exactly that: "not consulted", which the
+            // resolver keeps distinct from "asked and found nothing". ⚠ Tier 2 is not merely unwired
+            // — there is NO byggelinje layer in Plandata at all (198 `pdk:` layers, zero), and Danish
+            // byggelinjer are road-authority vejbyggelinjer held by a different authority entirely.
+            byggelinjer: null,
+            lokalplanDepth: null,
+        });
+        return { resolution, tierOne };
+    } catch (e) {
+        console.warn('[gis][c58] §DK-BYGGEFELT-TIER-1 placement lookup failed (non-fatal):', e);
+        return null;
+    }
+}
+
+/**
+ * §S10 — SURFACE THE WEAKER EVIDENCE. Advisory and unknown byggefelter were being produced, ranked
+ * and returned, and then consumed by nothing.
+ *
+ * ⚠ SILENTLY DROPPING THEM IS NOT NEUTRAL. A parcel with three *vejledende* building fields drawn
+ * across it is NOT the same as a parcel with none, and a user who can see those fields on the
+ * municipality's own map deserves to be told that PRYZM saw them too and why they did not shape the
+ * envelope. Showing nothing reads as "PRYZM found no data" — the §CONTEXT-DATA-HONESTY collapse, one
+ * level up: a REFUSAL rendered as an ABSENCE.
+ *
+ * Facts only, and never a number a user could mistake for an allowance.
+ */
+function dkByggefeltEvidenceNotes(tierOne: ByggefeltTierOneInput): string[] {
+    const notes: string[] = [];
+    const advisory = tierOne.evidence.filter((e) => e.legalStatus === 'illustrative').length;
+    const notDeclared = tierOne.evidence.filter((e) => e.unknownCause === 'not-declared').length;
+    const unavailable = tierOne.evidence.filter((e) => e.unknownCause === 'metadata-unavailable').length;
+    const conflicts = tierOne.conflicts.length;
+
+    if (advisory > 0) {
+        notes.push(
+            `${advisory} ADVISORY byggefelt(er) („vejledende“) intersect this parcel. The ` +
+                'municipality declared them indicative, so they may NOT place the buildable footprint ' +
+                '— they are shown as weaker evidence, not ignored, and PRYZM does not "recover" ' +
+                'them as binding by heuristic.',
+        );
+    }
+    if (notDeclared > 0) {
+        notes.push(
+            `${notDeclared} byggefelt(er) here carry NO bindingness declaration either way. The ` +
+                'lokalplan TEXT is the only remaining source for those — unknown, not "not binding".',
+        );
+    }
+    if (unavailable > 0) {
+        notes.push(
+            `${unavailable} byggefelt(er) here have the bindingness flag UNPUBLISHED (null, which is ` +
+                'not false). That may be a publication gap rather than a legal statement, so it is ' +
+                'retryable in a way a settled non-declaration is not.',
+        );
+    }
+    if (conflicts > 0) {
+        notes.push(
+            `${conflicts} byggefelt record(s) here CONTRADICT THEMSELVES — declared both binding ` +
+                'and advisory by the publishing municipality. PRYZM refuses to pick a winner; the ' +
+                'record must be corrected at source. Reported, never silently resolved.',
+        );
+    }
+    for (const u of tierOne.unusableBinding) {
+        notes.push(
+            `A BINDING byggefelt here could not be used as the footprint by PRYZM: ${u.detail} ` +
+                '— this is a PRYZM limitation, NOT missing published data.',
+        );
+    }
+    return notes;
+}
+
 /**
  * L-399a + §DK-HONEST-REFUSAL — the Denmark path: fetch structured zoning from Plandata.dk (via the
  * same-origin keyless proxy) and dispatch ONE of three honest outcomes. Denmark is a PACKED,
@@ -1472,15 +1684,48 @@ async function applyDkZoningThenFallback(
             const zoningForEnvelope = heightDerivedFromFloors
                 ? { ...result.record, structuredFields: { ...sf, maxHeight_m: sf.maxFloors! * DK_FLOOR_H_M } }
                 : result.record;
-            const envelope = computeBuildableEnvelope({
+            // ── §DK-BYGGEFELT-TIER-1 — ask WHERE before drawing WHAT (DK gap G6). ──────────
+            // Best-effort and strictly additive: a null placement leaves the envelope byte-identical
+            // to the pre-wiring behaviour. It is fetched BEFORE the envelope so a binding byggefelt
+            // can shape the footprint in the SAME engine call rather than being patched on after.
+            const placement = await resolveDkByggefeltPlacement(boundary, site);
+            const placed = placement?.resolution.placed === true && placement.resolution.tier === 'byggefelt';
+            const baseEnvelopeInput = {
                 parcelRing: boundary.polygon,
                 edgeClassifications: boundary.edgeClassifications,
                 zoning: zoningForEnvelope,
                 rulePack: null, // structured fields only → confidence 'structured' (C58 §1.2)
-            });
+            } as const;
+            let envelope = computeBuildableEnvelope(
+                placed
+                    ? {
+                          ...baseEnvelopeInput,
+                          // The DK slot of ADR-0279 §2: the resolver picks the rule, the engine stays
+                          // jurisdiction-agnostic and never learns it is serving Denmark.
+                          geometricRule: placement!.resolution.geometricRule,
+                          explicitAreaFootprintParts:
+                              placement!.resolution.explicitAreaSource?.footprintParts ?? null,
+                      }
+                    : baseEnvelopeInput,
+            );
+            // ⚠ A BYGGEFELT THAT CANNOT SHAPE THE FOOTPRINT MUST NOT DELETE THE ENVELOPE. The
+            // explicit-area branch HARD-FAILS (status 'degenerate') when the clip cannot be computed
+            // exactly on this plot — a genuinely disjoint result, a hole that bites, or the
+            // convex-clip limitation. That is the right answer about the FOOTPRINT and the wrong
+            // answer about the PARCEL: the published height/FAR are still real. So fall back to the
+            // unplaced envelope and SAY WHY, rather than turn a placement limitation into "no
+            // envelope here" (§NO-SILENT-FALLBACK, read in the other direction).
+            let placementDroppedReason: string | null = null;
+            if (placed && envelope.status !== 'ok') {
+                placementDroppedReason =
+                    envelope.caveats.find((c) => c.startsWith('Explicit-area zone:')) ??
+                    'the published byggefelt could not be clipped to this parcel exactly';
+                envelope = computeBuildableEnvelope(baseEnvelopeInput);
+            }
             // A resolvable HEIGHT (published OR storey-derived) means a study volume can be drawn.
             if (envelope.status === 'ok' && envelope.maxHeight_m !== null) {
-                const env2: typeof envelope = heightDerivedFromFloors
+                const evidenceNotes = placement ? dkByggefeltEvidenceNotes(placement.tierOne) : [];
+                let env2: typeof envelope = heightDerivedFromFloors
                     ? {
                           ...envelope,
                           confidence: 'estimated-ruleset',
@@ -1492,12 +1737,34 @@ async function applyDkZoningThenFallback(
                           ],
                       }
                     : envelope;
+                if (placementDroppedReason !== null) {
+                    env2 = {
+                        ...env2,
+                        caveats: [
+                            ...env2.caveats,
+                            `A BINDING byggefelt (published building field) applies to this parcel, but ` +
+                                `PRYZM could not clip it exactly here: ${placementDroppedReason} The ` +
+                                `numbers below are the plan's; the FOOTPRINT is the whole parcel and is ` +
+                                `therefore an UPPER BOUND, not the placed building field.`,
+                        ],
+                    };
+                }
+                if (placed) {
+                    // Stamps `placement` / `openSpace` and RE-VALIDATES through the L0 refinements,
+                    // so a mislabelled provenance pairing throws here instead of reaching a renderer.
+                    env2 = applyDkPlacement(env2, placement!.resolution);
+                }
+                if (evidenceNotes.length > 0) {
+                    env2 = { ...env2, caveats: [...env2.caveats, ...evidenceNotes] };
+                }
                 dispatchEnvelope(ctx, site.id, env2, 'plandata-dk');
                 console.log(
                     `${TAG} ${heightDerivedFromFloors ? 'storey-DERIVED' : 'structured'} envelope → ` +
                         `confidence=${env2.confidence} zone=${envelope.zoneCode ?? 'n/a'} ` +
                         `height=${envelope.maxHeight_m}m` +
-                        `${heightDerivedFromFloors ? ` (from ${sf.maxFloors} storeys)` : ''}.`,
+                        `${heightDerivedFromFloors ? ` (from ${sf.maxFloors} storeys)` : ''}` +
+                        ` placement=${env2.placement?.source ?? 'none'}` +
+                        `${placementDroppedReason !== null ? ' (byggefelt found but unclippable)' : ''}.`,
                 );
                 return;
             }

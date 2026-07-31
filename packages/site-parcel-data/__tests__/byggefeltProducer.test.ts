@@ -19,12 +19,15 @@ import {
     byggefeltFeatureToEvidence,
     byggefeltCollectionToEvidence,
     dkByggefeltFromEvidence,
+    dkByggefeltFromFeatureEvidence,
+    groupEvidenceByFeature,
     wfsBool,
     rankPlacementEvidence,
     collectEvidenceConflicts,
     strongestBindingEvidence,
     createByggefeltProducer,
     byggefeltResultToTierOne,
+    PLANDATA_BYGGEFELT_PROXY_PATH,
     resolveDkEnvelopePlacement,
     DK_BYGGEFELT_RING_REF,
     type Bbox25832,
@@ -84,6 +87,35 @@ function stubFetch(sequence: StubResponse[]): {
     }) as unknown as typeof globalThis.fetch;
     return { fetchImpl, calls };
 }
+
+/**
+ * §MULTI-PART-EXPLICIT-AREA fixtures. Synthetic RINGS on a REAL record's properties: the
+ * classification path is still exercised against Plandata's verbatim booleans and `doklink`, while
+ * the geometry is authored so the multi-part / hole SHAPES under test are unambiguous. Coordinates
+ * are EPSG:25832 inside `BBOX`, so the `project` helper maps them the way the real ones are mapped.
+ */
+const TWO_PART_BINDING: DkByggefeltFeature = {
+    ...BINDING_FEATURE,
+    geometry: {
+        type: 'MultiPolygon',
+        coordinates: [
+            [[[531_400, 6_224_400], [531_410, 6_224_400], [531_410, 6_224_410], [531_400, 6_224_410], [531_400, 6_224_400]]],
+            [[[531_450, 6_224_450], [531_460, 6_224_450], [531_460, 6_224_460], [531_450, 6_224_460], [531_450, 6_224_450]]],
+        ],
+    },
+};
+
+/** A binding field with a published interior courtyard ("do not build here"). */
+const HOLED_BINDING: DkByggefeltFeature = {
+    ...BINDING_FEATURE,
+    geometry: {
+        type: 'Polygon',
+        coordinates: [
+            [[531_400, 6_224_400], [531_500, 6_224_400], [531_500, 6_224_500], [531_400, 6_224_500], [531_400, 6_224_400]],
+            [[531_440, 6_224_440], [531_460, 6_224_440], [531_460, 6_224_460], [531_440, 6_224_460], [531_440, 6_224_440]],
+        ],
+    },
+};
 
 /** A producer with all waiting disabled, so tests exercise logic rather than timers. */
 function producerWith(sequence: StubResponse[], overrides = {}) {
@@ -300,7 +332,8 @@ describe('§DO-NOT-RECLASSIFY + §CRS-INTERLOCK — the tier-1 adapter refuses',
         const r = dkByggefeltFromEvidence(e!);
         expect(r.ok).toBe(true);
         expect(r.ok === true && r.byggefelt.binding).toBe('binding');
-        expect(r.ok === true && r.byggefelt.ring.length).toBeGreaterThanOrEqual(3);
+        expect(r.ok === true && r.byggefelt.parts.length).toBe(1);
+        expect(r.ok === true && r.byggefelt.parts[0]!.outer.length).toBeGreaterThanOrEqual(3);
     });
 
     it('refuses a binding field with a HOLE rather than over-state the buildable area', () => {
@@ -514,6 +547,155 @@ describe('polite-client behaviour', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════
+describe('§PAGINATION-IS-FOLLOWED — truncation was detected; now it is resolved', () => {
+    const project = (p: Pt): Pt => ({ x: p.x - 531_400, z: p.z - 6_224_400 });
+
+    /** A stub that serves `total` features one per page, HONOURING `startIndex`. */
+    function pagedFetch(total: number) {
+        const calls: string[] = [];
+        const fetchImpl = (async (url: unknown) => {
+            const u = String(url);
+            calls.push(u);
+            const start = Number(new URL(u, 'https://x').searchParams.get('startIndex') ?? '0');
+            const page = start < total ? [ADVISORY_FEATURE] : [];
+            return {
+                ok: true,
+                status: 200,
+                headers: { get: () => null },
+                json: async () => collection(page, total),
+            };
+        }) as unknown as typeof globalThis.fetch;
+        return { fetchImpl, calls };
+    }
+
+    function pagingProducer(fetchImpl: typeof globalThis.fetch, over = {}) {
+        return createByggefeltProducer({
+            fetchImpl,
+            minIntervalMs: 0,
+            backoffBaseMs: 0,
+            sleep: async () => undefined,
+            jitter: () => 0.5,
+            pageSize: 1,
+            ...over,
+        });
+    }
+
+    it('follows the cursor until every matched feature has been read', async () => {
+        const { fetchImpl, calls } = pagedFetch(3);
+        const r = await pagingProducer(fetchImpl).fetchByBbox(BBOX, { project });
+        expect(r.outcome.status).toBe('found');
+        expect(r.featureCount).toBe(3);
+        expect(r.pages).toBe(3);
+        // ⚠ NOT truncated: everything the server said it matched was actually read.
+        expect(r.truncated).toBe(false);
+        // The cursor really ADVANCED — re-fetching page 0 three times would also yield 3 features,
+        // so the feature count alone would not prove pagination happened.
+        expect(calls.map((c) => new URL(c, 'https://x').searchParams.get('startIndex'))).toEqual([
+            '0',
+            '1',
+            '2',
+        ]);
+    });
+
+    it('⚠ stops at maxPages and reports the answer TRUNCATED — a bound is never a coverage fact', async () => {
+        const { fetchImpl } = pagedFetch(50);
+        const r = await pagingProducer(fetchImpl, { maxPages: 4 }).fetchByBbox(BBOX, { project });
+        expect(r.pages).toBe(4);
+        expect(r.featureCount).toBe(4);
+        expect(r.truncated).toBe(true);
+    });
+
+    it('DISCARDS a partial read when a later page fails — never reports it as the whole bbox', async () => {
+        // Page 1 succeeds, every later attempt 500s. Returning page 1 alone would let "no binding
+        // byggefelt here" be computed over an unknown fraction of the bbox — §FAILURE-IS-NOT-ABSENCE
+        // wearing a successful answer's clothes.
+        let n = 0;
+        const fetchImpl = (async () => {
+            n += 1;
+            const ok = n === 1;
+            return {
+                ok,
+                status: ok ? 200 : 500,
+                headers: { get: () => null },
+                json: async () => collection(ok ? [BINDING_FEATURE] : [], 10),
+            };
+        }) as unknown as typeof globalThis.fetch;
+        const r = await pagingProducer(fetchImpl).fetchByBbox(BBOX, { project });
+        expect(r.outcome.status).toBe('transient');
+        expect(r.outcome.status !== 'found' && r.outcome.reason).toMatch(/DISCARDED/);
+        expect(r.featureCount).toBeNull();
+    });
+
+    it('stops (and says TRUNCATED) if the cursor stops advancing rather than spinning for ever', async () => {
+        // The server claims 99 matched but returns an empty page from the second request on. An
+        // unbounded loop here would hammer a public endpoint; a `false` truncated flag would claim a
+        // complete read we do not have.
+        let call = 0;
+        const fetchImpl = (async () => {
+            call += 1;
+            return {
+                ok: true,
+                status: 200,
+                headers: { get: () => null },
+                json: async () => collection(call === 1 ? [BINDING_FEATURE] : [], 99),
+            };
+        }) as unknown as typeof globalThis.fetch;
+        const r = await pagingProducer(fetchImpl).fetchByBbox(BBOX, { project });
+        expect(r.truncated).toBe(true);
+        expect(r.pages).toBe(2);
+    });
+
+    it('sends startIndex on the very first request (the cursor is explicit, not implied)', async () => {
+        const { producer, calls } = producerWith([{ status: 200, body: collection([]) }]);
+        await producer.fetchByBbox(BBOX);
+        expect(calls[0]).toContain('startIndex=0');
+    });
+
+    it('§PROXY-STYLE — the browser mode sends a bbox + window, never a forwardable WFS query', async () => {
+        // `User-Agent` is a forbidden browser header, so a browser MUST go through PRYZM's own
+        // origin. The proxy route takes a bbox, not a URL and not a CQL filter, so it cannot be
+        // turned into an open forwarder.
+        const { fetchImpl, calls } = stubFetch([{ status: 200, body: collection([]) }]);
+        const producer = createByggefeltProducer({
+            fetchImpl,
+            minIntervalMs: 0,
+            backoffBaseMs: 0,
+            sleep: async () => undefined,
+            jitter: () => 0.5,
+            requestStyle: 'proxy',
+            requestCrs: 'EPSG:4326',
+        });
+        await producer.fetchByBbox({ minX: 9.52, minY: 56.17, maxX: 9.54, maxY: 56.18 });
+        expect(calls[0]).toContain(PLANDATA_BYGGEFELT_PROXY_PATH);
+        expect(calls[0]).toContain('crs=EPSG%3A4326');
+        expect(calls[0]).toContain('minx=9.52');
+        expect(calls[0]).not.toContain('CQL_FILTER');
+        expect(calls[0]).not.toContain('typeNames');
+    });
+
+    it('§CRS-IS-A-SETTING — asking for EPSG:4326 stamps the evidence with that frame', async () => {
+        // The interlock must keep working in the new frame: 4326 DEGREES are not scene-XZ METRES, so
+        // an unprojected 4326 ring must still refuse rather than plot degrees as metres.
+        const { fetchImpl } = stubFetch([{ status: 200, body: collection([BINDING_FEATURE]) }]);
+        const producer = createByggefeltProducer({
+            fetchImpl,
+            minIntervalMs: 0,
+            backoffBaseMs: 0,
+            sleep: async () => undefined,
+            jitter: () => 0.5,
+            requestCrs: 'EPSG:4326',
+        });
+        const r = await producer.fetchByBbox({ minX: 9.52, minY: 56.17, maxX: 9.54, maxY: 56.18 });
+        expect(r.outcome.status).toBe('found');
+        if (r.outcome.status !== 'found') return;
+        expect(r.outcome.value[0]!.geometry.crs).toBe('EPSG:4326');
+        const bridged = byggefeltResultToTierOne(r);
+        expect(bridged.outcome.status).toBe('absent');
+        expect(bridged.unusableBinding[0]!.detail).toContain('EPSG:4326');
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
 describe('the bridge into G6 tier 1', () => {
     const project = (p: Pt): Pt => ({ x: p.x - 531_400, z: p.z - 6_224_400 });
 
@@ -534,13 +716,14 @@ describe('the bridge into G6 tier 1', () => {
         expect(bridged.evidence).toHaveLength(2);
     });
 
-    it('⚠ yields TRANSIENT, not absent, when the page was TRUNCATED and held no binding record', async () => {
-        // "None of these is binding" describes the PAGE that was read, not the bbox — a binding
-        // byggefelt could sit on page 2. Concluding absence from a partial read is how a fetch
-        // limit becomes a fake coverage fact.
-        const { producer } = producerWith([
-            { status: 200, body: collection([ADVISORY_FEATURE], 4_000) },
-        ]);
+    it('⚠ yields TRANSIENT, not absent, when the read was TRUNCATED and held no binding record', async () => {
+        // "None of these is binding" describes what was READ, not the bbox — a binding byggefelt
+        // could sit beyond the last page fetched. Concluding absence from a partial read is how a
+        // fetch limit becomes a fake coverage fact. `maxPages: 1` pins the ceiling being hit.
+        const { producer } = producerWith(
+            [{ status: 200, body: collection([ADVISORY_FEATURE], 4_000) }],
+            { maxPages: 1 },
+        );
         const result = await producer.fetchByBbox(BBOX, { project });
         expect(result.truncated).toBe(true);
         const bridged = byggefeltResultToTierOne(result);
@@ -557,38 +740,81 @@ describe('the bridge into G6 tier 1', () => {
     });
 
     it('reports an unadaptable BINDING field as a PRYZM limitation, not as missing data', async () => {
-        const multiPart: DkByggefeltFeature = {
-            ...BINDING_FEATURE,
-            geometry: {
-                type: 'MultiPolygon',
-                coordinates: [
-                    [
-                        [
-                            [531_400, 6_224_400],
-                            [531_410, 6_224_400],
-                            [531_410, 6_224_410],
-                            [531_400, 6_224_410],
-                        ],
-                    ],
-                    [
-                        [
-                            [531_450, 6_224_450],
-                            [531_460, 6_224_450],
-                            [531_460, 6_224_460],
-                            [531_450, 6_224_460],
-                        ],
-                    ],
-                ],
-            },
-        };
-        const { producer } = producerWith([{ status: 200, body: collection([multiPart]) }]);
-        const bridged = byggefeltResultToTierOne(await producer.fetchByBbox(BBOX, { project }));
+        // ⚠ THE UNADAPTABLE CASE IS NOW THE CRS INTERLOCK, NOT MULTI-PART. This test used to feed a
+        // 2-part byggefelt; since §MULTI-PART-EXPLICIT-AREA those ADAPT (see the test below), so a
+        // genuinely unadaptable binding record is needed to keep the `pryzm-limitation:` reason
+        // under test. Omitting the projector leaves the geometry in EPSG:25832 and the interlock
+        // refuses it — a real capability gap, not the register's.
+        const { producer } = producerWith([{ status: 200, body: collection([BINDING_FEATURE]) }]);
+        const bridged = byggefeltResultToTierOne(await producer.fetchByBbox(BBOX)); // no `project`
         expect(bridged.unusableBinding.length).toBeGreaterThan(0);
+        expect(bridged.unusableBinding[0]!.detail).toContain('scene-XZ');
         expect(bridged.outcome.status).toBe('absent');
         // The reason must NAME it as our gap, so a coverage metric cannot absorb it as "no data".
         expect(bridged.outcome.status === 'absent' && bridged.outcome.reason).toContain(
             'pryzm-limitation',
         );
+    });
+
+    it('§MULTI-PART-EXPLICIT-AREA — a MULTI-PART binding byggefelt now ADAPTS, whole', async () => {
+        // The measured headline: 19.4% of the 13,629 binding national byggefelter are multi-part,
+        // and every one of them used to land in `unusableBinding`. This is the fix, end to end.
+        const { producer } = producerWith([{ status: 200, body: collection([TWO_PART_BINDING]) }]);
+        const bridged = byggefeltResultToTierOne(await producer.fetchByBbox(BBOX, { project }));
+
+        // BOTH parts are still separately VISIBLE as evidence — nothing was collapsed away.
+        expect(bridged.evidence).toHaveLength(2);
+        expect(bridged.evidence[0]!.partCount).toBe(2);
+
+        expect(bridged.unusableBinding).toHaveLength(0);
+        expect(bridged.outcome.status).toBe('found');
+        expect(bridged.outcome.status === 'found' && bridged.outcome.value.parts).toHaveLength(2);
+        expect(bridged.outcome.status === 'found' && bridged.outcome.value.binding).toBe('binding');
+    });
+
+    it('§MULTI-PART-EXPLICIT-AREA — a HOLED binding byggefelt adapts, carrying the hole', async () => {
+        const { producer } = producerWith([{ status: 200, body: collection([HOLED_BINDING]) }]);
+        const bridged = byggefeltResultToTierOne(await producer.fetchByBbox(BBOX, { project }));
+        expect(bridged.outcome.status).toBe('found');
+        if (bridged.outcome.status !== 'found') return;
+        expect(bridged.outcome.value.parts).toHaveLength(1);
+        // ⚠ THE HOLE SURVIVES THE BRIDGE. Losing it here would silently over-state the footprint;
+        // whether it actually bites is decided later, against the real parcel, by solveExplicitArea.
+        expect(bridged.outcome.value.parts[0]!.holes).toHaveLength(1);
+    });
+
+    it('refuses a part GROUP that is incomplete rather than place a fraction of the footprint', () => {
+        const parts = byggefeltFeatureToEvidence(TWO_PART_BINDING, { project });
+        expect(parts).toHaveLength(2); // ⚠ the precondition: the group really does have two parts
+
+        // Hand the adapter only ONE of the two — the caller-grouping bug this guard exists for.
+        const partial = dkByggefeltFromFeatureEvidence([parts[0]!]);
+        expect(partial.ok).toBe(false);
+        expect(partial.ok === false && partial.reason).toBe('incomplete-parts');
+
+        // The COMPLETE group adapts — proving the refusal above is about completeness, not about
+        // the adapter simply never succeeding on this fixture.
+        const whole = dkByggefeltFromFeatureEvidence(parts);
+        expect(whole.ok).toBe(true);
+        expect(whole.ok === true && whole.byggefelt.parts).toHaveLength(2);
+    });
+
+    it('refuses a group whose records come from DIFFERENT features', () => {
+        const a = byggefeltFeatureToEvidence(TWO_PART_BINDING, { project });
+        const b = byggefeltFeatureToEvidence(
+            { ...TWO_PART_BINDING, properties: { ...TWO_PART_BINDING.properties, id: 999_999 } },
+            { project },
+        );
+        const mixed = dkByggefeltFromFeatureEvidence([a[0]!, b[1]!]);
+        expect(mixed.ok).toBe(false);
+        expect(mixed.ok === false && mixed.reason).toBe('incomplete-parts');
+    });
+
+    it('groups a mixed response by FEATURE, never merging two features into one footprint', () => {
+        const evidence = byggefeltCollectionToEvidence([TWO_PART_BINDING, ADVISORY_FEATURE], { project });
+        const groups = groupEvidenceByFeature(evidence);
+        expect(groups).toHaveLength(2);
+        expect(groups.map((g) => g.length).sort()).toEqual([1, 2]);
     });
 
     it('passes a transient producer failure straight through, so tier 1 stays retryable', async () => {
@@ -632,7 +858,8 @@ describe('END-TO-END — a real binding byggefelt drives G6 tier 1', () => {
             kind: 'explicit-area',
             ringRef: DK_BYGGEFELT_RING_REF,
         });
-        expect(resolution.explicitAreaSource?.footprintRing.length).toBeGreaterThanOrEqual(3);
+        expect(resolution.explicitAreaSource?.footprintParts).toHaveLength(1);
+        expect(resolution.explicitAreaSource?.footprintParts?.[0]!.outer.length).toBeGreaterThanOrEqual(3);
         expect(resolution.refusalReason).toBeNull();
         // No provisional caveat: the strongest source answered, so the answer is cacheable.
         expect(resolution.higherAuthorityUnresolved).toBe(false);

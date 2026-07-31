@@ -62,7 +62,8 @@ import {
 } from '@pryzm/schemas';
 import {
     byggefeltCollectionToEvidence,
-    dkByggefeltFromEvidence,
+    dkByggefeltFromFeatureEvidence,
+    groupEvidenceByFeature,
     DK_BYGGEFELT_LAYER,
     type ByggefeltEvidenceOptions,
     type DkByggefeltFeature,
@@ -102,13 +103,43 @@ function isAborted(signal: AbortSignal | undefined): boolean {
     return signal !== undefined && signal.aborted;
 }
 
-/** A bbox in `PLANDATA_NATIVE_CRS` metres. */
-export interface Bbox25832 {
+/**
+ * A bbox in the producer's `requestCrs` (default `PLANDATA_NATIVE_CRS`, EPSG:25832 metres).
+ *
+ * ⚠ THE NAME IS HISTORIC. When `requestCrs` is `'EPSG:4326'` these are **lon/lat degrees**, with
+ * `minX/maxX` = longitude and `minY/maxY` = latitude — the axis order VERIFIED LIVE against
+ * `geoserver.plandata.dk` on 2026-07-31 (a lat/lon bbox lands off-map and returns zero features,
+ * which is exactly how a silent axis swap would masquerade as "no byggefelt here").
+ */
+export interface PlandataBbox {
     readonly minX: number;
     readonly minY: number;
     readonly maxX: number;
     readonly maxY: number;
 }
+
+/** @deprecated Use `PlandataBbox` — the CRS is now a producer setting, not baked into the type. */
+export type Bbox25832 = PlandataBbox;
+
+/** Which CRS the producer asks Plandata for, on BOTH the bbox filter and the returned geometry. */
+export type PlandataRequestCrs = 'EPSG:25832' | 'EPSG:4326';
+
+/**
+ * How the producer forms its request URL.
+ *
+ *  - `'wfs'`   — talk to `geoserver.plandata.dk` directly. Correct SERVER-SIDE (Node), where the
+ *                identifying `User-Agent` is actually sent.
+ *  - `'proxy'` — talk to PRYZM's own same-origin route (`/api/plandata/byggefelt`), which forwards
+ *                with the real UA and one shared rate limit. **This is the browser mode**: `User-Agent`
+ *                is a forbidden header in browser `fetch` and is silently dropped, so a browser
+ *                calling the WFS directly would be an anonymous client — and would be blocked by
+ *                CORS/CSP anyway. The proxy takes a bbox + paging window, never a free-form URL, so
+ *                it cannot be turned into an open forwarder.
+ */
+export type ByggefeltRequestStyle = 'wfs' | 'proxy';
+
+/** The same-origin route `requestStyle: 'proxy'` calls. Mirrors `server/plandataZoningProxy.js`. */
+export const PLANDATA_BYGGEFELT_PROXY_PATH = '/api/plandata/byggefelt';
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────
 // CONFIG
@@ -140,6 +171,21 @@ export interface ByggefeltProducerConfig {
     /** Max features per request (WFS `count`). Default 500. */
     readonly pageSize?: number;
     /**
+     * §PAGINATION-IS-FOLLOWED — how many pages this producer will fetch before giving up and
+     * reporting the answer TRUNCATED. Default 10 (⇒ up to 5,000 features at the default page size).
+     *
+     * ⚠ A CEILING, NOT A TARGET, and its EXHAUSTION IS REPORTED. An unbounded loop on a public,
+     * taxpayer-funded endpoint is not polite-client behaviour, and a dense urban bbox could in
+     * principle page for a long time. When the ceiling is hit, `truncated` stays TRUE and the bridge
+     * turns a negative answer into `transient`, never `absent` (§TRUNCATION-IS-NOT-NONE) — so the
+     * bound can never silently become a fake coverage fact.
+     */
+    readonly maxPages?: number;
+    /** Which CRS to request (bbox filter AND returned geometry). Default `EPSG:25832`. */
+    readonly requestCrs?: PlandataRequestCrs;
+    /** Direct WFS (server-side) or PRYZM's same-origin proxy (browser). Default `'wfs'`. */
+    readonly requestStyle?: ByggefeltRequestStyle;
+    /**
      * Deterministic jitter source in `[0,1)`. Defaults to `Math.random`. Injectable so a test can
      * pin the backoff schedule exactly (C58 §1.1 — a test must not depend on RNG).
      */
@@ -159,12 +205,16 @@ interface ResolvedConfig {
     readonly cacheTtlMs: number;
     readonly cacheMaxEntries: number;
     readonly pageSize: number;
+    readonly maxPages: number;
+    readonly requestCrs: PlandataRequestCrs;
+    readonly requestStyle: ByggefeltRequestStyle;
     readonly jitter: () => number;
 }
 
 function resolveConfig(c: ByggefeltProducerConfig): ResolvedConfig {
+    const requestStyle = c.requestStyle ?? 'wfs';
     return {
-        baseUrl: c.baseUrl ?? PLANDATA_WFS_URL,
+        baseUrl: c.baseUrl ?? (requestStyle === 'proxy' ? PLANDATA_BYGGEFELT_PROXY_PATH : PLANDATA_WFS_URL),
         fetchImpl: c.fetchImpl ?? globalThis.fetch?.bind(globalThis),
         now: c.now ?? (() => Date.now()),
         sleep: c.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))),
@@ -176,6 +226,9 @@ function resolveConfig(c: ByggefeltProducerConfig): ResolvedConfig {
         cacheTtlMs: c.cacheTtlMs ?? 15 * 60 * 1000,
         cacheMaxEntries: c.cacheMaxEntries ?? 200,
         pageSize: c.pageSize ?? 500,
+        maxPages: Math.max(1, c.maxPages ?? 10),
+        requestCrs: c.requestCrs ?? PLANDATA_NATIVE_CRS,
+        requestStyle,
         jitter: c.jitter ?? (() => Math.random()),
     };
 }
@@ -209,12 +262,25 @@ export interface ByggefeltFetchResult {
     readonly fromCache: boolean;
     /** How many outbound HTTP requests this call actually made (0 on a cache hit). */
     readonly requests: number;
+    /** How many PAGES were successfully read (§PAGINATION-IS-FOLLOWED). 0 on a cache hit or failure. */
+    readonly pages: number;
     /**
-     * TRUE when the WFS reported MORE matching features than it returned — the answer is a PAGE, not
-     * the whole truth. A consumer must not treat a truncated list as exhaustive.
+     * TRUE when the answer is still a PARTIAL read of the bbox after paging — the `maxPages` ceiling
+     * was hit, or the cursor stopped advancing while the server said more matched.
+     *
+     * ⚠ SINCE §PAGINATION-IS-FOLLOWED THIS MEANS "PRYZM STOPPED", NOT "the server sent one page".
+     * The distinction matters because the remedy changed: it is now a signal to raise `maxPages` (or
+     * narrow the bbox), not a bug report. What has NOT changed is that a consumer must never treat a
+     * truncated list as exhaustive — the bridge still turns a truncated negative into `transient`.
      */
     readonly truncated: boolean;
 }
+
+/** One page's classified result, before the pagination loop decides what it means. */
+type PageResult =
+    | { readonly kind: 'ok'; readonly features: DkByggefeltFeature[]; readonly matched: number | null }
+    | { readonly kind: 'aborted' }
+    | { readonly kind: 'failed'; readonly reason: string };
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────
 // THE PRODUCER
@@ -284,9 +350,32 @@ export function createByggefeltProducer(config: ByggefeltProducerConfig = {}): B
         return mine;
     }
 
-    function buildUrl(bbox: Bbox25832, options: ByggefeltQueryOptions): string {
+    /**
+     * Build the URL for ONE PAGE.
+     *
+     * `startIndex` is the WFS 2.0 paging cursor (VERIFIED LIVE against geoserver.plandata.dk,
+     * 2026-07-31: `startIndex=1` returns a different first feature from `startIndex=0`).
+     *
+     * The `'proxy'` style deliberately does NOT forward WFS parameters — it sends a bbox and a
+     * paging window, and the server rebuilds the upstream query itself. A proxy that forwarded a
+     * caller-supplied URL (or a caller-supplied `CQL_FILTER`) would be an open forwarder.
+     */
+    function buildUrl(bbox: PlandataBbox, options: ByggefeltQueryOptions, startIndex: number): string {
+        if (cfg.requestStyle === 'proxy') {
+            const params = new URLSearchParams({
+                minx: String(bbox.minX),
+                miny: String(bbox.minY),
+                maxx: String(bbox.maxX),
+                maxy: String(bbox.maxY),
+                crs: cfg.requestCrs,
+                count: String(cfg.pageSize),
+                startIndex: String(startIndex),
+            });
+            if (options.bindingOnly === true) params.set('binding', '1');
+            return `${cfg.baseUrl}?${params.toString()}`;
+        }
         const filters = [
-            `BBOX(geometri,${bbox.minX},${bbox.minY},${bbox.maxX},${bbox.maxY},'${PLANDATA_NATIVE_CRS}')`,
+            `BBOX(geometri,${bbox.minX},${bbox.minY},${bbox.maxX},${bbox.maxY},'${cfg.requestCrs}')`,
         ];
         if (options.bindingOnly === true) {
             filters.push('bygkunifelt=true AND bygvejledende=false');
@@ -297,8 +386,9 @@ export function createByggefeltProducer(config: ByggefeltProducerConfig = {}): B
             request: 'GetFeature',
             typeNames: DK_BYGGEFELT_LAYER,
             outputFormat: 'application/json',
-            srsName: PLANDATA_NATIVE_CRS,
+            srsName: cfg.requestCrs,
             count: String(cfg.pageSize),
+            startIndex: String(startIndex),
             CQL_FILTER: filters.join(' AND '),
         });
         return `${cfg.baseUrl}?${params.toString()}`;
@@ -365,46 +455,29 @@ export function createByggefeltProducer(config: ByggefeltProducerConfig = {}): B
         return Math.round(ceiling * (0.5 + 0.5 * cfg.jitter()));
     }
 
-    async function fetchUncached(
-        bbox: Bbox25832,
+    /** ONE PAGE, with the retry/backoff ladder. Never throws. */
+    async function fetchPage(
+        bbox: PlandataBbox,
         options: ByggefeltQueryOptions,
-    ): Promise<ByggefeltFetchResult> {
-        const url = buildUrl(bbox, options);
-        let requests = 0;
+        startIndex: number,
+        counters: { requests: number },
+    ): Promise<PageResult> {
+        const url = buildUrl(bbox, options, startIndex);
         let lastReason = 'unknown';
 
         for (let i = 0; i <= cfg.maxRetries; i += 1) {
-            if (isAborted(options.signal)) {
-                return {
-                    outcome: fetchAborted('superseded by a newer request'),
-                    featureCount: null,
-                    fromCache: false,
-                    requests,
-                    truncated: false,
-                };
-            }
+            if (isAborted(options.signal)) return { kind: 'aborted' };
             await acquireSlot();
-            requests += 1;
+            counters.requests += 1;
             const a = await attempt(url, options.signal);
 
-            if (a.kind === 'aborted') {
-                return {
-                    outcome: fetchAborted('superseded by a newer request'),
-                    featureCount: null,
-                    fromCache: false,
-                    requests,
-                    truncated: false,
-                };
-            }
+            if (a.kind === 'aborted') return { kind: 'aborted' };
             if (a.kind === 'fatal') {
                 // A 4xx is OUR bug (bad filter / unknown layer). It is NOT an absence — reporting it
                 // as "no byggefelt here" would hide a broken query behind a plausible empty answer.
                 return {
-                    outcome: fetchTransient(`${a.reason} (non-retryable client error — check the query)`),
-                    featureCount: null,
-                    fromCache: false,
-                    requests,
-                    truncated: false,
+                    kind: 'failed',
+                    reason: `${a.reason} (non-retryable client error — check the query)`,
                 };
             }
             if (a.kind === 'retry') {
@@ -413,7 +486,6 @@ export function createByggefeltProducer(config: ByggefeltProducerConfig = {}): B
                 continue;
             }
 
-            // ── ANSWERED. Parse. ──────────────────────────────────────────────────────────────
             const body = a.body as
                 | { features?: unknown; numberMatched?: unknown; numberReturned?: unknown }
                 | null
@@ -425,41 +497,110 @@ export function createByggefeltProducer(config: ByggefeltProducerConfig = {}): B
                 if (i < cfg.maxRetries) await cfg.sleep(backoffMs(i, null));
                 continue;
             }
+            const matchedRaw = Number(body?.numberMatched);
+            return {
+                kind: 'ok',
+                features,
+                matched: Number.isFinite(matchedRaw) ? matchedRaw : null,
+            };
+        }
+        return { kind: 'failed', reason: `${lastReason} (after ${cfg.maxRetries + 1} attempt(s))` };
+    }
 
-            const matched = Number(body?.numberMatched);
-            const returned = Number(body?.numberReturned ?? features.length);
-            const truncated = Number.isFinite(matched) && Number.isFinite(returned) && matched > returned;
+    /**
+     * §PAGINATION-IS-FOLLOWED — fetch EVERY page the WFS says it matched, up to `maxPages`.
+     *
+     * ⚠ TRUNCATION USED TO BE DETECTED AND THEN LEFT THERE. `numberMatched > numberReturned` was
+     * reported honestly (which mattered — see §TRUNCATION-IS-NOT-NONE) but never acted on, so a
+     * dense urban bbox reliably returned one page and an unresolved answer. Following the cursor
+     * turns most of those into real answers; the honest report survives for the ones that still hit
+     * the ceiling, because a bound we imposed must never read as data the register does not have.
+     */
+    async function fetchUncached(
+        bbox: PlandataBbox,
+        options: ByggefeltQueryOptions,
+    ): Promise<ByggefeltFetchResult> {
+        const counters = { requests: 0 };
+        const all: DkByggefeltFeature[] = [];
+        let matched: number | null = null;
+        let pages = 0;
+        let truncated = false;
 
-            if (features.length === 0) {
-                // A DURABLE absence: the register answered, and no byggefelt covers this bbox.
+        for (let page = 0; page < cfg.maxPages; page += 1) {
+            const res = await fetchPage(bbox, options, all.length, counters);
+            if (res.kind === 'aborted') {
                 return {
-                    outcome: fetchAbsent('no adopted byggefelt intersects this bbox'),
-                    featureCount: 0,
+                    outcome: fetchAborted('superseded by a newer request'),
+                    featureCount: null,
                     fromCache: false,
-                    requests,
+                    requests: counters.requests,
+                    pages,
                     truncated: false,
                 };
             }
-            const evidence = byggefeltCollectionToEvidence(features, {
-                sourceCrs: PLANDATA_NATIVE_CRS,
-                project: options.project ?? null,
-            });
-            return {
-                outcome: fetchFound(evidence),
-                featureCount: features.length,
-                fromCache: false,
-                requests,
-                truncated,
-            };
+            if (res.kind === 'failed') {
+                // ⚠ A FAILURE MID-PAGINATION DISCARDS THE WHOLE ANSWER. Returning the pages that DID
+                // arrive would be a partial read wearing a complete answer's clothes — "no binding
+                // byggefelt here" computed over an unknown fraction of the bbox. Transient, uncached.
+                return {
+                    outcome: fetchTransient(
+                        pages === 0
+                            ? res.reason
+                            : `${res.reason} — failed on page ${pages + 1}; the ${all.length} feature(s) ` +
+                              'already read are DISCARDED rather than reported as the whole bbox',
+                    ),
+                    featureCount: null,
+                    fromCache: false,
+                    requests: counters.requests,
+                    pages,
+                    truncated: false,
+                };
+            }
+            pages += 1;
+            if (res.matched !== null) matched = res.matched;
+            all.push(...res.features);
+
+            if (matched === null) {
+                // The server did not say how many matched. A FULL page might mean there are more, so
+                // treat a full page as possibly-truncated rather than assume completeness.
+                if (res.features.length < cfg.pageSize) break;
+                truncated = page + 1 >= cfg.maxPages;
+                if (truncated) break;
+                continue;
+            }
+            if (all.length >= matched) break;
+            if (res.features.length === 0) {
+                // Matched says there is more but the page came back empty — the cursor is not
+                // advancing. Stop rather than spin, and report the answer as PARTIAL.
+                truncated = true;
+                break;
+            }
+            truncated = page + 1 >= cfg.maxPages;
+            if (truncated) break;
         }
 
-        // Retries exhausted — TRANSIENT, never `absent`, and never cached.
+        if (all.length === 0) {
+            // A DURABLE absence: the register answered, and no byggefelt covers this bbox.
+            return {
+                outcome: fetchAbsent('no adopted byggefelt intersects this bbox'),
+                featureCount: 0,
+                fromCache: false,
+                requests: counters.requests,
+                pages,
+                truncated: false,
+            };
+        }
+        const evidence = byggefeltCollectionToEvidence(all, {
+            sourceCrs: cfg.requestCrs,
+            project: options.project ?? null,
+        });
         return {
-            outcome: fetchTransient(`${lastReason} (after ${requests} attempt(s))`),
-            featureCount: null,
+            outcome: fetchFound(evidence),
+            featureCount: all.length,
             fromCache: false,
-            requests,
-            truncated: false,
+            requests: counters.requests,
+            pages,
+            truncated,
         };
     }
 
@@ -487,7 +628,7 @@ export function createByggefeltProducer(config: ByggefeltProducerConfig = {}): B
         // LRU touch.
         cache.delete(key);
         cache.set(key, hit);
-        return { ...hit.result, fromCache: true, requests: 0 };
+        return { ...hit.result, fromCache: true, requests: 0, pages: 0 };
     }
 
     function writeCache(key: string, result: ByggefeltFetchResult): void {
@@ -521,6 +662,7 @@ export function createByggefeltProducer(config: ByggefeltProducerConfig = {}): B
                     featureCount: null,
                     fromCache: false,
                     requests: 0,
+                    pages: 0,
                     truncated: false,
                 };
             }
@@ -545,6 +687,7 @@ export function createByggefeltProducer(config: ByggefeltProducerConfig = {}): B
             writeCache(key, result);
             span.setAttribute('outcome', result.outcome.status);
             span.setAttribute('requests', result.requests);
+            span.setAttribute('pages', result.pages);
             span.setAttribute('truncated', result.truncated);
             span.setStatus({ code: SpanStatusCode.OK });
             return result;
@@ -556,6 +699,7 @@ export function createByggefeltProducer(config: ByggefeltProducerConfig = {}): B
                 featureCount: null,
                 fromCache: false,
                 requests: 0,
+                pages: 0,
                 truncated: false,
             };
         } finally {
@@ -632,12 +776,17 @@ export interface ByggefeltTierOneInput {
  *    truncated negative is reported as unresolved, which makes the resolver set
  *    `higherAuthorityUnresolved` and forbid caching the downstream answer.
  *
- * 3. **Binding evidence we cannot ADAPT → `absent`, with the limitation named in the reason.** A
- *    multi-part or holed byggefelt is real, published and binding; PRYZM simply cannot hand it to
- *    the single-ring `explicit-area` primitive without over-stating the buildable area. Falling
- *    through to a weaker tier is correct, but the reason string says `pryzm-limitation:` so this is
- *    never mistaken for "the register published nothing" — and the records ride out on
- *    `unusableBinding` so a coverage metric can subtract them explicitly.
+ * 3. **Binding evidence we cannot ADAPT → `absent`, with the limitation named in the reason.** The
+ *    reason string says `pryzm-limitation:` so this is never mistaken for "the register published
+ *    nothing", and the records ride out on `unusableBinding` so a coverage metric can subtract them
+ *    explicitly.
+ *
+ *    ⚠ §MULTI-PART-EXPLICIT-AREA SHRANK THIS BUCKET SHARPLY. It used to catch every multi-part and
+ *    every holed byggefelt — 19.4 % and 1.2 % of the binding national set. Those now adapt: the
+ *    parts travel whole to the resolver, and the question "does this footprint actually fit a
+ *    single-ring inset on THIS parcel?" is answered by `solveExplicitArea`, which HAS the parcel.
+ *    What is left here is genuine unadaptability: an unprojected CRS, a lineString, a degenerate
+ *    ring, or a caller grouping bug.
  *
  * PURE (it only classifies a value the producer already fetched).
  */
@@ -659,14 +808,23 @@ export function byggefeltResultToTierOne(result: ByggefeltFetchResult): Byggefel
     const conflicts = collectEvidenceConflicts(ranked);
     const unusableBinding: { evidence: PlacementEvidence; detail: string }[] = [];
 
-    // Walk the ranked list and take the first BINDING record that actually adapts.
-    for (const e of ranked) {
-        if (e.legalStatus !== 'binding') break; // ranked: once past binding, nothing else qualifies.
-        const adapted = dkByggefeltFromEvidence(e);
+    // §MULTI-PART-EXPLICIT-AREA — walk FEATURES, not records.
+    //
+    // ⚠ THIS LINE IS THE FIX. `rankPlacementEvidence` returns one record PER PART, so the old
+    // per-record walk could only ever hand tier 1 a single part — and therefore refused every
+    // multi-part byggefelt, 19.4 % of the binding national set. Grouping first means a 3-part
+    // (or 55-part) published footprint arrives at the resolver whole, and the decision about
+    // whether it fits THIS parcel is taken where the parcel is actually known (the solve).
+    for (const group of groupEvidenceByFeature(ranked)) {
+        const best = group[0]!;
+        // Ranked order: once the strongest record of a feature is not binding, no later feature
+        // can be either (binding sorts strictly first).
+        if (best.legalStatus !== 'binding') break;
+        const adapted = dkByggefeltFromFeatureEvidence(group);
         if (adapted.ok) {
             return { outcome: fetchFound(adapted.byggefelt), evidence: ranked, conflicts, unusableBinding };
         }
-        unusableBinding.push({ evidence: e, detail: adapted.detail });
+        for (const e of group) unusableBinding.push({ evidence: e, detail: adapted.detail });
     }
 
     // ── Nothing placeable. Decide DURABLE-vs-UNRESOLVED honestly. ─────────────────────────────

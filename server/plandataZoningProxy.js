@@ -457,3 +457,206 @@ export function makePlandataZoningHandler(deps = {}) {
 
 /** The default production handler (real `fetch`, real endpoint). */
 export const plandataZoningHandler = makePlandataZoningHandler();
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §BYGGEFELT-PROXY — GET /api/plandata/byggefelt (DK gap G3/G6 tier 1, stub S3)
+// ═════════════════════════════════════════════════════════════════════════════
+/**
+ * WHY THIS ROUTE MUST EXIST — it is not a CORS convenience.
+ *
+ * `User-Agent` is a FORBIDDEN HEADER in browser `fetch`: the browser silently drops it. So a
+ * browser calling geoserver.plandata.dk directly is an anonymous client hammering a public,
+ * taxpayer-funded endpoint that Erhvervsstyrelsen cannot attribute or contact — and it would be
+ * blocked by CORS + CSP `connect-src 'self'` anyway. Routing through our own origin is what makes
+ * the identifying UA and the rate limit REAL, and enforces them ONCE for the whole product instead
+ * of once per browser tab.
+ *
+ * ⚠ IT TAKES A BBOX, NEVER A URL AND NEVER A CQL FILTER. The upstream query is rebuilt here from
+ * validated numbers. A proxy that forwarded a caller-supplied URL (or filter) would be an open
+ * forwarder / SSRF gadget pointed at anything the server can reach.
+ *
+ * §FAILURE-IS-NOT-ABSENCE (C57 §1.5, L-422/457/467/469). Four outcomes, four responses:
+ *   200 `{ features: [...] , numberMatched, numberReturned }`  — the register answered.
+ *   200 `{ features: [] , numberMatched: 0 }`                  — a DURABLE "nothing here".
+ *   502 `{ error }`                                            — upstream did not answer. NOT empty.
+ *   400 `{ error }`                                            — the caller's bbox is unusable.
+ * The client's `ByggefeltProducer` reads a non-OK status as `transient` and never caches it, so a
+ * bad minute upstream can never become a TTL-long fake "no byggefelt here".
+ *
+ * Paging is the CLIENT's loop (`startIndex` in, `numberMatched` out) so the pagination policy stays
+ * in one tested TypeScript place rather than being duplicated in JS here.
+ */
+export const PLANDATA_BYGGEFELT_PATH = '/api/plandata/byggefelt';
+
+/** The adopted-byggefelt layer. Same constant the client's `DK_BYGGEFELT_LAYER` carries. */
+export const BYGGEFELT_TYPE_NAME = 'theme_pdk_byggefelt_vedtaget';
+
+/** Hard ceiling on `count`, so one request cannot ask the register for the whole country. */
+export const BYGGEFELT_MAX_COUNT = 1000;
+
+/**
+ * Loose validity envelopes per CRS, used ONLY to reject a nonsense bbox before spending a
+ * government round-trip on it. Deliberately generous — this is an abuse guard, not a geofence, and
+ * rejecting a legitimate Danish parcel would be far worse than forwarding a slightly odd bbox.
+ */
+const BBOX_LIMITS = {
+    'EPSG:25832': { minX: 100_000, maxX: 1_000_000, minY: 5_800_000, maxY: 6_600_000, maxSpan: 50_000 },
+    'EPSG:4326': { minX: 7.0, maxX: 16.0, minY: 54.0, maxY: 58.5, maxSpan: 0.6 },
+};
+
+/**
+ * Build the upstream byggefelt WFS URL from VALIDATED numbers.
+ *
+ * @param {{minX:number,minY:number,maxX:number,maxY:number}} bbox
+ * @param {'EPSG:25832'|'EPSG:4326'} crs
+ * @param {number} count
+ * @param {number} startIndex
+ * @param {boolean} bindingOnly
+ * @returns {string}
+ */
+export function buildByggefeltWfsUrl(bbox, crs, count, startIndex, bindingOnly) {
+    const filters = [`BBOX(geometri,${bbox.minX},${bbox.minY},${bbox.maxX},${bbox.maxY},'${crs}')`];
+    // The binding predicate is a FIXED string chosen by a boolean, never interpolated from input.
+    if (bindingOnly) filters.push('bygkunifelt=true AND bygvejledende=false');
+    const params = new URLSearchParams({
+        service: 'WFS',
+        version: '2.0.0',
+        request: 'GetFeature',
+        typeNames: BYGGEFELT_TYPE_NAME,
+        outputFormat: 'application/json',
+        srsName: crs,
+        count: String(count),
+        startIndex: String(startIndex),
+        CQL_FILTER: filters.join(' AND '),
+    });
+    return `${PLANDATA_WFS_ENDPOINT}?${params.toString()}`;
+}
+
+/**
+ * Parse + VALIDATE the query into a request, or return `{ error }`.
+ *
+ * @param {Record<string, unknown>} query
+ * @returns {{ ok: true, bbox: {minX:number,minY:number,maxX:number,maxY:number}, crs: 'EPSG:25832'|'EPSG:4326', count: number, startIndex: number, bindingOnly: boolean } | { ok: false, error: string }}
+ */
+export function parseByggefeltQuery(query) {
+    const num = (k) => Number.parseFloat(String(query?.[k] ?? ''));
+    const minX = num('minx');
+    const minY = num('miny');
+    const maxX = num('maxx');
+    const maxY = num('maxy');
+    if (![minX, minY, maxX, maxY].every(Number.isFinite)) {
+        return { ok: false, error: 'minx, miny, maxx and maxy are required and must be finite numbers.' };
+    }
+    if (maxX <= minX || maxY <= minY) {
+        return { ok: false, error: 'bbox must have a positive extent (maxx > minx and maxy > miny).' };
+    }
+    const rawCrs = String(query?.crs ?? 'EPSG:25832');
+    const crs = rawCrs === 'EPSG:4326' ? 'EPSG:4326' : 'EPSG:25832';
+    if (rawCrs !== crs && rawCrs !== 'EPSG:25832') {
+        // ⚠ NEVER silently coerce an unrecognised CRS to a default: the caller's coordinates would
+        // then be interpreted in a frame they were not written in, which is the plausible-but-wrong
+        // failure this whole path is built to avoid.
+        return { ok: false, error: `unsupported crs "${rawCrs}" — use EPSG:25832 or EPSG:4326.` };
+    }
+    const lim = BBOX_LIMITS[crs];
+    if (minX < lim.minX || maxX > lim.maxX || minY < lim.minY || maxY > lim.maxY) {
+        return { ok: false, error: `bbox is outside the Danish extent for ${crs}.` };
+    }
+    if (maxX - minX > lim.maxSpan || maxY - minY > lim.maxSpan) {
+        return { ok: false, error: `bbox is too large for ${crs} (max span ${lim.maxSpan}).` };
+    }
+    const rawCount = Number.parseInt(String(query?.count ?? '500'), 10);
+    const count = Number.isFinite(rawCount) && rawCount > 0 ? Math.min(rawCount, BYGGEFELT_MAX_COUNT) : 500;
+    const rawStart = Number.parseInt(String(query?.startIndex ?? '0'), 10);
+    const startIndex = Number.isFinite(rawStart) && rawStart >= 0 ? rawStart : 0;
+    return {
+        ok: true,
+        bbox: { minX, minY, maxX, maxY },
+        crs,
+        count,
+        startIndex,
+        bindingOnly: String(query?.binding ?? '') === '1',
+    };
+}
+
+/**
+ * Express handler for GET /api/plandata/byggefelt.
+ *
+ * `deps` is injectable for tests (fetchImpl / timeoutMs). NEVER throws.
+ */
+export function makePlandataByggefeltHandler(deps = {}) {
+    return async function plandataByggefeltHandler(req, res) {
+        const parsed = parseByggefeltQuery(req.query ?? {});
+        if (!parsed.ok) {
+            res.setHeader('Cache-Control', 'no-store');
+            return res.status(400).json({ error: parsed.error });
+        }
+        const url = buildByggefeltWfsUrl(
+            parsed.bbox,
+            parsed.crs,
+            parsed.count,
+            parsed.startIndex,
+            parsed.bindingOnly,
+        );
+
+        const net = { failed: false };
+        let text = null;
+        try {
+            text = await fetchTextOnce(url, deps, net);
+        } catch (err) {
+            console.warn('[plandata-byggefelt] unexpected error:', err?.message ?? err);
+            net.failed = true;
+        }
+
+        // ⚠ UPSTREAM FAILURE → 502, NEVER 200 WITH AN EMPTY COLLECTION. An empty 200 here would be
+        // read downstream as "the register published no byggefelt at this parcel" — a durable,
+        // cacheable coverage fact manufactured out of one bad minute (STRUCTURAL-SEAM-4).
+        if (net.failed) {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+            return res.status(502).json({
+                error:
+                    'Plandata.dk did not answer. This is NOT a statement that there is no byggefelt ' +
+                    'at this location.',
+            });
+        }
+        if (text === null) {
+            // A clean 2xx with an empty body. The register answered; there is nothing here.
+            setProxyCacheHeaders(res);
+            return res.status(200).json({ type: 'FeatureCollection', features: [], numberMatched: 0, numberReturned: 0 });
+        }
+
+        let json;
+        try {
+            json = JSON.parse(text);
+        } catch {
+            // ⚠ A 200 WITH AN UNPARSEABLE BODY IS A FAILURE, NOT AN EMPTY ANSWER. This is exactly the
+            // truncated-payload trap the DAWA bulk endpoint springs (HTTP 200, exit 0, body cut off
+            // mid-field). The status code is not the answer; the parse is.
+            console.warn(`[plandata-byggefelt] 200 with an unparseable body (${text.length} bytes)`);
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+            return res.status(502).json({
+                error: 'Plandata.dk returned a body that is not valid JSON (possibly truncated).',
+            });
+        }
+        if (!json || !Array.isArray(json.features)) {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+            return res.status(502).json({
+                error: 'Plandata.dk returned a body with no `features` array — not a FeatureCollection.',
+            });
+        }
+
+        setProxyCacheHeaders(res);
+        res.setHeader('X-Plandata-Byggefelt-Count', String(json.features.length));
+        return res.status(200).json({
+            type: 'FeatureCollection',
+            features: json.features,
+            // Carried through UNCHANGED so the client's pagination loop can tell a complete read from
+            // a partial one. Dropping these would make every answer look complete.
+            numberMatched: typeof json.numberMatched === 'number' ? json.numberMatched : json.features.length,
+            numberReturned: typeof json.numberReturned === 'number' ? json.numberReturned : json.features.length,
+        });
+    };
+}
+
+/** The default production byggefelt handler (real `fetch`, real endpoint). */
+export const plandataByggefeltHandler = makePlandataByggefeltHandler();

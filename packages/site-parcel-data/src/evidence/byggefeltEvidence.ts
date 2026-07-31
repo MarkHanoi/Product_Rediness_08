@@ -60,7 +60,8 @@ import {
     type LegalStatusUnknownCause,
     type PlacementEvidence,
 } from './placementEvidence.js';
-import type { DkByggefelt } from '../rulepacks/dkEnvelopePlacement.js';
+import { dkByggefeltFromRing, type DkByggefelt } from '../rulepacks/dkEnvelopePlacement.js';
+import type { ExplicitAreaPart } from '../geometry/explicitArea.js';
 
 /** The Plandata WFS layer these evidence records come from — carried for QA routing + re-fetch. */
 export const DK_BYGGEFELT_LAYER = 'theme_pdk_byggefelt_vedtaget';
@@ -312,7 +313,9 @@ function ringToPts(raw: unknown): Pt[] | null {
  *
  * Holes are KEPT. A byggefelt with an interior hole is a published statement about where NOT to
  * build; flattening it to the outer ring would over-state the buildable area (the L-616 direction).
- * Consumers that cannot honour a hole must refuse — `dkByggefeltFromEvidence` does.
+ * They ride through `dkByggefeltFromFeatureEvidence` to `solveExplicitArea`, which decides against
+ * the ACTUAL parcel whether a hole bites (refuse) or lies outside the plot (irrelevant). The
+ * single-record `dkByggefeltFromEvidence` has no parcel and so can only refuse.
  */
 function polygonParts(geometry: DkByggefeltFeature['geometry']): { outer: Pt[]; holes: Pt[][] }[] {
     if (!geometry) return [];
@@ -362,10 +365,13 @@ export interface ByggefeltEvidenceOptions {
  * Convert ONE Plandata byggefelt feature into `PlacementEvidence` — one record per polygon PART.
  *
  * A MultiPolygon byggefelt yields N records sharing one citation and one classification, each
- * carrying `partIndex`/`partCount`. That is deliberate: the downstream `explicit-area` primitive
- * takes a SINGLE ring, so a multi-part field cannot be placed by tier 1, and the honest way to
- * express that is N visible parts that the adapter then refuses — not one record that silently
- * became part 0.
+ * carrying `partIndex`/`partCount`. That is deliberate: every published building field stays
+ * separately VISIBLE for ranking and QA rather than being collapsed into one opaque blob.
+ *
+ * ⚠ THE PART SET IS NOW PLACEABLE. `dkByggefeltFromFeatureEvidence` re-assembles all N records into
+ * a multi-part footprint, which the `explicit-area` solve clips part-by-part against the parcel
+ * (§MULTI-PART-EXPLICIT-AREA). Use `groupEvidenceByFeature` to build the group; the per-record
+ * `dkByggefeltFromEvidence` still refuses a multi-part record, because one record is not the feature.
  *
  * PURE. Returns `[]` for a feature with no usable polygon geometry (never a fabricated ring).
  */
@@ -438,27 +444,49 @@ export type DkByggefeltAdaptRefusal =
      *  ALSO metres and ALSO plausible magnitudes, so passing them through would produce a
      *  plausible-looking building in the wrong place rather than an error. Refuse instead. */
     | 'unprojected-crs'
-    /** The byggefelt has interior holes and the `explicit-area` primitive carries only one ring;
-     *  dropping the hole would over-state the buildable area, so this refuses. */
+    /**
+     * The byggefelt has interior holes and this SINGLE-RECORD adapter carries one ring.
+     *
+     * ⚠ NO LONGER A CAPABILITY LIMIT OF THE PIPELINE — only of this one function. Use
+     * `dkByggefeltFromFeatureEvidence`, which carries holes through to the `explicit-area` solve
+     * where they are honoured against the actual parcel.
+     */
     | 'holes-unsupported'
-    /** The byggefelt is multi-part and `ExplicitAreaSource.footprintRing` is a SINGLE ring; picking
-     *  part 0 would silently discard published buildable fields. */
+    /**
+     * The byggefelt is multi-part and this record is only ONE of its parts, so placing it would
+     * discard the others.
+     *
+     * ⚠ NO LONGER A CAPABILITY LIMIT OF THE PIPELINE — only of this one function, which by
+     * construction sees a single part and therefore cannot represent the whole feature. The
+     * feature-level adapter `dkByggefeltFromFeatureEvidence` takes ALL the parts and places them.
+     */
     | 'multi-part-unsupported'
     /** Fewer than 3 usable vertices. */
-    | 'degenerate-ring';
+    | 'degenerate-ring'
+    /**
+     * §MULTI-PART-EXPLICIT-AREA — the caller handed the feature-level adapter a set of records that
+     * is not one complete feature: a missing part, a duplicated `partIndex`, a disagreeing
+     * `partCount`, or records from two different features. A GROUPING BUG in the caller, and it must
+     * be loud: adapting an incomplete part set would place a fraction of the published footprint and
+     * report success — exactly the silent-part-0 failure this design exists to prevent.
+     */
+    | 'incomplete-parts';
 
 export type DkByggefeltAdaptResult =
     | { readonly ok: true; readonly byggefelt: DkByggefelt }
     | { readonly ok: false; readonly reason: DkByggefeltAdaptRefusal; readonly detail: string };
 
 /**
- * Adapt a `PlacementEvidence` into the `DkByggefelt` the G6 resolver's TIER 1 consumes.
+ * Adapt ONE `PlacementEvidence` record into a single-part `DkByggefelt`.
  *
- * This is the ONE chokepoint where evidence becomes a placeable footprint, and it is deliberately
- * PARANOID: every refusal above is a case where passing the value through would produce a
- * plausible-but-wrong building rather than a visible error. `binding` alone is not sufficient — the
- * geometry must also be an area, in the right frame, single-part and hole-free, because those are
- * the limits of the `explicit-area` primitive it is about to be handed to.
+ * ⚠ USE `dkByggefeltFromFeatureEvidence` FOR ANYTHING REAL. This function sees exactly one part of
+ * one feature, so it cannot represent a multi-part byggefelt and correctly refuses one — but that is
+ * a limit of THIS FUNCTION'S INPUT, not of the pipeline. 19.4 % of binding Danish byggefelter are
+ * multi-part; routing them through here would refuse every one of them.
+ *
+ * It is deliberately PARANOID: every refusal is a case where passing the value through would produce
+ * a plausible-but-wrong building rather than a visible error. `binding` alone is not sufficient —
+ * the geometry must also be an area and in the right frame.
  *
  * PURE.
  */
@@ -506,9 +534,10 @@ export function dkByggefeltFromEvidence(evidence: PlacementEvidence): DkByggefel
             ok: false,
             reason: 'multi-part-unsupported',
             detail:
-                `byggefelt is a ${evidence.partCount}-part MultiPolygon and ` +
-                'ExplicitAreaSource.footprintRing is a single ring — silently using part ' +
-                `${evidence.partIndex} would discard ${evidence.partCount - 1} published buildable field(s).`,
+                `byggefelt is a ${evidence.partCount}-part MultiPolygon and this single-record adapter ` +
+                `holds only part ${evidence.partIndex} — placing it would discard ` +
+                `${evidence.partCount - 1} published buildable field(s). Use ` +
+                'dkByggefeltFromFeatureEvidence with ALL of the feature\'s records instead.',
         };
     }
     if (geom.outer.length < 3) {
@@ -520,10 +549,177 @@ export function dkByggefeltFromEvidence(evidence: PlacementEvidence): DkByggefel
     }
     return {
         ok: true,
-        byggefelt: {
-            ring: geom.outer,
-            binding: 'binding',
-            featureId: evidence.featureId,
-        },
+        byggefelt: dkByggefeltFromRing(geom.outer, 'binding', evidence.featureId),
     };
+}
+
+/**
+ * §MULTI-PART-EXPLICIT-AREA — adapt ALL of ONE feature's `PlacementEvidence` records into a
+ * multi-part `DkByggefelt`. **This is the real tier-1 chokepoint.**
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * WHY THIS FUNCTION EXISTS
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * `byggefeltFeatureToEvidence` splits a MultiPolygon into ONE RECORD PER PART, so that every part is
+ * separately visible for ranking + QA. That is right for evidence, but it means no single record
+ * ever holds the whole published footprint — and a per-record adapter can therefore only ever
+ * refuse a multi-part field. Measured: 19.4 % of the 13,629 binding Danish byggefelter are
+ * multi-part (n = 1,000 systematic, 2026-07-31), so that refusal was the largest single subtraction
+ * from tier-1 reach, and it was a limitation of PRYZM's plumbing, not of the register's data.
+ *
+ * ⚠ IT VALIDATES THE GROUP RATHER THAN TRUSTING IT. All records must belong to ONE feature, agree on
+ * `partCount`, and cover `partIndex` 0…n-1 exactly once. Anything else is a caller GROUPING BUG and
+ * refuses `incomplete-parts` — because adapting a partial set would place a FRACTION of the
+ * published footprint while reporting success, which is precisely the silent-part-0 failure the old
+ * blanket refusal was protecting against.
+ *
+ * ⚠ HOLES ARE CARRIED, NOT REFUSED. They travel into `ExplicitAreaPart.holes` and are resolved by
+ * `solveExplicitArea` against the ACTUAL parcel: a hole that falls outside this plot says nothing
+ * about it, and a hole that bites refuses there, with the parcel in hand. Deciding it here — with no
+ * parcel — could only ever be a blanket refusal.
+ *
+ * PURE.
+ */
+export function dkByggefeltFromFeatureEvidence(
+    records: readonly PlacementEvidence[],
+): DkByggefeltAdaptResult {
+    if (records.length === 0) {
+        return { ok: false, reason: 'incomplete-parts', detail: 'no evidence records supplied' };
+    }
+    const first = records[0]!;
+    const expected = first.partCount;
+
+    // ── GROUP INTEGRITY. A caller bug here is a fractional footprint, so it must be loud. ────────
+    if (records.length !== expected) {
+        return {
+            ok: false,
+            reason: 'incomplete-parts',
+            detail:
+                `received ${records.length} record(s) for a feature that declares partCount=${expected}. ` +
+                'Adapting an incomplete part set would place a FRACTION of the published footprint ' +
+                'and report success.',
+        };
+    }
+    const seen = new Set<number>();
+    for (const r of records) {
+        if (r.featureId !== first.featureId) {
+            return {
+                ok: false,
+                reason: 'incomplete-parts',
+                detail:
+                    `records span more than one feature (${String(first.featureId)} and ` +
+                    `${String(r.featureId)}) — parts of different byggefelter are not one footprint`,
+            };
+        }
+        if (r.partCount !== expected) {
+            return {
+                ok: false,
+                reason: 'incomplete-parts',
+                detail: `records disagree on partCount (${expected} vs ${r.partCount})`,
+            };
+        }
+        if (seen.has(r.partIndex)) {
+            return {
+                ok: false,
+                reason: 'incomplete-parts',
+                detail: `partIndex ${r.partIndex} appears more than once`,
+            };
+        }
+        seen.add(r.partIndex);
+    }
+    for (let i = 0; i < expected; i += 1) {
+        if (!seen.has(i)) {
+            return {
+                ok: false,
+                reason: 'incomplete-parts',
+                detail: `partIndex ${i} is missing from the group (expected 0…${expected - 1})`,
+            };
+        }
+    }
+
+    // ── THE SAME PARANOID CHECKS AS THE SINGLE-RECORD PATH, applied to every part. ──────────────
+    if (first.legalStatus !== 'binding') {
+        return {
+            ok: false,
+            reason: 'not-binding',
+            detail:
+                `legalStatus='${first.legalStatus}'` +
+                (first.unknownCause !== null ? ` (${first.unknownCause})` : '') +
+                ' — tier 1 places a footprint ONLY on proven-binding geometry (§BYGGEFELT-BINDING-GATE).',
+        };
+    }
+
+    const ordered = [...records].sort((a, b) => a.partIndex - b.partIndex);
+    const parts: ExplicitAreaPart[] = [];
+    for (const r of ordered) {
+        if (r.legalStatus !== 'binding') {
+            // Parts of one feature share a classification by construction; a disagreement means the
+            // group is not really one feature's parts. Refuse rather than place the binding subset.
+            return {
+                ok: false,
+                reason: 'incomplete-parts',
+                detail: `part ${r.partIndex} classifies as '${r.legalStatus}' while part 0 is binding`,
+            };
+        }
+        if (r.geometry.kind !== 'polygon') {
+            return {
+                ok: false,
+                reason: 'not-a-polygon',
+                detail: `part ${r.partIndex} is a lineString — an explicit-area footprint needs an area`,
+            };
+        }
+        const geom = r.geometry;
+        if (geom.crs !== 'scene-xz') {
+            return {
+                ok: false,
+                reason: 'unprojected-crs',
+                detail:
+                    `part ${r.partIndex} is in ${geom.crs}, not scene-XZ metres. Both are metric and ` +
+                    'both look plausible, so this is refused rather than passed through — supply a ' +
+                    'projector to the producer (ByggefeltEvidenceOptions.project).',
+            };
+        }
+        if (geom.outer.length < 3) {
+            return {
+                ok: false,
+                reason: 'degenerate-ring',
+                detail: `part ${r.partIndex} outer ring has ${geom.outer.length} vertices (< 3)`,
+            };
+        }
+        parts.push({ outer: geom.outer, holes: geom.holes });
+    }
+
+    return {
+        ok: true,
+        byggefelt: { parts, binding: 'binding', featureId: first.featureId },
+    };
+}
+
+/**
+ * Group a ranked evidence list into per-FEATURE part sets, preserving the ranked order of each
+ * feature's strongest record.
+ *
+ * ⚠ A RECORD WITH A NULL `featureId` IS ITS OWN GROUP. Two unidentifiable records must never be
+ * merged into one "feature": that would fabricate a footprint out of unrelated geometry. The cost of
+ * being wrong in this direction is only a refusal (`incomplete-parts` on a multi-part record with no
+ * id), which is the correct direction to fail.
+ *
+ * PURE.
+ */
+export function groupEvidenceByFeature(
+    evidence: readonly PlacementEvidence[],
+): readonly (readonly PlacementEvidence[])[] {
+    const groups = new Map<string, PlacementEvidence[]>();
+    const order: string[] = [];
+    evidence.forEach((e, i) => {
+        const key = e.featureId !== null ? `id:${e.featureId}` : `anon:${e.sourceLayer}:${i}`;
+        const existing = groups.get(key);
+        if (existing === undefined) {
+            groups.set(key, [e]);
+            order.push(key);
+        } else {
+            existing.push(e);
+        }
+    });
+    return order.map((k) => groups.get(k)!);
 }

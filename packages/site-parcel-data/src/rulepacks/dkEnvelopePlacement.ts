@@ -91,7 +91,7 @@ import {
     type BuildingLineConstraint,
 } from '../geometry/buildingLineOffset.js';
 import { DK_PERIMETER_BLOCK_COURTYARD_RULE, DK_PERIMETER_BLOCK_STUDY_CAVEAT } from './dkPerimeterBlock.js';
-import type { ExplicitAreaSource } from '../geometry/explicitArea.js';
+import type { ExplicitAreaPart, ExplicitAreaSource } from '../geometry/explicitArea.js';
 
 const tracer = trace.getTracer('pryzm.zoning.dk');
 
@@ -117,14 +117,34 @@ const SAME_LINE_EPS_M = 0.05;
  */
 export type DkByggefeltBinding = 'binding' | 'advisory' | 'unknown';
 
-/** G3 — one published byggefelt polygon for this parcel, already projected to scene-XZ metres. */
+/**
+ * G3 — one published byggefelt for this parcel, already projected to scene-XZ metres.
+ *
+ * §MULTI-PART-EXPLICIT-AREA — the geometry is carried as PARTS, not as a single ring. 19.4 % of the
+ * 13,629 binding Danish byggefelter are multi-part (measured n = 1,000, 2026-07-31; tail up to 55
+ * parts) and 1.2 % carry holes, and a single-ring field could not represent any of them.
+ *
+ * ⚠ THERE IS DELIBERATELY NO `ring` CONVENIENCE FIELD. Mirroring "part 0" into one would let any
+ * reader that had not been updated place ONE of N published building fields and report success —
+ * the silent-part-0 bug the old refusal existed to prevent, reintroduced as a default. Constructing
+ * a single-part value goes through `dkByggefeltFromRing` instead, where the intent is explicit.
+ */
 export interface DkByggefelt {
-    /** The published buildable-field ring (scene-XZ metres). */
-    readonly ring: readonly Pt[];
+    /** The published buildable-field parts (scene-XZ metres), holes included. Never empty. */
+    readonly parts: readonly ExplicitAreaPart[];
     /** PROVEN bindingness only. `'unknown'` blocks tier 1 by design (§BYGGEFELT-BINDING-GATE). */
     readonly binding: DkByggefeltBinding;
     /** Plandata feature id, carried for the G11 evidence chain. */
     readonly featureId?: string | null;
+}
+
+/** Build a SINGLE-PART, hole-free `DkByggefelt`. The explicit way to say "one ring, no holes". */
+export function dkByggefeltFromRing(
+    ring: readonly Pt[],
+    binding: DkByggefeltBinding,
+    featureId: string | null = null,
+): DkByggefelt {
+    return { parts: [{ outer: ring, holes: [] }], binding, featureId };
 }
 
 /** G5 — a buildable depth READ FROM the lokalplan text, with its clause citation. */
@@ -344,11 +364,14 @@ export function resolveDkEnvelopePlacement(inputs: DkPlacementInputs): DkPlaceme
         const bf = outcomeOf(inputs.byggefelt);
         if (bf.value !== null) {
             const felt = bf.value;
-            if (felt.ring.length < 3) {
+            const usableParts = felt.parts.filter((p) => p.outer.length >= 3);
+            if (usableParts.length === 0) {
                 diagnostics.push({
                     tier: 'byggefelt',
                     outcome: 'degenerate',
-                    detail: `byggefelt ring has ${felt.ring.length} vertices (< 3) — unusable as a footprint`,
+                    detail:
+                        `byggefelt has ${felt.parts.length} part(s) and none has ≥ 3 vertices — ` +
+                        'unusable as a footprint',
                 });
             } else if (felt.binding !== 'binding') {
                 // §BYGGEFELT-BINDING-GATE. `vedtaget` (adopted) ≠ binding. Drawing an advisory or
@@ -363,15 +386,22 @@ export function resolveDkEnvelopePlacement(inputs: DkPlacementInputs): DkPlaceme
                         'landing the Danish-planner sign-off.',
                 });
             } else {
+                const holeCount = usableParts.reduce((n, p) => n + (p.holes?.length ?? 0), 0);
                 diagnostics.push({
                     tier: 'byggefelt',
                     outcome: 'used',
-                    detail: `binding byggefelt${felt.featureId ? ` (${felt.featureId})` : ''} used as the footprint`,
+                    detail:
+                        `binding byggefelt${felt.featureId ? ` (${felt.featureId})` : ''} used as the ` +
+                        `footprint — ${usableParts.length} part(s)` +
+                        (holeCount > 0 ? `, ${holeCount} published hole(s)` : '') +
+                        '. The engine clips every part to the parcel and refuses if the result is ' +
+                        'disjoint or a hole bites (§MULTI-PART-EXPLICIT-AREA).',
                 });
                 pushSkipped(diagnostics, ['byggelinjer', 'lokalplan-depth', 'block-derived-study'],
                     'a higher-authority source (binding byggefelt) placed the footprint');
                 span.setAttribute('placed', true);
                 span.setAttribute('tier', 'byggefelt');
+                span.setAttribute('byggefelt.parts', usableParts.length);
                 return {
                     placed: true,
                     tier: 'byggefelt',
@@ -384,7 +414,7 @@ export function resolveDkEnvelopePlacement(inputs: DkPlacementInputs): DkPlaceme
                     geometricRule: { kind: 'explicit-area', ringRef: DK_BYGGEFELT_RING_REF },
                     explicitAreaSource: {
                         ringRef: DK_BYGGEFELT_RING_REF,
-                        footprintRing: felt.ring,
+                        footprintParts: usableParts,
                         edificabilidad: null,
                     },
                     facadeOffsetM: null,
