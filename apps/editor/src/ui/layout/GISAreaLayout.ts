@@ -90,7 +90,15 @@ import {
     envelopeToMassing,
     type MassingSolid,
     type BuildableEnvelopeMassingInput,
+    // L-456 — the pure L2 capacity comparison (designed vs permitted). It judges; it measures
+    // nothing and renders nothing. See the §L-456 block in `refreshEnvelopePanel`.
+    buildCapacityComparison,
 } from '@pryzm/site-parcel-data';
+// L-456 — the L5 halves of the comparison: the authored-model MEASUREMENT adapter and the pure
+// section RENDERER. Both live beside the envelope they are compared against (see the layering
+// argument at the head of `designMeasurement.ts`).
+import { collectAuthoredModelSnapshot, measureAuthoredDesign } from '../site/designMeasurement';
+import { buildCapacitySectionHtml } from '../site/capacityPanelSection';
 
 /**
  * §SITE-VIEWPOINT-CONSISTENT (L-532) — THE ONE default camera preset for entering a 3D view of
@@ -2315,6 +2323,47 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
         // (shell creation + re-homing is shared with the reduced card — see ensureEnvelopePanel)
         const panel = ensureEnvelopePanel(viewport);
+
+        // ── §L-456 — THE COMPLIANCE COMPARISON SECTION (designed vs permitted). ───────────────
+        //
+        // The envelope card states a LIMIT. The question a *proyecto de ejecución* has to answer
+        // is "how much have I used, how much is left, am I over?" — a COMPARISON, and until now
+        // the user did that arithmetic in their head.
+        //
+        // THREE SEPARATE PIECES, deliberately: the L5 adapter MEASURES the authored model
+        // (`designMeasurement.ts` — never inferring a value it cannot measure), the pure L2 model
+        // JUDGES it against the envelope (`buildCapacityComparison`), and the pure L5 builder
+        // RENDERS it (`capacityPanelSection.ts`). This file only joins them, which is the only
+        // thing it is entitled to do: the BIM authored model and the site/zoning model are peers
+        // that may not import each other, so their join belongs at the composition layer.
+        //
+        // Computed BEFORE the refusal branch on purpose. When no envelope applies, the permitted
+        // side is legitimately unknown — every row reads "not checked" — but the DESIGNED side is
+        // still the area schedule the founder asked for, and it is honest to show it.
+        //
+        // The `safe*` name is the repo's escaped-before-assignment convention (C08 §3.1): the
+        // builder escapes every runtime string it interpolates via its own local `escHtml`.
+        const safeCapacitySection = ((): string => {
+            try {
+                const measurement = measureAuthoredDesign(collectAuthoredModelSnapshot({
+                    // The authoritative storey datums for the AUTHORED model (BimKernel levels).
+                    // A declared global, not `(window as any)` — P4 holds.
+                    levels: (window.bimManager as { getLevels?: () => unknown[] } | undefined) ?? null,
+                    slabs: storeRegistry.getStoreForType('slab') ?? null,
+                    rooms: storeRegistry.getStoreForType('room') ?? null,
+                    walls: storeRegistry.getStoreForType('wall') ?? null,
+                }));
+                const comparison = buildCapacityComparison(env, measurement.design, {
+                    maxFloors: env.maxFloors ?? null,
+                });
+                return buildCapacitySectionHtml(comparison, measurement);
+            } catch {
+                // A measurement failure must never take the envelope card down with it, and it
+                // must never render as a pass — an absent section is the honest degradation.
+                return '';
+            }
+        })();
+
         // ── §L-550 PHASE-1B — THE REFUSAL CARD. ──────────────────────────────────────────────
         // `status: 'not-applicable'` means the ORDINANCE answered and its answer is "no private
         // buildable envelope applies here" (a public system, protected soil, or a zone the
@@ -2438,6 +2487,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                  ${facts}
                  ${reasonLine}
                  ${cite}
+                 ${safeCapacitySection}
                  ${envelopeToggleHtml()}`;
             wireEnvelopeToggle(panel);
             return;
@@ -2623,6 +2673,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              ${rows}
              ${upperBoundCaveat}
              ${zoneExtentCaveat}
+             ${safeCapacitySection}
              <div style="margin-top:9px;display:flex;align-items:center;justify-content:space-between;">
                ${sourceLine}
              </div>

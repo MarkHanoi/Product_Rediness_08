@@ -204,7 +204,16 @@ export function buildCapacityComparison(
         // gets an explicit no-limit rather than a fabricated comparison against the GFA cap.
         judge('netFloorArea', design.netFloorAreaM2, undefined),
         judge('height', design.heightM, envelope.maxHeight_m),
-        judge('floors', design.floors, opts?.maxFloors ?? undefined),
+        // §L-456 UI-WIRING FIX — a storey cap we were not given is UNKNOWN, never `no-limit`.
+        // This previously read `opts?.maxFloors ?? undefined`, which routed BOTH "the caller
+        // passed null" and "the caller passed nothing" into the `no-limit` branch — i.e. the
+        // panel would state that the ordinance sets NO storey cap. `BuildableEnvelope.maxFloors`
+        // is `null` both when a rule pack derived no cap and when the ordinance genuinely sets
+        // none; the envelope does not distinguish them, so we cannot either. Under honesty
+        // rule 1 the two must not be collapsed, and the direction of the collapse matters:
+        // `no-limit` is a FINDING about the law, and asserting one we cannot support invents a
+        // permission. `null` (unknown) is the only claim the data supports.
+        judge('floors', design.floors, opts?.maxFloors ?? null),
     ];
 
     const overCount = rows.filter((r) => r.status === 'over').length;

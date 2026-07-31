@@ -170,4 +170,17 @@ describe('L-456 — edges', () => {
         expect(row(c, 'floors').status).toBe('over');
         expect(row(c, 'floors').remaining).toBe(-3);
     });
+
+    // §L-456 UI-WIRING — a storey cap we were never given must read as UNKNOWN, never as
+    // `no-limit`. `no-limit` is a FINDING about the ordinance ("it sets no cap"), and the
+    // envelope carries `maxFloors: null` both when a pack derived no cap and when the law
+    // genuinely sets none. Claiming the stronger of the two would invent a permission — the
+    // exact collapse honesty rule 1 forbids, in the direction that matters.
+    it('reports UNKNOWN storeys — not no-limit — when no storey cap was supplied', () => {
+        const measured = { ...NOTHING, floors: 9 };
+        expect(row(buildCapacityComparison(envelope(), measured)!, 'floors').status).toBe('unknown');
+        expect(row(buildCapacityComparison(envelope(), measured, {})!, 'floors').status).toBe('unknown');
+        expect(row(buildCapacityComparison(envelope(), measured, { maxFloors: null })!, 'floors').status)
+            .toBe('unknown');
+    });
 });
