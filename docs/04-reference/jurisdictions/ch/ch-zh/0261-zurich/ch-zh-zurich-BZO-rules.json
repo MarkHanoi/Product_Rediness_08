@@ -1,0 +1,74 @@
+{
+  "$comment": [
+    "ZH-001 — City of Zürich BZO 'Table-2' FORMULA rules (the executable setback / distance machinery that",
+    "the per-zone ch-zh-zurich-BZO-zones.json cannot express as a scalar). These are the founder-cited Art.38",
+    "rules + the PBG §260 definitions. RECONCILED from the founder's cited rule statements; NO per-zone",
+    "numeric Grundabstand table is invented here (that table is UNKNOWN — see zones JSON setbackTableStatus).",
+    "",
+    "Each rule carries the caps/inputs the founder stated. Where a value is zone-dependent and not yet",
+    "extracted (the Mehrlängenzuschlag cap), it is null with a typed reason — never guessed. confidence is",
+    "'estimated-ruleset' (transcribed, not a live authoritative feed)."
+  ],
+  "schema": "jurisdiction-rule-table/part-a",
+  "schemaVersion": 1,
+  "ticket": "ZH-001",
+  "jurisdictionId": "ch-zh-zurich-bzo",
+  "municipality": { "name": "Zürich", "bfsNr": 261, "canton": "ZH", "country": "CH" },
+  "confidence": "estimated-ruleset",
+  "rules": [
+    {
+      "ruleId": "zh-bzo-art38-mehrlaengenzuschlag",
+      "name": "Mehrlängenzuschlag (façade-length setback surcharge)",
+      "trigger": "facadeLength > 12",
+      "inputs": {
+        "facadeLength": { "unit": "m", "description": "length of the façade facing the boundary (projected)" },
+        "capZoneDependent": { "value": null, "unit": "m", "reason": "the per-zone cap on the surcharge is not yet extracted from the scanned BZO/Art.38 ordinance — human-gated; do not guess" }
+      },
+      "formula": "grenzabstandZuschlag_m = (facadeLength - 12) / 3, clamped to [0, capZoneDependent]",
+      "output": { "name": "grenzabstandZuschlag_m", "unit": "m", "appliesTo": "side (Grenzabstand) — additive to the base Grundabstand" },
+      "source": { "document": "BZO Stadt Zürich 700.100", "article": "Art. 38", "paragraph": "Mehrlängenzuschlag" },
+      "confidence": "estimated-ruleset",
+      "note": "The base per-zone Grundabstand this surcharge adds to is the UNKNOWN Art.38 kleiner/grosser table; the cap is likewise unextracted. Formula shape (len-12)/3 is founder-cited."
+    },
+    {
+      "ruleId": "zh-bzo-art38-4-kleinbauten",
+      "name": "Kleinbauten minimum boundary distance",
+      "trigger": "structure.classifiedAs == 'Kleinbaute'",
+      "inputs": {
+        "structure": { "description": "an ancillary/small building (Kleinbaute) as classified by the BZO" }
+      },
+      "formula": "minBoundaryDistance_m = 3.5",
+      "output": { "name": "minBoundaryDistance_m", "unit": "m", "value": 3.5, "appliesTo": "side (Grenzabstand) for Kleinbauten" },
+      "source": { "document": "BZO Stadt Zürich 700.100", "article": "Art. 38", "paragraph": "Abs. 4 (Kleinbauten)" },
+      "confidence": "estimated-ruleset"
+    },
+    {
+      "ruleId": "zh-bzo-art38-5-underground",
+      "name": "Underground structure minimum boundary distance (no Baulinie)",
+      "trigger": "structure.isUnderground == true AND parcel.hasBaulinie == false",
+      "inputs": {
+        "structure": { "description": "wholly underground structure (Unterniveaubaute)" },
+        "parcel": { "hasBaulinie": "boolean — whether a building line (Baulinie) governs the frontage" }
+      },
+      "formula": "minBoundaryDistance_m = 2.5",
+      "output": { "name": "minBoundaryDistance_m", "unit": "m", "value": 2.5, "appliesTo": "boundary distance for underground structures where no Baulinie applies" },
+      "source": { "document": "BZO Stadt Zürich 700.100", "article": "Art. 38", "paragraph": "Abs. 5 (Unterniveaubauten)" },
+      "confidence": "estimated-ruleset",
+      "note": "Where a Baulinie DOES apply, the Baulinie geometry governs the frontage instead (see zones JSON setbacks.front, resolver 'geometry')."
+    },
+    {
+      "ruleId": "zh-pbg-260-gebaeudeabstand-def",
+      "name": "Gebäudeabstand / Grenzabstand definition (measurement rule)",
+      "trigger": "always (definitional)",
+      "inputs": {
+        "facade": { "description": "the projected façade plane of the building" },
+        "reference": { "description": "the parcel boundary (Grenzabstand) or the opposing building's façade (Gebäudeabstand)" }
+      },
+      "formula": "Grenzabstand = perpendicular distance from projected-façade plane to the parcel boundary; Gebäudeabstand = perpendicular distance from projected-façade plane to the opposing building's projected-façade plane",
+      "output": { "name": "measurementDefinition", "appliesTo": "how all Grundabstand / Gebäudeabstand values in the zone table are measured" },
+      "source": { "document": "PBG (kantonales Planungs- und Baugesetz)", "article": "§ 260", "paragraph": "Grenz- und Gebäudeabstand" },
+      "confidence": "estimated-ruleset",
+      "note": "PBG is the cantonal (Kanton Zürich) parent law; BZO Art.38 supplies the municipal numeric setbacks, PBG §260 supplies the measurement definition. Hierarchy: see ch-zh-zurich-LEGAL-HIERARCHY.md."
+    }
+  ]
+}

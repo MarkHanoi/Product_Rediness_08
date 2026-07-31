@@ -1,0 +1,343 @@
+{
+  "$comment": [
+    "ZH-001 — City of Zürich (BFS-Nr 261, canton ZH) BZO machine-readable ZONE TABLE (Part-A schema).",
+    "RECONCILED, NOT re-extracted: every numeric value here traces to the human-verified transcription",
+    "in packages/site-parcel-data/src/providers/chZurichBzoCatalogue.ts (ZURICH_BZO_ZONE_CATALOGUE) and",
+    "its canonical human artefact ../../sources/bzo_zone_data.json, cross-checked against the founder's",
+    "cited BZO 700.100 Art.13 'Grundmasse' values. NO value is fabricated.",
+    "",
+    "HONESTY GAPS (mandatory, per §CONTEXT-DATA-HONESTY):",
+    "  (1) The per-zone kleiner/grosser Grundabstand (Art.38) numeric table is UNKNOWN — left null with a",
+    "      typed reason on every zone. It is NOT the single Art.13 Grundgrenzabstand (carried below where",
+    "      the catalogue states it: W2bIII 5.0 m, Z5 3.5 m); it is the smaller/larger boundary-distance",
+    "      pair that Art.38 defines and that has not yet been extracted from the scanned BZO ordinance.",
+    "  (2) TWO PARALLEL REGIMES (bzo_91_99 vs bzo_2016) disagree on height (RISK R4): W2bIII = 8.5 m under",
+    "      91/99 vs 9.0 m under 2016 (AZ 0.45 identical). Every row is stamped with its `regime`. A row is",
+    "      emitted per (zone, regime) pair the catalogue actually carries — never a regime-merged number.",
+    "  (3) confidence = 'estimated-ruleset' on every value: this is a PDF transcription, not a live",
+    "      authoritative structured feed — never 'structured'. Ships to a rendered envelope only when the",
+    "      repo owner flips CH_FAR_CERTIFIED (see ../../sources/VERIFICATION.md; the per-parcel Zürich BZO",
+    "      sign-off line is still UNSIGNED — RISK R3).",
+    "",
+    "FRONT setback is Baulinie-driven (a GIS geometry, per parcel — resolved from the building-line layer,",
+    "not a per-zone number). SIDE setback is the Grenzabstand (Art.38 formula + the unknown kleiner/grosser",
+    "table). REAR is derived from the front/side envelope. Gebäudeabstand def = PBG §260 (see the sibling",
+    "ch-zh-zurich-BZO-rules.json). Resolver order = ch-zh-zurich-LEGAL-HIERARCHY.md."
+  ],
+  "schema": "jurisdiction-zone-table/part-a",
+  "schemaVersion": 1,
+  "ticket": "ZH-001",
+  "jurisdictionId": "ch-zh-zurich-bzo",
+  "municipality": { "name": "Zürich", "bfsNr": 261, "canton": "ZH", "country": "CH" },
+  "crs": "EPSG:2056",
+  "certification": {
+    "flag": "CH_FAR_CERTIFIED",
+    "perParcelBzoSignOff": "UNSIGNED",
+    "note": "VERIFICATION.md top-section claims CH_FAR_CERTIFIED ON (2026-07-26); the per-parcel Zürich BZO sign-off line remains UNSIGNED with open items (exact source-PDF URLs not confirmed; docid->regime crosswalk not human-confirmed). Tracked as RISK R3 — do not read these values as authoritative.",
+    "defaultConfidence": "estimated-ruleset"
+  },
+  "provenance": {
+    "primarySource": "packages/site-parcel-data/src/providers/chZurichBzoCatalogue.ts (ZURICH_BZO_ZONE_CATALOGUE)",
+    "humanArtefact": "docs/04-reference/jurisdictions/ch/sources/bzo_zone_data.json",
+    "founderCitedValues": "BZO 2016 700.100 Art.13 'Grundmasse' (founder-supplied, cross-checked)",
+    "reconciliation": "PASS — every founder-cited Vollgeschosse/Gebäudehöhe/AZ value equals the catalogue for at least one regime; the only regime divergence is W2bIII height (8.5 m 91/99 vs 9.0 m 2016), and the founder's cited 9.0 m matches the bzo_2016 row.",
+    "retrieved": "2026-07-25"
+  },
+  "regimes": {
+    "bzo_91_99": {
+      "label": "BZO 91/99",
+      "document": "Bau- und Zonenordnung der Stadt Zürich (BZO 1991/1999)",
+      "articles": "Art. 13 (Wohnzonen) / Art. 18 (Zentrumszonen)",
+      "url": "https://oerebdocs.zh.ch/getDoc?docid=573",
+      "urlStatus": "founder-supplied-primary-pdf; exact consolidated-PDF URL to be confirmed at sign-off",
+      "coverage": "the older regime — most of the city"
+    },
+    "bzo_2016": {
+      "label": "BZO 2016",
+      "document": "700.100 Bau- und Zonenordnung der Stadt Zürich (BZO 2016)",
+      "articles": "BZO 2016 article numbering (differs from 91/99)",
+      "url": "https://oerebdocs.zh.ch/getDoc?docid=6808",
+      "urlStatus": "founder-supplied-primary-pdf; exact consolidated-PDF URL to be confirmed at sign-off",
+      "coverage": "the newer plan area — only zones cross-checked under 2016 are carried (W2bIII, Z5, Z6, Z7)"
+    }
+  },
+  "regimeDiscrepancies": [
+    {
+      "zoneCode": "W2bIII",
+      "field": "height.value (Gebäudehöhe)",
+      "bzo_91_99": 8.5,
+      "bzo_2016": 9.0,
+      "azAgrees": 0.45,
+      "risk": "R4",
+      "why": "AZ identical (0.45) across regimes but max Gebäudehöhe differs (8.5 vs 9.0 m). A parcel's height cap cannot be chosen from the zone code alone — the governing regime must be resolved first; a guessed regime is a fabricated height. resolveZurichBzoRegime REFUSES 'regime-ambiguous' when it cannot place a parcel."
+    }
+  ],
+  "setbackTableStatus": {
+    "art38GrundabstandPerZone": "UNKNOWN",
+    "reason": "Art.38 per-zone kleiner/grosser Grundabstand table not yet extracted from the scanned BZO ordinance — human-gated. Only the single Art.13 Grundgrenzabstand is carried below, where the catalogue states one (W2bIII 5.0 m, Z5 3.5 m).",
+    "formulaRules": "ch-zh-zurich-BZO-rules.json (Mehrlängenzuschlag, Kleinbauten 3.5 m, underground 2.5 m, Gebäudeabstand = PBG §260)"
+  },
+  "zones": [
+    {
+      "zoneCode": "W2bI",
+      "officialDesignation": "Wohnzone W2bI",
+      "regime": "bzo_91_99",
+      "density": { "metric": "AZ", "value": 0.4, "denominator": "parcel" },
+      "height": { "value": 9.0, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 2 },
+      "coverage": { "value": null, "denominator": "parcel" },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": null, "reason": "Art.38 per-zone Grundabstand table not yet extracted from the scanned BZO ordinance — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "Art. 13", "paragraph": "Wohnzonen (Grundmasse)", "effectiveDate": "1991/1999" },
+      "confidence": "estimated-ruleset"
+    },
+    {
+      "zoneCode": "W2bII",
+      "officialDesignation": "Wohnzone W2bII",
+      "regime": "bzo_91_99",
+      "density": { "metric": "AZ", "value": 0.4, "denominator": "parcel" },
+      "height": { "value": 9.0, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 2 },
+      "coverage": { "value": null, "denominator": "parcel" },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": null, "reason": "Art.38 per-zone Grundabstand table not yet extracted from the scanned BZO ordinance — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "Art. 13", "paragraph": "Wohnzonen (Grundmasse)", "effectiveDate": "1991/1999" },
+      "confidence": "estimated-ruleset"
+    },
+    {
+      "zoneCode": "W2bIII",
+      "officialDesignation": "Wohnzone W2bIII",
+      "regime": "bzo_91_99",
+      "density": { "metric": "AZ", "value": 0.45, "denominator": "parcel" },
+      "height": { "value": 8.5, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 2 },
+      "coverage": { "value": 0.25, "denominator": "parcel", "metric": "Überbauungsziffer" },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": 5.0, "reason": "Art.13 Grundgrenzabstand 5.0 m carried from catalogue; the Art.38 per-zone kleiner/grosser Grundabstand pair is not yet extracted — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "Art. 13", "paragraph": "Wohnzonen (Grundmasse)", "effectiveDate": "1991/1999" },
+      "confidence": "estimated-ruleset",
+      "regimeNote": "R4: height 8.5 m under 91/99 vs 9.0 m under 2016 (see the bzo_2016 W2bIII row); AZ 0.45 identical."
+    },
+    {
+      "zoneCode": "W2",
+      "officialDesignation": "Wohnzone W2",
+      "regime": "bzo_91_99",
+      "density": { "metric": "AZ", "value": 0.6, "denominator": "parcel" },
+      "height": { "value": 9.0, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 2 },
+      "coverage": { "value": null, "denominator": "parcel" },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": null, "reason": "Art.38 per-zone Grundabstand table not yet extracted from the scanned BZO ordinance — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "Art. 13", "paragraph": "Wohnzonen (Grundmasse)", "effectiveDate": "1991/1999" },
+      "confidence": "estimated-ruleset"
+    },
+    {
+      "zoneCode": "W3",
+      "officialDesignation": "Wohnzone W3",
+      "regime": "bzo_91_99",
+      "density": { "metric": "AZ", "value": 0.9, "denominator": "parcel" },
+      "height": { "value": 9.5, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 3 },
+      "coverage": { "value": null, "denominator": "parcel" },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": null, "reason": "Art.38 per-zone Grundabstand table not yet extracted from the scanned BZO ordinance — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "Art. 13", "paragraph": "Wohnzonen (Grundmasse)", "effectiveDate": "1991/1999" },
+      "confidence": "estimated-ruleset"
+    },
+    {
+      "zoneCode": "W4b",
+      "officialDesignation": "Wohnzone W4b",
+      "regime": "bzo_91_99",
+      "density": { "metric": "AZ", "value": 1.05, "denominator": "parcel" },
+      "height": { "value": 12.5, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 4 },
+      "coverage": { "value": null, "denominator": "parcel" },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": null, "reason": "Art.38 per-zone Grundabstand table not yet extracted from the scanned BZO ordinance — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "Art. 13", "paragraph": "Wohnzonen (Grundmasse)", "effectiveDate": "1991/1999" },
+      "confidence": "estimated-ruleset"
+    },
+    {
+      "zoneCode": "W4",
+      "officialDesignation": "Wohnzone W4",
+      "regime": "bzo_91_99",
+      "density": { "metric": "AZ", "value": 1.2, "denominator": "parcel" },
+      "height": { "value": 12.5, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 4 },
+      "coverage": { "value": null, "denominator": "parcel" },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": null, "reason": "Art.38 per-zone Grundabstand table not yet extracted from the scanned BZO ordinance — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "Art. 13", "paragraph": "Wohnzonen (Grundmasse)", "effectiveDate": "1991/1999" },
+      "confidence": "estimated-ruleset"
+    },
+    {
+      "zoneCode": "W5",
+      "officialDesignation": "Wohnzone W5",
+      "regime": "bzo_91_99",
+      "density": { "metric": "AZ", "value": 1.65, "denominator": "parcel" },
+      "height": { "value": 15.5, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 5 },
+      "coverage": { "value": null, "denominator": "parcel" },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": null, "reason": "Art.38 per-zone Grundabstand table not yet extracted from the scanned BZO ordinance — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "Art. 13", "paragraph": "Wohnzonen (Grundmasse)", "effectiveDate": "1991/1999" },
+      "confidence": "estimated-ruleset"
+    },
+    {
+      "zoneCode": "W6",
+      "officialDesignation": "Wohnzone W6",
+      "regime": "bzo_91_99",
+      "density": { "metric": "AZ", "value": 2.05, "denominator": "parcel" },
+      "height": { "value": 18.5, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 6 },
+      "coverage": { "value": null, "denominator": "parcel" },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": null, "reason": "Art.38 per-zone Grundabstand table not yet extracted from the scanned BZO ordinance — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "Art. 13", "paragraph": "Wohnzonen (Grundmasse)", "effectiveDate": "1991/1999" },
+      "confidence": "estimated-ruleset"
+    },
+    {
+      "zoneCode": "Z5",
+      "officialDesignation": "Zentrumszone Z5",
+      "regime": "bzo_91_99",
+      "density": { "metric": "AZ", "value": 2.0, "denominator": "parcel" },
+      "height": { "value": 19.0, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 5 },
+      "coverage": { "value": null, "denominator": "parcel" },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": 3.5, "reason": "Art.13/18 Grundgrenzabstand 3.5 m carried from catalogue; the Art.38 per-zone kleiner/grosser Grundabstand pair is not yet extracted — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "Art. 18", "paragraph": "Zentrumszonen (Grundmasse)", "effectiveDate": "1991/1999" },
+      "confidence": "estimated-ruleset"
+    },
+    {
+      "zoneCode": "Z6",
+      "officialDesignation": "Zentrumszone Z6",
+      "regime": "bzo_91_99",
+      "density": { "metric": "AZ", "value": 2.3, "denominator": "parcel" },
+      "height": { "value": 22.0, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 6 },
+      "coverage": { "value": null, "denominator": "parcel" },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": null, "reason": "Art.38 per-zone Grundabstand table not yet extracted from the scanned BZO ordinance — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "Art. 18", "paragraph": "Zentrumszonen (Grundmasse)", "effectiveDate": "1991/1999" },
+      "confidence": "estimated-ruleset"
+    },
+    {
+      "zoneCode": "Z7",
+      "officialDesignation": "Zentrumszone Z7",
+      "regime": "bzo_91_99",
+      "density": { "metric": "AZ", "value": 2.6, "denominator": "parcel" },
+      "height": { "value": 25.0, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 7 },
+      "coverage": { "value": null, "denominator": "parcel" },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": null, "reason": "Art.38 per-zone Grundabstand table not yet extracted from the scanned BZO ordinance — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "Art. 18", "paragraph": "Zentrumszonen (Grundmasse)", "effectiveDate": "1991/1999" },
+      "confidence": "estimated-ruleset"
+    },
+    {
+      "zoneCode": "W2bIII",
+      "officialDesignation": "Wohnzone W2bIII",
+      "regime": "bzo_2016",
+      "density": { "metric": "AZ", "value": 0.45, "denominator": "parcel" },
+      "height": { "value": 9.0, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 2 },
+      "coverage": { "value": null, "denominator": "parcel", "note": "Überbauungsziffer not carried under bzo_2016 in the catalogue (91/99 states 0.25); not guessed." },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": null, "reason": "Art.38 per-zone Grundabstand table not yet extracted from the scanned BZO ordinance — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "BZO 2016 Wohnzonen", "paragraph": "Grundmasse", "effectiveDate": "2016" },
+      "confidence": "estimated-ruleset",
+      "regimeNote": "R4: height 9.0 m under 2016 vs 8.5 m under 91/99; AZ 0.45 identical. Matches the founder's cited BZO 2016 Art.13 value (9 m)."
+    },
+    {
+      "zoneCode": "Z5",
+      "officialDesignation": "Zentrumszone Z5",
+      "regime": "bzo_2016",
+      "density": { "metric": "AZ", "value": 2.0, "denominator": "parcel" },
+      "height": { "value": 19.0, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 5 },
+      "coverage": { "value": null, "denominator": "parcel" },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": null, "reason": "Art.38 per-zone Grundabstand table not yet extracted from the scanned BZO ordinance — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "BZO 2016 Zentrumszonen", "paragraph": "Grundmasse", "effectiveDate": "2016" },
+      "confidence": "estimated-ruleset",
+      "regimeNote": "Identical to BZO 91/99 (200% / 5 / 19 m)."
+    },
+    {
+      "zoneCode": "Z6",
+      "officialDesignation": "Zentrumszone Z6",
+      "regime": "bzo_2016",
+      "density": { "metric": "AZ", "value": 2.3, "denominator": "parcel" },
+      "height": { "value": 22.0, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 6 },
+      "coverage": { "value": null, "denominator": "parcel" },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": null, "reason": "Art.38 per-zone Grundabstand table not yet extracted from the scanned BZO ordinance — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "BZO 2016 Zentrumszonen", "paragraph": "Grundmasse", "effectiveDate": "2016" },
+      "confidence": "estimated-ruleset",
+      "regimeNote": "Identical to BZO 91/99."
+    },
+    {
+      "zoneCode": "Z7",
+      "officialDesignation": "Zentrumszone Z7",
+      "regime": "bzo_2016",
+      "density": { "metric": "AZ", "value": 2.6, "denominator": "parcel" },
+      "height": { "value": 25.0, "unit": "m", "measurement": "Gebäudehöhe" },
+      "floors": { "fullStoreys": 7 },
+      "coverage": { "value": null, "denominator": "parcel" },
+      "setbacks": {
+        "front": { "type": "Baulinie", "source": "GIS", "resolver": "geometry" },
+        "side": { "type": "Grenzabstand", "resolver": "formula", "kleiner": null, "grosser": null, "grundgrenzabstandM": null, "reason": "Art.38 per-zone Grundabstand table not yet extracted from the scanned BZO ordinance — human-gated" },
+        "rear": { "type": "derived" }
+      },
+      "legalSource": { "document": "BZO Stadt Zürich 700.100", "article": "BZO 2016 Zentrumszonen", "paragraph": "Grundmasse", "effectiveDate": "2016" },
+      "confidence": "estimated-ruleset",
+      "regimeNote": "Identical to BZO 91/99."
+    }
+  ]
+}

@@ -55,6 +55,24 @@ the scorecard, so it does not inflate the number — captured in prose + §3 bel
 - The BZO 700.100 AZ/Vollgeschosse/Gebäudehöhe catalogue (`chZurichBzoCatalogue.ts`, both regimes) + the
   regime crosswalk (`zurichBzoRegimeResolver.ts`, 12 docs classified) + the ZH parcel + BZO WFS probes
   (`findings/ZURICH-BZO-PROBE.md`).
+- **ZH-001 DELIVERED (2026-07-31): the machine-readable Part-A zone table is exported.** Three sibling
+  artefacts, RECONCILED from `chZurichBzoCatalogue.ts` + `../../sources/bzo_zone_data.json` + the founder's
+  cited Art.13 values (no re-extraction, no fabricated number):
+  - [`ch-zh-zurich-BZO-zones.json`](./ch-zh-zurich-BZO-zones.json) — 16 rows (12 × bzo_91_99 + 4 × bzo_2016),
+    per-zone density(AZ)/height(Gebäudehöhe)/floors/coverage/setbacks/legalSource/confidence; every row
+    regime-stamped (R4); the Art.38 per-zone `kleiner`/`grosser` Grundabstand left `null` with a typed reason.
+  - [`ch-zh-zurich-BZO-rules.json`](./ch-zh-zurich-BZO-rules.json) — the Table-2 formula rules
+    (Mehrlängenzuschlag `(len−12)/3`, Kleinbauten 3.5 m, underground 2.5 m, Gebäudeabstand = PBG §260).
+  - [`ch-zh-zurich-LEGAL-HIERARCHY.md`](./ch-zh-zurich-LEGAL-HIERARCHY.md) — resolver order
+    Gestaltungsplan > Sondernutzungsplan > BZO > PBG.
+  - **Reconciliation verdict: PASS** — every founder Vollgeschosse/Höhe/AZ value equals the catalogue for
+    at least one regime; the only divergence is W2bIII height (8.5 m 91/99 vs 9.0 m 2016), and the founder's
+    cited 9.0 m matches the `bzo_2016` row. No RATE % cell moved (honesty gate — the sign-off contradiction
+    R3 is unresolved and the ENVELOPE coverage is unmeasured).
+  - **REMAINING (human-gated), the next founder extractions:** (1) the **Art.38 per-zone kleiner/grosser
+    Grundabstand table** from the scanned BZO ordinance (the one numeric gap in the zone table); (2)
+    **Gestaltungsplan / Sondernutzungsplan GIS ingestion** (the level-1/2 overrides the resolver does not
+    yet see).
 
 ## 6 — VERIFIED SOURCES
 | Source | Answers | Tier | Exact query / note |
