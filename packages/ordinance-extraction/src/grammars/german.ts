@@ -28,6 +28,7 @@ import {
     type MatchPayload,
     type MatcherContext,
     type RejectPattern,
+    type RuleReferencePattern,
 } from '../textExtract/types.js';
 
 /**
@@ -113,6 +114,7 @@ function ratioMatcher(
         field,
         unit: 'ratio',
         pattern: new RegExp(`(?:${keyword})\\s*${CONNECTIVE}\\s*${NUM}`, 'gi'),
+        keyword: new RegExp(`(?:${keyword})`, 'gi'),
         interpret: (m, ctx) => {
             const value = ctx.parseNumber(m[1]!);
             if (value === null) return null;
@@ -136,6 +138,7 @@ function heightMatcher(
         // The trailing `m` unit is REQUIRED — it disambiguates a height from a bare
         // number and stops the matcher grabbing an unrelated figure.
         pattern: new RegExp(`(?:${keyword})\\s*${CONNECTIVE}\\s*${NUM}\\s*m\\b`, 'gi'),
+        keyword: new RegExp(`(?:${keyword})`, 'gi'),
         interpret: (m, ctx) => {
             const value = ctx.parseNumber(m[1]!);
             if (value === null) return null;
@@ -164,6 +167,7 @@ const MATCHERS: readonly FieldMatcher[] = [
             `(?:Zahl der Vollgeschosse|Vollgeschoss(?:e|zahl|igkeit)?)\\s*${CONNECTIVE}\\s*([0-9]{1,2}|[IVXLC]+)\\b`,
             'gi',
         ),
+        keyword: /Vollgeschoss(?:e|zahl|igkeit)?/gi,
         interpret: (m, ctx) => {
             const value = parseStoreys(m[1]!, ctx);
             return value === null ? null : { value, rawText: m[1]! };
@@ -175,6 +179,7 @@ const MATCHERS: readonly FieldMatcher[] = [
         field: 'maxFloors',
         unit: 'storeys',
         pattern: new RegExp(`\\b([0-9]{1,2}|[IVXLC]+)\\s+Vollgeschoss(?:e|ig)?\\b`, 'gi'),
+        keyword: /Vollgeschoss(?:e|zahl|ig)?/gi,
         interpret: (m, ctx) => {
             const value = parseStoreys(m[1]!, ctx);
             return value === null ? null : { value, rawText: m[1]! };
@@ -209,6 +214,50 @@ const REJECTS: readonly RejectPattern[] = [
     },
 ];
 
+/**
+ * Phrases meaning "this parameter IS regulated, but its value is not in the prose".
+ * German B-Plan Festsetzungen constantly delegate the number to the Planzeichnung /
+ * Nutzungsschablone — the drawing carries the Baugrenze, the Nutzungsschablone the
+ * GRZ/GFZ/Z cell. A parcel whose GFZ "ergibt sich aus der Planzeichnung" is NOT a
+ * parcel with no GFZ; treating the two alike is the silent-empty bug class
+ * (L-422/457/467/469), and here it would send a consumer looking in the wrong
+ * document. This is the text-parse twin of `gates/algorithmDetector.ts`.
+ */
+const RULE_REFERENCES: readonly RuleReferencePattern[] = [
+    {
+        id: 'de-planzeichnung',
+        pattern:
+            /(?:ergib\w*|ergeben)\s+sich\s+aus\s+(?:der\s+)?(?:Planzeichnung|zeichnerischen\s+Festsetzung(?:en)?|Nutzungsschablone)/gi,
+        rule: 'on-drawing',
+        detail: 'Value is delegated to the Planzeichnung / Nutzungsschablone — read the drawing, not the prose.',
+    },
+    {
+        id: 'de-planzeichnung-entnehmen',
+        pattern:
+            /(?:ist|sind)\s+(?:der\s+)?(?:Planzeichnung|Nutzungsschablone)\s+zu\s+entnehmen/gi,
+        rule: 'on-drawing',
+        detail: 'Value is stated on the Planzeichnung / Nutzungsschablone, not in the text.',
+    },
+    {
+        id: 'de-zeichnerisch-festgesetzt',
+        pattern: /(?:plan)?zeichnerisch\s+festgesetzt/gi,
+        rule: 'on-drawing',
+        detail: 'Festsetzung is graphical (zeichnerisch) — the number lives on the plan sheet.',
+    },
+    {
+        id: 'de-siehe-planzeichnung',
+        pattern: /(?:siehe|vgl\.?|gemäß|entsprechend)\s+(?:der\s+)?(?:Planzeichnung|Nutzungsschablone)/gi,
+        rule: 'on-drawing',
+        detail: 'Text points at the Planzeichnung / Nutzungsschablone for the value.',
+    },
+    {
+        id: 'de-errechnet-sich',
+        pattern: /(?:errechnet|berechnet|bemisst)\s+sich\s+(?:aus|nach)/gi,
+        rule: 'derived',
+        detail: 'Value is DERIVED by applying other parameters — the ordinance states no number.',
+    },
+];
+
 /** Find the governing § / article in a sentence (German syntax), or null. */
 function findGermanSection(sentence: string): string | null {
     const m = sentence.match(/§\s*(\d+\s*[a-z]?)(?:\s*Abs\.?\s*(\d+))?/i);
@@ -228,5 +277,6 @@ export const GERMAN_GRAMMAR: JurisdictionGrammar = {
     locale: 'de',
     matchers: MATCHERS,
     rejectPatterns: REJECTS,
+    ruleReferences: RULE_REFERENCES,
     findSection: findGermanSection,
 };

@@ -27,7 +27,7 @@ import {
     type FieldProvenance,
     type DomainConfidence,
 } from '@pryzm/schemas';
-import { type ExtractableField } from '../types.js';
+import { type ExtractableField, type NonNumericRule } from '../types.js';
 import { type NumberLocale } from '../gates/localeGate.js';
 
 /**
@@ -138,6 +138,17 @@ export interface FieldOutcome {
     readonly reason: FieldUnknownReason;
     /** A one-line human-readable explanation. */
     readonly detail: string;
+    /**
+     * Present IFF `reason` is `stated-as-rule-not-value`: WHICH kind of rule the
+     * text pointed at. This is the load-bearing distinction — `on-drawing` tells a
+     * downstream consumer the number exists but lives on the Planzeichnung (go read
+     * the drawing), whereas `derived` says it is computed from other parameters.
+     * Neither is "the ordinance is silent", and neither may become a number here
+     * (the fabricated-number trap — `gates/algorithmDetector.ts`).
+     */
+    readonly rule?: NonNumericRule;
+    /** The id of the rule-reference pattern that fired, when one did. */
+    readonly ruleReferenceId?: string;
 }
 
 /** A match deliberately dropped by a reject pattern — kept as an audit trail. */
@@ -226,8 +237,36 @@ export interface FieldMatcher {
     readonly unit: RuleUnit;
     /** A GLOBAL regex whose groups the `interpret` fn reads. */
     readonly pattern: RegExp;
+    /**
+     * A BARE keyword regex — the field's name with NO number attached ("GRZ",
+     * "Geschossflächenzahl", "Traufhöhe"). Used ONLY to answer "does this sentence
+     * TALK ABOUT this field?" when the sentence carries a rule reference but no
+     * number, so `stated-as-rule-not-value` can be told apart from
+     * `not-stated-in-text`. Optional: a grammar that omits it simply never reports
+     * that finer reason (it degrades to `not-stated-in-text`, never to a value).
+     */
+    readonly keyword?: RegExp;
     /** Turn one regex hit into a typed payload, or `null` to decline. */
     readonly interpret: (match: RegExpMatchArray, ctx: MatcherContext) => MatchPayload | null;
+}
+
+/**
+ * A sentence-level pattern meaning "this field is stated as a RULE, not a number"
+ * — the text-parse twin of `gates/algorithmDetector.ts` (which guards the LLM
+ * path). German Festsetzungen routinely say "Die Zahl der Vollgeschosse ergibt sich
+ * aus der Planzeichnung": the parameter IS regulated, its value simply is not in
+ * the prose. Reporting that as "not stated" would be a silent empty standing in
+ * for a real, differently-shaped answer (§CONTEXT-DATA-HONESTY, L-422/457/467/469).
+ */
+export interface RuleReferencePattern {
+    /** Stable id recorded on the `FieldOutcome` (e.g. `de-planzeichnung`). */
+    readonly id: string;
+    /** The phrase that marks the sentence as a rule reference. */
+    readonly pattern: RegExp;
+    /** Which kind of non-numeric rule the phrase denotes. */
+    readonly rule: NonNumericRule;
+    /** One line a human reads: where the real value lives. */
+    readonly detail: string;
 }
 
 /** A sentence-level pattern that marks text as NOT a binding parcel rule. */
@@ -258,6 +297,11 @@ export interface JurisdictionGrammar {
     readonly matchers: readonly FieldMatcher[];
     /** Sentences matching ANY of these emit no value (recorded as rejected). */
     readonly rejectPatterns: readonly RejectPattern[];
+    /**
+     * Phrases meaning "the value is a rule / lives on the drawing". Optional; when
+     * absent the extractor simply never distinguishes `stated-as-rule-not-value`.
+     */
+    readonly ruleReferences?: readonly RuleReferencePattern[];
     /** Find the governing § / article in a sentence, or null. Optional. */
     readonly findSection?: (sentence: string) => string | null;
 }

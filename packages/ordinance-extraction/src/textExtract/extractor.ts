@@ -13,7 +13,7 @@
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { type DomainConfidence } from '@pryzm/schemas';
-import { type ExtractableField } from '../types.js';
+import { type ExtractableField, type NonNumericRule } from '../types.js';
 import { parseLocaleNumber } from '../gates/localeGate.js';
 import { PIPELINE_TIER } from '../confidence.js';
 import {
@@ -26,6 +26,7 @@ import {
     type MatchPayload,
     type RejectedMatch,
     type RuleCitation,
+    type RuleReferencePattern,
     type TextExtractionOutcome,
     type TextExtractionSuccess,
     type TextSource,
@@ -158,13 +159,19 @@ export function extractRules(
         const rejected: RejectedMatch[] = [];
         // Track why each field ended without a rule (worst-known reason per field).
         const emitted = new Set<ExtractableField>();
-        const fieldReason = new Map<ExtractableField, FieldUnknownReason>();
+        const fieldReason = new Map<ExtractableField, ReasonNote>();
+        const ruleReferences = grammar.ruleReferences ?? [];
 
         for (const sentence of segments) {
             // Is this whole sentence a non-binding reference (reject-scoped)?
             const reject = grammar.rejectPatterns.find((rp) =>
                 freshGlobal(rp.pattern).test(sentence),
             );
+            // Does this sentence say "the value is a rule / on the drawing"?
+            const ruleRef = ruleReferences.find((rr) => freshGlobal(rr.pattern).test(sentence));
+            // Which fields produced a value IN THIS SENTENCE (so a rule reference in
+            // the same sentence does not overwrite a real, stated number).
+            const valuedHere = new Set<ExtractableField>();
 
             for (const matcher of grammar.matchers) {
                 const re = freshGlobal(matcher.pattern);
@@ -173,9 +180,13 @@ export function extractRules(
                     if (payload === null) {
                         // Matched the keyword but the token was not a number → the
                         // field is present-but-unvalued here (drawing/algorithm ref).
-                        noteReason(fieldReason, matcher.field, 'stated-as-rule-not-value');
+                        noteReason(fieldReason, matcher.field, {
+                            reason: 'stated-as-rule-not-value',
+                            detail: 'Field matched but the captured token was not a parseable number.',
+                        });
                         continue;
                     }
+                    valuedHere.add(matcher.field);
                     if (reject) {
                         rejected.push({
                             field: matcher.field,
@@ -183,7 +194,10 @@ export function extractRules(
                             sentence,
                             rejectId: reject.id,
                         });
-                        noteReason(fieldReason, matcher.field, 'rejected-not-parcel-rule');
+                        noteReason(fieldReason, matcher.field, {
+                            reason: 'rejected-not-parcel-rule',
+                            detail: reject.detail,
+                        });
                         continue;
                     }
                     const citation = resolveCitation(source, sentence, grammar);
@@ -195,6 +209,12 @@ export function extractRules(
                     emitted.add(matcher.field);
                 }
             }
+
+            // ── Rule references: "Die Zahl der Vollgeschosse ergibt sich aus der
+            // Planzeichnung." The field IS regulated; its value is simply not in the
+            // prose. Recording that as `not-stated-in-text` would let a real,
+            // differently-shaped answer masquerade as silence.
+            if (ruleRef) noteRuleReference(fieldReason, grammar.matchers, sentence, valuedHere, ruleRef);
         }
 
         const unknowns = buildUnknowns(grammar.matchers, emitted, fieldReason);
@@ -221,19 +241,61 @@ export function extractRules(
     }
 }
 
+/** What we learned about a field that produced no rule, with its explanation. */
+interface ReasonNote {
+    readonly reason: FieldUnknownReason;
+    readonly detail: string;
+    readonly rule?: NonNumericRule;
+    readonly ruleReferenceId?: string;
+}
+
+/**
+ * Reason strength — a MORE SPECIFIC finding always wins over a vaguer one, so a
+ * field that is silent in sentence 1 and rule-referenced in sentence 7 reports the
+ * rule reference, never "not stated".
+ */
+const REASON_RANK: Readonly<Record<FieldUnknownReason, number>> = Object.freeze({
+    'not-stated-in-text': 0,
+    'stated-as-rule-not-value': 1,
+    'rejected-not-parcel-rule': 2,
+});
+
 /** Record the "worst known" reason a field lacked a rule (reject > rule > absent). */
 function noteReason(
-    map: Map<ExtractableField, FieldUnknownReason>,
+    map: Map<ExtractableField, ReasonNote>,
     field: ExtractableField,
-    reason: FieldUnknownReason,
+    note: ReasonNote,
 ): void {
-    const rank: Record<FieldUnknownReason, number> = {
-        'not-stated-in-text': 0,
-        'stated-as-rule-not-value': 1,
-        'rejected-not-parcel-rule': 2,
-    };
     const prev = map.get(field);
-    if (prev === undefined || rank[reason] > rank[prev]) map.set(field, reason);
+    if (prev === undefined || REASON_RANK[note.reason] > REASON_RANK[prev.reason]) {
+        map.set(field, note);
+    }
+}
+
+/**
+ * A sentence carried a rule reference ("…ergibt sich aus der Planzeichnung"). Mark
+ * every field the sentence NAMES but did not VALUE as `stated-as-rule-not-value`,
+ * carrying which kind of rule it is. A field that WAS valued in this same sentence
+ * is untouched — a stated number outranks a co-located rule phrase.
+ */
+function noteRuleReference(
+    map: Map<ExtractableField, ReasonNote>,
+    matchers: readonly FieldMatcher[],
+    sentence: string,
+    valuedHere: ReadonlySet<ExtractableField>,
+    ruleRef: RuleReferencePattern,
+): void {
+    for (const matcher of matchers) {
+        if (matcher.keyword === undefined) continue;
+        if (valuedHere.has(matcher.field)) continue;
+        if (!freshGlobal(matcher.keyword).test(sentence)) continue;
+        noteReason(map, matcher.field, {
+            reason: 'stated-as-rule-not-value',
+            detail: ruleRef.detail,
+            rule: ruleRef.rule,
+            ruleReferenceId: ruleRef.id,
+        });
+    }
 }
 
 /** Every distinct field the grammar CAN populate, in first-seen order. */
@@ -247,18 +309,24 @@ function grammarFields(matchers: readonly FieldMatcher[]): ExtractableField[] {
 function buildUnknowns(
     matchers: readonly FieldMatcher[],
     emitted: ReadonlySet<ExtractableField>,
-    fieldReason: ReadonlyMap<ExtractableField, FieldUnknownReason>,
+    fieldReason: ReadonlyMap<ExtractableField, ReasonNote>,
 ): FieldOutcome[] {
-    const detailFor: Record<FieldUnknownReason, string> = {
-        'not-stated-in-text': 'Field not stated anywhere in this text.',
-        'stated-as-rule-not-value': 'Field referenced but stated as a rule/drawing, not a value.',
-        'rejected-not-parcel-rule': 'Field appeared only in a non-binding reference (rejected).',
-    };
     const out: FieldOutcome[] = [];
     for (const field of grammarFields(matchers)) {
         if (emitted.has(field)) continue;
-        const reason = fieldReason.get(field) ?? 'not-stated-in-text';
-        out.push({ field, reason, detail: detailFor[reason] });
+        const note = fieldReason.get(field) ?? {
+            reason: 'not-stated-in-text' as const,
+            detail: 'Field not stated anywhere in this text.',
+        };
+        out.push({
+            field,
+            reason: note.reason,
+            detail: note.detail,
+            ...(note.rule !== undefined ? { rule: note.rule } : {}),
+            ...(note.ruleReferenceId !== undefined
+                ? { ruleReferenceId: note.ruleReferenceId }
+                : {}),
+        });
     }
     return out;
 }

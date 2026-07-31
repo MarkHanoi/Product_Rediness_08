@@ -159,6 +159,53 @@ describe('GERMAN_GRAMMAR — honesty: reject, unknown, no fabrication', () => {
     });
 });
 
+describe('GERMAN_GRAMMAR — "on the drawing" ≠ "not stated" (§CONTEXT-DATA-HONESTY)', () => {
+    it('reports a Planzeichnung delegation as stated-as-rule-not-value + on-drawing', () => {
+        const r = ok('Die Zahl der Vollgeschosse ergibt sich aus der Planzeichnung.');
+        const u = r.unknowns.find((x) => x.field === 'maxFloors');
+        expect(u?.reason).toBe('stated-as-rule-not-value');
+        expect(u?.rule).toBe('on-drawing');
+        expect(u?.ruleReferenceId).toBe('de-planzeichnung');
+        // …and NEVER a fabricated number.
+        expect(r.rules.find((x) => x.field === 'maxFloors')).toBeUndefined();
+    });
+
+    it('is DISTINGUISHABLE from a genuinely silent text (the whole point)', () => {
+        const silent = ok('Das Plangebiet liegt im Bezirk Neukölln.');
+        expect(silent.unknowns.find((x) => x.field === 'maxFloors')?.reason).toBe(
+            'not-stated-in-text',
+        );
+        const delegated = ok('Die Zahl der Vollgeschosse ergibt sich aus der Planzeichnung.');
+        expect(delegated.unknowns.find((x) => x.field === 'maxFloors')?.reason).toBe(
+            'stated-as-rule-not-value',
+        );
+    });
+
+    it('flags a DERIVED value ("errechnet sich aus") as rule=derived', () => {
+        const r = ok('Die zulässige Geschossflächenzahl errechnet sich aus der Grundstücksgröße.');
+        const u = r.unknowns.find((x) => x.field === 'maxFAR');
+        expect(u?.reason).toBe('stated-as-rule-not-value');
+        expect(u?.rule).toBe('derived');
+    });
+
+    it('a STATED number outranks a rule phrase in the same sentence', () => {
+        // GRZ is given a number here; only the height is delegated to the drawing.
+        const r = ok(
+            'Die GRZ beträgt 0,3; die Traufhöhe ergibt sich aus der Planzeichnung.',
+        );
+        expect(r.rules.find((x) => x.field === 'maxCoverage')?.value).toBeCloseTo(0.3, 10);
+        expect(r.unknowns.find((x) => x.field === 'maxCoverage')).toBeUndefined();
+        expect(r.unknowns.find((x) => x.field === 'maxHeight_m')?.rule).toBe('on-drawing');
+    });
+
+    it('a rule reference elsewhere never downgrades a value stated earlier', () => {
+        const r = ok(
+            'Die Grundflächenzahl (GRZ) von 0,3 wird festgesetzt.\nWeitere Maße ergeben sich aus der Planzeichnung.',
+        );
+        expect(r.rules.find((x) => x.field === 'maxCoverage')?.value).toBeCloseTo(0.3, 10);
+    });
+});
+
 describe('romanToInt', () => {
     it('parses canonical numerals', () => {
         expect(romanToInt('I')).toBe(1);
