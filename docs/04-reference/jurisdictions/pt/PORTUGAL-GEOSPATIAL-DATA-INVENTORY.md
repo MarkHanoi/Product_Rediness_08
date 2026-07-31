@@ -15,6 +15,45 @@
 > §Probe steps are what would, once PROBED + WIRED, become the Phase-3 PLAN that raises Portugal.
 >
 > **Session date:** 2026-07-30 · **Maintainer:** UNASSIGNED · **Status:** captured, pending-probe.
+> **Probe update 2026-07-31:** the two axis-critical rows (DGT OGC API base + CAOP, and Cadastro Predial
+> parcels) are now **`VERIFIED-LIVE`** — see §PROBE RESULT below. No RATE % cell moves on this (the code
+> provider is wired-pending-proxy; the server proxy is not yet built).
+
+---
+
+## §PROBE RESULT — DGT endpoints live-probed 2026-07-31 (Phase-4 pt parcel provider)
+
+Direct live probe while building `packages/site-parcel-data/src/parcelProviders/dgtParcelProvider.ts`.
+Upgrades two rows from `CONVERGENT-SECONDARY` to **`VERIFIED-LIVE`**, and **corrects one inventory
+assumption**:
+
+1. **DGT OGC API platform is LIVE** — base URL is **`https://ogcapi.dgterritorio.gov.pt/`** (OGC API
+   Features). `/collections` enumerates CAOP (`municipios`, `freguesias`, `distritos`, `admin`, NUTS,
+   `trocos`), COS (`cos2018v3` / `cos2023v1` / `cosc2018..2023`), and 30 cm orthophotos (`ortos-rgb` /
+   `ortos-irg`). **storageCrs `EPSG:3763`**, also offered in `EPSG:4326` / `4258` / `3857`.
+2. **CAOP DICOFRE join key confirmed** — the `freguesias` queryables expose **`dtmnfr`** (the 6-digit
+   distrito+concelho+freguesia = DICOFRE code) as the id attribute, plus `municipio` / `freguesia` /
+   `distrito_ilha` / `designacao_simplificada`. (No literal `dicofre` field name — `dtmnfr` IS it.)
+3. **⚠ CORRECTION: Cadastro Predial is NOT on the OGC API.** The inventory row below implied the parcel
+   layer is on the DGT OGC API platform; the `/collections` listing has **no parcel collection**. Parcels
+   are on a **separate INSPIRE WFS** — the SNIC GeoServer.
+4. **Cadastro Predial (Continente) WFS is LIVE** — `https://snicws.dgterritorio.gov.pt/geoserver/inspire/ows`,
+   WFS 2.0.0, typeName **`inspire:cadastralparcel`**, **licence CC BY 4.0 (declared on the WFS
+   GetCapabilities itself)**, **1,789,404 features**. `DefaultCRS = EPSG:3763` (projected metres); the
+   formal CRS list does **not** advertise 4326, **but** a `GetFeature` with `srsName=EPSG:4326&
+   outputFormat=application/json` **returns GeoJSON in real WGS84 degrees** (`[-7.5534, 39.6713]`) — the
+   server-side reprojection seam works (the DK/BE/NL/NO pattern). DescribeFeatureType attributes:
+   `inspireid` (`PT.DGT.CP.<NIC>`), `nationalcadastralreference`, `label` (the NIC, e.g. `AAA 001 318 684`),
+   `areavalue` (m²), `administrativeunit` (município code, e.g. `051102`).
+
+**PARCEL axis status → `wired-pending-probe`.** A package-local `dgtParcelProvider` is wired to the LIVE
+endpoint above (typed refusal union, never-throws, EPSG:3763→WGS84 CRS guard, OTel span, injectable
+`fetchImpl`, `/api/parcel/pt` proxy). It is **NOT yet production-serving**: the server-side
+`/api/parcel/pt` proxy is not built, and the registry row is orchestrator-owned. **No RATE / LOD-RATE %
+cell moves.** Standing caveat (unchanged): Cadastro Predial coverage is **mainland-only** and **per-
+município (CGPR/SiNErGIC)** — still **unconfirmed for the Lisbon (1106) / Porto (1315) urban cores**
+(README §2.1 / NEXT §3.1); a click in an unmapped área returns an honest `no-parcel-here`, never a
+fabricated ring.
 
 ---
 
@@ -41,8 +80,8 @@ probe.
 
 | Layer | Authority | Access | API | Download | Licence | CRS | National | Production-ready | Confidence |
 |---|---|---|---|---|---|---|---|---|---|
-| **CAOP** — administrative boundaries (distrito + concelho + freguesia) | DGT | DGT OGC API platform (`dgterritorio.gov.pt` / `snig.dgterritorio.gov.pt`) | OGC API (Features) — *base URL + FeatureType names pending-probe* | GeoPackage / Shapefile via SNIG | CC BY 4.0 *(reported; pending-probe)* | pending-probe (likely ETRS89 / PT-TM06, EPSG:3763 continental) | Yes | **Reviewer ★★★★★ "easiest win"** — but pending-probe | `CONVERGENT-SECONDARY` |
-| **Cadastro Predial (Continente)** — parcel geometry + NIC | DGT (SNIC — Autoridade Nacional de Cadastro Predial) | DGT OGC API / SNIG WMS/WFS | OGC API — *pending-probe* | Shapefile / GeoPackage / DXF / GeoJSON per parcel | Open (EU HVD, Reg. 2023/138); CC BY 4.0 *(reported; pending-probe)* | pending-probe (EPSG:3763 continental) | **Mainland only**; coverage varies (CGPR/SiNErGIC ~134 munis; NOT confirmed for Lisbon/Porto cores — see §2.1 README) | ★★★★☆ **coverage-limited** — pending-probe | `CONVERGENT-SECONDARY` |
+| **CAOP** — administrative boundaries (distrito + concelho + freguesia) | DGT | **`https://ogcapi.dgterritorio.gov.pt/`** (OGC API Features) | **OGC API Features — collections `municipios`/`freguesias`/`distritos` (PROBED 2026-07-31); DICOFRE join attr = `dtmnfr`** | GeoPackage / Shapefile via SNIG | CC BY 4.0 *(platform reports; parcel WFS confirms)* | **EPSG:3763 storageCrs; 4326/4258/3857 offered (PROBED)** | Yes | **Reviewer ★★★★★ "easiest win"** — **VERIFIED-LIVE** | **`VERIFIED-LIVE` (2026-07-31)** |
+| **Cadastro Predial (Continente)** — parcel geometry + NIC | DGT (SNIC — Autoridade Nacional de Cadastro Predial) | **SNIC INSPIRE WFS `https://snicws.dgterritorio.gov.pt/geoserver/inspire/ows` — NOT the OGC API (corrected)** | **WFS 2.0.0, typeName `inspire:cadastralparcel` (PROBED 2026-07-31); 1,789,404 features** | Shapefile / GeoPackage / DXF / GeoJSON per parcel | **CC BY 4.0 (declared on the WFS GetCapabilities)** | **DefaultCRS EPSG:3763; `srsName=EPSG:4326` reprojection returns real WGS84 GeoJSON (PROBED)** | **Mainland only**; coverage varies (CGPR/SiNErGIC ~134 munis; NOT confirmed for Lisbon/Porto cores — see §2.1 README) | ★★★★☆ **coverage-limited** — **VERIFIED-LIVE endpoint; `wired-pending-probe` provider** | **`VERIFIED-LIVE` (2026-07-31)** |
 | **CRUS** — Classificação e Uso do Solo (territorial classification) | DGT | DGT OGC API platform | OGC API — *collection name pending-probe* | GeoPackage / Shapefile via SNIG | CC BY 4.0 *(reported; pending-probe)* | pending-probe | Yes | ★★★★★ — pending-probe | `CONVERGENT-SECONDARY` |
 | **COS** — Carta de Ocupação do Solo (land cover) | DGT | DGT OGC API platform | **OGC API** *(review upgrades from prior WMS/WFS lead)* | GeoPackage / Shapefile via SNIG | **CC BY 4.0** *(review upgrades from "Open")* | pending-probe | Yes | ★★★★★ — pending-probe (too coarse for individual park boundaries; district-scale context only) | `CONVERGENT-SECONDARY` |
 | **Orthophotos** — 30 cm national imagery | DGT | DGT OGC API platform (analogue of Spain's PNOA) | OGC API / tiled imagery — *pending-probe* | Tiled orthoimagery via SNIG | CC BY 4.0 *(reported; pending-probe)* | pending-probe | Yes | ★★★★★ — pending-probe | `CONVERGENT-SECONDARY` |
@@ -78,12 +117,10 @@ These are the exact live probes that would upgrade the rows above from `CONVERGE
 `VERIFIED-LIVE` and, once WIRED, become Phase-3 PLAN items. Mirrors the review's NEXT §8 list. See
 also `../NEXT.md`.
 
-1. **Confirm the DGT OGC API base URL.** Navigate `dgterritorio.gov.pt` / `snig.dgterritorio.gov.pt`
-   → locate the OGC API landing (`/collections`) → record the canonical base URL and whether it is
-   OGC API Features / Tiles / Maps. This is the anchor every DGT row depends on.
-2. **Probe CAOP OGC API.** From the OGC API landing, enumerate the CAOP FeatureType/collection →
-   confirm it returns **distrito + concelho + freguesia** polygons with a **DICOFRE attribute**
-   (the join key for every PT municipality folder). Record the exact attribute name.
+1. **✅ DONE 2026-07-31 — Confirm the DGT OGC API base URL.** Base = **`https://ogcapi.dgterritorio.gov.pt/`**
+   (OGC API **Features**); `/collections` lists CAOP/COS/ortho, storageCrs EPSG:3763. See §PROBE RESULT.
+2. **✅ DONE 2026-07-31 — Probe CAOP OGC API.** `municipios` + `freguesias` collections live; DICOFRE join
+   attribute is **`dtmnfr`** (freguesias queryables). See §PROBE RESULT #2.
 3. **Probe CRUS collection.** Confirm the CRUS collection exists on the OGC API, returns
    territorial-classification polygons, and record the classification attribute schema.
 4. **Probe LNEG OGC API.** Confirm the LNEG (geology) OGC API endpoint is live and distinct from
@@ -92,9 +129,12 @@ also `../NEXT.md`.
 5. **Confirm COS + 30 cm ortho as OGC API + CC BY 4.0.** Verify COS is served via OGC API (not only
    WMS/WFS) and that the DGT platform licence string is genuinely CC BY 4.0 platform-wide (read the
    licence/attribution field, don't infer).
-6. **Confirm Cadastro Predial OGC API + coverage.** Confirm the parcel OGC API is live, mainland-only,
-   returns geometry + NIC, and check the CGPR/SiNErGIC coverage for Lisboa (1106) / Porto (1315) /
-   Braga (0303) DICOFRE — the standing #1 blocker (README §2.1 / NEXT §3.1).
+6. **◐ PARTIAL 2026-07-31 — Confirm Cadastro Predial endpoint + coverage.** Endpoint DONE: it is a **WFS
+   (NOT the OGC API)** — `snicws.dgterritorio.gov.pt/geoserver/inspire/ows`, `inspire:cadastralparcel`,
+   CC BY 4.0, 4326-reprojection works, geometry + NIC + área confirmed (§PROBE RESULT #4). **STILL OPEN:**
+   the CGPR/SiNErGIC per-município coverage for Lisboa (1106) / Porto (1315) / Braga (0303) — the standing
+   #1 blocker (README §2.1 / NEXT §3.1) — is NOT resolved by this probe (the WFS answers where covered; it
+   does not publish the coverage list).
 7. **Confirm Copernicus DEM fallback boundary.** Record which NW-mainland municipalities fall in the
    ~10% DGT-LiDAR gap that Copernicus GLO-30 backfills (terrain only).
 
@@ -115,6 +155,7 @@ in every RATE and LOD-RATE cell. Ship the probe before the fix.
 
 ---
 
-*Last updated: 2026-07-30. All rows `CONVERGENT-SECONDARY` (expert review, NOT live-probed).
-Confirm by direct probe before any row gates production or raises a RATE / LOD-RATE cell.
-Maintainer: UNASSIGNED.*
+*Last updated: 2026-07-31. The CAOP + Cadastro Predial rows are now `VERIFIED-LIVE` (see §PROBE RESULT);
+all other rows remain `CONVERGENT-SECONDARY` (expert review, NOT live-probed). A live endpoint is not a
+wired production source — no RATE / LOD-RATE cell moves until the `/api/parcel/pt` proxy + registry row
+land. Maintainer: UNASSIGNED.*

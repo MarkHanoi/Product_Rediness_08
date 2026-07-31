@@ -118,6 +118,18 @@ phase lists **goal · unlocks · axis · effort · dependency · blocker**. Ever
 
 ### Phase A — Probe + wire the DGT OGC API platform
 
+> **◐ PROBE LANDED 2026-07-31 — PARCEL axis → `wired-pending-probe`.** The DGT OGC API base
+> (`https://ogcapi.dgterritorio.gov.pt/`, CAOP `municipios`/`freguesias`, DICOFRE = `dtmnfr`) and the
+> **Cadastro Predial parcel WFS** (`snicws.dgterritorio.gov.pt/geoserver/inspire/ows`,
+> `inspire:cadastralparcel`, CC BY 4.0, EPSG:3763→4326 reprojection working) are now **`VERIFIED-LIVE`**
+> (see `PORTUGAL-GEOSPATIAL-DATA-INVENTORY.md §PROBE RESULT`). A package-local `dgtParcelProvider`
+> (`packages/site-parcel-data/src/parcelProviders/dgtParcelProvider.ts`) is wired to that endpoint —
+> typed refusal union, never-throws, CRS guard, OTel span, injectable `fetchImpl`, `/api/parcel/pt`
+> proxy — mirroring the landed IT/BE/GB providers. **Still pending before any RATE cell moves:** the
+> server-side `/api/parcel/pt` proxy, the orchestrator-owned registry row, and the CGPR/SiNErGIC
+> per-município coverage confirmation for the Lisbon/Porto cores. **`inventory correction:` Cadastro
+> Predial is on the SNIC WFS, NOT the OGC API.** **No RATE % cell moves on this probe.**
+
 - **Goal.** Confirm the DGT OGC API base URL (`dgterritorio.gov.pt` / `snig.dgterritorio.gov.pt`),
   then probe and wire the four platform layers: **CAOP** (distrito + concelho + freguesia admin
   boundaries, with the **DICOFRE** join attribute — the jurisdiction-routing analogue of Germany's AGS

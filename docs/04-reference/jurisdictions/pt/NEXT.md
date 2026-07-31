@@ -3,7 +3,7 @@
 > **What this file is.** The single place recording where we stopped on Portugal, exactly why, and
 > precisely what to do to go further the moment it becomes possible — so a source or technique found
 > while working on ANY other jurisdiction can be brought straight back here.
-> **Last updated:** 2026-07-23 · **Maintainer:** UNASSIGNED
+> **Last updated:** 2026-07-31 · **Maintainer:** UNASSIGNED
 > **Status:** RESEARCH COMPLETE — legal structure fully characterised; cadastral-regime confirmation
 > gates every city; no rule pack implemented; no live endpoints probed.
 
@@ -150,9 +150,11 @@ The honest denominators to measure once cadastral confirmation exists:
 - **4.4 — If any Portuguese município's PDM is confirmed to publish structured numeric data** (not
   just a PDF) → flag it here. This would be a structural breakthrough equivalent to Denmark's
   Plandata.dk — rare but possible, given the EU HVD mandate pressure.
-- **4.5 — If the Carta Cadastral OGC API (planned 2025) goes live** → Portugal's parcel layer
-  becomes fully analogous to France's API Carto. Update §3.1 and create a `PtParcelProvider`
-  adapter immediately. This would collapse the §34-equivalent gate entirely.
+- **4.5 — ◐ DONE (as a WFS) 2026-07-31 — the parcel adapter exists.** The Cadastro Predial layer went
+  live not as an OGC API but as the **SNIC INSPIRE WFS** (`inspire:cadastralparcel`). The
+  `dgtParcelProvider` adapter is created (`packages/site-parcel-data/src/parcelProviders/dgtParcelProvider.ts`,
+  `wired-pending-probe`). What still collapses the §34-equivalent gate is **per-município coverage
+  confirmation** for the target-city cores (§3.1), not the endpoint — that is now live.
 - **4.6 — If any CGPR coverage list per município is published as an open dataset** → use it to
   pre-classify all 308 municípios into Tier 0/1/2/3 (per the study §C) without per-city manual
   checks. Update the municipality coverage table in `README.md §4`.
@@ -194,6 +196,8 @@ The honest denominators to measure once cadastral confirmation exists:
 | SNIT geoportal | All mainland PDMs since Jan 2008; zone polygons; PDF links | `VERIFIED-LEAD` (endpoint stated, not live-probed) | `snit-mais.dgterritorio.gov.pt` |
 | DGT CDD (LiDAR) | LAZ + DTM 50 cm + DSM 2 m; ~90% continental; open | `VERIFIED-LEAD` (not live-probed) | `cdd.dgterritorio.gov.pt` |
 | Braga PDM — índice and cércea for "espaços residenciais" | índice de utilização máximo 1.20 (0.80 above cota de soleira); cércea máxima 7.5 m | `CONVERGENT-SECONDARY` — cited in research pass but governing article not independently verified | Read Braga PDM regulamento directly to upgrade to `published` |
+| **DGT OGC API** `ogcapi.dgterritorio.gov.pt` | CAOP `municipios`/`freguesias` (DICOFRE=`dtmnfr`), COS, 30 cm ortho; storageCrs EPSG:3763 | **`VERIFIED-LIVE` (2026-07-31)** | `/collections` enumerated live. **No parcel collection here** (parcels are on the SNIC WFS). |
+| **Cadastro Predial WFS** `snicws.dgterritorio.gov.pt/geoserver/inspire/ows` | `inspire:cadastralparcel` — geometry + NIC + `areavalue` + `administrativeunit`; 1,789,404 features; CC BY 4.0 | **`VERIFIED-LIVE` (2026-07-31)** | DefaultCRS 3763; `srsName=EPSG:4326` returns real WGS84 GeoJSON. Wired as `dgtParcelProvider` (`wired-pending-probe`). Coverage mainland-only, cores unconfirmed. |
 
 ---
 
@@ -260,12 +264,10 @@ curl "https://snit-mais.dgterritorio.gov.pt/api/pdm?lon=-8.426&lat=41.545"
 > **no** rate cell — a corroborated source is not a wired/probed source (§CONTEXT-DATA-HONESTY).
 > These probes are what would, once PROBED + WIRED, become Phase-3 PLAN items.
 
-- **9.1 — Confirm the DGT OGC API base URL.** Navigate `dgterritorio.gov.pt` /
-  `snig.dgterritorio.gov.pt` → find the OGC API landing (`/collections`) → record the canonical base
-  URL + whether it is OGC API Features / Tiles / Maps. Anchor for every DGT row.
-- **9.2 — Probe CAOP OGC API.** Enumerate the CAOP FeatureType/collection → confirm distrito +
-  concelho + freguesia polygons + a **DICOFRE attribute**; record the exact attribute name (the join
-  key for every PT municipality folder — links to Trip-wire 4.2). Reviewer's "easiest win".
+- **9.1 — ✅ DONE 2026-07-31 — DGT OGC API base URL.** `https://ogcapi.dgterritorio.gov.pt/` (OGC API
+  Features); `/collections` lists CAOP/COS/ortho. Anchor confirmed.
+- **9.2 — ✅ DONE 2026-07-31 — CAOP OGC API.** `municipios` + `freguesias` live; DICOFRE join attribute
+  is **`dtmnfr`** (Trip-wire 4.2 satisfied). Reviewer's "easiest win" confirmed.
 - **9.3 — Probe CRUS collection.** Confirm the CRUS collection exists, returns territorial-
   classification polygons, and record the classification attribute schema.
 - **9.4 — Probe LNEG OGC API.** Confirm the LNEG (geology) OGC API endpoint is live and distinct from
@@ -273,9 +275,12 @@ curl "https://snit-mais.dgterritorio.gov.pt/api/pdm?lon=-8.426&lat=41.545"
 - **9.5 — Confirm COS + 30 cm ortho as OGC API + CC BY 4.0.** Verify COS is served via OGC API (not
   only WMS/WFS) and that the DGT platform licence is genuinely CC BY 4.0 platform-wide (read the
   licence field, don't infer).
-- **9.6 — Confirm Cadastro Predial OGC API + coverage.** Confirm the parcel OGC API is live,
-  mainland-only, returns geometry + NIC; check CGPR/SiNErGIC coverage for Lisboa (1106) / Porto
-  (1315) / Braga (0303). Feeds the standing #1 blocker (§3.1).
+- **9.6 — ◐ PARTIAL 2026-07-31 — Cadastro Predial endpoint + coverage.** Endpoint DONE: it is a **WFS,
+  NOT the OGC API** — `snicws.dgterritorio.gov.pt/geoserver/inspire/ows`, `inspire:cadastralparcel`,
+  CC BY 4.0, geometry + NIC + área, WGS84 reprojection working; wired as `dgtParcelProvider`
+  (`wired-pending-probe`). **STILL OPEN (the standing #1 blocker §3.1):** the CGPR/SiNErGIC per-município
+  coverage for Lisboa (1106) / Porto (1315) / Braga (0303) — the WFS answers where covered but does not
+  publish the coverage list.
 - **9.7 — Confirm Copernicus DEM fallback boundary.** Record which NW-mainland municipalities fall in
   the ~10% DGT-LiDAR gap that Copernicus GLO-30 backfills (terrain only, NOT height).
 
