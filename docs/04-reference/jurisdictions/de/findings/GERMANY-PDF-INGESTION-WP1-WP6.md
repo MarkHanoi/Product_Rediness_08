@@ -344,7 +344,49 @@ qualifier — and locates the scan half precisely: it is the drawings, near-tota
 
 ---
 
-## 9 — Still missing / still assumed
+## 9 — 🔴 THE VERDICT: is the remaining work normalization, table handling, or grammar?
+
+The founder asked for this answer explicitly. Measured, it is **none of the three as posed** —
+the corpus splits into two halves with two different bottlenecks, and neither is grammar syntax.
+
+**Normalization: essentially DONE.** It was Low risk / Low effort as predicted, it is built, and
+it structurally eliminated the failure class that opened this phase. It is not the bottleneck.
+
+**Grammar refinement: NOT the bottleneck, and this is the phase's main correction.** The German
+grammar reads real Festsetzung prose correctly — it found GRZ 0,4 / GFZ 1,2 / 5 Vollgeschosse
+out of a 209-page document. What it *cannot* do is decide **which of the values it correctly
+read actually binds the parcel**. That is not a parsing problem. It is a **semantic
+attribution** problem with two distinct axes:
+
+1. **Instrument attribution** — is this sentence stating *this* plan's Festsetzung, quoting a
+   superseded Baunutzungsplan, describing an FNP depiction, or granting a §19(4) overrun? (§4.)
+2. **Zone attribution** — which Baugebiet (WA 1 / WA 2 / SO) does the value bind? The core
+   currently reports honest conflicts and resolves none.
+
+More regex will not fix either. Both need the value tied to its **governing clause and zone**,
+which is a document-structure problem — i.e. **Layer 4, the canonical document**, which is
+built as a type but not yet populated by a real section/heading parser.
+
+**Table handling: the bottleneck for the larger half, and worse than rated.** 56.3 % of
+in-force plans have no prose at all, and their drawings are **21/21 raster** (§8). For that
+half the path is OCR **then** table detection on an image — two high-risk components composed,
+not one.
+
+### So, ranked by what actually unblocks coverage
+
+| Rank | Work | Reaches | Risk |
+|---|---|---|---|
+| 1 | **Semantic attribution** (instrument + zone), via a real Layer-4 section parser | the 43.3 % with prose — turns "reads values" into "reads the RIGHT value" | Medium |
+| 2 | **OCR + table reconstruction on raster drawings** | the 56.3 % with no prose | **High × High** |
+| 3 | Grammar refinement | marginal — syntax is not what is failing | Medium |
+| 4 | Normalization | done | Low |
+
+**The honest headline: the ingestion pipeline is no longer the missing component — it is built
+and measured. The next missing component is not a better parser, it is a document MODEL.**
+
+---
+
+## 10 — Still missing / still assumed
 
 **KNOWN-OPEN (measured, not fixed):**
 
@@ -359,7 +401,15 @@ qualifier — and locates the scan half precisely: it is the drawings, near-tota
    as a conflict. Document-scoped parsing would surface it. Deliberate trade-off, currently
    unresolved.
 4. **56.3 % of in-force plans have no Begründung at all** (§2) and are unreachable by any text
-   path.
+   path. Their drawings are raster (§8).
+5. **Layer 3 (layout reconstruction) and Layer 4 (canonical document) are TYPES, not
+   implementations.** `CanonicalDocument` / `CanonicalSection` / `CanonicalTable` are defined
+   and documented, and nothing populates them yet. The §9 verdict says this is now the
+   highest-value next build.
+6. **The WP6 positioned-text table prototype was deliberately not built** — see §8 for why that
+   is a decision rather than an omission.
+7. **No OCR fallback exists.** Measured need is now quantified (§8): the raster corpus is
+   ~56 % of in-force plans plus the `scanned` share of Begründungen (§6.1).
 
 **UNKNOWN (not measured):**
 
