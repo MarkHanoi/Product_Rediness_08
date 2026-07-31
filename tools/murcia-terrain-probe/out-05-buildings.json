@@ -1,0 +1,127 @@
+{
+  "site": {
+    "refcat": "3481104XH6038S",
+    "lat": 38.0061,
+    "lon": -1.138028,
+    "municipality": "Murcia",
+    "ine": "30030",
+    "officialAreaM2": 935
+  },
+  "probedAt": "2026-07-31T10:18:10.278Z",
+  "steps": [
+    {
+      "name": "CP GetParcel (refcat)",
+      "url": "https://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx?service=WFS&version=2.0.0&request=getfeature&STOREDQUERIE_ID=GetParcel&refcat=3481104XH6038S&srsname=EPSG::25830",
+      "status": 200,
+      "kind": "response",
+      "contentType": "text/xml; charset=utf-8",
+      "bytes": 2671,
+      "lengthMismatch": false,
+      "exception": null
+    },
+    {
+      "name": "BU GetBuildingByParcel (refcat)",
+      "url": "https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx?service=WFS&version=2.0.0&request=getfeature&STOREDQUERIE_ID=GetBuildingByParcel&refcat=3481104XH6038S&srsname=EPSG::25830",
+      "status": 200,
+      "kind": "response",
+      "contentType": "application/x-unknown; charset=utf-8",
+      "bytes": 1497,
+      "lengthMismatch": false,
+      "exception": null
+    },
+    {
+      "name": "BU bbox 200 m (BuildingPart)",
+      "url": "https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx?service=WFS&version=2.0.0&request=GetFeature&typeNames=bu:BuildingPart&srsName=urn:ogc:def:crs:EPSG::4326&bbox=38.0052172137112,-1.1391892535504602,38.006982773963315,-1.1368667186203827,urn:ogc:def:crs:EPSG::4326&count=800",
+      "status": 200,
+      "kind": "response",
+      "contentType": "application/x-unknown; charset=utf-8",
+      "bytes": 722641,
+      "lengthMismatch": false,
+      "exception": null,
+      "bboxWgs84": [
+        -1.1391892535504602,
+        38.0052172137112,
+        -1.1368667186203827,
+        38.006982773963315
+      ]
+    }
+  ],
+  "parcel": {
+    "refcatReturned": "3481104XH6038S",
+    "declaredAreaValueM2": 935,
+    "officialAreaM2": 935,
+    "geometricAreaM2": 935.448974609375,
+    "vertices": 6,
+    "centroid25830": [
+      663465.73,
+      4208128.006666667
+    ],
+    "centroidWgs84": [
+      -1.1380725589760836,
+      38.00610361063512
+    ],
+    "ringSample25830": [
+      [
+        663446.06,
+        4208129.67
+      ],
+      [
+        663468.67,
+        4208148.41
+      ],
+      [
+        663483.35,
+        4208130.71
+      ],
+      [
+        663487.82,
+        4208125.32
+      ],
+      [
+        663462.42,
+        4208104.26
+      ],
+      [
+        663446.06,
+        4208129.67
+      ]
+    ]
+  },
+  "targetParcelBuildings": {
+    "buildingElements": 0,
+    "buildingParts": 0,
+    "parts": [],
+    "buildingAttributes": [],
+    "rawHasAlturas": false
+  },
+  "surroundBuildings": {
+    "bboxWgs84": [
+      -1.1391892535504602,
+      38.0052172137112,
+      -1.1368667186203827,
+      38.006982773963315
+    ],
+    "boxSizeM": 200,
+    "buildingPartCount": 291,
+    "distinctBuildings": 12,
+    "partsWithFloorCount": 291,
+    "floorsHistogram": {
+      "0": 72,
+      "1": 8,
+      "2": 65,
+      "3": 53,
+      "4": 11,
+      "5": 1,
+      "6": 11,
+      "7": 20,
+      "8": 24,
+      "9": 11,
+      "10": 10,
+      "11": 5
+    },
+    "floorsMin": 0,
+    "floorsMax": 11,
+    "floorsMean": 3.43,
+    "capHit": false
+  }
+}

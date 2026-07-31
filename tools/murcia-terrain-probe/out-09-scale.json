@@ -1,0 +1,147 @@
+{
+  "site": {
+    "refcat": "3481104XH6038S",
+    "lat": 38.0061,
+    "lon": -1.138028,
+    "municipality": "Murcia",
+    "ine": "30030",
+    "officialAreaM2": 935
+  },
+  "probedAt": "2026-07-31T10:28:55.461Z",
+  "capTests": [
+    {
+      "halfM": 250,
+      "sideM": 500,
+      "sideKm": 0.5,
+      "status": 200,
+      "bytes": 71435,
+      "ms": 379,
+      "cached": true,
+      "W": 100,
+      "H": 100,
+      "expectedCells": 10000,
+      "gotCells": 10000,
+      "verdict": "grid-ok"
+    },
+    {
+      "halfM": 500,
+      "sideM": 1000,
+      "sideKm": 1,
+      "status": 200,
+      "bytes": 281535,
+      "ms": 495,
+      "cached": true,
+      "W": 200,
+      "H": 200,
+      "expectedCells": 40000,
+      "gotCells": 40000,
+      "verdict": "grid-ok"
+    },
+    {
+      "halfM": 1000,
+      "sideM": 2000,
+      "sideKm": 2,
+      "status": 200,
+      "bytes": 1121735,
+      "ms": 640,
+      "cached": true,
+      "W": 400,
+      "H": 400,
+      "expectedCells": 160000,
+      "gotCells": 160000,
+      "verdict": "grid-ok"
+    },
+    {
+      "halfM": 2000,
+      "sideM": 4000,
+      "sideKm": 4,
+      "status": 200,
+      "bytes": 4482261,
+      "ms": 1224,
+      "cached": true,
+      "W": 800,
+      "H": 800,
+      "expectedCells": 640000,
+      "gotCells": 640000,
+      "verdict": "grid-ok"
+    },
+    {
+      "halfM": 4000,
+      "sideM": 8000,
+      "sideKm": 8,
+      "status": 200,
+      "bytes": 18248428,
+      "ms": 4452,
+      "cached": true,
+      "W": 1600,
+      "H": 1600,
+      "expectedCells": 2560000,
+      "gotCells": 2560000,
+      "verdict": "grid-ok"
+    },
+    {
+      "halfM": 8000,
+      "sideM": 16000,
+      "sideKm": 16,
+      "status": 200,
+      "bytes": 74610675,
+      "ms": 13663,
+      "cached": true,
+      "W": 3200,
+      "H": 3200,
+      "expectedCells": 10240000,
+      "gotCells": 10240000,
+      "verdict": "grid-ok"
+    }
+  ],
+  "municipalExtent": {
+    "endpoint": "https://www.ign.es/wfs-inspire/unidades-administrativas",
+    "status": 200,
+    "bytes": 83347,
+    "lowerCorner": "42.351095 -2.623691",
+    "upperCorner": "43.055506 -1.014443",
+    "containsTargetSite": false,
+    "verdict": "REJECTED — envelope does not contain the target site; the CQL_FILTER was ignored and this is a DIFFERENT municipality",
+    "head": "<?xml version='1.0' encoding='UTF-8'?> <wfs:FeatureCollection xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2."
+  },
+  "scaling": {
+    "largestVerifiedSingleRequest": {
+      "halfM": 8000,
+      "sideM": 16000,
+      "sideKm": 16,
+      "status": 200,
+      "bytes": 74610675,
+      "ms": 13663,
+      "cached": true,
+      "W": 3200,
+      "H": 3200,
+      "expectedCells": 10240000,
+      "gotCells": 10240000,
+      "verdict": "grid-ok"
+    },
+    "tileSideKmUsed": 16,
+    "murciaAreaKm2_source": "ASSERTED-UNVERIFIED (commonly cited municipal area; not read from a live service in this probe)",
+    "murciaAreaKm2": 881.86,
+    "atMdt05": {
+      "areaKm2": 881.86,
+      "postingM": 5,
+      "tileSideKm": 16,
+      "cells": 35274400,
+      "bytesFloat32": 141097600,
+      "bytesInt16": 70548800,
+      "gbFloat32": 0.14,
+      "tiles": 4
+    },
+    "atMdt25": {
+      "areaKm2": 881.86,
+      "postingM": 25,
+      "tileSideKm": 16,
+      "cells": 1410976,
+      "bytesFloat32": 5643904,
+      "bytesInt16": 2821952,
+      "gbFloat32": 0.01,
+      "tiles": 4
+    },
+    "measuredBytesPerCellAscii": 7.29
+  }
+}

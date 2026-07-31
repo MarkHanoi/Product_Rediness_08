@@ -1,0 +1,158 @@
+{
+  "site": {
+    "refcat": "3481104XH6038S",
+    "lat": 38.0061,
+    "lon": -1.138028,
+    "municipality": "Murcia",
+    "ine": "30030",
+    "officialAreaM2": 935
+  },
+  "siteUtm30n": {
+    "E": 663469.6503591456,
+    "N": 4208127.684320723
+  },
+  "probedAt": "2026-07-31T10:12:16.648Z",
+  "method": "WCS 2.0.1 GetCoverage in native EPSG:25830; Horn 3x3 slope; slope-weighted circular-mean aspect",
+  "results": [
+    {
+      "window": "context-1km",
+      "windowSpanM": 1000,
+      "coverage": "Elevacion25830_5",
+      "nominalPostingM": 5,
+      "deliveredPostingM": {
+        "x": 5,
+        "y": 5
+      },
+      "gridPx": {
+        "w": 200,
+        "h": 200
+      },
+      "cellsAcrossWindow": 200,
+      "bbox": [
+        662969.6503591456,
+        4207627.684320723,
+        663969.6503591456,
+        4208627.684320723
+      ],
+      "noData": null,
+      "url": "https://servicios.idee.es/wcs-inspire/mdt?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=Elevacion25830_5&FORMAT=image/tiff&SUBSET=x(662969.6503591456,663969.6503591456)&SUBSET=y(4207627.684320723,4208627.684320723)&SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/25830&OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/25830",
+      "nSlopeCells": 39204,
+      "nElevSamples": 40000,
+      "elevMin": 32,
+      "elevMax": 52,
+      "elevMean": 41.1133,
+      "slopeMeanPct": 3.427283371266711,
+      "slopeMedianPct": 0,
+      "slopeP90Pct": 10.606601717798213,
+      "slopeMaxPct": 67.08203932499369,
+      "slopeMeanDeg": 1.9629203977643839,
+      "aspectMeanDeg": 132.80917274464832,
+      "aspectCompass": "SE"
+    },
+    {
+      "window": "context-1km",
+      "windowSpanM": 1000,
+      "coverage": "Elevacion25830_25",
+      "nominalPostingM": 25,
+      "deliveredPostingM": {
+        "x": 25,
+        "y": 25
+      },
+      "gridPx": {
+        "w": 40,
+        "h": 40
+      },
+      "cellsAcrossWindow": 40,
+      "bbox": [
+        662969.6503591456,
+        4207627.684320723,
+        663969.6503591456,
+        4208627.684320723
+      ],
+      "noData": null,
+      "url": "https://servicios.idee.es/wcs-inspire/mdt?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=Elevacion25830_25&FORMAT=image/tiff&SUBSET=x(662969.6503591456,663969.6503591456)&SUBSET=y(4207627.684320723,4208627.684320723)&SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/25830&OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/25830",
+      "nSlopeCells": 1444,
+      "nElevSamples": 1600,
+      "elevMin": 33,
+      "elevMax": 52,
+      "elevMean": 41.13125,
+      "slopeMeanPct": 1.6804097335631758,
+      "slopeMedianPct": 1.4142135623730951,
+      "slopeP90Pct": 2.91547594742265,
+      "slopeMaxPct": 22.20360331117452,
+      "slopeMeanDeg": 0.9627132464345146,
+      "aspectMeanDeg": 134.4510154291545,
+      "aspectCompass": "SE"
+    },
+    {
+      "window": "plot-120m",
+      "windowSpanM": 120,
+      "coverage": "Elevacion25830_5",
+      "nominalPostingM": 5,
+      "deliveredPostingM": {
+        "x": 5,
+        "y": 5
+      },
+      "gridPx": {
+        "w": 24,
+        "h": 24
+      },
+      "cellsAcrossWindow": 24,
+      "bbox": [
+        663409.6503591456,
+        4208067.684320723,
+        663529.6503591456,
+        4208187.684320723
+      ],
+      "noData": null,
+      "url": "https://servicios.idee.es/wcs-inspire/mdt?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=Elevacion25830_5&FORMAT=image/tiff&SUBSET=x(663409.6503591456,663529.6503591456)&SUBSET=y(4208067.684320723,4208187.684320723)&SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/25830&OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/25830",
+      "nSlopeCells": 484,
+      "nElevSamples": 576,
+      "elevMin": 39,
+      "elevMax": 42,
+      "elevMean": 40.890625,
+      "slopeMeanPct": 3.5538248370506986,
+      "slopeMedianPct": 0,
+      "slopeP90Pct": 10.606601717798213,
+      "slopeMaxPct": 21.213203435596427,
+      "slopeMeanDeg": 2.0353350775628507,
+      "aspectMeanDeg": 83.94580810588513,
+      "aspectCompass": "E"
+    },
+    {
+      "window": "plot-120m",
+      "windowSpanM": 120,
+      "coverage": "Elevacion25830_25",
+      "nominalPostingM": 25,
+      "deliveredPostingM": {
+        "x": 24,
+        "y": 24
+      },
+      "gridPx": {
+        "w": 5,
+        "h": 5
+      },
+      "cellsAcrossWindow": 5,
+      "bbox": [
+        663409.6503591456,
+        4208067.684320723,
+        663529.6503591456,
+        4208187.684320723
+      ],
+      "noData": null,
+      "url": "https://servicios.idee.es/wcs-inspire/mdt?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=Elevacion25830_25&FORMAT=image/tiff&SUBSET=x(663409.6503591456,663529.6503591456)&SUBSET=y(4208067.684320723,4208187.684320723)&SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/25830&OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/25830",
+      "nSlopeCells": 9,
+      "nElevSamples": 25,
+      "elevMin": 40,
+      "elevMax": 42,
+      "elevMean": 41.04,
+      "slopeMeanPct": 2.4133426612384645,
+      "slopeMedianPct": 2.083333333333333,
+      "slopeP90Pct": 3.682847818679936,
+      "slopeMaxPct": 3.682847818679936,
+      "slopeMeanDeg": 1.3824751369769246,
+      "aspectMeanDeg": 81.86989764584399,
+      "aspectCompass": "E"
+    }
+  ]
+}

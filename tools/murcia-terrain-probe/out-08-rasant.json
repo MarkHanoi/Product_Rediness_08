@@ -1,0 +1,176 @@
+{
+  "site": {
+    "refcat": "3481104XH6038S",
+    "lat": 38.0061,
+    "lon": -1.138028,
+    "municipality": "Murcia",
+    "ine": "30030",
+    "officialAreaM2": 935
+  },
+  "probedAt": "2026-07-31T10:26:50.726Z",
+  "source": {
+    "coverage": "Elevacion25830_5",
+    "endpoint": "https://servicios.idee.es/wcs-inspire/mdt",
+    "postingM": 5,
+    "crs": "EPSG:25830",
+    "format": "ArcGrid (float)"
+  },
+  "method": "bilinear interpolation of the 5 m float MDT05 grid; boundary densified at 2 m. The 2 m step is INTERPOLATION between 5 m postings — it does not resolve sub-5 m relief.",
+  "parcelVertices": [
+    {
+      "vertex": 0,
+      "e": 663446.06,
+      "n": 4208129.67,
+      "wgs84": [
+        -1.138296,
+        38.006122
+      ],
+      "zM": 41
+    },
+    {
+      "vertex": 1,
+      "e": 663468.67,
+      "n": 4208148.41,
+      "wgs84": [
+        -1.138034,
+        38.006287
+      ],
+      "zM": 40.37
+    },
+    {
+      "vertex": 2,
+      "e": 663483.35,
+      "n": 4208130.71,
+      "wgs84": [
+        -1.137871,
+        38.006125
+      ],
+      "zM": 40
+    },
+    {
+      "vertex": 3,
+      "e": 663487.82,
+      "n": 4208125.32,
+      "wgs84": [
+        -1.137822,
+        38.006075
+      ],
+      "zM": 40
+    },
+    {
+      "vertex": 4,
+      "e": 663462.42,
+      "n": 4208104.26,
+      "wgs84": [
+        -1.138116,
+        38.00589
+      ],
+      "zM": 41.21
+    }
+  ],
+  "edges": [
+    {
+      "edge": 0,
+      "lengthM": 29.37,
+      "bearingDeg": 50.3,
+      "nSamples": 16,
+      "stepM": 2,
+      "zMin": 40.25,
+      "zMax": 41,
+      "zMean": 40.74,
+      "fallAlongEdgeM": 0.75,
+      "midpoint25830": [
+        663457.36,
+        4208139.04
+      ],
+      "midpointWgs84": [
+        -1.138165,
+        38.006205
+      ]
+    },
+    {
+      "edge": 1,
+      "lengthM": 23,
+      "bearingDeg": 140.3,
+      "nSamples": 13,
+      "stepM": 2,
+      "zMin": 40,
+      "zMax": 40.37,
+      "zMean": 40.05,
+      "fallAlongEdgeM": 0.37,
+      "midpoint25830": [
+        663476.01,
+        4208139.56
+      ],
+      "midpointWgs84": [
+        -1.137953,
+        38.006206
+      ]
+    },
+    {
+      "edge": 2,
+      "lengthM": 7,
+      "bearingDeg": 140.3,
+      "nSamples": 5,
+      "stepM": 2,
+      "zMin": 40,
+      "zMax": 40,
+      "zMean": 40,
+      "fallAlongEdgeM": 0,
+      "midpoint25830": [
+        663485.58,
+        4208128.02
+      ],
+      "midpointWgs84": [
+        -1.137847,
+        38.0061
+      ]
+    },
+    {
+      "edge": 3,
+      "lengthM": 33,
+      "bearingDeg": 230.3,
+      "nSamples": 18,
+      "stepM": 2,
+      "zMin": 40,
+      "zMax": 41.56,
+      "zMean": 40.88,
+      "fallAlongEdgeM": 1.56,
+      "midpoint25830": [
+        663475.12,
+        4208114.79
+      ],
+      "midpointWgs84": [
+        -1.137969,
+        38.005983
+      ]
+    },
+    {
+      "edge": 4,
+      "lengthM": 30.22,
+      "bearingDeg": 327.2,
+      "nSamples": 17,
+      "stepM": 2,
+      "zMin": 40.91,
+      "zMax": 41.21,
+      "zMean": 41.02,
+      "fallAlongEdgeM": 0.31,
+      "midpoint25830": [
+        663454.24,
+        4208116.96
+      ],
+      "midpointWgs84": [
+        -1.138206,
+        38.006006
+      ]
+    }
+  ],
+  "boundaryZMin": 40,
+  "boundaryZMax": 41.21,
+  "boundaryFallM": 1.21,
+  "centroidZ": 40,
+  "centroid25830": [
+    663469.66,
+    4208127.67
+  ]
+}

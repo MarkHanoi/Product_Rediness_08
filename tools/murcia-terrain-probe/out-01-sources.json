@@ -1,0 +1,88 @@
+{
+  "site": {
+    "refcat": "3481104XH6038S",
+    "lat": 38.0061,
+    "lon": -1.138028,
+    "municipality": "Murcia",
+    "ine": "30030",
+    "officialAreaM2": 935
+  },
+  "probedAt": "2026-07-31T10:09:30.217Z",
+  "rows": [
+    {
+      "id": "ign-inspire-mdt-wcs",
+      "note": "IGN INSPIRE Elevation WCS — the endpoint PRYZM ES terrain already uses (Elevacion4258_25).",
+      "url": "https://servicios.idee.es/wcs-inspire/mdt?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCapabilities",
+      "status": 200,
+      "kind": "response",
+      "contentType": "text/xml",
+      "bytes": 12162,
+      "lengthMismatch": false,
+      "exception": null,
+      "coverageIds": [
+        "Elevacion4258_1000",
+        "Elevacion4326_1000",
+        "Elevacion4258_500",
+        "Elevacion4326_500",
+        "Elevacion4258_200",
+        "Elevacion4258_25",
+        "Elevacion4258_5",
+        "Elevacion25830_1000",
+        "Elevacion4083_1000",
+        "Elevacion25830_500",
+        "Elevacion4083_500",
+        "Elevacion25830_200",
+        "Elevacion4083_200",
+        "Elevacion25830_25",
+        "Elevacion4083_25",
+        "Elevacion25830_5",
+        "Elevacion4083_5"
+      ],
+      "wmsLayerNames": [],
+      "head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?> <wcs:Capabilities xmlns:wcs=\"http://www.opengis.net/wcs/2.0\" xmlns:ows=\"http://www.opengis.net/ows/2.0\" xmlns:ogc=\"http://www.opengis.net/ogc\" xmlns:xsi=\"http://www.w3.org/2001/XMLS"
+    },
+    {
+      "id": "ign-mds-wcs",
+      "note": "CNIG MDS (surface) WCS — carries mdsn_e025 building nDSM per heightSources.mjs.",
+      "url": "https://wcs-mds.idee.es/mds?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCapabilities",
+      "status": 200,
+      "kind": "response",
+      "contentType": "text/xml",
+      "bytes": 8702,
+      "lengthMismatch": false,
+      "exception": null,
+      "coverageIds": [
+        "mds05",
+        "mdsn_v025",
+        "mdsn_e025"
+      ],
+      "wmsLayerNames": [],
+      "head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?> <wcs:Capabilities xmlns:wcs=\"http://www.opengis.net/wcs/2.0\" xmlns:ows=\"http://www.opengis.net/ows/2.0\" xmlns:ogc=\"http://www.opengis.net/ogc\" xmlns:xsi=\"http://www.w3.org/2001/XMLS"
+    },
+    {
+      "id": "ign-inspire-mdt-wms",
+      "note": "INSPIRE Elevation WMS sibling — layer list often names the MDT resolutions.",
+      "url": "https://servicios.idee.es/wms-inspire/mdt?SERVICE=WMS&REQUEST=GetCapabilities",
+      "status": 200,
+      "kind": "response",
+      "contentType": "text/xml",
+      "bytes": 24889,
+      "lengthMismatch": false,
+      "exception": "<Exception> <Format>XML</Format> <Format>INIMAGE</Format> <Format>BLANK</Format> </Exception> <inspire_vs:ExtendedCapabilities> <inspire_common:MetadataUrl xsi:type=\"inspire_common:resourceLocatorType\"> <inspire_common:URL>https://www.idee.es/csw-inspire-idee/srv/spa/csw?SERVICE=CSW&amp;VERSION=2.0.2&amp;REQUEST=GetRecordById&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;ElementSetName=full&amp;ID=spaignwms_mdt</inspire_common:URL> <inspire_common:MediaType>application/vnd.iso.19139+xml<",
+      "coverageIds": [],
+      "wmsLayerNames": [
+        "WMS",
+        "EL.SpotElevation",
+        "puntosacotados",
+        "EL.SpotElevation.Default",
+        "EL.ContourLine",
+        "curvasnivel",
+        "EL.ContourLine.Default",
+        "EL.ElevationGridCoverage",
+        "Elevaciones",
+        "EL.ElevationGridCoverage.Default"
+      ],
+      "head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?> <WMS_Capabilities xmlns:srv=\"http://schemas.opengis.net/iso/19139/20060504/srv/srv.xsd\" xmlns:gmd=\"http://schemas.opengis.net/iso/19139/20060504/gmd/gmd.xsd\" xmlns:gco=\"http://schem"
+    }
+  ]
+}

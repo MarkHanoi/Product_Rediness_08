@@ -1,0 +1,248 @@
+{
+  "site": {
+    "refcat": "3481104XH6038S",
+    "lat": 38.0061,
+    "lon": -1.138028,
+    "municipality": "Murcia",
+    "ine": "30030",
+    "officialAreaM2": 935
+  },
+  "probedAt": "2026-07-31T10:10:41.868Z",
+  "rows": [
+    {
+      "svc": "https://servicios.idee.es/wcs-inspire/mdt",
+      "id": "Elevacion25830_5",
+      "claim": "MDT05 in ETRS89/UTM30N",
+      "url": "https://servicios.idee.es/wcs-inspire/mdt?SERVICE=WCS&VERSION=2.0.1&REQUEST=DescribeCoverage&COVERAGEID=Elevacion25830_5",
+      "status": 200,
+      "kind": "response",
+      "bytes": 2536,
+      "lengthMismatch": null,
+      "exception": null,
+      "grid": {
+        "srs": "http://www.opengis.net/def/crs/EPSG/0/25830",
+        "axisLabels": "x y",
+        "uom": "m m",
+        "low": "0 0",
+        "high": "231960 192896",
+        "lowerCorner": "-19452.5 3901197.5",
+        "upperCorner": "1140352.5 4865682.5",
+        "origin": "-19450.000000 4865680.000000",
+        "offsets": [
+          [
+            5,
+            0
+          ],
+          [
+            0,
+            -5
+          ]
+        ],
+        "fields": [
+          "band"
+        ],
+        "nilValues": [
+          ""
+        ],
+        "formats": []
+      },
+      "postingFromOffsetVectors": [
+        5,
+        5
+      ],
+      "postingFromEnvelopeDivGrid": [
+        5,
+        5
+      ],
+      "head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?> <wcs:CoverageDescriptions xmlns:wcs=\"http://www.opengis.net/wcs/2.0\" xmlns:ows=\"http://www.opengis.net/ows/2.0\" xmlns:ogc=\"http://www.opengis.net/ogc\" xmlns:xsi="
+    },
+    {
+      "svc": "https://servicios.idee.es/wcs-inspire/mdt",
+      "id": "Elevacion25830_25",
+      "claim": "MDT25 in ETRS89/UTM30N",
+      "url": "https://servicios.idee.es/wcs-inspire/mdt?SERVICE=WCS&VERSION=2.0.1&REQUEST=DescribeCoverage&COVERAGEID=Elevacion25830_25",
+      "status": 200,
+      "kind": "response",
+      "bytes": 2540,
+      "lengthMismatch": null,
+      "exception": null,
+      "grid": {
+        "srs": "http://www.opengis.net/def/crs/EPSG/0/25830",
+        "axisLabels": "x y",
+        "uom": "m m",
+        "low": "0 0",
+        "high": "46394 38580",
+        "lowerCorner": "-19487.5 3901187.5",
+        "upperCorner": "1140387.5 4865712.5",
+        "origin": "-19475.000000 4865700.000000",
+        "offsets": [
+          [
+            25,
+            0
+          ],
+          [
+            0,
+            -25
+          ]
+        ],
+        "fields": [
+          "band"
+        ],
+        "nilValues": [
+          ""
+        ],
+        "formats": []
+      },
+      "postingFromOffsetVectors": [
+        25,
+        25
+      ],
+      "postingFromEnvelopeDivGrid": [
+        25,
+        25
+      ],
+      "head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?> <wcs:CoverageDescriptions xmlns:wcs=\"http://www.opengis.net/wcs/2.0\" xmlns:ows=\"http://www.opengis.net/ows/2.0\" xmlns:ogc=\"http://www.opengis.net/ogc\" xmlns:xsi="
+    },
+    {
+      "svc": "https://servicios.idee.es/wcs-inspire/mdt",
+      "id": "Elevacion4258_5",
+      "claim": "MDT05 in ETRS89 geographic",
+      "url": "https://servicios.idee.es/wcs-inspire/mdt?SERVICE=WCS&VERSION=2.0.1&REQUEST=DescribeCoverage&COVERAGEID=Elevacion4258_5",
+      "status": 200,
+      "kind": "response",
+      "bytes": 2519,
+      "lengthMismatch": null,
+      "exception": null,
+      "grid": {
+        "srs": "http://www.opengis.net/def/crs/EPSG/0/4326",
+        "axisLabels": "lat long",
+        "uom": "deg deg",
+        "low": "0 0",
+        "high": "513872 361818",
+        "lowerCorner": "27.63 -18.21",
+        "upperCorner": "43.93 4.94",
+        "origin": "43.929977 -18.209977",
+        "offsets": [
+          [
+            0,
+            0.000045
+          ],
+          [
+            -0.000045,
+            0
+          ]
+        ],
+        "fields": [
+          "band"
+        ],
+        "nilValues": [
+          ""
+        ],
+        "formats": []
+      },
+      "postingFromOffsetVectors": [
+        0.000045,
+        0.000045
+      ],
+      "postingFromEnvelopeDivGrid": [
+        0.000031719899663924744,
+        0.00006398226737678232
+      ],
+      "head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?> <wcs:CoverageDescriptions xmlns:wcs=\"http://www.opengis.net/wcs/2.0\" xmlns:ows=\"http://www.opengis.net/ows/2.0\" xmlns:ogc=\"http://www.opengis.net/ogc\" xmlns:xsi="
+    },
+    {
+      "svc": "https://wcs-mds.idee.es/mds",
+      "id": "mdsn_e025",
+      "claim": "MDS normalizado Edificacion 2.5 m",
+      "url": "https://wcs-mds.idee.es/mds?SERVICE=WCS&VERSION=2.0.1&REQUEST=DescribeCoverage&COVERAGEID=mdsn_e025",
+      "status": 200,
+      "kind": "response",
+      "bytes": 2523,
+      "lengthMismatch": null,
+      "exception": null,
+      "grid": {
+        "srs": "http://www.opengis.net/def/crs/EPSG/0/3042",
+        "axisLabels": "y x",
+        "uom": "m m",
+        "low": "0 0",
+        "high": "858351 697007",
+        "lowerCorner": "3122758.311 -1005856.923",
+        "upperCorner": "4866831.867 1141936.252",
+        "origin": "4866830.615886 -1005855.671886",
+        "offsets": [
+          [
+            0,
+            2.502229
+          ],
+          [
+            -2.502229,
+            0
+          ]
+        ],
+        "fields": [
+          "band"
+        ],
+        "nilValues": [
+          ""
+        ],
+        "formats": []
+      },
+      "postingFromOffsetVectors": [
+        2.502229,
+        2.502229
+      ],
+      "postingFromEnvelopeDivGrid": [
+        2.031886167912464,
+        3.0814469489589786
+      ],
+      "head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?> <wcs:CoverageDescriptions xmlns:wcs=\"http://www.opengis.net/wcs/2.0\" xmlns:ows=\"http://www.opengis.net/ows/2.0\" xmlns:ogc=\"http://www.opengis.net/ogc\" xmlns:xsi="
+    },
+    {
+      "svc": "https://wcs-mds.idee.es/mds",
+      "id": "mds05",
+      "claim": "MDS surface 5 m",
+      "url": "https://wcs-mds.idee.es/mds?SERVICE=WCS&VERSION=2.0.1&REQUEST=DescribeCoverage&COVERAGEID=mds05",
+      "status": 200,
+      "kind": "response",
+      "bytes": 2510,
+      "lengthMismatch": null,
+      "exception": null,
+      "grid": {
+        "srs": "http://www.opengis.net/def/crs/EPSG/0/25830",
+        "axisLabels": "x y",
+        "uom": "m m",
+        "low": "0 0",
+        "high": "430130 349998",
+        "lowerCorner": "-1010637.771 3115274.151",
+        "upperCorner": "1141936.08 4866830.527",
+        "origin": "-1010635.268769 4866828.024769",
+        "offsets": [
+          [
+            5.004461,
+            0
+          ],
+          [
+            0,
+            -5.004461
+          ]
+        ],
+        "fields": [
+          "band"
+        ],
+        "nilValues": [
+          ""
+        ],
+        "formats": []
+      },
+      "postingFromOffsetVectors": [
+        5.004461,
+        5.004461
+      ],
+      "postingFromEnvelopeDivGrid": [
+        5.00446108511128,
+        5.004461087031676
+      ],
+      "head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?> <wcs:CoverageDescriptions xmlns:wcs=\"http://www.opengis.net/wcs/2.0\" xmlns:ows=\"http://www.opengis.net/ows/2.0\" xmlns:ogc=\"http://www.opengis.net/ogc\" xmlns:xsi="
+    }
+  ]
+}
