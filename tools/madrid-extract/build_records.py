@@ -45,6 +45,294 @@ def rec(zone, param, value, unit, cap, art, ap, page, verbatim, **kw):
     return r
 
 
+# ================================================================ HEIGHT DATUM
+# Título 6, Capítulo 6.6 + Art. 6.3.5.c) — read 2026-07-31.
+# See findings/COMPENDIO-2025-HEIGHT-DATUM-AND-NZ7.md for the full evidence chain.
+#
+# The datum has TWO parts and they must not be collapsed:
+#   1. referencePlane — WHICH plane (rasante de la acera vs cota de nivelación de planta baja)
+#   2. samplingRule   — WHERE on/relative to that plane the measurement is taken
+# A datum name without a sampling rule reproduces PRYZM defect L-584 (terrain present but
+# sampled at one point on the block centroid, while the ordinance samples at the FAÇADE).
+
+# The three articles that bind any altura value to the cota de origen y referencia.
+DATUM_CHAIN = [
+    {"articulo": "6.6.5", "apartado": "preámbulo + 1 + 2", "pdfPage": 203, "printedPage": 201,
+     "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+     "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."},
+    {"articulo": "6.6.6", "apartado": "párrafo único", "pdfPage": 203, "printedPage": 201,
+     "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."},
+    {"articulo": "6.3.5", "apartado": "c)", "pdfPage": 193, "printedPage": 191,
+     "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+     "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+     "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."},
+]
+
+# Art. 6.6.7 — the storey count shares the same origin.
+STOREY_COUNT_RULE = {
+    "articulo": "6.6.7", "apartado": "párrafo único", "pdfPage": 204, "printedPage": 202,
+    "verbatim": "Corresponde al número de plantas por encima de la cota de origen y referencia incluida la planta baja.",
+    "note": "maxFloors is counted ABOVE the cota de origen y referencia, planta baja INCLUDED — so a storey count is datum-dependent exactly as a metre figure is. On a stepped façade the count is per-segment (art. 6.6.8.6.d)."}
+
+# Art. 6.6.9.2 — plantas and metres bind simultaneously.
+BOTH_BIND_RULE = {
+    "articulo": "6.6.9", "apartado": "2", "pdfPage": 206, "printedPage": 204,
+    "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+    "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."}
+
+# ---- Sampling rule A: manzana-cerrada / street-referenced (rasante de la acera) -------------
+SAMPLING_ACERA = {
+    "point": "punto medio de la línea de fachada — sampled PER FAÇADE, on the vertical through that point",
+    "planeAtPoint": "rasante de la acera en dicho punto",
+    "perFacade": True,
+    "isBlockCentroid": False,
+    "isParcelCentroid": False,
+    "articulo": "6.6.8", "apartado": "6.a)", "pdfPage": 205, "printedPage": 203,
+    "verbatim": "La altura de cornisa se medirá en la vertical correspondiente al punto medio de la línea de fachada, tomando como cota de origen y referencia la rasante de la acera en dicho punto.",
+    "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+    "scopeCaveat": "Art. 6.6.8.6 opens 'Salvo que las normas zonales establezcan criterios específicos o las ordenanzas de los planeamientos de desarrollo los instituyan justificadamente'. Applied here only after verifying the zone's own chapter establishes none (or expressly redirects to art. 6.6.8).",
+    "cases": [
+        {"case": "no pavement exists", "apartado": "6.b)", "pdfPage": 205,
+         "verbatim": "Cuando no exista acera, la medición se hará del mismo modo, tomando como cota de origen y referencia el punto de la vertical situado a la cota de rasante de la calle, incrementada con la altura correspondiente al declive transversal de la acera, calculado con pendiente del dos con cinco por ciento (2,5%)."},
+        {"case": "corner parcel", "apartado": "6.c)", "pdfPage": 205,
+         "verbatim": "En parcelas de esquina, la altura se tomará para cada una de las fachadas del modo antes descrito.",
+         "note": "One datum PER FAÇADE, not one per parcel."},
+        {"case": "sloping street / façade longer than 20 m", "apartado": "6.d)", "pdfPage": 205,
+         "verbatim": "En calles en pendiente, la altura se medirá en el punto medio de la fachada. Si la longitud de la fachada es superior a veinte (20) metros, se descompondrá la línea de fachada en fracciones de longitud igual o inferior a veinte (20) metros. El número de escalonamientos será el menor posible, salvo que justificadamente por adaptación al entorno circundante sea conveniente incrementar el número de ellos. Ni la altura en metros, ni la expresada en plantas, podrá rebasarse en ninguno de los escalonamientos.",
+         "note": "HARD 20 m segmentation ceiling. The envelope is a STEPPED solid: N segments of ≤20 m, each with its own datum at that segment's midpoint, each independently capped at the same metre AND storey figure. Escalonamiento buys no extra height."},
+        {"case": "frontages to opposite streets", "apartado": "6.e)", "pdfPage": 206,
+         "verbatim": "En parcelas con frentes a calles opuestas, entendiéndose por tales aquellas cuyos ejes forman entre sí un ángulo inferior a noventa (90) grados sexagesimales, la altura se medirá para el ancho de cada calle, manteniéndose esta altura hasta una profundidad determinada por la bisectriz del ángulo formado por la prolongación de las alineaciones oficiales."},
+        {"case": "frontages to streets and plazas together", "apartado": "6.f)", "pdfPage": 206,
+         "verbatim": "En parcelas con alineaciones oficiales a calles y plazas conjuntamente, se considerará la altura correspondiente a cada uno de dichos espacios públicos, tratándose, en función de la posición de la parcela respecto de ellas, como parcelas en esquina o parcelas con frentes a calles opuestas."},
+        {"case": "mixed situations", "apartado": "7", "pdfPage": 206,
+         "verbatim": "En situaciones mixtas, el modo de fijar la altura se establecerá combinando las reglas anteriores."},
+    ],
+    "l584Warning": "This is the rule PRYZM defect L-584 violates. Sampling one terrain point at the block centroid is WRONG for every parcel in this zone. Sample at the midpoint of each façade segment; segment at 20 m on sloping streets.",
+}
+
+# ---- Sampling rule B: aislada / project datum (cota de nivelación de planta baja) -----------
+SAMPLING_PLANTA_BAJA = {
+    "point": "not a terrain sample — the datum is a single horizontal plane (cota cero) fixed by the project",
+    "planeAtPoint": "cota de nivelación de la planta baja",
+    "perFacade": False,
+    "isBlockCentroid": False,
+    "isParcelCentroid": False,
+    "articulo": "6.3.5", "apartado": "c)", "pdfPage": 193, "printedPage": 191,
+    "verbatim": "…considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0)…",
+    "note": "The plane is CHOSEN by the project, so there is no single terrain point to sample. It is nonetheless terrain-derived, because art. 6.6.15.1.b) boxes it into a ±150 cm window around a pavement rasante taken at a NAMED midpoint, and art. 6.3.5.c) caps it absolutely.",
+    "absoluteCap": {"articulo": "6.3.5", "apartado": "c)", "pdfPage": 193,
+                    "verbatim": "En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja."},
+    "steppedTerrainRule": {"articulo": "6.3.5", "apartado": "c)", "pdfPage": 193,
+                           "verbatim": "Cuando se instituya como cota de origen y referencia la de nivelación de planta baja y por las necesidades de la edificación o por las características del terreno en que se asiente, deba escalonarse la misma, la medición de las alturas se realizará de forma independiente en cada una de las plataformas que la componga, sin que dicho escalonamiento de planta baja pueda traducirse en exceso de altura.",
+                           "note": "The aislada analogue of the 20 m stepping rule: per-platform, independent, no height bonus."},
+    "whereThePlaneMaySit": {
+        "articulo": "6.6.15", "apartado": "1.b)", "pdfPage": 208, "printedPage": 206,
+        "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+        "cases": [
+            {"case": "single frontage", "apartado": "1.b)i)",
+             "verbatim": "Entre más/menos ciento cincuenta (150) centímetros respecto a la rasante de la acera en el punto medio del lindero frontal."},
+            {"case": "opposite frontages", "apartado": "1.b)ii)",
+             "verbatim": "En parcelas con linderos frontales a calles opuestas, el nivel de implantación de la planta baja se situará a más/menos ciento cincuenta (150) centímetros respecto al punto medio del segmento que une los puntos medios de dichos linderos frontales."},
+            {"case": "corner parcel", "apartado": "1.b)iii)",
+             "verbatim": "En parcelas de esquina, la cota de nivelación de planta baja deberá situarse entre más/menos ciento cincuenta (150) centímetros del punto medio de la rasante en la acera del lindero frontal de mayor longitud."},
+            {"case": "three frontages / block head", "apartado": "1.b)iv)",
+             "verbatim": "Las parcelas con tres frentes que constituyan cabeceras de manzanas, se tratarán como parcelas con linderos frontales a calles opuestas."},
+            {"case": "triangular full block", "apartado": "1.b)v)",
+             "verbatim": "Las parcelas coincidentes con manzanas completas de planta triangular se tratarán como parcelas con linderos frontales a calles opuestas, considerando los dos linderos de mayor longitud."},
+            {"case": "polygonal full block, >3 sides", "apartado": "1.b)vi)",
+             "verbatim": "Las parcelas coincidentes con manzanas completas de planta poligonal de más de tres lados, se tratarán como parcelas con linderos frontales a calles opuestas, considerando el lindero de mayor longitud y el enfrentado a él, que será el más largo cuando sean varios."},
+            {"case": "multiple frontages with >3 m level difference", "apartado": "1.b)vii)",
+             "verbatim": "En las parcelas con varios linderos frontales y desniveles entre estos superiores a tres (3) metros, cuando se dispongan distintos cuerpos de edificación, las plantas bajas de cada uno de ellos podrán situarse, alternativamente a la posición que corresponda según la tipología de la parcela, en la forma establecida para las parcelas con un solo lindero frontal en el apartado b.i), respecto del lindero más cercano al que dé frente el cuerpo de edificación considerado."},
+            {"case": "cap on raising the parcel rasante above neighbours", "apartado": "1.b)viii)",
+             "verbatim": "En sus linderos, la rasante de las parcelas no se elevará más de 1,50 m respecto de las colindantes, salvo en situaciones preexistentes, en cuyo caso se presentará estudio de implantación que reduzca en lo posible el desnivel original, el cual no podrá incrementarse en ningún caso."},
+            {"case": "topographic justification", "apartado": "1.b)ix)",
+             "verbatim": "Cuando por la configuración topográfica, forma, dimensiones de una parcela, o por la situación del edificio en la misma, se justifique, la planta baja podrá situarse en posiciones distintas de las reguladas anteriormente mediante la formulación, en su caso, de Estudio de Detalle.",
+             "note": "Discretionary escape. An envelope generator cannot anticipate it."},
+        ],
+    },
+}
+
+# ---- Sampling rule C: NZ 8's own rule (ground contact at the ACCESS façade midpoint) --------
+SAMPLING_NZ8_ACCESS = {
+    "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+    "planeAtPoint": "cota del contacto de la edificación con el terreno",
+    "perFacade": False,
+    "isBlockCentroid": False,
+    "isParcelCentroid": False,
+    "articulo": "8.8.10", "apartado": "1", "pdfPage": 443, "printedPage": 441,
+    "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+    "secondLimit": {
+        "articulo": "8.8.10", "apartado": "1", "pdfPage": 443,
+        "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+        "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."},
+    "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint.",
+}
+
+
+def _facade_note(zone_chapter, verified):
+    return {"generalRule": "art. 6.6.8 apartado 6 + art. 6.3.5 apartado c)",
+            "zoneOverride": None,
+            "escapeClauseCheck": verified}
+
+
+# zoneCode prefix -> (referencePlane, samplingRule, datumSource)
+# datumSource records WHICH article supplies the datum, so a reviewer can see at a glance
+# whether it came from the norma zonal or from the Título 6 default.
+_ACERA_PLANE = "rasante de la acera en el punto medio de la línea de fachada"
+_PB_PLANE = "cota de nivelación de la planta baja"
+
+HEIGHT_DATUM = {
+    # NZ 1 — manzana cerrada (art. 8.1.2.2). Chapter 8.1 states NO measurement criteria.
+    "1": (_ACERA_PLANE, SAMPLING_ACERA, {
+        "from": "Título 6 general rule (no zone override)",
+        "typology": {"articulo": "8.1.2", "apartado": "2", "pdfPage": 367,
+                     "verbatim": "La tipología corresponde a la de edificación entre medianerías formando manzana cerrada."},
+        "escapeClauseCheck": "Keyword sweep over PDF pp. 367-386 (the whole of Chapter 8.1) for 'cota de origen', 'cota de nivelación', 'rasante de la acera', '6.6.8', 'medición de la altura', 'se medirá': ZERO hits. Chapter 8.1 takes no 'criterios específicos' escape from art. 6.6.8.6, so the general manzana-cerrada rule applies unmodified.",
+        "valueCaveat": "Grados 1º-5º have NO height VALUE — art. 8.1.15.1 leaves altura de cornisa and número de plantas to the CPPHAN case by case. The datum below is the plane against which whatever the CPPHAN fixes would be measured; it is not itself a value and does not make grados 1º-5º automatable.",
+    }),
+    # NZ 4 — manzana cerrada (chapter heading). Chapter 8.4 states NO measurement criteria.
+    "4": (_ACERA_PLANE, SAMPLING_ACERA, {
+        "from": "Título 6 general rule (no zone override)",
+        "typology": {"articulo": "8.4", "apartado": "capítulo", "pdfPage": 410,
+                     "verbatim": "CAPÍTULO 8.4. CONDICIONES PARTICULARES DE LA ZONA 4: EDIFICACIÓN EN MANZANA CERRADA"},
+        "escapeClauseCheck": "Keyword sweep over PDF pp. 410-418 (the whole of Chapter 8.4) for 'cota de origen', 'cota de nivelación', 'rasante de la acera', '6.6.8', '6.3.5', 'se medirá': no datum article. There is no equivalent of NZ 9's art. 8.9.11 or NZ 5's art. 8.5.10. Art. 8.4.10 gives the table and nothing else.",
+    }),
+    # NZ 5 — bloques abiertos (aislada). Art. 8.5.10 institutes the datum expressly.
+    "5": (_PB_PLANE, SAMPLING_PLANTA_BAJA, {
+        "from": "norma zonal, express",
+        "articulo": "8.5.10", "apartado": "párrafo único", "pdfPage": 421, "printedPage": 419,
+        "verbatim": "La cota de origen y referencia coincide con la de nivelación de la planta baja y se situará de acuerdo con las determinaciones del art. 6.6.15.",
+        "measurementCaveat": "NZ 5 regulates altura de CORONACIÓN (art. 8.5.9.1), not cornisa. Do NOT compare its 51/30/15 m figures with the cornisa figures of NZ 4 / NZ 7 / NZ 8 / NZ 9.",
+    }),
+    # NZ 7 grado 1º — aislada typology, but the zone OVERRIDES to the pavement rasante.
+    "7.1": (_ACERA_PLANE, SAMPLING_ACERA, {
+        "from": "norma zonal, express — OVERRIDES the art. 6.3.5.c) aislada default",
+        "articulo": "8.7.11", "apartado": "1", "pdfPage": 435, "printedPage": 433,
+        "verbatim": "En el grado 1º, la edificación no podrá superar una altura de cuatro (4) plantas, ni una altura de cornisa superior a mil cuatrocientos cincuenta (1.450) centímetros, medida desde la rasante de la acera en el punto medio de la línea de fachada.",
+        "trap": "NZ 7 grado 1º is edificación AISLADA (art. 8.7.1.2), so the art. 6.3.5.c) default would be the cota de nivelación de planta baja — but art. 8.7.11.1 expressly overrides it to the pavement rasante at the façade midpoint. Deriving the datum from typology alone gets this grado WRONG. Read the norma zonal first, fall back to 6.3.5.c) second.",
+    }),
+    # NZ 7 grados 2º/3º — aislada, datum express.
+    "7.2": (_PB_PLANE, SAMPLING_PLANTA_BAJA, {
+        "from": "norma zonal, express",
+        "articulo": "8.7.11", "apartado": "2", "pdfPage": 435, "printedPage": 433,
+        "verbatim": "En los grados 2º y 3º, la edificación no podrá superar un altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros, midiendo ambos valores desde la cota de nivelación de planta baja.",
+    }),
+    "7.3": (_PB_PLANE, SAMPLING_PLANTA_BAJA, {
+        "from": "norma zonal, express",
+        "articulo": "8.7.11", "apartado": "2", "pdfPage": 435, "printedPage": 433,
+        "verbatim": "En los grados 2º y 3º, la edificación no podrá superar un altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros, midiendo ambos valores desde la cota de nivelación de planta baja.",
+    }),
+    # NZ 9 grados 1º/2º — art. 8.9.11.a) REDIRECTS to art. 6.6.8. Redirect now followed.
+    "9.1": (_ACERA_PLANE, SAMPLING_ACERA, {
+        "from": "norma zonal redirect to Título 6",
+        "articulo": "8.9.11", "apartado": "a)", "pdfPage": 455, "printedPage": 453,
+        "verbatim": "En los grados 1º y 2º, la medición de la altura se hará conforme a lo dispuesto en el artículo 6.6.8.",
+        "resolution": "The redirect lands on art. 6.6.8 apartado 6.a). This CLOSES the pass-01 placeholder 'the datum sits in Título 6, outside Chapter 8.9'.",
+    }),
+    "9.2": (_ACERA_PLANE, SAMPLING_ACERA, {
+        "from": "norma zonal redirect to Título 6",
+        "articulo": "8.9.11", "apartado": "a)", "pdfPage": 455, "printedPage": 453,
+        "verbatim": "En los grados 1º y 2º, la medición de la altura se hará conforme a lo dispuesto en el artículo 6.6.8.",
+        "resolution": "The redirect lands on art. 6.6.8 apartado 6.a). This CLOSES the pass-01 placeholder 'the datum sits in Título 6, outside Chapter 8.9'.",
+    }),
+}
+
+# NZ 9 grados 3º/4º/5º
+for _z in ("9.3", "9.4", "9.5"):
+    HEIGHT_DATUM[_z] = (_PB_PLANE, SAMPLING_PLANTA_BAJA, {
+        "from": "norma zonal, express",
+        "articulo": "8.9.11", "apartado": "b)", "pdfPage": 455, "printedPage": 453,
+        "verbatim": "En los grados 3º, 4º y 5º, la medición de la altura se realizará respecto a la cota de nivelación de la planta baja, situada según lo dispuesto en el artículo 6.6.15.",
+    })
+
+# NZ 8 grados 1º/2º/3º/4º/6º use the access-façade rule; grado 5º uses planta baja.
+_NZ8_ACCESS_PLANE = ("cota del contacto de la edificación con el terreno en el punto medio de la "
+                     "fachada en que se sitúa el acceso al edificio (cota de origen y referencia)")
+for _z in ("8.1", "8.2", "8.3", "8.4", "8.6"):
+    HEIGHT_DATUM[_z] = (_NZ8_ACCESS_PLANE, SAMPLING_NZ8_ACCESS, {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10", "apartado": "1", "pdfPage": 443, "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…",
+    })
+HEIGHT_DATUM["8.5"] = (_PB_PLANE, SAMPLING_PLANTA_BAJA, {
+    "from": "norma zonal, express",
+    "articulo": "8.8.10", "apartado": "2", "pdfPage": 443, "printedPage": 441,
+    "verbatim": "En el grado 5º, la altura de la edificación no podrá exceder de dos (2) plantas ni de siete (7) metros a cornisa, medidos desde la cota de nivelación de la planta baja.",
+})
+
+
+def _lookup_datum(zone_code):
+    """Longest-prefix match on zoneCode: '9.4.a' -> '9.4', '1.3' -> '1'."""
+    for k in sorted(HEIGHT_DATUM, key=len, reverse=True):
+        if zone_code == k or zone_code.startswith(k + "."):
+            return HEIGHT_DATUM[k]
+    return None
+
+
+HEIGHT_PARAMS = ("maxHeight_m", "maxFloors")
+
+# Pass-01 placeholders that this pass is entitled to replace.
+_UNRESOLVED_PREFIXES = ("medición conforme",)
+
+
+def _norm_plane(s):
+    """Normalise a datum string for comparison ONLY.
+
+    The Compendio itself spells the same plane several ways ('cota de nivelación de planta
+    baja' in art. 8.7.11.2, 'cota de nivelación de la planta baja' in art. 8.5.9.1). Those are
+    the ordinance's own words and each record keeps the spelling of the article it cites; the
+    normalisation exists so that a REAL disagreement still raises.
+    """
+    s = s.lower().replace(",", " ")
+    for a, b in (("de la planta baja", "de planta baja"),
+                 ("en el punto medio", "punto medio"),
+                 ("del contacto", "contacto"), ("de contacto", "contacto")):
+        s = s.replace(a, b)
+    return " ".join(s.split())
+
+
+def stamp_height_datums(records):
+    """Fill samplingRule / datumSource on every height record; fill referencePlane where null.
+
+    Closes the pass-01 gap recorded in COMPENDIO-2025-EXTRACTION-01.md §8.6.
+
+    A referencePlane already transcribed from the zone's own chapter is PRESERVED verbatim —
+    this pass only checks it agrees (modulo the ordinance's own spelling variants) and raises
+    on a real divergence rather than silently overwriting a cited string.
+    """
+    for r in records:
+        if r.get("parameter") not in HEIGHT_PARAMS:
+            continue
+        hit = _lookup_datum(r["zoneCode"])
+        if hit is None:
+            raise AssertionError(
+                "no height datum registered for zoneCode %r — refusing to emit a null datum"
+                % r["zoneCode"])
+        plane, sampling, src = hit
+        existing = r.get("referencePlane")
+        stale = bool(existing) and existing.startswith(_UNRESOLVED_PREFIXES)
+        if existing and not stale:
+            a, b = _norm_plane(existing), _norm_plane(plane)
+            # Some pass-01 strings append an inline citation ('… (art. 8.9.11.b) …)') or a
+            # parenthetical gloss. Prefix-equality is enough to prove the same plane.
+            if not (a.startswith(b) or b.startswith(a)):
+                raise AssertionError(
+                    "datum disagreement for %s: record says %r, HEIGHT_DATUM says %r"
+                    % (r["zoneCode"], existing, plane))
+            # keep the zone's own wording
+        else:
+            if stale:
+                r["referencePlaneSupersedes"] = existing
+            r["referencePlane"] = plane
+        r["samplingRule"] = sampling
+        r["datumSource"] = src
+        r["datumChain"] = DATUM_CHAIN
+        if r["parameter"] == "maxFloors":
+            r["storeyCountRule"] = STOREY_COUNT_RULE
+        r["bothBind"] = BOTH_BIND_RULE
+    return records
+
+
 # ---------------------------------------------------------------- NZ 5
 NZ5_FAR = {"5.1": (2.0, "Dos (2) metros cuadrados por cada metro cuadrado."),
            "5.2": (1.6, "Uno con seis (1,6) metros cuadrados por cada metro cuadrado."),
@@ -132,6 +420,53 @@ def nz5():
 # ---------------------------------------------------------------- NZ 7
 NZ7_GRADO = {"7.1.a": "1", "7.1.b": "1", "7.2.e": "2"}
 
+# The grado 2º FAR question raised (unresolved) in COMPENDIO-2025-EXTRACTION-01.md §9.
+# Resolved 2026-07-31 by reading the whole of Chapter 8.7 (PDF pp. 432-438).
+# Full write-up: findings/COMPENDIO-2025-HEIGHT-DATUM-AND-NZ7.md.
+NZ7E_RESOLUTION = {
+    "verdict": "APPARENT, NOT REAL — resolved by scope. Both values are correct and they govern DISJOINT sets of parcels.",
+    "governing": {"value": 1.0, "articulo": "8.7.20", "scope": "grado 2º nivel 'e' especial"},
+    "displaced": {"value": 0.5, "articulo": "8.7.9", "apartado": "1.b)",
+                  "scope": "grado 2º outside nivel 'e' (residential uso cualificado)"},
+    "sameDenominator": "Art. 8.7.9.1 says 'coeficiente de edificabilidad NETA sobre PARCELA EDIFICABLE'; art. 8.7.20 says 'por metro cuadrado de PARCELA EDIFICABLE'. Identical denominator and character — this is NOT a neta-vs-bruta artefact.",
+    "notACrossReference": "Art. 8.7.20 states an independent number and cites no article; art. 8.7.9 does not mention niveles at all.",
+    "reasoning": [
+        "1. SUBSET. Art. 8.7.9.1 fixes the coefficient 'para cada GRADO' and enumerates exactly three (1º, 2º, 3º) — it legislates at grado level. Art. 8.7.20 is titled, in the document's own words, 'Condiciones particulares del grado 2º Nivel \"e\" especial' — it legislates at NIVEL level, for a named sub-division established by art. 8.7.17.b). Nivel 'e' is a proper subset of grado 2º, so the general grado figure is displaced within it.",
+        "2. DECISIVE — the two figures are mutually unreachable. Art. 8.7.20 provides 'Queda prohibido expresamente el uso residencial.' The 0,5 of art. 8.7.9.1.b) is the coefficient for the grado's uso cualificado, which art. 8.7.1.3 declares residential AND expressly carves nivel 'e' out of. A nivel-'e' parcel therefore cannot be developed under the residential regime at all; the only permitted development is the terciario one, whose edificabilidad art. 8.7.20 fixes at 1,0. There is NO parcel to which both numbers could apply.",
+        "3. The alternative reading is self-defeating. If 1,0 were merely an ADDITIONAL cap stacked on 0,5, the lower 0,5 would always bind and art. 8.7.20's edificabilidad sentence would be inoperative in every case. A reading that renders an express provision a dead letter is not available. 8.7.20 REPLACES; it does not stack.",
+        "4. Structural precedent in the same chapter. Art. 8.7.18.2.b)i) attaches a nivel-specific FAR of 1,2 m²/m² to grado 1º nivel b for an alternative use, against 0,8 for grado 1º generally (art. 8.7.9.1.a). The Compendio demonstrably does attach FARs to niveles when a non-residential regime is taken up; 8.7.9/8.7.20 is the same construction one grado over. That 1,2 record was already emitted in pass 01 without being flagged as a conflict — consistency demands the same treatment here.",
+    ],
+    "counterArgumentConsidered": {
+        "argument": "Art. 8.7.17 opens 'A los efectos de aplicación de las condiciones referentes a los usos compatibles y autorizables, se distinguen … los siguientes niveles' — on a strict reading a nivel governs uses only and could not carry a building parameter, making 8.7.20's 1,0 a drafting error.",
+        "whyItFails": [
+            "Art. 8.7.1.3 already assigns nivel 'e' a different USO CUALIFICADO, which is neither a uso compatible nor a uso autorizable — so 8.7.17's declared scope is already narrower than what the chapter actually does with nivel 'e'. 8.7.17 describes the ordinary function of niveles; it is not an exhaustive limit on them.",
+            "Both articles are marked (N-1) — equal normative rank, so there is no rank tiebreak in 8.7.9's favour. A specific express provision of equal rank prevails over a general one within its scope.",
+            "The Sección-placement objection (8.7.20 sits in 'Sección Cuarta. Otras condiciones de uso') would equally invalidate art. 8.7.18.2.b)i)'s 1,2 m²/m², which also sits in a use section and which nobody disputes. Section placement is not doing normative work here.",
+        ],
+    },
+    "honestLimit": "The Compendio contains NO express derogation clause linking art. 8.7.20 to art. 8.7.9. This resolution is a scope reading, not a stated hierarchy. It rests on 8.7.20's own title, 8.7.17's subset relation, and — decisively — 8.7.1.3's carve-out plus 8.7.20's express residential prohibition. Both citations are retained on both records so a reviewer can overturn the reasoning without re-reading the PDF.",
+    "notDisplaced": "Art. 8.7.20 speaks only to uso cualificado, edificabilidad and the planta-baja use list. Grado 2º's other figures continue to apply to nivel 'e': parcela mínima 2.500 m² (8.7.4.1.b), lindero frontal ≥10 m + ⌀30 m circle (8.7.5), retranqueo >10 m (8.7.7.1), separación a linderos ≥7 m (8.7.7.2), ocupación sobre+bajo rasante ≤30 % (8.7.8.2), 3 plantas / 10,50 m cornisa from the cota de nivelación de planta baja (8.7.11.2). Art. 8.7.10.b)'s dwelling cap is moot — residential is prohibited.",
+    "remainingBlocker": "This resolves WHAT applies in nivel 'e'; it does not resolve WHICH parcels are in it. Art. 8.7.17.b) establishes the nivel but no article maps it to ground — that lives on the Plano de Ordenación. Until the GIS layer distinguishes 7.2 from 7.2.e, the 1,0 cannot be applied to a specific parcel. This is now the binding blocker on NZ 7 grado 2º, and it is a DATA problem, not a legal one.",
+    "citations": {
+        "8.7.9.1.b)": {"pdfPage": 434, "printedPage": 432, "value": 0.5,
+                       "verbatim": "1. El coeficiente de edificabilidad neta sobre parcela edificable se establece para cada grado en: … b) Grado 2º: Cinco (5) metros cuadrados por cada diez (10) metros cuadrados.",
+                       "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"},
+        "8.7.20": {"pdfPage": 438, "printedPage": 436, "value": 1.0,
+                   "verbatim": "En el grado 2º nivel \"e\" especial, el uso cualificado es, el terciario en sus clases de oficinas y hospedaje. La edificabilidad máxima es de un (1) metro cuadrado por metro cuadrado de parcela edificable, pudiendo implantarse en planta baja el resto de usos terciarios, excepto el mediano comercio y grandes superficies comerciales. Queda prohibido expresamente el uso residencial.",
+                   "amendment": None,
+                   "note": "No footnote — original PGOUM-97 text, never amended."},
+        "8.7.1.3": {"pdfPage": 432, "printedPage": 430,
+                    "verbatim": "Su uso cualificado es el residencial. Excepto en el grado 2º nivel \"e\", en el que el uso cualificado es el Terciario en sus clases de Oficina y Hospedaje.",
+                    "note": "The chapter carves nivel 'e' out of the use regime at the very top — an independent, deliberate act."},
+        "8.7.17.b)": {"pdfPage": 436, "printedPage": 434,
+                      "verbatim": "A los efectos de aplicación de las condiciones referentes a los usos compatibles y autorizables, se distinguen en función de los grados diferenciados en el art. 8.7.3, los siguientes niveles: a) En el grado 1º, niveles a y b. b) En el grado 2º, un nivel \"e\" especial. c) En el grado 3º, no se establecen niveles.",
+                      "note": "Establishes nivel 'e' ⊂ grado 2º."},
+        "8.7.18.2.b)i)": {"pdfPage": 437, "printedPage": 435, "value": 1.2,
+                          "verbatim": "Terciario Oficinas, Hospedaje, Recreativo, Otros Servicios Terciarios y Comercial en las categorías de pequeño y mediano comercio, en edificio exclusivo, con una edificabilidad máxima de doce (12) metros cuadrados por cada diez (10) metros cuadrados de parcela edificable.",
+                          "note": "Structural precedent: a nivel-specific alternative-use FAR, one grado over."},
+    },
+}
+
 
 def nz7():
     out = []
@@ -194,21 +529,20 @@ def nz7():
             out += [
                 rec(z, "farRatio", 1.0, "m²/m²", "8.7", "8.7.20", "párrafo único (el artículo no tiene apartados numerados)", 438,
                     "En el grado 2º nivel \"e\" especial, el uso cualificado es, el terciario en sus clases de oficinas y hospedaje. La edificabilidad máxima es de un (1) metro cuadrado por metro cuadrado de parcela edificable, pudiendo implantarse en planta baja el resto de usos terciarios, excepto el mediano comercio y grandes superficies comerciales. Queda prohibido expresamente el uso residencial.",
-                    measurement="edificabilidad máxima — nivel 'e' especial",
+                    measurement="edificabilidad máxima — GOVERNING value for grado 2º nivel 'e'",
                     denominatorScope="parcela edificable",
-                    conflict={
-                        "note": "CONFLICT REPORTED, NOT RESOLVED. Art. 8.7.9.1.b) sets grado 2º at 0,5 m²/m²; Art. 8.7.20 sets grado 2º nivel 'e' at 1,0 m²/m². Both are reported. Art. 8.7.20 is the more specific (nivel-'e'-only) provision and sits in 'Sección Cuarta. Otras condiciones de uso', but the Compendio contains no express derogation clause, so the reader must decide.",
-                        "rival": {"articulo": "8.7.9", "apartado": "1.b)", "pdfPage": 434,
-                                  "value": 0.5,
-                                  "verbatim": "Grado 2º: Cinco (5) metros cuadrados por cada diez (10) metros cuadrados."}},
-                    confidence="ambiguous"),
+                    conflictResolution=NZ7E_RESOLUTION,
+                    confidence="resolved-by-scope"),
                 rec(z, "farRatio", 0.5, "m²/m²", "8.7", "8.7.9", "1.b)", 434,
                     "Grado 2º: Cinco (5) metros cuadrados por cada diez (10) metros cuadrados.",
-                    measurement="coeficiente de edificabilidad neta — the general grado 2º value",
+                    measurement="coeficiente de edificabilidad neta — the general grado 2º value; DISPLACED inside nivel 'e' by art. 8.7.20",
                     denominatorScope="parcela edificable (neta)",
-                    conflict={"note": "See the rival 1,0 m²/m² record from Art. 8.7.20 for nivel 'e'.",
-                              "rival": {"articulo": "8.7.20", "value": 1.0, "pdfPage": 438}},
-                    confidence="ambiguous",
+                    appliesTo="grado 2º OUTSIDE nivel 'e' (residential uso cualificado). Retained on this record so the 7.2.e entry carries both readings, but it is NOT the operative value for a nivel-'e' parcel.",
+                    supersededWithinScope={
+                        "by": {"articulo": "8.7.20", "value": 1.0, "pdfPage": 438},
+                        "scope": "grado 2º nivel 'e' especial",
+                        "see": "conflictResolution on the 1,0 m²/m² record"},
+                    confidence="superseded-in-scope",
                     amendment="Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"),
                 rec(z, "maxCoverage", 30, "%", "8.7", "8.7.8", "2", 434,
                     "En el grado 2º, la ocupación de la parcela por el conjunto de edificaciones situadas sobre y bajo rasante, no podrá ser superior al treinta por ciento (30%) de la superficie de parcela edificable.",
@@ -707,7 +1041,7 @@ def main():
         "docs", "04-reference", "jurisdictions", "es", "es-md", "28079-madrid", "extracted")
     os.makedirs(outdir, exist_ok=True)
     for name, fn in (("nz8", nz8), ("nz7", nz7), ("nz5", nz5), ("nz9", nz9), ("nz1", nz1)):
-        recs = fn()
+        recs = stamp_height_datums(fn())
         meta = dict(META[name])
         meta.update({"document": DOC, "readFrom": READ, "printedPageOffset": -2,
                      "extractedFromCounts": {

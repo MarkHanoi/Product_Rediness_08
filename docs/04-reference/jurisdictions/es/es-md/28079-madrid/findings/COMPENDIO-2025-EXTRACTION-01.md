@@ -465,6 +465,15 @@ acquisition problem, not a legislative one.
 
 ### 8.6 Recorded as a datum gap rather than an assumption
 
+> **✅ RESOLVED 2026-07-31 — see `COMPENDIO-2025-HEIGHT-DATUM-AND-NZ7.md`.**
+> The datum is the **rasante de la acera**, sampled on the vertical through the **punto medio de
+> la línea de fachada** (Art. 6.6.8 apartado 6.a, PDF p205; general definition Art. 6.3.5
+> apartado c, PDF p193). Chapter 8.4 takes no *"criterios específicos"* escape, so the general
+> rule applies unmodified. The ordinance **does** state the sampling point, together with six
+> disambiguating cases including a hard 20 m façade-segmentation rule on sloping streets.
+> `referencePlane` and a new `samplingRule` field are now non-null on **all 76** height records
+> across the seven files; the text below is retained as the pass-01 record.
+
 Not nulls, but flagged in-record. **NZ 4's height table gives `altura de cornisa` with no stated
 datum** — Art. 8.4.10 says only *"en metros a la cornisa"*. The reference plane lives in Título 6
 (general altura rules), which was outside this pass's scope. `referencePlane` is `null` with a
@@ -474,6 +483,17 @@ redirects to Art. 6.6.8. **Reading Título 6 Cap. 6.6 (PDF ~200–225) is the ob
 ---
 
 ## 9. Conflicts reported, not resolved
+
+> **✅ RESOLVED 2026-07-31 — see `COMPENDIO-2025-HEIGHT-DATUM-AND-NZ7.md`.**
+> The conflict is **apparent, not real**: the two articles govern disjoint sets of parcels.
+> `0,5` is the **grado 2º** figure; `1,0` is the **grado 2º nivel "e"** figure. Decisive point —
+> Art. 8.7.1.3 carves nivel "e" out of the chapter's residential uso cualificado and Art. 8.7.20
+> expressly prohibits residential use in it, so the 0,5 (a residential-grado figure) can never be
+> operative on a nivel-"e" parcel. **There is no parcel to which both numbers could apply.**
+> Records now carry `confidence: "resolved-by-scope"` / `"superseded-in-scope"` with both
+> citations and the full reasoning chain retained. The residual blocker on NZ 7 grado 2º is now a
+> **data** problem — no article maps nivel "e" to ground; that lives on the Plano de Ordenación.
+> The text below is retained as the pass-01 record.
 
 One, per the rules:
 
@@ -552,8 +572,15 @@ docs/04-reference/jurisdictions/es/es-md/28079-madrid/extracted/
   nz3-refusal.json    0 records + 11 cited refusal-evidence quotes
 tools/madrid-extract/
   index_pdf.py       structure / page / grep / table probe
-  build_records.py   emits nz1, nz5, nz7, nz8, nz9
+  build_records.py   emits nz1, nz5, nz7, nz8, nz9  (+ the HEIGHT_DATUM table, pass 02)
+  stamp_nz4.py       applies the same HEIGHT_DATUM table to hand-written nz4.json (pass 02)
   validate.py        citation + ratio check (exit 1 on any uncited non-null)
 ```
 
-Rerun: `python tools/madrid-extract/build_records.py && python tools/madrid-extract/validate.py`
+Rerun:
+
+```
+python tools/madrid-extract/build_records.py
+python tools/madrid-extract/stamp_nz4.py
+python tools/madrid-extract/validate.py
+```

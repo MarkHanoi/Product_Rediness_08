@@ -104,7 +104,7 @@
       "value": 4,
       "unit": "plantas",
       "measurement": null,
-      "referencePlane": null,
+      "referencePlane": "rasante de la acera en el punto medio de la línea de fachada",
       "denominatorScope": null,
       "source": {
         "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
@@ -119,7 +119,113 @@
       "readFrom": "Compendio 2025 (24-09-2025)",
       "effectiveDate": null,
       "extractedFrom": "prose",
-      "confidence": "exact"
+      "confidence": "exact",
+      "samplingRule": {
+        "point": "punto medio de la línea de fachada — sampled PER FAÇADE, on the vertical through that point",
+        "planeAtPoint": "rasante de la acera en dicho punto",
+        "perFacade": true,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "6.6.8",
+        "apartado": "6.a)",
+        "pdfPage": 205,
+        "printedPage": 203,
+        "verbatim": "La altura de cornisa se medirá en la vertical correspondiente al punto medio de la línea de fachada, tomando como cota de origen y referencia la rasante de la acera en dicho punto.",
+        "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+        "scopeCaveat": "Art. 6.6.8.6 opens 'Salvo que las normas zonales establezcan criterios específicos o las ordenanzas de los planeamientos de desarrollo los instituyan justificadamente'. Applied here only after verifying the zone's own chapter establishes none (or expressly redirects to art. 6.6.8).",
+        "cases": [
+          {
+            "case": "no pavement exists",
+            "apartado": "6.b)",
+            "pdfPage": 205,
+            "verbatim": "Cuando no exista acera, la medición se hará del mismo modo, tomando como cota de origen y referencia el punto de la vertical situado a la cota de rasante de la calle, incrementada con la altura correspondiente al declive transversal de la acera, calculado con pendiente del dos con cinco por ciento (2,5%)."
+          },
+          {
+            "case": "corner parcel",
+            "apartado": "6.c)",
+            "pdfPage": 205,
+            "verbatim": "En parcelas de esquina, la altura se tomará para cada una de las fachadas del modo antes descrito.",
+            "note": "One datum PER FAÇADE, not one per parcel."
+          },
+          {
+            "case": "sloping street / façade longer than 20 m",
+            "apartado": "6.d)",
+            "pdfPage": 205,
+            "verbatim": "En calles en pendiente, la altura se medirá en el punto medio de la fachada. Si la longitud de la fachada es superior a veinte (20) metros, se descompondrá la línea de fachada en fracciones de longitud igual o inferior a veinte (20) metros. El número de escalonamientos será el menor posible, salvo que justificadamente por adaptación al entorno circundante sea conveniente incrementar el número de ellos. Ni la altura en metros, ni la expresada en plantas, podrá rebasarse en ninguno de los escalonamientos.",
+            "note": "HARD 20 m segmentation ceiling. The envelope is a STEPPED solid: N segments of ≤20 m, each with its own datum at that segment's midpoint, each independently capped at the same metre AND storey figure. Escalonamiento buys no extra height."
+          },
+          {
+            "case": "frontages to opposite streets",
+            "apartado": "6.e)",
+            "pdfPage": 206,
+            "verbatim": "En parcelas con frentes a calles opuestas, entendiéndose por tales aquellas cuyos ejes forman entre sí un ángulo inferior a noventa (90) grados sexagesimales, la altura se medirá para el ancho de cada calle, manteniéndose esta altura hasta una profundidad determinada por la bisectriz del ángulo formado por la prolongación de las alineaciones oficiales."
+          },
+          {
+            "case": "frontages to streets and plazas together",
+            "apartado": "6.f)",
+            "pdfPage": 206,
+            "verbatim": "En parcelas con alineaciones oficiales a calles y plazas conjuntamente, se considerará la altura correspondiente a cada uno de dichos espacios públicos, tratándose, en función de la posición de la parcela respecto de ellas, como parcelas en esquina o parcelas con frentes a calles opuestas."
+          },
+          {
+            "case": "mixed situations",
+            "apartado": "7",
+            "pdfPage": 206,
+            "verbatim": "En situaciones mixtas, el modo de fijar la altura se establecerá combinando las reglas anteriores."
+          }
+        ],
+        "l584Warning": "This is the rule PRYZM defect L-584 violates. Sampling one terrain point at the block centroid is WRONG for every parcel in this zone. Sample at the midpoint of each façade segment; segment at 20 m on sloping streets."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — OVERRIDES the art. 6.3.5.c) aislada default",
+        "articulo": "8.7.11",
+        "apartado": "1",
+        "pdfPage": 435,
+        "printedPage": 433,
+        "verbatim": "En el grado 1º, la edificación no podrá superar una altura de cuatro (4) plantas, ni una altura de cornisa superior a mil cuatrocientos cincuenta (1.450) centímetros, medida desde la rasante de la acera en el punto medio de la línea de fachada.",
+        "trap": "NZ 7 grado 1º is edificación AISLADA (art. 8.7.1.2), so the art. 6.3.5.c) default would be the cota de nivelación de planta baja — but art. 8.7.11.1 expressly overrides it to the pavement rasante at the façade midpoint. Deriving the datum from typology alone gets this grado WRONG. Read the norma zonal first, fall back to 6.3.5.c) second."
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "storeyCountRule": {
+        "articulo": "6.6.7",
+        "apartado": "párrafo único",
+        "pdfPage": 204,
+        "printedPage": 202,
+        "verbatim": "Corresponde al número de plantas por encima de la cota de origen y referencia incluida la planta baja.",
+        "note": "maxFloors is counted ABOVE the cota de origen y referencia, planta baja INCLUDED — so a storey count is datum-dependent exactly as a metre figure is. On a stepped façade the count is per-segment (art. 6.6.8.6.d)."
+      },
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "7.1.a",
@@ -143,7 +249,105 @@
       "effectiveDate": null,
       "extractedFrom": "prose",
       "confidence": "exact",
-      "verbatimUnitNote": "Stated as 1.450 centímetros; 14,5 m is the same value in metres."
+      "verbatimUnitNote": "Stated as 1.450 centímetros; 14,5 m is the same value in metres.",
+      "samplingRule": {
+        "point": "punto medio de la línea de fachada — sampled PER FAÇADE, on the vertical through that point",
+        "planeAtPoint": "rasante de la acera en dicho punto",
+        "perFacade": true,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "6.6.8",
+        "apartado": "6.a)",
+        "pdfPage": 205,
+        "printedPage": 203,
+        "verbatim": "La altura de cornisa se medirá en la vertical correspondiente al punto medio de la línea de fachada, tomando como cota de origen y referencia la rasante de la acera en dicho punto.",
+        "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+        "scopeCaveat": "Art. 6.6.8.6 opens 'Salvo que las normas zonales establezcan criterios específicos o las ordenanzas de los planeamientos de desarrollo los instituyan justificadamente'. Applied here only after verifying the zone's own chapter establishes none (or expressly redirects to art. 6.6.8).",
+        "cases": [
+          {
+            "case": "no pavement exists",
+            "apartado": "6.b)",
+            "pdfPage": 205,
+            "verbatim": "Cuando no exista acera, la medición se hará del mismo modo, tomando como cota de origen y referencia el punto de la vertical situado a la cota de rasante de la calle, incrementada con la altura correspondiente al declive transversal de la acera, calculado con pendiente del dos con cinco por ciento (2,5%)."
+          },
+          {
+            "case": "corner parcel",
+            "apartado": "6.c)",
+            "pdfPage": 205,
+            "verbatim": "En parcelas de esquina, la altura se tomará para cada una de las fachadas del modo antes descrito.",
+            "note": "One datum PER FAÇADE, not one per parcel."
+          },
+          {
+            "case": "sloping street / façade longer than 20 m",
+            "apartado": "6.d)",
+            "pdfPage": 205,
+            "verbatim": "En calles en pendiente, la altura se medirá en el punto medio de la fachada. Si la longitud de la fachada es superior a veinte (20) metros, se descompondrá la línea de fachada en fracciones de longitud igual o inferior a veinte (20) metros. El número de escalonamientos será el menor posible, salvo que justificadamente por adaptación al entorno circundante sea conveniente incrementar el número de ellos. Ni la altura en metros, ni la expresada en plantas, podrá rebasarse en ninguno de los escalonamientos.",
+            "note": "HARD 20 m segmentation ceiling. The envelope is a STEPPED solid: N segments of ≤20 m, each with its own datum at that segment's midpoint, each independently capped at the same metre AND storey figure. Escalonamiento buys no extra height."
+          },
+          {
+            "case": "frontages to opposite streets",
+            "apartado": "6.e)",
+            "pdfPage": 206,
+            "verbatim": "En parcelas con frentes a calles opuestas, entendiéndose por tales aquellas cuyos ejes forman entre sí un ángulo inferior a noventa (90) grados sexagesimales, la altura se medirá para el ancho de cada calle, manteniéndose esta altura hasta una profundidad determinada por la bisectriz del ángulo formado por la prolongación de las alineaciones oficiales."
+          },
+          {
+            "case": "frontages to streets and plazas together",
+            "apartado": "6.f)",
+            "pdfPage": 206,
+            "verbatim": "En parcelas con alineaciones oficiales a calles y plazas conjuntamente, se considerará la altura correspondiente a cada uno de dichos espacios públicos, tratándose, en función de la posición de la parcela respecto de ellas, como parcelas en esquina o parcelas con frentes a calles opuestas."
+          },
+          {
+            "case": "mixed situations",
+            "apartado": "7",
+            "pdfPage": 206,
+            "verbatim": "En situaciones mixtas, el modo de fijar la altura se establecerá combinando las reglas anteriores."
+          }
+        ],
+        "l584Warning": "This is the rule PRYZM defect L-584 violates. Sampling one terrain point at the block centroid is WRONG for every parcel in this zone. Sample at the midpoint of each façade segment; segment at 20 m on sloping streets."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — OVERRIDES the art. 6.3.5.c) aislada default",
+        "articulo": "8.7.11",
+        "apartado": "1",
+        "pdfPage": 435,
+        "printedPage": 433,
+        "verbatim": "En el grado 1º, la edificación no podrá superar una altura de cuatro (4) plantas, ni una altura de cornisa superior a mil cuatrocientos cincuenta (1.450) centímetros, medida desde la rasante de la acera en el punto medio de la línea de fachada.",
+        "trap": "NZ 7 grado 1º is edificación AISLADA (art. 8.7.1.2), so the art. 6.3.5.c) default would be the cota de nivelación de planta baja — but art. 8.7.11.1 expressly overrides it to the pavement rasante at the façade midpoint. Deriving the datum from typology alone gets this grado WRONG. Read the norma zonal first, fall back to 6.3.5.c) second."
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "7.1.a",
@@ -350,7 +554,7 @@
       "value": 4,
       "unit": "plantas",
       "measurement": null,
-      "referencePlane": null,
+      "referencePlane": "rasante de la acera en el punto medio de la línea de fachada",
       "denominatorScope": null,
       "source": {
         "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
@@ -365,7 +569,113 @@
       "readFrom": "Compendio 2025 (24-09-2025)",
       "effectiveDate": null,
       "extractedFrom": "prose",
-      "confidence": "exact"
+      "confidence": "exact",
+      "samplingRule": {
+        "point": "punto medio de la línea de fachada — sampled PER FAÇADE, on the vertical through that point",
+        "planeAtPoint": "rasante de la acera en dicho punto",
+        "perFacade": true,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "6.6.8",
+        "apartado": "6.a)",
+        "pdfPage": 205,
+        "printedPage": 203,
+        "verbatim": "La altura de cornisa se medirá en la vertical correspondiente al punto medio de la línea de fachada, tomando como cota de origen y referencia la rasante de la acera en dicho punto.",
+        "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+        "scopeCaveat": "Art. 6.6.8.6 opens 'Salvo que las normas zonales establezcan criterios específicos o las ordenanzas de los planeamientos de desarrollo los instituyan justificadamente'. Applied here only after verifying the zone's own chapter establishes none (or expressly redirects to art. 6.6.8).",
+        "cases": [
+          {
+            "case": "no pavement exists",
+            "apartado": "6.b)",
+            "pdfPage": 205,
+            "verbatim": "Cuando no exista acera, la medición se hará del mismo modo, tomando como cota de origen y referencia el punto de la vertical situado a la cota de rasante de la calle, incrementada con la altura correspondiente al declive transversal de la acera, calculado con pendiente del dos con cinco por ciento (2,5%)."
+          },
+          {
+            "case": "corner parcel",
+            "apartado": "6.c)",
+            "pdfPage": 205,
+            "verbatim": "En parcelas de esquina, la altura se tomará para cada una de las fachadas del modo antes descrito.",
+            "note": "One datum PER FAÇADE, not one per parcel."
+          },
+          {
+            "case": "sloping street / façade longer than 20 m",
+            "apartado": "6.d)",
+            "pdfPage": 205,
+            "verbatim": "En calles en pendiente, la altura se medirá en el punto medio de la fachada. Si la longitud de la fachada es superior a veinte (20) metros, se descompondrá la línea de fachada en fracciones de longitud igual o inferior a veinte (20) metros. El número de escalonamientos será el menor posible, salvo que justificadamente por adaptación al entorno circundante sea conveniente incrementar el número de ellos. Ni la altura en metros, ni la expresada en plantas, podrá rebasarse en ninguno de los escalonamientos.",
+            "note": "HARD 20 m segmentation ceiling. The envelope is a STEPPED solid: N segments of ≤20 m, each with its own datum at that segment's midpoint, each independently capped at the same metre AND storey figure. Escalonamiento buys no extra height."
+          },
+          {
+            "case": "frontages to opposite streets",
+            "apartado": "6.e)",
+            "pdfPage": 206,
+            "verbatim": "En parcelas con frentes a calles opuestas, entendiéndose por tales aquellas cuyos ejes forman entre sí un ángulo inferior a noventa (90) grados sexagesimales, la altura se medirá para el ancho de cada calle, manteniéndose esta altura hasta una profundidad determinada por la bisectriz del ángulo formado por la prolongación de las alineaciones oficiales."
+          },
+          {
+            "case": "frontages to streets and plazas together",
+            "apartado": "6.f)",
+            "pdfPage": 206,
+            "verbatim": "En parcelas con alineaciones oficiales a calles y plazas conjuntamente, se considerará la altura correspondiente a cada uno de dichos espacios públicos, tratándose, en función de la posición de la parcela respecto de ellas, como parcelas en esquina o parcelas con frentes a calles opuestas."
+          },
+          {
+            "case": "mixed situations",
+            "apartado": "7",
+            "pdfPage": 206,
+            "verbatim": "En situaciones mixtas, el modo de fijar la altura se establecerá combinando las reglas anteriores."
+          }
+        ],
+        "l584Warning": "This is the rule PRYZM defect L-584 violates. Sampling one terrain point at the block centroid is WRONG for every parcel in this zone. Sample at the midpoint of each façade segment; segment at 20 m on sloping streets."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — OVERRIDES the art. 6.3.5.c) aislada default",
+        "articulo": "8.7.11",
+        "apartado": "1",
+        "pdfPage": 435,
+        "printedPage": 433,
+        "verbatim": "En el grado 1º, la edificación no podrá superar una altura de cuatro (4) plantas, ni una altura de cornisa superior a mil cuatrocientos cincuenta (1.450) centímetros, medida desde la rasante de la acera en el punto medio de la línea de fachada.",
+        "trap": "NZ 7 grado 1º is edificación AISLADA (art. 8.7.1.2), so the art. 6.3.5.c) default would be the cota de nivelación de planta baja — but art. 8.7.11.1 expressly overrides it to the pavement rasante at the façade midpoint. Deriving the datum from typology alone gets this grado WRONG. Read the norma zonal first, fall back to 6.3.5.c) second."
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "storeyCountRule": {
+        "articulo": "6.6.7",
+        "apartado": "párrafo único",
+        "pdfPage": 204,
+        "printedPage": 202,
+        "verbatim": "Corresponde al número de plantas por encima de la cota de origen y referencia incluida la planta baja.",
+        "note": "maxFloors is counted ABOVE the cota de origen y referencia, planta baja INCLUDED — so a storey count is datum-dependent exactly as a metre figure is. On a stepped façade the count is per-segment (art. 6.6.8.6.d)."
+      },
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "7.1.b",
@@ -389,7 +699,105 @@
       "effectiveDate": null,
       "extractedFrom": "prose",
       "confidence": "exact",
-      "verbatimUnitNote": "Stated as 1.450 centímetros; 14,5 m is the same value in metres."
+      "verbatimUnitNote": "Stated as 1.450 centímetros; 14,5 m is the same value in metres.",
+      "samplingRule": {
+        "point": "punto medio de la línea de fachada — sampled PER FAÇADE, on the vertical through that point",
+        "planeAtPoint": "rasante de la acera en dicho punto",
+        "perFacade": true,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "6.6.8",
+        "apartado": "6.a)",
+        "pdfPage": 205,
+        "printedPage": 203,
+        "verbatim": "La altura de cornisa se medirá en la vertical correspondiente al punto medio de la línea de fachada, tomando como cota de origen y referencia la rasante de la acera en dicho punto.",
+        "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+        "scopeCaveat": "Art. 6.6.8.6 opens 'Salvo que las normas zonales establezcan criterios específicos o las ordenanzas de los planeamientos de desarrollo los instituyan justificadamente'. Applied here only after verifying the zone's own chapter establishes none (or expressly redirects to art. 6.6.8).",
+        "cases": [
+          {
+            "case": "no pavement exists",
+            "apartado": "6.b)",
+            "pdfPage": 205,
+            "verbatim": "Cuando no exista acera, la medición se hará del mismo modo, tomando como cota de origen y referencia el punto de la vertical situado a la cota de rasante de la calle, incrementada con la altura correspondiente al declive transversal de la acera, calculado con pendiente del dos con cinco por ciento (2,5%)."
+          },
+          {
+            "case": "corner parcel",
+            "apartado": "6.c)",
+            "pdfPage": 205,
+            "verbatim": "En parcelas de esquina, la altura se tomará para cada una de las fachadas del modo antes descrito.",
+            "note": "One datum PER FAÇADE, not one per parcel."
+          },
+          {
+            "case": "sloping street / façade longer than 20 m",
+            "apartado": "6.d)",
+            "pdfPage": 205,
+            "verbatim": "En calles en pendiente, la altura se medirá en el punto medio de la fachada. Si la longitud de la fachada es superior a veinte (20) metros, se descompondrá la línea de fachada en fracciones de longitud igual o inferior a veinte (20) metros. El número de escalonamientos será el menor posible, salvo que justificadamente por adaptación al entorno circundante sea conveniente incrementar el número de ellos. Ni la altura en metros, ni la expresada en plantas, podrá rebasarse en ninguno de los escalonamientos.",
+            "note": "HARD 20 m segmentation ceiling. The envelope is a STEPPED solid: N segments of ≤20 m, each with its own datum at that segment's midpoint, each independently capped at the same metre AND storey figure. Escalonamiento buys no extra height."
+          },
+          {
+            "case": "frontages to opposite streets",
+            "apartado": "6.e)",
+            "pdfPage": 206,
+            "verbatim": "En parcelas con frentes a calles opuestas, entendiéndose por tales aquellas cuyos ejes forman entre sí un ángulo inferior a noventa (90) grados sexagesimales, la altura se medirá para el ancho de cada calle, manteniéndose esta altura hasta una profundidad determinada por la bisectriz del ángulo formado por la prolongación de las alineaciones oficiales."
+          },
+          {
+            "case": "frontages to streets and plazas together",
+            "apartado": "6.f)",
+            "pdfPage": 206,
+            "verbatim": "En parcelas con alineaciones oficiales a calles y plazas conjuntamente, se considerará la altura correspondiente a cada uno de dichos espacios públicos, tratándose, en función de la posición de la parcela respecto de ellas, como parcelas en esquina o parcelas con frentes a calles opuestas."
+          },
+          {
+            "case": "mixed situations",
+            "apartado": "7",
+            "pdfPage": 206,
+            "verbatim": "En situaciones mixtas, el modo de fijar la altura se establecerá combinando las reglas anteriores."
+          }
+        ],
+        "l584Warning": "This is the rule PRYZM defect L-584 violates. Sampling one terrain point at the block centroid is WRONG for every parcel in this zone. Sample at the midpoint of each façade segment; segment at 20 m on sloping streets."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — OVERRIDES the art. 6.3.5.c) aislada default",
+        "articulo": "8.7.11",
+        "apartado": "1",
+        "pdfPage": 435,
+        "printedPage": 433,
+        "verbatim": "En el grado 1º, la edificación no podrá superar una altura de cuatro (4) plantas, ni una altura de cornisa superior a mil cuatrocientos cincuenta (1.450) centímetros, medida desde la rasante de la acera en el punto medio de la línea de fachada.",
+        "trap": "NZ 7 grado 1º is edificación AISLADA (art. 8.7.1.2), so the art. 6.3.5.c) default would be the cota de nivelación de planta baja — but art. 8.7.11.1 expressly overrides it to the pavement rasante at the façade midpoint. Deriving the datum from typology alone gets this grado WRONG. Read the norma zonal first, fall back to 6.3.5.c) second."
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "7.1.b",
@@ -547,7 +955,7 @@
       "parameter": "farRatio",
       "value": 1.0,
       "unit": "m²/m²",
-      "measurement": "edificabilidad máxima — nivel 'e' especial",
+      "measurement": "edificabilidad máxima — GOVERNING value for grado 2º nivel 'e'",
       "referencePlane": null,
       "denominatorScope": "parcela edificable",
       "source": {
@@ -563,15 +971,74 @@
       "readFrom": "Compendio 2025 (24-09-2025)",
       "effectiveDate": null,
       "extractedFrom": "prose",
-      "confidence": "ambiguous",
-      "conflict": {
-        "note": "CONFLICT REPORTED, NOT RESOLVED. Art. 8.7.9.1.b) sets grado 2º at 0,5 m²/m²; Art. 8.7.20 sets grado 2º nivel 'e' at 1,0 m²/m². Both are reported. Art. 8.7.20 is the more specific (nivel-'e'-only) provision and sits in 'Sección Cuarta. Otras condiciones de uso', but the Compendio contains no express derogation clause, so the reader must decide.",
-        "rival": {
+      "confidence": "resolved-by-scope",
+      "conflictResolution": {
+        "verdict": "APPARENT, NOT REAL — resolved by scope. Both values are correct and they govern DISJOINT sets of parcels.",
+        "governing": {
+          "value": 1.0,
+          "articulo": "8.7.20",
+          "scope": "grado 2º nivel 'e' especial"
+        },
+        "displaced": {
+          "value": 0.5,
           "articulo": "8.7.9",
           "apartado": "1.b)",
-          "pdfPage": 434,
-          "value": 0.5,
-          "verbatim": "Grado 2º: Cinco (5) metros cuadrados por cada diez (10) metros cuadrados."
+          "scope": "grado 2º outside nivel 'e' (residential uso cualificado)"
+        },
+        "sameDenominator": "Art. 8.7.9.1 says 'coeficiente de edificabilidad NETA sobre PARCELA EDIFICABLE'; art. 8.7.20 says 'por metro cuadrado de PARCELA EDIFICABLE'. Identical denominator and character — this is NOT a neta-vs-bruta artefact.",
+        "notACrossReference": "Art. 8.7.20 states an independent number and cites no article; art. 8.7.9 does not mention niveles at all.",
+        "reasoning": [
+          "1. SUBSET. Art. 8.7.9.1 fixes the coefficient 'para cada GRADO' and enumerates exactly three (1º, 2º, 3º) — it legislates at grado level. Art. 8.7.20 is titled, in the document's own words, 'Condiciones particulares del grado 2º Nivel \"e\" especial' — it legislates at NIVEL level, for a named sub-division established by art. 8.7.17.b). Nivel 'e' is a proper subset of grado 2º, so the general grado figure is displaced within it.",
+          "2. DECISIVE — the two figures are mutually unreachable. Art. 8.7.20 provides 'Queda prohibido expresamente el uso residencial.' The 0,5 of art. 8.7.9.1.b) is the coefficient for the grado's uso cualificado, which art. 8.7.1.3 declares residential AND expressly carves nivel 'e' out of. A nivel-'e' parcel therefore cannot be developed under the residential regime at all; the only permitted development is the terciario one, whose edificabilidad art. 8.7.20 fixes at 1,0. There is NO parcel to which both numbers could apply.",
+          "3. The alternative reading is self-defeating. If 1,0 were merely an ADDITIONAL cap stacked on 0,5, the lower 0,5 would always bind and art. 8.7.20's edificabilidad sentence would be inoperative in every case. A reading that renders an express provision a dead letter is not available. 8.7.20 REPLACES; it does not stack.",
+          "4. Structural precedent in the same chapter. Art. 8.7.18.2.b)i) attaches a nivel-specific FAR of 1,2 m²/m² to grado 1º nivel b for an alternative use, against 0,8 for grado 1º generally (art. 8.7.9.1.a). The Compendio demonstrably does attach FARs to niveles when a non-residential regime is taken up; 8.7.9/8.7.20 is the same construction one grado over. That 1,2 record was already emitted in pass 01 without being flagged as a conflict — consistency demands the same treatment here."
+        ],
+        "counterArgumentConsidered": {
+          "argument": "Art. 8.7.17 opens 'A los efectos de aplicación de las condiciones referentes a los usos compatibles y autorizables, se distinguen … los siguientes niveles' — on a strict reading a nivel governs uses only and could not carry a building parameter, making 8.7.20's 1,0 a drafting error.",
+          "whyItFails": [
+            "Art. 8.7.1.3 already assigns nivel 'e' a different USO CUALIFICADO, which is neither a uso compatible nor a uso autorizable — so 8.7.17's declared scope is already narrower than what the chapter actually does with nivel 'e'. 8.7.17 describes the ordinary function of niveles; it is not an exhaustive limit on them.",
+            "Both articles are marked (N-1) — equal normative rank, so there is no rank tiebreak in 8.7.9's favour. A specific express provision of equal rank prevails over a general one within its scope.",
+            "The Sección-placement objection (8.7.20 sits in 'Sección Cuarta. Otras condiciones de uso') would equally invalidate art. 8.7.18.2.b)i)'s 1,2 m²/m², which also sits in a use section and which nobody disputes. Section placement is not doing normative work here."
+          ]
+        },
+        "honestLimit": "The Compendio contains NO express derogation clause linking art. 8.7.20 to art. 8.7.9. This resolution is a scope reading, not a stated hierarchy. It rests on 8.7.20's own title, 8.7.17's subset relation, and — decisively — 8.7.1.3's carve-out plus 8.7.20's express residential prohibition. Both citations are retained on both records so a reviewer can overturn the reasoning without re-reading the PDF.",
+        "notDisplaced": "Art. 8.7.20 speaks only to uso cualificado, edificabilidad and the planta-baja use list. Grado 2º's other figures continue to apply to nivel 'e': parcela mínima 2.500 m² (8.7.4.1.b), lindero frontal ≥10 m + ⌀30 m circle (8.7.5), retranqueo >10 m (8.7.7.1), separación a linderos ≥7 m (8.7.7.2), ocupación sobre+bajo rasante ≤30 % (8.7.8.2), 3 plantas / 10,50 m cornisa from the cota de nivelación de planta baja (8.7.11.2). Art. 8.7.10.b)'s dwelling cap is moot — residential is prohibited.",
+        "remainingBlocker": "This resolves WHAT applies in nivel 'e'; it does not resolve WHICH parcels are in it. Art. 8.7.17.b) establishes the nivel but no article maps it to ground — that lives on the Plano de Ordenación. Until the GIS layer distinguishes 7.2 from 7.2.e, the 1,0 cannot be applied to a specific parcel. This is now the binding blocker on NZ 7 grado 2º, and it is a DATA problem, not a legal one.",
+        "citations": {
+          "8.7.9.1.b)": {
+            "pdfPage": 434,
+            "printedPage": 432,
+            "value": 0.5,
+            "verbatim": "1. El coeficiente de edificabilidad neta sobre parcela edificable se establece para cada grado en: … b) Grado 2º: Cinco (5) metros cuadrados por cada diez (10) metros cuadrados.",
+            "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+          },
+          "8.7.20": {
+            "pdfPage": 438,
+            "printedPage": 436,
+            "value": 1.0,
+            "verbatim": "En el grado 2º nivel \"e\" especial, el uso cualificado es, el terciario en sus clases de oficinas y hospedaje. La edificabilidad máxima es de un (1) metro cuadrado por metro cuadrado de parcela edificable, pudiendo implantarse en planta baja el resto de usos terciarios, excepto el mediano comercio y grandes superficies comerciales. Queda prohibido expresamente el uso residencial.",
+            "amendment": null,
+            "note": "No footnote — original PGOUM-97 text, never amended."
+          },
+          "8.7.1.3": {
+            "pdfPage": 432,
+            "printedPage": 430,
+            "verbatim": "Su uso cualificado es el residencial. Excepto en el grado 2º nivel \"e\", en el que el uso cualificado es el Terciario en sus clases de Oficina y Hospedaje.",
+            "note": "The chapter carves nivel 'e' out of the use regime at the very top — an independent, deliberate act."
+          },
+          "8.7.17.b)": {
+            "pdfPage": 436,
+            "printedPage": 434,
+            "verbatim": "A los efectos de aplicación de las condiciones referentes a los usos compatibles y autorizables, se distinguen en función de los grados diferenciados en el art. 8.7.3, los siguientes niveles: a) En el grado 1º, niveles a y b. b) En el grado 2º, un nivel \"e\" especial. c) En el grado 3º, no se establecen niveles.",
+            "note": "Establishes nivel 'e' ⊂ grado 2º."
+          },
+          "8.7.18.2.b)i)": {
+            "pdfPage": 437,
+            "printedPage": 435,
+            "value": 1.2,
+            "verbatim": "Terciario Oficinas, Hospedaje, Recreativo, Otros Servicios Terciarios y Comercial en las categorías de pequeño y mediano comercio, en edificio exclusivo, con una edificabilidad máxima de doce (12) metros cuadrados por cada diez (10) metros cuadrados de parcela edificable.",
+            "note": "Structural precedent: a nivel-specific alternative-use FAR, one grado over."
+          }
         }
       }
     },
@@ -580,7 +1047,7 @@
       "parameter": "farRatio",
       "value": 0.5,
       "unit": "m²/m²",
-      "measurement": "coeficiente de edificabilidad neta — the general grado 2º value",
+      "measurement": "coeficiente de edificabilidad neta — the general grado 2º value; DISPLACED inside nivel 'e' by art. 8.7.20",
       "referencePlane": null,
       "denominatorScope": "parcela edificable (neta)",
       "source": {
@@ -596,14 +1063,16 @@
       "readFrom": "Compendio 2025 (24-09-2025)",
       "effectiveDate": null,
       "extractedFrom": "prose",
-      "confidence": "ambiguous",
-      "conflict": {
-        "note": "See the rival 1,0 m²/m² record from Art. 8.7.20 for nivel 'e'.",
-        "rival": {
+      "confidence": "superseded-in-scope",
+      "appliesTo": "grado 2º OUTSIDE nivel 'e' (residential uso cualificado). Retained on this record so the 7.2.e entry carries both readings, but it is NOT the operative value for a nivel-'e' parcel.",
+      "supersededWithinScope": {
+        "by": {
           "articulo": "8.7.20",
           "value": 1.0,
           "pdfPage": 438
-        }
+        },
+        "scope": "grado 2º nivel 'e' especial",
+        "see": "conflictResolution on the 1,0 m²/m² record"
       },
       "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
     },
@@ -636,7 +1105,7 @@
       "value": 3,
       "unit": "plantas",
       "measurement": null,
-      "referencePlane": null,
+      "referencePlane": "cota de nivelación de la planta baja",
       "denominatorScope": null,
       "source": {
         "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
@@ -651,7 +1120,138 @@
       "readFrom": "Compendio 2025 (24-09-2025)",
       "effectiveDate": null,
       "extractedFrom": "prose",
-      "confidence": "exact"
+      "confidence": "exact",
+      "samplingRule": {
+        "point": "not a terrain sample — the datum is a single horizontal plane (cota cero) fixed by the project",
+        "planeAtPoint": "cota de nivelación de la planta baja",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "6.3.5",
+        "apartado": "c)",
+        "pdfPage": 193,
+        "printedPage": 191,
+        "verbatim": "…considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0)…",
+        "note": "The plane is CHOSEN by the project, so there is no single terrain point to sample. It is nonetheless terrain-derived, because art. 6.6.15.1.b) boxes it into a ±150 cm window around a pavement rasante taken at a NAMED midpoint, and art. 6.3.5.c) caps it absolutely.",
+        "absoluteCap": {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "verbatim": "En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja."
+        },
+        "steppedTerrainRule": {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "verbatim": "Cuando se instituya como cota de origen y referencia la de nivelación de planta baja y por las necesidades de la edificación o por las características del terreno en que se asiente, deba escalonarse la misma, la medición de las alturas se realizará de forma independiente en cada una de las plataformas que la componga, sin que dicho escalonamiento de planta baja pueda traducirse en exceso de altura.",
+          "note": "The aislada analogue of the 20 m stepping rule: per-platform, independent, no height bonus."
+        },
+        "whereThePlaneMaySit": {
+          "articulo": "6.6.15",
+          "apartado": "1.b)",
+          "pdfPage": 208,
+          "printedPage": 206,
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "cases": [
+            {
+              "case": "single frontage",
+              "apartado": "1.b)i)",
+              "verbatim": "Entre más/menos ciento cincuenta (150) centímetros respecto a la rasante de la acera en el punto medio del lindero frontal."
+            },
+            {
+              "case": "opposite frontages",
+              "apartado": "1.b)ii)",
+              "verbatim": "En parcelas con linderos frontales a calles opuestas, el nivel de implantación de la planta baja se situará a más/menos ciento cincuenta (150) centímetros respecto al punto medio del segmento que une los puntos medios de dichos linderos frontales."
+            },
+            {
+              "case": "corner parcel",
+              "apartado": "1.b)iii)",
+              "verbatim": "En parcelas de esquina, la cota de nivelación de planta baja deberá situarse entre más/menos ciento cincuenta (150) centímetros del punto medio de la rasante en la acera del lindero frontal de mayor longitud."
+            },
+            {
+              "case": "three frontages / block head",
+              "apartado": "1.b)iv)",
+              "verbatim": "Las parcelas con tres frentes que constituyan cabeceras de manzanas, se tratarán como parcelas con linderos frontales a calles opuestas."
+            },
+            {
+              "case": "triangular full block",
+              "apartado": "1.b)v)",
+              "verbatim": "Las parcelas coincidentes con manzanas completas de planta triangular se tratarán como parcelas con linderos frontales a calles opuestas, considerando los dos linderos de mayor longitud."
+            },
+            {
+              "case": "polygonal full block, >3 sides",
+              "apartado": "1.b)vi)",
+              "verbatim": "Las parcelas coincidentes con manzanas completas de planta poligonal de más de tres lados, se tratarán como parcelas con linderos frontales a calles opuestas, considerando el lindero de mayor longitud y el enfrentado a él, que será el más largo cuando sean varios."
+            },
+            {
+              "case": "multiple frontages with >3 m level difference",
+              "apartado": "1.b)vii)",
+              "verbatim": "En las parcelas con varios linderos frontales y desniveles entre estos superiores a tres (3) metros, cuando se dispongan distintos cuerpos de edificación, las plantas bajas de cada uno de ellos podrán situarse, alternativamente a la posición que corresponda según la tipología de la parcela, en la forma establecida para las parcelas con un solo lindero frontal en el apartado b.i), respecto del lindero más cercano al que dé frente el cuerpo de edificación considerado."
+            },
+            {
+              "case": "cap on raising the parcel rasante above neighbours",
+              "apartado": "1.b)viii)",
+              "verbatim": "En sus linderos, la rasante de las parcelas no se elevará más de 1,50 m respecto de las colindantes, salvo en situaciones preexistentes, en cuyo caso se presentará estudio de implantación que reduzca en lo posible el desnivel original, el cual no podrá incrementarse en ningún caso."
+            },
+            {
+              "case": "topographic justification",
+              "apartado": "1.b)ix)",
+              "verbatim": "Cuando por la configuración topográfica, forma, dimensiones de una parcela, o por la situación del edificio en la misma, se justifique, la planta baja podrá situarse en posiciones distintas de las reguladas anteriormente mediante la formulación, en su caso, de Estudio de Detalle.",
+              "note": "Discretionary escape. An envelope generator cannot anticipate it."
+            }
+          ]
+        }
+      },
+      "datumSource": {
+        "from": "norma zonal, express",
+        "articulo": "8.7.11",
+        "apartado": "2",
+        "pdfPage": 435,
+        "printedPage": 433,
+        "verbatim": "En los grados 2º y 3º, la edificación no podrá superar un altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros, midiendo ambos valores desde la cota de nivelación de planta baja."
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "storeyCountRule": {
+        "articulo": "6.6.7",
+        "apartado": "párrafo único",
+        "pdfPage": 204,
+        "printedPage": 202,
+        "verbatim": "Corresponde al número de plantas por encima de la cota de origen y referencia incluida la planta baja.",
+        "note": "maxFloors is counted ABOVE the cota de origen y referencia, planta baja INCLUDED — so a storey count is datum-dependent exactly as a metre figure is. On a stepped façade the count is per-segment (art. 6.6.8.6.d)."
+      },
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "7.2.e",
@@ -678,6 +1278,129 @@
       "extra": {
         "verbatim": "Sobre la última planta permitida, se consiente una (1) planta con una superficie máxima construida del diez por ciento (10%) de la superficie construida de la planta sobre la que se sitúa, siempre que su altura de coronación no supere los mil doscientos cincuenta (1.250) centímetros, medidos desde la cota de nivelación de planta baja.",
         "note": "A coronación ceiling of 12,50 m — a DIFFERENT datum concept from the 10,50 m cornisa. Keep distinct."
+      },
+      "samplingRule": {
+        "point": "not a terrain sample — the datum is a single horizontal plane (cota cero) fixed by the project",
+        "planeAtPoint": "cota de nivelación de la planta baja",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "6.3.5",
+        "apartado": "c)",
+        "pdfPage": 193,
+        "printedPage": 191,
+        "verbatim": "…considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0)…",
+        "note": "The plane is CHOSEN by the project, so there is no single terrain point to sample. It is nonetheless terrain-derived, because art. 6.6.15.1.b) boxes it into a ±150 cm window around a pavement rasante taken at a NAMED midpoint, and art. 6.3.5.c) caps it absolutely.",
+        "absoluteCap": {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "verbatim": "En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja."
+        },
+        "steppedTerrainRule": {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "verbatim": "Cuando se instituya como cota de origen y referencia la de nivelación de planta baja y por las necesidades de la edificación o por las características del terreno en que se asiente, deba escalonarse la misma, la medición de las alturas se realizará de forma independiente en cada una de las plataformas que la componga, sin que dicho escalonamiento de planta baja pueda traducirse en exceso de altura.",
+          "note": "The aislada analogue of the 20 m stepping rule: per-platform, independent, no height bonus."
+        },
+        "whereThePlaneMaySit": {
+          "articulo": "6.6.15",
+          "apartado": "1.b)",
+          "pdfPage": 208,
+          "printedPage": 206,
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "cases": [
+            {
+              "case": "single frontage",
+              "apartado": "1.b)i)",
+              "verbatim": "Entre más/menos ciento cincuenta (150) centímetros respecto a la rasante de la acera en el punto medio del lindero frontal."
+            },
+            {
+              "case": "opposite frontages",
+              "apartado": "1.b)ii)",
+              "verbatim": "En parcelas con linderos frontales a calles opuestas, el nivel de implantación de la planta baja se situará a más/menos ciento cincuenta (150) centímetros respecto al punto medio del segmento que une los puntos medios de dichos linderos frontales."
+            },
+            {
+              "case": "corner parcel",
+              "apartado": "1.b)iii)",
+              "verbatim": "En parcelas de esquina, la cota de nivelación de planta baja deberá situarse entre más/menos ciento cincuenta (150) centímetros del punto medio de la rasante en la acera del lindero frontal de mayor longitud."
+            },
+            {
+              "case": "three frontages / block head",
+              "apartado": "1.b)iv)",
+              "verbatim": "Las parcelas con tres frentes que constituyan cabeceras de manzanas, se tratarán como parcelas con linderos frontales a calles opuestas."
+            },
+            {
+              "case": "triangular full block",
+              "apartado": "1.b)v)",
+              "verbatim": "Las parcelas coincidentes con manzanas completas de planta triangular se tratarán como parcelas con linderos frontales a calles opuestas, considerando los dos linderos de mayor longitud."
+            },
+            {
+              "case": "polygonal full block, >3 sides",
+              "apartado": "1.b)vi)",
+              "verbatim": "Las parcelas coincidentes con manzanas completas de planta poligonal de más de tres lados, se tratarán como parcelas con linderos frontales a calles opuestas, considerando el lindero de mayor longitud y el enfrentado a él, que será el más largo cuando sean varios."
+            },
+            {
+              "case": "multiple frontages with >3 m level difference",
+              "apartado": "1.b)vii)",
+              "verbatim": "En las parcelas con varios linderos frontales y desniveles entre estos superiores a tres (3) metros, cuando se dispongan distintos cuerpos de edificación, las plantas bajas de cada uno de ellos podrán situarse, alternativamente a la posición que corresponda según la tipología de la parcela, en la forma establecida para las parcelas con un solo lindero frontal en el apartado b.i), respecto del lindero más cercano al que dé frente el cuerpo de edificación considerado."
+            },
+            {
+              "case": "cap on raising the parcel rasante above neighbours",
+              "apartado": "1.b)viii)",
+              "verbatim": "En sus linderos, la rasante de las parcelas no se elevará más de 1,50 m respecto de las colindantes, salvo en situaciones preexistentes, en cuyo caso se presentará estudio de implantación que reduzca en lo posible el desnivel original, el cual no podrá incrementarse en ningún caso."
+            },
+            {
+              "case": "topographic justification",
+              "apartado": "1.b)ix)",
+              "verbatim": "Cuando por la configuración topográfica, forma, dimensiones de una parcela, o por la situación del edificio en la misma, se justifique, la planta baja podrá situarse en posiciones distintas de las reguladas anteriormente mediante la formulación, en su caso, de Estudio de Detalle.",
+              "note": "Discretionary escape. An envelope generator cannot anticipate it."
+            }
+          ]
+        }
+      },
+      "datumSource": {
+        "from": "norma zonal, express",
+        "articulo": "8.7.11",
+        "apartado": "2",
+        "pdfPage": 435,
+        "printedPage": 433,
+        "verbatim": "En los grados 2º y 3º, la edificación no podrá superar un altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros, midiendo ambos valores desde la cota de nivelación de planta baja."
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
       }
     },
     {

@@ -164,7 +164,7 @@
       "value": 3,
       "unit": "plantas",
       "measurement": null,
-      "referencePlane": null,
+      "referencePlane": "cota del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio (cota de origen y referencia)",
       "denominatorScope": null,
       "source": {
         "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
@@ -180,7 +180,77 @@
       "effectiveDate": null,
       "extractedFrom": "prose",
       "confidence": "exact",
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "storeyCountRule": {
+        "articulo": "6.6.7",
+        "apartado": "párrafo único",
+        "pdfPage": 204,
+        "printedPage": 202,
+        "verbatim": "Corresponde al número de plantas por encima de la cota de origen y referencia incluida la planta baja.",
+        "note": "maxFloors is counted ABOVE the cota de origen y referencia, planta baja INCLUDED — so a storey count is datum-dependent exactly as a metre figure is. On a stepped façade the count is per-segment (art. 6.6.8.6.d)."
+      },
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.1.a",
@@ -218,7 +288,69 @@
         "verbatim": "Sobre la última planta en los grados 1º, 2º, 3º, 4º y 6º, se admite la construcción de una planta, con una superficie máxima inferior o igual al diez por ciento (10%) de la superficie edificada de la planta sobre la que se sitúe. Su altura de coronación no superará los mil doscientos cincuenta (1.250) centímetros, medidos desde la cota de origen y referencia.",
         "note": "12,50 m is a CORONACIÓN ceiling, not a cornisa one. Keep distinct."
       },
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.1.a",
@@ -402,7 +534,7 @@
       "value": 3,
       "unit": "plantas",
       "measurement": null,
-      "referencePlane": null,
+      "referencePlane": "cota del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio (cota de origen y referencia)",
       "denominatorScope": null,
       "source": {
         "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
@@ -418,7 +550,77 @@
       "effectiveDate": null,
       "extractedFrom": "prose",
       "confidence": "exact",
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "storeyCountRule": {
+        "articulo": "6.6.7",
+        "apartado": "párrafo único",
+        "pdfPage": 204,
+        "printedPage": 202,
+        "verbatim": "Corresponde al número de plantas por encima de la cota de origen y referencia incluida la planta baja.",
+        "note": "maxFloors is counted ABOVE the cota de origen y referencia, planta baja INCLUDED — so a storey count is datum-dependent exactly as a metre figure is. On a stepped façade the count is per-segment (art. 6.6.8.6.d)."
+      },
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.1.c",
@@ -456,7 +658,69 @@
         "verbatim": "Sobre la última planta en los grados 1º, 2º, 3º, 4º y 6º, se admite la construcción de una planta, con una superficie máxima inferior o igual al diez por ciento (10%) de la superficie edificada de la planta sobre la que se sitúe. Su altura de coronación no superará los mil doscientos cincuenta (1.250) centímetros, medidos desde la cota de origen y referencia.",
         "note": "12,50 m is a CORONACIÓN ceiling, not a cornisa one. Keep distinct."
       },
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.1.c",
@@ -692,7 +956,7 @@
       "value": 3,
       "unit": "plantas",
       "measurement": null,
-      "referencePlane": null,
+      "referencePlane": "cota del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio (cota de origen y referencia)",
       "denominatorScope": null,
       "source": {
         "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
@@ -708,7 +972,77 @@
       "effectiveDate": null,
       "extractedFrom": "prose",
       "confidence": "exact",
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "storeyCountRule": {
+        "articulo": "6.6.7",
+        "apartado": "párrafo único",
+        "pdfPage": 204,
+        "printedPage": 202,
+        "verbatim": "Corresponde al número de plantas por encima de la cota de origen y referencia incluida la planta baja.",
+        "note": "maxFloors is counted ABOVE the cota de origen y referencia, planta baja INCLUDED — so a storey count is datum-dependent exactly as a metre figure is. On a stepped façade the count is per-segment (art. 6.6.8.6.d)."
+      },
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.2.a",
@@ -746,7 +1080,69 @@
         "verbatim": "Sobre la última planta en los grados 1º, 2º, 3º, 4º y 6º, se admite la construcción de una planta, con una superficie máxima inferior o igual al diez por ciento (10%) de la superficie edificada de la planta sobre la que se sitúe. Su altura de coronación no superará los mil doscientos cincuenta (1.250) centímetros, medidos desde la cota de origen y referencia.",
         "note": "12,50 m is a CORONACIÓN ceiling, not a cornisa one. Keep distinct."
       },
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.2.a",
@@ -930,7 +1326,7 @@
       "value": 3,
       "unit": "plantas",
       "measurement": null,
-      "referencePlane": null,
+      "referencePlane": "cota del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio (cota de origen y referencia)",
       "denominatorScope": null,
       "source": {
         "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
@@ -946,7 +1342,77 @@
       "effectiveDate": null,
       "extractedFrom": "prose",
       "confidence": "exact",
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "storeyCountRule": {
+        "articulo": "6.6.7",
+        "apartado": "párrafo único",
+        "pdfPage": 204,
+        "printedPage": 202,
+        "verbatim": "Corresponde al número de plantas por encima de la cota de origen y referencia incluida la planta baja.",
+        "note": "maxFloors is counted ABOVE the cota de origen y referencia, planta baja INCLUDED — so a storey count is datum-dependent exactly as a metre figure is. On a stepped façade the count is per-segment (art. 6.6.8.6.d)."
+      },
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.2.b",
@@ -984,7 +1450,69 @@
         "verbatim": "Sobre la última planta en los grados 1º, 2º, 3º, 4º y 6º, se admite la construcción de una planta, con una superficie máxima inferior o igual al diez por ciento (10%) de la superficie edificada de la planta sobre la que se sitúe. Su altura de coronación no superará los mil doscientos cincuenta (1.250) centímetros, medidos desde la cota de origen y referencia.",
         "note": "12,50 m is a CORONACIÓN ceiling, not a cornisa one. Keep distinct."
       },
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.2.b",
@@ -1168,7 +1696,7 @@
       "value": 3,
       "unit": "plantas",
       "measurement": null,
-      "referencePlane": null,
+      "referencePlane": "cota del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio (cota de origen y referencia)",
       "denominatorScope": null,
       "source": {
         "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
@@ -1184,7 +1712,77 @@
       "effectiveDate": null,
       "extractedFrom": "prose",
       "confidence": "exact",
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "storeyCountRule": {
+        "articulo": "6.6.7",
+        "apartado": "párrafo único",
+        "pdfPage": 204,
+        "printedPage": 202,
+        "verbatim": "Corresponde al número de plantas por encima de la cota de origen y referencia incluida la planta baja.",
+        "note": "maxFloors is counted ABOVE the cota de origen y referencia, planta baja INCLUDED — so a storey count is datum-dependent exactly as a metre figure is. On a stepped façade the count is per-segment (art. 6.6.8.6.d)."
+      },
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.2.c",
@@ -1222,7 +1820,69 @@
         "verbatim": "Sobre la última planta en los grados 1º, 2º, 3º, 4º y 6º, se admite la construcción de una planta, con una superficie máxima inferior o igual al diez por ciento (10%) de la superficie edificada de la planta sobre la que se sitúe. Su altura de coronación no superará los mil doscientos cincuenta (1.250) centímetros, medidos desde la cota de origen y referencia.",
         "note": "12,50 m is a CORONACIÓN ceiling, not a cornisa one. Keep distinct."
       },
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.2.c",
@@ -1406,7 +2066,7 @@
       "value": 3,
       "unit": "plantas",
       "measurement": null,
-      "referencePlane": null,
+      "referencePlane": "cota del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio (cota de origen y referencia)",
       "denominatorScope": null,
       "source": {
         "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
@@ -1422,7 +2082,77 @@
       "effectiveDate": null,
       "extractedFrom": "prose",
       "confidence": "exact",
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "storeyCountRule": {
+        "articulo": "6.6.7",
+        "apartado": "párrafo único",
+        "pdfPage": 204,
+        "printedPage": 202,
+        "verbatim": "Corresponde al número de plantas por encima de la cota de origen y referencia incluida la planta baja.",
+        "note": "maxFloors is counted ABOVE the cota de origen y referencia, planta baja INCLUDED — so a storey count is datum-dependent exactly as a metre figure is. On a stepped façade the count is per-segment (art. 6.6.8.6.d)."
+      },
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.3.a",
@@ -1460,7 +2190,69 @@
         "verbatim": "Sobre la última planta en los grados 1º, 2º, 3º, 4º y 6º, se admite la construcción de una planta, con una superficie máxima inferior o igual al diez por ciento (10%) de la superficie edificada de la planta sobre la que se sitúe. Su altura de coronación no superará los mil doscientos cincuenta (1.250) centímetros, medidos desde la cota de origen y referencia.",
         "note": "12,50 m is a CORONACIÓN ceiling, not a cornisa one. Keep distinct."
       },
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.3.a",
@@ -1644,7 +2436,7 @@
       "value": 3,
       "unit": "plantas",
       "measurement": null,
-      "referencePlane": null,
+      "referencePlane": "cota del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio (cota de origen y referencia)",
       "denominatorScope": null,
       "source": {
         "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
@@ -1660,7 +2452,77 @@
       "effectiveDate": null,
       "extractedFrom": "prose",
       "confidence": "exact",
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "storeyCountRule": {
+        "articulo": "6.6.7",
+        "apartado": "párrafo único",
+        "pdfPage": 204,
+        "printedPage": 202,
+        "verbatim": "Corresponde al número de plantas por encima de la cota de origen y referencia incluida la planta baja.",
+        "note": "maxFloors is counted ABOVE the cota de origen y referencia, planta baja INCLUDED — so a storey count is datum-dependent exactly as a metre figure is. On a stepped façade the count is per-segment (art. 6.6.8.6.d)."
+      },
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.3.c",
@@ -1698,7 +2560,69 @@
         "verbatim": "Sobre la última planta en los grados 1º, 2º, 3º, 4º y 6º, se admite la construcción de una planta, con una superficie máxima inferior o igual al diez por ciento (10%) de la superficie edificada de la planta sobre la que se sitúe. Su altura de coronación no superará los mil doscientos cincuenta (1.250) centímetros, medidos desde la cota de origen y referencia.",
         "note": "12,50 m is a CORONACIÓN ceiling, not a cornisa one. Keep distinct."
       },
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.3.c",
@@ -1882,7 +2806,7 @@
       "value": 3,
       "unit": "plantas",
       "measurement": null,
-      "referencePlane": null,
+      "referencePlane": "cota del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio (cota de origen y referencia)",
       "denominatorScope": null,
       "source": {
         "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
@@ -1898,7 +2822,77 @@
       "effectiveDate": null,
       "extractedFrom": "prose",
       "confidence": "exact",
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "storeyCountRule": {
+        "articulo": "6.6.7",
+        "apartado": "párrafo único",
+        "pdfPage": 204,
+        "printedPage": 202,
+        "verbatim": "Corresponde al número de plantas por encima de la cota de origen y referencia incluida la planta baja.",
+        "note": "maxFloors is counted ABOVE the cota de origen y referencia, planta baja INCLUDED — so a storey count is datum-dependent exactly as a metre figure is. On a stepped façade the count is per-segment (art. 6.6.8.6.d)."
+      },
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.4",
@@ -1936,7 +2930,69 @@
         "verbatim": "Sobre la última planta en los grados 1º, 2º, 3º, 4º y 6º, se admite la construcción de una planta, con una superficie máxima inferior o igual al diez por ciento (10%) de la superficie edificada de la planta sobre la que se sitúe. Su altura de coronación no superará los mil doscientos cincuenta (1.250) centímetros, medidos desde la cota de origen y referencia.",
         "note": "12,50 m is a CORONACIÓN ceiling, not a cornisa one. Keep distinct."
       },
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.4",
@@ -2120,7 +3176,7 @@
       "value": 2,
       "unit": "plantas",
       "measurement": null,
-      "referencePlane": null,
+      "referencePlane": "cota de nivelación de la planta baja",
       "denominatorScope": null,
       "source": {
         "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
@@ -2136,7 +3192,138 @@
       "effectiveDate": null,
       "extractedFrom": "prose",
       "confidence": "exact",
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "not a terrain sample — the datum is a single horizontal plane (cota cero) fixed by the project",
+        "planeAtPoint": "cota de nivelación de la planta baja",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "6.3.5",
+        "apartado": "c)",
+        "pdfPage": 193,
+        "printedPage": 191,
+        "verbatim": "…considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0)…",
+        "note": "The plane is CHOSEN by the project, so there is no single terrain point to sample. It is nonetheless terrain-derived, because art. 6.6.15.1.b) boxes it into a ±150 cm window around a pavement rasante taken at a NAMED midpoint, and art. 6.3.5.c) caps it absolutely.",
+        "absoluteCap": {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "verbatim": "En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja."
+        },
+        "steppedTerrainRule": {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "verbatim": "Cuando se instituya como cota de origen y referencia la de nivelación de planta baja y por las necesidades de la edificación o por las características del terreno en que se asiente, deba escalonarse la misma, la medición de las alturas se realizará de forma independiente en cada una de las plataformas que la componga, sin que dicho escalonamiento de planta baja pueda traducirse en exceso de altura.",
+          "note": "The aislada analogue of the 20 m stepping rule: per-platform, independent, no height bonus."
+        },
+        "whereThePlaneMaySit": {
+          "articulo": "6.6.15",
+          "apartado": "1.b)",
+          "pdfPage": 208,
+          "printedPage": 206,
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "cases": [
+            {
+              "case": "single frontage",
+              "apartado": "1.b)i)",
+              "verbatim": "Entre más/menos ciento cincuenta (150) centímetros respecto a la rasante de la acera en el punto medio del lindero frontal."
+            },
+            {
+              "case": "opposite frontages",
+              "apartado": "1.b)ii)",
+              "verbatim": "En parcelas con linderos frontales a calles opuestas, el nivel de implantación de la planta baja se situará a más/menos ciento cincuenta (150) centímetros respecto al punto medio del segmento que une los puntos medios de dichos linderos frontales."
+            },
+            {
+              "case": "corner parcel",
+              "apartado": "1.b)iii)",
+              "verbatim": "En parcelas de esquina, la cota de nivelación de planta baja deberá situarse entre más/menos ciento cincuenta (150) centímetros del punto medio de la rasante en la acera del lindero frontal de mayor longitud."
+            },
+            {
+              "case": "three frontages / block head",
+              "apartado": "1.b)iv)",
+              "verbatim": "Las parcelas con tres frentes que constituyan cabeceras de manzanas, se tratarán como parcelas con linderos frontales a calles opuestas."
+            },
+            {
+              "case": "triangular full block",
+              "apartado": "1.b)v)",
+              "verbatim": "Las parcelas coincidentes con manzanas completas de planta triangular se tratarán como parcelas con linderos frontales a calles opuestas, considerando los dos linderos de mayor longitud."
+            },
+            {
+              "case": "polygonal full block, >3 sides",
+              "apartado": "1.b)vi)",
+              "verbatim": "Las parcelas coincidentes con manzanas completas de planta poligonal de más de tres lados, se tratarán como parcelas con linderos frontales a calles opuestas, considerando el lindero de mayor longitud y el enfrentado a él, que será el más largo cuando sean varios."
+            },
+            {
+              "case": "multiple frontages with >3 m level difference",
+              "apartado": "1.b)vii)",
+              "verbatim": "En las parcelas con varios linderos frontales y desniveles entre estos superiores a tres (3) metros, cuando se dispongan distintos cuerpos de edificación, las plantas bajas de cada uno de ellos podrán situarse, alternativamente a la posición que corresponda según la tipología de la parcela, en la forma establecida para las parcelas con un solo lindero frontal en el apartado b.i), respecto del lindero más cercano al que dé frente el cuerpo de edificación considerado."
+            },
+            {
+              "case": "cap on raising the parcel rasante above neighbours",
+              "apartado": "1.b)viii)",
+              "verbatim": "En sus linderos, la rasante de las parcelas no se elevará más de 1,50 m respecto de las colindantes, salvo en situaciones preexistentes, en cuyo caso se presentará estudio de implantación que reduzca en lo posible el desnivel original, el cual no podrá incrementarse en ningún caso."
+            },
+            {
+              "case": "topographic justification",
+              "apartado": "1.b)ix)",
+              "verbatim": "Cuando por la configuración topográfica, forma, dimensiones de una parcela, o por la situación del edificio en la misma, se justifique, la planta baja podrá situarse en posiciones distintas de las reguladas anteriormente mediante la formulación, en su caso, de Estudio de Detalle.",
+              "note": "Discretionary escape. An envelope generator cannot anticipate it."
+            }
+          ]
+        }
+      },
+      "datumSource": {
+        "from": "norma zonal, express",
+        "articulo": "8.8.10",
+        "apartado": "2",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En el grado 5º, la altura de la edificación no podrá exceder de dos (2) plantas ni de siete (7) metros a cornisa, medidos desde la cota de nivelación de la planta baja."
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "storeyCountRule": {
+        "articulo": "6.6.7",
+        "apartado": "párrafo único",
+        "pdfPage": 204,
+        "printedPage": 202,
+        "verbatim": "Corresponde al número de plantas por encima de la cota de origen y referencia incluida la planta baja.",
+        "note": "maxFloors is counted ABOVE the cota de origen y referencia, planta baja INCLUDED — so a storey count is datum-dependent exactly as a metre figure is. On a stepped façade the count is per-segment (art. 6.6.8.6.d)."
+      },
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.5",
@@ -2160,7 +3347,130 @@
       "effectiveDate": null,
       "extractedFrom": "prose",
       "confidence": "exact",
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "not a terrain sample — the datum is a single horizontal plane (cota cero) fixed by the project",
+        "planeAtPoint": "cota de nivelación de la planta baja",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "6.3.5",
+        "apartado": "c)",
+        "pdfPage": 193,
+        "printedPage": 191,
+        "verbatim": "…considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0)…",
+        "note": "The plane is CHOSEN by the project, so there is no single terrain point to sample. It is nonetheless terrain-derived, because art. 6.6.15.1.b) boxes it into a ±150 cm window around a pavement rasante taken at a NAMED midpoint, and art. 6.3.5.c) caps it absolutely.",
+        "absoluteCap": {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "verbatim": "En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja."
+        },
+        "steppedTerrainRule": {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "verbatim": "Cuando se instituya como cota de origen y referencia la de nivelación de planta baja y por las necesidades de la edificación o por las características del terreno en que se asiente, deba escalonarse la misma, la medición de las alturas se realizará de forma independiente en cada una de las plataformas que la componga, sin que dicho escalonamiento de planta baja pueda traducirse en exceso de altura.",
+          "note": "The aislada analogue of the 20 m stepping rule: per-platform, independent, no height bonus."
+        },
+        "whereThePlaneMaySit": {
+          "articulo": "6.6.15",
+          "apartado": "1.b)",
+          "pdfPage": 208,
+          "printedPage": 206,
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "cases": [
+            {
+              "case": "single frontage",
+              "apartado": "1.b)i)",
+              "verbatim": "Entre más/menos ciento cincuenta (150) centímetros respecto a la rasante de la acera en el punto medio del lindero frontal."
+            },
+            {
+              "case": "opposite frontages",
+              "apartado": "1.b)ii)",
+              "verbatim": "En parcelas con linderos frontales a calles opuestas, el nivel de implantación de la planta baja se situará a más/menos ciento cincuenta (150) centímetros respecto al punto medio del segmento que une los puntos medios de dichos linderos frontales."
+            },
+            {
+              "case": "corner parcel",
+              "apartado": "1.b)iii)",
+              "verbatim": "En parcelas de esquina, la cota de nivelación de planta baja deberá situarse entre más/menos ciento cincuenta (150) centímetros del punto medio de la rasante en la acera del lindero frontal de mayor longitud."
+            },
+            {
+              "case": "three frontages / block head",
+              "apartado": "1.b)iv)",
+              "verbatim": "Las parcelas con tres frentes que constituyan cabeceras de manzanas, se tratarán como parcelas con linderos frontales a calles opuestas."
+            },
+            {
+              "case": "triangular full block",
+              "apartado": "1.b)v)",
+              "verbatim": "Las parcelas coincidentes con manzanas completas de planta triangular se tratarán como parcelas con linderos frontales a calles opuestas, considerando los dos linderos de mayor longitud."
+            },
+            {
+              "case": "polygonal full block, >3 sides",
+              "apartado": "1.b)vi)",
+              "verbatim": "Las parcelas coincidentes con manzanas completas de planta poligonal de más de tres lados, se tratarán como parcelas con linderos frontales a calles opuestas, considerando el lindero de mayor longitud y el enfrentado a él, que será el más largo cuando sean varios."
+            },
+            {
+              "case": "multiple frontages with >3 m level difference",
+              "apartado": "1.b)vii)",
+              "verbatim": "En las parcelas con varios linderos frontales y desniveles entre estos superiores a tres (3) metros, cuando se dispongan distintos cuerpos de edificación, las plantas bajas de cada uno de ellos podrán situarse, alternativamente a la posición que corresponda según la tipología de la parcela, en la forma establecida para las parcelas con un solo lindero frontal en el apartado b.i), respecto del lindero más cercano al que dé frente el cuerpo de edificación considerado."
+            },
+            {
+              "case": "cap on raising the parcel rasante above neighbours",
+              "apartado": "1.b)viii)",
+              "verbatim": "En sus linderos, la rasante de las parcelas no se elevará más de 1,50 m respecto de las colindantes, salvo en situaciones preexistentes, en cuyo caso se presentará estudio de implantación que reduzca en lo posible el desnivel original, el cual no podrá incrementarse en ningún caso."
+            },
+            {
+              "case": "topographic justification",
+              "apartado": "1.b)ix)",
+              "verbatim": "Cuando por la configuración topográfica, forma, dimensiones de una parcela, o por la situación del edificio en la misma, se justifique, la planta baja podrá situarse en posiciones distintas de las reguladas anteriormente mediante la formulación, en su caso, de Estudio de Detalle.",
+              "note": "Discretionary escape. An envelope generator cannot anticipate it."
+            }
+          ]
+        }
+      },
+      "datumSource": {
+        "from": "norma zonal, express",
+        "articulo": "8.8.10",
+        "apartado": "2",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En el grado 5º, la altura de la edificación no podrá exceder de dos (2) plantas ni de siete (7) metros a cornisa, medidos desde la cota de nivelación de la planta baja."
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.5",
@@ -2350,7 +3660,7 @@
       "value": 3,
       "unit": "plantas",
       "measurement": null,
-      "referencePlane": null,
+      "referencePlane": "cota del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio (cota de origen y referencia)",
       "denominatorScope": null,
       "source": {
         "document": "Compendio 2025 de las NNUU del PGOUM-97 (24-09-2025)",
@@ -2366,7 +3676,77 @@
       "effectiveDate": null,
       "extractedFrom": "prose",
       "confidence": "exact",
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "storeyCountRule": {
+        "articulo": "6.6.7",
+        "apartado": "párrafo único",
+        "pdfPage": 204,
+        "printedPage": 202,
+        "verbatim": "Corresponde al número de plantas por encima de la cota de origen y referencia incluida la planta baja.",
+        "note": "maxFloors is counted ABOVE the cota de origen y referencia, planta baja INCLUDED — so a storey count is datum-dependent exactly as a metre figure is. On a stepped façade the count is per-segment (art. 6.6.8.6.d)."
+      },
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.6",
@@ -2404,7 +3784,69 @@
         "verbatim": "Sobre la última planta en los grados 1º, 2º, 3º, 4º y 6º, se admite la construcción de una planta, con una superficie máxima inferior o igual al diez por ciento (10%) de la superficie edificada de la planta sobre la que se sitúe. Su altura de coronación no superará los mil doscientos cincuenta (1.250) centímetros, medidos desde la cota de origen y referencia.",
         "note": "12,50 m is a CORONACIÓN ceiling, not a cornisa one. Keep distinct."
       },
-      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+      "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+      "samplingRule": {
+        "point": "punto medio de la fachada en que se sitúa el acceso al edificio — cota del CONTACTO de la edificación con el terreno at that point",
+        "planeAtPoint": "cota del contacto de la edificación con el terreno",
+        "perFacade": false,
+        "isBlockCentroid": false,
+        "isParcelCentroid": false,
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros.",
+        "secondLimit": {
+          "articulo": "8.8.10",
+          "apartado": "1",
+          "pdfPage": 443,
+          "verbatim": "En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+          "note": "A SECOND, HIGHER limit (12,00 m) measured from a DIFFERENT datum (terrain at the midpoint of EACH other façade). Both bind. On sloping ground the 12,00 m limit is what actually governs the downhill side."
+        },
+        "note": "NZ 8 institutes its own datum under the art. 6.3.5.c) / 6.6.8.6 escape clause. It is neither the plain aislada rule nor the manzana-cerrada rule: it is ground CONTACT (not pavement rasante) at the ACCESS façade midpoint."
+      },
+      "datumSource": {
+        "from": "norma zonal, express — institutes its own datum under the art. 6.3.5.c) escape",
+        "articulo": "8.8.10",
+        "apartado": "1",
+        "pdfPage": 443,
+        "printedPage": 441,
+        "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio…"
+      },
+      "datumChain": [
+        {
+          "articulo": "6.6.5",
+          "apartado": "preámbulo + 1 + 2",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Son las que sirven para determinar las distintas alturas en un edificio, tomadas en relación con la cota de origen y referencia, determinada de acuerdo con el art. 6.3.5. apartado c) y se distinguen las siguientes: 1. Nivel de cornisa: El de la intersección de la cara inferior del forjado que forma el techo de la última planta con la fachada del edificio. 2. Nivel de coronación: El del plano superior de los petos de protección de cubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última planta. En función de estas referencias resultarán la altura de cornisa y la altura de coronación, siendo la altura total la que se mide hasta el elemento más alto del edificio.",
+          "note": "Keeps cornisa / coronación / total distinct. All three share the SAME origin; they differ only in where the measurement stops."
+        },
+        {
+          "articulo": "6.6.6",
+          "apartado": "párrafo único",
+          "pdfPage": 203,
+          "printedPage": 201,
+          "verbatim": "Es la altura del edificio medida en unidades métricas desde la cota de origen y referencia hasta cualquiera de las demás referencias altimétricas o elementos del edificio y en función de ellos será altura de cornisa, altura de coronación y altura total."
+        },
+        {
+          "articulo": "6.3.5",
+          "apartado": "c)",
+          "pdfPage": 193,
+          "printedPage": 191,
+          "verbatim": "Cota de origen y referencia: La que se define en el planeamiento como origen para la medición de la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta baja, que se tomará como cota cero (0) y en edificación en manzana cerrada la rasante de la acera en el punto medio de la línea de fachada. No obstante, las normas zonales, las ordenanzas particulares de las áreas del planeamiento correspondiente del Plan General, pueden determinar la situación o elemento que se instituye como cota de origen o referencia. En ningún caso la cota de origen y referencia podrá situarse por encima de la cota de nivelación de la planta baja.",
+          "amendment": "Artículo modificado por la MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)",
+          "note": "The typology split (aislada vs manzana cerrada) is the DEFAULT. A norma zonal may override it — NZ 7 grado 1º does exactly that (art. 8.7.11.1)."
+        }
+      ],
+      "bothBind": {
+        "articulo": "6.6.9",
+        "apartado": "2",
+        "pdfPage": 206,
+        "printedPage": 204,
+        "verbatim": "Cuando se establezca la altura por número de plantas y unidades métricas, ambas habrán de respetarse como máximos admisibles.",
+        "note": "A '3 plantas / 11,50 m' pair is a CONJUNCTION, not a choice. Whichever binds first, binds."
+      }
     },
     {
       "zoneCode": "8.6",
