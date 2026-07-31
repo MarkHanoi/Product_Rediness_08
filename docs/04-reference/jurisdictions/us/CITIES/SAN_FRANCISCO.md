@@ -94,7 +94,11 @@ SF rule pack → envelope → 3D massing`.
 ## 6 — Pending-probe checklist
 - [ ] DataSF **height-and-bulk** layer schema + coverage probed live (strongest lever)
 - [ ] DataSF zoning-district numeric attributes vs code-only
-- [ ] SF Assessor parcel layer wired as `SFParcelProvider` (currently footprint-fallback)
+- [~] SF Assessor parcel layer wired as `SFParcelProvider` — **BUILT `wired-pending-probe`** (L-650 Phase-4):
+      `packages/site-parcel-data/src/parcelProviders/sfParcelProvider.ts` (APN/blocklot + WGS84 ring +
+      geometry-derived area; geometry-first, NO FAR; OPTIONAL DRAFT height-and-bulk lead). Pending: the
+      orchestrator registers `isInSF→sf-datasf` in `parcelProviders/registry.ts` + a live endpoint probe
+      (`// PROBE:` markers on the DataSF `acdm-wktn` resource + the ArcGIS FeatureServer path).
 - [ ] Overture / 3DEP nDSM height join validated on steep blocks
 - [ ] coord → APN reverse lookup verified against a known lot
 

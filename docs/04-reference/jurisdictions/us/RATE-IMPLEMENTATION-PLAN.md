@@ -148,6 +148,29 @@ national scale to "finish."**
 > FeatureServer path carries a `// PROBE:` marker). **This moves NO RATE % cell** — `wired-pending-probe`
 > is not `baked`; the number stays put until the endpoint is live-probed and the registry is wired.
 
+> **STATUS (2026-07-31, L-650 Phase-4): SF PARCEL → `wired-pending-probe`.** The `SfParcelProvider`
+> is now BUILT and merged — `packages/site-parcel-data/src/parcelProviders/sfParcelProvider.ts`:
+> `isInSF` city-county bbox predicate + `SF_BBOX` + `fetchParcelAtPoint` (injected-fetch, never throws,
+> OTel span `pryzm.parcel.sfDataSf`) parsing a DataSF assessor feature (ArcGIS Esri-JSON **or** Socrata
+> `acdm-wktn`) → **APN/blocklot + mapblklot + block/lot numbers + a WGS84 ring + a geometry-derived
+> `areaM2`** (equirectangular shoelace — the assessor area field's unit is ambiguous, so area is a
+> computed geometry fact, not a trusted upstream number). CRS guard refuses a State-Plane ring rather
+> than mis-plot; confidence HIGH on APN + point-in-lot. **Crucially, SF is NOT NYC:** the assessor
+> parcel layer carries geometry + identity only — zoning district + the height-and-bulk district live in
+> SEPARATE DataSF layers (the `SFZoningProvider`'s job). So this provider is **geometry-first** and emits
+> **NO FAR** (SF governs by height-and-bulk, NOT a citywide FAR — ADR-0270 / C58 §2.2). It surfaces an
+> OPTIONAL **DRAFT** zoning/height lead (`zoningDistrict` + `heightBulkDistrict` + a DRAFT
+> `heightLimitDraftM` parsed from the district code's leading feet, cited to the SF Planning Code with a
+> DRAFT caveat) **only if** the proxy chose to spatially join the companion layer — never fabricated, and
+> never a buildable envelope (that stays `not-assessed` until the SF rule pack + L-449). Verified:
+> `@pryzm/site-parcel-data` typecheck clean · 29 new unit tests green (1157/1157 package suite) ·
+> `check:isolation` intact. **Still pending:** (1) the orchestrator registers `isInSF→sf-datasf` in
+> `parcelProviders/registry.ts` (a `// TODO(orchestrator)` note is left in-file; this provider does not
+> edit the registry); (2) a live probe of the DataSF assessor Socrata resource id + `blklot`/`the_geom`
+> field names + the ArcGIS FeatureServer path (both carry `// PROBE:` markers) and the companion
+> zoning + height-and-bulk layer schemas. **This moves NO RATE % cell** — `wired-pending-probe` is not
+> `baked`; the number stays put until the endpoints are live-probed and the registry is wired.
+
 - **Goal.** Probe live and wire the two flagship datasets as `City*Provider`s in
   `parcelProviders/registry.ts` (today: **no US entry → footprint-fallback**):
   **(1) `NYCParcelProvider` (MapPLUTO, BBL)** — tax-lot polygons + zoning district + building footprint +
