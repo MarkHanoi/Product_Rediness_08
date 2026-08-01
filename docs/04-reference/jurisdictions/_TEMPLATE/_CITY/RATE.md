@@ -48,6 +48,61 @@ this city). `partial: true`. **`honestyOk: true`** (renders no fabricated value;
      VERIFICATION.md), drop the unknown reason, and fill the derivation with the actual N / registry
      rows / probe result. The number must match the scorecard function output, byte for byte. -->
 
+## §CLOSURE — how far is this city from CLOSED? (mandatory, trackable)
+
+> **Ratified 2026-08-01 (L-662).** `RATE.md` answers *"how complete is this city?"*. It did **not**
+> answer *"how close is it to DONE?"* — and those are different questions, because **100 % is not the
+> target and never was**. Most cities have a **ceiling below 100 % fixed by law**, not by effort.
+
+### The definition — a city is **CLOSED** when ALL FOUR hold
+
+1. **Every axis is MEASURED** — no axis sitting at `not-assessed`. (`not-assessed ≠ 0 %`, and it also
+   ≠ *done*: an unmeasured axis is an unknown, not an achievement.)
+2. **Every axis is AT ITS CEILING** — the ceiling being the maximum the *law and the published data*
+   permit, stated and cited per axis below.
+3. **Every remaining gap is STRUCTURAL, not effort** — i.e. closing it would require a document that
+   does not exist, a discretionary determination, or a legal act outside PRYZM. **No open gap of type
+   `EFFORT` may remain.**
+4. **`honestyOk: true`** — every refusal correctly cited and correctly *attributed*. A wrong-jurisdiction
+   or wrong-reason refusal blocks closure even at a high score, because it is a **wrong answer**.
+
+⚠ **A city may be CLOSED at 60 %.** Closure is *"we have taken this city as far as the law allows"*,
+not *"we scored highly"*. Conversely a city at 90 % with one `EFFORT` gap is **NOT closed**.
+
+### Gap-type vocabulary (use exactly these)
+
+| Type | Meaning | Counts against closure? |
+|---|---|---|
+| `EFFORT` | we can close it — engineering or transcription we have not done | **YES** |
+| `STRUCTURAL-LAW` | the instrument delegates / states nothing / is discretionary | no |
+| `STRUCTURAL-DATA` | the authoritative data is not published, or is access-gated | no |
+| `UNMEASURED` | nobody has run the probe — **an unknown, never a zero** | **YES** |
+| `SIGNATURE` | built and verified; awaiting the founder's L-449 legal act | **YES** (until signed) |
+
+### The closure table — keep this current
+
+| Axis | W | Measured today | **Ceiling (cited)** | Gap | Gap type | What closes it |
+|---|---:|---|---|---:|---|---|
+| LEGISLATION | 25 | `<x>` | `<y>` — *why, cited* | `<y−x>` | `<type>` | `<the one named action>` |
+| ENVELOPE | 20 | `<x>` | `<y>` — *why, cited* | | | |
+| PARCEL | 15 | `<x>` | `<y>` | | | |
+| DATA-SOURCES | 15 | `<x>` | `<y>` | | | |
+| HEIGHTS/LOD | 10 | `<x>` | `<y>` | | | |
+| TERRAIN | 10 | `<x>` | `<y>` | | | |
+| CONTEXT | 5 | `<x>` | `<y>` | | | |
+| **CITY** | 100 | **`<composite>`** | **`<ceiling>`** | | | |
+
+**Closure verdict:** `OPEN` | `CLOSED` · **Blocking gaps:** `<count of EFFORT + UNMEASURED + SIGNATURE>`
+
+⚠ **Every ceiling must be CITED, not estimated.** *"~70 % because 62.8 % of city land is `PD*`
+(derived-plan governed), measured live 2026-07-31"* is a ceiling. *"~70 %"* alone is a guess, and a
+guessed ceiling lets a city be declared closed while real work remains.
+
+⚠ **The three L-656 metrics are DIFFERENT and must not be merged into this table**: *axis score*
+(buildable-land denominator) · *click coverage* (all clicks) · *answer correctness* (all clicks). This
+table scores the **first**. A city can be ~100 % on the third while its ENVELOPE axis sits at 56 % —
+both true, neither a contradiction.
+
 ## §CONTEXT-DATA-HONESTY note (mandatory)
 
 Completion (how much is done) and honesty (do we fabricate) are two different questions (C63 §3.1). This

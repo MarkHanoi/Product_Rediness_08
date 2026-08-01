@@ -24,6 +24,39 @@ data-readiness AND realistic full-envelope ceiling) and FEEDS Axis 2.
 | 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | L-582 MEASURED the baked provenance — **0.9 % surveyed (`tagged`) · 79.3 % `levels`×3.2 m · 19.8 % fabricated 9 m** — a real histogram, but the composite Axis-6 scorecard function has not run to convert it to an axis score, and the measured MDS join is not confirmed landed. Recorded as evidence; axis left `not-assessed` pending the scorecard run. |
 | 7 | **CONTEXT** | 5 % | **56%** | `not-checked` | — | Inside the `spain` context bake bbox (`bake.mjs` REGIONS `spain`); footprints MEASURED 104–121 % of OSM ground truth. Confirmed long-shipped layers: buildings · roads · water · parks · landuse (**5/9**). rail + trees config-added (L-642) but not-yet-landed → excluded (honest 0). pedestrian: not a baked layer. sea: coastal — via water/coastline, not tile-probed here → excluded. Score 5/9. |
 
+## §CLOSURE — distance to CLOSED (L-662)
+
+> **Stamp 2026-08-01.** Denominator per **L-656**: **private buildable land = 31,801,618 m²** — only
+> **27.1 %** of the city (101.78 M m²). Live AMB census 2026-07-31, cross-checked by the repo's
+> independent 275-point MUC grid at 53.5 %.
+> **CLOSED** = every axis measured · every axis at its **cited** ceiling · no `EFFORT` / `UNMEASURED` /
+> `SIGNATURE` gap left · `honestyOk: true`. **A city may be CLOSED below 100 %.**
+
+| Axis | W | Measured today | **Ceiling (cited)** | Gap type | What closes it |
+|---|---:|---|---|---|---|
+| **LEGISLATION** | 25 | **~48 %** (sub-rate) | **~48 %** — *the measured rate IS the ceiling; past it is **plànol vectorisation, not OCR**; the derived-planning slice (~40 % of land) is drawing-bound and height is ~0 % OCR-extractable (`findings/L-590h`)* | `STRUCTURAL-DATA` | nothing — **at ceiling** |
+| **ENVELOPE** | 20 | **56.0 %** | **~70 %** — *`22a` 15.60 % is **98.9 % `PD*`** ⇒ PGM Art. 350.1 delegates to ~2,595 Pla Parcials; `15/16/17/14a/14b/8a` 3.58 % delegate per-ámbito; **62.8 % of city land is `PD*`*** | `EFFORT` + `SIGNATURE` | clau 18 route ✅ wired → **awaiting `BCN_REFOS_OV_CERTIFIED`** (+4.68 pp); `22@` pack ✅ authored, blocked on a missing *profunditat*; `12b` needs LiDAR; bare `20a` needs a subzone layer |
+| **PARCEL** | 15 | `not-assessed` | **HIGH** — *Catastro national + keyless; **block dissolve 2/2**, strongest in the Spanish set (L-535)* | `UNMEASURED` | run `computeParcelConfidence` — **agent in flight** |
+| **DATA-SOURCES** | 15 | **90 %** | **100 %** — *4.5/5 slots live; the ½ is `mds_edificacion` configured but not confirmed landed in the shipped tiles* | `EFFORT` | the buildings re-bake (in flight) confirms the 5th slot |
+| **HEIGHTS/LOD** | 10 | `not-assessed` — measured histogram **0.9 % surveyed · 79.3 % levels×3.2 m · 19.8 % fabricated 9 m**; shipped tiles report **`measuredMarkerCount: 0`** | **unknown until the MDS join coverage is measured** — *Köln's equivalent join hit 85.4 %; Barcelona's is a different national source and has never been measured* | `EFFORT` | buildings-only re-bake (in flight, L-657) **then re-probe** |
+| **TERRAIN** | 10 | **50 %** | **&lt;100 %** — *baked+published ✅, but seated on **ONE centroid sample**, while the ordinance measures from **rasant at the façade** (L-584)* | `EFFORT` | façade-rasant sampling |
+| **CONTEXT** | 5 | **56 %** | *unstated* — 5/9 layers; rail+trees config-added not landed | `EFFORT` | remaining layer bakes |
+| **CITY** | 100 | **`partial` — 3 of 7 axes assessed** | — | — | — |
+
+**Closure verdict: `OPEN`.** **Blocking gaps: 6** — 2 `UNMEASURED`/`EFFORT` on PARCEL+HEIGHTS (both in
+flight), 1 `SIGNATURE` (clau 18), 3 `EFFORT` (envelope tail, terrain rasant, context layers).
+
+**At ceiling already: LEGISLATION.** That is not a failure — ~48 % is what the law and the published
+drawings permit, and pushing past it is a vectorisation programme, not extraction. **Recognising an axis
+as *finished at its ceiling* is the point of this table.**
+
+⚠ **Two open correctness risks that would block closure even at full score** (`honestyOk` is
+launch-blocking, completion % is not): **(1)** clau `12` is mapped with **no geographic predicate**, so a
+Ciutat Vella parcel could receive an Art. 320.3a envelope under a citation that does not govern it —
+**9.38 % of buildable land on an untested assumption**. **(2) L-660** — Arts. 327.2a/328.2a may be
+**superseded** for Barcelona by the MPGM of 02-03-2007 (DOGC 4893), which would make every 13a/13b/12
+height wrong by +0,45…+1,95 m across **44.0 %** of buildable land. Both are open.
+
 ## §CONTEXT-DATA-HONESTY note
 
 DOES: terrain (PNOA MDT / Cesium, unverified rasant) + national Catastro (dissolve 2/2) + live MUC zone GIS + a **LIVE constructed 13a envelope** (founder-accepted) + baked OSM context (5/9). REFUSES: an envelope on the derived-planning slice + systems land — a cited "no envelope applies" / "governed by its own plan" (L-550/L-553), never a fabricated setback triple. UNKNOWN (typed): PARCEL quality (`not-queried`), LEGISLATION + ENVELOPE composite axes (`pending-implementation`), HEIGHTS (`not-queried`, though L-582 measured the histogram). `honestyOk: true`. ⚠ ~48 % is both the measured legislation rate AND the realistic full-envelope ceiling — ~80 % is gated behind plànol vectorisation, not OCR.
