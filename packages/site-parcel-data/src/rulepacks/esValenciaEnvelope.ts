@@ -168,8 +168,103 @@ export const VALENCIA_ALTURA_FIELD_MEASURE = {
     notAStoreyCountPctOfLayerArea: 32.01,
     /** `<=n` / `Max n` — a real storey BOUND. A bound is not a determination. */
     boundedStoreyPctOfLayerArea: 6.63,
-    /** ⚠ Has the layer been spatially joined to the buildable denominator? It has not. */
-    joinedToBuildableDenominator: false,
+    /**
+     * ⚠ Has the layer been spatially joined to the buildable denominator? **IT HAS, 2026-08-01.**
+     * See `VALENCIA_ALTURA_ON_BUILDABLE_LAND` — and the answer inverts the size of the lead.
+     */
+    joinedToBuildableDenominator: true,
+} as const;
+
+/**
+ * §VALENCIA-ALTURA-BUILDABLE-JOIN — **the measurement that was missing, and it moves the lead the
+ * OTHER WAY.**
+ *
+ * `VALENCIA_ALTURA_FIELD_MEASURE` above is LAYER-RELATIVE: it describes layer 212's own 4 213,7 ha,
+ * which is 2,25× the 1 869,6 ha of private buildable land and includes streets, open space and
+ * non-buildable ground. Its own docstring says so: *"even the 27,13 % is a share of the WRONG
+ * denominator"*. **This constant is the same field measured on the RIGHT denominator.**
+ *
+ * ⚠⚠ **AND IT IS ~2× LARGER, NOT SMALLER.** The previous pass corrected a polygon-COUNT figure
+ * (65,5 %) down to a layer-AREA figure (27,13 %) and recorded that as *"the honest size of the
+ * lead"*. On the L-656 denominator the honest size is **52,6 %** — so the 27,13 % understated it
+ * almost exactly as much as the 65,5 % overstated it. **Both errors had the same cause: quoting a
+ * ratio without its denominator.**
+ *
+ * ⚠ **THE `0` SENTINEL SHRINKS BY 3,3×, AND THE REASON IS STRUCTURAL.** `0` is 34,13 % of layer 212's
+ * area but only **10,3 %** of buildable land. Sampled geometry says why: the `altura='0'` features are
+ * the NON-BUILDABLE complement — one probed feature is a single 29,4 ha polygon with **98 interior
+ * holes**, i.e. the street space with the manzanas punched out of it; another coincides to the square
+ * metre with a `GEL Espacios Libres` calificación polygon. ⇒ On the land that matters, `0` is largely
+ * a **true zero on ground nobody may build on**, not the unknown-sentinel that the layer-relative
+ * reading made it look like. ⚠ That is a REFRAMING, not an all-clear: 10,3 % of buildable land still
+ * carries `0`, and C58 §1.7a / L-616 still forbid reading any `0` as a determination.
+ *
+ * **METHOD** (so it can be re-run and disputed). 1 400 points drawn uniformly at random over the
+ * canonical `terrain.mjs` REGIONS `valencia` bbox, seed 20260801; each point resolved by ONE ArcGIS
+ * `identify` against layers 7 (Alineaciones) and 14 (Calificaciones) of
+ * `Tools/FichaUrbanismo/MapServer` **at the same coordinate**, so the two answers cannot drift.
+ * **156 points landed on the L-656 denominator** (`clase='SU'` ∧ `califi` ∈ Art. 6.3.1's six); 1 244
+ * fell outside it and 0 failed in transport. Uniform-over-area ⇒ the retained set is AREA-WEIGHTED by
+ * construction, so these are land shares, not polygon counts. The UNFILTERED counts (`{"count":21210}`
+ * / `{"count":21975}`) were asserted BEFORE any `where`, with a `califi='ZZZNOPE'` → `{"count":0}`
+ * control of byte-identical shape.
+ *
+ * ⚠ **N=156. The 95 % Wilson interval travels with every figure** and is wide enough to matter; this
+ * is a sample, not a census, and it is labelled as one.
+ *
+ * ⚠⚠ **IT IS STILL NOT AN UNLOCK, AND NOTHING HERE MAY BE PACKED.** The join closes condition (b) of
+ * `CLOSURE-REGISTER` #2. Condition (a) — what the field MEANS — is untouched and remains the blocker:
+ *   1. **Nothing in the service documents `altura`.** 696 layers across 67 public services were
+ *      field-swept on 2026-08-01; the layer's only description is *"Muestra las alineaciones del Plan
+ *      General de Ordenación Urbana"*. That the field is Art. 6.19.1's *número de plantas* is an
+ *      INFERENCE — a suggestive one (the storey histogram is 1…9, exactly the domain of the article's
+ *      own eight-row table) but an inference. The field is named *altura* (a HEIGHT); the article
+ *      graphs a *número de plantas* (a COUNT). Reading a `4` as 4 storeys gives 13,5 m; as 4 metres it
+ *      gives 4 m.
+ *   2. **The `−1` convention is established for the ARTICLE, not for the FIELD.** Art. 6.19.1 defines
+ *      Np as the graphed count minus one. Whether `altura` stores the graphed count or Np already is
+ *      undocumented, and the two differ by 2,90 m on every ENS building.
+ *   3. **`profundidad edificable` is still published NOWHERE.** ENS needs Art. 6.18.2's depth as well
+ *      as 6.19.1's height, and no attribute in the entire public catalogue carries it. Sampled
+ *      geometry hints that layer 212's POLYGON may itself be the *área de movimiento* (at Gran Via
+ *      Marqués del Turia its 3 130 m² / ~17,6 m-wide ring nests inside a 4 902 m² / ~30,5 m-wide ENS
+ *      calificación polygon, consistent with Art. 6.18.2's 20 m cap) — but that is FOUR POINTS, and
+ *      layer 212's total area is 2,25× the buildable denominator, which is not the shape of a tight
+ *      buildable-footprint layer. **Unmeasured; explicitly not relied on.**
+ *   4. **A computed Hc is not a ceiling anyway** — Art. 6.19.3 can REQUIRE exceeding it (enrase de
+ *      cornisas) and 6.19.3.c grants ENS-2 infill an extra storey.
+ *
+ * ⇒ **The verdict is unchanged and deliberate: València's ENVELOPE stays 0 %.** What changed is the
+ * PRICE of the remaining question — one municipal confirmation (R5), not a data-acquisition project.
+ */
+export const VALENCIA_ALTURA_ON_BUILDABLE_LAND = {
+    measuredAt: '2026-08-01',
+    method: 'uniform-random points over the terrain.mjs `valencia` bbox, seed 20260801, one ArcGIS '
+        + '`identify` per point against Tools/FichaUrbanismo/MapServer layers 7 + 14; retained where '
+        + "clase='SU' ∧ califi ∈ Art. 6.3.1's six. Area-weighted by construction.",
+    pointsDrawn: 1400,
+    /** Points that landed on the L-656 private-buildable denominator. THE DENOMINATOR OF EVERY % BELOW. */
+    sampleN: 156,
+    /** Points outside the denominator — recorded, never folded in. */
+    offDenominator: 1244,
+    /** ⚠ Transport failures are EXCLUDED from the denominator entirely, never scored (L-422/457/467/469). */
+    transportFailures: 0,
+    /** Bare integer 1…30 — the only values that could be a *número de plantas*. 95 % CI 44.8–60.2. */
+    bareStoreyPctOfBuildableLand: 52.6,
+    /** ⚠ The literal `0`. 95 % CI 6.4–16.0 — vs 34,13 % of LAYER area. Mostly non-buildable ground. */
+    zeroPctOfBuildableLand: 10.3,
+    /** `<=n` / `Max n` — a real storey BOUND, and a bound is not a determination. CI 10.6–21.9. */
+    boundedStoreyPctOfBuildableLand: 15.4,
+    /** Junk, protection-derived, floorspace/FAR and delegated/deferred combined. */
+    notAStoreyCountPctOfBuildableLand: 21.8,
+    /** ⚠ ENS alone — the single largest zone (41,3 % of buildable land) — n=61, 47 bare storeys. */
+    ensBareStoreyPctOfEnsLand: 77.0,
+    /** The bare-integer values actually observed. ⚠ 1…9 is exactly Art. 6.19.1's own table domain. */
+    observedStoreyValues: [1, 2, 3, 4, 5, 6, 7, 8, 9, 15],
+    /** ⚠ STILL AN INFERENCE. The join sized the lead; it did not name the field. See R5. */
+    fieldSemanticsConfirmedByMunicipality: false,
+    /** ⚠ Art. 6.18.2's depth is published by NO layer in the public catalogue. Sufficient on its own. */
+    profundidadEdificablePublished: false,
 } as const;
 
 /**

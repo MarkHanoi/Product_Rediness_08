@@ -908,6 +908,7 @@ export {
     VALENCIA_ROADMAP_LINE,
     VALENCIA_ALTURA_LEAD_MEASURED_AT,
     VALENCIA_ALTURA_FIELD_MEASURE,
+    VALENCIA_ALTURA_ON_BUILDABLE_LAND,
     valenciaNoRulePackRefusal,
 } from './rulepacks/esValenciaEnvelope.js';
 export {

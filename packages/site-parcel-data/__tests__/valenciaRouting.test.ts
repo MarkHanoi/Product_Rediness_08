@@ -29,6 +29,7 @@ import {
 import { composeIneCode } from '../src/providers/murciaBbox.js';
 import {
     VALENCIA_ALTURA_FIELD_MEASURE,
+    VALENCIA_ALTURA_ON_BUILDABLE_LAND,
     VALENCIA_ENVELOPE_VERIFIED,
     VALENCIA_JURISDICTION_ID,
     VALENCIA_ROADMAP_LINE,
@@ -441,8 +442,9 @@ describe('València — the layer-212 `altura` lead is fenced, not promoted', ()
         expect(VALENCIA_ALTURA_FIELD_MEASURE.plausibleStoreyPctOfLayerArea).toBeGreaterThan(25);
     });
 
-    it('has NOT been joined to the buildable denominator, and says so', () => {
-        expect(VALENCIA_ALTURA_FIELD_MEASURE.joinedToBuildableDenominator).toBe(false);
+    it('HAS now been joined to the buildable denominator, and says so', () => {
+        // Was `false`. The join ran 2026-08-01 — see VALENCIA_ALTURA_ON_BUILDABLE_LAND.
+        expect(VALENCIA_ALTURA_FIELD_MEASURE.joinedToBuildableDenominator).toBe(true);
     });
 
     it('the value classes account for the layer', () => {
@@ -452,6 +454,60 @@ describe('València — the layer-212 `altura` lead is fenced, not promoted', ()
             m.zeroSentinelPctOfLayerArea +
             m.notAStoreyCountPctOfLayerArea +
             m.boundedStoreyPctOfLayerArea;
+        expect(sum).toBeGreaterThan(98);
+        expect(sum).toBeLessThanOrEqual(100.5);
+    });
+});
+
+// ── §VALENCIA-ALTURA-BUILDABLE-JOIN ────────────────────────────────────────────────────────────
+describe('València — `altura` on the L-656 denominator: the lead is BIGGER, and still not an unlock', () => {
+    const J = VALENCIA_ALTURA_ON_BUILDABLE_LAND;
+
+    it('⚠⚠ THE DENOMINATOR WAS THE WHOLE STORY — on buildable land the lead is ~2× the layer-relative figure', () => {
+        // 65,5 % (row count) → 27,13 % (layer area) → 52,6 % (buildable land). The first two errors
+        // had ONE cause: a ratio quoted without its denominator. This test pins the third.
+        expect(J.bareStoreyPctOfBuildableLand).toBeGreaterThan(
+            VALENCIA_ALTURA_FIELD_MEASURE.plausibleStoreyPctOfLayerArea,
+        );
+        expect(J.bareStoreyPctOfBuildableLand).toBeGreaterThan(45);
+        expect(J.bareStoreyPctOfBuildableLand).toBeLessThan(61); // the 95 % Wilson upper bound
+    });
+
+    it('⚠ the `0` bucket COLLAPSES on buildable land — it sat on ground nobody may build on', () => {
+        expect(J.zeroPctOfBuildableLand).toBeLessThan(
+            VALENCIA_ALTURA_FIELD_MEASURE.zeroSentinelPctOfLayerArea / 3,
+        );
+        // ⚠ But it is NOT zero, and C58 §1.7a / L-616 still forbid reading any `0` as a determination.
+        expect(J.zeroPctOfBuildableLand).toBeGreaterThan(0);
+    });
+
+    it('the observed storey values sit inside Art. 6.19.1\'s own table domain — suggestive, NOT proof', () => {
+        // The article's transcribed table runs 2→9 graphed plantas. The field's bare integers are
+        // 1…9 plus a single 15. That is a strong SIGNAL about the field's semantics and is recorded
+        // as such — the next assertion is the one that keeps it from being read as a finding.
+        expect(Math.max(...J.observedStoreyValues.filter((v) => v < 15))).toBeLessThanOrEqual(9);
+    });
+
+    it('⛔ THE JOIN DID NOT NAME THE FIELD — semantics stay UNCONFIRMED and nothing may be packed', () => {
+        expect(J.fieldSemanticsConfirmedByMunicipality).toBe(false);
+        // Independently sufficient: ENS needs Art. 6.18.2's depth as well as 6.19.1's height, and no
+        // layer in the public catalogue publishes it. Either flag alone forbids an envelope.
+        expect(J.profundidadEdificablePublished).toBe(false);
+        // ⇒ and therefore the pack STILL publishes nothing. This is the load-bearing assertion.
+        expect(ES_VALENCIA_PGOU_PACK.zones).toHaveLength(0);
+        expect(VALENCIA_ENVELOPE_VERIFIED).toBe(false);
+    });
+
+    it('reports its sample size and EXCLUDES transport failures from the denominator', () => {
+        // §CONTEXT-DATA-HONESTY: a failed probe is a claim about OUR NETWORK, never a low score.
+        expect(J.sampleN).toBeGreaterThan(100);
+        expect(J.transportFailures).toBe(0);
+        expect(J.sampleN + J.offDenominator + J.transportFailures).toBe(J.pointsDrawn);
+    });
+
+    it('the buildable-land value classes account for the sample', () => {
+        const sum = J.bareStoreyPctOfBuildableLand + J.zeroPctOfBuildableLand
+            + J.boundedStoreyPctOfBuildableLand + J.notAStoreyCountPctOfBuildableLand;
         expect(sum).toBeGreaterThan(98);
         expect(sum).toBeLessThanOrEqual(100.5);
     });
