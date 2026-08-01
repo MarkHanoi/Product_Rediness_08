@@ -2,7 +2,6 @@
 
 <!-- generated-by: `node tools/city-completion/computeScorecard.mjs --region barcelona --cc es` (L-658, 2026-08-01) over `tools/city-completion/samples/barcelona.parcel-sample.json`. PARCEL is now MEASURED from a live 120-point sample; DATA-SOURCES/TERRAIN/CONTEXT are config reads; LEGISLATION · ENVELOPE · HEIGHTS/LOD remain not-assessed with typed C62 reasons. NO cell is a fabricated number. -->
 
-<<<<<<< HEAD
 > # ⏱ STATUS 2026-08-01 — distance to CLOSED
 >
 > **`OPEN` · 5 blocking gaps + 2 correctness risks.** Full table in [§CLOSURE](#closure--distance-to-closed-l-662).
@@ -34,7 +33,7 @@
 axes only (DATA-SOURCES · TERRAIN · CONTEXT); the missing axes (PARCEL · LEGISLATION · ENVELOPE ·
 HEIGHTS/LOD) are honestly `not-assessed`, not 0 % (C63 §1.2/§1.5). **`honestyOk: true`** (no fabricated
 value; every unknown typed). Barcelona is **the PILOT** — the one Spanish city with a LIVE constructed
-=======
+
 **Overall completion (assessed subset): `87.4%` · `partial: true` — over 45 % of the ratified weight**
 — renormalised over the four ASSESSED axes (**PARCEL** · DATA-SOURCES · TERRAIN · CONTEXT, Σ weight
 15+15+10+5 = **45**); LEGISLATION · ENVELOPE · HEIGHTS/LOD stay honestly `not-assessed`, not 0 %
@@ -53,7 +52,6 @@ value; every unknown typed). Barcelona is **the PILOT** — the one Spanish city
 > `node computeScorecard.mjs --region barcelona --cc es [--context-layers buildings,roads,water,parks,landuse]`.
 
 Barcelona is **the PILOT** — the one Spanish city with a LIVE constructed
->>>>>>> d0fc107d (feat(c63): MEASURE the PARCEL + DATA-SOURCES axes across 7 cities (L-658))
 envelope (13a); its legislation detail is [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (~48 % — measured
 data-readiness AND realistic full-envelope ceiling) and FEEDS Axis 2.
 
@@ -72,7 +70,6 @@ data-readiness AND realistic full-envelope ceiling) and FEEDS Axis 2.
 | 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | L-582 MEASURED the baked provenance — **0.9 % surveyed (`tagged`) · 79.3 % `levels`×3.2 m · 19.8 % fabricated 9 m** — a real histogram, but the composite Axis-6 scorecard function has not run to convert it to an axis score, and the measured MDS join is not confirmed landed. Recorded as evidence; axis left `not-assessed` pending the scorecard run. |
 | 7 | **CONTEXT** | 5 % | **56%** | `not-checked` | — | Inside the `spain` context bake bbox (`bake.mjs` REGIONS `spain`); footprints MEASURED 104–121 % of OSM ground truth. Confirmed long-shipped layers: buildings · roads · water · parks · landuse (**5/9**). rail + trees config-added (L-642) but not-yet-landed → excluded (honest 0). pedestrian: not a baked layer. sea: coastal — via water/coastline, not tile-probed here → excluded. Score 5/9. |
 
-<<<<<<< HEAD
 ## §CLOSURE — distance to CLOSED (L-662)
 
 > **Stamp 2026-08-01.** Denominator per **L-656**: **private buildable land = 31,801,618 m²** — only
@@ -105,7 +102,7 @@ Ciutat Vella parcel could receive an Art. 320.3a envelope under a citation that 
 **9.38 % of buildable land on an untested assumption**. **(2) L-660** — Arts. 327.2a/328.2a may be
 **superseded** for Barcelona by the MPGM of 02-03-2007 (DOGC 4893), which would make every 13a/13b/12
 height wrong by +0,45…+1,95 m across **44.0 %** of buildable land. Both are open.
-=======
+
 ## The THREE PARCEL numbers — never conflated (L-656 / MASTER-ROI-TRACKER §0.5.2)
 
 All three are true statements about Barcelona on **2026-08-01**; each answers a different question and
@@ -126,7 +123,6 @@ cheap, conservative, cross-city-uniform stand-in; the AUTHORITATIVE Barcelona fi
 `qualificacio_refos` census (**31,801,618 m² = 27.1 % of the city**, MASTER-ROI-TRACKER §0.5.2). The
 proxy under-counts vacant buildable plots, gardens and setbacks, and is footprint-area-weighted rather
 than land-area-weighted. Do not swap the two.
->>>>>>> d0fc107d (feat(c63): MEASURE the PARCEL + DATA-SOURCES axes across 7 cities (L-658))
 
 ## §CONTEXT-DATA-HONESTY note
 
