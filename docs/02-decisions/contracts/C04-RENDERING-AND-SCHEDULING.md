@@ -174,6 +174,62 @@ See C10 for the full NFT table and measurement methodology.
 
 ---
 
+## §RECOVERY — viewport crash-recovery (SCOPE-CLAIMED 2026-08-01, **NOT YET NORMATIVE**)
+
+> **Status: coverage gap, claimed by C04, rules NOT yet ratified.** Do **not** cite this section as
+> authority for an implementation. It exists so the subsystem stops being governed by a document
+> that does not exist. See `docs/02-decisions/MISSING-CONTRACTS-AUDIT-2026-06-01.md` `§GAP (L-663)`.
+
+`ViewportCrashGuard` (`apps/editor/src/ui/primitives/ViewportCrashGuard.ts`) and
+`SceneCrashFallback` both open with `CONTRACT (08-ERROR-RESILIENCE-CRASH-RECOVERY §Mechanism 1)`.
+**No such document exists anywhere in this repository** — not in `contracts/`, not in `adrs/`, not
+in `reference/specs/`, not in the archive. The single mechanism that decides whether a render fault
+is survivable therefore has **no governing contract at all**. C04 claims the scope here; the rules
+below are the *open questions*, and each must be answered by an ADR before this section is promoted.
+
+**Known Violations (open):**
+
+- **L-663 (P1) — the crash-recovery path resets every counter that bounds it, and adds none of its
+  own; and it destroys the evidence of its own trigger.** Founder repro 2026-08-01 (prod, WebGPU,
+  48 meshes): editing a kitchen furniture element's arm dimensions produced a repeating
+  `onProjectSwitch → SHADOW_REBUILD_SCHEDULED → Rebuilding pipeline → SHADOW_REBUILD_COMPLETE`
+  cycle **with no project switch in the session**, which presents as a freeze. Three findings, all
+  code-confirmed:
+  1. `RenderPipelineManager.onProjectSwitch()` sets `_retryCount = 0`
+     (`RenderPipelineManager.ts:1851`) — the very counter whose exhaustion (`MAX_RETRIES = 3`)
+     promotes the pipeline to `phase='error'` and raises the crash overlay.
+     `ViewportCrashGuard.onRetry` also clears `_hasCrashed` and `_consecutiveFailures`
+     (`ViewportCrashGuard.ts:236-239`). **No recovery-attempt counter exists**, so the cycle never
+     escalates to the hard reload. This contradicts **ADR-0089** §Decision, which already ruled that
+     retrying the *same* graph against the *same* fault "cannot help — it only delays the same fatal
+     outcome" and mandated a **downgrade** (`_downgradeToLightweightPipeline()`); that ruling was
+     implemented for the shader-compile class only, and the recovery button re-opens the unbounded
+     same-graph retry for every other class.
+  2. `initScene.ts:2756` calls `viewportCrashGuard.handlePipelineError()` **with no argument**, and
+     `PipelineStatus` (`RenderPipelineManager.ts:334-343`) carries **no `lastError`** — so the
+     overlay and the Sentry capture both receive a synthetic
+     `"Render pipeline retries exhausted — phase=error"`. **A guard that hides its trigger makes
+     every recurrence undiagnosable.** `§I3-USEDTIMES-SUPPRESS` compounds this by logging
+     `message.slice(0, 80)` with no stack (`ViewportCrashGuard.ts:103`).
+  3. `onProjectSwitch()` is a **C13** project-lifecycle method (C13 §2 defines a project session as
+     the span between `pryzm-project-switch` events). Reusing it as the error-recovery primitive
+     couples two unrelated concerns and makes recovery unscoped to the fault it is recovering from.
+  Pinned by `packages/renderer-three/__tests__/RenderPipelineManager.recoveryLoopUnbounded.test.ts`
+  — a **characterisation** test that asserts today's *defective* shape so the fix must replace it.
+  ⚠ The **triggering throw is not established** from the founder's log; instrumentation (finding 2)
+  ships first. Full write-up + fix sequence: audit **L-663** and
+  `docs/04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md` **L-663**.
+
+**Open questions this section must answer before it can be NORMATIVE** (each needs an ADR):
+(a) what bounds a recovery attempt, and what is the escalation ladder (rebuild → downgrade →
+reload)? (b) is recovery allowed to reuse a lifecycle primitive at all? (c) what is the minimum
+diagnostic record a guard must preserve for every trigger it swallows *and* every trigger it
+escalates? (d) how does recovery compose with the `§SHADOW` freeze latches and with `P3`
+(recovery MUST NOT open a second drive loop — today it is macrotask-`setTimeout`-driven, which is
+correct and must be preserved).
+
+---
+
 ---
 
 ## §SHADOW — the sun / ground-shadow subsystem (NORMATIVE)

@@ -826,3 +826,41 @@ locally** ("kept in lock-step"), so a green suite actively blessed an id shape t
 
 **Not a new contract.** This is a missing clause in C11 plus a missing gate; minting a "C-IDENTITY" contract
 would split authority that ADR-0001 + C03 + C11 already hold. Owner: UNASSIGNED · target: TBD.
+## §GAP (L-663, 2026-08-01) — VIEWPORT CRASH-RECOVERY is governed by a contract that DOES NOT EXIST
+
+**Owner: UNASSIGNED · Target: TBD (gated on the L-663 instrumentation pass landing first).**
+
+Surfaced by audit **L-663** (founder freeze on a kitchen furniture dimension edit, prod, WebGPU).
+
+`apps/editor/src/ui/primitives/ViewportCrashGuard.ts` and `apps/editor/src/ui/fallbacks/SceneCrashFallback.ts`
+both open with the header `CONTRACT (08-ERROR-RESILIENCE-CRASH-RECOVERY §Mechanism 1)`. **That document
+does not exist anywhere in this repository** — not in `contracts/`, not in `adrs/`, not in
+`reference/specs/`, not in `docs/archive/`. It is a PRYZM-1-era citation that survived the PRYZM-3
+migration as a header comment. The single mechanism that decides *whether a render fault is survivable,
+what the user is shown, and what "recovery" does* therefore has **no governing contract at all**.
+
+This is not a naming nit. The un-contracted region is exactly where L-663 lives: nothing states that a
+recovery primitive may not reset the counter that triggers it, nothing bounds recovery attempts, nothing
+requires the guard to preserve the error it caught, and nothing forbids reusing a **C13** lifecycle
+method (`onProjectSwitch`) as an error-recovery path. Each of those is a real, shipped defect
+(see C04 §RECOVERY "Known Violations"), and each was reachable precisely because no contract owned the
+question. The adjacent contracts do **not** cover it: **C04** owns the render pipeline and scheduling but
+had no recovery section until this pass claimed one; **C13** owns the project lifecycle (and is being
+*borrowed from*, not applied); **C10** owns observability budgets, not error-resilience semantics;
+**ADR-0089** rules on one *class* of fault (shader-compile ⇒ downgrade) without generalising the ladder.
+
+**Disposition — scope CLAIMED by C04, rules NOT yet written.** A new `§RECOVERY` section has been added
+to [C04](./contracts/C04-RENDERING-AND-SCHEDULING.md) marked **SCOPE-CLAIMED / NOT NORMATIVE**, carrying
+the L-663 Known Violations and the four open questions an ADR must answer: (a) the recovery-attempt bound
+and escalation ladder (guarded rebuild → `_downgradeToLightweightPipeline()` → hard reload, generalising
+ADR-0089); (b) whether recovery may reuse a lifecycle primitive at all; (c) the minimum diagnostic record
+a guard must preserve for every trigger it swallows *and* every trigger it escalates; (d) how recovery
+composes with the `§SHADOW` freeze latches and with **P3** (recovery must not open a second drive loop).
+
+**Decision still open (needs a human):** promote `C04 §RECOVERY` to NORMATIVE once ratified, **or** mint a
+standalone `C-ERROR-RESILIENCE` contract. Passes the C60 §7 "different question, different failure mode"
+test either way — "is this fault survivable, and what do we do about it" is a distinct subject from "how
+do we schedule and compose a frame". Recommendation: fold into **C04 §RECOVERY** (the mechanism is entirely
+inside the render pipeline; a standalone contract would add a boundary with nothing on the other side of
+it). ⚠ Also fix the stale header citations in both source files as part of the ratifying pass — leaving
+them pointing at a phantom document is how this gap stayed invisible for a full architecture migration.
