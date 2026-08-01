@@ -38,7 +38,7 @@
 // EXIT CODES: 0 = a verdict was reached (any verdict). 2 = unreachable (no verdict possible).
 //             3 = bad arguments / missing decoder deps.
 // ─────────────────────────────────────────────────────────────────────────────
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, openSync, readSync, closeSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, resolve, parse as parsePath } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -110,6 +110,19 @@ const HALF_DEG = Number(arg('--half-deg', String(HALF_DEG_DEFAULT)));
 const BASE_RAW = arg('--base', process.env.PRYZM_CONTEXT_TILES_URL ?? DEFAULT_TILES_BASE);
 const GEOJSONSEQ = arg('--geojsonseq');
 const JSON_OUT = argv.includes('--json');
+/**
+ * §LOCAL-PMTILES (L-658) — probe a PMTiles file ON DISK instead of over HTTP. This is what lets CI
+ * assert PROVENANCE on the tileset it just baked, BEFORE publishing it to R2. Without it the only
+ * way to check a bake was to publish it first and probe the public URL — i.e. ship the defect, then
+ * discover it.
+ */
+const PMTILES_FILE = arg('--pmtiles');
+/**
+ * §MEASURED-GATE (L-658) — exit non-zero unless at least N footprints carry a MEASURED height.
+ * Turns the probe into a CI assertion. `derived-levels` deliberately does NOT count: a floor count
+ * times an assumed storey height is not a measurement.
+ */
+const REQUIRE_MEASURED = arg('--require-measured') === null ? null : Number(arg('--require-measured'));
 
 if (!AT || !/^-?[\d.]+,\s*-?[\d.]+$/.test(AT.trim())) {
   console.error('✖ --at lat,lon is required, e.g. --at 50.9375,6.9603 --name koln');
@@ -183,6 +196,36 @@ function findEditorAnchor() {
   }
 }
 
+/**
+ * §CONTEXT-CACHE-BUST (L-658) — read `CONTEXT_TILESET_VERSION` out of the CLIENT'S OWN source.
+ *
+ * The probe exists to read the SAME BYTES the browser reads. `<layer>.pmtiles` is path-stable and
+ * R2 publishes it `max-age=31536000, immutable`, so the client stamps `?v=<version>` on the archive
+ * URL to make a re-bake visible. If the probe did not stamp the SAME value it would be reading a
+ * different cache entry from the browser — and the probe's whole job is to be authoritative about
+ * what the browser sees. So the version is parsed from the one file that DEFINES it rather than
+ * duplicated here, where the copy could silently drift.
+ *
+ * Returns null when the source cannot be found (a bare tools-only checkout) — the caller then reads
+ * the unstamped URL and SAYS SO, rather than guessing a version.
+ */
+function readContextTilesetVersion() {
+  let dir = HERE;
+  const { root } = parsePath(dir);
+  for (;;) {
+    const src = resolve(dir, 'apps', 'editor', 'src', 'ui', 'geospatial', 'contextTiles.ts');
+    if (existsSync(src)) {
+      const m = /export const CONTEXT_TILESET_VERSION\s*=\s*['"]([^'"]+)['"]/.exec(readFileSync(src, 'utf8'));
+      return m ? m[1] : null;
+    }
+    if (dir === root) return null;
+    const up = dirname(dir);
+    if (up === dir) return null;
+    dir = up;
+  }
+}
+const TILESET_VERSION = readContextTilesetVersion();
+
 async function loadTileDeps() {
   try {
     const anchor = findEditorAnchor();
@@ -202,6 +245,24 @@ async function loadTileDeps() {
   }
 }
 
+/**
+ * §LOCAL-PMTILES — the `pmtiles` reader's `Source` interface, backed by a local file. PMTiles is a
+ * RANGE format: the reader asks for byte windows (header, directories, one tile) and never reads the
+ * whole archive, so this stays cheap even on a 2.3 GB tileset. Mirrors what the HTTP source does with
+ * a `Range:` header.
+ */
+class FileSource {
+  constructor(path) { this.path = path; this.size = statSync(path).size; }
+  getKey() { return this.path; }
+  async getBytes(offset, length) {
+    const len = Math.max(0, Math.min(length, this.size - offset));
+    const buf = Buffer.allocUnsafe(len);
+    const fd = openSync(this.path, 'r');
+    try { readSync(fd, buf, 0, len, offset); } finally { closeSync(fd); }
+    return { data: buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) };
+  }
+}
+
 // ── the two read modes ──────────────────────────────────────────────────────
 /** Read the SHIPPED PMTiles. Returns `{ status, tags[], tilesRead, tilesEmpty, tilesFailed, z }`. */
 async function readFromPmtiles(bbox) {
@@ -210,8 +271,16 @@ async function readFromPmtiles(bbox) {
     return { status: 'unreachable', reason: 'tile decoders (pmtiles / @mapbox/vector-tile / pbf) are not installed — run `pnpm install` at the repo root, then re-run. NOT a statement about the tiles.' };
   }
   const { PMTiles, VectorTile, Pbf } = deps;
-  const url = `${BASE}${LAYER}.pmtiles`;
-  const archive = new PMTiles(url);
+  // §LOCAL-PMTILES — a `--pmtiles <path>` run reads the file on disk through a minimal range source,
+  // so CI can assert provenance on the tileset it just baked, BEFORE it is published.
+  // §CONTEXT-CACHE-BUST — stamp the archive URL exactly as the client does, so the probe and the
+  // browser resolve to the SAME cache entry. A local file needs no stamp.
+  const httpUrl = TILESET_VERSION ? `${BASE}${LAYER}.pmtiles?v=${TILESET_VERSION}` : `${BASE}${LAYER}.pmtiles`;
+  const url = PMTILES_FILE ? resolve(process.cwd(), PMTILES_FILE) : httpUrl;
+  if (PMTILES_FILE && !existsSync(url)) {
+    return { status: 'unreachable', reason: `local tileset not found: ${url}`, url };
+  }
+  const archive = new PMTiles(PMTILES_FILE ? new FileSource(url) : url);
   let z = LAYER_Z;
   let header;
   try {
@@ -376,5 +445,29 @@ if (JSON_OUT) {
   if (report.heightStats) console.log(`  height m      : min ${report.heightStats.min} · median ${report.heightStats.median} · max ${report.heightStats.max}`);
   console.log(`  tiles         : ${JSON.stringify(report.tiles)}`);
   console.log(`  ms            : ${report.ms}\n`);
+}
+
+// §MEASURED-GATE (L-658) — the CI assertion. `Assert the tiles are real` used to check only the
+// tileset's SIZE and its magic header, which is why a 2.3 GB buildings.pmtiles carrying ZERO measured
+// heights in Barcelona, Köln and Copenhagen passed as green on 2026-08-01. Size is not provenance.
+// With `--require-measured N` the probe asserts the thing that actually matters, per city.
+if (REQUIRE_MEASURED !== null) {
+  if (!Number.isFinite(REQUIRE_MEASURED) || REQUIRE_MEASURED < 0) {
+    console.error('✖ --require-measured expects a non-negative number');
+    process.exit(3);
+  }
+  if (read.status !== 'ok') {
+    console.error(`✖ MEASURED GATE — ${NAME}: could not read the tiles (${verdict}${report.reason ? `: ${report.reason}` : ''}). This is NOT a statement about the data.`);
+    process.exit(5);
+  }
+  if (report.measuredMarkerCount < REQUIRE_MEASURED) {
+    console.error(
+      `✖ MEASURED GATE FAILED — ${NAME}: ${report.measuredMarkerCount} footprint(s) carry a measured height, ` +
+      `required ≥ ${REQUIRE_MEASURED}.\n` +
+      `  ${report.footprints} footprint(s) here render ${Math.round(report.assumedFraction * 100)}% fabricated heights. ` +
+      'derived-levels does NOT count as measured — a floor count × an assumed storey height is not a measurement.');
+    process.exit(6);
+  }
+  console.log(`✔ MEASURED GATE — ${NAME}: ${report.measuredMarkerCount} measured footprint(s) (≥ ${REQUIRE_MEASURED}).`);
 }
 process.exit(verdict === 'unreachable' ? 2 : 0);

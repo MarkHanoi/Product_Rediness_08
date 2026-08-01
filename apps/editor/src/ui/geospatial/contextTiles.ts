@@ -248,6 +248,37 @@ export function contextTilesOrigin(): string | null {
     }
 }
 
+/**
+ * §CONTEXT-CACHE-BUST (L-658) — a version stamp on the context tileset URL, the exact analogue of
+ * `TERRAIN_TILESET_VERSION` (terrainCoverage.ts §TERRAIN-CACHE-BUST, L-639).
+ *
+ * ⚠ WHY THIS IS NOT OPTIONAL. `<layer>.pmtiles` is PATH-STABLE across re-bakes — a re-bake overwrites
+ * the SAME key in R2 — and the bake publishes it with `Cache-Control: public, max-age=31536000,
+ * immutable` (context-bake.yml §Publish to R2). A YEAR of immutable caching on a URL that never
+ * changes means a browser that has read the old tileset once will NEVER see a re-bake. Terrain hit
+ * precisely this and an entire 590-region rollout rendered as byte-identical stale tiles because the
+ * new bytes were never fetched.
+ *
+ * The stamp goes on the archive URL, so it busts the browser HTTP cache for every RANGE read of that
+ * archive at once (PMTiles derives every tile request from this one URL).
+ *
+ * ⚠ BUMP THIS ON EVERY CONTEXT RE-BAKE. It is deliberately ONE constant read by BOTH consumers —
+ * this client and `tools/context-height-probe/probe.mjs` — so the probe and the browser can never
+ * disagree about which tileset they are looking at. Never paper over a stale read with an ad-hoc
+ * `?t=Date.now()` at a call site: that defeats caching entirely and only fixes the one caller.
+ */
+export const CONTEXT_TILESET_VERSION = 'L658a';
+
+/**
+ * The full URL of one layer's PMTiles archive, cache-bust stamp included.
+ * Exported so the probe and tests read the SAME URL the browser does.
+ */
+export function contextTilesetUrl(layer: ContextTileLayer): string | null {
+    const base = contextTilesBaseUrl();
+    if (!base) return null;
+    return `${base}${layer}.pmtiles?v=${CONTEXT_TILESET_VERSION}`;
+}
+
 /** Test seam — override the base URL (pass `null` to fall back to the build-time env). */
 export function __setContextTilesBaseUrl(url: string | null): void {
     baseUrlOverride = url;
@@ -293,13 +324,14 @@ export function tilesCovering(bbox: TileBbox, z: number): Array<{ x: number; y: 
 const archives = new Map<string, PMTiles>();
 
 function archiveFor(layer: ContextTileLayer): PMTiles | null {
-    const base = contextTilesBaseUrl();
-    if (!base) return null;
-    const key = `${base}${layer}`;
-    let a = archives.get(key);
+    // §CONTEXT-CACHE-BUST — always go through contextTilesetUrl() so the version stamp can never be
+    // dropped by a new call site. A path-stable, year-immutable URL is invisible to a re-bake.
+    const url = contextTilesetUrl(layer);
+    if (!url) return null;
+    let a = archives.get(url);
     if (!a) {
-        a = new PMTiles(`${base}${layer}.pmtiles`);
-        archives.set(key, a);
+        a = new PMTiles(url);
+        archives.set(url, a);
     }
     return a;
 }

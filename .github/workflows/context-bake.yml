@@ -158,6 +158,58 @@ jobs:
           done
           [ "$fail" -eq 0 ] || exit 1
 
+      # ─────────────────────────────────────────────────────────────────────────
+      # §MEASURED-HEIGHT-GATE (L-658) — assert PROVENANCE, not just plumbing.
+      #
+      # WHY THIS STEP EXISTS. On 2026-08-01 (run 30687958478) every step above was
+      # green and the bake published a 2.3 GB buildings.pmtiles in which Barcelona,
+      # Köln AND Copenhagen carried ZERO measured heights — 62.5 % of Barcelona's
+      # skyline was the fabricated 9 m default. "Assert the tiles are real" passed
+      # because it only checks each file's SIZE (>50 KB) and its PMTiles magic
+      # header. SIZE IS NOT PROVENANCE: a tileset full of fabricated heights is
+      # large, well-formed, and completely wrong.
+      #
+      # The three joins had in fact all failed — two threw on V8's 512 MiB string
+      # cap, one could not parse osmium's RFC 8142 record separator — and each
+      # degraded SILENTLY to the OSM default, which the pipeline reported as
+      # success. This step reads the tileset we just built (before publishing it)
+      # and fails the run unless the cities that CLAIM measured heights have them.
+      # `derived-levels` deliberately does not count as measured.
+      # ─────────────────────────────────────────────────────────────────────────
+      - name: Assert the baked heights are MEASURED (not fabricated)
+        if: ${{ inputs.layer == '' || inputs.layer == 'buildings' }}
+        run: |
+          set -euo pipefail
+          # The probe borrows the CLIENT'S OWN tile decoders, resolved from apps/editor.
+          # Provision them the same isolated way as geotiff above — a plain `npm`/`pnpm`
+          # install inside the repo hits the workspace landmine documented on that step.
+          HOSTDIR="${RUNNER_TEMP:-/tmp}/probe-host"
+          rm -rf "$HOSTDIR"; mkdir -p "$HOSTDIR"
+          printf '{"name":"pryzm-probe-host","private":true}\n' > "$HOSTDIR/package.json"
+          ( cd "$HOSTDIR" && npm install --no-package-lock pmtiles@4.4.1 @mapbox/vector-tile@3.0.3 pbf@5.1.2 )
+          DEST="$GITHUB_WORKSPACE/apps/editor/node_modules"
+          mkdir -p "$DEST"
+          cp -R "$HOSTDIR/node_modules/." "$DEST/"
+
+          TILES="$GITHUB_WORKSPACE/tools/context-bake/out/buildings.pmtiles"
+          fail=0
+          # Each row: name + lat,lon + the minimum number of MEASURED footprints required.
+          # These are the cities whose region declares a national height join, so a zero
+          # here means the join silently produced nothing — exactly the 2026-08-01 defect.
+          while read -r name at min; do
+            [ -z "$name" ] && continue
+            echo "── $name"
+            node tools/context-height-probe/probe.mjs \
+              --pmtiles "$TILES" --at "$at" --name "$name" --require-measured "$min" || fail=1
+          done <<'CITIES'
+          barcelona 41.3888,2.1590 500
+          koln 50.9375,6.9603 500
+          CITIES
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::A city that declares a national height join shipped ZERO (or too few) measured heights. The tileset would render a fabricated 9 m carpet. NOT publishing."
+            exit 1
+          fi
+
       - name: Upload the tiles as a run artifact
         # Kept regardless of publishing: it makes a bake inspectable/diffable after
         # the fact, and gives a rollback source if a later bake regresses.

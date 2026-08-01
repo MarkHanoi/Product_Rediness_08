@@ -272,6 +272,20 @@ const CHECK = args.includes('--check');
 const DRY = args.includes('--dry-run');
 const ONE = args.includes('--layer') ? args[args.indexOf('--layer') + 1] : null;
 const layers = ONE ? LAYERS.filter((l) => l.id === ONE) : LAYERS;
+// §MEASURED-HEIGHT-GATE (L-658) — escape hatch for the gate below. Use ONLY when you deliberately
+// want a tileset with no measured heights (e.g. bisecting a bake); never in CI.
+const ALLOW_UNMEASURED = args.includes('--allow-unmeasured');
+
+// §MEASURED-HEIGHT-GATE — every region that DECLARES a `heightJoin` records its outcome here, and
+// `assertMeasuredHeights()` turns "the join produced nothing" into a NON-ZERO EXIT.
+//
+// WHY THIS EXISTS. The 2026-08-01 whole-layer bake (run 30687958478) reported SUCCESS — every step
+// green, including "Assert the tiles are real" — while shipping a buildings.pmtiles in which
+// Barcelona, Köln AND Copenhagen carried ZERO measured heights. That assertion only checked the
+// tileset's SIZE (>50 KB) and its PMTiles magic header, so a 2.3 GB file full of fabricated 9 m
+// defaults sailed straight through. Size is not provenance. This gate asserts the thing the bake
+// actually exists to produce: MEASURED heights on the regions that claim them.
+const heightJoinOutcomes = [];
 
 // ── tool detection ─────────────────────────────────────────────────────────
 function has(bin) {
@@ -384,6 +398,11 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
     } catch (e) {
       res = { status: 'error', reason: e.message };
     }
+    // §MEASURED-HEIGHT-GATE — record the outcome BEFORE degrading, so a silent fallback still fails.
+    heightJoinOutcomes.push({
+      region: r.name, join: r.heightJoin, status: res.status,
+      measuredCount: res.measuredCount ?? 0, footprintCount: res.footprintCount ?? 0, reason: res.reason ?? null,
+    });
     if (res.status === 'ok' && res.measuredCount > 0) {
       geos.push(stamped); // REPLACE the plain OSM clip with the height-stamped SAME footprints.
       console.log(`\n▶ national heights · ${r.name}: ${r.heightJoin.toUpperCase()} join — ${res.measuredCount}/${res.footprintCount} ` +
@@ -592,9 +611,45 @@ async function main() {
     }
   }
 
+  assertMeasuredHeights();
+
   console.log('\n✅ Bake complete. Upload the *.pmtiles in out/ to object storage (see README §Upload),');
   console.log('   then point the client tile reader at them (L-513b/c). NOTE: rerun on Geofabrik\'s');
   console.log('   daily refresh to keep context current.');
+}
+
+/**
+ * §MEASURED-HEIGHT-GATE (L-658) — FAIL the bake when a region that declares a `heightJoin` ships
+ * ZERO measured heights. This is the assertion that would have caught the 2026-08-01 run: "Assert
+ * the tiles are real" checked only file SIZE + magic bytes, so a 2.3 GB tileset in which Barcelona,
+ * Köln and Copenhagen were 100 % fabricated 9 m defaults passed as green.
+ *
+ * §CONTEXT-DATA-HONESTY — the statuses are NOT collapsed. `blocked` is an EXTERNAL gate (a missing
+ * credential or an unlicensed source) that the pipeline cannot fix, so it warns loudly and passes.
+ * Everything else — `error` (the join threw / could not read its input), `documented` (nothing to
+ * stamp), or an `ok` that matched nothing — is a PIPELINE defect and exits non-zero.
+ */
+function assertMeasuredHeights() {
+  if (DRY || heightJoinOutcomes.length === 0) return;
+  const blocked = heightJoinOutcomes.filter((o) => o.status === 'blocked');
+  const failed = heightJoinOutcomes.filter((o) => o.status !== 'blocked' && !(o.status === 'ok' && o.measuredCount > 0));
+  const okd = heightJoinOutcomes.filter((o) => o.status === 'ok' && o.measuredCount > 0);
+
+  console.log('\n── measured-height gate ──');
+  for (const o of okd) console.log(`  ✔ ${o.region} (${o.join}): ${o.measuredCount}/${o.footprintCount} footprint(s) measured`);
+  for (const o of blocked) console.log(`  ⚠ ${o.region} (${o.join}): BLOCKED — ${o.reason ?? 'no reason given'} (external gate; not a bake defect)`);
+  for (const o of failed) console.error(`  ✖ ${o.region} (${o.join}): ${o.status} — ${o.measuredCount} measured height(s). ${o.reason ?? ''}`);
+
+  if (failed.length === 0) return;
+  if (ALLOW_UNMEASURED) {
+    console.error(`\n⚠ ${failed.length} height join(s) produced NO measured heights — continuing only because --allow-unmeasured was passed.`);
+    return;
+  }
+  console.error(
+    `\n✖ MEASURED-HEIGHT GATE FAILED — ${failed.length} region(s) that declare a height join shipped ZERO measured\n` +
+    '  heights. Publishing this tileset would render those cities as a fabricated 9 m carpet while the\n' +
+    '  workflow reported success. Fix the join (or pass --allow-unmeasured if that is genuinely intended).');
+  process.exit(4);
 }
 
 main().catch((e) => { console.error('\n✖ bake failed:', e.message); process.exit(1); });

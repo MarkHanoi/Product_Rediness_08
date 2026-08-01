@@ -38,7 +38,7 @@
 //   node heightSources.mjs --probe 3dbag     # probe one source
 //   node heightSources.mjs --resolve paris   # fetch one region's heights → out/<region>-buildings-national.geojsonseq
 // ─────────────────────────────────────────────────────────────────────────────
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -1532,6 +1532,15 @@ function footprintFromFeature(feat) {
   return { ext, interiors, clon, clat };
 }
 
+// §GEOJSONSEQ-READ (L-658) — the ONE reader every OSM-footprint height join uses. Extracted to its
+// own dependency-free module so it can be unit-tested in the ordinary vitest run rather than only
+// inside a 2.5-hour bake (this file lazy-imports `geotiff`, which is provisioned only in the bake
+// job). Re-exported here because the joins below are its only callers.
+// ⚠ `export … from` alone would NOT bind these names locally — the joins below call
+// loadJoinFootprints directly, so it must also be imported.
+import { loadJoinFootprints } from './geojsonseqRead.mjs';
+export { readGeojsonseqFeatures, loadJoinFootprints } from './geojsonseqRead.mjs';
+
 /**
  * Stamp REAL MDS Edificación (mdsn_e025) heights onto an EXISTING OSM buildings GeoJSONSeq (bake's own
  * clip). Reads `inPath`, tiles the region bbox, fetches the keyless MDS raster per POPULATED tile, and
@@ -1555,14 +1564,10 @@ export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
   if (!gt) {
     return { status: 'documented', reason: 'MDS join: geotiff dep unavailable — install it in the bake image; footprints keep OSM default.' };
   }
-  // Parse the OSM footprints (one Feature per line).
-  const feats = [];
-  for (const line of readFileSync(inPath, 'utf8').split('\n')) {
-    const s = line.trim();
-    if (!s) continue;
-    try { feats.push(JSON.parse(s)); } catch { /* skip a malformed line honestly */ }
-  }
-  if (feats.length === 0) return { status: 'documented', reason: 'MDS join: 0 OSM footprint(s) in the clip; nothing to stamp.' };
+  // Parse the OSM footprints (one Feature per line) — §GEOJSONSEQ-READ (streams; RS-tolerant).
+  const load = loadJoinFootprints(inPath, 'MDS join');
+  if (load.status !== 'ok') return { status: load.status, reason: load.reason };
+  const feats = load.feats;
   // Attach a parsed footprint (ext ring + centroid) to each stampable feature.
   const records = [];
   for (const feat of feats) {
@@ -1676,13 +1681,10 @@ export async function stampDhmHeightsOnGeojsonseq(inPath, outPath, bbox, {
   const gt = await loadGeoTiff();
   if (!gt) return { status: 'documented', reason: 'DHM join: geotiff dep unavailable — install it in the bake image; footprints keep OSM default.' };
 
-  const feats = [];
-  for (const line of readFileSync(inPath, 'utf8').split('\n')) {
-    const s = line.trim();
-    if (!s) continue;
-    try { feats.push(JSON.parse(s)); } catch { /* skip malformed line */ }
-  }
-  if (feats.length === 0) return { status: 'documented', reason: 'DHM join: 0 OSM footprint(s) in the clip; nothing to stamp.' };
+  // §GEOJSONSEQ-READ — streams; RS-tolerant; an unparseable file is a LOUD error, not "no data".
+  const load = loadJoinFootprints(inPath, 'DHM join');
+  if (load.status !== 'ok') return { status: load.status, reason: load.reason };
+  const feats = load.feats;
   // Each stampable feature → native EPSG:25832 rings (DHM's own CRS) + a native centroid for tiling.
   const records = [];
   for (const feat of feats) {
@@ -1779,13 +1781,10 @@ export async function stampSwissHeightsOnGeojsonseq(inPath, outPath, bbox, {
   const gt = await loadGeoTiff();
   if (!gt) return { status: 'documented', reason: 'Swiss nDSM join: geotiff dep unavailable — install it in the bake image; footprints keep OSM default.' };
 
-  const feats = [];
-  for (const line of readFileSync(inPath, 'utf8').split('\n')) {
-    const s = line.trim();
-    if (!s) continue;
-    try { feats.push(JSON.parse(s)); } catch { /* skip a malformed line honestly */ }
-  }
-  if (feats.length === 0) return { status: 'documented', reason: 'Swiss nDSM join: 0 OSM footprint(s) in the clip; nothing to stamp.' };
+  // §GEOJSONSEQ-READ — streams; RS-tolerant; an unparseable file is a LOUD error, not "no data".
+  const load = loadJoinFootprints(inPath, 'Swiss nDSM join');
+  if (load.status !== 'ok') return { status: load.status, reason: load.reason };
+  const feats = load.feats;
   const records = [];
   for (const feat of feats) {
     const fp = footprintFromFeature(feat); // WGS84 rings + centroid (raster served EPSG:4326 → no projector)
@@ -2064,13 +2063,10 @@ export async function stampLod2NrwHeightsOnGeojsonseq(inPath, outPath, bbox, {
     return { status: 'blocked', reason: `NRW LoD2 join: ${SOURCES.lod2de_nrw.endpoint}index.json unreachable — cannot tell "no data" from "service down". Footprints keep OSM default.` };
   }
 
-  const feats = [];
-  for (const line of readFileSync(inPath, 'utf8').split('\n')) {
-    const s = line.trim();
-    if (!s) continue;
-    try { feats.push(JSON.parse(s)); } catch { /* skip a malformed line honestly */ }
-  }
-  if (feats.length === 0) return { status: 'documented', reason: 'NRW LoD2 join: 0 OSM footprint(s) in the clip; nothing to stamp.' };
+  // §GEOJSONSEQ-READ — streams; RS-tolerant; an unparseable file is a LOUD error, not "no data".
+  const load = loadJoinFootprints(inPath, 'NRW LoD2 join');
+  if (load.status !== 'ok') return { status: load.status, reason: load.reason };
+  const feats = load.feats;
   // Each stampable footprint → native EPSG:25832 rings (NRW's own CRS) + native centroid + native bbox.
   const records = [];
   for (const feat of feats) {

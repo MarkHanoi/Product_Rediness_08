@@ -56,6 +56,9 @@ export default defineConfig({
       // ratchet assertion. Pure Node (fs + string analysis); lives here because
       // `test:root` is the only suite CI runs over non-package tooling.
       'tools/ga-gate/__tests__/**/*.spec.ts',
+      // §GEOJSONSEQ-READ (L-658): the bake's footprint reader — RS (RFC 8142) tolerance
+      // and the honest empty-vs-unparseable split that a silent join failure hid.
+      'tools/context-bake/__tests__/**/*.spec.ts',
     ],
     testTimeout: 10_000,
     // Wave A18-T27: coverage reporting via @vitest/coverage-v8 (c8/Istanbul).
