@@ -529,8 +529,14 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
             // §L-595 — clau 12 (nucli antic, subzona I). ⚠ Governs the ANNEXED nuclis antics
             // (Gràcia, Sarrià, Sants, Sant Andreu, Horta) — Art. 315.2's *"nuclis antics
             // diferents del de Barcelona"* means other than CIUTAT VELLA, not other than the
-            // municipality. Ciutat Vella is 12b and stays refused (its height is the mean of
-            // existing neighbours, an input we do not hold).
+            // municipality. Ciutat Vella is 12b and stays refused — ⚠ §CLAU-12B-TRAM-UNDEFINED
+            // (L-676) CORRECTS THE REASON GIVEN HERE: it is NOT that the mean of the existing
+            // neighbours is "an input we do not hold". PRYZM could read a neighbour height. What
+            // Art. 320.3a never defines is *un tram de vial* — the DOMAIN the mean is taken over —
+            // and Art. 320.2a hands this subzona's particular and detailed determination to a *pla
+            // especial*. It is a delegated determination, not a missing dataset, so `12b` now takes
+            // `barcelona12bNeighbourMeanRefusal` (`derived-plan`, legally grounded) and never
+            // becomes registerable by acquiring LiDAR.
             [ES_BARCELONA_NUCLI_ANTIC_PACK, BCN_NUCLI_ANTIC_ZONE_CODES],
             // ⚠⚠ §L-590 / §L-590b — `ES_BARCELONA_INDUSTRIAL_PACK` (clau 22a) EXISTS AND IS
             // **NOT** LISTED HERE. THIS IS NOT AN OVERSIGHT. Do not "finish the job" by adding it.

@@ -111,9 +111,19 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
         // that card DOES make claims about the ordinance and must cite them (C58 §1.13.4). Its own
         // assertions live in `esBarcelona22ArrobaPack.test.ts`.
         // §L-595 — '12' is packed. §BARE-20A-EXHAUSTED — bare '20a' is `regime-undetermined`.
-        // **`12b` is the LAST Barcelona coverage gap**, and this loop is what proves the card still
-        // has a live subject rather than becoming dead code.
-        for (const clau of ['12b']) {
+        // ⚠⚠ §CLAU-12B-TRAM-UNDEFINED (L-676) — **`12b` HAS LEFT THIS LIST**, by the same route 22@
+        // took: PGM Art. 320.3a states subzona II's height rule completely as a rule, and
+        // Art. 320.2a hands the particular and detailed determination to a *pla especial*, so it
+        // refuses with `derived-plan` (`legallyGrounded: true`) and cites what was read. As with
+        // 22a and 22@, the `ordinanceRef === null` assertion below is CORRECT for a coverage gap and
+        // WRONG for 12b. Its own assertions live in `esBarcelonaClosureBlockers.test.ts`.
+        //
+        // ⚠⚠ AND THAT MEANS **NO ENUMERATED BARCELONA CLAU IS A COVERAGE GAP ANY MORE.** The card is
+        // NOT dead code — it is now the fallback for a clau the MUC returns that no table
+        // enumerates, which is exactly what it should be and is the honest remaining subject. The
+        // loop is re-aimed at that, so it keeps proving the card renders rather than becoming a
+        // vacuous truth. ⚠ If a future clau is added to `coverageGapReasonFor`, add it HERE too.
+        for (const clau of ['ZZ-not-a-real-clau']) {
             const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau);
             expect(d.kind, clau).toBe('refusal');
             if (d.kind !== 'refusal') continue;
@@ -142,20 +152,26 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
     it('L-553 — the coverage-gap card names the zone and carries the parcel facts', () => {
         // The card is what decides whether full honesty succeeds or reads as a crash, so its
         // inputs are asserted, not assumed. Half of Barcelona's buildable land sees this.
-        // §L-583 — the specimen clau moved from `13b` (now packed) to `12b` (Barcelona's nucli
-        // antic de conservació, still a genuine coverage gap and a HARD one: L-583 §5.2 shows it
-        // is a neighbour-survey rule, not a table, and §5.3 that our height inputs are 0.9 %
-        // surveyed). The card's rules are unchanged; only the zone standing in for them is.
+        // §L-583 — the specimen clau moved from `13b` (now packed) to `12b`.
+        // ⚠ §CLAU-12B-TRAM-UNDEFINED (L-676) — **it has moved again, and this time off the
+        // enumerated claus entirely.** `12b` now carries a cited `derived-plan` refusal, so the
+        // coverage-gap card's only remaining subject is a clau no table enumerates. That is the
+        // honest specimen: L-583 §5.2's reading of `12b` as *"a neighbour-survey rule, not a
+        // table"* was right about the KIND and wrong about the BLOCKER — the plan delegates the
+        // determination, it does not merely withhold a dataset. The card's rules are unchanged;
+        // only the zone standing in for them is.
         const facts = ['Cadastral reference: 0230904DF3803', 'Parcel area: 412 m²'];
-        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '12b', {
+        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, 'ZZ-not-a-real-clau', {
             zoneLabel: 'Nucli Antic de Conservació',
             knownFacts: facts,
         });
         expect(d.kind).toBe('refusal');
         if (d.kind !== 'refusal') return;
-        // Rule 1 — the zone, in the ordinance's own words, in the headline.
+        // Rule 1 — the zone, in the ordinance's own words AND its clau code, in the headline.
+        // (The clau assertion is on the code the caller passed, whatever it is — the point is that
+        // the card never drops the user's own zone identifier, not that it is any particular clau.)
         expect(d.refusal.headline).toContain('Nucli Antic de Conservació');
-        expect(d.refusal.headline).toContain('12b');
+        expect(d.refusal.headline).toContain('ZZ-not-a-real-clau');
         // Rule 2 — "not encoded yet", never "no envelope applies" (that is the legal card).
         expect(d.refusal.headline).toMatch(/not encoded/i);
         expect(d.refusal.headline).not.toMatch(/no envelope applies/i);
@@ -183,10 +199,22 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
         // Alineació de vial — the shape argument is correct here. (§L-583: `13b` is no longer in
         // this list because it is packed; the argument still holds for it, it is just no longer
         // reached.)
-        for (const clau of ['12b']) {   // §L-595 — '12' is packed now
-            expect(detailFor(clau), clau).toMatch(/façade sits on the street line/i);
-            expect(detailFor(clau), clau).toMatch(/wrong SHAPE/);
-        }
+        // ⚠⚠ §CLAU-12B-TRAM-UNDEFINED (L-676) — **`12b` WAS THE LAST MEMBER OF THIS LIST AND HAS
+        // LEFT IT**, and the deletion is the substance. The copy it was pinned to said the blocker
+        // was the SHAPE — *"the façade sits on the street line … a setback estimate would be the
+        // wrong SHAPE"*. That is **subzona I's** argument, and subzona I (clau `12`) SHIPPED A PACK
+        // on 2026-07-22 on exactly that reasoning. `12b`'s shape is identical and is not the
+        // blocker at all: Art. 320.3a states the rule, and what it never defines is *un tram de
+        // vial*, the domain the mean is taken over. So this loop asserted a sentence that was
+        // **wrong about the user's own land** — the very defect the test's header describes, one
+        // zone over. `12b` now has its own cited card, asserted in
+        // `esBarcelonaClosureBlockers.test.ts`.
+        //
+        // The *alineació de vial* shape argument is not re-pinned elsewhere because **no clau reaches
+        // it any more**: 12, 13a, 13E and 13b are packed and 12b is cited. The branch is DELETED
+        // from `coverageGapReasonFor`, not left dead — an unreachable sentence about someone's land
+        // is one refactor away from a user.
+
         // Edificació aïllada — must NOT claim the shape is wrong; it must say the opposite.
         // §L-591 — the suffixed claus are packed. ⚠⚠ §BARE-20A-EXHAUSTED — bare `20a` no longer
         // reaches this copy either: its branch in `coverageGapReasonFor` was DELETED (not merely
@@ -222,7 +250,9 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
         // Every card, whatever the family, must carry the three invariants.
         // §L-595 — '12' is packed. §BARE-20A-EXHAUSTED — bare '20a' is `regime-undetermined`; `21`
         // takes its place as the *edificació aïllada* specimen so all three families stay covered.
-        for (const clau of ['12b', '21', '99z']) {
+        // ⚠ §CLAU-12B-TRAM-UNDEFINED (L-676) — `12b` leaves; `21` and the unenumerated `99z` are the
+        // two families that still reach the coverage-gap card, and both stay under test.
+        for (const clau of ['21', '99z']) {
             const d = detailFor(clau);
             expect(d, clau).toMatch(/coverage gap, not an error/i);
             // The COMMITMENT, not one exact phrasing: every card must say, in whatever words fit
@@ -357,8 +387,14 @@ describe('L-550 — the harmonised MUC-code fallback (the COMPOSITE-clau gap the
         // allow-list below is closed on purpose, so widening it to admit a legal code would destroy
         // exactly what it guards. 22@'s own assertions live in `esBarcelona22ArrobaPack.test.ts`,
         // and the "never a SYSTEM classification" half is asserted there too.
+        // ⚠ §CLAU-12B-TRAM-UNDEFINED (L-676) — `12b`/`R1` has LEFT this list on the same terms 22@
+        // did, and for the same reason the note above gives: it now refuses with `derived-plan`
+        // (`legallyGrounded: true`), a LEGAL statement about the PGM rather than about PRYZM. The
+        // allow-list below is closed ON PURPOSE, so widening it to admit a legal code would destroy
+        // exactly what it guards. `12b`'s assertions — including the "never a SYSTEM classification"
+        // half — live in `esBarcelonaClosureBlockers.test.ts`.
         for (const [clau, muc] of [
-            ['13a', 'R2'], ['13b', 'R2'], ['12', 'R1'], ['12b', 'R1'],
+            ['13a', 'R2'], ['13b', 'R2'], ['12', 'R1'],
             ['22a', 'A1'], ['20a/10', 'R6'], ['20a', 'R4'],
         ] as const) {
             const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau, { harmonisedCode: muc });

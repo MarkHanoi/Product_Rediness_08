@@ -112,16 +112,30 @@ end-to-end = clau coverage × layers 1–3 × layer 5 (height) × layer 6 (geome
 - **Resume step.** Identical to 3.1. **18 and 22a together are 40% of private buildable land and open
   together the moment the derived-plan parameters become reachable.**
 
-### 3.4 — clau 12b (Ciutat Vella, ~1.8%) — refused; height = mean of neighbours
+### 3.4 — ~~clau 12b — refused; height = mean of neighbours~~ → ✅ **CLOSED as GOVERNANCE (L-676)**
 
-- **What it is.** The old-town subzone where permitted height **is** the mean height of existing
-  neighbouring buildings.
-- **Why it blocks.** We do not hold reliable neighbour heights (context heights are 0.9% surveyed).
-- **What would unblock it.** **Real LiDAR / surveyed neighbour heights.** ⭐ **This is the ONE zone
-  where measuring neighbours is the legal method, not a proxy** — see §4.3. Candidate sources:
-  ICGC LiDAR (Catalonia), Barcelona municipal LiDAR, Microsoft ML Building Footprints heights.
-- **Resume step.** Acquire a neighbour-height source, wire it as an input to the 12b height
-  construction (the construction already knows it needs "mean of neighbours"), and it resolves.
+> ### ⚠⚠ THIS BLOCKER'S PREMISE WAS WRONG AND IS WITHDRAWN. **Do not acquire LiDAR for it.**
+>
+> It said: *"acquire a neighbour-height source, wire it as an input to the 12b height construction
+> … and it resolves."* **It does not resolve.** Read verbatim from the committed
+> `PGM-NNUU-metropolitana.pdf` (printed p. 106), **Art. 320.3a** sets the height as *«la **mitjana
+> de les edificacions existents**»* **«en un tram de vial»** — and the plan **never defines *un tram
+> de vial***: no length, no one-side-vs-both rule, no corner rule, no block boundary. **That
+> undefined term is what fixes the number**, since widening or narrowing the *tram* moves the mean
+> without bound.
+>
+> **A height dataset supplies HEIGHTS. It cannot supply a *TRAM*.** And one paragraph earlier, for
+> the same subzona, **Art. 320.2a** hands the *«determinació en particular i en detall»* to a
+> ***pla especial*** — which Ciutat Vella has (the patrimoni *pla especial* of 2000 and four PERIs).
+>
+> **Status: a permanent, legally-grounded `derived-plan` refusal** —
+> `barcelona12bNeighbourMeanRefusal`, citing `BCN_12B_ORDINANCE_REF`.
+> **Reopens only on** a *pla especial* or municipal instruction that **DEFINES the *tram de vial***
+> — a delimitation, not a dataset. See `findings/L-676-CLAU-12B-TRAM-UNDEFINED.md`.
+>
+> ⚠ For the record, so the negative is checkable: **ICGC DOES publish height-capable models** (MDS
+> 1 m Catalonia / 25 cm AMB, MDT 25–50 cm, third LiDAR flown 2021–23, published Feb 2026; height
+> derivable MDS − MDT). The data is not the constraint.
 
 ### 3.5 — bare `20a` (~1.8%) — refused; names the zone, not the subzone
 
@@ -159,10 +173,16 @@ end-to-end = clau coverage × layers 1–3 × layer 5 (height) × layer 6 (geome
   reliable scan-to-parameters extractor, **it is directly reusable on Barcelona's 2,595 scanned
   instruments** (§3.1 path 3). That single capability is the difference between Barcelona's ~48% and
   ~80%.
-- **4.3 — A verified LiDAR / surveyed-building-height source.** ⭐ Unblocks **clau 12b** (§3.4), the
-  one zone where neighbour heights are the legal input; also gives us the **envelope sanity-check
-  alarm** (compare computed height to real neighbours) we do not have today. Candidates worth chasing
-  if seen anywhere: **ICGC LiDAR**, Microsoft ML Building Footprints heights.
+- **4.3 — A verified LiDAR / surveyed-building-height source.** ⚠ **HALF OF THIS TRIP-WIRE IS
+  WITHDRAWN (L-676).** It said this *"unblocks clau 12b, the one zone where neighbour heights are
+  the legal input"*. **It does not** — §3.4 explains why: the plan leaves the *tram de vial*
+  undefined and delegates the determination to a *pla especial*, so a height source is necessary but
+  **not sufficient**, and is not even the binding constraint. ⭐ **The trip-wire's OTHER job stands
+  and is now its whole job:** the **envelope sanity-check alarm** (compare a computed height to real
+  neighbours), which we still do not have. ⚠ **The trip-wire that WOULD unblock 12b is a different
+  one, and it is new: a *pla especial* or municipal instruction DEFINING a *tram de vial* — a
+  DELIMITATION, not a dataset.** If you ever see one jurisdiction define the domain of a
+  "match your neighbours" rule, come back here.
 - **4.4 — A free parcel-boundary / cadastre pattern.** Barcelona uses Catastro (fine). But if another
   jurisdiction forces us to build a "user draws the plot" flow that is good, **that flow is the
   fallback for any city without a free cadastre** — note it here so we don't rebuild it.

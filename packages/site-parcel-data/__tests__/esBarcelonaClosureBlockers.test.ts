@@ -280,24 +280,60 @@ describe('§CLAU-12-PREDICATE — Art. 315.2 states no geographic test, so PRYZM
         const twelveB = resolveZoneDisposition(BCN_JURISDICTION_ID, '12b');
         expect(twelveB.kind).toBe('refusal');
         if (twelveB.kind !== 'refusal') return;
-        // A coverage gap — a statement about PRYZM, never about the law. Rendering it as a legal
-        // refusal would tell a Ciutat Vella owner the ordinance grants them no envelope.
-        expect(twelveB.refusal.code).toBe('no-rule-pack');
-        expect(twelveB.refusal.legallyGrounded).toBe(false);
-        // ⚠ And it must never quote subzona I's construction at subzona II's land.
-        expect(twelveB.refusal.detail).not.toMatch(/Art\. 320\.2a/);
+        // ⚠ §CLAU-12B-TRAM-UNDEFINED (L-676) — this asserted `no-rule-pack` + `legallyGrounded:
+        // false`, i.e. a COVERAGE GAP. That is no longer the truth and asserting it would hold the
+        // shipped card to a superseded finding. PGM Art. 320.3a states subzona II's height rule
+        // COMPLETELY as a rule; what it never defines is *un tram de vial*, and Art. 320.2a hands
+        // the particular and detailed determination for this subzona to a **pla especial**. So the
+        // refusal is a statement about the LAW — `derived-plan`, like clau 18 and 22@ — not about
+        // PRYZM's coverage. The invariant this test exists for is UNCHANGED and still asserted
+        // below: `12` and `12b` never share a code path.
+        expect(twelveB.refusal.code).toBe('derived-plan');
+        expect(twelveB.refusal.legallyGrounded).toBe(true);
+        // ⚠ AND THE ORIGINAL GUARD SURVIVES, RE-AIMED. The failure mode is subzona I's CONSTRUCTION
+        // being applied to subzona II's land: its 60 %-of-block depth and its street-width height
+        // table. Art. 320.2a may now be NAMED (12b's own card cites it — it is the paragraph that
+        // delegates to the pla especial), but subzona I's construction must never appear.
         expect(twelveB.refusal.detail).not.toMatch(/60 ?%/);
+        expect(twelveB.refusal.detail).not.toMatch(/street-width band|amplada del vial/i);
+        // ⚠ §DEC-1 leak rule — no figure in the prose. The article's own numbers (4 m, 3,05 m) live
+        // in the citation and nowhere a reader could mistake them for their entitlement.
+        expect(twelveB.refusal.detail).not.toMatch(/3[,.]05/);
+        expect(twelveB.refusal.detail).not.toMatch(/\b4 m\b/);
+        expect(twelveB.refusal.ordinanceRef).toContain('Art. 320.3a');
+        expect(twelveB.refusal.ordinanceRef).toContain('tram de vial');
+        expect(twelveB.refusal.ordinanceRef).toContain('pla especial');
+        // ⚠ THE HALF INHERITED FROM `zoneRegistryAndRefusals.test.ts`, which `12b` left when it
+        // stopped being a coverage gap. `12b` is a BUILDABLE clau, so the harmonised MUC code must
+        // never call it public domain — telling a Ciutat Vella owner their plot is a road is the
+        // false-negative-about-someone's-land error L-553 ranks worst. `derived-plan` says the rule
+        // is in another instrument; it does NOT say the land is a system.
+        const viaHarmonised = resolveZoneDisposition(BCN_JURISDICTION_ID, '12b', { harmonisedCode: 'R1' });
+        expect(viaHarmonised.kind).toBe('refusal');
+        if (viaHarmonised.kind !== 'refusal') return;
+        expect(viaHarmonised.refusal.code).toBe('derived-plan');
+        expect(['public-open-space', 'public-system', 'protected-soil', 'facility-plan'])
+            .not.toContain(viaHarmonised.refusal.code);
     });
 
-    it('⚠ the roadmap copy no longer under-states our own coverage', () => {
+    it('⚠ the roadmap copy neither under-states our coverage NOR promises a zone the LAW delegates', () => {
         // It named `12` and "the 20a family" as *next* long after both shipped. A roadmap sentence
         // that under-states coverage is read by the owner of a zone we DO cover, and is the same
         // class of false statement as one that over-states it.
-        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '12b');
+        //
+        // ⚠ §CLAU-12B-TRAM-UNDEFINED (L-676) — the SPECIMEN MOVED, because `12b` no longer reaches
+        // the roadmap line at all: it has its own cited `derived-plan` card. The line is now read
+        // by the owner of any clau that falls through to the coverage gap, so that is what is
+        // asserted. And the line's OWN defect is pinned: it used to end *"Next: 12b, whose rules
+        // are a survey of the existing neighbours"* — **a promise PRYZM cannot keep**, because the
+        // plan delegates 12b's determination rather than withholding a dataset. Promising a zone
+        // the LAW delegates is the same class of false statement as under-stating coverage.
+        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, 'ZZ-not-a-real-clau');
         expect(d.kind).toBe('refusal');
         if (d.kind !== 'refusal') return;
+        expect(d.refusal.code).toBe('no-rule-pack');
         expect(d.refusal.detail).not.toMatch(/Next: 12 \/ 12b/);
         expect(d.refusal.detail).toMatch(/clau 12 \(nucli antic/);
-        expect(d.refusal.detail).toMatch(/Next: 12b/);
+        expect(d.refusal.detail).not.toMatch(/Next: 12b/);
     });
 });

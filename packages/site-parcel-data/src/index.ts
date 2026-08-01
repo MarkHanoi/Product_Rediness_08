@@ -325,6 +325,19 @@ export {
 export { barcelona20aSubzoneUndeterminedRefusal } from './rulepacks/esBarcelonaZoneClassification.js';
 export { BCN_20A_BARE_ORDINANCE_REF } from './rulepacks/bcn20aSubzones.js';
 
+// ── §CLAU-12B-TRAM-UNDEFINED (L-676) — clau `12b`: the RULE is stated, its DOMAIN is not. ──
+// PGM Art. 320.3a sets subzona II's height as *«la mitjana de les edificacions existents»* «en un
+// tram de vial» — defining the statistic, the excluded population and the storey derivation, but
+// NEVER the *tram de vial* itself, which is what fixes the number. Art. 320.2a hands this subzona's
+// *«determinació en particular i en detall»* to a **pla especial**. So it is a `derived-plan`
+// refusal (legally grounded), NOT a coverage gap, and NOT unblocked by acquiring LiDAR: a height
+// dataset supplies heights, not a *tram*. ⚠ NO figure reaches the prose — the article's 4 m and
+// 3,05 m live in `BCN_12B_ORDINANCE_REF` alone (the §DEC-1 discipline, mirrored again).
+export {
+    barcelona12bNeighbourMeanRefusal,
+    BCN_12B_ORDINANCE_REF,
+} from './rulepacks/esBarcelonaZoneClassification.js';
+
 // ── §CLAU-12-PREDICATE (L-674) — the finding that there is NO geographic predicate to write. ──
 // PGM Art. 315.2 states which nuclei the two nucli-antic subzones were drawn for; it delimits
 // neither, and hedges the `12b` half with "preferentment". The operative predicate is the plànol

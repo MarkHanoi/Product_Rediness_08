@@ -59,6 +59,10 @@ export default defineConfig({
       // §GEOJSONSEQ-READ (L-658): the bake's footprint reader — RS (RFC 8142) tolerance
       // and the honest empty-vs-unparseable split that a silent join failure hid.
       'tools/context-bake/__tests__/**/*.spec.ts',
+      // §RPUC-SUPERSESSION (L-676): the Barcelona supersession screens (CLOSURE-REGISTER row 9).
+      // Pure string classifiers, no network — pinned because a screen that quietly stopped failing
+      // OPEN would shrink the reading list and read as progress.
+      'tools/rpuc-supersession/__tests__/**/*.spec.ts',
     ],
     testTimeout: 10_000,
     // Wave A18-T27: coverage reporting via @vitest/coverage-v8 (c8/Istanbul).

@@ -394,6 +394,20 @@ export function barcelonaZoneRefusalFor(
     if (clau === '20a') {
         return barcelona20aSubzoneUndeterminedRefusal(clau, null, knownFacts);
     }
+    // ── §CLAU-12B-TRAM-UNDEFINED (L-676) — clau `12b`'s PERMANENT cited refusal. ─────────────
+    //
+    // ⚠ IT MUST RESOLVE **BEFORE** `barcelonaNoRulePackRefusal`, and the reason is the same one
+    // that removed `13b`, `22a`, `22@` and bare `20a` from `coverageGapReasonFor`: the coverage-gap
+    // copy `12b` was getting is a FALSE STATEMENT ABOUT OUR OWN COVERAGE *and* the wrong argument.
+    // It said the blocker is that *"the façade sits on the street line … so a setback estimate
+    // would be the wrong SHAPE"* — which is subzona **I**'s argument (clau `12`, which SHIPPED a
+    // pack on 2026-07-22 on exactly that reasoning). `12b`'s blocker is not the shape at all: the
+    // shape is identical, the ordinance states the height rule, and what it leaves undefined is the
+    // DOMAIN the rule is averaged over. Same defect pattern, fifth occurrence. The branch is
+    // DELETED from `coverageGapReasonFor`, not out-ranked.
+    if (clau === '12b') {
+        return barcelona12bNeighbourMeanRefusal(clau, null, knownFacts);
+    }
     if (
         typeof harmonisedCode === 'string' &&
         harmonisedCode.trim().toUpperCase().startsWith(HARMONISED_SYSTEM_PREFIX)
@@ -485,17 +499,24 @@ function coverageGapReasonFor(clau: string): string {
     // rather than left in-and-dead, for the reason the `13b` note above gives. `12b` stays: it has
     // no pack, and its own subzone rules (Art. 320.2a/3a subzona II — the depth and height of the
     // EXISTING neighbours) are a different KIND of input we hold nothing for.
-    if (clau === '12b') {
-        return (
-            'PRYZM could draw a generic front/side/rear setback estimate here, and until now it ' +
-            'did. It has been switched off deliberately: this zone is regulated by a different ' +
-            'KIND of rule — the façade sits on the street line, with a maximum buildable depth ' +
-            'measured back from it — so a setback estimate would be the wrong SHAPE, not merely ' +
-            'an imprecise number, and it would quietly over-state your buildable area by ' +
-            'covering the full depth of the plot. We would rather show you nothing than ' +
-            'something wrong.'
-        );
-    }
+    //
+    // ⚠⚠ §CLAU-12B-TRAM-UNDEFINED (L-676) — **`12b` WAS IN THIS BRANCH AND IS NOT ANY MORE**, and
+    // the removal follows the same rule as `13b`'s, `22a`'s, `22@`'s and bare `20a`'s below. It
+    // now takes `barcelona12bNeighbourMeanRefusal`, which `barcelonaZoneRefusalFor` consults BEFORE
+    // the coverage gap. The deleted sentence was wrong TWICE OVER, which is why it is deleted
+    // rather than left dead:
+    //   1. It said PRYZM *"could draw a generic front/side/rear setback estimate here"* and that
+    //      the blocker is the SHAPE — *"the façade sits on the street line … a setback estimate
+    //      would be the wrong SHAPE"*. That is **subzona I's** argument, and subzona I (clau `12`)
+    //      SHIPPED A PACK on 2026-07-22 on precisely that reasoning. Reciting it for subzona II
+    //      states the wrong blocker for the user's own land.
+    //   2. It implied a coverage gap. **There is none.** Art. 320.3a states subzona II's height
+    //      rule in full — the statistic (*la mitjana*), the excluded population (*les façanes dels
+    //      solars no edificats*) and the storey derivation (PB 4 m + 3,05 m/planta pis). PRYZM has
+    //      read it. What the article does not define is *un tram de vial* — the DOMAIN the mean is
+    //      taken over — and its companion paragraph for the SAME subzona hands the *«determinació
+    //      en particular i en detall»* to a **pla especial**.
+    // Same false-statement-about-our-own-coverage defect, fifth occurrence in this function.
     // Industrial / activitats — the LIMITS are a coverage % and a floor-area index, which the
     // solver resolves and displays but cannot yet apply to geometry (ADR-0272, Phase 2).
     //
@@ -568,9 +589,16 @@ const BCN_ROADMAP_LINE =
     // prevent — a roadmap sentence is still a statement about the law when it carries an article.
     'cadastral block; clau 12 (nucli antic de substitució), constructed the same way from the ' +
     'block; and the ten subzones of the 20a family (edificació aïllada), which take real ' +
-    'separation distances. Next: 12b, whose rules are a survey of the existing neighbours. Each ' +
-    'zone ships only once its governing article has been read and accepted — which is why this ' +
-    'one is not here yet.';
+    // ⚠⚠ §CLAU-12B-TRAM-UNDEFINED (L-676) — this line USED to end *"Next: 12b, whose rules are a
+    // survey of the existing neighbours."* That was a **promise PRYZM cannot keep**, and it
+    // mis-described the blocker as an engineering backlog item. Art. 320.3a's *tram de vial* is
+    // undefined in the plan and Art. 320.2a delegates subzona II's detailed determination to a pla
+    // especial; no dataset supplies a *tram*. A roadmap sentence that promises a zone the LAW
+    // delegates is the same class of false statement as one that under-states our coverage — it is
+    // read by the owner of land we will never compute. `12b` now carries its own cited refusal and
+    // is deliberately absent from this roadmap.
+    'separation distances. Each zone ships only once its governing article has been read and ' +
+    'accepted — which is why this one is not here yet.';
 
 /**
  * The refusal shown on a privately-buildable clau PRYZM has not authored a pack for.
@@ -998,6 +1026,201 @@ export function barcelona20aSubzoneUndeterminedRefusal(
             // read. ⚠ The FIGURES and the RANGES live here, inside the citation, and nowhere else.
             ordinanceRef: BCN_20A_BARE_ORDINANCE_REF,
             legallyGrounded: false,
+            knownFacts: [...knownFacts],
+        };
+    } finally {
+        span.end();
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// §CLAU-12B-TRAM-UNDEFINED (L-676) — clau `12b`: the RULE is stated, its DOMAIN is not, and the
+// plan hands the detailed determination to a *pla especial*. CLOSURE-REGISTER blocker 6, CLOSED
+// as **GOVERNANCE**, on the primary text.
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// THE QUESTION THE REGISTER ASKED. *"Establish what 'existing neighbouring buildings' means IN
+// ADMINISTRATIVE PRACTICE; whether Barcelona/ICGC publish an authoritative height dataset USED BY
+// THE MUNICIPALITY for this rule. If the municipality itself derives it from an official dataset ⇒
+// **engineering**. If not ⇒ **governance**."* `NEXT.md` §3.4 and §4.3 had it filed as the one zone
+// where *"measuring neighbours is the legal method, not a proxy"*, waiting on LiDAR.
+//
+// ⚠⚠ THE ANSWER IS **GOVERNANCE**, AND THE DECIDING FACT IS NOT ABOUT DATA AT ALL. Read verbatim
+// from the committed primary text (`PGM-NNUU-metropolitana.pdf`, printed p. 106):
+//
+//   **Art. 320.3a, subzona II** — *«A la subzona II, de conservació del centre històric, l'alçada
+//   en **un tram de vial** serà la **mitjana de les edificacions existents**, sense que entrin al
+//   còmput les façanes dels solars no edificats. El nombre màxim de plantes admès serà, un cop fet
+//   el còmput de l'alçada, el que resulti per defecte de suposar una alçada mínima de planta baixa
+//   de 4 m. i una alçada mínima, inclòs el forjat, de 3,05 m. per planta pis.»*
+//
+// So the article DOES state the statistic (a **mean**, not the tallest neighbour), the population
+// (existing buildings, with unbuilt plots' façades **excluded** from the count) and the storey
+// derivation (PB 4 m + 3,05 m per floor). **What it never defines is *un tram de vial*** — the
+// DOMAIN the mean is taken over. No length. No rule for one side of the street versus both. No
+// corner rule. No block boundary. **And the domain is what fixes the number**: widen or narrow the
+// *tram* and the mean moves, without limit.
+//
+// ⭐ THE DECISIVE EVIDENCE IS IN THE SAME ARTICLE, ONE PARAGRAPH UP (printed p. 105):
+//
+//   **Art. 320.2a, subzona II** — *«…la profunditat edificable serà, com a màxim, la de les
+//   edificacions contigües existents, **mentre es redacti la determinació en particular i en
+//   detall al pla especial**.»*
+//
+// For the SAME subzona, on the neighbouring parameter, built on the SAME "look at what is already
+// there" premise, **the plan says in terms that the particular and detailed determination belongs
+// to a *pla especial*.** And **Art. 316.3** (printed p. 105) closes the loop: *«A la subzona II, de
+// conservació del centre històric, **no s'admeten les ordenacions de volums que impliquin
+// modificacions de l'ordenació existent o de les alçades usuals.**»*
+//
+// ⇒ **Classification `NOT-THE-RULE-KIND` — and specifically: a rule whose DOMAIN is delegated.**
+// A neighbour-height dataset supplies HEIGHTS. It cannot supply a ***tram***. Wiring LiDAR and
+// picking a radius would be PRYZM choosing the domain of a legal average — inventing the one term
+// the plan withheld and the pla especial exists to supply — and publishing the result as a cited
+// envelope. That is `mucZoningProxy.js`'s standing warning in a new costume (C58 §1.11), and it is
+// the same error §CLAU-12-PREDICATE refused for blocker 3.
+//
+// WHAT WAS SEARCHED, AND FOUND ABSENT (negative evidence closes a blocker):
+//   · **ICGC** publishes height-CAPABLE elevation products — MDS at 1 m for Catalonia and 25 cm for
+//     the AMB, MDT to 25–50 cm, third LiDAR coverage flown 2021–2023 and published Feb 2026, plus a
+//     *Mapa isomètric d'edificacions* and LOD1 buildings. Building height is DERIVABLE (MDS − MDT).
+//     ⚠ No discrete, licence-stamped *"alçada dels edificis"* product was located; the *3D Carrers*
+//     viewer is CC BY-NC-ND 4.0.
+//   · **Open Data BCN** — searched the `Edificis` tag: addresses and heritage photographs, **no
+//     building-height dataset** found. (Searched, not catalogue-walked: "not found", not "absent".)
+//   · **The Ajuntament's llicència d'obres / Informe d'Idoneïtat Tècnica material** — **no
+//     reference to any LiDAR/MDS product as an input to an alçada determination.** What Ciutat
+//     Vella actually has is INSTRUMENTS: the *Pla especial de protecció del patrimoni … Districte de
+//     Ciutat Vella* (2000) and the per-neighbourhood PERIs (Raval, Casc Antic, Barceloneta, Sector
+//     Oriental) — exactly the *pla especial* Art. 320.2a points at.
+//   · **A municipal *instrucció* or appeal interpreting *«edificacions existents»* / *«tram de
+//     vial»*** — searched BCNROC and the open web: **NOT FOUND.**
+//
+// ⇒ **The municipality does NOT resolve this rule from a dataset.** The premise `NEXT.md` §4.3 was
+// waiting on — *"acquire a neighbour-height source and it resolves"* — is **withdrawn**. A height
+// source is **necessary but not sufficient**, and on its own it is not even the binding constraint.
+//
+// ⚠ WHAT WOULD REOPEN THIS: a *pla especial* or municipal instruction that DEFINES the *tram de
+// vial* (a length, a side rule, a corner rule) for Ciutat Vella. That is a delimitation, not a
+// dataset. If one is found, this becomes engineering the same day — and the height source, which
+// exists, is then the second half of it.
+//
+// ⚠ WHAT THIS DOES **NOT** LICENCE: an "indicative" mean-of-neighbours band rendered beside the
+// refusal. It would carry the same fabricated *tram*, and C58 §1.14 / L-459 are explicit that a
+// derived value which renders like a surveyed one IS the defect. If it is ever built it must be
+// non-binding, visibly distinct, and must not be called an envelope.
+
+/** The label used when no caller supplies one. From the ordinance, never from the MUC. */
+const BCN_12B_DEFAULT_LABEL = 'Nucli antic de conservació del centre històric';
+
+/**
+ * The citation for `12b`. C58 §1.13.4 — this card makes real claims about the ordinance (that the
+ * height is a mean of the existing buildings, that unbuilt plots are excluded, that the storey count
+ * is derived, and that the detailed determination is a *pla especial*'s), so it cites what was read.
+ *
+ * ⚠ The FIGURES live HERE, inside the citation, and NOT in the prose — the §DEC-1 leak rule: a
+ * refusal's user-facing copy must not carry numbers a reader could mistake for their entitlement.
+ */
+export const BCN_12B_ORDINANCE_REF =
+    'PGM-1976 NNUU — Zona de nucli antic (clau 12), subzona II, de conservació del centre històric ' +
+    '(clau 12b). ' +
+    'Alçada: Art. 320.3a — «A la subzona II, de conservació del centre històric, l’alçada en un ' +
+    'tram de vial serà la mitjana de les edificacions existents, sense que entrin al còmput les ' +
+    'façanes dels solars no edificats. El nombre màxim de plantes admès serà, un cop fet el còmput ' +
+    'de l’alçada, el que resulti per defecte de suposar una alçada mínima de planta baixa de 4 m. i ' +
+    'una alçada mínima, inclòs el forjat, de 3,05 m. per planta pis.» ' +
+    '⚠ L’article NO defineix el «tram de vial»: ni longitud, ni criteri d’una o dues voreres, ni ' +
+    'regla de cantonada, ni límit d’illa. ' +
+    'Profunditat: Art. 320.2a — «…la profunditat edificable serà, com a màxim, la de les ' +
+    'edificacions contigües existents, mentre es redacti la determinació en particular i en detall ' +
+    'al pla especial.» ' +
+    'Ordenació de volums: Art. 316.3 — «A la subzona II, de conservació del centre històric, no ' +
+    's’admeten les ordenacions de volums que impliquin modificacions de l’ordenació existent o de ' +
+    'les alçades usuals.» ' +
+    'Àmbit de les subzones: Art. 315.2 — la subzona II és «referida preferentment» al nucli antic ' +
+    'de Barcelona; l’article no delimita cap àmbit (vegeu §CLAU-12-PREDICATE, L-674). ' +
+    'Datum i mesura de cada edificació existent: Arts. 239.2 i 240 (regles generals). ' +
+    'Source: MMAMB re-edition of the Normativa Urbanística Metropolitana, printed pp. 105–106 ' +
+    '(base) and p. 184 (text d’aplicació exclusiva al municipi de Barcelona, which reproduces the ' +
+    'subzona II height paragraph unchanged), committed at ' +
+    'docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf — a ' +
+    'manually re-typeset re-edition, primary but NOT authenticated.';
+
+/**
+ * §CLAU-12B-TRAM-UNDEFINED — the permanent, legally-grounded `derived-plan` refusal for clau `12b`.
+ *
+ * Says, in substance: *"We hold this zone's rules and we have read Art. 320.3a. It states that your
+ * height is the MEAN of the existing buildings along a stretch of street — but it never defines the
+ * stretch, and the same article hands subzona II's particular and detailed determination to a pla
+ * especial. The missing thing is a delimitation, not a measurement, and no height dataset supplies
+ * it."*
+ *
+ * ⚠ `legallyGrounded: true`, like `22@`'s and unlike bare `20a`'s. This IS a statement about the
+ * ordinance: the general plan expressly points at another instrument (Art. 320.2a), which is what
+ * `derived-plan` means and what clau 18 already uses. Flipping it to `false` would say PRYZM has not
+ * done the work — the same false sentence §DEC-1 and §BARE-20A-EXHAUSTED exist to delete.
+ *
+ * ⚠ It is NOT in the `CLASSIFICATIONS` table, for `22@`'s reason and not `22a`'s: L-553 rule 1
+ * requires the card to open by naming the user's zone in the ordinance's own words, which needs the
+ * caller's `zoneLabel` — a per-lookup value a static `ClassifiedRefusal` row cannot carry.
+ *
+ * P8 — OTel span. Precedent: `barcelona22ArrobaDerivedPlanRefusal` above, same argument (a span on
+ * a pure constructor is a no-op without an exporter, so purity is unaffected).
+ */
+export function barcelona12bNeighbourMeanRefusal(
+    clau: string,
+    clauLabel?: string | null,
+    knownFacts: readonly string[] = [],
+): EnvelopeRefusal {
+    const span = _tracer.startSpan('pryzm.zoning.es.bcn.barcelona12bNeighbourMeanRefusal');
+    try {
+        span.setAttribute('bcn.clau', clau);
+        const named = `${(clauLabel && clauLabel.trim()) || BCN_12B_DEFAULT_LABEL} (clau ${clau})`;
+        return {
+            code: 'derived-plan',
+            // L-553 rule 1 — name the zone first; then say WHICH determination the law declines to
+            // make, not that we failed to make it.
+            headline:
+                `${named} — the plan sets your height by reference to the buildings already ` +
+                'standing along your stretch of street, and it never defines the stretch.',
+            detail:
+                // ── What we DO hold, first: the fastest proof this is not a coverage gap. ──
+                'PRYZM has read the article that governs this land, from the plan’s own text. This ' +
+                'is not a coverage gap. Art. 320.3a states the rule completely as a rule: your ' +
+                'permitted height is the *mitjana* — the MEAN, not the tallest — of the existing ' +
+                'buildings, the façades of unbuilt plots are expressly excluded from the count, and ' +
+                'the number of storeys follows from that height by a stated derivation. The full ' +
+                'text is set out in the citation on this card. ' +
+                // ── What the ordinance does NOT define, and why that term is the whole answer. ──
+                '⚠ What the article does NOT define is *un tram de vial* — the stretch of street the ' +
+                'mean is taken over. It gives no length, no rule for whether one side of the street ' +
+                'counts or both, no corner rule and no block boundary. That term is not a detail: ' +
+                'it is what fixes the number, because widening or narrowing the stretch moves the ' +
+                'mean. Measuring the neighbours is not the hard part — deciding WHICH neighbours is, ' +
+                'and the plan does not say. ' +
+                // ── The finding that makes this PERMANENT rather than pending. ──
+                'The omission is not an oversight. One paragraph earlier, for this same subzona and ' +
+                'on the same "match what is already there" premise, Art. 320.2a states that the ' +
+                'buildable depth holds only *«mentre es redacti la determinació en particular i en ' +
+                'detall al pla especial»* — the particular and detailed determination belongs to a ' +
+                '*pla especial*. Art. 316.3 completes it: in this subzona no volumetric ordering may ' +
+                'modify the existing ordering or the customary heights. Ciutat Vella has those ' +
+                'instruments — the *Pla especial de protecció del patrimoni* for the district and ' +
+                'the neighbourhood PERIs — and your stretch is delimited there, not in the general ' +
+                'plan. ' +
+                // ── Why a dataset does not close it. Names the search, so the negative is checkable.
+                'A survey of the neighbours would not settle it either. Catalonia’s mapping agency ' +
+                'does publish elevation models from which building heights can be derived, and ' +
+                'PRYZM could read them — but a height source supplies heights, and what is missing ' +
+                'here is a delimitation. Searches of the metropolitan and municipal planning ' +
+                'repositories, the city’s open-data catalogue and the building-licence guidance ' +
+                'found no published dataset, instruction or appeal defining the stretch for this ' +
+                'rule, and no evidence the city itself resolves it from one. Choosing a radius on ' +
+                'your behalf would be PRYZM inventing the one term the plan withheld, and then ' +
+                'publishing the result as though the ordinance had said it. We would rather name ' +
+                'the instrument that decides your street.',
+            ordinanceRef: BCN_12B_ORDINANCE_REF,
+            legallyGrounded: true,
             knownFacts: [...knownFacts],
         };
     } finally {

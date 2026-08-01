@@ -93,6 +93,14 @@ describe('L-601 (a) — legal refusals and coverage gaps NEVER share a class (C5
         // the Pla de Millora Urbana. That is `derived-plan` — the rule is elsewhere — not "PRYZM
         // has not encoded this zone". Same class as clau 18, and for the same reason.
         ['22@', 'derived-plan', 'plan-defined'],
+        // §CLAU-12B-TRAM-UNDEFINED (L-676, 2026-08-01) — `12b` MOVED HERE from the coverage-gap row
+        // below, by the same route 22@ took and for the same kind of reason. PGM Art. 320.3a states
+        // subzona II's height rule completely AS A RULE (the mean of the existing buildings, unbuilt
+        // plots excluded, storeys derived) — but it never defines *un tram de vial*, the domain the
+        // mean is taken over, and Art. 320.2a hands this subzona's *«determinació en particular i en
+        // detall»* to a **pla especial**. That is `derived-plan` — the determination is in another
+        // instrument — not "PRYZM has not encoded this zone". Same class as clau 18 and 22@.
+        ['12b', 'derived-plan', 'plan-defined'],
     ];
 
     it('the LEGAL claus classify as `systems-land` / `plan-defined`, and are legally grounded', () => {
@@ -108,13 +116,18 @@ describe('L-601 (a) — legal refusals and coverage gaps NEVER share a class (C5
     });
 
     it('a COVERAGE gap (`zone-unencoded`) is never one of the legal classes', () => {
-        // 12b / bare 20a are buildable claus with no pack: the registry refuses them as a
-        // coverage gap. They must classify to `zone-unencoded`, never to `systems-land` /
-        // `plan-defined` — the false-negative-about-someone's-land error L-553 ranks worst.
+        // bare 20a is a buildable clau with no pack: the registry refuses it as a coverage gap. It
+        // must classify to `zone-unencoded`, never to `systems-land` / `plan-defined` — the
+        // false-negative-about-someone's-land error L-553 ranks worst.
         // ⚠ §DEC-1 — `22@` LEFT this list on 2026-08-01 and is now asserted in the LEGAL row above.
         // That is not a relaxation of this invariant: 22@ stopped being a coverage gap because the
         // ordinance's own answer was established, which is the only honest way out of this bucket.
-        for (const clau of ['12b', '20a']) {
+        // ⚠ §CLAU-12B-TRAM-UNDEFINED (L-676) — `12b` LEFT this list the same day, by the same route.
+        // Both exits are EARNED: a clau leaves this bucket only when the ORDINANCE's answer has been
+        // established, never when the copy is merely reworded. Bare `20a` has NOT earned it — its
+        // numbers exist and a subzone selector would return it to the computable set — so it stays,
+        // and this loop keeps a live subject rather than becoming a vacuous truth.
+        for (const clau of ['20a']) {
             const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau);
             expect(d.kind, clau).toBe('refusal');
             if (d.kind !== 'refusal') continue;
