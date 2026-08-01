@@ -334,21 +334,88 @@ export const BCN_20A_ZONE_CODES: readonly string[] = Object.freeze(
 /**
  * ⚠ **BARE `20a` IS DELIBERATELY ABSENT FROM `BCN_20A_ZONE_CODES`.**
  *
- * The MUC does return an unsuffixed `20a` (5 occurrences in the 1 014-point probe). It identifies
- * the ZONE, not the subzone — and the ten subzones differ by a factor of **six** in edificabilitat
- * (0,25 → 1,50), by a factor of four in coverage (10 % → 40 %) and by 9 m in front separation
- * (3 m → 12 m). There is no defensible "typical 20a".
+ * The MUC does return an unsuffixed `20a` (5 occurrences in the 1 014-point probe, **1.55 % of
+ * private buildable land** by the AMB `qualificacio_refos` census). It identifies the ZONE, not the
+ * subzone — and the ten subzones differ by a factor of **six** in edificabilitat (0,25 → 1,50), by
+ * a factor of four in coverage (10 % → 40 %) and by 9 m in front separation (3 m → 12 m). There is
+ * no defensible "typical 20a".
  *
- * So an unsuffixed `20a` keeps the honest coverage-gap refusal, whose copy already says the
- * blocker is *"THIS subzone's own sourced numbers"*. Registering a pack for it would require
- * choosing one subzone's numbers and presenting them as the zone's — the exact category error
- * C58 §1.11 names.
+ * ⚠⚠ §BARE-20A-EXHAUSTED (L-673) — **THE SEARCH IS OVER, AND IT ENDED IN THE PRIMARY TEXT, NOT IN A
+ * PORTAL.** CLOSURE-REGISTER blocker 7 asked for an exhaustive sweep of MUC · RPUC · Ajuntament
+ * Open Data · AMB · WFS/WMS · planning shapefiles for a bare-`20a` resolver, and recorded that *"a
+ * negative result CLOSES this"*. The sweep is unnecessary, because the PGM answers it directly:
+ *
+ *   • **Art. 314.5** enumerates the *qualificacions zonals* of the *zona d'ordenació en edificació
+ *     aïllada* and lists **ten**, every one carrying a suffix (`20a/6`, `20a/5`, `20a/7`, `20a/9`,
+ *     `20a/9b`, `20a/8`, `20a/9u`, `20a/10`, `20a/11`, `20a/12`). **Bare `20a` is not among them.**
+ *   • **Art. 338.2** repeats the same ten, mapped to the Roman subzones I–IX.
+ *   • **Art. 340.1** keys the *índex d'edificabilitat neta* table **per subzone**, with no row for
+ *     the zone. **Art. 342.1/.2/.3/.5/.8** key minimum parcel, minimum façade, occupation, height
+ *     and boundary separations per subzone; **Art. 343.1/.2** do the same for the unifamiliars.
+ *
+ * ⇒ **Every envelope parameter of this zone is defined at SUBZONE granularity and at no other.**
+ * Bare `20a` is a *zona* name; the *qualificació* that carries the numbers is `20a/N`. That is not
+ * a sourcing gap and no municipal layer can change it — a layer would supply the missing SELECTOR,
+ * not a missing rule.
+ *
+ * ⚠ **AND THAT IS WHY THE REFUSAL CODE CHANGED.** Bare `20a` used to take
+ * `barcelonaNoRulePackRefusal`, whose copy said the blocker was *"THIS subzone's own sourced
+ * numbers: its separations, its minimum parcel size, its maximum occupation and its net
+ * buildability index."* **That sentence has been false since this table was authored** — PRYZM
+ * holds all four, for all ten subzones, transcribed from the primary text. It is the same false
+ * statement about our own coverage that had `13b`, `22a` and `22@` removed from
+ * `coverageGapReasonFor`, and it is now removed for the same reason.
+ *
+ * The correct answer is `regime-undetermined` (`barcelona20aSubzoneUndeterminedRefusal`): the
+ * ordinance states TEN subzone regimes and no public source records which one governs this parcel.
+ * Registering a pack instead would require choosing one subzone's numbers and presenting them as
+ * the zone's — the exact category error C58 §1.11 names.
  */
 export const BCN_20A_BARE_CLAU_UNRESOLVABLE =
-    'Clau "20a" without a subzone suffix identifies the zone, not the subzone. PGM Art. 338.2 ' +
-    'establishes ten claus whose net edificabilitat spans 0,25–1,50 m²st/m²s and whose front ' +
-    'separation spans 3–12 m; no single value is true of the zone. It therefore remains a ' +
-    'coverage gap rather than being packed with a representative subzone (C58 §1.11).';
+    'Clau "20a" without a subzone suffix identifies the zone, not the subzone. PGM Arts. 314.5 and ' +
+    '338.2 enumerate ten subzone claus and no unsuffixed one; Arts. 340.1, 342.1/.2/.3/.5/.8 and ' +
+    '343.1/.2 key EVERY envelope parameter to the subzone. Their net edificabilitat spans ' +
+    '0,25–1,50 m²st/m²s, occupation 10–40 %, front separation 3–12 m; no single value is true of ' +
+    'the zone. It is therefore a regime-undetermined refusal — the ordinance states ten regimes ' +
+    'and no source says which applies — not a coverage gap, and not a pack built on a ' +
+    'representative subzone (C58 §1.11).';
+
+/**
+ * §BARE-20A-EXHAUSTED — the citation carried by bare `20a`'s refusal.
+ *
+ * ⚠ **NARROWER THAN THE PACK'S per-subzone refs, deliberately.** It names the articles that
+ * ESTABLISH the ten-way split and that key the parameters to it — the only claims the card makes —
+ * and it carries the RANGES. It does not cite any single subzone's row, because the card is
+ * explicitly declining to say which row governs; citing one would attach an authoritative-looking
+ * reference to the very fact we cannot establish (L-526).
+ *
+ * ⚠ **THE DIGITS LIVE HERE AND NOWHERE ELSE ON THE CARD** — the §DEC-1 discipline. Unlike clau
+ * `22a`, whose FAR and occupation are REGIME-NEUTRAL (all three paragraphs of Art. 350 restate
+ * them), **not one 20a envelope figure is subzone-neutral**: the only things true of every subzone
+ * are the ordination type (Art. 339, *edificació aïllada*) and the fact that a subzone decides.
+ */
+export const BCN_20A_BARE_ORDINANCE_REF =
+    'PGM-1976 NNUU, Secció 6a — Zona d’ordenació en edificació aïllada (clau 20a), Arts. 337–343. ' +
+    'Tipus d’ordenació: Art. 339 — edificació aïllada, per a TOTES les subzones (l’única ' +
+    'determinació d’aquesta zona que no depèn de la subzona). ' +
+    'Subzones: Art. 314.5 i Art. 338.2 — deu qualificacions, totes amb sufix: plurifamiliars ' +
+    'I (20a/6), II (20a/5), III (20a/7), IVa (20a/9), IVb (20a/9b), V (20a/8); unifamiliars ' +
+    'VI (20a/9u), VII (20a/10), VIII (20a/11), IX (20a/12). No hi ha cap qualificació "20a" sense ' +
+    'sufix. ' +
+    'Edificabilitat neta: Art. 340.1 — taula per subzona, de 0,25 a 1,50 m² sostre/m² sòl ' +
+    '(Art. 340.2 la redueix a 0,75 a les subzones unifamiliars amb índex 1,00 per a parcel·les de ' +
+    'menys de 400 m²). ' +
+    'Ocupació màxima de parcel·la: Art. 342.2 (plurifamiliars, 15–40 %) i Art. 343.1 ' +
+    '(unifamiliars, 10–40 %). ' +
+    'Alçada màxima i nombre de plantes: Art. 342.3 (9,15 m / PB+2 amb les excepcions de les ' +
+    'subzones IVb i V), Art. 342.4 (IVb: 15,25 m / PB+4), Art. 342.5 (V: taula per amplada de ' +
+    'vial, 7,55–16,70 m) i Art. 343.2 (unifamiliars: 9,15 m / PB+2). ' +
+    'Separacions a llindes: Art. 342.8 — frontal 3–12 m, lateral 3–8 m, fons 3–10 m, per subzona. ' +
+    'Superfície mínima de parcel·la i longitud mínima de façana: Art. 342.1 i Art. 343.1. ' +
+    'Source: MMAMB re-edition of the Normativa Urbanística Metropolitana, printed pp. 104 and ' +
+    '110–113 (base) and pp. 179–183 (text d’aplicació exclusiva al municipi de Barcelona), ' +
+    'committed at docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/' +
+    'PGM-NNUU-metropolitana.pdf — a manually re-typeset re-edition, primary but NOT authenticated.';
 
 /**
  * WHAT THE BARCELONA TEXT ACTUALLY CHANGES vs the base PGM Arts. 337–343.

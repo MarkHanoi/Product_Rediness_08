@@ -62,6 +62,9 @@ import {
     BCN_22ARROBA_ORDINANCE_REF,
     BCN_22ARROBA_ZONE_CODES,
 } from './esBarcelona22Arroba.js';
+// §BARE-20A-EXHAUSTED — bare `20a`'s refusal imports the CITATION only. Not one 20a envelope figure
+// is subzone-neutral, so no figure crosses into this module; see `BCN_20A_BARE_ORDINANCE_REF`.
+import { BCN_20A_BARE_ORDINANCE_REF } from './bcn20aSubzones.js';
 
 /**
  * P8 — one tracer for this module's exported refusal constructors. Same precedent as
@@ -373,6 +376,24 @@ export function barcelonaZoneRefusalFor(
     if ((BCN_22ARROBA_ZONE_CODES as readonly string[]).includes(clau)) {
         return barcelona22ArrobaDerivedPlanRefusal(clau, null, knownFacts);
     }
+    // ── §BARE-20A-EXHAUSTED (L-673) — bare `20a`'s subzone-undetermined refusal. ─────────────
+    //
+    // ⚠ THE MATCH IS EXACT-EQUALITY, NOT A PREFIX. `20a/6`…`20a/12` are PACKED, and the registry
+    // gives a pack precedence over any refusal — but relying on that ordering to keep the ten
+    // suffixed claus out of this branch would put the correctness of ten real envelopes in the
+    // hands of a lookup order in another module. `clau === '20a'` cannot be got wrong by a
+    // refactor. (Same argument as the module header's "no prefix matching, ever".)
+    //
+    // ⚠ AND IT MUST RESOLVE **BEFORE** `barcelonaNoRulePackRefusal`, which is what
+    // `resolveZoneDisposition`'s ordering gives it. The coverage-gap card's 20a copy said the
+    // blocker was *"THIS subzone's own sourced numbers: its separations, its minimum parcel size,
+    // its maximum occupation and its net buildability index"* — FALSE since `bcn20aSubzones.ts`
+    // was authored, which holds all four for all ten subzones from the primary text. It has been
+    // deleted from `coverageGapReasonFor` rather than merely out-ranked, exactly as 13b's, 22a's
+    // and 22@'s were.
+    if (clau === '20a') {
+        return barcelona20aSubzoneUndeterminedRefusal(clau, null, knownFacts);
+    }
     if (
         typeof harmonisedCode === 'string' &&
         harmonisedCode.trim().toUpperCase().startsWith(HARMONISED_SYSTEM_PREFIX)
@@ -405,8 +426,12 @@ export function barcelonaZoneRefusalFor(
 // now ~42.8 % — `12`, `12b`, `22a`, `22@`, `20a/*`. The argument below is unchanged for those.
 // ⇒ §DEC-1 UPDATE (2026-08-01): `22@` (2.06 pp) has LEFT the coverage-gap set entirely. It is not
 // waiting on a pack — the founder closed it as a PERMANENT legally-grounded refusal, because the
-// MPGM omits the buildable depth by design and the geometry lives in the PMU. So the coverage gap
-// this function speaks for is `12`, `12b`, `22a`, `20a/*`, and `22@` is answered one branch up.
+// MPGM omits the buildable depth by design and the geometry lives in the PMU.
+// ⇒ §BARE-20A-EXHAUSTED UPDATE (2026-08-01): `12` and the ten `20a/*` claus have PACKS and have had
+// since 2026-07-22, so they were never in the gap this function speaks for; bare `20a` (1.55 pp) has
+// now LEFT it too, for a `regime-undetermined` refusal — the ordinance states ten subzone regimes
+// and no source carries the selector. **The coverage gap this function still speaks for is `12b`
+// and `21`.** Every other clau is answered by a pack or by a named refusal one branch up.
 //
 // ⚠ WHICH MAKES THE CARD THE THING THAT DECIDES WHETHER THIS SUCCEEDS OR BACKFIRES, and the copy
 // below is therefore load-bearing product surface, not a log line. Half of Barcelona will read
@@ -453,7 +478,14 @@ function coverageGapReasonFor(clau: string): string {
     // this copy is what a user reads, and a sentence claiming we have not encoded a zone we HAVE
     // encoded is a false statement about our own coverage — the mirror image of the false
     // statement about the law that the rest of this module exists to prevent.
-    if (clau === '12' || clau === '12b') {
+    //
+    // ⚠ §BARE-20A-EXHAUSTED, second correction — **`12` was in this list and is NOT any more.**
+    // `ES_BARCELONA_NUCLI_ANTIC_PACK` registers clau `12` (shipped 2026-07-22), and the registry
+    // gives a pack precedence over any refusal, so this branch is unreachable for it. Left out
+    // rather than left in-and-dead, for the reason the `13b` note above gives. `12b` stays: it has
+    // no pack, and its own subzone rules (Art. 320.2a/3a subzona II — the depth and height of the
+    // EXISTING neighbours) are a different KIND of input we hold nothing for.
+    if (clau === '12b') {
         return (
             'PRYZM could draw a generic front/side/rear setback estimate here, and until now it ' +
             'did. It has been switched off deliberately: this zone is regulated by a different ' +
@@ -484,12 +516,27 @@ function coverageGapReasonFor(clau: string): string {
     // worst pair. It is DELETED rather than left dead, for the same reason 13b's and 22a's were:
     // an unreachable false sentence about our own coverage is one refactor away from a user.
     // *Edificació aïllada* — separations ARE the right shape here. The blocker is that we hold
-    // none for this subzone, and the generic defaults belong to a different zone entirely.
-    if (clau === '20a' || clau.startsWith('20a/') || clau === '21' || clau.startsWith('21/')) {
+    // none for this zone, and the generic defaults belong to a different zone entirely.
+    //
+    // ⚠⚠ §BARE-20A-EXHAUSTED — **`20a` AND `20a/*` WERE IN THIS BRANCH AND ARE NOT ANY MORE**, and
+    // the removal follows the same rule as `13b`'s, `22a`'s and `22@`'s above. The ten `20a/*`
+    // claus have a PACK (`bcn20aSubzones.ts` + `esBarcelona20aAillada.ts`), so this text was
+    // already unreachable for them; bare `20a` now takes
+    // `barcelona20aSubzoneUndeterminedRefusal`, which `resolveZoneDisposition` consults BEFORE the
+    // coverage gap. The sentence claiming PRYZM does not hold *"THIS subzone's own sourced
+    // numbers: its separations, its minimum parcel size, its maximum occupation and its net
+    // buildability index"* named exactly the four things `BCN_20A_SUBZONES` transcribes for all
+    // ten subzones from the primary text — unreachable AND false, the worst pair. It is DELETED
+    // rather than left dead: an unreachable false sentence about our own coverage is one refactor
+    // away from a user.
+    //
+    // `21` stays. It is a genuinely different zone with no pack and no transcription, and the
+    // sentence is true of it.
+    if (clau === '21' || clau.startsWith('21/')) {
         return (
             'This zone IS governed by real separation distances to the street and to the ' +
             'boundaries — so an envelope of the usual shape is the right answer here. What PRYZM ' +
-            'does not yet hold is THIS subzone’s own sourced numbers: its separations, its ' +
+            'does not yet hold is THIS zone’s own sourced numbers: its separations, its ' +
             'minimum parcel size, its maximum occupation and its net buildability index. The ' +
             'generic defaults we would otherwise fall back on are a different zone’s numbers, ' +
             'and presenting them as yours would be worse than showing none.'
@@ -504,12 +551,26 @@ function coverageGapReasonFor(clau: string): string {
     );
 }
 
-/** What PRYZM covers today vs next — kept beside the copy that cites it so they cannot drift. */
+/**
+ * What PRYZM covers today vs next — kept beside the copy that cites it so they cannot drift.
+ *
+ * ⚠ §BARE-20A-EXHAUSTED — **this line was stale and it is user-facing.** It named `12` and "the 20a
+ * family" as *next*; both shipped on 2026-07-22, and it omitted `12` and the ten `20a/*` claus from
+ * the coverage it claims. A roadmap sentence that under-states our own coverage is the same class
+ * of false statement as one that over-states it — it is read by the owner of a zone we DO cover.
+ */
 const BCN_ROADMAP_LINE =
     'Barcelona coverage today: clau 13a / 13E (the Eixample) and clau 13b (densificació urbana ' +
     'semiintensiva), where the buildable depth is constructed per PGM Art. 242 from the real ' +
-    'cadastral block. Next: 12 / 12b, 22a and the 20a family. Each zone ships only once its ' +
-    'governing article has been read and accepted — which is why this one is not here yet.';
+    // ⚠ The clau-12 entry names the ZONE and not its article. This line is appended to every
+    // coverage-gap card, including `12b`'s, and quoting subzona I's construction article on
+    // subzona II's land is exactly the mis-citation `BCN_NUCLI_ANTIC_ZONE_CODES` exists to
+    // prevent — a roadmap sentence is still a statement about the law when it carries an article.
+    'cadastral block; clau 12 (nucli antic de substitució), constructed the same way from the ' +
+    'block; and the ten subzones of the 20a family (edificació aïllada), which take real ' +
+    'separation distances. Next: 12b, whose rules are a survey of the existing neighbours. Each ' +
+    'zone ships only once its governing article has been read and accepted — which is why this ' +
+    'one is not here yet.';
 
 /**
  * The refusal shown on a privately-buildable clau PRYZM has not authored a pack for.
@@ -815,6 +876,215 @@ export function barcelona22ArrobaDerivedPlanRefusal(
         span.end();
     }
 }
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// §BARE-20A-EXHAUSTED (L-673) — clau `20a` WITHOUT A SUFFIX: **TEN REGIMES, NO SELECTOR.**
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// THE SEARCH ENDED IN THE PRIMARY TEXT, NOT IN A PORTAL. CLOSURE-REGISTER blocker 7 asked for an
+// exhaustive sweep of MUC · RPUC · Ajuntament Open Data · AMB · WFS/WMS · planning shapefiles for a
+// bare-`20a` subzone resolver, and recorded that a negative result closes it. The sweep turns out
+// to be unnecessary, because the PGM settles the question in its own zone catalogue:
+//
+//   • **Art. 314.5** enumerates the *qualificacions zonals* of the *zona d'ordenació en edificació
+//     aïllada* and lists **ten**, every one suffixed. **There is no unsuffixed `20a` qualificació.**
+//   • **Art. 338.2** repeats the same ten against the Roman subzones I–IX.
+//   • **Arts. 340.1 · 342.1/.2/.3/.5/.8 · 343.1/.2** key edificabilitat, minimum parcel, minimum
+//     façade, occupation, height, storeys and the three boundary separations **per subzone**, and
+//     state none of them for the zone.
+//
+// ⇒ Bare `20a` names a *zona*; the *qualificació* that carries numbers is `20a/N`. **What is
+// missing is a SELECTOR, not a rule** — which is why "may not exist" was the right instinct about
+// the municipal layer and the wrong conclusion about the blocker. No layer can supply a zone-level
+// figure the ordinance does not contain.
+//
+// ⇒ `regime-undetermined`, `legallyGrounded: false`. It is 22a's fact with ten branches instead of
+// two, and each alternative is the same false statement ADR-0276 rejected for 22a:
+//   • `no-rule-pack` — *"PRYZM has not encoded this zone's rules."* **False, and it was shipping**
+//     (`coverageGapReasonFor`'s deleted 20a branch named the four parameters we in fact hold).
+//   • `derived-plan` — would assert the PGM delegates this land to another instrument. It does not:
+//     Arts. 340/342/343 state the numbers outright. That is L-526 verbatim.
+//   • `source-data-unavailable` — the one TRANSIENT code, and the only one earning a retry. No
+//     retry produces a subzone the source does not carry.
+//
+// ⚠⚠ **AND IT PUBLISHES NO FIGURE IN ITS PROSE.** 22a's card states two figures because they are
+// REGIME-NEUTRAL — all three paragraphs of Art. 350 restate them. **Not one 20a envelope figure is
+// subzone-neutral**: edificabilitat spans 0,25–1,50, occupation 10–40 %, front separation 3–12 m,
+// height 7,55–16,70 m. Printing any of them, or a range, as *this parcel's* limit would assert the
+// very fact the card exists to decline. They reach the user through
+// `BCN_20A_BARE_ORDINANCE_REF` — a citation, checkable against the articles — and the prose names
+// only WHICH article states WHICH kind of limit. The §DEC-1 leak test is mirrored for this card.
+//
+// ⚠ THE ONE THING THAT *IS* SUBZONE-NEUTRAL, and it is stated: **Art. 339 — the ordination type is
+// *edificació aïllada* for every subzone.** It is a rule KIND, not a figure, and it is worth
+// stating because it tells the user their land is the `setback` shape rather than the *alineacions
+// de vial* shape — the distinction ADR-0270 exists for, and the one thing about their envelope we
+// genuinely do know.
+
+/** The label used when no caller supplies one. From the ordinance, never from the MUC. */
+const BCN_20A_DEFAULT_LABEL = 'Zona d’ordenació en edificació aïllada';
+
+/**
+ * §BARE-20A-EXHAUSTED — the `regime-undetermined` refusal for an unsuffixed Barcelona clau `20a`.
+ *
+ * Says, in substance: *"We hold this zone's rules — all ten subzones of them, from the primary
+ * text. Your ordination type is edificació aïllada, so an envelope of the usual setback shape IS
+ * the right answer here. What no public source records is WHICH of the ten subzones your parcel
+ * is in, and every envelope number in this zone is defined only per subzone. Here is the citation;
+ * here is the single fact we would need."*
+ *
+ * ⚠ `legallyGrounded: false`. The LAW is fully known and transcribed. What is missing is which of
+ * its ten branches applies to this parcel — a statement about PRYZM's INPUTS. Flipping it to `true`
+ * would render the card as *"the ordinance grants no envelope here"* and tell the owner of a
+ * perfectly buildable villa plot that their land cannot be built on: the false negative L-553 ranks
+ * as the worst outcome in the set.
+ *
+ * ⚠ `ordinanceRef` IS present, like 22a's and unlike the other two `legallyGrounded: false`
+ * refusals: this card makes real claims about the ordinance (that ten subzones exist, that Art. 339
+ * fixes the ordination type, that the parameters are subzone-keyed), and C58 §1.13.4 requires a
+ * claim about the law to cite what was actually read.
+ *
+ * P8 — OTel span. Precedent: `barcelona22ArrobaDerivedPlanRefusal` above, same argument.
+ */
+export function barcelona20aSubzoneUndeterminedRefusal(
+    clau: string,
+    clauLabel?: string | null,
+    knownFacts: readonly string[] = [],
+): EnvelopeRefusal {
+    const span = _tracer.startSpan('pryzm.zoning.es.bcn.barcelona20aSubzoneUndeterminedRefusal');
+    try {
+        span.setAttribute('bcn.clau', clau);
+        const named = `${(clauLabel && clauLabel.trim()) || BCN_20A_DEFAULT_LABEL} (clau ${clau})`;
+        return {
+            code: 'regime-undetermined',
+            // L-553 rule 1 — name the zone first; then say WHICH determination failed, not that we
+            // have no rules. The headline deliberately does not say "no envelope".
+            headline:
+                `${named} — PRYZM holds this zone's rules, but the plan divides it into subzones ` +
+                'and no public source says which subzone your parcel is in.',
+            detail:
+                // ── What we DO hold, first, because it is true and it is the fastest proof that ──
+                //    this is not a gap in our coverage.
+                'PRYZM has read and encoded this zone in full, from the plan’s own text — all ten ' +
+                'of its subzones, with their buildability index, their minimum parcel and façade, ' +
+                'their maximum ground occupation, their height and storey limits and their three ' +
+                'boundary separations. This is not a coverage gap. ' +
+                // ── The ONE determination that IS subzone-neutral, and it is a rule KIND. ──
+                'One thing is settled whatever your subzone: the ordination type is *edificació ' +
+                'aïllada* (Art. 339, stated for every subzone), so your land IS governed by real ' +
+                'separations to the street and to the boundaries — an envelope of the usual shape ' +
+                'is the right answer here, unlike the street-aligned zones of the old town and the ' +
+                'Eixample. ' +
+                // ── What we CANNOT state, and exactly why. ──
+                '⚠ What PRYZM cannot establish is the SUBZONE. The plan’s zone catalogue ' +
+                '(Art. 314.5) and the zone’s own article (Art. 338.2) enumerate ten subzone ' +
+                'qualifications, each written with a suffix, and there is no unsuffixed one; every ' +
+                'envelope figure in this zone is keyed to that suffix — the buildability index by ' +
+                'Art. 340.1, the occupation by Arts. 342.2 and 343.1, the height and storeys by ' +
+                'Arts. 342.3, 342.4, 342.5 and 343.2, and the boundary separations by Art. 342.8. ' +
+                'The subzones are not variations on a theme: across them the buildability index ' +
+                'varies by a factor of six, the ground occupation by a factor of four, and the ' +
+                'front separation by nine metres. There is no defensible typical value, and the ' +
+                'ranges are set out under the citation on this card. ' +
+                // ── The missing input, NAMED — what makes this actionable rather than "we don't
+                //    know", and what distinguishes it from a sourcing problem. ──
+                'The missing input is a single fact about your parcel: which subzone the ordering ' +
+                'plan assigns it. The qualification returned for this land stops at the zone. A ' +
+                'municipal or metropolitan layer recording the suffix would resolve it outright — ' +
+                'what is missing is that selector, not a rule, and no amount of further reading of ' +
+                'the plan can supply it. We would rather name the determination we cannot make ' +
+                'than pick one of ten answers on your behalf.',
+            // C58 §1.13.4 — this card makes real claims about the ordinance, so it cites what was
+            // read. ⚠ The FIGURES and the RANGES live here, inside the citation, and nowhere else.
+            ordinanceRef: BCN_20A_BARE_ORDINANCE_REF,
+            legallyGrounded: false,
+            knownFacts: [...knownFacts],
+        };
+    } finally {
+        span.end();
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// §CLAU-12-PREDICATE (L-674) — **THERE IS NO GEOGRAPHIC PREDICATE TO WRITE, AND WRITING ONE WOULD
+// BE THE ERROR.** CLOSURE-REGISTER blocker 3, engineering half, settled on the primary text.
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// THE RISK AS IT WAS FILED. `ES_BARCELONA_NUCLI_ANTIC_PACK` is registered for clau `12`
+// unconditionally. PGM **Art. 315.2** says subzona I *"d'aplicació a tots els nuclis antics
+// diferents del de Barcelona"* while subzona II (`12b`) is *"referida preferentment a aquell"*. The
+// register recorded that if the MUC ever returned bare `12` on a **Ciutat Vella** parcel, that
+// parcel would receive Art. 320.2a's 60 %-block depth and Art. 320.3a's street-width height under a
+// citation that arguably does not govern it — **9.38 % of buildable land on an untested
+// assumption** — and asked for a geographic predicate.
+//
+// ⚠⚠ **A GEOGRAPHIC PREDICATE IS NOT WHAT ART. 315.2 STATES, AND CODING ONE WOULD MANUFACTURE A
+// RULE THE ORDINANCE DOES NOT CONTAIN.** Three reasons, and the third is decisive:
+//
+//   1. **The sentence is a drafting rationale, not a test.** It says which nuclei the two subzones
+//      were DRAWN FOR. It defines no boundary, names no district, and states no coordinate — there
+//      is nothing in it to evaluate against a parcel. Art. 315.1 scopes the ZONE to *"els nuclis
+//      urbans antics de les poblacions"* generally; neither paragraph delimits either subzone.
+//   2. **The ordinance hedges the half a predicate would have to be built on.** *"Referida
+//      **preferentment** a aquell"* — preferentially, not exclusively. A drafter writing an
+//      exclusivity rule does not hedge it. Art. 315.2 declines, in its own words, to make the
+//      assignment absolute.
+//   3. **⚠ THE OPERATIVE INSTRUMENT IS THE *PLÀNOL D'ORDENACIÓ*, PARCEL BY PARCEL — AND WE ALREADY
+//      READ IT.** The PGM assigns claus by drawing them; the MUC serves that drawing. A predicate
+//      written here would be a SECOND, weaker classifier competing with the authoritative one, and
+//      by construction it would only ever act where the two DISAGREE — i.e. it would override the
+//      plànol precisely when it was wrong to. That is `mucZoningProxy.js`'s standing warning (*"the
+//      harmonised code must never select a rule pack"*) in a new costume, and C58 §1.11's category
+//      error committed by the guard written to prevent one.
+//
+// ⇒ **CLASSIFICATION: `NOT-THE-RULE-KIND`.** Art. 315.2 is not a geographic rule of any KIND. The
+// predicate that assigns `12` vs `12b` is the plànol, PRYZM reads it, and the register's *"prove
+// every Ciutat Vella parcel returns 12b"* is therefore a QUESTION ABOUT THE MUC's fidelity to the
+// plànol — an evidence task about a data source (bucket A), not a rule PRYZM has failed to encode.
+//
+// ⚠ WHAT REMAINS TRUE, AND IS NOT CLOSED BY THIS: if the MUC's transcription of the plànol is wrong
+// somewhere, `12`'s pack applies where `12b`'s rules should. That risk is real, it is bounded by
+// the source's fidelity rather than by our code, and **it is not reducible by a predicate** — a
+// wrong clau in the source produces a wrong answer whatever we layer on top. The engineering
+// mitigation that IS available is the invariant below, and it is what ships.
+//
+// ⚠ THE INVARIANT THAT DOES THE WORK: **`12` and `12b` never share a code path.** `12b` is absent
+// from `BCN_NUCLI_ANTIC_ZONE_CODES` (that module's closing comment argues it at length: subzona II's
+// depth is *"la de les edificacions contigües existents"* and its height *"la mitjana de les
+// edificacions existents"* — a survey of the neighbours, not a 60 % construction and not a
+// street-width band), and it is absent from `CLASSIFICATIONS` here, so a `12b` parcel reaches
+// `barcelonaNoRulePackRefusal` and is told plainly that PRYZM has not encoded ITS subzone. The
+// failure mode the register feared — Ciutat Vella receiving subzona I's envelope — can therefore
+// only arise from a wrong clau in the SOURCE, never from a routing mistake in PRYZM.
+
+/**
+ * §CLAU-12-PREDICATE — the finding, held as data so a test can assert it and so a future author
+ * cannot quietly add the polygon this comment argues against.
+ *
+ * ⚠ **DO NOT SET THIS TO `true` WITHOUT AN ORDINANCE CITATION FOR A BOUNDARY.** The correct
+ * evidence would be a *plànol* or an article that DELIMITS subzona I or II geographically — not a
+ * district boundary, not a Ciutat Vella polygon, and not a measured clau distribution. A measured
+ * distribution tells you what the source says; it cannot tell you what the ordinance requires.
+ */
+export const BCN_CLAU_12_GEOGRAPHIC_PREDICATE_EXISTS = false as const;
+
+/**
+ * §CLAU-12-PREDICATE — the citation the finding rests on, so the refusal to write a predicate is
+ * itself checkable against the article.
+ */
+export const BCN_CLAU_12_PREDICATE_FINDING =
+    'PGM-1976 NNUU Art. 315.2 states WHICH NUCLEI the two nucli-antic subzones were drawn for ' +
+    '("subzona I … d\'aplicació a tots els nuclis antics diferents del de Barcelona", "subzona II ' +
+    '… referida PREFERENTMENT a aquell"). It delimits neither subzone: it names no boundary, no ' +
+    'district and no coordinate, and it hedges the 12b half with "preferentment". The instrument ' +
+    'that assigns a clau to a parcel is the plànol d’ordenació, which the Generalitat’s MUC serves ' +
+    'and PRYZM reads. A geographic predicate written in PRYZM would be a second, weaker classifier ' +
+    'that could only ever act where it DISAGREED with the plànol — i.e. it would override the ' +
+    'operative instrument exactly when doing so was wrong. Classification: NOT-THE-RULE-KIND. ' +
+    'The residual risk (a wrong clau in the source) is a question about the MUC’s fidelity to the ' +
+    'plànol, not a rule PRYZM has failed to encode, and no predicate reduces it. Source: MMAMB ' +
+    're-edition of the Normativa Urbanística Metropolitana, printed p. 104, committed at ' +
+    'docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf.';
 
 /**
  * §L-574 — WHY the construction could not be completed. A closed vocabulary rather than free

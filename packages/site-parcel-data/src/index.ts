@@ -316,6 +316,43 @@ export {
     BCN_22A_REGIME_ORDINANCE_REF,
 } from './rulepacks/esBarcelonaZoneClassification.js';
 
+// ── §BARE-20A-EXHAUSTED (L-673) — the same fourth refusal, with TEN branches instead of two. ──
+// Bare `20a` names a *zona*; PGM Arts. 314.5/338.2 enumerate ten suffixed *qualificacions* and
+// Arts. 340/342/343 key every envelope parameter to the suffix. What is missing is a SELECTOR, not
+// a rule, so no further reading of the plan can close it and no pack may be built on a
+// "representative" subzone. ⚠ NO figure reaches the prose — every 20a number is subzone-specific,
+// so the ranges live in `BCN_20A_BARE_ORDINANCE_REF` alone (the §DEC-1 discipline, mirrored).
+export { barcelona20aSubzoneUndeterminedRefusal } from './rulepacks/esBarcelonaZoneClassification.js';
+export { BCN_20A_BARE_ORDINANCE_REF } from './rulepacks/bcn20aSubzones.js';
+
+// ── §CLAU-12-PREDICATE (L-674) — the finding that there is NO geographic predicate to write. ──
+// PGM Art. 315.2 states which nuclei the two nucli-antic subzones were drawn for; it delimits
+// neither, and hedges the `12b` half with "preferentment". The operative predicate is the plànol
+// d'ordenació, which the MUC serves and PRYZM reads — a polygon test here would be a second, weaker
+// classifier that could only ever act where it DISAGREED with the authoritative one.
+export {
+    BCN_CLAU_12_GEOGRAPHIC_PREDICATE_EXISTS,
+    BCN_CLAU_12_PREDICATE_FINDING,
+} from './rulepacks/esBarcelonaZoneClassification.js';
+
+// ── §COSSOS-SORTINTS (L-672) — tribunes are a permitted projection BEYOND the envelope. ──
+// PGM Art. 223.2.g DEFINES a *cos sortint* as that which projects beyond the alignment, Art. 229.2
+// classes a tribuna as one, and Art. 230 measures its *vol* FROM the façade plane. So it is not an
+// envelope parameter of any KIND, and omitting it can never over-state — the direction C58 §1.4
+// forbids. CLOSURE-REGISTER blocker 11 is a morphology layer OVER a resolved envelope, not a gap
+// in one.
+export {
+    barcelonaCosSortintDisposition,
+    BCN_ART229_COMPUTATION,
+    BCN_ART230_I_ALINEACIONS_DE_VIAL,
+    BCN_ART230_III_VOLUMETRIA_ESPECIFICA,
+    BCN_COSSOS_SORTINTS_ORDINANCE_REF,
+    BCN_COSSOS_SORTINTS_NEVER_OVERSTATE,
+    type CosSortintRelation,
+    type CosSortintOmissionDirection,
+    type CosSortintDisposition,
+} from './rulepacks/esBarcelonaCossosSortints.js';
+
 // ── Córdoba (INE 14021) — PGOU-2001, the SUR + NOROESTE 2-district pilot pack. ──
 // ⚠ MACHINE-EXTRACTED (OCR) + `pipeline-extracted-unverified`. Registered but rendering NO number:
 // the dispatcher's `CORDOBA_ENVELOPE_VERIFIED` gate refuses every parcel with a cited "unverified"

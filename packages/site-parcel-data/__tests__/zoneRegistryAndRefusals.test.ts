@@ -82,8 +82,17 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
         // §L-583 — `13b` has LEFT this list because it now has a pack, not because the policy
         // changed. That is the intended way out of a coverage gap: ship the zone's own article.
         // §L-591 — `20a/10` left for the same reason (the whole `20a/*` family is now packed).
-        // ⚠ BARE `20a` STAYS. It names the zone, not the subzone, and the ten subzones span
-        // 0,25–1,50 in edificabilitat — there is no representative value, so it remains a gap.
+        // ⚠⚠ §BARE-20A-EXHAUSTED (2026-08-01) — **BARE `20a` HAS NOW LEFT THIS LIST TOO, and NOT
+        // because it was packed.** It still names the zone rather than the subzone, and the ten
+        // subzones still span 0,25–1,50 in edificabilitat — but the coverage-gap copy it was
+        // getting said PRYZM did not hold *"THIS subzone's own sourced numbers: its separations,
+        // its minimum parcel size, its maximum occupation and its net buildability index"*, and
+        // `bcn20aSubzones.ts` has held all four, for all ten subzones, since 2026-07-22. It now
+        // returns a NAMED `regime-undetermined` refusal: PGM Arts. 314.5/338.2 enumerate ten
+        // suffixed qualificacions and no unsuffixed one, so what is missing is a SELECTOR, not a
+        // rule. As with 22a and 22@, the `ordinanceRef === null` assertion below is CORRECT for a
+        // coverage gap and WRONG for bare 20a — that card cites the articles it invokes
+        // (C58 §1.13.4). Its own assertions live in `esBarcelonaClosureBlockers.test.ts`.
         // ⚠⚠ §L-590c — `22a` HAS LEFT THIS LIST, and NOT because it was packed. It now returns a
         // NAMED `regime-undetermined` refusal (ADR-0274) that publishes the regime-neutral half of
         // PGM Art. 350 under its own citation. Keeping it here would assert that a 22a owner is
@@ -101,7 +110,10 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
         // `ordinanceRef === null` assertion below is CORRECT for a coverage gap and WRONG for 22@:
         // that card DOES make claims about the ordinance and must cite them (C58 §1.13.4). Its own
         // assertions live in `esBarcelona22ArrobaPack.test.ts`.
-        for (const clau of ['12b', '20a']) {   // §L-595 — '12' is packed now
+        // §L-595 — '12' is packed. §BARE-20A-EXHAUSTED — bare '20a' is `regime-undetermined`.
+        // **`12b` is the LAST Barcelona coverage gap**, and this loop is what proves the card still
+        // has a live subject rather than becoming dead code.
+        for (const clau of ['12b']) {
             const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau);
             expect(d.kind, clau).toBe('refusal');
             if (d.kind !== 'refusal') continue;
@@ -176,12 +188,26 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
             expect(detailFor(clau), clau).toMatch(/wrong SHAPE/);
         }
         // Edificació aïllada — must NOT claim the shape is wrong; it must say the opposite.
-        // §L-591 — the suffixed claus are packed now; bare `20a` is the remaining gap and still
-        // reaches this copy, which is what keeps the per-family wording under test.
-        for (const clau of ['20a']) {
+        // §L-591 — the suffixed claus are packed. ⚠⚠ §BARE-20A-EXHAUSTED — bare `20a` no longer
+        // reaches this copy either: its branch in `coverageGapReasonFor` was DELETED (not merely
+        // out-ranked) because the sentence about *"THIS subzone's own sourced numbers"* was false,
+        // and an unreachable false sentence about our own coverage is one refactor away from a
+        // user. `21` is the clau the branch now speaks for, and it keeps the per-family wording
+        // under test — the copy must still say the setback SHAPE is right for an *edificació
+        // aïllada* zone, which is the falsehood this test was written to prevent.
+        for (const clau of ['21']) {
             expect(detailFor(clau), clau).not.toMatch(/wrong SHAPE/);
             expect(detailFor(clau), clau).not.toMatch(/façade sits on the street line/i);
             expect(detailFor(clau), clau).toMatch(/IS governed by real separation distances/i);
+        }
+        // ⚠ And the same copy must NOT be what a bare-`20a` parcel reads any more.
+        {
+            const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '20a');
+            expect(d.kind).toBe('refusal');
+            if (d.kind === 'refusal') {
+                expect(d.refusal.code).toBe('regime-undetermined');
+                expect(d.refusal.detail).not.toMatch(/does not yet hold/i);
+            }
         }
         // Industrial. ⚠ §L-590c — `22a` IS NO LONGER HERE: it does not reach the coverage-gap
         // copy at all, because `barcelonaZoneRefusalFor` answers it first with the named
@@ -194,13 +220,15 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
         // now gets a legally-grounded `derived-plan` card; its copy is asserted in
         // `esBarcelona22ArrobaPack.test.ts` §DEC-1, including that it never quotes Art. 350.
         // Every card, whatever the family, must carry the three invariants.
-        for (const clau of ['12b', '20a', '99z']) {   // §L-595 — '12' is packed now
+        // §L-595 — '12' is packed. §BARE-20A-EXHAUSTED — bare '20a' is `regime-undetermined`; `21`
+        // takes its place as the *edificació aïllada* specimen so all three families stay covered.
+        for (const clau of ['12b', '21', '99z']) {
             const d = detailFor(clau);
             expect(d, clau).toMatch(/coverage gap, not an error/i);
             // The COMMITMENT, not one exact phrasing: every card must say, in whatever words fit
             // that family, that showing nothing is preferred to showing something wrong. (The
-            // 20a copy reaches it via "worse than showing none" — asserting a fixed string here
-            // would have forced the wrong sentence into the right card.)
+            // aïllada copy reaches it via "worse than showing none" — asserting a fixed string
+            // here would have forced the wrong sentence into the right card.)
             expect(d, clau).toMatch(
                 /rather show you nothing than something wrong|worse than showing none/i,
             );

@@ -80,10 +80,27 @@
 // `13E` resolving to exactly `13a`'s rules is the honest approximation — and it is now a KNOWN one,
 // with a named place to put the difference.
 //
-// ⚠ NOT MODELLED AT ALL, and it may make edificabilitat incomplete: the volumetric rules between
-// *implantación × storeys* and real buildable floor area — *cossos sortints* / tribunes, *planta
-// baixa*, *àtic* / *sotacoberta*, *patis de llum*. Zero coverage in the corpus. In the Eixample
-// projecting tribunes are near-universal, so this is a live risk, not a theoretical one.
+// ⚠ NOT MODELLED, and the corpus still has zero coverage of them: the volumetric rules between
+// *implantación × storeys* and real buildable floor area — *planta baixa*, *àtic* / *sotacoberta*,
+// *patis de llum*.
+//
+// ⚠⚠ §COSSOS-SORTINTS (L-672) — **THE TRIBUNES HALF OF THAT SENTENCE WAS WRONG AND IS WITHDRAWN.**
+// This header used to call unmodelled *cossos sortints* *"a live risk, not a theoretical one"*, and
+// the Barcelona closure register carried it as a **P1** blocker. It rested on an unexamined
+// premise: that a tribuna is part of the envelope we fail to draw. **The PGM defines it as the
+// opposite.** Art. 223.2.g: a *cos sortint* is one that *"sobresurt de l'alineació de façana"* —
+// it is DEFINED by projecting BEYOND the alignment, so it cannot be inside the envelope whose outer
+// surface is that alignment. Art. 229.2 names *"els miradors, tribunes i similars"* as the enclosed
+// variety, and Art. 230.I measures the *vol* outward FROM the façade plane, capped at 1/10 of the
+// street width and 1,50 m. ⇒ For this clau a tribuna is **additional permitted volume outside the
+// envelope**, so omitting it **UNDER-states** — the safe direction (C58 §1.4) — and folding it in
+// would over-state, which is the direction that must never be got wrong on the densest land in the
+// city. It is a MORPHOLOGY allowance over a resolved envelope, not an envelope parameter of any
+// KIND, and it is recorded once, cited, in `esBarcelonaCossosSortints.ts`.
+// ⚠ Nor does it make *edificabilitat* incomplete HERE: Art. 322 defines this zone's edificabilitat
+// as *"l'envolupant màxima de volum"* (ADR-0271), so there is no FAR ceiling for Art. 229.3.a's
+// sostre computation to consume. That argument is zone-specific — do not carry it to clau 12, whose
+// Art. 316.2 index is real.
 //
 // Strategic context: ADR-0271, ADR-0270, C58 §1.2/§1.4/§1.6/§1.7a/§1.11, L-460, L-461,
 // docs/04-reference/jurisdictions/es/cat/08019-barcelona/SOURCES.md.

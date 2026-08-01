@@ -81,7 +81,7 @@ data-readiness AND realistic full-envelope ceiling) and FEEDS Axis 2.
 | Axis | W | Measured today | **Ceiling (cited)** | Gap type | What closes it |
 |---|---:|---|---|---|---|
 | **LEGISLATION** | 25 | **~48 %** (sub-rate) | **~48 %** — *the measured rate IS the ceiling; past it is **plànol vectorisation, not OCR**; the derived-planning slice (~40 % of land) is drawing-bound and height is ~0 % OCR-extractable (`findings/L-590h`)* | `STRUCTURAL-DATA` | nothing — **at ceiling** |
-| **ENVELOPE** | 20 | **56.0 %** | **~70 %** — *`22a` 15.60 % is **98.9 % `PD*`** ⇒ PGM Art. 350.1 delegates to ~2,595 Pla Parcials; `15/16/17/14a/14b/8a` 3.58 % delegate per-ámbito; **62.8 % of city land is `PD*`*** | `EFFORT` + `SIGNATURE` | clau 18 route ✅ wired → **awaiting `BCN_REFOS_OV_CERTIFIED`** (+4.68 pp); `22@` pack ✅ authored, blocked on a missing *profunditat*; `12b` needs LiDAR; bare `20a` needs a subzone layer |
+| **ENVELOPE** | 20 | **56.0 %** — *unchanged 2026-08-01; see §CLOSURE-DELTA below for why four blockers closed and the number did not move* | **~68 %** — *DEC-1 lowered it from ~70 % by removing `22@`'s 2.06 % permanently. `22a` 15.60 % is **98.9 % `PD*`** ⇒ PGM Art. 350.1 delegates to ~2,595 Pla Parcials; `15/16/17/14a/14b/8a` 3.58 % delegate per-ámbito; **62.8 % of city land is `PD*`***. ⚠ **Bare `20a`'s 1.55 % does NOT leave the ceiling** — its numbers exist, only the selector is missing | `EFFORT` + `SIGNATURE` | clau 18 route ✅ wired → **awaiting `BCN_REFOS_OV_CERTIFIED`** (+4.68 pp); `22@` ✅ **closed as a permanent cited refusal (DEC-1)**; bare `20a` ✅ **closed as a cited `regime-undetermined` refusal (§BARE-20A-EXHAUSTED)** — reopens only on a subzone-granular layer; `12b` needs LiDAR |
 | **PARCEL** | 15 | `not-assessed` | **HIGH** — *Catastro national + keyless; **block dissolve 2/2**, strongest in the Spanish set (L-535)* | `UNMEASURED` | run `computeParcelConfidence` — **agent in flight** |
 | **DATA-SOURCES** | 15 | **90 %** | **100 %** — *4.5/5 slots live; the ½ is `mds_edificacion` configured but not confirmed landed in the shipped tiles* | `EFFORT` | the buildings re-bake (in flight) confirms the 5th slot |
 | **HEIGHTS/LOD** | 10 | `not-assessed` — measured histogram **0.9 % surveyed · 79.3 % levels×3.2 m · 19.8 % fabricated 9 m**; shipped tiles report **`measuredMarkerCount: 0`** | **unknown until the MDS join coverage is measured** — *Köln's equivalent join hit 85.4 %; Barcelona's is a different national source and has never been measured* | `EFFORT` | buildings-only re-bake (in flight, L-657) **then re-probe** |
@@ -96,12 +96,50 @@ flight), 1 `SIGNATURE` (clau 18), 3 `EFFORT` (envelope tail, terrain rasant, con
 drawings permit, and pushing past it is a vectorisation programme, not extraction. **Recognising an axis
 as *finished at its ceiling* is the point of this table.**
 
-⚠ **Two open correctness risks that would block closure even at full score** (`honestyOk` is
-launch-blocking, completion % is not): **(1)** clau `12` is mapped with **no geographic predicate**, so a
-Ciutat Vella parcel could receive an Art. 320.3a envelope under a citation that does not govern it —
-**9.38 % of buildable land on an untested assumption**. **(2) L-660** — Arts. 327.2a/328.2a may be
-**superseded** for Barcelona by the MPGM of 02-03-2007 (DOGC 4893), which would make every 13a/13b/12
-height wrong by +0,45…+1,95 m across **44.0 %** of buildable land. Both are open.
+⚠ **Open correctness risks that would block closure even at full score** (`honestyOk` is
+launch-blocking, completion % is not): **L-660** — Arts. 327.2a/328.2a may be **superseded** for
+Barcelona by the MPGM of 02-03-2007 (DOGC 4893), which would make every 13a/13b/12 height wrong by
++0,45…+1,95 m across **44.0 %** of buildable land. Open, and it is a **founder signature** (SIG-2),
+not engineering.
+
+> ⚠ **The clau-`12` "no geographic predicate" risk that stood here is WITHDRAWN as stated** —
+> §CLAU-12-PREDICATE (L-674, 2026-08-01). **PGM Art. 315.2 states no geographic test to encode**: it
+> says which nuclei the two subzones were drawn for, delimits neither, and hedges the `12b` half
+> (*"referida **preferentment** a aquell"*). The operative predicate is the ***plànol d'ordenació***,
+> which the MUC serves and PRYZM reads; a polygon test coded here would be a second, weaker
+> classifier that could only ever act where it **disagreed** with the plànol. What survives is
+> narrower and differently bucketed: *"is the MUC faithful to the plànol in Ciutat Vella?"* — an
+> **evidence question about a data source**, not an un-encoded rule, and **no predicate reduces it**.
+> The engineering mitigation — `12` and `12b` never share a code path — is now **asserted**, so the
+> feared outcome can arise only from a wrong clau in the SOURCE. CLOSURE-REGISTER row 3.
+
+## §CLOSURE-DELTA — four blockers closed, ENVELOPE **56.0 % → 56.0 %** (2026-08-01)
+
+> **Stamp 2026-08-01.** Denominator per **L-656**: private buildable land, **31,801,618 m²** (AMB
+> `qualificacio_refos` census). ⚠ **NOT re-derived from a tracker file** — several are stale, and one
+> archived handoff carries a retracted 20 % figure. Shares below are the census figures already
+> published in `MASTER-ROI-TRACKER.md` §0.6, cross-checked against the repo's independent 275-point
+> MUC grid (recomputed for this pass: `12` 9.45 % · bare `20a` 1.82 % · `20a` family 13.09 %).
+
+| Blocker | What closed | **ENVELOPE Δ (pp of buildable land)** | Why |
+|---|---|---:|---|
+| **11 — tribunes** | Arts. 223.2.g / 229 / 230: a *cos sortint* is a projection **beyond** the envelope, not part of it | **+0.00** | Not an envelope parameter of any KIND. Omitting it **under-states** (*alineacions de vial*) or is **exact** (*edificació aïllada*) — it never over-states, so nothing was ever wrong to fix |
+| **3 — clau 12 predicate** | Art. 315.2 states no geographic test; the plànol is the predicate | **+0.00** | The 9.38 % has been **packed since 2026-07-22**. A correctness risk was retired, not coverage added |
+| **12 — Art. 238** | The MINIMUM statistic is **shipped (`0edd302b`) and pinned (`8e590846`)**, both ancestors of `main`; four residuals established, three of them SAFE-direction data gaps | **+0.00** | Nothing was broken. ⚠ One **new** over-statement residual named (**12A**, *tram* chaining) — engineering-closable with no new data, **deliberately unshipped** pending a live blast-radius measurement |
+| **7 — bare `20a`** | Arts. 314.5/338.2 enumerate ten suffixed qualificacions and no bare one; Arts. 340/342/343 key every parameter to the suffix | **+0.00** *(1.55 % moved from a FALSE card to a cited one)* | A refusal is not an envelope. What changed is that 1.55 % stopped reading a false statement about **PRYZM's own coverage** and started reading the ordinance's answer under a citation |
+
+**Total measured ENVELOPE delta: +0.00 pp. Cited ceiling: unchanged at ~68 %.**
+
+⚠ **That is the honest result, and it is the `22@` shape one turn on.** These four were **B**
+(engineering) rows on the register, and the finding is that **three of them were never envelope-coverage
+blockers at all** — two were mis-signed (an under-statement filed as an over-statement risk) and one
+was already fixed and mis-reported as live. The one that was real (bare `20a`) is a **refusal**, and by
+the L-656 denominator a refusal adds nothing to a coverage rate. **Coverage did not move because
+coverage was not what was wrong.**
+
+⚠ **A stale figure corrected in passing:** `MASTER-ROI-TRACKER.md` §0.6 "Open risks" 2 says the street
+width *"uses the MEDIAN … Fix in flight"*. It has been the ordinance's **MINIMUM** since 2026-07-22 and
+test-pinned since 2026-07-31. Corrected there.
 
 ## The THREE PARCEL numbers — never conflated (L-656 / MASTER-ROI-TRACKER §0.5.2)
 

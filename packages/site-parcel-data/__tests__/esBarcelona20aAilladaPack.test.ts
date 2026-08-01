@@ -190,11 +190,26 @@ describe('L-591 — the pack', () => {
         expect(BCN_20A_AILLADA_ZONE_CODES).not.toContain('20a');
     });
 
-    it('bare "20a" still refuses as a COVERAGE gap — the zone is not the subzone', () => {
+    it('bare "20a" still refuses — the zone is not the subzone', () => {
+        // ⚠⚠ §BARE-20A-EXHAUSTED (2026-08-01) — **THE CODE CHANGED, THE OUTCOME DID NOT.** This
+        // asserted `'no-rule-pack'`, whose copy told a 20a owner PRYZM did not hold *"THIS
+        // subzone's own sourced numbers: its separations, its minimum parcel size, its maximum
+        // occupation and its net buildability index"* — every one of which THIS FILE pins as
+        // transcribed, for all ten subzones. A test asserting the presence of a sentence the same
+        // suite disproves is the mirror of the defect it was written to catch.
+        //
+        // The refusal is now `regime-undetermined`: PGM Arts. 314.5/338.2 enumerate ten suffixed
+        // qualificacions and no unsuffixed one, and Arts. 340/342/343 key every envelope figure to
+        // the suffix — so the missing thing is a SELECTOR, not a rule, and no further reading of
+        // the plan can supply it. Full assertions (including the leak test) live in
+        // `esBarcelonaClosureBlockers.test.ts`.
         const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '20a');
         expect(d.kind).toBe('refusal');
         if (d.kind === 'refusal') {
-            expect(d.refusal.code).toBe('no-rule-pack');
+            expect(d.refusal.code).toBe('regime-undetermined');
+            expect(d.refusal.code).not.toBe('no-rule-pack');
+            // Unchanged and load-bearing: the law is fully known, the INPUT is not. `true` here
+            // would tell the owner of a buildable villa plot the ordinance forbids building.
             expect(d.refusal.legallyGrounded).toBe(false);
         }
     });
