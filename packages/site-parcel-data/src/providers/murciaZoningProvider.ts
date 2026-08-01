@@ -52,8 +52,16 @@
 // The fetch belongs in a proxy/provider above it, exactly as `mapPlandataToZoningRecord.ts`
 // separates the DK mapping from the DK fetch.
 
-import type { EnvelopeRefusal } from '@pryzm/schemas';
-import { MURCIA_ROADMAP_LINE, type DerivedPlanMarker } from '../rulepacks/esMurciaEnvelope.js';
+import type { EnvelopeRefusal, ZoningRule } from '@pryzm/schemas';
+import {
+    MURCIA_ENVELOPE_VERIFIED,
+    MURCIA_ROADMAP_LINE,
+    type DerivedPlanMarker,
+} from '../rulepacks/esMurciaEnvelope.js';
+import {
+    resolveMurciaPgouZone,
+    type MurciaCalificacionClassification,
+} from '../rulepacks/esMurciaPgou2012.js';
 
 /** Attributes of `Murcia:pgou_alineaciones` — the calificación polygon. Field names verbatim. */
 export interface MurciaCalificacionFeature {
@@ -152,26 +160,66 @@ export function isRemittedAmbito(sector: string | null | undefined): boolean {
 
 export type MurciaEnvelopeDisposition =
     | { readonly kind: 'refusal'; readonly refusal: EnvelopeRefusal }
+    /**
+     * ⚠ REACHABLE ONLY AFTER SIGN-OFF. Emitted when the live calificación resolves to a zone
+     * transcribed from the PGOU Normas Urbanísticas **and** `envelopeVerified` is true. While
+     * `MURCIA_ENVELOPE_VERIFIED` is false — which it is — this branch is unreachable in
+     * production and every packed zone returns the `awaiting-verification` refusal below.
+     */
+    | {
+          readonly kind: 'envelope';
+          readonly zone: ZoningRule;
+          readonly classification: MurciaCalificacionClassification | null;
+          /**
+           * ⚠ PRESENT ON PURPOSE, AND IT IS A SAFETY INTERLOCK, NOT A CONVENIENCE.
+           *
+           * The L5 dispatcher (`applyMurciaZoningThenFallback`) branches on `kind === 'refusal'`
+           * and treats EVERYTHING else as the `unresolved` case, reading `.reason` and falling
+           * through to the coverage refusal. It has not been taught this branch.
+           *
+           * Carrying `reason` here means that if the verification gate is opened BEFORE the
+           * dispatcher learns to consume an envelope, Murcia degrades to a cited refusal and logs
+           * why — instead of failing to compile, or worse, silently rendering nothing on a
+           * compliance surface. Remove this field only in the same change that teaches L5 the
+           * branch, and never before.
+           */
+          readonly reason: string;
+      }
     | { readonly kind: 'unresolved'; readonly reason: string };
 
 /**
  * THE DISPOSITION. Given the live attributes at a point, decide what PRYZM may say.
  *
- * ⚠ THERE IS DELIBERATELY NO `'envelope'` BRANCH. Murcia publishes zone IDENTITY, official
- * DESIGNATION, land CLASS and temporal validity — and publishes **no numeric buildable
- * parameter** as an attribute (no altura, no edificabilidad, no ocupación, no retranqueo;
- * verified against the WFS `DescribeFeatureType` schemas, not merely against one response).
- * Adding an envelope branch would require inventing those numbers. When a signed
- * transcription of a specific instrument exists, it belongs in a rule pack behind the
- * `MURCIA_ENVELOPE_VERIFIED` gate — never here.
+ * ── WHAT CHANGED, AND WHY THE OLD COMMENT HERE WAS WRONG ────────────────────────────────
+ * This header used to state that there was "deliberately no `'envelope'` branch" because
+ * PRYZM held no Murcia ordinance. The first half is still true of the WFS — Murcia publishes
+ * zone IDENTITY, official DESIGNATION, land CLASS and temporal validity, and **no numeric
+ * buildable parameter** as an attribute (verified against the `DescribeFeatureType` schemas,
+ * not merely against one response). The second half is no longer true: the PGOU *Normas
+ * Urbanísticas* (Texto Refundido diciembre 2012) HAS now been sourced and transcribed, and
+ * `esMurciaPgou2012.ts` holds 14 zones whose every envelope-determining parameter is STATED
+ * at parcel granularity, each carrying its article and a verbatim quote.
+ *
+ * So the numbers exist. What does NOT exist is a SIGNATURE. Transcription is a legal act, and
+ * `MURCIA_ENVELOPE_VERIFIED` is the gate for it. Until it flips, a packed zone yields a
+ * refusal that NAMES its governing article — strictly more useful than the old
+ * "PRYZM holds no Murcia ordinance" line, which would now be a false statement about our own
+ * coverage — but publishes NO number.
+ *
+ * ⚠ Two thirds of Murcia's private buildable land (measured: 67.0 % of 75.145 km²) never
+ * reaches the pack at all, because the PGOU delegates it. Those branches are unchanged and
+ * remain the legally-grounded `derived-plan` refusal.
  *
  * @param asOf ISO date used for the validity test. Injected; this module has no clock.
+ * @param envelopeVerified INJECTED so a test can exercise the post-signature shape without
+ *        flipping the production constant. Defaults to `MURCIA_ENVELOPE_VERIFIED` (false).
  */
 export function murciaEnvelopeDisposition(
     calificacion: MurciaCalificacionFeature | null,
     sectorFeature: MurciaSectorFeature | null,
     asOf: string,
     derivedPlans: readonly DerivedPlanMarker[] = [],
+    envelopeVerified: boolean = MURCIA_ENVELOPE_VERIFIED,
 ): MurciaEnvelopeDisposition {
     if (!calificacion && !sectorFeature) {
         return {
@@ -259,6 +307,69 @@ export function murciaEnvelopeDisposition(
                 // ⚠ TRUE, and this is the substantive claim: the ordinance ANSWERED, and its
                 // answer was "that other document". It is not a statement about our coverage.
                 legallyGrounded: true,
+                knownFacts,
+            },
+        };
+    }
+
+    // ── The PGOU-DIRECT case: Título 5 Caps. 2–23 fix this zone's conditions itself. ──
+    //
+    // ⚠ ORDER MATTERS AND IS LOAD-BEARING. This sits BELOW the remitted-ámbito gate on purpose:
+    // Arts. 5.25.3.3 / 5.26.3.3 say that inside a delegating ámbito a zonal code's scope "se
+    // reduce a las condiciones de uso y tipología … pero no a los parámetros definitorios de la
+    // altura o edificabilidad". So an RM1 polygon inside a PERI ámbito must NOT be answered from
+    // the RM1 ordinance. Moving this block above the remitted gate would publish a general-plan
+    // number for land the general plan expressly declines to order — the exact error the
+    // competitor's "proxy PGOU" made on the founder's own parcel.
+    const pgou = resolveMurciaPgouZone(calificacion?.calificacion);
+    if (pgou.ok) {
+        const cls = pgou.classification;
+        const article = cls
+            ? `PGOU de Murcia, Normas Urbanísticas, Texto Refundido diciembre 2012, ${cls.article}`
+            : null;
+
+        if (envelopeVerified) {
+            return {
+                kind: 'envelope',
+                zone: pgou.zone,
+                classification: cls,
+                reason:
+                    `A signed PGOU envelope is available for calificación ${pgou.matchedCode}` +
+                    `${cls ? ` (${cls.article})` : ''}, but the L5 dispatcher does not yet consume ` +
+                    'an envelope disposition for Murcia — falling back to the cited refusal.',
+            };
+        }
+
+        return {
+            kind: 'refusal',
+            refusal: {
+                code: 'no-rule-pack',
+                headline:
+                    `${calificacion?.calificacion ?? pgou.matchedCode}${cls ? ` — ${cls.label}` : ''}: the PGOU ` +
+                    'DOES set this parcel\'s building conditions directly, and PRYZM has transcribed them — ' +
+                    'but they are withheld until a human verifies the transcription.',
+                detail:
+                    'This land is NOT delegated to a partial plan. Its calificación is governed by an ' +
+                    'ordinance of the general plan itself' +
+                    (cls ? ` (${cls.article}, rule kind: ${cls.ruleKind}, granularity: ${cls.granularity})` : '') +
+                    ', and that ordinance has been read from the municipality\'s own normative text — the ' +
+                    'PGOU Normas Urbanísticas, Texto Refundido diciembre 2012 — and transcribed article by ' +
+                    'article with verbatim quotes. ⚠ What is missing is not the law and not the data: it is ' +
+                    'the SIGNATURE. Publishing a compliance figure is a legal act, so PRYZM will not render ' +
+                    'one until a human has checked the transcription against the source and signed ' +
+                    '`sources/VERIFICATION.md`. Until then this refusal names the governing article so you ' +
+                    'can read it yourself, which an invented number never could. ' +
+                    // ⚠ `cls.note` is DELIBERATELY NOT INTERPOLATED HERE. The notes carry the
+                    // transcribed scalars ("FAR 1,3 m²/m², 2 plantas/7 m…") for the dossier and for
+                    // developers. Putting them in a user-facing refusal would publish, in prose,
+                    // exactly the figures the verification gate exists to withhold — a gate you can
+                    // read around is not a gate. A test pins this.
+                    MURCIA_ROADMAP_LINE,
+                ordinanceRef: article,
+                // FALSE, and precisely: the ordinance ANSWERS here. What is unverified is PRYZM's
+                // reading of it. Claiming `legallyGrounded: true` would attribute our own
+                // unverified state to the law.
+                legallyGrounded: false,
                 knownFacts,
             },
         };

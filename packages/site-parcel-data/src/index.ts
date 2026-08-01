@@ -750,6 +750,26 @@ export {
     type MurciaZoningResolution,
     type MurciaZoningRefusalReason,
 } from './providers/resolveMurciaZoning.js';
+// ── The TRANSCRIBED Murcia ordinance: PGOU Normas Urbanísticas, Texto Refundido diciembre 2012. ──
+// 14 zones whose every envelope-determining parameter is STATED at parcel granularity, each with
+// its article and a verbatim quote. ⚠ Gated: `MURCIA_ENVELOPE_VERIFIED` is false, so the pack
+// renders NO number until a human signs the transcription. Two thirds of Murcia's private
+// buildable land never reaches it at all — the PGOU delegates that land (see ENVELOPE.md).
+export {
+    ES_MURCIA_PGOU2012_PACK,
+    MURCIA_PGOU_SOURCE,
+    MURCIA_PGOU_BORM_REFERENCE,
+    MURCIA_FIELD_PROVENANCE,
+    MURCIA_CALIFICACION_CLASSIFICATION,
+    MURCIA_NO_LIMIT_FINDINGS,
+    MURCIA_PARCEL_SIZE_CONDITIONS,
+    resolveMurciaPgouZone,
+    murciaCalificacionClassification,
+    type MurciaParameterState,
+    type MurciaGranularity,
+    type MurciaCalificacionClassification,
+    type MurciaPgouResolution,
+} from './rulepacks/esMurciaPgou2012.js';
 
 // ── L-608 — Madrid (INE 28079) jurisdiction gate + the NZ 1 explicit-area pack, refusal + ──
 // the `ringRef` resolver. The pack ships numeric fields null and a footprint HANDLE; the resolver

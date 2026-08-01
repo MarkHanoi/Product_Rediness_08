@@ -10,9 +10,21 @@
 //   • existing buildings: footprints + floors above/below ground (INSPIRE
 //     `bu-ext2d:numberOfFloorsAboveGround`, the "ALTURAS" input), or a corroborated VACANT
 //
-// CANNOT: a buildable envelope. PRYZM holds NO transcribed Murcia ordinance — no zoning
-// layer has been located on a municipal GIS, and no PGOU article has been read and cited.
-// So there is no height, no FAR, no coverage, no setback, and no buildable ring.
+// ⚠ THIS HEADER WAS STALE AND IS NOW CORRECTED. It used to say "PRYZM holds NO transcribed
+// Murcia ordinance — no zoning layer has been located on a municipal GIS". BOTH halves of
+// that are false as of 2026-08-01:
+//   • the municipal GeoServer IS located and IS read live at the point (`resolveMurciaZoning`
+//     → `/api/es/murcia-pgou`), giving calificación + ámbito + clase de suelo + validity;
+//   • the PGOU *Normas Urbanísticas* (Texto Refundido diciembre 2012) HAVE been sourced and
+//     transcribed — see `esMurciaPgou2012.ts`, 14 zones with article + verbatim quote.
+//
+// CANNOT, still: publish a buildable number. For two different reasons, and keeping them
+// apart is the whole point:
+//   (a) on land the PGOU orders DIRECTLY, the numbers exist but the TRANSCRIPTION IS UNSIGNED
+//       (`MURCIA_ENVELOPE_VERIFIED` is false). A coverage statement about PRYZM.
+//   (b) on land the PGOU DELEGATES — measured at 67.0 % of the 75.145 km² of private buildable
+//       land — the general plan is the WRONG INSTRUMENT and no signature changes that. A legal
+//       statement, and the one that caps this city.
 //
 // ⇒ THE HONEST OUTPUT IS A CITED REFUSAL, AND THAT IS A SHIPPABLE ANSWER, NOT A GAP.
 // The ratified position is *"100 % of parcels get either a computed envelope or a legally-
@@ -142,12 +154,18 @@ export function detectDerivedPlanMarkers(address: string | null | undefined): De
 export const MURCIA_ROADMAP_LINE =
     'Murcia coverage today: the PARCEL half is complete and live — the national Catastro path ' +
     'resolves the referencia catastral, the official boundary, the official area and the ' +
-    'existing buildings with their floor counts, all keyless. The ENVELOPE half is not: PRYZM ' +
-    'holds no transcribed Murcia ordinance, and no municipal zoning service has been located ' +
-    'that publishes a machine-readable buildable parameter for this land. What would change ' +
-    'this answer is a sourced and human-signed transcription of the governing instrument — ' +
-    'and for parcels inside a Plan Parcial that is the PARTIAL PLAN itself, not the general ' +
-    'plan, because the general plan delegates the detailed parameters to it.';
+    'existing buildings with their floor counts, all keyless. The ZONING half is live too: ' +
+    "Murcia's own municipal planning service is read at the point, giving the calificación, its " +
+    'official designation, the ámbito, the land class and the record\'s validity interval — but ' +
+    'it publishes no numeric buildable parameter as an attribute. The ENVELOPE half is where the ' +
+    'limit sits, and it has two distinct halves of its own. For land the general plan orders ' +
+    'DIRECTLY, the PGOU Normas Urbanísticas (Texto Refundido diciembre 2012) have now been ' +
+    'sourced and transcribed article by article, and what is missing is only the human signature ' +
+    'on that transcription. For land the general plan DELEGATES — measured at two thirds of ' +
+    "Murcia's private buildable area — no signature helps: the governing document is the partial " +
+    'plan, the PERI or the estudio de detalle named for that ámbito, and PRYZM does not hold it. ' +
+    'That is why a parcel inside a Plan Parcial stays a refusal even after the general plan is ' +
+    'signed off.';
 
 /**
  * THE HONESTY-GATE refusal: returned for EVERY Murcia parcel while
@@ -202,11 +220,10 @@ export function murciaNoRulePackRefusal(
             'The parcel itself is fully established from the Spanish Dirección General del Catastro: ' +
             'its referencia catastral, its official boundary, its officially registered area and any ' +
             'existing buildings with their floor counts are read live from the national INSPIRE ' +
-            'services, by identifier — not inferred from a map pin. What PRYZM does NOT hold is the ' +
-            'planning ordinance that would turn that boundary into a buildable envelope: no Murcia ' +
-            'zoning or building-condition layer has been located that publishes a machine-readable ' +
-            'height, buildability, occupation or setback for this parcel, and no article of the ' +
-            'governing plan has been transcribed and verified.' +
+            'services, by identifier — not inferred from a map pin. What PRYZM does NOT hold is a ' +
+            'buildable figure it may publish for this particular calificación: Murcia\'s planning ' +
+            'service exposes the zone identity but no machine-readable height, buildability, ' +
+            'occupation or setback, and no verified article of the governing plan covers this code.' +
             derivedSentence +
             ' Rather than show an estimated or proxied number that would look like a determination, ' +
             'PRYZM shows none. ' +

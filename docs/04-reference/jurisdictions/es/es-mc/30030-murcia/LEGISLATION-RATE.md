@@ -1,16 +1,56 @@
 # LEGISLATION-RATE — Murcia (INE 30030)
 
-> Structured legislation / data-fill rate (C58 comparable ruler; feeds C63 Axis 2). **Last updated:** 2026-07-30. **Maintainer:** UNASSIGNED.
+> Structured legislation / data-fill rate (C58 comparable ruler; feeds C63 Axis 2).
+> **Last updated:** 2026-08-01. **Maintainer:** UNASSIGNED.
 
-## Rate: `not-assessed` (`pending-implementation`)
+## Rate: **ROUTING 100 % · NUMERIC 33.0 % authored, 0 % rendered**
 
-**No clau audit has been run for Murcia, and no rule pack is registered** (`rulepacks/registry.ts`
-carries sourced packs only for Barcelona / Madrid / Córdoba). Stating a fill-% here — or borrowing
-Barcelona's — would be the §CONTEXT-DATA-HONESTY "Barcelona-borrow" fabrication (C63 §3 Axis 2). The
-national prior (`es/RATE.md`, ~34 % structured-fill) is a COUNTRY figure, not this municipality's.
+The two must be reported separately (planning-regime-resolver finding): a city can know *which
+instrument governs every parcel* while holding *no number for most of them*. Murcia is exactly that
+city, and collapsing the pair into one percentage would hide its actual shape.
 
-**What would move it:** enumerate the governing instrument + distinct zones for 30030 from the
-competent authority (CCAA planning GIS / municipal PGOU), cite each rule value·unit·article in
-`sources/SOURCES.md`, sign `sources/VERIFICATION.md` (L-449). Only then does a number exist.
+### ROUTING completeness — 100 %
 
-*Cross-refs: C58, C63 §3 Axis 2, `../../RATE.md` (national), `./RATE.md`.*
+Every Murcia parcel resolves to a typed disposition naming the governing regime, live, from
+Murcia's own municipal GeoServer (`Murcia:pgou_alineaciones` + `Murcia:pgou_sectores` via
+`/api/es/murcia-pgou`). No parcel falls through to "unknown regime". The regimes are:
+
+| Regime | Governing article | share of private buildable land |
+|---|---|---:|
+| PGOU-direct ordinance (Tít. 5 Caps. 2–23) | per-calificación | **33.0 %** |
+| *Calificación genérica* — use + typology only | Arts. 5.25.3.3 / 5.26.3.3 / 6.5.1 | 30.2 % |
+| Suelo urbanizable → Plan Parcial | Art. 6.2.2.3 | 20.5 % |
+| Remitted to convalidated prior plan | Arts. 5.24.5 / 5.24.6 | 11.2 % |
+| Delegating ámbito (UA/UH/UM/UE/UD/TA/TM/P\*) | Arts. 5.24 / 5.25 / 5.26 / 6.6 | 5.1 % |
+
+### NUMERIC completeness — 33.0 % authored, **0 % rendered**
+
+- **33.0 %** of private buildable land carries a transcribed, cited, article-quoted rule set
+  (14 calificaciones, `rulepacks/esMurciaPgou2012.ts`).
+- **0 %** renders, because `MURCIA_ENVELOPE_VERIFIED = false`. Transcription is a legal act and
+  `sources/VERIFICATION.md` is unsigned (L-449).
+- **67.0 %** is unreachable by any transcription of this instrument — the general plan is the wrong
+  document for that land, by its own articles.
+- The firm floor excluding the expressly *interim* `RL` regime (Art. 5.14.3) is **16.5 %**.
+
+## The instrument
+
+«PLAN GENERAL MUNICIPAL DE ORDENACIÓN DE MURCIA — Texto Refundido. diciembre 2012. VOLUMEN 11 —
+NORMAS URBANÍSTICAS», Ayuntamiento de Murcia. Retrieved 2026-08-01 from `urbanismo.murcia.es`,
+205 pp, born-digital, embedded title `TR PG vol_11 NN UU.signed.pdf`. **No** «sin valor normativo»
+disclaimer (checked: 0 occurrences). **BORM approval reference: `not-located-in-source`.**
+
+Full provenance, authority caveats and the per-calificación four-state table: [`ENVELOPE.md`](./ENVELOPE.md).
+
+## What would move it
+
+1. Sign `sources/VERIFICATION.md` → 33.0 % authored becomes 33.0 % rendered.
+2. A Murcia street-width / frontage-class source → unblocks `RC`, `RM` (base), `RN`, `MZ`, `MX`,
+   ≈ +4 pp.
+3. Nothing else on this instrument. Beyond that the only lever is acquiring the **derived plans**
+   themselves — a per-ámbito document-sourcing problem, not a transcription problem.
+
+⚠ The national prior (`es/RATE.md`, ~34 % structured-fill) is a COUNTRY figure and was never this
+municipality's; the near-coincidence with 33.0 % is arithmetic, not evidence.
+
+*Cross-refs: C58, C63 §3 Axis 2, L-656, `../../RATE.md` (national), `./RATE.md`, `./ENVELOPE.md`.*
