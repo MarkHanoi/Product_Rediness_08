@@ -411,7 +411,7 @@ export const CATALUNYA_ROADMAP_LINE =
     CATALUNYA_MEASURED_ON +
     '), so PRYZM can always tell you your land’s planning qualification. The ENVELOPE half is ' +
     'municipality-by-municipality and always will be: Catalonia has 947 municipalities and no ' +
-    'single ordinance governs them: the metropolitan PGM-1976 reaches 27, and each of the rest ' +
+    'single ordinance governs them — the metropolitan PGM-1976 reaches 27, and each of the rest ' +
     'has its own POUM, PGOU or Normes Subsidiàries. What would change the answer for THIS parcel ' +
     'is a sourced, human-signed transcription of the instrument named above — after which this ' +
     'municipality registers in its own right and outranks this regional answer automatically.';
@@ -444,6 +444,10 @@ function instrumentSentence(input: CatalunyaRefusalInput): string {
             'instrument, and will not guess one.'
         );
     }
+    // ⚠ The link goes LAST in whatever sentence carries it and is never followed by more prose: a
+    // URL with a full stop or a word butted against it is a URL users cannot click or copy
+    // cleanly. An honest signal that is not LEGIBLE is not honest in effect (the schema's own note
+    // on `knownFacts` records the day that lesson was paid for).
     const link = inst.rpucUrl ? ` You can read the record yourself: ${inst.rpucUrl}` : '';
     if (!inst.confirmed) {
         return (
@@ -453,7 +457,8 @@ function instrumentSentence(input: CatalunyaRefusalInput): string {
             (inst.filedUnderIne ? ` (INE ${inst.filedUnderIne})` : '') +
             `, so PRYZM reports it WITHOUT claiming it is this municipality’s general plan. ` +
             `Supra-municipal and metropolitan instruments are filed this way, so the difference is ` +
-            `not evidence of an error — it is evidence PRYZM has not established the link.${link}`
+            `not evidence of an error — it is evidence PRYZM has not established the link.` +
+            link
         );
     }
     return (
@@ -461,8 +466,8 @@ function instrumentSentence(input: CatalunyaRefusalInput): string {
         `${inst.expedient.trim()}, registered in the Registre de Planejament Urbanístic de ` +
         `Catalunya. PRYZM resolved that from the Generalitat’s own àmbit-del-planejament-general ` +
         `layer by testing which plan boundary actually contains your parcel — not by looking up a ` +
-        `municipality name.${link} PRYZM has NOT read that document, which is exactly why it ` +
-        `publishes no figure from it.`
+        `municipality name. PRYZM has NOT read that document, which is exactly why it publishes ` +
+        `no figure from it.${link}`
     );
 }
 
