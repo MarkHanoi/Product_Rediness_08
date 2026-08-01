@@ -38,7 +38,7 @@
 //   node heightSources.mjs --probe 3dbag     # probe one source
 //   node heightSources.mjs --resolve paris   # fetch one region's heights → out/<region>-buildings-national.geojsonseq
 // ─────────────────────────────────────────────────────────────────────────────
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -373,6 +373,22 @@ export const MDS_CITY_BBOXES = [
   { city: 'malaga',    refcat: '29067', bbox: [-4.50, 36.66, -4.35, 36.76], baked: false },  // PHASE-4
   { city: 'zaragoza',  refcat: '50297', bbox: [-0.95, 41.60, -0.80, 41.70], baked: false },  // PHASE-4
   { city: 'bilbao',    refcat: '48020', bbox: [-2.98, 43.22, -2.88, 43.29], baked: false },  // PHASE-4
+];
+
+// §JOIN-BOUNDED-WORKING-SET (L-659) — the DK analogue of MDS_CITY_BBOXES, and NOT optional.
+//
+// The whole-`denmark` bake region declares `heightJoin:'dhm'`, so without a bounded stamp area it
+// would hold every Danish OSM footprint in the V8 heap and OOM the bake the same way whole-Spain did
+// (run 30693132326) — killing the run BEFORE the tiles publish, i.e. taking Barcelona down with it.
+// These are the four largest Danish urban areas, which is where a DK site is actually dropped;
+// everything else in the country passes through with its honest OSM tags (§CONTEXT-DATA-HONESTY).
+// TO WIDEN COVERAGE: add a row. Each bbox costs ~(span/0.02°)² DHM raster tile pairs at bake time.
+export const DHM_CITY_BBOXES = [
+  // city         [w, s, e, n] (WGS84)
+  { city: 'copenhagen', bbox: [12.45, 55.60, 12.70, 55.75] },
+  { city: 'aarhus',     bbox: [10.10, 56.10, 10.28, 56.22] },
+  { city: 'odense',     bbox: [10.31, 55.35, 10.46, 55.44] },
+  { city: 'aalborg',    bbox: [9.86, 57.00, 10.02, 57.09] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1538,8 +1554,60 @@ function footprintFromFeature(feat) {
 // job). Re-exported here because the joins below are its only callers.
 // ⚠ `export … from` alone would NOT bind these names locally — the joins below call
 // loadJoinFootprints directly, so it must also be imported.
-import { loadJoinFootprints } from './geojsonseqRead.mjs';
-export { readGeojsonseqFeatures, loadJoinFootprints } from './geojsonseqRead.mjs';
+import { loadJoinFootprints, loadJoinFootprintsBounded } from './geojsonseqRead.mjs';
+export { readGeojsonseqFeatures, loadJoinFootprints, partitionGeojsonseq, loadJoinFootprintsBounded } from './geojsonseqRead.mjs';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §JOIN-BOUNDED-WORKING-SET (L-659, 2026-08-01) — the shared helpers that keep a WHOLE-COUNTRY join
+// inside a bounded heap AND a bounded wall-clock. Both crashes below were real, both were fatal, and
+// they are DIFFERENT bugs that happen to have the same cure — a declared, finite stamp area.
+//
+//   1. HEAP. Run 30693132326 died with `Ineffective mark-compacts near heap limit` at 4.04 GB, 23 min
+//      in, on the whole-Spain buildings clip. Measured cost is ~1.26 kB of V8 heap per parsed
+//      footprint, so a national footprint set wants >10 GB. See geojsonseqRead.mjs's header.
+//
+//   2. WALL-CLOCK, which nobody had hit yet only because (1) crashed first. Every join tiled its
+//      region grid and ran `records.filter(...)` PER TILE — O(tiles × footprints). Whole Spain at
+//      tileSpanDeg 0.025 is 566 × 320 = 181,120 tiles; against even a bounded 1 M-footprint record
+//      set that is ~1.8e11 comparisons, i.e. hours of pure CPU before a single raster is fetched.
+//      `bucketRecords` replaces it with ONE pass that indexes every record into its tile cell, after
+//      which a tile lookup is O(1) and the sweep visits only POPULATED cells.
+//
+// §CONTEXT-DATA-HONESTY — narrowing the stamp area does NOT fabricate anything and does NOT delete
+// anything. A footprint outside the declared bboxes is written through with its ORIGINAL OSM tags,
+// so it keeps its honest `tagged`/`derived-levels`/`assumed` provenance. What changes is only WHERE
+// we claim to have measured — and that claim is now explicit and inspectable instead of being an
+// implicit consequence of whichever tile the `maxTiles` cap happened to stop at.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Normalise a caller's stamp-area list. Empty/absent → the whole region bbox (legacy behaviour). */
+function stampAreasFor(retainBboxes, regionBbox) {
+  const areas = (retainBboxes ?? []).filter((b) => Array.isArray(b) && b.length === 4 && b.every(Number.isFinite));
+  return areas.length ? areas : [regionBbox];
+}
+
+/** Is (x, y) inside any of `areas` ([minX,minY,maxX,maxY], inclusive of the upper edge)? */
+function inAnyArea(x, y, areas) {
+  for (const [x0, y0, x1, y1] of areas) {
+    if (x >= Math.min(x0, x1) && x <= Math.max(x0, x1) && y >= Math.min(y0, y1) && y <= Math.max(y0, y1)) return true;
+  }
+  return false;
+}
+
+/**
+ * Index records into tile cells ONCE — the O(tiles × records) → O(records) fix described above.
+ * `cellOf(record)` returns `[ix, iy]`. Returns `Map<"ix,iy", record[]>`.
+ */
+function bucketRecords(records, cellOf) {
+  const buckets = new Map();
+  for (const r of records) {
+    const [ix, iy] = cellOf(r);
+    const k = `${ix},${iy}`;
+    const b = buckets.get(k);
+    if (b) b.push(r); else buckets.set(k, [r]);
+  }
+  return buckets;
+}
 
 /**
  * Stamp REAL MDS Edificación (mdsn_e025) heights onto an EXISTING OSM buildings GeoJSONSeq (bake's own
@@ -1552,10 +1620,25 @@ export { readGeojsonseqFeatures, loadJoinFootprints } from './geojsonseqRead.mjs
 // §PHASE-4 — `priorityBboxes` (e.g. MDS_CITY_BBOXES.map((c) => c.bbox)) are stamped FIRST and UNCAPPED,
 // so each metro capital is GUARANTEED measured heights even if the national `maxTiles` cap is reached
 // mid national sweep. Default [] → behaviour is byte-identical to before (the priority loop is empty).
+//
+// §JOIN-BOUNDED-WORKING-SET (L-659) — `retainBboxes` is THE fix for the whole-Spain OOM. Only the
+// footprints inside these bboxes are PARSED AND HELD; every other footprint in the clip streams
+// straight to `outPath` with its ORIGINAL OSM tags, never occupying heap. Peak memory therefore
+// tracks the STAMP AREA (the metro capitals), not the nation — measured ~1.26 kB of heap per held
+// footprint, so whole-Spain's >10 GB working set collapses to the low hundreds of MB.
+//   • DEFAULT (`null`/`[]`) → the whole region bbox is retained, i.e. BYTE-IDENTICAL to the previous
+//     behaviour. Every city-sized region keeps working exactly as before with no config.
+//   • A whole-country region MUST declare it (bake.mjs does, from MDS_CITY_BBOXES) or the heap
+//     watchdog in `partitionGeojsonseq` trips and the bake fails LOUDLY with a named diagnosis
+//     instead of a bare V8 abort.
+// ⚠ This does not fabricate or discard a single height. A retained-but-unstamped footprint and a
+// passed-through footprint end up in the SAME honest state: their original OSM tags (§CONTEXT-DATA-
+// HONESTY). What it removes is only the pretence that a national sweep was ever going to complete —
+// 181,120 tiles at one raster fetch each was never inside the 180-minute job budget.
 export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
   timeoutMs = 120_000,
   tileSpanDeg = 0.025, maxTiles = 4000, padDeg = 0.0015,
-  priorityBboxes = [],
+  priorityBboxes = [], retainBboxes = null,
   erodeM = 1.0, percentile = 90, minSamples = 3, sampleStepM = 2.5,
 } = {}) {
   if (!inPath || !existsSync(inPath)) return { status: 'error', reason: `MDS join: input footprints not found (${inPath})` };
@@ -1564,37 +1647,52 @@ export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
   if (!gt) {
     return { status: 'documented', reason: 'MDS join: geotiff dep unavailable — install it in the bake image; footprints keep OSM default.' };
   }
-  // Parse the OSM footprints (one Feature per line) — §GEOJSONSEQ-READ (streams; RS-tolerant).
-  const load = loadJoinFootprints(inPath, 'MDS join');
-  if (load.status !== 'ok') return { status: load.status, reason: load.reason };
-  const feats = load.feats;
-  // Attach a parsed footprint (ext ring + centroid) to each stampable feature.
-  const records = [];
-  for (const feat of feats) {
-    const fp = footprintFromFeature(feat);
-    if (fp) records.push({ feat, ...fp });
-  }
-
   const [w, s, e, n] = bbox;
+  const stampAreas = stampAreasFor(retainBboxes, bbox);
+
+  // §JOIN-BOUNDED-WORKING-SET — stream the clip; HOLD only footprints whose centroid lands in a stamp
+  // area, PASS THROUGH the rest straight to outPath as raw bytes. Also drops non-polygon records into
+  // the pass-through untouched (they were never stampable), so nothing is lost.
+  mkdirSync(dirname(outPath), { recursive: true });
+  const load = loadJoinFootprintsBounded(inPath, outPath, (feat) => {
+    const fp = footprintFromFeature(feat);
+    if (!fp) return null;
+    if (!inAnyArea(fp.clon, fp.clat, stampAreas)) return null;
+    return { feat, ...fp };
+  }, 'MDS join');
+  if (load.status !== 'ok') return { status: load.status, reason: load.reason, read: load.read };
+  const records = load.retained;
+  const read = load.read;
+
   const nx = Math.max(1, Math.ceil((e - w) / tileSpanDeg));
   const ny = Math.max(1, Math.ceil((n - s) / tileSpanDeg));
-  let processedTiles = 0, tileErrors = 0, emptyTiles = 0, tileCapHit = false, priorityTiles = 0;
+  // §JOIN-BOUNDED-WORKING-SET — index once (O(records)) instead of re-filtering per tile (O(tiles ×
+  // records)). Cells are addressed on the REGION grid so a priority bbox and the national sweep speak
+  // the same coordinates and cannot double-process a cell.
+  const cellIx = (lon) => Math.min(nx - 1, Math.max(0, Math.floor((lon - w) / tileSpanDeg)));
+  const cellIy = (lat) => Math.min(ny - 1, Math.max(0, Math.floor((lat - s) / tileSpanDeg)));
+  const buckets = bucketRecords(records, (r) => [cellIx(r.clon), cellIy(r.clat)]);
+  const doneCells = new Set();
+  let processedTiles = 0, tileErrors = 0, tileCapHit = false, priorityTiles = 0;
   const heights = [];
-  // Fetch the MDS raster for ONE tile and stamp every not-yet-done footprint whose centroid falls in it.
-  // `respectCap` (national sweep) → returns true when the cap is hit so the caller breaks; priority tiles
-  // pass false (never capped). Empty tiles bump `emptyTiles` and return false (no break).
-  const processTile = async (tw, ts, te, tn, respectCap) => {
-    const inTile = records.filter((r) => !r._done && r.clon >= tw && r.clon < te + 1e-9 && r.clat >= ts && r.clat < tn + 1e-9);
-    if (inTile.length === 0) { emptyTiles++; return false; }
+  // Fetch the MDS raster for ONE populated cell and stamp its footprints. `respectCap` (national
+  // sweep) → returns true when the cap is hit so the caller breaks; priority cells pass false.
+  const processCell = async (ix, iy, respectCap) => {
+    const key = `${ix},${iy}`;
+    if (doneCells.has(key)) return false;
+    const inTile = buckets.get(key);
+    if (!inTile || inTile.length === 0) return false;
     if (respectCap && processedTiles >= maxTiles) { tileCapHit = true; return true; }
+    doneCells.add(key);
+    const tw = w + ix * tileSpanDeg, ts = s + iy * tileSpanDeg;
+    const te = Math.min(tw + tileSpanDeg, e), tn = Math.min(ts + tileSpanDeg, n);
     const rbox = [tw - padDeg, ts - padDeg, te + padDeg, tn + padDeg];
     const rr = await httpGetBuffer(mdsCoverageUrl(rbox), { timeoutMs });
-    if (!rr.ok || !/tiff/i.test(rr.ct)) { tileErrors++; for (const r of inTile) r._done = true; return false; }
+    if (!rr.ok || !/tiff/i.test(rr.ct)) { tileErrors++; return false; }
     let mds;
     try { mds = await readDhmRaster(rr.ab, gt); }
-    catch { tileErrors++; for (const r of inTile) r._done = true; return false; }
+    catch { tileErrors++; return false; }
     for (const r of inTile) {
-      r._done = true;
       const h = mdsHeightForBuilding(r.ext, r.interiors, mds, { erodeM, percentile, minSamples, sampleStepM });
       if (h) {
         r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'mds_edificacion', [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
@@ -1607,31 +1705,22 @@ export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
   try {
     // §PHASE-4 — capitals first (UNCAPPED): guarantee each metro city's footprints are stamped before
     // the national sweep can exhaust `maxTiles`. A priority bbox outside the region bbox stamps nothing
-    // (no footprints there) — harmless. Clamp each priority tile to the region so an overshoot fetch
-    // never leaves the covered area.
+    // (its cells hold no footprints) — harmless.
     for (const pb of priorityBboxes) {
       if (!Array.isArray(pb) || pb.length !== 4) continue;
       const [pw, ps, pe, pn] = pb;
-      const pnx = Math.max(1, Math.ceil((pe - pw) / tileSpanDeg));
-      const pny = Math.max(1, Math.ceil((pn - ps) / tileSpanDeg));
       const before = processedTiles;
-      for (let iy = 0; iy < pny; iy++) {
-        for (let ix = 0; ix < pnx; ix++) {
-          const tw = pw + ix * tileSpanDeg, ts = ps + iy * tileSpanDeg;
-          const te = Math.min(tw + tileSpanDeg, pe), tn = Math.min(ts + tileSpanDeg, pn);
-          await processTile(tw, ts, te, tn, false);
-        }
+      for (let iy = cellIy(ps); iy <= cellIy(pn); iy++) {
+        for (let ix = cellIx(pw); ix <= cellIx(pe); ix++) await processCell(ix, iy, false);
       }
       priorityTiles += processedTiles - before;
     }
-    // National sweep — respects `maxTiles` for the remaining (non-priority) tiles.
-    outer:
-    for (let iy = 0; iy < ny; iy++) {
-      for (let ix = 0; ix < nx; ix++) {
-        const tw = w + ix * tileSpanDeg, ts = s + iy * tileSpanDeg;
-        const te = Math.min(tw + tileSpanDeg, e), tn = Math.min(ts + tileSpanDeg, n);
-        if (await processTile(tw, ts, te, tn, true)) break outer;
-      }
+    // Sweep — ONLY the populated cells (a nation is >99.9 % empty cells; visiting them all was the
+    // O(tiles × records) trap). Sorted so a capped run is deterministic and re-runnable.
+    const rest = [...buckets.keys()].filter((k) => !doneCells.has(k)).sort();
+    for (const k of rest) {
+      const [ix, iy] = k.split(',').map(Number);
+      if (await processCell(ix, iy, true)) break;
     }
   } catch (err) {
     // Network cut mid-grid — write whatever we stamped so far (honest partial), never abort the bake.
@@ -1639,20 +1728,27 @@ export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
     void err;
   }
 
-  // Emit EVERY footprint (stamped or original). REPLACE input for the region — same footprints, real
-  // heights where MDS answered, OSM default elsewhere.
-  mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, feats.map((f) => JSON.stringify(f)).join('\n') + '\n');
+  // The pass-through footprints are ALREADY in outPath (written during the read). Append the retained
+  // ones — stamped or not — so the file holds EVERY footprint exactly once. REPLACE input for the
+  // region: same footprints, real heights where MDS answered, untouched OSM tags everywhere else.
+  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
   const measured = heights.length;
   heights.sort((a, b) => a - b);
+  const emptyTiles = Math.max(0, nx * ny - buckets.size);
   return {
-    status: 'ok', outPath, count: feats.length, footprintCount: records.length, measuredCount: measured,
+    status: 'ok', outPath, count: read.parsed, footprintCount: records.length, measuredCount: measured,
     coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
     heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
     tilesProcessed: processedTiles, priorityTiles, tileErrors, emptyTiles, tileCapHit, tileGrid: `${nx}×${ny}`,
-    note: `MDS Edificación stamped onto OSM footprints → ${measured}/${records.length} footprint(s) got a MEASURED ` +
-      `height (tagged); ${processedTiles} tile(s)${priorityTiles ? ` (${priorityTiles} in ${priorityBboxes.length} priority capital bbox(es) first)` : ''}, ` +
-      `${tileErrors} raster error(s)${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}.`,
+    // §JOIN-BOUNDED-WORKING-SET counters — the P8-equivalent observability for a plain Node script.
+    retainedFootprints: records.length, passedThroughFootprints: read.passedThrough,
+    stampAreas: stampAreas.length, populatedCells: buckets.size,
+    peakHeapUsedMB: read.peakHeapUsedMB, heapLimitMB: read.heapLimitMB,
+    note: `MDS Edificación stamped onto OSM footprints → ${measured}/${records.length} RETAINED footprint(s) got a MEASURED ` +
+      `height (tagged); ${read.passedThrough} footprint(s) outside the ${stampAreas.length} stamp bbox(es) passed through with ` +
+      `their original OSM tags; ${processedTiles} tile(s)${priorityTiles ? ` (${priorityTiles} in ${priorityBboxes.length} priority capital bbox(es) first)` : ''}, ` +
+      `${tileErrors} raster error(s)${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}; ` +
+      `peak heap ${read.peakHeapUsedMB} MB of ${read.heapLimitMB} MB.`,
   };
 }
 
@@ -1669,9 +1765,15 @@ export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
 // apikey-GATED (DATAFORDELER_API_KEY — same key as the DK Matrikel proxy + DHM terrain adapter). No
 // key → `blocked` (loud), footprints keep the OSM default. §CONTEXT-DATA-HONESTY: never a fabricated
 // height; a footprint with no clean nDSM keeps its original OSM tags untouched.
+// §JOIN-BOUNDED-WORKING-SET (L-659) — `retainBboxes` (WGS84) applies here for the SAME reason it does
+// on the ES MDS join: whole-`denmark` is a national region, its footprint set does not fit in a V8
+// heap, and its 225 × 175 native-metre tile grid re-filtered per tile is O(tiles × footprints). Both
+// are removed by holding only the footprints inside the declared city bboxes and bucketing them once.
+// Default (`null`) → the whole region bbox, i.e. unchanged behaviour for any city-sized caller.
 export async function stampDhmHeightsOnGeojsonseq(inPath, outPath, bbox, {
   env = process.env, timeoutMs = 120_000,
   resM = 2.0, maxTilePx = 1000, tileSpanDeg = 0.02, maxTiles = 4000, padM = 40,
+  retainBboxes = null,
   erodeM = 1.0, percentile = 90, minSamples = 4, sampleStep = 1.0,
 } = {}) {
   const apikey = env.DATAFORDELER_API_KEY;
@@ -1681,22 +1783,24 @@ export async function stampDhmHeightsOnGeojsonseq(inPath, outPath, bbox, {
   const gt = await loadGeoTiff();
   if (!gt) return { status: 'documented', reason: 'DHM join: geotiff dep unavailable — install it in the bake image; footprints keep OSM default.' };
 
-  // §GEOJSONSEQ-READ — streams; RS-tolerant; an unparseable file is a LOUD error, not "no data".
-  const load = loadJoinFootprints(inPath, 'DHM join');
-  if (load.status !== 'ok') return { status: load.status, reason: load.reason };
-  const feats = load.feats;
-  // Each stampable feature → native EPSG:25832 rings (DHM's own CRS) + a native centroid for tiling.
-  const records = [];
-  for (const feat of feats) {
+  const stampAreas = stampAreasFor(retainBboxes, bbox);
+  // §JOIN-BOUNDED-WORKING-SET — stream; hold only the footprints inside a stamp bbox (projected to
+  // EPSG:25832 for DHM's own grid), pass everything else through with its ORIGINAL OSM tags.
+  mkdirSync(dirname(outPath), { recursive: true });
+  const load = loadJoinFootprintsBounded(inPath, outPath, (feat) => {
     const fp = footprintFromFeature(feat);
-    if (!fp) continue;
+    if (!fp) return null;
+    if (!inAnyArea(fp.clon, fp.clat, stampAreas)) return null;
     const extNative = fp.ext.map(([lon, lat]) => wgs84ToUtm32(lat, lon));
     const interiorsNative = fp.interiors.map((r) => r.map(([lon, lat]) => wgs84ToUtm32(lat, lon)));
     let cx = 0, cy = 0;
     for (const [X, Y] of extNative) { cx += X; cy += Y; }
     cx /= extNative.length; cy /= extNative.length;
-    records.push({ feat, extNative, interiorsNative, cx, cy });
-  }
+    return { feat, extNative, interiorsNative, cx, cy };
+  }, 'DHM join');
+  if (load.status !== 'ok') return { status: load.status, reason: load.reason, read: load.read };
+  const records = load.retained;
+  const read = load.read;
 
   // Native EPSG:25832 extent covering the bbox (cover all four corners for grid convergence).
   const c = [wgs84ToUtm32(bbox[1], bbox[0]), wgs84ToUtm32(bbox[1], bbox[2]), wgs84ToUtm32(bbox[3], bbox[0]), wgs84ToUtm32(bbox[3], bbox[2])];
@@ -1705,49 +1809,56 @@ export async function stampDhmHeightsOnGeojsonseq(inPath, outPath, bbox, {
   const tileSpanM = tileSpanDeg * 111320; // ~metres for the chosen degree span (DK latitudes)
   const nx = Math.max(1, Math.ceil((maxE - minE) / tileSpanM));
   const ny = Math.max(1, Math.ceil((maxN - minN) / tileSpanM));
-  let processedTiles = 0, tileErrors = 0, emptyTiles = 0, tileCapHit = false;
+  const cellIx = (X) => Math.min(nx - 1, Math.max(0, Math.floor((X - minE) / tileSpanM)));
+  const cellIy = (Y) => Math.min(ny - 1, Math.max(0, Math.floor((Y - minN) / tileSpanM)));
+  const buckets = bucketRecords(records, (r) => [cellIx(r.cx), cellIy(r.cy)]);
+  let processedTiles = 0, tileErrors = 0, tileCapHit = false;
   const heights = [];
   try {
-    outer:
-    for (let iy = 0; iy < ny; iy++) {
-      for (let ix = 0; ix < nx; ix++) {
-        const tx0 = minE + ix * tileSpanM, ty0 = minN + iy * tileSpanM;
-        const tx1 = Math.min(tx0 + tileSpanM, maxE), ty1 = Math.min(ty0 + tileSpanM, maxN);
-        const inTile = records.filter((r) => !r._done && r.cx >= tx0 && r.cx < tx1 + 1e-6 && r.cy >= ty0 && r.cy < ty1 + 1e-6);
-        if (inTile.length === 0) { emptyTiles++; continue; }
-        if (processedTiles >= maxTiles) { tileCapHit = true; break outer; }
-        const box = [tx0 - padM, ty0 - padM, tx1 + padM, ty1 + padM];
-        const dim = Math.max(2, Math.min(maxTilePx, Math.round(Math.max(box[2] - box[0], box[3] - box[1]) / resM)));
-        const dsmR = await httpGetBuffer(dhmCoverageUrl(DHM_WCS.dsm, box, dim, apikey), { timeoutMs });
-        const dtmR = await httpGetBuffer(dhmCoverageUrl(DHM_WCS.dtm, box, dim, apikey), { timeoutMs });
-        if (!dsmR.ok || !dtmR.ok || !/tiff/i.test(dsmR.ct) || !/tiff/i.test(dtmR.ct)) { tileErrors++; for (const r of inTile) r._done = true; continue; }
-        let dsm, dtm;
-        try { dsm = await readDhmRaster(dsmR.ab, gt); dtm = await readDhmRaster(dtmR.ab, gt); }
-        catch { tileErrors++; for (const r of inTile) r._done = true; continue; }
-        for (const r of inTile) {
-          r._done = true;
-          const h = ndsmHeightForBuilding({ extNative: r.extNative, interiorsNative: r.interiorsNative }, dsm, dtm, { erodeM, percentile, minSamples, sampleStep });
-          if (h) {
-            r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'geodanmark-dhm', [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
-            heights.push(h.height);
-          }
+    // Visit ONLY populated cells (sorted → deterministic under the cap).
+    for (const key of [...buckets.keys()].sort()) {
+      const inTile = buckets.get(key);
+      if (!inTile || inTile.length === 0) continue;
+      if (processedTiles >= maxTiles) { tileCapHit = true; break; }
+      const [ix, iy] = key.split(',').map(Number);
+      const tx0 = minE + ix * tileSpanM, ty0 = minN + iy * tileSpanM;
+      const tx1 = Math.min(tx0 + tileSpanM, maxE), ty1 = Math.min(ty0 + tileSpanM, maxN);
+      const box = [tx0 - padM, ty0 - padM, tx1 + padM, ty1 + padM];
+      const dim = Math.max(2, Math.min(maxTilePx, Math.round(Math.max(box[2] - box[0], box[3] - box[1]) / resM)));
+      const dsmR = await httpGetBuffer(dhmCoverageUrl(DHM_WCS.dsm, box, dim, apikey), { timeoutMs });
+      const dtmR = await httpGetBuffer(dhmCoverageUrl(DHM_WCS.dtm, box, dim, apikey), { timeoutMs });
+      if (!dsmR.ok || !dtmR.ok || !/tiff/i.test(dsmR.ct) || !/tiff/i.test(dtmR.ct)) { tileErrors++; continue; }
+      let dsm, dtm;
+      try { dsm = await readDhmRaster(dsmR.ab, gt); dtm = await readDhmRaster(dtmR.ab, gt); }
+      catch { tileErrors++; continue; }
+      for (const r of inTile) {
+        const h = ndsmHeightForBuilding({ extNative: r.extNative, interiorsNative: r.interiorsNative }, dsm, dtm, { erodeM, percentile, minSamples, sampleStep });
+        if (h) {
+          r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'geodanmark-dhm', [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
+          heights.push(h.height);
         }
-        processedTiles++;
       }
+      processedTiles++;
     }
   } catch (err) { tileCapHit = true; void err; }
 
-  mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, feats.map((f) => JSON.stringify(f)).join('\n') + '\n');
+  // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
+  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
   const measured = heights.length;
   heights.sort((a, b) => a - b);
+  const emptyTiles = Math.max(0, nx * ny - buckets.size);
   return {
-    status: 'ok', outPath, count: feats.length, footprintCount: records.length, measuredCount: measured,
+    status: 'ok', outPath, count: read.parsed, footprintCount: records.length, measuredCount: measured,
     coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
     heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
     tilesProcessed: processedTiles, tileErrors, emptyTiles, tileCapHit, tileGrid: `${nx}×${ny}`,
+    retainedFootprints: records.length, passedThroughFootprints: read.passedThrough,
+    stampAreas: stampAreas.length, populatedCells: buckets.size,
+    peakHeapUsedMB: read.peakHeapUsedMB, heapLimitMB: read.heapLimitMB,
     note: `DHM nDSM (P90 of dhm_overflade−dhm_terraen) stamped onto OSM footprints → ${measured}/${records.length} ` +
-      `footprint(s) got a MEASURED height (tagged); ${processedTiles} tile(s), ${tileErrors} raster error(s)${tileCapHit ? ` (maxTiles ${maxTiles} cap hit)` : ''}.`,
+      `RETAINED footprint(s) got a MEASURED height (tagged); ${read.passedThrough} outside the ${stampAreas.length} stamp ` +
+      `bbox(es) passed through untouched; ${processedTiles} tile(s), ${tileErrors} raster error(s)` +
+      `${tileCapHit ? ` (maxTiles ${maxTiles} cap hit)` : ''}; peak heap ${read.peakHeapUsedMB} MB of ${read.heapLimitMB} MB.`,
   };
 }
 
