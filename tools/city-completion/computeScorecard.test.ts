@@ -14,6 +14,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
     CityCompletionScorecardSchema,
     AxisScoreSchema,
@@ -31,6 +34,8 @@ import {
     CITY_COMPLETION_WEIGHTS as TOOL_WEIGHTS,
     CITY_COMPLETION_WEIGHTS_VERSION as TOOL_WEIGHTS_VERSION,
     parseServerZoningMounts,
+    parseBakeRegions,
+    parseBakeLayers,
     zoneGisSlot,
     wilson95,
     ENVELOPE_AXIS_TIER_WEIGHT as TOOL_ENVELOPE_WEIGHTS,
@@ -276,4 +281,40 @@ test('wilson95 brackets the point estimate and never leaves [0,1]', () => {
     assert.ok(ci.lo > 0.9 && ci.lo < 119 / 120);
     assert.ok(ci.hi <= 1);
     assert.equal(wilson95(0, 0), null);
+});
+
+// ── §EMPTY-PARSE-IS-NOT-AN-ABSENCE (L-676) ─────────────────────────────────────────────────────
+// REGRESSION. `parseBakeRegions` looked only for `const REGIONS = [`. bake.mjs §BAKE-BY-REGION
+// renamed that array to `ALL_REGIONS` and rebound `REGIONS` to a `--region`-filtered IIFE, so the
+// marker stopped matching and the reader returned an EMPTY SET — silently, for EVERY city. The
+// scorecard then published a parser miss as a fact about the world: `context-OSM-extract=none` and
+// "not a baked context region → 0 layers present (measured)". València read CONTEXT 0 % and
+// DATA-SOURCES 60 % while sitting inside the national `spain` bake — whose SHIPPED tiles a height
+// probe read 5 466 València building footprints out of on the very same day.
+test('L-676: parseBakeRegions reads the CURRENT bake.mjs declaration (ALL_REGIONS) and finds spain', () => {
+    const text = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../context-bake/bake.mjs'), 'utf8');
+    const regions = parseBakeRegions(text);
+    assert.ok(regions.size > 0, 'empty region set — the reader has drifted from bake.mjs again');
+    assert.ok(regions.has('spain'), 'the national `spain` bake row must be visible to the scorecard');
+});
+
+test('L-676: an unparseable declaration FAILS LOUD rather than reporting a world with no bakes', () => {
+    // The whole point: "no match" is a bug in THIS READER, never a measured absence.
+    assert.throws(
+        () => parseBakeRegions('const SOMETHING_ELSE = [\n  { nombre: 4 },\n];'),
+        /EMPTY-PARSE-IS-NOT-AN-ABSENCE/,
+    );
+    assert.throws(
+        () => parseBakeLayers('const NOT_LAYERS = [\n];'),
+        /EMPTY-PARSE-IS-NOT-AN-ABSENCE/,
+    );
+});
+
+test("L-676: València's zone-GIS is `documented`, not `none` — the service is live and keyless", () => {
+    // Absence from ZONE_GIS_SOURCES scores `none`, which asserts "no source exists". València HAS
+    // one (21 210 polygons, unauthenticated, re-probed 2026-08-01); what it lacks is a PRYZM proxy.
+    // `documented` is exactly that distinction, and collapsing it to `none` under-stated the city.
+    const slot = zoneGisSlot('valencia', new Set());
+    assert.equal(slot.state, 'documented');
+    assert.match(slot.note, /geoportal\.valencia\.es/);
 });

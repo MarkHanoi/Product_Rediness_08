@@ -178,19 +178,54 @@ export function parseTerrainRegions(text) {
     return map;
 }
 
-/** bake.mjs REGIONS → Set<name>. */
+/**
+ * bake.mjs's region declaration → Set<name>.
+ *
+ * ⚠ §EMPTY-PARSE-IS-NOT-AN-ABSENCE (L-676). This read USED to look only for `const REGIONS = [`.
+ * `bake.mjs` §BAKE-BY-REGION later renamed that array to `ALL_REGIONS` and rebound `REGIONS` to a
+ * `--region`-filtered IIFE (`const REGIONS = (() => {`), so the marker stopped matching and this
+ * function returned an EMPTY SET — silently, for EVERY city. Downstream that read as a MEASURED
+ * absence: `contextExtractSlot` reported `none` and `axisContext` reported "not a baked context
+ * region → 0 layers present (measured)". A parser miss was being published as a fact about the world,
+ * which is §CONTEXT-DATA-HONESTY's failure-vs-empty collapse (L-422/457/467/469) inside the very tool
+ * that exists to prevent it — and it under-stated every city on the board by a full axis.
+ *
+ * Two defences, because the rename will happen again:
+ *   1. `ALL_REGIONS` is read FIRST (it is bake.mjs's full declared set — the honest answer to "is
+ *      this city inside a baked region?", independent of how one run was scoped), falling back to
+ *      `REGIONS` for tools that still use that name.
+ *   2. **It FAILS LOUD rather than returning empty.** bake.mjs applies exactly this discipline to its
+ *      own `--region` typo guard ("a silently-empty region set would bake nothing … and report
+ *      success"). An empty parse here is a BUG in this reader, never a world without baked regions.
+ */
 export function parseBakeRegions(text) {
-    const block = sliceArray(text, 'const REGIONS = [');
     const set = new Set();
-    for (const m of block.matchAll(/name:\s*'([^']+)'/g)) set.add(m[1]);
-    return set;
+    for (const marker of ['const ALL_REGIONS = [', 'const REGIONS = [']) {
+        for (const m of sliceArray(text, marker).matchAll(/name:\s*'([^']+)'/g)) set.add(m[1]);
+        if (set.size > 0) return set;
+    }
+    throw new Error(
+        'computeScorecard.parseBakeRegions: matched NO region name in bake.mjs. The declaration was '
+        + 'renamed or reformatted — fix this reader. Returning an empty set would publish a parser '
+        + 'miss as "this city has no baked context" (§EMPTY-PARSE-IS-NOT-AN-ABSENCE, L-676).');
 }
 
-/** bake.mjs LAYERS → Set<layer id>. */
+/**
+ * bake.mjs LAYERS → Set<layer id>.
+ *
+ * ⚠ Same §EMPTY-PARSE-IS-NOT-AN-ABSENCE guard as `parseBakeRegions`: an empty parse would render the
+ * CONTEXT axis as `0/9 present` — a fabricated measured zero — instead of failing.
+ */
 export function parseBakeLayers(text) {
     const block = sliceArray(text, 'const LAYERS = [');
     const set = new Set();
     for (const m of block.matchAll(/\{\s*id:\s*'([^']+)'/g)) set.add(m[1]);
+    if (set.size === 0) {
+        throw new Error(
+            'computeScorecard.parseBakeLayers: matched NO layer id in bake.mjs LAYERS — fix this '
+            + 'reader. An empty set would publish a parser miss as "0 of 9 context layers present" '
+            + '(§EMPTY-PARSE-IS-NOT-AN-ABSENCE, L-676).');
+    }
     return set;
 }
 
@@ -231,6 +266,19 @@ export const ZONE_GIS_SOURCES = {
         upstream: 'Oslo Planinnsyn / Geonorge planregister (SOSI Plan)',
         label: 'national SOSI Plan is legally mandated and Oslo Planinnsyn is live, but it is a '
             + 'click-viewer, not a queryable WFS; no PRYZM proxy exists',
+    },
+    // ⚠ València was ABSENT from this table, and absence scores the slot `none` — "no zone-GIS wired
+    // here", a MEASURED-ABSENCE claim. For València that claim is FALSE and it under-stated the city:
+    // the municipal ArcGIS service is live, KEYLESS and fully characterised (CLOSURE-REGISTER §1
+    // E1–E11; re-probed 2026-08-01, `where=1=1&returnCountOnly=true` → `{"count":21210}` asserted
+    // before any filter, with a `califi='ZZZNOPE'` → `{"count":0}` control of identical SHAPE). What
+    // does NOT exist is a PRYZM proxy — CLOSURE-REGISTER #4 is open — which is exactly what
+    // `documented` means and exactly what `none` does not.
+    valencia: {
+        mountConst: null, module: null,
+        upstream: 'https://geoportal.valencia.es/server/rest/services/OPENDATA/UrbanismoEInfraestructuras/MapServer/231/query',
+        label: 'Ajuntament de València ArcGIS REST — PGOU Calificaciones, 21 210 polygons, keyless, '
+            + 'carrying califi + tipoca + origen on ONE row (no second spatial join); no PRYZM proxy exists',
     },
 };
 
