@@ -7,6 +7,8 @@
 // out of the tier.
 
 import {
+    envelopeConfidenceRank,
+    isStrongerEnvelopeConfidence,
     type EnvelopeConfidence,
     type ExtractionProvenance,
 } from '@pryzm/schemas';
@@ -20,24 +22,27 @@ import {
  * ⚠ A machine read nobody has checked can never out-rank a curated estimate, so
  * `pipeline-extracted-unverified` < `estimated-ruleset`. This is the whole point
  * of the tier (L-590f §6).
+ *
+ * ⚠ L-664 — THE ORDER MOVED DOWN TO L0 AND THIS IS NOW A RE-EXPORT, NOT A SECOND COPY.
+ * The rank map used to be declared here, in this **L2** package. That put the ONLY
+ * ordered statement of the vocabulary out of reach of the **L0** consumers that need
+ * it most: the C63 city-completion scorecard schema, which must map every tier to an
+ * ENVELOPE-axis weight and cannot import L2. The result was C63 §3 inventing its own
+ * two-name vocabulary (`certified` / `constructed-amber`) that no code implemented, and
+ * an ENVELOPE axis that could not be scored for any city. The canonical ladder is now
+ * `ENVELOPE_CONFIDENCE_ORDER` in `packages/schemas/src/site/zoning/ProvenanceFlags.ts`,
+ * beside the enum it orders; these two functions delegate so a single edit re-orders
+ * every consumer at once. The ORDER IS UNCHANGED — `confidence.test.ts` pins it.
  */
-const CONFIDENCE_RANK: Readonly<Record<EnvelopeConfidence, number>> = Object.freeze({
-    'not-determined': 0,
-    'pipeline-extracted-unverified': 1,
-    'estimated-ruleset': 2,
-    'block-constructed': 3,
-    'structured': 4,
-    'authoritative': 5,
-});
 
-/** The ladder position of a confidence tier (higher = stronger). */
+/** The ladder position of a confidence tier (higher = stronger). Delegates to the L0 ladder. */
 export function confidenceRank(c: EnvelopeConfidence): number {
-    return CONFIDENCE_RANK[c];
+    return envelopeConfidenceRank(c);
 }
 
-/** Is `a` a strictly stronger determination than `b`? */
+/** Is `a` a strictly stronger determination than `b`? Delegates to the L0 comparator. */
 export function isStrongerThan(a: EnvelopeConfidence, b: EnvelopeConfidence): boolean {
-    return confidenceRank(a) > confidenceRank(b);
+    return isStrongerEnvelopeConfidence(a, b);
 }
 
 /**

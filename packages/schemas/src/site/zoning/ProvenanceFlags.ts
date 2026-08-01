@@ -88,6 +88,73 @@ export const EnvelopeConfidenceSchema = z.enum([
 export type EnvelopeConfidence = z.infer<typeof EnvelopeConfidenceSchema>;
 
 /**
+ * §ENVELOPE-CONFIDENCE-LADDER (L-664) — the ONE ordered statement of the §1.2 ladder,
+ * **weakest → strongest**. This is the single source of truth every consumer reads: the C63
+ * scorecard's ENVELOPE-axis weights, the ordinance-extraction graduation gate
+ * (`@pryzm/ordinance-extraction` `confidenceRank` / `canGraduateTier`), the fidelity-label CI gate,
+ * and the render's TRUSTED set.
+ *
+ * ⚠ WHY IT LIVES HERE, IN L0, NEXT TO THE ENUM. The ordering was previously stated only in
+ * `@pryzm/ordinance-extraction/src/confidence.ts` — an **L2** package. C63's scorecard schema is
+ * L0 and may not import L2, so the ruler that scores the ENVELOPE axis could not reach the ladder
+ * that defines the tiers, and C63 §3 grew its own two-name vocabulary (`certified` /
+ * `constructed-amber`) that no code ever implemented. An ordering that only one layer can see is
+ * not an ordering of the vocabulary (the same argument C58 §1.2/L-572 makes about the tier being a
+ * property of the determination, not of one caller).
+ *
+ * ⚠ THE ORDER IS NORMATIVE, NOT COSMETIC:
+ *   - `pipeline-extracted-unverified` < `estimated-ruleset` — a machine read nobody has checked
+ *     can never out-rank a curated human estimate (L-590f §6).
+ *   - `block-constructed` < `structured` — a determination PRYZM constructed under an accepted
+ *     rule ranks below numbers the authority itself published as data.
+ *   - `structured` < `authoritative` — **published ≠ determined.** `structured` means the numbers
+ *     were PUBLISHED; `authoritative` means a determination was ISSUED. Collapsing them would let a
+ *     published-but-undetermined value read as a compliance fact (C58 §1.2, L-664).
+ *   - `not-determined` sits at the bottom because it is the deliberate ABSENCE of a determination,
+ *     not a weak one — it is on the ladder only so a total order exists; consumers that score
+ *     *completeness* MUST treat it as excluded-or-zero, never as "a bit of an answer" (C63 §3.1).
+ *
+ * ⚠ HISTORIC NAMES. C63 §3 (pre-2026-08-01) used `certified` and `constructed-amber`. Neither was
+ * ever an `EnvelopeConfidence` member and neither is exported here as a runtime alias — a live
+ * translation table is exactly the "invent a mapping to paper over the mismatch" move L-664
+ * forbids. The read-only historic mapping is recorded in prose in C63 §3.2.
+ */
+export const ENVELOPE_CONFIDENCE_ORDER = [
+    'not-determined',
+    'pipeline-extracted-unverified',
+    'estimated-ruleset',
+    'block-constructed',
+    'structured',
+    'authoritative',
+] as const satisfies readonly EnvelopeConfidence[];
+
+/**
+ * The ladder position of a confidence tier (higher = stronger determination).
+ *
+ * Pure + total: every `EnvelopeConfidence` has a rank, by construction (the tuple above is asserted
+ * to be a permutation of the enum in `envelopeConfidenceLadder.test.ts`).
+ *
+ * P8 / P5 note — an L0 schema takes NO OpenTelemetry span: a span is I/O and would break P5
+ * purity. Same documented carve-out as C62's `authorityOutranks` and C63's `renormalizedOverall`,
+ * which are pure deterministic reducers in this same package.
+ */
+export function envelopeConfidenceRank(c: EnvelopeConfidence): number {
+    return ENVELOPE_CONFIDENCE_ORDER.indexOf(c);
+}
+
+/**
+ * Is `a` a strictly stronger determination than `b`? The deterministic "which tier wins"
+ * primitive — the envelope analogue of C62's `authorityOutranks`. No consumer invents its own
+ * comparison (P5-pure; see the span carve-out on `envelopeConfidenceRank`).
+ */
+export function isStrongerEnvelopeConfidence(
+    a: EnvelopeConfidence,
+    b: EnvelopeConfidence,
+): boolean {
+    return envelopeConfidenceRank(a) > envelopeConfidenceRank(b);
+}
+
+/**
  * The rule-pack seed confidence (C58 §1.6 `defaultConfidence`) — which §1.2
  * fidelity a pack's numbers should resolve to.
  *

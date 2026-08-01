@@ -21,6 +21,11 @@ import {
     CITY_COMPLETION_WEIGHTS_VERSION,
 } from '../../packages/schemas/src/site/completion/CityCompletionScorecard.js';
 import {
+    ENVELOPE_AXIS_TIER_WEIGHT,
+    ENVELOPE_AXIS_TIER_WEIGHT_VERSION,
+    ENVELOPE_COVERAGE_TIERS,
+} from '../../packages/schemas/src/site/completion/EnvelopeAxisWeight.js';
+import {
     computeScorecard,
     computeParcelConfidence,
     CITY_COMPLETION_WEIGHTS as TOOL_WEIGHTS,
@@ -28,6 +33,8 @@ import {
     parseServerZoningMounts,
     zoneGisSlot,
     wilson95,
+    ENVELOPE_AXIS_TIER_WEIGHT as TOOL_ENVELOPE_WEIGHTS,
+    ENVELOPE_AXIS_TIER_WEIGHT_VERSION as TOOL_ENVELOPE_WEIGHTS_VERSION,
 } from './computeScorecard.mjs';
 
 const NOW = '2026-07-30T00:00:00.000Z';
@@ -36,6 +43,61 @@ const BCN = { jurisdictionId: 'es-ct-08019-barcelona', cc: 'es', regionKey: 'bar
 test('the tool mirrors the schema weights + version EXACTLY (no drift)', () => {
     assert.deepEqual(TOOL_WEIGHTS, CITY_COMPLETION_WEIGHTS);
     assert.equal(TOOL_WEIGHTS_VERSION, CITY_COMPLETION_WEIGHTS_VERSION);
+});
+
+// ── L-664 §ENVELOPE-CONFIDENCE-LADDER ──────────────────────────────────────────────────────────
+test('L-664: the tool mirrors the L0 ENVELOPE tier-weight map EXACTLY, and is TOTAL over it', () => {
+    assert.deepEqual(TOOL_ENVELOPE_WEIGHTS, ENVELOPE_AXIS_TIER_WEIGHT);
+    assert.equal(TOOL_ENVELOPE_WEIGHTS_VERSION, ENVELOPE_AXIS_TIER_WEIGHT_VERSION);
+    // Exhaustive: every tier the SCHEMA can produce has a weight in the TOOL. No default branch.
+    for (const tier of ENVELOPE_COVERAGE_TIERS) {
+        assert.equal(typeof TOOL_ENVELOPE_WEIGHTS[tier], 'number', `tier ${tier} unmapped in the tool`);
+    }
+    assert.equal(
+        Object.keys(TOOL_ENVELOPE_WEIGHTS).length,
+        ENVELOPE_COVERAGE_TIERS.length,
+        'the tool maps a tier the schema does not declare',
+    );
+});
+
+test('L-664: ENVELOPE stays not-assessed WITHOUT a coverage breakdown — the ladder is not a measurement', () => {
+    const card = computeScorecard(BCN, { now: NOW });
+    assert.equal(card.axes.envelope.score, null);
+    assert.equal(card.axes.envelope.unknownReason, 'pending-implementation');
+    assert.match(card.axes.envelope.derivation, /ladder exists .*but the MEASUREMENT does not/);
+});
+
+test('L-664: ENVELOPE IS scoreable once a coverage breakdown is supplied (the axis is no longer blocked)', () => {
+    const card = computeScorecard({
+        ...BCN,
+        envelopeCoverage: [
+            { zoneCode: '13a', tier: 'block-constructed', buildableLandShare: 0.5 }, // 0.5 × 0.7
+            { zoneCode: '18', tier: 'not-determined', buildableLandShare: 0.3 },     // cited refusal → 0
+            { zoneCode: '22a', tier: 'no-pack', buildableLandShare: 0.2 },           // coverage gap → 0
+        ],
+    }, { now: NOW });
+    assert.ok(Math.abs((card.axes.envelope.score as number) - 0.35) < 1e-12);
+    assert.equal(card.axes.envelope.unknownReason, undefined);
+    assert.equal(CityCompletionScorecardSchema.safeParse(card).success, true);
+    // …and it now joins the assessed subset, so `overall` is renormalised over FOUR axes, not three.
+    assert.ok(card.overall.assessedAxes.includes('envelope'));
+});
+
+test('L-664: an unmapped tier THROWS — it is never silently scored (no default branch)', () => {
+    assert.throws(
+        () => computeScorecard({ ...BCN, envelopeCoverage: [{ zoneCode: 'x', tier: 'certified', buildableLandShare: 1 }] }),
+        /unmapped EnvelopeConfidence tier/,
+    );
+});
+
+test('L-664: ENVELOPE renormalises over MEASURED buildable land — unmeasured is excluded, not zero-filled', () => {
+    const card = computeScorecard({
+        ...BCN,
+        envelopeCoverage: [{ zoneCode: '13a', tier: 'block-constructed', buildableLandShare: 0.5 }],
+    }, { now: NOW });
+    // 0.7 over half the city — NOT 0.35 (which would score the unmeasured half as a measured zero).
+    assert.ok(Math.abs((card.axes.envelope.score as number) - 0.7) < 1e-12);
+    assert.match(card.axes.envelope.derivation, /PARTIAL: unmeasured buildable land is excluded/);
 });
 
 test('Barcelona: output validates against the L0 schema', () => {
@@ -53,7 +115,7 @@ test('Barcelona: the three CHEAP axes are numbers in [0,1]', () => {
     }
 });
 
-test('leaves PARCEL/LEGISLATION/ENVELOPE/HEIGHTS honestly not-assessed (null + typed reason, never 0)', () => {
+test('leaves PARCEL/LEGISLATION/ENVELOPE/HEIGHTS honestly not-assessed when unmeasured (null + typed reason, never 0)', () => {
     const card = computeScorecard(BCN, { now: NOW });
     const expected: Record<string, string> = {
         parcel: 'not-queried', legislation: 'not-queried',
@@ -83,7 +145,7 @@ test('every axis carries a derivation + the generatedBy stamp (non-forgeable, C6
     const card = computeScorecard(BCN, { now: NOW });
     for (const ax of Object.values(card.axes)) {
         assert.ok(ax.derivation.length > 0);
-        assert.equal(ax.generatedBy, `scorecard@1.0 ${NOW}`);
+        assert.equal(ax.generatedBy, `scorecard@1.1 ${NOW}`);
     }
 });
 

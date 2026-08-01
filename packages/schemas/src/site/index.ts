@@ -38,3 +38,5 @@ export * from './context/index.js';
 export * from './metadata/DataConfidence.js';
 // §C63 (ADR-0281) — the 7-axis city-completion scorecard (composes C62).
 export * from './completion/CityCompletionScorecard.js';
+// §C63 §3.2 (L-664) — the exhaustive EnvelopeConfidence → ENVELOPE-axis weight map.
+export * from './completion/EnvelopeAxisWeight.js';

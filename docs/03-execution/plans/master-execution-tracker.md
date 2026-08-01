@@ -5064,3 +5064,42 @@ over both Map and Satellite; and a *correct refusal* must never share a colour w
 
 Queue: **geospatial / parcel-data + zoning** (with L-640, L-643) — not the UI queue. Governs C19 §2.3, C57,
 C58 §1.11/§5, C62, ADR-0279 §6.
+### §CC.6 — L-664: ONE confidence ontology — the ENVELOPE axis is now SCOREABLE (AMENDS C63 §3/§4)
+
+Audit **L-664** · C63 §3.2/§3.3/§4.1/§8.3 · OWNER: **UNASSIGNED** · TARGET: **TBD**.
+
+**Why it blocked the whole matrix.** C63 §3 Axis 4 weighted tier names — `certified` (1.0) and
+`constructed-amber` (0.7) — that **have never existed in code**. `EnvelopeConfidenceSchema` declares six
+different tiers. So contract compliance was unprovable, and the ENVELOPE axis could not be scored **for
+any city**: that is why every ENVELOPE cell in §CC.1 reads `not-assessed` and Barcelona's headline
+renormalises over 3 of 7 axes. **A city cannot be declared CLOSED on an axis that cannot be scored** —
+so this gated the closure claim for the entire rollout, not just Barcelona. Ratified 2026-08-01: **fix
+the ruler before expanding coverage**; coverage added under a broken framework is an unprovable claim.
+
+**Resolution (C63 amended in place — the schema was authoritative, the contract stale; argued in §3.2):**
+one ordered ladder, hoisted from L2 to L0 (`ENVELOPE_CONFIDENCE_ORDER`, `ProvenanceFlags.ts`), and one
+**total** tier→weight map with no default branch (`EnvelopeAxisWeight.ts`). No pack's published
+confidence moved (asserted by test). No runtime alias for the dead names.
+
+| ENVELOPE tier | Axis-4 weight | Status |
+|---|---:|---|
+| `authoritative` | 1.00 | inherited (was `certified`) |
+| `structured` | 0.90 | ⚠ **PROVISIONAL — founder ratification pending** |
+| `block-constructed` | 0.70 | inherited (was `constructed-amber`) |
+| `estimated-ruleset` | 0.40 | ⚠ **PROVISIONAL** |
+| `pipeline-extracted-unverified` | 0.10 | ⚠ **PROVISIONAL** |
+| `not-determined` (cited refusal) · `no-pack` | 0.00 | inherited |
+
+⚠ **CEILING FACT that changes every city's arithmetic in §CC.1.** `authoritative` is **not reachable by
+any production code path** (measured 2026-08-01). A city whose envelope rests on a CONSTRUCTED rule —
+Barcelona Art. 242.2 and every city that copies the pattern — is capped at **0.70** on ENVELOPE.
+"Certify it to 1.0" is not an engineering lever: it requires an *issued* municipal determination as a
+data source. Any per-city ENVELOPE target above 0.70 must name where that issued determination comes
+from, or be restated.
+
+**Remaining ENVELOPE blocker (now the ONLY one):** the per-clau × buildable-land-share measurement over
+the private-buildable denominator (L-656). The scorecard tool (`computeScorecard.mjs` v1.1) scores the
+axis the moment a breakdown is supplied and stays honestly `not-assessed` without one — it will never
+synthesise a coverage table (C63 §1.1). **Routed to C58 (not fixed here):** `ZoningRulesEngine` never
+reads a pack's `defaultConfidence`, so the two OCR-seeded packs would badge machine-extracted numbers as
+"Estimated" rather than ⚠ unverified — a silent promotion.

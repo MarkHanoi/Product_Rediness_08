@@ -1,8 +1,12 @@
 # C63 — City Completion Scorecard & Dossier Standard
 
-> **Stamp**: 2026-07-30 · **Status**: DRAFT (schema + scorecard function sequenced). **Weighting RATIFIED**
+> **Stamp**: 2026-08-01 · **Status**: DRAFT (schema + scorecard function sequenced). **Weighting RATIFIED**
 > (founder, 2026-07-30, L-649 — see §4). **Naming RATIFIED** (L-649): composite master = `RATE.md` /
 > `COUNTRY-RATE.md`; legislation sub-rate = `LEGISLATION-RATE.md` (§5, `_TEMPLATE/NAMING-CONVENTION.md`).
+> **AMENDED 2026-08-01 (L-664)**: the ENVELOPE-axis vocabulary is now the schema's `EnvelopeConfidence`
+> ladder — §3.2 (the ordered ladder + the total tier→weight map), §3.3 (`authoritative` is **not
+> reachable**; a constructed determination is capped at 0.70), §4.1, §8.3. See §8.3 for the
+> known-violation record and what was routed out to C58.
 > **Ratified by**: [ADR-0281](../adrs/ADR-0281-city-completion-scorecard-and-dossier-standard.md).
 > **Spec**: [SPEC-CITY-COMPLETION-SCORECARD](../../03-execution/specs/SPEC-CITY-COMPLETION-SCORECARD.md).
 > **Scope**: the ONE way PRYZM answers *"how complete is city X, across every replication layer?"* — a
@@ -147,14 +151,16 @@ the input has not been probed. **No axis number is ever authored by hand** (§1.
 
 ### Axis 4 — ENVELOPE (buildable-envelope solver coverage)
 - **Definition.** The fraction of the city's **private-buildable land** for which a registered rule pack
-  produces a **certified or honestly-constructed** envelope (green/amber), as opposed to a cited refusal
-  or no pack. This is C58 solver coverage, distinct from Axis 2 (which measures the sourcing *evidence*).
+  produces a **real or honestly-constructed** envelope, as opposed to a cited refusal or no pack. This is
+  C58 solver coverage, distinct from Axis 2 (which measures the sourcing *evidence*).
 - **Input.** `rulepacks/registry.ts` `packsByZone` disposition per clau × the clau's share of buildable
   land (the Barcelona `BARCELONA-COMPLETE-COVERAGE-PLAN.md` +% table; the per-city
-  `ES-CITY-ENVELOPE-CERTIFIABILITY-SURVEY`). A `*_CERTIFIED=false` gate contributes 0 to *certified* but
-  a cited refusal is counted as **honest**, tracked separately (see §3.1).
-- **Score.** `Σ (buildable_land_share × pack_tier_weight)` where `certified`=1.0, `constructed-amber`=0.7,
-  `cited-refusal`=0.0-for-completion (but 100 % for honesty), `no-pack`=0.0.
+  `ES-CITY-ENVELOPE-CERTIFIABILITY-SURVEY`). A `*_CERTIFIED=false` gate caps the tier a clau can reach,
+  but a cited refusal is counted as **honest**, tracked separately (see §3.1).
+- **Score.** `Σ (buildable_land_share × tier_weight) / Σ (buildable_land_share)` over the **measured**
+  slices, with `tier_weight` read from the **§3.2 ladder** — the schema's `EnvelopeConfidence`
+  vocabulary, not a second one. Renormalised over what was measured: unmeasured buildable land shrinks
+  the denominator and flags `partial`; it is never zero-filled (§1.5, one level down).
 - **Unknown default.** `not-assessed` / `pending-implementation` where no coverage measurement exists.
 
 ### Axis 5 — TERRAIN (baked quantized-mesh present + verified)
@@ -198,6 +204,112 @@ city, `honestyOk: boolean` (default `true`), that flips `false` ONLY if the city
 value (a number where the state says unknown). **Launch-blocking is `honestyOk`, not a completion
 threshold** — PRYZM ships honest-but-incomplete, never complete-but-fabricated.
 
+### §3.2 — The ENVELOPE tier ladder (AMENDED 2026-08-01, L-664 — the vocabulary is the SCHEMA's)
+
+> **⚠ AMENDMENT — this section replaces a vocabulary that never existed in code.** Until 2026-08-01 the
+> Axis-4 **Score** line above weighted tiers called **`certified`** (1.0) and **`constructed-amber`**
+> (0.7). **Neither name has ever been an `EnvelopeConfidence` member.** The schema
+> (`packages/schemas/src/site/zoning/ProvenanceFlags.ts`, C58 §1.2) declares six tiers, and the contract
+> named none of them. Two consequences, both load-bearing: (a) contract compliance was **unprovable** —
+> the contract described a vocabulary nothing implements; (b) the ENVELOPE axis could not be scored
+> **even once a coverage measurement existed**, because no defensible tier→weight map could be written.
+> That is why Barcelona's Axis 4 reads `not-assessed` and its headline renormalises over 3 of 7 axes —
+> and **a city cannot be declared CLOSED on an axis that cannot be scored**, for any city, not just
+> Barcelona. Audit row **L-664**.
+
+**THE VERDICT: the SCHEMA is authoritative and this contract was stale.** The governance default is
+"when code disagrees with a contract, the code is wrong" — but the exception applies here, and it is
+argued rather than assumed: **the code encodes distinctions the contract lost.**
+
+1. **`structured` ≠ `authoritative`, and one word cannot hold both.** *Structured* means the numbers
+   were **published** (the authority emits them as data — DK Plandata). *Authoritative* means a
+   determination was **issued**. `certified` collapses them, and the collapse is not cosmetic: it would
+   let a published-but-undetermined value score a perfect ENVELOPE axis, i.e. read as a compliance
+   fact. For a compliance product that is the single most damaging failure mode (C58 §1.2 "Why").
+2. **`block-constructed` names a *constructed* determination — precisely what `certified` cannot
+   describe.** Barcelona's PGM Art. 242.2 depth is *solved* from real cadastral geometry under an
+   accepted rule (ADR-0271). It is real and citable, and it is **not** a municipal certificate. C58
+   §1.2/L-518/L-572 make the wording condition normative: it reads "Real · constructed", never
+   "certified"/"verified"/"authoritative" (Barcelona `RISK-REGISTER.md` R1). Naming that tier
+   `certified` in the scorecard would contradict the render contract it is scoring.
+3. **`pipeline-extracted-unverified` has no contract name at all**, and it is a *legal* control: a
+   machine-extracted, human-unverified number is **our** error if wrong, so it must never share a tier
+   with a curated human estimate (`ORDINANCE-EXTRACTION-PIPELINE.md` §3, L-590f §6). Two shipped packs
+   (Madrid PGOUM-97, Córdoba PGOU-2001) publish exactly this tier.
+4. **`not-determined` ≠ "a weak envelope."** It is a **cited refusal** — a positive legal answer, 0 %
+   complete and **100 % honest** (§3.1). The contract's `cited-refusal` label captured the arithmetic
+   but not the vocabulary.
+
+The honest resolution was therefore to **amend this contract**, not to fabricate a translation from the
+dead names to the live ones. No runtime alias for `certified`/`constructed-amber` exists or may be
+added; the historic mapping below is **read-only prose**, so old references stay legible.
+
+**THE ORDERED LADDER (weakest → strongest).** Single source of truth:
+`ENVELOPE_CONFIDENCE_ORDER` in `packages/schemas/src/site/zoning/ProvenanceFlags.ts` (L0, beside the
+enum it orders). Contract → schema → packs → scorecard → UI all read this one list.
+
+| # | Tier (`EnvelopeConfidence`) | Meaning | Axis-4 weight | Weight status | Historic C63 name |
+|--:|---|---|---:|---|---|
+| 6 | `authoritative` | An official, certificate-grade determination was **ISSUED**. | **1.00** | inherited | `certified` |
+| 5 | `structured` | The authority **PUBLISHED** the numbers as data (DK Plandata). Published ≠ determined. | **0.90** | ⚠ PROVISIONAL | — (had no name) |
+| 4 | `block-constructed` | A real determination **CONSTRUCTED** from real cadastral geometry + an accepted rule (PGM Art. 242.2). Not a certificate. | **0.70** | inherited | `constructed-amber` |
+| 3 | `estimated-ruleset` | Resolved from a curated, cited zone-class rule pack. Carries the C58 §1.4 "verify before relying" caveat. | **0.40** | ⚠ PROVISIONAL | — (had no name) |
+| 2 | `pipeline-extracted-unverified` | MACHINE-extracted from an ordinance, **not human-verified**. A determination was produced, but it must not be relied on. Permanently below a curated estimate. | **0.10** | ⚠ PROVISIONAL | — (had no name) |
+| 1 | `not-determined` | **No determination was made, and that is the answer** — a cited refusal (C58 §1.13). | **0.00** | inherited | `cited-refusal` |
+| — | `no-pack` *(sentinel, not a confidence)* | PRYZM's own coverage gap: the registry produced nothing for this land. | **0.00** | inherited | `no-pack` |
+
+⚠ **`not-determined` and `no-pack` score the same and mean opposite things**, so they stay two words:
+one is a correct legal answer, the other is our gap. Collapsing them is the §CONTEXT-DATA-HONESTY
+failure (L-422/457/467/469) at the scorecard layer. And note the denominator rule (L-656): land the
+ordinance removes from private buildability is **excluded** from Axis 4 entirely, never scored zero —
+`not-applicable ≠ 0 %`, as `not-assessed ≠ 0 %` (§1.2).
+
+**TOTALITY IS STRUCTURAL, NOT CONVENTIONAL.** The mapping is a `Record<EnvelopeCoverageTier, number>`
+(`packages/schemas/src/site/completion/EnvelopeAxisWeight.ts`) with **no default branch**: an unmapped
+tier is a `tsc` error in the schema and a hard `throw` in the tool, never a silent 0. Tests assert the
+ladder is a *permutation* of `EnvelopeConfidenceSchema` and that the weight map is total over it, so a
+seventh tier cannot ship unscored.
+
+### §3.3 — ⚠ IS `authoritative` REACHABLE? NO — and every city's ENVELOPE ceiling depends on it
+
+**Measured on the tree (2026-08-01, L-664): no production code path anywhere assigns
+`confidence: 'authoritative'`.** The literal appears only in the enum itself, in membership sets
+(`TRUSTED_CONFIDENCE`, the GA gate's `AUTHORITATIVE`), and in test fixtures. The reachable tiers are:
+
+| Tier | Reachable today? | The one path that produces it |
+|---|---|---|
+| `authoritative` | **NO** | *none* — no assignment exists |
+| `structured` | yes | `ZoningRulesEngine` when **every** resolved number came from the provider (DK Plandata) |
+| `block-constructed` | yes | `ZoningRulesEngine`, on the `alignment.depthBinding` derivation row (Art. 242.2) |
+| `estimated-ruleset` | yes | the engine default; every curated pack |
+| `pipeline-extracted-unverified` | pack-declarable (Madrid PGOUM-97, Córdoba) | see the ⚠ below |
+| `not-determined` | yes | `zoneRefusal.ts` |
+
+**Consequences, stated plainly:**
+
+1. **For a CONSTRUCTED determination (the Barcelona Art. 242.2 case) the honest ceiling is
+   `block-constructed` = 0.70, and "certify it to 1.0" is a lever that does not exist.** Not because
+   the code is incomplete, but because the *thing itself* is not a certificate: the engine is pure and
+   cannot verify that the block ring it was handed is real cadastral geometry, so it certifies "solved
+   under an accepted rule" and nothing more (C58 §1.2 HONEST LIMIT; RISK-REGISTER R1). Reaching 1.00
+   on such land would require PRYZM to hold an *issued municipal determination*, which is a
+   data-acquisition question, not an engineering one. **Every city whose envelope rests on a
+   constructed rule is capped near 0.70 on ENVELOPE, and city-completion ceiling arithmetic must be
+   restated accordingly.**
+2. **`isIndicativeOnly` is true for every envelope PRYZM has ever produced.**
+   `capacityComparison.ts` sets `isIndicativeOnly: envelope.confidence !== 'authoritative'`. Since no
+   path assigns `authoritative`, that flag is a constant `true` today. It is *correct* — but it is
+   currently a tautology, not a discriminator, and the roadmap should not assume it will ever flip
+   without an issued-determination data source.
+3. ⚠ **A pack's `defaultConfidence` never reaches the envelope.** `ZoningRulesEngine` hard-codes
+   `let confidence = 'estimated-ruleset'` and promotes only to `structured` / `block-constructed`; it
+   never reads `JurisdictionZoningContract.defaultConfidence`. So the two OCR-seeded packs that
+   correctly declare `pipeline-extracted-unverified` would surface an envelope labelled
+   `estimated-ruleset` — a **silent promotion** past the ⚠ red "machine-extracted, unverified" badge
+   the render already implements. Logged under **L-664** as a routed defect; it is a C58 engine
+   concern, not a C63 one, and is deliberately **not** fixed by this amendment.
+
+
 ---
 
 ## §4 — The OVERALL number + the weighting (RATIFIED — founder, 2026-07-30)
@@ -217,6 +329,21 @@ stored as the config `CITY_COMPLETION_WEIGHTS`, never hard-coded (§1.5) — re-
 | TERRAIN | **10 %** | Relief correctness; ports cheaply via one `REGIONS` row + a bake. |
 | CONTEXT | **5 %** | Ports essentially free (OSM extract + bake); lowest marginal cost, lowest weight. |
 | **Σ** | **100 %** | |
+
+### §4.1 — TWO weight vectors, and they are not the same kind of thing (L-664)
+
+There are **two** weightings in this contract and conflating them is a category error:
+
+| | What it weights | Config | Status |
+|---|---|---|---|
+| **The AXIS vector** (§4 above) | how much each of the seven axes contributes to `overall` | `CITY_COMPLETION_WEIGHTS` (`CityCompletionScorecard.ts`) | **RATIFIED** (founder, 2026-07-30, L-649) |
+| **The ENVELOPE TIER ladder** (§3.2) | how much each `EnvelopeConfidence` tier contributes to the ENVELOPE axis | `ENVELOPE_AXIS_TIER_WEIGHT` (`EnvelopeAxisWeight.ts`) | 3 values **inherited**, 3 ⚠ **PROVISIONAL** — pending founder ratification (§8) |
+
+Both are config, never hard-coded at a call site (§1.5), and both stamp their version into the record
+(`weightsVersion`, `ENVELOPE_AXIS_TIER_WEIGHT_VERSION`) so two cities are never compared across
+vectors. **A ratified axis vector over an unratified tier ladder is still an honest number** — the
+provenance travels with it — but the ENVELOPE axis MUST NOT be read as final until §8's tier question
+is closed.
 
 **Why not equal weights (1/7 each)?** Because the axes are not equally expensive or equally
 load-bearing: three axes (context/terrain/heights) "port free" to any covered country while two
@@ -349,9 +476,25 @@ review-discipline gate. Mirrors the C58 §1.4 fidelity-label gate + the L-647 `c
 - **RATIFIED (§4):** the `CITY_COMPLETION_WEIGHTS` weight vector — founder, 2026-07-30 (L-649).
 - **RATIFIED (§5/§8.1):** the RATE naming convention — composite master `RATE.md` / `COUNTRY-RATE.md`,
   legislation sub-rate `LEGISLATION-RATE.md` (founder, 2026-07-30, L-649).
-- **OPEN FOUNDER DECISION:** whether `derived-levels` earns partial HEIGHTS/LOD credit (§3 Axis 6).
+- **AMENDED (§3.2/§3.3/§4.1, L-664, 2026-08-01):** the ENVELOPE-axis vocabulary is the SCHEMA's
+  `EnvelopeConfidence`, not the never-implemented `certified`/`constructed-amber` pair. The ladder is
+  ordered once, in L0, and the tier→weight map is total. The axis is now **scoreable**.
+- **OPEN FOUNDER DECISION (1):** whether `derived-levels` earns partial HEIGHTS/LOD credit (§3 Axis 6).
+- **OPEN FOUNDER DECISION (2) — L-664:** the **three PROVISIONAL ENVELOPE tier weights** (§3.2):
+  `structured` 0.90, `estimated-ruleset` 0.40, `pipeline-extracted-unverified` 0.10. The other four
+  (`authoritative` 1.00, `block-constructed` 0.70, `not-determined` 0.00, `no-pack` 0.00) are inherited
+  unchanged from the pre-amendment §3 and need no re-ratification. What L-664 settles is the
+  *vocabulary* and the *ordering*; the three interior magnitudes are a weighting question of exactly
+  the kind the founder ratified for §4.
+- **⚠ CEILING FACT (§3.3, L-664):** `authoritative` is **not reachable by any production code path**,
+  so a city whose envelope rests on a CONSTRUCTED rule (Barcelona Art. 242.2 and every city that
+  copies the pattern) is capped at **0.70** on ENVELOPE. "Certify it to 1.0" is not an engineering
+  lever; it needs an *issued* determination as a data source. All ceiling arithmetic must say so.
 - **Sequencing:** DATA-SOURCES + TERRAIN + CONTEXT axes are cheap first computes (state already inspectable);
   PARCEL + HEIGHTS/LOD need a sampling run; LEGISLATION + ENVELOPE need the per-clau audit + the L-449 gate.
+  ⚠ ENVELOPE's remaining blocker is now **only** the per-clau × buildable-land-share measurement — the
+  ruler exists (§3.2); the reading does not. The scorecard tool stays honestly `not-assessed` until a
+  breakdown is supplied, and will never synthesise one (§1.1).
 
 ### §8.1 — Extension L-649: "master RATE" naming + tracker template + audit→map→plan
 
@@ -399,3 +542,36 @@ contract (the dossier standard's authority stays here). Ratified by
   scaffolded) is planned, file-by-file, in
   [`jurisdictions/_NORMALIZATION.md`](../../04-reference/jurisdictions/_NORMALIZATION.md) — a plan only; the
   orchestrator executes the moves (no code, no `git mv` by a scoped agent).
+
+### §8.3 — Amendment L-664: ONE confidence ontology (contract → schema → packs → scorecard → UI)
+
+**KNOWN VIOLATION, NOW CLOSED — audit row [L-664](../../04-reference/V1-LAUNCH-READINESS-AUDIT.md).**
+This contract named an ENVELOPE-axis vocabulary (`certified` / `constructed-amber`) that **no code has
+ever implemented**. The governance rule is "when code disagrees with a contract, the code is wrong" —
+here the exception applied, and it is argued rather than assumed in **§3.2**: the code encoded
+distinctions (`structured` vs `authoritative`; `block-constructed`; `pipeline-extracted-unverified`)
+that the contract's two names could not express, and collapsing them would let a
+published-but-undetermined value read as a compliance fact. **The contract was therefore amended in
+place** (this file — no derivative `*-AUDIT.md`, per the governance rule).
+
+**What changed (docs + code, one change-set):**
+
+| | Before | After |
+|---|---|---|
+| Axis-4 vocabulary | `certified` / `constructed-amber` / `cited-refusal` / `no-pack` — 2 of 4 fictional | the six `EnvelopeConfidence` tiers + the `no-pack` sentinel (§3.2) |
+| The ordered ladder | stated only in **L2** `@pryzm/ordinance-extraction/src/confidence.ts`, unreachable from the L0 scorecard | `ENVELOPE_CONFIDENCE_ORDER` in **L0** `ProvenanceFlags.ts`; the L2 rank map now delegates (order unchanged) |
+| Tier → axis weight | none that could be applied | `ENVELOPE_AXIS_TIER_WEIGHT` — **total**, no default branch, monotone in the ladder |
+| ENVELOPE axis | unscoreable | scoreable; still honestly `not-assessed` until a coverage breakdown is supplied |
+| Pack confidences | — | **unchanged**, asserted by `packages/site-parcel-data/__tests__/packPublishedConfidenceUnchanged.test.ts` |
+
+**Deliberately NOT done:** (a) no runtime alias from the historic names — a live translation table is
+the "paper over the mismatch" move that was forbidden; (b) no pack's published confidence moved;
+(c) no coverage measurement invented (§1.1).
+
+**ROUTED OUT of C63 (C58 concerns, logged under L-664, deliberately not fixed here):**
+1. `ZoningRulesEngine` never reads a pack's `defaultConfidence`, so the two OCR-seeded packs
+   (Madrid PGOUM-97, Córdoba PGOU-2001) would surface `estimated-ruleset` on machine-extracted
+   numbers — a silent promotion past the ⚠ red "machine-extracted, unverified" badge (§3.3 item 3).
+2. **C58 §1.2 still calls the enum "complete" at five members**; it has six
+   (`pipeline-extracted-unverified` was added later). C62 §3 correctly says "6-tier". C58 owns the
+   vocabulary and must be corrected there, in place.

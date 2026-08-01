@@ -66,7 +66,8 @@ const P = {
 };
 
 // ── The scorecard version stamp (C63 §6 / SPEC §6 — the CI gate re-runs + diffs this). ───────────
-export const SCORECARD_VERSION = '1.0';
+// 1.1 (L-664) — the ENVELOPE axis became SCOREABLE: `axisEnvelope` + the tier-weight ladder.
+export const SCORECARD_VERSION = '1.1';
 
 // ── The RATIFIED weight vector (C63 §4, founder 2026-07-30 L-649). MIRRORS the L0 schema's
 // CITY_COMPLETION_WEIGHTS — the tool cannot import the TS schema at runtime, so the unit test
@@ -98,6 +99,28 @@ const WHOLE_COUNTRY_BAKE_CC = { es: 'spain', dk: 'denmark', nl: 'netherlands' };
 // A per-slot disposition → its completion sub-score (C63 §3 Axis 3). `unknown` is EXCLUDED from the
 // mean (renormalised over assessed slots), never scored 0 — the same honesty rule one level down.
 const SLOT_SCORE = { live: 1, documented: 0.5, blocked: 0, none: 0 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §ENVELOPE-CONFIDENCE-LADDER (L-664) — the ENVELOPE-axis tier weights (C63 §3 Axis 4 / §3.2).
+//
+// ⚠ WHY THIS EXISTS AS A MIRROR. Before L-664 the ENVELOPE axis could not be scored AT ALL: C63 §3
+// named `certified` / `constructed-amber`, and NEITHER is an `EnvelopeConfidence` member — the
+// contract described a vocabulary the code never implemented, so no defensible tier → weight map
+// existed. The contract was amended to the schema's six tiers; this is the tool-side mirror of
+// `ENVELOPE_AXIS_TIER_WEIGHT` in `packages/schemas/src/site/completion/EnvelopeAxisWeight.ts`. The
+// tool cannot import the TS schema at runtime, so — exactly as with CITY_COMPLETION_WEIGHTS above —
+// the unit test asserts the two are byte-identical (drift = test failure).
+// ─────────────────────────────────────────────────────────────────────────────
+export const ENVELOPE_AXIS_TIER_WEIGHT = {
+    'authoritative': 1.0,
+    'structured': 0.9,
+    'block-constructed': 0.7,
+    'estimated-ruleset': 0.4,
+    'pipeline-extracted-unverified': 0.1,
+    'not-determined': 0.0,
+    'no-pack': 0.0,
+};
+export const ENVELOPE_AXIS_TIER_WEIGHT_VERSION = 'provisional-2026-08-01-L664';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STATE READERS (parse the current source of truth; cached per process).
@@ -384,6 +407,64 @@ export function axisParcelFromSample(sample, norm, state, opts = {}) {
 }
 
 // ── the four not-yet-measured axes (honest not-assessed, C63 §1.2 / §5 sequencing). ─────────────
+ * The ENVELOPE axis (C63 §3 Axis 4) — buildable-envelope solver coverage.
+ *
+ * ⚠ THE RULER, NOT THE MEASUREMENT. L-664 fixed the *vocabulary* blocker: there is now an
+ * exhaustive tier → weight map, so the axis CAN be scored. It is still only scored when the caller
+ * supplies a real coverage breakdown (`input.envelopeCoverage`) — the per-clau × buildable-land-share
+ * measurement is a data task (the `BARCELONA-COMPLETE-COVERAGE-PLAN` +% table / the per-city
+ * certifiability survey), and inventing one here would be precisely the §1.1 fabrication this whole
+ * contract exists to forbid. Without it the axis stays honestly `not-assessed`.
+ *
+ * `input.envelopeCoverage` = [{ zoneCode, tier, buildableLandShare }] where `tier` is an
+ * `EnvelopeConfidence` or the `'no-pack'` sentinel, and `buildableLandShare` is that clau's fraction
+ * of the city's PRIVATE-BUILDABLE land (the L-656 denominator — NOT all municipal ground).
+ *
+ * Renormalised over the MEASURED shares (C63 §1.5 one level down): unmeasured buildable land shrinks
+ * the denominator and is named in the derivation; it is never zero-filled.
+ */
+function axisEnvelope(input, stamp) {
+    const slices = Array.isArray(input.envelopeCoverage) ? input.envelopeCoverage : null;
+    if (!slices || slices.length === 0) {
+        return axisNotAssessed('envelope', 'pending-implementation',
+            'no per-clau × buildable-land-share coverage breakdown supplied for this jurisdiction — '
+            + 'the tier→weight ladder exists (C63 §3.2, L-664) but the MEASUREMENT does not (C58)', stamp);
+    }
+    let measuredShare = 0;
+    let weighted = 0;
+    const unknownTiers = [];
+    for (const s of slices) {
+        const w = ENVELOPE_AXIS_TIER_WEIGHT[s.tier];
+        if (w === undefined) { unknownTiers.push(s.tier); continue; }
+        measuredShare += s.buildableLandShare;
+        weighted += s.buildableLandShare * w;
+    }
+    // ⚠ FAIL LOUD, NEVER DEFAULT. An unmapped tier is a vocabulary drift between this mirror and the
+    // L0 map — silently scoring it (the "default branch" C63 §3.2 forbids) is how a scorecard starts
+    // reporting a number for a tier nobody defined.
+    if (unknownTiers.length > 0) {
+        throw new Error(
+            `computeScorecard: unmapped EnvelopeConfidence tier(s) [${unknownTiers.join(', ')}] — `
+            + 'ENVELOPE_AXIS_TIER_WEIGHT must be TOTAL over the schema enum (C63 §3.2, L-664)');
+    }
+    if (measuredShare <= 0) {
+        return axisNotAssessed('envelope', 'not-queried',
+            'the supplied coverage breakdown sums to zero buildable-land share — nothing was measured', stamp);
+    }
+    const detail = slices.map((s) => `${s.zoneCode}=${s.tier}@${s.buildableLandShare}`).join(', ');
+    return mkAxis('envelope', {
+        score: weighted / measuredShare,
+        validationState: 'auto-validated',
+        derivation:
+            `Σ(share×tierWeight)/Σ(share) over ${(measuredShare * 100).toFixed(1)}% of the `
+            + `PRIVATE-BUILDABLE denominator (L-656), weights ${ENVELOPE_AXIS_TIER_WEIGHT_VERSION}: ${detail}`
+            + (measuredShare < 1 - 1e-9 ? ' — PARTIAL: unmeasured buildable land is excluded, not scored 0' : ''),
+        provenance: [prov('rulepacks/registry.ts', 'generated')],
+        stamp,
+    });
+}
+
+// ── the not-yet-measured axes (honest not-assessed, C63 §1.2 / §5 sequencing). ──────────────────
 function axisNotAssessed(axis, reason, why, stamp) {
     return mkAxis(axis, {
         score: null,
@@ -407,6 +488,11 @@ function axisNotAssessed(axis, reason, why, stamp) {
 //                        //   zone-GIS slot (else derived from ZONE_GIS_SOURCES × server.js mounts)
 //   parcelSample?,       // a parcelSampleProbe.mjs record → scores the PARCEL axis from its
 //                        //   `buildable` frame (the L-656 buildable-land denominator)
+//   zoneGis?,            // 'live'|'documented'|'blocked'|'none' — regional zone-GIS slot, if known
+//   envelopeCoverage?,   // L-664 — [{ zoneCode, tier, buildableLandShare }] per-clau ENVELOPE
+//                        //   coverage over the PRIVATE-BUILDABLE denominator (L-656). Absent ⇒ the
+//                        //   axis stays honestly `not-assessed` (the ladder exists; the measurement
+//                        //   is a data task, and inventing one here is the §1.1 fabrication).
 //   terrainProbe?,       // { layerJsonOk?, verifyPass?, whiteMask? } — optional network/verify probe
 //   contextProbe?,       // { presentLayers: string[] } — optional per-layer tile probe
 // }
@@ -428,8 +514,7 @@ export function computeScorecard(input, opts = {}) {
         legislation: axisNotAssessed('legislation', 'not-queried',
             'per-clau sources/SOURCES.md citation audit ∩ signed VERIFICATION.md not run (human-gated, C58 L-449)', stamp),
         dataSources: axisDataSources(norm, state, stamp),
-        envelope: axisNotAssessed('envelope', 'pending-implementation',
-            'no rulepacks/registry.ts × buildable-land coverage measurement built for this jurisdiction (C58)', stamp),
+        envelope: axisEnvelope(norm, stamp),
         terrain: axisTerrain(norm, state, stamp),
         heightsLod: axisNotAssessed('heightsLod', 'not-queried',
             'no per-building heightProvenance histogram read for the city bbox (Phase-4 sampling move)', stamp),
