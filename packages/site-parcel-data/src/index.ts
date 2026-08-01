@@ -763,8 +763,15 @@ export {
 // its article and a verbatim quote. ⚠ Gated: `MURCIA_ENVELOPE_VERIFIED` is false, so the pack
 // renders NO number until a human signs the transcription. Two thirds of Murcia's private
 // buildable land never reaches it at all — the PGOU delegates that land (see ENVELOPE.md).
+//
+// ⚠ §MURCIA-PACK-REGISTERED (2026-08-01) — the pack IS now in `registry.ts`'s `packsByZone`, keyed
+// by `MURCIA_PGOU2012_ZONE_CODES` (+ the two published sub-variants). That makes it REACHABLE and
+// SIGNABLE; it is NOT an authorisation. The gate above is unchanged and the L5 Murcia dispatch
+// refuses every parcel before the registry is consulted. See `es-mc/30030-murcia/sources/VERIFICATION.md`.
 export {
     ES_MURCIA_PGOU2012_PACK,
+    MURCIA_PGOU2012_ZONE_CODES,
+    MURCIA_PGOU2012_VARIANT_ZONE_CODES,
     MURCIA_PGOU_SOURCE,
     MURCIA_PGOU_BORM_REFERENCE,
     MURCIA_FIELD_PROVENANCE,

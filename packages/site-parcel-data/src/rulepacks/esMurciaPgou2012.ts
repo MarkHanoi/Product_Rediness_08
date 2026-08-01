@@ -780,6 +780,33 @@ const PACKED_VARIANTS: ReadonlyMap<string, string> = new Map([
     ['IXT', 'IX'],
 ]);
 
+/**
+ * The calificación codes this pack answers for — the registry's `packsByZone` key set.
+ *
+ * ⚠ DERIVED FROM `ES_MURCIA_PGOU2012_PACK.zones`, NEVER RE-TYPED. A hand-written list is a second
+ * source of truth that can silently disagree with the pack it claims to describe; deriving it means
+ * adding a zone registers it and removing one de-registers it, with no edit here and no drift.
+ * Sorted so the registry's iteration order (and therefore `registeredPackZoneCodes`, which the C60
+ * coverage probe reads) is stable across builds.
+ *
+ * ⚠⚠ REGISTRATION IS NOT AUTHORISATION. Listing these codes makes the pack *reachable* by the
+ * registry — it does NOT publish a number for any of them. `MURCIA_ENVELOPE_VERIFIED` is `false`,
+ * and the L5 Murcia dispatch (`murciaEnvelopeDisposition`) refuses every parcel before the registry
+ * is ever consulted. Same shape as Córdoba's `CORDOBA_PGOU2001_ZONE_CODES`, and for the same reason:
+ * wire it so it is SIGNABLE, and let the signature — not the wiring — be the legal act.
+ */
+export const MURCIA_PGOU2012_ZONE_CODES: readonly string[] = ES_MURCIA_PGOU2012_PACK.zones
+    .map((z) => z.code.toUpperCase())
+    .sort();
+
+/**
+ * The sub-variant codes the live layer publishes that this pack also answers for, via
+ * `PACKED_VARIANTS`. Registered SEPARATELY from `MURCIA_PGOU2012_ZONE_CODES` so the count of
+ * *transcribed calificaciones* (14) stays legible and is never inflated by aliases — the coverage
+ * claim in `RATE.md` §ENVELOPE is about the 14, not about 16.
+ */
+export const MURCIA_PGOU2012_VARIANT_ZONE_CODES: readonly string[] = [...PACKED_VARIANTS.keys()].sort();
+
 /** What a Murcia calificación resolves to under the transcribed PGOU. */
 export type MurciaPgouResolution =
     | { readonly ok: true; readonly zone: ZoningRule; readonly classification: MurciaCalificacionClassification | null; readonly matchedCode: string }

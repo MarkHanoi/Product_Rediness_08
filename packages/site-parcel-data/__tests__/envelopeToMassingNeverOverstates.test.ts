@@ -57,6 +57,7 @@ import { ES_BARCELONA_INDUSTRIAL_PACK } from '../src/rulepacks/esBarcelonaIndust
 import { SA_RIYADH_JURISDICTION_ID } from '../src/rulepacks/saRiyadhDemo.js';
 import { CORDOBA_JURISDICTION_ID } from '../src/rulepacks/esCordobaPGOU2001.js';
 import { MADRID_JURISDICTION_ID } from '../src/rulepacks/esMadridNZ1.js';
+import { MURCIA_JURISDICTION_ID } from '../src/rulepacks/esMurciaEnvelope.js';
 
 // ── Geometry + cap helpers ──────────────────────────────────────────────────────────────────────
 function rect(x0: number, z0: number, x1: number, z1: number): Pt[] {
@@ -243,11 +244,19 @@ describe('check-envelope-solid-never-overstates — PART B: the registry binds E
         // ⚠ AND TODAY IT EMITS NONE OF THEM: `MADRID_ENVELOPE_VERIFIED` is false, so every Madrid
         // parcel receives a REFUSED envelope (`status: 'none'`), which Part C proves draws NOTHING.
         // Registration is not authorisation; this entry records the class review done in advance.
+        //
+        // §MURCIA-PACK-REGISTERED — Murcia joined the set on 2026-08-01. Structural classes its 14
+        // zones emit: `alignment` (MC/MG/RM1/RM2/RD1 — the same class Córdoba's PAS/OA already bind,
+        // Part A) and setback+FAR single prisms (RD/RF/RG/RH/RL/IC/IX/IG/AJ — Part A's single-prism
+        // and FAR-limited cases). NO tiered and NO explicit-area rule is present, so no unacknowledged
+        // class enters. ⚠ Acknowledged for completeness only: `MURCIA_ENVELOPE_VERIFIED` is false, so
+        // no Murcia parcel reaches `envelopeToMassing` at all today.
         const KNOWN = [
             BCN_JURISDICTION_ID,
             SA_RIYADH_JURISDICTION_ID,
             CORDOBA_JURISDICTION_ID,
             MADRID_JURISDICTION_ID,
+            MURCIA_JURISDICTION_ID,
         ].sort();
         expect(packJurisdictions).toEqual(KNOWN);
     });

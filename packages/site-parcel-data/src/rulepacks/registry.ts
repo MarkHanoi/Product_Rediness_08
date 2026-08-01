@@ -218,12 +218,23 @@ import {
 import { CORNELLA_BBOX, isInCornella } from '../providers/cornellaBbox.js';
 // ── Murcia (INE 30030), Región de Murcia — NOT Catalonia, NOT the AMB, NOT the PGM. ──
 // A REFUSAL jurisdiction on its own regional footing: its instrument is the PGOU de Murcia and its
-// zone source is the MUNICIPAL GeoServer (`Murcia:pgou_alineaciones` / `Murcia:pgou_sectores`),
-// resolved LIVE per parcel by the L5 dispatch, not from a static zone-code table. So `packsByZone`
-// is deliberately EMPTY, exactly like Denmark's and Switzerland's; this registration lights the C60
-// coverage globe and gives `resolveZoneDisposition` an honest answer for a Murcia zone code.
+// AMBITO/land identity is read LIVE per parcel from the MUNICIPAL GeoServer
+// (`Murcia:pgou_alineaciones` / `Murcia:pgou_sectores`) by the L5 dispatch.
+//
+// ⚠ `packsByZone` IS NO LONGER EMPTY (§MURCIA-PACK-REGISTERED). The PGOU *Normas Urbanísticas*
+// (Texto Refundido diciembre 2012) has been sourced and transcribed — 14 calificaciones, each
+// parameter carrying its article and a verbatim quote — so the pack is now REACHABLE from the
+// registry. It is NOT AUTHORISED: `MURCIA_ENVELOPE_VERIFIED` is `false` and the L5 Murcia path
+// refuses every parcel before `resolveZoneDisposition` is ever consulted. Registered on Córdoba's
+// precedent (`ES_CORDOBA_PGOU2001_PACK`, gate also closed): wire it so it is SIGNABLE, and let the
+// signature be the legal act — never the wiring.
 import { MURCIA_JURISDICTION_ID, murciaNoRulePackRefusal } from './esMurciaEnvelope.js';
 import { MURCIA_BBOX, isInMurcia } from '../providers/murciaBbox.js';
+import {
+    ES_MURCIA_PGOU2012_PACK,
+    MURCIA_PGOU2012_ZONE_CODES,
+    MURCIA_PGOU2012_VARIANT_ZONE_CODES,
+} from './esMurciaPgou2012.js';
 // ── L-449 SIGNED — Denmark (national, Plandata.dk). The FIRST fully-automated jurisdiction: its
 //    buildable-envelope pack is resolved LIVE per parcel (`dkPlandataResolvedPack`) by the L5 DK
 //    dispatch, so it registers with an EMPTY `packsByZone` and exists here to light the C60 coverage
@@ -909,15 +920,36 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
     // code. That is a LEGALLY GROUNDED `derived-plan` refusal, produced per-parcel from live data by
     // the L5 dispatch (`murciaEnvelopeDisposition`), not from this table.
     //
-    // ⇒ `packsByZone` is EMPTY (no static zone code maps to a pack), `refusalFor` returns null, and
-    // `noRulePackRefusal` returns the Murcia COVERAGE refusal — the honest answer on the REGISTRY
-    // path, which has no live records and therefore cannot make the stronger legal claim. The
-    // dispatcher path supplies the specific, cited one. Same division as Switzerland and Madrid.
+    // ⇒ `refusalFor` returns null and `noRulePackRefusal` returns the Murcia COVERAGE refusal — the
+    // honest answer on the REGISTRY path, which has no live records and therefore cannot make the
+    // stronger legal claim. The dispatcher path supplies the specific, cited one. Same division as
+    // Switzerland and Madrid.
     //
-    // WIRING TODO (orchestrator, when a governing instrument is sourced + human-signed into
-    // `es/es-mc/30030-murcia/sources/VERIFICATION.md`): author the pack cited to THAT instrument
-    // (a Plan Parcial, not the general plan — the general plan expressly declines the question),
-    // move it into `packsByZone` and flip `MURCIA_ENVELOPE_VERIFIED`. That is a legal act.
+    // ⚠ §MURCIA-PACK-REGISTERED (2026-08-01) — `packsByZone` IS NO LONGER EMPTY, AND THAT IS NOT AN
+    // AUTHORISATION TO DRAW A NUMBER. The remaining ~33 % of Murcia's private buildable land that the
+    // PGOU orders ITSELF (Título 5 Caps. 2–23) is now transcribed: `ES_MURCIA_PGOU2012_PACK` holds 14
+    // calificaciones from the *Normas Urbanísticas*, Texto Refundido diciembre 2012 — the
+    // municipality's own signed consolidation, carrying no *«sin valor normativo»* disclaimer — each
+    // parameter with its article and a verbatim quote. Registering those codes makes the pack
+    // REACHABLE (and therefore SIGNABLE, and visible to the C60 coverage probe via
+    // `registeredPackZoneCodes`); it publishes nothing, because:
+    //   (a) `MURCIA_ENVELOPE_VERIFIED === false`, and
+    //   (b) the L5 Murcia dispatch answers from `murciaEnvelopeDisposition`, which refuses every
+    //       parcel — with the CITED article for PGOU-direct land — before this table is consulted.
+    // Same posture, and same precedent, as Córdoba's registered-but-gated OCR pack above.
+    //
+    // ⚠⚠ THE ORDER INSIDE `murciaEnvelopeDisposition` IS THE SAFETY PROPERTY, NOT THIS TABLE. Arts.
+    // 5.25.3.3 / 5.26.3.3: inside a delegating ámbito a zonal code governs use and typology but NOT
+    // altura/edificabilidad. So an `RM1` polygon inside a TA/PERI ámbito must be answered by the
+    // remitted-ámbito branch, never from this pack. The registry holds a zone code and no ámbito, so
+    // it CANNOT make that distinction — which is exactly why no Murcia dispatch path reads it.
+    //
+    // WIRING TODO (founder, a legal act — not an engineering one): sign
+    // `es/es-mc/30030-murcia/sources/VERIFICATION.md` §SIG-1 and flip `MURCIA_ENVELOPE_VERIFIED`,
+    // then teach the L5 dispatch the `kind: 'envelope'` branch (the disposition's `reason` field is
+    // the interlock that keeps Murcia refusing honestly if the gate opens first). ⚠ That signature
+    // would authorise at most the ~33 % measured ceiling — the delegated 67 % keeps its
+    // `derived-plan` refusal, which NO signature can lift.
     {
         jurisdictionId: MURCIA_JURISDICTION_ID, // 'es-30030-murcia'
         displayName: 'Murcia',
@@ -940,8 +972,14 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
             '6.6.2 / 5.24.5.1 remit the building conditions to a prior, separately-approved ' +
             'instrument, which PRYZM does not hold. No height, buildability, occupation or setback ' +
             'is published here — never an estimate, never a proxy figure.',
-        // Resolved live per-parcel from the municipal GeoServer — no static zone-code pack table.
-        packsByZone: packMap(),
+        // §MURCIA-PACK-REGISTERED — the 14 transcribed calificaciones, plus the two sub-variant
+        // aliases the live layer publishes (`RF1`→RF, `IXT`→IX), registered as a SECOND tuple so the
+        // "14 transcribed" count is never inflated to 16 by aliases. Both lists are DERIVED from the
+        // pack, so they cannot drift from it. Gated: see §MURCIA-PACK-REGISTERED above.
+        packsByZone: packMap(
+            [ES_MURCIA_PGOU2012_PACK, MURCIA_PGOU2012_ZONE_CODES],
+            [ES_MURCIA_PGOU2012_PACK, MURCIA_PGOU2012_VARIANT_ZONE_CODES],
+        ),
         // No per-zone legal refusal TABLE: the legal refusal is a function of the live ámbito code
         // (`murciaEnvelopeDisposition`), not of a static enumeration.
         refusalFor: () => null,

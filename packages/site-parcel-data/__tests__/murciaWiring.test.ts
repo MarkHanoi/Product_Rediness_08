@@ -26,9 +26,15 @@ import {
 } from '../src/providers/murciaBbox.js';
 import {
     MURCIA_JURISDICTION_ID,
+    MURCIA_ENVELOPE_VERIFIED,
     murciaNoRulePackRefusal,
     detectDerivedPlanMarkers,
 } from '../src/rulepacks/esMurciaEnvelope.js';
+import {
+    ES_MURCIA_PGOU2012_PACK,
+    MURCIA_PGOU2012_ZONE_CODES,
+    MURCIA_PGOU2012_VARIANT_ZONE_CODES,
+} from '../src/rulepacks/esMurciaPgou2012.js';
 import { murciaEnvelopeDisposition } from '../src/providers/murciaZoningProvider.js';
 import {
     resolveMurciaZoning,
@@ -317,16 +323,59 @@ describe('S5 — the registry answers for Murcia (the coverage globe reads this)
         expect(murcia!.contains).toBe(isInMurcia);
     });
 
-    it('claims NO packed zone code — there is no transcribed Murcia instrument', () => {
-        expect(murcia!.packZoneCodes).toEqual([]);
+    // §MURCIA-PACK-REGISTERED (2026-08-01) — this used to assert `packZoneCodes` was EMPTY, on the
+    // ground that "there is no transcribed Murcia instrument". That ground no longer holds: the PGOU
+    // *Normas Urbanísticas* TR-2012 has been sourced and 14 calificaciones transcribed, so the pack
+    // is now registered. The assertion is REPLACED, not deleted — and what replaces it pins the two
+    // facts that matter: the codes are exactly the pack's, and registration published NOTHING.
+    it('claims exactly the 14 transcribed calificaciones (+ the 2 published sub-variants)', () => {
+        expect([...murcia!.packZoneCodes].sort()).toEqual(
+            [...MURCIA_PGOU2012_ZONE_CODES, ...MURCIA_PGOU2012_VARIANT_ZONE_CODES].sort(),
+        );
+        // The count claim RATE.md §ENVELOPE makes, pinned so prose and code cannot drift.
+        expect(MURCIA_PGOU2012_ZONE_CODES).toHaveLength(14);
+        expect(MURCIA_PGOU2012_VARIANT_ZONE_CODES).toEqual(['IXT', 'RF1']);
+        // ⚠ …and every one of those codes is DERIVED from the pack, never re-typed beside it.
+        expect([...MURCIA_PGOU2012_ZONE_CODES].sort()).toEqual(
+            ES_MURCIA_PGOU2012_PACK.zones.map((z) => z.code.toUpperCase()).sort(),
+        );
     });
 
-    it('answers a Murcia zone code with a refusal, never an estimated fallback', () => {
+    it('⚠ REGISTRATION IS NOT AUTHORISATION — the verification gate is still shut', () => {
+        // The one assertion that makes the registration safe. If this ever reads `true` without a
+        // signature in `es-mc/30030-murcia/sources/VERIFICATION.md`, the pack's numbers are live.
+        expect(MURCIA_ENVELOPE_VERIFIED).toBe(false);
+        // …and the PURE disposition — the only thing the L5 dispatch consults — refuses a packed,
+        // NON-delegated calificación rather than returning its transcribed envelope.
+        const d = murciaEnvelopeDisposition(
+            {
+                calificacion: 'RM1', descripcion: 'Manzana cerrada', uso_global: 'Residencial',
+                sector: null, url: null, f_inicial: '2012-12-01Z', f_fin: '2999-12-30Z',
+            },
+            null,
+            '2026-08-01',
+        );
+        expect(d.kind).toBe('refusal');
+        if (d.kind !== 'refusal') throw new Error('unreachable');
+        expect(d.refusal.code).toBe('no-rule-pack');
+        // It NAMES the governing article (strictly more useful than "we have no rule")…
+        expect(d.refusal.ordinanceRef).toContain('Normas Urbanísticas');
+        // …and it is NOT a claim about the law: the ordinance answers, our reading is unsigned.
+        expect(d.refusal.legallyGrounded).toBe(false);
+        // ⚠ AND IT LEAKS NO FIGURE. A gate you can read around is not a gate.
+        const prose = `${d.refusal.headline} ${d.refusal.detail}`;
+        expect(prose).not.toMatch(/\d+(?:[.,]\d+)?\s*(?:m2\/m2|m²\/m²|plantas)/);
+    });
+
+    it('answers a DELEGATED Murcia zone code with a refusal, never an estimated fallback', () => {
         const d = resolveZoneDisposition(MURCIA_JURISDICTION_ID, 'RR', {
             zoneLabel: 'Residencial, ordenación remitida al planeamiento anterior',
         });
         expect(d.kind).toBe('refusal');
         if (d.kind !== 'refusal') throw new Error('unreachable');
+        // ⚠ `RR` is the DELEGATED-land calificación and is deliberately NOT in the pack — the PGOU
+        // declines to order that land, so no transcription of the PGOU could ever cover it.
+        expect(MURCIA_PGOU2012_ZONE_CODES).not.toContain('RR');
         // ⚠ The REGISTRY path has no live records, so it may only make the weaker claim. The
         // stronger `derived-plan` one belongs to the dispatcher, which has read the ámbito.
         expect(d.refusal.code).toBe('no-rule-pack');
