@@ -1,0 +1,4 @@
+# Raw WFS pages. Large, regenerable, and a snapshot of a LIVE municipal service — the committed
+# artefact is `out-crosstab.json`, which carries its own `snapshot` timestamp. Re-fetch with
+# `node crosstab.mjs --refresh`.
+.cache/

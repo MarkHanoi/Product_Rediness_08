@@ -1,0 +1,523 @@
+{
+  "ok": true,
+  "tool": "§MURCIA-CROSSTAB",
+  "asOf": "2026-08-01",
+  "snapshot": "2026-08-01T11:21:24.003Z",
+  "source": {
+    "endpoint": "https://geoserver.murcia.es/geoserver/wfs",
+    "layers": [
+      "Murcia:pgou_alineaciones",
+      "Murcia:pgou_sectores"
+    ],
+    "crs": "EPSG:25830 (native; areas are planar metres, never degrees)",
+    "calificacionFeatures": 23066,
+    "sectorFeatures": 3611
+  },
+  "honesty": {
+    "notInForcePolygons": 0,
+    "nonBuildableArea_Mm2": 439.685,
+    "unjoinedPolygons": 44,
+    "unjoinedArea_Mm2": 0.199,
+    "unjoinedShareOfBuildable_pct": 0.26,
+    "sectorClaseConflicts": 0,
+    "note": "UNJOINED is a THIRD VALUE — it is neither PGOU-direct nor delegated. It is reported, never defaulted."
+  },
+  "denominator": {
+    "privateBuildable_Mm2": 75.145,
+    "polygons": 13683,
+    "families": 34,
+    "basis": "L-656 — BUILDABLE land, not all land, not clicks."
+  },
+  "delegationSplit": {
+    "pgouDirect_Mm2": 24.8,
+    "pgouDirect_pct": 33,
+    "delegated_Mm2": 50.345,
+    "delegated_pct": 67,
+    "byGround": {
+      "calificacion-generica": {
+        "area_Mm2": 22.663,
+        "pct": 30.16,
+        "article": "Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1"
+      },
+      "ambito-delegante": {
+        "area_Mm2": 3.817,
+        "pct": 5.08,
+        "article": "Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2"
+      },
+      "clase-urbanizable": {
+        "area_Mm2": 15.438,
+        "pct": 20.54,
+        "article": "Art. 6.2.2.3"
+      },
+      "calificacion-remitida": {
+        "area_Mm2": 8.428,
+        "pct": 11.22,
+        "article": "Arts. 5.24.5.1 / 5.24.6"
+      }
+    }
+  },
+  "intersection": {
+    "packedByCode_Mm2": 29.27,
+    "packedByCode_pct": 38.95,
+    "packedAndDirect_Mm2": 17.663,
+    "packedAndDirect_pct": 23.51,
+    "packedButDelegated_Mm2": 11.607,
+    "packedButDelegated_pct": 15.45,
+    "packedUnjoined_Mm2": 0.071,
+    "firmFloorExcludingInterimRL_Mm2": 5.238,
+    "firmFloorExcludingInterimRL_pct": 6.97
+  },
+  "shippingBehaviour": {
+    "note": "Drives resolveMurciaPgouZone's exact allow-list (14 codes + RF1 + IXT) and REMITTED_AMBITO_PREFIXES only.",
+    "packedExactStrings_Mm2": 28.095,
+    "packedExactStrings_pct": 37.39,
+    "wouldRenderOnSignature_Mm2": 27.494,
+    "wouldRenderOnSignature_pct": 36.59,
+    "ofWhichOnLegallyDelegatedLand_Mm2": 9.834,
+    "ofWhichOnLegallyDelegatedLand_pct": 13.09,
+    "ofWhichOnLegallyDelegatedLand_byGround": {
+      "clase-urbanizable": {
+        "area_Mm2": 7.993,
+        "pct": 10.64,
+        "article": "Art. 6.2.2.3"
+      },
+      "ambito-delegante": {
+        "area_Mm2": 1.841,
+        "pct": 2.45,
+        "article": "Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2"
+      }
+    },
+    "firmFloorExcludingInterimRL_pct": 20.05
+  },
+  "byFamily": [
+    {
+      "family": "RL",
+      "class": "packed",
+      "polygons": 197,
+      "area_Mm2": 12.425,
+      "shareOfBuildable_pct": 16.53,
+      "pgouDirect_Mm2": 12.425,
+      "delegated_Mm2": 0,
+      "unjoined_Mm2": 0.044
+    },
+    {
+      "family": "RR",
+      "class": "remitida",
+      "polygons": 2126,
+      "area_Mm2": 6.37,
+      "shareOfBuildable_pct": 8.48,
+      "pgouDirect_Mm2": 0,
+      "delegated_Mm2": 6.37,
+      "unjoined_Mm2": 0.002
+    },
+    {
+      "family": "RM",
+      "class": "refused-direct",
+      "polygons": 3133,
+      "area_Mm2": 5.622,
+      "shareOfBuildable_pct": 7.48,
+      "pgouDirect_Mm2": 4.79,
+      "delegated_Mm2": 0.832,
+      "unjoined_Mm2": 0.014
+    },
+    {
+      "family": "IX",
+      "class": "packed",
+      "polygons": 190,
+      "area_Mm2": 4.852,
+      "shareOfBuildable_pct": 6.46,
+      "pgouDirect_Mm2": 0.741,
+      "delegated_Mm2": 4.11,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "GP",
+      "class": "generica",
+      "polygons": 26,
+      "area_Mm2": 4.785,
+      "shareOfBuildable_pct": 6.37,
+      "pgouDirect_Mm2": 0,
+      "delegated_Mm2": 4.785,
+      "unjoined_Mm2": 0.013
+    },
+    {
+      "family": "RX",
+      "class": "generica",
+      "polygons": 888,
+      "area_Mm2": 4.405,
+      "shareOfBuildable_pct": 5.86,
+      "pgouDirect_Mm2": 0,
+      "delegated_Mm2": 4.405,
+      "unjoined_Mm2": 0.013
+    },
+    {
+      "family": "RB",
+      "class": "refused-direct",
+      "polygons": 739,
+      "area_Mm2": 4.011,
+      "shareOfBuildable_pct": 5.34,
+      "pgouDirect_Mm2": 0.057,
+      "delegated_Mm2": 3.954,
+      "unjoined_Mm2": 0.015
+    },
+    {
+      "family": "RJ",
+      "class": "generica",
+      "polygons": 400,
+      "area_Mm2": 3.775,
+      "shareOfBuildable_pct": 5.02,
+      "pgouDirect_Mm2": 0,
+      "delegated_Mm2": 3.775,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "IP",
+      "class": "generica",
+      "polygons": 121,
+      "area_Mm2": 3.351,
+      "shareOfBuildable_pct": 4.46,
+      "pgouDirect_Mm2": 0,
+      "delegated_Mm2": 3.351,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "RD",
+      "class": "packed",
+      "polygons": 879,
+      "area_Mm2": 3.159,
+      "shareOfBuildable_pct": 4.2,
+      "pgouDirect_Mm2": 0.083,
+      "delegated_Mm2": 3.077,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "RF",
+      "class": "packed",
+      "polygons": 477,
+      "area_Mm2": 2.571,
+      "shareOfBuildable_pct": 3.42,
+      "pgouDirect_Mm2": 0.449,
+      "delegated_Mm2": 2.122,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "UC",
+      "class": "generica",
+      "polygons": 49,
+      "area_Mm2": 2.478,
+      "shareOfBuildable_pct": 3.3,
+      "pgouDirect_Mm2": 0,
+      "delegated_Mm2": 2.478,
+      "unjoined_Mm2": 0.001
+    },
+    {
+      "family": "RC",
+      "class": "refused-direct",
+      "polygons": 1486,
+      "area_Mm2": 2.434,
+      "shareOfBuildable_pct": 3.24,
+      "pgouDirect_Mm2": 1.65,
+      "delegated_Mm2": 0.784,
+      "unjoined_Mm2": 0.001
+    },
+    {
+      "family": "AE",
+      "class": "generica",
+      "polygons": 42,
+      "area_Mm2": 1.728,
+      "shareOfBuildable_pct": 2.3,
+      "pgouDirect_Mm2": 0,
+      "delegated_Mm2": 1.728,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "RG",
+      "class": "packed",
+      "polygons": 190,
+      "area_Mm2": 1.676,
+      "shareOfBuildable_pct": 2.23,
+      "pgouDirect_Mm2": 0.816,
+      "delegated_Mm2": 0.86,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "RD1",
+      "class": "packed",
+      "polygons": 992,
+      "area_Mm2": 1.598,
+      "shareOfBuildable_pct": 2.13,
+      "pgouDirect_Mm2": 1.055,
+      "delegated_Mm2": 0.543,
+      "unjoined_Mm2": 0.008
+    },
+    {
+      "family": "TC",
+      "class": "generica",
+      "polygons": 153,
+      "area_Mm2": 1.54,
+      "shareOfBuildable_pct": 2.05,
+      "pgouDirect_Mm2": 0,
+      "delegated_Mm2": 1.54,
+      "unjoined_Mm2": 0.063
+    },
+    {
+      "family": "RT",
+      "class": "refused-direct",
+      "polygons": 137,
+      "area_Mm2": 1.487,
+      "shareOfBuildable_pct": 1.98,
+      "pgouDirect_Mm2": 0.1,
+      "delegated_Mm2": 1.388,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "IC",
+      "class": "packed",
+      "polygons": 153,
+      "area_Mm2": 1.307,
+      "shareOfBuildable_pct": 1.74,
+      "pgouDirect_Mm2": 0.965,
+      "delegated_Mm2": 0.342,
+      "unjoined_Mm2": 0.017
+    },
+    {
+      "family": "TR",
+      "class": "remitida",
+      "polygons": 84,
+      "area_Mm2": 1.052,
+      "shareOfBuildable_pct": 1.4,
+      "pgouDirect_Mm2": 0,
+      "delegated_Mm2": 1.052,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "GR",
+      "class": "remitida",
+      "polygons": 15,
+      "area_Mm2": 0.823,
+      "shareOfBuildable_pct": 1.09,
+      "pgouDirect_Mm2": 0,
+      "delegated_Mm2": 0.823,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "RU",
+      "class": "refused-direct",
+      "polygons": 245,
+      "area_Mm2": 0.743,
+      "shareOfBuildable_pct": 0.99,
+      "pgouDirect_Mm2": 0.177,
+      "delegated_Mm2": 0.566,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "RS",
+      "class": "generica",
+      "polygons": 126,
+      "area_Mm2": 0.603,
+      "shareOfBuildable_pct": 0.8,
+      "pgouDirect_Mm2": 0,
+      "delegated_Mm2": 0.603,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "RH",
+      "class": "packed",
+      "polygons": 108,
+      "area_Mm2": 0.449,
+      "shareOfBuildable_pct": 0.6,
+      "pgouDirect_Mm2": 0.258,
+      "delegated_Mm2": 0.191,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "MC",
+      "class": "packed",
+      "polygons": 283,
+      "area_Mm2": 0.441,
+      "shareOfBuildable_pct": 0.59,
+      "pgouDirect_Mm2": 0.362,
+      "delegated_Mm2": 0.079,
+      "unjoined_Mm2": 0.002
+    },
+    {
+      "family": "IG",
+      "class": "packed",
+      "polygons": 8,
+      "area_Mm2": 0.325,
+      "shareOfBuildable_pct": 0.43,
+      "pgouDirect_Mm2": 0.258,
+      "delegated_Mm2": 0.067,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "AJ",
+      "class": "packed",
+      "polygons": 6,
+      "area_Mm2": 0.204,
+      "shareOfBuildable_pct": 0.27,
+      "pgouDirect_Mm2": 0.015,
+      "delegated_Mm2": 0.189,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "RN",
+      "class": "refused-direct",
+      "polygons": 76,
+      "area_Mm2": 0.193,
+      "shareOfBuildable_pct": 0.26,
+      "pgouDirect_Mm2": 0.18,
+      "delegated_Mm2": 0.013,
+      "unjoined_Mm2": 0.003
+    },
+    {
+      "family": "IR",
+      "class": "remitida",
+      "polygons": 13,
+      "area_Mm2": 0.183,
+      "shareOfBuildable_pct": 0.24,
+      "pgouDirect_Mm2": 0,
+      "delegated_Mm2": 0.183,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "MZ",
+      "class": "refused-direct",
+      "polygons": 152,
+      "area_Mm2": 0.155,
+      "shareOfBuildable_pct": 0.21,
+      "pgouDirect_Mm2": 0.136,
+      "delegated_Mm2": 0.019,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "MX",
+      "class": "refused-direct",
+      "polygons": 49,
+      "area_Mm2": 0.138,
+      "shareOfBuildable_pct": 0.18,
+      "pgouDirect_Mm2": 0.047,
+      "delegated_Mm2": 0.091,
+      "unjoined_Mm2": 0.002
+    },
+    {
+      "family": "RM2",
+      "class": "packed",
+      "polygons": 77,
+      "area_Mm2": 0.135,
+      "shareOfBuildable_pct": 0.18,
+      "pgouDirect_Mm2": 0.119,
+      "delegated_Mm2": 0.016,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "RM1",
+      "class": "packed",
+      "polygons": 37,
+      "area_Mm2": 0.081,
+      "shareOfBuildable_pct": 0.11,
+      "pgouDirect_Mm2": 0.075,
+      "delegated_Mm2": 0.007,
+      "unjoined_Mm2": 0
+    },
+    {
+      "family": "MG",
+      "class": "packed",
+      "polygons": 26,
+      "area_Mm2": 0.047,
+      "shareOfBuildable_pct": 0.06,
+      "pgouDirect_Mm2": 0.042,
+      "delegated_Mm2": 0.004,
+      "unjoined_Mm2": 0
+    }
+  ],
+  "byClaseSuelo": {
+    "Urbanizable": {
+      "area_Mm2": 38.242,
+      "pct": 50.89
+    },
+    "Urbano": {
+      "area_Mm2": 36.704,
+      "pct": 48.85
+    },
+    "UNJOINED": {
+      "area_Mm2": 0.199,
+      "pct": 0.26
+    }
+  },
+  "crosstab": {
+    "RL|Urbano": 12.381,
+    "RM|Urbano": 5.417,
+    "GP|Urbanizable": 4.771,
+    "RB|Urbanizable": 3.826,
+    "RX|Urbanizable": 3.803,
+    "IX|Urbanizable": 3.427,
+    "RR|Urbano": 3.385,
+    "RJ|Urbanizable": 3.326,
+    "RR|Urbanizable": 2.983,
+    "RD|Urbanizable": 2.881,
+    "IP|Urbanizable": 2.632,
+    "RC|Urbano": 1.951,
+    "RF|Urbanizable": 1.89,
+    "AE|Urbanizable": 1.728,
+    "UC|Urbano": 1.648,
+    "RD1|Urbano": 1.446,
+    "IX|Urbano": 1.424,
+    "RT|Urbanizable": 1.322,
+    "RG|Urbano": 1.274,
+    "TC|Urbanizable": 1.266,
+    "IC|Urbano": 1.111,
+    "TR|Urbanizable": 0.912,
+    "UC|Urbanizable": 0.829,
+    "GR|Urbano": 0.823,
+    "IP|Urbano": 0.719,
+    "RF|Urbano": 0.681,
+    "RX|Urbano": 0.588,
+    "RU|Urbanizable": 0.562,
+    "RS|Urbanizable": 0.552,
+    "RC|Urbanizable": 0.482,
+    "RH|Urbano": 0.449,
+    "RJ|Urbano": 0.448,
+    "MC|Urbano": 0.436,
+    "RG|Urbanizable": 0.402,
+    "IG|Urbano": 0.291,
+    "RD|Urbano": 0.278,
+    "TC|Urbano": 0.21,
+    "RM|Urbanizable": 0.191,
+    "RN|Urbano": 0.19,
+    "IR|Urbano": 0.183,
+    "RU|Urbano": 0.182,
+    "IC|Urbanizable": 0.179,
+    "RB|Urbano": 0.17,
+    "RT|Urbano": 0.165,
+    "RD1|Urbanizable": 0.145,
+    "MZ|Urbano": 0.143,
+    "TR|Urbano": 0.14,
+    "AJ|Urbano": 0.138,
+    "MX|Urbano": 0.136,
+    "RM2|Urbano": 0.124,
+    "RM1|Urbano": 0.078,
+    "AJ|Urbanizable": 0.066,
+    "TC|UNJOINED": 0.063,
+    "RS|Urbano": 0.051,
+    "MG|Urbano": 0.047,
+    "RL|UNJOINED": 0.044,
+    "IG|Urbanizable": 0.034,
+    "IC|UNJOINED": 0.017,
+    "RB|UNJOINED": 0.015,
+    "RM|UNJOINED": 0.014,
+    "GP|UNJOINED": 0.013,
+    "RX|UNJOINED": 0.013,
+    "MZ|Urbanizable": 0.012,
+    "RM2|Urbanizable": 0.01,
+    "RD1|UNJOINED": 0.008,
+    "RM1|Urbanizable": 0.003,
+    "MC|Urbanizable": 0.003,
+    "RN|UNJOINED": 0.003,
+    "MC|UNJOINED": 0.002,
+    "MX|UNJOINED": 0.002,
+    "RR|UNJOINED": 0.002,
+    "RC|UNJOINED": 0.001,
+    "UC|UNJOINED": 0.001
+  }
+}

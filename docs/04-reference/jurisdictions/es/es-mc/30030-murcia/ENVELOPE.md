@@ -130,16 +130,63 @@ And **Art. 6.5.1**:
 > urbanizable sectorizado, los terrenos genéricamente destinados a los usos globales y compatibles
 > de las zonas ZG, ZI, ZT y ZP se califican respectivamente con los códigos GP, IP, TC y AE.»
 
+### ⭐ 2.1 — THE CROSS-TAB: what a signature would actually render is **23.51 %**, not 33.0 %
+
+Run 2026-08-01 by [`tools/murcia-coverage-crosstab/`](../../../../../../tools/murcia-coverage-crosstab/README.md)
+(artefact `out-crosstab.json`, pinned by `murciaCoverageCrosstab.test.ts`). The tool **reproduces
+every figure above from the live layers** — 75.145 km², 33.00/67.00, all four delegation grounds, the
+99.74 % join rate and each per-family share in §3.1 to two decimals — before computing anything new.
+
+The 33.0 % (delegation test) and the 38.95 % (calificación-code test) are shares of **different
+sets**. `murciaEnvelopeDisposition` applies delegation FIRST, so the answerable land is their
+**intersection**:
+
+| | km² | share of private buildable land |
+|---|---:|---:|
+| 14 packed calificaciones, by code | 29.270 | 38.95 % |
+| — packed but sitting on **delegated** land (refuses anyway) | 11.607 | 15.45 % |
+| **⭐ packed AND PGOU-direct — THE POINT VALUE** | **17.663** | **23.51 %** |
+| … of which the expressly *interim* `RL` (Art. 5.14.3) | 12.425 | 16.53 % |
+| **⇒ FIRM FLOOR excluding `RL`** | **5.238** | **6.97 %** |
+
+⚠ **38.95 %, not the 38.7 % published on 2026-08-01 morning** — the difference is `RM1` (0.11 %) and
+`RM2` (0.18 %), which were `UNMEASURED` inside the `RM` family and now are not.
+
 ### ⚠ The 33 % has a soft half — read this before planning work against it
 
-Of the 24.800 km² PGOU-direct, **12.425 km² (16.5 % of buildable land) is calificación `RL`**,
+Of the 24.800 km² PGOU-direct, **12.425 km² (16.53 % of buildable land) is calificación `RL`**,
 whose ordinance (Art. 5.14.3) is headed *«Condiciones de edificación y usos **antes de la
 aprobación de Planes Especiales**»*. Art. 5.14.2 remits the definitive ordering to a *Plan Especial
 de Adecuación Urbanística*. Those numbers hold only while no PE has been approved for the ámbito —
-and PRYZM cannot check that.
+and PRYZM cannot check that. Every square metre of `RL` measures as PGOU-direct, so `RL` is the
+whole difference between the point value and the firm floor.
 
-**The firm floor, excluding RL, is 12.375 km² = 16.5 %.** The honest range for this city is
-therefore **16.5 %–33.0 %**, and RL is the single largest calificación on buildable land.
+#### ⚠⚠ CORRECTION — "firm floor 16.5 %" was arithmetic on the wrong set
+
+The earlier revision of this file computed the floor as `33.0 % − 16.5 % (RL) = 16.5 %`. That
+subtraction leaves *PGOU-direct land that is not RL* — which is **not** *land a signature would
+render*. 9.49 pp of it is `RB` `RC` `RM` `RN` `RT` `RU` `MZ` `MX`: codes refused in §3.2 on a
+**CONSTRUCTED or UNKNOWN parameter**, which no signature touches.
+
+**The firm floor is 5.238 km² = 6.97 %.** The honest range for this city is **6.97 % – 23.51 %**.
+
+### 🔴 2.2 — AND THE CROSS-TAB FOUND A DEFECT IN OUR OWN DISPOSITION
+
+`murciaEnvelopeDisposition` tests delegation on the sector prefix alone
+(`REMITTED_AMBITO_PREFIXES` = `TA TM UA UH UM`). It applies **no clase-de-suelo test** and does not
+know `UE` (Art. 5.25.1), `UD` (Art. 5.25.2) or `P*` (Art. 5.26.2). Measured consequence, were both
+gates opened:
+
+| | km² | pp of buildable |
+|---|---:|---:|
+| what the code would render on signature | 27.494 | **36.59 %** — ⚠ **above the 33.00 % ceiling** |
+| … on *urbanizable* land (Art. 6.2.2.3, Plan Parcial) | 7.993 | 10.64 |
+| … on a delegating ámbito the prefix list misses | 1.841 | 2.45 |
+| **total published on delegated land** | **9.834** | **13.09** |
+
+Not live — `MURCIA_ENVELOPE_VERIFIED = false` **and** L5 does not consume the `envelope` branch.
+Registered as `RISK-REGISTER.md` **§R-7**, a named pre-signature blocker: **the disposition must
+learn the full delegation test in the same change that opens either gate.**
 
 ### Comparison — Murcia is COMPARABLE to Barcelona, not clearly better
 
@@ -147,7 +194,7 @@ therefore **16.5 %–33.0 %**, and RL is the single largest calificación on bui
 |---|---:|---:|
 | Barcelona | 62.8 % (`PD*`, measured geometry) | ≈ 37 % |
 | **Murcia**, census method, `US`+null resolved | **38.2 %** | **39.5–61.8 %** |
-| **Murcia**, calificación-aware polygon area | **67.0 %** | **33.0 %** (16.5 % firm) |
+| **Murcia**, calificación-aware polygon area | **67.0 %** | **33.0 %** — but what a signature RENDERS is **23.51 %** (6.97 % firm) |
 
 The census's conclusion that *"Murcia has a better starting position than the flagship"* rested on
 its 24.8 % and **does not survive**. What does survive: Murcia's absolute buildable area is larger,
@@ -219,7 +266,15 @@ the Centro Histórico depend on which frontage a parcel presents — not resolve
 
 `RC`, `RM` (base), `RN`, `RD1`'s third storey, `MZ`'s FAR and `MX`'s frontage rule all reduce to
 **one missing input: a Murcia street-width / frontage-class source.** That single resolver would
-lift ~4 % of buildable land out of refusal and is the highest-leverage next unit of work. Packing
+lift **8.81 % of buildable land** (6.620 km², = `RC` 1.650 + `RM` 4.790 + `RN` 0.180 on PGOU-direct
+land) out of refusal, and is the highest-leverage next unit of work.
+
+⚠ **This was published as "~4 %" and that was too low** — it counted `RC` + `RN` + `MZ` + `MX` and
+omitted the **`RM` base zone**, which is 7.48 % of buildable land and refuses on the *same*
+street-width table as `RC`. Measured 2026-08-01 by `tools/murcia-coverage-crosstab/`. The gap sits
+entirely **inside** the 33.00 % PGOU-direct ceiling and entirely **outside** the 23.51 % a signature
+renders — so it is strictly additive to signature coverage, which is the question §CLOSURE could not
+answer before the cross-tab was run. Packing
 one width would publish one street's answer for the whole zone — the L-526 failure verbatim, and
 Córdoba's `MC` refuses on exactly this ground.
 

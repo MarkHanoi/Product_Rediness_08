@@ -168,11 +168,49 @@ transcription in `esMurciaPgou2012.ts` covers exactly that slice.
 - These are live services. Every figure here is a 2026-08-01 snapshot; re-run before quoting
   externally.
 
+## 4b — ✅ THE MEASUREMENT IS NOW RE-RUNNABLE, AND IT REPRODUCES THIS FILE EXACTLY
+
+Every §3b figure above was measured by hand in this session. On 2026-08-01 it was reimplemented as
+a script — [`tools/murcia-coverage-crosstab/`](../../../../../../../tools/murcia-coverage-crosstab/README.md),
+artefact `out-crosstab.json`, pinned by `packages/site-parcel-data/__tests__/murciaCoverageCrosstab.test.ts` —
+and the script reproduces this file from the live layers to two decimals:
+
+| §3b / §3c claim | tool |
+|---|---|
+| denominator 75.145 M m² | **75.145** ✅ |
+| PGOU-DIRECT 24.800 M m² = 33.0 % | **24.800 = 33.00 %** ✅ |
+| DELEGATED 50.345 M m² = 67.0 % | **50.345 = 67.00 %** ✅ |
+| join rate 99.74 % | **99.74 %** (0.26 % unjoined) ✅ |
+| genérica 30.2 · urbanizable 20.5 · remitted 11.2 · sector 5.1 | **30.16 · 20.54 · 11.22 · 5.08** ✅ |
+| 23 066 polygons, EPSG:25830 shoelace | **23 066**, 13 683 of them private-buildable ✅ |
+
+**A hand measurement that a script cannot reproduce is a claim, not a finding.** This one is a
+finding.
+
 ## 5 — What would still change the answer
 
 - A per-ámbito check of whether a Plan Especial has been approved over the `US`/`RL` land — that is
   what collapses the 39.5 %–61.8 % range to a point.
 - Nothing else in PRYZM. The delegated share is the plan's design, not our coverage.
+
+## 6 — ⭐ THE CROSS-TAB THIS FILE LEFT OPEN, NOW CLOSED
+
+§3b measured **which land the PGOU orders directly** (33.0 %). `ENVELOPE.md` §3.1 measured **which
+calificaciones are transcribed** (38.7 %, now 38.95 % with `RM1`/`RM2` measured). Neither is the
+share PRYZM can answer for: `murciaEnvelopeDisposition` applies delegation FIRST, so that share is
+the **intersection**, and it had never been computed.
+
+| | M m² | share of buildable |
+|---|---:|---:|
+| **packed calificación ∧ NOT delegated** | **17.663** | **23.51 %** |
+| … of which the expressly interim `RL` (Art. 5.14.3) | 12.425 | 16.53 % |
+| **⇒ firm floor** | **5.238** | **6.97 %** (⚠ corrects a published 16.5 %) |
+| packed code on delegated land — refuses anyway | 11.607 | 15.45 % |
+
+🔴 And it exposed a defect: the shipping disposition tests only `REMITTED_AMBITO_PREFIXES`, so with
+both gates open it would render on **36.59 %** — *above* the 33.00 % ceiling — publishing a
+general-plan number on **13.09 pp** of land Arts. 6.2.2.3 / 5.25.1 / 5.25.2 / 5.26.2 delegate. See
+[`../RISK-REGISTER.md`](../RISK-REGISTER.md) §R-7.
 
 *Cross-refs: [`./MURCIA-LAND-CLASS-AND-DERIVED-PLAN-SPLIT.md`](./MURCIA-LAND-CLASS-AND-DERIVED-PLAN-SPLIT.md),
 [`../ENVELOPE.md`](../ENVELOPE.md), [`../LEGISLATION-RATE.md`](../LEGISLATION-RATE.md),
