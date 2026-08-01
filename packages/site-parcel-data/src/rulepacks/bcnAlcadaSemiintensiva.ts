@@ -29,6 +29,40 @@
 // here is `certified`. Barcelona's own consolidation is still behind a 403 / robots-disallowed
 // page (L-583 §7).
 //
+// ⛔⛔ §L-660 — **AND THE "NO REWRITE FLAG" ABOVE IS NOW KNOWN TO BE A STATEMENT ABOUT THE WRONG
+// DOCUMENT.** Santa Coloma's refós carries no rewrite flag on Art. 328 *because Santa Coloma did not
+// rewrite Art. 328*. **Barcelona did.** The MMAMB metropolitan compendium
+// (`docs/…/08019-barcelona/PGM-NNUU-metropolitana.pdf`) prints **footnote 50** against base
+// Art. 328 at PDF p.109:
+//
+//     50.  Veure modificació per al Municipi de Badalona a la pàg. 137
+//          Veure modificació per al Municipi de Barcelona a la pàg. 277
+//
+// Printed p.277 = **PDF p.278**, inside the same instrument that rewrites Art. 327 — «Modificació de
+// les Normes urbanístiques del PGM per a la modificació de les alçades reguladores en el tipus
+// d'ordenació segons alineació de vial, al terme muncipal de Barcelona», Subcomissió d'Urbanisme del
+// Municipi de Barcelona, **02-03-2007**, **DOGC núm. 4893 de 29/05/2007** — which restates
+// Art. 328.2a as **8,25 / 12,00 / 15,40 / 18,80 m**, PB+1…PB+4, against the base
+// **7,55 / 10,60 / 13,65 / 16,70 m** transcribed below.
+//
+// **Band boundaries (<8, 8–11, 11–15, ≥15) and storey counts are IDENTICAL in both**, so — exactly
+// as for 13a — **no 13b parcel would change band or storey count**; only the metre value moves,
+// by +0,70 / +1,40 / +1,75 / +2,10 m.
+//
+// ⚠ THE MODIFICATION ALSO CHANGES SOMETHING THAT IS NOT IN THIS TABLE. Base Art. 328.2a reads
+// «L'alçada màxima total, inclòs el forjat, ha de ser de 2,75 m. per planta pis, excepte a les
+// edificacions amb façana a carrer de més de 15 m., a les quals serà obligada l'alçada mínima de
+// 3,05 m.»; the modification replaces it, **in bold (= added/modified per the instrument's own
+// reading key)**, with «L'alçada total mínima, inclosos forjat i paviment, serà de tres metres cinc
+// centímetres (3,05 m).» A future signed application must carry that too, not just the six numbers.
+//
+// ⛔ **NOTHING BELOW IS CHANGED.** The transcription lives, unwired, in `bcnAlcadaReguladora.ts` as
+// `BCN_ART328_MPGM_2007_BANDS`; the decision packet is
+// `docs/…/08019-barcelona/L-660-ART-327-328-MPGM-2007-FOUNDER-DECISION.md`. Applying it is an
+// L-449 signature against the **binding DOGC 4893 text, which we do not hold** — the compendium
+// consulted declares itself «merament divulgativa» and is consolidated only to 31-12-2009.
+// Record this as `not-located-in-source` for anything later, never `does-not-exist`.
+//
 // ⚠⚠ THE BAND-EDGE CONVENTION IS **ADOPTED, NOT SOURCED** — READ `BCN_ART328_EDGE_CONVENTION`
 // ----------------------------------------------------------------------------------------------
 // The sourced material presents the bands as ranges ("8 – 11", "11 – 15"). **No retrieved text

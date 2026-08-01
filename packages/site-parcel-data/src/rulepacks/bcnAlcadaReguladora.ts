@@ -20,45 +20,62 @@
 // Art. 327.2, the height clause for Subzona I = clau 13a. Height for 13a is cited via
 // Arts. 238 + 240 + 327 (per an official Barcelona *Certificat Urbanístic*).
 //
-// ✅ THE 20.75-vs-22.40 QUESTION IS RESOLVED (L-528 → L-583 §3), AND OUR NUMBER WAS RIGHT.
-// The whole table was independently corroborated band-for-band (all six) against a consolidated
-// PGM text. And 22.40 m was never a rival *alçada reguladora* **in the sense L-528 asked about**:
-// it is the ***alçada reguladora incrementada*** of Art. 21 of Barcelona's own Ordenança de
-// Rehabilitació i Millora de l'Eixample (22-11-2002) — a cornice increment of up to 2.25 m over the
-// ARM. See `EIXAMPLE_CORNICE_INCREMENT_MAX_M`.
+// ⛔ §L-660 — THIS HEADER MADE TWO FALSE STATEMENTS ABOUT THE SOURCE. BOTH ARE CORRECTED HERE.
+// ---------------------------------------------------------------------------------------------
 //
-// ⚠⚠⚠ CORRECTION (§AMB-PGM-SCOPE, 2026-07-31) — ONE CLAUSE ABOVE WAS FALSE, AND IT MATTERS.
-// ---------------------------------------------------------------------------------------
-// This header used to add that the consolidated PGM "flags its own local rewrites and **carries
-// none on this article**". IT CARRIES TWO. Read positionally, the footnote printed against Art. 327
-// (PDF p.108, col. 1) is:
+// **FALSE STATEMENT 1 — "a consolidated PGM text that … carries none on this article."**
+// (Corrected 2026-07-31 by §AMB-PGM-SCOPE; re-verified independently by §L-660 from the raster.)
+// The consolidated text meant is the MMAMB *Normativa Urbanística Metropolitana* compendium,
+// `../PGM-NNUU-metropolitana.pdf`. Its Art. 327 heading carries **footnote 49**, printed verbatim
+// at PDF p.108:
 //
 //     49.  Veure modificació per al Municipi de Badalona a la pàg. 137
 //          Veure modificació per al Municipi de Barcelona a la pàg. 276
 //
-// (and footnote 50, on Art. 328, names the same two municipalities). Printed p.276 = PDF p.277 sits
-// inside «Modificació de les Normes urbanístiques del PGM per a la modificació de les **alçades
-// reguladores** en el tipus d'ordenació segons alineació de vial, al terme muncipal de Barcelona»,
-// approved by the Subcomissió d'Urbanisme del Municipi de Barcelona on **02-03-2007**, DOGC núm.
-// **4893** de **29/05/2007** — and it restates Art. 327.2a as:
+// **TWO modifications, one of them Barcelona's own.** Art. 328 (13b) carries the parallel footnote
+// 50 → Badalona p.137, **Barcelona p.277**. The source does not carry none; it carries Barcelona's,
+// and it always did. See `BCN_ART327_MPGM_2007` for the transcription, the citation, and why three
+// verification rounds read the page as blank.
 //
-//     < 8 m → 9,00 m PB+1 · 8–12 → 12,35 PB+2 · 12–15 → 15,70 PB+3
-//     15–20 → 19,05 PB+4 · 20–30 → 22,40 PB+5 · ≥ 30 → 25,75 PB+6
+// ⚠ AND THIS SOURCE COULD NOT HAVE CERTIFIED AN ABSENCE EVEN IF THE FOOTNOTE WERE EMPTY. It says of
+// itself (PDF p.3) «no hi figuren totes les modificacions dels textos citats, només aquelles que
+// s'han considerat més rellevants» and «no es tracta d'una publicació oficial sinó merament
+// divulgativa», consolidated only to **31-12-2009**. Record `not-located-in-source`, never
+// `does-not-exist` (`claus/EXTRACTION-PROTOCOL.md` Step 4, rewritten by this same finding).
 //
-// i.e. EXACTLY the 3,35 m/floor table `EXTRACTION-PROTOCOL.md` Step 4 rejected as "never located in
-// the accepted source". It is now located, in the primary source. (The protocol's other premise was
-// also a conflation: the modified article KEEPS «l'alçada mínima de les plantes … 3,05 m» as a
-// storey MINIMUM while stepping the bands by 3,35 m — the two figures were never rivals.)
+// **FALSE STATEMENT 2 — "22,40 m was never a rival *alçada reguladora*". IT IS EXACTLY THAT, AND
+// L-528 IS RE-OPENED.** 22,40 m is the **PB+5 row of the modified Art. 327.2a table** (PDF p.277).
+// The Art. 21 cornice-increment identification was reverse-engineered to close a gap — 20,75 + 1,65
+// = 22,40, and 1,65 ≤ Art. 21's 2,25 m ceiling — but *any* figure ≤ 23,00 m fits that ceiling, so
+// the arithmetic confirmed nothing. `L-583-LEGAL-PARAMETERS-SOURCED.md` §3 said so itself: *"the
+// listed allowances do not obviously sum to the 1,65 m gap, so the composition of 22,40 m is
+// unverified"*. Worse, L-583 §3 and this file offered **two different, incompatible** explanations
+// of the same number — L-583 said the **OME** rooftop allowances (badalots, railings), this file
+// said the **2002 Eixample ordinance** Art. 21 — and BOTH were recorded as RESOLVED. When two
+// records disagree and both say "resolved", neither is (EXTRACTION-PROTOCOL Step 9).
+//
+// ⚠ WHAT IS AND IS NOT WITHDRAWN. Art. 21 of the 2002 Eixample ordinance is a real instrument and
+// `EIXAMPLE_CORNICE_INCREMENT_MAX_M` still records a real, conditional allowance. What is withdrawn
+// is the **identification of the circulating 22,40 m figure with it**, and with it the claim that
+// L-528 is closed.
+//
+// ⚠ THE CORROBORATION WE ALREADY HELD POINTS THE SAME WAY. `L-526-LEGAL-FINDINGS.md` recorded that
+// an **official Ajuntament de Barcelona *Certificat Urbanístic*** for a 20 m street gives
+// **22,40 m (PB+5)** *"via Arts. 238/240/327"* — citing **Art. 327 itself**, not the OME and not the
+// Eixample ordinance — against 20,75 m taken from a **Santa Coloma de Gramenet** transcription of
+// the base table. A Barcelona certificate agreeing to the centimetre with the Barcelona-specific
+// modification of the very article it cites is the simplest reading of both facts. For three rounds
+// it was read instead as an anomaly requiring a second instrument to explain.
 //
 // ⇒ THE TABLE BELOW IS THE **BASE / METROPOLITAN** Art. 327 TABLE (3,05 m ladder). If the 2007
 //   modification is in force, it is the SUPERSEDED one for Barcelona — while remaining the correct
 //   metropolitan reading for AMB municipalities that did not rewrite Art. 327 (L'Hospitalet,
 //   Cornellà, Sant Boi all have no Art. 327 footnote entry).
 //
-// ⚠ NOTHING WAS CHANGED HERE. Confirming the 2007 modification's force is a dated legal act (L-449)
-//   and it needs the BINDING DOGC 4893 text — the compendium consulted says of itself «no es tracta
-//   d'una publicació oficial sinó merament divulgativa». Raised, cited and left for the founder:
-//   see `docs/04-reference/jurisdictions/es/es-ct/AMB-PGM-SCOPE-MAP.md` §5 and `esAmbPgmScope.ts`.
+// ⚠ NOTHING NUMERIC WAS CHANGED. Confirming the 2007 modification's force is a dated legal act
+//   (L-449) and it needs the BINDING DOGC 4893 text, which we do not hold. Raised, cited and left
+//   for the founder: `docs/…/08019-barcelona/L-660-ART-327-328-MPGM-2007-FOUNDER-DECISION.md`,
+//   `docs/…/es-ct/AMB-PGM-SCOPE-MAP.md` §5, and `BCN_ART327_MPGM_2007` below.
 //
 // ⚠⚠ AND THE INPUT IS THE DANGEROUS PART — READ BEFORE FEEDING THIS A MEASURED WIDTH
 // ---------------------------------------------------------------------------------
@@ -99,6 +116,9 @@ export interface AlcadaBand {
 /**
  * PGM Art. 327.2 — clau 13a (Subzona I). Verbatim band structure; see the header for the source
  * and for the one uncertified figure.
+ *
+ * ⚠ **THIS IS THE BASE / METROPOLITAN LADDER.** For Barcelona specifically it may be superseded —
+ * see `BCN_ART327_MPGM_2007`. It is deliberately still the shipped table.
  */
 export const BCN_ALCADA_REGULADORA_TABLE: ReadonlyArray<AlcadaBand> = Object.freeze([
     { minWidth_m: 0, maxWidth_m: 8, height_m: 8.55, floorsAboveGround: 1 },
@@ -110,14 +130,191 @@ export const BCN_ALCADA_REGULADORA_TABLE: ReadonlyArray<AlcadaBand> = Object.fre
 ]);
 
 /**
- * §L-528 RESOLVED (L-583 §3) — ⚠ **22,40 m WAS NEVER A COMPETING *ALÇADA REGULADORA*.**
+ * §L-660 — **THE BARCELONA MODIFICATION OF Arts. 327 AND 328. TRANSCRIBED, CITED, AND NOT APPLIED.**
  *
- * This constant used to be `PB5_UNCERTIFIED_ALTERNATIVE_M = 22.4`, described as "the competing PB+5
- * figure … resolving it is audit item L-528". That framing was wrong in a way that mattered: it
- * presented 22,40 m as a **rival answer to the same question**, which made our own correct 20,75 m
- * look uncertain. **It is a different quantity, from a different instrument.**
+ * WHAT THIS IS FOR. It is the founder's decision packet expressed as data, so that the L-449 gate
+ * is exercised against a transcription that can be diffed, tested and re-read — not against prose
+ * in a commit message. `applied` is **false** and nothing in this module reads these bands. Wiring
+ * them is a separate, signed change; see the impact analysis at
+ * `docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/L-660-ART-327-328-MPGM-2007-FOUNDER-DECISION.md`.
  *
- * WHAT 22,40 m ACTUALLY IS. Barcelona's **Ordenança de Rehabilitació i Millora de l'Eixample**
+ * THE INSTRUMENT, verbatim from PDF p.274 (printed p.273) of `../PGM-NNUU-metropolitana.pdf`:
+ *
+ *   «Modificació de les Normes urbanístiques del Pla General Metropolità per a la modificació de
+ *    les alçades reguladores en el tipus d'ordenació segons alineació de vial, al terme muncipal de
+ *    Barcelona. Aprovada definitivament per la Subcomissió d'Urbanisme del Municipi de Barcelona,
+ *    en la sessió de 2 de març de 2007. (DOGC núm. 4893 de 29/05/2007).»
+ *
+ *   («muncipal» is the compendium's own typo, kept.)
+ *
+ * ITS OWN READING KEY, same page: «Modificació de l'articulat: articulat proposat. **En negreta,
+ * text afegit o modificat.**» In the reproduced Art. 327 the *Alçada màxima* column is set in bold
+ * and the *Nombre màxim de plantes* column is not — i.e. the instrument changes the METRES and
+ * leaves the STOREY COUNTS alone. That is visible in the numbers below and it is the single most
+ * consequential structural fact about this modification (see `BCN_ART327_MPGM_2007_BAND_DELTA`).
+ *
+ * SCOPE, as far as the source states it — read positionally across PDF pp. 274–278, which is the
+ * whole instrument (p.279 opens a different one):
+ *   • **Art. 239** — Alçada (disposicions comunes, *alineació de vial*)             PDF p.274–275
+ *   • **Art. 320.3a** — Nucli antic, clau **12**: 7,90 / 11,25 / 14,60 / 17,95 m    PDF p.276
+ *   • **Art. 327.2a** — clau **13a**, the six bands below                           PDF p.277
+ *   • **Art. 328.2a** — clau **13b**, four bands (`BCN_ART328_MPGM_2007_BANDS`)     PDF p.278
+ *   It names **no sector, no *àmbit*, no *front edificatori***, and no plànol: the title's only
+ *   territorial qualifier is «al terme muncipal de Barcelona». On the face of the source this is a
+ *   **citywide** rewrite of the articles it lists, for the *alineació de vial* ordering type.
+ *
+ * ⚠⚠ WHAT WE COULD NOT VERIFY — AND IT IS EXACTLY WHAT THE SIGNATURE IS FOR
+ *   1. **The binding text.** This is the MMAMB compendium's *transcription*, and the compendium
+ *      declares itself «merament divulgativa». The binding text is DOGC núm. 4893 (29-05-2007) and
+ *      the live RPUC/NUMAMB consolidation. **We hold neither.** Live retrieval was attempted
+ *      2026-07-31 and failed: `www.amb.cat` NUMAMB returns 403 behind an anti-bot challenge (the
+ *      same wall L-583 §7 hit) and the AMB geoportal `08019_*` normative pages 404.
+ *   2. **Any LATER modification.** The compendium is consolidated only to 31-12-2009 and filters
+ *      for "most relevant". Within it, Barcelona's last recorded instrument is #17 (Art. 264,
+ *      22-07-2009, DOGC 5509) and nothing after 2007 touches Arts. 327/328 — but that is
+ *      `not-located-in-source`, **never** `does-not-exist`, and it says nothing about 2010–2026.
+ *
+ * WHY THREE ROUNDS READ p.277 AS BLANK. The annex pages embed subset fonts with no ToUnicode,
+ * glyph-shifted (+29 / −29 families). `extract_text()` returns the prose with every **digit
+ * dropped**, so the article surfaces without its table — *nothing*, not garbage, which is
+ * indistinguishable from "the modification does not exist". Recovered by rendering the page
+ * (`page.get_pixmap(dpi=170)`) and reading the raster. Both the +29 decode and the raster were used
+ * and agree.
+ */
+export const BCN_ART327_MPGM_2007 = {
+    /** ⛔ FALSE. Nothing reads `bands`. Flipping this is a signed legal act, not a refactor. */
+    applied: false,
+    instrument:
+        "Modificació de les Normes urbanístiques del Pla General Metropolità per a la modificació " +
+        "de les alçades reguladores en el tipus d'ordenació segons alineació de vial, al terme " +
+        'muncipal de Barcelona',
+    approvedBy: "Subcomissió d'Urbanisme del Municipi de Barcelona",
+    approvedOn: '2007-03-02',
+    dogcNumber: 4893,
+    dogcDate: '2007-05-29',
+    /** The compendium page the transcription was read from (1-based PDF page; printed = PDF − 1). */
+    sourcePdfPage: 277,
+    /**
+     * ⚠ The document actually read. NOT the binding text — see the block comment, limitation 1.
+     * `evidence` is deliberately not `certified` and must not be promoted without the DOGC text.
+     */
+    source: 'MMAMB Normativa Urbanística Metropolitana compendium (non-official, consolidated to 31-12-2009)',
+    evidence: 'located-in-non-official-compendium' as const,
+    /** Art. 327.2a as restated. Bands and storey counts are UNCHANGED; only the metres move. */
+    bands: Object.freeze([
+        { minWidth_m: 0, maxWidth_m: 8, height_m: 9.0, floorsAboveGround: 1 },
+        { minWidth_m: 8, maxWidth_m: 12, height_m: 12.35, floorsAboveGround: 2 },
+        { minWidth_m: 12, maxWidth_m: 15, height_m: 15.7, floorsAboveGround: 3 },
+        { minWidth_m: 15, maxWidth_m: 20, height_m: 19.05, floorsAboveGround: 4 },
+        { minWidth_m: 20, maxWidth_m: 30, height_m: 22.4, floorsAboveGround: 5 },
+        { minWidth_m: 30, maxWidth_m: Infinity, height_m: 25.75, floorsAboveGround: 6 },
+    ]) as ReadonlyArray<AlcadaBand>,
+    /**
+     * §L-660 — **THE 3,05 / 3,35 RECONCILIATION, SETTLED BY THE TEXT ITSELF.**
+     *
+     * The modified Art. 327, immediately under its own table (PDF p.277), in plain roman type
+     * (i.e. NOT flagged as added or modified):
+     *
+     *   «L'alçada mínima de les plantes, inclosos els forjats i el paviment, serà de **3,05 m**.»
+     *
+     * The BASE Art. 327.2a (PDF p.108) says the same thing: «L'alçada mínima de les plantes,
+     * inclosos els forjats i el paviment, ha de ser de 3'05 m.» So **3,05 m is a storey MINIMUM and
+     * it is unchanged by the modification.** What changed is the BAND STEP: the base ladder rises
+     * 3,05 m per band (8,55 → 11,60 → … → 23,80), the modified ladder rises **3,35 m** per band
+     * (9,00 → 12,35 → … → 25,75, exactly +3,35 five times).
+     *
+     * ⇒ `EXTRACTION-PROTOCOL.md` Step 4's rejection rationale — *"3,35 vs 3,05 m per floor"* — was
+     * a **conflation of two different quantities that coexist in the same article**, not a conflict
+     * between two sources. A wrong reason produced a right-looking refusal, and the refusal
+     * outlived the reason. The modification does not permit taller storeys; it permits more
+     * headroom above the same six storey counts.
+     */
+    storeyMinimum_m: 3.05,
+    /** The band step of THIS ladder. Contrast `BCN_STOREY_MODULE_M` (3.05), the base ladder's. */
+    bandStep_m: 3.35,
+} as const;
+
+/**
+ * §L-660 — **Art. 328.2a as restated by the SAME 2007 instrument** (PDF p.278, printed p.277,
+ * reached by base footnote 50). Clau **13b**. Transcribed, cited, **not applied** — the shipped 13b
+ * table lives in `bcnAlcadaSemiintensiva.ts` and is untouched.
+ *
+ * Base (PDF p.109): 7,55 / 10,60 / 13,65 / 16,70 m. Modified: 8,25 / 12,00 / 15,40 / 18,80 m.
+ * Band boundaries (<8, 8–11, 11–15, ≥15) and storey counts (PB+1…PB+4) are **unchanged**, exactly
+ * as for Art. 327.
+ *
+ * ⚠ The instrument ALSO adds, in bold (= added text), «L'alçada total mínima, inclosos forjat i
+ * paviment, serà de tres metres cinc centímetres (**3,05 m**)» — where the BASE Art. 328 read
+ * «L'alçada màxima total, inclòs el forjat, ha de ser de 2,75 m. per planta pis, excepte a les
+ * edificacions amb façana a carrer de més de 15 m., a les quals serà obligada l'alçada mínima de
+ * 3,05 m.» That is a substantive change beyond the table and it is recorded here so a future
+ * signed application does not transcribe only the numbers. It is **not** modelled.
+ */
+export const BCN_ART328_MPGM_2007_BANDS: ReadonlyArray<AlcadaBand> = Object.freeze([
+    { minWidth_m: 0, maxWidth_m: 8, height_m: 8.25, floorsAboveGround: 1 },
+    { minWidth_m: 8, maxWidth_m: 11, height_m: 12.0, floorsAboveGround: 2 },
+    { minWidth_m: 11, maxWidth_m: 15, height_m: 15.4, floorsAboveGround: 3 },
+    { minWidth_m: 15, maxWidth_m: Infinity, height_m: 18.8, floorsAboveGround: 4 },
+]);
+
+/**
+ * §L-660 — the per-band impact, precomputed so the founder signs against numbers rather than
+ * against a promise that someone will compute them later.
+ *
+ * ⚠⚠ **READ THE `floorsChange` COLUMN FIRST: IT IS ZERO EVERYWHERE, AND SO IS THE BAND STRUCTURE.**
+ * The base and modified tables share **identical** width bands (<8, 8–12, 12–15, 15–20, 20–30, ≥30)
+ * and **identical** storey counts (PB+1…PB+6). Therefore:
+ *
+ *   • **NO parcel changes band, and NO parcel changes storey count.** Not "few" — none, by
+ *     construction. Every question about band-edge risk, official-vs-measured widths and the
+ *     `BAND_EDGE_GUARD_M` refusal is **completely orthogonal** to this decision, and applying the
+ *     modification would not move a single parcel across a band edge.
+ *   • **EVERY 13a parcel that resolves to a height today gets a DIFFERENT metre value.** The
+ *     affected population is 100 % of resolved 13a parcels, not a subset.
+ *
+ * That is the cleanest shape a legal correction can have: one uniform per-band delta, no
+ * reclassification, no new refusals, no interaction with the width machinery.
+ */
+export const BCN_ART327_MPGM_2007_BAND_DELTA: ReadonlyArray<{
+    readonly floorsAboveGround: number;
+    readonly bandLabel: string;
+    readonly base_m: number;
+    readonly modified_m: number;
+    readonly delta_m: number;
+    readonly floorsChange: number;
+}> = Object.freeze([
+    { floorsAboveGround: 1, bandLabel: '< 8 m', base_m: 8.55, modified_m: 9.0, delta_m: 0.45, floorsChange: 0 },
+    { floorsAboveGround: 2, bandLabel: '8–12 m', base_m: 11.6, modified_m: 12.35, delta_m: 0.75, floorsChange: 0 },
+    { floorsAboveGround: 3, bandLabel: '12–15 m', base_m: 14.65, modified_m: 15.7, delta_m: 1.05, floorsChange: 0 },
+    { floorsAboveGround: 4, bandLabel: '15–20 m', base_m: 17.7, modified_m: 19.05, delta_m: 1.35, floorsChange: 0 },
+    { floorsAboveGround: 5, bandLabel: '20–30 m', base_m: 20.75, modified_m: 22.4, delta_m: 1.65, floorsChange: 0 },
+    { floorsAboveGround: 6, bandLabel: '≥ 30 m', base_m: 23.8, modified_m: 25.75, delta_m: 1.95, floorsChange: 0 },
+]);
+
+/**
+ * ⛔ §L-660 — **L-528 IS RE-OPENED. THE "RESOLVED" HEADING BELOW NO LONGER HOLDS.**
+ *
+ * This doc-comment used to open *"§L-528 RESOLVED (L-583 §3) — 22,40 m WAS NEVER A COMPETING
+ * *ALÇADA REGULADORA*"*. **22,40 m is the PB+5 row of Art. 327.2a as modified for Barcelona by the
+ * MPGM of 02-03-2007 (DOGC 4893, 29-05-2007)** — a competing *alçada reguladora* in precisely the
+ * sense L-528 asked about. See `BCN_ART327_MPGM_2007` and the module header.
+ *
+ * ⚠ WHAT SURVIVES AND WHAT DOES NOT.
+ *   • **SURVIVES:** the constant's VALUE and its rule. Art. 21 of the 2002 Eixample ordinance is a
+ *     real instrument granting a real cornice increment of up to 2,25 m, it is conditional, and we
+ *     verify none of its conditions — so it is still surfaced as an allowance and never as a height.
+ *     Nothing about how this constant is used changes.
+ *   • **DOES NOT SURVIVE:** the *identification* of the circulating 22,40 m figure with this
+ *     allowance. That identification rested on `20,75 + 1,65 = 22,40` and `1,65 ≤ 2,25` — but any
+ *     figure ≤ 23,00 m satisfies that, so it distinguished nothing. It also contradicted L-583 §3's
+ *     own published explanation of the same number (the OME rooftop allowances), and BOTH were
+ *     recorded as resolved.
+ *   • The text below is kept **as the record of a withdrawn identification**, because deleting it
+ *     would erase the reasoning a reader needs in order to not re-derive it.
+ *
+ * ORIGINAL TEXT FOLLOWS, RETAINED FOR THE RECORD:
+ *
+ * WHAT 22,40 m WAS SAID TO BE. Barcelona's **Ordenança de Rehabilitació i Millora de l'Eixample**
  * (Consell Plenari, 22-11-2002), **Art. 21**: a building may exceed the *alçada reguladora màxima*
  * by up to **2,25 m** to form a cornice line / harmonise floor heights with **adjacent buildings
  * predating 1932**, provided the increase adds **no storeys** and does not raise the ground floor.

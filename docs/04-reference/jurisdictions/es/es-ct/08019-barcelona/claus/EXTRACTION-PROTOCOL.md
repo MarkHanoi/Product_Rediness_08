@@ -113,10 +113,27 @@ real answer is ~PB+5 (L-525a, the L-459 defect class).
 
 For 13a the height bands are **not blocked on reading the ordinance** — they are blocked on the
 **official street width (*ample oficial del carrer*)**, because Art. 327.2 keys the table to it.
-The Art. 327 §2 modification (**exp. 2007/028428, DOGC 29-09-2008**) is a *height-table* change and
-is carried by the current RPUC/NUMAMB consolidation.
 
 That is what a good blocker looks like: a single named input, not "we need more research".
+
+### ⚠ AND THE CITATION THIS STEP USED TO CARRY WAS ANOTHER MUNICIPALITY'S (§L-660)
+
+This step said: *"The Art. 327 §2 modification (**exp. 2007/028428, DOGC 29-09-2008**) is a
+height-table change and is carried by the current RPUC/NUMAMB consolidation."* **DOGC 29-09-2008 is
+DOGC núm. 5224 — the date of BADALONA's instrument** (*Modificació puntual de les NNUU del PGM en
+l'àmbit del municipi de Badalona*, 6 June 2008), and the geoportal page it was read from is
+`…/Normativa/**08015**_13a.htm`, where **08015 is Badalona**. Barcelona's own Art. 327 modification
+is **DOGC núm. 4893 de 29/05/2007** (Subcomissió d'Urbanisme del Municipi de Barcelona, 2 March
+2007). The expedient number `2007/028428` has **not** been re-verified against either instrument and
+is left unattributed rather than reassigned.
+
+That is the **municipality-code trap** L-583 §1 already recorded catching us twice, recurring inside
+our own protocol document. Both municipalities really did adopt the **same six values** — so the
+table was right, the *citation* named the wrong city, and a wrong citation survives review.
+
+> **Rule:** an `080NN` code in a URL is part of the citation. Read it before quoting the page.
+
+Full record: [`../L-660-ART-327-328-MPGM-2007-FOUNDER-DECISION.md`](../L-660-ART-327-328-MPGM-2007-FOUNDER-DECISION.md).
 
 ## Step 6 — Leave genuinely unresolved things unresolved, deliberately
 

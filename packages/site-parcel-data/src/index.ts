@@ -368,6 +368,13 @@ export {
     type FloorsToHeightBasis,
     type AlcadaBand,
     type AlcadaResolution,
+    // §L-660 — the Barcelona MPGM of 02-03-2007 (DOGC 4893, 29-05-2007) restating Arts. 327.2a and
+    // 328.2a. ⛔ TRANSCRIBED, CITED AND **NOT APPLIED** — `BCN_ART327_MPGM_2007.applied === false`
+    // and no resolver reads these bands. Exported so the founder's L-449 decision packet is data a
+    // reviewer can diff and test, not prose. Wiring them is a signed legal act; see the constant.
+    BCN_ART327_MPGM_2007,
+    BCN_ART328_MPGM_2007_BANDS,
+    BCN_ART327_MPGM_2007_BAND_DELTA,
 } from './rulepacks/bcnAlcadaReguladora.js';
 
 // L-583 §4 — PGM Art. 328, the clau 13b (Subzona II) *alçada reguladora* table. Same CONSTRUCTION
