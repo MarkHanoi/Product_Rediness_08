@@ -87,6 +87,14 @@ import {
     // opposite claims and the old boolean collapsed them.
     resolveZoneDisposition,
     buildRefusedEnvelope,
+    // §L-663 — the two halves of "the estimated pack is unreachable inside a city we cover".
+    // `resolveRegisteredJurisdictionAt` is the registry's OWN §JURISDICTION-SPECIFICITY rule
+    // applied to `listJurisdictionCoverage()` — the same predicates the `if` chain in
+    // `applyZoning` routes on, asked once, in one place. Importing it (rather than restating
+    // "is this Barcelona?" a third time) is what keeps the guard from drifting away from the
+    // dispatch it guards.
+    resolveRegisteredJurisdictionAt,
+    estimateSuppressedRefusal,
     // §L-591 — clau `20a/*` (*edificació aïllada*). Its rule is a plain `setback` inset from the
     // parcel's own boundary, so it must NOT be routed through the block-derived Art. 242 path.
     // Two of the ten subzones state their numbers as CONSTRUCTIONS, resolved per parcel here.
@@ -340,6 +348,24 @@ export function getCurrentSiteOrigin(): { lat: number; lon: number } | null {
 // GEOMETRY must use `resolveRenderableBuildableEnvelope()` instead, which falls back to the
 // persisted ring; reading this global directly is what caused L-445 (it dies on reload).
 let _lastEnvelope: BuildableEnvelope | null = null;
+
+/**
+ * §L-663 — THE POINT `applyZoning` ROUTED ON, kept so the estimated-fallback chokepoint asks the
+ * registry about the SAME place the `if` chain asked about.
+ *
+ * ⚠ WHY A MODULE-LOCAL AND NOT A THREADED PARAMETER. `applyEstimatedZoning` has fifteen call
+ * sites, most of them `catch` blocks and `!site` guards inside the per-city handlers. Threading
+ * the point through all fifteen makes the guard bypassable by omission — a future sixteenth call
+ * site that passes `null` silently re-opens the exact hole this closes, and it would fail nowhere.
+ * One write, at the single point where the routing decision is made (`applyZoning`), and one read,
+ * at the single point that dispatches the estimate, is the property worth having. It mirrors
+ * `_lastEnvelope` / `_lastSiteOrigin` above.
+ *
+ * Written on EVERY `applyZoning` call, including to `null` when no point could be derived — a
+ * stale point from a previous parcel would be worse than none (the §L-536 / §SEAM-2 lesson: a
+ * write skipped when the value is "nothing" is what splits write from read).
+ */
+let _lastParcelQueryPoint: { lat: number; lon: number } | null = null;
 
 /** C58 — the last computed buildable envelope for the current parcel, or null. */
 export function getLastBuildableEnvelope(): BuildableEnvelope | null {
@@ -1079,6 +1105,11 @@ function applyZoning(
     boundary: ZoningBoundary,
     estimated: BuildableEnvelope | null,
 ): void {
+    // §L-663 — CLEAR FIRST, outside the try. Everything below can throw, and the `catch` calls
+    // `applyEstimatedZoning`; a point left over from the PREVIOUS parcel would then decide this
+    // one's jurisdiction. A cleared point refuses nothing and claims nothing, which is the only
+    // honest value for "we have not derived it yet".
+    _lastParcelQueryPoint = null;
     try {
         const loc = ctx.store.getSite()?.location;
         // §L-521 — resolve the jurisdiction + fetch the REAL zoning at the DRAWN PARCEL'S actual
@@ -1123,6 +1154,13 @@ function applyZoning(
             qLat = ll.lat;
             qLon = ll.lon;
         }
+        // §L-663 — PUBLISH THE ROUTING POINT for the estimated-fallback chokepoint, and publish it
+        // UNCONDITIONALLY (including `null`). This is the single write; see the declaration for why
+        // it is a module-local rather than a parameter threaded through fifteen call sites.
+        _lastParcelQueryPoint =
+            qLat != null && qLon != null && Number.isFinite(qLat) && Number.isFinite(qLon)
+                ? { lat: qLat, lon: qLon }
+                : null;
         // §JURISDICTION-DIAG (L-505 + L-521) — ALWAYS logs the anchor AND the parcel-centroid query
         // point, so a silent estimated fallback is never a mystery: if the founder finds NO
         // §BCN-REAL-ENVELOPE line, this says why — loc null vs isInBarcelona=false at the PARCEL.
@@ -3542,9 +3580,16 @@ async function tryBcnClau18Volumetria(
  * THE SAFETY CONTRACT (founder's rule): an ABSENT/refused envelope costs nothing, a WRONG
  * *profunditat edificable* costs credibility. So EVERY problem — no clau / non-Eixample clau /
  * no refcat / no block / a non-conforming block tiling (dissolve `degenerate`) / no street
- * frontages / any thrown error / an envelope whose `status !== 'ok'` — routes to
- * `applyEstimatedZoning` (the precomputed estimated envelope). The worst outcome is "same as
- * today (estimated)". Never throws into the commit path.
+ * frontages / any thrown error / an envelope whose `status !== 'ok'` — refuses.
+ *
+ * ⚠ §L-663 — "REFUSES", NOT "FALLS BACK TO THE ESTIMATE". This paragraph used to end *"routes to
+ * `applyEstimatedZoning` … the worst outcome is 'same as today (estimated)'"*, and that sentence
+ * was false in the only way that matters: on a *segons alineacions de vial* clau the estimated
+ * triple is not a weaker version of the right answer, it is a different geometric OPERATION
+ * (C58 §1.11), and it renders in the same purple volume as a real determination. The founder hit
+ * exactly this on a hand-drawn Eixample boundary. The residual `applyEstimatedZoning` calls below
+ * are still here, but that function now refuses inside any registered jurisdiction — so the worst
+ * outcome on Barcelona land is a cited refusal, never a number. Never throws into the commit path.
  *
  * ⚠ FRAME (the correctness crux): by the time this runs, `boundary.polygon` is already in the
  * θ-DE-ROTATED authoring frame (`dispatchParcelBoundary` squared the parcel to project north
@@ -3579,9 +3624,31 @@ async function applyBcnZoningThenFallback(
             catastroParcelProvider.fetchParcelAtPoint(lon, lat),
         ]);
         if (!qual) {
-            // The MUC refused to name a clau (an ambiguous pixel, or a failed lookup). That is a
-            // FAILURE, not a legal answer, so it must NOT become a refusal — estimated fallback.
-            console.log(`${TAG} no clau resolved at point — estimated fallback.`);
+            // §L-663 — **THIS IS THE LINE THE FOUNDER'S EIXAMPLE PARCEL ESCAPED THROUGH.**
+            //
+            // The MUC did not name a clau. `fetchQualificationAtPoint` returns `null` for a
+            // network error, a non-200, a non-JSON body AND an explicit `{zoning:null}`, so this
+            // branch cannot tell an outage from a genuine empty (the provider-level half of
+            // §CONTEXT-DATA-HONESTY, still open — see the WIRING TODO in `zoneRefusal.ts`).
+            //
+            // The comment that stood here read: *"That is a FAILURE, not a legal answer, so it
+            // must NOT become a refusal — estimated fallback."* The first half is right and the
+            // conclusion inverted it: refusing to call a failure a LEGAL refusal is correct, but
+            // the alternative it chose was to call it a NUMBER — 3.0 / 1.5 / 3.0 m, FAR 2.0,
+            // 50 %, drawn as a purple volume over central Eixample. A failure and an estimate are
+            // not two names for the same thing.
+            //
+            // It now falls to `applyEstimatedZoning`, which — since §L-663 — refuses inside any
+            // registered jurisdiction and publishes a cited `source-data-unavailable` card. The
+            // call is deliberately left as-is rather than special-cased here: the guarantee is
+            // structural at the chokepoint, so this and the other fourteen guard paths are all
+            // covered by the same rule.
+            console.warn(
+                `${TAG} §L-663 no clau resolved at ${lat.toFixed(5)},${lon.toFixed(5)} — the MUC ` +
+                    `lookup returned nothing (outage / non-200 / genuine empty are not yet ` +
+                    `distinguishable here). NO estimated triple is published inside Barcelona; ` +
+                    `the chokepoint dispatches a cited refusal.`,
+            );
             applyEstimatedZoning(ctx, estimated);
             return;
         }
@@ -4330,19 +4397,25 @@ async function applyBcnZoningThenFallback(
             refuseConstructionIncomplete('construction-no-solution');
         }
     } catch (e) {
-        // §L-574 — DELIBERATELY still the estimated fallback, and NOT a refusal.
+        // §L-574 reasoning, §L-663 CONCLUSION REVERSED.
         //
-        // A refusal card must NAME the zone (L-553 rule 1: proving we identified the land
-        // correctly is what separates "missing data" from "broken"). This catch wraps the WHOLE
-        // path, including everything before the clau is resolved, so a throw here may mean we
-        // never learned the zone at all — and `clau` / `knownFacts` are scoped to the `try` and
-        // genuinely unavailable here. Emitting an unnamed "could not complete" card would be a
-        // worse answer than the honestly-badged estimate, and inventing a zone name to fill it
-        // would be the fabrication this whole item removes.
+        // L-574 argued this catch should keep the estimated fallback because a refusal card must
+        // NAME the zone (L-553 rule 1), and a throw here may mean we never learned the clau —
+        // `clau` / `knownFacts` are scoped to the `try` and genuinely unavailable. That premise
+        // still holds. What it got wrong is the alternative it compared against: it weighed an
+        // *unnamed refusal* against an *honestly-badged estimate* and picked the estimate. But the
+        // estimate is not merely unnamed, it is a fabricated setback triple of the wrong SHAPE for
+        // *alineacions de vial* fabric, and on screen it is indistinguishable from a determination.
+        // An unnamed "we could not complete this" is a weaker card; a confident wrong volume is a
+        // wrong answer.
         //
-        // The five paths that DO know the clau refuse individually above; this is the residual
-        // "we don't even know what we were solving" case.
-        console.warn(`${TAG} path failed before/outside the clau-known paths — estimated fallback:`, e);
+        // The card is no longer unnamed either: §L-663's refusal names the JURISDICTION (read live
+        // from the registry) even when the zone is unknown, which is precisely the L-553 property —
+        // proving we identified the user's land — at the coarsest granularity we can honestly claim.
+        //
+        // The five paths that DO know the clau still refuse individually above with the better,
+        // zone-named card; this is the residual "we don't even know what we were solving" case.
+        console.warn(`${TAG} §L-663 path failed before/outside the clau-known paths — the chokepoint refuses (no estimate):`, e);
         try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
     }
 }
@@ -4387,21 +4460,127 @@ function computeAndCacheEstimatedEnvelope(
  * `computeAndCacheEstimatedEnvelope` so the geometry is produced exactly once; this is
  * the non-DK / fallback path (`jurisdictionRef: 'estimated-default'`). Fully guarded —
  * never throws into the commit path.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ * §L-663 — **THIS IS THE CHOKEPOINT. INSIDE A REGISTERED JURISDICTION IT PUBLISHES NO NUMBER.**
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * WHAT THE FOUNDER SAW (prod build `6f7c9fd5`, 2026-08-01). A boundary hand-drawn at Carrer de la
+ * Diputació × Carrer de Roger de Llúria — central Eixample, clau `13a`, four shipped Barcelona
+ * packs — rendered `estimated-default` verbatim: 3.0 / 1.5 / 3.0 m, FAR 2.00, coverage 50 %,
+ * `EST · zone generic-urban · no citation`. The SAME block, Catastro-SELECTED, resolved clau 13a
+ * from the MUC and refused honestly (`source-data-unavailable`, block dissolve). Two answers on
+ * one piece of land, and the fabricated one is the one that draws a purple volume.
+ *
+ * WHY IT WAS NOT ONE BAD LINE. There are (were) FIFTEEN `applyEstimatedZoning` call sites inside
+ * the jurisdiction handlers — `!qual`, `!site`, `<3 vertices`, and one `catch` per city. Not one
+ * of them is an intentional "we estimate here": every jurisdiction that reaches this file already
+ * ships a cited refusal for its own failures. They are all GUARDS, and a guard whose failure mode
+ * is "publish a number" is the §CONTEXT-DATA-HONESTY collapse fifteen times over. Fixing the one
+ * line the founder happened to hit would have left fourteen.
+ *
+ * SO THE RULE IS STRUCTURAL AND IT IS ENFORCED HERE, ONCE: **if a registered jurisdiction claims
+ * this parcel's point, the estimated pack is unreachable.** The honest answer inside a city we
+ * cover is a cited refusal (`estimateSuppressedRefusal`), never a generic triple. Outside every
+ * registration nothing changes at all — `estimated-default` remains the honest, badged answer for
+ * land PRYZM makes no other claim about, which is exactly what C58 §1.6 authored it for.
+ *
+ * ⚠ THE POINT IS THE PARCEL'S, NOT THE ANCHOR'S (the L-521 lesson). `_lastParcelQueryPoint` is the
+ * area centroid `applyZoning` already computed and routed on, so the guard and the `if` chain
+ * cannot disagree about WHERE this parcel is. The site location is the fallback only if that is
+ * somehow absent; on a DRAW flow §L-635 has already re-anchored it to the parcel's first vertex,
+ * so it is on the parcel either way.
+ *
+ * ⚠ AND IT ASKS THE REGISTRY, NOT A LITERAL. `resolveRegisteredJurisdictionAt` applies the
+ * registry's own §JURISDICTION-SPECIFICITY rule to `listJurisdictionCoverage()` — the same
+ * `contains` predicates `applyZoning` routes on. Registering a new city therefore closes this hole
+ * for that city with no edit here (C58 §1.5), and a city can never be lit on the coverage globe
+ * while still receiving the estimate.
+ *
+ * ⚠ `'ambiguous'` COUNTS AS CLAIMED. Two registrations tied at the finest rung means we cannot say
+ * which ordinance governs — which is strictly LESS certainty than a resolved claim, so it cannot
+ * be the case that earns a number. It refuses too.
  */
 function applyEstimatedZoning(
     ctx: SiteContext,
     envelope: BuildableEnvelope | null,
 ): void {
     try {
-        if (!envelope) return;
         const site = ctx.store.getSite();
         if (!site) return;
+        // §L-663 — the guard runs BEFORE the `!envelope` bail on purpose. A registered jurisdiction
+        // whose estimated solve ALSO failed must still get the refusal card; the old ordering
+        // returned silently and left the panel blank, which reads as a crash (L-553).
+        if (refuseEstimateInsideRegisteredJurisdiction(ctx, site.id)) return;
+        if (!envelope) return;
         dispatchEnvelope(ctx, site.id, envelope, 'estimated-default');
     } catch (e) {
         // Envelope computation is best-effort site intelligence — never block the
         // parcel commit (the boundary is already set + emitted).
         console.warn('[gis][c58] buildable-envelope solve failed (non-fatal):', e);
     }
+}
+
+/**
+ * §L-663 — the guard behind `applyEstimatedZoning`. Returns `true` when it HANDLED the parcel by
+ * dispatching a cited refusal, i.e. when the caller must NOT publish the estimated triple.
+ *
+ * Split out of `applyEstimatedZoning` so the rule reads as one statement and so the test can drive
+ * it through the real dispatcher rather than assert about it. NOT exported: the only sanctioned
+ * way to reach it is the chokepoint, which is the property being enforced.
+ */
+function refuseEstimateInsideRegisteredJurisdiction(ctx: SiteContext, siteId: string): boolean {
+    // The parcel's own point (L-521), falling back to the site anchor (which §L-635 has already
+    // moved onto the parcel). A non-finite / absent point claims nothing and refuses nothing —
+    // "we don't know where this is" must not become "a registered city covers it".
+    const loc = ctx.store.getSite()?.location;
+    const at =
+        _lastParcelQueryPoint ??
+        (loc && Number.isFinite(loc.latitude) && Number.isFinite(loc.longitude)
+            ? { lat: loc.latitude, lon: loc.longitude }
+            : null);
+    if (!at) return false;
+
+    const claim = resolveRegisteredJurisdictionAt(at.lat, at.lon);
+    if (claim.kind === 'none') return false; // Genuinely uncovered land — the estimate is honest here.
+
+    const claimants =
+        claim.kind === 'resolved' ? [claim.jurisdiction] : claim.candidates;
+    const governing = claimants[0]!;
+    // ⚠ On an `'ambiguous'` claim we still refuse, but the card must NOT name one of the tied
+    // cities as though it won — that is the coin flip `JurisdictionClaimResolution` exists to
+    // refuse. Name them all, and carry no `answerSummary` (there is no single promise to make).
+    const displayName =
+        claim.kind === 'resolved'
+            ? governing.displayName
+            : claimants.map((c) => c.displayName).join(' / ');
+    const refusal = estimateSuppressedRefusal({
+        jurisdictionDisplayName: displayName,
+        answerSummary: claim.kind === 'resolved' ? governing.answerSummary : null,
+        knownFacts: [
+            `Jurisdiction: ${displayName}`,
+            `Location: ${at.lat.toFixed(5)}, ${at.lon.toFixed(5)}`,
+        ],
+    });
+    // `status: 'none'` — ATTEMPTED, no data. NOT `'not-applicable'`, which would assert the
+    // ordinance answered "no envelope here"; we never even learned the zone. Both clear a stale
+    // `buildableRing` (`dispatchEnvelope` writes one only on `'ok'`), so L-445 holds either way.
+    // `zoneCode: null` — there is no zone to state, and a placeholder string would read as one.
+    dispatchEnvelope(
+        ctx,
+        siteId,
+        buildRefusedEnvelope(null, refusal, 'none'),
+        claim.kind === 'resolved' ? governing.jurisdictionId : 'ambiguous-jurisdiction',
+    );
+    console.warn(
+        `[gis][c58] §L-663 ESTIMATE SUPPRESSED — ${at.lat.toFixed(5)},${at.lon.toFixed(5)} is inside ` +
+            `a REGISTERED jurisdiction (${claim.kind}: ${claimants.map((c) => c.jurisdictionId).join(', ')}), ` +
+            `so the generic estimated-default triple (3.0/1.5/3.0 m, FAR 2.0, 50 %) was NOT published. ` +
+            `A cited refusal was dispatched instead. ⚠ Reaching this line means an upstream lookup ` +
+            `FAILED — the city path should have produced its own cited answer; look for the ` +
+            `preceding §BCN/§MADRID/§MURCIA/… log line to see which input was missing.`,
+    );
+    return true;
 }
 
 /**

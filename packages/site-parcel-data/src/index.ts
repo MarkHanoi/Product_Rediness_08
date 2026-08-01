@@ -279,7 +279,15 @@ export {
 // "No private buildable envelope applies here (clau NN)" is a POSITIVE, cited answer — and until
 // now it was inexpressible, so parks, motorways and Collserola were shown a fabricated setback
 // triple from the generic estimated pack.
-export { buildRefusedEnvelope, isRefusedEnvelope, isTransientRefusal } from './rulepacks/zoneRefusal.js';
+// §L-663 — `estimateSuppressedRefusal` is what the dispatcher publishes where the generic
+// `estimated-default` triple used to be drawn INSIDE a registered jurisdiction. See the block
+// comment above it in `zoneRefusal.ts` for the prod evidence that earned it.
+export {
+    buildRefusedEnvelope,
+    isRefusedEnvelope,
+    isTransientRefusal,
+    estimateSuppressedRefusal,
+} from './rulepacks/zoneRefusal.js';
 export {
     barcelonaZoneRefusal,
     barcelonaZoneRefusalFor,

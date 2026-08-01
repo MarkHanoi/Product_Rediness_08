@@ -34,7 +34,11 @@
 // Strategic context — C58 §1.2/§1.3/§1.4, C23,
 // docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/BARCELONA-COMPLETE-COVERAGE-PLAN.md §0.3/§1.1/§5.
 
+import { trace } from '@opentelemetry/api';
 import type { BuildableEnvelope, EnvelopeRefusal } from '@pryzm/schemas';
+
+/** P8 — one tracer for this module's exported constructors. Same precedent as `registry.ts`. */
+const _tracer = trace.getTracer('pryzm.zoning');
 
 /**
  * Build the `BuildableEnvelope` that says "no private buildable envelope applies here, and here
@@ -73,8 +77,17 @@ import type { BuildableEnvelope, EnvelopeRefusal } from '@pryzm/schemas';
  * (L-422/L-467/L-469). Both clear a stale `buildableRing` (`dispatchEnvelope` writes only on
  * `'ok'`), so the L-445 protection is unchanged either way.
  */
+/**
+ * ⚠ `zoneCode` is `string | null`. NULL IS A REAL, DISTINCT ANSWER and it earned its place with
+ * §L-663: the refusal raised when PRYZM could not resolve the zone AT ALL (the planning-map lookup
+ * did not name one) has no zone to state, and inventing a placeholder string — `'unknown'`,
+ * `'generic-urban'`, the jurisdiction id — would put a zone-shaped token on the card and in
+ * `Parcel.zoning.category`, where every downstream reader treats it as a resolved qualification.
+ * `Parcel.zoning.category` is already `string | null` for exactly this reason, and the card renders
+ * `zoneCode ?? 'n/a'`. Say nothing rather than say a name we do not have.
+ */
 export function buildRefusedEnvelope(
-    zoneCode: string,
+    zoneCode: string | null,
     refusal: EnvelopeRefusal,
     status: 'not-applicable' | 'none' = 'not-applicable',
 ): BuildableEnvelope {
@@ -155,4 +168,115 @@ export function isRefusedEnvelope(env: BuildableEnvelope | null | undefined): bo
  */
 export function isTransientRefusal(env: BuildableEnvelope | null | undefined): boolean {
     return isRefusedEnvelope(env) && env!.refusal!.code === 'source-data-unavailable';
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// §L-663 — THE REFUSAL THAT REPLACES THE GENERIC ESTIMATE INSIDE A REGISTERED JURISDICTION.
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// WHAT WENT WRONG (founder, prod 2026-08-01, build 6f7c9fd5). A boundary hand-drawn at Carrer de
+// la Diputació × Carrer de Roger de Llúria — the dead centre of the Eixample, clau `13a`, four
+// shipped Barcelona packs — rendered the `estimated-default` triple: front 3.0 m / side 1.5 m /
+// rear 3.0 m, FAR 2.00, coverage 50 %, badged `EST · zone generic-urban · no citation`. Selecting
+// the SAME block's Catastro parcel (refcat 0627603DF3802H) on the same build resolved clau 13a
+// from the MUC and refused honestly. Two answers, one piece of land.
+//
+// The badge was not the defect — the badge worked. The defect is that a *routing* failure
+// (`fetchQualificationAtPoint` returned null, which conflates a Generalitat outage, a non-200, a
+// non-JSON body and a genuine empty into one value) was converted into a NUMBER. §CONTEXT-DATA-
+// HONESTY, once more: an outage, a genuine empty and a resolved-but-unpacked zone are THREE
+// different answers, and none of them is 3.0 / 1.5 / 3.0.
+//
+// WHY A GENERIC ESTIMATE IS WORSE INSIDE A COVERED CITY THAN OUTSIDE ONE. Outside every
+// registered jurisdiction, `estimated-default` is an honest, badged approximation and PRYZM makes
+// no other claim about that land. Inside one, the same card contradicts a determination we can
+// make and, on *segons alineacions de vial* fabric like the Eixample, the setback triple is the
+// wrong geometric OPERATION, not an imprecise number (C58 §1.11) — it draws a volume spanning the
+// full plot depth on the most valuable land in Barcelona. The user cannot tell the two apart, so
+// the estimate silently overrides the refusal the same city would otherwise give them.
+//
+// ⇒ Inside a registered jurisdiction the estimated pack is UNREACHABLE, structurally, at the one
+// chokepoint that dispatches it (`applyEstimatedZoning` in `siteDispatch.ts`). This is what it
+// dispatches instead.
+//
+// ⚠ THE CODE IS `source-data-unavailable`, DELIBERATELY, AND THE OTHER FOUR WOULD EACH LIE:
+//   • a legally-grounded code (`public-system`, `derived-plan`, …) would assert an ordinance fact
+//     about someone's land that we have not established — the false negative L-553 ranks worst;
+//   • `no-rule-pack` would claim a coverage gap we do not have (Barcelona ships four packs);
+//   • `regime-undetermined` would claim we identified the zone and its two regimes — we did not
+//     identify the zone at all;
+//   • `no-plan-at-point` would assert the AUTHORITY answered "nothing published here". The
+//     provider cannot currently tell that apart from an outage, so asserting it would be a
+//     measurement we have not taken (see the WIRING TODO at the foot of this block).
+// `source-data-unavailable` is the honest residue: attempted, could not complete, retry may clear
+// it — and it is the only code whose retry affordance is not a lie.
+//
+// WIRING TODO (§L-663 follow-up, NOT this slice): `MucZoningProvider.fetchQualificationAtPoint`
+// returns `null` for a network error, a non-200, a non-JSON body AND an explicit `{zoning:null}`.
+// Splitting those into an outcome union would let this refusal say "the Generalitat's planning map
+// is not responding" vs "the planning map answers, and it publishes no qualification at this
+// point" — the second being `no-plan-at-point`. The provider is the right place to fix it; until
+// it is fixed, this card states only what we can prove.
+
+/**
+ * §L-663 — the refusal shown where the generic `estimated-default` triple used to be drawn inside
+ * a jurisdiction PRYZM has registered.
+ *
+ * Jurisdiction-agnostic BY DESIGN: it states no article, no zone and no number, so it cannot
+ * mis-cite any city's ordinance. Everything city-specific on the card comes from the registration
+ * itself (`displayName` + `answerSummary`, both read live from `listJurisdictionCoverage()`), so a
+ * newly-registered city gets a correct card with no edit here — the same "one statement of
+ * coverage" discipline the registry header requires.
+ *
+ * ⚠ It is a LAST RESORT, not a substitute for a city's own refusal. Every jurisdiction path that
+ * knows the zone must emit its own cited refusal (Barcelona's `no-rule-pack` / `derived-plan` /
+ * `source-data-unavailable` cards, etc.); this one exists only for the residue where the zone was
+ * never resolved, and its copy says exactly that rather than pretending to more.
+ *
+ * P8 — OTel span (`@opentelemetry/api` is already an L2 dependency of this package; `registry.ts`
+ * in this same directory sets the precedent). A span on a pure constructor is a no-op without an
+ * exporter, so the module's stated purity is unaffected.
+ */
+export function estimateSuppressedRefusal(opts: {
+    /** The registration's own `displayName`, e.g. `'Barcelona'`. Never a hand-typed city name. */
+    readonly jurisdictionDisplayName: string;
+    /** The registration's own `answerSummary` — what PRYZM may honestly promise at this city. */
+    readonly answerSummary?: string | null;
+    /** Short "label: value" facts already in hand. Facts only — never a constraint (L-553). */
+    readonly knownFacts?: readonly string[];
+}): EnvelopeRefusal {
+    const span = _tracer.startSpan('pryzm.zoning.estimateSuppressedRefusal');
+    try {
+        const city = opts.jurisdictionDisplayName.trim() || 'this jurisdiction';
+        span.setAttribute('pryzm.zoning.jurisdictionDisplayName', city);
+        const summary = opts.answerSummary?.trim();
+        return {
+            code: 'source-data-unavailable',
+            // Rule 1 (L-553) — open with what we DO know: we cover this land, and we could not
+            // finish. Naming the city is the fastest proof this is missing data, not a crash.
+            headline:
+                `${city} — PRYZM could not determine the planning zone for this parcel.`,
+            detail:
+                `PRYZM holds ${city}'s building rules and would normally answer here, but the ` +
+                'planning-map lookup did not return a zone for this boundary, so there is no ' +
+                'ordinance to apply. ' +
+                // The sentence that makes the suppression legible, and the whole point of §L-663.
+                'Rather than fall back to a generic front/side/rear estimate, we are showing you ' +
+                'nothing: inside a city we cover, a generic figure is indistinguishable on screen ' +
+                'from a real determination, and for street-aligned fabric it is the wrong SHAPE ' +
+                'rather than an imprecise number. ' +
+                'This is a data-availability problem on our side, not a limit on your land, and it ' +
+                'is usually temporary — retrying, or selecting the cadastral parcel instead of ' +
+                'drawing the boundary by hand, often resolves it.' +
+                (summary ? ` What PRYZM can answer here: ${summary}` : ''),
+            // NOT an ordinance citation. Nothing about the law failed; our data path did. Citing an
+            // article for it would be the L-526 error.
+            ordinanceRef: null,
+            // A statement about PRYZM's data path, never about the law.
+            legallyGrounded: false,
+            knownFacts: [...(opts.knownFacts ?? [])],
+        };
+    } finally {
+        span.end();
+    }
 }
