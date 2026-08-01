@@ -82,6 +82,31 @@ plate infeasible: core leaves no room for an inner circulation ring"), so nothin
 residential building never hard-rejects (it degrades: "N units didn't fit" but still emits a
 building). Decision: the office matches that posture.
 
+> ⚠ **KNOWN VIOLATION — CORRECTION OF RECORD (L-669, 2026-08-01). The premise in the paragraph
+> above was FALSE when it was written, and this ADR's office decision rests on it.**
+>
+> "The residential building never hard-rejects (it degrades…)" is not what the engine did.
+> `orchestrateResidentialBuilding` returns `{status:'rejected'}` — a HARD refusal, nothing built —
+> whenever a level's partition places zero apartments. The founder hit exactly that on a 674 m²
+> plot on 2026-08-01, and on a ~352 m² plot on 2026-06-24 before that. Measured pre-fix: a
+> 16 × 45 m (720 m²) plate REFUSED while a 16.5 × 16.5 m (272 m²) plate built.
+>
+> The office typology was therefore given its clamp-up-and-always-build posture by analogy with a
+> behaviour residential did not have. That is not a reason to revert §OFFICE-PLATE-AUTOFIT — the
+> posture may still be right on its own merits — but the JUSTIFICATION must be re-argued rather
+> than inherited, and the two typologies should not be assumed to agree.
+>
+> **Since L-669 (`8094c3fb`)** residential degrades further before refusing (§RESI-NARROW-PLATE-SIDE-CORE
+> falls back to a side-core single-loaded plan, dropping the derived plate-width floor from 19.6 m
+> to 11.1 m), but it still **hard-rejects below that floor by design** — and deliberately so: a
+> plate that cannot hold a core plus one apartment run must refuse rather than emit ribbons (the
+> §RESI-NARROW-PLATE-SIDE-CORE ribbon guard). So "always builds" is NOT, and should not become,
+> the residential contract.
+>
+> **Status: OPEN — needs an ADR owner.** Either amend this section to argue the office posture on
+> its own terms, or supersede it. Tracked as **L-669**; see also **L-671** (no contract requires a
+> refusal to name the constraint the engine actually evaluated).
+
 - `generateOfficeFloorPlate` (`packages/ai-host/.../officeFloorPlate.ts`) no longer rejects a
   too-small plate. It **clamps the radius UP** to a minimum sensible plate (`MIN_BUILD_RADIUS_M =
   10 m`) and **shrinks the core fraction** (floor `MIN_CORE_FRACTION = 0.10`) so the inner

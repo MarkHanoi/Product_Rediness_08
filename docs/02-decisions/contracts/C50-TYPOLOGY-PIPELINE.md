@@ -467,5 +467,66 @@ Backwards compatibility: the legacy `window.pryzmGenerateApartmentLayout()` cons
 
 ---
 
-> **Last reviewed**: 2026-06-01.
+## §14 — Known violations / coverage gaps
+
+> Recorded per the C31 logging protocol, so this contract does not silently keep claiming coverage
+> it does not have. Each row cites a `file:line` or a measured probe. **Neither item below is closed
+> by the code fix that surfaced it** — both need a contract-owner decision.
+
+### KV-1 (**L-671**) — §1.7 mandates soft-fail but does NOT constrain the `reason`, so a refusal may quote a threshold the engine never computed
+
+§1.7 requires pack/generative errors to fail soft (`{ok:false, reason}`) rather than throw. It is
+silent on **what `reason` must contain**, and silent on **what user-facing copy may add to it**.
+Nothing in this contract, in C53, or in any gate prevents the UI from inventing a feasibility number.
+
+**Measured instance (L-669, founder 2026-08-01).**
+`apps/editor/src/ui/residential-building/residentialError.ts:38` declared
+`RESIDENTIAL_MIN_PLATE_M2 = 400` — read by **no engine**, contradicted by **no test** — and rendered
+*"This plot (~674 m²) is too small… need roughly ≥400 m² of plate."* **674 > 400**: the message stated
+its own threshold and then violated it. Probing the real orchestrator showed the engine has **no
+plot-area gate at all** (a 16 × 45 m / 720 m² plate refused while a 16.5 × 16.5 m / 272 m² plate
+built), so the number did not merely drift — it measured a quantity the engine never evaluates.
+
+This is the §CONTEXT-DATA-HONESTY family (L-422 / L-457 / L-467 / L-469, "failure and empty are the
+same value") one layer up: here **refusal** and **a fabricated reason for refusal** are the same value
+to the user. The cost was concrete — a genuine engine defect sat behind a number that made the refusal
+look deliberate, so it survived two founder reports.
+
+**Proposed amendment (NOT applied):** extend §1.7 — *a soft-fail `reason` MUST carry the measured
+value AND the threshold of the constraint that actually bound, both sourced from the engine;
+user-facing copy MUST NOT introduce a numeric feasibility threshold that is not present in the
+`reason`.* Plus a `tools/ga-gate/` grep gate on `MIN_*`/`MAX_*` feasibility thresholds declared under
+`apps/editor/src/ui/**` and interpolated into copy. The pattern to copy is the L-669 fix: the engine
+emits both numbers in the reason and the UI parses them back out, so it cannot invent one.
+
+**Status: OPEN (L-671).** Code side of L-669 is `IMPLEMENTED — PENDING VERIFICATION` (`8094c3fb`).
+
+### KV-2 (**L-670**) — §5 governs the dispatch CALL but not the STEP ORDER around it, so the creation flow is un-contracted
+
+§5.1 enumerates what an L5 dispatch caller must do (construct a `PipelineInput`, call
+`router.dispatch(input)`, feed `result.commands` to `runBatch`, render the appropriate UI on
+`ok:false`). It says nothing about what the user must have **seen** before that call — so the sequence
+*parcel → envelope → GENERATE → typology setup → preview → build* is nowhere normative. C60 stops at
+parcel arrival (its own §8: the flow "is not yet reachable in the product"); C19 §1.3/§1.4 owns the
+boundary commit; C58 §1.8 owns that the envelope *constrains* generation, not the sequence; C06 owns
+z-index and no-overlap, not step order; C59 owns panes.
+
+**Paid twice.** The residential typology put its entire parameter surface *before* the generate opt-in
+(L-435, re-reported as L-668), and the OFFICE typology then copied that shape — ADR-0092
+§OFFICE-PREVIEW-STEP describes `renderOfficeProgramStep` as "the sibling of
+`renderResidentialProgramStep`". A wrong sequence propagated to a second typology because nothing
+declared the right one. Both were caught by a founder on live prod, not by a check.
+
+**Proposed amendment (NOT applied):** add to §5 a normative invariant — *a typology's parameter/setup
+surface MUST NOT precede the user's explicit opt-in to generate; the site (parcel + buildable
+envelope) MUST be visible at the moment of that opt-in* — plus a step-order table naming the shared
+seams, so a new typology inherits the sequence instead of re-deciding it. **Not a new contract:** C50
+already owns the typology pipeline and its UI surface.
+
+**Status: OPEN (L-670).** Code side of L-668 is `IMPLEMENTED — PENDING VERIFICATION` (`8094c3fb`).
+Both gaps are recorded in `docs/02-decisions/MISSING-CONTRACTS-AUDIT-2026-06-01.md`.
+
+---
+
+> **Last reviewed**: 2026-06-01 (§14 Known violations appended 2026-08-01 per L-669/L-670/L-671).
 > **Author**: PRYZM core platform.

@@ -864,3 +864,89 @@ do we schedule and compose a frame". Recommendation: fold into **C04 §RECOVERY*
 inside the render pipeline; a standalone contract would add a boundary with nothing on the other side of
 it). ⚠ Also fix the stale header citations in both source files as part of the ratifying pass — leaving
 them pointing at a phantom document is how this gap stayed invisible for a full architecture migration.
+
+## GAP (added 2026-08-01, via L-670, discovered while fixing L-668) — the typology CREATION-FLOW ORDERING is un-contracted
+
+**Discovered by:** the founder, twice. L-435 (2026-07-20) and again L-668 (2026-08-01): the residential
+"Set up your residential building" panel fires *before* the user has seen the parcel and envelope.
+Founder: *"It should be like the apartment / house workflow — the user should see first the PARCEL, then
+the ENVELOPE, then click GENERATE BUILDING, then this screen comes."*
+
+**The gap — a CLAUSE, not a whole contract.** The request is a *sequence* requirement, and there is
+nothing normative to check a sequence against. Verified across the suite:
+
+- **C60 — Site Entry & Jurisdiction Coverage** owns `world → country → city → parcel` globe navigation.
+  Its own §8 records that the flow "is not yet reachable in the product". It stops at parcel selection
+  and never reaches envelope → GENERATE → setup → preview → build.
+- **C19 §1.3/§1.4** owns the one-shot parcel-boundary commit; **C58 §1.8** owns that the envelope
+  *constrains* generation — the bounds, not the sequence.
+- **C50 §5.1** enumerates the L5 dispatch caller's responsibilities *inside* the router (construct a
+  `PipelineInput`, call `dispatch`, feed `result.commands` to `runBatch`, render on `ok:false`). It says
+  nothing about what the user must have SEEN before that call.
+- **C06** owns z-index and the no-overlap policy — explicitly where a surface stacks, not when it opens.
+  **C59** owns panes.
+
+The ordering the founder wants is written down only in
+`docs/03-execution/plans/onboarding-workflow-design-2026-06-03.md` §3.3 (*"location → GIS opens → draw
+boundary → (optional) program → create + generate"*), whose own status line reads **"PROPOSAL for founder
+review. No code yet."**, and in `residential-building-flow-parity-plan.md`. Neither is normative.
+
+⚠ **Do NOT read the L-593 closure as covering this.** That GAP was closed by C60 for *arrival at a
+parcel* — a strictly narrower claim than its heading ("SITE-ENTRY / onboarding navigation flow")
+suggests. Everything after the parcel exists is still ungoverned.
+
+**Why it matters (two paid instances, not a hypothetical).** Residential put its whole parameter surface
+on the wrong side of the opt-in (L-435 → L-668), and the OFFICE typology then *copied that shape* —
+ADR-0092 §OFFICE-PREVIEW-STEP describes `renderOfficeProgramStep` as "the sibling of
+`renderResidentialProgramStep`". A wrong sequence propagated to a second typology because nothing
+declared what the right one was. Both were caught by a founder on live prod, not by a check.
+
+**Proposed resolution (needs contract-owner decision — NOT applied this pass):**
+1. Add a normative invariant to **C50 §5**, beside the existing dispatch-caller duties: *a typology's
+   parameter/setup surface MUST NOT precede the user's explicit opt-in to generate; the site (parcel +
+   buildable envelope) MUST be visible at the moment of that opt-in.*
+2. Add a step-order table to the same section naming the shared seams (site → draw/select → confirm →
+   [typology setup] → preview → build) so a NEW typology inherits the sequence instead of re-deciding it.
+3. OPTIONAL — reconcile ADR-0092 §OFFICE-PREVIEW-STEP, which currently cites the residential (wrong-side)
+   shape as the pattern to copy.
+
+**Not a new contract.** C50 already owns the typology pipeline and its UI surface; a `C-CREATION-FLOW`
+would add a boundary with nothing on the other side of it. Owner: UNASSIGNED · target: TBD.
+
+## GAP (added 2026-08-01, via L-671, discovered while fixing L-669) — nothing requires a generator's REFUSAL to name the constraint the engine actually evaluated
+
+**Discovered by:** the founder, on the arithmetic. The residential modal read *"This plot (~674 m²) is
+too small… need roughly ≥400 m² of plate"* — **674 > 400**. A message that states its own threshold and
+then violates it.
+
+**The gap — a CLAUSE, not a whole contract.** `RESIDENTIAL_MIN_PLATE_M2 = 400` lived in
+`apps/editor/src/ui/residential-building/residentialError.ts`, was read by **no engine**, contradicted
+**no test**, and shipped a self-falsifying sentence for weeks. Measured against the real orchestrator,
+the engine has **no plot-area gate at all** — a 16 × 45 m (720 m²) plate refused while a 16.5 × 16.5 m
+(272 m²) plate built — so the number was not merely stale, it measured a quantity the engine never
+evaluates. Nothing in the suite prevents that:
+
+- **C50 §1.7** requires generative stages to fail SOFT (`{ok:false, reason}`) and never throw. It is
+  silent on what `reason` must CONTAIN, and silent on what the UI may add to it when rendering.
+- **C53** governs the generative engine, not its refusals.
+
+So a soft-fail may currently be rendered to the user against a threshold the failing code never computed,
+and no gate, test or contract notices.
+
+**Why it matters.** This is the §CONTEXT-DATA-HONESTY family (L-422 / L-457 / L-467 / L-469 — "failure
+and empty are the same value") one layer up: here, *refusal* and *a fabricated reason for refusal* are
+the same value to the user. The cost is not cosmetic — the founder could not tell whether the generator
+had a real limit or a wrong one, so a genuine engine defect (L-669) sat behind a number that made the
+refusal look deliberate.
+
+**Proposed resolution (needs contract-owner decision — NOT applied this pass):**
+1. Extend **C50 §1.7**: *a soft-fail `reason` MUST carry the measured value AND the threshold of the
+   constraint that actually bound, both sourced from the engine; user-facing copy MUST NOT introduce a
+   numeric feasibility threshold that is not present in the `reason`.*
+2. Add a CI grep gate in `tools/ga-gate/` failing on a `MIN_*`/`MAX_*` numeric feasibility threshold
+   declared under `apps/editor/src/ui/**` and interpolated into user-facing copy. Mirrors
+   `check:commandmanager`; ~½ day including an allowlist for layout/style constants.
+3. The pattern to copy is the L-669 fix itself: the engine emits both numbers in the reason, and the UI
+   *parses them back out* rather than declaring any of its own — structurally unable to invent one.
+
+**Not a new contract.** C50 already owns generative soft-fail semantics. Owner: UNASSIGNED · target: TBD.
