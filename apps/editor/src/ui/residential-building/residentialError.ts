@@ -33,9 +33,26 @@ export function polygonAreaM2(ring: ReadonlyArray<{ x: number; z: number }>): nu
     return Math.abs(a) / 2;
 }
 
-/** Rough minimum plate for a multi-family core + corridor + apartments (m²).
- *  Surfaced in the "too small" guidance copy. */
-export const RESIDENTIAL_MIN_PLATE_M2 = 400;
+// §RESI-REFUSAL-TRUE (founder 2026-08-01: "why is a plot of 674 m² too small? What is the ceiling?")
+//
+// THE DEFECT. This module used to carry `RESIDENTIAL_MIN_PLATE_M2 = 400` — a number INVENTED here,
+// matching NO constant in the generator (the engine's own per-apartment floor is 72 m², and the
+// engine has NO plot-area gate at all). The "too small" copy then quoted the user's PLOT area
+// against that fabricated PLATE threshold, producing a message that stated its own threshold and
+// then violated it: "This plot (~674 m²) is too small … need roughly ≥400 m² of plate."
+//
+// THE TRUTH (measured against the real engine). The binding quantity is the plate's SHORT SIDE, not
+// its area: a 16 m × 45 m (720 m²) plate refuses while a 16.5 m × 16.5 m (272 m²) plate builds. So
+// NO plot area may ever be quoted as a feasibility threshold.
+//
+// THE RULE THIS MODULE NOW FOLLOWS: **quote only what the engine emitted.** The orchestrator derives
+// `MIN_PLATE_WIDTH_M` from its own constants and puts BOTH the measured plate width AND that
+// threshold into the reject reason; this module parses them back out. It declares NO feasibility
+// number of its own, so it is structurally incapable of repeating the `RESIDENTIAL_MIN_PLATE_M2`
+// mistake — if the engine did not measure it, the user is not told it. (This also keeps the module
+// PURE, as its header promises: a value import of the `@pryzm/ai-host` barrel would drag the whole
+// AI host into the editor's first-paint chunk and break its plain-Node unit tests. Every ai-host
+// import in this folder's pure modules is type-only for exactly that reason.)
 
 /** A friendly, palette-neutral description of a reject reason. */
 export interface FriendlyResidentialError {
@@ -46,7 +63,22 @@ export interface FriendlyResidentialError {
     /** What the user can do about it (actionable). */
     readonly guidance: string;
     /** Coarse kind — drives which icon/copy + lets tests assert the branch taken. */
-    readonly kind: 'too-small' | 'degenerate' | 'core-too-large' | 'generic';
+    readonly kind: 'too-narrow' | 'too-small' | 'degenerate' | 'core-too-large' | 'generic';
+}
+
+/** Pull the MEASURED plate short side (m) out of the orchestrator's "too narrow" reason. */
+function parsePlateWidthM(reason: string): number | undefined {
+    const m = /measures\s+([\d.]+)\s*m\s+across its short side/i.exec(reason);
+    const n = m ? Number(m[1]) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+/** Pull the engine's DERIVED minimum plate width (m) out of the same reason. Returns `undefined`
+ *  when the engine did not state one — in which case the copy states none either. */
+function parseMinPlateWidthM(reason: string): number | undefined {
+    const m = /needs at least\s+([\d.]+)\s*m/i.exec(reason);
+    const n = m ? Number(m[1]) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
 /**
@@ -63,14 +95,36 @@ export function friendlyResidentialError(
     const hasArea = typeof areaM2 === 'number' && isFinite(areaM2) && areaM2 > 0;
     const areaTxt = hasArea ? `~${Math.round(areaM2!)} m²` : 'this size';
 
-    // "level N partition placed zero apartments (core/corridor leave no usable band runs)"
-    // → the plate is too small to host a core + corridor + any apartment band.
+    // §RESI-REFUSAL-TRUE — "plate is too narrow: the buildable plate measures X m across its short
+    // side; a core + corridor + one apartment run needs at least Y m". The engine measured the plate
+    // and knows the derived threshold, so quote BOTH — never a plot area.
+    if (r.includes('too narrow')) {
+        const raw = String(reason ?? '');
+        const wM = parsePlateWidthM(raw);
+        const minM = parseMinPlateWidthM(raw);
+        const measured = wM !== undefined ? `measures ${wM} m` : 'is too narrow';
+        // The threshold sentence appears ONLY when the engine supplied the threshold.
+        const needs = minM !== undefined
+            ? ` A stair-and-lift core, a corridor and one run of apartments need at least ${minM} m of width.`
+            : '';
+        return {
+            kind: 'too-narrow',
+            title: 'This plot is too narrow for a residential building',
+            body: `The buildable plate ${measured} across its short side.${needs}`,
+            guidance: 'Width is the limit here, not area — a long thin plot of any size still can’t host a core plus an apartment beside it. Widen the boundary across its short side, or draw it on a wider part of the site.',
+        };
+    }
+
+    // "level N partition placed zero apartments on a W m × D m plate (…)" → the plate is wide enough
+    // in principle but this particular shape/brief placed nothing. Quote the plate, never the plot.
     if (r.includes('zero apartment') || r.includes('no usable band') || r.includes('too small')) {
+        const dims = /on a ([\d.]+) m × ([\d.]+) m plate/.exec(String(reason ?? ''));
+        const plateTxt = dims ? `${dims[1]} m × ${dims[2]} m` : 'this shape';
         return {
             kind: 'too-small',
-            title: "Can't build a residential building here",
-            body: `This plot (${areaTxt}) is too small for a multi-family building. A central core (stair + lift), a public corridor, and apartments on either side need room to fit.`,
-            guidance: `A core + corridor + apartments need roughly ≥${RESIDENTIAL_MIN_PLATE_M2} m² of plate. Draw a larger boundary, or reduce the core / corridor size in the inputs.`,
+            title: "Can't fit apartments on this plot",
+            body: `No apartment fits on the ${plateTxt} buildable plate with the floors and apartment sizes requested. A central core (stair + lift), a public corridor and an apartment run all have to fit across it.`,
+            guidance: 'Try a smaller minimum apartment size, fewer apartment types, or a boundary that is less elongated. The limit is the plate’s proportions, not its area.',
         };
     }
 

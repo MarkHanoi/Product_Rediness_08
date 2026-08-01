@@ -52,6 +52,7 @@ import {
 import {
     partitionLevelPlate,
     MAX_APARTMENT_DEPTH_M,
+    MAX_RECT_ASPECT,
     TYPOLOGY_AREA_BAND,
     type Typology,
     type ApartmentDemand,
@@ -106,20 +107,87 @@ const MIN_SIDE_RUN_M = 8.5;
  *  toward each façade — mirrors the per-cell engine's ~7.5 m comb-feasibility floor. */
 const MIN_BAND_DEPTH_M = 7.5;
 
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// §RESI-NARROW-PLATE-SIDE-CORE (founder 2026-08-01: "why is a plot of 674 m² too small? …
+// you could even build a resi building in a plot of 150 m²")
+//
+// THE MEASURED ROOT CAUSE — and why §RESI-SMALL-PLATE-CORE-SCALE (the 2026-06-24 fix for the
+// SAME founder report) could not close this class:
+//
+//   There is NO plot-AREA gate anywhere in this engine. The binding quantity is the plate's
+//   WIDTH (the X extent of the principal-axis plate). Sweeps over the real engine:
+//     • 16 m × 45 m  =  720 m² → REJECTED      • 16.5 m × 16.5 m = 272 m² → builds
+//   i.e. a 720 m² plate refuses while a 272 m² plate builds. Area is orthogonal to the gate.
+//
+//   MECHANISM. `platePartition` carves a vertical circulation SPINE at the core's X-centre out
+//   of EVERY apartment row (that spine is what links the horizontal corridor bands back to the
+//   core), so every row is split into TWO X-runs, one either side. A run narrower than an
+//   apartment's own area-floor width (`MIN_ENGINE_FEASIBLE_AREA_M2 / MAX_APARTMENT_DEPTH_M` =
+//   72 / 9 = 8 m) is SKIPPED. On a narrow plate both runs fall under that floor → zero cells.
+//
+//   WHY THE EARLIER FIX WAS INSUFFICIENT. `effectiveCoreSize` had exactly ONE lever — shrink the
+//   core — and NO fallback for when shrinking is not enough. It computed
+//   `wByRuns = plateW − 2·MIN_SIDE_RUN_M` and then took `max(MIN_CORE_DIM_M, min(req, wByRuns))`.
+//   Once `wByRuns < MIN_CORE_DIM_M` — i.e. once `plateW < 2·8.5 + 2.6 = 19.6 m` — the
+//   `MIN_CORE_DIM_M` FLOOR WINS and the two-usable-runs goal the function documents is SILENTLY
+//   ABANDONED: it returns a core it has already proven cannot leave usable runs, the partition
+//   places zero, and the orchestrator refuses. Shrinking the core further can never fix it (a
+//   real stair + lift has a floor), so no further tuning of that constant could ever close the
+//   class. The MISSING PIECE was an alternative ARRANGEMENT, not a smaller number.
+//
+//   THE FIX — the MISSING ARRANGEMENT, added as a FALLBACK (never as a new threshold). The centred
+//   arrangement is still attempted FIRST on every plate, so nothing that builds today changes. Only
+//   when it places zero apartments does the engine retry with the standard narrow-plot residential
+//   typology: a SIDE core (flush to one plate edge) serving a SINGLE-LOADED run of apartments. That
+//   needs only ONE run, so the buildable width floor drops from `2·MIN_SIDE_RUN_M + MIN_CORE_DIM_M`
+//   (19.6 m) to `MIN_CORE_DIM_M + MIN_SIDE_RUN_M` (11.1 m) — MEASURED: the founder's 674 m² narrow
+//   plate and a 12 × 12.5 m / 150 m² plot both build; an 11 m-wide plate of ANY area still refuses.
+//   R-CENTRE (the centred-core invariant, file header + audit §3.1) therefore holds on every plate
+//   that can host a centred core, and is relaxed ONLY where the alternative is refusing to build.
+// ─────────────────────────────────────────────────────────────────────────────────────────
+
+/** §RESI-NARROW-PLATE-SIDE-CORE — plate WIDTH (m) below which a CENTRED core can no longer reserve a
+ *  full `MIN_SIDE_RUN_M` apartment run on BOTH sides: `2 × MIN_SIDE_RUN_M + MIN_CORE_DIM_M` = 19.6 m.
+ *  ⚠ DOCUMENTARY ONLY — this is NOT a gate. The engine never switches arrangement on a width test; it
+ *  attempts the centred plan and falls back only when that plan actually places nothing (so plates in
+ *  the 16–19.6 m band, which do still build centred thanks to the partition's own smaller margins,
+ *  keep their double-loaded plan). Exported so tests and docs quote a derived number, never a guess. */
+export const MIN_CENTRED_CORE_PLATE_WIDTH_M = Math.round((2 * MIN_SIDE_RUN_M + MIN_CORE_DIM_M) * 1e4) / 1e4;
+
+/** §RESI-NARROW-PLATE-SIDE-CORE — the ABSOLUTE minimum buildable plate WIDTH (m). A SIDE core at its
+ *  functional minimum (a real stair + lift still fit) plus ONE apartment run wide enough to hold a
+ *  min-area apartment. DERIVED: `MIN_CORE_DIM_M + MIN_SIDE_RUN_M` = 2.6 + 8.5 = 11.1 m. Below this
+ *  NO core + corridor + apartment arrangement exists at ANY plate depth — so a refusal quoting this
+ *  threshold is TRUE, and it is the ONLY plate-size threshold the product may quote. */
+export const MIN_PLATE_WIDTH_M = Math.round((MIN_CORE_DIM_M + MIN_SIDE_RUN_M) * 1e4) / 1e4;
+
+/** How the core is arranged on this plate. `'centre'` is the R-CENTRE default (double-loaded, a run
+ *  either side); `'side'` is the narrow-plate single-loaded fallback (core flush to the x0 edge). */
+export type CorePlacementMode = 'centre' | 'side';
+
 /**
- * §RESI-SMALL-PLATE-CORE-SCALE — the EFFECTIVE core plan size for a plate. Scales the requested core
- * DOWN (never up) just enough that the apartment runs beside it (along X) stay ≥ `MIN_SIDE_RUN_M` and
- * the bands in front/behind it (along Z) stay ≥ `MIN_BAND_DEPTH_M`, floored at `MIN_CORE_DIM_M`. On a
- * plate large enough for the requested core this is the identity (returns the requested dims). Pure.
+ * §RESI-SMALL-PLATE-CORE-SCALE + §RESI-NARROW-PLATE-SIDE-CORE — the EFFECTIVE core plan size for a
+ * plate, under a given core ARRANGEMENT.
+ *
+ * Scales the requested core DOWN (never up) just enough that the apartment run(s) beside it (along X)
+ * stay ≥ `MIN_SIDE_RUN_M` and the bands in front/behind it (along Z) stay ≥ `MIN_BAND_DEPTH_M`,
+ * floored at `MIN_CORE_DIM_M`. On a plate large enough for the requested core this is the identity.
+ *
+ * `placement: 'centre'` reserves TWO runs (the R-CENTRE double-loaded default) and is BYTE-IDENTICAL
+ * to the pre-§RESI-NARROW-PLATE-SIDE-CORE behaviour. `placement: 'side'` reserves ONE run — the
+ * narrow-plot single-loaded arrangement, tried only after the centred attempt has actually failed.
+ * Pure + deterministic.
  */
 function effectiveCoreSize(
     plateW: number,
     plateD: number,
     coreWidthM: number,
     coreDepthM: number,
+    placement: CorePlacementMode,
 ): { coreWidthM: number; coreDepthM: number } {
-    const wByRuns = plateW - 2 * MIN_SIDE_RUN_M;          // max core width that still leaves usable side-runs
-    const dByBands = plateD - 2 * MIN_BAND_DEPTH_M;       // max core depth that still leaves usable bands
+    const runsReserved = placement === 'centre' ? 2 : 1;
+    const wByRuns = plateW - runsReserved * MIN_SIDE_RUN_M;  // max core width that still leaves usable run(s)
+    const dByBands = plateD - 2 * MIN_BAND_DEPTH_M;          // max core depth that still leaves usable bands
     const w = Math.max(MIN_CORE_DIM_M, Math.min(coreWidthM, wByRuns));
     const d = Math.max(MIN_CORE_DIM_M, Math.min(coreDepthM, dByBands));
     return { coreWidthM: round4(w), coreDepthM: round4(d) };
@@ -448,8 +516,15 @@ export function computeGroundFloor(
     core: Rect,
     corridorWidthM: number,
 ): GroundFloorDescriptor {
-    const coreCx = (core.x0 + core.x1) / 2;
-    const halfW = corridorWidthM / 2;
+    // §RESI-NARROW-PLATE-SIDE-CORE — the lobby is centred on the core's X-centre, but a SIDE core sits
+    // flush to the plate edge, so an un-clamped band of `corridorWidthM` would poke OUTSIDE the plate
+    // (and the entrance door with it). Clamp the band's X-centre so the full-width band stays inside
+    // the plate. A centred core is unaffected (the clamp is inactive).
+    const halfW = Math.min(corridorWidthM, rectWidth(plateBB)) / 2;
+    const coreCx = Math.min(
+        Math.max((core.x0 + core.x1) / 2, plateBB.x0 + halfW),
+        plateBB.x1 - halfW,
+    );
     // Distance from the core to each of the two Z-façades; the entrance goes on the nearer one.
     const distToZ0 = core.z0 - plateBB.z0;   // gap in front of the core (toward z0)
     const distToZ1 = plateBB.z1 - core.z1;   // gap behind the core (toward z1)
@@ -469,7 +544,54 @@ export function computeGroundFloor(
     return { lobby, entranceEdge, entranceCenter, entranceWidthM };
 }
 
+/**
+ * §RESI-NARROW-PLATE-SIDE-CORE — R-CENTRE FIRST, side core only as a genuine FALLBACK.
+ *
+ * The centred (double-loaded) arrangement is ALWAYS attempted first, so every plate that builds today
+ * builds identically — the fallback is reachable ONLY on a plate the engine would otherwise have
+ * REFUSED OUTRIGHT, and only when the refusal was a partition-capacity miss (not a degenerate
+ * footprint or an invalid brief, where a second attempt would just restate the same thing).
+ *
+ * If the fallback also fails, ITS refusal is the one surfaced: it is the more permissive attempt, so
+ * "even a single-loaded plan places nothing here" is the truthful statement of what was tried.
+ */
 function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialBuildingResult {
+    const centred = _orchestrateWith(input, 'centre');
+    if (centred.status === 'ok') return centred;
+    if (!centred.reason.includes('placed zero apartments')) return centred;
+
+    const side = _orchestrateWith(input, 'side');
+    if (side.status !== 'ok') return side;
+    // §RESI-NARROW-PLATE-SIDE-CORE — the fallback must not BUY a build with junk. A single-loaded run
+    // on a SHALLOW plate degenerates into ribbons: MEASURED, a 40 × 8 m plate yields 34.0 m × 3.6 m
+    // cells (9.4 : 1), which is not an apartment. The partition's own stated ceiling for a rectangular
+    // unit is `MAX_RECT_ASPECT` (3.5 : 1 — "the sane max aspect the founder set", §RESI-FILL-COREFLANK).
+    // If the single-loaded plan can only produce cells past that ceiling it has NOT found a building,
+    // so we surface the ORIGINAL refusal instead of emitting ribbons. A plate that refuses today and
+    // would only gain ribbons therefore keeps refusing — the fallback strictly adds real buildings.
+    if (!allCellsWithinAspectCeiling(side)) return centred;
+    return side;
+}
+
+/** §RESI-NARROW-PLATE-SIDE-CORE — true iff EVERY placed cell is within the engine's own rectangular
+ *  aspect ceiling. Pure; local (not exported) so it carries no separate span obligation (P8). */
+function allCellsWithinAspectCeiling(result: ResidentialBuildingOk): boolean {
+    for (const level of result.perLevelApartments) {
+        for (const apt of level.apartments) {
+            const w = rectWidth(apt.cell.rect);
+            const d = rectDepth(apt.cell.rect);
+            const shortSide = Math.min(w, d);
+            if (!(shortSide > 0)) return false;
+            if (Math.max(w, d) / shortSide > MAX_RECT_ASPECT + 1e-6) return false;
+        }
+    }
+    return true;
+}
+
+function _orchestrateWith(
+    input: ResidentialBuildingOrchestratorInput,
+    corePlacement: CorePlacementMode,
+): ResidentialBuildingResult {
     const {
         footprint: footprintWorld, upperLevels,
         coreWidthM: reqCoreWidthM, coreDepthM: reqCoreDepthM, corridorWidthM: reqCorridorWidthM,
@@ -529,7 +651,21 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
     // apartment runs/bands beside it stay usable (see `effectiveCoreSize`). A large plate keeps the
     // floored core EXACTLY. The containment check below uses the EFFECTIVE core, so a small plate that
     // can't hold the full clearance core builds a smaller point-block instead (graceful, not a reject).
-    const { coreWidthM, coreDepthM } = effectiveCoreSize(plateW, plateD, flooredCoreWidthM, flooredCoreDepthM);
+    // §RESI-NARROW-PLATE-SIDE-CORE — a TRUE refusal, stated in the quantity that actually binds.
+    // Below `MIN_PLATE_WIDTH_M` NO arrangement exists (not even a side core + one apartment run), so
+    // this refusal is sound at any plate depth or area. It names the MEASURED plate width and the
+    // DERIVED threshold — never a plot area against a plate threshold (the defect the founder hit:
+    // the old copy quoted "~674 m² < 400 m² of plate", which is both the wrong quantity and
+    // self-contradictory).
+    if (plateW < MIN_PLATE_WIDTH_M - 1e-6) {
+        return reject(
+            `plate is too narrow: the buildable plate measures ${round4(plateW)} m across its short ` +
+            `side; a core + corridor + one apartment run needs at least ${MIN_PLATE_WIDTH_M} m`,
+        );
+    }
+    const { coreWidthM, coreDepthM } = effectiveCoreSize(
+        plateW, plateD, flooredCoreWidthM, flooredCoreDepthM, corePlacement,
+    );
     if (coreWidthM >= plateW || coreDepthM >= plateD) {
         return reject('core does not fit inside the footprint');
     }
@@ -540,7 +676,12 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
     // ── R-CENTRE: place the core centred on the footprint centroid, identical XZ on
     // every level. This is the residential divergence from the house's worst-aspect
     // corner placement (see file header + audit §3.1).
-    let fcx = (bb.x0 + bb.x1) / 2;
+    // §RESI-NARROW-PLATE-SIDE-CORE — on a plate too narrow to double-load, the core sits FLUSH to the
+    // x0 plate edge (its outer face becomes a blind party wall) so the whole remaining width is ONE
+    // single-loaded apartment run, instead of two sub-feasible runs either side of a centred core.
+    let fcx = corePlacement === 'side'
+        ? bb.x0 + coreWidthM / 2
+        : (bb.x0 + bb.x1) / 2;
     let fcz = (bb.z0 + bb.z1) / 2;
     // §RESI-CORE-IN-BOUNDARY (founder 2026-06-29: an L-SHAPE plate filled only ~3 units, both wings
     // wasted) — on a CONCAVE plate the bbox CENTROID can fall in the NOTCH (the missing wing), so the
@@ -549,8 +690,15 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
     // it to the centre of the LARGEST axis-aligned sub-rectangle of the de-rotated footprint (the proven
     // rectilinear slab-sweep), clamped so the core fits inside that sub-rect. A convex/rectangular plate
     // keeps the bbox centroid EXACTLY (the check passes) → byte-identical. Pure + deterministic.
+    // §RESI-NARROW-PLATE-SIDE-CORE — probe the core's corners pulled 1 mm INSIDE the core rect. A core
+    // deliberately placed FLUSH to a straight plate edge (the side-core case) has corners exactly ON
+    // the boundary, where ray-casting point-in-polygon is undefined — so an un-inset probe would read
+    // "outside" and bounce the core back to a sub-rect centre, undoing the side placement. The inset is
+    // 1 mm against plates measured in metres, so a centred core on any real parcel is unaffected.
+    const CORE_PROBE_INSET_M = 1e-3;
     const coreFullyInside = (cx: number, cz: number): boolean => {
-        const hw = coreWidthM / 2, hd = coreDepthM / 2;
+        const hw = Math.max(0, coreWidthM / 2 - CORE_PROBE_INSET_M);
+        const hd = Math.max(0, coreDepthM / 2 - CORE_PROBE_INSET_M);
         return pointInPolygon(cx, cz, footprint) &&
             pointInPolygon(cx - hw, cz - hd, footprint) && pointInPolygon(cx + hw, cz - hd, footprint) &&
             pointInPolygon(cx + hw, cz + hd, footprint) && pointInPolygon(cx - hw, cz + hd, footprint);
@@ -762,8 +910,13 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
         if (!partition || partition.status !== 'ok') {
             // Surface the partition's REAL reason (no longer swallowed behind a fixed string), so
             // a genuine capacity miss on a too-small plate is diagnosable instead of misleading.
+            // §RESI-NARROW-PLATE-SIDE-CORE — carry the MEASURED plate dimensions so the product can
+            // quote the real limiting quantity. The engine has NO plot-area gate, so no plot area may
+            // ever be quoted against a plate threshold (that was the founder's self-contradictory
+            // "~674 m² … needs ≥400 m² of plate" message).
             return reject(
-                `level ${levelIndex} partition placed zero apartments` +
+                `level ${levelIndex} partition placed zero apartments on a ` +
+                `${round4(plateW)} m × ${round4(plateD)} m plate` +
                 (lastRejectReason ? ` (${lastRejectReason})` : ' (core/corridor leave no usable band runs)'),
             );
         }
@@ -865,7 +1018,8 @@ function _orchestrate(input: ResidentialBuildingOrchestratorInput): ResidentialB
     const apartmentsPerLevel = perLevelApartments.map((l) => l.apartments.length);
     const diagnostic =
         `§DIAG-RESI-ORCHESTRATE levels=${levels.length} ` +
-        `coreCentre=(${round4(fcx)},${round4(fcz)}) ` +
+        `coreCentre=(${round4(fcx)},${round4(fcz)}) corePlacement=${corePlacement} ` +
+        `plate=${round4(plateW)}x${round4(plateD)} ` +
         `rot=${round4(thetaRad)}rad pivot=(${round4(pivot.x)},${round4(pivot.z)}) ` +
         `apartmentsPerLevel=[${apartmentsPerLevel.join(',')}]`;
 

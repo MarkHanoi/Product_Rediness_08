@@ -23,6 +23,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     orchestrateResidentialBuilding,
+    MIN_PLATE_WIDTH_M,
     type ResidentialBuildingOrchestratorInput,
 } from '../src/workflows/residentialBuilding/residentialBuildingOrchestrator.js';
 import type { Pt } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
@@ -117,10 +118,23 @@ describe('§RESI-PARTITION-BBOX-PLATE — a LARGE plate places MANY apartments (
     });
 
     it('a genuinely TOO-SMALL plate still rejects (the fix does not mask real capacity misses)', () => {
-        // A 12×10 m plate (after core + corridor) cannot host a single ≥72 m² engine-feasible
-        // apartment → the packer/partition must still soft-fail.
-        const r = orchestrateResidentialBuilding(largeInput({ footprint: plate(12, 10) }));
+        // §RESI-NARROW-PLATE-SIDE-CORE (2026-08-01) — THIS TEST'S ORIGINAL CASE WAS FALSIFIED, and the
+        // premise corrected rather than the assertion loosened. It used to use a 12 × 10 m plate on the
+        // stated grounds that it "cannot host a single ≥72 m² engine-feasible apartment". Measured
+        // against the engine, that is simply untrue: with a SIDE core (3.5 m, flush to the x0 edge) the
+        // plate hosts one contained 9.85 m × 10.0 m ≈ 98.5 m² apartment that the per-cell engine lays
+        // out — it only refused because the orchestrator had no arrangement other than a centred core.
+        // The refusal was therefore FALSE, which is precisely the founder's 674 m² complaint.
+        //
+        // A 9 × 10 m plate IS genuinely infeasible and always will be: 9 m of width cannot hold a
+        // functional stair-and-lift core (MIN_CORE_DIM_M 2.6 m) plus an apartment run beside it
+        // (MIN_SIDE_RUN_M 8.5 m) — 2.6 + 8.5 = 11.1 m = MIN_PLATE_WIDTH_M. So this still soft-fails,
+        // and the reason now names the quantity that actually binds.
+        const r = orchestrateResidentialBuilding(largeInput({ footprint: plate(9, 10) }));
         expect(r.status).toBe('rejected');
+        if (r.status !== 'rejected') return;
+        expect(r.reason).toContain('too narrow');
+        expect(r.reason).toContain(String(MIN_PLATE_WIDTH_M));
     });
 
     it('is deterministic on the large plate — same input twice → identical output', { timeout: 60_000 }, () => {

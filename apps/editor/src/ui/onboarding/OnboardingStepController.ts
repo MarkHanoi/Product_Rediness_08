@@ -1125,10 +1125,25 @@ export class OnboardingStepController {
         // confirm we render a compact PROGRAM panel here (prefilled with the founder
         // defaults: 5 floors, 60–100 m², T2+T3) so the flow still runs on a click-through
         // but the user can change every value before the preview/build reflects it.
-        if (this.typologyId === 'residential-multifamily') {
-            this.renderResidentialProgramStep(source);
-            return;
-        }
+        // §RESI-SETUP-AFTER-GENERATE (founder 2026-08-01, re-escalating L-435: "I don't need the
+        // massive window for building residential at this stage. It should be like the apartment /
+        // house workflow — the user should see first the PARCEL, then the ENVELOPE, then click
+        // GENERATE BUILDING, then this screen comes.")
+        //
+        // The residential branch used to REPLACE the confirm card with the full-screen landscape
+        // setup panel (levels · min/max apartment area · T1–T4 mix · roof · ground floor · balconies ·
+        // façade colour). That front-loaded a long parameter form on a user who has not yet seen what
+        // they are building on, and it demoted the L-424 "I'll design it myself" path — a first-class
+        // outcome — to a footnote under a form they never asked for.
+        //
+        // The apartment and house typologies already do this the right way round: a COMPACT,
+        // NON-BLOCKING confirm card over the live parcel + envelope ("Generate your X with AI?" /
+        // "Not now — I'll design it myself"), with every parameter surface deferred until AFTER the
+        // user has opted in. Residential now travels that SAME path — `renderResidentialProgramStep`
+        // is reached only from the Generate button below, never before it. No third flow is invented:
+        // the compact card is the existing generic one, and the setup panel is unchanged apart from
+        // WHEN it opens.
+        const deferToResidentialSetup = this.typologyId === 'residential-multifamily';
 
         // §OFFICE-PREVIEW-STEP (founder 2026-06-30) — the office tower earns its own SETUP
         // step (like the residential building): adjustable stories / floor-to-floor / radius
@@ -1188,6 +1203,14 @@ export class OnboardingStepController {
         body.appendChild(actions);
 
         generate.addEventListener('click', () => {
+            // §RESI-SETUP-AFTER-GENERATE — residential opens its SETUP panel here, AFTER the user has
+            // seen the parcel + envelope and explicitly asked to generate. Every other typology goes
+            // straight to the generator, exactly as before.
+            if (deferToResidentialSetup) {
+                console.log('[onboarding-step] confirm → GENERATE BUILDING — opening the residential setup step.');
+                this.renderResidentialProgramStep(source);
+                return;
+            }
             console.log('[onboarding-step] confirm → GENERATE (AI dispatch).');
             this.overlay?.classList.remove('os-onboarding-overlay--confirm');
             void this.generateAndFinish();
@@ -1450,13 +1473,19 @@ export class OnboardingStepController {
         notNow.className = 'os-btn os-btn--ghost';
         notNow.setAttribute('data-testid', 'onboarding-resi-notnow');
         notNow.textContent = `Not now — I'll design it myself`;
-        // §L-384 — BACK to re-draw / plot choice (clear-then-recreate of the C19 boundary).
+        // §RESI-SETUP-AFTER-GENERATE — this panel now sits AFTER the confirm card, so BACK returns to
+        // that card (parcel + envelope still on screen) instead of discarding the drawn boundary and
+        // dropping the user back into the draw tool. Re-drawing is still one more click from there
+        // (the confirm card keeps its own §L-384 "Back to drawing").
         const back = document.createElement('button');
         back.type = 'button';
         back.className = 'os-btn os-btn--ghost';
         back.setAttribute('data-testid', 'onboarding-resi-back');
-        back.textContent = source === 'drawn' ? '← Back to drawing' : '← Back';
-        back.addEventListener('click', () => this.backFromConfirm(source));
+        back.textContent = '← Back';
+        back.addEventListener('click', () => {
+            this.overlay?.classList.remove('os-onboarding-overlay--resi');
+            this.renderGenerateConfirmStep(source);
+        });
         actions.appendChild(back);
         actions.appendChild(generate);
         actions.appendChild(notNow);

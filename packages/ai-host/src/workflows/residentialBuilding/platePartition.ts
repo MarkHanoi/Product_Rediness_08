@@ -211,7 +211,7 @@ const MIN_CELL_ASPECT = 0.6;
 /** Max aspect (long:short) for a RECTANGULAR mid-edge / core-flank unit. The frozen D-TGL engine lays
  *  out an elongated apartment well past square (rooms strung along the long axis); 3.5:1 is the sane
  *  ceiling the founder set ("rectangular is fine … respect a sane max aspect"). */
-const MAX_RECT_ASPECT = 3.5;
+export const MAX_RECT_ASPECT = 3.5;
 /** A core-flank pocket must be at least this deep (m) toward the façade to host a real apartment — the
  *  same engine-feasible floor the absorb/grid passes use. A shallower pocket stays empty (no sliver). */
 const COREFLANK_MIN_DEPTH_M = 7.5;
