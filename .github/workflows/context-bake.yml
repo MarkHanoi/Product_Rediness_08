@@ -37,6 +37,10 @@ on:
         description: 'Bake a single layer only (buildings | roads | water | parks | landuse). Blank = all.'
         type: string
         default: ''
+      region:
+        description: '§BAKE-BY-REGION — comma-separated regions (e.g. spain, or spain,denmark). Blank = ALL. ⚠ The published tileset contains ONLY the regions baked, and the R2 publish REPLACES it — so a scoped run + publish removes every other region from the map. Use with publish=false, or only for a deliberate replacement.'
+        type: string
+        default: ''
       publish:
         description: 'Upload the result to s3://pryzm-assets/tiles/. Untick to bake and only inspect the artifact.'
         type: boolean
@@ -54,7 +58,22 @@ jobs:
     # ~13 country extracts means ~10 GB of downloads (reclaimed as we go — see bake.mjs --keep-pbf)
     # plus a whole-Spain tippecanoe pass, so 180 gives the download + cold tippecanoe compile +
     # national tiling room without hanging all day.
-    timeout-minutes: 180
+    # §BAKE-TIMEOUT-RAISED 180 → 330 (2026-08-01). Run 30706761446 (`--layer buildings`, all 24
+    # regions) was CANCELLED by this timeout with tippecanoe at **99.9 %** on the national tiling.
+    # Every step after `Bake` — the measured-height gate, the artifact upload, the R2 publish — was
+    # SKIPPED, so ~4 hours produced ZERO published tiles and discarded height joins that had already
+    # SUCCEEDED (denmark 257,829 / 320,931 footprints stamped; koln 118,603 / 141,271).
+    #
+    # ⚠ WHY RAISING THIS IS THE RIGHT FIX AND `--region` IS NOT, for the PUBLISH path. Each layer is
+    # ONE global `.pmtiles` merged across every region, and the publish is an `aws s3 sync` that
+    # REPLACES it. A region-scoped run therefore publishes a tileset containing only that region,
+    # deleting the other 23 from the map. `--region` is the right tool for iteration, diagnosis and
+    # `publish=false` inspection; it is the wrong tool for shipping a subset.
+    #
+    # 330 leaves ~1.8× the observed shortfall as headroom while staying under GitHub's 360-minute
+    # hosted-runner ceiling. If a future run still times out here, the answer is NOT another raise —
+    # it is per-region artifacts merged before a single publish.
+    timeout-minutes: 330
     # ─────────────────────────────────────────────────────────────────────────
     # §HEIGHT-STAMP-BUDGET (L-659, 2026-08-01) — RAISE THE NODE HEAP FOR EVERY
     # STEP IN THIS JOB.
@@ -152,17 +171,23 @@ jobs:
       - name: Bake
         env:
           LAYER: ${{ inputs.layer }}
+          # §BAKE-BY-REGION — scope the run to a subset of REGIONS. Added after run 30706761446 was
+          # CANCELLED at the 180-minute timeout with tippecanoe at 99.9 % on the national tiling:
+          # every step after `Bake` was SKIPPED, so ~4 hours published nothing — including height
+          # joins that had already succeeded (denmark 257,829 and koln 118,603 footprints stamped).
+          REGION: ${{ inputs.region }}
           # DK Copenhagen REAL building heights: heightSources.mjs derives DHM nDSM (DSM−DTM) behind this
           # apikey. Absent → resolveHeights('copenhagen') returns `blocked` and the region keeps OSM
           # (honest 9 m default) — never a fabricated height. (Mirror of terrain-bake.yml's threading.)
           DATAFORDELER_API_KEY: ${{ secrets.DATAFORDELER_API_KEY }}
         run: |
           set -euo pipefail
-          if [ -n "$LAYER" ]; then
-            node tools/context-bake/bake.mjs --layer "$LAYER"
-          else
-            node tools/context-bake/bake.mjs
-          fi
+          # §BAKE-BY-REGION — build the arg list so `layer` and `region` compose independently.
+          ARGS=()
+          if [ -n "$LAYER" ];  then ARGS+=(--layer "$LAYER");   fi
+          if [ -n "$REGION" ]; then ARGS+=(--region "$REGION"); fi
+          echo "▶ bake args: ${ARGS[*]:-<none — full bake>}"
+          node tools/context-bake/bake.mjs "${ARGS[@]}"
 
       - name: Assert the tiles are real
         run: |

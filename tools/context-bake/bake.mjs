@@ -55,7 +55,10 @@ const OUT = resolve(HERE, 'out');
 // download (keyed by `pbf` path). ⚠ CI disk/time: each extract is downloaded then clipped small;
 // ~3 Spanish comunidades fit the runner's envelope. If this list grows past a handful of large
 // countries, switch the workflow to bake per-region and `aws s3 sync` incrementally.
-const REGIONS = [
+// ⚠ §BAKE-BY-REGION — this is the FULL list; the run's actual set is `REGIONS`, computed from
+// `--region` after the args block below. Read `REGIONS`, never `ALL_REGIONS`, anywhere that asks
+// "what is this run baking?" — the two differ exactly when the operator scoped the run.
+const ALL_REGIONS = [
   {
     // L-607 — WHOLE SPAIN (national), founder-chosen 2026-07-24. Geofabrik's Spain extract is one
     // ~1.3 GB pbf; tiled whole it is ~1–2.5 GB of PMTiles across the four layers — comfortably under
@@ -273,6 +276,61 @@ const CHECK = args.includes('--check');
 const DRY = args.includes('--dry-run');
 const ONE = args.includes('--layer') ? args[args.indexOf('--layer') + 1] : null;
 const layers = ONE ? LAYERS.filter((l) => l.id === ONE) : LAYERS;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §BAKE-BY-REGION (2026-08-01) — `--region <a,b,c>`: bake a SUBSET of REGIONS.
+//
+// WHY THIS EXISTS, measured rather than assumed. Run 30706761446 (`--layer buildings`, whole world)
+// was CANCELLED at the 180-minute job timeout with tippecanoe at **99.9 %** on the national tiling.
+// Everything after `Bake` — the measured-height gate, the artifact upload, the R2 publish — was
+// SKIPPED, so ~4 hours produced ZERO published tiles. The work was essentially done and thrown away
+// at the last step.
+//
+// ⚠ AND THE LOSS WAS REAL, NOT HYPOTHETICAL: that same run's height joins had ALREADY SUCCEEDED —
+// denmark stamped 257,829/320,931 footprints and koln 118,603/141,271 — and every one of those
+// measured heights died with the job.
+//
+// `--layer` was the only existing scope lever and it was already at its narrowest (`buildings`).
+// The bake is a LOOP OVER REGIONS, so the region axis is the one that actually divides the work:
+// a per-country run publishes in minutes instead of racing a timeout across the whole planet.
+//
+// ⚠ PARTIAL-PUBLISH SEMANTICS — READ BEFORE USING. The R2 publish is an `aws s3 sync` of
+// `tools/context-bake/out`, and each layer is ONE global `.pmtiles` file, NOT one per region. A
+// region-scoped run therefore produces a tileset containing ONLY those regions, and syncing it
+// REPLACES the published one. That is correct for a rebuild sequence, and WRONG as a casual partial
+// run: baking `--region spain` alone and publishing would delete Köln and Copenhagen from the map.
+// Sequence per-region runs and publish only the final, complete artifact — or accept the replacement
+// deliberately. The measured-height gate still applies to whatever subset ran.
+const REGION_FILTER = (() => {
+  const i = args.indexOf('--region');
+  if (i < 0) return null;
+  const raw = args[i + 1];
+  if (!raw || raw.startsWith('--')) {
+    console.error('✖ --region needs a value, e.g. --region spain or --region spain,denmark');
+    process.exit(2);
+  }
+  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+})();
+
+/** The regions THIS run bakes. Unfiltered ⇒ every region, i.e. byte-identical to the old behaviour. */
+const REGIONS = (() => {
+  if (!REGION_FILTER) return ALL_REGIONS;
+  const known = new Set(ALL_REGIONS.map((r) => r.name));
+  // ⚠ FAIL LOUD ON A TYPO. A silently-empty region set would bake nothing, publish an EMPTY tileset
+  // over the good one, and report success — the §SIZE-IS-NOT-PROVENANCE failure with a new cause.
+  const unknown = REGION_FILTER.filter((n) => !known.has(n));
+  if (unknown.length > 0) {
+    console.error(`✖ --region: unknown region(s) [${unknown.join(', ')}].`);
+    console.error(`  known: ${[...known].join(', ')}`);
+    process.exit(2);
+  }
+  const picked = ALL_REGIONS.filter((r) => REGION_FILTER.includes(r.name));
+  console.log(`▶ §BAKE-BY-REGION — scoped to ${picked.length}/${ALL_REGIONS.length} region(s): ${picked.map((r) => r.name).join(', ')}`);
+  console.log('  ⚠ the published tileset will contain ONLY these regions (one global .pmtiles per layer,');
+  console.log('    and the R2 publish is an s3 sync that REPLACES it). Do not publish a partial run unless');
+  console.log('    you intend to replace the whole map with this subset.');
+  return picked;
+})();
 // §MEASURED-HEIGHT-GATE (L-658) — escape hatch for the gate below. Use ONLY when you deliberately
 // want a tileset with no measured heights (e.g. bisecting a bake); never in CI.
 const ALLOW_UNMEASURED = args.includes('--allow-unmeasured');
@@ -487,6 +545,10 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
       // raster service refused every request" from "our join is broken". They are different failures
       // with different owners, and collapsing them is the §CONTEXT-DATA-HONESTY mistake one level up.
       tilesProcessed: res.tilesProcessed ?? 0, tileErrors: res.tileErrors ?? 0,
+      // §ABORT-IS-NOT-A-CAP — a join that THREW mid-sweep still returns `ok` with whatever it
+      // stamped, so without this the gate below sees `measuredCount > 0` and passes it green. That
+      // is how Spain shipped 16 tiles of heights while reporting a benign 20,000-tile cap.
+      sweepAborted: res.sweepAborted === true, sweepAbortReason: res.sweepAbortReason ?? null,
       retainedFootprints: res.retainedFootprints ?? null, passedThroughFootprints: res.passedThroughFootprints ?? null,
       peakHeapUsedMB: res.peakHeapUsedMB ?? null,
     });
@@ -736,6 +798,17 @@ function assertMeasuredHeights() {
   for (const o of okd) {
     const held = o.retainedFootprints != null ? ` [held ${o.retainedFootprints}, passed through ${o.passedThroughFootprints}, peak heap ${o.peakHeapUsedMB} MB]` : '';
     console.log(`  ✔ ${o.region} (${o.join}): ${o.measuredCount}/${o.footprintCount} footprint(s) measured${held}`);
+  }
+  // §ABORT-IS-NOT-A-CAP — surfaced SEPARATELY and after the ✔ lines, because these regions DID
+  // measure something and so pass the gate. The point is that their coverage is a FAILURE ARTEFACT,
+  // not a scope decision: whatever fraction they report, the sweep did not finish. Silence here is
+  // what let Spain's 5 % (16 tiles, join threw) read as normal beside Denmark's 80 % (149 tiles).
+  const aborted = heightJoinOutcomes.filter((o) => o.sweepAborted);
+  for (const o of aborted) {
+    console.error(
+      `  ⚠ ${o.region} (${o.join}): SWEEP ABORTED after ${o.tilesProcessed} tile(s) — ${o.sweepAbortReason ?? 'no reason captured'}.\n` +
+      `      It stamped ${o.measuredCount}/${o.footprintCount} and therefore PASSES the gate, but its coverage is\n` +
+      `      truncated by an ERROR, not by a budget. Re-run this region before trusting its heights.`);
   }
   for (const o of blocked) {
     const why = o.status === 'blocked' ? (o.reason ?? 'no reason given')

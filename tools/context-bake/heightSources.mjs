@@ -1706,6 +1706,8 @@ export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
   const buckets = bucketRecords(records, (r) => [cellIx(r.clon), cellIy(r.clat)]);
   const doneCells = new Set();
   let processedTiles = 0, tileErrors = 0, tileCapHit = false, priorityTiles = 0;
+  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from `tileCapHit` on purpose. See the catch below.
+  let sweepAborted = false, sweepAbortReason = null;
   const heights = [];
   // Fetch the MDS raster for ONE populated cell and stamp its footprints. `respectCap` (national
   // sweep) → returns true when the cap is hit so the caller breaks; priority cells pass false.
@@ -1756,8 +1758,20 @@ export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
     }
   } catch (err) {
     // Network cut mid-grid — write whatever we stamped so far (honest partial), never abort the bake.
-    tileCapHit = true;
-    void err;
+    //
+    // §ABORT-IS-NOT-A-CAP (2026-08-01). This used to set `tileCapHit = true`, so an ABORTED sweep
+    // reported itself as "maxTiles N cap hit — rest keep OSM". Measured in run 30706761446: the
+    // Spain MDS join stamped 21,457/431,256 footprints off **16 tiles** while announcing a
+    // **20,000**-tile cap — arithmetically impossible, because `tileCapHit` is otherwise only set
+    // when `processedTiles >= maxTiles`. The join had THROWN after 16 tiles and this line buried it;
+    // Denmark (149 tiles) and Köln (168) stamped ~80 % in the same run, so Spain's 5 % read as a
+    // scope decision rather than the failure it was.
+    //
+    // A CAP is a budget being respected. An ABORT is an error. Reporting the second as the first is
+    // §CONTEXT-DATA-HONESTY collapse (failure and empty are the SAME VALUE — the L-422/457/467/469
+    // family) turned on our own telemetry, and it hid a real defect for an entire 4-hour run.
+    sweepAborted = true;
+    sweepAbortReason = String(err?.message ?? err);
   }
 
   // The pass-through footprints are ALREADY in outPath (written during the read). Append the retained
@@ -1771,7 +1785,7 @@ export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
     status: 'ok', outPath, count: read.parsed, footprintCount: records.length, measuredCount: measured,
     coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
     heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
-    tilesProcessed: processedTiles, priorityTiles, tileErrors, emptyTiles, tileCapHit, tileGrid: `${nx}×${ny}`,
+    tilesProcessed: processedTiles, priorityTiles, tileErrors, emptyTiles, tileCapHit, sweepAborted, sweepAbortReason, tileGrid: `${nx}×${ny}`,
     // §JOIN-BOUNDED-WORKING-SET counters — the P8-equivalent observability for a plain Node script.
     retainedFootprints: records.length, passedThroughFootprints: read.passedThrough,
     stampAreas: stampAreas.length, populatedCells: buckets.size,
@@ -1779,7 +1793,8 @@ export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
     note: `MDS Edificación stamped onto OSM footprints → ${measured}/${records.length} RETAINED footprint(s) got a MEASURED ` +
       `height (tagged); ${read.passedThrough} footprint(s) outside the ${stampAreas.length} stamp bbox(es) passed through with ` +
       `their original OSM tags; ${processedTiles} tile(s)${priorityTiles ? ` (${priorityTiles} in ${priorityBboxes.length} priority capital bbox(es) first)` : ''}, ` +
-      `${tileErrors} raster error(s)${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}; ` +
+      `${tileErrors} raster error(s)${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}` +
+      `${sweepAborted ? ` ⚠ SWEEP ABORTED after ${processedTiles} tile(s) — ${sweepAbortReason}; the rest keep OSM (this is a FAILURE, not a cap)` : ''}; ` +
       `peak heap ${read.peakHeapUsedMB} MB of ${read.heapLimitMB} MB.`,
   };
 }
@@ -1845,6 +1860,8 @@ export async function stampDhmHeightsOnGeojsonseq(inPath, outPath, bbox, {
   const cellIy = (Y) => Math.min(ny - 1, Math.max(0, Math.floor((Y - minN) / tileSpanM)));
   const buckets = bucketRecords(records, (r) => [cellIx(r.cx), cellIy(r.cy)]);
   let processedTiles = 0, tileErrors = 0, tileCapHit = false;
+  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from `tileCapHit` on purpose. See the catch below.
+  let sweepAborted = false, sweepAbortReason = null;
   const heights = [];
   try {
     // Visit ONLY populated cells (sorted → deterministic under the cap).
@@ -1872,7 +1889,7 @@ export async function stampDhmHeightsOnGeojsonseq(inPath, outPath, bbox, {
       }
       processedTiles++;
     }
-  } catch (err) { tileCapHit = true; void err; }
+  } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
 
   // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
   if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
@@ -1883,14 +1900,16 @@ export async function stampDhmHeightsOnGeojsonseq(inPath, outPath, bbox, {
     status: 'ok', outPath, count: read.parsed, footprintCount: records.length, measuredCount: measured,
     coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
     heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
-    tilesProcessed: processedTiles, tileErrors, emptyTiles, tileCapHit, tileGrid: `${nx}×${ny}`,
+    tilesProcessed: processedTiles, tileErrors, emptyTiles, tileCapHit, sweepAborted, sweepAbortReason, tileGrid: `${nx}×${ny}`,
     retainedFootprints: records.length, passedThroughFootprints: read.passedThrough,
     stampAreas: stampAreas.length, populatedCells: buckets.size,
     peakHeapUsedMB: read.peakHeapUsedMB, heapLimitMB: read.heapLimitMB,
     note: `DHM nDSM (P90 of dhm_overflade−dhm_terraen) stamped onto OSM footprints → ${measured}/${records.length} ` +
       `RETAINED footprint(s) got a MEASURED height (tagged); ${read.passedThrough} outside the ${stampAreas.length} stamp ` +
       `bbox(es) passed through untouched; ${processedTiles} tile(s), ${tileErrors} raster error(s)` +
-      `${tileCapHit ? ` (maxTiles ${maxTiles} cap hit)` : ''}; peak heap ${read.peakHeapUsedMB} MB of ${read.heapLimitMB} MB.`,
+      `${tileCapHit ? ` (maxTiles ${maxTiles} cap hit)` : ''}` +
+      `${sweepAborted ? ` ⚠ SWEEP ABORTED after ${processedTiles} tile(s) — ${sweepAbortReason}; the rest keep OSM (a FAILURE, not a cap)` : ''}` +
+      `; peak heap ${read.peakHeapUsedMB} MB of ${read.heapLimitMB} MB.`,
   };
 }
 
@@ -1938,6 +1957,8 @@ export async function stampSwissHeightsOnGeojsonseq(inPath, outPath, bbox, {
   const nx = Math.max(1, Math.ceil((e - w) / tileSpanDeg));
   const ny = Math.max(1, Math.ceil((n - s) / tileSpanDeg));
   let processedTiles = 0, tileErrors = 0, emptyTiles = 0, tileCapHit = false;
+  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from `tileCapHit` on purpose. See the catch below.
+  let sweepAborted = false, sweepAbortReason = null;
   const heights = [];
   try {
     outer:
@@ -1968,8 +1989,20 @@ export async function stampSwissHeightsOnGeojsonseq(inPath, outPath, bbox, {
     }
   } catch (err) {
     // Network cut mid-grid — write whatever we stamped so far (honest partial), never abort the bake.
-    tileCapHit = true;
-    void err;
+    //
+    // §ABORT-IS-NOT-A-CAP (2026-08-01). This used to set `tileCapHit = true`, so an ABORTED sweep
+    // reported itself as "maxTiles N cap hit — rest keep OSM". Measured in run 30706761446: the
+    // Spain MDS join stamped 21,457/431,256 footprints off **16 tiles** while announcing a
+    // **20,000**-tile cap — arithmetically impossible, because `tileCapHit` is otherwise only set
+    // when `processedTiles >= maxTiles`. The join had THROWN after 16 tiles and this line buried it;
+    // Denmark (149 tiles) and Köln (168) stamped ~80 % in the same run, so Spain's 5 % read as a
+    // scope decision rather than the failure it was.
+    //
+    // A CAP is a budget being respected. An ABORT is an error. Reporting the second as the first is
+    // §CONTEXT-DATA-HONESTY collapse (failure and empty are the SAME VALUE — the L-422/457/467/469
+    // family) turned on our own telemetry, and it hid a real defect for an entire 4-hour run.
+    sweepAborted = true;
+    sweepAbortReason = String(err?.message ?? err);
   }
 
   mkdirSync(dirname(outPath), { recursive: true });
@@ -1980,7 +2013,7 @@ export async function stampSwissHeightsOnGeojsonseq(inPath, outPath, bbox, {
     status: 'ok', outPath, count: feats.length, footprintCount: records.length, measuredCount: measured,
     coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
     heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
-    tilesProcessed: processedTiles, tileErrors, emptyTiles, tileCapHit, tileGrid: `${nx}×${ny}`,
+    tilesProcessed: processedTiles, tileErrors, emptyTiles, tileCapHit, sweepAborted, sweepAbortReason, tileGrid: `${nx}×${ny}`,
     note: `swisstopo nDSM (P90 of swissSURFACE3D−swissALTI3D) stamped onto OSM footprints → ${measured}/${records.length} ` +
       `footprint(s) got a MEASURED height (tagged); ${processedTiles} tile(s), ${tileErrors} raster error(s)${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}.`,
   };
@@ -2236,6 +2269,8 @@ export async function stampLod2NrwHeightsOnGeojsonseq(inPath, outPath, bbox, {
   const kN0 = Math.floor(Math.min(...ys) / NRW_TILE_M), kN1 = Math.floor(Math.max(...ys) / NRW_TILE_M);
 
   let processedTiles = 0, tileErrors = 0, emptyTiles = 0, tileCapHit = false;
+  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from `tileCapHit` on purpose. See the catch below.
+  let sweepAborted = false, sweepAbortReason = null;
   let matchedForward = 0, matchedReverse = 0, multiPartFootprints = 0, nrwBuildingsRead = 0;
   const tilesNotInIndex = [];
   const errorTiles = [];
@@ -2321,8 +2356,20 @@ export async function stampLod2NrwHeightsOnGeojsonseq(inPath, outPath, bbox, {
     }
   } catch (err) {
     // Network cut mid-grid — write whatever we stamped so far (honest partial), never abort the bake.
-    tileCapHit = true;
-    void err;
+    //
+    // §ABORT-IS-NOT-A-CAP (2026-08-01). This used to set `tileCapHit = true`, so an ABORTED sweep
+    // reported itself as "maxTiles N cap hit — rest keep OSM". Measured in run 30706761446: the
+    // Spain MDS join stamped 21,457/431,256 footprints off **16 tiles** while announcing a
+    // **20,000**-tile cap — arithmetically impossible, because `tileCapHit` is otherwise only set
+    // when `processedTiles >= maxTiles`. The join had THROWN after 16 tiles and this line buried it;
+    // Denmark (149 tiles) and Köln (168) stamped ~80 % in the same run, so Spain's 5 % read as a
+    // scope decision rather than the failure it was.
+    //
+    // A CAP is a budget being respected. An ABORT is an error. Reporting the second as the first is
+    // §CONTEXT-DATA-HONESTY collapse (failure and empty are the SAME VALUE — the L-422/457/467/469
+    // family) turned on our own telemetry, and it hid a real defect for an entire 4-hour run.
+    sweepAborted = true;
+    sweepAbortReason = String(err?.message ?? err);
   }
 
   mkdirSync(dirname(outPath), { recursive: true });
@@ -2354,7 +2401,8 @@ export async function stampLod2NrwHeightsOnGeojsonseq(inPath, outPath, bbox, {
       `multi-part), from ${nrwBuildingsRead} LoD2 building part(s) across ${processedTiles} Kachel(n)` +
       `${tileErrors ? `, ${tileErrors} tile error(s)` : ''}` +
       `${tilesNotInIndex.length ? `, ${tilesNotInIndex.length} Kachel(n) not in the NRW index (outside NRW)` : ''}` +
-      `${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}.`,
+      `${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}` +
+      `${sweepAborted ? ` ⚠ SWEEP ABORTED after ${processedTiles} tile(s) — ${sweepAbortReason}; the rest keep OSM (a FAILURE, not a cap)` : ''}.`,
   };
 }
 
