@@ -2,6 +2,33 @@
 
 <!-- generated-by: MANUAL C63-Phase-1-AUDIT 2026-07-30 (L-649 dossier normalization) — scorecard function not yet shipped (C63 §8); the three CHEAP axes (DATA-SOURCES · TERRAIN · CONTEXT) are cited-derived per C63 §8.1, every other axis is not-assessed with a typed C62 reason. NO cell is a fabricated number. -->
 
+> # ⏱ STATUS 2026-08-01 — distance to CLOSED
+>
+> **`OPEN` · 5 blocking gaps + 2 correctness risks.** Full table in [§CLOSURE](#closure--distance-to-closed-l-662).
+>
+> ### ✍ FOUNDER SIGNATURE GIVEN 2026-08-01 — clau 18 (L-449 gate)
+> **`BCN_REFOS_OV_CERTIFIED` signed.** Authorises an `explicit-area` envelope on the **26.4 %** of clau-18
+> land carrying an OV footprint with a parseable storey count, at `estimated-ruleset`, caveated with the
+> AMB Refós vintage. **Does NOT authorise** the other 73.6 % (they keep the cited Art. 306 refusal), any
+> other clau, or treating the metre height as sourced (`PLANTES` is a storey count converted via
+> Art. 327.2). **ENVELOPE 56.0 % → ~60.7 %** once applied.
+>
+> ### 📜 L-660 — the binding text is now IN THE REPO, and it confirms we ship the WRONG heights
+> **DOGC 4893 (29-05-2007) annex retrieved in full** + the RPUC signed *Text d'aprovació definitiva* —
+> `corpus/pdf/`. Tables **confirmed against the gazette, zero corrections**. Scope verbatim:
+> *«al terme municipal de Barcelona»* — whole municipality, no sector, **no transitional regime**.
+> **We ship the BASE table (8,55…23,80); the binding text says 9,00…25,75 for Barcelona.**
+> ⚠ Expedient corrected: `2007/028428` is **BADALONA's**; Barcelona's is **`2006/025790/B`**. Badalona's
+> instrument states **numerically identical** tables — *a figures-only check cannot tell them apart*,
+> which is why this error recurred three times. Both PDFs committed side by side.
+> **Awaiting a second founder signature to APPLY.** `BCN_ART327_MPGM_2007.applied === false`.
+>
+> ### The ceiling, stated once
+> **Barcelona's arithmetic maximum is ≈ 78 %**, not 100 %: LEGISLATION caps at ~48 % (**12.0** of 25 pts)
+> and ENVELOPE at ~70 % (**14.0** of 20). **≈19 of the 22 missing points are LAW, not effort.**
+> **CLOSED ≠ 100 %.** A city reporting 100 % would mean we had stopped being honest about what the
+> ordinance does not say.
+
 **Overall completion (assessed subset): `71%` · `partial: true`** — renormalised over the ASSESSED
 axes only (DATA-SOURCES · TERRAIN · CONTEXT); the missing axes (PARCEL · LEGISLATION · ENVELOPE ·
 HEIGHTS/LOD) are honestly `not-assessed`, not 0 % (C63 §1.2/§1.5). **`honestyOk: true`** (no fabricated
