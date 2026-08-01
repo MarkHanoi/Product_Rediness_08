@@ -1,13 +1,89 @@
 # Córdoba PGOU-2001 — the 15-ordinance OCR / VISION extraction + pilot-area resolution
 
-> **Stamp** 2026-07-23 · **Status** RESEARCH FINDINGS — machine-extracted, **NOT human-verified**.
+> **Stamp** 2026-07-23 · **RE-VERIFIED 2026-08-01** · **Status** RESEARCH FINDINGS.
 > **Governs nothing.** Every numeric value below is `pipeline-extracted-unverified` (the tier defined in
-> `docs/04-reference/standards/ORDINANCE-EXTRACTION-PIPELINE.md §3`): OCR/vision-read from a scanned PDF, gated by
-> the cheap auto-checks, and awaiting a human sign-off against the source crop. A wrong number here is
-> **our pipeline's error**, so it is marked unverified until a human confirms it (§CONTEXT-DATA-HONESTY).
+> `docs/04-reference/standards/ORDINANCE-EXTRACTION-PIPELINE.md §3`) until the founder signs
+> [`../sources/VERIFICATION.md`](../sources/VERIFICATION.md) §SIG-1 — the sign-off is a **legal act**, and
+> no machine pass substitutes for it (§CONTEXT-DATA-HONESTY).
 >
 > **Supersedes** the prior "numbers are in scanned PDFs, unextracted" state (`README.md`, `NEXT.md §3.1`).
 > The extraction is now done; verification and wiring are not.
+
+---
+
+## ⬆ 2026-08-01 — SECOND-PASS VERIFICATION AGAINST THE SOURCE (read this before §2)
+
+Every article cited in the pack was re-read from the publisher's own PDFs by an **independent second
+method**, because the traps below are real and were tested rather than assumed.
+
+**How, and why it had to be this way**
+
+| document | text layer | verdict |
+|---|---|---|
+| `O_PAS2` · `O_OA1` · `O_CTP1` · `O_MC` | **0 characters** | `extract_text()` returns **nothing** — any text-pull read of these would have been pure fabrication |
+| `O_UAD3` | 8 024 chars, fonts `CIDFont+F1…F4` | **subset CID fonts** — the digit-dropping / ±29 glyph-shift trap |
+
+⇒ **Every value below was read from a RENDERED RASTER** (`page.get_pixmap`, 160 dpi; 380–400 dpi crops
+for the three contested clauses). No number was taken from a text layer.
+
+**Document identity pinned (re-fetched 2026-08-01, HTTP 200 after 301 → HTTPS):**
+
+| file | bytes | md5 |
+|---|---:|---|
+| `O_PAS2.pdf` | 761 762 | `2318e173e5597417abf6b7a8a956614c` |
+| `O_OA1.pdf` | 525 909 | `daa64533b9c3594938ae6490d4c39e18` |
+| `O_UAD3.pdf` | 344 195 | `07452908790075d36970c72aaca23efa` |
+| `O_CTP1.pdf` | 3 156 020 | `a95f246a12e1bb8049b3ae9133f50e5f` |
+| `O_MC.pdf` | 1 243 005 | `6e391da0cc5a269d2ef97bac616262c5` |
+| `O_MC3.pdf` ≡ `O_MC4.pdf` | 1 243 005 | `8b7e5cf0a0c0820b5a581dcfca95e730` (**identical**) |
+| `O_UAD1.pdf` · `O_UAS1.pdf` | 69 | `75a5f3192d98343b18570f62ee57152a` (dead HTML, confirmed) |
+
+### RESULT — **13 of 13 subzones survived unchanged. Zero wrong values.**
+
+Every shipped number matches the source; every `null` is correctly a `null`. In particular
+**MC-3 = 3,50** is *correct* (verbatim, Art. 13.5.2.2) — the FAR range-gate flag was a false alarm about
+a real high-density subzone — and the **MC per-street-width height table (§2.5) is exact, band for band,
+for all four subzones.** Pinned in code by `packages/site-parcel-data/__tests__/esCordobaOcrVerification.test.ts`.
+
+### ⚠ THREE DEFECTS FOUND — none is a wrong shipped digit; two are in THIS document
+
+| # | Defect | Shipped value affected? |
+|---|---|---|
+| **D1** ⛔ | **UAD *profundidad máxima edificable* (Art. 13.9.3.3 — UAD-1 16 m · UAD-2 18 m · UAD-3 16 m) is stated in the source and ABSENT from the pack.** §2.3 records it; the pack carries no depth for UAD at all. For **UAD-3** (`front 0` + `side 0` party-wall + `rear 5 m`, **no depth band**) this is the **L-616 mechanism-A overstatement verbatim** — it would draw nearly the whole parcel. Latent only because UAD-3 binds 0.00 % of pilot land. **Blocking before UAD-3 may bind.** | **YES — an omission**, not a wrong number |
+| **D2** | **§2.4's CTP-1 ocupación step was mis-transcribed.** Source, verified at 400 dpi: *«Parcelas de hasta 100 m2, el 100%. Parcela de más de 100 m2 y menos de 125 m2, **100 m2**. Parcelas de más de 125 m2, el 80%.»* The middle band is an **absolute 100 m² cap, NOT 100 %**. Corrected in §2.4 below. | **No** — shipped `maxCoverage: 0.8` is the >125 m² value and is correct. But WIRING-TODO 6 implemented from the old text would over-state a 124 m² parcel by ~24 % |
+| **D3** | **MC's structural-refusal rationale was wrong.** The pack asserts MC states no *profundidad edificable*. Art. **13.5.2.4** states: *«Cuando este parámetro no venga expresamente fijado, se entenderá **libre**, con la única condición de que la ocupación del edificio en planta no podrá rebasar los límites … del apartado 5»* — depth is **unconstrained, bounded by coverage**, which the pack holds. MC's only real blocker is **height**. | **No** — the refusal outcome stays correct; but WIRING-TODO 6's "MC block-fondo geometry source" is **not required by the ordinance** |
+
+---
+
+## ⬆ 2026-08-01 — §4 IS SUPERSEDED: the "89 %" was structurally blind to DELEGATION
+
+§4 below counts parcels by ordenanza family. It never asks (a) whether a subzone can **bind**, (b)
+whether a later instrument **supersedes** the ordenanza, or (c) whether the bound subzone actually
+**renders**. Measured properly, against the **L-656 buildable-land denominator**:
+
+| | |
+|---|---:|
+| **Buildable land, COACo published pilot** | **1 850 780 m²** (`ordenanzas` 1 628 301 + `usos_globales` lucrative 222 479). Shoelace reproduces the publisher's `sup_m2` to **−0.019 %** |
+| **DELEGATED to a later instrument** | **≈ 50 %** — 169/453 ordenanzas polygons = 699 772 m² (**42.98 %** of direct-ordinance land: Plan Parcial 16.76 pp · Plan Especial 12.80 pp incl. PEPCH · PERI 4.90 pp · Estudio de Detalle 3.34 pp) **plus** 222 479 m² (12.02 pp) of `usos_globales`, **100 %** of which carries an `actuacion` |
+| **Full numeric envelope** | **≈ 16 %** (16.23 % link key / 15.94 % `et` key) |
+| **Any envelope (full + partial)** | **≈ 31 %** (31.20 % / 30.91 %) |
+| **Correctly refused** | **≈ 69 %** |
+
+⚠ **This is Córdoba's Murcia moment.** The delegation lives in a **separate layer**
+(`coaco:actuaciones`, attribute `instrumento`), so an `ordenanzas`-only census cannot see it — exactly
+the structure that forced the 41.4 pp Murcia `calificacion` retraction. **A cited refusal on delegated
+land is the correct answer, not a coverage gap.**
+
+**7 of the 13 registered subzones bind ZERO pilot land** (PAS-1 · PAS-3 · OA-2 · UAD-2 · UAD-3 · MC-1 ·
+MC-3). Only **OA-1 (14.33 %) · CTP-1 (14.97 %) · UAD-1 (1.26 %) · PAS-2 (0.64 %)** ever render; MC-2
+(13.88 %) and MC-4 (2.98 %) bind land but **refuse structurally** on the unresolved height table.
+
+**Subzone key** — the resolver parses the `O_*` link basename; the layer also carries `et`. Tested
+against each other: **262 polygons populate both — 262 AGREE, 0 DISAGREE**, and the two keys give
+ceilings within **0.3 pp**. Genuine dual-source corroboration of the *key*. ⚠ But the basename is not
+self-evidently a subzone marker — **each PDF is a whole family chapter** (`O_PAS2.pdf` contains PAS-1,
+PAS-2 *and* PAS-3). It works because COACo assigns it per polygon. Publisher documents neither field:
+`status: corroborated-by-attribute, finding: publisher-undocumented` (L-661).
 >
 > Confidence tags: **READ-CLEAN** = extracted from a legible source, passed all auto-gates ·
 > **FLAGGED** = extracted but routed to human by a gate (out-of-range / algorithm / attribution risk) ·
@@ -121,7 +197,7 @@ document contains all three subzones, so the 14 UAD-1 parcels are covered despit
 | retranqueo de fachada (front) | **4 m** | **5 m** | **0 (alineación a vial)** | 13.9.3.2 |
 | lateral (adosada) | **party-wall (medianera, 0)** | party-wall | party-wall | 13.9 (adosada) |
 | separación lindero fondo (rear) | **5 m** | **6 m** | **5 m** | 13.9.3.4 |
-| profundidad máx edificable | 16 m | 18 m | 16 m | 13.9.3.3 |
+| profundidad máx edificable | 16 m | 18 m | 16 m | 13.9.3.3 ⛔ **D1 — STATED HERE, ABSENT FROM THE PACK.** Verified 380 dpi 2026-08-01. Unguarded on UAD-3 (front 0 + side 0 + no depth band = L-616 mechanism A) |
 | parcela mínima | 180 m² | 300 m² | 160 m² | 13.9.2.1 |
 | fachada mínima | 6,5 m | 8 m | 6 m | 13.9.2.1 |
 | uso dominante | Residencial Unifamiliar (+ compat.) | | | 13.9.5 |
@@ -133,7 +209,7 @@ Low-rise traditional fabric — the **most common family by parcel** (52.9 %). F
 | field | CTP-1 | article | flag |
 |---|---|---|---|
 | edificabilidad neta | **null — DERIVED** *"El techo edificable será el resultante de la aplicación de las Normas de Composición"* | 13.8.2.3 | 🔴 algorithm |
-| ocupación máxima | **step-function of parcel size:** ≤100 m² → 100 %; 100–125 m² → 100 %; **>125 m² → 80 %** | 13.8.2.5 | approximation risk |
+| ocupación máxima | **step-function of parcel size:** ≤100 m² → **100 %**; >100 and <125 m² → **100 m² (an ABSOLUTE AREA CAP, not a percentage)**; **>125 m² → 80 %** | 13.8.2.5 | ⚠ **D2 — CORRECTED 2026-08-01** (400 dpi). This row previously read "100–125 m² → 100 %", which is **wrong**. Shipped `maxCoverage: 0.8` (the >125 m² value) is unaffected and correct |
 | altura / plantas | **PB+1 / 7 m** (cumbrera 9,75 m for attic) | 13.8.3.1 | READ-CLEAN |
 | profundidad máx edificable | **16 m** from vial alignment | 13.8.2.4 | READ-CLEAN |
 | alineación (front) | fachada **on the vial line** (0), except groups with front garden | 13.8.2.1 | READ-CLEAN |
@@ -151,7 +227,17 @@ Closed urban block — the largest family by area (27.2 %). Subzones MC-1/2/3/4.
 | altura / plantas | **per-street-width TABLE → null scalar** | table | table | table | 13.5.3.1 |
 | alineación (front) | vial line (0) | 0 | 0 | 0 | 13.5.2.3 |
 | parcela mínima | 150 m² | 150 m² | 500 m² | — | 13.5.2.1 |
+| **profundidad máx edificable** | **LIBRE** (unconstrained), bounded only by the ocupación of apdo. 5 | idem | idem | idem | **13.5.2.4** ⚠ **D3 — ADDED 2026-08-01** |
 | uso dominante | Residencial Plurifamiliar (+ compat.) | | | | 13.5.4 |
+
+⚠ **D3, verbatim (Art. 13.5.2.4, verified 380 dpi):** *«Cuando este parámetro no venga expresamente
+fijado, se entenderá **libre**, con la única condición de que la ocupación del edificio en planta no
+podrá rebasar los límites que se establecen en el apartado 5 siguiente.»* The pack's
+`CORDOBA_MC_FONDO_UNRESOLVED_RING` JSDoc asserts the opposite — that MC "states NO *profundidad
+edificable* we hold" — and uses that to justify the structural refusal. **The refusal outcome remains
+correct** (height really is an unresolved table), **but the reason is wrong**, and it mis-directs
+WIRING-TODO 6: the ordinance requires **no** MC block-fondo geometry source. MC needs the street-width
+height resolver **alone**.
 
 🔴 **MC-3 FAR 3,50 exceeds the range gate [0.2, 3.0]** → auto-gate routes it to a human. The read is
 confident (*"En MC-3 la edificabilidad neta será 3,50 m2/m2"*, top of p. 49) — a legitimate high-density

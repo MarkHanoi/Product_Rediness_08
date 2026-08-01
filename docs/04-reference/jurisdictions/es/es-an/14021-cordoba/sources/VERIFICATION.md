@@ -3,128 +3,223 @@
 > **The L-449 gate.** Transcribing an ordinance into a buildability engine is a **legal act**, not an
 > engineering one. This file records **who signed what, when, against which document** — and, just as
 > importantly, **what each signature does NOT authorise**. Shape follows
-> [`../../../es-ct/08019-barcelona/sources/VERIFICATION.md`](../../../es-ct/08019-barcelona/sources/VERIFICATION.md).
+> [`../../../es-ct/08019-barcelona/sources/VERIFICATION.md`](../../../es-ct/08019-barcelona/sources/VERIFICATION.md)
+> (SIG-2 / SIG-3).
 >
 > **Signing a SOURCE ≠ certifying its NUMBERS.** Keep the two gates separate.
 
 ---
 
-## Sign-off status: **NOT SIGNED.** ⚠ The pack is nevertheless **REGISTERED** — read §SIG-1 before assuming that is a defect
+## Sign-off status: **NOT SIGNED** — but, as of 2026-08-01, **SIGNABLE**
 
 | | |
 |---|---|
 | **Gate constant** | `CORDOBA_ENVELOPE_VERIFIED` (`rulepacks/esCordobaZoneClassification.ts`) |
 | **Value in `main`** | **`false`** |
-| **Registered?** | **YES** — `rulepacks/registry.ts`, `packsByZone: packMap([ES_CORDOBA_PGOU2001_PACK, CORDOBA_PGOU2001_ZONE_CODES])`, **13 subzones** (PAS-1…3 · OA-1…2 · UAD-1…3 · CTP-1 · MC-1…4) |
+| **Registered?** | **YES** — `rulepacks/registry.ts`, **13 subzones** (PAS-1…3 · OA-1…2 · UAD-1…3 · CTP-1 · MC-1…4) |
 | **What a user sees today** | a cited **machine-extracted-unverified refusal** on every Córdoba parcel. **No number.** |
-| **Proven by** | `apps/editor/__tests__/cordobaSiteDispatch.test.ts` — drives the **real** `dispatchParcelBoundary` on a Sur-district point, and fails if the `isInCordoba` branch is removed |
+| **Proven by** | `apps/editor/__tests__/cordobaSiteDispatch.test.ts` — drives the **real** `dispatchParcelBoundary` |
+| **OCR fidelity** | ⬆ **VERIFIED 2026-08-01, parameter by parameter, 13/13 subzones, ZERO wrong values** (§SIG-1 below) |
+| **Measured ENVELOPE ceiling** | ⬆ **≈ 16 % full / ≈ 31 % any envelope of BUILDABLE land** in the published pilot — **not** the ≈ 19 % / ≈ 89 % previously quoted (§SIG-1 *what signing authorises*) |
 
-> ⚠ **THIS FILE WAS STALE UNTIL 2026-08-01.** It said *"research draft — no pack"* while a 13-subzone
-> OCR pack had been authored **and registered**, and it recorded *"No edits to `registry.ts`"* as a
-> constraint honoured. A verification ledger that under-states what shipped is worse than none: it is
-> the document a reviewer consults to decide whether numbers are live. Corrected here, and the live
-> state re-established by **driving the dispatch**, not by reading either file.
+> ⚠ **The previous version of this file said the OCR "has never been checked against the source" and
+> that a signature would unlock "≈ 19 % fully numeric / ≈ 89 % partial".** The first is now false — the
+> check has been done. The second was **wrong by a factor of ~3** on the partial figure: it was a
+> parcel-count census over ordenanza families that was **structurally blind to delegation** and never
+> asked whether a subzone could bind. Both are corrected below, from measurement.
 
 ---
 
-## SIG-1 · ⛔ **UNSIGNED** — the PGOU-2001 OCR extraction (`CORDOBA_ENVELOPE_VERIFIED`)
+## SIG-1 · ⛔ **UNSIGNED** — the PGOU-2001 ordinance transcription (`CORDOBA_ENVELOPE_VERIFIED`)
 
 | | |
 |---|---|
-| **Verifier** | — (**no human has reviewed the ordinance documents**) |
+| **Verifier** | — (**awaiting the founder's legal act**) |
 | **Date** | — |
 | **Axis** | ENVELOPE (and, downstream, LEGISLATION) |
 | **Artefact** | `packages/site-parcel-data/src/rulepacks/esCordobaPGOU2001.ts` → `ES_CORDOBA_PGOU2001_PACK` |
-| **Source** | PGOU-Córdoba-2001 (*Plan General de Ordenación*, Texto Refundido Oct. 2002), Gerencia de Urbanismo, Ayuntamiento de Córdoba. Calificación geometry: COACo GeoServer `coaco:ordenanzas` |
-| **Provenance tier** | **`pipeline-extracted-unverified`** — the permanent bottom rung of `RulePackDefaultConfidenceSchema`. The 15 ordinance PDFs are **scanned images** (`pdftotext` → 3 chars); every value is single-pass machine vision |
+| **Source** | PGOU-Córdoba-2001 (*Plan General de Ordenación*, Texto Refundido Oct. 2002), **"Normativa: Usos Ordenanzas y Urbanización"**, Gerencia de Urbanismo, Ayuntamiento de Córdoba — served by the publisher at `visor.pgou.coacordoba.org/doc/ordenanzas/`. Calificación geometry: COACo GeoServer `coaco:ordenanzas` |
+| **Provenance tier now** | **`pipeline-extracted-unverified`** — the permanent bottom rung |
+| **Tier a signature would authorise** | **`estimated-ruleset`** (one rung up, and no further — see *does not authorise*) |
+
+### The question being signed
+
+**Do the 13 subzone parameter sets shipped in `ES_CORDOBA_PGOU2001_PACK` faithfully transcribe the
+PGOU-2001 articles they cite — and may PRYZM publish them, at `estimated-ruleset`, on the land those
+subzones actually bind?**
+
+### What the machine verification established (2026-08-01) — this is what a signature now rests on
+
+The pack was **no longer** single-pass. Every cited article was re-read from the publisher's own PDFs by
+an **independent second method**:
+
+1. **All 15 ordinance PDFs re-fetched** from `visor.pgou.coacordoba.org` (HTTP 200 after a 301 → HTTPS).
+   Byte sizes reproduce the 2026-07-23 profile exactly; `O_MC3.pdf` ≡ `O_MC4.pdf` are **md5-identical**;
+   `O_UAD1.pdf` / `O_UAS1.pdf` are confirmed 69-byte "Server under construction" HTML.
+   Document identity is pinned by md5 in `../findings/OCR-EXTRACTION-RESULTS.md` §1.
+2. **The extraction traps were tested, not assumed.** `O_PAS2`, `O_OA1`, `O_CTP1`, `O_MC` carry a
+   **zero-character text layer** — `extract_text()` returns nothing, so any text-pull reading of them
+   would have been silent fabrication. `O_UAD3` *does* have text but through **subset CID fonts**
+   (`CIDFont+F1…F4`) — the exact digit-dropping / glyph-shift trap.
+3. **Therefore every cited page was RENDERED and read as a raster** (`get_pixmap`, 160 dpi; 380–400 dpi
+   crops for the three contested clauses). No value below was taken from a text layer.
+
+**Result: 13 of 13 subzones survived unchanged. Every shipped numeric value matches the source. Zero
+wrong digits, zero glyph shifts, zero mis-transcribed decimals.** Full per-parameter table with
+verbatim quotes and article numbers: [`../findings/OCR-EXTRACTION-RESULTS.md`](../findings/OCR-EXTRACTION-RESULTS.md) §2;
+pinned in code by `packages/site-parcel-data/__tests__/esCordobaOcrVerification.test.ts`.
+
+Notably confirmed rather than assumed:
+- **MC-3 `plotRatioFAR: 3.5`** — the value that trips the FAR range gate `[0.2, 3.0]` — is **correct**,
+  verbatim *«En MC-3 la edificabilidad neta será 3,50 m2/m2»* (Art. 13.5.2.2). The gate flag was a
+  false alarm about a real number, not a bad read.
+- **Every `null` is correct.** MC-1/2/4 and CTP-1 edificabilidad really are *"resultante de la
+  aplicación de las Normas de Composición"* (Arts. 13.5.2.2 / 13.8.2.3) — an algorithm, not a number.
+  MC height really is a **per-street-width table** (Art. 13.5.3.1); the table transcribed in the
+  findings is **exact, band for band, for all four subzones**.
 
 ### What signing WOULD authorise
 
-- Rendering a buildable envelope for the **13 packed subzones** inside the **COACo Sur + Noroeste
-  pilot** — `CORDOBA_BBOX`, ≈ 3.4 × 4.8 km, Σ `sup_m2` ≈ **1.63 km²** over **453** calificación
-  polygons, `coaco:distritos` = exactly **2** features.
-- At the **`pipeline-extracted-unverified` tier only**, with the louder-than-estimated affordance —
-  **never** `estimated-ruleset`, and never `structured`.
-- Expected reach *inside the pilot*, as measured by the extraction run
-  (`../findings/OCR-EXTRACTION-RESULTS.md`, quoted in `../ENVELOPE.md`): **≈ 19 % of pilot parcels
-  fully numeric**, **≈ 89 % partial**.
-- It would ALSO require, in the same change, the COACo subzone resolver (pack WIRING-TODO 5) — without
-  it a signature renders nothing, because no parcel can bind a subzone.
+Publishing an envelope, at **`estimated-ruleset`**, on the land the pack actually binds — **measured,
+against the L-656 denominator (BUILDABLE land, not all land, not clicks)**:
+
+| | |
+|---|---|
+| **Denominator — buildable land in the COACo published pilot** | **1,850,780 m² (1.851 km²)** = `coaco:ordenanzas` private-ordinance land **1,628,301 m²** + `usos_globales` lucrative (Residencial + Industrial/Terciario) **222,479 m²**. Espacios Libres and Equipamientos are excluded — they are public systems, not buildable land. Geometry self-checked: shoelace areas reproduce the publisher's own `sup_m2` to **−0.019 %** (worst feature 0.02 %) |
+| **Full numeric envelope** | **≈ 16 %** of that buildable land (16.23 % under the shipped link key; 15.94 % under the independent `et` key) |
+| **Any envelope (full + partial)** | **≈ 31 %** (31.20 % / 30.91 %) |
+| **Correctly REFUSED** | **≈ 69 %** — and these are *correct answers*, not coverage gaps |
+
+**Only 4 of the 13 registered subzones would ever render anything:**
+
+| Subzone | Buildable land bound | Outcome if signed |
+|---|---:|---|
+| **OA-1** | 14.33 % | renders FULL |
+| **CTP-1** | 14.97 % | renders PARTIAL (height + coverage + 16 m depth band; FAR derived-null) |
+| **UAD-1** | 1.26 % | renders FULL |
+| **PAS-2** | 0.64 % | renders FULL |
+| MC-2 | 13.88 % | **REFUSES** — structural (height is an unresolved street-width table) |
+| MC-4 | 2.98 % | **REFUSES** — structural |
+| **PAS-1 · PAS-3 · OA-2 · UAD-2 · UAD-3 · MC-1 · MC-3** | **0.00 %** | **7 of 13 subzones bind NO land at all** in the published pilot |
+
+A signature is therefore worth **≈ 31 % of 1.851 km²**, concentrated in **two** subzones (OA-1 + CTP-1
+are 29.3 pp of the 31.2). It is **not** worth the ≈ 89 % this file previously advertised.
+
+⚠ **A signature ALONE still renders nothing.** The COACo subzone resolver is **AUTHORED but NOT
+CALLED** — the classic authored-but-unwired trap, checked here by grep rather than assumed:
+`providers/resolveCordobaSubzone.ts` exists, is re-exported from the package index, and has its
+server proxy (`server/cordobaZoningProxy.js`) — but **`applyCordobaZoningThenFallback` never invokes
+it**, and says so in its own comment (*"no COACo subzone resolver is wired yet (WIRING-TODO 5)"*),
+using a `cordoba-pgou-2001-pilot` placeholder zone code instead. So **no Córdoba parcel can bind a
+subzone today**, and the signature and the resolver call site must land in the **same change**.
+Its `derivedPlanningOverride` branch (non-empty `actuacion` ⇒ derived-planning refusal) is
+**load-bearing** for the ≈ 50 % delegation refusal below and must be exercised, not merely present.
 
 ### What signing would **NOT** authorise
 
-- **Anything outside the two pilot districts.** Córdoba has ~10; a click elsewhere must keep degrading
-  to the national SIU *clasificación* (land class), **never** a borrowed pilot number.
-- **The PEPCH casco histórico** — a separate Plan Especial with a dual regime, explicitly out of scope
-  and not to be silently mis-qualified by an adjacent ordenanza.
-- **A scalar height for Manzana Cerrada (MC-1…4).** The ordinance publishes height as a
-  *per-street-width table*; there is no Córdoba street-width resolver, so those stay `null`. A
-  signature does not create the resolver.
-- **An edificabilidad for MC or CTP-1.** Both are **DERIVED BY ALGORITHM** in the ordinance, not
-  stated as a number. The pipeline correctly emits `null`; signing an OCR run cannot convert an
-  algorithm into a scalar (the Barcelona Art. 242.2 lesson, ADR-0271).
-- **Promotion of the confidence tier.** OCR-derived stays `pipeline-extracted-unverified` however
-  carefully it is checked; a *second, independent* source would be required to move it.
-- **Any claim about the municipality-wide rate.** That is `UNMEASURED` — no municipal buildable-land
-  denominator has been computed for Córdoba (contrast Murcia, where 75.145 km² was measured).
+- **The ≈ 50 % of pilot buildable land that is DELEGATED to a later instrument.** Measured, not
+  assumed: **169 of 453** `coaco:ordenanzas` polygons (**699,772 m² = 42.98 %** of direct-ordinance
+  land) fall inside a delegating ámbito — **Plan Parcial 16.76 pp · Plan Especial 12.80 pp (incl. the
+  PEPCH) · PERI 4.90 pp · Estudio de Detalle 3.34 pp** — plus the **222,479 m² (12.02 pp)** of
+  `usos_globales` lucrative land, **100 %** of which carries an `actuacion`. Those parcels must take the
+  **derived-planning refusal**, never the base ordenanza. ⚠ This is Córdoba's **Murcia moment**: the
+  delegation lives in a *separate layer* (`coaco:actuaciones`), so the ordenanza-family census in
+  `OCR-EXTRACTION-RESULTS.md §4` — the source of the "89 %" — was **structurally blind to it**, exactly
+  as the 41.4 pp Murcia `calificacion` case was. **A cited refusal here is the correct answer.**
+- **Anything outside the two pilot districts.** `coaco:distritos` has exactly **2** features of Córdoba's
+  ~10. Elsewhere a click must degrade to the national SIU *clasificación*, **never** a borrowed pilot
+  number. The municipality-wide rate stays **`not-composable`** — no municipal buildable-land
+  denominator exists for Córdoba (contrast Murcia's measured 75.145 km²).
+- **The PEPCH casco histórico** — a separate Plan Especial with a dual regime, explicitly out of scope.
+- **A scalar height for Manzana Cerrada (MC-1…4).** Art. 13.5.3.1 publishes height as a
+  *per-street-width table*; there is no Córdoba street-width resolver, so those stay `null` and MC keeps
+  its structural refusal. A signature does not create the resolver — and MC is **16.86 %** of buildable
+  land, the single largest unlock still outstanding.
+- **An edificabilidad for MC-1/2/4 or CTP-1.** Both are **DERIVED BY ALGORITHM** in the ordinance. The
+  pipeline correctly emits `null`; signing cannot convert an algorithm into a scalar (the Barcelona
+  Art. 242.2 lesson, ADR-0271).
+- **UAD-3 rendering at all** — see the blocking limit below.
+- **Any tier above `estimated-ruleset`.** The verification was a **second independent METHOD against
+  the same document**, not a **second independent SOURCE**; it removes the "nobody has checked it"
+  defect that justified the bottom rung, and nothing more. `structured` requires the publisher to serve
+  the numbers as data (COACo does not). ⚠ **`authoritative` is UNREACHABLE and must not be proposed:**
+  no production path assigns it, and a constructed determination is capped at **0.70** on ENVELOPE.
+- **Promoting `fieldProvenance` to `ordinance-pdf`.** That tier means *a human* transcribed the PDF.
+  The 2026-08-01 pass was machine vision. It stays `pipeline-extracted`.
 
-### The open gate — what a human must confirm, item by item
+### Known limits accepted at signing
 
-1. **OCR fidelity of the 15 ordinance PDFs** — that extracted edificabilidad / nº plantas / ocupación /
-   retranqueos / parcela mínima match the scanned source, **per ordenanza**. No interpolation, no
-   cross-ordinance borrowing. (`../findings/OCR-EXTRACTION-RESULTS.md` §2 against the source crops.)
-2. **Geometric-rule kind (C58 §2.2)** — confirm each ordenanza is coverage-and-FAR vs alignment vs
-   setback. Do not assume; **the wrong kind is worse than a wrong number.**
-3. **Coverage honesty** — that the pack labels itself as covering **only** Sur + Noroeste
-   (`CORDOBA_ROADMAP_LINE` does), and that clicks elsewhere degrade to SIU clasificación.
-4. **Positional agreement** — a sample Catastro parcel classified by `coaco:ordenanzas` agrees with the
-   municipal viewer for that same plot.
-5. **PEPCH exclusion** — that the casco histórico is explicitly out of scope, not silently
-   mis-qualified by an adjacent ordenanza.
+1. ⛔ **BLOCKING — UAD *profundidad máxima edificable* is stated in the source but ABSENT from the
+   pack.** Art. **13.9.3.3** states a real depth cap — **UAD-1 16 m · UAD-2 18 m · UAD-3 16 m**
+   (verified at 380 dpi) — and the pack carries none of it. For UAD-1/2 this merely over-states deep
+   parcels. For **UAD-3 it is the L-616 mechanism-A failure verbatim**: `front_m: 0` + `side_m: 0`
+   (party wall) + `rear_m: 5` with **no depth band** draws essentially the whole parcel. This is the
+   exact overstatement CTP-1's `alignment` rule and MC's unresolvable ring exist to prevent, left
+   unguarded on the one family that needed it too. **Latent, not live** — UAD-3 binds **0.00 %** of
+   pilot land today — but it must be closed **before** UAD-3 can ever bind. Reported as a finding, not
+   silently patched.
+2. ⚠ **The CTP-1 ocupación step-function is mis-documented (the shipped number is right).** The source
+   (Art. 13.8.2.5, verified at 400 dpi) reads: *«Parcelas de hasta 100 m2, el 100%. Parcela de más de
+   100 m2 y menos de 125 m2, **100 m2**. Parcelas de más de 125 m2, el 80%.»* The middle band is an
+   **absolute 100 m² cap, not 100 %** — `OCR-EXTRACTION-RESULTS.md` and the pack comment both said
+   "100 %". The **shipped `maxCoverage: 0.8` is correct** (it is the >125 m² value, and conservative),
+   so nothing user-visible is wrong; but anyone implementing the step-function hook (WIRING-TODO 6)
+   from the old comment would over-state a 124 m² parcel by ~24 %. Corrected in both places.
+3. ⚠ **The MC structural-refusal RATIONALE was wrong, though the refusal is right.** The pack asserts
+   MC states no *profundidad edificable*. Art. **13.5.2.4** in fact states: *«Cuando este parámetro no
+   venga expresamente fijado, se entenderá **libre**, con la única condición de que la ocupación del
+   edificio en planta no podrá rebasar los límites que se establecen en el apartado 5»* — depth is
+   **unconstrained**, bounded by coverage, which the pack **holds** (0.70 / 0.90). MC's real and only
+   blocker is **height**. Consequence: WIRING-TODO 6's "MC block-fondo geometry source" is **not
+   required by the ordinance** — MC needs the street-width height resolver alone, a materially cheaper
+   unlock than recorded.
+4. ⚠ **The subzone key is corroborated but not documented by the publisher.** COACo publishes no data
+   dictionary. The shipped resolver parses the subzone from the `O_*` link basename; the layer also
+   carries an `et` attribute. Tested against each other: **262 polygons populate both, they AGREE on
+   262, and DISAGREE on 0** — and the two keys yield ceilings within **0.3 pp**. That is genuine dual
+   -source corroboration for the *key*. ⚠ But note the link basename is **not** self-evidently a
+   subzone marker: each PDF is a **whole family chapter** (`O_PAS2.pdf` contains PAS-1, PAS-2 *and*
+   PAS-3; `O_MC*.pdf` are one 3-page MC chapter). It works because COACo assigns it per polygon, which
+   the agreement test evidences — **not** because the filename encodes the subzone. Recorded as
+   `status: corroborated-by-attribute, finding: publisher-undocumented` (L-661).
+5. ⚠ **Single-source.** No second publisher states these parameters; dual-source corroboration of the
+   *numbers* was not run and cannot be, from what Córdoba publishes.
+6. ⛔ **Signing is CONDITIONAL on the confidence-badge fix landing.** A separate work-stream is
+   repairing the defect where the engine **ignores a pack's declared confidence**. Until that lands, a
+   signature would publish these values without the louder-than-estimated
+   `pipeline-extracted-unverified` / `estimated-ruleset` affordance the whole posture depends on. **Do
+   not flip `CORDOBA_ENVELOPE_VERIFIED` before that fix is merged.** (Not touched here:
+   `ZoningRulesEngine.ts` and `answerabilityClass.ts` are out of scope for this ledger.)
+7. ⚠ **The latent answerability over-claim, restated.** `registeredPackZoneCodes('es-14021-cordoba')`
+   returns 13 codes, so `classifyAnswerability(CORDOBA_JURISDICTION_ID, 'PAS-1')` returns
+   `'full-envelope'` — a claim **no** Córdoba parcel can honour, and now demonstrably false for the
+   **7 of 13** subzones that bind zero land. `answerabilityClass.ts` is not re-exported and no shipping
+   surface consumes it, so this is **latent, not live**. It must be fixed **in the classifier** before
+   that classifier reaches a user surface. Same statement applies to Murcia.
 
-### What WAS machine-verified (agent, browser-UA curl, 2026-07-23)
+### What was machine-verified earlier (agent, browser-UA curl, 2026-07-23) — reachability only
 
-Endpoint discovery + reachability only — see `../findings/CALIFICACION-ENDPOINT-PROBE.md` §7 for
-copy-paste reproduction:
+Endpoint discovery and reachability, reproduced and still true on 2026-08-01: WFS 2.0.0 + WMS 1.3.0
+HTTP 200; `coaco:ordenanzas` = **453** polygons, Σ `sup_m2` ≈ **1.63 km²**; `coaco:distritos` = **2**;
+`coaco:actuaciones` = 40–42 derived-planning ámbitos; national SIU live, **no national calificación
+service exists**. See `../findings/CALIFICACION-ENDPOINT-PROBE.md` §7.
 
-1. `geoserver.pgou.coacordoba.org/geoserver` WFS 2.0.0 + WMS 1.3.0 return HTTP 200; provider = COACo.
-2. `coaco:ordenanzas` = **453** calificación polygons; schema `{geom, ordenanza, et, sup_m2, link}`;
-   10 distinct calificación families; 15 distinct ordinance-PDF links.
-3. `coaco:distritos` = **2** features (Sur, Noroeste) → pilot coverage, not the municipality;
-   ordenanzas bbox ≈ 3.4 × 4.8 km, Σ `sup_m2` ≈ 1.63 km².
-4. `coaco:actuaciones` = 42 derived-planning ámbitos; direct-ordenanza polygons (453) ≫ derived (42).
-5. National SIU is live (`mapas.fomento.gob.es/arcgis`); clasificación for INE 14021 = 6 classes, in
-   force; Planeamiento_Vigente = Plan General 2002. **No national calificación service exists.**
-6. One ordinance PDF (`O_PAS2.pdf`) fetched: 762 KB, `%PDF-1.7`, HTTP 200; `pdftotext` → 3 chars ⇒
-   **scanned**.
-7. `coaco:vcatastro_urbanismo` refcat key-join VERIFIED-LIVE for `3834946UG4933S` → ordenanza
-   *Colonia Tradicional Popular*, `zona_nom = Sur`, `sup_pc_m2 = 165`
-   (`../findings/CORDOBA-DATA-RECON-SPIKE.md` §4 step 2).
-
-**None of the above verifies a NUMBER.** Reachability is not fidelity.
+**None of that verifies a NUMBER. Reachability is not fidelity** — §SIG-1 above is the fidelity record.
 
 ---
 
 ## Why "registered but unsigned" is a deliberate posture, not an oversight
 
 Registration wires the pack, its refusal families and its extent into ONE table so the C60 coverage
-globe, `resolveZoneDisposition` and the future subzone resolver cannot disagree about Córdoba. It is
-**not** an authorisation to draw, and three independent facts hold that line:
+globe, `resolveZoneDisposition` and the subzone resolver cannot disagree about Córdoba. It is **not** an
+authorisation to draw, and two independent facts hold that line:
 
 - `applyCordobaZoningThenFallback` (L5) checks `CORDOBA_ENVELOPE_VERIFIED` **first** and refuses the
   whole pilot **before** the registry is consulted;
-- the COACo subzone resolver (pack WIRING-TODO 5) is **not wired**, so no Córdoba parcel can bind a
-  PAS/OA/UAD/CTP/MC code at all — the refusal names the *pilot*, not a subzone;
-- the Córdoba leg makes **no planning network call whatsoever** (pinned by the dispatch test).
+- the Córdoba leg makes **no planning network call whatsoever** while the gate is shut (pinned by
+  `apps/editor/__tests__/cordobaSiteDispatch.test.ts`).
 
-⚠ **The residual risk this posture leaves, recorded so it is not discovered later.**
-`registeredPackZoneCodes('es-14021-cordoba')` returns 13 codes, so
-`classifyAnswerability(CORDOBA_JURISDICTION_ID, 'PAS-1')` returns **`'full-envelope'`** — a claim no
-Córdoba parcel can currently honour. `answerabilityClass.ts` is not yet re-exported from the package
-index and no shipping surface consumes it (its own header sequences it behind L-600), so this is
-**latent, not live**. It must be resolved *before* that classifier reaches a user surface — and the
-fix belongs with the classifier (teach it the verification gate), not by de-registering the pack.
-The same statement applies to Murcia (`es-mc/30030-murcia/sources/VERIFICATION.md`).
+The line that must not be crossed is the **gate**, not the registration.
 
 ---
 
@@ -134,5 +229,7 @@ The same statement applies to Murcia (`es-mc/30030-murcia/sources/VERIFICATION.m
 *publish* a number at a *stated confidence*; it never converts an estimate into an authoritative
 determination, and it never makes PRYZM's output a permit.
 
-*Maintainer: UNASSIGNED. Authority: C58 §1.2/§1.4/§1.6 · C60 §3 · C63 · L-449 · §CONTEXT-DATA-HONESTY.
-Last updated 2026-08-01 — status re-established by driving the real dispatch, not by reading the code.*
+*Maintainer: UNASSIGNED. Authority: C58 §1.2/§1.4/§1.6 · C60 §3 · C63 · L-449 · L-656 · L-661 ·
+§CONTEXT-DATA-HONESTY. Last updated 2026-08-01 — OCR verified parameter-by-parameter against rendered
+rasters of the publisher's PDFs; ENVELOPE ceiling measured against the buildable-land denominator;
+delegation measured at ≈ 50 % of pilot buildable land.*

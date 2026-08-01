@@ -31,6 +31,21 @@
 // panel/massing (WIRING-TODO 3/5). A number renders only AFTER sign-off, and even then as
 // `pipeline-extracted-unverified` with the louder affordance — never as a plain estimate.
 //
+// ⬆⬆ 2026-08-01 — SECOND-PASS SOURCE VERIFICATION DONE. Every article cited below was re-read from
+// the publisher's own PDFs by an INDEPENDENT method: the raster-render path, because `O_PAS2`,
+// `O_OA1`, `O_CTP1` and `O_MC` have a ZERO-CHARACTER text layer and `O_UAD3` uses subset CID fonts.
+// RESULT: **13 of 13 subzones verified, ZERO wrong values** — including MC-3 = 3,50 (correct; the
+// range-gate flag was a false alarm) and the whole MC per-street-width height table.
+// THREE defects were found, NONE of them a wrong shipped digit — see VERIFICATION.md §SIG-1:
+//   D1 ⛔ UAD *profundidad máxima edificable* (Art. 13.9.3.3 — 16/18/16 m) IS STATED IN THE SOURCE
+//         AND IS MISSING FROM THIS PACK (see the UAD block below). Reported, deliberately NOT
+//         silently patched — the founder must see it before signing.
+//   D2 ⚠  the CTP-1 ocupación step-function was mis-documented (middle band is an ABSOLUTE 100 m²
+//         cap, not 100 %); the shipped scalar 0.80 is correct and unaffected.
+//   D3 ⚠  the MC "no fondo stated" rationale is FALSE (Art. 13.5.2.4 says depth is *libre*, bounded
+//         by ocupación); the structural refusal stays correct, but for the HEIGHT reason only.
+// Verification ledger + the measured ENVELOPE ceiling (≈16 % full / ≈31 % any, of BUILDABLE land):
+//   docs/04-reference/jurisdictions/es/es-an/14021-cordoba/sources/VERIFICATION.md
 // Full extraction record, per family, per field, with the gate flags and the source article:
 //   docs/04-reference/jurisdictions/es/es-an/14021-cordoba/findings/OCR-EXTRACTION-RESULTS.md
 // Pack design rationale + what is deliberately NOT packed:
@@ -99,10 +114,16 @@ const SRC =
  * With NO `geometricRule` it would inset by 0 and draw the WHOLE PARCEL the day the gate opens
  * (ENVELOPE-REALISM-MATRIX mechanism A — the latent OVERSTATES-BOTH this file must never permit).
  *
- * Unlike CTP-1, MC states NO *profundidad edificable* we hold (the findings' MC parameter table has
- * no fondo row — CORDOBA-ORDINANCE-REGISTRY §5), and its height is a per-street-width TABLE we do
- * not yet resolve (Art. 13.5.3.1, maxHeight null). So there is no honest depth to give an
- * `alignment` rule, and `block-derived-alignment` is REFUSED on principle: it requires Art. 242's
+ * ⚠ D3 — THIS RATIONALE WAS WRONG AND IS CORRECTED (2026-08-01, verified 380 dpi). It used to read
+ * "MC states NO *profundidad edificable* we hold". Art. **13.5.2.4** in fact states: «Cuando este
+ * parámetro no venga expresamente fijado, se entenderá **libre**, con la única condición de que la
+ * ocupación del edificio en planta no podrá rebasar los límites … del apartado 5» — depth is
+ * UNCONSTRAINED, bounded by ocupación, which this pack HOLDS (0.70 / 0.90). So the ordinance requires
+ * NO MC block-fondo geometry source; WIRING-TODO 6 is mis-scoped on that point.
+ *
+ * THE REFUSAL NEVERTHELESS STANDS, on the HEIGHT ground alone: MC's height is a per-street-width
+ * TABLE we do not yet resolve (Art. 13.5.3.1, maxHeight null), so no storey count and therefore no
+ * volume can be honestly produced. `block-derived-alignment` is REFUSED on principle: it requires Art. 242's
  * min/max/ratio clamps, which are Barcelona's numbers — supplying them here is the L-526 failure
  * verbatim (see GeometricRule.ts §350 note). C58 §1.7a: never invent a value.
  *
@@ -227,7 +248,23 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                     'PGOU Art. 13.6.2.2 (FAR 1,6), 13.6.2.3 (ocup. 40 %), 13.6.3.1 (PB+3..PB+6, máx 21 m), ' +
                     '13.6.3.2 (alineada a vial), 13.6.3.3 (linderos privados ½·altura, min 3 m). ' + SRC,
             },
-            // ── Unifamiliar Adosada (UAD) — FULL, Art. 13.9 (recovered from O_UAD3) ──────────
+            // ── Unifamiliar Adosada (UAD) — Art. 13.9 (recovered from O_UAD3) ───────────────
+            //
+            // ⛔⛔ D1 — A STATED SOURCE CONSTRAINT IS MISSING FROM ALL THREE UAD SUBZONES.
+            // Art. 13.9.3.3 states a *profundidad máxima edificable* — UAD-1 16 m · UAD-2 18 m ·
+            // UAD-3 16 m — measured from the vial alignment (verified 380 dpi, 2026-08-01;
+            // OCR-EXTRACTION-RESULTS §2.3 records it). NONE of it is carried here, so the envelope
+            // is bounded by the setback inset alone and OVER-STATES deep parcels.
+            //
+            // ⚠ For UAD-3 this is the L-616 mechanism-A failure VERBATIM: front 0 + side 0
+            // (party-wall) + rear 5 m with NO depth band draws essentially the WHOLE PARCEL — the
+            // exact outcome CTP-1's `alignment` rule and MC's unresolvable ring exist to prevent,
+            // left unguarded on the one family that also needed it.
+            //
+            // LATENT, NOT LIVE: UAD-3 binds 0.00 % of published pilot land (VERIFICATION.md §SIG-1),
+            // and the whole pilot is refused while `CORDOBA_ENVELOPE_VERIFIED` is false. Recorded as
+            // a FINDING for the founder rather than silently patched; it is BLOCKING before UAD-3
+            // may ever bind. Fix = a `geometricRule` carrying the stated depth per subzone.
             {
                 code: 'UAD-1',
                 label: 'Unifamiliar Adosada, subzona UAD-1 (PGOU Art. 13.9)',
@@ -294,9 +331,13 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 maxFloors: 2,
                 // Art. 13.8.2.3 — "resultante de la aplicación de las Normas de Composición" = DERIVED.
                 plotRatioFAR: null,
-                // Art. 13.8.2.5 — STEP-FUNCTION of parcel size (≤125 m² → 100 %, >125 m² → 80 %). 0.80
-                // is the large-parcel value; it UNDER-states small parcels (safe). A future engine hook
-                // could apply the step from `sup_pc_m2`; a scalar is the conservative approximation.
+                // Art. 13.8.2.5 — STEP-FUNCTION of parcel size. ⚠ D2, CORRECTED 2026-08-01 (400 dpi):
+                // the source reads «Parcelas de hasta 100 m2, el 100%. Parcela de más de 100 m2 y menos
+                // de 125 m2, 100 m2. Parcelas de más de 125 m2, el 80%.» — the MIDDLE band is an
+                // ABSOLUTE 100 m² CAP, **not** 100 %. (This comment previously said "≤125 m² → 100 %",
+                // which is wrong and would over-state a 124 m² parcel by ~24 % if WIRING-TODO 6 were
+                // implemented from it.) 0.80 is the large-parcel value and is CORRECT; it UNDER-states
+                // small parcels (safe). A future hook applies the true step from `sup_pc_m2`.
                 maxCoverage: 0.8,
                 setbacks: { front_m: null, side_m: null, rear_m: null }, // alignment: façade on vial line
                 // ⚠ L-616 GUARD (ENVELOPE-REALISM-MATRIX, Córdoba row) — an ALIGNMENT rule, NOT the
@@ -425,11 +466,15 @@ export const CORDOBA_PGOU2001_ZONE_CODES = [
 //    "not yet present" claim was STALE and is corrected above).
 // 2. ✅ DONE. `defaultConfidence` = CORDOBA_INTENDED_DEFAULT_CONFIDENCE; every `fieldProvenance`
 //    value = 'pipeline-extracted' (= CORDOBA_INTENDED_FIELD_PROVENANCE). Asserted by esCordobaPack.test.ts.
-// 3. ⛔ OPEN — THE HUMAN GATE. HUMAN VERIFICATION of every value in §2 of OCR-EXTRACTION-RESULTS.md
-//    against the source crop (Spanish-planning-literate reviewer) before any parcel renders a number —
-//    recorded in `sources/VERIFICATION.md` and, per no-silent-graduation, in a C23 AIArtefact with
-//    humanApproval. UNTIL THIS IS SIGNED, `CORDOBA_ENVELOPE_VERIFIED` stays false in the dispatcher and
-//    every Córdoba parcel renders a cited REFUSAL, never a machine-read number.
+// 3. ⛔ OPEN — THE HUMAN GATE (but now SIGNABLE). The machine half is DONE: on 2026-08-01 every value
+//    in §2 of OCR-EXTRACTION-RESULTS.md was re-read from the publisher's PDFs via the raster-render
+//    path (the text layer is empty for 4 of 5 documents) — 13/13 subzones, ZERO wrong values, pinned
+//    by `__tests__/esCordobaOcrVerification.test.ts`. What remains is the LEGAL ACT: a
+//    Spanish-planning-literate human signing `sources/VERIFICATION.md` §SIG-1 and, per
+//    no-silent-graduation, a C23 AIArtefact with humanApproval. ⚠ Signing is ALSO conditional on the
+//    confidence-badge fix (the engine currently ignores a pack's declared confidence) and on D1
+//    (missing UAD depth) being closed before UAD-3 may bind. UNTIL SIGNED, `CORDOBA_ENVELOPE_VERIFIED`
+//    stays false and every Córdoba parcel renders a cited REFUSAL, never a machine-read number.
 // 4. ✅ DONE. Registered in `registry.ts`: a Córdoba JurisdictionRegistration (Sur+Noroeste extent +
 //    `contains` from `providers/cordobaBbox.ts`; `answerSummary` naming the pilot scope + the derived/
 //    tabular gaps + the unverified status), `packsByZone: packMap([ES_CORDOBA_PGOU2001_PACK,
@@ -441,10 +486,18 @@ export const CORDOBA_PGOU2001_ZONE_CODES = [
 //    machine-extracted-unverified refusal and NO numeric envelope reaches the panel/massing. The
 //    subzone resolver (`ordenanza` + `O_*` link suffix → COACo WFS) + the re-tiered louder-than-
 //    estimated render turn on together WITH step 3; both are the same sign-off event.
-// 6. ⛔ OPEN. Author the CTP-1 ocupación step-function hook (from `sup_pc_m2`) and the MC per-street-width
-//    height resolver (the Córdoba analogue of `bcnAlcadaNucliAntic.ts`) + an MC block-fondo geometry
-//    source to lift MC/CTP from partial to full. Until then MC stays a structural refusal via
+// 6. ⛔ OPEN — RE-SCOPED 2026-08-01 (D3). Author (a) the CTP-1 ocupación step-function hook from
+//    `sup_pc_m2` — ⚠ encode the TRUE step: ≤100 m² → 100 %; >100 and <125 m² → an ABSOLUTE 100 m²
+//    CAP; >125 m² → 80 % (NOT "≤125 → 100 %"); (b) the MC per-street-width height resolver, the
+//    Córdoba analogue of `bcnAlcadaNucliAntic.ts`. ⬇ An MC block-fondo geometry source is NO LONGER
+//    REQUIRED: Art. 13.5.2.4 makes MC depth *libre*, bounded by the ocupación this pack already
+//    holds. The height resolver ALONE lifts MC from structural refusal to a real envelope — a
+//    materially cheaper unlock than previously recorded, and the largest one outstanding (MC is
+//    16.86 % of pilot buildable land). Until it ships MC stays a structural refusal via
 //    `explicit-area` + CORDOBA_MC_FONDO_UNRESOLVED_RING (WIRING-TODO 7, below), CTP-1 clips to 16 m.
+// 8. ⛔ OPEN (D1, BLOCKING for UAD-3). Carry the stated UAD *profundidad máxima edificable*
+//    (Art. 13.9.3.3 — UAD-1 16 m · UAD-2 18 m · UAD-3 16 m) as a `geometricRule`. Without it UAD-3
+//    (front 0 + side 0 + no depth band) is an unguarded L-616 mechanism-A whole-parcel overstatement.
 // 7. ✅ DONE (L-616 guard). CTP-1 carries a real `alignment` geometricRule (16 m depth, Art. 13.8.2.4);
 //    MC-1..4 carry an `explicit-area` geometricRule with an UNRESOLVABLE footprint handle. Neither can
 //    ever fall to the whole-parcel inset (ENVELOPE-REALISM-MATRIX mechanism A) once the gate opens.
