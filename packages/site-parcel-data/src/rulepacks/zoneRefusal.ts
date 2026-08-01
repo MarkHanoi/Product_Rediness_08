@@ -257,12 +257,20 @@ export function estimateSuppressedRefusal(opts: {
             headline:
                 `${city} — PRYZM could not determine the planning zone for this parcel.`,
             detail:
-                `PRYZM holds ${city}'s building rules and would normally answer here, but the ` +
-                'planning-map lookup did not return a zone for this boundary, so there is no ' +
-                'ordinance to apply. ' +
+                // ⚠ "FALLS INSIDE THE COVERAGE AREA", NOT "WE HOLD YOUR CITY'S RULES". The claim
+                // this card is entitled to make is exactly the one the registry made: the point is
+                // inside a registered EXTENT. An extent is a coarse proximity gate, never an
+                // authorisation (C60 §3, and `barcelonaBbox.ts` says so in the same words) — and
+                // several of them are documented as SPILLING across a border they cannot follow
+                // (§CATALUNYA-SPILL, and the NL/DK/CH national boxes). Claiming to hold the
+                // ordinance of whichever registration happened to claim the pixel would be a
+                // coverage over-statement on the far side of that spill, on someone's land.
+                `This parcel falls inside PRYZM's ${city} coverage area, so PRYZM would normally ` +
+                'resolve your planning zone and apply that zone\'s rules. The planning-map lookup ' +
+                'did not return a zone for this boundary, so there is no ordinance to apply. ' +
                 // The sentence that makes the suppression legible, and the whole point of §L-663.
                 'Rather than fall back to a generic front/side/rear estimate, we are showing you ' +
-                'nothing: inside a city we cover, a generic figure is indistinguishable on screen ' +
+                'nothing: inside an area we cover, a generic figure is indistinguishable on screen ' +
                 'from a real determination, and for street-aligned fabric it is the wrong SHAPE ' +
                 'rather than an imprecise number. ' +
                 'This is a data-availability problem on our side, not a limit on your land, and it ' +
