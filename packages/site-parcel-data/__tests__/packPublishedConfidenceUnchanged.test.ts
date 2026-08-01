@@ -40,6 +40,7 @@ import { ES_BARCELONA_NUCLI_ANTIC_PACK } from '../src/rulepacks/esBarcelonaNucli
 import { ES_BARCELONA_20A_AILLADA_PACK } from '../src/rulepacks/esBarcelona20aAillada.js';
 import { ES_BARCELONA_22ARROBA_PACK } from '../src/rulepacks/esBarcelona22Arroba.js';
 import { ES_MURCIA_PGOU2012_PACK } from '../src/rulepacks/esMurciaPgou2012.js';
+import { ES_VALENCIA_PGOU_PACK } from '../src/rulepacks/esValenciaPgou.js';
 import { ES_BARCELONA_INDUSTRIAL_PACK } from '../src/rulepacks/esBarcelonaIndustrial.js';
 import { ES_BARCELONA_VOLUMETRIA_18_PACK } from '../src/rulepacks/esBarcelonaVolumetria18.js';
 import { ES_MADRID_NZ1_PACK } from '../src/rulepacks/esMadridNZ1.js';
@@ -66,6 +67,11 @@ const PUBLISHED: ReadonlyArray<readonly [string, { defaultConfidence: RulePackDe
     // Murcia PGOU-2012 — landed after this manifest was first frozen. Ships the curated-estimate
     // seed and DELIBERATELY UNDERSTATES until MURCIA_ENVELOPE_VERIFIED is signed.
     ['esMurciaPgou2012', ES_MURCIA_PGOU2012_PACK, 'estimated-ruleset'],
+    // València PGOU-1991 — landed after this manifest was frozen. ⚠ Its `zones` array is EMPTY by
+    // construction (the plan sets the envelope on the Plano C DRAWING, which is not published as
+    // data), so this seed describes NOTHING today. It is pinned at the floor tier precisely so a
+    // future zone cannot inherit a flattering default by being added to an unpinned pack.
+    ['esValenciaPgou', ES_VALENCIA_PGOU_PACK, 'estimated-ruleset'],
     // Barcelona — every clau ships the curated-estimate seed. The `block-constructed` tier is
     // ENGINE-stamped per parcel (C58 §1.2 / L-572); a pack cannot self-certify.
     ['ES_BARCELONA_ENSANCHE_PACK', ES_BARCELONA_ENSANCHE_PACK, 'estimated-ruleset'],

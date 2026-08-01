@@ -847,6 +847,67 @@ export {
     type MurciaCalificacionClassification,
     type MurciaPgouResolution,
 } from './rulepacks/esMurciaPgou2012.js';
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠ VALÈNCIA (INE 46250), Comunitat Valenciana — the CITED-REFUSAL jurisdiction whose gate a   ║
+// ║   SIGNATURE CANNOT LIFT. Confine València edits to this block.                               ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+//
+// The three surfaces, in the order a parcel meets them:
+//   1. `isInValencia` — the coarse routing gate. ⚠ Route from the DATA: Catastro's own `<cp>46</cp>`
+//      + `<cm>250</cm>` compose to `46250` through the EXISTING `composeIneCode()` (exported above,
+//      from `murciaBbox.ts` — it is NATIONAL, not Murcian; do not write a second one). "Valencia" is
+//      also a city in Venezuela, a municipality in the Philippines, a PROVINCE, an AUTONOMOUS
+//      COMMUNITY, and — at latitude 39,41 °N, inside València's own latitude band — Valencia de
+//      Alcántara in Cáceres. A NAME IS NOT A JURISDICTION.
+//   2. `ES_VALENCIA_PGOU_PACK` — the transcribed PGOU *Normas Urbanísticas* (mayo 1991). ⚠ Its
+//      `zones` array is EMPTY, and that is the RESULT, not a TODO: Arts. 6.18.2 / 6.19.1 / 6.25.1 /
+//      6.30.1 define the envelope as a function of a value graphed on **Plano C**, which is not
+//      published as data. The classification table, the two cornice formulas and the stated bounds
+//      are exported so the transcription is auditable — not so it can be shipped.
+//   3. `valenciaNoRulePackRefusal` — the terminal, cited answer every València parcel receives.
+//
+// ⚠ `valenciaCorniceHeightFromGraphedFloors` IS A TRANSCRIPTION ARTEFACT, NOT AN ENVELOPE PATH.
+// It exists so tests can pin the ordinance's own eight-row table against the formula — which is how
+// the "Np = number of storeys" reading was caught (Np is the graphed count MINUS ONE). Calling it
+// with a guessed storey count fabricates a determination. There is no production caller.
+export {
+    isInValencia,
+    VALENCIA_BBOX,
+    VALENCIA_INE_CODE,
+} from './providers/valenciaBbox.js';
+export {
+    VALENCIA_JURISDICTION_ID,
+    VALENCIA_ENVELOPE_VERIFIED,
+    VALENCIA_ROADMAP_LINE,
+    VALENCIA_ALTURA_LEAD_MEASURED_AT,
+    VALENCIA_ALTURA_FIELD_MEASURE,
+    valenciaNoRulePackRefusal,
+} from './rulepacks/esValenciaEnvelope.js';
+export {
+    ES_VALENCIA_PGOU_PACK,
+    VALENCIA_PGOU_ZONE_CODES,
+    VALENCIA_PGOU_SOURCE,
+    VALENCIA_PGOU_GVA_DEPOSIT,
+    VALENCIA_PGOU_LATER_MODIFICATIONS,
+    VALENCIA_FIELD_PROVENANCE,
+    VALENCIA_CALIFICACION_CLASSIFICATION,
+    VALENCIA_CORNICE_FORMULAS,
+    VALENCIA_ENS_HEIGHT_TABLE,
+    VALENCIA_STATED_BOUNDS,
+    VALENCIA_DELEGATION_SHARE,
+    VALENCIA_LAND_SHARE_MEASURED_2026_08_01,
+    resolveValenciaPgouZone,
+    valenciaCalificacionClassification,
+    valenciaCorniceHeightFromGraphedFloors,
+    type ValenciaParameterState,
+    type ValenciaGranularity,
+    type ValenciaCalificacionClassification,
+    type ValenciaCorniceFormula,
+    type ValenciaPgouResolution,
+} from './rulepacks/esValenciaPgou.js';
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠ END OF THE VALÈNCIA BLOCK.                                                                 ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
 
 // ── L-608 — Madrid (INE 28079) jurisdiction gate + the NZ 1 explicit-area pack, refusal + ──
 // the `ringRef` resolver. The pack ships numeric fields null and a footprint HANDLE; the resolver

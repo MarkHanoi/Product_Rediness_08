@@ -235,6 +235,20 @@ import {
     MURCIA_PGOU2012_ZONE_CODES,
     MURCIA_PGOU2012_VARIANT_ZONE_CODES,
 } from './esMurciaPgou2012.js';
+// ── VALÈNCIA (INE 46250), Comunitat Valenciana — ⚠ START OF THE VALÈNCIA BLOCK. ───────────────
+// A REFUSAL jurisdiction, and — unlike Murcia and Córdoba — one whose gate a SIGNATURE CANNOT
+// LIFT. The PGOU *Normas Urbanísticas* (mayo 1991) HAVE been sourced, read and transcribed; the
+// transcription is complete and quoted verbatim per article. It still yields no number, because
+// Arts. 6.18.2 / 6.19.1 / 6.25.1 / 6.30.1 define the buildable depth and the cornice height as
+// functions of a storey count and a depth **graphed on the Plano C sheets**, which the city does
+// not publish as data. `ES_VALENCIA_PGOU_PACK.zones` is therefore EMPTY BY CONSTRUCTION and is
+// registered with an empty `packMap()` — there is nothing to key. See `esValenciaPgou.ts`.
+import {
+    VALENCIA_JURISDICTION_ID,
+    valenciaNoRulePackRefusal,
+} from './esValenciaEnvelope.js';
+import { VALENCIA_BBOX, isInValencia } from '../providers/valenciaBbox.js';
+// ── ⚠ END OF THE VALÈNCIA IMPORT BLOCK. ───────────────────────────────────────────────────────
 // ── L-449 SIGNED — Denmark (national, Plandata.dk). The FIRST fully-automated jurisdiction: its
 //    buildable-envelope pack is resolved LIVE per parcel (`dkPlandataResolvedPack`) by the L5 DK
 //    dispatch, so it registers with an EMPTY `packsByZone` and exists here to light the C60 coverage
@@ -993,6 +1007,75 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
             murciaNoRulePackRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
     },
+    // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ START OF THE VALÈNCIA BLOCK (INE 46250, Comunitat Valenciana). Confine València edits  ║
+    // ║   to this block — `registry.ts` is a shared collision point.                             ║
+    // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
+    //
+    // ⚠⚠ THE ONLY REGISTRATION IN THIS FILE WHOSE REFUSAL A SIGNATURE CANNOT LIFT, AND THAT IS THE
+    // POINT OF REGISTERING IT. Córdoba's pack is gated pending a signature; Murcia's gate has been
+    // signed. València's is neither: there is **no number to sign**. The PGOU *Normas Urbanísticas*
+    // (Documento Definitivo, mayo 1991) were retrieved from the municipality's own domain, read and
+    // transcribed article by article — Arts. 6.3.1 · 6.15 · 6.16 · 6.17 · 6.18 · 6.19 · 6.25.1 ·
+    // 6.30.1 · 5.19 — and the transcription is GOOD. It yields no envelope because the plan puts its
+    // envelope on a DRAWING: «la altura … en función del número de plantas GRAFIADO EN EL PLANO C»
+    // (6.19.1), «la profundidad edificable será la señalada EN EL PLANO C» (6.18.2). PRYZM does not
+    // hold Plano C, and no amount of further reading produces it.
+    //
+    // ⇒ `packsByZone` IS EMPTY, and unlike Córdoba/Murcia that is not a gating decision — it is the
+    // RESULT. `ES_VALENCIA_PGOU_PACK.zones` is `[]` by construction. Do not "finish" this by keying
+    // a representative Np: `Hc = 4,80 + 2,90·Np` with a guessed Np is a FABRICATED DETERMINATION,
+    // not a conservative estimate (L-616 mechanism-A). The pack object exists anyway so the C60
+    // coverage probe sees a jurisdiction that is PRESENT with zero zones rather than ABSENT —
+    // failure ≠ empty (§CONTEXT-DATA-HONESTY, L-422/457/467/469).
+    //
+    // ⚠ WHY `noRulePackRefusal` AND NOT A `derived-plan` REFUSAL, given the delegation IS measured.
+    // 36,40 % of València's private buildable land (L-656 denominator: `clase = SU` ∧ Art. 6.3.1's
+    // six zones = 1 874,9 ha) is ordered by a derived instrument, measured 2026-08-01 over the live
+    // `MapServer/231.origen` column with shoelace areas in EPSG:25830. That land is entitled to the
+    // STRONGER, legally-grounded `derived-plan` refusal — but only per-parcel, from the live
+    // `origen` value, which this table cannot see: the registry path holds a zone code and no
+    // record. Issuing the legal claim from here would assert the law on the 63,60 % it does not
+    // apply to. So the registry makes the WEAKER, always-true claim about PRYZM's coverage, exactly
+    // as Murcia's and Switzerland's registrations do, and the per-parcel legal claim waits for the
+    // live `origen` read (CLOSURE-REGISTER #3).
+    {
+        jurisdictionId: VALENCIA_JURISDICTION_ID, // 'es-46250-valencia'
+        displayName: 'València',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        // ⚠ THE SAME OBJECT/FUNCTION `siteDispatch.ts` routes on — imported, not restated.
+        extent: VALENCIA_BBOX,
+        contains: isInValencia,
+        // ⚠ `municipal` is a DECLARATION of what the box was drawn to, not a claim that it equals
+        // the term. València's box swallows the whole l'Horta ring (Mislata, Paterna, Burjassot,
+        // Xirivella, Alfafar…), every one a different municipality with a different general plan.
+        // The authoritative answer is Catastro's own `<cp>`+`<cm>` → 46250 via `composeIneCode()`.
+        extentResolution: 'municipal',
+        answerSummary:
+            'The PARCEL half is complete, live and keyless: the national Catastro path resolves the ' +
+            'referencia catastral and the official boundary by identifier, and València ' +
+            'independently publishes the cadastral reference on its own municipal parcel layer, so ' +
+            'there are two routes and neither needs a licence. The ZONING half is live too — the ' +
+            "city's own ArcGIS service returns the calificación, its grade and, unusually, the " +
+            'GOVERNING PLAN INSTRUMENT as a column, so PRYZM can name the document that orders a ' +
+            'parcel without a second query. The buildable ENVELOPE refuses, and for València the ' +
+            "reason is unusually sharp: the general plan's Normas Urbanísticas have been sourced " +
+            'and transcribed article by article, and they set the maximum cornice height and the ' +
+            'buildable depth by a storey count and a depth GRAPHED ON THE PLANO C SHEETS, which the ' +
+            'city does not publish as data. No height, buildability, occupation or setback is ' +
+            'published here — never an estimate, never a proxy figure.',
+        // ⚠ EMPTY BY CONSTRUCTION, NOT BY GATING. See the block comment above.
+        packsByZone: packMap(),
+        // No per-zone legal refusal TABLE: València's legal refusal is a function of the live
+        // `origen` instrument, not of a static zone enumeration.
+        refusalFor: () => null,
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            valenciaNoRulePackRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
+    },
+    // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ END OF THE VALÈNCIA BLOCK.                                                             ║
+    // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
     // ── L-449 SIGNED (Denmark, national) — Plandata.dk → buildable envelope, the FIRST fully-automated
     //    (OFFLINE-legislation) jurisdiction. UNLIKE the ES refusal-jurisdictions above, Denmark
     //    genuinely ANSWERS with real structured numbers — but its pack is resolved LIVE, PER PARCEL,

@@ -52,6 +52,8 @@ import { MADRID_ENVELOPE_VERIFIED } from './esMadridPgoum97.js';
 import { MADRID_JURISDICTION_ID } from './esMadridNZ1.js';
 import { MURCIA_ENVELOPE_VERIFIED, MURCIA_JURISDICTION_ID } from './esMurciaEnvelope.js';
 import { SANT_BOI_ENVELOPE_VERIFIED, SANT_BOI_JURISDICTION_ID } from './esSantBoi.js';
+// ⚠ VALÈNCIA — a gate of a THIRD kind. See the third group in the table below.
+import { VALENCIA_ENVELOPE_VERIFIED, VALENCIA_JURISDICTION_ID } from './esValenciaEnvelope.js';
 
 const tracer = trace.getTracer('pryzm.zoning.authorisation');
 
@@ -76,6 +78,16 @@ export const ENVELOPE_PUBLICATION_GATES: ReadonlyMap<string, boolean> = new Map<
     [BADALONA_JURISDICTION_ID, BADALONA_ENVELOPE_VERIFIED],
     [SANT_BOI_JURISDICTION_ID, SANT_BOI_ENVELOPE_VERIFIED],
     [CORNELLA_JURISDICTION_ID, CORNELLA_ENVELOPE_VERIFIED],
+    // ── ⚠ A THIRD KIND OF GATE: NOT awaiting a signature, and NOT signable at all. ──
+    // Madrid/Córdoba/Murcia are `false` because a human has not yet signed a transcription PRYZM
+    // HOLDS. València is `false` because there is NO NUMBER TO SIGN: the PGOU *Normas Urbanísticas*
+    // (mayo 1991) were sourced, read and transcribed in full, and Arts. 6.18.2 / 6.19.1 / 6.25.1 /
+    // 6.30.1 define the envelope as a function of a storey count and a depth graphed on **Plano C**,
+    // which the city does not publish as data. `ES_VALENCIA_PGOU_PACK.zones` is EMPTY by
+    // construction, so flipping this constant would authorise nothing — it would merely remove the
+    // interlock that stops a later author packing a guessed Np and shipping it (L-616 mechanism-A).
+    // ⇒ It is registered here so the classifier cannot FAIL OPEN on València, not so it can be signed.
+    [VALENCIA_JURISDICTION_ID, VALENCIA_ENVELOPE_VERIFIED],
     // ── NOT waiting on a signature: there is nothing to sign (no Catalonia-wide instrument
     //    exists). Listed because the gate EXISTS and totality demands it — never because a
     //    signature would open it. See `esCatalunya.ts`: do not "fix" this by flipping it.

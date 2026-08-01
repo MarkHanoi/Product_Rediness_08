@@ -1,0 +1,282 @@
+# València — CLOSURE REGISTER (the complete blocker list)
+
+> **Stamp 2026-08-01.** The single place that answers *"what is left before València is CLOSED?"*
+> Companion to [`RATE.md`](./RATE.md) (which scores axes) — **this file tracks BLOCKERS.**
+> Shape follows [`../../es-ct/08019-barcelona/CLOSURE-REGISTER.md`](../../es-ct/08019-barcelona/CLOSURE-REGISTER.md).
+> Every row ends in a **yes/no**, never an open question.
+
+---
+
+## The definition of CLOSED — ratified 2026-08-01 (founder)
+
+> **A city is CLOSED when every parcel reaches a TERMINAL, EVIDENCE-BACKED state — either a
+> constructed envelope, a cited delegation, or an explicit refusal with a documented reason.**
+
+**It does NOT mean every parcel returns a numeric envelope.**
+
+⚠ **València is the city where that distinction stops being a caveat and becomes the entire
+result.** Barcelona and Murcia can each compute a number on part of their land and refuse, cited, on
+the rest. València can compute a number on **none of it** — and can nevertheless be brought to
+**100 % terminal**, because the reason it publishes nothing is *stated in the ordinance itself* and
+is quotable per parcel. A city at 0 % computed and 100 % terminal is a **CLOSED** city. A city at
+40 % computed and 60 % silent is not.
+
+## The standard every blocker must meet before it closes
+
+**Evidence → Findings → Decision → Alternatives rejected.**
+
+⚠ **No blocker may rest at *"needs founder decision"* until it is PROVEN that no authoritative
+evidence exists.** **Negative evidence closes a blocker** — *"no such dataset exists, here are the
+endpoints probed with their HTTP status and response SHAPE"* is a valid, permanent closure, and for
+València it is the most valuable artefact in this file.
+
+⚠ **THE RECURRING TRAP, AND HOW EVERY MEASUREMENT BELOW GUARDS AGAINST IT.** A 301→HTML notice
+returns HTTP 200 with a body, and a rejected `where` clause returns zero rows — both look exactly
+like "no data". Every probe recorded here asserts on **response SHAPE**, and every filtered count is
+preceded by an **UNFILTERED count**. Worked example, run 2026-08-01:
+
+| probe | result |
+|---|---|
+| `MapServer/231/query?where=1=1&returnCountOnly=true` | `{"count":21210}` ← **asserted FIRST** |
+| `MapServer/231/query?where=califi='ZZZNOPE'&returnCountOnly=true` | `{"count":0}` |
+
+The two responses are **byte-identical in shape**. Without the first, the second is indistinguishable
+from an outage.
+
+## Taxonomy (ratified 2026-08-01)
+
+| | Bucket | Unblocked by |
+|---|---|---|
+| **A** | **Evidence** | primary sources — the PGOU text, the GVA registry, the municipal GIS |
+| **B** | **Engineering** | implementation |
+| **C** | **Contract** | architecture change |
+| **D** | **Product policy** | a founder decision, *after* A is exhausted |
+
+---
+
+## 1 — Does a València zoning service exist? **YES.** Endpoint + evidence
+
+| # | Endpoint | Status | Response SHAPE |
+|---|---|---|---|
+| E1 | `https://geoportal.valencia.es/server/rest/services` | **200** | ArcGIS catalogue JSON, `currentVersion` 10.81, 33 folders |
+| E2 | `…/OPENDATA/UrbanismoEInfraestructuras/MapServer?f=json` | **200** | service JSON, **70 layers**, `maxRecordCount` 2000, `supportsStatistics` true, `supportsPagination` true |
+| E3 | `…/MapServer/231?f=json` | **200** | layer JSON, *"PGOU - Calificacions / Calificaciones"*, `esriGeometryPolygon`, EPSG:25830, **17 fields** |
+| E4 | `…/MapServer/231/query?where=1=1&returnCountOnly=true` | **200** | `{"count":21210}` — **the unfiltered denominator** |
+| E5 | `…/MapServer/231/query?groupByFieldsForStatistics=califi&outStatistics=[count]` | **200** | 116 grouped rows (**110 distinct after trimming whitespace variants**) |
+| E6 | `…/MapServer/231/query?groupByFieldsForStatistics=origen&outStatistics=[count]` | **200** | 504 grouped rows (**496 distinct after trimming**) |
+| E7 | `…/MapServer/231/query?…returnGeometry=true&outSR=25830` ×11 pages | **200** | 21 210 features with rings — the AREA measurement |
+| E8 | `…/MapServer/212?f=json` + `/query?where=1=1&returnCountOnly=true` | **200** | *"PGOU - Alineaciones"*, `{"count":21975}`, field **`altura`** present |
+| E9 | `…/MapServer/231/query?outStatistics=[sum on "Shape.STArea()"]` | **400** | `{"error":{"code":400,…}}` — ⚠ **server-side area is NOT available**; areas had to be computed client-side from downloaded geometry |
+| E10 | `…/MapServer/231/query?where=califi='ZZZNOPE'&returnCountOnly=true` | **200** | `{"count":0}` — the **trap control** |
+| E11 | 17 folders incl. `Patrimonio_Historico`, `Vivienda`, `GTECatastral` | **200** | `{"error":{"code":499,"message":"Token Required"}}` — ⚠ **auth-gated, UNKNOWN not absent** |
+
+**No WFS/GeoServer endpoint exists** on the probed hosts (`www.valencia.es/{geoserver,ogc,wfs}/…` →
+404; 130 further generated candidates → DNS failure). **WMS is available per-service.** Auth: none on
+the planning folders above.
+
+⇒ **Task 1 answer: València publishes calificación as a queryable ArcGIS REST service. It is NOT
+blocked.** The Córdoba trick (mining a *visor* bundle for a hidden host) was not needed — the root
+fell out of a generic sub-domain sweep of the bare domain.
+
+## 2 — The LEGISLATION denominator: the zone inventory
+
+**110 distinct `califi` base codes · 551 code+grade combinations · 496 distinct `origen`
+instruments.** ⚠ **That is ~15× Madrid's ~7 zones, and it is the single biggest cost fact about this
+city.** Extraction here cannot be "read eight chapters".
+
+**But the vocabulary is long-tailed, and the tail is not where the land is.** Measured by AREA over
+the L-656 denominator (§3), **six zone codes account for 100 %** of València's private buildable
+land — the six the PGOU's own Art. 6.3.1 enumerates:
+
+| zone (Art. 6.3.1) | share of private buildable land | of which PGOU-ordered |
+|---|---:|---:|
+| **ENS** Ensanche | **41,33 %** | 32,97 pp |
+| **EDA** Edificación Abierta | **29,94 %** | 21,40 pp |
+| **CHP** Conjunto Histórico Protegido | **10,06 %** | **0,81 pp** ⚠ |
+| **UFA** Vivienda Unifamiliar | **8,15 %** | 5,87 pp |
+| **IND** Industrias y Almacenes | **5,53 %** | 1,61 pp |
+| **TER** Terciario | **4,99 %** | 0,93 pp |
+
+⚠ **CHP is the trap in this table.** It is 10,06 % of the buildable city but only **0,81 %** of it is
+ordered by the general plan — **92 % of València's protected historic fabric is governed by a derived
+instrument**. An agent who "closed" València by reading Título VI Capítulo 2 would have covered
+0,81 % of the city and believed it had covered 10 %.
+
+⇒ **The 110-code vocabulary is a LEGISLATION denominator for routing, not for numbers.** The
+numeric denominator is six.
+
+## 3 — The delegation shape: **MEASURED, and the prior was WRONG**
+
+The brief predicted *"expect the same shape in València"* as Murcia (67 % delegated) and Barcelona
+(62,8 %). **Measured, València delegates 36,40 % — roughly half.**
+
+**Method** (recorded so it can be re-run and disputed): all 21 210 polygons of `MapServer/231`
+downloaded with geometry in the native **EPSG:25830** (metres), 2 000/page × 11 pages,
+`geometryPrecision=2`; per-feature area by signed shoelace over the ArcGIS rings (holes counter-wound,
+signs cancel). Server-side `Shape.STArea()` was **rejected 400** (E9), so client-side was the only
+route. The unfiltered count was asserted first (E4).
+
+**The denominator matters more than the number — L-656:**
+
+| denominator | delegated share |
+|---|---:|
+| all 21 210 polygons (144,20 km²) | 20,58 % |
+| `clase = SU` — suelo urbano (4 010,7 ha) | 40,20 % |
+| **`clase = SU` ∧ Art. 6.3.1's six zones (1 874,9 ha)** ⟵ **the L-656 figure** | **36,40 %** |
+
+Breakdown of the delegated 36,40 % by instrument family: `PE` Plan Especial 14,94 % · `RI` Reforma
+Interior 7,10 % · `MP` Modificación Puntual 6,38 % · `ED` Estudio de Detalle 3,28 % · `PRI` 2,17 % ·
+`PP` Plan Parcial 1,89 % · `CU` 0,29 % · `CRI` 0,16 % · `PEPRI` 0,11 % · `CE` 0,05 % · `UE` 0,01 %.
+
+⚠ **`MP` is counted as delegated, which is the CONSERVATIVE reading, not the obvious one.** An `MP`
+*amends* the PGOU rather than replacing it, so some `MP` land is arguably still PGOU-ordered — but
+PRYZM does not hold the amending documents and cannot tell which. ⇒ **30,02 % is the floor of the
+delegated range and 36,40 % the ceiling; the code uses the ceiling, i.e. it under-claims its own
+reach.**
+
+⚠⚠ **AN INSTRUMENT COUNT IS NOT A LAND SHARE, AND HERE THEY DISAGREE 5×.** "482 of 496 instruments
+are not the PGOU" reads as *97 % delegated*. **Fourteen `PGOU*` rows cover more ground than 482
+derived plans combined.** The earlier dossier stated the count and left the share `unmeasured`; that
+was correct discipline, and this is the measurement that discharges it.
+
+⚠ **Shares are LAYER-relative.** The 21 210 polygons sum to **144,20 km²** against an official
+municipal term of ≈134,65 km² — ~7 % more — so some polygons overlap. **No claim is made about the
+term's area.**
+
+## 4 — València's ARITHMETIC MAXIMUM RATE
+
+### ENVELOPE axis — **0 % today. Not `not-assessed`: MEASURED at zero, with the article that makes it zero.**
+
+Every envelope-determining parameter in every residential zone reduces to a value **graphed on
+Plano C**, a 1991 drawing set the city does not publish as data:
+
+| zone | rule | article |
+|---|---|---|
+| ENS | `Hc = 4,80 + 2,90·Np`, Np from Plano C | 6.19.1 |
+| ENS | *«La profundidad edificable será la señalada en el Plano C»* | 6.18.2 |
+| EDA | `Hc = 5,30 + 2,90·Np` — ⚠ same shape, **different intercept** | 6.25.1 |
+| UFA | closed table 2→7 m, 3→10 m, selected by Plano C | 6.30.1 |
+
+⇒ **0 % of València's buildable land can carry a computed envelope from the ordinance text, and no
+further reading changes that.** This is not a coverage gap that effort closes; it is a property of
+the instrument.
+
+### The conditional ceiling — what each unlock is arithmetically worth
+
+| if PRYZM obtains… | ENVELOPE ceiling (share of private buildable land) |
+|---|---:|
+| nothing further | **0 %** |
+| **Plano C as data** (#1) | **63,60 %** — the PGOU-ordered share; the delegated 36,40 % stays a cited delegation forever |
+| a validated layer-212 `altura` parse only (#2) | **≤ 27,13 % of layer 212's area**, and the join to the buildable denominator is unmeasured ⇒ **cannot be stated as a land share yet** |
+
+### RATE — `not-assessed`, with a typed reason, and **that is the correct answer**
+
+⚠ **Barcelona can state ≈77 % because its axes have been measured against a working envelope. València
+cannot, and inventing a ceiling here would be the exact error this register exists to prevent.** The
+typed reason is **`missing-framework`**, not `missing-evidence`: the C63 tier vocabulary
+(`certified` / `constructed-amber`) still does not exist in code (Barcelona register #14, platform-wide
+**P0**), so **no city can prove an ENVELOPE score**, València included. The evidence half is now in
+hand — LEGISLATION and ENVELOPE denominators are both measured — and the axis will compute the day
+the ruler exists.
+
+**What CAN be stated today, and it is the number that matters:**
+
+> **València is at 0 % computed and — once #3 lands — 100 % TERMINAL.**
+> Under the ratified definition, that is a city on the verge of CLOSED.
+
+---
+
+## The register
+
+| # | Blocker | Bucket | Sev | Sign if omitted | Status | Closes when |
+|---|---|:--:|:--:|:--:|---|---|
+| **1** | **Plano C is not published as data** — the *número de plantas*, *profundidad edificable* and alignments for the whole city | **A** | **P0** | **n/a — it is the ENABLER, not an omission**; using it wrongly OVER-states | 🔴 **OPEN — and it is the only blocker that can ever move the ENVELOPE ceiling off 0 %** | A human obtains the Plano C sheets as data (vector or georeferenced raster) from `geoportal.valencia.es` / Servicio de Planeamiento. ⚠ **Measured negative on the automated route:** a FIELD-LEVEL sweep of **all 70 layers** of the authoritative planning service (not a name-level one — names are what missed `altura`) finds only **three** layers carrying any envelope-parameter-shaped field: `212.altura`, `321.nivel_prot` (heritage protection level, not an envelope) and `223.nivelaltura` (on *Eixos de carrer*, a street-axis **polyline**, `null` on every sampled row). **No layer publishes `profundidad`, `edificabilidad`, `ocupación` or `retranqueo`.** ⇒ **Plano C is not in the public REST catalogue, and that is now settled rather than assumed.** Needs a human; see R1. |
+| **2** | **Layer 212 `altura` — is it Plano C's Np?** | A→B | P1 | **OVER-states, catastrophically** — see the sign analysis | 🟡 **HALF-CLOSED — the SIZE of the lead is now measured, and it is 2,4× smaller than reported** | ✔ **Measured 2026-08-01 by AREA** (all 21 975 polygons, shoelace, EPSG:25830), correcting a polygon-count figure: **bare integer 1…30 = 27,13 %** of layer area, **not 65,5 %**. ⚠⚠ **The largest single bucket is the literal value `0` at 34,13 % of area (4 195 polygons)** — a parcel cannot be lawfully built to zero storeys, so `0` is a SENTINEL for unknown, and C58 §1.7a / L-616 are explicit that **`0` never means unknown**. Remaining: junk `-+-`/`_`/`+-` **18,38 %** · protection-derived 6,07 % · `<=n`/`Max n` bounds 6,63 % · floorspace/FAR/metres 2,40 % · delegated-or-deferred 1,49 % · unrecognised 2,14 %. ⚠ **The field carries at least four units in one `esriFieldTypeString`** — reading `13m` as 13 storeys yields `4,80+2,90·12 = 39,6 m` for a **13 m** building, a **3× overstatement**; and bare `65936.20`, `49846.90` sit alongside `S=39600.65m2s`, i.e. **site areas wearing the same clothes as storey counts.** **What is still open, and it is A not B:** nothing in the service documents the field, so *"`altura` = Art. 6.19.1's número de plantas"* remains an **INFERENCE**; and the layer has **not been spatially joined** to the buildable denominator, so even 27,13 % is a share of the wrong denominator. ⇒ Closes on (a) municipal confirmation of the field's semantics **and** (b) a spatial join. Pinned as `VALENCIA_ALTURA_FIELD_MEASURE`. |
+| **3** | **Every parcel reaches a TERMINAL state** | **B** | **P0** | — | 🟢 **CLOSED for the coverage claim, OPEN for the legal claim** | ✔ **Shipped this pass.** `valenciaNoRulePackRefusal` is wired end to end — S2 `isInValencia` → S4 `ES_VALENCIA_PGOU_PACK` → S5 `registry.ts` — so **100 % of València parcels now receive an explicit, documented, land-identifying refusal** naming Plano C and the articles, instead of silence. 51 tests, including a §DEC-1 **prose-leak test** (no figure may appear in the refusal copy) and an L-616 null-fields test. ⛔ **What remains is a STRONGER answer, not a missing one:** 36,40 % of buildable land is entitled to the legally-grounded `derived-plan` refusal citing its own `origen` instrument, and today gets the weaker `no-rule-pack` coverage refusal. **Closes when the live `origen` value is read per parcel** — see #4. |
+| **4** | **Live `origen` read at the parcel (S3 zoning resolver)** | **B** | **P1** | **UNDER-states** — the current refusal is weaker than the truth, never stronger | 🔴 **OPEN — the largest closure step available, and it needs no new evidence** | Build `resolveValenciaZoning` + a same-origin proxy against `MapServer/231` (point-intersect, `outSR=4326`), mirroring `resolveMurciaZoning`. ⚠ **Every input is already proven live and keyless**: the service answers unauthenticated (E1–E7), `califi`/`tipoca`/`origen` are on one row so **no second spatial join is needed** — architecturally better than Madrid — and the parcel arrives from the national Catastro path with no licence. ⇒ **~36 % of buildable land upgrades from a coverage refusal to a cited legal delegation**, and the other ~64 % gains its zone name. **Pure engineering, ~1 day.** |
+| **5** | **The municipal text is a *(Transcripción)*, not the registered instrument** | **A** | P2 | **UNKNOWN sign** — a re-keying error could go either way | 🟡 **OPEN, and correctly fenced** | The quotes come from `valencia.es`'s own **`10. Normas Urbanísticas. (Transcripción).pdf`** (HTTP 200, 435 440 B, born-digital, 157 pp) — published by the competent authority, carrying **no** *«sin valor normativo»* disclaimer (checked: the string appears **zero** times). The stronger artefact — the **Generalitat's Registro Autonómico** deposit **`46250-1001 1991-0010`**, whose *filing path contains `46250 VALENCIA`* — was also retrieved (HTTP 200, 11,8 MB) but is an **IMAGE-ONLY SCAN**: `pdftotext` yields **0 characters**. ⇒ **Closes on OCR of the registry deposit and a quote-by-quote concordance.** ⚠ Until then no signature may claim the quotes are the registered text. Named as R2. |
+| **6** | **Modification census since 1994** | **A** | P2 | **UNKNOWN sign** | 🟡 **OPEN — but bounded, and one modification is already closed** | `VALENCIA_PGOU_LATER_MODIFICATIONS` is **`unverified`, never `none`** — and there is positive evidence against `none`: a *modificación-adaptación* approved 14-XII-1993 (**DOGV 07-II-1994**) is bound into the same PDF. ✔ **Checked, not assumed:** it touches Art. 6.18 only as a *parcelación-licence clarification* about segregation tolerance, and **does not alter the profundidad edificable or the alignment rule.** ⛔ That closes ONE. The live `origen` vocabulary contains **~1 509 `MP` polygons across ~140 instruments**; no census exists. ⇒ Closes on a census of `MP` instruments touching Título VI Caps. 3–5. Named as R3. |
+| **7** | **CHP / TER / IND chapters unread** | **A** | **P3** ⟵ demoted | **UNDER-states** (they are labelled `unknown`, the weakest claim) | 🟡 **OPEN, and MUCH cheaper than it looked** | ⚠ **This row was going to be P1 on the "three of six zones unread" framing. Measuring the land inverted it.** CHP+TER+IND are 20,58 % of buildable land but only **3,35 pp of it is PGOU-ordered** — the rest is delegated and closes via #4 regardless of what the chapters say. **And even reading them yields nothing computable**, because Art. 6.3.1's zones all route to Plano C. ⇒ Reading them buys *classification completeness*, not coverage. ~1 day, do it after #4. |
+| **8** | **`Patrimonio_Historico` / `Vivienda` folders are token-gated** | **A** | P3 | **OVER-states if ignored** — heritage constrains envelopes downward | 🟡 **OPEN — UNKNOWN, not absent, and that distinction is the whole row** | 17 ArcGIS folders return **error 499 "Token Required"**. Recording them as "no data" would be the failure-vs-empty conflation this repo has been bitten by four times (L-422/457/467/469). ⚠ Partial mitigation exists: BIC/BRL and *Catálogo* layers ARE public inside `UrbanismoEInfraestructuras`. ⇒ Closes on a re-probe with credentials, **before** any envelope ships. |
+| **9** | **C63 tier vocabulary does not exist in code** | **C** | **P0** | — | 🔴 **OPEN — inherited, PLATFORM-WIDE** | Not a València blocker; it is why València's RATE is `not-assessed` rather than a number. C63 §3 names `certified`/`constructed-amber`; `EnvelopeConfidenceSchema` knows neither. **No city can prove an ENVELOPE score until this lands.** See Barcelona register #14 — fix the ruler before claiming the measurement. |
+| **10** | **A previous agent stopped mid-tests** | **B** | P2 | — | ✅ **CLOSED 2026-08-01** | ✔ Found: three uncommitted files in a sibling worktree (`esValenciaPgou.ts`, `esValenciaEnvelope.ts`, `valenciaBbox.ts`) and **zero tests** — a half-wired path with no registry entry and no exports. **Adopted rather than rewritten** (the transcription is good and article-cited), then finished: 51 tests, registry registration, index exports, and registration in `ENVELOPE_PUBLICATION_GATES` (which was **failing open** for València — an unregistered gate makes the classifier promise a full envelope for a city that refuses every parcel). Two repo-wide totality guards caught the omission, as designed. **Nothing left behind.** |
+
+---
+
+## ⚠ Establish the SIGN before ranking severity — Barcelona's lesson, applied
+
+Barcelona's register records this three times, and it re-fired here:
+
+- **#7 (CHP/TER/IND unread)** *sounds* like the biggest hole in the city — half the zone vocabulary
+  is unclassified. Measured, it is **P3**: 20,58 % of buildable land, of which only 3,35 pp is
+  PGOU-ordered, and reading it yields **nothing computable** anyway. Filed as a coverage blocker; it
+  is a classification-completeness item.
+- **#2 (`altura`)** *sounds* like the unlock. Its sign is **OVER-statement**, and it is the only row
+  here that can make a *published* number wrong: four units in one string field, plus a `0` sentinel
+  on a third of the layer's area. It is the most dangerous row, not the most promising one.
+- **#4 (live `origen`)** *sounds* like plumbing. Its sign is **UNDER-statement** — today's refusal is
+  weaker than the truth — so it is pure upside with no correctness risk, needs **no new evidence**,
+  and moves 36 % of the city from a coverage excuse to a cited legal answer. **It is the right
+  second.**
+
+**Ranking by how alarming a gap sounds inverts the queue. It inverted this one.**
+
+## Effort, honestly
+
+| Category | Remaining | Difficulty |
+|---|---|---|
+| **Engineering — #4 live `origen` resolver + proxy** (all inputs proven live and keyless) | **~1 day** | Low |
+| Legal research — #7 read CHP/TER/IND chapters | ~1 day | Low |
+| Legal research — #6 `MP` census (~140 instruments) | ~3–5 days | Medium |
+| Evidence — #5 OCR the GVA registry deposit + concordance | ~2–3 days | Medium |
+| Engineering — #2 `altura` unit-discriminating parser + spatial join ⚠ **worthless until its semantics are confirmed (A)** | ~2–3 days | Medium |
+| **Data acquisition — #1 Plano C** ⚠ **the whole city; not automatable** | **unknown; a human, an institution and possibly a fee** | **High** |
+| Platform — #9 C63 tier vocabulary (not a València cost) | — | — |
+
+**The only structurally impossible category** is the 36,40 % the plan itself delegates. There the
+correct output is a machine-readable reference to the governing instrument — **a complete and legally
+correct result**, not a gap.
+
+## Recommended order
+
+**4 → 7 → 5 → 6 → 2 → 1**
+
+*(⚠ **3** and **10** are dropped: CLOSED. **9** is platform-wide and does not queue behind València.)*
+
+**4 first**, and it is not close. It is the only item that is pure upside — it needs **no new
+evidence**, it cannot make a published number wrong (its sign is under-statement), every input is
+already proven live and keyless, and it converts **36,40 % of the buildable city** from *"PRYZM does
+not cover this"* to *"the law delegates this to instrument `PE2020`"*. **That single day is what takes
+València from 100 % terminal-but-weak to 100 % terminal-and-cited, which is the definition of CLOSED.**
+
+**7, 5 and 6 next** because they are cheap evidence work that retires asterisks on citations already
+shipped.
+
+**2 late, and only after its (A) half.** Building the parser before the municipality confirms what
+`altura` means is building a 3×-overstatement engine with a test suite.
+
+**1 last in this list because it is not ours to schedule.** It is the only item that moves the
+ENVELOPE ceiling off 0 %, and it is a human, institutional task — see R1.
+
+## What a human is wanted for
+
+| # | Ask | Why it matters | Where |
+|---|---|---|---|
+| **R1** | **Plano C as data** — *número de plantas* + *profundidad edificable* + alignments | ⚠ **The whole city.** The only route from 0 % to 63,60 %. Proven absent from the public REST catalogue by a field-level sweep of all 70 layers (#1) | `geoportal.valencia.es` viewer / Servicio de Planeamiento |
+| **R2** | OCR or a text-layer copy of GVA deposit `46250-1001 1991-0010` | Retires the *(Transcripción)* caveat on every quote (#5) | `mediambient.gva.es/auto/urbanismo/reg-planeamiento/…` — 11,8 MB image-only |
+| **R3** | Census of *Modificaciones Puntuales* post-1994 touching Título VI Caps. 3–5 | Retires `laterModifications: unverified` (#6) | Servicio de Planeamiento / the `origen` taxonomy |
+| **R4** | Credentials for `Patrimonio_Historico` + `Vivienda` | Heritage constrains envelopes downward; ignoring it OVER-states (#8) | `geoportal.valencia.es` — ArcGIS 499 |
+| **R5** | Municipal confirmation of what `MapServer/212.altura` encodes | Turns #2 from an inference into a fact, or kills it | Servicio de Planeamiento |
+
+⚠ **None of R1–R5 is a signature.** València has **nothing to sign**: `VALENCIA_ENVELOPE_VERIFIED`
+is `false` and flipping it would authorise nothing, because `ES_VALENCIA_PGOU_PACK.zones` is empty by
+construction. **This is the first city in the register whose gate a signature cannot lift** (L-449).
+
+---
+*Authority: C58 §1.2/§1.4/§1.5/§1.7a/§1.9/§1.10 · C60 · C63 · ADR-0270 · ADR-0279 · L-449 · L-553 ·
+L-616 · L-656 · L-661 · §CONTEXT-DATA-HONESTY. Evidence:
+[`sources/PRIMARY-SOURCE-VERIFICATION-2026-08-01.md`](./sources/PRIMARY-SOURCE-VERIFICATION-2026-08-01.md) ·
+[`findings/VALENCIA-DATA-RECON.md`](./findings/VALENCIA-DATA-RECON.md) ·
+[`findings/VALENCIA-LAND-SHARE-MEASUREMENT-2026-08-01.md`](./findings/VALENCIA-LAND-SHARE-MEASUREMENT-2026-08-01.md).
+Code: `packages/site-parcel-data/src/rulepacks/esValencia{Pgou,Envelope}.ts` ·
+`providers/valenciaBbox.ts` · `__tests__/valenciaRouting.test.ts`. Maintainer: UNASSIGNED.*
