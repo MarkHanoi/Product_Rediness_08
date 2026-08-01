@@ -480,7 +480,25 @@ export function computeBuildableEnvelope(
                         }
 
                         const frontIdx = edgeClassifications.findIndex((c) => c === 'front');
-                        if (frontIdx < 0) {
+                        // §MURCIA-EDGE-CLASS-LENGTH-GUARD (L-676) — the PARCEL-level counterpart of
+                        // the `blockEdgeClassifications.length !== blockRing.length` refusal above.
+                        // `frontIdx` indexes `edgeClassifications` but is then used to read
+                        // `parcelRing[frontIdx]`, so the two arrays must describe the SAME ring. If
+                        // they do not, the band is measured from an edge chosen by an array that
+                        // does not belong to this parcel — a plausible number computed off the
+                        // wrong alineación, which is precisely what ADR-0270 exists to prevent.
+                        // The producer (`buildBoundaryFromLatLonRing`) guarantees equal lengths, so
+                        // reaching here means an upstream invariant already broke: refuse, loudly.
+                        if (edgeClassifications.length !== parcelRing.length) {
+                            status = 'degenerate';
+                            insetPolygon = [];
+                            caveats.push(
+                                'Alignment zone, but the parcel edge classification array does not ' +
+                                `match the parcel ring (${edgeClassifications.length} classifications ` +
+                                `for ${parcelRing.length} vertices) — the alineación cannot be ` +
+                                'located reliably. No envelope (ADR-0270; C58 §1.4).',
+                            );
+                        } else if (frontIdx < 0) {
                             // HARD FAIL, not a silent fallback. Without a front edge there is no
                             // alineación to measure from, and skipping the clip would return the
                             // FULL-DEPTH ring — a confidently wrong buildable area, which is the

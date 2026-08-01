@@ -1309,7 +1309,35 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * boundary (drawn OR selected) reach the Forma render — same C19 spine, no second
      * store. */
     const getFormaBoundary = (): XZ[] | null => {
-        type BoundaryStore = { getParcelBoundary?: () => { polygon?: ReadonlyArray<XZ> } | null };
+        const b = getCommittedParcelBoundary();
+        return b && b.polygon.length >= 3 ? b.polygon.map((p) => ({ x: p.x, z: p.z })) : null;
+    };
+
+    /**
+     * §L-412 Bug-2, SECOND SITE (§MURCIA-CARD-PARCEL-RING, L-676) — the ONE committed C19
+     * boundary, resolved the way the COMMIT resolves it (`runtime ?? window.runtime`).
+     *
+     * ⚠ WHY THIS IS EXTRACTED RATHER THAN COPIED. `getFormaBoundary` above already carried this
+     * resolution, but the site-data card (`buildSiteDataBlock`) read `runtime?.siteModelStore`
+     * DIRECTLY and had no `window.runtime` fallback. On the legacy boot path
+     * (`createMainLayout(props, runtime = null)`, Layout.ts:86/92) the boundary is committed
+     * against `window.runtime`'s store, so the card's read returned `undefined` → `parcelRing = []`
+     * → the whole PARCEL group AND the `Footprint / parcel` row rendered as the EMPTY STRING.
+     * The envelope rows survived because they come from the `siteDispatch` module globals, so the
+     * card showed massing numbers with nothing to check them against — the founder could not judge
+     * whether an RM1 footprint made sense because the plot it sits in was silently absent.
+     * Two readers of one committed value must not resolve it two ways; hence one resolver.
+     */
+    const getCommittedParcelBoundary = (): {
+        polygon: ReadonlyArray<XZ>;
+        edgeClassifications: ReadonlyArray<string>;
+    } | null => {
+        type BoundaryStore = {
+            getParcelBoundary?: () => {
+                polygon?: ReadonlyArray<XZ>;
+                edgeClassifications?: ReadonlyArray<string>;
+            } | null;
+        };
         const captured = runtime?.siteModelStore as BoundaryStore | undefined;
         const store: BoundaryStore | undefined =
             (captured?.getParcelBoundary ? captured : undefined) ??
@@ -1318,7 +1346,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 : undefined);
         const b = store?.getParcelBoundary?.();
         const poly = b?.polygon;
-        return poly && poly.length >= 3 ? poly.map((p) => ({ x: p.x, z: p.z })) : null;
+        if (!poly || poly.length < 3) return null;
+        return { polygon: poly, edgeClassifications: b?.edgeClassifications ?? [] };
     };
 
     /**
@@ -2132,13 +2161,35 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     const NOT_DERIVED =
         '<span style="color:#a49dbb;font-style:italic;" title="The rule pack did not derive this. We do not infer it — an inferred value would be indistinguishable from a derived one.">not derived</span>';
 
+    /**
+     * §CARD-DEPTH-TERM (L-676) — the LOCAL-LANGUAGE name of the buildable-depth rule, taken from
+     * the ordinance the card is already citing.
+     *
+     * ⚠ WHY NOT A HARD-CODED STRING. The card previously printed the Catalan *«profunditat
+     * edificable»* for EVERY alignment zone in every country. On a Murcia card — whose own
+     * `ordinanceRef` says *«fondo máximo edificable»* and whose plan is written in Castilian —
+     * that is a credibility defect on the one surface whose entire proposition is that it quotes
+     * the law correctly. It is read from the CITATION rather than from a jurisdiction table so a
+     * new city inherits its own term the moment its pack quotes its own ordinance; Barcelona keeps
+     * the Catalan because Barcelona's own quote is Catalan.
+     */
+    const depthTermFor = (ordinanceRef: string | null | undefined): string => {
+        const t = (ordinanceRef ?? '').toLowerCase();
+        if (t.includes('profunditat edificable')) return 'profunditat edificable';
+        if (t.includes('profundidad edificable') || t.includes('fondo máximo edificable')) {
+            return 'profundidad edificable';
+        }
+        // Neutral, and deliberately NOT a guess at the local term.
+        return 'buildable depth rule';
+    };
+
     const buildSiteDataBlock = (env: ReturnType<typeof getLastBuildableEnvelope>): string => {
         if (!env) return '';
-        const site = (runtime?.siteModelStore as {
-            getSite?: () => { parcel?: { boundary?: { polygon?: Array<{ x: number; z: number }>; edgeClassifications?: string[] } } } | null;
-        } | undefined)?.getSite?.();
-        const parcelRing = site?.parcel?.boundary?.polygon ?? [];
-        const edgeCls = site?.parcel?.boundary?.edgeClassifications ?? [];
+        // §MURCIA-CARD-PARCEL-RING (L-676) — read the ONE committed boundary through the SHARED
+        // resolver, not `runtime?.siteModelStore` directly. See `getCommittedParcelBoundary`.
+        const committed = getCommittedParcelBoundary();
+        const parcelRing = committed?.polygon ?? [];
+        const edgeCls = committed?.edgeClassifications ?? [];
         const frontEdges = edgeCls.filter((c) => c === 'front').length;
         const inset = env.insetPolygon ?? [];
 
@@ -2162,14 +2213,31 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 + row('Bounding box', `${num(polyBboxM(parcelRing).w, '', 1)} × ${num(polyBboxM(parcelRing).d, 'm', 1)}`,
                     'Axis-aligned extent. A non-rectangular parcel has no single width × depth, so this is deliberately labelled a bounding box.')
                 + row('Boundary edges', `${parcelRing.length}${frontEdges > 0 ? ` (${frontEdges} street frontage)` : ''}`))
-            : '';
+            // §CONTEXT-DATA-HONESTY (L-422/457/467/469) — an ABSENT ring must SAY it is absent.
+            // Rendering '' made the card jump from the header straight to ORDINANCE LIMITS, which
+            // reads as "there is no parcel constraint" rather than "we could not read the parcel".
+            // Failure and empty are the same value only if nobody prints the difference.
+            : group('Parcel', 'The committed C19 parcel boundary could not be read from this session.',
+                `<div style="color:#8a5a00;background:#fff6e8;border-radius:6px;padding:6px 8px;font-size:10px;line-height:1.5;">
+                   <b>Parcel outline unavailable.</b> The massing figures below were solved against the
+                   committed boundary, but this card could not re-read it, so <b>Area</b>, <b>Perimeter</b>
+                   and <b>Footprint / parcel</b> are withheld rather than guessed. Re-commit the plot
+                   (draw or select) to restore them. This is a missing READ, not a missing constraint.
+                 </div>`);
 
         // ── ORDINANCE — every value read from the derivation trace, with its citation. ──
         const dRow = (c: string) => env.derivation.find((d) => d.constraint === c);
         const depthRow = dRow('alignment.depth');
         const ordBody =
+            // §CARD-DEPTH-GRANULARITY (L-676) — the "Art. 242.2 / whole manzana" hint is BARCELONA's
+            // construction (ADR-0271) and is true only for a BLOCK-DERIVED depth. The engine emits
+            // `alignment.depthBinding` on exactly that path and on no other, so gate the hint on it.
+            // Murcia's Art. 5.5.3 states 15 m at PARCEL granularity; telling a Murcia user their
+            // neighbours share a block-derived figure would misstate the rule's own scope.
             (typeof depthRow?.value === 'number' ? row('Buildable depth', num(depthRow.value as number, 'm'),
-                'Block-granularity: Art. 242.2 derives this from the whole manzana, so neighbouring parcels on the same block share it.') : '')
+                dRow('alignment.depthBinding') !== undefined
+                    ? 'Block-granularity: PGM Art. 242.2 derives this from the whole manzana, so neighbouring parcels on the same block share it.'
+                    : 'Parcel-granularity: the ordinance states this depth directly for the zone — see the citation below.') : '')
             + row('Max height', env.maxHeight_m !== null ? num(env.maxHeight_m, 'm') : NOT_DERIVED)
             + row('Storeys', env.maxFloors !== null ? String(env.maxFloors) : NOT_DERIVED,
                 'Shown only when the rule pack derived it. We do NOT back-compute storeys from height ÷ a floor-to-floor guess.')
@@ -2670,7 +2738,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 ? `<div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#6b6480;">Buildable depth</span><span style="font-weight:600;text-align:right;">${depthSummaryTxt}</span></div>
                    <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Alignment offset</span><span style="font-weight:600;">${offsetSummaryTxt}</span></div>
                    <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Buildable</span><span style="font-weight:600;">${gfaTxt}</span></div>
-                   <div style="color:#a49dbb;font-size:9.5px;margin-top:3px;">Alignment zone — setbacks/height/FAR set by the profunditat edificable, not a numeric triple.</div>`
+                   <div style="color:#a49dbb;font-size:9.5px;margin-top:3px;">Alignment zone — setbacks/height/FAR set by the ${escHtml(depthTermFor(alignDepthRow?.ordinanceRef))}, not a numeric triple.</div>`
                 : `<div style="display:flex;justify-content:space-between;"><span style="color:#6b6480;">Setbacks (F/S/R)</span><span style="font-weight:600;">${setback('setback.front')} / ${setback('setback.side')} / ${setback('setback.rear')}</span></div>
                    <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Max height</span><span style="font-weight:600;">${heightTxt}</span></div>
                    <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Max FAR</span><span style="font-weight:600;">${farTxt}</span></div>
