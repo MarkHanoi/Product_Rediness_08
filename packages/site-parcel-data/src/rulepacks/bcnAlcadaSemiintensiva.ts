@@ -134,7 +134,28 @@ export const BCN_ART328_EDGE_CONVENTION = {
  * ⚠ DO NOT "align" these numbers with the Art. 327 table. They are a different article's figures
  * and their divergence is the sourced finding (L-552 §3.2, L-583 §4).
  */
+/**
+ * PGM Art. 328.2a — clau 13b, **as modified for the terme municipal de Barcelona by the MPGM of
+ * 02-03-2007, DOGC núm. 4893 (29-05-2007), expedient `2006/025790/B`.**
+ * ✍ **APPLIED 2026-08-01 — founder signature SIG-2** (`…/08019-barcelona/sources/VERIFICATION.md`).
+ * Binding annex retrieved and confirmed band-for-band, zero corrections; scope is the WHOLE
+ * municipality («al terme municipal de Barcelona»), no transitional regime.
+ * ⚠ Band boundaries and storey counts are UNCHANGED — only the metres move (+0,70 … +2,10 m).
+ * The superseded base ladder is `BCN_ART328_BASE_METROPOLITAN_TABLE`.
+ */
 export const BCN_ALCADA_SEMIINTENSIVA_TABLE: ReadonlyArray<AlcadaBand> = Object.freeze([
+    { minWidth_m: 0, maxWidth_m: 8, height_m: 8.25, floorsAboveGround: 1 },
+    { minWidth_m: 8, maxWidth_m: 11, height_m: 12.0, floorsAboveGround: 2 },
+    { minWidth_m: 11, maxWidth_m: 15, height_m: 15.4, floorsAboveGround: 3 },
+    { minWidth_m: 15, maxWidth_m: Infinity, height_m: 18.8, floorsAboveGround: 4 },
+]);
+
+/**
+ * The **SUPERSEDED** base/metropolitan Art. 328.2a ladder — retained for the audit diff and because
+ * it governs AMB municipalities carrying no modification of this article. Barcelona's resolver does
+ * not read it. See SIG-2.
+ */
+export const BCN_ART328_BASE_METROPOLITAN_TABLE: ReadonlyArray<AlcadaBand> = Object.freeze([
     { minWidth_m: 0, maxWidth_m: 8, height_m: 7.55, floorsAboveGround: 1 },
     { minWidth_m: 8, maxWidth_m: 11, height_m: 10.6, floorsAboveGround: 2 },
     { minWidth_m: 11, maxWidth_m: 15, height_m: 13.65, floorsAboveGround: 3 },

@@ -21,6 +21,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+    BCN_ART327_BASE_METROPOLITAN_TABLE,
     BCN_ALCADA_REGULADORA_TABLE,
     BCN_ART327_MPGM_2007,
     BCN_ART327_MPGM_2007_BAND_DELTA,
@@ -29,40 +30,46 @@ import {
     resolveAlcadaReguladora,
 } from '../src/rulepacks/bcnAlcadaReguladora.js';
 import {
+    BCN_ART328_BASE_METROPOLITAN_TABLE,
     BCN_ALCADA_SEMIINTENSIVA_TABLE,
     resolveAlcadaSemiintensiva,
 } from '../src/rulepacks/bcnAlcadaSemiintensiva.js';
 
 describe('§L-660 — the 2007 modification is TRANSCRIBED but NOT APPLIED', () => {
-    it('is explicitly flagged as not applied', () => {
+    it('is flagged APPLIED — signed SIG-2, 2026-08-01', () => {
         // The single most important assertion in this file. Flipping `applied` is a signed legal
         // act; if it ever flips without the rest of this suite being rewritten, that is the bug.
-        expect(BCN_ART327_MPGM_2007.applied).toBe(false);
+        expect(BCN_ART327_MPGM_2007.applied).toBe(true);
     });
 
-    it('leaves the SHIPPED Art. 327 resolver answering with the BASE metropolitan values', () => {
+    it('SHIPPED Art. 327 resolver answers with the BARCELONA 2007 values (SIG-2)', () => {
         // A 20 m official width — the standard Cerdà grid, PB+5. Base says 20,75; the modification
         // would say 22,40. We must still be publishing 20,75 until the founder signs.
         const r = resolveAlcadaReguladora(20, { trustedOfficialWidth: true });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        expect(r.height_m).toBe(20.75);
-        expect(r.height_m).not.toBe(22.4);
+        expect(r.height_m).toBe(22.4);
+        expect(r.height_m).toBe(22.4);
     });
 
-    it('leaves the SHIPPED Art. 328 resolver answering with the BASE metropolitan values', () => {
+    it('SHIPPED Art. 328 resolver answers with the BARCELONA 2007 values (SIG-2)', () => {
         const r = resolveAlcadaSemiintensiva(20, { trustedOfficialWidth: true });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        expect(r.height_m).toBe(16.7);
-        expect(r.height_m).not.toBe(18.8);
+        expect(r.height_m).toBe(18.8);
+        expect(r.height_m).toBe(18.8);
     });
 
-    it('keeps the modified bands out of the shipped tables entirely', () => {
+    it('the shipped tables ARE the modified bands, and the base ladder is retained but unused', () => {
+        // SIG-2 (2026-08-01): the SHIPPED tables now carry the Barcelona 2007 values...
         const shipped327 = BCN_ALCADA_REGULADORA_TABLE.map((b) => b.height_m);
-        for (const b of BCN_ART327_MPGM_2007.bands) expect(shipped327).not.toContain(b.height_m);
+        for (const b of BCN_ART327_MPGM_2007.bands) expect(shipped327).toContain(b.height_m);
         const shipped328 = BCN_ALCADA_SEMIINTENSIVA_TABLE.map((b) => b.height_m);
-        for (const b of BCN_ART328_MPGM_2007_BANDS) expect(shipped328).not.toContain(b.height_m);
+        for (const b of BCN_ART328_MPGM_2007_BANDS) expect(shipped328).toContain(b.height_m);
+        // ...and the superseded metropolitan ladder is retained, distinct, and NOT what we publish.
+        expect(BCN_ART327_BASE_METROPOLITAN_TABLE[0]!.height_m).toBe(8.55);
+        expect(BCN_ART328_BASE_METROPOLITAN_TABLE[0]!.height_m).toBe(7.55);
+        expect(shipped327).not.toContain(8.55);
     });
 });
 
@@ -75,7 +82,7 @@ describe('§L-660 — the transcription itself, pinned against the raster', () =
         expect(BCN_ART327_MPGM_2007.sourcePdfPage).toBe(277);
         // ⚠ NOT `certified`. We hold a transcription in a self-declared non-official compendium,
         // not DOGC 4893. Promoting this string without the binding text is the defect to catch.
-        expect(BCN_ART327_MPGM_2007.evidence).toBe('located-in-non-official-compendium');
+        expect(BCN_ART327_MPGM_2007.evidence).toBe('binding-text-retrieved');
     });
 
     it('Art. 327.2a — the six alçades màximes, verbatim from PDF p.277', () => {
@@ -111,9 +118,9 @@ describe('§L-660 — the impact is a pure per-band shift: NO parcel changes ban
     it('the modified Art. 327 table has IDENTICAL band boundaries and storey counts to the base', () => {
         // This is the whole impact analysis, as an assertion. If it ever fails, the "zero parcels
         // change band" conclusion in the founder packet is void and must be recomputed.
-        expect(BCN_ART327_MPGM_2007.bands.length).toBe(BCN_ALCADA_REGULADORA_TABLE.length);
+        expect(BCN_ART327_MPGM_2007.bands.length).toBe(BCN_ART327_BASE_METROPOLITAN_TABLE.length);
         BCN_ART327_MPGM_2007.bands.forEach((mod, i) => {
-            const base = BCN_ALCADA_REGULADORA_TABLE[i]!;
+            const base = BCN_ART327_BASE_METROPOLITAN_TABLE[i]!;
             expect(mod.minWidth_m).toBe(base.minWidth_m);
             expect(mod.maxWidth_m).toBe(base.maxWidth_m);
             expect(mod.floorsAboveGround).toBe(base.floorsAboveGround);
@@ -122,9 +129,9 @@ describe('§L-660 — the impact is a pure per-band shift: NO parcel changes ban
     });
 
     it('the modified Art. 328 table likewise', () => {
-        expect(BCN_ART328_MPGM_2007_BANDS.length).toBe(BCN_ALCADA_SEMIINTENSIVA_TABLE.length);
+        expect(BCN_ART328_MPGM_2007_BANDS.length).toBe(BCN_ART328_BASE_METROPOLITAN_TABLE.length);
         BCN_ART328_MPGM_2007_BANDS.forEach((mod, i) => {
-            const base = BCN_ALCADA_SEMIINTENSIVA_TABLE[i]!;
+            const base = BCN_ART328_BASE_METROPOLITAN_TABLE[i]!;
             expect(mod.minWidth_m).toBe(base.minWidth_m);
             expect(mod.maxWidth_m).toBe(base.maxWidth_m);
             expect(mod.floorsAboveGround).toBe(base.floorsAboveGround);
@@ -137,7 +144,7 @@ describe('§L-660 — the impact is a pure per-band shift: NO parcel changes ban
         // tables they claim to compare.
         expect(BCN_ART327_MPGM_2007_BAND_DELTA.length).toBe(6);
         BCN_ART327_MPGM_2007_BAND_DELTA.forEach((row, i) => {
-            const base = BCN_ALCADA_REGULADORA_TABLE[i]!;
+            const base = BCN_ART327_BASE_METROPOLITAN_TABLE[i]!;
             const mod = BCN_ART327_MPGM_2007.bands[i]!;
             expect(row.floorsAboveGround).toBe(base.floorsAboveGround);
             expect(row.base_m).toBe(base.height_m);
@@ -156,9 +163,9 @@ describe('§L-660 — the impact is a pure per-band shift: NO parcel changes ban
         const probes = [0.01, 7.99, 8, 11.99, 12, 14.99, 15, 19.99, 20, 29.99, 30, 60, 1000];
         for (let w = 0.05; w <= 40; w += 0.05) probes.push(Math.round(w * 100) / 100);
         for (const w of probes) {
-            expect(bandOf(BCN_ART327_MPGM_2007.bands, w)).toBe(bandOf(BCN_ALCADA_REGULADORA_TABLE, w));
+            expect(bandOf(BCN_ART327_MPGM_2007.bands, w)).toBe(bandOf(BCN_ART327_BASE_METROPOLITAN_TABLE, w));
             expect(bandOf(BCN_ART328_MPGM_2007_BANDS, w)).toBe(
-                bandOf(BCN_ALCADA_SEMIINTENSIVA_TABLE, w),
+                bandOf(BCN_ART328_BASE_METROPOLITAN_TABLE, w),
             );
         }
     });

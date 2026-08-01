@@ -67,15 +67,15 @@
 // modification of the very article it cites is the simplest reading of both facts. For three rounds
 // it was read instead as an anomaly requiring a second instrument to explain.
 //
-// ⇒ THE TABLE BELOW IS THE **BASE / METROPOLITAN** Art. 327 TABLE (3,05 m ladder). If the 2007
-//   modification is in force, it is the SUPERSEDED one for Barcelona — while remaining the correct
-//   metropolitan reading for AMB municipalities that did not rewrite Art. 327 (L'Hospitalet,
-//   Cornellà, Sant Boi all have no Art. 327 footnote entry).
-//
-// ⚠ NOTHING NUMERIC WAS CHANGED. Confirming the 2007 modification's force is a dated legal act
-//   (L-449) and it needs the BINDING DOGC 4893 text, which we do not hold. Raised, cited and left
-//   for the founder: `docs/…/08019-barcelona/L-660-ART-327-328-MPGM-2007-FOUNDER-DECISION.md`,
-//   `docs/…/es-ct/AMB-PGM-SCOPE-MAP.md` §5, and `BCN_ART327_MPGM_2007` below.
+// ✍ ⇒ RESOLVED 2026-08-01 — SIG-2. THE SHIPPED TABLE IS NOW THE **BARCELONA 2007 MODIFICATION**
+//   (9,00 / 12,35 / 15,70 / 19,05 / 22,40 / 25,75 m). The binding DOGC 4893 annex WAS retrieved —
+//   pp. 18336–18339, plus the RPUC signed *Text d'aprovació definitiva*, expedient `2006/025790/B`,
+//   both committed at `docs/…/08019-barcelona/corpus/pdf/` — and the compendium transcription needed
+//   **zero corrections**. Founder signed; see `sources/VERIFICATION.md` SIG-2.
+//   The superseded base/metropolitan ladder is retained as `BCN_ART327_BASE_METROPOLITAN_TABLE`; it
+//   remains the correct reading for AMB municipalities that did NOT rewrite Art. 327 (L'Hospitalet,
+//   Cornellà, Sant Boi carry no footnote entry). ⚠ **Badalona has its OWN instrument (DOGC 5224)
+//   stating numerically IDENTICAL values** — verify the municipality, never the figures.
 //
 // ⚠⚠ AND THE INPUT IS THE DANGEROUS PART — READ BEFORE FEEDING THIS A MEASURED WIDTH
 // ---------------------------------------------------------------------------------
@@ -114,13 +114,45 @@ export interface AlcadaBand {
 }
 
 /**
- * PGM Art. 327.2 — clau 13a (Subzona I). Verbatim band structure; see the header for the source
- * and for the one uncertified figure.
+ * PGM Art. 327.2a — clau 13a (Subzona I), **as modified for the terme municipal de Barcelona by the
+ * MPGM approved 02-03-2007, DOGC núm. 4893 of 29-05-2007, expedient `2006/025790/B`.**
  *
- * ⚠ **THIS IS THE BASE / METROPOLITAN LADDER.** For Barcelona specifically it may be superseded —
- * see `BCN_ART327_MPGM_2007`. It is deliberately still the shipped table.
+ * ✍ **APPLIED 2026-08-01 — founder signature SIG-2**, recorded in
+ * `docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/sources/VERIFICATION.md`.
+ * The binding annex (DOGC pp. 18336–18339) + the RPUC signed *Text d'aprovació definitiva* are
+ * committed at `…/08019-barcelona/corpus/pdf/`; the transcription was confirmed **band-for-band
+ * against the gazette with zero corrections**.
+ *
+ * **Scope, verbatim from the acord:** *«…al terme municipal de Barcelona»* — the WHOLE municipality.
+ * No sector, no *àmbit*, no *front edificatori* restriction, and **no transitional regime**.
+ *
+ * ⚠ **BAND BOUNDARIES AND STOREY COUNTS ARE UNCHANGED** — the instrument's own key reads
+ * *«En negreta, text afegit o modificat»* and only the *Alçada màxima* column is bold. So **no parcel
+ * changes band**; every height moves by **+0,45 … +1,95 m**. The storey MINIMUM stays **3,05 m**
+ * (stated three times in the annex) — what rises 3,35 m per band is the ladder, not the storey.
+ *
+ * The superseded BASE/metropolitan ladder is retained for the diff and for the other AMB
+ * municipalities in `BCN_ART327_BASE_METROPOLITAN_TABLE` — ⚠ **it is NOT Barcelona's law and must
+ * not be reintroduced here.** L'Hospitalet / Cornellà / Sant Boi carry no footnote entry on this
+ * article; **Badalona has its OWN instrument** (DOGC 5224) stating numerically identical values —
+ * *a figures-only check cannot tell the two municipalities apart*, which is why this misattribution
+ * recurred three times. Always verify the municipality, never the numbers.
  */
 export const BCN_ALCADA_REGULADORA_TABLE: ReadonlyArray<AlcadaBand> = Object.freeze([
+    { minWidth_m: 0, maxWidth_m: 8, height_m: 9.0, floorsAboveGround: 1 },
+    { minWidth_m: 8, maxWidth_m: 12, height_m: 12.35, floorsAboveGround: 2 },
+    { minWidth_m: 12, maxWidth_m: 15, height_m: 15.7, floorsAboveGround: 3 },
+    { minWidth_m: 15, maxWidth_m: 20, height_m: 19.05, floorsAboveGround: 4 },
+    { minWidth_m: 20, maxWidth_m: 30, height_m: 22.4, floorsAboveGround: 5 },
+    { minWidth_m: 30, maxWidth_m: Infinity, height_m: 25.75, floorsAboveGround: 6 },
+]);
+
+/**
+ * The **SUPERSEDED** base/metropolitan Art. 327.2a ladder — kept for the audit diff and because it
+ * remains the governing text for AMB municipalities that carry no modification of this article.
+ * **Nothing in Barcelona's resolver reads it.** See `BCN_ART327_MPGM_2007` and SIG-2.
+ */
+export const BCN_ART327_BASE_METROPOLITAN_TABLE: ReadonlyArray<AlcadaBand> = Object.freeze([
     { minWidth_m: 0, maxWidth_m: 8, height_m: 8.55, floorsAboveGround: 1 },
     { minWidth_m: 8, maxWidth_m: 12, height_m: 11.6, floorsAboveGround: 2 },
     { minWidth_m: 12, maxWidth_m: 15, height_m: 14.65, floorsAboveGround: 3 },
@@ -182,8 +214,12 @@ export const BCN_ALCADA_REGULADORA_TABLE: ReadonlyArray<AlcadaBand> = Object.fre
  * and agree.
  */
 export const BCN_ART327_MPGM_2007 = {
-    /** ⛔ FALSE. Nothing reads `bands`. Flipping this is a signed legal act, not a refactor. */
-    applied: false,
+    /**
+     * ✍ **TRUE — APPLIED 2026-08-01 under founder signature SIG-2** (`sources/VERIFICATION.md`).
+     * `BCN_ALCADA_REGULADORA_TABLE` now carries these bands; the superseded metropolitan ladder is
+     * `BCN_ART327_BASE_METROPOLITAN_TABLE`. Flipping this back is a signed legal act, not a refactor.
+     */
+    applied: true,
     instrument:
         "Modificació de les Normes urbanístiques del Pla General Metropolità per a la modificació " +
         "de les alçades reguladores en el tipus d'ordenació segons alineació de vial, al terme " +
@@ -198,8 +234,12 @@ export const BCN_ART327_MPGM_2007 = {
      * ⚠ The document actually read. NOT the binding text — see the block comment, limitation 1.
      * `evidence` is deliberately not `certified` and must not be promoted without the DOGC text.
      */
-    source: 'MMAMB Normativa Urbanística Metropolitana compendium (non-official, consolidated to 31-12-2009)',
-    evidence: 'located-in-non-official-compendium' as const,
+    source:
+        'DOGC núm. 4893 of 29-05-2007, pp. 18336–18339 (the BINDING published annex) + the ' +
+        'RPUC-registered signed *Text d’aprovació definitiva*, expedient 2006/025790/B. Both PDFs ' +
+        'committed at docs/…/08019-barcelona/corpus/pdf/. Retrieved and confirmed band-for-band ' +
+        '2026-08-01; the MMAMB compendium transcription needed ZERO corrections.',
+    evidence: 'binding-text-retrieved' as const,
     /** Art. 327.2a as restated. Bands and storey counts are UNCHANGED; only the metres move. */
     bands: Object.freeze([
         { minWidth_m: 0, maxWidth_m: 8, height_m: 9.0, floorsAboveGround: 1 },

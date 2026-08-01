@@ -52,9 +52,37 @@ volumetric ordering — and the AMB publishes those orderings as queryable geome
 
 ---
 
-## SIG-2 · PENDING — L-660, Arts. 327.2a / 328.2a (MPGM 2007)
+## SIG-2 · ✍ SIGNED 2026-08-01 — L-660, Arts. 327.2a / 328.2a (MPGM 2007)
 
-**NOT SIGNED.** `BCN_ART327_MPGM_2007.applied === false`, pinned by test.
+| | |
+|---|---|
+| **Verifier** | Founder (repo owner) |
+| **Date** | 2026-08-01 |
+| **Axis** | LEGISLATION / ENVELOPE |
+| **Source** | **DOGC núm. 4893, 29-05-2007, pp. 18336–18339** — the BINDING published annex — plus the RPUC-registered signed *Text d'aprovació definitiva*, expedient **`2006/025790/B`**. Both committed at [`../corpus/pdf/`](../corpus/pdf/). |
+
+**APPLIED.** `BCN_ART327_MPGM_2007.applied === true`. The shipped tables now carry the Barcelona
+values: **327.2a** 9,00 / 12,35 / 15,70 / 19,05 / 22,40 / 25,75 m · **328.2a** 8,25 / 12,00 / 15,40 /
+18,80 m. The superseded metropolitan ladders are retained as `BCN_ART327_BASE_METROPOLITAN_TABLE` /
+`BCN_ART328_BASE_METROPOLITAN_TABLE` — **not read by Barcelona's resolver**, kept because they govern
+AMB municipalities carrying no modification of these articles.
+
+**Basis:** the annex was retrieved and the compendium transcription confirmed **band-for-band with
+zero corrections**. Scope verbatim: *«al terme municipal de Barcelona»* — whole municipality, no
+sector, no *àmbit*, **no transitional regime**. Storey minimum **3,05 m unchanged** (stated three
+times in the annex); what rises 3,35 m per band is the ladder, not the storey.
+
+**Effect:** band boundaries and storey counts are **unchanged** — the instrument's own key reads
+*«En negreta, text afegit o modificat»* and only the *Alçada màxima* column is bold. **No parcel
+changes band; every height moves +0,45…+1,95 m** across **44.0 %** of private buildable land
+(13a + 13b + 12).
+
+⚠ **Open risk accepted at signing:** supersession is `NOT_VERIFIED / finding: not_found` (L-661) —
+1,755 Barcelona instruments enumerated, narrowed to 147 PGM-level post-2007, **0 opened**.
+`laterModifications: none` is written nowhere and must not be.
+⚠ **Misattribution guard:** Badalona's own instrument (DOGC 5224) states **numerically identical**
+values. *A figures-only check cannot tell the two municipalities apart* — this error recurred three
+times. **Always verify the municipality, never the numbers.**
 
 The binding text **has now been retrieved**: DOGC **núm. 4893, 29-05-2007**, pp. 18336–18339, plus the
 RPUC-registered signed *Text d'aprovació definitiva* — both in [`../corpus/pdf/`](../corpus/pdf/).
