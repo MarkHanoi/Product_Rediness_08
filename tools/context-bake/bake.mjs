@@ -29,7 +29,8 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // §PHASE1-HEIGHTS (North Star §6.1) — national real-height join. `heightSources.mjs` is side-effect-
 // free on import (its CLI is behind an isMain guard); `resolveHeights` never throws.
-import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, MDS_CITY_BBOXES } from './heightSources.mjs';
+import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, MDS_CITY_BBOXES, DHM_CITY_BBOXES } from './heightSources.mjs';
+import { getHeapStatistics } from 'node:v8';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(HERE, 'out');
@@ -287,6 +288,81 @@ const ALLOW_UNMEASURED = args.includes('--allow-unmeasured');
 // actually exists to produce: MEASURED heights on the regions that claim them.
 const heightJoinOutcomes = [];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// §HEIGHT-STAMP-BUDGET (L-659, 2026-08-01) — WHERE a region's height join is allowed to hold
+// footprints in memory, and the PREFLIGHT that refuses to start a bake that cannot finish.
+//
+// WHY. Run 30693132326 (sha bb92b276) burned 23 minutes and then died with
+//   `FATAL ERROR: Ineffective mark-compacts near heap limit — JavaScript heap out of memory` (exit 134)
+// on the whole-Spain height join. Nothing before that moment said anything was wrong: the plan step
+// was green, 23 of 24 regions clipped, and the crash's native stack named no region. The measured
+// cost is ~1.26 kB of V8 heap per parsed OSM footprint, so a national footprint set needs >10 GB —
+// which is why `--max-old-space-size` alone is a PALLIATIVE, not a fix (see heightSources.mjs
+// §JOIN-BOUNDED-WORKING-SET). The fix is to declare, per region, the bboxes the join will actually
+// stamp; everything outside streams through with its honest OSM tags and never touches the heap.
+//
+// A whole-country region MUST therefore declare a stamp list. `assertHeightStampBudget()` below
+// checks that in ~2 ms, in the `--check` step, BEFORE a single byte is downloaded.
+const WHOLE_COUNTRY_DEG2 = 4.0;          // a region bigger than ~2°×2° is national scale, not a city.
+const HEAP_BYTES_PER_FOOTPRINT = 1256;   // MEASURED — geojsonseqRead.spec.ts §heap-budget.
+const HEAP_FLOOR_MB_NATIONAL = 6000;     // headroom for the retained metro set + tippecanoe's host.
+
+/**
+ * The bboxes a region's height join may HOLD footprints for. `null` → the whole region bbox
+ * (correct and unchanged for every city-sized region). A whole-country region resolves to its
+ * source's city list, so the join's working set is bounded by the cities, not the nation.
+ */
+function stampBboxesFor(r) {
+  if (Array.isArray(r.heightStampBboxes)) return r.heightStampBboxes;
+  if (r.heightJoin === 'mds') return MDS_CITY_BBOXES.map((c) => c.bbox);
+  if (r.heightJoin === 'dhm') return DHM_CITY_BBOXES.map((c) => c.bbox);
+  return null;
+}
+const bboxDeg2 = (bbox) => {
+  const [w, s, e, n] = bbox.split(',').map(Number);
+  return Math.abs((e - w) * (n - s));
+};
+
+/**
+ * §HEIGHT-STAMP-BUDGET preflight — fail in SECONDS on the class of defect that used to fail in
+ * 23 MINUTES with an undiagnosable V8 abort. Two assertions, both static:
+ *   1. every whole-country region that declares a height join also declares a bounded stamp area;
+ *   2. the Node heap is big enough for the retained set those bboxes imply.
+ * Runs inside `--check`, so CI's cheap "Plan" step is the thing that catches it.
+ */
+function assertHeightStampBudget() {
+  const joins = REGIONS.filter((r) => r.heightJoin);
+  if (joins.length === 0) return;
+  const heapLimitMB = Math.round(getHeapStatistics().heap_size_limit / 1e6);
+  const problems = [];
+  console.log('\n  height-stamp budget:');
+  for (const r of joins) {
+    const areas = stampBboxesFor(r);
+    const national = bboxDeg2(r.bbox) > WHOLE_COUNTRY_DEG2;
+    const scope = areas ? `${areas.length} stamp bbox(es)` : 'WHOLE REGION bbox';
+    console.log(`    · ${r.name.padEnd(11)} join:${String(r.heightJoin).padEnd(8)} ${bboxDeg2(r.bbox).toFixed(1)} deg²  → ${scope}`);
+    if (national && !areas) {
+      problems.push(`${r.name}: whole-country region (${bboxDeg2(r.bbox).toFixed(1)} deg²) declares heightJoin '${r.heightJoin}' `
+        + 'but NO stamp bboxes. Its join would hold every footprint in the country in the V8 heap and abort the bake '
+        + `(~${HEAP_BYTES_PER_FOOTPRINT} B/footprint — millions of them). Add a city list to stampBboxesFor(), or set `
+        + 'heightStampBboxes on the region.');
+    }
+  }
+  console.log(`    heap limit  : ${heapLimitMB} MB (~${Math.round((heapLimitMB * 1e6) / HEAP_BYTES_PER_FOOTPRINT / 1e6)} M footprints at ${HEAP_BYTES_PER_FOOTPRINT} B each)`);
+  const anyNational = joins.some((r) => bboxDeg2(r.bbox) > WHOLE_COUNTRY_DEG2);
+  if (anyNational && heapLimitMB < HEAP_FLOOR_MB_NATIONAL) {
+    problems.push(`Node heap limit is ${heapLimitMB} MB but a whole-country height join is declared, which needs at least `
+      + `${HEAP_FLOOR_MB_NATIONAL} MB of headroom. Set NODE_OPTIONS=--max-old-space-size=12288 on the bake job `
+      + '(.github/workflows/context-bake.yml) — the default ~4 GB old-space is what run 30693132326 died at.');
+  }
+  if (problems.length === 0) { console.log('    ✔ every height join has a bounded working set and enough heap.'); return; }
+  console.error('\n✖ HEIGHT-STAMP BUDGET FAILED — this bake would crash or hang partway through:');
+  for (const p of problems) console.error(`  ✖ ${p}`);
+  console.error('\n  Refusing to start. (This check exists because the SAME defect previously burned 23 minutes\n'
+    + '  of runner time and died with a V8 heap abort that named nothing.)');
+  process.exit(5);
+}
+
 // ── tool detection ─────────────────────────────────────────────────────────
 function has(bin) {
   // (`probe`/`cmd` locals used to be computed here and then ignored — the real
@@ -390,10 +466,15 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
     // Barcelona, even if the national maxTiles cap is reached mid-sweep. Only the whole-`spain` mds join
     // has capitals; the DK dhm + DE lod2nrw joins pass none.
     const priorityBboxes = r.heightJoin === 'mds' ? MDS_CITY_BBOXES.map((c) => c.bbox) : [];
+    // §HEIGHT-STAMP-BUDGET (L-659) — the bboxes the join may HOLD footprints for. `null` keeps the
+    // whole region (city-sized regions: unchanged). A whole-country region gets its city list, so the
+    // join's heap tracks the cities, not the nation — the fix for run 30693132326's OOM. Footprints
+    // outside these bboxes are streamed through with their ORIGINAL OSM tags, never fabricated.
+    const retainBboxes = stampBboxesFor(r);
     let res;
     try {
-      if (r.heightJoin === 'mds') res = await stampMdsHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, priorityBboxes });
-      else if (r.heightJoin === 'dhm') res = await stampDhmHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles });
+      if (r.heightJoin === 'mds') res = await stampMdsHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, priorityBboxes, retainBboxes });
+      else if (r.heightJoin === 'dhm') res = await stampDhmHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, retainBboxes });
       else res = await stampLod2NrwHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles });
     } catch (e) {
       res = { status: 'error', reason: e.message };
@@ -402,6 +483,12 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
     heightJoinOutcomes.push({
       region: r.name, join: r.heightJoin, status: res.status,
       measuredCount: res.measuredCount ?? 0, footprintCount: res.footprintCount ?? 0, reason: res.reason ?? null,
+      // §SOURCE-OUTAGE-VS-PIPELINE-DEFECT (L-659) — the gate below needs these to tell "the remote
+      // raster service refused every request" from "our join is broken". They are different failures
+      // with different owners, and collapsing them is the §CONTEXT-DATA-HONESTY mistake one level up.
+      tilesProcessed: res.tilesProcessed ?? 0, tileErrors: res.tileErrors ?? 0,
+      retainedFootprints: res.retainedFootprints ?? null, passedThroughFootprints: res.passedThroughFootprints ?? null,
+      peakHeapUsedMB: res.peakHeapUsedMB ?? null,
     });
     if (res.status === 'ok' && res.measuredCount > 0) {
       geos.push(stamped); // REPLACE the plain OSM clip with the height-stamped SAME footprints.
@@ -484,6 +571,9 @@ function printPlan() {
 async function main() {
   mkdirSync(OUT, { recursive: true });
   printPlan();
+  // §HEIGHT-STAMP-BUDGET (L-659) — refuse a bake that cannot finish, in ~2 ms, before any download.
+  // Deliberately BEFORE the `--check` early return so CI's cheap Plan step is the one that fails.
+  assertHeightStampBudget();
   if (CHECK) return;
   if (!USE_LOCAL && !DOCKER && !DRY) {
     console.error('\n✖ no toolchain — see the note above. Aborting (nothing to run).');
@@ -631,13 +721,27 @@ async function main() {
  */
 function assertMeasuredHeights() {
   if (DRY || heightJoinOutcomes.length === 0) return;
-  const blocked = heightJoinOutcomes.filter((o) => o.status === 'blocked');
-  const failed = heightJoinOutcomes.filter((o) => o.status !== 'blocked' && !(o.status === 'ok' && o.measuredCount > 0));
+  // §SOURCE-OUTAGE-VS-PIPELINE-DEFECT (L-659) — a join that reached its remote raster service and was
+  // REFUSED BY IT EVERY TIME (`tilesProcessed === 0` while `tileErrors > 0`) is the same KIND of thing
+  // as `blocked`: an external gate this pipeline cannot fix. It is NOT a reason to discard a tileset in
+  // which the other cities' heights are real and measured — those footprints keep their honest OSM tags
+  // either way. Reported loudly, never silently. A join that DID process tiles and still measured
+  // nothing is a PIPELINE defect and still hard-fails, as does anything that errored.
+  const isSourceOutage = (o) => o.status === 'ok' && o.measuredCount === 0 && o.tilesProcessed === 0 && o.tileErrors > 0;
+  const blocked = heightJoinOutcomes.filter((o) => o.status === 'blocked' || isSourceOutage(o));
+  const failed = heightJoinOutcomes.filter((o) => o.status !== 'blocked' && !isSourceOutage(o) && !(o.status === 'ok' && o.measuredCount > 0));
   const okd = heightJoinOutcomes.filter((o) => o.status === 'ok' && o.measuredCount > 0);
 
   console.log('\n── measured-height gate ──');
-  for (const o of okd) console.log(`  ✔ ${o.region} (${o.join}): ${o.measuredCount}/${o.footprintCount} footprint(s) measured`);
-  for (const o of blocked) console.log(`  ⚠ ${o.region} (${o.join}): BLOCKED — ${o.reason ?? 'no reason given'} (external gate; not a bake defect)`);
+  for (const o of okd) {
+    const held = o.retainedFootprints != null ? ` [held ${o.retainedFootprints}, passed through ${o.passedThroughFootprints}, peak heap ${o.peakHeapUsedMB} MB]` : '';
+    console.log(`  ✔ ${o.region} (${o.join}): ${o.measuredCount}/${o.footprintCount} footprint(s) measured${held}`);
+  }
+  for (const o of blocked) {
+    const why = o.status === 'blocked' ? (o.reason ?? 'no reason given')
+      : `the height source refused every one of ${o.tileErrors} raster request(s) — 0 tiles processed`;
+    console.log(`  ⚠ ${o.region} (${o.join}): BLOCKED — ${why} (external gate; not a bake defect; footprints keep their honest OSM tags)`);
+  }
   for (const o of failed) console.error(`  ✖ ${o.region} (${o.join}): ${o.status} — ${o.measuredCount} measured height(s). ${o.reason ?? ''}`);
 
   if (failed.length === 0) return;

@@ -55,6 +55,32 @@ jobs:
     # plus a whole-Spain tippecanoe pass, so 180 gives the download + cold tippecanoe compile +
     # national tiling room without hanging all day.
     timeout-minutes: 180
+    # ─────────────────────────────────────────────────────────────────────────
+    # §HEIGHT-STAMP-BUDGET (L-659, 2026-08-01) — RAISE THE NODE HEAP FOR EVERY
+    # STEP IN THIS JOB.
+    #
+    # Run 30693132326 died 23 minutes in with
+    #   FATAL ERROR: Ineffective mark-compacts near heap limit  (exit 134)
+    #   Mark-Compact 4045.6 (4131.0) -> 4039.9 (4141.8) MB
+    # i.e. exactly at V8's DEFAULT ~4 GB old-space, on the whole-Spain height
+    # join. `ubuntu-latest` has 16 GB of RAM and this workflow set NO
+    # NODE_OPTIONS, so Node was using a quarter of the machine.
+    #
+    # ⚠ THIS IS THE SMALLER HALF OF THE FIX, AND ON ITS OWN IT WOULD NOT HAVE
+    # WORKED. A parsed OSM footprint costs ~1.26 kB of V8 heap (measured —
+    # tools/context-bake/__tests__/geojsonseqRead.spec.ts), so a national
+    # footprint set wants >10 GB; 12 GB would have moved the cliff, not removed
+    # it. The REAL fix is the bounded working set in heightSources.mjs
+    # (§JOIN-BOUNDED-WORKING-SET) — only footprints inside a region's declared
+    # stamp bboxes are held; the rest stream through. This setting is the
+    # headroom that makes that comfortable, and `bake.mjs --check` now FAILS in
+    # the Plan step below if it is missing (§HEIGHT-STAMP-BUDGET preflight).
+    #
+    # 12 GB, not 14: docker (osmium/tippecanoe) and the page cache for a
+    # multi-GB GeoJSONSeq need the rest of the 16 GB.
+    # ─────────────────────────────────────────────────────────────────────────
+    env:
+      NODE_OPTIONS: --max-old-space-size=12288
     steps:
       - uses: actions/checkout@v4
 
@@ -115,7 +141,12 @@ jobs:
           ( cd "$GITHUB_WORKSPACE/tools/context-bake" \
             && node --input-type=module -e "const m=await import('geotiff'); if(typeof m.fromArrayBuffer!=='function'){console.error('geotiff.fromArrayBuffer missing');process.exit(1)} console.log('✓ geotiff resolvable from the bake host process (fromArrayBuffer ok)')" )
 
-      - name: Plan (tool availability + what will be produced)
+      # §HEIGHT-STAMP-BUDGET (L-659) — this is now a GATE, not just a printout. `--check` asserts, in
+      # ~2 ms and before a single byte is downloaded, that (a) every whole-country region declaring a
+      # height join also declares a BOUNDED set of stamp bboxes, and (b) NODE_OPTIONS gives the heap
+      # those bboxes need. Both were false on run 30693132326, which found out 23 minutes later via a
+      # V8 abort that named no region. Exit 5 = budget failure; read the step log, it says which.
+      - name: Plan + height-stamp budget preflight (fails fast, before any download)
         run: node tools/context-bake/bake.mjs --check
 
       - name: Bake
@@ -259,11 +290,26 @@ jobs:
           PUBLIC_BASE: ${{ vars.VITE_CONTEXT_TILES_URL || 'https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/' }}
         run: |
           set -euo pipefail
+          # §CONTEXT-CACHE-BUST — probe the EXACT URL the browser will request, cache-bust
+          # stamp included. `<layer>.pmtiles` is path-stable across re-bakes and is published
+          # `immutable, max-age=31536000`, so a client that read the previous tileset only ever
+          # sees this one because `?v=` changed. Reading the bare path here would verify a URL
+          # nobody requests — the "probe the wrong SYSTEM" trap. One constant, one source:
+          # apps/editor/src/ui/geospatial/contextTiles.ts, the same file the probe reads.
+          VER="$(sed -n "s/^export const CONTEXT_TILESET_VERSION = '\([^']*\)';/\1/p" \
+                 "$GITHUB_WORKSPACE/apps/editor/src/ui/geospatial/contextTiles.ts" | head -1)"
+          if [ -z "$VER" ]; then
+            echo "::error::Could not read CONTEXT_TILESET_VERSION from contextTiles.ts — the client's cache-bust stamp is the only thing that makes a re-bake visible."
+            exit 1
+          fi
+          echo "client cache-bust stamp: v=$VER"
+          echo "### Context tileset \`v=$VER\` published" >> "$GITHUB_STEP_SUMMARY"
+
           # PMTiles is USELESS without HTTP Range support — the client reads a byte
           # range per tile and never downloads the whole file. A 200 here would mean
           # the host ignored the Range header and would be a silent, catastrophic
           # regression to full-file downloads. We require 206 Partial Content.
-          URL="${PUBLIC_BASE%/}/buildings.pmtiles"
+          URL="${PUBLIC_BASE%/}/buildings.pmtiles?v=$VER"
           echo "probing $URL"
           code="$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 60 -H 'Range: bytes=0-127' "$URL")"
           echo "HTTP $code (expected 206)"

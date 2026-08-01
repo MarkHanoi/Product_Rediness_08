@@ -267,7 +267,11 @@ export function contextTilesOrigin(): string | null {
  * disagree about which tileset they are looking at. Never paper over a stale read with an ad-hoc
  * `?t=Date.now()` at a call site: that defeats caching entirely and only fixes the one caller.
  */
-export const CONTEXT_TILESET_VERSION = 'L658a';
+// L659a (2026-08-01) — the re-bake that finally lands Barcelona's REAL measured heights. The L658a
+// tileset in R2 is the one whose height joins had already failed: probed live at 41.3888,2.1590 it
+// returns 5,146 footprints, 0 measured, 62.5 % fabricated 9 m default. Without this bump every
+// browser that has already read `buildings.pmtiles?v=L658a` keeps that tileset for a YEAR.
+export const CONTEXT_TILESET_VERSION = 'L659a';
 
 /**
  * The full URL of one layer's PMTiles archive, cache-bust stamp included.
