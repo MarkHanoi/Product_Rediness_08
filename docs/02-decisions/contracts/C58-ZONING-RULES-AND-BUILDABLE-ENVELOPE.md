@@ -976,6 +976,46 @@ Two corollaries this contract should not lose:
 > Recorded per the logging protocol Step 4.3, so this contract does not silently keep
 > claiming a mapping that cannot hold.
 
+### §1.11/§5 — PENDING AMENDMENT: §1.11 is silent on CATEGORICAL attributes, and §5 mandates no LAND-CLASS row (L-663)
+
+**This is a PENDING AMENDMENT, not a violation** — the code does not contradict §1.11 or §5; the
+contract simply does not reach the case. Recorded so the silence is visible rather than assumed-settled.
+
+**1. Does §1.11 govern categorical attributes?** §1.11 is written about *numbers* — *"An envelope whose
+**numbers** derive from a granularity coarser than `parcel` MUST NOT be presented as a parcel envelope"* —
+and both worked examples (Madrid VEDA `Ambito`, Valencia `InventarioSuSuz` sector) are aggregate
+quantities. **Land class is not a quantity.** It is a categorical attribute **inherited by containment**:
+a parcel lying wholly inside a *No Urbanizable* polygon genuinely **is** *No Urbanizable* — presenting it
+as such is not the "fact about the wrong thing" error §1.11 exists to stop. But the sources answer coarse
+(`server/siuClassificationProxy.js` at `municipality-polygon`; Murcia `pgou_sectores` at **sector**), and
+a parcel **straddling** a class boundary is genuinely ambiguous. **§1.11 clause 2's "MUST say so in the
+same sentence" therefore has no defined application here**, and today's shipping line —
+`` `Clase de suelo: ${clase_suelo}` `` pushed into `EnvelopeRefusal.knownFacts`
+(`murciaZoningProvider.ts:202-207`) — carries no granularity qualifier at all.
+⇒ **Amendment needed:** state whether §1.11 binds categorical attributes, and if so require a
+straddle flag rather than a silent pick-one-side.
+
+**2. §5 (UI) mandates no land-class row.** §5 binds the confidence chip, `#6600FF`, explain-why and
+headline provenance. It does **not** require the parcel's *clasificación* to be shown — so the fact that
+decides **whether an envelope can exist at all** is displayed in exactly one card state, on one city:
+`knownFacts` is read at a single site in the whole client (`GISAreaLayout.ts:2441-2448`), inside the
+refusal branch, which returns at 2493. The success and reduced cards render no class.
+⚠ On the founder's live Murcia measurement (3 611 in-force features), **67.2 %** of the municipality is
+*No Urbanizable* + *Sistemas Generales* — land where a refusal is the **only correct answer** — and the
+user cannot distinguish *"the law forbids building here"* from *"PRYZM failed"*. That is the
+§CONTEXT-DATA-HONESTY family (L-422/457/467/469), in the **under**-statement direction.
+
+**3. ⚠ `answerabilityClass.ts` MUST NOT be used as the land-class display.** It answers a different
+question (*what PRYZM can say*), and its `systems-land` bucket deliberately fuses `public-system`
+(*Sistemas Generales*) with `protected-soil` (*No Urbanizable*) — two distinct legal classes, 22.8 % and
+44.4 % of Murcia respectively. That fusion is correct **for answerability** and is a category collapse
+**for land class**. The two axes intersect (`sistemas_generales` is both a class and a refusal code) and
+must occupy different visual channels.
+
+Tracked: audit **L-663**; coverage gap logged in `MISSING-CONTRACTS-AUDIT-2026-06-01.md`; closes the
+**ADR-0279 §6** debt line. **Status: OPEN — amendment not drafted; no field, no display mandate. Owner:
+UNASSIGNED · TARGET: TBD** (gated on founder sign-off of the vocabulary decision + the live-vs-baked fork).
+
 ### §1.4/§10 — the CONSTRUCTED envelope FOOTPRINT overstates on Barcelona 13a (L-643)
 The buildable-envelope solid must be the intersection of every *derived* constraint (§1.4 fidelity, §10 partial-data honesty). On a Barcelona zone-13a parcel marked `REAL · CONSTRUCTED`, the solved footprint equals the **whole parcel** (`412 m²`, `alignment offset 0.0 m`), extruding over the block-interior *pati d'illa* / rear-garden that 13a keeps non-buildable — "unknown/whole-parcel rendered as buildable." Same class as L-616 (footprint not inset + FAR ceiling ignored) but on the **Art-242.2 construction path** (ADR-0271), not the DK Plandata path. MUST probe whether it is inset-collapse (L-529/L-581) or a missing interior-free exclusion before fixing. Tracked: audit **L-643**. Status: OPEN — the code does not yet honour this §; not marked resolved until a probe + fix + before/after footprint measurement lands.
 

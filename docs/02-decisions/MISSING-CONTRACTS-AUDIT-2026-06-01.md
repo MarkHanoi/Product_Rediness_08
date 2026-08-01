@@ -703,3 +703,83 @@ shape (`_TEMPLATE/_CITY/`) and the master per-city completion matrix. Passes the
 question, different failure mode" test (cross-layer completeness + evidence-container shape is a distinct
 subject from any single-layer contract). Owner: UNASSIGNED · schedule: schema/function + CI gate sequenced
 after founder weighting sign-off (C63 §4/§8).
+
+---
+
+## GAP — no contract owns **LAND CLASS** (*clase de suelo*) as a first-class, DISPLAYED fact (L-663, 2026-08-01)
+
+Founder 2026-08-01: *"make the CLASS of each parcel show on selection on the parcel card … ideally on R2
+with different colours in the map and 3D Site."*
+
+**Searched and ruled out, contract by contract:**
+
+- **C19 §2.3 (`Parcel`, CANONICAL)** — has `zoning.category` (*"jurisdiction-specific zone code (e.g.
+  `'R-2'`)"*), `zoning.overlays`, `zoning.jurisdictionRef`. That is the ***calificación*** (zone code /
+  clau). ***Clasificación del suelo* is a strictly different legal object**: the *calificación* says what
+  USE/form is permitted, the *clasificación* says whether the land is developable **at all**. **No
+  `landClass` / `claseSuelo` field exists.**
+- **C57 (Parcel Data Layer, DRAFT)** — no classification field; §5.1 binds only the brand highlight.
+- **C58 (Zoning & Buildable Envelope, DRAFT)** — encodes land class only *indirectly*, through the closed
+  refusal vocabulary (`protected-soil`, `public-open-space`, `public-system`, `protected-private-green`)
+  and `permittedUse`. §5 (UI) mandates the confidence chip, `#6600FF`, explain-why and headline
+  provenance — **it mandates no class row.**
+- **C60 (Site Entry & Jurisdiction Coverage, DRAFT)** — owns *"where can PRYZM answer?"*, derived from the
+  rule-pack registry. Not *"what class is this land?"*.
+- **C62 (Confidence/Provenance, ACTIVE)** — would GOVERN the field's honesty (typed unknown, §1.1) but
+  does not create it.
+- **C63 (City Completion, DRAFT)** — Axis 4 consumes a per-city *buildable-land share*, a hand-sourced
+  aggregate, explicitly **not** a per-parcel displayed fact (§1.8: *"the CONTRACT mandates no rendering"*).
+
+⇒ **Genuine coverage gap. Nothing is *violated*; nothing *owns* it.** It is already ADR-tracked debt —
+**ADR-0279 §6**: *"Decide whether land-type (urban/rustic/green) becomes a first-class AS-IS field (today:
+`permittedUse` + refusal codes only)"* — and **ENVELOPE-REPLICATION-STANDARD §8 gap 4**. This entry
+promotes that debt line to a logged contract question.
+
+**Passes the C60 §7 "different question, different failure mode" test?** — **Partly, and the answer
+decides the home.** *Different question*: yes — "what class is this land?" is an **AS-IS legal fact about
+the ground**, answered by the planning authority independently of whether PRYZM holds a rule pack;
+"what may I build?" (C58) and "can PRYZM answer here?" (C60) are both downstream of it. *Different
+failure mode*: yes — the failure is **a legal refusal being indistinguishable from a product failure**,
+not a wrong number. ⇒ **Recommend it be owned as a new §-clause pair in C19 (the field) + C58 §5 (the
+display mandate)** rather than a new contract: it is one attribute on an existing aggregate, and C19
+already owns the parcel's legal identity. A new contract would be justified only if the **map colour
+layer** is minted as its own subsystem — see the L-601 entry above, which left exactly that question
+(*"extend C55 §1.3"* vs *"own it in C58/C57"*) **deliberately unresolved**. ⚠ **L-663 and L-601 must be
+resolved together or they will mint two rival land-colouring layers.**
+
+**Two open questions this gap must settle, both logged rather than pre-empted:**
+
+1. **Does C58 §1.11 (GRANULARITY) govern CATEGORICAL attributes, or only numeric ones?** §1.11 is written
+   about *numbers* — *"an envelope whose **numbers** derive from a granularity coarser than `parcel`"* —
+   and its worked examples are sector FAR and buildable-m². Land class is a **categorical attribute
+   inherited by containment**: a parcel lying wholly inside a *No Urbanizable* polygon genuinely **is**
+   *No Urbanizable*, which is **not** the sector-FAR category error. But SIU answers at
+   `municipality-polygon` and Murcia's `pgou_sectores` at **sector**, and a parcel **straddling** a class
+   boundary is genuinely ambiguous. **§1.11 does not currently say which rule applies.** Annotated as a
+   pending amendment in C58's *Known Violations / Pending Amendments*.
+2. **Is the class VOCABULARY harmonised or per-jurisdiction?** Murcia publishes *"Sistemas Generales"*,
+   the Catalan MUC publishes `S…`, Barcelona's PGM says *sistema*. **A harmonised enum is tempting and
+   dangerous.** The precedent is already in-tree and negative: `answerabilityClass.ts`'s `systems-land`
+   bucket fuses `public-system` (*Sistemas Generales*) with `protected-soil` (*No Urbanizable*) — on the
+   founder's live Murcia measurement, **22.8 % + 44.4 % of a 902.4 M m² municipality into one colour**.
+   ⇒ **Any harmonised code MUST carry the source term verbatim alongside it**, and the class MUST be
+   `unknown` when unpublished — **never inferred** from land use nor from the absence of an envelope.
+
+**The colour half inherits two already-logged gaps.** If class polygons are **baked** rather than resolved
+live, the work lands in an **ungoverned seam**: **L-607** (the context-bake/PMTiles/R2 pipeline is
+*"governed by no ratified C-contract"*, provisional name **C-CONTEXT-ENGINE**) and **§GAP L-642** (the
+3D-Site LOD/extent/layer system, *"no C-contract binds its invariants"*). It would additionally inherit
+**§TERRAIN-CACHE-BUST** — tile URLs are path-stable, so supersession rides on a **hand-bumped constant**
+(`TERRAIN_TILESET_VERSION`). Planning changes; tiles are cached. **For a *legal* attribute a
+stale-but-plausible class is worse than a stale hillshade** — which is why L-663 recommends the **live
+per-parcel** path first and defers baking to a separate, founder-approved programme.
+
+**And the palette rule already pre-ruled at line 552 of this document applies unchanged:** a *correct
+refusal* (systems land) and an *owned gap* (zone unencoded) are **opposite claims and must never share a
+colour**. ⚠ Note `sistemas_generales` is simultaneously a **land class** and a **refusal code**
+(`public-system`) — the land-class axis and the answerability axis genuinely intersect, and the design
+must state which visual channel carries which.
+
+Logged as **L-663**. See `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` and
+`docs/04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md`. Owner: UNASSIGNED · TARGET: TBD (gated on founder
+sign-off of the vocabulary decision + the live-vs-baked fork).

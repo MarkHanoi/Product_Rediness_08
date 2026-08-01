@@ -4998,3 +4998,51 @@ matrix** (multi-agent single-writer discipline — a scoped country agent writes
 **Each batch exit:** its `COUNTRY-RATE.md` roll-up populated (cheap axes DATA-SOURCES/TERRAIN/CONTEXT at
 minimum, each a CITED derivation — C63 §1.1) + every tackled city has a §5-shaped dossier. Then the orchestrator
 merges the country roll-ups into §CC.1 above. OWNER: UNASSIGNED · TARGET: Phase 0 → per-country batches.
+
+### §CC.6 — L-663: LAND CLASS (*clase de suelo*) as a first-class, displayed, colourable fact
+
+Audit **L-663** · plan **L-663** · gap logged in [`MISSING-CONTRACTS-AUDIT-2026-06-01.md`](../../02-decisions/MISSING-CONTRACTS-AUDIT-2026-06-01.md)
+· pending amendment recorded in [C58](../../02-decisions/contracts/C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md)
+*Known Violations / Pending Amendments* §1.11/§5. Closes the **ADR-0279 §6** debt line
+(*"decide whether land-type becomes a first-class AS-IS field"*) + **ENVELOPE-REPLICATION-STANDARD §8 gap 4**.
+
+Founder 2026-08-01: *"make the CLASS of each parcel show on selection on the parcel card … ideally on R2 with
+different colours in the map and 3D Site."* **P1 · OWNER: UNASSIGNED · TARGET: TBD** (gated on founder sign-off of
+the vocabulary decision + the live-vs-baked fork). **DESIGN-ONLY this pass — no code shipped, deliberately: the
+fast fix is a measured no-op** (on a success card `env.refusal` is `undefined`, so `knownFacts` does not exist —
+the root is a missing typed field, not the render site).
+
+**Why it matters.** Land class decides whether an envelope can exist **at all**. On the founder's live Murcia
+measurement (3 611 in-force features by published `superficie`), **67.2 %** of the municipality is *No
+Urbanizable* (44.4 %) + *Sistemas Generales* (22.8 %) — land where a refusal is the **only correct answer** — and
+the user today cannot tell *"the law forbids building here"* from *"PRYZM failed"*.
+
+**Measured state:** three producers, near-zero readers. `murciaZoningProvider.ts:202-207` → an untyped
+`knownFacts` string read at ONE site (`GISAreaLayout.ts:2441-2448`, refusal branch only);
+`server/siuClassificationProxy.js` (national ES SIU *clasificación*, routed `server.js:496`, tested) with **zero
+client consumers**; `answerabilityClass.ts` **not barrel-exported, zero consumers**. C19 §2.3 `Parcel` has **no
+`landClass` field** (`zoning.category` is the *calificación* — a different legal object).
+
+| # | Task | Owner | Target | Dependencies |
+|---|---|---|---|---|
+| 0 | ADR: land class → first-class AS-IS field; settles the VOCABULARY question | UNASSIGNED | TBD | **BLOCKS 1–5.** Founder sign-off. Resolve **jointly with L-601** (the introspective-layer gap) or two rival land-colouring layers get minted |
+| 1 | L0 `landClass` on the parcel/zoning record — source term **verbatim** + `granularity` + C62 provenance; `unknown` when unpublished, **never inferred** | UNASSIGNED | TBD | Task 0; C19 §2.3 + C57 amendment |
+| 2 | Per-jurisdiction adapters at the **ADR-0279 S3** slot (ES/Murcia · ES national — **wire the dormant SIU proxy** · ES-CT `CODI_QUAL_MUC`) | UNASSIGNED | TBD | Task 1. No jurisdiction logic in engine or UI (ADR-0279 §2) |
+| 3 | Render on **every** card state — refusal AND success AND reduced | UNASSIGNED | TBD | Task 1. ⚠ `siteDispatch.ts` is contended — coordinate before touching |
+| 4 | **Live** per-parcel class colour layer (map + 3D Site) | UNASSIGNED | TBD | Tasks 1–2; a palette that does not collide with the honesty axis |
+| 5 | *(deferred — separate go-ahead)* baked class layer in PMTiles | UNASSIGNED | — | **DO NOT START.** Needs L-607 (C-CONTEXT-ENGINE) + a supersession answer |
+
+**Fork requiring a founder decision — R2 bake vs live.** **RECOMMEND (b) live now, (c) both-by-zoom later,
+(a) baking not yet.** The context-bake pipeline is governed by **no ratified contract** (L-607, L-642), and
+§TERRAIN-CACHE-BUST supersession rides on a **hand-bumped constant** (`TERRAIN_TILESET_VERSION`) — planning
+changes, tiles are cached, and for a *legal* attribute a stale-but-plausible class is worse than a stale
+hillshade. Baking would also freeze a vocabulary task 0 has not ratified.
+
+**Palette constraint.** A land-class scale is a **NEW colour axis** and must not collide with the existing binary
+honesty axis (`envelopeRenderStyle.ts` `#6600FF` confident / `#9A93B0` provisional). `#6600FF` is reserved for the
+envelope (C16 CA-13, C18 §41); brand white+purple, **no black**; no hex literals (C51 → `a11y-tokens`); legible
+over both Map and Satellite; and a *correct refusal* must never share a colour with an *owned gap*.
+⚠ `sistemas_generales` is both a land class and a refusal code — the axes intersect.
+
+Queue: **geospatial / parcel-data + zoning** (with L-640, L-643) — not the UI queue. Governs C19 §2.3, C57,
+C58 §1.11/§5, C62, ADR-0279 §6.

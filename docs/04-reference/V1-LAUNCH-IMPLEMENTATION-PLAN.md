@@ -5026,3 +5026,64 @@ See audit **L-649** + **C63** §5/§8.1. EXTENDS L-648. **NAMING DECIDED (founde
 
 ## L-650 — city-completion ROLLOUT PROGRAM + EQUAL country/city folder standard (P2) · OWNER: UNASSIGNED · TARGET: Phase 0 (normalize) → per-country audit batches
 See audit **L-650** + **C63** §5.1/§5.2/§5.3/§8.2 + **ADR-0282** + **SPEC-CITY-COMPLETION-ROLLOUT** + **`jurisdictions/_NORMALIZATION.md`**. EXTENDS L-648/L-649 — governs the rollout BEFORE mass execution. **DONE this pass (docs-only governance):** (1) C63 extended with the EQUAL-SHAPE invariant (§5.1: a file is in the standard set or misplaced — no third category), the normative COUNTRY folder standard (§5.2: `COUNTRY-RATE.md` composite master + README + LEGISLATION-RATE + LOD-RATE + COUNTRY-DATA-STRATEGY + RATE-IMPLEMENTATION-PLAN + NEXT + sources/ + findings/ + regions/ + topics/ + `<cc>-<subdiv>/<code>-<slug>/` city dossiers), and `findings/`/`sources/` placement (§5.3); (2) **SPEC-CITY-COMPLETION-ROLLOUT** — the phased method (Phase 0 normalize → Phase 1 AUDIT cheap-axes-first → Phase 2 MAP → Phase 3 PLAN), fan-out unit = one agent per country, orchestrator = single writer of the global matrix, 10 batches over the 23 baked `bake.mjs REGIONS`; (3) **ADR-0282** ratifying the standard + program; (4) **`_NORMALIZATION.md`** — per-country survey mapping ~33 loose files → their `findings/` home + each folder's missing standard files; (5) `_TEMPLATE/_CITY/{ENVELOPE,HEIGHT,RISK-REGISTER}.md` stubs so a city scaffolds to the full §5 shape in one copy; (6) `master-execution-tracker.md §CITY-COMPLETION §CC.5` (batch sequence + deps). **SEQUENCED (orchestrator executes — docs moves only, no code, no `git mv` by scoped agents):** **Phase 0** — the two systemic splits (`RATE.md→LEGISLATION-RATE.md` in 14 countries + ~21 cities; scaffold `COUNTRY-RATE.md` in all 14; scaffold composite `RATE.md` in ~26 cities), the ~33 file moves (Barcelona PDF → object storage per L-450), + the structural gaps (scaffold `gb/` for baked London, a San-Francisco dossier, re-nest Zürich, scaffold Stockholm/Helsinki/Amsterdam); **Phase 1–3** — fan out the 10 country batches (Spain first as the reference, then 9 in parallel), each cell a cited derivation or `not-assessed` (C63 §1.1). **Parallel-safety:** `jurisdictions/es/**` is the Spain agent's disjoint subtree — `_NORMALIZATION.md` frames es/ by the STANDARD, does not write it. Fast-but-wrong REJECTED: mass-audit the non-uniform tree, or let country agents write the shared matrix. Queue: geospatial / city-replication governance. Governs C63, ADR-0282, C62, C57, C58, C60.
+
+## L-663 — LAND CLASS (*clase de suelo*) as a first-class, displayed, colourable fact · Phase 4 (geospatial/parcel-data) · P1 · OWNER: UNASSIGNED · TARGET: TBD (gated on founder sign-off of the vocabulary decision + the live-vs-baked fork)
+See audit **L-663**. Founder 2026-08-01: *"make the CLASS of each parcel show on selection on the parcel card … ideally on R2 with different colours in the map and 3D Site."* **DESIGN-ONLY this pass — no code shipped, deliberately.**
+
+**Measured state (this branch).** Land class is resolved by three producers and read by almost nothing:
+`murciaZoningProvider.ts:202-207` → an untyped `EnvelopeRefusal.knownFacts` string, read at exactly ONE
+site (`GISAreaLayout.ts:2441-2448`, inside the refusal branch that `return`s at 2493); `server/siuClassificationProxy.js`
+(national Spanish SIU *clasificación*, routed `server.js:496`, tested) with **zero client consumers**;
+`answerabilityClass.ts`, **not barrel-exported, zero consumers**. `Parcel` (C19 §2.3) has **no `landClass` field** —
+`zoning.category` is the *calificación*/clau, a different legal object.
+
+⚠ **`answerabilityClass.ts` is NOT this concept.** It models *what PRYZM can say*; its `systems-land` bucket fuses
+`public-system` (Sistemas Generales) with `protected-soil` (No Urbanizable) — 22.8 % + 44.4 % of Murcia into one
+colour. Reusing it as the land-class display would BE the category error.
+
+⚠ **The fast fix is a no-op, and that is why this is design-only.** Hoisting the `facts` block out of the refusal
+branch renders nothing on a success card: `env.refusal` is `undefined` there, so `knownFacts` does not exist. The
+root is the missing typed field, not the render site.
+
+| # | Task | Notes |
+|---|---|---|
+| 0 | **ADR deciding land class → first-class AS-IS field** | Closes the **ADR-0279 §6** tracked debt + **ENVELOPE-REPLICATION-STANDARD §8 gap 4**. BLOCKS 1–5. Must settle the vocabulary question below. |
+| 1 | L0 `landClass` on the parcel/zoning record (C19 §2.3 + C57) | Carries **the source term VERBATIM** + `granularity` + C62 provenance. `unknown` when unpublished — **never inferred** from land use nor from the absence of an envelope. P5-pure. |
+| 2 | Per-jurisdiction adapters at the **ADR-0279 S3** slot | ES/Murcia (`pgou_sectores.clase_suelo`), ES national (**wire the dormant SIU proxy — a shipped producer with no reader**), ES-CT (`CODI_QUAL_MUC` → `S…`/`N1–N4`/`D1–D5`/zone). No jurisdiction logic in engine or UI (ADR-0279 §2). |
+| 3 | Render on **every** card state | Refusal AND success AND reduced — today only the refusal shows it. Both directions need it: a refusal must say *why nothing may be built*; a success must state the class the envelope rests on. |
+| 4 | Live per-parcel map/3D-Site colour layer | **RECOMMENDED over baking** — see the fork below. New colour axis, must not collide with the honesty axis. |
+| 5 | *(deferred, needs separate go-ahead)* baked class layer in PMTiles | **DO NOT START.** Per-city/per-jurisdiction cost, ungoverned pipeline, supersession hazard. |
+
+**Vocabulary decision (must be settled in task 0).** **Per-jurisdiction verbatim + an OPTIONAL harmonised
+projection — never enum-only.** Murcia says *"Sistemas Generales"*, the MUC says `S…`, Barcelona says *sistema*.
+A harmonised enum is tempting and dangerous: collapsing distinct legal categories is exactly the failure
+`answerabilityClass` already exhibits. If a harmonised code is minted it MUST carry the source term alongside it,
+losslessly.
+
+**Granularity honesty (C58 §1.11).** SIU answers at `municipality-polygon`; Murcia's `pgou_sectores` at **sector**.
+⚠ **Open contract question, logged in MISSING-CONTRACTS:** §1.11 is written about *numbers* ("an envelope whose
+numbers derive from a granularity coarser than parcel"). Land class is a **categorical attribute inherited by
+containment** — a parcel wholly inside a *No Urbanizable* polygon genuinely IS *No Urbanizable*, which is not the
+sector-FAR category error. But a parcel **straddling** a class boundary is ambiguous and MUST be flagged, not
+silently resolved to one side. §1.11 does not currently say which rule applies.
+
+**The R2 / colour fork (founder decision required).** **(a) bake into PMTiles · (b) resolve live per parcel · (c) both by zoom.**
+**RECOMMEND (b) live now, (c) later, (a) not yet.** Reasons: the context-bake pipeline is governed by **no ratified
+contract** (`MISSING-CONTRACTS` L-607, L-642); §TERRAIN-CACHE-BUST supersession is a **hand-bumped constant**
+(`TERRAIN_TILESET_VERSION`, currently `L639h`) so a re-bake is invisible to a caching client — and for a *legal*
+attribute a stale-but-plausible class is worse than a stale hillshade; and baking freezes a vocabulary task 0 has
+not yet ratified. Planning changes; tiles are cached.
+
+**Palette constraints (binding).** A 4–6-way class scale is a **NEW colour axis** and must not collide with the
+existing **binary honesty axis** (`envelopeRenderStyle.ts`: `#6600FF` confident / `#9A93B0` provisional).
+`#6600FF` is reserved for the envelope (C16 CA-13, C18 §41); brand is white + purple, **no black**; no hex
+literals (C51 → `packages/a11y-tokens`); must stay legible over **both** Map and Satellite basemaps; and a
+*correct refusal* must never share a colour with an *owned gap*. ⚠ `sistemas_generales` is simultaneously a land
+class **and** a refusal code (`public-system`) — the two axes genuinely intersect and the design must say which
+channel carries which.
+
+**Fast-but-wrong REJECTED:** (i) render `knownFacts` everywhere — a measured no-op (above); (ii) derive the class
+from `answerabilityClass` — the category collapse; (iii) infer *No Urbanizable* from "no envelope was produced" —
+fuses a legal fact with a coverage gap, the L-553 false-negative-about-someone's-land error.
+
+Queue: geospatial / parcel-data + zoning (with L-640, L-643). Governs C19 §2.3, C57, C58 §1.11/§5, C62, ADR-0279 §6.
