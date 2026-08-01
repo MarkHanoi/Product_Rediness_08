@@ -44,6 +44,7 @@ import { isInBarcelona } from '../src/providers/barcelonaBbox.js';
 import { CH_JURISDICTION_ID } from '../src/rulepacks/chZoning.js';
 import { DK_PLANDATA_JURISDICTION_ID } from '../src/rulepacks/dkPlandataEnvelope.js';
 import { NL_JURISDICTION_ID } from '../src/rulepacks/nlBestemmingsplan.js';
+import { CATALUNYA_JURISDICTION_ID } from '../src/rulepacks/esCatalunya.js';
 
 const ALL = listJurisdictionCoverage();
 const rank = (c: JurisdictionCoverage): number =>
@@ -155,14 +156,27 @@ describe('§JURISDICTION-SPECIFICITY — routing exclusivity over EVERY register
                 if (dLat >= 0 && dLon >= 0) overlaps.push([a, b]);
             }
         }
-        // Today: exactly the four Barcelona ⊃ AMB-municipality pairs. Asserted so that a NEW
-        // overlap is a visible, deliberate change rather than a silent one.
+        // Today: the four Barcelona ⊃ AMB-municipality pairs, PLUS the five Catalonia ⊃ <Catalan
+        // registration> pairs added by the L-658 `es-ct-catalunya` registration. Asserted so that a
+        // NEW overlap is a visible, deliberate change rather than a silent one.
+        //
+        // ⚠ THE FIVE NEW PAIRS ARE THE POINT OF THAT REGISTRATION, NOT A SIDE EFFECT. Catalonia is
+        // declared `'regional'` — coarser than both `'metropolitan'` (Barcelona) and `'municipal'`
+        // (the four AMB cities) — so it LOSES every one of these overlaps by rule. That is exactly
+        // what makes registering the next Catalan municipality a pure data addition: it will add a
+        // 10th pair here and win it, with no ordering edit anywhere. The loop below proves the
+        // losing is by RULE and not by list order, for all nine pairs.
         expect(overlaps.map(([a, b]) => `${a.jurisdictionId}|${b.jurisdictionId}`).sort()).toEqual(
             [
                 `${BCN_JURISDICTION_ID}|${BADALONA_JURISDICTION_ID}`,
                 `${BCN_JURISDICTION_ID}|${CORNELLA_JURISDICTION_ID}`,
                 `${BCN_JURISDICTION_ID}|${LHOSPITALET_JURISDICTION_ID}`,
                 `${BCN_JURISDICTION_ID}|${SANT_BOI_JURISDICTION_ID}`,
+                `${BCN_JURISDICTION_ID}|${CATALUNYA_JURISDICTION_ID}`,
+                `${LHOSPITALET_JURISDICTION_ID}|${CATALUNYA_JURISDICTION_ID}`,
+                `${BADALONA_JURISDICTION_ID}|${CATALUNYA_JURISDICTION_ID}`,
+                `${SANT_BOI_JURISDICTION_ID}|${CATALUNYA_JURISDICTION_ID}`,
+                `${CORNELLA_JURISDICTION_ID}|${CATALUNYA_JURISDICTION_ID}`,
             ].sort(),
         );
         for (const [a, b] of overlaps) {
@@ -214,7 +228,15 @@ describe('§JURISDICTION-SPECIFICITY — the AMB regression, by real coordinates
             expect(r.kind, id).toBe('resolved');
             if (r.kind !== 'resolved') continue;
             expect(r.jurisdiction.jurisdictionId, id).toBe(id);
-            expect(r.outranked.map((c) => c.jurisdictionId), id).toEqual([BCN_JURISDICTION_ID]);
+            // ⚠ TWO claims are now outranked, and the ORDER of this list is itself the assertion:
+            // `outranked` is finest-first, so Barcelona's `'metropolitan'` box must come BEFORE
+            // Catalonia's `'regional'` one. If the regional rung were ever mis-placed in the ladder
+            // (or Catalonia mis-declared as `'metropolitan'`), this ordering — not just the
+            // membership — is what would catch it.
+            expect(r.outranked.map((c) => c.jurisdictionId), id).toEqual([
+                BCN_JURISDICTION_ID,
+                CATALUNYA_JURISDICTION_ID,
+            ]);
             // The registration they win with is the honest one: NO packs, a cited refusal.
             expect(r.jurisdiction.packZoneCodes, id).toEqual([]);
         }
@@ -227,7 +249,13 @@ describe('§JURISDICTION-SPECIFICITY — the AMB regression, by real coordinates
             expect(r.kind).toBe('resolved');
             if (r.kind !== 'resolved') continue;
             expect(r.jurisdiction.jurisdictionId).toBe(BCN_JURISDICTION_ID);
-            expect(r.outranked).toEqual([]);
+            // ⚠ Barcelona's own fabric now outranks exactly ONE coarser claim — Catalonia — and
+            // nothing else. This assertion used to read `toEqual([])`, which was only ever true
+            // because no registration was coarser than Barcelona's metropolitan box. What it was
+            // actually pinning is that Barcelona still WINS its own streets, and that is preserved
+            // verbatim above; naming the single outranked claim keeps the pin exact rather than
+            // loosening it to "some list".
+            expect(r.outranked.map((c) => c.jurisdictionId)).toEqual([CATALUNYA_JURISDICTION_ID]);
         }
     });
 });

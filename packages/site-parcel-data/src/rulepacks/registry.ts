@@ -222,6 +222,12 @@ import { PARIS_BBOX, isInParis } from '../providers/parisBbox.js';
 //    dispatch itself gates on (`isInNetherlands`), imported — never restated — per the header rule.
 import { NL_JURISDICTION_ID } from './nlBestemmingsplan.js';
 import { NETHERLANDS_BBOX, isInNetherlands } from '../parcelProviders/countryBbox.js';
+// ── CATALONIA (regional) — the CITED-REFUSAL jurisdiction of last resort for 947 municipalities.
+//    Registered at the COARSEST rung any Catalan claim can hold (`'regional'`), so Barcelona, the
+//    AMB municipalities and every future POUM pack out-rank it automatically. See its registration
+//    at the very END of `REGISTRATIONS` — it is deliberately last in every sense.
+import { CATALUNYA_JURISDICTION_ID, catalunyaRegistryRefusal } from './esCatalunya.js';
+import { CATALUNYA_BBOX, isInCatalunya } from '../providers/catalunyaBbox.js';
 
 /** The jurisdiction id Barcelona packs and records use. One constant, not a scattered literal. */
 export const BCN_JURISDICTION_ID = 'es-08019-barcelona';
@@ -284,15 +290,31 @@ export interface JurisdictionExtent {
  * box is a 2-district pilot, so it is `'district'` even though its ordinance is municipal.
  *
  * Ordered FINEST → COARSEST. The finer claim governs a point both claim, because a coarser box is
- * by construction a PROXIMITY GATE that swept in land it does not speak for. `'regional'` is
- * deliberately absent: no registration has a regional extent today, and an unused rung is a rung
- * nobody has had to justify. Add it (between `municipal` and `national`) with the registration
- * that needs it.
+ * by construction a PROXIMITY GATE that swept in land it does not speak for.
+ *
+ * ── §CATALUNYA-REGIONAL-RUNG (L-658) — `'regional'` IS NOW PRESENT, AND THIS PARAGRAPH RECORDS WHY.
+ * This comment used to read *"`'regional'` is deliberately absent … Add it (between `municipal` and
+ * `national`) with the registration that needs it."* **That registration has arrived**: Catalonia
+ * (`es-ct-catalunya`), an autonomous community of 947 municipalities, registered so every Catalan
+ * click gets a cited refusal naming the instrument that actually governs it.
+ *
+ * It sits between `'metropolitan'` and `'national'` — a region CONTAINS metropolitan areas, so it
+ * must be coarser than one, and it is contained BY a state, so it must be finer than `'national'`.
+ * That placement is what makes the whole design work without a single ordering edit anywhere else:
+ * Barcelona's `'metropolitan'` box and the four AMB municipalities' `'municipal'` boxes all
+ * out-rank the Catalonia claim automatically, and so will every future POUM pack. Registering a
+ * Catalan municipality is a pure DATA addition, exactly as C58 §1.5 requires.
+ *
+ * ⚠ CALLING CATALONIA `'national'` WOULD HAVE BEEN THE EASY EDIT AND IT WAS REJECTED. `'national'`
+ * is a claim about what the BOX IS, and Catalonia's box is not a state's; declaring it so would
+ * make Catalonia TIE with a future Spain-wide registration instead of beating it on Catalan soil,
+ * and a tie is refused as `'ambiguous'`. The declaration must be true for the rule to be sound.
  */
 export type JurisdictionExtentResolution =
     | 'district'
     | 'municipal'
     | 'metropolitan'
+    | 'regional'
     | 'national';
 
 /** Finest → coarsest. The single source of the ordering; `RANK` is derived from it. */
@@ -300,6 +322,7 @@ export const JURISDICTION_EXTENT_RESOLUTIONS: readonly JurisdictionExtentResolut
     'district',
     'municipal',
     'metropolitan',
+    'regional',
     'national',
 ];
 
@@ -1033,6 +1056,100 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         packsByZone: packMap(),
         // The live NL dispatch owns every per-parcel outcome; the registry path has no live plan.
         refusalFor: () => null,
+    },
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    // CATALONIA (regional) — THE ANSWER OF LAST RESORT FOR 947 MUNICIPALITIES.
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    //
+    // ⚠⚠ THIS REGISTRATION MUST STAY LAST, AND `'regional'` IS WHY IT CAN BE. Every other entry
+    // above claims a district, a municipality, a metropolitan area or a state. This one claims an
+    // AUTONOMOUS COMMUNITY, and it FULLY CONTAINS six registrations already in this list —
+    // Barcelona, L'Hospitalet, Badalona, Sant Boi, Cornellà and (partly) nothing else Spanish.
+    // Under §JURISDICTION-SPECIFICITY every one of them out-ranks it automatically, because
+    // `'regional'` is coarser than both `'metropolitan'` and `'municipal'`. That is the entire
+    // mechanism: **registering the 7th, 40th or 300th Catalan municipality is a pure DATA
+    // addition** — a new registration at a finer rung simply wins its own land, with no edit to
+    // this entry, no re-ordering, and no peel-off predicate. Contrast the four AMB municipalities,
+    // whose precedence over Barcelona had to be discovered and fixed (§LH-ENVELOPE).
+    //
+    // ── WHAT PROBLEM IT ACTUALLY SOLVES ────────────────────────────────────────────────────────
+    // Before it, a click anywhere in Catalonia outside the six registered municipalities reached NO
+    // registered jurisdiction, so `resolveZoneDisposition` answered `'unregistered'` and the caller
+    // fell through to the ESTIMATED fallback — a generic setback triple, on land PRYZM had never
+    // read one article about. That is ~940 municipalities, including Girona, Lleida and Tarragona.
+    //
+    // ⚠ AND "REGISTER CATALONIA" DOES NOT MEAN "COVER CATALONIA WITH AN ENVELOPE". It cannot. The
+    // PGM-1976 governs 27 municipalities (NNUU Art. 1.1 → the pre-2011 Entitat Municipal
+    // Metropolitana, Decret llei 5/1974; see `esAmbPgmScope.ts` — AMB membership does NOT imply PGM
+    // coverage), and each of the other ~920 has its own POUM, PGOU or Normes Subsidiàries. There is
+    // no shared ordinance to transcribe, so `packsByZone` is EMPTY BY CONSTRUCTION and always will
+    // be. What this registration delivers is ANSWER CORRECTNESS, not envelope coverage: a click
+    // resolves its municipality, resolves its planning qualification live from the MUC, and gets a
+    // refusal that NAMES THE INSTRUMENT which actually governs that land.
+    //
+    // ── WHY THAT REFUSAL IS WORTH SHIPPING (measured 2026-07-31, see `esCatalunya.ts`) ─────────
+    //   • the MUC qualification layer answers for 947 / 947 municipalities — 0 genuine empties and,
+    //     critically, 0 FETCH FAILURES, so the 947 is a measurement and not a masked outage;
+    //   • the harmonised vocabulary is exactly 36 codes over a complete 546 696-row scan, and the
+    //     `S…` (*sistema*) family alone is 36.0 % of Catalonia's qualification polygons — land the
+    //     coarse code classifies CORRECTLY as carrying no private envelope, which is a legally
+    //     grounded answer rather than a coverage gap;
+    //   • `MUC:MUCVW_AMBIT_PG_INE` registers 8 396 general-planning expedients over 935 / 947
+    //     municipalities (98.7 %), every one carrying a deep link into the Registre de Planejament
+    //     Urbanístic de Catalunya. Girona resolves to its Revisió del PGOU (2001/001092/G), Lleida
+    //     to 2002/000069/L, Tarragona to the Normes de Planejament Urbanístic 2021/075037/T (its
+    //     POUM having been annulled — the register is RIGHT about that), Lladorre to its POUM.
+    //
+    // ⚠ NEVER A NUMBER. The MUC publishes a qualification CODE, not parameters — no height, no
+    // edificabilitat, no occupation, no setback, for any municipality. And the harmonised code is a
+    // WEAKER EVIDENCE TIER than a per-clau ordinance table (it is coarser by construction: 13a and
+    // 13b are both `R2`), which the refusal copy states plainly rather than dressing up as an
+    // article citation — the identical discipline `esBarcelonaZoneClassification.ts` already ships.
+    //
+    // ⚠ §CATALUNYA-SPILL — a rectangle cannot follow a border, and this one over-claims into Aragó,
+    // the Comunitat Valenciana, Andorra and southern France. UNLIKE the NL/DK/CH spills recorded in
+    // the header, this one is CLOSED — not by geometry, but by moving the decisive test onto the
+    // INE code: `catalunyaNoRulePackRefusal()` refuses to emit a Catalan citation for any INE whose
+    // province prefix is not 08/17/25/43. The globe may over-light; the CITATION cannot.
+    {
+        jurisdictionId: CATALUNYA_JURISDICTION_ID, // 'es-ct-catalunya'
+        displayName: 'Catalonia (Mapa Urbanístic de Catalunya)',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        // ⚠ THE SAME OBJECT/FUNCTION any Catalonia dispatch routes on — imported, not restated.
+        extent: CATALUNYA_BBOX,
+        contains: isInCatalunya,
+        // ⚠ `'regional'` — the rung added FOR this registration (§CATALUNYA-REGIONAL-RUNG). An
+        // autonomous community: coarser than Barcelona's metropolitan box, finer than a state.
+        extentResolution: 'regional',
+        answerSummary:
+            'Everywhere in Catalonia — all 947 municipalities — PRYZM resolves your parcel from the ' +
+            'national Catastro and its planning qualification live from the Generalitat’s Mapa ' +
+            'Urbanístic de Catalunya (measured 2026-07-31: the qualification layer answers for ' +
+            '947/947, with zero fetch failures). For 935 of the 947 it also names the instrument ' +
+            'that governs the land — the POUM, PGOU or Normes Subsidiàries — resolved by testing ' +
+            'which plan boundary contains your parcel, with a direct link to its record in the ' +
+            'Registre de Planejament Urbanístic de Catalunya. The buildable ENVELOPE refuses, and ' +
+            'for public systems (36 % of Catalan qualification polygons) and non-urbanisable soil ' +
+            'that refusal is a legally grounded answer rather than a gap. PRYZM publishes NO ' +
+            'height, buildability, occupation or setback here: the MUC gives a qualification code, ' +
+            'not parameters, and no single ordinance governs 947 municipalities. Envelope coverage ' +
+            'grows one municipality at a time, and each one out-ranks this answer automatically.',
+        // EMPTY BY CONSTRUCTION — there is no Catalonia-wide ordinance to key a pack on. This is
+        // not a TODO; see the block comment above.
+        packsByZone: packMap(),
+        // No per-zone legal refusal TABLE: the legal classification is a function of the LIVE
+        // harmonised MUC code (`classifyMucHarmonisedCode`), not of a static enumeration — and the
+        // registry path has no live code. The dispatcher path supplies the specific, cited one.
+        refusalFor: () => null,
+        // Every Catalan zone code → the cited Catalonia refusal. ⚠ On THIS path no fetch has
+        // happened, and `catalunyaRegistryRefusal` says so with an explicit `'not-attempted'`
+        // rather than claiming a lookup failed — asserting a query PRYZM never made is the mistake
+        // Paris and the Netherlands avoid above by declaring no hook at all. Catalonia cannot take
+        // that option (answering where nothing else does is its entire purpose), so it carries the
+        // honest fourth value instead.
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            catalunyaRegistryRefusal(zoneCode ?? null, zoneLabel ?? null, knownFacts ?? []),
     },
 ];
 

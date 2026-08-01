@@ -564,6 +564,18 @@ const EXTENT_RESOLUTION_COPY: Readonly<Record<JurisdictionExtentResolution, stri
     district: 'district resolution',
     municipal: 'municipal resolution',
     metropolitan: 'metropolitan-area resolution',
+    // §CATALUNYA-REGIONAL-RUNG (L-658) — added with the `es-ct-catalunya` registration, which
+    // covers an autonomous community of 947 municipalities. ⚠ The caveat is DIFFERENT from the
+    // national one and deliberately so: at this resolution the honest warning is not "you may be
+    // over a border" but "one region does not mean one ordinance". Catalonia has 947 separate
+    // planning instruments, so a lit region promises an ANSWER (the qualification + the governing
+    // plan, cited) and never a buildable envelope. A `Record` is exhaustive by construction, so
+    // omitting this key was a `tsc` error rather than a jurisdiction silently mislabelled — which
+    // is exactly why the copy is derived from the ladder instead of hard-coded per city.
+    regional:
+        'regional resolution — PRYZM answers everywhere in this region, but each municipality ' +
+        'has its own planning instrument, so coverage means a cited answer rather than a ' +
+        'buildable envelope',
     national: 'national resolution — a point near a border may fall outside the country',
 };
 
