@@ -30,8 +30,12 @@ an explicit, land-identifying refusal that names Plano C and the articles.
 - 🟡 **#2 layer 212 `altura`** — measured, and 2,4× smaller than reported: **27,13 % of layer area**,
   not 65,5 %, with a **`0` sentinel on 34,13 %**. A lead, and a dangerous one.
 - 🟡 **#5/#6** — the text is a *(Transcripción)*; the modification census is not done.
-- 🔴 **#9 C63 tier vocabulary does not exist in code** — platform-wide; it is why RATE is
-  `not-assessed` rather than a number.
+- ✅ **#9 C63 tier vocabulary — CLOSED 2026-08-01, the row was STALE.** The ruler EXISTS
+  (`packages/schemas/src/site/completion/EnvelopeAxisWeight.ts` + the tested `computeScorecard.mjs`
+  mirror), and Murcia's ENVELOPE axis has already been computed at 9.4 % through it. ⚠ This row was
+  inherited from Barcelona register #14 and never re-checked. RATE is `not-assessed` for a
+  **mechanical** reason — no `measurements/valencia.measurements.json` record has been written yet —
+  **not** because the framework is missing.
 
 ## 3 — SMALLEST NEXT STEP
 

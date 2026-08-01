@@ -173,11 +173,22 @@ the instrument.
 
 ⚠ **Barcelona can state ≈77 % because its axes have been measured against a working envelope. València
 cannot, and inventing a ceiling here would be the exact error this register exists to prevent.** The
-typed reason is **`missing-framework`**, not `missing-evidence`: the C63 tier vocabulary
-(`certified` / `constructed-amber`) still does not exist in code (Barcelona register #14, platform-wide
-**P0**), so **no city can prove an ENVELOPE score**, València included. The evidence half is now in
-hand — LEGISLATION and ENVELOPE denominators are both measured — and the axis will compute the day
-the ruler exists.
+~~typed reason is **`missing-framework`**~~ ⚠ **CORRECTED 2026-08-01 (orchestrator) — the typed reason
+was WRONG, and so was the claim it rested on.** This paragraph asserted that the C63 tier vocabulary
+*"still does not exist in code (Barcelona register #14)"* and therefore that **no city can prove an
+ENVELOPE score**. Both are false: `packages/schemas/src/site/completion/EnvelopeAxisWeight.ts` exists
+with the total tier→weight map (L-664 migrated C63's `certified`/`constructed-amber` prose names onto
+the six schema tiers), `computeScorecard.mjs` mirrors it under test, and **Murcia's ENVELOPE axis has
+already been computed at 9.4 % through it.** See row 9.
+
+**The correct typed reason is `missing-measurement`, and it is a small, purely mechanical gap:** the
+evidence half IS in hand (LEGISLATION and ENVELOPE denominators are both measured above), so what
+remains is to write those figures into a
+`tools/city-completion/measurements/valencia.measurements.json` record — the shape Murcia's now
+demonstrates. **València's ENVELOPE is `0 %` MEASURED, with the article that makes it zero** — which
+is a scoreable value, not an unscoreable one. ⚠ The lesson worth carrying: this register inherited a
+P0 from another city's register and did not re-check it, and the stale claim then justified declining
+to score a city that was in fact scoreable.
 
 **What CAN be stated today, and it is the number that matters:**
 
@@ -198,7 +209,7 @@ the ruler exists.
 | **6** | **Modification census since 1994** | **A** | P2 | **UNKNOWN sign** | 🟡 **OPEN — but bounded, and one modification is already closed** | `VALENCIA_PGOU_LATER_MODIFICATIONS` is **`unverified`, never `none`** — and there is positive evidence against `none`: a *modificación-adaptación* approved 14-XII-1993 (**DOGV 07-II-1994**) is bound into the same PDF. ✔ **Checked, not assumed:** it touches Art. 6.18 only as a *parcelación-licence clarification* about segregation tolerance, and **does not alter the profundidad edificable or the alignment rule.** ⛔ That closes ONE. The live `origen` vocabulary contains **~1 509 `MP` polygons across ~140 instruments**; no census exists. ⇒ Closes on a census of `MP` instruments touching Título VI Caps. 3–5. Named as R3. |
 | **7** | **CHP / TER / IND chapters unread** | **A** | **P3** ⟵ demoted | **UNDER-states** (they are labelled `unknown`, the weakest claim) | 🟡 **OPEN, and MUCH cheaper than it looked** | ⚠ **This row was going to be P1 on the "three of six zones unread" framing. Measuring the land inverted it.** CHP+TER+IND are 20,58 % of buildable land but only **3,35 pp of it is PGOU-ordered** — the rest is delegated and closes via #4 regardless of what the chapters say. **And even reading them yields nothing computable**, because Art. 6.3.1's zones all route to Plano C. ⇒ Reading them buys *classification completeness*, not coverage. ~1 day, do it after #4. |
 | **8** | **`Patrimonio_Historico` / `Vivienda` folders are token-gated** | **A** | P3 | **OVER-states if ignored** — heritage constrains envelopes downward | 🟡 **OPEN — UNKNOWN, not absent, and that distinction is the whole row** | 17 ArcGIS folders return **error 499 "Token Required"**. Recording them as "no data" would be the failure-vs-empty conflation this repo has been bitten by four times (L-422/457/467/469). ⚠ Partial mitigation exists: BIC/BRL and *Catálogo* layers ARE public inside `UrbanismoEInfraestructuras`. ⇒ Closes on a re-probe with credentials, **before** any envelope ships. |
-| **9** | **C63 tier vocabulary does not exist in code** | **C** | **P0** | — | 🔴 **OPEN — inherited, PLATFORM-WIDE** | Not a València blocker; it is why València's RATE is `not-assessed` rather than a number. C63 §3 names `certified`/`constructed-amber`; `EnvelopeConfidenceSchema` knows neither. **No city can prove an ENVELOPE score until this lands.** See Barcelona register #14 — fix the ruler before claiming the measurement. |
+| **9** | ~~**C63 tier vocabulary does not exist in code**~~ | **C** | ~~P0~~ → — | EXACT | ✅ **CLOSED — the ruler EXISTS; this row and its Barcelona parent were both STALE (orchestrator, 2026-08-01)** | ✔ **Verified in code, not inferred.** `packages/schemas/src/site/completion/EnvelopeAxisWeight.ts` exists and carries the TOTAL tier→weight map, including the explicit L-664 migration from C63's prose names: *«`authoritative` 1.0; `constructed-amber` 0.7 → `block-constructed` 0.7; `cited-refusal`/`no-pack` 0.0 → `not-determined`/`no-pack` 0.0»*. `tools/city-completion/computeScorecard.mjs` mirrors it as `ENVELOPE_AXIS_TIER_WEIGHT` + `ENVELOPE_AXIS_TIER_WEIGHT_VERSION`, and a unit test asserts the two are byte-identical (drift = test failure). ⭐ **Proven EMPIRICALLY, which settles it beyond a file read:** Murcia's ENVELOPE axis was computed at **9.4 %** through this exact ladder (`tools/city-completion/measurements/murcia.measurements.json`). **So "no city can prove an ENVELOPE score" is false — one already has.** ⚠ **The claim was inherited from Barcelona register #14 and never re-checked**, which is precisely how a stale P0 propagates across cities and freezes work that is not actually blocked. **València's RATE being `not-assessed` is therefore NOT a framework problem** — see the corrected §RATE note. |
 | **10** | **A previous agent stopped mid-tests** | **B** | P2 | — | ✅ **CLOSED 2026-08-01** | ✔ Found: three uncommitted files in a sibling worktree (`esValenciaPgou.ts`, `esValenciaEnvelope.ts`, `valenciaBbox.ts`) and **zero tests** — a half-wired path with no registry entry and no exports. **Adopted rather than rewritten** (the transcription is good and article-cited), then finished: 51 tests, registry registration, index exports, and registration in `ENVELOPE_PUBLICATION_GATES` (which was **failing open** for València — an unregistered gate makes the classifier promise a full envelope for a city that refuses every parcel). Two repo-wide totality guards caught the omission, as designed. **Nothing left behind.** |
 
 ---
