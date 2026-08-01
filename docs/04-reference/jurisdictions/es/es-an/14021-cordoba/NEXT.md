@@ -1,7 +1,23 @@
 # NEXT — Córdoba (14021, Andalucía / es-an, España)
 
 > Where we stopped and how to resume. Convention: every claim is tiered VERIFIED-LIVE / COULD-NOT-VERIFY.
-> Last updated 2026-07-23 · Maintainer: site-feasibility research · Status: **ENDPOINT CRACKED, NO PACK**.
+> Last updated **2026-08-01** · Maintainer: site-feasibility research ·
+> Status: **PACK REGISTERED + GATED SHUT; the city is ≈ 95 % CLOSED by land, awaiting a signature.**
+
+> ## ⚠ THREE CLAIMS IN THIS FILE WERE STALE AND ARE CORRECTED HERE (2026-08-01)
+>
+> Read [`CLOSURE-REGISTER.md`](./CLOSURE-REGISTER.md) first — it is now the file that answers
+> *"what is left?"*. What this one said, and what is true:
+>
+> | This file said | Truth |
+> |---|---|
+> | **"NO PACK"** / *"UNREGISTERED … do NOT register"* / *"Do not touch `registry.ts`"* (§8) | The pack is **REGISTERED** — 13 subzones, `rulepacks/registry.ts` — and has been since `068a02ce`. The wiring was done; the **HONESTY GATE** (`CORDOBA_ENVELOPE_VERIFIED = false`) is what stops a number, not the absence of registration. |
+> | **"~19 % fully numeric / ~89 % partial"** (§2, §8) | **WITHDRAWN.** That was a parcel-count census over ordenanza families, **structurally blind to DELEGATION**. Measured against the L-656 buildable-land denominator it is **≈ 16 % full / ≈ 31 % any**, of the pilot's 1.851 km². |
+> | **"Whole-city ≈ 0 %"** with no denominator | Composable, and now composed: the published calificación covers **1.629 km² of Córdoba's 33.342 km² of SUELO URBANO = 4.88 %** (national SIU, INE 14021, queried 2026-08-01). Whole-city **any-envelope ceiling ≈ 1.7 %**. And ~0 % *answered* is **not** ~0 % *closed*: 95.1 % now carries a cited refusal. |
+>
+> ⚠ **And one defect this file never recorded, now closed:** outside the pilot PRYZM was publishing a
+> **fabricated estimated envelope** (3,0/1,5/3,0 m, FAR 2,00, 50 %) on 95.1 % of the city's urban
+> land. See `CLOSURE-REGISTER.md` blocker 1.
 
 ## 1 — WHERE WE STOPPED (the one-paragraph truth)
 
@@ -82,19 +98,33 @@ See `sources/SOURCES.md`. Headline three, all **VERIFIED-LIVE 2026-07-23**:
 - **`findings/OCR-EXTRACTION-RESULTS.md`** — all 15 links / 12 distinct docs read (2 born-digital text,
   10 clean rasters, 2 dead links); per-family per-field value table; auto-gate flags; the pilot resolution.
 - **`findings/ORDENANZA-PACK-SPEC.md`** — the pack design + what is deliberately not packed.
-- **`packages/site-parcel-data/src/rulepacks/esCordobaPGOU2001.ts`** — the STARTER PACK, 13 subzones,
-  schema-valid, **UNREGISTERED** (WIRING-TODO in the file footer). Do NOT register until the
-  `pipeline-extracted-unverified` tier lands + a human verifies.
+- **`packages/site-parcel-data/src/rulepacks/esCordobaPGOU2001.ts`** — the pack, 13 subzones,
+  schema-valid, ⬆ **REGISTERED** (the "UNREGISTERED / do NOT register" note here was stale; the
+  `pipeline-extracted-unverified` tier landed and the pack self-labels it). It renders **no number**
+  because the dispatcher's `CORDOBA_ENVELOPE_VERIFIED` gate is shut, which is the interlock — not the
+  registration.
 
-**The number (denominator NAMED = 5 725 Catastro parcels of the Sur+Noroeste pilot, ~1.63 km², 2 of ~10
-districts, NOT the whole city):** ~**19 %** of pilot parcels get a FULLY-numeric envelope (OA+UAD+PAS),
-~**89 %** get at least a PARTIAL one (add CTP-1+MC, one field derived/tabular-null), ~**11 %** not
-extractable. Whole-city ≈ **0 %** until COACo extends the calificación beyond the 2 pilot districts.
+⛔ **THE NUMBER BELOW IS WITHDRAWN — kept only so a reader who saw it elsewhere can find its
+retraction.** ~~*(denominator = 5 725 Catastro parcels of the Sur+Noroeste pilot): ~19 % fully
+numeric, ~89 % partial, ~11 % not extractable.*~~ It counted parcels by ordenanza family and never
+asked whether a subzone could **bind**, whether a later instrument **supersedes** it, or whether the
+bound subzone **renders**. **Measured properly against buildable land: ≈ 16 % full / ≈ 31 % any /
+≈ 69 % correctly refused**, because **≈ 50 % of pilot buildable land is delegated** to a Plan Parcial /
+Plan Especial / PERI / Estudio de Detalle and **7 of the 13 packed subzones bind zero land**. Full
+derivation: [`sources/VERIFICATION.md`](./sources/VERIFICATION.md) §SIG-1.
+
+**Whole-city, denominator NAMED (new, 2026-08-01):** the published calificación covers **1.629 km² of
+Córdoba's 33.342 km² of SUELO URBANO = 4.88 %** (national SIU `OGC_Clases_Suelo`, INE 14021), so the
+municipality-wide any-envelope ceiling is **≈ 1.7 %**. ⚠ That is the *answered-with-a-number*
+fraction. Under the ratified definition of CLOSED the city is **≈ 95 % closed**, because the rest now
+carries an explicit cited refusal.
 
 **Smallest next step now:** the human-verification pass on the §2 value table (Spanish-planning-literate
-reviewer, ~hours) → lifts the pilot from `pipeline-extracted-unverified` toward `estimated-ruleset`, then
-the orchestrator does the `registry.ts` wiring. **Do not touch `registry.ts`/`index.ts`** — wiring is an
-orchestrator task (WIRING-TODO block in the pack file).
+reviewer, ~hours) → lifts the pilot to `estimated-ruleset`. ⚠ **A signature alone renders nothing** —
+the COACo subzone resolver is authored and **never called**, so it must land in the same change
+(`CLOSURE-REGISTER.md` blocker 3). ⚠ **The "do not touch `registry.ts`/`index.ts`" instruction that
+stood here is SPENT:** that wiring is done (`068a02ce`), and a second, refusal-only registration for
+the rest of the municipality landed on 2026-08-01 (blocker 1).
 
 Remaining research gaps (do not re-do the extraction): (a) COACo pilot coverage still 2 districts —
 re-run `coaco:distritos&resultType=hits` to detect >2; (b) the MC per-street-width height table and the

@@ -366,17 +366,31 @@ export {
     CORDOBA_INTENDED_FIELD_PROVENANCE,
 } from './rulepacks/esCordobaPGOU2001.js';
 export {
-    // The honesty gate: false until sign-off; the dispatcher reads it. And the three Córdoba
-    // refusals — the verification gate, the coverage gap, and the legally-grounded "no" families.
+    // The honesty gate: false until sign-off; the dispatcher reads it. And the Córdoba refusal
+    // vocabulary — the verification gate, the legally-grounded "no" families, and (post
+    // §CORDOBA-REFUSAL-SPLIT) the FOUR distinct "no number" values that used to be two: outside the
+    // published pilot, no calificación at the point, an unbindable subzone key, and no pack.
     CORDOBA_ENVELOPE_VERIFIED,
     cordobaUnverifiedRefusal,
     cordobaNoRulePackRefusal,
+    cordobaOutsidePilotRefusal,
+    cordobaNoCalificacionAtPointRefusal,
+    cordobaUnbindableSubzoneRefusal,
     cordobaZoneRefusalFor,
     CORDOBA_LEGALLY_REFUSED_ORDENANZAS,
     CORDOBA_PGOU_INSTRUMENT_REF,
     CORDOBA_ROADMAP_LINE,
+    CORDOBA_MUNICIPAL_JURISDICTION_ID,
+    CORDOBA_MUNICIPAL_ROADMAP_LINE,
 } from './rulepacks/esCordobaZoneClassification.js';
-export { isInCordoba, CORDOBA_BBOX } from './providers/cordobaBbox.js';
+export {
+    isInCordoba,
+    CORDOBA_BBOX,
+    // §CORDOBA-MUNICIPAL-CLOSURE — the municipal box exists to make the ESTIMATE unreachable in
+    // Córdoba outside the pilot, not to claim coverage of it.
+    isInCordobaMunicipality,
+    CORDOBA_MUNICIPAL_BBOX,
+} from './providers/cordobaBbox.js';
 // ── Córdoba subzone resolver (WIRING-TODO 5) — the COACo WFS provider. ──
 // Binds a parcel to its PGOU-2001 subzone (`coaco:ordenanzas.link` → MC-3/…) + the refcat-join
 // attributes + the `actuacion` derived-planning override. WIRED but never rendered while

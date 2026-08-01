@@ -177,8 +177,16 @@ import {
 import {
     cordobaZoneRefusalFor,
     cordobaNoRulePackRefusal,
+    cordobaOutsidePilotRefusal,
+    CORDOBA_MUNICIPAL_JURISDICTION_ID,
+    CORDOBA_MUNICIPAL_ROADMAP_LINE,
 } from './esCordobaZoneClassification.js';
-import { CORDOBA_BBOX, isInCordoba } from '../providers/cordobaBbox.js';
+import {
+    CORDOBA_BBOX,
+    isInCordoba,
+    CORDOBA_MUNICIPAL_BBOX,
+    isInCordobaMunicipality,
+} from '../providers/cordobaBbox.js';
 // ── SWITZERLAND (national) — Outcome-B zone-ID jurisdiction. Registered as a REFUSAL jurisdiction:
 // the national WFS publishes the zone identity (resolved LIVE by the dispatcher's `resolveChZone`),
 // but density/height are model+PDF-bound, so the buildable envelope refuses. `packsByZone` is empty;
@@ -712,6 +720,53 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // the 2-district pilot scope. ⚠ NOTE: while the verification gate is closed the DISPATCHER
         // refuses the whole pilot before this table is consulted (see `applyCordobaZoningThenFallback`).
         noRulePackRefusal: cordobaNoRulePackRefusal,
+    },
+    // ── Córdoba (INE 14021) — THE REST OF THE MUNICIPALITY. §CORDOBA-MUNICIPAL-CLOSURE ──────────
+    //
+    // ⚠⚠ THIS REGISTRATION EXISTS TO SAY "NO", AND THAT IS ITS ENTIRE VALUE. It carries no pack and
+    // never will (`packsByZone` is empty BY CONSTRUCTION). It is the Catalonia pattern one rung
+    // down: answer where nothing else does, so the generic ESTIMATE can never be the answer.
+    //
+    // THE DEFECT IT CLOSES, MEASURED 2026-08-01. The pilot registration above claims 2 districts.
+    // A parcel anywhere else in Córdoba matched no `contains` predicate in this table, so the §L-663
+    // chokepoint's `resolveRegisteredJurisdictionAt` returned `'none'` — "genuinely uncovered land,
+    // the estimate is honest here" — and `applyEstimatedZoning` PUBLISHED the generic triple
+    // (3,0 / 1,5 / 3,0 m, FAR 2,00, coverage 50 %) on land PRYZM has read no article about. §L-663
+    // is not at fault: it asks the registry, and the registry had the hole. Registering the
+    // municipality closes it with no edit to `siteDispatch.ts` — exactly the property C58 §1.5
+    // promises ("registering a new city closes this hole for that city with no edit there").
+    //
+    // ⚠ PRECEDENCE IS AUTOMATIC, NOT ORDERED. `'municipal'` is COARSER than the pilot's
+    // `'district'`, so §JURISDICTION-SPECIFICITY makes the pilot win every point inside it. This
+    // entry can therefore sit anywhere in the list and can never shadow the pilot — the reason the
+    // pilot was declared `'district'` in the first place (see its `extentResolution` note).
+    //
+    // ⚠ IT DOES NOT LIGHT THE GLOBE GREEN. `packZoneCodes` is empty and the `answerSummary` says,
+    // in the first sentence, that no buildable figure is published here. C60 §3 requires the entry
+    // UI to state the resolution it has; this states a REFUSAL with its reason, which is a terminal
+    // answer, not coverage.
+    {
+        jurisdictionId: CORDOBA_MUNICIPAL_JURISDICTION_ID, // 'es-14021-cordoba-municipal'
+        displayName: 'Córdoba (municipality — outside the published pilot)',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        // ⚠ THE SAME OBJECT/PREDICATE any Córdoba dispatch would route on — imported, not restated.
+        extent: CORDOBA_MUNICIPAL_BBOX,
+        contains: isInCordobaMunicipality,
+        // The municipal term of Córdoba (OSM relation 343207, `ine:municipio=14021`), rounded
+        // outward. Coarser than the pilot's `'district'`, so the pilot always wins inside it.
+        extentResolution: 'municipal',
+        answerSummary: CORDOBA_MUNICIPAL_ROADMAP_LINE,
+        // EMPTY BY CONSTRUCTION. There is no published calificación outside the 2 pilot districts to
+        // key a pack on, so there is nothing to register. This is not a TODO.
+        packsByZone: packMap(),
+        // No per-zone legal table: outside the pilot no zone is ever resolved, so a zone-keyed legal
+        // classification would be answering a question that was never asked.
+        refusalFor: () => null,
+        // The one product of this registration: the cited "COACo publishes no calificación for this
+        // land" card — `no-plan-at-point` (durable), never the transient retry code.
+        noRulePackRefusal: (_zoneCode, _zoneLabel, knownFacts) =>
+            cordobaOutsidePilotRefusal(knownFacts ?? []),
     },
     // ── SWITZERLAND (national), Nutzungsplanung WFS — the Outcome-B zone-ID jurisdiction. ──
     //

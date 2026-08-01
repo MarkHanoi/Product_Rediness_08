@@ -23,11 +23,25 @@ import {
     CORDOBA_ENVELOPE_VERIFIED,
     cordobaUnverifiedRefusal,
     cordobaNoRulePackRefusal,
+    cordobaOutsidePilotRefusal,
+    cordobaNoCalificacionAtPointRefusal,
+    cordobaUnbindableSubzoneRefusal,
     cordobaZoneRefusalFor,
     CORDOBA_LEGALLY_REFUSED_ORDENANZAS,
+    CORDOBA_MUNICIPAL_JURISDICTION_ID,
 } from '../src/rulepacks/esCordobaZoneClassification.js';
-import { isInCordoba, CORDOBA_BBOX } from '../src/providers/cordobaBbox.js';
-import { resolveZoneDisposition, listJurisdictionCoverage } from '../src/rulepacks/registry.js';
+import {
+    isInCordoba,
+    CORDOBA_BBOX,
+    isInCordobaMunicipality,
+    CORDOBA_MUNICIPAL_BBOX,
+} from '../src/providers/cordobaBbox.js';
+import {
+    resolveZoneDisposition,
+    listJurisdictionCoverage,
+    resolveRegisteredJurisdictionAt,
+} from '../src/rulepacks/registry.js';
+import { subzoneCodeFromLink } from '../src/providers/resolveCordobaSubzone.js';
 
 describe('Córdoba PGOU-2001 — the pack is VALID (parses at load) and covers 13 subzones', () => {
     it('parsed the schema without throwing', () => {
@@ -135,6 +149,79 @@ describe('Córdoba — the refusal vocabulary (coverage gap + legally-grounded "
         expect(r.detail).toMatch(/pilot/i);
     });
 
+    // ── §CORDOBA-REFUSAL-SPLIT (L-422/457/467/469) — four absences, four cards. ──────────────────
+    it('the no-pack card no longer CONFLATES "no calificación mapped" with "not transcribed"', () => {
+        // ⚠ The old copy said "Either the parcel carries no calificación in the COACo join, OR its
+        // family is one the pilot does not pack" — two different values, different owners, one card.
+        const r = cordobaNoRulePackRefusal('UAS-1', null, []);
+        expect(r.detail).not.toMatch(/either/i);
+        // It must now speak only about PRYZM's transcription backlog, and name the two families.
+        expect(r.detail).toMatch(/Uso Industrial/);
+        expect(r.detail).toMatch(/Unifamiliar Aislada/);
+    });
+
+    it('the no-pack card never claims we lack a rule we HOLD (the Barcelona 20a/22a lesson)', () => {
+        // PRYZM ships 13 transcribed subzones. `resolveZoneDisposition` must hand every one of them
+        // the PACK, so this false-statement card is structurally unreachable for them.
+        for (const code of CORDOBA_PGOU2001_ZONE_CODES) {
+            const d = resolveZoneDisposition(CORDOBA_JURISDICTION_ID, code);
+            expect(d.kind, code).toBe('pack');
+        }
+    });
+
+    it('OUTSIDE the pilot: a DURABLE `no-plan-at-point`, never the transient retry code', () => {
+        const r = cordobaOutsidePilotRefusal(['Location: 37.90000, -4.70000']);
+        // ⚠ `source-data-unavailable` is defined as transient and is the ONLY code that earns a
+        // retry affordance. Nothing here clears on a retry — COACo publishes 2 districts, full stop.
+        expect(r.code).toBe('no-plan-at-point');
+        expect(r.code).not.toBe('source-data-unavailable');
+        // It must NOT assert a legal fact about the land: a plan DOES govern it.
+        expect(r.legallyGrounded).toBe(false);
+        expect(r.ordinanceRef).toBeNull();
+        expect(r.detail).toMatch(/PGOU-Córdoba-2001 covers the whole/i);
+        expect(r.knownFacts).toContain('Location: 37.90000, -4.70000');
+    });
+
+    it('INSIDE the pilot with no polygon: the publisher ANSWERED, so it is not a fetch failure', () => {
+        const r = cordobaNoCalificacionAtPointRefusal([]);
+        expect(r.code).toBe('no-plan-at-point');
+        expect(r.detail).toMatch(/lookup SUCCEEDED/i);
+        // ⚠ Must not assert "this is a street" — measured: the layer covers 32.8 % of the districts
+        // and PRYZM cannot tell public viario from land the publisher attributes to nothing.
+        expect(r.detail).toMatch(/will not assert that about YOUR parcel/i);
+        expect(r.legallyGrounded).toBe(false);
+    });
+
+    it('an unbindable subzone KEY is `regime-undetermined`, not a coverage gap', () => {
+        // The measured case: 14 of 453 COACo polygons carry a bare `O_MC.pdf` (18 539 m², 1.14 % of
+        // ordenanzas land), which parses to `MC` — a code the pack deliberately does not contain,
+        // because MC-1..MC-4 differ materially.
+        expect(subzoneCodeFromLink('http://x/doc/ordenanzas/O_MC.pdf')).toBe('MC');
+        expect([...CORDOBA_PGOU2001_ZONE_CODES]).not.toContain('MC');
+        const r = cordobaUnbindableSubzoneRefusal('Manzana Cerrada', 'O_MC', []);
+        expect(r.code).toBe('regime-undetermined');
+        // ⚠ Saying "PRYZM has not transcribed this ordenanza" here would be FALSE — all four MC
+        // subzones are packed. What is missing is the publisher's subzone key.
+        expect(r.code).not.toBe('no-rule-pack');
+        expect(r.detail).toMatch(/transcribed every one of that ordenanza's subzones/i);
+        expect(r.ordinanceRef).toBeTruthy();
+    });
+
+    it('the unverified card does not claim we hold rules for a zone it has not resolved', () => {
+        // The dispatcher calls this with `subzone = null` for EVERY pilot parcel — before the COACo
+        // resolver runs. Asserting "we machine-read THIS zone's rules" is false on the ~5.7 % of
+        // pilot land whose family is deliberately unpacked. The copy must be conditional.
+        const unknown = cordobaUnverifiedRefusal(null, null, []);
+        expect(unknown.headline).not.toMatch(/this zone's rules/i);
+        expect(unknown.detail).toMatch(/has not yet identified which ordenanza/i);
+        // …and it must name the delegation that survives sign-off, so the card is not read as
+        // "sign it and every parcel gets a number".
+        expect(unknown.detail).toMatch(/Plan Parcial/);
+        // With a resolved subzone the stronger, specific sentence is correct and returns.
+        const known = cordobaUnverifiedRefusal('PAS-2', null, []);
+        expect(known.headline).toMatch(/this zone's rules/i);
+    });
+
     it('refusalFor returns a legally-grounded refusal for a cited "no" family, null otherwise', () => {
         expect(CORDOBA_LEGALLY_REFUSED_ORDENANZAS.length).toBeGreaterThan(0);
         for (const token of CORDOBA_LEGALLY_REFUSED_ORDENANZAS) {
@@ -185,5 +272,74 @@ describe('Córdoba — the bbox jurisdiction gate (a coarse proximity claim)', (
         expect(CORDOBA_BBOX.maxLat).toBeCloseTo(37.8986, 3);
         expect(CORDOBA_BBOX.minLon).toBeCloseTo(-4.8077, 3);
         expect(CORDOBA_BBOX.maxLon).toBeCloseTo(-4.7691, 3);
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// §CORDOBA-MUNICIPAL-CLOSURE — the ~8 districts outside the pilot get a REFUSAL, not a fabrication
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+describe('Córdoba — outside the pilot is CLOSED (a cited refusal, never the estimated triple)', () => {
+    /** El Brillante / Norte-Sierra — Córdoba city, well outside the Sur + Noroeste pilot box. */
+    const OUTSIDE = { lat: 37.9105, lon: -4.7905 } as const;
+
+    it('the outside point really is in Córdoba and really is outside the pilot', () => {
+        // Asserted, never assumed — if the pilot box grows, this test must be re-aimed knowingly.
+        expect(isInCordobaMunicipality(OUTSIDE.lat, OUTSIDE.lon)).toBe(true);
+        expect(isInCordoba(OUTSIDE.lat, OUTSIDE.lon)).toBe(false);
+        expect(isInCordobaMunicipality(Number.NaN, -4.78)).toBe(false);
+        expect(isInCordobaMunicipality(41.4, 2.17)).toBe(false); // Barcelona
+    });
+
+    it('⚠ THE REGRESSION GUARD — a registered jurisdiction now CLAIMS that point', () => {
+        // Before §CORDOBA-MUNICIPAL-CLOSURE this returned `'none'`, which the §L-663 chokepoint in
+        // `siteDispatch.ts` reads as "genuinely uncovered land — the estimate is honest here", so
+        // PRYZM published 3,0/1,5/3,0 m + FAR 2,00 + 50 % coverage on ~8 of Córdoba's ~10 districts.
+        // If this goes red, that fabrication is back.
+        const claim = resolveRegisteredJurisdictionAt(OUTSIDE.lat, OUTSIDE.lon);
+        expect(claim.kind).toBe('resolved');
+        if (claim.kind === 'resolved') {
+            expect(claim.jurisdiction.jurisdictionId).toBe(CORDOBA_MUNICIPAL_JURISDICTION_ID);
+        }
+    });
+
+    it('the PILOT still wins inside itself (§JURISDICTION-SPECIFICITY: district ≺ municipal)', () => {
+        // Both predicates are true at Córdoba centre; the finer registration must govern, with no
+        // ordering dependency in the registrations array.
+        expect(isInCordoba(37.88, -4.78)).toBe(true);
+        expect(isInCordobaMunicipality(37.88, -4.78)).toBe(true);
+        const claim = resolveRegisteredJurisdictionAt(37.88, -4.78);
+        expect(claim.kind).toBe('resolved');
+        if (claim.kind === 'resolved') {
+            expect(claim.jurisdiction.jurisdictionId).toBe(CORDOBA_JURISDICTION_ID);
+        }
+    });
+
+    it('the municipal registration carries NO pack and answers with the cited refusal', () => {
+        const cov = listJurisdictionCoverage().find(
+            (c) => c.jurisdictionId === CORDOBA_MUNICIPAL_JURISDICTION_ID,
+        );
+        expect(cov).toBeDefined();
+        // Empty BY CONSTRUCTION — there is no published calificación out here to key a pack on.
+        expect(cov!.packZoneCodes).toHaveLength(0);
+        // The summary must state the publication limit and name the two districts.
+        expect(cov!.answerSummary).toMatch(/SUR and NOROESTE/);
+        expect(cov!.answerSummary).toMatch(/COACo/);
+        const d = resolveZoneDisposition(CORDOBA_MUNICIPAL_JURISDICTION_ID, 'anything');
+        expect(d.kind).toBe('refusal');
+        if (d.kind === 'refusal') expect(d.refusal.code).toBe('no-plan-at-point');
+    });
+
+    it('the municipal box is the OSM municipal term, rounded outward (not the pilot)', () => {
+        // OSM relation 343207 (`admin_level=8`, `ine:municipio=14021`), read 2026-08-01:
+        // [37.6658228, 38.0315171, -4.9985994, -4.3514283] → rounded OUT to hundredths.
+        expect(CORDOBA_MUNICIPAL_BBOX.minLat).toBeCloseTo(37.66, 3);
+        expect(CORDOBA_MUNICIPAL_BBOX.maxLat).toBeCloseTo(38.04, 3);
+        expect(CORDOBA_MUNICIPAL_BBOX.minLon).toBeCloseTo(-5.0, 3);
+        expect(CORDOBA_MUNICIPAL_BBOX.maxLon).toBeCloseTo(-4.35, 3);
+        // It must strictly CONTAIN the pilot, or the specificity ladder has nothing to rank.
+        expect(CORDOBA_MUNICIPAL_BBOX.minLat).toBeLessThan(CORDOBA_BBOX.minLat);
+        expect(CORDOBA_MUNICIPAL_BBOX.maxLat).toBeGreaterThan(CORDOBA_BBOX.maxLat);
+        expect(CORDOBA_MUNICIPAL_BBOX.minLon).toBeLessThan(CORDOBA_BBOX.minLon);
+        expect(CORDOBA_MUNICIPAL_BBOX.maxLon).toBeGreaterThan(CORDOBA_BBOX.maxLon);
     });
 });

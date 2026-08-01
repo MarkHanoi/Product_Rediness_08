@@ -41,8 +41,15 @@ is now **OCR of 15 scanned ordinance PDFs + verification**, plus **pilot coverag
 
 ## Pack status
 
-- **Starter pack authored, UNREGISTERED** (2026-07-23): `packages/site-parcel-data/src/rulepacks/esCordobaPGOU2001.ts`
-  — 13 subzones across 5 families (PAS, OA, UAD full; CTP-1, MC partial), schema-valid, **not imported anywhere**.
+- ⬆ **Pack REGISTERED and GATED SHUT** (corrected 2026-08-01; the "UNREGISTERED / not imported
+  anywhere" claim was stale): `packages/site-parcel-data/src/rulepacks/esCordobaPGOU2001.ts` — 13
+  subzones across 5 families (PAS, OA, UAD full; CTP-1, MC partial), schema-valid, registered in
+  `rulepacks/registry.ts`. It renders **no number**: the dispatcher's `CORDOBA_ENVELOPE_VERIFIED`
+  gate refuses every Córdoba parcel until a human signs `sources/VERIFICATION.md`.
+- ⬆ **A second, REFUSAL-ONLY registration covers the rest of the municipality**
+  (`es-14021-cordoba-municipal`, 2026-08-01) so a parcel outside the pilot gets a cited "no
+  calificación is published for this land" card instead of the generic estimated envelope it was
+  getting. **What is left, in one file: [`CLOSURE-REGISTER.md`](./CLOSURE-REGISTER.md).**
 - **Rule-extraction is DONE** (OCR/vision of all 15 ordinance PDFs): `findings/OCR-EXTRACTION-RESULTS.md` +
   `findings/ORDENANZA-PACK-SPEC.md`. Values are at tier **`pipeline-extracted-unverified`** (machine-read,
   human sign-off pending) — so `SOURCES.md` §C (the verified table) is still empty.

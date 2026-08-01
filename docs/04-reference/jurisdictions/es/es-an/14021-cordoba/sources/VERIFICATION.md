@@ -21,6 +21,8 @@
 | **Proven by** | `apps/editor/__tests__/cordobaSiteDispatch.test.ts` — drives the **real** `dispatchParcelBoundary` |
 | **OCR fidelity** | ⬆ **VERIFIED 2026-08-01, parameter by parameter, 13/13 subzones, ZERO wrong values** (§SIG-1 below) |
 | **Measured ENVELOPE ceiling** | ⬆ **≈ 16 % full / ≈ 31 % any envelope of BUILDABLE land** in the published pilot — **not** the ≈ 19 % / ≈ 89 % previously quoted (§SIG-1 *what signing authorises*) |
+| **Whole-municipality ceiling** | ⬆ **NO LONGER `not-composable` (2026-08-01)** — **≈ 1.7 % any / ≈ 0.9 % full of Córdoba's 33.342 km² of SUELO URBANO** (national SIU `OGC_Clases_Suelo`, INE 14021, in force). The published calificación is **4.88 %** of that land |
+| **Closure** | ⬆ **≈ 95 % of Córdoba's urban land is now TERMINAL** — the ~8 districts outside the pilot get a cited `no-plan-at-point` refusal instead of the fabricated estimated triple they were getting until 2026-08-01. See [`../CLOSURE-REGISTER.md`](../CLOSURE-REGISTER.md) blocker 1 |
 
 > ⚠ **The previous version of this file said the OCR "has never been checked against the source" and
 > that a signature would unlock "≈ 19 % fully numeric / ≈ 89 % partial".** The first is now false — the
@@ -137,6 +139,33 @@ subzone today**, and the signature and the resolver call site must land in the *
 Its `derivedPlanningOverride` branch (non-empty `actuacion` ⇒ derived-planning refusal) is
 **load-bearing** for the ≈ 50 % delegation refusal below and must be exercised, not merely present.
 
+### ⬆ 2026-08-01 (second pass) — TWO MORE PRECONDITIONS DISCHARGED, and one FALSE CLAIM DELETED
+
+Neither changes what a signature is worth; both change what surrounds it.
+
+1. **§CORDOBA-MUNICIPAL-CLOSURE.** Outside the pilot PRYZM was **publishing a fabricated envelope** —
+   the generic `estimated-default` triple (3,0 / 1,5 / 3,0 m, FAR 2,00, 50 % coverage) — on **95.1 %
+   of Córdoba's SUELO URBANO**, because no registration claimed that land and the §L-663 chokepoint
+   reads an unclaimed point as *"genuinely uncovered land, the estimate is honest here"*. A
+   refusal-only municipal registration (`es-14021-cordoba-municipal`, no pack, ever) now returns a
+   cited `no-plan-at-point` card there. ⚠ **This is not coverage and must never be reported as
+   coverage** — it is the honest "no" that was missing.
+2. **§CORDOBA-REFUSAL-SPLIT.** Four distinct absences shared two cards. Split into four
+   (outside-pilot · no-polygon-at-point · unbindable-subzone-key · not-transcribed), so a publisher
+   gap can no longer read as PRYZM's backlog.
+3. ⛔ **A FALSE STATEMENT ABOUT OUR OWN COVERAGE WAS SHIPPING, IN EVERY CÓRDOBA REFUSAL.**
+   `CORDOBA_ROADMAP_LINE` ended *"Outside the two districts, a click falls back to the national SIU
+   land classification, never a borrowed pilot number."* **PRYZM does not fall back to SIU.** The
+   proxy is mounted (`server/siuClassificationProxy.js`, `server.js:509`) and **no client code calls
+   it** — grep over `packages/*/src` and `apps/*/src`, zero callers. Deleted, not softened. This is
+   the same defect class that removed Barcelona's `13b` / `22a` / `22@` / bare-`20a` branches, with
+   the sign reversed: there we claimed to lack what we held; here we claimed to hold what we lack.
+4. ⚠ **A NEW BINDING GAP, MEASURED:** **14 of 453 `coaco:ordenanzas` polygons carry a bare
+   `O_MC.pdf`** (18 539 m², **1.14 %** of ordenanzas land) — the Manzana Cerrada family chapter with
+   **no subzone suffix**. `OCR-EXTRACTION-RESULTS.md §1`'s claim that *"the filename suffix routes the
+   polygon to subzone MC-1/2/3/4"* is **false for these 14**, and is corrected. They cannot bind, and
+   a signature does not make them bindable.
+
 ### What signing would **NOT** authorise
 
 - **The ≈ 50 % of pilot buildable land that is DELEGATED to a later instrument.** Measured, not
@@ -149,9 +178,13 @@ Its `derivedPlanningOverride` branch (non-empty `actuacion` ⇒ derived-planning
   `OCR-EXTRACTION-RESULTS.md §4` — the source of the "89 %" — was **structurally blind to it**, exactly
   as the 41.4 pp Murcia `calificacion` case was. **A cited refusal here is the correct answer.**
 - **Anything outside the two pilot districts.** `coaco:distritos` has exactly **2** features of Córdoba's
-  ~10. Elsewhere a click must degrade to the national SIU *clasificación*, **never** a borrowed pilot
-  number. The municipality-wide rate stays **`not-composable`** — no municipal buildable-land
-  denominator exists for Córdoba (contrast Murcia's measured 75.145 km²).
+  ~10 (re-queried 2026-08-01: still 2 — Sur 2 488 983 m² + Noroeste 2 472 362 m² = **4.96 km²**).
+  Elsewhere a click gets the cited `no-plan-at-point` refusal, **never** a borrowed pilot number.
+  ⬆ **CORRECTED:** the municipality-wide rate is **no longer `not-composable`.** The national SIU
+  *clases de suelo* service composes it — **SUELO URBANO 33 341 928 m²**, municipal term 1 254.3 km²,
+  all in force — giving a whole-city ceiling of **≈ 1.7 % any / ≈ 0.9 % full**, with the published
+  calificación covering **4.88 %** of SUELO URBANO. ⚠ *Signing authorises nothing outside the pilot at
+  any of those rates.*
 - **The PEPCH casco histórico** — a separate Plan Especial with a dual regime, explicitly out of scope.
 - **A scalar height for Manzana Cerrada (MC-1…4).** Art. 13.5.3.1 publishes height as a
   *per-street-width table*; there is no Córdoba street-width resolver, so those stay `null` and MC keeps

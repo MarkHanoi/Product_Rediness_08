@@ -45,10 +45,15 @@ digits:
    resolver exists — the same gap as Barcelona) and its edificabilidad **DERIVED by algorithm**;
    Colonia Tradicional Popular (the most common by parcel) has edificabilidad DERIVED too.
 
-⚠ **The CEILING is far higher than the rate.** The OCR pilot MEASURED that ~19% of pilot parcels get a
-*fully-numeric* envelope and ~89% get at least a *partial* one after human sign-off. So Córdoba's
-problem is **pilot COVERAGE (2/10 districts) + verification**, not OCR — the OCR is done and the
-documents are clean. See [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) §1.
+⛔ **THE CEILING SENTENCE THAT STOOD HERE IS WITHDRAWN (2026-08-01).** It read: *"the OCR pilot
+MEASURED that ~19% of pilot parcels get a fully-numeric envelope and ~89% get at least a partial
+one"*. Both figures were an **extractability census over ordenanza families**, structurally blind to
+**delegation**. Measured against buildable land: **≈ 16 % full / ≈ 31 % any / ≈ 69 % correctly
+refused**, of the pilot's 1 850 780 m² — and **≈ 0.9 % / ≈ 1.7 %** of Córdoba's **33.342 km² of SUELO
+URBANO** (national SIU, INE 14021, measured 2026-08-01). Córdoba's problem is **publisher COVERAGE
+(2/10 districts) + verification**, not OCR — the OCR is done, clean and re-verified 13/13.
+⚠ **And "~0 % answered" is not "~0 % closed":** 95.1 % of the city's urban land now returns a cited
+refusal rather than a fabricated envelope. See [`CLOSURE-REGISTER.md`](./CLOSURE-REGISTER.md).
 
 ---
 

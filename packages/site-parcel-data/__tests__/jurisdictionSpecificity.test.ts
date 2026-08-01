@@ -165,7 +165,14 @@ describe('§JURISDICTION-SPECIFICITY — routing exclusivity over EVERY register
         // (the four AMB cities) — so it LOSES every one of these overlaps by rule. That is exactly
         // what makes registering the next Catalan municipality a pure data addition: it will add a
         // 10th pair here and win it, with no ordering edit anywhere. The loop below proves the
-        // losing is by RULE and not by list order, for all nine pairs.
+        // losing is by RULE and not by list order, for all ten pairs.
+        //
+        // ⭐ THE 10th PAIR ARRIVED, AND IT IS THE PREDICTED SHAPE (§CORDOBA-MUNICIPAL-CLOSURE).
+        // `es-14021-cordoba-municipal` registers the municipal term of Córdoba so the ~8 districts
+        // outside the COACo 2-district pilot get a cited "no published calificación" refusal instead
+        // of the generic estimated triple the §L-663 chokepoint lets through on genuinely uncovered
+        // land. It is `'municipal'`, the pilot is `'district'` ⇒ the pilot wins its own land by
+        // RULE, and the municipal box wins everywhere else — added with no ordering edit anywhere.
         expect(overlaps.map(([a, b]) => `${a.jurisdictionId}|${b.jurisdictionId}`).sort()).toEqual(
             [
                 `${BCN_JURISDICTION_ID}|${BADALONA_JURISDICTION_ID}`,
@@ -177,6 +184,7 @@ describe('§JURISDICTION-SPECIFICITY — routing exclusivity over EVERY register
                 `${BADALONA_JURISDICTION_ID}|${CATALUNYA_JURISDICTION_ID}`,
                 `${SANT_BOI_JURISDICTION_ID}|${CATALUNYA_JURISDICTION_ID}`,
                 `${CORNELLA_JURISDICTION_ID}|${CATALUNYA_JURISDICTION_ID}`,
+                `es-14021-cordoba|es-14021-cordoba-municipal`,
             ].sort(),
         );
         for (const [a, b] of overlaps) {

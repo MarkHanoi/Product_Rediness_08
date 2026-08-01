@@ -106,8 +106,11 @@ per-street-width TABLE, not a scalar, and its edificabilidad is DERIVED for thre
 families are **NOT extractable** (Campo de la Verdad → deferred to the Conjunto Histórico Tomo VI we do not
 hold; Uso Comercial → context-dependent; Elemento Protegido → a preservation regime, not an envelope;
 Unifamiliar Aislada → dead link). Measured against the **5,725 Catastro parcels** of the Sur+Noroeste
-pilot (**~1.63 km², 2 of ~10 districts — NOT the whole city**): **~19% get a fully-specified numeric
-envelope, ~89% get at least a partial one, ~11% cannot be extracted.**
+pilot (**~1.63 km², 2 of ~10 districts — NOT the whole city**): ~~*~19% get a fully-specified numeric
+envelope, ~89% get at least a partial one, ~11% cannot be extracted.*~~ ⛔ **THOSE TWO FIGURES ARE
+WITHDRAWN — see the §4 supersession banner above.** They are an EXTRACTABILITY census over ordenanza
+families and were read as coverage. Measured against buildable land, with delegation counted:
+**≈ 16 % full · ≈ 31 % any · ≈ 69 % correctly refused.**
 
 ---
 
@@ -121,7 +124,7 @@ readable documents** (five `O_MC*` names, one Manzana-Cerrada chapter). Two axes
 |---|---|---|---|---|---|
 | `O_INDUSTRIAL.pdf` | Uso Industrial (1) | 40 KB | 6 | **born-digital-text** (23 620 chars) | text pull (+ CP1252→UTF-8 mojibake, the `ï¿½` fix) |
 | `O_UAD3.pdf` | Unifamiliar Adosada (8) | 344 KB | 3 | **born-digital-text** (8 021 chars) | text pull |
-| `O_MC.pdf` `O_MC1` `O_MC2` `O_MC3` `O_MC4` | Manzana Cerrada (226) | 1.24 MB ea. | 3 | **clean-raster** | render 200 dpi → vision. **All five are the SAME 3-page chapter** (identical byte size; `MC3`≡`MC4` identical md5; `MC`/`MC1`/`MC2` differ only in scan metadata). The filename suffix routes the polygon to subzone MC-1/2/3/4; the document is one. |
+| `O_MC.pdf` `O_MC1` `O_MC2` `O_MC3` `O_MC4` | Manzana Cerrada (226) | 1.24 MB ea. | 3 | **clean-raster** | render 200 dpi → vision. **All five are the SAME 3-page chapter** (identical byte size; `MC3`≡`MC4` identical md5; `MC`/`MC1`/`MC2` differ only in scan metadata). ⛔ **THE SUFFIX CLAIM IS CORRECTED (2026-08-01):** this row said *"the filename suffix routes the polygon to subzone MC-1/2/3/4"*. **It does not, for 14 of the 226.** Live counts: `O_MC2` 201 · `O_MC4` 6 · **bare `O_MC` 14** · `O_MC3` 4 · `O_MC1` 1. The 14 bare-`O_MC` polygons (**18 539 m², 1.14 % of ordenanzas land**) carry the family chapter with **no subzone suffix**, and `subzoneCodeFromLink` correctly parses them to `MC` — a code the pack deliberately does not contain, because MC-4 allows 0.90 upper-floor coverage where MC-1/2/3 allow 0.70 and each reads a different street-width height band. They take `cordobaUnbindableSubzoneRefusal` (`regime-undetermined`): **a missing SELECTOR, not a missing rule** — Barcelona's bare-`20a` shape exactly. See `CLOSURE-REGISTER.md` blocker 7. |
 | `O_CTP1.pdf` | Colonia Tradicional Popular (99) | 3.16 MB | 6 | **clean-raster** | render → vision |
 | `O_OA1.pdf` | Ordenación Abierta (43) | 526 KB | 2 | **clean-raster** | render → vision |
 | `O_PAS2.pdf` | Plurifamiliar aislada (30) | 762 KB | 3 | **clean-raster** | render → vision |
@@ -339,13 +342,23 @@ per-district from SITUA.
 
 - **Pilot area (Sur + Noroeste, ~1.63 km², 5 725 parcels):** with human verification of the values in §2,
   Córdoba can ship a **`pipeline-extracted-unverified` → (post-sign-off) `estimated-ruleset`** envelope for
-  **~89 % of parcels** (**~19 % fully numeric**, the rest partial with a documented derived/tabular gap).
+  ⛔ ~~*~89 % of parcels (~19 % fully numeric)*~~ — **WITHDRAWN, see §4's banner: ≈ 31 % any / ≈ 16 %
+  full, of the pilot's 1 850 780 m² of buildable land**.
   This is a **shape-B "modern consolidated plan, clean ordinances"** city (`PIPELINE §6.5`): the OCR burden
   is low, the documents are clean, and the numbers are keyed to a live GIS calificación — the highest-leverage
   case for the pipeline.
-- **Whole municipality:** **~0 % today** — calificación geometry exists for 2 of ~10 districts only. The
-  wall is **not OCR** (that is now solved) but **pilot COVERAGE**. Unblocking is COACo extending the pilot,
-  or per-district curation of the PGOU-2001 PDFs (same clean documents) against SITUA parcel geometry.
+- **Whole municipality:** ⬆ **NOW WITH A DENOMINATOR (2026-08-01).** "~0 %" was true and useless. The
+  national SIU *clases de suelo* service — the one source that covers all of Córdoba — gives, for INE
+  14021, all in force: **SUELO URBANO 33 341 928 m²**, urbano-no-consolidado 5 685 090, urbanizable
+  delimitado 25 747 192, urbanizable no delimitado 7 621 868, sistemas generales 2 847 407, no
+  urbanizable 1 179 072 015 (Σ **1 254.3 km²**, corroborating the published municipal area). ⇒ the
+  COACo calificación covers **1 628 616 m² = 4.88 % of SUELO URBANO**, and the municipality-wide
+  envelope ceiling is **≈ 1.7 % any / ≈ 0.9 % full**. The wall is **not OCR** (solved) but **pilot
+  COVERAGE**, and it is a **publisher** limit: unblocking is COACo extending the pilot, or per-district
+  curation of the PGOU-2001 PDFs against SITUA parcel geometry.
+  ⚠ **~0 % answered ≠ ~0 % closed.** The 95.1 % outside the pilot now returns a cited
+  `no-plan-at-point` refusal, which is a terminal, evidence-backed state under the ratified definition
+  of CLOSED — see [`../CLOSURE-REGISTER.md`](../CLOSURE-REGISTER.md).
 
 The four not-extractable families are each a **different, honest kind of "no"**: a historic regime deferred
 to a document we lack (Campo de la Verdad), a context-dependent overlay (Comercial), a preservation regime

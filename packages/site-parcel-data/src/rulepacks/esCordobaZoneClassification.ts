@@ -56,13 +56,56 @@ export const CORDOBA_PGOU_INSTRUMENT_REF =
  * beside the copy that cites it so the two cannot drift. Names the 2-district pilot scope AND the
  * machine-extracted-unverified status, because both bound the promise.
  */
+export const CORDOBA_MUNICIPAL_JURISDICTION_ID = 'es-14021-cordoba-municipal';
+
+/**
+ * §CORDOBA-MUNICIPAL-CLOSURE — WHAT COACo PUBLISHES, MEASURED LIVE 2026-08-01, WITH ITS DENOMINATOR.
+ *
+ * Every figure here was re-queried against the publisher on 2026-08-01 (the reproduction commands
+ * are in `findings/OCR-EXTRACTION-RESULTS.md §6`) rather than carried forward:
+ *   • `coaco:distritos&resultType=hits` → `numberMatched="2"` — **Sur** (2 488 983 m²) and
+ *     **Noroeste** (2 472 362 m²), Σ **4 961 344 m² ≈ 4.96 km²**. Still 2, not >2.
+ *   • `coaco:ordenanzas` → **453** polygons, Σ `sup_m2` **1 628 616 m²** — i.e. the calificación
+ *     layer covers **32.8 %** even of the two districts it is published for; the rest is viario and
+ *     land the publisher attributes to no ordenanza polygon.
+ *   • `coaco:usos_globales` → **108** features, Σ **678 436 m²** (Espacios Libres 51.83 %,
+ *     Residencial 30.56 %, Equipamientos 15.37 %, Industrial/Terciario 2.24 %).
+ *
+ * ⚠ THE PILOT BOUNDARY IS A **PUBLICATION** LIMIT, NOT A PRYZM ONE. Nothing PRYZM can build extends
+ * it: the calificación geometry for the rest of Córdoba has not been vectorised by anyone who
+ * publishes it. That is why the honest answer outside the pilot is a REFUSAL and why that refusal
+ * is a *terminal, evidence-backed state* rather than a coverage gap waiting on engineering.
+ */
+export const CORDOBA_MUNICIPAL_ROADMAP_LINE =
+    'Córdoba (INE 14021) coverage today: PRYZM publishes NO buildable figure anywhere in Córdoba, ' +
+    'and outside the SUR and NOROESTE districts it cannot even name the ordenanza that governs a ' +
+    'parcel. That is not a shortcut we took — the Colegio de Arquitectos (COACo) publishes its ' +
+    'vectorised calificación for exactly those two districts (re-checked 2026-08-01: still 2, ' +
+    'covering 4.96 km², of which 1.63 km² carries an ordenanza polygon). The Gerencia Municipal de ' +
+    'Urbanismo DOES publish the zoning for the whole municipality — but as 77 scanned plan sheets, ' +
+    'and only 8 of them have been turned into the machine-readable geometry a parcel can be tested ' +
+    'against. Measured against the national land classification ' +
+    'for INE 14021, that published area is about 4.9 % of Córdoba’s 33.3 km² of SUELO URBANO. ' +
+    'PRYZM will not carry a pilot ordenanza across the city: the PGOU-2001 assigns different rules ' +
+    'to different land, so a borrowed number would look exactly like a real determination and be ' +
+    'wrong.';
+
+// ⚠⚠ THE LAST SENTENCE OF THIS LINE USED TO BE A FALSE STATEMENT ABOUT OUR OWN COVERAGE, and it
+// was shipping. It read: *"Outside the two districts, a click falls back to the national SIU land
+// classification, never a borrowed pilot number."* PRYZM does NOT fall back to SIU. The proxy
+// exists and is mounted (`server/siuClassificationProxy.js`, `server.js`), and **nothing in
+// `packages/*/src` or `apps/*/src` calls it** — checked by grep, 2026-08-01, zero client callers.
+// Promising a user an answer we do not render is the same defect class as refusing with "we hold no
+// rule" on a zone we have packed (the Barcelona `13b`/`22a`/`20a` deletions), pointing the other
+// way. The claim is REMOVED, not softened; wiring the SIU fallback is a register blocker, and the
+// copy may promise it on the day it renders.
 export const CORDOBA_ROADMAP_LINE =
     'Córdoba coverage today: the PGOU-2001 ordenanzas for the SUR and NOROESTE districts only — a ' +
-    '2-district pilot (COACo `coaco:distritos` has exactly two features, ≈ the historic centre), ' +
-    'NOT the whole municipality. And every value in it is machine-read (OCR) from the scanned ' +
-    'ordinance PDFs and NOT yet human-verified, so PRYZM publishes no buildable figure for any ' +
-    'Córdoba parcel until that verification is signed. Outside the two districts, a click falls ' +
-    'back to the national SIU land classification, never a borrowed pilot number.';
+    '2-district pilot (COACo `coaco:distritos` has exactly two features), NOT the whole ' +
+    'municipality. And every value in it is machine-read (OCR) from the scanned ordinance PDFs and ' +
+    'NOT yet human-verified, so PRYZM publishes no buildable figure for any Córdoba parcel until ' +
+    'that verification is signed. Outside the two districts PRYZM shows no zoning answer at all ' +
+    'rather than a borrowed pilot number.';
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════
 // (2) THE LEGALLY-GROUNDED "no" FAMILIES — `refusalFor`
@@ -205,9 +248,24 @@ export function cordobaZoneRefusalFor(
 // ═════════════════════════════════════════════════════════════════════════════════════════════
 
 /**
- * The registry `noRulePackRefusal`: the card shown on a privately-buildable Córdoba parcel PRYZM has
- * no pack for — the unbindable families (Uso Industrial, Unifamiliar Aislada) and the ≈ one-in-ten
- * pilot parcels with a blank ordenanza — stating the 2-district pilot scope (C60 §3).
+ * The registry `noRulePackRefusal`: the card shown on a privately-buildable Córdoba parcel inside
+ * the pilot whose FAMILY PRYZM deliberately does not pack — **Uso Industrial** (the calificación
+ * names the family but never the IND-1/2/3/G/C subzone, and its ocupación is DERIVED) and
+ * **Unifamiliar Aislada** (the `O_UAS1` document link is dead and no held document carries the UAS
+ * chapter). It states the 2-district pilot scope (C60 §3).
+ *
+ * ⚠⚠ IT NO LONGER SAYS "or the parcel carries no calificación". §CORDOBA-REFUSAL-SPLIT (L-422 /
+ * L-457 / L-467 / L-469, the honesty family): *"the publisher maps no ordenanza onto this land"*
+ * and *"PRYZM has not packed the ordenanza the publisher DID map"* are **different values with
+ * different owners** — the first is a fact about COACo's data, the second a fact about us, and only
+ * the second is closed by engineering. One card that said "either… or…" made them unreadable and
+ * made every one of them look like our backlog. They are now three distinct cards:
+ * `cordobaNoCalificacionAtPointRefusal`, `cordobaUnbindableSubzoneRefusal` and this one.
+ *
+ * ⚠ AND IT MUST NOT BE USED FOR A PACKED SUBZONE. PRYZM holds 13 transcribed subzone parameter sets
+ * (PAS-1…MC-4). Telling a user we hold no rule for one of them would be a FALSE STATEMENT ABOUT OUR
+ * OWN COVERAGE — the defect that deleted three Barcelona branches (`13b`, `22a`, `22@`) and the bare
+ * `20a` branch. `resolveZoneDisposition` reaches this hook only when `packsByZone` has no entry.
  *
  * ⚠ `legallyGrounded: false` and `ordinanceRef: null` — a statement about PRYZM's coverage, never
  * about the law. Rendering it as a legal "no envelope" would tell an owner their buildable plot
@@ -226,15 +284,181 @@ export function cordobaNoRulePackRefusal(
               : 'this parcel';
     return {
         code: 'no-rule-pack',
-        headline: `${named} — PRYZM has no buildable-envelope rule for this Córdoba parcel yet.`,
+        headline: `${named} — PRYZM has not transcribed this Córdoba ordenanza's buildable rules.`,
         detail:
-            'This is a coverage gap, not an error. Either the parcel carries no calificación in ' +
-            'the COACo join, or its family (e.g. Uso Industrial, Unifamiliar Aislada) is one the ' +
-            'pilot deliberately does not pack — its subzone cannot be bound, or its content is in ' +
-            'a document PRYZM does not hold. A generic setback estimate would be a number the ' +
-            'ordinance does not contain, so PRYZM shows none rather than something wrong. ' +
+            'This is a coverage gap on PRYZM\'s side, not a limit on the land and not an error. ' +
+            'The COACo calificación DOES name an ordenanza for this parcel; what PRYZM has not ' +
+            'encoded is that ordenanza\'s numeric envelope. Two families are in this state and each ' +
+            'for a stated reason: Uso Industrial, where the calificación gives the family but never ' +
+            'the IND subzone (IND-1/2/3/G/C set materially different parameters, so binding one ' +
+            'would be a guess) and whose ocupación the ordinance derives by algorithm rather than ' +
+            'stating; and Unifamiliar Aislada, whose ordinance link `O_UAS1` is dead at the ' +
+            'publisher and whose chapter is in no document PRYZM holds. A generic setback estimate ' +
+            'would be a number the ordinance does not contain, so PRYZM shows none rather than ' +
+            'something wrong. ' +
             CORDOBA_ROADMAP_LINE,
         ordinanceRef: null,
+        legallyGrounded: false,
+        knownFacts: [...knownFacts],
+    };
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// §CORDOBA-REFUSAL-SPLIT — THE THREE "NO NUMBER" VALUES THAT ARE NOT THE SAME VALUE
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// L-422 / L-457 / L-467 / L-469: a failure and an empty are the same VALUE unless the code keeps
+// them apart. Córdoba has FOUR distinct absences and they had two cards between them. Split:
+//
+//   (a) `cordobaOutsidePilotRefusal`        — the point is in Córdoba but OUTSIDE the 2 published
+//                                             districts. COACo publishes no calificación geometry
+//                                             there AT ALL. Durable; no engineering clears it.
+//   (b) `cordobaNoCalificacionAtPointRefusal` — the point is INSIDE the pilot and the publisher's
+//                                             own layer returns no ordenanza polygon for it (the
+//                                             `resolveCordobaSubzone` `'no-subzone'` outcome).
+//                                             Measured 2026-08-01: the layer covers 1 628 616 m² of
+//                                             the districts' 4 961 344 m², so this is common and is
+//                                             mostly public street — but PRYZM cannot prove that,
+//                                             and must not assert it.
+//   (c) `cordobaUnbindableSubzoneRefusal`   — the publisher DOES map an ordenanza, PRYZM DOES hold
+//                                             that family's rules, and the two cannot be joined
+//                                             because the polygon's `link` names the family chapter
+//                                             without a subzone suffix. Measured, not theorised:
+//                                             **14 of 453 polygons (18 539 m², 1.14 % of ordenanzas
+//                                             land) carry a bare `O_MC.pdf`**, which
+//                                             `subzoneCodeFromLink` parses to `MC` — a code the pack
+//                                             does not and must not contain, because MC-1…MC-4
+//                                             differ materially (coverage 0.70 vs 0.90; four
+//                                             different street-width height tables).
+//   (d) `cordobaNoRulePackRefusal`          — above: the family is mapped and PRYZM has not packed it.
+//
+// Each is `legallyGrounded: false`: all four are statements about DATA (the publisher's or ours),
+// never about what the PGOU permits. The legally-grounded "no"s live in `FAMILY_CLASSIFICATIONS`.
+
+/**
+ * (a) §CORDOBA-MUNICIPAL-CLOSURE — the parcel is in Córdoba, OUTSIDE the Sur + Noroeste pilot.
+ *
+ * This is the card that converts ~92 % of Córdoba's urban fabric from a **fabricated estimated
+ * envelope** into a **terminal, evidence-backed refusal**. It is dispatched via the municipal
+ * registration (`CORDOBA_MUNICIPAL_JURISDICTION_ID`), which exists solely to make the generic
+ * estimate unreachable here.
+ *
+ * ⚠ `code: 'no-plan-at-point'`, and each alternative would be a different false statement:
+ *   • `source-data-unavailable` is DEFINED as transient and is the only code carrying a retry
+ *     affordance. Nothing about this clears on a retry — COACo has published two districts since
+ *     the pilot began. Wearing a retry badge would send the user round a loop for ever (the exact
+ *     conflation `no-plan-at-point` was added to end).
+ *   • `no-rule-pack` would claim the gap is PRYZM's transcription backlog. It is not: there is no
+ *     published calificación here to transcribe.
+ *   • any legally-grounded code would assert an ordinance fact about someone's land that we have
+ *     NOT established. The PGOU-2001 governs the whole municipality; only its VECTORISATION stops
+ *     at the district line. Saying otherwise would be a false negative about their land.
+ *
+ * ⚠ THE COPY MUST NOT SAY "THERE IS NO PLAN FOR YOUR LAND". There is one. What there is no
+ * published GEOMETRY for is the zone assignment.
+ */
+export function cordobaOutsidePilotRefusal(
+    knownFacts: readonly string[] = [],
+): EnvelopeRefusal {
+    return {
+        code: 'no-plan-at-point',
+        headline:
+            'Córdoba — this parcel is outside the two districts whose zoning map is published, so ' +
+            'PRYZM cannot say which ordenanza governs it.',
+        detail:
+            'A general plan DOES govern this land — the PGOU-Córdoba-2001 covers the whole ' +
+            'municipality — and nothing here says your plot is unbuildable. A zoning map for it ' +
+            'exists too, as a scanned plan sheet. What does NOT exist is a MACHINE-READABLE version ' +
+            'of that map: the only digitised calificación for Córdoba is the one the Colegio ' +
+            'Oficial de Arquitectos (COACo) serves, and it covers the SUR and NOROESTE districts ' +
+            'only — re-checked on 2026-08-01, still 2 districts, 4.96 km². PRYZM therefore refuses ' +
+            'rather than carry a pilot ordenanza across the city: the PGOU assigns different rules ' +
+            'to different land, so a borrowed number would look exactly like a real determination ' +
+            'and be wrong. ' +
+            CORDOBA_MUNICIPAL_ROADMAP_LINE,
+        // NOT an ordinance citation: nothing in the law failed, and the PGOU is not what is absent.
+        ordinanceRef: null,
+        legallyGrounded: false,
+        knownFacts: [...knownFacts],
+    };
+}
+
+/**
+ * (b) The point is INSIDE the published pilot and the publisher's own `coaco:ordenanzas` layer
+ * returns no polygon for it — `resolveCordobaSubzone`'s `'no-subzone'` outcome.
+ *
+ * ⚠ IT MUST NOT CLAIM THE LAND IS A STREET, even though most of it is. Measured 2026-08-01 the
+ * ordenanzas layer covers 1 628 616 m² of the two districts' 4 961 344 m² (32.8 %) and
+ * `usos_globales` a further 678 436 m²; the residue is viario plus land the publisher attributes to
+ * nothing. PRYZM cannot tell "public street" (a legally-grounded no-private-envelope answer) from
+ * "not attributed" (an unknown), so it states the fact it has and stops — asserting the legal
+ * reading would be the L-526 error.
+ */
+export function cordobaNoCalificacionAtPointRefusal(
+    knownFacts: readonly string[] = [],
+): EnvelopeRefusal {
+    return {
+        code: 'no-plan-at-point',
+        headline:
+            'Córdoba — the published zoning map covers this district but assigns no ordenanza ' +
+            'polygon to this point.',
+        detail:
+            'This parcel is inside the SUR/NOROESTE area whose calificación COACo publishes, and ' +
+            'the lookup SUCCEEDED — it simply returned no ordenanza polygon covering this point. ' +
+            'That is a real answer from the publisher, not a failed request, so retrying will not ' +
+            'change it. Much of the un-mapped area is public street and other land the plan does ' +
+            'not give a private buildable rule; PRYZM will not assert that about YOUR parcel ' +
+            'without evidence, so it reports what it knows — no ordenanza is mapped here — and ' +
+            'publishes no envelope. Selecting the cadastral parcel rather than drawing the ' +
+            'boundary by hand puts the query point inside the plot, which sometimes resolves it. ' +
+            CORDOBA_ROADMAP_LINE,
+        ordinanceRef: null,
+        legallyGrounded: false,
+        knownFacts: [...knownFacts],
+    };
+}
+
+/**
+ * (c) The publisher maps an ordenanza FAMILY, PRYZM holds that family's transcribed rules, and the
+ * polygon's `link` does not say WHICH subzone — so no parameter set can be bound.
+ *
+ * ⚠ THE SHIPPED, MEASURED CASE IS BARE `O_MC.pdf`: **14 of 453 polygons, 18 539 m², 1.14 % of the
+ * ordenanzas land** (live COACo query, 2026-08-01). `subzoneCodeFromLink('O_MC.pdf')` → `'MC'`,
+ * which is deliberately NOT in `CORDOBA_PGOU2001_ZONE_CODES`. Picking the biggest MC subzone would
+ * be the confident-wrong answer the recon warned about: MC-4 allows 0.90 upper-floor coverage where
+ * MC-1/2/3 allow 0.70, and each subzone reads a different street-width height band.
+ *
+ * ⚠ IT IS *NOT* `cordobaNoRulePackRefusal`. Saying "PRYZM has not transcribed this ordenanza" on
+ * Manzana Cerrada land would be false — all four MC subzones are packed. What is missing is the
+ * publisher's subzone KEY, which is the same shape as Barcelona's bare-`20a` closure: a SELECTOR is
+ * missing, not a rule, and no further reading of the ordinance can supply it.
+ */
+export function cordobaUnbindableSubzoneRefusal(
+    family: string,
+    linkBasename?: string | null,
+    knownFacts: readonly string[] = [],
+): EnvelopeRefusal {
+    const fam = family.trim() || 'this ordenanza';
+    const link = linkBasename && linkBasename.trim() ? linkBasename.trim() : null;
+    return {
+        code: 'regime-undetermined',
+        headline:
+            `${fam} — PRYZM holds this ordenanza's rules, but the published map does not say which ` +
+            'of its subzones applies here.',
+        detail:
+            'The zoning map assigns this parcel to the ' + fam + ' ordenanza, and PRYZM has ' +
+            'transcribed every one of that ordenanza\'s subzones from the PGOU-2001. The subzone ' +
+            'is what carries the numbers, and the published polygon does not identify it' +
+            (link ? ` — its document link is \`${link}\`, the family chapter rather than a subzone` : '') +
+            '. The subzones are materially different (for Manzana Cerrada, upper-floor coverage is ' +
+            '70 % in MC-1/2/3 and 90 % in MC-4, and each reads a different maximum height from the ' +
+            'street-width table), so choosing one would be a guess presented as a determination. ' +
+            'PRYZM publishes nothing instead. This is a gap in the published KEY, not in the ' +
+            'ordinance and not in PRYZM\'s transcription. ' +
+            CORDOBA_ROADMAP_LINE,
+        ordinanceRef: CORDOBA_PGOU_INSTRUMENT_REF,
+        // The LAW is fully known and transcribed; what is missing is which half of it applies to
+        // this parcel — the `regime-undetermined` definition verbatim (C58 §1.13.7).
         legallyGrounded: false,
         knownFacts: [...knownFacts],
     };
@@ -263,6 +487,17 @@ export function cordobaUnverifiedRefusal(
     subzoneLabel?: string | null,
     knownFacts: readonly string[] = [],
 ): EnvelopeRefusal {
+    // ⚠ §CORDOBA-UNVERIFIED-SCOPE — THE COPY IS CONDITIONAL BECAUSE OUR KNOWLEDGE IS.
+    // The dispatcher calls this with `subzone = null` for EVERY pilot parcel: the gate fires
+    // BEFORE the COACo subzone resolver runs, so at that moment PRYZM does not know which zone the
+    // parcel is in. The previous copy asserted, unconditionally, that PRYZM had "machine-read THIS
+    // zone's rules" — false on the ~5.7 % of pilot ordenanzas land whose family is deliberately not
+    // packed (Uso Comercial, Elemento protegido, Campo de la Verdad, Unifamiliar Aislada, Uso
+    // Industrial) and misleading on the ≈43 % delegated to a Plan Parcial / PERI / Estudio de
+    // Detalle, where the base ordenanza does not govern at all. A refusal that overstates our
+    // holdings is the same defect class as one that understates them (the Barcelona `20a` / `22a` /
+    // `13b` deletions), just pointing the other way.
+    const known = Boolean((subzone && subzone.trim()) || (subzoneLabel && subzoneLabel.trim()));
     const zone =
         subzoneLabel && subzoneLabel.trim()
             ? `${subzoneLabel.trim()}${subzone ? ` (${subzone})` : ''}`
@@ -271,16 +506,31 @@ export function cordobaUnverifiedRefusal(
               : 'this Córdoba parcel';
     return {
         code: 'no-rule-pack',
-        headline:
-            `${zone} — PRYZM has machine-read this zone's rules from the ordinance, but no human ` +
-            'has verified them yet, so it will not publish a figure.',
+        headline: known
+            ? `${zone} — PRYZM has machine-read this zone's rules from the ordinance, but no human ` +
+              'has verified them yet, so it will not publish a figure.'
+            : `${zone} — PRYZM will not publish a buildable figure anywhere in this pilot until its ` +
+              'machine-read ordinance values have been verified by a human.',
         detail:
-            'PRYZM extracted the PGOU-2001 parameters for this zone by OCR from the scanned ' +
-            'ordinance PDFs. Those values are MACHINE-EXTRACTED and UNVERIFIED ' +
+            (known
+                ? 'PRYZM extracted the PGOU-2001 parameters for this zone by OCR from the ordinance ' +
+                  'PDFs. '
+                : 'PRYZM extracted the PGOU-2001 parameters for the ordenanzas of this pilot area ' +
+                  'by OCR from the ordinance PDFs, and it has not yet identified which ordenanza ' +
+                  'covers this particular parcel — the zone lookup runs only once the values below ' +
+                  'are cleared for publication. ') +
+            'Those values are MACHINE-EXTRACTED and UNVERIFIED ' +
             '(pipeline-extracted-unverified): no Spanish-planning-literate reviewer has yet checked ' +
             'them against the source. Because a wrong number here would be PRYZM’s own extraction ' +
             'error — not the publisher’s — PRYZM withholds the figure until that human verification ' +
             'is signed off, rather than render an unchecked buildable envelope. ' +
+            (known
+                ? ''
+                : 'Note that even after sign-off some Córdoba parcels will still get a "no" rather ' +
+                  'than a number, for reasons that are about the plan and not about PRYZM: roughly ' +
+                  'half of this pilot area is delegated by the PGOU to a later instrument (Plan ' +
+                  'Parcial, Plan Especial, PERI, Estudio de Detalle), and several ordenanzas define ' +
+                  'no envelope of their own. ') +
             CORDOBA_ROADMAP_LINE,
         ordinanceRef: null,
         legallyGrounded: false,

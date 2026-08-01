@@ -1,8 +1,14 @@
 # Córdoba PGOU-2001 — the rule-pack SPEC + the authored starter pack
 
-> **Stamp** 2026-07-23 · **Status** SPEC + STARTER PACK (UNREGISTERED). **Governs nothing.**
-> The starter pack is `packages/site-parcel-data/src/rulepacks/esCordobaPGOU2001.ts` — authored, schema-valid
-> (runtime-parsed against the live `JurisdictionZoningContractSchema`), and **NOT imported anywhere**.
+> **Stamp** 2026-07-23 · **RE-STAMPED 2026-08-01** · **Status** SPEC + **REGISTERED, GATED SHUT** pack.
+> ⬆ **THE "UNREGISTERED / NOT IMPORTED ANYWHERE" STATUS BELOW IS STALE AND IS CORRECTED HERE.** The
+> pack is registered in `rulepacks/registry.ts` (13 subzones) and has been since `068a02ce`. What
+> stops a number reaching a user is the **dispatcher's verification gate**
+> (`CORDOBA_ENVELOPE_VERIFIED = false`), not the absence of registration — §4 below reasons from the
+> superseded premise and its CONCLUSION (publish nothing until a human signs) still holds, by a
+> different and stronger mechanism. See [`../CLOSURE-REGISTER.md`](../CLOSURE-REGISTER.md).
+> The pack is `packages/site-parcel-data/src/rulepacks/esCordobaPGOU2001.ts` — authored, schema-valid
+> (runtime-parsed against the live `JurisdictionZoningContractSchema`).
 > Values are `pipeline-extracted-unverified` (machine-read, human sign-off pending). Extraction record +
 > per-family value tables: `OCR-EXTRACTION-RESULTS.md`. §CONTEXT-DATA-HONESTY throughout.
 
@@ -64,9 +70,15 @@ The pack's TRUE tier is **`pipeline-extracted-unverified`** — the permanent ti
 So the pack ships `defaultConfidence:'estimated-ruleset'` and `fieldProvenance:'estimated'` **as
 placeholders**, with the intended tiers exported as `CORDOBA_INTENDED_DEFAULT_CONFIDENCE` /
 `CORDOBA_INTENDED_FIELD_PROVENANCE`. Because `estimated-ruleset` OVER-states machine-extracted-unverified
-confidence, the pack **must stay UNREGISTERED until the tier lands and a human verifies the values** — the
-unregistered state is the interlock that stops the over-statement reaching a user (the same argument that
-keeps Barcelona's 22a pack unregistered).
+confidence, the pack ~~**must stay UNREGISTERED until the tier lands and a human verifies the values**~~
+⬆ **SUPERSEDED 2026-08-01 — THE INTERLOCK MOVED, IT DID NOT DISAPPEAR.** The
+`pipeline-extracted-unverified` tier landed, so the pack now self-labels it honestly and no longer
+over-states; and the pack is **REGISTERED**, because registration wires ROUTING (the coverage globe,
+`resolveZoneDisposition`, the subzone resolver) and does **not** authorise output. The interlock is now
+the dispatcher's **verification gate** (`CORDOBA_ENVELOPE_VERIFIED = false`), which refuses every
+Córdoba parcel *before* the registry is consulted — a strictly stronger guarantee than
+unregistered-ness, and one that is proven by driving the real dispatch
+(`apps/editor/__tests__/cordobaSiteDispatch.test.ts`) rather than inferred from an import graph.
 
 ## 5 — WIRING-TODO (orchestrator / owning PR)
 
