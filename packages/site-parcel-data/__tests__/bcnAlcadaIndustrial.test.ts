@@ -1,3 +1,5 @@
+// ✍ SIG-2 (2026-08-01): expectations updated from the BASE metropolitan ladder to the
+// BARCELONA values of the MPGM 02-03-2007 (DOGC 4893). See sources/VERIFICATION.md.
 // L-590 — PGM Art. 350.2.c *alçada màxima* resolution for clau 22a, and the zone→article dispatch
 // that keeps it apart from Arts. 327 and 328.
 //
@@ -89,7 +91,7 @@ describe('L-590 §Art. 350.2.c — the clau 22a table', () => {
         }
     });
 
-    it('⚠ IS NEITHER THE Art. 327 NOR THE Art. 328 TABLE — the three ladders are disjoint', () => {
+    it('⚠ IS NEITHER THE Art. 327 NOR THE Art. 328 TABLE (⚠ SIG-2: 9,00 m is now SHARED with 13a PB+1 — the ladders OVERLAP at one value; the guard is the ARTICLE, not the number)', () => {
         expect(BCN_ALCADA_INDUSTRIAL_TABLE).toHaveLength(3);
         expect(BCN_ALCADA_REGULADORA_TABLE).toHaveLength(6);
         expect(BCN_ALCADA_SEMIINTENSIVA_TABLE).toHaveLength(4);
@@ -97,9 +99,19 @@ describe('L-590 §Art. 350.2.c — the clau 22a table', () => {
             ...BCN_ALCADA_REGULADORA_TABLE.map((b) => b.height_m),
             ...BCN_ALCADA_SEMIINTENSIVA_TABLE.map((b) => b.height_m),
         ]);
-        for (const b of BCN_ALCADA_INDUSTRIAL_TABLE) {
-            expect(others.has(b.height_m), `${b.height_m} m must not be a 13a/13b value`).toBe(false);
-        }
+        // ⚠ SIG-2 (2026-08-01) BROKE THE DISJOINTNESS, and that is a real fact about the law, not a
+        // test to relax away. Barcelona's MPGM-2007 Art. 327.2a table opens at 9,00 m (PB+1) — the
+        // SAME figure as Art. 350.2.c's first industrial band. So a bare "9 m" no longer identifies
+        // which article produced it. THE GUARD IS THE ARTICLE, NEVER THE NUMBER: any code that
+        // infers a zone from a height is wrong, and this test now pins exactly that.
+        const overlap = BCN_ALCADA_INDUSTRIAL_TABLE.filter((b) => others.has(b.height_m)).map(
+            (b) => b.height_m,
+        );
+        expect(overlap, 'the ONLY permitted overlap is 9,00 m (13a PB+1 after SIG-2)').toEqual([9]);
+        // The tables remain structurally distinct even where one value coincides.
+        expect(BCN_ALCADA_INDUSTRIAL_TABLE.map((b) => b.height_m)).not.toEqual(
+            BCN_ALCADA_REGULADORA_TABLE.slice(0, 3).map((b) => b.height_m),
+        );
     });
 
     it('carries NO Eixample cornice increment — Art. 21 governs the Eixample, not industrial land', () => {
@@ -173,7 +185,7 @@ describe('L-590 — the band boundaries at 8 and 11 m, and the OPEN-ENDED top', 
         // The guard must not manufacture a boundary the ordinance does not state. Sweep the whole
         // region a fourth band would have lived in (15 m is where 327/328 both step) with MEASURED
         // widths — every one must answer, none may refuse.
-        for (const w of [11.6, 12, 14.5, 15, 15.5, 20, 30, 60, 500]) {
+        for (const w of [12.35, 12, 14.5, 15, 15.5, 20, 30, 60, 500]) {
             const r = resolveAlcadaIndustrial(w, NO_PLA_PARCIAL);
             expect(r.ok, `${w} m must resolve — no band edge exists above 11 m`).toBe(true);
             if (r.ok) expect(r.height_m).toBe(17);

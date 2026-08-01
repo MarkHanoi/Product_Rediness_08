@@ -1,3 +1,5 @@
+// ✍ SIG-2 (2026-08-01): expectations updated from the BASE metropolitan ladder to the
+// BARCELONA values of the MPGM 02-03-2007 (DOGC 4893). See sources/VERIFICATION.md.
 // §AMPLADA-ART-238 (L-591) — THE *amplada de vial* IS THE ORDINANCE'S **MINIMUM**, NOT A MEDIAN.
 //
 // ⚠⚠ WHY THIS FILE EXISTS, AND WHY IT IS NOT REDUNDANT WITH `streetWidth.test.ts`
@@ -107,10 +109,10 @@ describe('§AMPLADA-ART-238 — the statistic is the MINIMUM of the punctual wid
         // and that refusal is itself part of the fix. Assert the bands directly instead, with the
         // guard skipped, so the test pins the TABLE consequence rather than the guard's.
         const trusted = { trustedOfficialWidth: true } as const;
-        expect(resolveAlcadaReguladora(w, trusted)).toMatchObject({ ok: true, height_m: 11.6, floorsAboveGround: 2 });
-        expect(resolveAlcadaReguladora(13, trusted)).toMatchObject({ ok: true, height_m: 14.65, floorsAboveGround: 3 });
+        expect(resolveAlcadaReguladora(w, trusted)).toMatchObject({ ok: true, height_m: 12.35, floorsAboveGround: 2 });
+        expect(resolveAlcadaReguladora(13, trusted)).toMatchObject({ ok: true, height_m: 15.7, floorsAboveGround: 3 });
         // Art. 328 (13b): 8–11 → 10,60 / PB+2 ; 11–15 → 13,65 / PB+3.
-        expect(resolveAlcadaSemiintensiva(w, trusted)).toMatchObject({ ok: true, height_m: 13.65 });
+        expect(resolveAlcadaSemiintensiva(w, trusted)).toMatchObject({ ok: true, height_m: 15.4 });
         // Art. 320.3a (clau 12, Barcelona 2007): 8–12 → 11,25 / PB+2 ; 12–15 → 14,60 / PB+3.
         expect(resolveAlcadaNucliAntic(w, trusted)).toMatchObject({ ok: true, height_m: 11.25, floorsAboveGround: 2 });
         expect(resolveAlcadaNucliAntic(13, trusted)).toMatchObject({ ok: true, height_m: 14.6, floorsAboveGround: 3 });
@@ -198,7 +200,7 @@ describe('§AMPLADA-ART-238 — manzana 29346, Poblenou (clau 13a), live Catastr
             trustedOfficialWidth: amplada.trustedOfficialWidth,
             measurementSpread_m: amplada.measurementSpread_m,
         });
-        expect(alcada).toMatchObject({ ok: true, height_m: 17.7, floorsAboveGround: 4 });
+        expect(alcada).toMatchObject({ ok: true, height_m: 19.05, floorsAboveGround: 4 });
 
         // ── What the pre-L-591 median produced from the SAME rays, reconstructed. ──
         // 19.4419 is 0.5581 m from 20 — INSIDE the tolerance — so it snapped, and a snapped width
@@ -214,11 +216,11 @@ describe('§AMPLADA-ART-238 — manzana 29346, Poblenou (clau 13a), live Catastr
             resolveAlcadaReguladora(asMedian.width_m, {
                 trustedOfficialWidth: asMedian.trustedOfficialWidth,
             }),
-        ).toMatchObject({ ok: true, height_m: 20.75, floorsAboveGround: 5 });
+        ).toMatchObject({ ok: true, height_m: 22.4, floorsAboveGround: 5 });
 
         // 3,05 m — one *planta pis* on Art. 327.2's own storey module — granted by a statistic the
         // ordinance does not use. THIS is the over-statement L-591 removed.
-        expect(20.75 - 17.7).toBeCloseTo(3.05, 9);
+        expect(22.4 - 19.05).toBeCloseTo(3.35, 9);
     });
 
     it('the whole ladder is deterministic on real geometry (C58 §1.1/§1.9)', () => {

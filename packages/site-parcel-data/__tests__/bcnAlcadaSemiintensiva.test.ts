@@ -1,3 +1,5 @@
+// ✍ SIG-2 (2026-08-01): expectations updated from the BASE metropolitan ladder to the
+// BARCELONA values of the MPGM 02-03-2007 (DOGC 4893). See sources/VERIFICATION.md.
 // L-583 §4 — PGM Art. 328 *alçada reguladora* resolution for clau 13b, and the zone→article
 // dispatch that keeps it apart from Art. 327.
 //
@@ -48,10 +50,10 @@ describe('L-583 §4 — the Art. 328 table (clau 13b, Subzona II)', () => {
 
     // Mid-band widths, one per row: verifies the VALUES, not just the shape.
     it.each([
-        [6, 7.55, 1],
-        [9.5, 10.6, 2],
-        [13, 13.65, 3],
-        [25, 16.7, 4],
+        [6, 8.25, 1],
+        [9.5, 12.0, 2],
+        [13, 15.4, 3],
+        [25, 18.8, 4],
     ])('a %s m street ⇒ %s m (PB+%s)', (width, height, floors) => {
         const r = resolveAlcadaSemiintensiva(width);
         expect(r.ok).toBe(true);
@@ -69,7 +71,7 @@ describe('L-583 §4 — the Art. 328 table (clau 13b, Subzona II)', () => {
         expect(BCN_ALCADA_REGULADORA_TABLE).toHaveLength(6);
         const top = BCN_ALCADA_SEMIINTENSIVA_TABLE[BCN_ALCADA_SEMIINTENSIVA_TABLE.length - 1]!;
         expect(top.floorsAboveGround).toBe(4);
-        expect(top.height_m).toBe(16.7);
+        expect(top.height_m).toBe(18.8);
         // No band shares a height with the Art. 327 table — the two ladders are disjoint.
         const art327Heights = new Set(BCN_ALCADA_REGULADORA_TABLE.map((b) => b.height_m));
         for (const b of BCN_ALCADA_SEMIINTENSIVA_TABLE) {
@@ -96,9 +98,9 @@ describe('L-583 §4 — the band boundaries at 8, 11 and 15 m, and the conventio
     });
 
     it.each([
-        [8, 10.6, 2],
-        [11, 13.65, 3],
-        [15, 16.7, 4],
+        [8, 12.0, 2],
+        [11, 15.4, 3],
+        [15, 18.8, 4],
     ])(
         'exactly %s m (OFFICIAL width) falls in the UPPER band ⇒ %s m (PB+%s)',
         (width, height, floors) => {
@@ -147,7 +149,7 @@ describe('L-583 §4 — the band boundaries at 8, 11 and 15 m, and the conventio
     it('answers normally once the measured width is clear of every edge', () => {
         const r = resolveAlcadaSemiintensiva(12.5);
         expect(r.ok).toBe(true);
-        if (r.ok) expect(r.height_m).toBe(13.65);
+        if (r.ok) expect(r.height_m).toBe(15.4);
     });
 
     it.each([[0], [-5], [Number.NaN], [Number.POSITIVE_INFINITY]])(
@@ -171,19 +173,19 @@ describe('L-583 — resolveBcnAlcadaForZone: the right ARTICLE for the right cla
             expect(z, clau).not.toBeNull();
             expect(z!.article).toBe('Art. 327.2');
             expect(z!.ordinanceRef).toMatch(/Art\. 242/);
-            expect(z!.resolution.ok && z!.resolution.height_m).toBe(20.75);
+            expect(z!.resolution.ok && z!.resolution.height_m).toBe(22.4);
         }
     });
 
     it('gives 13b the Art. 328 table and the 13b citation — NOT 13a’s', () => {
         // THE REGRESSION THIS FILE EXISTS FOR. Before the zone dispatch, the L5 path called
         // Art. 327's resolver unconditionally and stamped "Art. 327.2" into the derivation row.
-        // On a 25 m street that would have published 20.75 m for a zone whose real answer is
+        // On a 25 m street that would have published 22.4 m for a zone whose real answer is
         // 16.70 m — a 4 m over-build carrying a confident citation to the wrong article (L-526).
         const z = resolveBcnAlcadaForZone('13b', 25, { trustedOfficialWidth: true });
         expect(z).not.toBeNull();
         expect(z!.article).toBe('Art. 328');
-        expect(z!.resolution.ok && z!.resolution.height_m).toBe(16.7);
+        expect(z!.resolution.ok && z!.resolution.height_m).toBe(18.8);
         expect(z!.ordinanceRef).toMatch(/clau 13b/);
         expect(z!.ordinanceRef).toMatch(/Art\. 328 states NO depth rule/);
     });
@@ -212,7 +214,7 @@ describe('L-583 — resolveBcnAlcadaForZone: the right ARTICLE for the right cla
 
     it('§L-590 gives 22a its OWN article (Art. 350.2.c), never 327’s or 328’s table', () => {
         // The replacement for 22a's old `toBeNull()` row, and it guards more than that row did:
-        // on a 25 m street Art. 327 would say 20.75 m and Art. 328 16.70 m, while Art. 350.2.c
+        // on a 25 m street Art. 327 would say 22.4 m and Art. 328 16.70 m, while Art. 350.2.c
         // says 17 m. All three are plausible-looking heights; only one is this land's.
         const z = resolveBcnAlcadaForZone('22a', 25, {
             trustedOfficialWidth: true,
@@ -222,7 +224,7 @@ describe('L-583 — resolveBcnAlcadaForZone: the right ARTICLE for the right cla
         expect(z!.article).toBe('Art. 350.2.c');
         expect(z!.ordinanceRef).toMatch(/clau 22a/);
         expect(z!.resolution.ok && z!.resolution.height_m).toBe(17);
-        expect(z!.resolution.ok && z!.resolution.height_m).not.toBe(20.75); // Art. 327
-        expect(z!.resolution.ok && z!.resolution.height_m).not.toBe(16.7); // Art. 328
+        expect(z!.resolution.ok && z!.resolution.height_m).not.toBe(22.4); // Art. 327
+        expect(z!.resolution.ok && z!.resolution.height_m).not.toBe(18.8); // Art. 328
     });
 });

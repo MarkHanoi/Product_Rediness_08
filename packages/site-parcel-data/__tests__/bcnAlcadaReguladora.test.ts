@@ -1,3 +1,5 @@
+// ✍ SIG-2 (2026-08-01): expectations updated from the BASE metropolitan ladder to the
+// BARCELONA values of the MPGM 02-03-2007 (DOGC 4893). See sources/VERIFICATION.md.
 // L-525a — PGM Art. 327.2 *alçada reguladora* resolution.
 //
 // The thing under test decides how TALL a building may be on the densest land in Spain, from a
@@ -46,12 +48,12 @@ describe('L-525a — Art. 327.2 alçada reguladora table', () => {
 
     // Mid-band widths, one per row: verifies the table VALUES, not just its shape.
     it.each([
-        [6, 8.55, 1],
-        [10, 11.6, 2],
-        [13.5, 14.65, 3],
-        [17, 17.7, 4],
-        [25, 20.75, 5],
-        [40, 23.8, 6],
+        [6, 9.0, 1],
+        [10, 12.35, 2],
+        [13.5, 15.7, 3],
+        [17, 19.05, 4],
+        [25, 22.4, 5],
+        [40, 25.75, 6],
     ])('a %s m street ⇒ %s m (PB+%s)', (width, height, floors) => {
         const r = resolveAlcadaReguladora(width);
         expect(r.ok).toBe(true);
@@ -68,11 +70,11 @@ describe('L-525a — Art. 327.2 alçada reguladora table', () => {
         expect(r.ok).toBe(true);
         if (r.ok) {
             expect(r.floorsAboveGround).toBe(5);
-            expect(r.height_m).toBe(20.75);
+            expect(r.height_m).toBe(22.4);
         }
     });
 
-    it('surfaces the UNCERTIFIED 20.75-vs-22.40 alternative on PB+5 only (L-528)', () => {
+    it('surfaces the UNCERTIFIED 22.4-vs-22.40 alternative on PB+5 only (L-528)', () => {
         // The open question must be visible to the caller on the answers it actually affects,
         // and absent everywhere else — a blanket caveat would be noise and get ignored.
         const pb5 = resolveAlcadaReguladora(20, { trustedOfficialWidth: true });
@@ -87,14 +89,14 @@ describe('L-525a — Art. 327.2 alçada reguladora table', () => {
 describe('L-525a — refusing to let measurement noise choose a storey band', () => {
     // THE CASE THIS GUARD EXISTS FOR. CL Pau Claris 155 — our flagship demo parcel — has a nominal
     // official width of exactly 20.00 m, i.e. a band EDGE. Measured 19.99 ⇒ 17.70 m; measured
-    // 20.00 ⇒ 20.75 m. A centimetre of cadastral noise moves the building a full storey, and
+    // 20.00 ⇒ 22.4 m. A centimetre of cadastral noise moves the building a full storey, and
     // Barcelona publishes no machine-readable official width to appeal to (probed 2026-07-21).
     it('REFUSES a measured width sitting on a band edge, and says what it straddles', () => {
         const r = resolveAlcadaReguladora(20.0);
         expect(r.ok).toBe(false);
         if (!r.ok) {
             expect(r.reason).toBe('band-edge');
-            expect(r.straddles).toEqual([17.7, 20.75]);
+            expect(r.straddles).toEqual([19.05, 22.4]);
         }
     });
 
@@ -115,7 +117,7 @@ describe('L-525a — refusing to let measurement noise choose a storey band', ()
     it('answers normally once the measured width is clear of any edge', () => {
         const r = resolveAlcadaReguladora(25);
         expect(r.ok).toBe(true);
-        if (r.ok) expect(r.height_m).toBe(20.75);
+        if (r.ok) expect(r.height_m).toBe(22.4);
     });
 
     it.each([[0], [-5], [Number.NaN], [Number.POSITIVE_INFINITY]])(
@@ -145,7 +147,7 @@ describe('§L-586 — 0.5 m is a FLOOR, not the whole error bar', () => {
         expect(honest.ok).toBe(false);
         if (!honest.ok) {
             expect(honest.reason).toBe('band-edge');
-            expect(honest.straddles).toEqual([17.7, 20.75]);
+            expect(honest.straddles).toEqual([19.05, 22.4]);
         }
     });
 
@@ -172,7 +174,7 @@ describe('§L-586 — 0.5 m is a FLOOR, not the whole error bar', () => {
             measurementSpread_m: 5,
         });
         expect(r.ok).toBe(true);
-        if (r.ok) expect(r.height_m).toBe(20.75);
+        if (r.ok) expect(r.height_m).toBe(22.4);
     });
 
     it('leaves a clear-of-any-edge width alone however noisy, when it stays in one band', () => {
@@ -180,6 +182,6 @@ describe('§L-586 — 0.5 m is a FLOOR, not the whole error bar', () => {
         // not caution — the guard must fire on band CROSSINGS, not on noise as such.
         const r = resolveAlcadaReguladora(25, { measurementSpread_m: 2 });
         expect(r.ok).toBe(true);
-        if (r.ok) expect(r.height_m).toBe(20.75);
+        if (r.ok) expect(r.height_m).toBe(22.4);
     });
 });

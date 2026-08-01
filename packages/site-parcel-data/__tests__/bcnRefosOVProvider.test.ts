@@ -77,7 +77,7 @@ describe('parsePlantes — the AMB PLANTES floor-count grammar', () => {
 
 describe('heightFromFloorsAboveGround — Art. 327.2 storey module reuse', () => {
     it('within the table (PB+5) returns the band’s certified height, basis table-exact', () => {
-        expect(heightFromFloorsAboveGround(5)).toEqual({ height_m: 20.75, basis: 'table-exact' });
+        expect(heightFromFloorsAboveGround(5)).toEqual({ height_m: 22.4, basis: 'table-exact' });
     });
     it('above the table (PB+7, clau-18 range) extrapolates on the module and says so', () => {
         const h = heightFromFloorsAboveGround(7);
