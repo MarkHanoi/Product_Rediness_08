@@ -64,12 +64,36 @@
 //                      ?reqCode=veureExpedient&codiPublic=<EXPEDIENT>
 //
 //     total expedients                       : 8 396
-//     municipalities with ≥1 expedient        : 935 / 947  (98.7 %)
 //     expedients carrying an ACCES_RPUC link : 8 396 / 8 396 (100 %)
-//     municipalities with NO expedient (12)  : Sant Quirze de Besora (08237), Queralbs (17043),
-//         Das (17061), Meranges (17099), Pardines (17125), Toses (17201), Bausen (25045),
-//         Canejan (25063), Granyena de Segarra (25104), les Oluges (25152),
-//         Sant Guim de la Plana (25197), Riu de Cerdanya (25913)
+//     municipalities with ≥1 expedient        : 935 / 947  (98.7 %)
+//
+// ⚠⚠ 935 IS THE WRONG NUMBER TO QUOTE AND THIS BLOCK USED TO QUOTE IT. Most of those 8 396 rows
+// are *modificacions*, not the plan itself. Classifying every `TIPUS` through the SHIPPED
+// classifier (`classifyInstrumentTipus`, so the measurement cannot disagree with the code) gives:
+//
+//     modification 7 119 · general-plan 1 186 · supramunicipal 57 · programme 34 · UNCLASSIFIED 0
+//
+//     municipalities with a BASE general-plan expedient : **874 / 947 (92.3 %)**
+//     municipalities WITHOUT one                        : 73
+//
+// ⚠ AND THE 73 ARE NOT NOISE — THEY ARE TWO EXPLICABLE GROUPS, WHICH IS WHY THIS IS A FINDING
+// RATHER THAN A DATA-QUALITY COMPLAINT:
+//   (a) the PGM-1976 METROPOLITAN municipalities — Barcelona, Badalona, L'Hospitalet, Cornellà,
+//       Sant Boi, Esplugues, Gavà, Viladecans, Castelldefels, Sant Cugat, Rubí, Montcada,
+//       Ripollet, el Prat, Sant Adrià, Santa Coloma de Gramenet, Molins de Rei, Sant Feliu,
+//       Sant Just, Sant Joan Despí, Badia del Vallès … Their base instrument is the 1976 PGM,
+//       which PREDATES the register, so only its modifications appear. Five of them are already
+//       registered municipally and never reach this jurisdiction at all.
+//   (b) a CERDANYA / VAL D'ARAN cluster — Alp, Das, Ger, Guils, Isòvol, Llívia, Meranges, Prats i
+//       Sansor, Prullans, Urús, Riu de Cerdanya, Montellà i Martinet, Lles, Bausen, Es Bòrdes,
+//       Bossòst, Canejan, Les, Vilamòs … governed through SUPRA-MUNICIPAL plans directors, which
+//       the classifier correctly files as `supramunicipal` rather than promoting to "the
+//       municipality's general plan".
+//
+// ⇒ For all 73, PRYZM returns `no-base-instrument-registered` — an honest, durable "PRYZM has not
+// resolved the governing instrument", never a guess. ⚠ AND "NOT LOCATED" IS NOT "DOES NOT EXIST":
+// each of these municipalities certainly HAS a governing instrument; this register simply is not
+// where it can be read. Do not let the absence harden into a claim.
 //
 // So the RPUC IS reachable machine-readably — not through an RPUC API (none was located), but
 // through the MUC's spatial index INTO the RPUC, which is strictly better for our purpose because
@@ -422,9 +446,10 @@ function instrumentSentence(input: CatalunyaRefusalInput): string {
         return (
             ' PRYZM has NOT resolved which planning instrument governs here, and on this path it ' +
             'did not look: this answer was reached without a live query to the Generalitat’s ' +
-            'planning register. That register does publish the answer for 935 of Catalonia’s 947 ' +
-            'municipalities, so the gap is PRYZM’s wiring and not the data’s. PRYZM will not guess ' +
-            'a plan name — naming the wrong instrument is a worse answer than naming none.'
+            'planning register. That register does publish a base general-planning instrument for ' +
+            '874 of Catalonia’s 947 municipalities, so for most parcels the gap is PRYZM’s wiring ' +
+            'and not the data’s. PRYZM will not guess a plan name — naming the wrong instrument ' +
+            'is a worse answer than naming none.'
         );
     }
     if (input.instrumentLookup === 'unresolved') {
@@ -439,9 +464,13 @@ function instrumentSentence(input: CatalunyaRefusalInput): string {
     if (input.instrumentLookup === 'no-base-instrument-registered' || !inst) {
         return (
             ' The Generalitat’s planning register answered for this point and lists no BASE ' +
-            'general-planning instrument containing it — which happens legitimately where the ' +
-            'governing plan predates the register. PRYZM has therefore not resolved the governing ' +
-            'instrument, and will not guess one.'
+            'general-planning instrument containing it. That happens legitimately for 73 of ' +
+            'Catalonia’s 947 municipalities, in two known groups: those under the 1976 ' +
+            'metropolitan plan, which predates the register and so appears only through its ' +
+            'modifications, and the Cerdanya and Val d’Aran municipalities governed through ' +
+            'supra-municipal plans directors. An instrument certainly governs this land — this ' +
+            'register is simply not where PRYZM can read which. PRYZM has therefore not resolved ' +
+            'the governing instrument, and will not guess one.'
         );
     }
     // ⚠ The link goes LAST in whatever sentence carries it and is never followed by more prose: a

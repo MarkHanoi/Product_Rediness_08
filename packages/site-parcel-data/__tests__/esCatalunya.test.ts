@@ -323,6 +323,21 @@ describe('§CONTEXT-DATA-HONESTY — failure, absence and not-asked are THREE di
         expect(r.code).not.toBe('source-data-unavailable');
         expect(r.detail).toMatch(/answered for this point and lists no BASE/i);
         expect(r.detail).toMatch(/predates the register/i);
+        // ⚠ IT MUST NOT HARDEN AN ABSENCE INTO A CLAIM. "Not located" is not "does not exist":
+        // these municipalities certainly have a governing instrument, and the copy says so.
+        expect(r.detail).toMatch(/An instrument certainly governs this land/i);
+        // …and it must scope the absence honestly rather than implying it is arbitrary.
+        expect(r.detail).toContain('73');
+    });
+
+    it('quotes the BASE-instrument figure (874), never the misleading any-expedient one (935)', () => {
+        // ⚠ 935 municipalities have ≥1 expedient, but 7 119 of the 8 396 rows are *modificacions*.
+        // Only 874 have a BASE general-plan instrument — measured through the SHIPPED classifier.
+        // Quoting 935 as "we can name the governing plan" would overstate coverage by 61
+        // municipalities, which is the kind of quiet over-claim C58 §1.4 exists to stop.
+        const r = catalunyaNoRulePackRefusal(inp({ instrumentLookup: 'not-attempted', governingInstrument: null }));
+        expect(r.detail).toContain('874');
+        expect(r.detail).not.toContain('935');
     });
 });
 
