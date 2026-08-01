@@ -1,10 +1,18 @@
-# L-664 — clau `13E` SURVIVES the 2026 derogation — **BLOCKER 10 CLOSED**
+# L-664 — clau `13E`: **NOT PROVEN**, but the burden of proof has flipped
 
 > **Resolved 2026-08-01** from the official BCNROC record of the *Ordenança de derogació de les
 > disposicions municipals obsoletes de competència del Consell Municipal* **[2026]**
 > (`hdl.handle.net/11703/144636`, Acord 10/2025, approved by the Plenari **30-01-2026**, published
 > **BOPB + Gaseta Municipal 13-02-2026**, in force **14-02-2026**).
-> Closes **CLOSURE-REGISTER blocker 10**, open since 2026-07-31.
+> **⚠ VERDICT: `NOT PROVEN` — pending inspection of the 2026 repeal ANNEX itself.**
+> Blocker 10 **remains OPEN**, downgraded from *unknown* to *evidenced-but-unproven*.
+>
+> **An earlier draft of this file said "SURVIVES — CLOSED". That was an overclaim and is withdrawn.**
+> What was read is the BCNROC **`dc.relation.replaces` metadata field** — the repository's *cataloguing*
+> of the relationship — **not the 7-page annex** (`GM_ordenanca-derogacio-consell-municipal-annex_2026.pdf`,
+> 154 KB). A catalogue field is not a transcription: it may be partial, and absence from it is not
+> absence from the annex. This is exactly the `not-located ≠ does-not-exist` rule (L-661) applied to
+> ourselves.
 
 ## The question
 
@@ -32,9 +40,13 @@ absent.
 (2018, 2019, 2023, affecting Art. 15) — **no wholesale repeal**. CIDO (Diputació de Barcelona,
 `normativa_local/50141`) independently records it as **Vigent**.
 
-## Verdict
+## Verdict — **NOT PROVEN**
 
-**`13E` status = ACTIVE.** The ordinance creating it survived the 2026 cleanup.
+**Positive evidence that `13E` exists** (the 2002 ordinance creates it) **and NO primary-source
+evidence yet produced that repeals it.** That is not the same as proof of survival.
+
+**Status: `evidenced-not-proven`.** Treat `13E` as **presumptively in force** for planning purposes,
+and record every downstream statement as resting on this presumption.
 
 The 2002 text states: *«La qualificació 13 Eixample (clau 13E) **substitueix** la qualificació …
 (clau 13)…»* — so within its ámbito `13E` substitutes, it does not merely annotate.
@@ -48,9 +60,15 @@ the derogation names its targets **individually by handle** and did not name the
 repository continues to catalogue the refós as **operative**, with post-2015 modifications recorded
 against it.
 
-**This does not reopen the blocker.** The burden of proof has flipped: the default is now
-*"`13E` is in force"*, and displacing it requires a provision that repeals the 2002 text — which the
-2026 ordinance, the only cleanup instrument, does not contain.
+**The burden of proof has flipped** — the working default is now *"`13E` is in force"* — **but the
+blocker does not close until the annex is read.** The single remaining document:
+
+```
+GM_ordenanca-derogacio-consell-municipal-annex_2026.pdf   (7 pages, 154 KB)
+BCNROC item 39d8ed76-3365-4d32-a6f1-bf9dea45646a  ·  hdl 11703/144636
+```
+One binary read: **do the articles creating `13E` appear in it?** Absent ⇒ closed as SURVIVES.
+Present ⇒ closed as REPEALED. Either answer closes it permanently.
 
 ## What this obliges PRYZM to do
 
