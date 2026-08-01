@@ -406,7 +406,7 @@ export function axisParcelFromSample(sample, norm, state, opts = {}) {
     });
 }
 
-// ── the four not-yet-measured axes (honest not-assessed, C63 §1.2 / §5 sequencing). ─────────────
+/**
  * The ENVELOPE axis (C63 §3 Axis 4) — buildable-envelope solver coverage.
  *
  * ⚠ THE RULER, NOT THE MEASUREMENT. L-664 fixed the *vocabulary* blocker: there is now an
