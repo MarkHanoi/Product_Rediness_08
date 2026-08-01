@@ -56,7 +56,7 @@ refusals, L-550/L-553 SHIPPED). The phased climb to realise the ~48% ceiling is 
 | Max height (parcel-level) | ⚠️ Partial — constructed via street width | Art. 327.2 height table keyed on *amplada de vial* (`bcnAlcadaReguladora.ts`, L-525a; PB+5 figure uncertified pending L-528). Street width is derivable (L-537). For derived-planning: **height extractable ~0% by OCR** — it is a plànol block-label (L-590h §2.2). | **~35%** (alineació fabric constructible; derived slice ❌) |
 | Setback / alignment | ✅ Kind resolved (ADR-0270) | The alineació-de-vial claus are `alignment`/`block-derived-alignment` (inset then half-plane clip), NOT setback — the shape is correct, not coerced. 20a is genuinely `setback`. | **~55%** |
 | Building footprint + height (LOD1/2) | ⚠️ Partial | Footprint via Catastro/OSM bake (MEASURED 104–121% of OSM ground truth). Height: **0.9% surveyed · 79.3% `levels`×3.2 m · 19.8% fabricated 9 m** (L-582). nDSM not built. | **~40%** footprint; height ~1% real |
-| Terrain (DTM/DSM) | ✅ / ❌ | Cesium World Terrain sampled in production. ⚠ Seated on ONE centroid sample, not the façade *rasant* the ordinance measures from (L-584 §3) — a correctness defect, not a coverage one. nDSM ❌. | **~85%** terrain datum; rasant/nDSM ❌ |
+| Terrain (DTM/DSM) | ✅ / ❌ | Cesium World Terrain sampled in production. ⚠ Seated on ONE centroid sample, not the façade *rasant* the ordinance measures from (L-584 §3) — a correctness defect, not a coverage one. nDSM ❌. ⬆ **2026-08-01: the RULE is now transcribed** — PGM **Art. 240** states the datum in full (240.1.a/b/c · 240.2 · **240.3 corner** · 240.4), `facadeRasantDatum.ts`. The blocker is now purely the **terrain posting** (probe V8: 57.34 m served vs ≤ 10 m needed). | **~85%** terrain datum; **rasant RULE ✅ transcribed, rasant DATA ❌**; nDSM ❌ |
 | Heritage overlay | ❌ Absent as data | Ciutat Vella *Pla Especial* + *Catàleg del Patrimoni*: **the MUC clau does NOT report whether one binds** — a parcel returns `12` regardless (L-538 §3.4). No queryable layer confirmed. Potentially the hardest blocker for clau 12. | **~10%** |
 
 ---
@@ -93,7 +93,8 @@ refused-with-reason, or certified (green) — not a polygon on every parcel.
 | Ship the coverage+FAR rule kind (ADR-0272) → 22a + 20a | Constructed answers on +31.3% of buildable land (a FAR/coverage cap, not a boundary envelope) | 26 dev-days |
 | Ship clau 12/12b (ADR-0273: block-occupation + non-uniform-block refusal + overlay flag) | +11.3%, with a material fraction of Ciutat Vella correctly REFUSING | 28 dev-days |
 | L-528 per-clau certification (fitxa urbanística in the MUC/RPUC viewer) | Moves packs amber → green (raises confidence, re-derives the rate) | ~15 dev-days, parallel |
-| Resolve the *rasant* datum (L-584 V6/V7) | Correctness on sloping streets (Gòtic) — does NOT raise the rate, protects it | ~1 day probe + a reading task |
+| ~~Resolve the *rasant* datum (L-584 **V7**, the reading task)~~ | ✅ **DONE 2026-08-01.** PGM **Art. 240** states it all, corner case included; transcribed + tested in `facadeRasantDatum.ts`. Nothing had to be constructed. | ~~a reading task~~ — closed |
+| **Serve MDT05 under Barcelona (L-584 V8 §V8.6)** — then wire the sampler | The remaining half of L-584, and it is now the whole of it. Correctness on sloping streets (Gòtic) — does NOT raise the rate, protects it. ⛔ The sampler must NOT be wired first: at 57.34 m posting it would return an artefact and close L-584 falsely. | a two-value bake config change + the viewport seat |
 | Plànol vectorisation (block-label → parcel geometry) for the derived slice | The only path from ~48% toward ~80% — a drawing-understanding project, partly un-OCR-able | Large, unscoped |
 
 ---

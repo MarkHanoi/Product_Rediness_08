@@ -526,6 +526,31 @@ export {
     type MatchBuildingLineOptions,
 } from './geometry/buildingLineOffset.js';
 
+// ── §FACADE-RASANT-DATUM (L-584) — the HEIGHT DATUM, measured where the ordinance measures it. ──
+// PGM Art. 240 measures the *alçada reguladora* from the rasant AT THE FAÇADE LINE, per façade,
+// dividing into *trams* where the street falls more than 3 m. PRYZM samples ONE point at the block
+// centroid, which is a compliance defect and not a rendering one. This module is the pure decision
+// half of the fix: terrain readings are INJECTED, and it refuses — with the article quoted — when
+// the terrain cannot resolve the façade or when Art. 240.3.b needs geometry we do not hold.
+export {
+    facadeSamplePoints,
+    assertPostingResolves,
+    resolveFacadeRasantDatum,
+    resolveParcelRasantDatum,
+    RASANT_CENTRE_TOLERANCE_M,
+    RASANT_MAX_DROP_M,
+    RASANT_NYQUIST_FACTOR,
+    type RasantProvenance,
+    type RasantSample,
+    type FacadeFront,
+    type RasantDatumOptions,
+    type RasantRule,
+    type RasantTram,
+    type RasantRefusalCode,
+    type RasantRefusal,
+    type RasantDatumResult,
+} from './geometry/facadeRasantDatum.js';
+
 // ── C58 §2.2 (KG-4) / ADR-0270 / §MULTI-PART-EXPLICIT-AREA — the `explicit-area` PRIMITIVE. ──
 // The shared solver for any ordinance that PUBLISHES the buildable footprint as geometry rather than
 // as parameters: Madrid NZ 1 (*Fondo de la Edificación*), Córdoba *fondos*, Danish byggefelter.
