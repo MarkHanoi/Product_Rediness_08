@@ -1,4 +1,36 @@
-# L-667 — clau `13E`: **NOT PROVEN**, but the burden of proof has flipped
+# L-667 — clau `13E` is **IN FORCE** — ✅ **BLOCKER CLOSED 2026-08-01**
+
+> ## ✅ CLOSED — the repeal annex WAS read, and it is decisive
+>
+> **Founder inspected the primary source** (`GM_ordenanca-derogacio-consell-municipal-annex_2026.pdf`)
+> on 2026-08-01. Finding, verbatim:
+>
+> > *"The 2026 Annex to the Ordenança de derogació de les disposicions municipals obsoletes repeals
+> > the **1986** Ordenança de rehabilitació i millora de l'Eixample. The annex contains **no express
+> > reference** to the 2002 consolidated ordinance, to clau `13E`, or to the provisions creating the
+> > `13E` subzone. **No primary source reviewed expressly repeals the 2002 legal framework
+> > establishing `13E`.**"*
+>
+> **This is the annex ITSELF, not catalogue metadata** — which is what the earlier draft of this file
+> got wrong and why DEC-3 named the annex as the single remaining dependency. The dependency is
+> discharged.
+>
+> **VERDICT: `13E` is IN FORCE.** Three independent strands agree: (1) positive evidence it exists —
+> the 2002 consolidated ordinance creates it; (2) **no express repeal in the 2026 annex**, read
+> directly; (3) BCNROC's legislative history continues to treat the 2002 framework as operative, with
+> later amendments recorded against it rather than a repeal.
+>
+> **Engineering decision (founder):** implement `13E` as a **SUPPLEMENT over `13a`** — see
+> [`../FOUNDER-DECISIONS-2026-08-01.md`](../FOUNDER-DECISIONS-2026-08-01.md) DEC-2.
+>
+> ⚠ **What would reopen this:** an express repeal of the **2002** framework in a source not yet
+> reviewed. The 1986 repeal is *not* that — the 2002 text is a separate instrument with its own
+> handle, and the annex names its targets individually.
+>
+> ---
+> *(The analysis below was written BEFORE the annex was read. Retained as the reasoning trail; its
+> `NOT PROVEN` verdict is superseded by the finding above.)*
+> ---
 
 > **Resolved 2026-08-01** from the official BCNROC record of the *Ordenança de derogació de les
 > disposicions municipals obsoletes de competència del Consell Municipal* **[2026]**
