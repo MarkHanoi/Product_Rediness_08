@@ -58,6 +58,14 @@
 // on parcels PRYZM cannot identify. Registering today would draw the whole plot at a height that
 // may belong to another article.
 //
+// ⚠⚠ **§DEC-1 (FOUNDER, 2026-08-01) — AND "TODAY" IS NOW "PERMANENTLY".** The missing depth was
+// researched to exhaustion and found to be **an intentional omission**, not a gap in our sourcing:
+// modern 22@ resolves its geometry through PMUs, *fitxes urbanístiques* and *plànols d'ordenació*.
+// `22@` therefore ships a legally-grounded `derived-plan` refusal that names Art. 8.1 and points at
+// the derived instrument — see `BCN_22ARROBA_DEPTH_CLOSURE` for the evidence and for the single
+// thing that would reopen it. **This pack stays out of `packsByZone`. That is the decision, not a
+// deferral.**
+//
 // PURE + deterministic (C58 §1.1). Authority: C58 §1.2/§1.4/§1.7a/§1.11/§1.13.7, ADR-0270 (rule
 // KIND), ADR-0271 (*edificabilitat* is a construction), ADR-0276 (`regime-undetermined`).
 
@@ -313,6 +321,13 @@ export function resolveAlcada22Arroba(
  */
 export const BCN_22ARROBA_ART8_LIMITS = {
     /**
+     * The paragraph that opens the by-right regime — *"podrà desenvolupar-se directament per
+     * llicència"*. Held as its OWN field (not embedded in prose) so the refusal card can name the
+     * article WITHOUT interpolating the figure it states. §DEC-1: a cited refusal may say *which*
+     * article states a limit; it may not print the limit's digits.
+     */
+    byRightArticle: '8.1',
+    /**
      * *Coeficient d'edificabilitat per parcel·la*, m² sostre / m² sòl — **Art. 8.1**.
      *
      * ⚠ **PER PARCEL, AND BY RIGHT.** Unlike 13a (which has no FAR at all — Art. 322.1 says the
@@ -346,6 +361,15 @@ export const BCN_22ARROBA_ART8_LIMITS = {
     maxCoverageNotToBeConfusedWith: 'PGM Art. 350.2.b — 70 % of the BLOCK, above the ground floor',
     /** *Parcel·la mínima*, m² — **Art. 8.1.e**: *"Parcel·la mínima de 500 m²."* */
     minParcel_m2: 500,
+    /** The paragraph that states the minimum parcel. §DEC-1 — the article, never the figure. */
+    minParcelArticle: '8.1.e',
+    /**
+     * The paragraph that states the *alçada reguladora màxima* table (`BCN_ALCADA_22ARROBA_TABLE`).
+     * §DEC-1 — named so a refusal can point at the table without transcribing a single height.
+     */
+    heightTableArticle: '8.1.b',
+    /** The paragraph that orders the zone *alineada a vial*. The reason a setback triple is wrong. */
+    alignmentArticle: '8.1.a',
     /** **Art. 8.1.d** — *"El subsòl pot ser ocupat en la seva totalitat."* A stated 100 %. */
     subsoilFullyOccupiable: true,
     /**
@@ -512,21 +536,21 @@ export const BCN_22ARROBA_OPEN_QUESTIONS = Object.freeze({
  * 4,80 m ladder. On a 10 m street that is 11,60 m against 14,40 m — a 24 % over-statement, under
  * a citation, on someone's land.
  *
- * ── WHAT UNBLOCKS IT ─────────────────────────────────────────────────────────────────────────
- *   1. A founder determination on `art350_2bSupletory` (a legal reading, not an implementation),
- *      which fixes the rule KIND. If (ii), an `alignment` rule still needs a depth the article
- *      does not state, so a `coverage-driven` kind — footprint from `maxCoverage` alone — would
- *      have to exist. That is a schema + solver change, larger than a pack.
- *   2. Plànol 2 and plànol 3 of the MPGM ingested as geometry, so the regime forks become
- *      observable per parcel.
- *   3. The *ample oficial del carrer* layer, shared with 13a/13b/22a — Art. 8.1.b is keyed to it.
+ * ── ⚠⚠ §DEC-1 (FOUNDER, 2026-08-01) — THIS IS NOW A **PERMANENT** REFUSAL, NOT A BLOCKER ──────
  *
- * Until then `22@` keeps a refusal. ⚠ Its CURRENT refusal (`barcelonaNoRulePackRefusal`, whose
- * copy says PRYZM *"has read and encoded the base industrial zone (22a) but not 22@"*) **became
- * false the moment this file was authored**, exactly as 13b's and 22a's did before it. Re-pointing
- * `22@` at a named `regime-undetermined` refusal that publishes `BCN_22ARROBA_ART8_LIMITS` under
- * `BCN_22ARROBA_ORDINANCE_REF` is the follow-up this pack creates, and it is an edit to
- * `esBarcelonaZoneClassification.ts` + `registry.ts`, which this pack deliberately does not make.
+ * The list above used to end in "what unblocks it": a founder determination on the rule KIND,
+ * plànols 2 and 3 as geometry, the *ample oficial* layer. **BLOCKER 1 IS CLOSED AND IT CLOSED THE
+ * OTHER WAY**: the depth is not missing from our sourcing, it is **absent from the ordinance by
+ * design**. See `BCN_22ARROBA_DEPTH_CLOSURE` immediately below for the founder's evidence and for
+ * what would reopen it. `22@` now ships a legally-grounded `derived-plan` refusal
+ * (`barcelona22ArrobaDerivedPlanRefusal` in `esBarcelonaZoneClassification.ts`), reached through
+ * the registry's `refusalFor` hook — **NOT** through `packsByZone`, which stays exactly as it is.
+ *
+ * ⚠ The old refusal (`barcelonaNoRulePackRefusal`, whose copy said PRYZM *"has read and encoded
+ * the base industrial zone (22a) but not 22@"*) **became false the moment this file was
+ * authored**, exactly as 13b's and 22a's did before it. That copy is now deleted, not merely
+ * bypassed — a dead-but-present false sentence about our own coverage is one refactor away from
+ * being read by a user again.
  */
 export const BCN_22ARROBA_ENVELOPE_BLOCKER = {
     /** Registered in `registry.ts`? **NO.** */
@@ -563,6 +587,75 @@ export const BCN_22ARROBA_ENVELOPE_BLOCKER = {
             'parcels, so it survives the transformation question — but Art. 16.4.a’s identical ' +
             '2,2 is over the ILLA, and that granularity flip is the trap.',
     ]),
+} as const;
+
+/**
+ * §DEC-1 — **THE FOUNDER CLOSED `22@` AS A PERMANENT CITED REFUSAL, 2026-08-01.**
+ *
+ * ⚠ READ THIS BEFORE "FINISHING" THE PACK. The missing *profunditat edificable* is NOT an open
+ * sourcing task and NOT a founder decision still pending. It was researched to exhaustion and the
+ * finding is that **the ordinance omits it deliberately**:
+ *
+ *   • MPGM 22@ **Art. 8.1** states a complete by-right, per-parcel envelope — a floor-area index,
+ *     an occupation cap, a minimum parcel and a four-band street-width height table — **and no
+ *     *profunditat edificable* in any form: not a figure, not a construction, not a cap.**
+ *   • Independent research (founder, 2026-08-01) across BCNROC, the **2024 municipal *Instrucció***
+ *     on 22@ interpretation and the **2025 MPGM amendment** found **no implementation manual, no
+ *     CAD/GIS geometry and no permit guidance** defining a city-wide depth.
+ *   • What it DID find is that modern 22@ implementation resolves through **PMUs, *fitxes
+ *     urbanístiques* and *plànols d'ordenació*** — the geometry is **distributed by design**, not
+ *     centralised and mislaid.
+ *
+ * ⇒ `22@` joins clau 18 and `22a`: the law points elsewhere **on purpose**, and the only correct
+ * output is a machine-readable reference to the governing instrument. Hence the refusal code is
+ * `derived-plan` and `legallyGrounded: true` — a statement about the ORDINANCE, not about PRYZM's
+ * coverage. (`no-rule-pack` would be false: the pack above exists and is transcribed in full.)
+ *
+ * ⚠ **AND THE REFUSAL PUBLISHES NO FIGURE.** The Art. 8.1 limits reach the user only through
+ * `BCN_22ARROBA_ORDINANCE_REF` — a citation, checkable against the article — never as a bare digit
+ * in the card's prose. The precedent is the Murcia pack, where transcribed figures leaked from a
+ * classification `note` into a user-facing refusal and a test now pins them out; the same pin
+ * exists here (`esBarcelona22ArrobaPack.test.ts`, §DEC-1 leak test). The article-NAME fields on
+ * `BCN_22ARROBA_ART8_LIMITS` (`byRightArticle`, `maxCoverageArticle`, `minParcelArticle`,
+ * `heightTableArticle`, `alignmentArticle`) exist precisely so the card can name what Art. 8.1
+ * states without interpolating what it states it AS.
+ */
+export const BCN_22ARROBA_DEPTH_CLOSURE = {
+    /** Closed, permanently. NOT "open pending evidence" and NOT "awaiting a founder call". */
+    status: 'CLOSED — permanent cited refusal',
+    decidedBy: 'founder',
+    decidedOn: '2026-08-01',
+    /** ⚠ The load-bearing finding: the silence is intentional, so more sourcing cannot close it. */
+    omissionIsIntentional: true,
+    /** The refusal code this closure mandates. `derived-plan`, and `legallyGrounded: true`. */
+    refusalCode: 'derived-plan',
+    /** Where the buildable geometry actually lives, per the founder's research. */
+    governingGeometryLivesIn: Object.freeze([
+        'Pla de Millora Urbana (PMU) approved for the ámbito',
+        'fitxa urbanística',
+        'plànols d’ordenació',
+    ]),
+    /** The searches that came back empty. Recorded so nobody repeats them. */
+    exhaustedSources: Object.freeze([
+        'BCNROC (municipal planning repository)',
+        'the 2024 municipal *Instrucció* on 22@ interpretation',
+        'the 2025 MPGM amendment',
+        'implementation manuals / permit guidance / municipal CAD + GIS geometry — none exist',
+    ]),
+    /**
+     * ⚠ THE ONLY THING THAT REOPENS THIS. Anything short of it — another read of the same MPGM,
+     * another founder ruling on `art350_2bSupletory`, a "conservative" default depth — does not.
+     */
+    reopensIf:
+        'A published CITY-WIDE geometric specification for 22@, or an official instruction ' +
+        'converting PMU / ordering-plan geometry into a computable per-parcel depth.',
+    /** ⚠ Unchanged by the closure: registering the pack is still forbidden. */
+    stillNotRegistered: true,
+    whyStillNotRegistered:
+        'Registering would send 22@ through `computeBuildableEnvelope` with `geometricRule: null`, ' +
+        'i.e. legacy per-edge inset over correctly-null setbacks — the WHOLE parcel drawn as ' +
+        'buildable, on a card that simultaneously states a 70 % occupation cap. Self-contradicting ' +
+        'AND over-stating (§L-616).',
 } as const;
 
 /**

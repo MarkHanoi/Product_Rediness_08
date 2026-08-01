@@ -47,11 +47,28 @@
 // Strategic context — BARCELONA-COMPLETE-COVERAGE-PLAN.md §1.1/§3.5/§3.8/§4/§5 (Phase 1b),
 // C58 §1.2/§1.3/§1.4, ADR-0272.
 
+import { trace } from '@opentelemetry/api';
 import type { EnvelopeRefusal } from '@pryzm/schemas';
 import {
     BCN_22A_REGIME_NEUTRAL_LIMITS,
     BCN_INDUSTRIAL_ZONE_CODES,
 } from './esBarcelonaIndustrial.js';
+// §DEC-1 — clau `22@`'s permanent cited refusal is built from the pack's OWN transcription, so the
+// card can never name an article the pack does not carry. ⚠ It imports the ARTICLE-NAME fields and
+// the citation, never the figures: see `BCN_22ARROBA_DEPTH_CLOSURE` on why the digits stay in the
+// citation string and out of the prose.
+import {
+    BCN_22ARROBA_ART8_LIMITS,
+    BCN_22ARROBA_ORDINANCE_REF,
+    BCN_22ARROBA_ZONE_CODES,
+} from './esBarcelona22Arroba.js';
+
+/**
+ * P8 — one tracer for this module's exported refusal constructors. Same precedent as
+ * `zoneRefusal.ts` and `registry.ts` in this directory: a span on a pure constructor is a no-op
+ * without an exporter, so the module's stated L2 purity is unaffected.
+ */
+const _tracer = trace.getTracer('pryzm.zoning.es.bcn');
 
 /** The instrument every classification below is read from. */
 export const BCN_PGM_INSTRUMENT_REF =
@@ -338,6 +355,24 @@ export function barcelonaZoneRefusalFor(
     if ((BCN_INDUSTRIAL_ZONE_CODES as readonly string[]).includes(clau)) {
         return barcelonaRegimeUndeterminedRefusal(clau, null, knownFacts);
     }
+    // ── §DEC-1 (founder, 2026-08-01) — clau `22@`'s PERMANENT cited refusal. ─────────────────
+    //
+    // ⚠ IT SITS HERE, ALONGSIDE 22a, AND NOT IN `CLASSIFICATIONS`, FOR A SPECIFIC REASON — and it
+    // is NOT the reason 22a is here. 22a is excluded from the table because its refusal is
+    // `legallyGrounded: false`; 22@'s is `true` and would be at home there. What it cannot be is a
+    // STATIC row: L-553 rule 1 requires the card to open by naming the user's zone in the
+    // ordinance's own words, so the refusal needs the caller's `zoneLabel` — a per-lookup value a
+    // `ClassifiedRefusal` row cannot carry (that is exactly what the `ClassifiedRefusal` type
+    // comment forbids). A function beside 22a's is the shape that already exists for that.
+    //
+    // ⚠ AND IT MUST RESOLVE **BEFORE** `barcelonaNoRulePackRefusal`, which is what
+    // `resolveZoneDisposition`'s ordering gives it. The coverage-gap card's 22@ copy — *"PRYZM has
+    // read and encoded the base industrial zone (22a) but not 22@"* — was FALSE from the moment
+    // `esBarcelona22Arroba.ts` was authored, and it has now been deleted from
+    // `coverageGapReasonFor` rather than merely out-ranked.
+    if ((BCN_22ARROBA_ZONE_CODES as readonly string[]).includes(clau)) {
+        return barcelona22ArrobaDerivedPlanRefusal(clau, null, knownFacts);
+    }
     if (
         typeof harmonisedCode === 'string' &&
         harmonisedCode.trim().toUpperCase().startsWith(HARMONISED_SYSTEM_PREFIX)
@@ -368,6 +403,10 @@ export function barcelonaZoneRefusalFor(
 // `12b`, `22a`, `22@`, `20a/*`) loses its envelope until Phases 1–3 land.
 // ⇒ §L-583 UPDATE: `13b` has since shipped a pack (8.8 pp of that 51.6 %), so the standing cost is
 // now ~42.8 % — `12`, `12b`, `22a`, `22@`, `20a/*`. The argument below is unchanged for those.
+// ⇒ §DEC-1 UPDATE (2026-08-01): `22@` (2.06 pp) has LEFT the coverage-gap set entirely. It is not
+// waiting on a pack — the founder closed it as a PERMANENT legally-grounded refusal, because the
+// MPGM omits the buildable depth by design and the geometry lives in the PMU. So the coverage gap
+// this function speaks for is `12`, `12b`, `22a`, `20a/*`, and `22@` is answered one branch up.
 //
 // ⚠ WHICH MAKES THE CARD THE THING THAT DECIDES WHETHER THIS SUCCEEDS OR BACKFIRES, and the copy
 // below is therefore load-bearing product surface, not a log line. Half of Barcelona will read
@@ -436,21 +475,14 @@ function coverageGapReasonFor(clau: string): string {
     // statement about our own coverage: the mirror image of the false statement about the law
     // that the rest of this module exists to prevent.
     //
-    // ⚠ `22@` STAYS, because for `22@` the sentence is still TRUE. The 2000 MPGM defines 22@ as a
-    // formally distinct subzone with its own articles, and PRYZM has authored no pack for it —
-    // answering it from Art. 350 would cite the wrong articles for that land. The copy is
-    // therefore re-pointed at 22@'s actual blocker rather than inherited from 22a's.
-    if (clau === '22@') {
-        return (
-            'This zone (22@, the Poblenou *districte d’activitats*) is a formally distinct subzone ' +
-            'created by a 2000 modification of the general plan, and it is governed by that ' +
-            'instrument’s OWN articles — its own permitted uses, its own complementary ' +
-            'buildability coefficients and its own transformation regime — except where they ' +
-            'defer back to the general plan. PRYZM has read and encoded the base industrial zone ' +
-            '(22a) but not 22@, and answering you from the base zone’s article would quote rules ' +
-            'that do not govern your land. We would rather show you nothing than something wrong.'
-        );
-    }
+    // ⚠⚠ §DEC-1 — **`22@` WAS IN THIS BRANCH AND IS NOT ANY MORE.** Its copy said PRYZM *"has read
+    // and encoded the base industrial zone (22a) but not 22@"*, which became FALSE the moment
+    // `esBarcelona22Arroba.ts` was authored: the MPGM 22@ text IS read and encoded, in full, from
+    // the primary 2006 source. `barcelonaZoneRefusalFor` now hands `22@` a named, legally-grounded
+    // `derived-plan` refusal (`barcelona22ArrobaDerivedPlanRefusal`), and `resolveZoneDisposition`
+    // consults that BEFORE the coverage gap — so this text was unreachable AND false, which is the
+    // worst pair. It is DELETED rather than left dead, for the same reason 13b's and 22a's were:
+    // an unreachable false sentence about our own coverage is one refactor away from a user.
     // *Edificació aïllada* — separations ARE the right shape here. The blocker is that we hold
     // none for this subzone, and the generic defaults belong to a different zone entirely.
     if (clau === '20a' || clau.startsWith('20a/') || clau === '21' || clau.startsWith('21/')) {
@@ -658,6 +690,130 @@ export function barcelonaRegimeUndeterminedRefusal(
         legallyGrounded: false,
         knownFacts: [...knownFacts],
     };
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// §DEC-1 — clau `22@`: **THE ORDINANCE STATES NO BUILDABLE DEPTH, BY DESIGN.**
+// FOUNDER-CLOSED 2026-08-01 as a PERMANENT cited refusal.
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// WHY THIS IS A *LEGAL* REFUSAL AND NOT A COVERAGE GAP — the distinction the whole module turns on.
+// MPGM 22@ Art. 8.1 states a complete by-right, per-parcel regime: a floor-area index, an
+// occupation cap, a minimum parcel and a four-band street-width height table, all reachable
+// *directament per llicència*. `esBarcelona22Arroba.ts` transcribes every one of them from the
+// primary 2006 text. **The one thing Art. 8 does not state — in any form — is a *profunditat
+// edificable*.** Founder research across BCNROC, the 2024 municipal *Instrucció* on 22@
+// interpretation and the 2025 MPGM amendment found no manual, no CAD/GIS geometry and no permit
+// guidance defining one, because modern 22@ resolves its geometry through **PMUs, *fitxes
+// urbanístiques* and *plànols d'ordenació***. ⇒ **The omission is INTENTIONAL.** The rule is not
+// absent, and it is not un-encoded: it is in the derived instrument for that site.
+//
+// ⇒ `derived-plan`, `legallyGrounded: true`. Each of the alternatives is a different false
+// statement, exactly as ADR-0276 argued for 22a:
+//   • `no-rule-pack` — *"PRYZM has not encoded this zone's rules."* **False**, and it was shipping
+//     until today (`coverageGapReasonFor`'s deleted 22@ branch). The pack is authored in full.
+//   • `regime-undetermined` — would say the ordinance states TWO regimes and we cannot tell which
+//     applies. That is 22a's fact. Here the by-right regime is identified and readable; what it
+//     does not contain is a depth.
+//   • `source-data-unavailable` — the one TRANSIENT code, and the only one that earns a retry
+//     affordance. Nothing clears on a retry: no depth exists to fetch.
+//
+// ⚠⚠ **AND IT PUBLISHES NO FIGURE IN ITS PROSE.** C58 §1.13.7 lets a refusal state limits under a
+// citation, and 22a's card does exactly that — but 22a's two figures are REGIME-NEUTRAL (all three
+// paragraphs of Art. 350 restate them). 22@'s are not: three invisible forks (Art. 9 *fronts
+// edificatoris*, Art. 16 delimited ámbitos, an Art. 8.1.a *estudi de detall*) each replace Art. 8.1
+// wholesale on parcels PRYZM cannot identify, so printing Art. 8.1's index or occupation as *this
+// parcel's* limits would assert the very fact we cannot establish. They reach the user through
+// `BCN_22ARROBA_ORDINANCE_REF` — a citation, checkable against the article — and the prose names
+// only WHICH paragraph states WHICH kind of limit. The Murcia pack shipped the opposite (transcribed
+// figures leaked from a classification `note` into a user-facing refusal) and a test pins it out
+// there; the same pin exists here.
+
+/** The label used when no caller supplies one. From the ordinance, never from the MUC. */
+const BCN_22ARROBA_DEFAULT_LABEL = 'Zona d’activitats 22@';
+
+/**
+ * §DEC-1 — the permanent, legally-grounded `derived-plan` refusal for Barcelona clau `22@`.
+ *
+ * Says, in substance: *"We hold the MPGM that governs your land and we have read Art. 8.1. It
+ * states a by-right envelope — but it states NO buildable depth, deliberately, because 22@ fixes
+ * its geometry site by site in the Pla de Millora Urbana and its ordering plans. Here is the
+ * citation; the depth is in that document, and we do not hold it."*
+ *
+ * ⚠ `legallyGrounded: true`, unlike 22a's. This IS a statement about the ordinance: the general
+ * plan points at another instrument, which is what `derived-plan` means and what clau 18 already
+ * uses. Flipping it to `false` would say PRYZM has not done the work — the false sentence §DEC-1
+ * exists to delete.
+ *
+ * P8 — OTel span. Precedent: `estimateSuppressedRefusal` in `zoneRefusal.ts`, same package, same
+ * argument (a span on a pure constructor is a no-op without an exporter, so purity is unaffected).
+ */
+export function barcelona22ArrobaDerivedPlanRefusal(
+    clau: string,
+    clauLabel?: string | null,
+    knownFacts: readonly string[] = [],
+): EnvelopeRefusal {
+    const span = _tracer.startSpan('pryzm.zoning.es.bcn.barcelona22ArrobaDerivedPlanRefusal');
+    try {
+        span.setAttribute('bcn.clau', clau);
+        const L = BCN_22ARROBA_ART8_LIMITS;
+        const named = `${(clauLabel && clauLabel.trim()) || BCN_22ARROBA_DEFAULT_LABEL} (clau ${clau})`;
+        return {
+            code: 'derived-plan',
+            // L-553 rule 1 — name the zone first; then say WHICH determination the law declines to
+            // make, not that we failed to make it.
+            headline:
+                `${named} — the governing plan states no buildable depth for this zone, by design: ` +
+                'the buildable geometry is fixed by the ordering instrument approved for your site.',
+            detail:
+                // ── What we DO hold, first, because it is the part that is true and it is the ──
+                //    fastest proof this is not a gap in our coverage.
+                'PRYZM holds and has read the instrument that governs this land — the MPGM per a la ' +
+                'renovació de les àrees industrials del Poblenou (districte d’activitats 22@BCN), in ' +
+                'its consolidated 2006 text. This is not a coverage gap. ' +
+                `Art. ${L.byRightArticle} sets out a by-right, per-parcel regime reachable directly ` +
+                'by licence, and it states a floor-area index per parcel, a maximum ground ' +
+                `occupation (Art. ${L.maxCoverageArticle}), a minimum parcel size ` +
+                `(Art. ${L.minParcelArticle}) and a maximum height keyed to the width of the street ` +
+                `the building fronts (Art. ${L.heightTableArticle}). Those limits are set out in ` +
+                'full, with their paragraphs, in the citation on this card. ' +
+                // ── What the ordinance does NOT state, and the fact that this is deliberate. ──
+                '⚠ What the article does NOT state — not as a figure, not as a construction, not as ' +
+                'a cap — is a *profunditat edificable*: how far back from the street line a building ' +
+                `may extend. The zone is ordered *alineada a vial* (Art. ${L.alignmentArticle}), so ` +
+                'the façade sits ON the street line and the depth is the only thing that would turn ' +
+                'that alignment into a footprint. Without it there is no shape to draw, and a ' +
+                'generic front/side/rear setback estimate would be the wrong KIND of rule rather ' +
+                'than an imprecise number. ' +
+                // ── The finding that makes this permanent rather than pending. ──
+                // ⚠ "the municipal instruction of 2024", NOT "the 2024 municipal instruction" — the
+                // §DEC-1 leak test forbids the substring "24 m" (an Art. 8.1.b height), and
+                // "2024 municipal" contains it. The year is a fact and stays; the collision does not.
+                'The omission is deliberate. A search of the municipal planning repositories, the ' +
+                'municipal instruction of 2024 on the interpretation of 22@ and the 2025 amendment ' +
+                'of the MPGM found no implementation manual, no published CAD or GIS geometry and ' +
+                'no permit guidance defining a depth for the zone as a whole — because 22@ is ' +
+                'implemented site by site, and the buildable geometry is fixed in the *Pla de ' +
+                'Millora Urbana*, the *fitxa urbanística* and the *plànols d’ordenació* approved for ' +
+                'your ámbito. The rule is not missing; it is in that document, and PRYZM does not ' +
+                'hold it. ' +
+                // ── The second, independent reason a number would be unsafe even if we had a depth.
+                'Three further forks decide which article governs a given 22@ parcel at all — a ' +
+                'housing *front edificatori* under Art. 9, a delimited transformation ámbito under ' +
+                'Art. 16, or an *estudi de detall* converting the parcel to *edificació aïllada* — ' +
+                'and none of the three is published in any source PRYZM reads. We would rather name ' +
+                'the document that decides your land than draw a volume from an article that may ' +
+                'not govern it.',
+            // C58 §1.13.4 — this card makes real claims about the ordinance (that Art. 8.1 states
+            // these kinds of limit, and that it states no depth), so it must cite what was read.
+            // ⚠ The FIGURES live here, inside the citation, and nowhere else on the card.
+            ordinanceRef: BCN_22ARROBA_ORDINANCE_REF,
+            legallyGrounded: true,
+            knownFacts: [...knownFacts],
+        };
+    } finally {
+        span.end();
+    }
 }
 
 /**

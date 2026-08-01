@@ -28,6 +28,7 @@ import {
     BCN_22ARROBA_ART8_LIMITS,
     BCN_22ARROBA_TRANSFORMATION_COEFFICIENTS,
     BCN_22ARROBA_ENVELOPE_BLOCKER,
+    BCN_22ARROBA_DEPTH_CLOSURE,
     BCN_22ARROBA_OPEN_QUESTIONS,
     resolveAlcada22Arroba,
 } from '../src/rulepacks/esBarcelona22Arroba.js';
@@ -36,6 +37,8 @@ import { BCN_ALCADA_SEMIINTENSIVA_TABLE } from '../src/rulepacks/bcnAlcadaSemiin
 import { BCN_ALCADA_INDUSTRIAL_TABLE } from '../src/rulepacks/bcnAlcadaIndustrial.js';
 import { BCN_INDUSTRIAL_ZONE_CODES } from '../src/rulepacks/esBarcelonaIndustrial.js';
 import { resolveZoneDisposition, BCN_JURISDICTION_ID } from '../src/rulepacks/registry.js';
+import { buildRefusedEnvelope, isRefusedEnvelope } from '../src/rulepacks/zoneRefusal.js';
+import { barcelonaZoneRefusal } from '../src/rulepacks/esBarcelonaZoneClassification.js';
 
 const zone = ES_BARCELONA_22ARROBA_PACK.zones[0]!;
 
@@ -280,5 +283,171 @@ describe('clau 22@ — the pack is NOT registered, and the reason is recorded', 
         expect(BCN_22ARROBA_OPEN_QUESTIONS.planol3Fronts).toContain('UNRESOLVED');
         expect(BCN_22ARROBA_OPEN_QUESTIONS.planol2Ambits).toContain('UNRESOLVED');
         expect(BCN_22ARROBA_OPEN_QUESTIONS.post2006Amendments).toContain('NOT CHECKED');
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §DEC-1 (founder, 2026-08-01) — `22@` IS A **PERMANENT CITED REFUSAL**, NOT AN OPEN BLOCKER.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+//
+// EVERY TEST BELOW FAILS ON `main` AS IT STOOD BEFORE THIS CHANGE. Before it, a `22@` parcel got
+// `barcelonaNoRulePackRefusal` — code `no-rule-pack`, `legallyGrounded: false`, `ordinanceRef: null`
+// — whose copy said PRYZM *"has read and encoded the base industrial zone (22a) but not 22@"*. That
+// sentence became FALSE the moment `esBarcelona22Arroba.ts` was authored, and it was the sentence a
+// 22@ owner actually read.
+//
+// WHAT THE DECISION ASSERTS, AND THEREFORE WHAT THESE PIN:
+//   1. the refusal is LEGAL (`derived-plan`, `legallyGrounded: true`) — the MPGM points at the PMU;
+//   2. it NAMES Art. 8.1 and cites the MPGM;
+//   3. it publishes **NO FIGURE** in the prose the user reads — the §DEC-1 leak test, modelled on
+//      the Murcia pin (`murciaPgou2012.test.ts`), where transcribed figures leaked from a
+//      classification `note` into a user-facing refusal;
+//   4. it still yields NO ENVELOPE — `packsByZone` is untouched and the refused envelope is not
+//      extrudable.
+
+describe('§DEC-1 — clau 22@ resolves to the Art. 8.1 cited refusal, permanently', () => {
+    it('resolves to a REFUSAL, never to a pack and never to unregistered', () => {
+        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '22@');
+        expect(d.kind).toBe('refusal');
+    });
+
+    it('the refusal is LEGALLY GROUNDED and `derived-plan` — not a coverage gap', () => {
+        // ⚠ THE ASSERTION THAT ENCODES THE DECISION. `no-rule-pack` (what shipped before) is a
+        // statement about PRYZM and it was false. `regime-undetermined` would be 22a's fact, not
+        // this one. `source-data-unavailable` is the TRANSIENT code and would offer a retry that
+        // can never succeed — no depth exists to fetch.
+        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '22@');
+        expect(d.kind).toBe('refusal');
+        if (d.kind !== 'refusal') return;
+        expect(d.refusal.code).toBe('derived-plan');
+        expect(d.refusal.legallyGrounded).toBe(true);
+        expect(d.refusal.code).not.toBe('no-rule-pack');
+        expect(d.refusal.code).not.toBe('regime-undetermined');
+        expect(d.refusal.code).not.toBe('source-data-unavailable');
+    });
+
+    it('⚠ the harmonised code can still never call 22@ a SYSTEM — only a plan-governed zone', () => {
+        // The invariant `zoneRegistryAndRefusals.test.ts` carried for 22@ until §DEC-1. It is not
+        // dropped, it moves here: a buildable clau must never be classified as public domain.
+        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '22@', { harmonisedCode: 'M3' });
+        expect(d.kind).toBe('refusal');
+        if (d.kind !== 'refusal') return;
+        for (const legalSystemCode of [
+            'public-system',
+            'public-open-space',
+            'facility-plan',
+            'protected-soil',
+            'protected-private-green',
+        ]) {
+            expect(d.refusal.code).not.toBe(legalSystemCode);
+        }
+    });
+
+    it('names Art. 8.1, says the depth is absent BY DESIGN, and points at the derived instrument', () => {
+        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '22@');
+        expect(d.kind).toBe('refusal');
+        if (d.kind !== 'refusal') return;
+        const { headline, detail, ordinanceRef } = d.refusal;
+        // L-553 rule 1 — the zone, named, first.
+        expect(headline).toContain('22@');
+        // The determination that is declined, stated as the LAW's answer, not as our failure.
+        expect(headline).toMatch(/no buildable depth/i);
+        expect(detail).toContain(`Art. ${BCN_22ARROBA_ART8_LIMITS.byRightArticle}`);
+        expect(detail).toMatch(/profunditat edificable/);
+        expect(detail).toMatch(/deliberate/i);
+        // ⚠ The governing geometry, named. This is the "machine-readable reference to the governing
+        // instrument" the decision requires instead of an invented depth.
+        expect(detail).toMatch(/Pla de Millora Urbana/);
+        expect(detail).toMatch(/fitxa urban[íi]stica/);
+        expect(detail).toMatch(/pl[àa]nols d’ordenaci[óo]/);
+        // C58 §1.13.4 — a claim about the ordinance must cite what was read.
+        expect(ordinanceRef).toBe(BCN_22ARROBA_ORDINANCE_REF);
+        // ⚠ Carried over from the coverage-gap card §DEC-1 replaced: the copy must NEVER quote the
+        // BASE zone's article at 22@ land. Citing PGM Art. 350 for `22@` is the L-526 failure one
+        // clau over, and it is the whole reason `BCN_INDUSTRIAL_ZONE_CODES` excludes `22@`.
+        expect(detail).not.toMatch(/Art\. 350/);
+        expect(headline).not.toMatch(/Art\. 350/);
+    });
+
+    it('⚠ does NOT say PRYZM has not encoded 22@ — the sentence that was false since the pack landed', () => {
+        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '22@');
+        expect(d.kind).toBe('refusal');
+        if (d.kind !== 'refusal') return;
+        const text = `${d.refusal.headline} ${d.refusal.detail}`;
+        expect(text).not.toMatch(/has not encoded/i);
+        expect(text).not.toMatch(/but not 22@/);
+        expect(text).not.toMatch(/coming soon/i);
+    });
+
+    it('⚠⚠ THE LEAK TEST — the refusal publishes NO figure in the prose the user reads', () => {
+        // The Murcia precedent, applied here BEFORE it can happen rather than after. Art. 8.1's
+        // transcribed values sit one interpolation away in `BCN_22ARROBA_ART8_LIMITS`, and printing
+        // any of them as THIS parcel's limit would assert the very fact three invisible regime
+        // forks make unestablishable. They reach the user only through the citation.
+        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '22@');
+        expect(d.kind).toBe('refusal');
+        if (d.kind !== 'refusal') return;
+        const prose = `${d.refusal.headline} ${d.refusal.detail}`;
+        const LEAKS = [
+            '2,2', '2.2',        // the Art. 8.1 edificabilitat, both decimal conventions
+            '70 %', '70%',       // the Art. 8.1.f ocupació
+            '500',               // the Art. 8.1.e parcel·la mínima
+            '9,60', '14,40', '19,20', '24,00', '24 m',  // the Art. 8.1.b height ladder
+            '3,0', '3,2', '0,5', '0,3',                  // the Art. 16.4.a transformation coefficients
+        ];
+        for (const leak of LEAKS) {
+            expect(prose, `the 22@ refusal leaked "${leak}"`).not.toContain(leak);
+        }
+        // …and the figures ARE still available, under the citation, where they can be checked
+        // against the article. Withholding them entirely would be its own dishonesty.
+        expect(d.refusal.ordinanceRef).toContain('2,2');
+        expect(d.refusal.ordinanceRef).toContain('70 %');
+    });
+
+    it('⚠ still yields NO ENVELOPE — the pack stays out of `packsByZone` and nothing is extrudable', () => {
+        // The closure does not register the pack, and `BCN_22ARROBA_DEPTH_CLOSURE` says so in the
+        // shipping data. `geometricRule` is null and this zone's setbacks are correctly null, so a
+        // registration would draw the WHOLE parcel next to a card stating a 70 % cap (§L-616).
+        expect(BCN_22ARROBA_DEPTH_CLOSURE.stillNotRegistered).toBe(true);
+        expect(BCN_22ARROBA_ENVELOPE_BLOCKER.registered).toBe(false);
+        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '22@');
+        expect(d.kind).not.toBe('pack');
+        if (d.kind !== 'refusal') return;
+        const env = buildRefusedEnvelope('22@', d.refusal);
+        expect(isRefusedEnvelope(env)).toBe(true);
+        expect(env.insetPolygon).toEqual([]);
+        expect(env.insetAreaM2).toBe(0);
+        expect(env.maxHeight_m).toBeNull();
+        expect(env.maxFloors).toBeNull();
+        expect(env.maxFAR).toBeNull();
+        expect(env.maxCoverage).toBeNull();
+        expect(env.maxVolumeM3).toBeNull();
+        expect(env.confidence).toBe('not-determined');
+    });
+
+    it('carries the caller’s parcel facts onto the card (L-553)', () => {
+        const facts = ['Cadastral reference: 0000000AA0000A', 'Parcel area: 1 200 m²'];
+        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '22@', { knownFacts: facts });
+        expect(d.kind).toBe('refusal');
+        if (d.kind !== 'refusal') return;
+        expect(d.refusal.knownFacts).toEqual(facts);
+    });
+
+    it('the closure is recorded as PERMANENT, with what would reopen it', () => {
+        // Negative-evidence closure under the ratified standard (L-661): a documented, exhausted
+        // search is a defensible basis for proceeding, and the record must say what would undo it.
+        expect(BCN_22ARROBA_DEPTH_CLOSURE.status).toContain('CLOSED');
+        expect(BCN_22ARROBA_DEPTH_CLOSURE.omissionIsIntentional).toBe(true);
+        expect(BCN_22ARROBA_DEPTH_CLOSURE.refusalCode).toBe('derived-plan');
+        expect(BCN_22ARROBA_DEPTH_CLOSURE.reopensIf).toMatch(/CITY-WIDE/);
+        expect(BCN_22ARROBA_DEPTH_CLOSURE.exhaustedSources.length).toBeGreaterThanOrEqual(3);
+        expect(BCN_22ARROBA_DEPTH_CLOSURE.governingGeometryLivesIn).toContain('fitxa urbanística');
+    });
+
+    it('⚠ the per-clau CLASSIFICATIONS table still makes no claim about 22@', () => {
+        // The refusal is a FUNCTION, not a static row, because L-553 rule 1 needs the caller's
+        // per-lookup zone label — which `ClassifiedRefusal` deliberately cannot carry. If someone
+        // "tidies" it into the table, this goes red and they must re-read why.
+        expect(barcelonaZoneRefusal('22@')).toBeNull();
     });
 });

@@ -87,6 +87,12 @@ describe('L-601 (a) — legal refusals and coverage gaps NEVER share a class (C5
         ['8a', 'protected-private-green', 'systems-land'],
         ['18', 'derived-plan', 'plan-defined'],
         ['15', 'derived-plan', 'plan-defined'],
+        // §DEC-1 (founder, 2026-08-01) — `22@` MOVED HERE from the coverage-gap row below, and the
+        // move is the whole point of the decision: MPGM 22@ Art. 8.1 states a by-right envelope but
+        // states NO buildable depth, deliberately, because 22@ fixes its geometry site by site in
+        // the Pla de Millora Urbana. That is `derived-plan` — the rule is elsewhere — not "PRYZM
+        // has not encoded this zone". Same class as clau 18, and for the same reason.
+        ['22@', 'derived-plan', 'plan-defined'],
     ];
 
     it('the LEGAL claus classify as `systems-land` / `plan-defined`, and are legally grounded', () => {
@@ -102,10 +108,13 @@ describe('L-601 (a) — legal refusals and coverage gaps NEVER share a class (C5
     });
 
     it('a COVERAGE gap (`zone-unencoded`) is never one of the legal classes', () => {
-        // 12b / 22@ / bare 20a are buildable claus with no pack: the registry refuses them as a
+        // 12b / bare 20a are buildable claus with no pack: the registry refuses them as a
         // coverage gap. They must classify to `zone-unencoded`, never to `systems-land` /
         // `plan-defined` — the false-negative-about-someone's-land error L-553 ranks worst.
-        for (const clau of ['12b', '22@', '20a']) {
+        // ⚠ §DEC-1 — `22@` LEFT this list on 2026-08-01 and is now asserted in the LEGAL row above.
+        // That is not a relaxation of this invariant: 22@ stopped being a coverage gap because the
+        // ordinance's own answer was established, which is the only honest way out of this bucket.
+        for (const clau of ['12b', '20a']) {
             const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau);
             expect(d.kind, clau).toBe('refusal');
             if (d.kind !== 'refusal') continue;

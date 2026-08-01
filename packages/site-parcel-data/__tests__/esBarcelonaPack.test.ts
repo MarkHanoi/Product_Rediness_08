@@ -16,7 +16,14 @@ import {
     ES_BARCELONA_ENSANCHE_PACK,
     BCN_ENSANCHE_RULE,
     BCN_ENSANCHE_ZONE_CODES,
+    BCN_ENSANCHE_BASE_ZONE_CODE,
+    BCN_13E_ZONE_CODE,
+    BCN_13E_SUPPLEMENT,
+    BCN_13E_INSTRUMENT_STATUS,
+    BCN_13E_TRANSCRIPTION_PRECONDITION,
+    bcn13ESupplementedZone,
 } from '../src/rulepacks/esBarcelonaEnsanche.js';
+import { resolveZoneDisposition, BCN_JURISDICTION_ID } from '../src/rulepacks/registry.js';
 
 describe('ADR-0271 P5 — the pack is VALID (parses at load)', () => {
     it('parsed the schema without throwing', () => {
@@ -30,13 +37,117 @@ describe('ADR-0271 P5 — the pack is VALID (parses at load)', () => {
         expect(ES_BARCELONA_ENSANCHE_PACK.defaultConfidence).toBe('estimated-ruleset');
     });
 
-    it('registers BOTH 13a and 13E against the same rules', () => {
-        // Not a claim they are equivalent — a refusal to pick while the 2002 ordinance's force
-        // is unknown. Live MUC returns 13a; the ordinance says 13E substitutes clau 13.
+    it('registers BOTH 13a and 13E — 13E through the supplement, not as a second rule set', () => {
+        // §DEC-2 (2026-08-01) — this used to read "a refusal to pick while the 2002 ordinance's
+        // force is unknown". Both halves are closed: L-667 established `13E` IN FORCE from the 2026
+        // repeal annex itself, and the founder decided the SHAPE — `13E` inherits `13a` plus an
+        // explicit delta. Live MUC returns 13a; the 2002 ordinance says 13E substitutes clau 13.
         expect([...BCN_ENSANCHE_ZONE_CODES]).toEqual(['13a', '13E']);
         for (const code of BCN_ENSANCHE_ZONE_CODES) {
             expect(ES_BARCELONA_ENSANCHE_PACK.zones.find((z) => z.code === code)).toBeDefined();
         }
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §DEC-2 (founder, 2026-08-01) — clau `13E` IS A **SUPPLEMENT OVER `13a`**, NEVER A PARALLEL PACK.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+//
+// EVERY TEST BELOW FAILS ON `main` AS IT STOOD BEFORE THIS CHANGE: there was no supplement, no
+// delta and no instrument-status record — `13E` was a SECOND CALL to the same zone builder with a
+// different literal, identical to `13a` by coincidence of two call sites rather than by
+// construction. The day someone corrected `13a` (as §L-594 did, `minDepth_m` 12 → 11) nothing would
+// have made them correct `13E` too.
+//
+// The decision has three halves and each is pinned:
+//   1. INHERITANCE IS THE IMPLEMENTATION — `13E` is DERIVED from `13a` plus a delta;
+//   2. THE DELTA IS EMPTY **AND DECLARED EMPTY** — an absence and a measured zero are different
+//      values (§CONTEXT-DATA-HONESTY), so "nobody has transcribed it" is stated, not inferred;
+//   3. THE TRANSCRIPTION PRECONDITION IS RECORDED WHERE THE NEXT PERSON HITS IT — any transcription
+//      must start from the CURRENT consolidated text (2012 partial nullity of Art. 15 + 2018 / 2019
+//      / 2023 modifications), never from the 2002 text as published.
+
+describe('§DEC-2 — 13E resolves THROUGH 13a, and today matches it exactly', () => {
+    const zoneOf = (code: string) => ES_BARCELONA_ENSANCHE_PACK.zones.find((z) => z.code === code)!;
+
+    it('declares its inheritance in data — `13E` inherits `13a`', () => {
+        expect(BCN_13E_SUPPLEMENT.zoneCode).toBe(BCN_13E_ZONE_CODE);
+        expect(BCN_13E_SUPPLEMENT.inheritsFromZoneCode).toBe(BCN_ENSANCHE_BASE_ZONE_CODE);
+        expect(BCN_ENSANCHE_BASE_ZONE_CODE).toBe('13a');
+        expect(BCN_13E_ZONE_CODE).toBe('13E');
+    });
+
+    it('⚠ every RULE-BEARING field of 13E equals 13a — only `code` and `label` differ', () => {
+        // The load-bearing assertion of the supplement. If 13E ever diverges from 13a in a field
+        // that is NOT written into `BCN_13E_SUPPLEMENT.delta`, this goes red — which is exactly the
+        // silent drift a parallel pack would have produced at the first amendment.
+        const base = { ...zoneOf(BCN_ENSANCHE_BASE_ZONE_CODE) } as Record<string, unknown>;
+        const supp = { ...zoneOf(BCN_13E_ZONE_CODE) } as Record<string, unknown>;
+        delete base.code; delete supp.code;
+        delete base.label; delete supp.label;
+        expect(supp).toEqual(base);
+    });
+
+    it('is BUILT from 13a rather than re-typed — the builder returns the same body', () => {
+        // Not a claim about the two literals matching today; a claim about where the second one
+        // comes from. `bcn13ESupplementedZone()` spreads the 13a base and then the delta.
+        const built = bcn13ESupplementedZone();
+        expect(built.code).toBe(BCN_13E_ZONE_CODE);
+        expect(built.label).toBe(BCN_13E_SUPPLEMENT.label);
+        expect(built.geometricRule).toEqual(BCN_ENSANCHE_RULE);
+        // …and the pack publishes exactly what the builder produced.
+        expect(zoneOf(BCN_13E_ZONE_CODE)).toEqual(built);
+    });
+
+    it('⚠ the delta is EMPTY and DECLARED empty — never merely absent', () => {
+        // "Empty" and "nobody looked" must not be the same value. `deltaIsEmpty` +
+        // `deltaEmptyBecause` say WHICH, in the shipping data, where this test can read them.
+        expect(BCN_13E_SUPPLEMENT.delta).toBeDefined();
+        expect(Object.keys(BCN_13E_SUPPLEMENT.delta)).toHaveLength(0);
+        expect(BCN_13E_SUPPLEMENT.deltaIsEmpty).toBe(true);
+        expect(BCN_13E_SUPPLEMENT.deltaEmptyBecause.length).toBeGreaterThan(0);
+        expect(BCN_13E_SUPPLEMENT.deltaEmptyBecause).toMatch(/consolidated/i);
+        // The one open item on 13E is named, so "closed" cannot be read as "finished".
+        expect(BCN_13E_SUPPLEMENT.openItem).toMatch(/transcribe/i);
+    });
+
+    it('⚠ records that any transcription must start from the CURRENT consolidated text', () => {
+        // Recorded on the supplement, i.e. where the next person opens the file to fill the delta —
+        // not in a doc they may never read. Transcribing the 2002 text as published would encode a
+        // rule that has not been in force for over a decade, under an authoritative-looking citation.
+        const p = BCN_13E_TRANSCRIPTION_PRECONDITION;
+        expect(BCN_13E_SUPPLEMENT.transcriptionPrecondition).toBe(p);
+        expect(p.art15PartialNullityYear).toBe(2012);
+        expect([...p.subsequentModificationYears]).toEqual([2018, 2019, 2023]);
+        expect(p.consolidatedTextHeld).toBe(false);
+        expect(p.startFrom).toMatch(/CURRENT/);
+    });
+
+    it('records 13E as IN FORCE on the ANNEX ITSELF, not on catalogue metadata (L-667)', () => {
+        const s = BCN_13E_INSTRUMENT_STATUS;
+        expect(s.status).toBe('in-force');
+        // ⚠ The distinction that made the earlier "CLOSED" verdict an overclaim, and that this
+        // field exists to keep visible: a `dc.relation.replaces` catalogue entry is not the annex.
+        expect(s.evidenceIsPrimarySource).toBe(true);
+        expect(s.evidence).toMatch(/annex_2026\.pdf/);
+        expect(s.evidence).toMatch(/11703\/144636/);
+        expect(s.evidence).toMatch(/no express reference/i);
+        // What would reopen it — and what would NOT (the 1986 repeal).
+        expect(s.reopensIf).toMatch(/2002/);
+        expect(s.reopensIf).toMatch(/1986 repeal is\s+not that/i);
+        expect(s.findingRef).toMatch(/L-667-13E-IN-FORCE-CLOSED\.md/);
+    });
+
+    it('a 13E parcel resolves through the SAME pack as 13a in the shipping registry', () => {
+        // End to end, through the path the dispatcher actually uses — not a direct pack import.
+        const a = resolveZoneDisposition(BCN_JURISDICTION_ID, BCN_ENSANCHE_BASE_ZONE_CODE);
+        const e = resolveZoneDisposition(BCN_JURISDICTION_ID, BCN_13E_ZONE_CODE);
+        expect(a.kind).toBe('pack');
+        expect(e.kind).toBe('pack');
+        if (a.kind !== 'pack' || e.kind !== 'pack') return;
+        // ONE pack object, not two. A parallel pack would make these different references and is
+        // precisely what §DEC-2 forbids.
+        expect(e.pack).toBe(a.pack);
     });
 });
 

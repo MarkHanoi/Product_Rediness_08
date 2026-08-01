@@ -92,7 +92,16 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
         // `ordinanceRef === null` assertion below is CORRECT for a coverage gap and would be
         // WRONG for 22a: that card DOES make claims about the ordinance and must cite them
         // (C58 §1.13.4). Its own assertions live in `esBarcelonaIndustrialPack.test.ts`.
-        for (const clau of ['12b', '22@', '20a']) {   // §L-595 — '12' is packed now
+        // ⚠⚠ §DEC-1 (2026-08-01) — `22@` HAS LEFT THIS LIST, and NOT because it was packed either.
+        // The founder closed it as a PERMANENT, legally-grounded `derived-plan` refusal: MPGM 22@
+        // Art. 8.1 states a by-right envelope but states NO *profunditat edificable*, deliberately,
+        // because 22@ fixes its geometry site by site in the Pla de Millora Urbana. Keeping it here
+        // would assert that a 22@ owner is told "PRYZM has not encoded this zone's rules yet" — a
+        // statement FALSE since `esBarcelona22Arroba.ts` was authored. As with 22a, the
+        // `ordinanceRef === null` assertion below is CORRECT for a coverage gap and WRONG for 22@:
+        // that card DOES make claims about the ordinance and must cite them (C58 §1.13.4). Its own
+        // assertions live in `esBarcelona22ArrobaPack.test.ts`.
+        for (const clau of ['12b', '20a']) {   // §L-595 — '12' is packed now
             const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau);
             expect(d.kind, clau).toBe('refusal');
             if (d.kind !== 'refusal') continue;
@@ -176,19 +185,16 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
         }
         // Industrial. ⚠ §L-590c — `22a` IS NO LONGER HERE: it does not reach the coverage-gap
         // copy at all, because `barcelonaZoneRefusalFor` answers it first with the named
-        // `regime-undetermined` card. `22@` remains, and its copy has been RE-POINTED at 22@'s
-        // own blocker (a distinct subzone with its own articles) rather than inheriting 22a's —
-        // leaving 22a's wording on a card 22a can no longer reach would have left a sentence
-        // that is true of nothing.
-        for (const clau of ['22@']) {
-            expect(detailFor(clau), clau).not.toMatch(/wrong SHAPE/);
-            expect(detailFor(clau), clau).toMatch(/formally distinct subzone/i);
-            // …and it must NOT quote the base zone's article at 22@, which is the whole reason
-            // 22@ is unpacked in the first place.
-            expect(detailFor(clau), clau).not.toMatch(/Art\. 350/);
-        }
+        // `regime-undetermined` card.
+        // ⚠⚠ §DEC-1 (2026-08-01) — **`22@` IS NO LONGER HERE EITHER, AND THE INDUSTRIAL FAMILY NOW
+        // HAS NO COVERAGE-GAP COPY AT ALL.** Its branch in `coverageGapReasonFor` was DELETED, not
+        // out-ranked: the sentence *"PRYZM has read and encoded the base industrial zone (22a) but
+        // not 22@"* was false from the moment `esBarcelona22Arroba.ts` was authored, and an
+        // unreachable false sentence about our own coverage is one refactor away from a user. `22@`
+        // now gets a legally-grounded `derived-plan` card; its copy is asserted in
+        // `esBarcelona22ArrobaPack.test.ts` §DEC-1, including that it never quotes Art. 350.
         // Every card, whatever the family, must carry the three invariants.
-        for (const clau of ['12b', '20a', '22@', '99z']) {   // §L-595 — '12' is packed now
+        for (const clau of ['12b', '20a', '99z']) {   // §L-595 — '12' is packed now
             const d = detailFor(clau);
             expect(d, clau).toMatch(/coverage gap, not an error/i);
             // The COMMITMENT, not one exact phrasing: every card must say, in whatever words fit
@@ -317,9 +323,15 @@ describe('L-550 — the harmonised MUC-code fallback (the COMPOSITE-clau gap the
         // refuse — as a COVERAGE GAP, a statement about PRYZM. What must never happen is the
         // harmonised code declaring them public domain, because that is a claim about the LAW
         // and it would tell a developer their buildable plot is a road.
+        // ⚠ §DEC-1 — `22@`/`M3` has LEFT this list. It is still a buildable clau and the harmonised
+        // code still must not call it a system — but it now refuses with `derived-plan`
+        // (`legallyGrounded: true`), a LEGAL statement about the MPGM rather than about PRYZM. The
+        // allow-list below is closed on purpose, so widening it to admit a legal code would destroy
+        // exactly what it guards. 22@'s own assertions live in `esBarcelona22ArrobaPack.test.ts`,
+        // and the "never a SYSTEM classification" half is asserted there too.
         for (const [clau, muc] of [
             ['13a', 'R2'], ['13b', 'R2'], ['12', 'R1'], ['12b', 'R1'],
-            ['22a', 'A1'], ['22@', 'M3'], ['20a/10', 'R6'], ['20a', 'R4'],
+            ['22a', 'A1'], ['20a/10', 'R6'], ['20a', 'R4'],
         ] as const) {
             const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau, { harmonisedCode: muc });
             if (d.kind === 'refusal') {

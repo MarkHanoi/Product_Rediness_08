@@ -52,14 +52,33 @@
 //     triple (C58 §1.7a). `null` ≠ `0`: the containment check SKIPS a null edge, whereas `0`
 //     would assert "the ordinance requires zero here", which we have not established.
 //
-// ⚠ ZONE CODE — `13a` vs `13E`, UNRESOLVED AND DELIBERATELY SO. Live MUC `MUC_4QUAL` returns
-// `13a` across the whole Eixample and never `13E`; the 2002 *Ordenança de rehabilitació i millora
-// de l'Eixample* Art. 2 (PRIMARY, BCNROC handle 11703/89247) says `13E` **substitutes** clau 13 in
-// that área and inherits 13's rules residually. Both codes are therefore registered against the
-// SAME rule set, so a parcel resolves whichever the provider reports. **This is not a claim that
-// they are equivalent** — it is a refusal to pick while the 2002 ordinance's force is unknown
-// (two 2015 *Derogació* rows never reached). If it is in force, 13E governs and may add
-// courtyard rules we do not carry.
+// ⚠ ZONE CODE — `13a` vs `13E`. **RESOLVED 2026-08-01 (L-667). `13E` IS IN FORCE, AND IT IS A
+// SUPPLEMENT OVER `13a`, NOT A SECOND RULE SET.**
+//
+// This paragraph used to read *"UNRESOLVED AND DELIBERATELY SO … a refusal to pick while the 2002
+// ordinance's force is unknown (two 2015 Derogació rows never reached)"*. **Both halves are now
+// closed**, and by different evidence, so read the replacement rather than the memory:
+//
+//   • **FORCE — closed on the primary source.** The founder inspected the 2026 repeal annex itself
+//     (`GM_ordenanca-derogacio-consell-municipal-annex_2026.pdf`, BCNROC `11703/144636`) on
+//     2026-08-01. It repeals the **1986** *Ordenança de rehabilitació i millora de l'Eixample* and
+//     contains **no express reference** to the 2002 consolidated ordinance, to clau `13E`, or to
+//     the provisions creating the `13E` subzone. ⚠ **That is the ANNEX TEXT, not the BCNROC
+//     `dc.relation.replaces` catalogue field** — an earlier draft of L-667 rested on the metadata,
+//     called it proof, and was withdrawn. The distinction is the whole reason the finding is now
+//     citable. See `findings/L-667-13E-IN-FORCE-CLOSED.md`.
+//   • **SHAPE — decided by the founder (DEC-2).** The 2002 text says *«La qualificació 13 Eixample
+//     (clau 13E) **substitueix** la qualificació … (clau 13)…»*: it substitutes WITHIN ITS ÁMBITO
+//     and inherits the rest residually. So `13E` **inherits `13a` and adds only what the 2002
+//     ordinance states on top** — a SUPPLEMENT with an explicit delta (`BCN_13E_SUPPLEMENT`), never
+//     a parallel pack. A standalone would duplicate every 13a value and drift from it at the first
+//     amendment; the delta keeps one source of truth and makes the difference auditable.
+//
+// ⚠ THE DELTA IS **EMPTY TODAY, AND DECLARED EMPTY** — not absent, and not "nothing to see". PRYZM
+// does not hold the 2002 ordinance's CURRENT consolidated text, and transcribing the 2002 text as
+// published would be wrong: see `BCN_13E_TRANSCRIPTION_PRECONDITION`. Until it is transcribed,
+// `13E` resolving to exactly `13a`'s rules is the honest approximation — and it is now a KNOWN one,
+// with a named place to put the difference.
 //
 // ⚠ NOT MODELLED AT ALL, and it may make edificabilitat incomplete: the volumetric rules between
 // *implantación × storeys* and real buildable floor area — *cossos sortints* / tribunes, *planta
@@ -69,11 +88,19 @@
 // Strategic context: ADR-0271, ADR-0270, C58 §1.2/§1.4/§1.6/§1.7a/§1.11, L-460, L-461,
 // docs/04-reference/jurisdictions/es/cat/08019-barcelona/SOURCES.md.
 
+import { trace } from '@opentelemetry/api';
 import {
     JurisdictionZoningContractSchema,
     type JurisdictionZoningContract,
     type GeometricRule,
 } from '@pryzm/schemas';
+
+/**
+ * P8 — one tracer for this module's exported constructor. Precedent: `zoneRefusal.ts` and
+ * `registry.ts` in this same directory. A span on a pure builder is a no-op without an exporter,
+ * so the pack's purity is unaffected.
+ */
+const _tracer = trace.getTracer('pryzm.zoning.es.bcn');
 
 /**
  * The governing citation carried on every value in this pack. Corrected 2026-07-21 (L-526):
@@ -140,7 +167,146 @@ export const BCN_ENSANCHE_RULE: GeometricRule = {
     maxDepth_m: 30,           // ordinance cap
 };
 
-/** Shared zone body — registered under both `13a` and `13E`; see the header on why. */
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// §DEC-2 — clau `13E` AS A **SUPPLEMENT OVER `13a`**. Founder-decided 2026-08-01.
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+
+/** The clau whose rules `13E` inherits. One constant, so "inherits 13a" is a value, not a habit. */
+export const BCN_ENSANCHE_BASE_ZONE_CODE = '13a';
+
+/** The supplementing clau. */
+export const BCN_13E_ZONE_CODE = '13E';
+
+/**
+ * L-667 — the evidence `13E`'s legal force rests on. **IN FORCE**, established on the repeal annex
+ * ITSELF, not on catalogue metadata.
+ *
+ * ⚠ THE PROVENANCE FIELD IS THE POINT. An earlier draft of L-667 read the BCNROC
+ * `dc.relation.replaces` catalogue field, called it proof of survival, and was withdrawn as an
+ * overclaim — a catalogue entry may be partial, and absence from it is not absence from the annex
+ * (the `not-located ≠ does-not-exist` rule, L-661, applied to ourselves). What closed it is the
+ * founder reading the 7-page annex. Anything that cites this constant is citing the annex.
+ */
+export const BCN_13E_INSTRUMENT_STATUS = {
+    /** IN FORCE. Not `presumed-in-force`, and not `evidenced-not-proven` — both are superseded. */
+    status: 'in-force',
+    closedOn: '2026-08-01',
+    /** The instrument that CREATES `13E`. Separate handle from the 1986 ordinance that was repealed. */
+    instrument:
+        'Ordenança de rehabilitació i millora de l’Eixample — *text refós* [2002], BCNROC handle ' +
+        '11703/89247. Art. 2: «La qualificació 13 Eixample (clau 13E) substitueix la qualificació ' +
+        '… (clau 13)…». Catalogued under *Ordenances Vigents*; CIDO (Diputació de Barcelona, ' +
+        'normativa_local/50141) independently records it *Vigent*.',
+    /**
+     * ⚠ WHAT WAS ACTUALLY READ, and it is the annex, not a catalogue field. The finding, verbatim:
+     * *"The 2026 Annex to the Ordenança de derogació de les disposicions municipals obsoletes
+     * repeals the 1986 Ordenança de rehabilitació i millora de l'Eixample. The annex contains no
+     * express reference to the 2002 consolidated ordinance, to clau 13E, or to the provisions
+     * creating the 13E subzone. No primary source reviewed expressly repeals the 2002 legal
+     * framework establishing 13E."*
+     */
+    evidence:
+        'GM_ordenanca-derogacio-consell-municipal-annex_2026.pdf (7 pp), BCNROC item ' +
+        '39d8ed76-3365-4d32-a6f1-bf9dea45646a · hdl 11703/144636 — the annex to the 2026 Ordenança ' +
+        'de derogació de les disposicions municipals obsoletes (Acord 10/2025, Plenari 30-01-2026, ' +
+        'in force 14-02-2026). Read directly by the founder on 2026-08-01. It repeals the 1986 ' +
+        'Eixample ordinance and makes NO express reference to the 2002 text refós, to clau 13E, or ' +
+        'to the provisions creating the 13E subzone.',
+    /** ⚠ The annex text, NOT the BCNROC `dc.relation.replaces` catalogue field. See the docstring. */
+    evidenceIsPrimarySource: true,
+    /**
+     * ⚠ THE ONLY THING THAT REOPENS THIS. Note what does NOT: the 1986 repeal. The annex names its
+     * targets individually by handle, and the 2002 *text refós* is a separate instrument with its
+     * own handle — so "the base was repealed, therefore the consolidation falls" is a reading the
+     * annex does not support and nobody has asserted from a source.
+     */
+    reopensIf:
+        'An express repeal of the 2002 framework in a source not yet reviewed. The 1986 repeal is ' +
+        'not that.',
+    findingRef:
+        'docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/findings/L-667-13E-IN-FORCE-CLOSED.md',
+} as const;
+
+/**
+ * ⚠⚠ **READ THIS BEFORE TRANSCRIBING A SINGLE VALUE INTO `BCN_13E_SUPPLEMENT.delta`.**
+ *
+ * The 2002 *text refós* is **NOT** the current law. Transcribing it as published would encode a
+ * state that has not been in force for over a decade, under a citation that looks authoritative —
+ * the L-526 failure class. Any transcription must start from the CURRENT consolidated state.
+ */
+export const BCN_13E_TRANSCRIPTION_PRECONDITION = {
+    /** ⚠ NEVER the 2002 text as published. */
+    startFrom: 'the CURRENT consolidated text of the 2002 ordinance, not the 2002 text as published',
+    /** Art. 15 was partially NON-APPLIED by a 2012 judicial declaration of partial nullity. */
+    art15PartialNullityYear: 2012,
+    /** …and Art. 15 was then modified three times. Every one must be applied before transcribing. */
+    subsequentModificationYears: Object.freeze([2018, 2019, 2023]),
+    why:
+        'Art. 15 carries a 2012 partial nullity plus modifications in 2018, 2019 and 2023. A ' +
+        'transcription of the 2002 text as published would state a rule that has not been in force ' +
+        'for over a decade, under a citation that reads as authoritative.',
+    /** PRYZM does not hold that consolidated text today. That is why the delta below is empty. */
+    consolidatedTextHeld: false,
+} as const;
+
+/**
+ * The 2002 ordinance's DELTA over `13a` — the ONLY place a `13E`-specific rule may be written.
+ *
+ * Every field is optional and every one, when present, OVERRIDES the inherited `13a` value. Absent
+ * ⇒ inherited. That is the *substitueix … within its ámbito, inherits the rest residually* rule of
+ * the 2002 text, expressed as data.
+ *
+ * ⚠ This is where the courtyard / *patis* / rehabilitation conditions go once the CURRENT
+ * consolidated text is held — see `BCN_13E_TRANSCRIPTION_PRECONDITION` first.
+ */
+export interface Bcn13ESupplementDelta {
+    readonly maxHeight_m?: number | null;
+    readonly maxFloors?: number | null;
+    readonly plotRatioFAR?: number | null;
+    readonly maxCoverage?: number | null;
+    readonly geometricRule?: GeometricRule | null;
+    /** When the delta becomes non-empty this MUST name the 2002 ordinance alongside the PGM. */
+    readonly ordinanceRef?: string;
+}
+
+/**
+ * §DEC-2 — the `13E` supplement. **Inheritance made visible in code**, rather than implied by two
+ * codes sharing an array.
+ *
+ * ⚠ `delta` IS EMPTY, AND `deltaIsEmpty` DECLARES IT EMPTY. Those are two different statements and
+ * the second one is why the field exists: an empty object could mean "nothing applies", "nobody has
+ * looked" or "somebody deleted the contents". `deltaIsEmpty` + `deltaEmptyBecause` say which, in
+ * the shipping data, where a test can assert it — the §CONTEXT-DATA-HONESTY rule (an absence and a
+ * measured zero must never be the same value) applied to a rule set instead of to a fetch.
+ */
+export const BCN_13E_SUPPLEMENT = Object.freeze({
+    zoneCode: BCN_13E_ZONE_CODE,
+    /** ⚠ `13E` does not stand alone. It resolves THROUGH this clau's rules. */
+    inheritsFromZoneCode: BCN_ENSANCHE_BASE_ZONE_CODE,
+    /** The zone label the card shows. Names the clau in the ordinance's own words (L-553 rule 1). */
+    label: 'Eixample — subzona de densificació urbana (clau 13E)',
+    /** L-667 — why we are entitled to resolve this clau at all. */
+    instrumentStatus: BCN_13E_INSTRUMENT_STATUS,
+    /** ⚠ Read BEFORE filling `delta`. */
+    transcriptionPrecondition: BCN_13E_TRANSCRIPTION_PRECONDITION,
+    /** EMPTY today. The only place a 13E-specific rule may be written. */
+    delta: Object.freeze({}) as Bcn13ESupplementDelta,
+    /** ⚠ DECLARED empty, not merely absent. See the docstring. */
+    deltaIsEmpty: true,
+    deltaEmptyBecause:
+        'PRYZM does not hold the CURRENT consolidated text of the 2002 Ordenança de rehabilitació i ' +
+        'millora de l’Eixample (Art. 15 carries a 2012 partial nullity plus 2018 / 2019 / 2023 ' +
+        'modifications), so no 13E-specific rule has been transcribed. Nothing has been dropped and ' +
+        'nothing is pending review: the delta is empty because the source has not been read, and a ' +
+        '13E parcel therefore resolves to exactly clau 13a’s rules — a KNOWN approximation, not an ' +
+        'assertion that the two are equivalent.',
+    /** The one open item on `13E`. Everything else about it is closed. */
+    openItem:
+        'Transcribe the 2002 ordinance’s courtyard / *patis* / rehabilitation conditions into ' +
+        '`delta`, starting from the CURRENT consolidated text (see `transcriptionPrecondition`).',
+} as const);
+
+/** Shared zone body — the `13a` base, which `13E` inherits; see the header on why. */
 function ensancheZone(code: string, label: string) {
     return {
         code,
@@ -175,16 +341,63 @@ function ensancheZone(code: string, label: string) {
 export const ES_BARCELONA_ENSANCHE_PACK: JurisdictionZoningContract =
     JurisdictionZoningContractSchema.parse({
         jurisdictionId: 'es-08019-barcelona',
-        displayName: 'Barcelona — Eixample (PGM clau 13a/13E)',
+        displayName: 'Barcelona — Eixample (PGM clau 13a + clau 13E supplement)',
         source: 'catastro-muc',
         crs: 'EPSG:4326',
         lastReviewed: '2026-07-20',
         defaultConfidence: 'estimated-ruleset',
         zones: [
-            ensancheZone('13a', 'Densificació Urbana Intensiva (clau 13a)'),
-            ensancheZone('13E', 'Eixample — subzona de densificació urbana (clau 13E)'),
+            ensancheZone(BCN_ENSANCHE_BASE_ZONE_CODE, 'Densificació Urbana Intensiva (clau 13a)'),
+            // ⚠ §DEC-2 — DERIVED from the row above, never re-typed. See `bcn13ESupplementedZone`.
+            bcn13ESupplementedZone(),
         ],
     });
 
-/** The zone codes this pack answers for — used by the provider to decide applicability. */
-export const BCN_ENSANCHE_ZONE_CODES = ['13a', '13E'] as const;
+/**
+ * §DEC-2 — build clau `13E`'s zone body: **`13a`'s, plus the 2002 ordinance's delta.**
+ *
+ * ⚠ THE INHERITANCE IS THE IMPLEMENTATION, NOT A COMMENT ABOUT ONE. `13E` used to be a second call
+ * to `ensancheZone(...)` with a different string — identical by coincidence of two literals, and
+ * the day someone corrected 13a's `minDepth_m` (as §L-594 did, 12 → 11) they would have had to
+ * remember to correct a second call site. Here there is one base and one override point, so 13E
+ * cannot silently diverge from 13a, and every future divergence has to be written into
+ * `BCN_13E_SUPPLEMENT.delta` where it is visible and citable.
+ *
+ * ⚠ TODAY THE DELTA IS EMPTY, so the returned zone equals `13a`'s in every rule-bearing field —
+ * only `code` and `label` differ. That is asserted, not assumed (`esBarcelonaPack.test.ts`).
+ *
+ * ⚠ THE CITATION STAYS `BCN_ORDINANCE_REF` (the PGM) WHILE THE DELTA IS EMPTY, and that is
+ * deliberate. Every value in this zone comes from the PGM; appending the 2002 ordinance to the
+ * citation would attach an authoritative-looking reference to a document that states none of them —
+ * the L-526 error. The 2002 instrument and its status are published as DATA
+ * (`BCN_13E_SUPPLEMENT.instrumentStatus`), and the day the delta carries a value the delta's own
+ * `ordinanceRef` overrides this line.
+ *
+ * P8 — OTel span. Called once at module load; a span without an exporter is a no-op.
+ */
+export function bcn13ESupplementedZone() {
+    const span = _tracer.startSpan('pryzm.zoning.es.bcn.bcn13ESupplementedZone');
+    try {
+        span.setAttribute('bcn.clau', BCN_13E_ZONE_CODE);
+        span.setAttribute('bcn.clau.inheritsFrom', BCN_ENSANCHE_BASE_ZONE_CODE);
+        span.setAttribute('bcn.clau.deltaIsEmpty', BCN_13E_SUPPLEMENT.deltaIsEmpty);
+        const base = ensancheZone(BCN_ENSANCHE_BASE_ZONE_CODE, BCN_13E_SUPPLEMENT.label);
+        // Spread order IS the rule: inherit everything, then let the delta override. An absent
+        // delta key inherits; a present one wins. Nothing else is possible, which is the point.
+        return { ...base, ...BCN_13E_SUPPLEMENT.delta, code: BCN_13E_ZONE_CODE };
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * The zone codes this pack answers for — used by the provider to decide applicability.
+ *
+ * ⚠ `13E` is here because it RESOLVES THROUGH `13a` (§DEC-2), not because the two are equivalent.
+ * The pair is derived from the base code + the supplement's own code so the array cannot drift from
+ * the zones the pack actually publishes.
+ */
+export const BCN_ENSANCHE_ZONE_CODES = [
+    BCN_ENSANCHE_BASE_ZONE_CODE,
+    BCN_13E_ZONE_CODE,
+] as const;
