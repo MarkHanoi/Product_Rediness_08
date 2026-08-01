@@ -1,5 +1,34 @@
 # Murcia — land-class census and the derived-plan split
 
+> # ⚠ SUPERSEDED IN PART — the ~75 % ceiling does NOT survive
+>
+> **The land-class census below (§1) stands** — 3,611 features, 0 superseded, 0 page failures.
+> **The derived-plan split (§2) does not.** Resolved against the PGOU text in
+> [`MURCIA-DERIVED-PLAN-SPLIT-RESOLVED.md`](./MURCIA-DERIVED-PLAN-SPLIT-RESOLVED.md):
+>
+> | Method | Denominator | Direct | Delegated |
+> |---|---|---:|---:|
+> | *this file* — sector-code test | Urbano 56.0 M m² | ~75 % | **24.8 %** |
+> | this file's method, `US` + null-`categoria` resolved | Urbano 56.0 M m² | 39.5–61.8 % | **38.2 %** |
+> | true polygon area, calificación-aware | buildable 75.1 M m² | **33.0 %** | **67.0 %** |
+>
+> **Both caveats I flagged turned out to matter, and both cut the same way:**
+> **(a)** the **19.3 % null `categoria`** block is not an unknown — it is **100 % derived-plan ámbitos**
+> (`PU PM UE PI UD PC PH PE PERI PT PX PB PA PR PEI PP PEE`), with **no residue**. Murcia nulls
+> `categoria` *precisely where* the derived instrument sets it.
+> **(b)** **`US` is conditionally direct, not direct** — Art. 5.14.2 delegates ordering to *Planes
+> Especiales de Adecuación Urbanística*; Art. 5.14.3 states scalars only *«antes de la aprobación»*.
+>
+> **The structural lesson — worth more than the number:** **41.4 pp of delegation is published on the
+> `calificacion` attribute, NOT the sector code.** Arts. 5.25.3.3 / 5.26.3.3 state verbatim that inside
+> an ámbito a zonal code's scope *«se reduce a las condiciones de uso y tipología… pero no a los
+> parámetros definitorios de la altura o edificabilidad»*. **A sectores-layer census is structurally
+> blind to it** — which is exactly what this file did.
+>
+> **⇒ Murcia is COMPARABLE to Barcelona (62.8 % delegated), not better.** The "better starting position"
+> conclusion rested on the 24.8 % and is **withdrawn**. What survives: **33 % of 75.1 M m² is still a
+> real prize**, and 14 calificaciones have since been transcribed against it.
+
 > **Measured 2026-08-01** by the orchestrator, directly against the live municipal WFS
 > (`geoserver.murcia.es/geoserver/wfs`, layer `Murcia:pgou_sectores`) — **all 3,611 features
 > enumerated, not sampled**. Feeds C63 **ENVELOPE** and the §CLOSURE ceiling in [`../RATE.md`](../RATE.md).
