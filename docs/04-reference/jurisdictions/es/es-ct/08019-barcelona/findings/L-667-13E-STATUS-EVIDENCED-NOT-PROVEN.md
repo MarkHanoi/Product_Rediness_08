@@ -1,4 +1,4 @@
-# L-664 — clau `13E`: **NOT PROVEN**, but the burden of proof has flipped
+# L-667 — clau `13E`: **NOT PROVEN**, but the burden of proof has flipped
 
 > **Resolved 2026-08-01** from the official BCNROC record of the *Ordenança de derogació de les
 > disposicions municipals obsoletes de competència del Consell Municipal* **[2026]**
