@@ -25,7 +25,12 @@ import {
     MURCIA_PGOU2012_ZONE_CODES,
     MURCIA_PGOU2012_VARIANT_ZONE_CODES,
 } from '../src/rulepacks/esMurciaPgou2012.js';
-import { REMITTED_AMBITO_PREFIXES } from '../src/providers/murciaZoningProvider.js';
+import {
+    DELEGATING_AMBITO_PREFIXES,
+    isPlanEspecialPrefix,
+    isUrbanizableClase,
+    REMITTED_AMBITO_PREFIXES,
+} from '../src/providers/murciaZoningProvider.js';
 import { MURCIA_ENVELOPE_VERIFIED } from '../src/rulepacks/esMurciaEnvelope.js';
 
 const TOOL = new URL('../../../tools/murcia-coverage-crosstab/', import.meta.url);
@@ -80,17 +85,43 @@ describe('§MURCIA-CROSSTAB — the tool mirrors the shipping code', () => {
         expect([...classify.CODE_REMITTED_PREFIXES].sort()).toEqual([...REMITTED_AMBITO_PREFIXES].sort());
     });
 
-    it('the LEGAL delegating set is a STRICT SUPERSET of the one the disposition branches on', () => {
-        // This asymmetry is not an accident to be tidied away — it is the defect §MURCIA-CROSSTAB
-        // measured. Every prefix the disposition knows must be legally delegating…
-        for (const p of REMITTED_AMBITO_PREFIXES) {
-            expect(classify.DELEGATING_AMBITO_PREFIXES).toContain(p);
+    // §R-7-DELEGATION-PARITY — THIS TEST IS THE GATE, and it was inverted on purpose.
+    //
+    // It used to assert that the legal delegating set was a STRICT SUPERSET of what the disposition
+    // branched on, because that asymmetry WAS the defect §MURCIA-CROSSTAB measured: 13.09 pp of
+    // buildable land on which a signed pack would have published a general-plan number that the
+    // general plan expressly declines to supply, taking rendered coverage to 36.59 % — above the
+    // 33.00 % the PGOU orders directly.
+    //
+    // The disposition now applies the ámbito test in TWO exported sets (`REMITTED_AMBITO_PREFIXES`
+    // for *ordenación remitida*, which cites backwards to a convalidated plan, and
+    // `DELEGATING_AMBITO_PREFIXES` for UE/UD, which cite forwards to one not yet approved — the
+    // citation differs, so the sets stay separate). Their UNION must now equal the legal set exactly.
+    // A future prefix added to the crosstab's legal list but not to the shipping code re-opens R-7,
+    // and this test fails the moment it does.
+    it('the shipping delegation test now has PARITY with the legal set (R-7 closed)', () => {
+        const shipping = [...REMITTED_AMBITO_PREFIXES, ...DELEGATING_AMBITO_PREFIXES];
+        expect([...shipping].sort()).toEqual([...classify.DELEGATING_AMBITO_PREFIXES].sort());
+        // The two halves stay disjoint — a prefix in both would make the cited article ambiguous.
+        expect(REMITTED_AMBITO_PREFIXES.filter((p) => DELEGATING_AMBITO_PREFIXES.includes(p))).toEqual([]);
+        expect(DELEGATING_AMBITO_PREFIXES).toContain('UE');
+        expect(DELEGATING_AMBITO_PREFIXES).toContain('UD');
+    });
+
+    // The other two grounds the disposition gained are FUNCTIONS, not sets, so parity is asserted
+    // behaviourally against the crosstab's reviewed legal classification rather than by comparing
+    // lists. Any divergence would mean the measurement and the shipping behaviour disagree about
+    // which land is delegated — exactly the drift `classify.mjs` exists to prevent.
+    it('isPlanEspecialPrefix and isUrbanizableClase agree with the crosstab classification', () => {
+        for (const p of ['P', 'PERI', 'PU', 'PM', 'PI', 'PC', 'PP', 'PE', 'PAR', 'RD', 'UE', 'ZM', '']) {
+            expect(isPlanEspecialPrefix(p)).toBe(classify.isPlanEspecialPrefix(p));
         }
-        // …and the legal set must be strictly larger (UE = Unidad de Actuación, UD = Estudio de
-        // Detalle), or the measured over-publication finding would be stale.
-        expect(classify.DELEGATING_AMBITO_PREFIXES.length).toBeGreaterThan(REMITTED_AMBITO_PREFIXES.length);
-        expect(classify.DELEGATING_AMBITO_PREFIXES).toContain('UE');
-        expect(classify.DELEGATING_AMBITO_PREFIXES).toContain('UD');
+        for (const c of [
+            'Urbanizable', 'Urbanizable Sectorizado', 'urbanizable', 'No Urbanizable',
+            'no urbanizable protegido', 'Urbano', 'Urbano Consolidado', '',
+        ]) {
+            expect(isUrbanizableClase(c)).toBe(classify.isUrbanizable(c));
+        }
     });
 
     it('the denominator families are disjoint and every packed family is buildable', () => {

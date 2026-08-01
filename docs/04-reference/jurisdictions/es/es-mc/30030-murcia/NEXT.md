@@ -71,6 +71,25 @@ The tool reproduces the whole prior baseline from the live layers before computi
 which is what makes the new number quotable. Re-run it before quoting externally; these are live
 services.
 
+## 2.2 — ⭐ STATUS 2026-08-01 (late): **MURCIA RENDERS.** The 23.51 % is live, not pending
+
+Three things landed after §2.1 was written, in this order — the order is the point:
+
+1. **§MURCIA-GATE-BYPASS-REGRESSION (was LIVE).** SIG-MU1 flipped the gate to `true`, but the L5
+   dispatcher guarded on `if (!MURCIA_ENVELOPE_VERIFIED && resolution.ok)` — so the flip made the
+   whole disposition **unreachable** and every parcel fell to the generic `no-rule-pack` refusal.
+   The signature had made Murcia **strictly worse**: no envelope, *and* the 67 % delegated land lost
+   its cited `derived-plan` article. `murciaSiteDispatch.test.ts` was already RED on `main`.
+2. **R-7 CLOSED.** The disposition applied 1 of the PGOU's 4 delegation grounds; the *clase de
+   suelo* (Art. 6.2.2.3) and UE/UD/P\* (Arts. 5.25.1/5.25.2/5.26.2) tests are now in, above the
+   PGOU-direct block. Without this, rendering would have published on 13.09 pp of delegated land.
+3. **§MURCIA-ENVELOPE-RENDER built.** Measured end-to-end: `RL` on `Urbano` → inset **315.0 m²**,
+   **7 m**, 2 plantas, `estimated-ruleset`, every constraint citing Art. 5.14.3 verbatim.
+
+⇒ **§3's first two blockers below are DISCHARGED** (the signature; the L5 `envelope` branch), and
+the 🔴 `murciaEnvelopeDisposition` delegation-test blocker is **CLOSED**. The street-width blocker
+and the two 🟠 source-provenance blockers stand unchanged.
+
 ## 3 — BLOCKERS
 
 - 🔴 **Signature.** Transcription is a legal act. `sources/VERIFICATION.md` does not yet exist and

@@ -133,6 +133,51 @@ export function isInForce(
  */
 export const REMITTED_AMBITO_PREFIXES: readonly string[] = ['TA', 'TM', 'UA', 'UH', 'UM'];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// §R-7-DELEGATION-PARITY — the PGOU delegates on FOUR grounds; this file used to test ONE.
+//
+// `REMITTED_AMBITO_PREFIXES` above is the *ordenación remitida* chapter only. Measured against the
+// live layers (`tools/murcia-coverage-crosstab/`, `out-crosstab.json`), testing only that prefix set
+// would have published a general-plan number on **13.09 pp** of buildable land the general plan
+// expressly declines to order — taking rendered coverage to 36.59 %, ABOVE the 33.00 % the PGOU
+// orders directly. That is the *«proxy PGOU»* error this dossier exists to prevent, and it was
+// latent in our own dispatch (RISK-REGISTER §R-7).
+//
+// These two predicates close it. They mirror `delegationGround()` in the crosstab tool's
+// `classify.mjs`, which is the reviewed legal classification; the crosstab test pins the two
+// together so the measurement and the shipping behaviour cannot silently drift apart.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Ámbito prefixes that delegate WITHOUT being *ordenación remitida*:
+ * `UE` — Unidad de Actuación (Art. 5.25.1) · `UD` — Estudio de Detalle (Art. 5.25.2).
+ * Kept separate from `REMITTED_AMBITO_PREFIXES` because the citation differs: these delegate
+ * FORWARD to an instrument still to be approved, not BACK to a convalidated prior one.
+ */
+export const DELEGATING_AMBITO_PREFIXES: readonly string[] = ['UE', 'UD'];
+
+/**
+ * Planes Especiales / Parciales (Art. 5.26.2) — `PERI`, `PU`, `PM`, `PI`, `PC`, `PP`, `PE`…
+ * ⚠ `PAR` is excluded: it is a *parcela* code, not a plan ámbito.
+ */
+export function isPlanEspecialPrefix(prefix: string | null | undefined): boolean {
+    const p = String(prefix ?? '');
+    return /^P[A-Z]*$/.test(p) && p !== 'PAR';
+}
+
+/**
+ * Art. 6.2.2.3 — *suelo urbanizable* is ordered by its Plan Parcial, never by the general plan.
+ *
+ * ⚠ The negative guard is load-bearing: «suelo NO urbanizable» contains the word *urbanizable* and
+ * would match a naive test, wrongly delegating protected rural land (which the PGOU DOES order
+ * directly). Measured on the live layer, `clase_suelo` carries both strings.
+ */
+export function isUrbanizableClase(claseSuelo: string | null | undefined): boolean {
+    const s = String(claseSuelo ?? '');
+    if (/^\s*no\s+urbanizable/i.test(s)) return false;
+    return /urbanizable/i.test(s);
+}
+
 /** The generic calificación the remitted chapters use for residential land. */
 export const REMITTED_RESIDENTIAL_CALIFICACION = 'RR';
 
@@ -170,6 +215,16 @@ export type MurciaEnvelopeDisposition =
           readonly kind: 'envelope';
           readonly zone: ZoningRule;
           readonly classification: MurciaCalificacionClassification | null;
+          /**
+           * The code the pack actually MATCHED, which is not always the live calificación string:
+           * `RF1` resolves to `RF` and `IXT` to `IX` via the two allow-listed `PACKED_VARIANTS`.
+           *
+           * ⚠ LOAD-BEARING FOR THE RENDER PATH. `computeBuildableEnvelope` looks the zone up with
+           * `findZone(rulePack, zoning.zoneCode)`, so handing it the raw live string would silently
+           * find NO zone for a variant and fall through to a whole-parcel answer. Passing the
+           * matched code keeps the rendered envelope and the cited article the SAME zone.
+           */
+          readonly matchedCode: string;
           /**
            * ⚠ PRESENT ON PURPOSE, AND IT IS A SAFETY INTERLOCK, NOT A CONVENIENCE.
            *
@@ -312,6 +367,73 @@ export function murciaEnvelopeDisposition(
         };
     }
 
+    // ── §R-7-DELEGATION-PARITY — the OTHER three delegation grounds. ──
+    //
+    // ⚠ THIS BLOCK MUST STAY ABOVE THE PGOU-DIRECT BLOCK, for exactly the reason stated there:
+    // Arts. 5.25.3.3 / 5.26.3.3 reduce a zonal code's scope inside a delegating ámbito to use and
+    // typology, «pero no a los parámetros definitorios de la altura o edificabilidad». A packed
+    // calificación (RD, IX, RF…) sitting on urbanizable soil or inside a UE/UD/P* ámbito must
+    // therefore NOT be answered from its ordinance — and before this block existed, it was:
+    // `resolveMurciaPgouZone` matched the code and returned an `envelope` disposition.
+    //
+    // Ordered clase-first to match `delegationGround()` in the crosstab's `classify.mjs`, so the
+    // article this cites is the same one the measurement attributes the land to.
+    const claseSuelo = sectorFeature?.clase_suelo ?? null;
+    const delegated: { article: string; ground: string } | null =
+        isUrbanizableClase(claseSuelo)
+            ? {
+                  ground: 'clase-urbanizable',
+                  article:
+                      'PGOU de Murcia, Normas Urbanísticas, Art. 6.2.2.3 — el suelo urbanizable ' +
+                      'sectorizado se ordena mediante su Plan Parcial, no por el plan general',
+              }
+            : parsed &&
+                (DELEGATING_AMBITO_PREFIXES.includes(parsed.prefix) || isPlanEspecialPrefix(parsed.prefix))
+              ? {
+                    ground: 'ambito-delegante',
+                    article:
+                        'PGOU de Murcia, Normas Urbanísticas, ' +
+                        (parsed.prefix === 'UE'
+                            ? 'Art. 5.25.1 (Unidad de Actuación)'
+                            : parsed.prefix === 'UD'
+                              ? 'Art. 5.25.2 (Estudio de Detalle)'
+                              : 'Art. 5.26.2 (Planes Especiales / Parciales)') +
+                        '; y Arts. 5.25.3.3 / 5.26.3.3 — dentro del ámbito el código zonal alcanza ' +
+                        'sólo uso y tipología, «pero no a los parámetros definitorios de la altura o ' +
+                        'edificabilidad»',
+                }
+              : null;
+
+    if (delegated) {
+        return {
+            kind: 'refusal',
+            refusal: {
+                code: 'derived-plan',
+                headline:
+                    `${sector ? `Ámbito ${sector}` : 'This parcel'} — the PGOU does not set this ` +
+                    "parcel's height or buildability. It delegates them to a separate plan.",
+                detail:
+                    'PRYZM has identified the land and read the governing planning records live from ' +
+                    "Murcia's own municipal planning service. " +
+                    (delegated.ground === 'clase-urbanizable'
+                        ? 'This parcel is classified *suelo urbanizable*: Art. 6.2.2.3 orders it through ' +
+                          'the Plan Parcial of its sector, which is a separate instrument PRYZM does not hold. '
+                        : 'This parcel sits inside a delegating ámbito, whose conditions are fixed by an ' +
+                          'instrument developed under the general plan rather than by the general plan itself. ') +
+                    '⚠ A calificación code IS shown on the municipal plan for this land, and PRYZM has ' +
+                    'transcribed that code\'s ordinance — but Arts. 5.25.3.3 / 5.26.3.3 state that inside ' +
+                    'such an ámbito the code governs only use and typology, NOT height or buildability. ' +
+                    'Publishing this zone\'s general-plan figures here would cite a document that ' +
+                    'expressly declines to answer the question. ' +
+                    MURCIA_ROADMAP_LINE,
+                ordinanceRef: delegated.article,
+                // TRUE: the ordinance ANSWERED, and its answer was "that other document".
+                legallyGrounded: true,
+                knownFacts,
+            },
+        };
+    }
+
     // ── The PGOU-DIRECT case: Título 5 Caps. 2–23 fix this zone's conditions itself. ──
     //
     // ⚠ ORDER MATTERS AND IS LOAD-BEARING. This sits BELOW the remitted-ámbito gate on purpose:
@@ -333,6 +455,7 @@ export function murciaEnvelopeDisposition(
                 kind: 'envelope',
                 zone: pgou.zone,
                 classification: cls,
+                matchedCode: pgou.matchedCode,
                 reason:
                     `A signed PGOU envelope is available for calificación ${pgou.matchedCode}` +
                     `${cls ? ` (${cls.article})` : ''}, but the L5 dispatcher does not yet consume ` +

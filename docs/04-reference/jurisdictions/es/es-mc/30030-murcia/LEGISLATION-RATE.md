@@ -27,8 +27,15 @@ Murcia's own municipal GeoServer (`Murcia:pgou_alineaciones` + `Murcia:pgou_sect
 
 - **33.0 %** of private buildable land carries a transcribed, cited, article-quoted rule set
   (14 calificaciones, `rulepacks/esMurciaPgou2012.ts`).
-- **0 %** renders, because `MURCIA_ENVELOPE_VERIFIED = false`. Transcription is a legal act and
-  `sources/VERIFICATION.md` is unsigned (L-449).
+- **23.51 %** now RENDERS. ⚠ **UPDATED 2026-08-01 — this line previously read "0 % renders, because
+  `MURCIA_ENVELOPE_VERIFIED = false`".** Every part of that is now out of date: SIG-MU1 is signed,
+  the gate is `true`, R-7's delegation parity is closed, and the L5 render path
+  (§MURCIA-ENVELOPE-RENDER) is built and tested end-to-end through the real dispatcher.
+  **23.51 %** is lower than the 33.0 % authored because it counts only packed calificaciones that
+  *also* sit on **non-delegated** soil — measured by `tools/murcia-coverage-crosstab/`, run before
+  the signature so the number could not be flattered by it.
+- The remaining **9.5 pp** (33.0 − 23.51) is packed land the PGOU nonetheless delegates; it keeps a
+  cited `derived-plan` refusal and **no signature can lift it**.
 - **67.0 %** is unreachable by any transcription of this instrument — the general plan is the wrong
   document for that land, by its own articles.
 - The firm floor excluding the expressly *interim* `RL` regime (Art. 5.14.3) is **16.5 %**.

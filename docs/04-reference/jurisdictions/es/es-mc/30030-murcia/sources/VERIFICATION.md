@@ -62,12 +62,20 @@ determination; route it through the founder exactly as the flip was.
 
 ---
 
-## Sign-off status: **NOT SIGNED.** The pack is **REGISTERED and REACHABLE — and publishes nothing**
+> ⚠⚠ **STALE FROM HERE DOWN — SUPERSEDED BY SIG-MU1 ABOVE (2026-08-01).** Everything below was
+> written before the signature and still says the gate is `false`. It is kept for the audit trail,
+> because the *reasoning* about the two refusal shapes remains correct and load-bearing. **The
+> sign-off status line immediately below is NO LONGER TRUE:** `MURCIA_ENVELOPE_VERIFIED` is `true`
+> in `main`, and **Murcia now RENDERS** on the 23.51 % this signature authorises
+> (§MURCIA-ENVELOPE-RENDER; R-7 delegation parity closed first). The "publishes nothing" framing
+> below describes the pre-signature world only. Do not quote this section as current state.
+
+## ~~Sign-off status: **NOT SIGNED.**~~ (superseded) The pack is **REGISTERED and REACHABLE — and publishes nothing**
 
 | | |
 |---|---|
 | **Gate constant** | `MURCIA_ENVELOPE_VERIFIED` (`rulepacks/esMurciaEnvelope.ts`) |
-| **Value in `main`** | **`false`** — and it **stays** `false`. Only the founder flips it. |
+| **Value in `main`** | ~~**`false`**~~ → **`true`** since SIG-MU1 (2026-08-01). Only the founder flips it. |
 | **Registered?** | **YES, as of 2026-08-01** — `rulepacks/registry.ts` §MURCIA-PACK-REGISTERED, `packsByZone: packMap([ES_MURCIA_PGOU2012_PACK, MURCIA_PGOU2012_ZONE_CODES], [ES_MURCIA_PGOU2012_PACK, MURCIA_PGOU2012_VARIANT_ZONE_CODES])` — **14** calificaciones + **2** published sub-variants (`RF1`→RF, `IXT`→IX) |
 | **What a user sees today** | a **cited refusal on every Murcia parcel**, in one of two structurally different shapes (below). **No number, anywhere.** |
 | **Proven by** | `apps/editor/__tests__/murciaSiteDispatch.test.ts` (real `dispatchParcelBoundary`, fails if the `isInMurcia` branch is removed) + `packages/site-parcel-data/__tests__/murciaWiring.test.ts` §"REGISTRATION IS NOT AUTHORISATION" |

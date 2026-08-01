@@ -29,7 +29,7 @@ import {
     resolveMurciaPgouZone,
 } from '../src/rulepacks/esMurciaPgou2012.js';
 import { MURCIA_ENVELOPE_VERIFIED, MURCIA_JURISDICTION_ID } from '../src/rulepacks/esMurciaEnvelope.js';
-import { murciaEnvelopeDisposition } from '../src/providers/murciaZoningProvider.js';
+import { isUrbanizableClase, murciaEnvelopeDisposition } from '../src/providers/murciaZoningProvider.js';
 import { resolveMurciaZoning } from '../src/providers/resolveMurciaZoning.js';
 
 const ASOF = '2026-08-01';
@@ -338,7 +338,14 @@ describe('Murcia disposition — the pack is REACHABLE, and the delegation order
         expect(d.refusal.ordinanceRef).toContain('6.6.2');
     });
 
-    it('keeps the generic coverage refusal for a calificación nobody has classified', () => {
+    // §R-7-DELEGATION-PARITY — this case USED to assert the generic `no-rule-pack` coverage refusal,
+    // and that assertion was wrong about the law. Its own fixture is `clase_suelo: 'Urbanizable'`
+    // (categoría *Sectorizado*), which Art. 6.2.2.3 orders through a Plan Parcial, and its
+    // calificación `RX` is one of the eight *zonas genéricas* whose scope Arts. 5.25.3.3 / 5.26.3.3
+    // reduce to use and typology. So the PGOU expressly declines to fix this parcel's height and
+    // buildability — and answering "PRYZM holds no transcribed rule for it" attributed OUR gap to a
+    // question the ordinance had in fact answered. The refusal is now legally grounded and cited.
+    it('cites Art. 6.2.2.3 for urbanizable land instead of claiming a PRYZM coverage gap', () => {
         const d = murciaEnvelopeDisposition(
             { calificacion: 'RX', descripcion: 'Tipologías mixtas alineadas a vial (zona genérica)', uso_global: 'Residencial', sector: 'ZM-SV2', url: null, f_inicial: '2012-12-01', f_fin: '2999-12-30' },
             { sector: 'ZM-SV2', clase_suelo: 'Urbanizable', categoria: 'Urbanizable Sectorizado', uso_global: 'Residencial', pedania: null, superficie: null, f_inicial: '2012-12-01', f_fin: '2999-12-30' },
@@ -346,8 +353,79 @@ describe('Murcia disposition — the pack is REACHABLE, and the delegation order
         );
         expect(d.kind).toBe('refusal');
         if (d.kind !== 'refusal') return;
+        expect(d.refusal.code).toBe('derived-plan');
+        // The substantive claim: the ORDINANCE answered, and its answer was "that other document".
+        expect(d.refusal.legallyGrounded).toBe(true);
+        expect(d.refusal.ordinanceRef).toContain('6.2.2.3');
+    });
+
+    // The ORIGINAL intent of the case above, preserved with a fixture that genuinely is one: `RB` is
+    // PGOU-DIRECT (Título 5 orders it) but is NOT one of the 14 transcribed calificaciones, on
+    // `Urbano` soil, in an ámbito whose prefix delegates nothing. Here the coverage gap really is
+    // PRYZM's, so the refusal must stay `no-rule-pack` with NO ordinance citation — claiming a legal
+    // "no" on land the plan probably DOES allow building on is the opposite error, and the worse one.
+    it('keeps the generic coverage refusal for a calificación nobody has classified', () => {
+        const d = murciaEnvelopeDisposition(
+            { calificacion: 'RB', descripcion: 'Residencial en bloque abierto', uso_global: 'Residencial', sector: 'ZM-SV2', url: null, f_inicial: '2012-12-01', f_fin: '2999-12-30' },
+            { sector: 'ZM-SV2', clase_suelo: 'Urbano', categoria: 'Urbano Consolidado', uso_global: 'Residencial', pedania: null, superficie: null, f_inicial: '2012-12-01', f_fin: '2999-12-30' },
+            ASOF,
+        );
+        expect(d.kind).toBe('refusal');
+        if (d.kind !== 'refusal') return;
         expect(d.refusal.code).toBe('no-rule-pack');
+        expect(d.refusal.legallyGrounded).toBe(false);
         expect(d.refusal.ordinanceRef).toBeNull();
+    });
+
+    // §R-7-DELEGATION-PARITY — the case that was actually DANGEROUS, and the reason R-7 was a 🔴
+    // pre-signature blocker: a PACKED calificación (`RD`, one of the 14 transcribed zones) sitting on
+    // urbanizable soil. Before this fix `resolveMurciaPgouZone` matched the code and returned an
+    // `envelope` disposition, so with SIG-MU1 signed PRYZM would have published a general-plan number
+    // on land the general plan expressly declines to order — measured at 13.09 pp of buildable land,
+    // taking rendered coverage to 36.59 %, ABOVE the 33.00 % the PGOU orders directly.
+    it('REFUSES a packed calificación that sits on delegated soil, and never returns an envelope', () => {
+        const d = murciaEnvelopeDisposition(
+            { calificacion: 'RD', descripcion: 'Residencial unifamiliar', uso_global: 'Residencial', sector: 'ZM-SV2', url: null, f_inicial: '2012-12-01', f_fin: '2999-12-30' },
+            { sector: 'ZM-SV2', clase_suelo: 'Urbanizable', categoria: 'Urbanizable Sectorizado', uso_global: 'Residencial', pedania: null, superficie: null, f_inicial: '2012-12-01', f_fin: '2999-12-30' },
+            ASOF,
+            [],
+            true, // envelopeVerified — the post-signature world, exercised explicitly.
+        );
+        expect(d.kind).toBe('refusal');
+        if (d.kind !== 'refusal') return;
+        expect(d.refusal.code).toBe('derived-plan');
+        expect(d.refusal.legallyGrounded).toBe(true);
+        expect(d.refusal.ordinanceRef).toContain('6.2.2.3');
+    });
+
+    // The same guard on the OTHER new ground: a packed calificación inside a `UE` Unidad de
+    // Actuación (Art. 5.25.1). The ámbito delegates forward to an instrument not yet approved.
+    it('REFUSES a packed calificación inside a UE ámbito, citing Art. 5.25.1', () => {
+        const d = murciaEnvelopeDisposition(
+            { calificacion: 'RD', descripcion: 'Residencial unifamiliar', uso_global: 'Residencial', sector: 'UE-12', url: null, f_inicial: '2012-12-01', f_fin: '2999-12-30' },
+            { sector: 'UE-12', clase_suelo: 'Urbano', categoria: 'Urbano No Consolidado', uso_global: 'Residencial', pedania: null, superficie: null, f_inicial: '2012-12-01', f_fin: '2999-12-30' },
+            ASOF,
+            [],
+            true,
+        );
+        expect(d.kind).toBe('refusal');
+        if (d.kind !== 'refusal') return;
+        expect(d.refusal.code).toBe('derived-plan');
+        expect(d.refusal.legallyGrounded).toBe(true);
+        expect(d.refusal.ordinanceRef).toContain('5.25.1');
+    });
+
+    // ⚠ The negative guard on `isUrbanizableClase`, which is easy to get wrong and expensive if you
+    // do: «suelo NO urbanizable» CONTAINS the word *urbanizable*. A naive test would delegate
+    // protected rural land that the PGOU orders directly, manufacturing a legally-grounded refusal
+    // out of nothing — a fabricated legal claim, which is worse than a missing number.
+    it('does NOT treat "No Urbanizable" as delegated soil', () => {
+        expect(isUrbanizableClase('Urbanizable')).toBe(true);
+        expect(isUrbanizableClase('Urbanizable Sectorizado')).toBe(true);
+        expect(isUrbanizableClase('No Urbanizable')).toBe(false);
+        expect(isUrbanizableClase('  no urbanizable protegido')).toBe(false);
+        expect(isUrbanizableClase('Urbano')).toBe(false);
+        expect(isUrbanizableClase(null)).toBe(false);
     });
 });
 

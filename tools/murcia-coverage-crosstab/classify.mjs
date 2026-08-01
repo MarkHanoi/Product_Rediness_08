@@ -93,10 +93,23 @@ export function calificacionFamily(raw) {
 export const DELEGATING_AMBITO_PREFIXES = ['TA', 'TM', 'UA', 'UH', 'UM', 'UE', 'UD'];
 
 /**
- * The subset the SHIPPING code branches on — `REMITTED_AMBITO_PREFIXES` in
+ * The *ordenación remitida* subset — `REMITTED_AMBITO_PREFIXES` in
  * `packages/site-parcel-data/src/providers/murciaZoningProvider.ts`.
  *
- * ⚠ IT IS NARROWER THAN THE LEGAL SET ABOVE, AND THAT IS THE POINT OF MEASURING BOTH.
+ * ⚠ HISTORICAL NOTE, AND THE REASON `shippingBehaviour` IN `out-crosstab.json` IS STALE.
+ * This list used to be the ENTIRE delegation test the shipping code applied, and its narrowness
+ * versus `DELEGATING_AMBITO_PREFIXES` above WAS the finding: 13.09 pp of buildable land on which a
+ * signed pack would publish a general-plan number the plan declines to supply (RISK-REGISTER §R-7).
+ *
+ * **R-7 is now CLOSED** (§R-7-DELEGATION-PARITY): `murciaEnvelopeDisposition` additionally applies
+ * the *clase de suelo* test (Art. 6.2.2.3) and the UE / UD / P* ámbito tests (Arts. 5.25.1 / 5.25.2 /
+ * 5.26.2), so the shipping delegation test now has PARITY with the legal set. A test in
+ * `__tests__/murciaCoverageCrosstab.test.ts` pins that parity and fails if it regresses.
+ *
+ * ⇒ The `shippingBehaviour.wouldRenderOnSignature_pct = 36.59` recorded in the committed
+ * `out-crosstab.json` describes the PRE-FIX code and must NOT be quoted as current. Re-run the tool
+ * against the live layers to regenerate it; the expected post-fix value is the
+ * `intersection.packedAndDirect` figure (23.51 %), which is what SIG-MU1 authorises.
  */
 export const CODE_REMITTED_PREFIXES = ['TA', 'TM', 'UA', 'UH', 'UM'];
 

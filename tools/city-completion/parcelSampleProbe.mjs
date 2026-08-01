@@ -101,6 +101,16 @@ export const CITY_BOARD = [
         bbox: [-4.85, 37.84, -4.72, 37.94], adapter: 'catastro', providerId: 'catastro', kind: 'cadastral',
     },
     {
+        // L-662 AGAIN, one city over: València is the FIFTH Spanish close-out city and was absent
+        // from this board, so `computeScorecard --cities …,valencia` did not merely score it low —
+        // it THREW ("not on the CITY_BOARD"), making the five-city verdict unrunnable as one command.
+        // Absence from the board is indistinguishable from a city nobody tackled; València is tackled
+        // (terrain row + national Catastro routing + baked `spain` context — see its NEXT.md §4).
+        // bbox is the canonical `tools/context-bake/terrain.mjs` REGIONS row — never re-invented.
+        city: 'valencia', jurisdictionId: 'es-vc-46250-valencia', cc: 'es', regionKey: 'valencia',
+        bbox: [-0.43, 39.40, -0.30, 39.52], adapter: 'catastro', providerId: 'catastro', kind: 'cadastral',
+    },
+    {
         city: 'paris', jurisdictionId: 'fr-idf-75056-paris', cc: 'fr', regionKey: 'paris',
         bbox: [2.22, 48.80, 2.47, 48.91], adapter: 'ign-fr', providerId: 'ign-fr', kind: 'cadastral',
     },

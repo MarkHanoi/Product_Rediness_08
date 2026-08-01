@@ -250,3 +250,160 @@ describe('§MURCIA-ENVELOPE — a click on the founder\'s Murcia parcel reaches 
         expect(envelope!.refusal!.legallyGrounded).toBe(false);
     });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════════════════
+// §MURCIA-ENVELOPE-RENDER — the OTHER half: land the PGOU orders DIRECTLY must now DRAW.
+//
+// Everything above pins a refusal. That was the whole story while the pack was unsigned, and it is
+// still the story for the ~67 % of Murcia the plan delegates. But SIG-MU1 authorises publication on
+// the measured 23.51 % where a transcribed calificación meets non-delegated soil, and a suite that
+// only ever asserts "no number" cannot tell a working render path from a dead one — the exact blind
+// spot that let the gate flip ship while the dispatcher rendered nothing.
+//
+// `RL` on `Urbano` is deliberately the fixture: at 12.381 M m² it is the single largest
+// calificación × clase cell in the whole city (`tools/murcia-coverage-crosstab/out-crosstab.json`),
+// so it is the land this signature is mostly ABOUT.
+// ══════════════════════════════════════════════════════════════════════════════════════════
+
+/** `RL` — Agrupaciones Lineales Residenciales, PGOU Art. 5.14.3. PGOU-DIRECT, packed, signed. */
+const RL_CAL_FEATURE = {
+    type: 'Feature',
+    properties: {
+        calificacion: 'RL',
+        descripcion: 'Agrupaciones Lineales Residenciales',
+        uso_global: 'Residencial',
+        sector: 'ZM-SV1',
+        url: 'RL.pdf',
+        f_inicial: '2012-12-01Z',
+        f_fin: '2999-12-30Z',
+    },
+};
+
+/** Urbano soil in a non-delegating ámbito — the PGOU orders this land itself. */
+const RL_SECTOR_URBANO = {
+    type: 'Feature',
+    properties: {
+        sector: 'ZM-SV1',
+        clase_suelo: 'Urbano',
+        categoria: 'Urbano Consolidado',
+        uso_global: 'Residencial',
+        pedania: 'CHURRA',
+        superficie: 12000,
+        f_inicial: '2012-12-01Z',
+        f_fin: '2999-12-30Z',
+    },
+};
+
+describe('§MURCIA-ENVELOPE-RENDER — PGOU-direct land draws a signed envelope', () => {
+    let realFetch: typeof globalThis.fetch;
+    beforeEach(() => { realFetch = globalThis.fetch; });
+    afterEach(() => { globalThis.fetch = realFetch; vi.restoreAllMocks(); });
+
+    it('RENDERS the transcribed Art. 5.14.3 numbers — the 23.51 % SIG-MU1 authorises', async () => {
+        const { store, envelope } = await dispatchMurcia({
+            calificaciones: [RL_CAL_FEATURE],
+            sectores: [RL_SECTOR_URBANO],
+        });
+
+        expect(envelope).not.toBeNull();
+        // THE ASSERTION THIS WHOLE SUITE WAS MISSING: a number actually reaches the user.
+        expect(envelope!.status).toBe('ok');
+        expect(envelope!.zoneCode).toBe('RL');
+        // Art. 5.14.3 verbatim: «la altura máxima será de 2 plantas (7 metros)» and FAR 0,25 m²/m².
+        expect(envelope!.maxHeight_m).toBe(7);
+        expect(envelope!.maxFloors).toBe(2);
+        // ⚠ THE TIER IS PART OF THE AUTHORISATION, not a detail. SIG-MU1 authorises publication at
+        // `estimated-ruleset` and states `authoritative` is UNREACHABLE. A future change that
+        // promotes this would publish beyond what a human signed.
+        expect(envelope!.confidence).toBe('estimated-ruleset');
+        // The setback triple 5 / 7,5 / 5 consumed real area off a 30 × 31 m plot, so a massing
+        // volume can genuinely be built from this answer (the inverse of the refusal tests above).
+        expect(envelope!.insetPolygon.length).toBeGreaterThan(2);
+        expect(envelope!.insetAreaM2).toBeGreaterThan(0);
+        expect(envelope!.insetAreaM2).toBeLessThan(30 * 31);
+        // …and it reaches the persisted C19 Parcel, which is what the renderers read.
+        const site = store.getSite()!;
+        expect(site.parcel.zoning.category).toBe('RL');
+        expect(site.parcel.zoning.jurisdictionRef).toBe('murcia-pgou');
+        expect(site.parcel.maxHeight).toBe(7);
+        expect(site.parcel.buildableRing).not.toBeNull();
+    });
+
+    // ⚠ The citation is NOT a single top-level field on `BuildableEnvelope` — C58 §1.3 puts an
+    // `ordinanceRef` on EVERY `derivation` entry, so each constraint cites the article that produced
+    // that specific number rather than the whole envelope pointing at one document. Assert it there,
+    // per constraint, which is the stricter property: an uncited number cannot hide behind a cited
+    // sibling.
+    it('cites the ordinance on EVERY derived constraint — an uncited number is not publishable', async () => {
+        const { envelope } = await dispatchMurcia({
+            calificaciones: [RL_CAL_FEATURE],
+            sectores: [RL_SECTOR_URBANO],
+        });
+        expect(envelope!.derivation.length).toBeGreaterThan(0);
+        for (const d of envelope!.derivation) {
+            expect(d.ordinanceRef, `constraint ${d.constraint} carries no citation`).toBeTruthy();
+            expect(d.ordinanceRef!).toContain('Art. 5.14.3');
+            expect(d.ordinanceRef!).toContain('Texto Refundido diciembre 2012');
+            // A verbatim quote, not a paraphrase — the standard every Murcia zone is held to.
+            expect(d.ordinanceRef!).toContain('«');
+            expect(d.zoneCode).toBe('RL');
+        }
+        // The setback triple 5 / 7,5 / 5 must each be present and attributed, not just the height.
+        const byConstraint = new Map(envelope!.derivation.map((d) => [d.constraint, d.value]));
+        expect(byConstraint.get('setback.front')).toBe(5);
+        expect(byConstraint.get('setback.side')).toBe(7.5);
+        expect(byConstraint.get('setback.rear')).toBe(5);
+    });
+
+    // ⚠ R-7 IN THE REAL DISPATCHER, not in a unit test of the disposition. Same calificación, same
+    // pack, same signature — only the soil differs. Before §R-7-DELEGATION-PARITY this rendered
+    // Art. 5.14.3's numbers on land Art. 6.2.2.3 hands to a Plan Parcial, which is the «proxy PGOU»
+    // error a competitor made on the founder's own parcel. Measured exposure: 13.09 pp of buildable
+    // land, taking rendered coverage to 36.59 % — ABOVE the 33.00 % the PGOU orders directly.
+    it('REFUSES the identical calificación on urbanizable soil, and draws nothing', async () => {
+        const { store, envelope } = await dispatchMurcia({
+            calificaciones: [RL_CAL_FEATURE],
+            sectores: [{
+                ...RL_SECTOR_URBANO,
+                properties: {
+                    ...RL_SECTOR_URBANO.properties,
+                    clase_suelo: 'Urbanizable',
+                    categoria: 'Urbanizable Sectorizado',
+                },
+            }],
+        });
+        expect(envelope!.status).toBe('none');
+        expect(envelope!.refusal!.code).toBe('derived-plan');
+        // The ORDINANCE answered — this is a statement about the law, not about our coverage.
+        expect(envelope!.refusal!.legallyGrounded).toBe(true);
+        expect(envelope!.refusal!.ordinanceRef).toContain('6.2.2.3');
+        // Not one transcribed number leaks onto the card or the parcel.
+        expect(envelope!.maxHeight_m).toBeNull();
+        expect(envelope!.insetPolygon).toEqual([]);
+        expect(store.getSite()!.parcel.maxHeight).toBeNull();
+        expect(store.getSite()!.parcel.buildableRing).toBeNull();
+        const prose = `${envelope!.refusal!.headline} ${envelope!.refusal!.detail}`;
+        expect(prose).not.toMatch(/\b0[,.]25\b/);
+        expect(prose).not.toMatch(/\b7 metros\b/);
+    });
+
+    // The same guard on the ámbito ground (Art. 5.25.1), so both new R-7 branches are covered
+    // end-to-end and neither can regress silently.
+    it('REFUSES the identical calificación inside a UE ámbito', async () => {
+        const { envelope } = await dispatchMurcia({
+            calificaciones: [{
+                ...RL_CAL_FEATURE,
+                properties: { ...RL_CAL_FEATURE.properties, sector: 'UE-12' },
+            }],
+            sectores: [{
+                ...RL_SECTOR_URBANO,
+                properties: { ...RL_SECTOR_URBANO.properties, sector: 'UE-12' },
+            }],
+        });
+        expect(envelope!.status).toBe('none');
+        expect(envelope!.refusal!.code).toBe('derived-plan');
+        expect(envelope!.refusal!.legallyGrounded).toBe(true);
+        expect(envelope!.refusal!.ordinanceRef).toContain('5.25.1');
+        expect(envelope!.maxHeight_m).toBeNull();
+    });
+});

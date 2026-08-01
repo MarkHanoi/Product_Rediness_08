@@ -188,7 +188,15 @@ import {
     // ORDINANCE'S OWN answer (`derived-plan`, `legallyGrounded: true`), citing PGOU Arts. 6.6.2 /
     // 5.24.5.1 and naming the expediente of the instrument the user must obtain.
     isInMurcia,
-    MURCIA_ENVELOPE_VERIFIED,
+    // §MURCIA-GATE-BYPASS-REGRESSION — `MURCIA_ENVELOPE_VERIFIED` is deliberately NOT imported here
+    // any more. This dispatcher used to branch on it directly, and that is precisely how flipping it
+    // silently skipped the whole disposition. The gate belongs to ONE decision point —
+    // `murciaEnvelopeDisposition`, which reads it as a default parameter — so there is exactly one
+    // place where "may PRYZM publish?" is answered. Re-importing it to add a second test here would
+    // reintroduce the defect.
+    MURCIA_ROADMAP_LINE,
+    MURCIA_JURISDICTION_ID,
+    ES_MURCIA_PGOU2012_PACK,
     murciaEnvelopeDisposition,
     murciaNoRulePackRefusal,
     detectDerivedPlanMarkers,
@@ -3551,17 +3559,122 @@ async function applyMurciaZoningThenFallback(
             parcelAreaM2 !== null ? `Parcel area: ${Math.round(parcelAreaM2).toLocaleString()} m²` : null,
         ].filter((s): s is string => typeof s === 'string');
 
-        // ⚠⚠⚠ THE HONESTY GATE. No transcribed, human-signed Murcia instrument exists, so there is
-        // no compute branch to reach — and there must not be one authored without the sign-off
-        // (`sources/VERIFICATION.md`, a founder act). Stated explicitly so the absence is a DECISION
-        // in the code, not an oversight a later agent "fixes" with a zone-table figure.
-        if (!MURCIA_ENVELOPE_VERIFIED && resolution.ok) {
+        // ⚠⚠⚠ THE HONESTY GATE.
+        //
+        // §MURCIA-GATE-BYPASS-REGRESSION — this condition used to read
+        // `if (!MURCIA_ENVELOPE_VERIFIED && resolution.ok)`, and that was a LIVE DEFECT the moment
+        // SIG-MU1 flipped the constant to `true` (2026-08-01): the whole disposition block became
+        // unreachable, so every Murcia parcel fell through to the generic `no-rule-pack` coverage
+        // refusal below. The signature therefore made Murcia STRICTLY WORSE — it did not publish a
+        // single envelope (the dispatcher still cannot consume one), and it DISCARDED the cited,
+        // `legallyGrounded: true` `derived-plan` refusal that the 67 % delegated land had before,
+        // replacing it with an untrue statement about our own coverage ("PRYZM holds no transcribed
+        // rule") on a city where PRYZM holds a signed 14-zone pack.
+        //
+        // ⚠ The interlock that was supposed to prevent exactly this lives INSIDE the disposition
+        // (the `reason` field on the `envelope` branch), so it could never fire while the guard that
+        // skipped it lived out here. An interlock downstream of the branch that bypasses it is not
+        // an interlock. The gate now governs what we may PUBLISH, never whether we may READ the law.
+        if (resolution.ok) {
             const disposition = murciaEnvelopeDisposition(
                 resolution.records.calificacion,
                 resolution.records.sector,
                 asOf,
                 derivedPlans,
             );
+            // §MURCIA-ENVELOPE-RENDER (SIG-MU1) — the pack is SIGNED and R-7's delegation parity is
+            // closed, so this branch is reached ONLY on genuinely PGOU-direct, packed land: the
+            // measured 23.51 % of Murcia's buildable land the signature authorises.
+            //
+            // ⚠ WHY IT IS SAFE TO RENDER HERE, AND ONLY HERE. Everything that must be true has
+            // already been established ABOVE this line, by the disposition, in the plan's own
+            // precedence: the records are in force, the ámbito is not *ordenación remitida*, the
+            // soil is not urbanizable, the ámbito is not UE/UD/P*, and the calificación matched the
+            // transcribed allow-list. Re-testing any of that here would create a second, driftable
+            // statement of the safety property — the L-422/457/467/469 failure family. The
+            // disposition is the ONE decision point; this branch only draws what it decided.
+            //
+            // ⚠ TIER. `ZoningRulesEngine` assigns `estimated-ruleset`, which is EXACTLY what SIG-MU1
+            // authorises and no more ("`authoritative` is UNREACHABLE — a constructed determination
+            // is capped at 0.70 on ENVELOPE"). Do not raise it here.
+            if (disposition.kind === 'envelope') {
+                const cls = disposition.classification;
+                // The MATCHED pack code, never the raw live string: `RF1`→`RF`, `IXT`→`IX`. Handing
+                // the raw variant to the engine would find no zone and silently answer whole-parcel.
+                const zoneCode = disposition.matchedCode;
+                const record: ZoningRecord = {
+                    zoneCode,
+                    zoneLabel: cls?.label ?? disposition.zone.label ?? null,
+                    jurisdictionId: MURCIA_JURISDICTION_ID,
+                    // Murcia's WFS publishes NO numeric buildable parameter (verified against the
+                    // DescribeFeatureType schemas). Every number comes from the transcribed pack, so
+                    // there is nothing structured to pass and inventing a field here would launder a
+                    // pack value into a "published by the municipality" one.
+                    structuredFields: {},
+                    overlays: [],
+                    ordinanceRef: disposition.zone.ordinanceRef ?? null,
+                    provenance: {
+                        source: 'murcia-pgou-tr-2012',
+                        label:
+                            'PGOU de Murcia, Normas Urbanísticas, Texto Refundido diciembre 2012 ' +
+                            '(Vol. 11) — transcribed, human-signed SIG-MU1',
+                        version: '2012-12',
+                        license: null,
+                        crs: 'EPSG:4326',
+                    },
+                };
+                const envelope = computeBuildableEnvelope({
+                    parcelRing: boundary.polygon,
+                    edgeClassifications: boundary.edgeClassifications,
+                    zoning: record,
+                    rulePack: ES_MURCIA_PGOU2012_PACK,
+                });
+                if (envelope.status === 'ok') {
+                    dispatchEnvelope(ctx, site.id, envelope, JURISDICTION_REF);
+                    console.log(
+                        `${TAG} PGOU-direct packed calificación=${resolution.records.calificacion?.calificacion ?? 'n/a'} ` +
+                            `→ pack zone ${zoneCode} (${cls?.article ?? 'n/a'}) — RENDERED a signed envelope ` +
+                            `at ${envelope.confidence ?? 'n/a'}. area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m².`,
+                    );
+                    return;
+                }
+                // The transcribed rule leaves no buildable footprint on THIS parcel (a plot smaller
+                // than the zone's setbacks allow). A cited refusal is the honest answer; the
+                // estimated triple would over-state it, and a whole-parcel fallback would ignore the
+                // ordinance we just read.
+                dispatchEnvelope(
+                    ctx,
+                    site.id,
+                    buildRefusedEnvelope(
+                        zoneCode,
+                        {
+                            code: 'source-data-unavailable',
+                            headline:
+                                `${zoneCode}${cls ? ` — ${cls.label}` : ''}: the PGOU's own conditions ` +
+                                'leave no buildable footprint on this parcel.',
+                            detail:
+                                'This land is ordered directly by the general plan' +
+                                (cls ? ` (${cls.article})` : '') +
+                                ', and PRYZM applied that transcribed, human-signed ordinance to your ' +
+                                'parcel boundary. The resulting footprint is empty — typically a plot ' +
+                                'narrower than the zone\'s setbacks permit. PRYZM will not substitute an ' +
+                                'estimated figure to avoid showing an empty result. ' +
+                                MURCIA_ROADMAP_LINE,
+                            ordinanceRef: disposition.zone.ordinanceRef ?? null,
+                            // FALSE: the ordinance answers; this is a fact about THIS parcel's shape.
+                            legallyGrounded: false,
+                            knownFacts,
+                        },
+                        'none',
+                    ),
+                    JURISDICTION_REF,
+                );
+                console.log(
+                    `${TAG} PGOU-direct packed zone ${zoneCode} produced status=${envelope.status} — ` +
+                        `dispatched the empty-footprint refusal. NO number rendered.`,
+                );
+                return;
+            }
             if (disposition.kind === 'refusal') {
                 const zoneCode =
                     resolution.records.calificacion?.calificacion ??

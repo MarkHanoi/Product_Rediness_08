@@ -933,10 +933,15 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
     // parameter with its article and a verbatim quote. Registering those codes makes the pack
     // REACHABLE (and therefore SIGNABLE, and visible to the C60 coverage probe via
     // `registeredPackZoneCodes`); it publishes nothing, because:
-    //   (a) `MURCIA_ENVELOPE_VERIFIED === false`, and
-    //   (b) the L5 Murcia dispatch answers from `murciaEnvelopeDisposition`, which refuses every
-    //       parcel — with the CITED article for PGOU-direct land — before this table is consulted.
-    // Same posture, and same precedent, as Córdoba's registered-but-gated OCR pack above.
+    //   (a) ⚠ UPDATED 2026-08-01 — `MURCIA_ENVELOPE_VERIFIED` is now **`true`** (SIG-MU1). This
+    //       clause used to read `=== false` and was the reason the pack published nothing; it is no
+    //       longer the reason. See (b).
+    //   (b) the L5 Murcia dispatch answers from `murciaEnvelopeDisposition` before this table is
+    //       consulted. Post-signature that disposition RENDERS on PGOU-direct packed land
+    //       (§MURCIA-ENVELOPE-RENDER — the measured 23.51 % of buildable land SIG-MU1 authorises)
+    //       and refuses, cited, everywhere else.
+    // ⚠ SO MURCIA IS NO LONGER "REGISTERED BUT PUBLISHING NOTHING" — unlike Córdoba above, whose
+    // pack remains gated. Do not read the two as the same posture any more.
     //
     // ⚠⚠ THE ORDER INSIDE `murciaEnvelopeDisposition` IS THE SAFETY PROPERTY, NOT THIS TABLE. Arts.
     // 5.25.3.3 / 5.26.3.3: inside a delegating ámbito a zonal code governs use and typology but NOT

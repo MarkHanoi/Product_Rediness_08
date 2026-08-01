@@ -295,6 +295,9 @@ export const REGION_SOURCE = {
   spain: 'mds_edificacion',
   barcelona: 'mds_edificacion', madrid: 'mds_edificacion', cordoba: 'mds_edificacion', valencia: 'mds_edificacion',
   sevilla: 'mds_edificacion', malaga: 'mds_edificacion', zaragoza: 'mds_edificacion', bilbao: 'mds_edificacion',
+  // §MURCIA-HEIGHT-STAMP-GAP — MDS Edificación is a NATIONAL raster (one EPSG:3042 grid over all of
+  // Spain), so Murcia was always source-capable; it was simply never declared. See MDS_CITY_BBOXES.
+  murcia: 'mds_edificacion',
   // NL — 3DBAG (BAG × AHN LiDAR) = REAL MEASURED roof height (`tagged`), national coverage. Like
   // Spain's MDS, heights are sampled per bbox: a CITY bbox resolves exactly; the whole-country
   // `netherlands` bbox is refused per-tile (the 3DBAG `items` API is paginated — a 4°×3° scan would
@@ -363,16 +366,45 @@ export const REGION_SOURCE = {
 //     cd tools/context-bake && node bake.mjs --layer buildings
 //     # then upload out/buildings.pmtiles to R2 (see tools/context-bake/README §Upload)
 // then re-probe each city's baked heightProvenance histogram (the dossier HEIGHT.md H1 step).
+// ⚠⚠ §BAKED-FLAG-IS-NOT-EVIDENCE (2026-08-01) — the `baked` field below is INERT METADATA. Nothing
+// reads it (`git grep '\.baked'` → no call sites), so it can only ever be a claim, and on 2026-08-01
+// it was a FALSE one: barcelona and cordoba were marked `baked: true` / "SHIPPED" while the shipped
+// R2 tiles carried ZERO measured heights for either city.
+//
+// MEASURED, not inferred — `tools/context-height-probe/probe.mjs` reads the SAME bytes the browser
+// reads (verdict `unmeasured` = footprints exist, none carry the measured marker):
+//   barcelona 0 measured-lidar of 6,306 (tagged 55 · derived-levels 4,124 · assumed 2,127)
+//   cordoba   0 measured-lidar of 5,409 (tagged 17 · derived-levels 2,944 · assumed 2,448)
+//   madrid    0 of 6,266 · valencia 0 of 5,466 · murcia 0 of 3,012 (96.1 % fabricated 9 m)
+//
+// WHY: the two defects that stopped the join from ever producing a height — L-658 (the joins crashed
+// silently; a green bake shipped 0 measured heights) and L-659 (the whole-Spain join OOM'd) — were
+// BOTH fixed on 2026-08-01, and no buildings re-bake has been dispatched since. So every row here is
+// `baked: false` until a probe says otherwise. Barcelona's 55 `tagged` are OSM-surveyed heights, not
+// MDS samples — the 0.9 % L-582 measured on the pre-MDS tiles, unchanged.
+//
+// ⇒ FLIP A ROW TO `true` ONLY ON A PROBE OF THE SHIPPED TILES, never on "the bake went green"
+// (§SIZE-IS-NOT-PROVENANCE — a green bake is exactly what L-658 produced while shipping nothing).
 export const MDS_CITY_BBOXES = [
-  // city        refcat    [w, s, e, n] (WGS84, osmium/-b order)          baked?
-  { city: 'barcelona', refcat: '08019', bbox: [2.05, 41.32, 2.24, 41.47],   baked: true },   // reference — SHIPPED
-  { city: 'cordoba',   refcat: '14021', bbox: [-4.85, 37.83, -4.72, 37.93], baked: true },   // reference — Córdoba pilot
+  // city        refcat    [w, s, e, n] (WGS84, osmium/-b order)          baked? (probe-verified only)
+  { city: 'barcelona', refcat: '08019', bbox: [2.05, 41.32, 2.24, 41.47],   baked: false },  // probed 2026-08-01: 0 measured
+  { city: 'cordoba',   refcat: '14021', bbox: [-4.85, 37.83, -4.72, 37.93], baked: false },  // probed 2026-08-01: 0 measured
   { city: 'madrid',    refcat: '28079', bbox: [-3.80, 40.33, -3.60, 40.52], baked: false },  // PHASE-4
   { city: 'valencia',  refcat: '46250', bbox: [-0.42, 39.42, -0.30, 39.52], baked: false },  // PHASE-4
   { city: 'sevilla',   refcat: '41091', bbox: [-6.03, 37.32, -5.90, 37.43], baked: false },  // PHASE-4
   { city: 'malaga',    refcat: '29067', bbox: [-4.50, 36.66, -4.35, 36.76], baked: false },  // PHASE-4
   { city: 'zaragoza',  refcat: '50297', bbox: [-0.95, 41.60, -0.80, 41.70], baked: false },  // PHASE-4
   { city: 'bilbao',    refcat: '48020', bbox: [-2.98, 43.22, -2.88, 43.29], baked: false },  // PHASE-4
+  // §MURCIA-HEIGHT-STAMP-GAP — Murcia was MISSING from this list while being one of the five Spanish
+  // cities under active close-out, and the omission was SILENT: this list is BOTH the `priorityBboxes`
+  // (stamped first) AND the `retainBboxes` working set (bake.mjs stampBboxesFor → §HEIGHT-STAMP-BUDGET,
+  // L-659). A city absent from it is not merely de-prioritised — its footprints stream straight through
+  // the join with their ORIGINAL OSM tags and can NEVER be stamped, so Murcia would have measured
+  // ZERO heights after a re-bake while the bake reported a green §MEASURED-HEIGHT-GATE for `spain`.
+  // Its own dossier named the gap ("confirm/add the per-city MDS join" — es-mc/30030-murcia/HEIGHT.md).
+  // bbox = the canonical `terrain.mjs` REGIONS `murcia` row, NOT re-invented (0.14°×0.12°, well under
+  // the 0.7° whole-country refusal guard in fetchSpainBuildingHeights).
+  { city: 'murcia',    refcat: '30030', bbox: [-1.2007, 37.9322, -1.0607, 38.0522], baked: false }, // PHASE-4
 ];
 
 // §JOIN-BOUNDED-WORKING-SET (L-659) — the DK analogue of MDS_CITY_BBOXES, and NOT optional.
