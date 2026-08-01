@@ -76,6 +76,15 @@ import { SIU_CLASSIFICATION_PATH, siuClassificationHandler } from './server/siuC
 // §MADRID-CONDICIONES-PROXY (L-608) — the Madrid PGOUM-97 NZ 1 buildable-footprint (explicit-area)
 // same-origin lookup. Client consumer: @pryzm/site-parcel-data → resolveMadridNZ1Ring.
 import { MADRID_CONDICIONES_PATH, madridCondicionesHandler } from './server/madridCondicionesProxy.js';
+// §MADRID-NORMAS-ZONALES-PROXY — the Madrid PGOUM-97 **zone-code** lookup (parcel point → Norma
+// Zonal `AMB_TX_ETIQ`). A SECOND Madrid service, not a flag on the first: the condiciones plane
+// answers "what footprint?", this one answers "which Norma Zonal?" — and `SOURCES.md` §0.3 states
+// the grado must be taken from `NORMAS_ZONALES.AMB_TX_ETIQ`, never from `COND_EDIF`.
+// Client consumer: @pryzm/site-parcel-data → resolveMadridNormaZonal.
+import {
+    MADRID_NORMAS_ZONALES_PATH,
+    madridNormasZonalesHandler,
+} from './server/madridNormasZonalesProxy.js';
 // §NL-BESTEMMINGSPLAN-PROXY (L-609 / §NL-NATIONWIDE) — the Netherlands bestemmingsplan bouwvlak +
 // maatvoering lookup, NATIONWIDE + KEYLESS via the PDOK "Ruimtelijke plannen" WMS (GetFeatureInfo).
 // Client consumer: @pryzm/site-parcel-data → resolveNlBestemmingsplan.
@@ -503,6 +512,10 @@ app.get(SIU_CLASSIFICATION_PATH, apiLimiter, siuClassificationHandler);
 // upstream OK → 200 { features }, upstream failure → 502 (distinct from an empty answer, so the
 // client returns endpoint-unreachable, never no-feature).
 app.get(MADRID_CONDICIONES_PATH, apiLimiter, madridCondicionesHandler);
+// §MADRID-NORMAS-ZONALES-PROXY — GET /api/madrid/normas-zonales?lat=&lon= → { features } carrying
+// AMB_TX_ETIQ (one of the 34 live Norma-Zonal codes) + AMB_TX_DENOM. Same honesty split as the
+// condiciones proxy: upstream OK incl. genuinely zero features → 200, upstream failure → 502.
+app.get(MADRID_NORMAS_ZONALES_PATH, apiLimiter, madridNormasZonalesHandler);
 // §NL-BESTEMMINGSPLAN-PROXY — GET /api/nl/bestemmingsplan?lat=&lon= → { plan, bestemmingsvlak,
 // bouwvlak, maatvoeringen } (keyless PDOK RP WMS, governing-plan picked). Empty → { plan: null };
 // upstream failure → 502 (distinct from empty, so the client returns endpoint-unreachable). Never crashes.

@@ -1092,7 +1092,62 @@ export function madridPgoum97UnverifiedRefusal(
     }
 }
 
-// ─── WIRING TODO (ORCHESTRATOR ONLY — an implementer agent must not do any of this) ──────────────
+/**
+ * THE MADRID COVERAGE-GAP REFUSAL — for a live `AMB_TX_ETIQ` code that is in **none** of the three
+ * families PRYZM holds (NZ 1's `1.*`, NZ 3's `3.*`, and this pack's 23).
+ *
+ * ⚠ THIS IS NOT A HYPOTHETICAL BRANCH. `sources/SOURCES.md` §0.3 records that **Normas Zonales 2, 6,
+ * 10 and 11 are absent from `AMB_TX_ETIQ`** and that the cause is UNDETERMINED between three
+ * candidates — one of which, candidate (c), is *"parcels exist that route nowhere"*. If such a parcel
+ * exists, it lands here. Answering it with `madridNZ1Refusal` (which explains NZ 1's *Fondo de la
+ * Edificación*) would be a confident mis-citation of a zone the parcel is not in — the failure the
+ * whole jurisdiction layer exists to prevent.
+ *
+ * `code: 'no-rule-pack'` and `legallyGrounded: false`: this is a statement about PRYZM's coverage,
+ * never about the ordinance. Madrid's Título 8 almost certainly DOES grant this parcel an envelope;
+ * we simply have not transcribed its chapter.
+ *
+ * P8 — emits `pryzm.zoning.es.madrid.unknownZoneRefusal`.
+ */
+export function madridUnknownZoneRefusal(
+    zoneCode?: string | null,
+    zoneLabel?: string | null,
+    knownFacts: readonly string[] = [],
+): EnvelopeRefusal {
+    const span = tracer.startSpan('pryzm.zoning.es.madrid.unknownZoneRefusal');
+    try {
+        const code = zoneCode && zoneCode.trim() !== '' ? zoneCode.trim() : null;
+        if (code) span.setAttribute('pryzm.madrid.zoneCode', code);
+        const named =
+            zoneLabel && zoneLabel.trim() !== ''
+                ? `${zoneLabel.trim()}${code ? ` (${code})` : ''}`
+                : code
+                  ? `Madrid Norma Zonal ${code}`
+                  : 'This Madrid parcel';
+        return {
+            code: 'no-rule-pack',
+            headline: `${named} — PRYZM has identified your zone, but holds no transcribed PGOUM-97 rules for it.`,
+            detail:
+                'Madrid\'s municipal GIS answered and named the Norma Zonal governing this parcel, so ' +
+                'the routing is not in doubt. What PRYZM does not hold is a transcription of that ' +
+                'zone\'s chapter of Título 8 of the PGOUM-97 Normas Urbanísticas. PRYZM has read ' +
+                'Normas Zonales 1, 3, 4, 5, 7, 8 and 9; this code belongs to none of them. ' +
+                '⚠ PRYZM also cannot yet say whether that is a gap in its reading or a gap in the ' +
+                'published data: the municipal zoning layer publishes 34 distinct zone codes and ' +
+                'Normas Zonales 2, 6, 10 and 11 appear in none of them, a discrepancy that is recorded ' +
+                'as open and unresolved. Rather than quote another zone\'s figures — which would be a ' +
+                'real number answering a different question — PRYZM publishes none. What would unlock ' +
+                'it: reading this zone\'s chapter of the Compendio 2025 and signing the transcription.',
+            ordinanceRef: MADRID_PGOUM97_SOURCE,
+            legallyGrounded: false,
+            knownFacts: [...knownFacts],
+        };
+    } finally {
+        span.end();
+    }
+}
+
+// ─── WIRING TODO — items 2/3/4 CLOSED by §MADRID-PGOUM97-WIRING (orchestrator pass) ──────────────
 //
 // 1. ⛔ THE HUMAN GATE. `MADRID_ENVELOPE_VERIFIED` stays `false` until a Spanish-planning-literate
 //    reviewer signs `docs/.../28079-madrid/sources/VERIFICATION.md` against the Compendio 2025, and
@@ -1100,18 +1155,24 @@ export function madridPgoum97UnverifiedRefusal(
 //    signature even in principle: `4`, `9.1`, `9.2` (unresolved street-width heights ⇒ floor-only
 //    testero separations, see MADRID_FLOOR_ONLY_SEPARATIONS) and `5.1`/`5.2`/`5.3` (the Art. 8.5.6.3
 //    eje-de-calle front rule is unmodelled). NZ 7 and NZ 8 are the sign-off-ready families.
-// 2. ⛔ REGISTER in `registry.ts` — the Madrid `JurisdictionRegistration` currently carries
-//    `packsByZone: packMap()` and a WIRING TODO asking for exactly this. Replace with
-//    `packsByZone: packMap([ES_MADRID_PGOUM97_PACK, [...MADRID_PGOUM97_ZONE_CODES]])`, add
-//    `refusalFor` routing MADRID_NZ3_ZONE_CODES → `madridNZ3Refusal`, and narrow
-//    `noRulePackRefusal` to the genuinely-unpacked codes (NZ 1's `1.*`, which keeps
-//    `madridNZ1Refusal`). `packMap()` throws on a duplicate, so adding `1.*` here is impossible.
-// 3. ⛔ EXPORT from `packages/site-parcel-data/src/index.ts` (this file and
-//    `madridAnchoDeCalle.ts` are not in the barrel yet).
-// 4. ⛔ L5 DISPATCH — `apps/editor/src/ui/site/siteDispatch.ts` must resolve the zone code from
-//    `NORMAS_ZONALES/MapServer/0.AMB_TX_ETIQ` (spatial point-intersect, same-origin proxy) and
-//    gate on `MADRID_ENVELOPE_VERIFIED`, dispatching `madridPgoum97UnverifiedRefusal` while it is
-//    false — the `applyCordobaZoningThenFallback` shape, verbatim.
+// 2. ✅ DONE — REGISTERED in `registry.ts`. `packsByZone: packMap([ES_MADRID_PGOUM97_PACK,
+//    [...MADRID_PGOUM97_ZONE_CODES]])`; `refusalFor` routes `MADRID_NZ3_ZONE_CODES` →
+//    `madridNZ3Refusal`; `noRulePackRefusal` is narrowed to `1.*` → `madridNZ1Refusal` and everything
+//    else → `madridUnknownZoneRefusal` (above). ⚠ REGISTRATION IS NOT AUTHORISATION: gate 1 above is
+//    still shut, and the dispatcher refuses before any pack number can be solved.
+// 3. ✅ DONE — EXPORTED from `packages/site-parcel-data/src/index.ts` (this file and
+//    `madridAnchoDeCalle.ts`).
+// 4. ✅ DONE — L5 DISPATCH. `apps/editor/src/ui/site/siteDispatch.ts` §MADRID-PGOUM97 resolves the
+//    zone code from `NORMAS_ZONALES/MapServer/0.AMB_TX_ETIQ` (spatial point-intersect through
+//    `/api/madrid/normas-zonales`) and routes it: `1.*` → the settled NZ-1 explicit-area path,
+//    `3.*` → `madridNZ3Refusal`, the 23 codes here → gated on `MADRID_ENVELOPE_VERIFIED`, which is
+//    FALSE, so they receive `madridPgoum97UnverifiedRefusal` and NO number — the
+//    `applyCordobaZoningThenFallback` shape.
+//    ⚠ A SECOND GATE NOW BLOCKS THE COMPUTE BRANCH, INDEPENDENT OF THE HUMAN SIGNATURE:
+//    `ZoningRulesEngine` hard-codes `let confidence = 'estimated-ruleset'` and NEVER reads a pack's
+//    `defaultConfidence`, so the day gate 1 opens this pack's numbers would surface wearing the
+//    violet "Estimated" chip instead of the red machine-extracted-unverified one the renderer
+//    already implements. Signing gate 1 alone is therefore NOT sufficient to ship a Madrid number.
 // 5. ⛔ THE STREET-WIDTH RESOLVER. `madridAnchoDeCalle.ts` holds the three cuadros and refuses at a
 //    band edge; nothing feeds it a width yet. Madrid's measured quantum set is {15, 30} (L-537
 //    probe) — a Madrid `StreetWidthQuantisation` is the analogue of `BCN_STREET_WIDTH_QUANTISATION`

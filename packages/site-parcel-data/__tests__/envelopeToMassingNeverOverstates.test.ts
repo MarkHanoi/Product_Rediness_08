@@ -56,6 +56,7 @@ import {
 import { ES_BARCELONA_INDUSTRIAL_PACK } from '../src/rulepacks/esBarcelonaIndustrial.js';
 import { SA_RIYADH_JURISDICTION_ID } from '../src/rulepacks/saRiyadhDemo.js';
 import { CORDOBA_JURISDICTION_ID } from '../src/rulepacks/esCordobaPGOU2001.js';
+import { MADRID_JURISDICTION_ID } from '../src/rulepacks/esMadridNZ1.js';
 
 // ── Geometry + cap helpers ──────────────────────────────────────────────────────────────────────
 function rect(x0: number, z0: number, x1: number, z1: number): Pt[] {
@@ -227,7 +228,27 @@ describe('check-envelope-solid-never-overstates — PART B: the registry binds E
             .filter((j) => j.packZoneCodes.length > 0)
             .map((j) => j.jurisdictionId)
             .sort();
-        const KNOWN = [BCN_JURISDICTION_ID, SA_RIYADH_JURISDICTION_ID, CORDOBA_JURISDICTION_ID].sort();
+        // §MADRID-PGOUM97-WIRING (2026-08-01) — `es-28079-madrid` joined this set when
+        // `ES_MADRID_PGOUM97_PACK` was registered. THE CLASSES IT EMITS, acknowledged as §1.14.4
+        // requires:
+        //   • SINGLE PRISM — NZ 5/7/8/9 are setback triples with a scalar `maxHeight_m` + FAR +
+        //     ocupación. Covered by Part A's single-prism case and Part C's fuzz.
+        //   • NULL HEIGHT — NZ 4's `maxHeight_m` is `null` (Art. 8.4.10 is a street-width table, not
+        //     a scalar), so it draws the zero-volume footprint slab. Covered by Part A's null-height
+        //     case. ⚠ NOT a new class: `alignment` changes the FOOTPRINT (a 12 m depth band off the
+        //     official line), never the extrusion, and `envelopeToMassing` sees only the resulting
+        //     `insetPolygon`.
+        //   • NO TIERED CLASS — the pack contains no `tiers`-producing rule; the Art. 6.6.8.2 2:1
+        //     cornisa cap and the 10 %-area top-storey allowances are explicitly NOT modelled.
+        // ⚠ AND TODAY IT EMITS NONE OF THEM: `MADRID_ENVELOPE_VERIFIED` is false, so every Madrid
+        // parcel receives a REFUSED envelope (`status: 'none'`), which Part C proves draws NOTHING.
+        // Registration is not authorisation; this entry records the class review done in advance.
+        const KNOWN = [
+            BCN_JURISDICTION_ID,
+            SA_RIYADH_JURISDICTION_ID,
+            CORDOBA_JURISDICTION_ID,
+            MADRID_JURISDICTION_ID,
+        ].sort();
         expect(packJurisdictions).toEqual(KNOWN);
     });
 });

@@ -141,10 +141,28 @@ import {
     SA_RIYADH_JURISDICTION_ID,
 } from './saRiyadhDemo.js';
 import { RIYADH_BBOX, isInRiyadh } from '../providers/riyadhBbox.js';
-// L-608 — Madrid (INE 28079). Registered as a REFUSAL jurisdiction: the NZ 1 pack is authored as
-// an `explicit-area` DECLARATION, but its buildable footprint is resolved live from the municipal
-// ArcGIS plane and the zone code is unverified, so no code maps to a pack yet (see below).
-import { MADRID_JURISDICTION_ID, madridNZ1Refusal } from './esMadridNZ1.js';
+// L-608 — Madrid (INE 28079). NZ 1 stays a live-resolved `explicit-area` DECLARATION (its buildable
+// footprint is published as geometry, not as parameters), so it is NOT in `packsByZone`; its refusal
+// is the coverage answer for the `1.*` codes.
+import {
+    MADRID_JURISDICTION_ID,
+    MADRID_NZ1_CODE_PREFIX,
+    madridNZ1Refusal,
+} from './esMadridNZ1.js';
+// §MADRID-PGOUM97-WIRING — the PGOUM-97 Título 8 pack (Normas Zonales 4/5/7/8/9, 23 of the 34 live
+// `AMB_TX_ETIQ` codes) + the NZ 3 legally-grounded refusal + the coverage gap for anything else.
+// ⚠ REGISTERING IT DOES NOT RENDER A NUMBER. Every value in it is MACHINE-EXTRACTED from the
+// Compendio 2025 and `pipeline-extracted-unverified`; the dispatcher's `MADRID_ENVELOPE_VERIFIED`
+// gate is FALSE, so a Madrid parcel in one of these 23 zones receives a cited
+// "machine-extracted, unverified" refusal, exactly as Córdoba's does. This registration exists so
+// the C60 coverage globe, `resolveZoneDisposition` and the dispatcher share ONE source of truth.
+import {
+    ES_MADRID_PGOUM97_PACK,
+    MADRID_PGOUM97_ZONE_CODES,
+    MADRID_NZ3_ZONE_CODES,
+    madridNZ3Refusal,
+    madridUnknownZoneRefusal,
+} from './esMadridPgoum97.js';
 import { MADRID_BBOX, isInMadrid } from '../providers/madridBbox.js';
 // ── Córdoba (INE 14021) PGOU-2001 — the 2-district pilot pack, machine-extracted + UNVERIFIED. ──
 // ⚠ Registering it does NOT render a number: the dispatcher's VERIFICATION GATE
@@ -566,27 +584,39 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // estimated fallback (suburban/detached fabric, where a setback triple is the right
         // shape) rather than a coverage-gap refusal.
     },
-    // ── L-608 — Madrid (INE 28079), PGOUM-97 Norma Zonal 1. ──
+    // ── §MADRID-PGOUM97-WIRING (L-608 →) — Madrid (INE 28079), PGOUM-97 Título 8. ──
     //
-    // ⚠ REGISTERED AS A REFUSAL JURISDICTION, ON PURPOSE. `ES_MADRID_NZ1_PACK` is authored as an
-    // `explicit-area` DECLARATION (the buildable footprint is published as GEOMETRY, not as
-    // parameters), and the engine's `explicit-area` branch exists — but two things gate a real
-    // registration, and until BOTH clear the honest disposition is a cited refusal, never a
-    // fabricated number:
-    //   (1) the buildable RING is resolved LIVE per manzana (`resolveMadridNZ1Ring`) from
-    //       sigma.madrid.es; no same-origin Madrid proxy is wired yet, so it cannot resolve here;
-    //   (2) the exact Norma-Zonal code the live calificación plane reports for an NZ 1 parcel is
-    //       UNVERIFIED (that service returned HTTP 500 on 2026-07-23). Mapping a code to the pack
-    //       before it is verified would register on a guess.
+    // ⚠⚠ REGISTERED, BUT RENDERS NO NUMBER — the Córdoba discipline, for the same reason. The 23
+    // zones of `ES_MADRID_PGOUM97_PACK` were MACHINE-EXTRACTED from the Compendio 2025 by
+    // `tools/madrid-extract/` and ship `defaultConfidence: 'pipeline-extracted-unverified'`. The L5
+    // dispatcher gates every one of them on `MADRID_ENVELOPE_VERIFIED`, which is **false**, so a
+    // Madrid parcel in a packed zone receives `madridPgoum97UnverifiedRefusal` — a cited
+    // "machine-extracted, unverified" card — and NO number reaches the panel, the massing or
+    // `site.updateZoning`. This registration wires packs + refusals + extent so the C60 coverage
+    // globe, `resolveZoneDisposition` and the dispatcher share ONE source of truth; it is NOT an
+    // authorisation to draw a number.
     //
-    // ⇒ `packsByZone` is deliberately EMPTY (no code maps to a pack yet) and `noRulePackRefusal`
-    // returns the Madrid NZ 1 refusal for every zone code, so `resolveZoneDisposition` answers
-    // `refusal` for any Madrid parcel. The extent still lights the C60 coverage globe (we DO answer
-    // here — with an honest refusal). The dispatcher's Madrid path resolves the ring independently
-    // and solves ONLY when a ring is available, refusing (via the same `madridNZ1Refusal`) otherwise.
+    // ⚠ AND A SECOND, INDEPENDENT GATE EXISTS THAT NO SIGNATURE CLOSES. `ZoningRulesEngine`
+    // hard-codes `let confidence: EnvelopeConfidence = 'estimated-ruleset'` and never reads a pack's
+    // `defaultConfidence` — so the day a human signs `sources/VERIFICATION.md`, opening
+    // `MADRID_ENVELOPE_VERIFIED` ALONE would surface these machine-read numbers wearing the violet
+    // "Estimated" chip rather than the red `pipeline-extracted-unverified` one the renderer already
+    // implements. That is a C58 engine defect, tracked separately; it does not block THIS
+    // registration (the closed gate keeps every pack number out of the engine) and it DOES block the
+    // sign-off. `madridWiring.test.ts` pins both halves so the ordering cannot be forgotten.
     //
-    // WIRING TODO (orchestrator, when both gates clear): move the pack into `packsByZone` under its
-    // VERIFIED code(s), and remove `noRulePackRefusal` (or narrow it to genuinely-unpacked NZ codes).
+    // THE THREE ROUTED FAMILIES, all keyed on the live `AMB_TX_ETIQ` vocabulary (34 codes,
+    // VERIFIED-LIVE 2026-07-24) that `resolveMadridNormaZonal` reads:
+    //   • `4`, `5.*`, `7.*`, `8.*`, `9.*` (23 codes) → `packsByZone` → the human-gated pack;
+    //   • `3.*` (5 codes) → `refusalFor` → `madridNZ3Refusal`, a LEGALLY GROUNDED `derived-plan`
+    //     refusal: Art. 8.3.1 says the aprovechamiento is already EXHAUSTED, so the ordinance's own
+    //     answer is "not by a zone envelope". That refusal is correct whether or not anyone signs;
+    //   • `1.*` (6 codes) → `noRulePackRefusal` → `madridNZ1Refusal`. NZ 1 is a SETTLED
+    //     `explicit-area` decision (`esMadridNZ1.ts`): its footprint is PUBLISHED AS GEOMETRY and is
+    //     resolved live per manzana by the dispatcher, so it must never enter `packsByZone`.
+    //   • anything else → `madridUnknownZoneRefusal`, which names the coverage gap instead of
+    //     mis-citing NZ 1 at it. Not hypothetical: Normas Zonales 2/6/10/11 are absent from
+    //     `AMB_TX_ETIQ` for reasons `SOURCES.md` §0.3 records as UNDETERMINED.
     {
         jurisdictionId: MADRID_JURISDICTION_ID,
         displayName: 'Madrid',
@@ -598,15 +628,27 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // The Madrid municipal term (INE 28079). Overlaps nothing registered.
         extentResolution: 'municipal',
         answerSummary:
-            'Madrid PGOUM-97 Norma Zonal 1 is modelled as an explicit-area zone (the buildable ' +
-            'footprint is published as geometry). PRYZM answers here with a cited refusal until the ' +
-            'published footprint is resolvable live and the zone code is verified — never an estimate.',
-        // No code maps to a pack yet — see the block comment above.
-        packsByZone: packMap(),
-        // No per-zone legal refusals authored for Madrid; the coverage-gap refusal below covers all.
-        refusalFor: () => null,
-        // Every Madrid zone code → the NZ 1 explicit-area refusal (the current honest state).
-        noRulePackRefusal: (_zoneCode, _zoneLabel, knownFacts) => madridNZ1Refusal(knownFacts),
+            'PGOUM-97 Título 8 — 23 cited Norma-Zonal subzones (NZ 4/5/7/8/9), plus NZ 1 as an ' +
+            'explicit-area zone whose buildable footprint is read live from the municipal plane and ' +
+            'NZ 3 as a legally-grounded refusal (Art. 8.3.1: the aprovechamiento is exhausted). ' +
+            '⚠ Every NZ 4/5/7/8/9 value is MACHINE-EXTRACTED from the Compendio 2025 and NOT ' +
+            'human-verified, so PRYZM currently publishes NO buildable figure for those zones — each ' +
+            'parcel gets a cited "unverified" refusal until sign-off. Never an estimate.',
+        packsByZone: packMap([ES_MADRID_PGOUM97_PACK, [...MADRID_PGOUM97_ZONE_CODES]]),
+        // The legally-grounded "no": Norma Zonal 3 (Volumetría Específica). ⚠ Unlike the unverified
+        // gate above, this refusal survives sign-off — the ordinance itself declines to state an
+        // envelope, so there is nothing a human signature could promote.
+        refusalFor: (zoneCode, _harmonisedCode, knownFacts) =>
+            (MADRID_NZ3_ZONE_CODES as readonly string[]).includes(zoneCode)
+                ? madridNZ3Refusal(knownFacts ?? [])
+                : null,
+        // The coverage gap (C60 §3), SPLIT — because "NZ 1 publishes its footprint as geometry" and
+        // "PRYZM has not read your zone's chapter" are opposite claims, and answering the second
+        // with the first would be a confident mis-citation on land that is not in NZ 1.
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            typeof zoneCode === 'string' && zoneCode.startsWith(MADRID_NZ1_CODE_PREFIX)
+                ? madridNZ1Refusal(knownFacts ?? [])
+                : madridUnknownZoneRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
     },
     // ── Córdoba (INE 14021) — PGOU-2001, the SUR + NOROESTE 2-district pilot. ────────────────────
     //

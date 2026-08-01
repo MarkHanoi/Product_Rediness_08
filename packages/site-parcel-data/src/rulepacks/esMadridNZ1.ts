@@ -146,6 +146,18 @@ function madridNZ1Zone(code: string) {
 export const MADRID_NZ1_ZONE_CODES = ['1.1', '1.2', '1.3', '1.4', '1.5', '1.6'] as const;
 
 /**
+ * The routing PREFIX for the Norma Zonal 1 family, as the docstring above states it
+ * (*"the routing predicate is `AMB_TX_ETIQ.startsWith('1.')`"*).
+ *
+ * ⚠ Exported so the registry and the L5 dispatcher route on the SAME constant rather than each
+ * restating a `'1.'` literal — the rule the extent/predicate pairing already follows. It is
+ * DELIBERATELY a prefix and not the six-code enumeration: if the municipal layer ever publishes a
+ * seventh grado, an enumeration would silently send an NZ-1 parcel to the coverage-gap card, whereas
+ * a prefix keeps it on NZ 1's settled explicit-area answer.
+ */
+export const MADRID_NZ1_CODE_PREFIX = '1.' as const;
+
+/**
  * The Madrid Norma Zonal 1 pack. `defaultConfidence: 'estimated-ruleset'` — see header. This pack
  * is a DECLARATION of the `explicit-area` kind + its ringRef; each grado (`1.1`…`1.6`) carries the
  * SAME rule because the geometry is the rule. It renders only when `MADRID_NZ1_CERTIFIED` is signed.

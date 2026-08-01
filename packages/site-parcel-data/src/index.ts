@@ -789,6 +789,7 @@ export {
     ES_MADRID_NZ1_PACK,
     MADRID_NZ1_RULE,
     MADRID_NZ1_ZONE_CODES,
+    MADRID_NZ1_CODE_PREFIX,
     MADRID_JURISDICTION_ID,
     MADRID_NZ1_ORDINANCE_REF,
     madridNZ1Refusal,
@@ -807,6 +808,70 @@ export {
     type MadridRingResolution,
     type MadridRingRefusalReason,
 } from './providers/resolveMadridNZ1Ring.js';
+// ── §MADRID-PGOUM97-WIRING — the TRANSCRIBED Madrid ordinance: PGOUM-97 Título 8, Normas Zonales ──
+// 4/5/7/8/9 (23 of the 34 live `AMB_TX_ETIQ` codes), read from the Compendio 2025 by
+// `tools/madrid-extract/` with article + apartado + page + verbatim quote on every value.
+//
+// ⚠⚠ `MADRID_ENVELOPE_VERIFIED` IS **FALSE** AND EXPORTING THE PACK DOES NOT CHANGE THAT. A machine
+// read the ordinance; no human has signed the transcription, so the L5 dispatcher renders
+// `madridPgoum97UnverifiedRefusal` for every one of these zones and NO number is published. The
+// export exists so the dispatcher imports the gate rather than restating it — exactly as
+// `CORDOBA_ENVELOPE_VERIFIED` is imported — and so `registry.ts` and the tests read one pack object.
+//
+// ⚠ FOUR PARAMETERS IN THIS PACK ARE CONSTRUCTIONS, NOT SCALARS (the ADR-0271 class): NZ 4's
+// edificabilidad is an ALGORITHM (`plotRatioFAR: null` — there is no NZ 4 FAR); NZ 4's and NZ 9
+// g1/g2's heights are STREET-WIDTH TABLES (`madridAnchoDeCalle.ts`, exported below); several
+// retranqueos are height-proportional FORMULAS whose printed metre is only the floor
+// (`resolveMadridSeparation_m`); and NZ 8 grado 6º's FAR is a STEP FUNCTION of parcel area
+// (`madridNZ86BuildableArea_m2`). Reading a scalar off any of them is the L-526 failure.
+export {
+    ES_MADRID_PGOUM97_PACK,
+    MADRID_PGOUM97_ZONE_CODES,
+    MADRID_NZ3_ZONE_CODES,
+    MADRID_ENVELOPE_VERIFIED,
+    MADRID_PGOUM97_SOURCE,
+    MADRID_PGOUM97_GRANULARITY,
+    MADRID_PGOUM97_DEFAULT_CONFIDENCE,
+    MADRID_PGOUM97_FIELD_PROVENANCE,
+    MADRID_PGOUM97_RULE_KINDS,
+    MADRID_FLOOR_ONLY_SEPARATIONS,
+    MADRID_NZ4_RULE,
+    MADRID_NZ4_TESTERO_SEPARATION,
+    MADRID_NZ5_LINDERO_SEPARATION,
+    MADRID_NZ8_TESTERO_SEPARATION,
+    MADRID_NZ86_LATERAL_SEPARATION,
+    MADRID_NZ9_TESTERO_SEPARATION,
+    MADRID_NZ86_FAR_STEP_M2,
+    MADRID_NZ86_FAR_FIRST,
+    MADRID_NZ86_FAR_EXCESS,
+    madridNZ86BuildableArea_m2,
+    resolveMadridSeparation_m,
+    madridNZ3Refusal,
+    madridPgoum97UnverifiedRefusal,
+    madridUnknownZoneRefusal,
+    type MadridProportionalSeparation,
+} from './rulepacks/esMadridPgoum97.js';
+// The three Art. 8.4.10 / 8.9.10.1 *ancho de calle* cuadros — Madrid's height is a STREET-WIDTH
+// TABLE, not a scalar. ⚠ Nothing feeds it a width yet (no Madrid street-width source exists; L-537
+// measured Madrid's quantum set as {15, 30}, which must NOT be confused with Barcelona's {20, 30}),
+// so NZ 4 / 9.1 / 9.2 publish no height and the table refuses at a band edge rather than guessing.
+export * from './rulepacks/madridAnchoDeCalle.js';
+// §MADRID-ZONE-ROUTING — the LIVE Norma-Zonal resolver: which of the 34 `AMB_TX_ETIQ` codes governs
+// this parcel. The routing seam that made every Madrid pack reachable from a click. Returns IDENTITY
+// only — `sources/VERIFICATION.md` V7 is a VERIFIED-NEGATIVE that no PGOUM-97 service publishes any
+// altura/edificabilidad/retranqueo attribute at all.
+export {
+    resolveMadridNormaZonal,
+    readMadridZoneFeature,
+    MADRID_NORMAS_ZONALES_PATH,
+    MADRID_NORMAS_ZONALES_LAYER,
+    MADRID_ZONE_CODE_FIELD,
+    MADRID_ZONE_LABEL_FIELD,
+    type MadridZoneLatLon,
+    type MadridNormaZonalDeps,
+    type MadridNormaZonalResolution,
+    type MadridNormaZonalRefusalReason,
+} from './providers/resolveMadridNormaZonal.js';
 // ── L-609 / §NL-NATIONWIDE — Netherlands (national) bestemmingsplan explicit-area pack, refusal + ──
 // the `ringRef` resolver + maatvoering reader. NATIONWIDE (was Amsterdam-only) and KEYLESS (PDOK RP
 // WMS, was RP-API-v4 key-gated). The pack ships numeric fields null and a bouwvlak HANDLE;

@@ -1,7 +1,16 @@
 # Madrid (INE 28079) — human verification / sign-off
 
-**Status: DRAFT. NOTHING LEGALLY SIGNED. No pack may ship `confidence: 'structured'` (or be
-registered) until this file records a human sign-off (the L-449 gate).**
+**Status: DRAFT. NOTHING LEGALLY SIGNED. No Madrid pack may PUBLISH A NUMBER until this file records
+a human sign-off (the L-449 gate), and none does.**
+
+> ⚠ **Reconciled 2026-08-01.** This line previously read *"no pack may ship `confidence: 'structured'`
+> **or be registered**"*. Registration is now done (§MADRID-PGOUM97-WIRING) and the line was WRONG to
+> conflate the two — the same reconciliation Córdoba made. **Registering a pack wires the routing;
+> it does not authorise an output.** `MADRID_ENVELOPE_VERIFIED` is `false`, so every parcel in the 23
+> packed zones receives a cited *"machine-extracted, unverified"* refusal and no figure reaches the
+> panel, the massing or `site.updateZoning`. The gate that matters is the FLAG, not the registry —
+> and keeping it in the registry would have meant Madrid's parcels could not even be told *which*
+> Norma Zonal governs them. See **SIG-M1** below for the signature this is waiting for.
 
 > **Two different gates, deliberately separated.** §1 records *source-identity* verification — "is
 > this the right document, at the right endpoint, of the right vintage?" — which an agent can
@@ -127,6 +136,62 @@ modified-articles annex is the index for this. It is **not** the consolidation d
 
 ---
 
+## SIG-M1 · ⏳ **NOT SIGNED** — the signature `MADRID_ENVELOPE_VERIFIED` is waiting for
+
+> Recorded 2026-08-01 in the shape of the signed `es-ct/08019-barcelona` SIG-2/SIG-3 exemplar, so the
+> founder is asked one bounded question rather than an open-ended one. **This block is a REQUEST, not
+> a signature.** Nothing below has been agreed by anyone.
+
+| | |
+|---|---|
+| **Verifier** | *(unassigned — must be Spanish-planning-literate)* |
+| **Date** | — |
+| **Axis** | LEGISLATION / ENVELOPE |
+| **Artefact** | `packages/site-parcel-data/src/rulepacks/esMadridPgoum97.ts` → `MADRID_ENVELOPE_VERIFIED` |
+| **Source** | **Compendio 2025 de las NNUU del PGOUM-97, consolidated 24-09-2025** (V1/V2/V3 above). ⚠ `carácter informativo` — the **official** text is the Boletín Oficial publication (`SOURCES.md` §0.2). Cite **transparencia**, never `geoportal` (V10). |
+
+**The question to be signed:** *does `esMadridPgoum97.ts` transcribe Título 8 correctly?* 282 cited
+records were produced by `tools/madrid-extract/` reading the born-digital text layer; 23 zones are
+shipped, each value carrying article + apartado + PDF page + verbatim quote. **A machine read it.
+Transcribing an ordinance is a legal act and a pack cannot sign its own transcription.**
+
+**WOULD AUTHORISE** — publishing a buildable envelope for a Madrid parcel in one of the 23 zones
+`4 · 5.1 5.2 5.3 · 7.1.a 7.1.b 7.2.e · 8.1.a 8.1.c 8.2.a 8.2.b 8.2.c 8.3.a 8.3.c 8.4 8.5 8.6 ·
+9.1 9.2 9.3 9.4.a 9.4.b 9.5`, at confidence **`pipeline-extracted-unverified`** (the red
+machine-extracted chip), **never** `structured`.
+
+**WOULD NOT AUTHORISE:**
+- **Norma Zonal 1** (`1.*`) — a separate, settled `explicit-area` decision (`esMadridNZ1.ts`); its
+  `COEF_Z` semantics stay quarantined (§2 below).
+- **Norma Zonal 3** (`3.*`) — a legally-grounded refusal that survives any signature: Art. 8.3.1 says
+  the *aprovechamiento* is already **exhausted**. There is nothing to promote.
+- **Normas Zonales 2 / 6 / 10 / 11** — not transcribed, and their absence from `AMB_TX_ETIQ` is
+  unexplained (`SOURCES.md` §0.3). They receive the coverage-gap card either way.
+- Promoting the confidence tier above `pipeline-extracted-unverified`.
+- Any *ancho de calle* height. No Madrid street-width source exists.
+
+**⚠ SIX ZONES ARE NOT SIGN-OFF-READY EVEN IN PRINCIPLE — a signature must EXCLUDE them:**
+
+| Zone(s) | Why not signable | Direction of the error |
+|---|---|---|
+| `4`, `9.1`, `9.2` | Height is the Art. 8.4.10 / 8.9.10.1 **street-width table**, unresolved, so the height-proportional *testero* separation cannot be resolved either and the pack carries the ordinance **FLOOR** (`MADRID_FLOOR_ONLY_SEPARATIONS`) | **OVER-states** — the floor under-insets above the break-even height (9,00 m for these three) |
+| `5.1`, `5.2`, `5.3` | Front edge is `null` because Art. 8.5.6.3 measures to the **street centreline** (*«respecto al eje de la calle»*), a rule kind `GeometricRule` cannot express | **OVER-states** on a narrow street — no front inset is applied at all |
+
+**⚠ A SECOND GATE THAT NO SIGNATURE CLOSES — the sign-off is BLOCKED until it lands.**
+`ZoningRulesEngine` hard-codes `let confidence: EnvelopeConfidence = 'estimated-ruleset'` and **never
+reads a pack's `defaultConfidence`**. Flipping `MADRID_ENVELOPE_VERIFIED` **alone** would publish
+these machine-read numbers wearing the violet *"Estimated"* chip instead of the red
+machine-extracted-unverified one the renderer already implements — an over-statement of certainty,
+which is exactly what the gate exists to prevent. **The C58 confidence fix and the flip must land in
+the same change.** Pinned by `packages/site-parcel-data/__tests__/madridPgoum97Wiring.test.ts`.
+
+**What is already wired and needs no signature** (§MADRID-PGOUM97-WIRING, 2026-08-01): the zone
+router (`resolveMadridNormaZonal` → `NORMAS_ZONALES/0.AMB_TX_ETIQ` via `/api/madrid/normas-zonales`),
+the registry entry, the public exports and the L5 dispatch. All of it **refuses**, citedly, today —
+proven end to end by `apps/editor/__tests__/madridSiteDispatch.test.ts`.
+
+---
+
 ## §3 — Signed off (legal)
 
 | Who | When | Which document version (`readFrom`) | Fields signed | What they could NOT confirm |
@@ -140,7 +205,31 @@ LEGISLATION axis is a **measured 0 %**, not `not-assessed`. See [`../RATE.md`](.
 
 ## §4 — Explicit non-confirmations recorded (each pass)
 
-**2026-07-31 (Phase-4 documentation pass, this pass)**
+**2026-08-01 (§MADRID-PGOUM97-WIRING pass — the pack was WIRED, nothing was VERIFIED)**
+- **No number was verified, and none is published.** `MADRID_ENVELOPE_VERIFIED` remains `false`;
+  every parcel in the 23 packed zones receives `madridPgoum97UnverifiedRefusal`.
+- **The Compendio was not opened in this pass either.** The pack's 282 records come from
+  `tools/madrid-extract/`'s machine read (2026-07-31); no human has re-read one line of them.
+- **⚠ Supersession was NOT checked.** No search was made for a *modificación puntual* affecting any
+  Título 8 article the pack cites, and no `effectiveDate` was established for any of them —
+  `readFrom` (Compendio 24-09-2025) is all the pack carries. `laterModifications: none` is written
+  nowhere and must not be. (This is the same open risk Barcelona's SIG-2 records as L-661.)
+- **None of P1–P7 (§1a) was run in this pass.** In particular **P1 is still open**, so
+  `AMB_TX_DENOM` is REQUESTED by the new proxy but never verified to exist; the resolver reports a
+  missing label as `null` and never synthesises one.
+- **The `NORMAS_ZONALES/0` layer was NOT re-probed live in this pass.** The routing vocabulary is
+  carried from the 2026-07-24 read (V5). The new resolver and proxy were exercised against
+  RECORDED-SHAPE fixtures, not against sigma.madrid.es — so *"the proxy works"* is **unverified in
+  production**; what is verified is that the client parses the documented response shape correctly
+  and refuses every other shape.
+- **No Madrid parcel was dispatched against the live services.** The L5 reachability test stubs the
+  three same-origin proxies.
+- **The zones 2/6/10/11 question is untouched** — still three candidate causes, still undetermined.
+- **No street width was resolved.** L-537's measured Madrid quantum set `{15, 30}` was NOT turned
+  into a `StreetWidthQuantisation`; NZ 4 / 9.1 / 9.2 publish no height.
+- The `ZoningRulesEngine` confidence defect was **diagnosed and pinned, NOT fixed** (out of scope).
+
+**2026-07-31 (Phase-4 documentation pass)**
 - No NZ 4/5/7/8/9 numeric value was sourced. All remain `null` / `not extracted`.
 - **Neither Compendio PDF was opened.** Only identity, size, and reachability were verified (V9).
   Nothing in either document has been read, and no check was made for an edition later than
@@ -169,5 +258,5 @@ LEGISLATION axis is a **measured 0 %**, not `not-assessed`. See [`../RATE.md`](.
   fractions, not a measured first-pack number.
 
 ---
-*Last updated: 2026-07-31. Maintainer: UNASSIGNED. Authority: L-449 (human-verification gate),
+*Last updated: 2026-08-01 (§MADRID-PGOUM97-WIRING). Maintainer: UNASSIGNED. Authority: L-449 (human-verification gate),
 ADR-0269 (curate-then-serve), C63 §1.6 (`human-reviewed` validation state).*

@@ -78,7 +78,26 @@ import {
     MADRID_NZ1_CERTIFIED,
     ES_MADRID_NZ1_PACK,
     MADRID_NZ1_ZONE_CODES,
+    MADRID_NZ1_CODE_PREFIX,
     madridNZ1Refusal,
+    // §MADRID-PGOUM97 — the zone-code ROUTING seam + the human gate on the transcribed Título 8 pack.
+    //
+    // `resolveMadridNormaZonal` point-intersects `NORMAS_ZONALES/MapServer/0.AMB_TX_ETIQ` (via the
+    // `/api/madrid/normas-zonales` proxy) and answers WHICH of the 34 live Norma-Zonal codes governs
+    // the parcel. That answer is what makes NZ 1 / NZ 3 / NZ 4-5-7-8-9 three different destinations
+    // instead of one blanket path — before it, every Madrid click tried the NZ 1 footprint plane and
+    // an NZ-8 parcel was told "no NZ-1 footprint here", which is true and useless.
+    //
+    // ⚠⚠ `MADRID_ENVELOPE_VERIFIED` IS **FALSE** AND THIS PATH MUST NOT RENDER A NUMBER WHILE IT IS.
+    // Every value in `ES_MADRID_PGOUM97_PACK` was MACHINE-EXTRACTED from the Compendio 2025; a wrong
+    // number there would be PRYZM's own pipeline's error. Same discipline as `CORDOBA_ENVELOPE_VERIFIED`.
+    resolveMadridNormaZonal,
+    MADRID_ENVELOPE_VERIFIED,
+    MADRID_PGOUM97_ZONE_CODES,
+    MADRID_NZ3_ZONE_CODES,
+    madridNZ3Refusal,
+    madridPgoum97UnverifiedRefusal,
+    madridUnknownZoneRefusal,
     // L-550 Phase 0.1/0.3 — the rule-pack REGISTRY replaced the hard-coded
     // `BCN_ENSANCHE_ZONE_CODES.includes(clau)` gate that used to live here, so a new clau (or a
     // new city) is a data addition in `@pryzm/site-parcel-data`, not an edit to this L5 file
@@ -1926,6 +1945,203 @@ async function applyDkZoningThenFallback(
 }
 
 /**
+ * §MADRID-PGOUM97 — the Madrid (INE 28079) ROUTER: read the parcel's Norma Zonal, then answer as
+ * THAT zone's ordinance requires.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * WHAT THIS FIXES — Madrid had one destination for four different legal situations
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Until now every Madrid click went straight to the NZ 1 footprint plane, so a parcel in Norma
+ * Zonal 8 (vivienda unifamiliar) was told *"no published buildable footprint at this point"* — true,
+ * useless, and quietly implying the ordinance is silent when in fact Capítulo 8.8 states its
+ * retranqueos, ocupación, edificabilidad and altura explicitly. Meanwhile 23 cited zones, a
+ * legally-grounded NZ 3 refusal and a street-width height table sat in `@pryzm/site-parcel-data`
+ * reachable from no click at all.
+ *
+ * So this function resolves the zone FIRST (`resolveMadridNormaZonal` → the master routing layer
+ * `NORMAS_ZONALES/MapServer/0.AMB_TX_ETIQ`, 34 codes VERIFIED-LIVE 2026-07-24) and routes on it:
+ *
+ *   • `1.*`  → `applyMadridNZ1ExplicitArea` — the SETTLED explicit-area answer, unchanged. NZ 1's
+ *              buildability is PUBLISHED AS GEOMETRY (Fondo de la Edificación); the ring is the
+ *              whole claim and its COEF_Z semantics stay withheld. Nothing here re-derives it.
+ *   • `3.*`  → `madridNZ3Refusal` — a LEGALLY GROUNDED `derived-plan` refusal. Art. 8.3.1 states the
+ *              *aprovechamiento urbanístico* is already EXHAUSTED and the Plan consolidates what
+ *              earlier instruments produced *"sin imponer un nuevo modelo"*. The ordinance ANSWERED;
+ *              its answer is "not by a zone envelope". ⚠ This refusal survives sign-off — there is
+ *              nothing a human signature could promote it to.
+ *   • the 23 packed codes → ⚠⚠ **THE HONESTY GATE.** `MADRID_ENVELOPE_VERIFIED` is **false**, so
+ *              they receive `madridPgoum97UnverifiedRefusal` and NO NUMBER — not even for a fully
+ *              parameterised NZ 7/NZ 8 grado. Every value in that pack was MACHINE-EXTRACTED from
+ *              the Compendio 2025 by `tools/madrid-extract/`; a wrong figure would be PRYZM's own
+ *              pipeline's error, and transcribing an ordinance is a legal act. Identical discipline
+ *              to `applyCordobaZoningThenFallback`.
+ *   • any other live code → `madridUnknownZoneRefusal` (via the registry), which names the coverage
+ *              gap rather than mis-citing NZ 1 at land that is not in NZ 1. Not hypothetical: Normas
+ *              Zonales 2/6/10/11 are absent from `AMB_TX_ETIQ` for undetermined reasons.
+ *   • the routing layer did not answer / published nothing / was ambiguous → fall through to the
+ *              NZ 1 explicit-area attempt, which ends in its own STRUCTURAL-SEAM-4 split refusal
+ *              (transient vs genuine absence). ⚠ This preserves today's behaviour byte-for-byte on
+ *              the unresolved path — the zone resolver may ADD precision, never subtract an answer.
+ *
+ * ⚠ WHAT WOULD STILL BLOCK A NUMBER THE DAY THE HUMAN GATE OPENS, and is NOT fixed here:
+ *   (a) `ZoningRulesEngine` hard-codes `let confidence = 'estimated-ruleset'` and never reads a
+ *       pack's `defaultConfidence`, so `pipeline-extracted-unverified` would surface as the violet
+ *       "Estimated" chip instead of the red machine-extracted one the renderer already implements.
+ *       A C58 engine defect, out of this path's scope, and a precondition of sign-off.
+ *   (b) No Madrid street-width source exists, so NZ 4 / 9.1 / 9.2 publish no height and carry
+ *       FLOOR-ONLY testero separations (`MADRID_FLOOR_ONLY_SEPARATIONS`) — an under-inset.
+ *   (c) NZ 5's front edge is `null` because Art. 8.5.6.3 measures to the STREET CENTRELINE, a rule
+ *       kind `GeometricRule` cannot express; on a narrow street NZ 5 would OVER-STATE its front.
+ * Those three are exactly the zones `sources/VERIFICATION.md` names as not sign-off-ready.
+ *
+ * §CONTEXT-DATA-HONESTY: an outage, a genuine empty, and a resolved-but-unpacked zone are THREE
+ * different values here and reach three different cards. Best-effort + fully guarded — it never
+ * throws into the commit path, and it never falls back to the estimated setback triple.
+ */
+async function applyMadridZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    _estimated: BuildableEnvelope | null,
+): Promise<void> {
+    const TAG = '[gis][c58] §MADRID-PGOUM97';
+    const JURISDICTION_REF = 'madrid-pgoum';
+    try {
+        const site = ctx.store.getSite();
+        if (!site) return; // No site to dispatch onto — nothing to render either way.
+
+        // Per-parcel facts so no refusal card is ever a blank panel (L-553). Area only — no extra
+        // network; the Catastro identity leg has already run and written the parcel.
+        const parcelAreaM2 = (() => {
+            try {
+                const ring = boundary.polygon;
+                if (!Array.isArray(ring) || ring.length < 3) return null;
+                const a = Math.abs(
+                    ring.reduce((acc, p, i) => {
+                        const q = ring[(i + 1) % ring.length]!;
+                        return acc + (p.x * q.z - q.x * p.z);
+                    }, 0) / 2,
+                );
+                return Number.isFinite(a) && a > 0 ? a : null;
+            } catch { return null; }
+        })();
+        const baseFacts = [
+            `Location: Madrid (${lat.toFixed(5)}, ${lon.toFixed(5)}) — PGOUM-97`,
+            parcelAreaM2 !== null ? `Parcel area: ${Math.round(parcelAreaM2).toLocaleString()} m²` : null,
+        ].filter((s): s is string => typeof s === 'string');
+
+        // ── S3 — resolve WHICH Norma Zonal governs this parcel. Never throws; wrapped in the bounded
+        //    auto-retry so a blip on sigma.madrid.es self-heals before it can reach a card
+        //    (STRUCTURAL-SEAM-4). A genuine `no-feature` is NOT retried: the layer answered.
+        let zoneRes!: Awaited<ReturnType<typeof resolveMadridNormaZonal>>;
+        await retryWhileUnreachable(async () => {
+            zoneRes = await resolveMadridNormaZonal({ lat, lon });
+            return resolutionToFetchOutcome(zoneRes);
+        });
+
+        if (!zoneRes.ok) {
+            // ⚠ NOT a silent estimate and NOT an invented zone. The routing layer could not name the
+            // Norma Zonal, so fall through to the NZ 1 explicit-area attempt — the behaviour that
+            // shipped before this router existed — which ends in its own cited refusal, split
+            // transient vs genuine-absence. The reason is logged so an outage and an empty stay
+            // distinguishable in the field.
+            console.log(
+                `${TAG} zone not resolved (reason=${zoneRes.reason}) — falling through to the NZ 1 ` +
+                    'explicit-area path (unchanged pre-router behaviour); it will refuse honestly if ' +
+                    'no footprint is published here.',
+            );
+            await applyMadridNZ1ExplicitArea(ctx, boundary, lat, lon, [
+                ...baseFacts,
+                `Norma Zonal: not resolved (${zoneRes.reason}) — Madrid's zoning layer did not name a zone here`,
+            ]);
+            return;
+        }
+
+        const zoneCode = zoneRes.zoneCode;
+        const zoneLabel = zoneRes.zoneLabel;
+        const zoneFacts = [
+            ...baseFacts,
+            `Norma Zonal: ${zoneCode}${zoneLabel ? ` — ${zoneLabel}` : ''} (sigma.madrid.es NORMAS_ZONALES, live)`,
+        ];
+
+        // ── NZ 1 — the SETTLED explicit-area decision. Routed, never re-derived.
+        if (zoneCode.startsWith(MADRID_NZ1_CODE_PREFIX)) {
+            console.log(`${TAG} zone=${zoneCode} → NZ 1 explicit-area path (published footprint).`);
+            await applyMadridNZ1ExplicitArea(ctx, boundary, lat, lon, zoneFacts, zoneCode);
+            return;
+        }
+
+        // ── NZ 3 — the LEGALLY GROUNDED refusal. The ordinance answers; its answer is "not by a
+        //    zone envelope" (Art. 8.3.1: the aprovechamiento is already exhausted).
+        if ((MADRID_NZ3_ZONE_CODES as readonly string[]).includes(zoneCode)) {
+            const refusal = madridNZ3Refusal(zoneFacts);
+            dispatchEnvelope(ctx, site.id, buildRefusedEnvelope(zoneCode, refusal, 'none'), JURISDICTION_REF);
+            console.log(
+                `${TAG} zone=${zoneCode} → NZ 3 Volumetría Específica: legally-grounded ` +
+                    `${refusal.code} refusal (legallyGrounded=${refusal.legallyGrounded}). No number exists to draw.`,
+            );
+            return;
+        }
+
+        // ── The 23 transcribed zones — ⚠⚠ THE HONESTY GATE. Machine-extracted, unsigned ⇒ no number.
+        if ((MADRID_PGOUM97_ZONE_CODES as readonly string[]).includes(zoneCode)) {
+            if (!MADRID_ENVELOPE_VERIFIED) {
+                // `status: 'none'` = attempted, value WITHHELD pending human verification. NOT
+                // `'not-applicable'`, which would assert the ordinance grants no envelope — it does
+                // grant one; we simply have not checked our machine reading of it.
+                const refusal = madridPgoum97UnverifiedRefusal(zoneCode, zoneFacts);
+                dispatchEnvelope(ctx, site.id, buildRefusedEnvelope(zoneCode, refusal, 'none'), JURISDICTION_REF);
+                console.log(
+                    `${TAG} §HONESTY-GATE MADRID_ENVELOPE_VERIFIED=false — zone=${zoneCode} got the ` +
+                        `machine-extracted-unverified refusal (${refusal.code}); NO number rendered. ` +
+                        `area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m². Signs off via sources/VERIFICATION.md.`,
+                );
+                return;
+            }
+
+            // ── VERIFICATION SIGNED (future). The compute branch is deliberately NOT written here:
+            // a second, independent defect gates it. `ZoningRulesEngine` never reads a pack's
+            // `defaultConfidence`, so solving now would publish `pipeline-extracted-unverified`
+            // numbers wearing the violet "Estimated" chip — an OVER-statement of certainty on a
+            // machine reading, which is the precise failure the gate above exists to prevent.
+            // Landing the C58 confidence fix and this compute branch together is the correct order.
+            console.warn(
+                `${TAG} MADRID_ENVELOPE_VERIFIED=true but the C58 confidence plumbing is not landed ` +
+                    `(ZoningRulesEngine hard-codes 'estimated-ruleset' and ignores defaultConfidence) — ` +
+                    `refusing rather than publishing a machine-extracted number under an over-confident badge.`,
+            );
+            const stillGated = madridPgoum97UnverifiedRefusal(zoneCode, zoneFacts);
+            dispatchEnvelope(ctx, site.id, buildRefusedEnvelope(zoneCode, stillGated, 'none'), JURISDICTION_REF);
+            return;
+        }
+
+        // ── A live zone code in none of the three families. Name the gap; never borrow a citation.
+        const gap = madridUnknownZoneRefusal(zoneCode, zoneLabel, zoneFacts);
+        dispatchEnvelope(ctx, site.id, buildRefusedEnvelope(zoneCode, gap, 'none'), JURISDICTION_REF);
+        console.log(
+            `${TAG} zone=${zoneCode} is outside NZ 1/3/4/5/7/8/9 — coverage-gap refusal (${gap.code}). ` +
+                'See SOURCES.md §0.3 on the zones 2/6/10/11 question.',
+        );
+    } catch (e) {
+        // Best-effort — never block the commit. Leave an honest refusal rather than a fabricated
+        // estimate; if even that cannot dispatch, drop silently (the boundary is already set).
+        console.warn(`${TAG} Madrid router failed (non-fatal) — attempting a cited refusal:`, e);
+        try {
+            const site = ctx.store.getSite();
+            if (site) {
+                dispatchEnvelope(
+                    ctx,
+                    site.id,
+                    buildRefusedEnvelope(MADRID_NZ1_ZONE_CODES[0], madridNZ1Refusal(), 'none'),
+                    JURISDICTION_REF,
+                );
+            }
+        } catch { /* refusal dispatch is best-effort too */ }
+    }
+}
+
+/**
  * L-608 §MADRID-NZ1 — the Madrid (PGOUM-97 Norma Zonal 1) explicit-area path.
  *
  * NZ 1 does NOT state setbacks: the ordinance publishes the buildable footprint (Fondo de la
@@ -1954,14 +2170,19 @@ async function applyDkZoningThenFallback(
  *
  * Best-effort + fully guarded — never throws into the commit path.
  */
-async function applyMadridZoningThenFallback(
+async function applyMadridNZ1ExplicitArea(
     ctx: SiteContext,
     boundary: ZoningBoundary,
     lat: number,
     lon: number,
-    _estimated: BuildableEnvelope | null,
+    knownFacts: readonly string[] = [],
+    resolvedZoneCode: string | null = null,
 ): Promise<void> {
     const TAG = '[gis][c58] §MADRID-NZ1';
+    // The RESOLVED grado when the routing layer answered (`1.1`…`1.6`), else the pack's first code.
+    // ⚠ Carrying the resolved code matters: `1.4` and `1.1` are different grados of the same zone,
+    // and stamping the parcel with `1.1` because that is index 0 would be a quiet mis-attribution.
+    const nz1Code = resolvedZoneCode ?? MADRID_NZ1_ZONE_CODES[0];
     try {
         const site = ctx.store.getSite();
         if (!site) return; // No site to dispatch onto — nothing to render either way.
@@ -1969,7 +2190,7 @@ async function applyMadridZoningThenFallback(
             dispatchEnvelope(
                 ctx,
                 site.id,
-                buildRefusedEnvelope(MADRID_NZ1_ZONE_CODES[0], madridNZ1Refusal(), 'none'),
+                buildRefusedEnvelope(nz1Code, madridNZ1Refusal(knownFacts), 'none'),
                 'madrid-pgoum',
             );
             return;
@@ -1982,7 +2203,7 @@ async function applyMadridZoningThenFallback(
             dispatchEnvelope(
                 ctx,
                 site.id,
-                buildRefusedEnvelope(MADRID_NZ1_ZONE_CODES[0], madridNZ1Refusal(), 'none'),
+                buildRefusedEnvelope(nz1Code, madridNZ1Refusal(knownFacts), 'none'),
                 'madrid-pgoum',
             );
             console.log(`${TAG} MADRID_NZ1_CERTIFIED=false — cited refusal (zone-code vintage not signed).`);
@@ -2026,7 +2247,7 @@ async function applyMadridZoningThenFallback(
             );
 
             const record: ZoningRecord = {
-                zoneCode: MADRID_NZ1_ZONE_CODES[0], // reads the pack zone's explicit-area rule.
+                zoneCode: nz1Code, // reads the pack zone's explicit-area rule.
                 zoneLabel: 'Norma Zonal 1 — Protección del Patrimonio Histórico',
                 jurisdictionId: 'es-28079-madrid',
                 structuredFields: {},
@@ -2086,11 +2307,13 @@ async function applyMadridZoningThenFallback(
         // fetch outcome: a still-failing TRANSIENT → the retry-honest `madridNZ1Refusal`; a genuine
         // ABSENCE (source answered, no NZ-1 footprint here) → `madridNZ1AbsentRefusal` (no retry card).
         const madridRefusal =
-            madridOutcome.status === 'transient' ? madridNZ1Refusal() : madridNZ1AbsentRefusal();
+            madridOutcome.status === 'transient'
+                ? madridNZ1Refusal(knownFacts)
+                : madridNZ1AbsentRefusal(knownFacts);
         dispatchEnvelope(
             ctx,
             site.id,
-            buildRefusedEnvelope(MADRID_NZ1_ZONE_CODES[0], madridRefusal, 'none'),
+            buildRefusedEnvelope(nz1Code, madridRefusal, 'none'),
             'madrid-pgoum',
         );
     } catch (e) {
@@ -2103,7 +2326,7 @@ async function applyMadridZoningThenFallback(
                 dispatchEnvelope(
                     ctx,
                     site.id,
-                    buildRefusedEnvelope(MADRID_NZ1_ZONE_CODES[0], madridNZ1Refusal(), 'none'),
+                    buildRefusedEnvelope(nz1Code, madridNZ1Refusal(knownFacts), 'none'),
                     'madrid-pgoum',
                 );
             }
