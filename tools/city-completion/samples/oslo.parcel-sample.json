@@ -1,0 +1,172 @@
+{
+ "version": "1.0",
+ "jurisdictionId": "no-03-0301-oslo",
+ "city": "oslo",
+ "cc": "no",
+ "regionKey": "oslo",
+ "providerId": "geonorge-no",
+ "kind": "cadastral",
+ "adapter": "geonorge-no",
+ "srsNote": "EPSG:4326 BBOX = lat,lon; GML 3.2.1 posList lat lon",
+ "bbox": [
+  10.66,
+  59.88,
+  10.83,
+  59.96
+ ],
+ "measuredAt": "2026-08-01T07:30:14.280Z",
+ "finishedAt": "2026-08-01T07:39:24.568Z",
+ "seed": 20260801,
+ "tileCount": 40,
+ "tileDegrees": 0.003,
+ "frame": {
+  "denominator": "OSM non-public building-footprint area within the canonical region bbox (an INDEPENDENT, conservative proxy for private buildable land — NOT the legal buildable-land census; L-656)",
+  "note": "1729 non-public OSM building footprints in 40 random tiles",
+  "overpassOk": true,
+  "overpassMessage": null,
+  "footprintsFound": 1729
+ },
+ "buildable": {
+  "requested": 120,
+  "probed": 8,
+  "counts": {
+   "high": 0,
+   "medium": 0,
+   "low": 0,
+   "none": 0
+  },
+  "failures": {
+   "http-error": 8
+  },
+  "points": [
+   {
+    "lat": 59.950287,
+    "lon": 10.779137,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   },
+   {
+    "lat": 59.93784,
+    "lon": 10.768482,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   },
+   {
+    "lat": 59.889794,
+    "lon": 10.76395,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   },
+   {
+    "lat": 59.88944,
+    "lon": 10.765389,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   },
+   {
+    "lat": 59.888675,
+    "lon": 10.766102,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   },
+   {
+    "lat": 59.891003,
+    "lon": 10.765927,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   },
+   {
+    "lat": 59.945984,
+    "lon": 10.772504,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   },
+   {
+    "lat": 59.943592,
+    "lon": 10.768722,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   }
+  ]
+ },
+ "allclicks": {
+  "requested": 60,
+  "probed": 8,
+  "denominator": "every point in the canonical region bbox — water, parks, periphery included",
+  "counts": {
+   "high": 0,
+   "medium": 0,
+   "low": 0,
+   "none": 0
+  },
+  "failures": {
+   "http-error": 8
+  },
+  "points": [
+   {
+    "lat": 59.898413,
+    "lon": 10.737287,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   },
+   {
+    "lat": 59.94774,
+    "lon": 10.666254,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   },
+   {
+    "lat": 59.91705,
+    "lon": 10.721074,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   },
+   {
+    "lat": 59.892598,
+    "lon": 10.714113,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   },
+   {
+    "lat": 59.885963,
+    "lon": 10.822785,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   },
+   {
+    "lat": 59.94707,
+    "lon": 10.798779,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   },
+   {
+    "lat": 59.953521,
+    "lon": 10.809678,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   },
+   {
+    "lat": 59.935162,
+    "lon": 10.691287,
+    "outcome": "http-error",
+    "message": "HTTP 504",
+    "httpStatus": 504
+   }
+  ]
+ }
+}

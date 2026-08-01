@@ -7,10 +7,15 @@
      PARCEL and HEIGHTS/LOD remain not-assessed with typed C62 reasons. NO cell is a fabricated
      number; each cell names the inspectable state it was read from. -->
 
-**Overall completion (assessed subset): `28%` · `partial: true`** — renormalised over the five
-ASSESSED axes (LEGISLATION · ENVELOPE · DATA-SOURCES · TERRAIN · CONTEXT); PARCEL and HEIGHTS/LOD
-are honestly `not-assessed`, not 0 % (C63 §1.2/§1.5). **`honestyOk: true`** — Madrid renders no
-fabricated value; every unknown is typed and every buildable zone returns a cited refusal.
+**Overall completion (assessed subset): `41.9%` · `partial: true` — over 90 % of the ratified weight**
+— renormalised over the six ASSESSED axes (LEGISLATION · ENVELOPE · **PARCEL** · DATA-SOURCES ·
+TERRAIN · CONTEXT); only HEIGHTS/LOD is `not-assessed`, and that is not 0 % (C63 §1.2/§1.5).
+**`honestyOk: true`** — Madrid renders no fabricated value; every unknown is typed and every buildable
+zone returns a cited refusal.
+
+> **2026-08-01 (L-658):** PARCEL is now **MEASURED** from a live 120-point sample against the
+> ratified buildable-land denominator, and DATA-SOURCES was re-derived from config + live probes.
+> Madrid now carries the **widest assessed weight of any city (90 %)** — see the arithmetic block.
 
 > ⚠ **This number went DOWN from the 71 % recorded 2026-07-30, and that is a correction, not a
 > regression.** The 71 % renormalised over the three *cheap* axes only (DATA-SOURCES · TERRAIN ·
@@ -26,9 +31,9 @@ fabricated value; every unknown is typed and every buildable zone returns a cite
 
 | # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
 |---|---|---:|---|---|---|---|
-| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | National Catastro parcel provider IS wired (`parcelProviders/registry.ts` `isInSpain`→`catastro`), and the planning join is confirmed **spatial** (`CODMANZANA` has no string relation to a refcat — proven false against three real refcats). But the axis measures the *geometry-quality distribution* over an N-parcel sample and **no `computeParcelConfidence` run exists for this bbox**. Known drag: the block-ring dissolve is **2/4 in Madrid** (`SPAIN-CADASTRAL-DISSOLVE-PROBE`, tolerant-mode gap; weaker than Barcelona's 2/2). |
+| 1 | **PARCEL** | 15 % | **99.6%** | `auto-validated` | — | **MEASURED 2026-08-01** (`parcelSampleProbe.mjs --city madrid`, seed `20260801`). **DENOMINATOR = private buildable land** (L-656), sampled independently of Catastro as **OSM non-public building-footprint area** — 1,659 footprints in 40 uniformly-random 330 m tiles over bbox `[-3.80,40.33,-3.58,40.52]`, points drawn **∝ footprint area** (unbiased for AREA, not for parcel COUNT). **N = 120: high 119 · medium 1 · low 0 · no-parcel-here 0 · 0 transport failures.** Score = (119·1 + 1·0.5)/120. 95 % Wilson CI on the `high` share: **95.4 %–99.9 %**. ⚠ The known **2/4 block-ring dissolve** drag (`SPAIN-CADASTRAL-DISSOLVE-PROBE`) is a *block-aggregation* weakness and is **not** what this axis measures — per-parcel geometry from Catastro is as good in Madrid as in Barcelona; the two must not be conflated. |
 | 2 | **LEGISLATION** | 25 % | **0%** *(measured)* | `not-checked` | — | **`verified_cited_claus / total_claus_present` = 0 / 34.** *Denominator:* the live `NORMAS_ZONALES/0` `AMB_TX_ETIQ` distinct-value read returned **34** claus (`sources/SOURCES.md` §0.3 — a response, not an estimate). *Numerator:* **zero** rows in `sources/SOURCES.md` carry the full citation atom (value·unit·article·document·URL) **and** zero are covered by a signed `sources/VERIFICATION.md` (`§3` = empty; the file's own status line is "NOTHING LEGALLY SIGNED"). ⚠ **This is a MEASURED zero, not `not-assessed`** — both inputs were inspected; the answer is genuinely "we hold no cited, signed clause". ⚠ **`AMB_TX_DENOM` does not move this axis** (see note below). |
-| 3 | **DATA-SOURCES** | 15 % | **90%** | `not-checked` | — | 5-slot checklist, unchanged: cadastre-parcel **live** (Catastro national) · regional-zone-GIS **live** (`sigma.madrid.es` PGOUM-97, 12 services + the master `NORMAS_ZONALES/0` routing layer — **independently re-confirmed by the founder's 2026-07-31 recon**, which reached the same endpoint) · building-height nDSM **documented** (`heightSources.mjs` `REGION_SOURCE.madrid='mds_edificacion'`; per-city bake not confirmed landed) · terrain DEM **live** (`terrain.mjs` TERRAIN_CITY `madrid`, source `es` = PNOA MDT) · context-OSM **live** (`bake.mjs` REGIONS `spain`). Mean = (1+1+0.5+1+1)/5 = **0.90**. |
+| 3 | **DATA-SOURCES** | 15 % | **100%** | `auto-validated` | — | 5/5 slots **live**, derived from config + live-probed 2026-08-01: cadastre-parcel **live** (Catastro; 120/120 real parcels this session) · regional-zone-GIS **live** (`MADRID_CONDICIONES_PATH` **mounted** in `server.js` → `server/madridCondicionesProxy.js` → `sigma.madrid.es/hosted/.../PG_CONDICIONES_EDIFICACION/MapServer/6/query`, point-query **HTTP 200 with real `COEF_Z`/`CODMANZANA` fields 2026-08-01**; founder recon 2026-07-31 reached the same endpoint) · building-height nDSM **live** (`heightSources.mjs` `mds_edificacion` `impl:'live'`, `REGION_SOURCE.madrid`) · terrain DEM **live** (`terrain.mjs` `madrid`, source `es` = PNOA MDT) · context-OSM **live** (`bake.mjs` REGIONS `spain`). Mean = 5/5 = **1.00**. ⚠ **CORRECTION, +10 pp:** the building-height slot was scored `documented` because *the per-city bake* is not confirmed landed. That is **Axis 6 (HEIGHTS/LOD)**, not Axis 3 — C63 §3 Axis 3 measures whether the authoritative **feed is WIRED + LIVE**. Axis 6 remains `not-assessed` and still carries the defect. |
 | 4 | **ENVELOPE** | 20 % | **0%** *(measured)* · **honesty 100 %** | `not-checked` | — | **`Σ(buildable_land_share × pack_tier_weight)` = 0.** `rulepacks/registry.ts` registers Madrid with an **EMPTY `packsByZone`** and `noRulePackRefusal → madridNZ1Refusal` for every zone code. Every clau's tier is therefore `cited-refusal`, whose completion weight is **0.0** (C63 §3 Axis 4). ⚠ The unsourced per-NZ land-share split does **not** block this computation: `Σ(share × 0) = 0` for *any* share distribution. `not-assessed` would have been the wrong sentinel — the state was inspectable and it is empty. Per C63 §3.1 the same 0 % scores **100 % on honesty**. See [`ENVELOPE.md`](./ENVELOPE.md). |
 | 5 | **TERRAIN** | 10 % | **50%** | `not-checked` | — | Terrain bake row present: `terrain.mjs` TERRAIN_CITY `madrid` (source `es` = PNOA MDT) + control points (Puerta del Sol / Retiro / North M-30). Rung **50 = baked-but-unverified** — no `terrain.verify.mjs` round-trip re-probed here. Same rasant-datum caveat as Barcelona (L-584) — which is *also* a legislation concern for Madrid, since *altura de cornisa* is measured from rasant at the façade. |
 | 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | No measured height baked. The CNIG MDS Edificación per-city source is configured (`REGION_SOURCE.madrid`) but **no per-city `heightProvenance` histogram has been probed** — the `tagged` fraction is the axis input and it has not been measured. See [`HEIGHT.md`](./HEIGHT.md). |
@@ -37,13 +42,36 @@ fabricated value; every unknown is typed and every buildable zone returns a cite
 ### Overall arithmetic (C63 §4, shown so it can be re-checked)
 
 ```
-assessed:  LEGISLATION 0.000×25  +  ENVELOPE 0.000×20  +  DATA-SOURCES 0.900×15
-         + TERRAIN     0.500×10  +  CONTEXT  0.556×5
-         =   0.0 + 0.0 + 13.50 + 5.00 + 2.78  =  21.28
-Σ weights (assessed only) = 25 + 20 + 15 + 10 + 5 = 75
-overall = 21.28 / 75 = 0.284  →  28 %   ·   partial: true
-not-assessed: PARCEL (15) · HEIGHTS/LOD (10)
+assessed:  LEGISLATION 0.000×25  +  ENVELOPE 0.000×20  +  PARCEL 0.9958×15
+         + DATA-SOURCES 1.000×15 +  TERRAIN  0.500×10  +  CONTEXT 0.556×5
+         =   0.0 + 0.0 + 14.94 + 15.00 + 5.00 + 2.78  =  37.72
+Σ weights (assessed only) = 25 + 20 + 15 + 15 + 10 + 5 = 90
+overall = 37.72 / 90 = 0.419  →  41.9 %   ·   partial: true
+not-assessed: HEIGHTS/LOD (10) — the ONLY axis left outside the denominator
 ```
+
+> ⚠ **41.9 % is up from 28 %, and ~9 of those 14 points are a bigger DENOMINATOR, not new work.**
+> PARCEL entered at 99.6 % and DATA-SOURCES was corrected upward; nothing about Madrid's *law* moved,
+> and LEGISLATION + ENVELOPE are still measured **zeros** carrying 45 of the 90 assessed points. Madrid
+> now has the widest assessed coverage of any city (90 % of the ratified weight) — which is exactly why
+> its headline is *lower* than Barcelona's 87.4 %-over-45 %. **Compare `weightAssessed` before
+> comparing headlines.**
+
+## The THREE PARCEL numbers — never conflated (L-656 / MASTER-ROI-TRACKER §0.5.2)
+
+All three are true statements about Madrid on **2026-08-01**, each with a different denominator.
+Reproduce: `node tools/city-completion/summariseSamples.mjs`.
+
+| Metric | Denominator | N | Value | Answers |
+|---|---|---:|---|---|
+| **Axis score** (C63 PARCEL) | private **buildable** land (OSM non-public footprint-area proxy) | 120 | **99.6 %** | *how good is the cadastre where one may build?* |
+| **Click coverage** | **every** point in the region bbox — Casa de Campo, El Pardo, M-30 corridors included | 60 | **88.3 %** | *what does a random click get?* |
+| **Answer correctness** | every point in the region bbox | 60 | **100 %** | *did every click get a TRUE answer — a parcel **or** an honest "no parcel here"?* |
+
+⚠ **The buildable-land proxy is NOT the legal denominator.** Madrid has **no** AMB-equivalent
+buildable-land census yet (Barcelona's 31.8 M m² / 27.1 % has no Madrid twin — see NEXT.md). Until one
+exists, the OSM footprint-area proxy is what the axis rests on, and it under-counts vacant buildable
+plots, gardens and setbacks.
 
 ## The founder's own figures — recorded, NOT merged (capture-notes C-2 / C-10)
 
@@ -136,7 +164,7 @@ This `RATE.md` is the composite master; the siblings FEED it (naming: `../../_TE
 | [`README.md`](./README.md) · `sources/` · `findings/` | governance · citations · L-NNN + founder-capture records | LEGISLATION · — |
 
 ---
-*Last updated: 2026-07-31. Maintainer: UNASSIGNED. Authority: [C63](../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md).
+*Last updated: 2026-08-01 (L-658 — PARCEL measured 99.6 %; DATA-SOURCES re-derived; 90 % of the ratified weight now assessed). Maintainer: UNASSIGNED. Authority: [C63](../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md).
 LEGISLATION + ENVELOPE promoted from `not-assessed` to MEASURED ZEROS this pass — their inputs
 (`sources/VERIFICATION.md` §3, `rulepacks/registry.ts packsByZone`, the 34-clau inventory) were
 inspected and found empty. Founder-recon figures recorded separately as as-supplied, differing basis.*

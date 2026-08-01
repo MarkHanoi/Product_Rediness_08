@@ -25,6 +25,9 @@ import {
     computeParcelConfidence,
     CITY_COMPLETION_WEIGHTS as TOOL_WEIGHTS,
     CITY_COMPLETION_WEIGHTS_VERSION as TOOL_WEIGHTS_VERSION,
+    parseServerZoningMounts,
+    zoneGisSlot,
+    wilson95,
 } from './computeScorecard.mjs';
 
 const NOW = '2026-07-30T00:00:00.000Z';
@@ -120,4 +123,95 @@ test('computeParcelConfidence: scores a sample {high:1, medium:.5, low:0} (C57 m
     assert.equal(AxisScoreSchema.safeParse(viaCounts).success, true);
     const viaSample = computeParcelConfidence([0, 0, 1, 1], { providerId: 'catastro', kind: 'cadastral' }, { sample: ['high', 'high', 'high', 'medium'], now: NOW });
     assert.ok(Math.abs((viaSample.score as number) - 0.875) < 1e-12);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// L-658 — the PARCEL axis is now MEASURABLE, and the DATA-SOURCES zone-GIS slot is DERIVED.
+// These assertions exist to hold the two honesty rules the measurement can most easily break:
+//   • a MEASURED ABSENCE ("no parcel here") scores 0 and STAYS IN the denominator;
+//   • a TRANSPORT FAILURE is EXCLUDED from the denominator and can never produce a low score.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('zone-GIS slot is derived from server.js MOUNTS, not from a module merely existing', () => {
+    const mounts = parseServerZoningMounts(
+        'app.get(MUC_ZONING_PATH, apiLimiter, mucZoningHandler);\napp.get(PARIS_PLU_PATH, x, y);',
+    );
+    assert.ok(mounts.has('MUC_ZONING_PATH'));
+    assert.equal(zoneGisSlot('barcelona', mounts).state, 'live');
+    // declared but NOT mounted ⇒ `documented` (the L-651 "built but unwired" failure class)
+    assert.equal(zoneGisSlot('madrid', mounts).state, 'documented');
+    // declared with mountConst:null ⇒ `documented` — the source EXISTS but nothing is wired.
+    // `documented` and `none` must not collapse (the failure-vs-absence rule, one level down).
+    assert.equal(zoneGisSlot('oslo', mounts).state, 'documented');
+    // never declared at all ⇒ a MEASURED absence
+    assert.equal(zoneGisSlot('tokyo', mounts).state, 'none');
+});
+
+test('against the REAL server.js: Barcelona zone-GIS reads live, Oslo documented, Tokyo none', () => {
+    const bcn = computeScorecard(BCN, { now: NOW });
+    assert.match(bcn.axes.dataSources.derivation, /regional-zone-GIS=live/);
+    const oslo = computeScorecard({ jurisdictionId: 'no-0301-oslo', cc: 'no', regionKey: 'oslo' }, { now: NOW });
+    assert.match(oslo.axes.dataSources.derivation, /regional-zone-GIS=documented/);
+    const tokyo = computeScorecard({ jurisdictionId: 'jp-13-tokyo', cc: 'jp', regionKey: 'tokyo' }, { now: NOW });
+    assert.match(tokyo.axes.dataSources.derivation, /regional-zone-GIS=none/);
+});
+
+test('a MEASURED ABSENCE (no parcel here) scores 0 and STAYS IN the denominator', () => {
+    const a = computeParcelConfidence([0, 0, 1, 1], { providerId: 'catastro', kind: 'cadastral' },
+        { counts: { high: 3, medium: 0, low: 0, none: 1 }, denominator: 'test', now: NOW });
+    assert.ok(Math.abs((a.score as number) - 0.75) < 1e-12, 'a measured `none` must divide, not vanish');
+    assert.match(a.derivation, /none=1/);
+});
+
+test('TRANSPORT FAILURES are excluded from the denominator — never a low score (§CONTEXT-DATA-HONESTY)', () => {
+    // 3 high + 40 timeouts reads 100 %, not 3/43: a failed probe is a claim about OUR NETWORK.
+    const partial = computeParcelConfidence([0, 0, 1, 1], { providerId: 'geonorge-no', kind: 'cadastral' },
+        { counts: { high: 3, medium: 0, low: 0, none: 0 }, failures: { timeout: 40 }, denominator: 'test', now: NOW });
+    assert.equal(partial.score, 1);
+    assert.match(partial.derivation, /EXCLUDED as transport failures/);
+
+    // …and an ALL-failed probe is not-assessed, NEVER 0.
+    const dead = computeParcelConfidence([0, 0, 1, 1], { providerId: 'geonorge-no', kind: 'cadastral' },
+        { counts: { high: 0, medium: 0, low: 0, none: 0 }, failures: { 'http-error': 8 }, denominator: 'test', now: NOW });
+    assert.equal(dead.score, null);
+    assert.notEqual(dead.score, 0);
+    assert.equal(dead.unknownReason, 'not-queried');
+    assert.match(dead.derivation, /EVERY ONE failed in transport/);
+    assert.equal(AxisScoreSchema.safeParse(dead).success, true);
+});
+
+test('every scored PARCEL axis NAMES its denominator (L-656 — a % without one is not a number)', () => {
+    const a = computeParcelConfidence([0, 0, 1, 1], { providerId: 'catastro', kind: 'cadastral' },
+        { counts: { high: 1 }, denominator: 'private buildable land (OSM footprint proxy)', measuredAt: NOW, now: NOW });
+    assert.match(a.derivation, /DENOMINATOR: private buildable land/);
+    assert.match(a.derivation, /measured 2026-07-30/);
+    // omitting it is LOUD, not silent
+    const b = computeParcelConfidence([0, 0, 1, 1], { providerId: 'catastro', kind: 'cadastral' }, { counts: { high: 1 }, now: NOW });
+    assert.match(b.derivation, /UNSTATED DENOMINATOR/);
+});
+
+test('a parcelSample lifts PARCEL into the assessed set and grows the assessed weight', () => {
+    const sample = {
+        providerId: 'catastro', kind: 'cadastral', bbox: [2.09, 41.32, 2.23, 41.47],
+        measuredAt: NOW,
+        frame: { denominator: 'OSM non-public building-footprint area (buildable-land proxy)' },
+        buildable: { counts: { high: 118, medium: 2, low: 0, none: 0 }, failures: {} },
+        allclicks: { counts: { high: 39, medium: 11, low: 0, none: 10 }, failures: {} },
+    };
+    const card = computeScorecard({ ...BCN, parcelSample: sample }, { now: NOW });
+    assert.equal(CityCompletionScorecardSchema.safeParse(card).success, true);
+    assert.ok(card.overall.assessedAxes.includes('parcel'));
+    assert.ok(Math.abs((card.axes.parcel.score as number) - 119 / 120) < 1e-12);
+    // 15 (parcel) + 15 (data-sources) + 10 (terrain) + 5 (context) = 45 % of the ratified weight
+    const w = card.overall.assessedAxes.reduce((s, a) => s + CITY_COMPLETION_WEIGHTS[a], 0);
+    assert.ok(Math.abs(w - 0.45) < 1e-12);
+    // the `allclicks` frame must NOT leak into the axis score (three numbers, never conflated)
+    assert.doesNotMatch(card.axes.parcel.derivation, /allclicks/);
+});
+
+test('wilson95 brackets the point estimate and never leaves [0,1]', () => {
+    const ci = wilson95(119, 120)!;
+    assert.ok(ci.lo > 0.9 && ci.lo < 119 / 120);
+    assert.ok(ci.hi <= 1);
+    assert.equal(wilson95(0, 0), null);
 });

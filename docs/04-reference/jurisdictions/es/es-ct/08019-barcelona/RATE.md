@@ -1,7 +1,8 @@
 # City RATE — master completion scorecard — Barcelona (es-ct, 08019) — THE PILOT
 
-<!-- generated-by: MANUAL C63-Phase-1-AUDIT 2026-07-30 (L-649 dossier normalization) — scorecard function not yet shipped (C63 §8); the three CHEAP axes (DATA-SOURCES · TERRAIN · CONTEXT) are cited-derived per C63 §8.1, every other axis is not-assessed with a typed C62 reason. NO cell is a fabricated number. -->
+<!-- generated-by: `node tools/city-completion/computeScorecard.mjs --region barcelona --cc es` (L-658, 2026-08-01) over `tools/city-completion/samples/barcelona.parcel-sample.json`. PARCEL is now MEASURED from a live 120-point sample; DATA-SOURCES/TERRAIN/CONTEXT are config reads; LEGISLATION · ENVELOPE · HEIGHTS/LOD remain not-assessed with typed C62 reasons. NO cell is a fabricated number. -->
 
+<<<<<<< HEAD
 > # ⏱ STATUS 2026-08-01 — distance to CLOSED
 >
 > **`OPEN` · 5 blocking gaps + 2 correctness risks.** Full table in [§CLOSURE](#closure--distance-to-closed-l-662).
@@ -33,6 +34,26 @@
 axes only (DATA-SOURCES · TERRAIN · CONTEXT); the missing axes (PARCEL · LEGISLATION · ENVELOPE ·
 HEIGHTS/LOD) are honestly `not-assessed`, not 0 % (C63 §1.2/§1.5). **`honestyOk: true`** (no fabricated
 value; every unknown typed). Barcelona is **the PILOT** — the one Spanish city with a LIVE constructed
+=======
+**Overall completion (assessed subset): `87.4%` · `partial: true` — over 45 % of the ratified weight**
+— renormalised over the four ASSESSED axes (**PARCEL** · DATA-SOURCES · TERRAIN · CONTEXT, Σ weight
+15+15+10+5 = **45**); LEGISLATION · ENVELOPE · HEIGHTS/LOD stay honestly `not-assessed`, not 0 %
+(C63 §1.2/§1.5). **`honestyOk: true`**.
+
+> ⚠ **READ THE ASSESSED-WEIGHT FIGURE BEFORE THE HEADLINE.** 87.4 % is a true statement about
+> **45 %** of the scorecard. The previous `71 %` was a true statement about **30 %** of it. Neither is
+> "how complete Barcelona is": the two heaviest axes (LEGISLATION 25 + ENVELOPE 20 = **45 pts**,
+> i.e. as much weight as everything measured here) are still outside the denominator. A rising
+> headline that comes from a rising *denominator* is the exact artefact C63 §4 warns about.
+>
+> ⚠ **CONTEXT sensitivity.** The 87.4 % rides the scorecard's DECLARATION-based CONTEXT read (8/9
+> layers that `bake.mjs` LAYERS *can* produce, `validationState: not-checked`). Against the
+> tile-VERIFIED 5/9 this dossier audited (rail + trees config-added, re-bake never landed) the
+> composite is **83.7 %**. Reproduce either:
+> `node computeScorecard.mjs --region barcelona --cc es [--context-layers buildings,roads,water,parks,landuse]`.
+
+Barcelona is **the PILOT** — the one Spanish city with a LIVE constructed
+>>>>>>> d0fc107d (feat(c63): MEASURE the PARCEL + DATA-SOURCES axes across 7 cities (L-658))
 envelope (13a); its legislation detail is [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (~48 % — measured
 data-readiness AND realistic full-envelope ceiling) and FEEDS Axis 2.
 
@@ -43,14 +64,15 @@ data-readiness AND realistic full-envelope ceiling) and FEEDS Axis 2.
 
 | # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
 |---|---|---:|---|---|---|---|
-| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | National Catastro parcel provider IS wired (`parcelProviders/registry.ts` `isInSpain`→`catastro`); block-ring dissolve is **2/2 in Barcelona** (L-535) — the strongest in the Spanish set. But no `computeParcelConfidence` run over an N-parcel sample has been executed for this bbox (C63 §8), so the axis is unmeasured. |
+| 1 | **PARCEL** | 15 % | **99.2%** | `auto-validated` | — | **MEASURED 2026-08-01** (`parcelSampleProbe.mjs --city barcelona`, seed `20260801`). **DENOMINATOR = private buildable land** (L-656), sampled independently of Catastro as **OSM non-public building-footprint area** — 1,969 footprints in 40 uniformly-random 330 m tiles over bbox `[2.09,41.32,2.23,41.47]`, points drawn **∝ footprint area** (unbiased for AREA; a lattice would estimate parcel COUNT). **N = 120: high 118 · medium 2 · low 0 · no-parcel-here 0 · 0 transport failures.** Score = (118·1 + 2·0.5)/120. 95 % Wilson CI on the `high` share: **94.1 %–99.5 %**. Both `medium` are click-landed-outside-ring near-misses (street/courtyard), not broken geometry. Block-ring dissolve 2/2 (L-535) corroborates. |
 | 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | Measured legislation detail = [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md): **~48 %** — the clau is live via MUC, the alineació fabric (13a/13b/12 ≈ 44 % of buildable land) is derivable, 13a **shipped** + **founder-accepted (L-449, 2026-07-20)**. The derived-planning slice (~40 %) is plànol-bound (height ~0 % OCR-extractable, `findings/L-590h`). No composite Axis-2 clau-inventory scorecard run; a % here would double-count the sub-rate. |
-| 3 | **DATA-SOURCES** | 15 % | **90%** | `not-checked` | — | 5-slot checklist: cadastre-parcel **live** (Catastro national, dissolve 2/2) · regional-zone-GIS **live** (AMB MUC WMS `CODI_QUAL_AJUNT` via `server/mucZoningProxy.js`, per-parcel clau) · building-height nDSM **documented** (`heightSources.mjs` `REGION_SOURCE.barcelona='mds_edificacion'` configured; L-582 shows the shipped tiles are still estimate-heavy → not confirmed landed) · terrain DEM **live** (`terrain.mjs` TERRAIN_CITY `barcelona`, source `es` = PNOA MDT; Cesium World Terrain in production) · context-OSM **live** (`bake.mjs` REGIONS `spain`). Mean = (1+1+0.5+1+1)/5 = 0.90. |
+| 3 | **DATA-SOURCES** | 15 % | **100%** | `auto-validated` | — | 5/5 slots **live**, derived from config + live-probed 2026-08-01: cadastre-parcel **live** (Catastro; 120/120 real parcels this session) · regional-zone-GIS **live** (`MUC_ZONING_PATH` **mounted** in `server.js` → `server/mucZoningProxy.js` → `sig.gencat.cat/ows/MUC/wms`, GetCapabilities **HTTP 200 2026-08-01**) · building-height nDSM **live** (`heightSources.mjs` `mds_edificacion` `impl:'live'`, `REGION_SOURCE.barcelona`, CNIG MDS WCS live-verified 2026-07-26) · terrain DEM **live** (`terrain.mjs` `barcelona`, source `es` = PNOA MDT) · context-OSM **live** (`bake.mjs` REGIONS `spain`). Mean = 5/5 = 1.00. ⚠ **CORRECTION, +10 pp from the 2026-07-30 audit's 90 %:** that audit scored the building-height slot `documented` because *the shipped tiles* are estimate-heavy (L-582). That is a fact about **Axis 6 (HEIGHTS/LOD)**, not Axis 3 — C63 §3 Axis 3 measures whether the authoritative **feed is WIRED + LIVE**, and this one is (live-probed). Scoring it here double-counted the Axis-6 defect. Axis 6 remains `not-assessed` and still carries it. |
 | 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | Barcelona is the **only Spanish city with a LIVE constructed envelope**: **13a SHIPPED** (`block-derived-alignment`, ADR-0271, depth per PGM Art. 242.2 + height per Art. 327.2), source founder-accepted (L-449). Systems + coverage-gap claus return a **cited refusal** (L-550/L-553 SHIPPED) — never a fabricated triple. But solver coverage across all claus is unmeasured by the composite Axis-4 function; PRYZM *constructs* on ~24 % of buildable land today. See [`ENVELOPE.md`](./ENVELOPE.md). |
 | 5 | **TERRAIN** | 10 % | **50%** | `not-checked` | — | Terrain bake row present: `terrain.mjs` TERRAIN_CITY `barcelona` (source `es` = PNOA MDT) + control points (Port/beach · Montjuïc · Tibidabo · Eixample); Cesium terrain live in production. Rung **50 = baked-but-unverified** — no `terrain.verify.mjs` round-trip re-probed here; ⚠ seated on ONE centroid sample, not the façade *rasant* (L-584, a correctness caveat). |
 | 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | L-582 MEASURED the baked provenance — **0.9 % surveyed (`tagged`) · 79.3 % `levels`×3.2 m · 19.8 % fabricated 9 m** — a real histogram, but the composite Axis-6 scorecard function has not run to convert it to an axis score, and the measured MDS join is not confirmed landed. Recorded as evidence; axis left `not-assessed` pending the scorecard run. |
 | 7 | **CONTEXT** | 5 % | **56%** | `not-checked` | — | Inside the `spain` context bake bbox (`bake.mjs` REGIONS `spain`); footprints MEASURED 104–121 % of OSM ground truth. Confirmed long-shipped layers: buildings · roads · water · parks · landuse (**5/9**). rail + trees config-added (L-642) but not-yet-landed → excluded (honest 0). pedestrian: not a baked layer. sea: coastal — via water/coastline, not tile-probed here → excluded. Score 5/9. |
 
+<<<<<<< HEAD
 ## §CLOSURE — distance to CLOSED (L-662)
 
 > **Stamp 2026-08-01.** Denominator per **L-656**: **private buildable land = 31,801,618 m²** — only
@@ -83,6 +105,28 @@ Ciutat Vella parcel could receive an Art. 320.3a envelope under a citation that 
 **9.38 % of buildable land on an untested assumption**. **(2) L-660** — Arts. 327.2a/328.2a may be
 **superseded** for Barcelona by the MPGM of 02-03-2007 (DOGC 4893), which would make every 13a/13b/12
 height wrong by +0,45…+1,95 m across **44.0 %** of buildable land. Both are open.
+=======
+## The THREE PARCEL numbers — never conflated (L-656 / MASTER-ROI-TRACKER §0.5.2)
+
+All three are true statements about Barcelona on **2026-08-01**; each answers a different question and
+carries a different denominator. Reproduce: `node tools/city-completion/summariseSamples.mjs`.
+
+| Metric | Denominator | N | Value | Answers |
+|---|---|---:|---|---|
+| **Axis score** (C63 PARCEL) | private **buildable** land (OSM non-public footprint-area proxy) | 120 | **99.2 %** | *how good is the cadastre where one may build?* |
+| **Click coverage** | **every** point in the region bbox — sea, Collserola, port, streets included | 60 | **83.3 %** | *what does a random click get?* |
+| **Answer correctness** | every point in the region bbox | 60 | **100 %** | *did every click get a TRUE answer — a parcel **or** an honest "no parcel here"?* |
+
+The 16.7 % of clicks with no parcel are **measured absences, not failures**: all 10 sit in the sea east
+of the Besòs / south over the Llobregat delta, outside the cadastre by construction. **`not-applicable`
+≠ 0 %** — they are excluded from the axis, counted in coverage, and correct in correctness.
+
+⚠ **The buildable-land proxy is NOT the legal denominator.** OSM non-public building-footprint area is a
+cheap, conservative, cross-city-uniform stand-in; the AUTHORITATIVE Barcelona figure is the AMB
+`qualificacio_refos` census (**31,801,618 m² = 27.1 % of the city**, MASTER-ROI-TRACKER §0.5.2). The
+proxy under-counts vacant buildable plots, gardens and setbacks, and is footprint-area-weighted rather
+than land-area-weighted. Do not swap the two.
+>>>>>>> d0fc107d (feat(c63): MEASURE the PARCEL + DATA-SOURCES axes across 7 cities (L-658))
 
 ## §CONTEXT-DATA-HONESTY note
 
@@ -104,4 +148,4 @@ This `RATE.md` is the composite master; the siblings FEED it (naming: `../../_TE
 | `findings/` (L-525/L-590 series) · `BARCELONA-REASONING-RECORD.md` · `BARCELONA-COMPLETE-COVERAGE-PLAN.md` · `BARCELONA-DATA-PIPELINE.md` · `L-5xx-*.md` · `RULEPACK-SOURCING-SPEC.md` · `EXPERT-BRIEF.md` · `archive/` · `PGM-NNUU-metropolitana.pdf` | the pilot's deep investigation + sourcing record (retained extras) | LEGISLATION · ENVELOPE · — |
 
 ---
-*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Composite master added under audit L-649; the pilot's pre-existing rich content (reasoning record, findings, coverage plan) retained unchanged.*
+*Last updated: 2026-08-01 (L-658 — PARCEL measured, DATA-SOURCES re-derived). Maintainer: UNASSIGNED. Authority: [C63](../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Composite master added under audit L-649; the pilot's pre-existing rich content (reasoning record, findings, coverage plan) retained unchanged.*
