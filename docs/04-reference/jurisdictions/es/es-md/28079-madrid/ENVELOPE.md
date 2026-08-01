@@ -3,11 +3,23 @@
 > Per-municipality envelope status (ADR-0279 / `ENVELOPE-REPLICATION-STANDARD.md`; feeds C63 Axis 4).
 > **Last updated:** 2026-07-31. **Maintainer:** UNASSIGNED.
 
-## Status: REGISTERED refusal jurisdiction · **Axis 4 = a MEASURED 0 %** · honesty **100 %**
+> ## ⛔ **CORRECTED 2026-08-01 — the "MEASURED 0 %" below is STALE and was measuring a state that no longer exists**
+>
+> | This file says | Truth |
+> |---|---|
+> | `packsByZone` is **EMPTY** (§S4, "the entire Axis-4 zero") | **23 codes registered** since `40c80164`; what withholds numbers is the **gate** `MADRID_ENVELOPE_VERIFIED = false`, not the absence of a pack |
+> | `esMadridNZ1.ts` is **UNREGISTERED**, so nothing renders | `MADRID_NZ1_CERTIFIED = true` — NZ 1 **renders a constructed envelope** (published footprint ∩ parcel) on **11.695 %** of Norma-Zonal-governed land |
+> | Axis 4 = **0 %** | **≤4.7 %** (`0.11695 × 0.4`), an **UPPER BOUND** on the NZ-governed-land denominator |
+>
+> **Arithmetic maximum ≈36.8 %**, of which ~96 % of the gap is **LAW**: Norma Zonal 3 holds
+> **60.458 %** of the city's zoned land and the PGOUM declines to state an envelope on it.
+> **Land shares MEASURED 2026-08-01 (L-676).** ⇒ read [`CLOSURE-REGISTER.md`](./CLOSURE-REGISTER.md).
+
+## Status: ~~REGISTERED refusal jurisdiction · **Axis 4 = a MEASURED 0 %**~~ · honesty **100 %**
 
 Madrid's data is **richer than Barcelona's** and the engine work is **materially further along** —
-the `explicit-area` solver and the NZ-1 provider/adapter are built and tested. Its live shippable
-envelope is nonetheless **0 %**, and that 0 % is now a **measurement, not a sentinel**.
+the `explicit-area` solver and the NZ-1 provider/adapter are built and tested. ⛔ ~~Its live shippable
+envelope is nonetheless **0 %**~~ — see the correction banner above.
 
 ### Why 0 % is computed, not `not-assessed`
 

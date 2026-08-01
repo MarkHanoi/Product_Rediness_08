@@ -36,6 +36,13 @@ a human sign-off (the L-449 gate), and none does.**
 | V9 | **Two distinct Compendio consolidations are live simultaneously** — July 2025 on `geoportal`, September 2025 on `transparencia` | `curl -I` on both; distinct sizes and `Last-Modified` | 2026-07-31 | ✅ **VERIFIED** — settles C-6/C-16 by fetching, not by counting mentions |
 | V10 | 🔴 `geoportal.madrid.es` serves the **superseded** July edition with no on-page signal | ↑ same | 2026-07-31 | ✅ **VERIFIED HAZARD** — cite transparencia, never geoportal |
 | V11 | `CODMANZANA` is **not** a Catastro refcat substring; the planning join is spatial | tested against three real refcats | 2026-07-24 | ✅ **VERIFIED-NEGATIVE** — confirms batch 3's negative claim, but does **not** settle whether a Catastro connector is needed (`SOURCES.md` §G2) |
+| V12 | **`AMB_TX_DENOM` EXISTS and is populated for all 34 codes** (`"ZONA 3 GRADO 1º - NIVEL a"` …) | `groupByFieldsForStatistics=AMB_TX_ETIQ,AMB_TX_DENOM` on `NORMAS_ZONALES/0` | 2026-08-01 | ✅ **VERIFIED-LIVE — probe P1 CLOSED.** It was previously "REQUESTED by the proxy but never verified to exist" |
+| V13 | **The 34-code inventory is EXHAUSTIVE** — unfiltered `returnCountOnly` = 34, groupBy = 34 groups × `n=1` | ↑ same query + `returnCountOnly` | 2026-08-01 | ✅ **VERIFIED-LIVE** — ⇒ zones 2/6/10/11 govern **0 m²** and **no parcel can route to them**; `SOURCES.md` §0.3 candidate **(c) is eliminated** |
+| V14 | **Per-code LAND SHARE measured** — 149,577,170 m² of Norma-Zonal-governed land; NZ 3 = **60.458 %**, NZ 1 = 11.695 %, packed 23 = 27.847 % | server-side `sum(SHAPE.STArea())`, layer alias *"Superficie m²"*, EPSG:25830 | 2026-08-01 | ✅ **VERIFIED-LIVE** — ⚠ denominator is **NZ-governed land**, NOT the L-656 private-buildable set. `findings/L-676-*` |
+| V15 | **The *alineación oficial* IS published as geometry** — `PG_ORDENACION/8 Alineaciones`, 22,584 `Alineación Oficial` polylines (+3,582 *Volumetría Específica*, +2,066 *Trazado Indicativo APR*) | `?f=json` + `groupBy ALIN_DESC` count | 2026-08-01 | ✅ **VERIFIED-LIVE — probe P6's layer question CLOSED.** Re-buckets the NZ-4 depth datum and the *ancho de calle* input from Evidence to **Engineering** |
+| V16 | **`COEF_Z` is measurably NOT a FAR** — 15,907 polygons, 57 distinct values, **100 % integers 0–8**, **47.56 % compound** (`"0 / 5"`, `"0 / 6 / 7"`) | `groupBy COEF_Z` census on `PG_CONDICIONES_EDIFICACION/6` | 2026-08-01 | ✅ **VERIFIED-NEGATIVE** — the quarantine is now evidence-backed. ⚠ Says nothing about what `COEF_Z` **is**; §2's NZ-1 checklist is unchanged |
+| V17 | **`Ficha Específica` holds 131 points**, and the SHIPPED NZ-1 resolver never reads it | `returnCountOnly` on `PG_CONDICIONES_EDIFICACION/1` + `grep -i ficha providers/resolveMadridNZ1Ring.ts` (0 hits) | 2026-08-01 | ✅ **VERIFIED — a live correctness gap**, `CLOSURE-REGISTER.md` row 3 |
+| V18 | **`Ámbitos de Ordenación` cannot supply the derived-ámbito AREA** — `PG_ORDENACION/4` is polyline with `OBJECTID` only | `?f=json` | 2026-08-01 | ✅ **VERIFIED-NEGATIVE** — the cheapest route to the L-656 denominator is closed off |
 
 **What §1 does NOT establish:** any numeric rule value, any article number, `COEF_Z`'s meaning, the
 cause of the 2/6/10/11 absence, NZ 9's identity, NZ 5's rule kind, any land-share figure, any licence
@@ -48,15 +55,15 @@ grant, or the contents of any of the four unprobed layers. Those are §2, §1a, 
 These cost one query each and would each retire a documented unknown. **None has been run.** They are
 listed here rather than in §2 because a human legal reader is *not* required.
 
-| # | Probe | Retires |
-|---|---|---|
-| P1 | Query `NORMAS_ZONALES/0` returning `AMB_TX_ETIQ` **and** `AMB_TX_DENOM` for all 34 codes | C-7 — the `officialDesignation` gap (⚠ does **not** move C63 Axis 2) |
-| P2 | Unfiltered `returnCountOnly` on `NORMAS_ZONALES/0` + read the Compendio Título VIII table of contents | C-5/C-9 — whether zones 2/6/10/11 leave parcels routing nowhere |
-| P3 | `?f=json` field inventory on `PG_ANALISIS_EDIFICACION` | C-17 — does the existing-building layer exist, and with what fields |
-| P4 | `?f=json` field inventory + a sample `query` on `PG_EDIFICIOS_PROTEGIDOS` | whether protection **replaces** or **modifies** the envelope (`SOURCES.md` §E) |
-| P5 | `?f=json` + legend read on `PG_USOS_Y_ACTIVIDADES` | the coded use matrix |
-| P6 | Retrieve an `Alineaciones` polyline near a known NZ-4 parcel | whether the official line is usable as the NZ-4 depth reference |
-| P7 | Re-check for any Compendio edition **later than 24-09-2025** | `readFrom` staleness (V9 residual) |
+| # | Probe | Retires | Status |
+|---|---|---|---|
+| P1 | Query `NORMAS_ZONALES/0` returning `AMB_TX_ETIQ` **and** `AMB_TX_DENOM` for all 34 codes | C-7 — the `officialDesignation` gap (⚠ does **not** move C63 Axis 2) | ✅ **RUN 2026-08-01 (V12)** |
+| P2 | Unfiltered `returnCountOnly` on `NORMAS_ZONALES/0` + read the Compendio Título VIII table of contents | C-5/C-9 — whether zones 2/6/10/11 leave parcels routing nowhere | 🟡 **GIS half RUN (V13)**; the Compendio ToC half is **not** read |
+| P3 | `?f=json` field inventory on `PG_ANALISIS_EDIFICACION` | C-17 — does the existing-building layer exist, and with what fields | 🔴 open |
+| P4 | `?f=json` field inventory + a sample `query` on `PG_EDIFICIOS_PROTEGIDOS` | whether protection **replaces** or **modifies** the envelope (`SOURCES.md` §E) | 🔴 open |
+| P5 | `?f=json` + legend read on `PG_USOS_Y_ACTIVIDADES` | the coded use matrix | 🔴 open |
+| P6 | Retrieve an `Alineaciones` polyline near a known NZ-4 parcel | whether the official line is usable as the NZ-4 depth reference | 🟡 **layer VERIFIED (V15)**; no polyline fetched for a parcel |
+| P7 | Re-check for any Compendio edition **later than 24-09-2025** | `readFrom` staleness (V9 residual) | 🔴 open |
 
 ⚠ A probe that returns **empty** must be recorded as `MEASURED-EMPTY`, not as absence — and never as
 `0`. Run `returnCountOnly` unfiltered before believing any zero.
@@ -168,7 +175,12 @@ machine-extracted chip), **never** `structured`.
 - **Normas Zonales 2 / 6 / 10 / 11** — not transcribed, and their absence from `AMB_TX_ETIQ` is
   unexplained (`SOURCES.md` §0.3). They receive the coverage-gap card either way.
 - Promoting the confidence tier above `pipeline-extracted-unverified`.
-- Any *ancho de calle* height. No Madrid street-width source exists.
+- Any *ancho de calle* height. ⚠ **Amended 2026-08-01 (V15):** the flat claim *"no Madrid
+  street-width source exists"* is **too strong**. L-537's negative — that no Spanish municipality
+  publishes a **declared** width — stands; but `PG_ORDENACION/8` publishes **22,584 `Alineación
+  Oficial` polylines**, from which a width can be **CONSTRUCTED** between opposing lines. A
+  constructed width is **not** an *ample oficial* and must ride as `measured-alignment`. Until such a
+  resolver exists **and is separately signed**, this exclusion stands unchanged.
 
 **⚠ SIX ZONES ARE NOT SIGN-OFF-READY EVEN IN PRINCIPLE — a signature must EXCLUDE them:**
 
@@ -212,6 +224,56 @@ proven end to end by `apps/editor/__tests__/madridSiteDispatch.test.ts`.
 
 ---
 
+## SIG-M2 · ⏳ **NOT SIGNED** — the MISSING signature nobody had noticed
+
+> ⚠⚠ **Raised 2026-08-01. This block is a REQUEST, not a signature, and nothing below has been
+> agreed by anyone.** It exists because an audit found a gate **already OPEN** with no record of who
+> opened it. `CLOSURE-REGISTER.md` row **5**.
+
+| | |
+|---|---|
+| **Verifier** | *(unassigned)* |
+| **Date** | — |
+| **Axis** | ENVELOPE |
+| **Artefact** | `packages/site-parcel-data/src/providers/resolveMadridNZ1Ring.ts` → `MADRID_NZ1_CERTIFIED` |
+| **Current value** | **`true`** — and it is what authorises **the only Madrid envelope that renders today** |
+
+**THE PROBLEM, stated plainly.** `MADRID_NZ1_CERTIFIED = true` (line 85) lets
+`applyMadridNZ1ExplicitArea` clip a parcel to the published NZ-1 footprint and dispatch a real
+envelope over **11.695 %** of Madrid's Norma-Zonal-governed land (measured, V14). The code comments
+attribute this to *"the L-608 sign-off, 2026-07-25"* — but **§3 of this file is empty**, SIG-M1
+covers a different flag and **explicitly excludes** NZ 1, and there is **no recorded signatory, date
+or scope anywhere** for it. A gate is open on an attribution with no artefact behind it.
+
+**THE QUESTION TO BE ANSWERED — and a reasoned NO is a complete answer.** *Does reading a buildable
+footprint that the municipality PUBLISHES AS GEOMETRY require an L-449 signature at all?*
+
+- **The case for NO** (and it is a real case): L-449 exists because **transcribing an ordinance is a
+  legal act**. NZ 1 transcribes nothing — PRYZM fetches a polygon the municipality drew, clips the
+  parcel to it, and asserts **no height, no FAR, no setback**. `structuredFields` is literally `{}`.
+  There is no reading to get wrong.
+- **The case for YES:** the choice of **which layer** is the buildable ring (layer 6 vs layer 10 vs
+  closing the layer-2 polyline against *Alineaciones*) **is** an interpretation, and it was made by
+  an agent from a `?f=json` shape. So is the decision to publish at `estimated-ruleset`.
+- ⚠ **Either answer must be WRITTEN DOWN.** The unacceptable state is the present one: the flag
+  claims a sign-off that does not exist.
+
+**WOULD AUTHORISE** — NZ 1 grados `1.1`…`1.6` continuing to publish the **clipped published
+footprint** at `estimated-ruleset`, and nothing else.
+
+**WOULD NOT AUTHORISE:**
+- Any use of `COEF_Z` as an *edificabilidad* / FAR. ⚠ V16 measured it: **100 % integers 0–8, 47.56 %
+  compound values** — it is **not a ratio**, and its positive meaning is still unread.
+- Any NZ-1 height, from `madridAnchoDeCalle.ts` or anywhere else.
+- Promotion above `estimated-ruleset`.
+
+**⚠ ONE DEFECT MUST BE FIXED BEFORE THIS IS SIGNED, NOT AFTER** — `CLOSURE-REGISTER.md` row 3: the
+shipped resolver **never reads `Ficha Específica`** (131 points, V17), so parcels with
+individually-defined conditions currently receive the **general manzana footprint**. Signing this
+block while that is true would certify a footprint applied to parcels it was not drawn for.
+
+---
+
 ## §3 — Signed off (legal)
 
 | Who | When | Which document version (`readFrom`) | Fields signed | What they could NOT confirm |
@@ -224,6 +286,30 @@ LEGISLATION axis is a **measured 0 %**, not `not-assessed`. See [`../RATE.md`](.
 ---
 
 ## §4 — Explicit non-confirmations recorded (each pass)
+
+**2026-08-01 (L-676 land-share + `COEF_Z` probe pass — six things MEASURED, nothing SIGNED)**
+- **No gate was flipped and no number was authorised.** `MADRID_ENVELOPE_VERIFIED` is still `false`;
+  `MADRID_NZ1_CERTIFIED` was **not touched**. §3 below is still empty.
+- **The Compendio was not opened in this pass either.** Every V12–V18 claim is an ArcGIS response
+  shape, never a reading of the primary text. ⇒ `COEF_Z`'s **positive** meaning, its **denominator**
+  (manzana vs parcela), NZ 9's chapter, NZ 5's rule KIND and the zones 2/6/10/11 **nomenclature**
+  question all remain exactly as open as before.
+- **`SHAPE.STArea()` was trusted as published.** No re-projection and **no overlap audit** was run,
+  so the 34 zone polygons are ASSUMED non-overlapping. If any overlap, V14's shares shift.
+- **The land-share denominator is NZ-governed land, not the L-656 private-buildable set** — so every
+  ENVELOPE figure derived from it is an **UPPER BOUND**, and it is labelled as one everywhere.
+  ⚠ `tools/city-completion/measurements/madrid.measurements.json` was **deliberately NOT written**:
+  the scorecard prints *"of the PRIVATE-BUILDABLE denominator (L-656)"*, and feeding it these shares
+  would generate a false derivation string.
+- **No `Alineación Oficial` polyline was fetched for any parcel** (V15) — only the layer's existence,
+  attribute schema and feature counts. P6's *usability* half is therefore still open.
+- **P3, P4, P5 and P7 were not run.**
+- **Supersession is still unexamined**, and no `effectiveDate` was established for any article.
+- **The primary Compendio PDF is still not retrievable in-repo** (`799c3e49`), so no human verifier
+  can check the 282 machine-extracted records offline.
+- ⚠ **A live correctness gap was FOUND, not fixed** (V17): the shipped NZ-1 path applies the general
+  manzana footprint to parcels the ordinance governs by an individual *ficha*. Its **direction is
+  unknown** — a ficha may be more or less permissive. Recorded, not repaired.
 
 **2026-08-01 (§MADRID-PGOUM97-WIRING pass — the pack was WIRED, nothing was VERIFIED)**
 - **No number was verified, and none is published.** `MADRID_ENVELOPE_VERIFIED` remains `false`;

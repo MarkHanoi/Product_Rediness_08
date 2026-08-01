@@ -42,7 +42,18 @@ calificación / Norma-Zonal plane (`PG_ORDENACION`), the `Alineaciones` layer, a
    the four Normas Zonales are sourced and NZ 1's solver ships is **~60–62% of residential clicks**
    (0.65 × 0.96). The ~68% data-readiness rate sits *above* that engine ceiling because it credits
    structured layers PRYZM has not yet consumed.
-2. **The per-Norma-Zonal land-share split is UNSOURCED.** The exact figure carries that uncertainty —
+> ⛔ **CORRECTED 2026-08-01.** Caveat 1 above is stale in three places: the `explicitAreaFootprint`
+> fix **landed** (`ZoningRulesEngine.ts:84`), the proxy is **mounted** (`server.js:514`), and
+> **NZ 1 renders** (`MADRID_NZ1_CERTIFIED = true`) ⇒ shippable resolution today is **≤4.7 %**, not
+> 0 %. And the **~60–62 % ceiling is DISPROVEN by measurement**: NZ 3 alone holds **60.458 %** of
+> Norma-Zonal-governed land and refuses by law, so ENVELOPE caps at **≈36.8 %**. Caveat 2's
+> "UNSOURCED" is now **SOURCED** — see below. ⇒ [`CLOSURE-REGISTER.md`](./CLOSURE-REGISTER.md).
+
+2. ~~**The per-Norma-Zonal land-share split is UNSOURCED.**~~ ✅ **MEASURED 2026-08-01 (L-676)** —
+   NZ 3 **60.458 %** · NZ 1 **11.695 %** · NZ 8 9.620 % · NZ 4 8.827 % · NZ 9 6.920 % · NZ 7 1.455 % ·
+   NZ 5 1.025 %, over **149,577,170 m²** of Norma-Zonal-governed land (server-side `SHAPE.STArea()`,
+   all 34 codes, exhaustive). ⚠ That denominator is **not** the L-656 private-buildable set.
+   The original text follows. The exact figure carries that uncertainty —
    68% credits Madrid's structured calificación + NZ 1 footprint + ámbito edificabilidad, but a strict
    per-field read lands lower for the NZ 4 (manzana cerrada) core, whose *fondo edificable* is
    grado-structured in the PDF. Do not present 68% as a precision measurement.
@@ -101,5 +112,6 @@ the sourced numbers.
 *Last updated: 2026-07-24. NZ 1 `COEF_Z` + `Fondo de la Edificación` footprint confirmed LIVE DATA
 (2026-07-23). `PG_ORDENACION` calificación plane PRIOR-VERIFIED (HTTP 500 on re-probe, not
 re-confirmed this pass). NZ 4/8/5/7 numbers DOCUMENT-gated (NNUU **Compendio 2025 (24-09-2025)**), unsourced. Shippable
-envelope resolution today = 0% (MEASURED: `packsByZone` empty — wiring-gated + document-gated); data-readiness ~68%; engine ceiling
-~60–62%; per-NZ land-share split UNSOURCED. Maintainer: UNASSIGNED.*
+envelope resolution today = ~~0% (`packsByZone` empty)~~ **≤4.7 % — CORRECTED 2026-08-01**; data-readiness ~68%; engine ceiling
+~~~60–62%~~ **≈36.8 % (measured)**; per-NZ land-share split ~~UNSOURCED~~ **MEASURED 2026-08-01 (L-676)**.
+Maintainer: UNASSIGNED.*

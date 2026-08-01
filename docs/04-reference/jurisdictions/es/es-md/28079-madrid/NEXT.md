@@ -1,8 +1,26 @@
 # NEXT — Madrid (28079, es-md, Spain)
 
 > Where we stopped and how to resume. Convention: README = what is true now; this = where we
-> stopped. **Last updated 2026-07-31** · Maintainer: Phase-4 jurisdiction documentation agent ·
-> Status: **SPEC + 7 founder recon captures folded in; no pack registered; nothing L-449-signed.**
+> stopped. **Last updated 2026-08-01** · Maintainer: Phase-4 jurisdiction documentation agent ·
+> Status: **pack REGISTERED and routed end to end, gate SHUT; NZ 1 renders; nothing L-449-signed.**
+
+> ## ⚠⚠ READ [`CLOSURE-REGISTER.md`](./CLOSURE-REGISTER.md) FIRST — much of this file was STALE
+>
+> **Corrected in place 2026-08-01.** Two commits landed after this file's 2026-07-31 body was
+> written — **`40c80164` (§MADRID-PGOUM97-WIRING)** and the L-665 confidence fix — and a live probe
+> pass (**L-676**) measured four things this file carried as unsourced. Every stale claim below is
+> struck through or annotated **⛔ STALE** rather than deleted, so the correction is auditable.
+>
+> | This file said | Measured / verified truth |
+> |---|---|
+> | "no pack registered", `packsByZone` **empty** | **23 zones registered**; Madrid routed end to end; the gate (`MADRID_ENVELOPE_VERIFIED=false`) is what withholds numbers |
+> | ENVELOPE = a measured **0 %** | **≤4.7 %** — NZ 1 (`MADRID_NZ1_CERTIFIED=true`) **renders a constructed envelope** on 11.695 % of NZ-governed land |
+> | ceiling **≈60–62 %** (0.65 × 0.96, unsourced) | **DISPROVEN.** Measured: NZ 3 alone is **60.458 %** and refuses by law; ENVELOPE caps at **≈36.8 %** |
+> | §4.1 all NZ 4/5/7/8/9 values document-gated, **zero** extracted | **282 cited records extracted** (`tools/madrid-extract/`); NZ 4 ships `buildableDepth_m: 12` (Art. 8.4.7.1, quoted). What is missing is a **signature**, not a read |
+> | §4.2(b) 🔴 tsc defect — `explicitAreaFootprint` undeclared | **CLOSED.** `ZoningRulesEngine.ts:84` declares it |
+> | §4.2(a) proxy missing · §4.2(c) placeholder `['NZ1']` codes | **BOTH CLOSED** — see the annotations in §4.2 |
+> | §4.4 "seven cheap probes, none run" | **P1, P2 and P6 RUN and CLOSED** (L-676) |
+> | §4.3 `COEF_Z` quarantined *as a precaution* | **Quarantine now EVIDENCE-BACKED**: 15,907 polygons, 100 % integers 0–8, **47.56 % compound** ⇒ measurably **not a FAR** |
 
 ## 1 — WHERE WE STOPPED (the one-paragraph truth)
 
@@ -19,14 +37,27 @@ identity** (Compendio 2025, 24-09-2025) and found that a second Madrid portal st
 superseded July consolidation. Net: **the bottleneck is no longer discovery — it is one bounded human
 read of Compendio Título VIII, plus a sequencing decision the founder has not yet made.**
 
-## 2 — THE NUMBER
+## 2 — THE NUMBER ⛔ **REPLACED 2026-08-01 — see [`CLOSURE-REGISTER.md`](./CLOSURE-REGISTER.md)**
 
-Denominator: **Madrid residential parcel clicks.** Shippable envelope resolution **today = 0 %**
-(measured: `packsByZone` empty, not estimated). Ceiling once the parametric NZs are sourced and NZ 1
-is wired: **≈ 60–62 %** — ⚠ but that ceiling is a product of two land-share fractions (~0.65
-directly-NZ-governed × ~0.96 in NZ 3/4/1/8) that are **UNSOURCED** and must not be presented as
-measured coverage. The founder's forecasts (~90–95 % after extraction) are **forecasts, not
-measurements**, and use a different denominator ("machine-readable buildability coverage").
+**Denominator: land the PGOUM-97 zoning layer assigns a Norma Zonal to = 149,577,170 m²**, measured
+by server-side `SHAPE.STArea()` over all 34 `AMB_TX_ETIQ` codes (L-676, 2026-08-01). *(Not the
+municipal ≈604 km²; not the L-656 private-buildable denominator, which Madrid still lacks.)*
+
+| State today | Share |
+|---|---:|
+| TERMINAL — cited delegation (NZ 3, Art. 8.3.1 *aprovechamiento agotado*) | **60.458 %** |
+| TERMINAL — constructed envelope (NZ 1, published footprint clipped) | **11.695 %** |
+| PENDING one signature (NZ 4·5·7·8·9) | **27.847 %** |
+| **TERMINAL TODAY** | **72.153 %** — *of which human-signed: **0 %*** |
+
+**ENVELOPE axis: ≤4.7 % today · ≈7.5 % realistic · ARITHMETIC MAXIMUM ≈36.8 %.** ~96 % of the
+ENVELOPE gap is **LAW** (NZ 3), not effort.
+
+> ⛔ **STALE, struck 2026-08-01.** ~~"Shippable envelope resolution today = 0 % (measured:
+> `packsByZone` empty)"~~ — `packsByZone` carries 23 codes and NZ 1 renders. ~~"Ceiling ≈60–62 %
+> (0.65 × 0.96)"~~ — **DISPROVEN by measurement**: the parametric NZs govern 27.85 % and NZ 1
+> 11.70 % (39.5 % together), with 60.46 % refusing by law. The founder's ~90–95 % forecasts remain
+> **forecasts on a different denominator**, unchanged and still not merged.
 
 ## 3 — 🔴 THE OPEN DECISION: sequencing (the founder's call, NOT settled here)
 
@@ -78,7 +109,19 @@ genuine residual for (a) is listed in §3.2 and is smaller than "build a solver"
 
 ## 4 — BLOCKERS (each: what · why it blocks · unblock · EXACT resume step)
 
-### 4.1 — All NZ 4/5/7/8/9 rule values are document-gated (the dominant blocker)
+### 4.1 — ⛔ **STALE** — NZ 4/5/7/8/9 are EXTRACTED; what is missing is a SIGNATURE
+> **Corrected 2026-08-01.** `tools/madrid-extract/` read the Compendio 2025 born-digital text layer
+> and produced **282 cited records** across **23 zones**, each carrying article + apartado + PDF page
+> + verbatim quote. `MADRID_NZ4_RULE` ships `buildableDepth_m: 12` citing Art. 8.4.7.1 verbatim
+> (*"Se establece un fondo máximo edificable de doce (12) metros"*); `madridAnchoDeCalle.ts` holds
+> the NZ 1/4/9 *ancho de calle* height tables. **The dominant blocker is now the L-449 human audit
+> of that machine read (CLOSURE-REGISTER row 1), not the read itself.** The paragraph below
+> described the world before `40c80164`; its *schema* reasoning (the Zod schema structurally forbids
+> a placeholder pack) remains correct and worth keeping.
+
+<details><summary>⛔ superseded text (kept for audit)</summary>
+
+#### All NZ 4/5/7/8/9 rule values are document-gated (the dominant blocker)
 - **Why it blocks.** `AlignmentRuleSchema` requires a `.positive()` `buildableDepth_m`;
   `SetbackRuleSchema` requires the front/side/rear triple. No pack parses without them. The Zod
   schema **structurally forbids** a placeholder pack — this is a feature.
@@ -92,33 +135,73 @@ genuine residual for (a) is listed in §3.2 and is smaller than "build a solver"
   services found **no `ALTURA`/`PLANTAS`/`FONDO`/`RETRANQUEO` attribute and no coded-value domains**.
   The numbers are genuinely not in GIS.
 
-### 4.2 — NZ 1 wiring + sign-off (research-complete; engineering residual only)
-The solver and provider **exist and are tested**. What remains:
-- **(a)** a server same-origin proxy `/api/madrid/pgoum97/{condiciones,ficha}` so
-  `resolveMadridNZ1Ring` can fetch the published footprint at runtime;
-- **(b)** 🔴 **pre-existing tsc defect** — `ComputeBuildableEnvelopeInput` lacks
-  `explicitAreaFootprint`. The engine branch reads `input.explicitAreaFootprint`
-  (`ZoningRulesEngine.ts:651`) but the interface never declares it, so `tsc` fails at the base (3
-  errors) while `vitest` is green — **this would hard-fail the Fly build.** Fix: add
-  `readonly explicitAreaFootprint?: ReadonlyArray<Pt> | null;` (like `blockRing`). **Engine/schema
-  owner.**
-- **(c)** register the **verified** NZ-1 codes `['1.1','1.2','1.3','1.4','1.5','1.6']` matched on
-  `AMB_TX_ETIQ` — **not** the placeholder `['NZ1']`;
-- **(d)** the L-449 sign-off.
-⚠ None of this needs the ordinance. It is the piece-(a) work in §3.1.
+</details>
 
-### 4.3 — `COEF_Z` is quarantined and must stay that way
+⚠ **That measured GIS negative STANDS and was not overturned** — the parametric *values* are not in
+GIS, which is why the machine read the PDF instead. ⭐ **But a related negative WAS overturned:**
+`PG_ORDENACION/8 Alineaciones` publishes **22,584 `Alineación Oficial` polylines** (L-676), so the
+*legal datum* for the fondo and for every *ancho de calle* height **is** machine-readable even though
+the values are not. CLOSURE-REGISTER rows **7** and **8** — both re-bucketed **A → B**.
+
+### 4.2 — NZ 1 wiring + sign-off — ✅ **(a)(b)(c) ALL CLOSED; (d) reframed** (verified 2026-08-01)
+
+- **(a)** ✅ **CLOSED, by a different implementation than this row assumed.** `/api/madrid/condiciones`
+  is **mounted** (`server.js:514` → `server/madridCondicionesProxy.js`), and `/api/madrid/normas-zonales`
+  beside it (`server.js:518`). ⚠ The routes this row names — `/api/madrid/pgoum97/{condiciones,ficha}`
+  — belong to `rulepacks/esMadridNZ1Provider.ts`, which is **unreachable dead code** (imported by
+  nothing but its own test). The live path is `providers/resolveMadridNZ1Ring.ts`. **Two rival
+  providers now exist** — CLOSURE-REGISTER row **4**, and the *ficha* logic is stranded in the dead
+  one (row **3**).
+- **(b)** ✅ **CLOSED.** `ZoningRulesEngine.ts:84` declares
+  `readonly explicitAreaFootprint?: ReadonlyArray<Pt> | null;` (and `:95` adds
+  `explicitAreaFootprintParts`). The engine reads both at `:743–746`. **The 🔴 build-breaking tsc
+  defect no longer exists** — this row was stale when written into §8 as "the smallest engineering
+  unblock".
+- **(c)** ✅ **CLOSED.** `esMadridNZ1.ts:146` ships
+  `MADRID_NZ1_ZONE_CODES = ['1.1','1.2','1.3','1.4','1.5','1.6']`, matched on `AMB_TX_ETIQ`; the
+  placeholder `['NZ1']` is gone. Registry **and** dispatcher route on the single shared constant
+  `MADRID_NZ1_CODE_PREFIX = '1.'` rather than restating a literal, so a seventh grado would still
+  reach NZ 1's settled answer instead of the coverage-gap card.
+- **(d)** 🟠 **OPEN, and it is TWO signatures, not one.** SIG-M1 covers `MADRID_ENVELOPE_VERIFIED`
+  (the 23 packed zones) and **explicitly excludes NZ 1**. Meanwhile `MADRID_NZ1_CERTIFIED = true`
+  already authorises the only Madrid envelope that renders, **with no signature row anywhere in
+  `VERIFICATION.md §3`** — CLOSURE-REGISTER row **5**.
+
+### 4.3 — `COEF_Z` is quarantined — ✅ **and the quarantine is now EVIDENCE, not caution**
 The only FAR-shaped number Madrid exposes; legal meaning **and denominator** both unknown (it is
 keyed on `CODMANZANA`, so the scope may be *manzana*, not parcel). **Must not be bound to `farRatio`
-anywhere.** Reading `COEF_Z = 5` as FAR 5.0 is the **L-616** failure mode exactly. Resume step:
-Compendio Cap. 8.1, search *coeficiente* / *edificabilidad* / *Coeficiente Z* / *tabla de grados*. If
-absent, sign off the **negative** — do not guess. (`sources/SOURCES.md` §B2.)
+anywhere.** Reading `COEF_Z = 5` as FAR 5.0 is the **L-616** failure mode exactly.
 
-### 4.4 — Seven cheap probes, none run
+> ⭐ **CLOSED ON NEGATIVE EVIDENCE (L-676, 2026-08-01) — the "it is a FAR" hypothesis is eliminated.**
+> Census of all **15,907** `PG_CONDICIONES_EDIFICACION/6` polygons, **57** distinct values:
+> **100 % are INTEGERS in 0–8** (not one decimal in 15,907 rows) and **47.56 % carry a COMPOUND
+> value** (`"0 / 5"` ×1,498, `"0 / 6 / 7"` ×409, `"0 / 4 / 5 / 7"`). **A polygon cannot hold three
+> simultaneous plot ratios.** ⚠ This does **not** say what `COEF_Z` *is* — Cap. 8.1 is still the only
+> source for that, and the resume step below is unchanged. **Verified safe today:**
+> `siteDispatch.ts` builds NZ 1's `ZoningRecord` with `structuredFields: {}`; nothing binds it.
+
+Resume step (for the POSITIVE meaning, unchanged): Compendio Cap. 8.1, search *coeficiente* /
+*edificabilidad* / *Coeficiente Z* / *tabla de grados*. If absent, sign off the **negative** — do not
+guess. (`sources/SOURCES.md` §B2.)
+
+### 4.4 — Seven cheap probes — **three RUN and CLOSED 2026-08-01 (L-676); four still open**
 `sources/VERIFICATION.md` §1a lists P1–P7 — one query each, no ordinance read, each retires a
-documented unknown (`AMB_TX_DENOM`; the zones 2/6/10/11 routing gap; the four unprobed layers; a
-later-edition check). **These are the cheapest available progress in the dossier and nobody has run
-them.**
+documented unknown.
+
+- ✅ **P1 CLOSED** — `AMB_TX_DENOM` **exists and is populated for all 34 codes** (`"ZONA 3 GRADO 1º -
+  NIVEL a"` …). It was previously *"REQUESTED by the proxy but never verified to exist"*.
+- ✅ **P2 CLOSED (coverage half)** — unfiltered `returnCountOnly` = **34**, groupBy = **34 groups,
+  `n=1` each** ⇒ the inventory is **exhaustive**, so zones 2/6/10/11 govern **0 m²** and **no parcel
+  can route to them**. Candidate cause (c) is eliminated; the nomenclature question survives at P3.
+- ✅ **P6 CLOSED, and it is the highest-value of the seven** — `PG_ORDENACION/8 Alineaciones` is live
+  with **22,584 `Alineación Oficial`** polylines (+3,582 *en Volumetría Específica*, +2,066 *Trazado
+  Indicativo APR*, +873 unlabelled). The NZ-4 depth datum **is** usable geometry.
+- 🔴 **P3 / P4 / P5 / P7 still open** — `PG_ANALISIS_EDIFICACION`, `PG_EDIFICIOS_PROTEGIDOS`,
+  `PG_USOS_Y_ACTIVIDADES` field inventories, and the later-edition check.
+
+⭐ **New, unlisted probe run this pass:** `PG_CONDICIONES_EDIFICACION/1 Ficha Específica` holds
+**131** points — the individually-defined parcels the live NZ-1 resolver **never reads**
+(CLOSURE-REGISTER row **3**).
 
 ### 4.5 — 🔴 Version hazard: two portals, two consolidations
 `geoportal.madrid.es` serves **`COMPENDIO_MPG_NNUU_07_07_2025.pdf`** ("COMPENDIO JULIO 2025") — the
@@ -187,20 +270,24 @@ exists. **Cite transparencia. If an extraction quotes `07_07_2025`, treat it as 
   path** anyway (routing comes from `NORMAS_ZONALES/0`). Older files in this dossier that call it
   "down" are stale.
 
-## 8 — THE SMALLEST NEXT STEP that moves the number
+## 8 — THE SMALLEST NEXT STEP that moves the number ⛔ **REPLACED — measurement changed the ranking**
 
-Two candidates, deliberately not ranked here (§3 is the founder's call):
+**The single smallest next step is: a human reads Compendio 2025 Cap. 8.3 and signs the NZ 3
+refusal.** One chapter, eleven quotes **already extracted**, and it converts **60.458 %** of
+Madrid's Norma-Zonal-governed land from *terminal-but-unverified* to *terminal-and-verified*. It
+needs a human; nothing else does it. See CLOSURE-REGISTER row **13** and its recommended order.
 
-- **Cheapest overall (agent, minutes):** run **P1–P7** (`sources/VERIFICATION.md` §1a). Retires seven
-  documented unknowns with no ordinance read and no engineering. Does **not** move the envelope number.
-- **Largest on the envelope number (human, one session):** **read Compendio 2025 Cap. 8.4 and fill the
-  NZ 4 *fondo edificable* + *altura* table per grado.** NZ 4 is central Madrid's dominant residential
-  typology, is `alignment`-shaped (schema-ready today), and needs **no engine work** — so it converts
-  the largest share of the ceiling from SPEC into a real envelope. Cost: one sourcing session + the
-  L-449 sign-off.
-- **Smallest engineering unblock (agent, no legal input):** §4.2(b), the `explicitAreaFootprint`
-  interface field — a 🔴 build-breaking tsc defect that is one line and is currently masked by green
-  tests.
+> ⛔ **STALE, struck 2026-08-01 — every candidate below was mis-ranked, and the measurement is why.**
+> - ~~"Largest on the envelope number: read Cap. 8.4, NZ 4"~~ — **NZ 4 is 8.83 %** of NZ-governed
+>   land, **not** the 30–40 % the corpus assumed; NZ 3 is **60.46 %** and was ranked nowhere. And
+>   Cap. 8.4 has **already been machine-read** — `buildableDepth_m: 12` ships today.
+> - ~~"Smallest engineering unblock: §4.2(b), the `explicitAreaFootprint` tsc defect"~~ — **that
+>   defect does not exist**; the field is declared at `ZoningRulesEngine.ts:84`.
+> - ~~"Cheapest overall: run P1–P7"~~ — **P1, P2 and P6 are now RUN** (§4.4). P6 turned out to move
+>   two blockers from Evidence to Engineering, so "does not move the envelope number" was wrong too.
+>
+> **The transferable lesson: this dossier ranked its own work for five passes without ever measuring
+> the land.** One `groupByFieldsForStatistics` query — available the whole time — inverted the queue.
 
 ⚠ **When NZ 4 is implemented:** *fondo edificable* is measured **from the official street alignment
 line**, inward. **It is not a parcel shrink.** Insetting the parcel ring by the depth is a

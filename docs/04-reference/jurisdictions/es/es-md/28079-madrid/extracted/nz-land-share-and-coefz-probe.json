@@ -1,0 +1,506 @@
+{
+  "probe": "MADRID-NZ-LAND-SHARE-AND-COEFZ",
+  "measuredAt": "2026-08-01",
+  "method": "ArcGIS REST outStatistics groupBy, unfiltered where=1=1, no client-side filtering",
+  "endpoints": {
+    "normasZonales": "https://sigma.madrid.es/hosted/rest/services/DESARROLLO_URBANO_ACTUALIZADO/NORMAS_ZONALES/MapServer/0/query",
+    "condiciones6": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_CONDICIONES_EDIFICACION/MapServer/6/query",
+    "fichaEspecifica1": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_CONDICIONES_EDIFICACION/MapServer/1/query",
+    "alineaciones": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ORDENACION/MapServer/8/query"
+  },
+  "denominator": "LAND GOVERNED BY A NORMA ZONAL (the NORMAS_ZONALES/0 polygons). NOT the municipal area (604 km2) and NOT the L-656 private-buildable denominator.",
+  "totalNzGovernedLand_m2": 149577169.5,
+  "featureCount": 34,
+  "perCode": [
+    {
+      "code": "3.1.a",
+      "denom": "ZONA 3 GRADO 1º - NIVEL a",
+      "area_m2": 66694065.1,
+      "shareOfNzLand": 0.445884
+    },
+    {
+      "code": "3.2",
+      "denom": "ZONA 3 GRADO 2º",
+      "area_m2": 18066267.3,
+      "shareOfNzLand": 0.120782
+    },
+    {
+      "code": "4",
+      "denom": "NZ 4",
+      "area_m2": 13203045.5,
+      "shareOfNzLand": 0.088269
+    },
+    {
+      "code": "1.3",
+      "denom": "ZONA 1 GRADO 3º",
+      "area_m2": 9456904.6,
+      "shareOfNzLand": 0.063224
+    },
+    {
+      "code": "9.5",
+      "denom": "ZONA 9 GRADO 5º",
+      "area_m2": 5179750.1,
+      "shareOfNzLand": 0.034629
+    },
+    {
+      "code": "8.2.a",
+      "denom": "ZONA 8 GRADO 2º - NIVEL a",
+      "area_m2": 3891483.1,
+      "shareOfNzLand": 0.026017
+    },
+    {
+      "code": "8.1.a",
+      "denom": "ZONA 8 GRADO 1º - NIVEL a",
+      "area_m2": 2892706.6,
+      "shareOfNzLand": 0.019339
+    },
+    {
+      "code": "3.1",
+      "denom": "NZ 3.1",
+      "area_m2": 2820758.2,
+      "shareOfNzLand": 0.018858
+    },
+    {
+      "code": "8.3.a",
+      "denom": "ZONA 8 GRADO 3º - NIVEL a",
+      "area_m2": 2700185.3,
+      "shareOfNzLand": 0.018052
+    },
+    {
+      "code": "1.2",
+      "denom": "ZONA 1 GRADO 2º",
+      "area_m2": 2673872.1,
+      "shareOfNzLand": 0.017876
+    },
+    {
+      "code": "8.4",
+      "denom": "ZONA 8 GRADO 4º",
+      "area_m2": 2284691.5,
+      "shareOfNzLand": 0.015274
+    },
+    {
+      "code": "3.1.b",
+      "denom": "ZONA 3 GRADO 1º - NIVEL b",
+      "area_m2": 2258070.1,
+      "shareOfNzLand": 0.015096
+    },
+    {
+      "code": "7.1.a",
+      "denom": "ZONA 7 GRADO 1º - NIVEL a",
+      "area_m2": 2040136.3,
+      "shareOfNzLand": 0.013639
+    },
+    {
+      "code": "1.1",
+      "denom": "ZONA 1 GRADO 1º",
+      "area_m2": 2036243.5,
+      "shareOfNzLand": 0.013613
+    },
+    {
+      "code": "1.4",
+      "denom": "ZONA 1 GRADO 4º",
+      "area_m2": 1922178.8,
+      "shareOfNzLand": 0.012851
+    },
+    {
+      "code": "9.4.a",
+      "denom": "ZONA 9 GRADO 4º - NIVEL a",
+      "area_m2": 1522268.3,
+      "shareOfNzLand": 0.010177
+    },
+    {
+      "code": "9.3",
+      "denom": "ZONA 9 GRADO 3º",
+      "area_m2": 1496049.5,
+      "shareOfNzLand": 0.010002
+    },
+    {
+      "code": "1.6",
+      "denom": "ZONA 1 GRADO 6º",
+      "area_m2": 1346263.9,
+      "shareOfNzLand": 0.009
+    },
+    {
+      "code": "9.4.b",
+      "denom": "ZONA 9 GRADO 4º - NIVEL b",
+      "area_m2": 1035847.4,
+      "shareOfNzLand": 0.006925
+    },
+    {
+      "code": "5.2",
+      "denom": "ZONA 5 GRADO 2º",
+      "area_m2": 964777.9,
+      "shareOfNzLand": 0.00645
+    },
+    {
+      "code": "9.1",
+      "denom": "ZONA 9 GRADO 1º",
+      "area_m2": 942631.6,
+      "shareOfNzLand": 0.006302
+    },
+    {
+      "code": "8.6",
+      "denom": "ZONA 8 GRADO 6º",
+      "area_m2": 844120.0,
+      "shareOfNzLand": 0.005643
+    },
+    {
+      "code": "3.1.c",
+      "denom": "ZONA 3 GRADO 1º - NIVEL c",
+      "area_m2": 592154.3,
+      "shareOfNzLand": 0.003959
+    },
+    {
+      "code": "8.2.b",
+      "denom": "ZONA 8 GRADO 2º - NIVEL b",
+      "area_m2": 567156.2,
+      "shareOfNzLand": 0.003792
+    },
+    {
+      "code": "8.3.c",
+      "denom": "ZONA 8 GRADO 3º - NIVEL c",
+      "area_m2": 525128.6,
+      "shareOfNzLand": 0.003511
+    },
+    {
+      "code": "5.3",
+      "denom": "ZONA 5 GRADO 3º",
+      "area_m2": 441117.0,
+      "shareOfNzLand": 0.002949
+    },
+    {
+      "code": "8.2.c",
+      "denom": "ZONA 8 GRADO 2º - NIVEL c",
+      "area_m2": 320384.0,
+      "shareOfNzLand": 0.002142
+    },
+    {
+      "code": "8.1.c",
+      "denom": "ZONA 8 GRADO 1º - NIVEL c",
+      "area_m2": 197142.6,
+      "shareOfNzLand": 0.001318
+    },
+    {
+      "code": "9.2",
+      "denom": "ZONA 9 GRADO 2º",
+      "area_m2": 174530.6,
+      "shareOfNzLand": 0.001167
+    },
+    {
+      "code": "8.5",
+      "denom": "ZONA 8 GRADO 5º",
+      "area_m2": 165687.0,
+      "shareOfNzLand": 0.001108
+    },
+    {
+      "code": "5.1",
+      "denom": "ZONA 5 GRADO 1º",
+      "area_m2": 126984.4,
+      "shareOfNzLand": 0.000849
+    },
+    {
+      "code": "7.1.b",
+      "denom": "ZONA 7 GRADO 1º - NIVEL b",
+      "area_m2": 124096.8,
+      "shareOfNzLand": 0.00083
+    },
+    {
+      "code": "1.5",
+      "denom": "ZONA 1 GRADO 5º",
+      "area_m2": 58191.7,
+      "shareOfNzLand": 0.000389
+    },
+    {
+      "code": "7.2.e",
+      "denom": "ZONA 7 GRADO 2º - NIVEL ESPECIAL",
+      "area_m2": 12279.6,
+      "shareOfNzLand": 8.2e-05
+    }
+  ],
+  "perFamily": {
+    "3": {
+      "area_m2": 90431315.0,
+      "shareOfNzLand": 0.60458
+    },
+    "1": {
+      "area_m2": 17493654.6,
+      "shareOfNzLand": 0.116954
+    },
+    "8": {
+      "area_m2": 14388684.9,
+      "shareOfNzLand": 0.096196
+    },
+    "4": {
+      "area_m2": 13203045.5,
+      "shareOfNzLand": 0.088269
+    },
+    "9": {
+      "area_m2": 10351077.5,
+      "shareOfNzLand": 0.069202
+    },
+    "7": {
+      "area_m2": 2176512.7,
+      "shareOfNzLand": 0.014551
+    },
+    "5": {
+      "area_m2": 1532879.3,
+      "shareOfNzLand": 0.010248
+    }
+  },
+  "coefZ": {
+    "layer6PolygonCount": 15907,
+    "distinctValues": 57,
+    "classification": {
+      "coded": 7566,
+      "numeric": 7138,
+      "absent": 1203
+    },
+    "classificationShare": {
+      "coded": 0.4756,
+      "numeric": 0.4487,
+      "absent": 0.0756
+    },
+    "observedNumericRange": [
+      0,
+      8
+    ],
+    "allObservedValuesAreIntegers": true,
+    "distribution": [
+      [
+        "4",
+        2709
+      ],
+      [
+        "5",
+        2123
+      ],
+      [
+        "0 / 5",
+        1498
+      ],
+      [
+        "0 / 4",
+        1289
+      ],
+      [
+        "-",
+        1143
+      ],
+      [
+        "0 / 6",
+        1135
+      ],
+      [
+        "7",
+        1107
+      ],
+      [
+        "6",
+        1106
+      ],
+      [
+        "0 / 7",
+        969
+      ],
+      [
+        "0 / 6 / 7",
+        409
+      ],
+      [
+        "5 / 7",
+        319
+      ],
+      [
+        "6 / 7",
+        307
+      ],
+      [
+        "0 / 5 / 7",
+        297
+      ],
+      [
+        "0 / 5 / 6",
+        245
+      ],
+      [
+        "4 / 5",
+        243
+      ],
+      [
+        "5 / 6",
+        191
+      ],
+      [
+        "4 / 7",
+        142
+      ],
+      [
+        "0 / 4 / 5",
+        131
+      ],
+      [
+        "4 / 6",
+        79
+      ],
+      [
+        "0 / 4 / 7",
+        63
+      ],
+      [
+        "3",
+        62
+      ],
+      [
+        null,
+        60
+      ],
+      [
+        "0 / 4 / 6",
+        56
+      ],
+      [
+        "4 / 5 / 7",
+        25
+      ],
+      [
+        "8",
+        24
+      ],
+      [
+        "0 / 8",
+        19
+      ],
+      [
+        "4 / 5 / 6",
+        17
+      ],
+      [
+        "0 / 6 / 8",
+        16
+      ],
+      [
+        "4 / 6 / 7",
+        12
+      ],
+      [
+        "0 / 5 / 6 / 7",
+        10
+      ],
+      [
+        "0 / 2",
+        10
+      ],
+      [
+        "0 / 4 / 5 / 7",
+        9
+      ],
+      [
+        "0 / 7 / 8",
+        9
+      ],
+      [
+        "2",
+        7
+      ],
+      [
+        "5 / 6 / 7",
+        7
+      ],
+      [
+        "6 / 8",
+        7
+      ],
+      [
+        "3 / 5",
+        7
+      ],
+      [
+        "3 / 4",
+        6
+      ],
+      [
+        "0 / 3 / 4",
+        5
+      ],
+      [
+        "0 / 3",
+        5
+      ],
+      [
+        "0 / 3 / 5",
+        3
+      ],
+      [
+        "0 / 4 / 5 / 6",
+        3
+      ],
+      [
+        "0 / 5 / 8",
+        3
+      ],
+      [
+        "3 / 6",
+        3
+      ],
+      [
+        "7 / 8",
+        2
+      ],
+      [
+        "0 / 3 / 6",
+        2
+      ],
+      [
+        "0 / 6 / 7 / 8",
+        2
+      ],
+      [
+        "7 / 0",
+        2
+      ],
+      [
+        "4 / 7 / 8",
+        1
+      ],
+      [
+        "6 / 7 / 8",
+        1
+      ],
+      [
+        "0 / 3 / 7",
+        1
+      ],
+      [
+        "7 / 6",
+        1
+      ],
+      [
+        "0 / 2 / 5",
+        1
+      ],
+      [
+        "5 / 8",
+        1
+      ],
+      [
+        "--",
+        1
+      ],
+      [
+        "3 / 5 / 6",
+        1
+      ],
+      [
+        "0 / 4 / 6 / 7",
+        1
+      ]
+    ]
+  },
+  "fichaEspecificaPointCount": 131,
+  "alineaciones": {
+    "AlineacionOficial": 22584,
+    "AlineacionEnVolumetriaEspecifica": 3582,
+    "TrazadoIndicativoAPR": 2066,
+    "unlabelled": 873
+  }
+}

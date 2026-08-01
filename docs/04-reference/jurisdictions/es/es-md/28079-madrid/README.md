@@ -57,7 +57,16 @@ pack on the exact `AMB_TX_ETIQ` string — a bare `NZ<n>` scalar is a category e
 
 ## 2 — Pack status
 
-**No pack registered. `packsByZone` is EMPTY. Every Madrid parcel receives a cited refusal.**
+> ⛔ **CORRECTED 2026-08-01 — the line below and the NZ-1/NZ-4 rows under it are STALE.**
+> **Madrid IS registered** (`40c80164`): `packsByZone` carries **23 codes**, the router, both proxies
+> and the L5 dispatch are live, and **NZ 1 renders a constructed envelope**
+> (`MADRID_NZ1_CERTIFIED = true`). The `explicitAreaFootprint` tsc defect is **closed**
+> (`ZoningRulesEngine.ts:84`), the codes `1.1…1.6` **are** registered, and NZ 4/5/7/8/9 hold **282
+> machine-extracted cited records** — not "zero numeric parameters". What withholds every number is
+> the **human gate** `MADRID_ENVELOPE_VERIFIED = false`. ⇒ [`CLOSURE-REGISTER.md`](./CLOSURE-REGISTER.md).
+
+~~**No pack registered. `packsByZone` is EMPTY.**~~ **Every Madrid parcel receives a terminal answer:
+a constructed envelope (NZ 1), a legally-grounded delegation (NZ 3), or a cited refusal.**
 
 | Track | State |
 |---|---|
@@ -79,13 +88,21 @@ pack on the exact `AMB_TX_ETIQ` string — a bare `NZ<n>` scalar is a category e
 
 **Denominator = a Madrid residential parcel click.**
 
+⚠ **UPDATED 2026-08-01.** The land shares are now **MEASURED** (L-676) on a stated denominator —
+**149,577,170 m² of Norma-Zonal-governed land** (*not* the municipal 604 km², *not* the L-656
+private-buildable set, which Madrid still lacks).
+
 | Figure | Value | Kind |
 |---|---|---|
-| Shippable envelope resolution **today** | **0 %** | **measured** (`packsByZone` empty) |
-| C63 LEGISLATION axis | **0 %** | **measured** (0 cited+signed of 34 claus) |
-| C63 overall (5 of 7 axes assessed) | **28 %** | computed, `partial: true` |
+| Parcels reaching a **TERMINAL** answer today | **72.153 %** | **measured** — NZ 3 delegation 60.458 % + NZ 1 envelope 11.695 % |
+| …of which carries a **human-signed** citation | **0 %** | **measured** — `VERIFICATION.md §3` is empty |
+| Pending **one** signature (NZ 4·5·7·8·9) | **27.847 %** | **measured** — 17.248 % under SIG-M1 as currently scoped |
+| C63 ENVELOPE axis **today** | **≤4.7 %** | **measured**, upper bound *(was reported 0 % on a false derivation)* |
+| C63 ENVELOPE **arithmetic maximum** | **≈36.8 %** | **~96 % of the gap is LAW** (NZ 3), not effort |
+| C63 LEGISLATION axis | **0 %** | **measured** (0 cited+signed of 34 claus); max **100 %**, effort-bound |
+| C63 overall | **43.0 %** | computed, `partial: true` — max **≈87 %** |
 | Data-readiness (`LEGISLATION-RATE.md`) | ~68 % | a **different ruler** — can a query answer without a PDF |
-| Engine ceiling once sourced + wired | ≈ 60–62 % | derived from two **UNSOURCED** land-share fractions |
+| ~~Engine ceiling once sourced + wired ≈ 60–62 %~~ | ⛔ **DISPROVEN** | the two land-share fractions behind it are now measured and do not support it |
 | Founder forecasts | ~90–95 % | **forecasts, not measurements**, on a different denominator |
 
 ⚠ **Six figures, six denominators.** They are all honest and none is interchangeable. Do not quote
