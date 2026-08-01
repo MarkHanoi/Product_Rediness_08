@@ -94,10 +94,23 @@ describe('§TOTALITY — a future gated city CANNOT re-open this hole', () => {
         expect(ENVELOPE_PUBLICATION_GATES.has(BCN_JURISDICTION_ID)).toBe(false);
     });
 
-    it('all three signature-critical cities are UNAUTHORISED today', () => {
+    it('authorisation tracks the SIGNATURE, per city — Murcia signed, Madrid + Córdoba not', () => {
+        // Was "all three signature-critical cities are UNAUTHORISED today". The founder signed
+        // MURCIA on 2026-08-01; Madrid and Córdoba are deliberately NOT flipped yet, each for a
+        // reason that would publish an OVERSTATEMENT today:
+        //   • Córdoba — D1: the UAD `profundidad máxima edificable` (Art. 13.9.3.3, 16/18/16 m) is
+        //     STATED in the source and ABSENT from the pack. On a party-wall parcel with zero
+        //     setbacks that is the L-616 mechanism-A whole-parcel overstatement. Its subzone
+        //     resolver is also authored-but-never-called, so it would render nothing regardless.
+        //   • Madrid — the six zones excluded as unsignable IN PRINCIPLE (4 · 9.1 · 9.2 · 5.1 ·
+        //     5.2 · 5.3) are still in the pack. Art. 8.5.6.3 measures to the street CENTRELINE,
+        //     which `GeometricRule` cannot express ⇒ no front inset ⇒ overstates on a narrow street.
+        // ⚠ THIS TEST'S REAL JOB IS UNCHANGED: authorisation is PER-JURISDICTION and must never be
+        // global. A signature for one city must not authorise another — that is the whole point of
+        // asserting all three here rather than only the signed one.
+        expect(isEnvelopePublicationAuthorised(MURCIA_JURISDICTION_ID)).toBe(true);
         expect(isEnvelopePublicationAuthorised(MADRID_JURISDICTION_ID)).toBe(false);
         expect(isEnvelopePublicationAuthorised(CORDOBA_JURISDICTION_ID)).toBe(false);
-        expect(isEnvelopePublicationAuthorised(MURCIA_JURISDICTION_ID)).toBe(false);
     });
 });
 
@@ -108,15 +121,24 @@ describe('§THE-CLASSIFIER-READS-IT — these assertions FAIL on 6632f0e3', () =
         expect(classifyAnswerability(CORDOBA_JURISDICTION_ID, 'PAS-1')).toBe('pack-unverified');
     });
 
-    it('Murcia RM1 is `pack-unverified`, NOT `full-envelope`', () => {
-        expect(classifyAnswerability(MURCIA_JURISDICTION_ID, 'RM1')).toBe('pack-unverified');
+    it('Murcia RM1 is now `full-envelope` — the classifier followed the SIGNATURE', () => {
+        // Was `pack-unverified` while the gate was shut, which was the defect's own example.
+        // The founder signed Murcia on 2026-08-01, so the classifier must now say `full-envelope`
+        // — and the fact that it MOVED is the proof the fix reads the gate rather than a constant.
+        // ⚠ A classifier that stayed `pack-unverified` after a signature would be the SAME defect
+        // in the opposite direction: a claim that does not track the authorisation it reports on.
+        expect(classifyAnswerability(MURCIA_JURISDICTION_ID, 'RM1')).toBe('full-envelope');
     });
 
-    it('EVERY packed zone in all three gated cities is `pack-unverified` — no survivors', () => {
+    it('EVERY packed zone in the STILL-GATED cities is `pack-unverified` — no survivors', () => {
+        // ⚠ MURCIA WAS REMOVED FROM THIS LIST ON 2026-08-01, and only because it was SIGNED —
+        // never because it was inconvenient. Its packed zones are now asserted `full-envelope` by
+        // the sibling test above, so the coverage is not lost, it MOVED with the authorisation.
+        // Madrid and Córdoba stay here: each would publish an overstatement today (Córdoba's
+        // missing UAD depth cap, D1/L-616; Madrid's six centreline/street-width zones).
         const cases: ReadonlyArray<readonly [string, readonly string[]]> = [
             [MADRID_JURISDICTION_ID, MADRID_PGOUM97_ZONE_CODES],
             [CORDOBA_JURISDICTION_ID, CORDOBA_PGOU2001_ZONE_CODES],
-            [MURCIA_JURISDICTION_ID, MURCIA_PGOU2012_ZONE_CODES],
         ];
         for (const [jurisdiction, codes] of cases) {
             expect(codes.length, jurisdiction).toBeGreaterThan(0);

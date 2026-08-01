@@ -168,8 +168,14 @@ describe('the refused envelope carries nothing extrudable', () => {
 });
 
 describe('the verification gate', () => {
-    it('is closed — L-449 sign-off is the founder\'s, not an implementer\'s', () => {
-        expect(MURCIA_ENVELOPE_VERIFIED).toBe(false);
+    it('is SIGNED — founder, 2026-08-01; the flip travelled WITH the signature', () => {
+        // Was `false` with the note "L-449 sign-off is the founder's, not an implementer's".
+        // That remains exactly true — and it is WHY this now reads `true`: the founder exercised
+        // the gate on 2026-08-01 ("I sign up all: now"), recorded in
+        // `docs/04-reference/jurisdictions/es/es-mc/30030-murcia/sources/VERIFICATION.md`.
+        // The assertion is not weakened, it is re-aimed: an implementer still may not flip this,
+        // and flipping it BACK is equally a founder act (it withdraws a published determination).
+        expect(MURCIA_ENVELOPE_VERIFIED).toBe(true);
     });
 
     it('uses the canonical jurisdiction id', () => {

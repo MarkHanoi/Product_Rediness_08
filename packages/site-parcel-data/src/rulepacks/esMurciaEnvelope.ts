@@ -47,12 +47,41 @@ export const MURCIA_JURISDICTION_ID = 'es-30030-murcia';
 /**
  * Is a signed, transcribed Murcia envelope rule pack available?
  *
- * ⚠ HARD-FALSE, and it must stay false until a human signs
+ * ✍ **SIGNED — founder (repo owner), 2026-08-01.** The L-449 gate is a legal act and it has
+ * been exercised: *"I sign up all: now"*, given after the measured coverage, the delegation
+ * split and the badge precondition were put in front of the founder. The flip travels WITH the
+ * signature, never ahead of it — recorded in
  * `docs/04-reference/jurisdictions/es/es-mc/30030-murcia/sources/VERIFICATION.md`.
- * L-449 sign-off is the founder's, never an implementer's. Same gate shape as
- * `CORDOBA_ENVELOPE_VERIFIED`.
+ *
+ * **WHAT THE SIGNATURE AUTHORISES** — publishing a computed envelope on the **23.51 %** of
+ * Murcia's buildable land (denominator: 75.145 M m², L-656 — buildable land, not all land, not
+ * clicks) where a packed calificación sits on NON-delegated soil, at confidence
+ * `estimated-ruleset`, cited to the PGOU *Texto Refundido* dic-2012, Volumen 11.
+ *
+ * **WHAT IT DOES NOT AUTHORISE — equally binding:**
+ * - the **67 %** delegated to partial plans: those keep their legally-grounded `derived-plan`
+ *   refusal (Arts. 5.25.3.3 / 5.26.3.3 — a zonal code inside a delegating *ámbito* governs use
+ *   and typology *«pero no a los parámetros definitorios de la altura o edificabilidad»*).
+ *   ⚠ This includes the founder's own parcel `3481104XH6038S` (ámbito TA-379 → Plan Parcial
+ *   CR-5). Signing does NOT unlock it, and a test pins that;
+ * - the **11 calificaciones that refuse**, each already cited;
+ * - promoting the tier above `estimated-ruleset`. ⚠ `authoritative` is UNREACHABLE — no
+ *   production path assigns it, and a constructed determination is capped at 0.70 on ENVELOPE.
+ *
+ * **PRECONDITION DISCHARGED:** the C58 badge defect (`cf45531e`) is fixed — a pack's declared
+ * confidence and its verification gate now REACH the user, so a signed pack can no longer
+ * surface machine-read numbers under a chip that overstates them. Signing before that landed
+ * would have made the screen LESS honest than refusing.
+ *
+ * ⚠ **KNOWN LIMIT ACCEPTED AT SIGNING (L-674):** the cited document is **not yet in the repo**
+ * — `urbanismo.murcia.es` returns **HTTP 403** to automated requests (measured 2026-08-01; the
+ * BCNROC pattern). The per-parameter verbatim quotes therefore cannot be re-read from
+ * `corpus/pdf/` the way Barcelona's DOGC 4893 can. Founder is fetching it by hand.
+ *
+ * ⚠⚠ **DO NOT flip this back on a hunch.** Reverting is a legal act too: it withdraws a
+ * published determination. Route a reversal through the founder, exactly as the flip was.
  */
-export const MURCIA_ENVELOPE_VERIFIED = false as const;
+export const MURCIA_ENVELOPE_VERIFIED = true as const;
 
 /**
  * DERIVED-PLAN MARKERS observable in a Spanish cadastral address string.

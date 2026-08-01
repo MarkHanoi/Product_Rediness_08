@@ -223,7 +223,11 @@ describe('§MURCIA-CROSSTAB — the committed measurement', () => {
         expect(g['ambito-delegante']!.pct).toBeCloseTo(2.45, 1);
     });
 
-    it('MEASURING IS NOT AUTHORISING — the gate is still shut', () => {
-        expect(MURCIA_ENVELOPE_VERIFIED).toBe(false);
+    it('the measurement PRECEDED the signature — and the gate is now signed', () => {
+        // Was "MEASURING IS NOT AUTHORISING — the gate is still shut", asserting `false`.
+        // The principle is untouched and is in fact why the ORDER mattered: the 23.51 % was
+        // measured while the gate was shut, so the founder signed against a number that could
+        // not have been flattered by the signature. The gate was then exercised on 2026-08-01.
+        expect(MURCIA_ENVELOPE_VERIFIED).toBe(true);
     });
 });

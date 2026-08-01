@@ -1,5 +1,57 @@
 # VERIFICATION — Murcia (es-mc, 30030) — the human sign-off ledger
 
+## ✍ SIG-MU1 · **SIGNED 2026-08-01** · PGOU TR dic-2012 envelope — `MURCIA_ENVELOPE_VERIFIED`
+
+| | |
+|---|---|
+| **Verifier** | Founder (repo owner) |
+| **Date** | 2026-08-01 |
+| **Act** | *"I sign up all: now"* — given after the measured coverage, the delegation split and the badge precondition were put in front of the founder |
+| **Axis** | ENVELOPE |
+| **Artefact** | `packages/site-parcel-data/src/rulepacks/esMurciaEnvelope.ts` → `MURCIA_ENVELOPE_VERIFIED` (**now `true`**) |
+| **Source** | *PLAN GENERAL MUNICIPAL DE ORDENACIÓN DE MURCIA — Texto Refundido, diciembre 2012*, **Volumen 11 — Normas Urbanísticas** (Ayuntamiento de Murcia; `urbanismo.murcia.es`) |
+
+**The question signed:** *may PRYZM publish a computed envelope for a packed calificación that sits on
+NON-delegated Murcia soil, at `estimated-ruleset`, cited to the PGOU Texto Refundido?*
+
+**AUTHORISES:** publication on the **23.51 %** of Murcia's buildable land (denominator **75.145 M m²** —
+L-656: buildable land, *not* all land, *not* clicks) where one of the 14 transcribed calificaciones
+(`RL RD RD1 IX RF RG IC RH MC IG AJ RM1 RM2 MG`) meets non-delegated soil. Measured by the committed
+`calificacion` × `clase-de-suelo` cross-tab (`tools/murcia-coverage-crosstab/`), **run BEFORE the
+signature** so the number could not be flattered by it.
+
+**DOES NOT AUTHORISE — equally binding:**
+- the **~67 %** delegated to partial plans. Arts. **5.25.3.3 / 5.26.3.3**: a zonal code inside a
+  delegating *ámbito* governs use and typology *«pero no a los parámetros definitorios de la altura o
+  edificabilidad»*. Those keep their **legally-grounded `derived-plan` refusal**;
+- ⚠ **the founder's own parcel `3481104XH6038S`** — *ámbito* **TA-379 → Plan Parcial CR-5** (Arts. 6.6.2
+  / 5.24.5.1). **Signing does NOT unlock it**, and a test pins that it still refuses;
+- the **11 calificaciones that refuse**, each already cited;
+- promoting the tier above `estimated-ruleset`. ⚠ **`authoritative` is UNREACHABLE** — no production
+  path assigns it; a constructed determination is capped at **0.70** on ENVELOPE.
+
+**PRECONDITION DISCHARGED:** the C58 badge defect (`cf45531e`) is fixed — a pack's declared confidence
+and its verification gate now **reach the user**. Signing before that landed would have made the screen
+**less honest than refusing**.
+
+⚠ **KNOWN LIMIT ACCEPTED AT SIGNING — L-674, and it is real.** The cited document is **NOT yet in the
+repo**. `urbanismo.murcia.es/infourb/documentos/` returns **HTTP 403** to automated requests (measured
+2026-08-01 — the BCNROC pattern; a human browser reaches it). The per-parameter verbatim quotes
+therefore **cannot be re-read from `corpus/pdf/`** the way Barcelona's DOGC 4893 can. The quotes may be
+perfect; nothing in the repo can currently prove it. **Founder is fetching Volumen 11 by hand.** Until
+it lands, this signature rests on a transcription that cannot be independently re-verified here.
+
+⚠ **Misattribution guard (the Badalona lesson, which recurred three times):** *always verify the
+MUNICIPALITY, never the numbers.* When Volumen 11 arrives, confirm the title page says **Murcia** before
+trusting a single band.
+
+**Reversal is also a founder act.** Flipping `MURCIA_ENVELOPE_VERIFIED` back withdraws a published
+determination; route it through the founder exactly as the flip was.
+
+---
+
+
+
 > **The L-449 gate.** Transcribing an ordinance into a buildability engine is a **legal act**, not an
 > engineering one. This file records **who signed what, when, against which document** — and, just as
 > importantly, **what each signature does NOT authorise**. Shape follows

@@ -341,12 +341,15 @@ describe('S5 — the registry answers for Murcia (the coverage globe reads this)
         );
     });
 
-    it('⚠ REGISTRATION IS NOT AUTHORISATION — the verification gate is still shut', () => {
-        // The one assertion that makes the registration safe. If this ever reads `true` without a
-        // signature in `es-mc/30030-murcia/sources/VERIFICATION.md`, the pack's numbers are live.
-        expect(MURCIA_ENVELOPE_VERIFIED).toBe(false);
-        // …and the PURE disposition — the only thing the L5 dispatch consults — refuses a packed,
-        // NON-delegated calificación rather than returning its transcribed envelope.
+    it('⚠ AUTHORISATION IS NOW GIVEN — and DELEGATION still outranks the pack', () => {
+        // Was "REGISTRATION IS NOT AUTHORISATION — the gate is still shut". The gate was signed by
+        // the founder on 2026-08-01, so the first assertion flips WITH the signature.
+        expect(MURCIA_ENVELOPE_VERIFIED).toBe(true);
+        // …and the PURE disposition — the only thing the L5 dispatch consults — now returns the
+        // TRANSCRIBED ENVELOPE for a packed, NON-delegated calificación. Pre-signature this same
+        // input asserted `refusal` / `no-rule-pack`; that expectation was correct then and is
+        // wrong now, so it is RE-AIMED, not deleted. This is the whole observable effect of the
+        // signature, and if it ever reverts to a refusal the gate has been silently un-flipped.
         const d = murciaEnvelopeDisposition(
             {
                 calificacion: 'RM1', descripcion: 'Manzana cerrada', uso_global: 'Residencial',
@@ -355,16 +358,13 @@ describe('S5 — the registry answers for Murcia (the coverage globe reads this)
             null,
             '2026-08-01',
         );
-        expect(d.kind).toBe('refusal');
-        if (d.kind !== 'refusal') throw new Error('unreachable');
-        expect(d.refusal.code).toBe('no-rule-pack');
-        // It NAMES the governing article (strictly more useful than "we have no rule")…
-        expect(d.refusal.ordinanceRef).toContain('Normas Urbanísticas');
-        // …and it is NOT a claim about the law: the ordinance answers, our reading is unsigned.
-        expect(d.refusal.legallyGrounded).toBe(false);
-        // ⚠ AND IT LEAKS NO FIGURE. A gate you can read around is not a gate.
-        const prose = `${d.refusal.headline} ${d.refusal.detail}`;
-        expect(prose).not.toMatch(/\d+(?:[.,]\d+)?\s*(?:m2\/m2|m²\/m²|plantas)/);
+        expect(d.kind).toBe('envelope');
+        // ⚠ THE INVARIANT THAT SURVIVES THE SIGNATURE, and the reason this test still earns its
+        // place: DELEGATION outranks the pack. A signature authorises publishing where we MAY
+        // publish; it does not overrule the ordinance. Arts. 5.25.3.3 / 5.26.3.3 hand altura and
+        // edificabilidad to the partial plan whatever the zonal code says — pinned by the
+        // sibling test below ("answers a DELEGATED Murcia zone code with a refusal") and by the
+        // founder's own parcel `3481104XH6038S`, which must keep refusing.
     });
 
     it('answers a DELEGATED Murcia zone code with a refusal, never an estimated fallback', () => {

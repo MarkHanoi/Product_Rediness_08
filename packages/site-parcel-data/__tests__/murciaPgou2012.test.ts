@@ -270,15 +270,17 @@ describe('Murcia disposition — the pack is REACHABLE, and the delegation order
             { sector: 'U', clase_suelo: 'Urbano', categoria: 'Urbano Consolidado', uso_global: 'Residencial', pedania: 'Murcia', superficie: 800, f_inicial: '2012-12-01', f_fin: '2999-12-30' },
             ASOF,
         );
-        expect(d.kind).toBe('refusal');
-        if (d.kind !== 'refusal') return;
-        expect(d.refusal.ordinanceRef).toContain('Art. 5.5.3');
-        expect(d.refusal.ordinanceRef).toContain('Texto Refundido diciembre 2012');
-        // The gate is CLOSED, so no number is published…
-        expect(MURCIA_ENVELOPE_VERIFIED).toBe(false);
-        expect(d.refusal.detail).toMatch(/SIGNATURE/i);
-        // …and the refusal is a statement about OUR verification, not about the law.
-        expect(d.refusal.legallyGrounded).toBe(false);
+        // ⚠ RE-AIMED 2026-08-01, NOT WEAKENED. Pre-signature this asserted `refusal` +
+        // `ordinanceRef` containing 'Art. 5.5.3'. The founder signed `MURCIA_ENVELOPE_VERIFIED`,
+        // so the same input now yields the ENVELOPE — and the branch-removal property the test
+        // exists for is preserved, because the article survives on `classification.article`.
+        // Delete the `resolveMurciaPgouZone` block and this still fails: you get the generic
+        // coverage refusal, which carries neither an envelope nor an article.
+        expect(MURCIA_ENVELOPE_VERIFIED).toBe(true);
+        expect(d.kind).toBe('envelope');
+        if (d.kind !== 'envelope') return;
+        expect(d.zone.code).toBe('RM1');
+        expect(d.classification?.article).toBe('Art. 5.5.3');
     });
 
     it('emits the ENVELOPE only when verification is injected true — the post-signature shape', () => {
@@ -360,18 +362,37 @@ describe('Murcia — the pack is reachable from the LIVE resolver chain, not jus
         if (!res.ok) return;
         expect(res.records.calificacion?.calificacion).toBe('RD');
 
+        // ⚠ RE-AIMED 2026-08-01. Post-signature a PGOU-DIRECT `RD` publishes its envelope; the
+        // live-chain reachability this test exists for is unchanged — the resolver still has to
+        // reach `murciaEnvelopeDisposition` and land on the transcribed article.
         const d = murciaEnvelopeDisposition(res.records.calificacion, res.records.sector, ASOF);
-        expect(d.kind).toBe('refusal');
-        if (d.kind !== 'refusal') return;
-        expect(d.refusal.ordinanceRef).toContain('Art. 5.9.3');
-        // ⚠ THE GATE-LEAK TEST. RD's FAR (1,3) and height (7 m / 2 plantas) ARE transcribed and
-        // sit in the classification `note` — so it is one interpolation away from being published
-        // in prose while the gate is shut. A gate you can read around is not a gate.
+        expect(d.kind).toBe('envelope');
+        if (d.kind !== 'envelope') return;
+        expect(d.classification?.article).toBe('Art. 5.9.3');
+
+        // ⚠ THE GATE-LEAK TEST IS KEPT, MOVED TO WHERE A REFUSAL STILL HAPPENS — a DELEGATED
+        // parcel. RD's FAR (1,3) and height (7 m / 2 plantas) ARE transcribed and sit in the
+        // classification `note`, so they remain one interpolation away from being published in
+        // the prose of a refusal that has no right to state them. Arts. 5.25.3.3 / 5.26.3.3 hand
+        // altura and edificabilidad to the partial plan, so quoting OUR transcribed numbers there
+        // would assert exactly the fact the ordinance says we cannot. A signature authorises
+        // publishing where we may publish; it never authorises leaking into a refusal.
+        const delegated = murciaEnvelopeDisposition(
+            // `TA-379` — a REAL remitted prefix from `REMITTED_AMBITO_PREFIXES` (TA·TM·UA·UH·UM),
+            // and specifically the ámbito the founder's own parcel 3481104XH6038S sits in
+            // (TA-379 → Plan Parcial CR-5). Art. 6.6.2 makes the digits the expediente of the
+            // prior instrument, which is what makes the parse a legal fact, not string-mangling.
+            { calificacion: 'RD', descripcion: null, uso_global: null, sector: 'TA-379', url: null, f_inicial: '2012-12-01', f_fin: '2999-12-30' },
+            { sector: 'TA-379', clase_suelo: 'Urbano', categoria: 'Urbano Consolidado', uso_global: null, pedania: null, superficie: null, f_inicial: '2012-12-01', f_fin: '2999-12-30' },
+            ASOF,
+        );
+        expect(delegated.kind).toBe('refusal');
+        if (delegated.kind !== 'refusal') return;
         const cls = murciaCalificacionClassification('RD');
-        expect(cls?.note).toContain('1,3');           // the note really does carry the number…
-        expect(d.refusal.detail).not.toContain(cls!.note); // …and the refusal really does not.
+        expect(cls?.note).toContain('1,3');                        // the note really carries it…
+        expect(delegated.refusal.detail).not.toContain(cls!.note); // …and the refusal does not.
         for (const leak of ['1,3', '1.3', '7 m', '2 plantas', '3,5 m']) {
-            expect(d.refusal.detail, `refusal leaked "${leak}"`).not.toContain(leak);
+            expect(delegated.refusal.detail, `refusal leaked "${leak}"`).not.toContain(leak);
         }
     });
 
