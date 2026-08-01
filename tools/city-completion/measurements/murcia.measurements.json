@@ -1,0 +1,100 @@
+{
+  "_readme": [
+    "§PER-CITY-MEASUREMENTS (L-662) — the three EXPENSIVE C63 axes (LEGISLATION 25 · ENVELOPE 20 ·",
+    "HEIGHTS 10 = 55 % of the ratified weight) are AUDITS, not config reads, so computeScorecard.mjs",
+    "will not score them without a committed, reviewable measurement record. Absent ⇒ not-assessed.",
+    "This is the FIRST such record in the repo; before it, every city reported '—' on all three and",
+    "the board could not see work that had actually shipped.",
+    "⚠ `status: 'measured'` is the ONLY key that unlocks an axis. Never set it to make a number appear.",
+    "⚠ Every figure below is CITED to an artefact or a probe. INV-3: cited derivation, never a guess."
+  ],
+  "jurisdictionId": "es-mc-30030-murcia",
+  "city": "murcia",
+  "measuredAt": "2026-08-01",
+  "generatedBy": "orchestrator, cited-audit (SPEC-CITY-COMPLETION-ROLLOUT Phase-1 stamp)",
+
+  "envelope": {
+    "status": "measured",
+    "denominator": "private buildable land = 75.145 M m² (L-656 — buildable land, NOT all land, NOT clicks)",
+    "source": "tools/murcia-coverage-crosstab/out-crosstab.json (2026-08-01, run against the live Murcia GeoServer BEFORE the signature so the number could not be flattered by it)",
+    "note": [
+      "Three NON-OVERLAPPING slices covering 100 % of the buildable denominator, so measuredShare = 1.0",
+      "and nothing is renormalised away. Derivation from the crosstab artefact:",
+      "  packedAndDirect_pct 23.51  → a computed envelope RENDERS (§MURCIA-ENVELOPE-RENDER, SIG-MU1)",
+      "  pgouDirect_pct 33.00 − 23.51 = 9.49  → PGOU orders it, PRYZM holds no usable rule (8.81 pp of",
+      "                                          that is the single missing street-width source)",
+      "  delegated_pct 67.00  → the PGOU expressly delegates (Arts. 5.24/5.25/5.26/6.2.2/6.5.1/6.6)",
+      "⚠ THE TIER IS THE AUTHORISATION, NOT A CHOICE. SIG-MU1 authorises `estimated-ruleset` (weight",
+      "0.4) and states `authoritative` is UNREACHABLE — a constructed determination caps at 0.70. So the",
+      "arithmetic maximum for this axis is 0.3300 × 0.4 ≈ 13.2 %, and today it is 0.2351 × 0.4 ≈ 9.4 %.",
+      "⚠ THE 67 % IS `not-determined`, AND THAT IS THE CORRECT SCORE, NOT A PENALTY. Those parcels reach",
+      "a TERMINAL state — a cited `derived-plan` refusal naming the governing article. Under the ratified",
+      "definition of CLOSED they are closed; they simply are not envelopes. C63 §1.5 / L-656: a refusal is",
+      "a correct answer, and a correct answer is not an envelope. Scoring it above 0 would claim coverage",
+      "the law does not grant."
+    ],
+    "coverage": [
+      {
+        "zoneCode": "packed-and-PGOU-direct (14 transcribed calificaciones on non-delegated soil)",
+        "tier": "estimated-ruleset",
+        "buildableLandShare": 0.2351
+      },
+      {
+        "zoneCode": "PGOU-direct but unpacked (street-width-blocked 8.81 pp + 0.68 pp residual)",
+        "tier": "no-pack",
+        "buildableLandShare": 0.0949
+      },
+      {
+        "zoneCode": "legally delegated to a derived instrument (cited refusal — terminal, never an envelope)",
+        "tier": "not-determined",
+        "buildableLandShare": 0.6700
+      }
+    ]
+  },
+
+  "legislation": {
+    "status": "measured",
+    "citedVerifiedClaus": 14,
+    "totalClausPresent": 34,
+    "signedVerification": true,
+    "documentInRepo": false,
+    "supersessionChecked": false,
+    "source": "docs/04-reference/jurisdictions/es/es-mc/30030-murcia/sources/VERIFICATION.md §SIG-MU1 + ENVELOPE.md §3",
+    "note": [
+      "DENOMINATOR = 34, the buildable calificación FAMILIES the live Murcia GeoServer returns over the",
+      "30030 extent (classify.mjs BUILDABLE_FAMILIES = 14 packed + 8 genérica + 4 remitida + 8",
+      "refused-direct), NOT the 14 we authored. Scoring cited/authored would report 100 % — the",
+      "'Barcelona-borrow' trap C63 §3 Axis 2 names. 14/34 = 41.2 %.",
+      "⚠ documentInRepo: FALSE, and this is load-bearing (L-674). urbanismo.murcia.es/infourb/documentos/",
+      "returns HTTP 403 to automated requests (measured 2026-08-01 — the BCNROC pattern), so the",
+      "per-parameter verbatim quotes CANNOT be re-read from corpus/pdf/ the way Barcelona's DOGC 4893",
+      "can. The quotes may be perfect; nothing in the repo can currently prove it. C63 routes this to the",
+      "DATA-SOURCES axis rather than silently discounting LEGISLATION.",
+      "⚠ supersessionChecked: FALSE — the 2017 re-edition (196 pp, the version the municipality links",
+      "publicly) has NOT been diffed against the 2012 TR every quote came from. Concordance UNVERIFIED.",
+      "signedVerification TRUE reflects SIG-MU1 only; a signature is not a supersession audit."
+    ]
+  },
+
+  "heightsLod": {
+    "status": "measured",
+    "tagged": 86,
+    "derivedLevels": 30,
+    "assumed": 2896,
+    "total": 3012,
+    "bbox": [-1.2007, 37.9322, -1.0607, 38.0522],
+    "source": "tools/context-height-probe/probe.mjs against the SHIPPED R2 tiles (same bytes the browser reads, same provenance ladder) — 2026-08-01, verdict `unmeasured`",
+    "note": [
+      "⚠ measured-lidar = 0. Murcia is the WORST of the five Spanish cities: 96.1 % of its context",
+      "buildings render a FABRICATED 9 m default. The 86 `tagged` are OSM-surveyed heights, not MDS",
+      "samples — no measured-lidar marker exists anywhere in the city's shipped tiles.",
+      "ROOT CAUSE FOUND AND FIXED 2026-08-01: Murcia was absent from heightSources.mjs MDS_CITY_BBOXES,",
+      "which is BOTH the join's priorityBboxes AND its retainBboxes working set (L-659). Footprints",
+      "outside the retain set stream through untouched, so Murcia could never have been stamped — and a",
+      "national bake would still have reported a GREEN §MEASURED-HEIGHT-GATE for the `spain` region.",
+      "⚠ THIS RECORD IS A PRE-BAKE BASELINE, DELIBERATELY. A buildings re-bake is in flight; re-probe and",
+      "update this block after it publishes. Do NOT edit these counts to predict the outcome",
+      "(§SIZE-IS-NOT-PROVENANCE — a green bake is precisely what L-658 produced while shipping nothing)."
+    ]
+  }
+}
