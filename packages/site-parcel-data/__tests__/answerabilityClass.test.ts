@@ -177,9 +177,15 @@ describe('L-601 (a) — the code→class map is EXHAUSTIVE and total', () => {
         }
     });
 
-    it('exposes exactly the six classes, frozen', () => {
+    it('exposes exactly the seven classes, frozen', () => {
+        // §ENVELOPE-PUBLICATION-AUTHORISATION (L-665) — `pack-unverified` is the SEVENTH class: PRYZM
+        // holds a transcribed, cited pack for the zone but the city's `*_ENVELOPE_VERIFIED` gate is
+        // shut, so nothing may be published. It is its own class because every neighbour would be a
+        // different, false statement — see the union's docstring, and `envelopeAuthorisation.test.ts`
+        // for the behaviour. A legend rendering this list therefore has to make a colour decision for
+        // it, which is exactly what should happen when a new user-facing state exists.
         expect([...ANSWERABILITY_CLASSES].sort()).toEqual(
-            ['construction-incomplete', 'full-envelope', 'no-plan-published', 'plan-defined', 'systems-land', 'zone-unencoded'].sort(),
+            ['construction-incomplete', 'full-envelope', 'no-plan-published', 'pack-unverified', 'plan-defined', 'systems-land', 'zone-unencoded'].sort(),
         );
         expect(Object.isFrozen(ANSWERABILITY_CLASSES)).toBe(true);
     });

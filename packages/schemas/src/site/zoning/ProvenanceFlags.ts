@@ -162,6 +162,15 @@ export function isStrongerEnvelopeConfidence(
  * pipeline default its fields to the permanent bottom tier, never higher — a
  * machine-extracted pack cannot present its numbers as `structured` or above
  * until each is human-verified (`ORDINANCE-EXTRACTION-PIPELINE.md` §3).
+ *
+ * ⚠ IT IS A CEILING, NOT A FLOOR (§PACK-CONFIDENCE-CEILING, L-665). "Seed" was always
+ * read as "where the pack's numbers START"; the operative reading is "how high a
+ * determination built from this pack's numbers may ever CLIMB". The two coincide for a
+ * pack whose declaration matches what the solver derives, and diverge exactly where it
+ * matters: a machine-extracted pack (`pipeline-extracted-unverified`) whose numbers the
+ * solver would otherwise label `estimated-ruleset`. Reading it as a floor is what let a
+ * machine read surface under the curated-estimate badge. See
+ * `capEnvelopeConfidenceToPackDefault` below for the one enforcement primitive.
  */
 export const RulePackDefaultConfidenceSchema = z.enum([
     'structured',
@@ -171,3 +180,84 @@ export const RulePackDefaultConfidenceSchema = z.enum([
 export type RulePackDefaultConfidence = z.infer<
     typeof RulePackDefaultConfidenceSchema
 >;
+
+/**
+ * COMPILE-TIME PROOF that `RulePackDefaultConfidence` is a SUBSET of `EnvelopeConfidence` —
+ * i.e. that a pack's declared tier is expressible on the ONE ladder and needs no translation.
+ *
+ * ⚠ THIS IS THE L-664 GUARD, RESTATED. That bug was a second vocabulary (`certified` /
+ * `constructed-amber`) growing beside the enum because nothing forced the two to agree. A
+ * `RulePackDefaultConfidence` member that is not an `EnvelopeConfidence` member would make
+ * `capEnvelopeConfidenceToPackDefault` need a mapping table — which is precisely the
+ * "paper over the mismatch" move L-664 forbids. Here it is a `tsc` error instead.
+ */
+type _RulePackDefaultIsEnvelopeConfidence =
+    RulePackDefaultConfidence extends EnvelopeConfidence ? true : never;
+const _RULE_PACK_DEFAULT_IS_ON_THE_LADDER: _RulePackDefaultIsEnvelopeConfidence = true;
+void _RULE_PACK_DEFAULT_IS_ON_THE_LADDER;
+
+/**
+ * The WEAKER of two confidence tiers on `ENVELOPE_CONFIDENCE_ORDER` — the ladder's `min`,
+ * dual to `isStrongerEnvelopeConfidence`'s `>`.
+ *
+ * The honesty rule it encodes is C58 §5.4a restated at the SCALAR: **a determination may
+ * never read stronger than the weakest thing it was built from.** `resolveHeadlineProvenance`
+ * already applies that rule ACROSS FIELDS (`FieldProvenance`); this applies it across the two
+ * scalar claims a solve combines — what the solver DERIVED and what the pack DECLARES.
+ *
+ * P8 / P5 note — an L0 schema takes NO OpenTelemetry span: a span is I/O and would break P5
+ * purity. Same documented carve-out as `envelopeConfidenceRank` / `isStrongerEnvelopeConfidence`
+ * directly above, and as C62's `authorityOutranks`. The one exported consumer that CAN carry a
+ * span (`computeBuildableEnvelope`, L2) records the outcome on its own span attribute.
+ */
+export function weakerEnvelopeConfidence(
+    a: EnvelopeConfidence,
+    b: EnvelopeConfidence,
+): EnvelopeConfidence {
+    return envelopeConfidenceRank(a) <= envelopeConfidenceRank(b) ? a : b;
+}
+
+/**
+ * §PACK-CONFIDENCE-CEILING (L-665) — clamp a SOLVER-DERIVED confidence to the ceiling the rule
+ * pack declares. The ONE place the ontology states "a pack's `defaultConfidence` binds the
+ * determinations built from it".
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * `ZoningRulesEngine` derived its tier purely from WHERE each number came from (provider vs
+ * pack) and never once read `rulePack.defaultConfidence`. So an OCR-derived, machine-extracted
+ * pack (Madrid PGOUM-97, Córdoba PGOU-2001 — both declaring `pipeline-extracted-unverified`,
+ * the permanent bottom tier) and a hand-transcribed, article-cited pack (Murcia PGOU TR-2012,
+ * Barcelona's clau packs — `estimated-ruleset`) produced envelopes wearing the SAME violet
+ * "Estimated" chip. The pack's own declaration — the whole legal control C58 §1.6 built to make
+ * "a wrong number here is OUR pipeline's error" visible — could not reach a user.
+ *
+ * ⚠ A CEILING, NEVER A FLOOR, AND THAT ASYMMETRY IS THE POINT. `min`, not "adopt the pack's
+ * value":
+ *   - A pack declaring `structured` (Denmark) must NOT promote a solve that the field-resolution
+ *     rules already labelled `estimated-ruleset` — that would be a pack certifying itself, the
+ *     exact thing every `*_ENVELOPE_VERIFIED` gate exists to prevent.
+ *   - A pack declaring `pipeline-extracted-unverified` MUST demote a solve labelled
+ *     `estimated-ruleset` — a machine read nobody has checked can never out-rank a curated human
+ *     estimate (`ENVELOPE_CONFIDENCE_ORDER`, L-590f §6).
+ *
+ * ⚠ `authoritative` STAYS UNREACHABLE (L-664 ceiling finding). `RulePackDefaultConfidence` cannot
+ * express it, and `min` never raises anything, so no pack can reach it through this function —
+ * asserted, not assumed, in `packConfidenceCeiling.test.ts`. Signing a `VERIFICATION.md` converts
+ * a refusal into a labelled estimate; it never converts an estimate into an issued determination.
+ *
+ * @param derived     the tier the solver derived from field resolution.
+ * @param packDefault the pack's declared ceiling; `null`/`undefined` = NO PACK CONTRIBUTED, so
+ *                    there is nothing to clamp to and `derived` is returned unchanged. That is a
+ *                    genuine absence, not a weak claim — §CONTEXT-DATA-HONESTY: clamping a
+ *                    provider-published `structured` envelope to some unrelated pack's ceiling
+ *                    would UNDER-state real data, which is the same class of lie in the other
+ *                    direction.
+ */
+export function capEnvelopeConfidenceToPackDefault(
+    derived: EnvelopeConfidence,
+    packDefault: RulePackDefaultConfidence | null | undefined,
+): EnvelopeConfidence {
+    if (packDefault === null || packDefault === undefined) return derived;
+    return weakerEnvelopeConfidence(derived, packDefault);
+}

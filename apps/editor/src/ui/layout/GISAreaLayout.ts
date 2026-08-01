@@ -2514,7 +2514,21 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // its own rows. `report` is built once here and reused by the explain-why block below.
         const report = buildComplianceReport(env);
         const headline = resolveHeadlineProvenance(report);
-        const badge = isUpperBound
+        // §PACK-CONFIDENCE-CEILING (L-665) — THE MACHINE-EXTRACTED TIER IS THE LOUDEST ARM AND MUST
+        // BE TESTED FIRST, from EITHER direction:
+        //   • the scalar tier (`pipeline-extracted-unverified` — now reachable, since
+        //     `ZoningRulesEngine` clamps a solve to its pack's declared `defaultConfidence`), OR
+        //   • the WEAKEST ROW (`pipeline-extracted`), per C58 §5.4a — the header may never read
+        //     stronger than its own rows.
+        // It was previously the SECOND-TO-LAST arm, below `headline.hasEstimatedField`. So a
+        // machine-extracted pack carrying even ONE `estimated` field would have been badged violet
+        // "Estimated" — the very silent promotion this change exists to stop — because
+        // `pipeline-extracted-unverified` ranks STRICTLY BELOW `estimated-ruleset` on
+        // `ENVELOPE_CONFIDENCE_ORDER`, so "weakest wins" has to put red above violet.
+        const badge = (env.confidence === 'pipeline-extracted-unverified' ||
+            headline.weakestField === 'pipeline-extracted')
+            ? '<span title="This value was MACHINE-EXTRACTED from an ordinance by PRYZM’s pipeline and has NOT been human-verified — it must not be relied on until a person signs it off. NOT an official determination." style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#fdecea;color:#b3261e;border:1px solid #f3b9b3;font-weight:800;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">⚠ Unverified · machine-extracted</span>'
+            : isUpperBound
             ? '<span title="The footprint shown is the whole parcel because this ordinance publishes no setbacks — a MAXIMUM extent, not a solved buildable area. The height and FAR are real; only the footprint is an upper bound." style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#fff6e8;color:#9a6414;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Max extent — setbacks unpublished</span>'
             // C58 §5.4a — ANY estimated field forces "Estimated", EVEN when `env.confidence` claims
             // `structured` / `block-constructed`: the header must not read stronger than its weakest
@@ -2533,12 +2547,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 ? '<span style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Estimated</span>'
                 : env.confidence === 'block-constructed'
                 ? '<span title="Real inputs + accepted rule + constructed geometry — not an official municipal certificate" style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ee;color:#2e7d32;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Real · constructed</span>'
-            // C58 §1.6 / §6 / ADR-0279 BLOCKER-1 (the zoning fidelity-label gate) — a MACHINE-EXTRACTED,
-            // human-UNVERIFIED value must NOT wear certificate styling and must be LOUDER than "Estimated".
-            // A distinct red warning affordance, never the green pill; permanent until a human signs off
-            // (the value graduates only via a recorded verification event, never silently).
-                : env.confidence === 'pipeline-extracted-unverified'
-                ? '<span title="This value was MACHINE-EXTRACTED from an ordinance and has NOT been human-verified — it must not be relied on until a person signs it off. NOT an official determination." style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#fdecea;color:#b3261e;border:1px solid #f3b9b3;font-weight:800;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">⚠ Unverified · machine-extracted</span>'
+            // C58 §1.6 / §6 / ADR-0279 BLOCKER-1 (the zoning fidelity-label gate) — the
+            // MACHINE-EXTRACTED arm USED TO SIT HERE, second-to-last, and that position was the bug:
+            // `headline.hasEstimatedField` above it would have caught a machine-extracted pack with
+            // any single `estimated` field and badged it violet "Estimated". It is now the FIRST arm
+            // of this ladder (see the §PACK-CONFIDENCE-CEILING note above `const badge =`), because
+            // `pipeline-extracted-unverified` ranks BELOW `estimated-ruleset` and the header must
+            // read its weakest input. Red, never the green certificate pill, and permanent until a
+            // human signs off (the tier graduates only via a recorded verification event).
                 : `<span style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ee;color:#2e7d32;font-weight:700;font-size:10px;text-transform:uppercase;">${env.confidence}</span>`;
         const heightTxt = env.maxHeight_m !== null ? `${env.maxHeight_m.toFixed(1)} m` : '—';
         const farTxt = env.maxFAR !== null ? env.maxFAR.toFixed(2) : '—';
@@ -2562,7 +2578,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // L-630 — a real published envelope whose `estimated-ruleset` scalar came from the
             // zone-extent footprint (NOT a default pack) must NEVER show the "Default rule pack"
             // line. State the true reason: the fields are real; the footprint is an upper bound.
-            headline.confidenceUnderRatesFields
+            // §PACK-CONFIDENCE-CEILING (L-665) — matched FIRST, mirroring the badge ladder. Without
+            // it a machine-extracted envelope fell to the generic `Source: <id>` line, which names
+            // the PUBLISHER and so implies the publisher stands behind the number. It does not: we
+            // read it, and we have not checked our reading. The caption must say whose error a
+            // wrong value would be.
+            env.confidence === 'pipeline-extracted-unverified' ||
+            headline.weakestField === 'pipeline-extracted'
+                ? '<span style="color:#b3261e;font-size:10.5px;">Machine-extracted by PRYZM from the published ordinance and <b>not yet human-verified</b> — a wrong value here is our error, not the publisher’s. Awaiting sign-off.</span>'
+                : headline.confidenceUnderRatesFields
                 ? '<span style="color:#8a83a0;font-size:10.5px;">Real published fields (e.g. height); the footprint is the zone extent — an upper bound — so overall confidence is reduced. Not a default rule pack.</span>'
                 : env.confidence === 'estimated-ruleset'
                 ? '<span style="color:#8a83a0;font-size:10.5px;">Default rule pack — real DK/ES zoning coming</span>'
@@ -2589,7 +2613,18 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     : r.ordinanceRef
                     ? escHtml(r.ordinanceRef)
                     : '<span style="color:#a49dbb;">no citation</span>';
-                const prov = r.isEstimate
+                // §PACK-CONFIDENCE-CEILING (L-665) — THE PER-ROW BADGE COULD NOT EXPRESS THE
+                // MACHINE-EXTRACTED TIER, and defaulted to the WRONG side of the ladder.
+                // `ComplianceReportRow.isEstimate` is `fieldProvenance === 'estimated'` ONLY, so a
+                // `pipeline-extracted` row — a value OUR OCR pipeline read and no human checked —
+                // was falsy and fell to the green "PUB" (published) pill: the strongest per-field
+                // affordance the card has, on the weakest real provenance there is (C58 §1.6:
+                // `pipeline-extracted` ranks STRICTLY BELOW `ordinance-pdf`). Fixing the headline
+                // chip alone would have left every row underneath it still reading "PUB".
+                // Branched FIRST, and red to match the headline chip — the two must agree.
+                const prov = r.provenance === 'pipeline-extracted'
+                    ? '<span title="MACHINE-EXTRACTED by PRYZM’s OCR/extraction pipeline and NOT human-verified. Not published data — a wrong value here is our error." style="color:#b3261e;background:#fdecea;border:1px solid #f3b9b3;border-radius:999px;padding:1px 6px;font-size:9.5px;font-weight:800;">⚠ MACHINE</span>'
+                    : r.isEstimate
                     ? '<span style="color:#6600FF;background:#f3eeff;border-radius:999px;padding:1px 6px;font-size:9.5px;font-weight:700;">EST</span>'
                     : '<span style="color:#2e7d32;background:#eef7ee;border-radius:999px;padding:1px 6px;font-size:9.5px;font-weight:700;">PUB</span>';
                 // §L-508b — STACKED, not two-column. The old side-by-side flex let a long label

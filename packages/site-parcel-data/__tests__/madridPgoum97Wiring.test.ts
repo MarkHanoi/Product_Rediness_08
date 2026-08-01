@@ -43,6 +43,9 @@ import {
 } from '../src/rulepacks/esMadridPgoum97.js';
 import { resolveZoneDisposition, listJurisdictionCoverage } from '../src/rulepacks/registry.js';
 import { buildRefusedEnvelope, isRefusedEnvelope } from '../src/rulepacks/zoneRefusal.js';
+// §THE-ORDERING-PIN (L-665) — the two preconditions on signing MADRID_ENVELOPE_VERIFIED.
+import { computeBuildableEnvelope } from '../src/ZoningRulesEngine.js';
+import { classifyAnswerability } from '../src/rulepacks/answerabilityClass.js';
 
 /** Puerta del Sol — unambiguously inside the Madrid municipal term. */
 const MADRID_POINT = { lat: 40.41678, lon: -3.70379 } as const;
@@ -259,17 +262,69 @@ describe('§MADRID-PGOUM97 — THE HONESTY GATE: registration is not authorisati
         expect(`${r.headline} ${r.detail}`).not.toMatch(/\d+(?:[.,]\d+)?\s*(?:m²\/m²|m\b|%)/);
     });
 
-    it('⚠ P1 (C58, NOT fixed here) — the engine would badge these numbers "Estimated" if solved', () => {
-        // `ZoningRulesEngine` hard-codes `let confidence: EnvelopeConfidence = 'estimated-ruleset'`
-        // and NEVER reads `rulePack.defaultConfidence`. So the pack's `pipeline-extracted-unverified`
-        // tier — the whole reason the red machine-extracted chip exists in the renderer — cannot
-        // reach an envelope today.
-        //
-        // THIS TEST PINS THE ORDERING, NOT THE DEFECT: while the gate below is shut the defect is
-        // UNREACHABLE for Madrid (no pack number is ever solved), which is why the wiring ships. The
-        // day someone signs `sources/VERIFICATION.md` and flips `MADRID_ENVELOPE_VERIFIED`, the C58
-        // confidence fix MUST land in the same change or Madrid will publish a machine reading under
-        // an over-confident badge. If this assertion starts failing, that day has arrived.
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    // §THE-ORDERING-PIN — the precondition on signing MADRID_ENVELOPE_VERIFIED.
+    //
+    // HISTORY. This block previously held a single assertion (`MADRID_ENVELOPE_VERIFIED === false`)
+    // standing in for a DIAGNOSED-BUT-UNFIXED defect: `ZoningRulesEngine` hard-coded
+    // `let confidence: EnvelopeConfidence = 'estimated-ruleset'` and never read
+    // `rulePack.defaultConfidence`, so Madrid's `pipeline-extracted-unverified` tier — the whole
+    // reason the red machine-extracted chip exists in the renderer — could not reach an envelope.
+    // Flipping the gate ALONE would have published a machine reading under the violet "Estimated"
+    // chip. The pin said: those two changes must land together.
+    //
+    // ⚠ THE PRECONDITION IS NOW DISCHARGED (L-665, §PACK-CONFIDENCE-CEILING). The engine reads the
+    // pack's declared ceiling, so the gate can be signed on its own merits. The assertions below
+    // are EXTENDED, not replaced: they now pin the FIX rather than the defect, so a regression that
+    // re-hard-codes the tier fails loudly HERE — at the file a signer reads — and not only in
+    // `packConfidenceCeiling.test.ts`.
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    it('§THE-ORDERING-PIN — the confidence precondition is DISCHARGED: a solved Madrid zone badges RED', () => {
+        // The gate is still shut, so nothing ships today…
         expect(MADRID_ENVELOPE_VERIFIED).toBe(false);
+
+        // …but this is what signing it would now publish. Solved DIRECTLY through the engine,
+        // deliberately bypassing the dispatcher gate — i.e. exactly the state the flip creates.
+        const zone = ES_MADRID_PGOUM97_PACK.zones[0]!;
+        const env = computeBuildableEnvelope({
+            parcelRing: [
+                { x: 0, z: 0 },
+                { x: 40, z: 0 },
+                { x: 40, z: 25 },
+                { x: 0, z: 25 },
+            ],
+            edgeClassifications: ['unclassified', 'unclassified', 'unclassified', 'unclassified'],
+            zoning: {
+                jurisdictionId: ES_MADRID_PGOUM97_PACK.jurisdictionId,
+                zoneCode: zone.code,
+                structuredFields: null,
+                provenance: { source: 'madrid-compendio-2025', fetchedAt: '2026-08-01T00:00:00.000Z' },
+            } as never,
+            rulePack: ES_MADRID_PGOUM97_PACK,
+        });
+
+        // THE ASSERTION THAT WAS IMPOSSIBLE BEFORE L-665. It fails on `6632f0e3` with
+        // `'estimated-ruleset'` — the silent promotion of our own unchecked OCR read to the tier a
+        // curated human estimate occupies.
+        expect(env.confidence).toBe('pipeline-extracted-unverified');
+        expect(env.confidence).not.toBe('estimated-ruleset');
+        expect(env.confidence).toBe(ES_MADRID_PGOUM97_PACK.defaultConfidence);
+        // …and it can never be promoted past its declaration by any solve path.
+        expect(env.confidence).not.toBe('block-constructed');
+        expect(env.confidence).not.toBe('structured');
+        expect(env.confidence).not.toBe('authoritative');
+    });
+
+    it('§THE-ORDERING-PIN — the answerability precondition is DISCHARGED: registered ≠ answerable', () => {
+        // The second half of the same root cause (L-665): `classifyAnswerability` read the registry
+        // without reading the gate, so every one of Madrid's 23 packed codes claimed
+        // `full-envelope` — a real buildable volume — for parcels that receive a cited refusal.
+        // It now reads the gate, so registration and authorisation are separate facts in code, as
+        // they already are in `sources/VERIFICATION.md`.
+        expect(MADRID_ENVELOPE_VERIFIED).toBe(false);
+        for (const code of MADRID_PGOUM97_ZONE_CODES) {
+            expect(resolveZoneDisposition(MADRID_JURISDICTION_ID, code).kind, code).toBe('pack');
+            expect(classifyAnswerability(MADRID_JURISDICTION_ID, code), code).toBe('pack-unverified');
+        }
     });
 });

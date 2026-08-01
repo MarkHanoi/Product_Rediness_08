@@ -44,6 +44,29 @@
 | **Field provenance** | `ordinance-pdf` — a human read the article in the municipality's own normative PDF and quoted it **verbatim** into `ordinanceRef`. Strictly ABOVE Córdoba's machine-extracted `pipeline-extracted`; strictly BELOW an official determination |
 | **Pack `defaultConfidence`** | `estimated-ruleset` |
 
+**✅ ENGINE PRECONDITION — DISCHARGED** (L-665, 2026-08-01). Two ontology defects that would have
+made a signature here *less* honest than the current refusal are fixed, ahead of the signature:
+
+1. **§PACK-CONFIDENCE-CEILING** — `ZoningRulesEngine` hard-coded `estimated-ruleset` and never read a
+   pack's `defaultConfidence`, so Murcia's **hand-transcribed, article-cited** pack and Córdoba's
+   **OCR-derived, machine-extracted** one were indistinguishable on screen: both violet *"Estimated"*.
+   The engine now clamps to the declared ceiling, so the two are **visibly and semantically
+   different** — Murcia keeps the violet **"Estimated"** chip (correct: `defaultConfidence` is
+   `estimated-ruleset`, `ordinance-pdf` field provenance, a human read the municipality's own signed
+   PDF), while a machine-extracted pack drops to the red **"⚠ Unverified · machine-extracted"** chip
+   one rung BELOW it. That separation is the thing SIG-1's *"Field provenance"* row above asserts;
+   until now the code could not express it.
+2. **§ENVELOPE-PUBLICATION-AUTHORISATION** — `classifyAnswerability(<murcia>, 'RM1')` returned
+   **`full-envelope`**, a claim no Murcia parcel can honour while `MURCIA_ENVELOPE_VERIFIED` is
+   `false`. It now reads the gate and returns **`pack-unverified`**. ⚠ Fixed in the classifier, never
+   by de-registering the pack — consistent with *"registered but unsigned is a deliberate posture"*
+   below: registration wires routing, it does not authorise output.
+
+Pinned by `packages/site-parcel-data/__tests__/packConfidenceCeiling.test.ts` and
+`envelopeAuthorisation.test.ts`. ⚠ This discharges an ENGINE precondition only. It verifies **no
+article and no quote**, and it does not touch the **33.0 % ceiling** or the delegation arithmetic
+below — every item in *"The open gate"* still stands.
+
 ### What signing WOULD authorise
 
 - Rendering a buildable envelope for the **14 transcribed calificaciones** —

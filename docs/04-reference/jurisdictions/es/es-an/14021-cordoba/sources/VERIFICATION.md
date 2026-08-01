@@ -78,6 +78,28 @@ Notably confirmed rather than assumed:
   MC height really is a **per-street-width table** (Art. 13.5.3.1); the table transcribed in the
   findings is **exact, band for band, for all four subzones**.
 
+**✅ ENGINE PRECONDITION — DISCHARGED** (L-665, 2026-08-01). Until this date the *"at the
+`pipeline-extracted-unverified` tier only"* line below **could not be honoured by the code**:
+`ZoningRulesEngine` hard-coded `estimated-ruleset` and never read a pack's `defaultConfidence`, so a
+signature would have published Córdoba's OCR-derived numbers under the same violet *"Estimated"* chip
+as a hand-transcribed pack. Two fixes landed, ahead of the signature:
+
+1. **§PACK-CONFIDENCE-CEILING** — the engine clamps its solve to the pack's declared ceiling
+   (`capEnvelopeConfidenceToPackDefault`; a **ceiling**, never a promotion). A solved PGOU-2001
+   subzone now stamps **`pipeline-extracted-unverified`** and renders the **red "⚠ Unverified ·
+   machine-extracted"** chip, with a caveat naming the error as **ours, not the publisher's**; the
+   per-row provenance badge reads **"⚠ MACHINE"**, not the green "PUB".
+2. **§ENVELOPE-PUBLICATION-AUTHORISATION** — `classifyAnswerability` reads
+   `CORDOBA_ENVELOPE_VERIFIED`, so the 13 packed subzones classify **`pack-unverified`**. They had
+   claimed **`full-envelope`** — a real buildable volume — **since the day the pack was registered**.
+   ⚠ Fixed in the classifier, deliberately **not** by de-registering the pack: registration wires
+   routing, it does not authorise output, and de-registration would also put out the C60 coverage
+   globe (Córdoba *does* answer — with an honest cited refusal).
+
+Pinned by `packages/site-parcel-data/__tests__/packConfidenceCeiling.test.ts` and
+`envelopeAuthorisation.test.ts`. This removes an engine blocker; it verifies **no ordinance value** —
+every item in *"The open gate"* below still stands, unchanged.
+
 ### What signing WOULD authorise
 
 Publishing an envelope, at **`estimated-ruleset`**, on the land the pack actually binds — **measured,

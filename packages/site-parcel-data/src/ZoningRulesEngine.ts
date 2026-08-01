@@ -27,7 +27,7 @@ import type {
     FieldProvenance,
     PermittedUse,
 } from '@pryzm/schemas';
-import { principalTier } from '@pryzm/schemas';
+import { principalTier, capEnvelopeConfidenceToPackDefault } from '@pryzm/schemas';
 import { polygonArea } from '@pryzm/site-validators';
 import type { GeometricRule } from '@pryzm/schemas';
 import { clipToDepthBand, clipBeyondDepthBand } from './geometry/depthBandClip';
@@ -215,6 +215,54 @@ export function computeBuildableEnvelope(
         const anyFromStructured = resolutions.some((r) => r.from === 'structured');
         let confidence: EnvelopeConfidence = 'estimated-ruleset';
         if (anyResolved && !anyFromPack && anyFromStructured) confidence = 'structured';
+
+        // ── §PACK-CONFIDENCE-CEILING (L-665) — the pack's OWN declared tier binds this solve. ──
+        //
+        // THE DEFECT THIS CLOSES. Everything above derives the tier from WHERE each number came
+        // from (provider vs pack) and never reads `rulePack.defaultConfidence` at all. So an
+        // OCR-derived, machine-extracted pack (Madrid PGOUM-97, Córdoba PGOU-2001 — both declaring
+        // `pipeline-extracted-unverified`, C58 §1.6's permanent bottom tier) and a hand-transcribed,
+        // article-cited pack (Murcia PGOU TR-2012, Barcelona's claus — `estimated-ruleset`) both
+        // landed on `estimated-ruleset` and surfaced under the SAME violet "Estimated" chip. The red
+        // "machine-extracted, unverified" affordance the renderer already implements was
+        // UNREACHABLE — a silent promotion of our own pipeline's unchecked read to the tier a human
+        // curator's estimate occupies.
+        //
+        // ⚠ IT WAS LATENT, NOT HARMLESS. Every `*_ENVELOPE_VERIFIED` gate is `false` today, so the
+        // dispatcher refuses before this engine runs and no machine-read number reaches a user. The
+        // defect went LIVE the instant any gate was signed — which is why it lands BEFORE the
+        // signatures, not with them (pinned by `madridPgoum97Wiring.test.ts` §THE-ORDERING-PIN).
+        //
+        // ⚠ WHY HERE, AND NOT AT EACH CALL SITE. The tier is a property of the DETERMINATION, not of
+        // one consumer (C58 §1.2/§1.6) — the same argument that moved the `block-constructed`
+        // upgrade down from L5 (see its block below). A per-call-site patch would give the panel one
+        // answer and the report, the API and the export another.
+        //
+        // ⚠ WHY A CEILING AND NOT AN ASSIGNMENT. `capEnvelopeConfidenceToPackDefault` takes the
+        // WEAKER of the two on the ONE L0 ladder (`ENVELOPE_CONFIDENCE_ORDER`). A pack cannot
+        // PROMOTE itself — a `structured`-declaring pack (Denmark) must not lift a solve the field
+        // rules already labelled `estimated-ruleset`, because a pack certifying its own numbers is
+        // precisely what the verification gates exist to prevent. It can only DEMOTE.
+        //
+        // ⚠ APPLIED ONLY WHEN THE PACK ACTUALLY SUPPLIED A VALUE (§CONTEXT-DATA-HONESTY, the other
+        // direction). If every number came from a structured provider, the pack contributed nothing
+        // and clamping to its ceiling would UNDER-state real published data — the same lie
+        // inverted. `packSuppliedAValue` is that condition, and it is narrower than `anyFromPack`
+        // (which also fires on a bare `permittedUse` default with no pack present at all).
+        //
+        // ⚠ ORDERING vs THE `block-constructed` UPGRADE BELOW. This clamp runs FIRST, on the
+        // field-resolution tier. The upgrade below is guarded on `confidence === 'estimated-ruleset'`,
+        // so it still fires for Barcelona (clamped estimated-ruleset -> block-constructed, byte
+        // identical to today) and CANNOT fire for a machine-extracted pack (clamped to
+        // `pipeline-extracted-unverified`, which fails that guard). A depth solved from a real block
+        // ring does not launder an unverified transcription of the rule that solved it.
+        const packSuppliedAValue =
+            zone !== null &&
+            (resolutions.some((r) => r.from === 'pack') ||
+                (permittedUse.length > 0 && permittedUseProv !== 'published-structured'));
+        if (packSuppliedAValue) {
+            confidence = capEnvelopeConfidenceToPackDefault(confidence, rulePack?.defaultConfidence);
+        }
 
         // ── Build the derivation trace (C58 §1.3). ───────────────────────────
         const derivation: DerivationEntry[] = [];
@@ -917,10 +965,28 @@ export function computeBuildableEnvelope(
         if (confidence === 'estimated-ruleset' && status === 'ok') {
             caveats.push('Estimated envelope — verify against the governing ordinance before relying on it (C58 §1.4).');
         }
+        // §PACK-CONFIDENCE-CEILING — the machine-extracted tier gets its OWN, LOUDER caveat.
+        // Without this the clamp would have made things WORSE than the defect it fixes: the
+        // `estimated-ruleset` arm above no longer matches, so a machine-read envelope would have
+        // carried no caveat at all. C58 §1.6 requires this tier to state that the error, if there
+        // is one, is OURS — not the publisher's — and that only a recorded human sign-off clears it.
+        if (confidence === 'pipeline-extracted-unverified' && status === 'ok') {
+            caveats.push(
+                'MACHINE-EXTRACTED, NOT HUMAN-VERIFIED — these numbers were read from the ordinance by ' +
+                    'PRYZM’s extraction pipeline and no person has checked them line by line. A wrong value ' +
+                    'here is OUR error, not the publisher’s. Do not rely on it until it is signed off ' +
+                    '(C58 §1.6; the tier never graduates silently).',
+            );
+        }
 
         span.setAttribute('jurisdictionId', zoning.jurisdictionId);
         span.setAttribute('zoneCode', zoning.zoneCode);
         span.setAttribute('confidence', confidence);
+        // §PACK-CONFIDENCE-CEILING — make the clamp OBSERVABLE. Without this the span records the
+        // outcome but not whether the pack's declared ceiling was the thing that produced it, so a
+        // silent regression to the hard-coded tier would be invisible in traces (P8 / C58 §1.10).
+        span.setAttribute('packDefaultConfidence', rulePack?.defaultConfidence ?? 'none');
+        span.setAttribute('packCeilingApplied', packSuppliedAValue);
         span.setAttribute('provider', zoning.provenance.source);
         span.setAttribute('status', status);
         span.setAttribute('insetAreaM2', insetAreaM2);

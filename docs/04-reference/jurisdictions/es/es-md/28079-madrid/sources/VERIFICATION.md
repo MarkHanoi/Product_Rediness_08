@@ -177,13 +177,33 @@ machine-extracted chip), **never** `structured`.
 | `4`, `9.1`, `9.2` | Height is the Art. 8.4.10 / 8.9.10.1 **street-width table**, unresolved, so the height-proportional *testero* separation cannot be resolved either and the pack carries the ordinance **FLOOR** (`MADRID_FLOOR_ONLY_SEPARATIONS`) | **OVER-states** — the floor under-insets above the break-even height (9,00 m for these three) |
 | `5.1`, `5.2`, `5.3` | Front edge is `null` because Art. 8.5.6.3 measures to the **street centreline** (*«respecto al eje de la calle»*), a rule kind `GeometricRule` cannot express | **OVER-states** on a narrow street — no front inset is applied at all |
 
-**⚠ A SECOND GATE THAT NO SIGNATURE CLOSES — the sign-off is BLOCKED until it lands.**
-`ZoningRulesEngine` hard-codes `let confidence: EnvelopeConfidence = 'estimated-ruleset'` and **never
-reads a pack's `defaultConfidence`**. Flipping `MADRID_ENVELOPE_VERIFIED` **alone** would publish
-these machine-read numbers wearing the violet *"Estimated"* chip instead of the red
-machine-extracted-unverified one the renderer already implements — an over-statement of certainty,
-which is exactly what the gate exists to prevent. **The C58 confidence fix and the flip must land in
-the same change.** Pinned by `packages/site-parcel-data/__tests__/madridPgoum97Wiring.test.ts`.
+**✅ THE SECOND GATE IS NOW DISCHARGED — this no longer blocks the sign-off.** (L-665, 2026-08-01)
+
+It read, until this date: *"`ZoningRulesEngine` hard-codes `let confidence: EnvelopeConfidence =
+'estimated-ruleset'` and **never reads a pack's `defaultConfidence`**. Flipping
+`MADRID_ENVELOPE_VERIFIED` **alone** would publish these machine-read numbers wearing the violet
+"Estimated" chip instead of the red machine-extracted-unverified one the renderer already implements
+— an over-statement of certainty, which is exactly what the gate exists to prevent. The C58
+confidence fix and the flip must land in the same change."*
+
+Both halves of that defect are fixed **ahead of any signature**, so the two changes no longer have to
+land together:
+
+1. **§PACK-CONFIDENCE-CEILING.** `ZoningRulesEngine` now clamps its solve to the pack's declared
+   `defaultConfidence` (`capEnvelopeConfidenceToPackDefault`, an L0 primitive beside the one
+   `ENVELOPE_CONFIDENCE_ORDER` ladder — a **ceiling**, so it can only demote; a pack can never
+   certify itself upward). A solved PGOUM-97 zone now stamps **`pipeline-extracted-unverified`** and
+   renders the **red "⚠ Unverified · machine-extracted"** chip, with its own louder caveat, and the
+   per-row provenance badge reads **"⚠ MACHINE"** instead of the green "PUB".
+2. **§ENVELOPE-PUBLICATION-AUTHORISATION.** `classifyAnswerability` now reads the verification gate,
+   so the 23 packed codes classify **`pack-unverified`**, not `full-envelope`.
+
+Pinned by `packages/site-parcel-data/__tests__/madridPgoum97Wiring.test.ts` §THE-ORDERING-PIN (both
+preconditions asserted against a real solve), plus `packConfidenceCeiling.test.ts` and
+`envelopeAuthorisation.test.ts`. ⚠ The tier remains **capped at `pipeline-extracted-unverified`**:
+signing authorises PUBLISHING the machine read under the red chip, never promoting it. ⚠ The SIX
+not-sign-off-ready zones above (`4`, `9.1`, `9.2`, `5.1`, `5.2`, `5.3`) are **unaffected** — those
+are OVER-STATEMENT defects in the numbers themselves, which no confidence label cures.
 
 **What is already wired and needs no signature** (§MADRID-PGOUM97-WIRING, 2026-08-01): the zone
 router (`resolveMadridNormaZonal` → `NORMAS_ZONALES/0.AMB_TX_ETIQ` via `/api/madrid/normas-zonales`),

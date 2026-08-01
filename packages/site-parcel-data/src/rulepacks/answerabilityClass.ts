@@ -18,13 +18,19 @@
 // class changes with it, with no edit to this file. That property is asserted, not asserted-about,
 // in `answerabilityClass.test.ts`.
 //
-// THE SIX CLASSES, AND THE ONE AXIS THAT SEPARATES THEM (the sixth, `no-plan-published`, is the
-// STRUCTURAL-SEAM-4 genuine data-absence — see its case in `classifyRefusalCode`)
+// THE SEVEN CLASSES, AND THE ONE AXIS THAT SEPARATES THEM (the sixth, `no-plan-published`, is the
+// STRUCTURAL-SEAM-4 genuine data-absence — see its case in `classifyRefusalCode`; the seventh,
+// `pack-unverified`, is the L-665 AUTHORISATION seam — see its case in `classifyDisposition`)
 // -----------------------------------------------------
 // The axis is *who owns the reason there is (or is not) an envelope*, and it is already carried by
 // the disposition + refusal the registry returns — this module never re-derives it:
 //
-//   • `full-envelope`          — a curated pack answers; PRYZM computes a real buildable volume.
+//   • `full-envelope`          — a curated pack answers AND its jurisdiction is authorised to
+//                                publish; PRYZM computes a real buildable volume.
+//   • `pack-unverified`        — a curated pack EXISTS for the zone but the city's human
+//                                verification gate is shut, so nothing may be published yet
+//                                (§ENVELOPE-PUBLICATION-AUTHORISATION, L-665). A statement about
+//                                PRYZM'S SIGNATURE, never about the land.
 //   • `systems-land`           — the ORDINANCE denies a private zone envelope: public domain
 //                                (*sistema*), park, equipament, protected/non-urbanisable soil,
 //                                protected private green. A legal fact about the land.
@@ -68,9 +74,14 @@ import {
     type ZoneDisposition,
     type ZoneDispositionHints,
 } from './registry.js';
+// §ENVELOPE-PUBLICATION-AUTHORISATION (L-665) — the gate the classifier was missing. This module
+// adds NO exported function of its own (P8 is satisfied at the gate's own exported entry point,
+// `isEnvelopePublicationAuthorised`, which carries the span); the two existing entry points here
+// stay the pure translations they always were.
+import { isEnvelopePublicationAuthorised } from './envelopeAuthorisation.js';
 
 /**
- * The six user-facing answerability classes. A closed union rather than a string, for the same
+ * The seven user-facing answerability classes. A closed union rather than a string, for the same
  * reason the refusal `code` is a closed enum: these render as distinct colours and distinct copy,
  * and a typo would silently paint one class as another.
  *
@@ -89,11 +100,29 @@ export type AnswerabilityClass =
     // haven't encoded it YET" — the opposite of "the authority publishes nothing here"), and NOT the
     // TRANSIENT `construction-incomplete` (a retry never changes a durable empty). Its own class so
     // absent and unreachable can never share a colour (the §CONTEXT-DATA-HONESTY collapse, L-422/457/469).
-    | 'no-plan-published';
+    | 'no-plan-published'
+    // §ENVELOPE-PUBLICATION-AUTHORISATION (L-665) — PRYZM HOLDS a transcribed, cited rule pack for
+    // this zone and is NOT YET AUTHORISED to publish its numbers: the city's `*_ENVELOPE_VERIFIED`
+    // gate is shut, awaiting a human signature on `sources/VERIFICATION.md`. Madrid, Córdoba and
+    // Murcia are all in exactly this state today.
+    //
+    // ⚠ IT IS ITS OWN CLASS BECAUSE IT IS ITS OWN VALUE, and every neighbour would be a false
+    // statement (§CONTEXT-DATA-HONESTY — outage, empty and refusal are three different values):
+    //   • NOT `full-envelope`   — no number ships; that was the bug.
+    //   • NOT `systems-land` / `plan-defined` — those blame the ORDINANCE. The law here is known,
+    //     published and transcribed. Nothing about the land is being refused.
+    //   • NOT `zone-unencoded`  — that says "buildable, we have not encoded it YET". We HAVE
+    //     encoded it, with articles and quotes. Saying otherwise understates our coverage and
+    //     misdirects the reader to a data-entry backlog that does not exist.
+    //   • NOT `construction-incomplete` — that is TRANSIENT and invites a retry. A retry never
+    //     produces a signature; only a person reading the ordinance does.
+    //   • NOT `no-plan-published` — the plan is published; we are checking our reading of it.
+    | 'pack-unverified';
 
 /** Every class, frozen. Exported so the legend enumerates the SOURCE OF TRUTH, never a hand copy. */
 export const ANSWERABILITY_CLASSES: readonly AnswerabilityClass[] = Object.freeze([
     'full-envelope',
+    'pack-unverified',
     'systems-land',
     'plan-defined',
     'zone-unencoded',
@@ -192,8 +221,32 @@ export function classifyRefusalCode(code: EnvelopeRefusalCode): AnswerabilityCla
  */
 export function classifyDisposition(disposition: ZoneDisposition): AnswerabilityClass {
     switch (disposition.kind) {
+        // §ENVELOPE-PUBLICATION-AUTHORISATION (L-665) — A PACK IS NOT AN ANSWER UNTIL IT IS SIGNED.
+        //
+        // THE DEFECT THIS CLOSES. This arm used to return `full-envelope` for any registered pack,
+        // so `classifyAnswerability('es-14021-cordoba', 'PAS-1')` — and the same for Murcia's
+        // `RM1`, and Madrid's 23 Título-8 codes — promised "PRYZM computes a real buildable volume
+        // here" for parcels that receive a cited REFUSAL and no number at all. Córdoba has carried
+        // that claim since the day it was registered.
+        //
+        // ROOT CAUSE, SHARED WITH THE `ZoningRulesEngine` CONFIDENCE DEFECT: a consumer reading the
+        // REGISTRY without reading the GATE. `packsByZone` states what is WIRED; the city's
+        // `*_ENVELOPE_VERIFIED` constant states what is AUTHORISED. Reading the first as if it were
+        // the second is the whole bug, in both places.
+        //
+        // ⚠ FIXED HERE, IN THE CLASSIFIER — NEVER BY DE-REGISTERING THE PACK. De-registration would
+        // silence one city and leave the next gated one to rediscover this, and it would ALSO put
+        // out the C60 coverage globe: we DO answer in Córdoba, with an honest cited refusal, which
+        // is an answer. Registration wires routing; it does not authorise output.
+        //
+        // ⚠ THE GATE IS CHECKED HERE AND NOT IN `classifyAnswerability`, deliberately: the pack
+        // carries its own `jurisdictionId`, so BOTH entry points inherit the check from one site and
+        // the "agree by construction" property is preserved rather than re-argued. A caller that
+        // already holds a disposition gets the same answer as one that resolves a zone code.
         case 'pack':
-            return 'full-envelope';
+            return isEnvelopePublicationAuthorised(disposition.pack.jurisdictionId)
+                ? 'full-envelope'
+                : 'pack-unverified';
         case 'refusal':
             return classifyRefusalCode(disposition.refusal.code);
         case 'unregistered':
