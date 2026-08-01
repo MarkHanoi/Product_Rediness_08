@@ -298,12 +298,16 @@ describe('§BCN-CLAU18-OV §CONTEXT-DATA-HONESTY — an outage and an absence ar
     });
 });
 
-describe('§BCN-CLAU18-OV — the L-449 certification gate is UNCHANGED by wiring the route', () => {
-    it('BCN_REFOS_OV_CERTIFIED is still false — the route makes the gate SIGNABLE, not signed', () => {
-        // Flipping this is a founder legal act about the AMB Refós VINTAGE, not an engineering
-        // change. While it is false the dispatcher never calls `tryBcnClau18Volumetria` at all and
-        // clau 18 keeps its cited PGM Art. 306 refusal — even though the data now resolves.
-        expect(BCN_REFOS_OV_CERTIFIED).toBe(false);
+describe('§BCN-CLAU18-OV — the L-449 certification gate is SIGNED (SIG-3, 2026-08-01)', () => {
+    it('BCN_REFOS_OV_CERTIFIED is TRUE — signed by the founder, recorded in sources/VERIFICATION.md', () => {
+        // ⚠ This assertion is a LEDGER ENTRY, not a preference. It previously pinned `false` with the
+        // note that wiring the route made the gate SIGNABLE, not signed. The founder signed it on
+        // 2026-08-01 (SIG-3), so the pin flips WITH the signature and not before.
+        //
+        // If this test ever fails because someone set the flag back to `false`, that is either (a) the
+        // founder un-signing — in which case SIG-3 must record WHY — or (b) an engineer treating a
+        // legal act as a feature flag, which is exactly what this pin exists to catch.
+        expect(BCN_REFOS_OV_CERTIFIED).toBe(true);
     });
 
     it('the pack still states NO numbers — its geometry is the rule (and stays estimated-ruleset)', () => {

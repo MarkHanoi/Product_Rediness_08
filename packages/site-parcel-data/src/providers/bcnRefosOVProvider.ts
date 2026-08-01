@@ -62,13 +62,32 @@ import { trace, SpanStatusCode } from '@opentelemetry/api';
 const tracer = trace.getTracer('pryzm.zoning');
 
 /**
- * ⚠⚠ THE L-449 CERTIFICATION GATE. **DEFAULT OFF.** While false, the dispatcher keeps clau 18's
- * existing cited refusal and this resolver's output is never rendered. Flip to true ONLY after a
- * human certifies the AMB Refós OV vintage/authority against the *fitxa urbanística* (the same
- * discipline as `CORDOBA_ENVELOPE_VERIFIED`). Even then the envelope renders `estimated-ruleset`,
- * never `structured` — see the header.
+ * ⚠⚠ THE L-449 CERTIFICATION GATE. **SIGNED 2026-08-01** — founder (repo owner), recorded as **SIG-3**
+ * in `docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/sources/VERIFICATION.md`.
+ *
+ * ⚠ **DO NOT flip this back on an engineering judgement.** It is a legal act about the AMB Refós
+ * VINTAGE, not a feature flag. Un-signing it requires the founder, and a reason recorded in SIG-3.
+ *
+ * **WHAT THE SIGNATURE AUTHORISES** — an `explicit-area` envelope on the **26.4 %** of clau-18 land
+ * carrying an OV footprint **with a parseable storey count**, at `estimated-ruleset` (a CONSTRUCTED
+ * envelope, **never** `structured`), caveated with the AMB Refós source and its **uncertified vintage**.
+ *
+ * **WHAT IT DOES NOT AUTHORISE** — the other **73.6 %** of clau-18 land (they keep the cited PGM
+ * Art. 306 refusal); any other clau (the dispatch branch is guarded to clau exactly `'18'`); promoting
+ * the confidence tier; or treating the metre height as sourced — **`PLANTES` is a STOREY COUNT**
+ * (`"B+7"`), converted through PGM Art. 327.2, and that conversion is cited, not assumed.
+ *
+ * **LIMITS ACCEPTED AT SIGNING** (SIG-3, both recorded rather than papered over):
+ *   • the layer publishes **no edition date, no cut-off, no currency declaration**, so the vintage was
+ *     signed on the founder's judgement and NOT on evidence from the publisher — the L-526 trap is
+ *     mitigated by the `estimated-ruleset` tier and the caveat, not eliminated;
+ *   • `PLANTES` is 100 % populated but only **92.0 % parseable** — 408 of 5,073 polygons carry the
+ *     literal `"ED"` (undocumented, no domain), and **79 % of that unparseable area is on clau-18
+ *     land**. Its likely meaning (*edificació existent*) would make it *"consult another source"*
+ *     rather than a compressed storey count, so **decoding it may unlock nothing** — 26.4 % is not a
+ *     temporary number.
  */
-export const BCN_REFOS_OV_CERTIFIED: boolean = false;
+export const BCN_REFOS_OV_CERTIFIED: boolean = true;
 
 /**
  * The `ringRef` handle the clau-18 pack rule carries and this resolver answers for. Versioned so a

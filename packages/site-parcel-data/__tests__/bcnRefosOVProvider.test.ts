@@ -93,8 +93,12 @@ describe('heightFromFloorsAboveGround — Art. 327.2 storey module reuse', () =>
 });
 
 describe('resolveBcnRefosOV — the OV footprint + PLANTES resolver', () => {
-    it('the certification gate is OFF by default (clau 18 keeps its refusal until L-449 sign-off)', () => {
-        expect(BCN_REFOS_OV_CERTIFIED).toBe(false);
+    it('the certification gate is SIGNED (SIG-3, founder, 2026-08-01) — clau 18 may now render', () => {
+        // Was `false` with the note "OFF by default until L-449 sign-off". The founder signed on
+        // 2026-08-01; the pin flips WITH the signature, never ahead of it. The signature, what it
+        // authorises and — equally binding — what it does NOT, are recorded in
+        // docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/sources/VERIFICATION.md (SIG-3).
+        expect(BCN_REFOS_OV_CERTIFIED).toBe(true);
     });
 
     it('the ringRef constant equals the pack rule handle (no vintage drift)', () => {
