@@ -137,6 +137,11 @@ The everyday gestures must be exact and smooth. Gate: G4, G5, G6.
   TRAA on transient preview. **Gate G5**.
 - **1.3 WebGL2 ghost-on-rotate** (L-05 / Q5 / §FIX-WEBGL2-GHOST-ON-ROTATE) — *queued*. Per-move clear/invalidate
   of the OBC base framebuffer on the WebGL2 path only. **Gate G6**.
+- **1.4 Placement commits what the preview promised — id minting** (L-665 / §FIX-FURNITURE-AD-HOC-ID) —
+  *IMPLEMENTED, PENDING VERIFICATION*. The 3D kitchen/wardrobe tools minted non-ULID ids the `Furniture`
+  schema rejects at commit → dead click behind a perfect preview. Canonical `buildFurnitureCreatePayload`
+  now owns the id. Class-closing contract clause + CI gate tracked as **L-666**. See the L-665/L-666
+  sections below. **Queue: element-creation / geometry.**
 
 ## Phase 2 — MODELING COMPLETENESS — **MUST for launch**
 Every visible element must be movable, rotatable, dimensionable, materialisable. Gate: G7.
@@ -5087,3 +5092,64 @@ from `answerabilityClass` — the category collapse; (iii) infer *No Urbanizable
 fuses a legal fact with a coverage gap, the L-553 false-negative-about-someone's-land error.
 
 Queue: geospatial / parcel-data + zoning (with L-640, L-643). Governs C19 §2.3, C57, C58 §1.11/§5, C62, ADR-0279 §6.
+## L-665 — L-shape kitchen cannot be placed in 3D: ad-hoc furniture id rejected at commit (P1) · PHASE 1 (1.4) · OWNER: UNASSIGNED · TARGET: TBD (verification pass)
+See audit **L-665**. **Root cause (verified, not re-derived):** `KitchenCabinetTool._placeKitchen()` passed
+`newKitchenRunId()` = `` `kitchen_${Date.now()}_${counter}` `` (introduced by **ADR-0113** §FIX-KITCHEN-SECOND-PLACE
+purely to make two same-millisecond placements distinct). The `Furniture` schema's id field
+(`defineElement('furniture')` → `^furniture_[0-9A-HJKMNP-TV-Z]{26}$`, **ADR-0001** typed ids) rejects it at
+`Furniture.parse` inside `CreateFurnitureHandler.execute` → `FurnitureSchemaError` → nothing created. The preview
+renders because **the preview path never validates** — the only schema gate is at commit, so the failure presents
+as a dead click with no user-visible error. `WardrobeCabinetTool` (`wardrobe_cab_<ts>_<n>`) was broken identically
+and unreported; **L-145** was the same defect in the annotation family.
+
+**FAST fix (rejected as the whole answer):** point `_placeKitchen` at `createId('furniture')`. Correct for the
+kitchen, leaves the next tool free to invent an id.
+
+**CORRECT fix — DONE this pass (implemented, pending verification):** close the class at the seam that already
+exists for this family. `apps/editor/src/engine/furniture/furnitureCreatePayload.ts` — the ONE canonical
+`furniture.create` payload builder every editor placement surface already routes through (created for **L-214**,
+the rotation-shape twin of this defect) — now **owns the id**: `id` is optional and minted by the new
+`newFurnitureId()` (= `createId('furniture')`); a caller-supplied id is validated with `isId(id, 'furniture')`
+and rejected with a loud `TypeError` at that convergence point. Both parametric tools deleted their local
+generators. Cost: ~2 h including tests. **The schema regex is untouched and MUST stay untouched** — loosening it
+would admit non-ULID ids to the store and break identity/ordering assumptions elsewhere; a test pins that the old
+id still throws at the handler.
+
+**Tests** (`apps/editor/__tests__/`): `FurnitureCreatePayload.test.ts` +11 — the minter's shape, mint-on-omit,
+rejection of both ad-hoc shapes *and* a bare UUID, an **L-shape-kitchen commit at the command seam**
+(`CreateFurnitureHandler.execute` stores the run — the assertion that fails without the fix), and a source scan
+asserting neither tool re-invents an id. `ParametricPlacementSpaceRotate.test.ts` — its "second kitchen gets a
+distinct id" block had **re-implemented the broken generator locally** ("kept in lock-step"), which is precisely
+how a green suite blessed an id the schema rejects; it now imports the real minter.
+
+**Preview/commit asymmetry — proposed, NOT implemented.** A preview that renders what the commit will reject is a
+UX lie, and this is the second time it has hidden a defect (L-214, L-665). Options, cheapest first: **(a)** on a
+rejected commit, surface the reason on the toast channel — *already present* in both tools, but a `throw` inside
+`execute()` (as opposed to a `canExecute` rejection) reaches the `.catch` only as a raw message; make the handler
+map `FurnitureSchemaError` to a human sentence (~1 h). **(b)** Validate the payload **once, when the tool arms**
+(a dry-run `Furniture.parse` of a representative payload at `activate()`), not per pointer-move — cost is one parse
+per tool activation, ~0 on the hot path; catches shape defects before the user ever clicks (~½ day). **(c)** Parse
+on every preview frame — **rejected**: a Zod parse per pointer-move on a continuously-rebuilt ghost is real
+per-frame cost for a check whose inputs change only on config change. Recommendation: **(a) + (b)**. Queue:
+element-creation / geometry.
+
+## L-666 — no contract mandates ONE element-id minting helper (P1 coverage gap) · PHASE 1 (governance) · OWNER: UNASSIGNED · TARGET: TBD
+See audit **L-666**. Derived while root-causing L-665. **C11 §3.2** lists the invariants for UI-initiated commands
+and **none of them concerns ids** — yet C11 §7.0 (FIX-WALL-ID / FIX-CW-ID) already cites "§3.2 — tools MUST
+pre-generate branded IDs" as though the clause existed; **C03** is silent; **ADR-0001 §4** records its own
+enforcement as unbuilt ("`pryzm/no-id-casts` scheduled for S07"). Net: every creation path may invent an id and the
+only check is Zod, at commit, where a rejection looks like a dead click. Paid three times already (L-145, L-665,
+the silent wardrobe break).
+
+**Proposed close (NOT done this pass — a contract amendment plus a CI gate is a governance change, and C11 has
+other agents in flight):**
+- **(a)** Add a normative **C11 §3.2** invariant: *every element id MUST be minted by `createId(<prefix>)` from
+  `@pryzm/schemas`; a tool MUST NOT construct an id string.* Reconcile the §7.0 rows that already cite it. (~1 h)
+- **(b)** CI gate in `tools/ga-gate/` — fail on a template-literal id whose prefix matches a known `ElementType`
+  outside `packages/schemas`. Mirrors `check:commandmanager`; ~½ day including the allowlist for non-schema
+  entities (view definitions, render jobs, templates — ~40 `crypto.randomUUID()`/`Date.now()` sites in
+  `apps/editor/src` that are NOT element ids and are not claimed here to be defects).
+- **(c)** OPTIONAL, per family: let the creation-payload builder own the id, as `buildFurnitureCreatePayload` now
+  does for furniture. This is the pattern to copy, not a new mechanism.
+
+Queue: element-creation / geometry + contract owner. Governs C11 §3.2, C03 §1/§2, ADR-0001.

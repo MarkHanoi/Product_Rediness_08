@@ -723,6 +723,43 @@ C11 §4.2 requires ALL AI-initiated multi-element creation to use `BatchCoordina
 
 All entries from the original §7.4 have been added to `packages/command-bus/src/commands.ts` during P0–P11 (doc 23). The following were added: `wall.create`, `wall.batch.create`, `curtain-wall.create`, `curtain-wall.batch.create`, `rooms.redetect`, plus all F3–F13 family entries. No missing entries remain for currently implemented handlers.
 
+### §7.6 — KNOWN VIOLATION + CONTRACT GAP: element-ID minting is uncontracted (L-665 / L-666, 2026-08-01)
+
+**⚠ This section records a gap in THIS contract, not only in the code.** §3.2 lists seven invariants for
+UI-initiated commands and **none of them concerns ids** — yet the §7.0 rows **FIX-WALL-ID** and **FIX-CW-ID**
+both cite *"§3.2 (tools MUST pre-generate branded IDs and pass them in the payload)"* as their governing
+clause. **C11 is being cited for a rule it does not state.** C03 is silent on id minting; the ONE factory is
+`createId(prefix)` (`packages/schemas`), ratified by **ADR-0001**, whose own §4 records its enforcement as
+unbuilt (*"`pryzm/no-id-casts` … scheduled for S07"* — never written). Net effect: any creation path may
+invent an id, and the only check is the element schema's regex applied at COMMIT inside the handler — where
+a rejection surfaces to the user as a **dead click behind a perfect preview**, because the preview path
+validates nothing.
+
+**Instances (three, all the same class):**
+
+| Item | Path | Ad-hoc id | Symptom |
+|---|---|---|---|
+| **L-145** | `applyAutoDimensions` (annotations) | `crypto.randomUUID()` | every `annotation.create` Zod-rejected; nothing rendered |
+| **L-665** | `KitchenCabinetTool._placeKitchen` | `` `kitchen_${Date.now()}_${n}` `` | founder-reported: L-shape kitchen preview perfect, click does nothing (`FurnitureSchemaError`) |
+| **L-665** | `WardrobeCabinetTool._placeWardrobe` | `` `wardrobe_cab_${Date.now()}_${n}` `` | identical break, **never reported** — an invisible failure generates no bug report |
+
+The kitchen id was introduced deliberately by **ADR-0113 §FIX-KITCHEN-SECOND-PLACE** (a monotonic counter, to
+keep two same-millisecond placements distinct) — i.e. an ADR decision that silently contradicted ADR-0001.
+
+**Code status (L-665): IMPLEMENTED — PENDING VERIFICATION.** The canonical
+`apps/editor/src/engine/furniture/furnitureCreatePayload.ts` builder now owns the furniture id: `id` is
+optional and minted via `newFurnitureId()` (= `createId('furniture')`), and a caller-supplied id is validated
+with `isId(id,'furniture')` and rejected at that single convergence point. Both parametric tools deleted
+their local generators. **No schema regex was weakened** — a test pins that the pre-fix id still throws
+`FurnitureSchemaError` at the handler. This closes the FURNITURE family only.
+
+**Contract status: OPEN (L-666).** The clause itself is NOT yet written. Proposed: add to **§3.2** —
+*"every element id MUST be minted by `createId(<prefix>)` from `@pryzm/schemas`; a tool MUST NOT construct an
+id string"* — and reconcile the §7.0 rows that already cite it; then build the §8.1 static gate ADR-0001 §4
+promised (fail on a template-literal id whose prefix matches a known `ElementType` outside
+`packages/schemas`, with an allowlist for non-element entities such as view definitions and render jobs).
+Until that lands, this contract does not govern id minting and must not be cited as though it does.
+
 ---
 
 ## §8 — Verification contract

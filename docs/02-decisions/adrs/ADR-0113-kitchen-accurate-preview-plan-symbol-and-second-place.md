@@ -1,6 +1,6 @@
 # ADR-0113 — Kitchen fidelity: accurate preview, professional plan symbol, and continuous second placement
 
-- **Status:** Accepted (2026-07-02)
+- **Status:** Accepted (2026-07-02) — **AMENDED IN PART 2026-08-01 (L-665): see the correction note below.**
 - **Tags:** `§FEAT-KITCHEN-ACCURATE-PREVIEW`, `§FEAT-KITCHEN-PLAN-SYMBOL`, `§FIX-KITCHEN-SECOND-PLACE`
 - **Founder audit rows:** L-34 (preview), L-35 (plan symbol), L-33 (second placement), L-23-RV (Space-rotate re-verify)
 - **Governs:** C06 (interaction / placement), C11 (element-creation pipeline), C18 (catalogue / representation & element-preview visual standard). Relates to Contract §41 (Object Placement Preview Standard), ADR-0107 (`§FIX-PARAMETRIC-SPACE-ROTATE`), ADR-0110 (unified furniture plan-symbol vocabulary).
@@ -33,3 +33,24 @@ Four founder-reported defects in the parametric kitchen (`kitchen_straight` / `_
 - **Deliberate deviation from ADR-0110:** the sibling `*PlanSymbolBuilder` classes still ink the drawing in black. The kitchen symbol is now purple per the founder's L-35 directive — a scoped, single-constant (`PLAN_SYMBOL_INK`) change, reversible by re-pointing that constant if the drawing-wide ink convention is ever unified. Noted here so the divergence is intentional, not an oversight.
 - **Follow-up (out of scope):** `WardrobeCabinetTool` has the identical latent object-rotation + deactivate-after-one-placement defect (same shared payload shape) — a candidate for the same fix.
 - Tests: `packages/geometry-furniture/__tests__/kitchenAccuratePreview.test.ts` (preview linework ≡ placed-symbol linework for an L; not a bounding box; dividers scale with unit count; work-triangle poles) + `apps/editor/__tests__/ParametricPlacementSpaceRotate.test.ts` (SPACE advances the second-placement commit yaw; distinct ids). Existing `kitchenPlanSymbolPro` suite still green.
+
+## AMENDMENT — 2026-08-01 (audit **L-665**): decision 3's id generator was wrong and is withdrawn
+
+Decision 3 above ends *"`newKitchenRunId()` mints a monotonic-counter id so two same-millisecond placements
+never collide."* The **requirement** (distinctness across a re-arm) was right; the **mechanism** was not.
+`` `kitchen_${Date.now()}_${counter}` `` contradicts **ADR-0001** (every element id is
+`<prefix>_<26-char Crockford ULID>`, minted by `createId(prefix)`) and is rejected by the `Furniture` schema's
+id regex at `Furniture.parse` inside `CreateFurnitureHandler.execute`. So §FIX-KITCHEN-SECOND-PLACE fixed the
+rotation reject and replaced it with an **id reject**: the founder reported on 2026-08-01 that an L-shape
+kitchen still could not be placed in 3D — a dead click behind a perfect preview, because the preview path
+never validates. The `distinct ids` assertion in `ParametricPlacementSpaceRotate.test.ts` did not catch it:
+that test **re-implemented the same generator locally** and only asserted uniqueness, never schema validity.
+
+**Withdrawn:** `newKitchenRunId()` (deleted). **Replaced by:** `newFurnitureId()` =
+`createId('furniture')`, exported from the canonical
+`apps/editor/src/engine/furniture/furnitureCreatePayload.ts`, which now mints (or validates) the id for every
+editor furniture placement surface. A ULID's 80-bit random tail preserves this ADR's distinctness guarantee
+for same-millisecond placements. `WardrobeCabinetTool` — flagged in the Consequences above as carrying "the
+identical latent defect" — had the same id defect and is fixed in the same pass. Status: implemented,
+**pending live verification**. Class-level gap (no contract mandates the single minter) logged as **L-666**
+and recorded in C11 §7.6.

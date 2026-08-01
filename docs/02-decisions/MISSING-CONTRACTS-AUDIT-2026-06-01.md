@@ -783,3 +783,46 @@ must state which visual channel carries which.
 Logged as **L-663**. See `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` and
 `docs/04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md`. Owner: UNASSIGNED · TARGET: TBD (gated on founder
 sign-off of the vocabulary decision + the live-vs-baked fork).
+
+---
+
+## GAP (added 2026-08-01, via L-666, discovered while root-causing L-665) — element-ID MINTING has no contract clause and no gate
+**Discovered by:** L-665 (founder: an L-shape kitchen renders a perfect preview but cannot be placed —
+`FurnitureSchemaError … "Expected furniture_<ulid> id"`).
+
+**The gap — a CLAUSE, not a whole contract.** PRYZM has a single ID factory, `createId(prefix)`
+(`packages/schemas/src/factory/createId.ts`), ratified by **ADR-0001** (typed-ID brand strategy: wire shape
+`<prefix>_<26-char Crockford ULID>`, enforced per family by `defineElement`'s
+`^<prefix>_[0-9A-HJKMNP-TV-Z]{26}$` regex). **Nothing requires a creation path to use it.**
+- **C11 §3.2** ("Invariants for UI-initiated commands") lists 7 invariants — dispatch via the bus, no
+  `commandManager.execute()`, no direct store writes, no `window.dispatchEvent`, no synchronous geometry
+  build, undo push, ≤16 ms — and **none of them concerns ids**. Yet **C11 §7.0** (FIX-WALL-ID, FIX-CW-ID)
+  already cites *"§3.2 (tools MUST pre-generate branded IDs and pass them in the payload)"* as its
+  governing clause. The contract is being cited for a rule it does not state.
+- **C03** (schemas / commands / state) never mentions id minting.
+- **ADR-0001 §4** records its own enforcement as **unbuilt**: *"Lint rule needed to prevent `id as WallId`
+  casts … `pryzm/no-id-casts` rule scheduled for S07 … until then, casts are caught manually in PR review."*
+  No such rule exists in the repo.
+
+**Why it matters (three paid instances, not a hypothetical).** The only check is the Zod schema, applied at
+COMMIT inside the command handler — so an invented id is not a build error but a **dead click**: the
+preview path never validates, so the user sees a perfect ghost and nothing happens.
+**L-145** — annotations minted `crypto.randomUUID()`; every `annotation.create` was Zod-rejected and
+nothing rendered. **L-665** — `KitchenCabinetTool` minted `kitchen_<Date.now()>_<n>`; the L-shape kitchen
+could never be placed. Same pass — `WardrobeCabinetTool` minted `wardrobe_cab_<Date.now()>_<n>` and was
+broken identically, **unreported**, because a placement failure with no visible error generates no bug
+report. A worse property: the L-665 regression test suite had **re-implemented the broken generator
+locally** ("kept in lock-step"), so a green suite actively blessed an id shape the schema rejects.
+
+**Proposed resolution (needs contract-owner decision — NOT applied, C11 has agents in flight):**
+1. Add a normative **C11 §3.2** invariant: *every element id MUST be minted by `createId(<prefix>)` from
+   `@pryzm/schemas`; a tool MUST NOT construct an id string.* Reconcile the §7.0 rows that already cite it.
+2. Build the enforcement ADR-0001 §4 promised — a `tools/ga-gate/` check failing on a template-literal id
+   whose prefix matches a known `ElementType` outside `packages/schemas` (mirrors `check:commandmanager`).
+   Needs an allowlist: ~40 `crypto.randomUUID()` / `Date.now()` id sites in `apps/editor/src` are
+   NON-element entities (view definitions, render jobs, data-workbench templates) and are not defects.
+3. Optional per family: let the canonical creation-payload builder own the id — done for furniture in
+   `apps/editor/src/engine/furniture/furnitureCreatePayload.ts` (L-665). That is the pattern to copy.
+
+**Not a new contract.** This is a missing clause in C11 plus a missing gate; minting a "C-IDENTITY" contract
+would split authority that ADR-0001 + C03 + C11 already hold. Owner: UNASSIGNED · target: TBD.

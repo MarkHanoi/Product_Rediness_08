@@ -43,17 +43,26 @@ import { PrePlacementRotation } from '@pryzm/core-app-model';
 // §FIX-WARDROBE-CREATE-ROTATION-NAN (L-214) — one canonical furniture.create
 // payload builder shared with WardrobeCabinetTool + FurniturePlanToolHandler, so
 // all three placement surfaces emit an identical, scalar-rotation payload.
-import { buildFurnitureCreatePayload } from '@app/engine/furniture/furnitureCreatePayload';
+// §FIX-FURNITURE-AD-HOC-ID (L-665) — the id comes from the SAME canonical module,
+// never from a hand-rolled generator (see below).
+import { buildFurnitureCreatePayload, newFurnitureId } from '@app/engine/furniture/furnitureCreatePayload';
 
-let _idCounter = 0;
 /**
- * §FIX-KITCHEN-SECOND-PLACE (ADR-0112, founder L-33) — mint a UNIQUE id per run.
- * A monotonic counter (not just Date.now()) guarantees distinctness even for two
- * runs placed in the same millisecond — critical now the tool re-arms and a user
- * can place a second kitchen immediately after the first. Exported for testing.
+ * §FIX-KITCHEN-SECOND-PLACE (ADR-0113, founder L-33) — mint a UNIQUE id per run;
+ * the tool re-arms after a commit, so two runs can be placed back-to-back and the
+ * second must not overwrite the first.
+ *
+ * §FIX-FURNITURE-AD-HOC-ID (L-665) — this USED to be a hand-built
+ * `kitchen_${Date.now()}_${counter}`, which the `Furniture` schema id regex
+ * (`^furniture_[0-9A-HJKMNP-TV-Z]{26}$`) rejected inside
+ * `CreateFurnitureHandler.execute` → `FurnitureSchemaError` → the click did
+ * nothing while the (never-validated) preview rendered perfectly. It now
+ * delegates to the ONE ADR-0001 factory via `newFurnitureId()`
+ * (= `createId('furniture')`); a ULID's 80-bit random tail keeps two
+ * same-millisecond placements distinct, so the re-arm guarantee is preserved.
+ * Do not reintroduce a local generator here.
  */
-export function newKitchenRunId(): string { return `kitchen_${Date.now()}_${_idCounter++}`; }
-const newId = newKitchenRunId;
+const newId = newFurnitureId;
 
 // ── KitchenCabinetTool ────────────────────────────────────────────────────────
 

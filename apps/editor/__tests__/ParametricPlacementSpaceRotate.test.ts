@@ -33,6 +33,9 @@ import {
     KITCHEN_DEFAULTS,
     WARDROBE_CABINET_DEFAULTS,
 } from '@pryzm/geometry-furniture';
+// §FIX-FURNITURE-AD-HOC-ID (L-665) — the ONE furniture id minter the parametric
+// tools call (createId('furniture')); imported, never re-implemented here.
+import { newFurnitureId } from '../src/engine/furniture/furnitureCreatePayload';
 
 const HALF_PI = Math.PI / 2;
 
@@ -86,26 +89,26 @@ describe('§FIX-PARAMETRIC-SPACE-ROTATE — parametric flows rotate on SPACE', (
 });
 
 describe('§FIX-KITCHEN-SECOND-PLACE (L-33) — a second kitchen gets a distinct id', () => {
-    // Mirrors KitchenCabinetTool.newKitchenRunId() EXACTLY (kept in lock-step): a
-    // Date.now() prefix + a MONOTONIC counter. The tool re-arms after commit (no
-    // deactivate), so two runs can be placed back-to-back — their ids MUST differ or
-    // the second overwrites the first in the furniture store. We replicate the scheme
-    // here rather than import the OBC/THREE-coupled tool module under happy-dom.
-    let counter = 0;
-    const newKitchenRunId = (): string => `kitchen_${Date.now()}_${counter++}`;
-
+    // §FIX-FURNITURE-AD-HOC-ID (L-665) — this block USED to re-implement
+    // `KitchenCabinetTool.newKitchenRunId()` locally ("kept in lock-step"), so it
+    // green-lit an id shape (`kitchen_<Date.now()>_<n>`) that the Furniture schema
+    // rejects at commit — the duplication is exactly why the defect survived a
+    // passing suite. It now imports the REAL minter the tool calls. The module is
+    // THREE/OBC-free (types-only imports + @pryzm/schemas), so it loads fine here.
     it('is unique across consecutive placements (even within the same millisecond)', () => {
         const ids = new Set<string>();
-        for (let i = 0; i < 10; i++) ids.add(newKitchenRunId());
+        for (let i = 0; i < 10; i++) ids.add(newFurnitureId());
         expect(ids.size).toBe(10);
     });
 
-    it('the monotonic counter — not the timestamp — is what guarantees distinctness', () => {
-        const a = newKitchenRunId();
-        const b = newKitchenRunId();
-        // Same-ms placements share the timestamp; the trailing counter differs.
+    it('every id is the schema-valid furniture_<ULID> the commit path requires', () => {
+        // A second placement that the store accepts is worth nothing if the FIRST
+        // one never commits: the id must satisfy `^furniture_[0-9A-HJKMNP-TV-Z]{26}$`.
+        const a = newFurnitureId();
+        const b = newFurnitureId();
+        expect(a).toMatch(/^furniture_[0-9A-HJKMNP-TV-Z]{26}$/);
+        expect(b).toMatch(/^furniture_[0-9A-HJKMNP-TV-Z]{26}$/);
         expect(a).not.toBe(b);
-        expect(a.split('_').pop()).not.toBe(b.split('_').pop());
     });
 });
 

@@ -38,10 +38,20 @@ import { PrePlacementRotation } from '@pryzm/core-app-model';
 // `rotation` is typed as a SCALAR yaw, so the Euler-object that this tool used
 // to send (which the bus guard rejected with "rotation must be finite") is now
 // a compile error rather than a silent no-op click.
-import { buildFurnitureCreatePayload } from '@app/engine/furniture/furnitureCreatePayload';
+// §FIX-FURNITURE-AD-HOC-ID (L-665) — the id comes from the SAME canonical module.
+import { buildFurnitureCreatePayload, newFurnitureId } from '@app/engine/furniture/furnitureCreatePayload';
 
-let _idCounter = 0;
-function newId(): string { return `wardrobe_cab_${Date.now()}_${_idCounter++}`; }
+/**
+ * §FIX-FURNITURE-AD-HOC-ID (L-665) — this USED to be a hand-built
+ * `wardrobe_cab_${Date.now()}_${counter}`, which the `Furniture` schema id regex
+ * (`^furniture_[0-9A-HJKMNP-TV-Z]{26}$`) rejects at `Furniture.parse` inside
+ * `CreateFurnitureHandler.execute` → `FurnitureSchemaError` → dead click with a
+ * perfect (never-validated) preview. Same defect the L-shape kitchen hit. It now
+ * delegates to the ONE ADR-0001 factory (`createId('furniture')`), whose 80-bit
+ * random tail keeps back-to-back placements distinct. Do not reintroduce a local
+ * generator here.
+ */
+const newId = newFurnitureId;
 
 export class WardrobeCabinetTool {
 

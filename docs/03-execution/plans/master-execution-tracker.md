@@ -4747,6 +4747,17 @@ Dependency: builds on L-621 (panel drag/resize/launcher) + supersedes L-622 (3D-
 - **Approach (plan-first, mirrors the envelope):** honest source ladder (LiDAR DSM−DTM → OSM height → levels → ordinance → typed-unknown) × C62 confidence; per-city sourcing; CI fidelity gate. Implementation sequenced after sign-off — never a blind default-tune.
 - **Queue:** geospatial / context-buildings + massing height. Governs: C62, C12, C58 §1.2, §CONTEXT-DATA-HONESTY. Family: L-459, L-525.
 
+## L-665 — L-shape kitchen cannot be placed in 3D (ad-hoc furniture id rejected at commit) (P1) · OWNER: UNASSIGNED · TARGET: TBD (live verification)
+- **What:** founder 2026-08-01, live prod — the parametric kitchen preview renders perfectly but the click commits nothing. `KitchenCabinetTool._placeKitchen` minted `` `kitchen_${Date.now()}_${n}` ``; the `Furniture` schema id regex `^furniture_[0-9A-HJKMNP-TV-Z]{26}$` rejects it at `Furniture.parse` inside `CreateFurnitureHandler.execute` → `FurnitureSchemaError`, nothing created. The preview path never validates, so it presents as a **dead click with no visible error**. `WardrobeCabinetTool` was broken identically and unreported. Audit **L-665**.
+- **Status:** **IMPLEMENTED — PENDING VERIFICATION** (not verified on prod). The canonical `apps/editor/src/engine/furniture/furnitureCreatePayload.ts` builder now owns the id (`newFurnitureId()` = `createId('furniture')`; caller-supplied ids validated with `isId`). Both tools deleted their local generators. **Schema regex untouched** — a test pins that the old id still throws. Tests +8 in `apps/editor/__tests__/` (26/26 green); the pre-existing "distinct ids" test had re-implemented the broken generator and now imports the real minter.
+- **Next:** place an L-shape kitchen and a wardrobe run in 3D on `pryzm.fly.dev`; then flip the audit row.
+- **Queue:** **element-creation / geometry** (NOT UI — a furniture symptom with an element-creation-contract cause). Governs: C11 §3.2/§7.6, C03, ADR-0001, ADR-0113 (amended). Depends on: nothing. Blocks: nothing. Family: L-145, L-214.
+
+## L-666 — no contract mandates ONE element-id minting helper (P1 coverage gap) · OWNER: UNASSIGNED · TARGET: TBD
+- **What:** `createId(prefix)` (ADR-0001) is the de-facto ID factory but **no contract requires it**: C11 §3.2's invariants say nothing about ids (while C11 §7.0 cites it as though they did), C03 is silent, and ADR-0001 §4's own lint rule (`pryzm/no-id-casts`, "scheduled for S07") was never built. Only Zod catches an invented id — at commit, as a dead click. Paid three times: L-145, L-665, and the silent wardrobe break. Audit **L-666**; recorded in C11 §7.6 + `MISSING-CONTRACTS-AUDIT-2026-06-01.md` §GAP (2026-08-01).
+- **Approach:** (a) add the normative C11 §3.2 clause + reconcile the §7.0 citations (~1 h); (b) `tools/ga-gate/` check failing on element-prefixed template-literal ids outside `packages/schemas`, with an allowlist for non-element entities (~½ day); (c) optional per family — payload builder owns the id (furniture is the shipped exemplar).
+- **Queue:** element-creation / geometry + **contract owner**. Depends on: C11 edit window (other agents in flight on C11). Blocks: recurrence on the next creation tool.
+
 ---
 
 # §CITY-COMPLETION — Per-city completion matrix + master implementation plan (C63, L-648)
