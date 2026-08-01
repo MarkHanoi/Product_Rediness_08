@@ -94,6 +94,13 @@ export const CITY_BOARD = [
         bbox: [-1.2007, 37.9322, -1.0607, 38.0522], adapter: 'catastro', providerId: 'catastro', kind: 'cadastral',
     },
     {
+        // L-662: Córdoba was the ONE of the four verdict cities absent from this board, so
+        // `--all` silently reported three of four and the fourth could not be scored at all.
+        // bbox is the canonical `tools/context-bake/terrain.mjs` REGIONS row — never re-invented.
+        city: 'cordoba', jurisdictionId: 'es-an-14021-cordoba', cc: 'es', regionKey: 'cordoba',
+        bbox: [-4.85, 37.84, -4.72, 37.94], adapter: 'catastro', providerId: 'catastro', kind: 'cadastral',
+    },
+    {
         city: 'paris', jurisdictionId: 'fr-idf-75056-paris', cc: 'fr', regionKey: 'paris',
         bbox: [2.22, 48.80, 2.47, 48.91], adapter: 'ign-fr', providerId: 'ign-fr', kind: 'cadastral',
     },

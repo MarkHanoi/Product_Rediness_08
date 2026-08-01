@@ -464,6 +464,102 @@ function axisEnvelope(input, stamp) {
     });
 }
 
+/**
+ * The LEGISLATION axis (C63 §3 Axis 2) — `verified_cited_claus / total_claus_present`.
+ *
+ * ⚠ THE DENOMINATOR IS THE CLAU INVENTORY THE ZONE-GIS RETURNS FOR THE MUNICIPALITY, not the packs
+ * we happen to have written. Scoring `cited/authored` would report 100 % for a city where we
+ * authored one clau out of forty — precisely the Hospitalet "Barcelona-borrow" trap C63 §3 Axis 2
+ * names. So `totalClausPresent` is REQUIRED and the axis refuses to score without it.
+ *
+ * `validationState` reaches `human-reviewed` ONLY when a signed `sources/VERIFICATION.md` covers the
+ * cited rows (C63 §1.6 / L-449). Signature is NOT a score multiplier — an unsigned citation is still
+ * a citation — but an unsigned city can never present as human-reviewed, and §CLOSURE reads that
+ * field, not the number.
+ *
+ * input.legislationAudit = {
+ *   citedVerifiedClaus, totalClausPresent, signedVerification: bool,
+ *   documentInRepo?: bool,   // ⚠ a citation whose DOCUMENT we cannot retrieve is a DATA-SOURCES gap,
+ *                            //   recorded here and scored on Axis 3 — never silently on this axis.
+ *   supersessionChecked?: bool, source, note,
+ * }
+ */
+function axisLegislation(input, stamp) {
+    const a = input.legislationAudit;
+    if (!a) {
+        return axisNotAssessed('legislation', 'not-queried',
+            'per-clau sources/SOURCES.md citation audit ∩ signed VERIFICATION.md not run '
+            + '(human-gated, C58 L-449)', stamp);
+    }
+    const total = a.totalClausPresent;
+    if (typeof total !== 'number' || total <= 0) {
+        // L-661: "not found" ≠ "does not exist". We know we hold N cited claus; we do NOT know the
+        // municipality's clau inventory, so the FRACTION is unknown — and a fraction whose
+        // denominator we invented is the C63 §1.1 fabrication.
+        return axisNotAssessed('legislation', 'not-queried',
+            `${a.citedVerifiedClaus ?? '?'} cited+verified clau(s) held, but the municipality's TOTAL `
+            + 'clau inventory was never enumerated — the denominator is unknown, so the fraction is '
+            + `unknown (scoring cited/authored would report ~100 % for one clau out of forty). ${a.note ?? ''}`,
+            stamp);
+    }
+    const cited = a.citedVerifiedClaus ?? 0;
+    const supersession = a.supersessionChecked === true ? ''
+        : ' — ⚠ SUPERSESSION UNEXAMINED: a cited article that a later instrument repealed still counts here';
+    const docGap = a.documentInRepo === false
+        ? ' — ⚠ the cited DOCUMENT is not retrievable in-repo (scored on DATA-SOURCES, not here)' : '';
+    return mkAxis('legislation', {
+        score: Math.min(1, cited / total),
+        validationState: a.signedVerification === true ? 'human-reviewed' : 'auto-validated',
+        derivation:
+            `verified_cited_claus/total_claus_present = ${cited}/${total} (C63 §3 Axis 2). `
+            + `DENOMINATOR: the clau inventory the zone-GIS returns for the municipality, NOT the packs `
+            + `we authored. VERIFICATION.md signed=${a.signedVerification === true}. `
+            + `${a.note ?? ''}${supersession}${docGap}`,
+        provenance: [prov(a.source ?? 'sources/SOURCES.md', 'regional-gis')],
+        stamp,
+    });
+}
+
+/**
+ * The HEIGHTS/LOD axis (C63 §3 Axis 6) — `tagged_count / total_count` over the baked context
+ * buildings in the city bbox. v1 counts `tagged` ONLY; `derived-levels` earns no partial credit
+ * (C63 §3 Axis 6 + §8 open founder decision — until it is ratified, giving it 0.5 would be this
+ * tool ratifying a weighting the founder has not).
+ *
+ * ⚠ §SIZE-IS-NOT-PROVENANCE. `input.heightsSample` must carry MEASURED vs ASSUMED COUNTS. A bake
+ * that produced a large file, a green CI job, or a present tileset is NOT evidence of a single
+ * measured height — a previous check asserted file size and shipped zero measured heights on a
+ * green bake. `{ bakeGreen: true }` alone is therefore rejected below, loudly.
+ *
+ * input.heightsSample = { tagged, derivedLevels?, assumed?, total, bbox?, source, note }
+ */
+function axisHeightsLod(input, stamp) {
+    const h = input.heightsSample;
+    if (!h) {
+        return axisNotAssessed('heightsLod', 'not-queried',
+            'no per-building heightProvenance histogram read for the city bbox (Phase-4 sampling move)',
+            stamp);
+    }
+    const total = h.total ?? ((h.tagged ?? 0) + (h.derivedLevels ?? 0) + (h.assumed ?? 0));
+    if (typeof h.tagged !== 'number' || typeof total !== 'number' || total <= 0) {
+        return axisNotAssessed('heightsLod', 'not-queried',
+            'a heights declaration was supplied but it carries NO measured-vs-assumed per-building '
+            + 'counts — §SIZE-IS-NOT-PROVENANCE: a green bake, a present tileset or a file size is '
+            + `not evidence of one measured height. ${h.note ?? ''}`, stamp);
+    }
+    const derived = h.derivedLevels ?? 0;
+    return mkAxis('heightsLod', {
+        score: Math.min(1, h.tagged / total),
+        validationState: 'auto-validated',
+        derivation:
+            `tagged/total = ${h.tagged}/${total} (C63 §3 Axis 6, v1 counts \`tagged\` ONLY; `
+            + `derived-levels=${derived} earns NO partial credit until the §8 founder decision lands). `
+            + `${h.note ?? ''}`,
+        provenance: [prov(h.source ?? 'context PMTiles heightProvenance', 'generated')],
+        stamp,
+    });
+}
+
 // ── the not-yet-measured axes (honest not-assessed, C63 §1.2 / §5 sequencing). ──────────────────
 function axisNotAssessed(axis, reason, why, stamp) {
     return mkAxis(axis, {
@@ -511,24 +607,60 @@ export function computeScorecard(input, opts = {}) {
             ? axisParcelFromSample(input.parcelSample, norm, state, opts)
             : axisNotAssessed('parcel', 'not-queried',
                 'no parcel sample drawn — run `node parcelSampleProbe.mjs --city <city>` and feed the result as input.parcelSample', stamp),
-        legislation: axisNotAssessed('legislation', 'not-queried',
-            'per-clau sources/SOURCES.md citation audit ∩ signed VERIFICATION.md not run (human-gated, C58 L-449)', stamp),
+        legislation: axisLegislation(norm, stamp),
         dataSources: axisDataSources(norm, state, stamp),
         envelope: axisEnvelope(norm, stamp),
         terrain: axisTerrain(norm, state, stamp),
-        heightsLod: axisNotAssessed('heightsLod', 'not-queried',
-            'no per-building heightProvenance histogram read for the city bbox (Phase-4 sampling move)', stamp),
+        heightsLod: axisHeightsLod(norm, stamp),
         context: axisContext(norm, state, stamp),
     };
 
     const overall = renormalizedOverall(axes, CITY_COMPLETION_WEIGHTS);
+    const honesty = auditHonesty(axes);
     return {
         jurisdictionId: input.jurisdictionId,
         axes,
         overall,
-        honestyOk: true, // nothing fabricated — every unmeasured axis is null + a typed reason.
+        honestyOk: honesty.ok,
+        honestyViolations: honesty.violations,
         weightsVersion: CITY_COMPLETION_WEIGHTS_VERSION,
     };
+}
+
+/**
+ * §3.1 — `honestyOk` is LAUNCH-BLOCKING, so it must be COMPUTED, not asserted.
+ *
+ * ⚠ THIS USED TO BE THE LITERAL `honestyOk: true`. A hard-coded honesty scalar is the exact defect
+ * class the whole contract exists to forbid: a field that claims "nothing here is fabricated"
+ * without checking. It now audits the emitted card against the three structural honesty rules and
+ * NAMES each violation, so a fabricated cell flips the launch gate instead of riding along.
+ *
+ *   H1  a null score MUST carry a typed C62 UnknownReason  (C63 §1.2 — mirrors the schema refine)
+ *   H2  a numeric score MUST NOT also carry an unknownReason (the symmetric contradiction)
+ *   H3  every axis MUST carry a non-empty derivation — the "where the number comes from" (§1.1);
+ *       a scored axis with no derivation is a hand-typed number by definition.
+ *
+ * Note it does NOT flip on INCOMPLETENESS: a city measured at 0 % on every axis is perfectly
+ * honest. Completion and honesty are two different questions (§3.1), and conflating them is how a
+ * refusal gets scored as a failure.
+ */
+export function auditHonesty(axes) {
+    const violations = [];
+    for (const id of AXIS_IDS) {
+        const ax = axes[id];
+        if (!ax) { violations.push(`${id}: axis missing from the card`); continue; }
+        if (ax.score === null || ax.score === undefined) {
+            if (ax.unknownReason === undefined) {
+                violations.push(`${id}: score is null with NO typed unknownReason (C63 §1.2 H1)`);
+            }
+        } else if (ax.unknownReason !== undefined) {
+            violations.push(`${id}: numeric score ${ax.score} ALSO claims unknownReason='${ax.unknownReason}' (H2)`);
+        }
+        if (!ax.derivation || ax.derivation.length === 0) {
+            violations.push(`${id}: no derivation — a number with no stated origin is hand-typed (C63 §1.1 H3)`);
+        }
+    }
+    return { ok: violations.length === 0, violations };
 }
 
 /**
@@ -640,7 +772,7 @@ const fmtBbox = (b) => (Array.isArray(b) ? `[${b.join(',')}]` : 'n/a');
 // ─────────────────────────────────────────────────────────────────────────────
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
 if (isMain) {
-    const { existsSync } = await import('node:fs');
+    const { existsSync, mkdirSync, writeFileSync } = await import('node:fs');
     const arg = (k) => { const i = process.argv.indexOf(k); return i >= 0 ? process.argv[i + 1] : undefined; };
     const quiet = process.argv.includes('--quiet');
 
@@ -653,6 +785,40 @@ if (isMain) {
         return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : undefined;
     };
 
+    // ── §PER-CITY-MEASUREMENTS (L-662) ────────────────────────────────────────────────────────
+    // The three EXPENSIVE axes (LEGISLATION 25 · ENVELOPE 20 · HEIGHTS 10 = 55 % of the ratified
+    // weight) cannot be derived from a config read — they are AUDITS. So each city carries a
+    // COMMITTED, reviewable measurement record at `measurements/<city>.measurements.json`, and the
+    // CLI feeds it in. Absent ⇒ those axes stay honestly `not-assessed`; that is the point.
+    //
+    // ⚠ WHY A FILE AND NOT A TABLE IN THIS TOOL. A measurement is EVIDENCE with a date, a
+    // denominator and a source. Inlining it here would make it indistinguishable from the tool's
+    // own logic and impossible to re-date — and a stale number that LOOKS like code is exactly how
+    // the tracker documents went stale (the ROI board said "fix in flight" ten days after the fix
+    // landed). A file diffs, carries `measuredAt`, and can be regenerated.
+    const measureDir = resolve(HERE, arg('--measurements') ?? 'measurements');
+    const loadMeasurements = (city) => {
+        const f = resolve(measureDir, `${city}.measurements.json`);
+        return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : undefined;
+    };
+    /** A measurement record → the `computeScorecard` input fields it supplies. Absent keys stay absent. */
+    const fromMeasurements = (m) => {
+        if (!m) return {};
+        const out = {};
+        // ⚠ `status: 'measured'` is the ONLY key that unlocks an axis. A record that says
+        // `unmeasured` (or omits the block) leaves the axis not-assessed — a measurement file must
+        // never be able to score an axis by merely EXISTING.
+        if (m.envelope?.status === 'measured' && Array.isArray(m.envelope.coverage)) {
+            out.envelopeCoverage = m.envelope.coverage;
+        }
+        if (m.legislation?.status === 'measured') out.legislationAudit = m.legislation;
+        if (m.heightsLod?.status === 'measured') out.heightsSample = m.heightsLod;
+        if (m.terrainProbe?.status === 'measured') out.terrainProbe = m.terrainProbe;
+        if (m.contextProbe?.status === 'measured') out.contextProbe = m.contextProbe;
+        if (m.zoneGis) out.zoneGis = m.zoneGis;
+        return out;
+    };
+
     // ⚠ SENSITIVITY LEVER, and it matters: the CONTEXT axis defaults to a DECLARATION-based read of
     // `bake.mjs` LAYERS (what the bake CAN produce) with `validationState: not-checked`, which is
     // 8/9 today. Barcelona's L-649 audit tile-VERIFIED only 5/9 (rail + trees config-added but the
@@ -661,29 +827,78 @@ if (isMain) {
     const ctxLayers = arg('--context-layers');
     const contextProbe = ctxLayers ? { presentLayers: ctxLayers.split(',').map((s) => s.trim()) } : undefined;
 
+    const { CITY_BOARD } = await import('./parcelSampleProbe.mjs');
+    const boardFor = (city) => CITY_BOARD.find((c) => c.city === city);
+
+    /** One board row (or a bare `--region`) → a full computeScorecard input, measurements folded in. */
+    const targetFor = (city, overrides = {}) => {
+        const b = boardFor(city);
+        if (!b && !overrides.cc) {
+            throw new Error(
+                `computeScorecard --city ${city}: not on the CITY_BOARD and no --cc given. Add the city `
+                + 'to parcelSampleProbe.mjs CITY_BOARD (bbox from tools/context-bake/terrain.mjs REGIONS) '
+                + `or pass --cc/--jurisdiction explicitly. Board: ${CITY_BOARD.map((c) => c.city).join(', ')}`);
+        }
+        const m = loadMeasurements(city);
+        return {
+            jurisdictionId: b?.jurisdictionId ?? overrides.jurisdictionId ?? `${overrides.cc}-${city}`,
+            cc: b?.cc ?? overrides.cc,
+            regionKey: b?.regionKey ?? city,
+            slug: city,
+            bbox: b?.bbox,
+            parcelSample: overrides.parcelSample ?? loadSample(city),
+            ...fromMeasurements(m),
+            // an explicit CLI flag OUTRANKS the measurement file (a live probe that contradicts it)
+            ...(contextProbe ? { contextProbe } : {}),
+            ...(overrides.zoneGis ? { zoneGis: overrides.zoneGis } : {}),
+            _measurementsFile: m ? `measurements/${city}.measurements.json` : null,
+        };
+    };
+
     let targets;
     if (process.argv.includes('--all')) {
-        const { CITY_BOARD } = await import('./parcelSampleProbe.mjs');
-        targets = CITY_BOARD.map((c) => ({
-            jurisdictionId: c.jurisdictionId, cc: c.cc, regionKey: c.regionKey, slug: c.city,
-            bbox: c.bbox, parcelSample: loadSample(c.city), contextProbe,
-        }));
+        targets = CITY_BOARD.map((c) => targetFor(c.city));
+    } else if (arg('--cities')) {
+        // ⚠ THE FIX L-662 ASKED FOR. Before this, the only per-city entry point was `--region`,
+        // which defaulted to Barcelona and required the caller to re-type cc + jurisdictionId by
+        // hand — so a four-city verdict meant four hand-assembled identities, and a typo'd
+        // `--jurisdiction` silently scored the wrong city's dossier. `--city`/`--cities` resolve
+        // identity from the ONE board.
+        targets = arg('--cities').split(',').map((s) => targetFor(s.trim()));
+    } else if (arg('--city')) {
+        targets = [targetFor(arg('--city'), { zoneGis: arg('--zone-gis') })];
     } else {
         const region = arg('--region') ?? 'barcelona';
         const cc = arg('--cc') ?? 'es';
-        const jurisdictionId = arg('--jurisdiction') ?? `${cc}-${region}`;
         const explicit = arg('--sample');
-        targets = [{
-            jurisdictionId, cc, regionKey: region, slug: region,
-            zoneGis: arg('--zone-gis'), contextProbe,
-            parcelSample: explicit ? JSON.parse(readFileSync(resolve(explicit), 'utf8')) : loadSample(region),
-        }];
+        targets = [targetFor(region, {
+            cc,
+            jurisdictionId: arg('--jurisdiction'),
+            zoneGis: arg('--zone-gis'),
+            parcelSample: explicit ? JSON.parse(readFileSync(resolve(explicit), 'utf8')) : undefined,
+        })];
     }
+
+    // Committed output artefacts (C63 §6): `--out <dir>` writes `<jurisdictionId>.scorecard.json`
+    // per city, so the board is re-runnable AND diffable in review — the same discipline
+    // `tools/murcia-coverage-crosstab/out-crosstab.json` already follows.
+    const outDir = arg('--out') ? resolve(HERE, arg('--out')) : null;
+    if (outDir) mkdirSync(outDir, { recursive: true });
 
     const rows = [];
     for (const t of targets) {
         const card = computeScorecard(t);
+        if (outDir) {
+            writeFileSync(
+                resolve(outDir, `${t.jurisdictionId}.scorecard.json`),
+                JSON.stringify({ ...card, measurementsFile: t._measurementsFile }, null, 2) + '\n',
+            );
+        }
         if (!quiet && targets.length === 1) console.log(JSON.stringify(card, null, 2));
+        if (!card.honestyOk) {
+            console.error(`\n⛔ honestyOk=FALSE for ${t.jurisdictionId} — LAUNCH-BLOCKING (C63 §3.1):`);
+            for (const v of card.honestyViolations) console.error(`   • ${v}`);
+        }
         const o = card.overall;
         const assessedWeight = o.assessedAxes.reduce((s, a) => s + CITY_COMPLETION_WEIGHTS[a], 0);
         rows.push({
