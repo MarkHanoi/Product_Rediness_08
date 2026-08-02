@@ -77,7 +77,7 @@ currently six-monthly; latest **Resolución 1 June 2026**.
 | **Illes Balears** | L3 ⚠ | MUIB · `CODIAJ` + per-feature normativa URL | ⚠ **`OBS` says Eivissa rows are NOT in force** | unknown | READ |
 | **Canarias** | L3 ⚠ | `ZONIF`/`ZUSO` — **GetFeatureInfo point query only**, no bulk WFS found | not counted | unknown | READ |
 | **Andalucía** | **L4 framework / L3-partial schema / corpus UNKNOWN** | SITUA / VITUA | ⭐ **MEASURED (schema): `EDIF_*` + `DENS` present; NO altura / plantas / profundidad / ocupación / retranqueos.** Template ships **0 rows** | **YES** — Normas Directoras, Orden 18-02-2026, in force **24-04-2026**, forward-only | **MEASURED** (schema) · corpus **UNKNOWN** |
-| **Galicia** | **RU** — apparatus confirmed, content unknown | **SIOTUGA** — ⭐ **we already have a working `CODINE` query against layers 8/28/29 and never asked what they are** | **UNKNOWN** | ⭐ **YES — NNTTPP**, Orden 10-10-2019 → 08-04-2022 → **Resolución 18-12-2025**. **Annex 3 = *"Modelo de datos de los archivos vectoriales"*, PRECEPTIVE.** INE-keyed folders `01.ANX03`, **`11.ORDET` per *ámbito de ordenación detallada*** | READ |
+| **Galicia** | ⛔ **MANDATE L3+ / SERVED L2** — the two disagree | **SIOTUGA FOUND: `ideg.xunta.gal/servizos/rest/services/Ordenacion/POL_AD_PlaneamientoUrbanistico/MapServer`, 30 layers, HTTP 200.** Probe C's 8/28/29 are **`SUNc` · `SUc` · `IURB_V9`** | ⛔ **MEASURED (schema, all 3 layers): `SiglaSuelo`/`SiglaHomog` + `CODINE` + `EnlaceGIS` — NO altura, NO edificabilidad, NO ordenanza. What SIOTUGA SERVES is CLASSIFICATION.** ⚠ But **Anexo 3 MANDATES more**: `F_2CUAL` carries `ordenanza · tipo_edif · edif · altura · uso_pormen`; `F_4ORDSUC`/`F_11ORDSNR` `ordenanza · subord · altura`; `F_5APR` `edif`. **Richer than Andalucía** (which has no altura). Absent from both: ocupación, retranqueos, fondo | ⭐ **YES — NNTTPP**, Orden 10-10-2019 → 08-04-2022 → Resolución 18-12-2025. Anexo 3 = *«Modelo de datos de los archivos vectoriales»*, **PRECEPTIVE**. `01.ANX03`, `11.ORDET` per ámbito | **MEASURED** (both) · **corpus UNKNOWN** |
 | **Aragón** | **L1** | `icearagon.aragon.es` — no WFS; **WMS `GetFeatureInfo` returns the full row** | ⛔ **MEASURED: `edificab` non-zero 1.3 %, `aprove` 0.0 %, `densidad` 1.3 %** (n=78/16 munis). **Classification IS populated** (`clase` 100 %, `notepa` 97.4 %) | **YES** — NOTEPA, Decreto 78/2017 (Art. 7 defines *edificabilidad*) | **MEASURED** |
 | **Extremadura** | **L1** | `mapas.ideex.es/CICTEX/urbanismo`, 36 layers | ⛔ **MEASURED: `CALIFICACION_*` returns `msGeometry` AND NOTHING ELSE** | unknown | **MEASURED** |
 | **Castilla y León** | **RU** ⚠ **blocked on law, not data** | SIUCyL · `idecyl.jcyl.es/geoserver/lu/wms` + `/urbanismo/wms`, vector download | ⚠ **The region VECTORISES determinations from the PDFs itself** — georeferences, vectorises *recintos*, attaches alphanumeric data | ⛔ **metadata says «sin validez jurídica, carácter informativo»** | READ |
@@ -112,6 +112,20 @@ the sample is the capital. `NM_APRV_BC` is non-null on **0.0 %** everywhere — 
 ⚠ Paging is unsupported (*"Cannot do natural order without a primary key"*), so the draw is the
 **natural-order head, not a random sample** — rates are **indicative**. Rated **L3 and deliberately not L4**:
 it reaches L3 through a regional **service**, not a known delivery standard.
+
+## 4.5 · ⭐ GALICIA — THE MANDATE AND THE SERVICE DISAGREE, AND THAT IS A NEW CATEGORY
+
+**Anexo 3 mandates `altura` + `edificabilidad` + `ordenanza` + `tipología`. SIOTUGA serves `SiglaSuelo`.**
+
+> ⛔ **SCHEMA MANDATED ≠ SCHEMA SERVED.** A region can legislate a rich delivery model and publish a thin
+> service off it — the preceptive files go **into the expediente**, and the viewer republishes only the
+> classification layer. **Neither number alone describes Galicia.**
+
+⇒ **This is a third column the ladder needs**, alongside *mandated* and *populated*: **what is actually
+retrievable**. `EnlaceGIS` on all three layers is the candidate bridge to the expediente — **untested**.
+
+⚠ **And the corpus number is still missing.** The schema is measured; how many instruments comply since
+2019 is not. **Per the Andalucía rule, Galicia gets two numbers or none.**
 
 ## 5 · WHAT CHANGED, AND THE BINDING QUESTION
 
