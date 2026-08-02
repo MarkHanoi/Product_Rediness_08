@@ -547,8 +547,16 @@ describe('§S0.0 REGIONAL NORM — the legal-register step, and the limits it mu
     test('⚠ Andalucía: mandated ≠ populated — the template ships with zero rows', () => {
         const an = regionalNormFor('es-an');
         assert.equal(an.status, 'verified');
-        assert.match(an.populated!, /^No — MEASURED/);
         assert.equal(an.schemaRetrieved!.featureClasses, 21);
+        // ⚠⚠ THE GUARD: `populated` MUST be two numbers, never one. A schema scope and a corpus size
+        // answer different questions, and collapsing them is how "Andalucía mandates edificabilidad"
+        // becomes "Andalucía has edificabilidad".
+        assert.equal(typeof an.populated, 'object',
+            'populated must be a structured record, not a single verdict string');
+        assert.match(an.populated!.templateRows, /^ZERO/);
+        assert.match(an.populated!.corpusSubmittedSince20260424, /UNKNOWN — NOT MEASURED/);
+        assert.match(an.populated!.corpusSubmittedSince20260424, /DO NOT CONFLATE THEM/);
+        assert.ok(an.populated!.schemaScope.length > 40, 'the schema scope must be stated in its own right');
     });
 
     test('⚠⚠ Andalucía: the ABSENT envelope parameters are carried alongside the present ones', () => {
@@ -573,16 +581,71 @@ describe('§S0.0 REGIONAL NORM — the legal-register step, and the limits it mu
         const ex = regionalNormFor('es-ex');
         assert.ok(ex.envelopeParameters!.present['zoning-regime'].length >= 6);
         assert.match(ex.envelopeParameters!.caveat, /Do not read "calificación exists" as "an envelope is computable"/);
-        assert.equal(ex.populated, 'Unknown — capabilities read; no DescribeFeatureType or feature count performed.');
+        // ⚠⚠ THE GUARD, now backed by the MEASURED attribute table: 12 calificación layers exist and
+        // carry `msGeometry` and nothing else. "calificación is published" and "an envelope is
+        // computable" are two claims, and only the first is true here.
+        assert.equal(ex.level, 1, 'ordinance polygons with NO code and NO parameters is L1, never L3');
+        assert.match(ex.populated!, /NO — MEASURED/);
+        assert.match(ex.populated!, /msGeometry/);
+        assert.match(ex.populated!, /ONLY IN THE LAYER NAME/);
+        // And the feature COUNT stays unknown — the server reports numberMatched="unknown".
+        assert.match(ex.populated!, /numberMatched="unknown"/);
+        for (const absent of ['floor-area-ratio', 'building-height']) {
+            assert.ok(ex.envelopeParameters!.absent.includes(absent));
+        }
     });
 
     test('⚠⚠ registryCoverage refuses to be read as a seventeen-CCAA survey', () => {
         const c = registryCoverage();
         assert.equal(c.ccaaTotal, 17);
-        assert.ok(c.searched < 17);
-        assert.equal(c.notYetSearched, 13);
-        assert.match(c.warning, /FOUR DATA POINTS AND A PATTERN/);
+        assert.ok(c.searched < 17, 'the registry must never claim full national coverage');
+        // ⚠ The arithmetic must CLOSE, so a region cannot be silently dropped from the accounting.
+        assert.equal(c.searched + c.notYetSearched + c.foralExcluded, c.ccaaTotal,
+            'searched + notYetSearched + foralExcluded must account for all 17 CCAAs');
+        // ⚠ Ceuta and Melilla are autonomous CITIES, not CCAAs — accounted separately so the
+        // 17-CCAA figure stays honest and nothing is silently dropped.
+        assert.equal(c.territorialUnitsTotal, 19);
+        assert.equal(c.ccaaTotal + c.autonomousCitiesNotYetSearched, c.territorialUnitsTotal);
+        assert.match(c.warning, /not a\s+seventeen-CCAA survey/);
         assert.match(c.warning, /not "no norm"/);
+        // ⛔ The line that stops a tier population being derived from a handful of regions.
+        assert.match(c.warning, /no tier POPULATION may be derived/i);
+    });
+
+    test('⭐⭐ Aragón: the columns exist and are EMPTY — non-zero, not non-null', () => {
+        const ar = regionalNormFor('es-ar');
+        const a = ar.attributeAudit!;
+        assert.equal(a.n, 78);
+        assert.ok(a.municipalities >= 15);
+        // A field NAME proves nothing: edificab/aprove/densidad are non-zero on ~1% of rows.
+        assert.ok(a.nonZeroRate.edificab <= 0.05, `edificab non-zero was ${a.nonZeroRate.edificab}`);
+        assert.equal(a.nonZeroRate.aprove, 0);
+        assert.ok(a.nonZeroRate.densidad <= 0.05);
+        // ⚠ The classification half IS populated — the two must not be collapsed.
+        assert.ok(a.populatedText.clase >= 0.99);
+        assert.ok(a.populatedText.notepa >= 0.9);
+        assert.equal(ar.level, 1);
+    });
+
+    test('⚠⚠ Aragón: 0-as-null is proven by an INTERNAL CONTRADICTION, not asserted', () => {
+        const a = regionalNormFor('es-ar').attributeAudit!;
+        // area > 0 with perimeter == 0 is geometrically impossible — that is the proof.
+        assert.match(a.nullSubstitute, /shape_area > 0.*perimeter == 0/s);
+        assert.match(a.nullSubstitute, /89\.7 %/);
+        assert.match(a.nullSubstitute, /true and completely misleading/);
+    });
+
+    test('⚠ Currency is a field — Aragón fiab_geom is recorded, and it is mostly NOT approved', () => {
+        const a = regionalNormFor('es-ar').attributeAudit!;
+        assert.match(a.currency, /fiab_geom/);
+        assert.match(a.currency, /21\.8 %/);
+        assert.match(a.currency, /No disponible/);
+    });
+
+    test('⚠ the robots block is recorded as a crawler restriction, never as absence', () => {
+        const ar = regionalNormFor('es-ar');
+        assert.match(ar.populated!, /ROBOTS_DISALLOWED wall is a crawler restriction/);
+        assert.match(ar.populated!, /never the obstacle/);
     });
 
     test('every verified region names what SUPERSEDED filing it replaces', () => {

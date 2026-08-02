@@ -210,7 +210,10 @@ export const REGIONAL_NORMS = {
                 + 'parameters — but the PUBLISHED VECTOR COVERAGE does not expose them. The original '
                 + '"clasificación only" observation about the vector HOLDS.',
         },
-        level: '0-1 on the published vector · fichas route UNRESOLVED',
+        level: 1,
+        levelResolved: '⇒ L1 — ordinance/classification polygons with a NOTEPA code, NO populated parameters. '
+            + 'The three-way split the brief posed is answered: the parameters are NOT in the vectors. Whether '
+            + 'they live in the *fichas* (L2) is UNKNOWN — the fichas were not opened.',
         levelBasis: "the publisher's OWN CURRENT product register describes the Urbanismo coverage as "
             + 'classification + global use',
         // ⭐ CURRENT-DATED, not the historic 2013 line the earlier filing rested on.
@@ -218,13 +221,38 @@ export const REGIONAL_NORMS = {
             + 'row `t01_productos;Tematica;Urbanismo`, stamped **2025** (data 2024), table `V_T01_PO_SIUA`, keyed by '
             + 'Municipio: "Información de planeamiento urbanístico: **figura de planeamiento, clasificación de '
             + 'suelo y uso global**." ⚠ Its KEYWORD list contains "Calificación" — a search index is not a schema.',
-        populated: '⛔ NOT MEASURED AT ATTRIBUTE LEVEL — and this is a TOOL limitation, not a finding. The '
-            + 'per-municipality vector download was not reached: `fichaDescarga/` is a JS application and the '
-            + "distribution endpoints guessed around it 404'd. So the three-way split the brief asked for "
-            + '(parameters in the VECTORS = L3 · only in the FICHAS = L2 · generated DYNAMICALLY = own case) '
-            + "is UNRESOLVED. What IS established is the publisher's own 2025-dated description above. "
+        // ⭐⭐ MEASURED 2026-08-02 — the attribute audit the brief asked for, via WMS GetFeatureInfo
+        // (no WFS is published, but WMS returns the FULL attribute row, which is what mattered).
+        // n = 78 rows across 16 distinct municipalities, sampled at 72 points across Aragón and
+        // grouped by the `cod_ine` that came BACK, never by the municipality aimed at.
+        attributeAudit: {
+            at: '2026-08-02', method: 'WMS 1.1.1 GetFeatureInfo, info_format=application/json, browser UA',
+            layer: 'v_modelodatunicurbanismo_acuerdo', n: 78, municipalities: 16,
+            // ⚠⚠ "non-null" is 100 % for every numeric field and it is MEANINGLESS — see nullSubstitute.
+            nonZeroRate: {
+                edificab: 0.013, aprove: 0.0, densidad: 0.013,
+                viv_libr: 0.013, viv_prot: 0.013, sup_ssgg: 0.013, porc_otr: 0.0, sup_plan: 0.103,
+            },
+            populatedText: { clase: 1.0, notepa: 0.974, cod_plan: 1.0, n_expedien: 0.974, uso_glob: 0.859, web_acu: 0.872, nombre: 0.038, pdf: 0.026 },
+            // ⭐ THE PROOF, from an INTERNAL CONTRADICTION rather than an assumption.
+            nullSubstitute: "⚠⚠ 0 IS THIS SCHEMA'S NULL SUBSTITUTE, NOT A VALUE. 70 of 78 rows (89.7 %) carry "
+                + '`shape_area > 0` AND `perimeter == 0` — geometrically impossible. So `edificab: 0` on a '
+                + 'SUC polygon is an EMPTY CELL, not an edificabilidad of zero. Reporting these fields as '
+                + '"100 % non-null" would have been true and completely misleading.',
+            // ⚠ CURRENCY IS A FIELD — and here it is populated and mostly negative.
+            currency: '`fiab_geom` is present on 100 % of rows: "No disponible" 40 · '
+                + '"No aprobada/Denegada/Obsoleta" 21 · "Aprobada" 17 (21.8 %). Only about a fifth of sampled '
+                + 'polygons are flagged as approved, reliable geometry.',
+            caveat: '⚠ Point-sampled around 12 urban seeds, so the `clase` mix skews rural (SENU 40 · SENE 26 · '
+                + 'SUC 10 · SEUND 2). The non-zero rates are therefore INDICATIVE of the coverage as served, '
+                + 'not a per-class measurement, and 16 of 731 Aragonese municipalities were touched.',
+        },
+        populated: '⛔ ORDINANCE PARAMETERS: effectively NO — MEASURED. `edificab` and `densidad` are non-zero on '
+            + '1.3 % of sampled rows, `aprove` on 0.0 %, and 0 is demonstrably the null substitute. '
+            + 'CLASSIFICATION IS populated: `clase` 100 %, `notepa` 97.4 %, `uso_glob` 85.9 %. '
+            + '⇒ The columns exist and are empty. A field NAME proves nothing. '
             + '⚠ `icearagon.aragon.es` answered HTTP 200 to a browser UA throughout — the ROBOTS_DISALLOWED '
-            + 'wall is a crawler restriction and was NOT the obstacle here.',
+            + 'wall is a crawler restriction and was never the obstacle.',
         supersedes: 'the filing "Aragón — no regional planning standard". NOTEPA exists, is in force since 2017, '
             + 'and normatively defines edificabilidad. What does NOT hold is that the published vector carries it.',
     },
@@ -296,8 +324,15 @@ export const REGIONAL_NORMS = {
 export const CCAA_NOT_YET_SEARCHED = [
     'es-cm (Castilla-La Mancha)', 'es-cl (Castilla y León)', 'es-ga (Galicia)', 'es-vc (C. Valenciana)',
     'es-mc (Murcia)', 'es-ib (Illes Balears)', 'es-cn (Canarias)', 'es-as (Asturias)',
-    'es-cb (Cantabria)', 'es-ri (La Rioja)', 'es-ce (Ceuta)', 'es-ml (Melilla)',
+    'es-cb (Cantabria)', 'es-ri (La Rioja)',
 ];
+/**
+ * ⚠ Ceuta and Melilla are AUTONOMOUS CITIES, not CCAAs. Spain is 17 CCAAs + 2 autonomous cities =
+ * 19 territorial units with planning competence. They were previously counted inside the CCAA list,
+ * which made the coverage arithmetic fail to close (5 + 12 + 2 = 19 ≠ 17) — caught by the
+ * `registryCoverage` honesty guard, which is exactly what that guard is for.
+ */
+export const AUTONOMOUS_CITIES_NOT_YET_SEARCHED = ['es-ce (Ceuta)', 'es-ml (Melilla)'];
 /** País Vasco + Navarra are excluded by the foral guard, not merely unsearched. */
 export const CCAA_FORAL_EXCLUDED = ['es-pv (País Vasco)', 'es-nc (Navarra)'];
 
@@ -326,10 +361,13 @@ export function registryCoverage() {
     const verified = Object.values(REGIONAL_NORMS).filter((r) => r.status === 'verified').length;
     return {
         version: REGIONAL_NORM_REGISTRY_VERSION,
+        // 17 CCAAs; Ceuta + Melilla are autonomous CITIES and are accounted separately.
         ccaaTotal: 17,
+        territorialUnitsTotal: 19,
         searched, verified,
         reported: searched - verified,
         notYetSearched: CCAA_NOT_YET_SEARCHED.length,
+        autonomousCitiesNotYetSearched: AUTONOMOUS_CITIES_NOT_YET_SEARCHED.length,
         foralExcluded: CCAA_FORAL_EXCLUDED.length,
         populationCovered: Object.values(REGIONAL_NORMS).reduce((s, r) => s + (r.population ?? 0), 0),
         // ⚠⚠ THE LINE THAT STOPS THIS BEING OVERSOLD.
