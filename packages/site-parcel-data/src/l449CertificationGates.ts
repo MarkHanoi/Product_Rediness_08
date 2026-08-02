@@ -56,6 +56,7 @@ import {
     AMB_PGM_NNUU_ENVELOPE_VERIFIED,
 } from './rulepacks/esAmbMetropolitanCorpus.js';
 import { BADALONA_ENVELOPE_VERIFIED } from './rulepacks/esBadalona.js';
+import { BALEARS_ENVELOPE_VERIFIED } from './rulepacks/esBalearsMuib.js';
 import { CANARIAS_ENVELOPE_VERIFIED } from './rulepacks/esCanariasSipu.js';
 import { CATALUNYA_ENVELOPE_VERIFIED } from './rulepacks/esCatalunya.js';
 import { CORDOBA_ENVELOPE_VERIFIED } from './rulepacks/esCordobaZoneClassification.js';
@@ -225,6 +226,24 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         gate: 'CORNELLA_ENVELOPE_VERIFIED',
         file: 'packages/site-parcel-data/src/rulepacks/esCornella.ts',
         value: CORNELLA_ENVELOPE_VERIFIED,
+        signature: null,
+    },
+    {
+        // §BALEARS-GATE (L-680) — the Illes Balears, wired end to end and SHUT.
+        //
+        // ⚠ IT IS NOT WAITING ON A TRANSCRIPTION. Unlike Madrid/Córdoba, PRYZM transcribes nothing
+        // here: the parameters are read LIVE from the publisher's own normative fitxa at the point.
+        // What is outstanding is the acceptance of a RELATIONSHIP — that a fitxa cell IS the
+        // determination — which only 2.0 % of fitxes evidence by citing their own article.
+        //
+        // ⛔ AND A SIGNATURE HERE WOULD STILL NOT BE ENOUGH, WHICH IS WHY THIS ROW SHOULD PROBABLY
+        // NEVER BE OPENED. Six constraint families are unmodelled (heritage, flood, airport,
+        // coastal, environmental, the island PTIs) and each can only REDUCE the solid, so a Balears
+        // envelope is an OPEN TOP (ADR-0293). The instrument that fits is `openTopIndicative.ts` —
+        // draw, claim no right — and its blocker is a RENDERER input, not a signature.
+        gate: 'BALEARS_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esBalearsMuib.ts',
+        value: BALEARS_ENVELOPE_VERIFIED,
         signature: null,
     },
 

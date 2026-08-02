@@ -213,6 +213,20 @@ import {
     detectDerivedPlanMarkers,
     resolveMurciaZoning,
     type DerivedPlanMarker,
+    // ── §BALEARS-ENVELOPE (L-680) — the Illes Balears. Same shape as Murcia, one rung better data. ──
+    // ⚠ `BALEARS_ENVELOPE_VERIFIED` is deliberately NOT imported (the §MURCIA-GATE-BYPASS-REGRESSION
+    // lesson, applied pre-emptively). The branch asks `envelopePublicationPosture()` — the ONE
+    // decision point, which reads the gate AND the open-top registry — so there is exactly one place
+    // where "may PRYZM publish?" is answered, and opening either door needs no edit here.
+    isInBalears,
+    resolveBalearsMuib,
+    balearsResolvedPack,
+    balearsRefusal,
+    balearsRefusalIsTransient,
+    BALEARS_JURISDICTION_ID,
+    BALEARS_ROADMAP_LINE,
+    BALEARS_MISSING_CONSTRAINTS,
+    envelopePublicationPosture,
     // BARCELONA-GIS-AUDIT-SPIKE — clau 18 (volumetria específica) explicit-area path. The AMB Refós
     // OV_Trames resolver (footprint + PLANTES floor count, WGS84, never throws) + its UNREGISTERED
     // pack. Gated on `BCN_REFOS_OV_CERTIFIED` (default OFF): while closed, clau 18 keeps its cited
@@ -1313,6 +1327,21 @@ function applyZoning(
         // numeric buildable parameter, so a front/side/rear estimate would be pure invention.
         if (qLat != null && qLon != null && isInMurcia(qLat, qLon)) {
             void applyMurciaZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+            return;
+        }
+        // §BALEARS-ENVELOPE (L-680) — an Illes Balears plot (Mallorca / Menorca / Eivissa /
+        // Formentera). ⚠ ANOTHER REGIONALLY DISTINCT branch: the Govern de les Illes Balears, MUIB,
+        // and — uniquely among the Spanish sources measured so far — a STRUCTURED normative fitxa
+        // carrying the numeric parameters themselves. The islands are ~200 km offshore and overlap
+        // no other registered box, so this test's ORDER is legibility, not precedence.
+        //
+        // ⛔ IT STILL RENDERS NO NUMBER, AND THAT IS NOT A GAP IN THIS BRANCH. `BALEARS_ENVELOPE_
+        // VERIFIED` is `false` (nobody has signed the reading) and six constraint families are
+        // unmodelled, so an envelope here is an OPEN TOP (ADR-0293) and the honest output is a cited
+        // refusal that SHOWS what the fitxa says. Like Madrid/Córdoba/Murcia the fallback is that
+        // refusal, never the estimated triple.
+        if (qLat != null && qLon != null && isInBalears(qLat, qLon)) {
+            void applyBalearsZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
             return;
         }
         // SWITZERLAND — a Swiss plot resolves its REAL land-use zone from the national Nutzungsplanung
@@ -4044,6 +4073,276 @@ async function tryBcnClau18Volumetria(
     } catch (e) {
         console.warn(`${TAG} clau-18 OV path failed (non-fatal) — refusal stands:`, e);
         return false;
+    }
+}
+
+/**
+ * §BALEARS-ENVELOPE (L-680) — the Illes Balears path. Govern de les Illes Balears, MUIB.
+ *
+ * ⚠⚠ READ THIS BEFORE "FINISHING" IT: THE DATA IS THE BEST IN SPAIN AND THIS PATH STILL DRAWS
+ * NOTHING. That is not a missing feature; it is the two facts below, and neither is closed by code:
+ *
+ *   1. NOBODY HAS SIGNED THE READING. `BALEARS_ENVELOPE_VERIFIED` is `false`. MUIB is a MAPPING
+ *      PRODUCT that links to a normative *fitxa*, and only 2.0 % of fitxes cite the governing
+ *      article ON the parameter — so publishing a fitxa cell as a determination asserts a
+ *      relationship between the cell and the ordinance that nobody has established. L-449 reserves
+ *      that acceptance to a person.
+ *   2. THE TOP IS OPEN. Six constraint families are unmodelled (`BALEARS_MISSING_CONSTRAINTS`:
+ *      heritage, flood, airport, coastal, environmental, and the island PTIs). Each can only
+ *      REDUCE the solid, so any envelope here is an UPPER BOUND with respect to all six. Drawing an
+ *      upper bound as a closed box is exactly the L-616 overstatement.
+ *
+ * ⇒ WHAT THIS PATH BUYS IS NOT A NUMBER, IT IS SPECIFICITY — and it is a large gain over what a
+ * Balears click produced before, which was the generic ESTIMATED TRIPLE (3,0/1,5/3,0 m, FAR 2,00,
+ * 50 %) on land PRYZM had read no article about. The refusal now names the user's zone, its
+ * municipal designation, the governing plan, the land class, the article the fitxa cites, and the
+ * fitxa's own parameters — as CITED PROSE. No number reaches the massing, the generator bounds or
+ * `site.updateZoning`; `status: 'none'` keeps every numeric field null and clears any stale
+ * `buildableRing` (`dispatchEnvelope` writes a ring only on `'ok'`).
+ *
+ * THE CHAIN: `isInBalears` (S2 gate) → `catastroParcelProvider` (refcat + address + official area,
+ * national, already live) → `resolveBalearsMuib` (S3, live zone + fitxa via the same-origin
+ * `/api/es/balears-muib` proxy; 12 discriminated refusal reasons, never a silent null) →
+ * `envelopePublicationPosture` (the ONE authorisation decision point) → `balearsResolvedPack` /
+ * `balearsRefusal` (PURE) → `buildRefusedEnvelope` → `dispatchEnvelope` (P6 — `site.updateZoning`,
+ * never a direct store write).
+ *
+ * ⚠ THE GATE IS READ THROUGH `envelopePublicationPosture`, NOT AS A CONSTANT — the
+ * §MURCIA-GATE-BYPASS-REGRESSION lesson applied pre-emptively. That function consults the L-449
+ * gate AND the open-top registry, so opening either door needs NO edit here. ⚠ AND THE
+ * `open-top-indicative` ARM DELIBERATELY DOES NOT DRAW EITHER: `rendererCanExpressOpenTop` is
+ * `false` (measured — `classifyEnvelopeCompleteness` has no input for the posture, so an indicative
+ * solid renders in the same confident violet as a determination). When that renderer input lands,
+ * THIS is the one place that gains a drawing arm.
+ *
+ * Fully guarded: it never throws into the commit path, and it never falls back to the estimated
+ * triple on a jurisdiction we DO answer.
+ */
+async function applyBalearsZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+): Promise<void> {
+    const TAG = '[gis][c58] §BALEARS-ENVELOPE';
+    const JURISDICTION_REF = 'goib-muib';
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        // (1) The PARCEL half — the national Catastro path every Spanish click already uses.
+        // Best-effort: a miss costs the refusal some specificity and nothing else.
+        let refcat: string | null = null;
+        let address: string | null = null;
+        try {
+            const parcel = await catastroParcelProvider.fetchParcelAtPoint(lon, lat);
+            refcat = parcel?.refcat ?? null;
+            address = parcel?.address ?? null;
+        } catch { /* the parcel leg is enrichment, never a precondition */ }
+
+        // (2) The ZONING half — the live MUIB zone + its fitxa at the point. Never throws; a
+        // failure and an absence stay DIFFERENT answers all the way to the card.
+        const asOf = new Date().toISOString().slice(0, 10);
+        const resolution = await resolveBalearsMuib({ lat, lon }, { asOf });
+
+        const baseFacts: string[] = [
+            `Location: Illes Balears (${lat.toFixed(5)}, ${lon.toFixed(5)}) — ${BALEARS_JURISDICTION_ID}`,
+            refcat !== null ? `Referencia catastral: ${refcat}` : null,
+            address !== null ? `Address: ${address}` : null,
+        ].filter((s): s is string => typeof s === 'string');
+
+        // ── The REFUSAL branches: the provider could not reach an answer it may state. ──
+        if (!resolution.ok) {
+            const f = resolution.feature ?? null;
+            const zoneCode = f?.CODIMUIB ?? f?.CODIAJ ?? null;
+            const refusal = balearsRefusal(resolution.reason, {
+                zoneCode,
+                zoneLabel: f?.NOM ?? null,
+                municipality: f?.MUNICIPI ?? null,
+                detail: resolution.detail ?? null,
+                knownFacts: [
+                    ...baseFacts,
+                    f?.CODIPLA ? `Governing plan: ${f.CODIPLA}` : null,
+                    f?.CODICLAS ? `Land class: ${f.CODICLAS}` : null,
+                ].filter((s): s is string => typeof s === 'string'),
+            });
+            // ⚠ `'not-applicable'` would assert the ordinance answered "no envelope here". Only the
+            // three LEGALLY GROUNDED reasons earn that; everything else attempted and learned
+            // nothing, which is `'none'`. Both clear a stale ring, so L-445 holds either way.
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(zoneCode, refusal, refusal.legallyGrounded ? 'not-applicable' : 'none'),
+                JURISDICTION_REF,
+            );
+            console.log(
+                `${TAG} refused reason=${resolution.reason} ` +
+                    `transient=${balearsRefusalIsTransient(resolution.reason)} ` +
+                    `zone=${zoneCode ?? 'n/a'} municipi=${f?.MUNICIPI ?? 'n/a'} — NO number rendered.`,
+            );
+            return;
+        }
+
+        // ── The parcel RESOLVED. Now, and only now, the authorisation question. ──
+        const record = resolution.record;
+        const pack = balearsResolvedPack(record);
+        const zone = pack.zones[0]!;
+        const zoneCode = zone.code;
+        const posture = envelopePublicationPosture(BALEARS_JURISDICTION_ID);
+
+        // What the publisher actually says, carried as FACTS on whatever we dispatch. ⚠ These are
+        // the fitxa's own printed values; a field the fitxa did not print is ABSENT here, never 0.
+        const parameterFacts: string[] = [
+            `Zone: ${zone.label} (${zoneCode})`,
+            record.feature.CODIPLA ? `Governing plan: ${record.feature.CODIPLA}` : null,
+            record.feature.CODICLAS ? `Land class: ${record.feature.CODICLAS}` : null,
+            record.feature.MUNICIPI ? `Municipality: ${record.feature.MUNICIPI}` : null,
+            zone.maxFloors !== null ? `Nombre de plantes (fitxa): ${zone.maxFloors}` : null,
+            zone.maxHeight_m !== null ? `Alçada (fitxa): ${zone.maxHeight_m} m` : null,
+            zone.maxCoverage !== null ? `Ocupació (fitxa): ${(zone.maxCoverage * 100).toFixed(0)} %` : null,
+            zone.plotRatioFAR !== null ? `Edificabilitat (fitxa): ${zone.plotRatioFAR} m²/m²` : null,
+            record.articleRefs.length > 0
+                ? `Article cited by the fitxa: ${record.articleRefs.join(' · ')}`
+                : 'Article: the fitxa cites none on these parameters (measured: only 2.0 % do)',
+            `Fitxa: ${record.fitxaUrl}`,
+        ].filter((s): s is string => typeof s === 'string');
+
+        if (posture.posture === 'determination') {
+            // ⚠ UNREACHABLE TODAY (the gate is shut), and left as the ONLY drawing arm so that a
+            // signature changes behaviour with no edit here. ADR-0293: an envelope drawn on this
+            // arm MUST carry the open-top reasons as caveats — they are what make the solid an
+            // upper bound rather than a determination about the whole site.
+            const envelope = computeBuildableEnvelope({
+                parcelRing: boundary.polygon,
+                edgeClassifications: boundary.edgeClassifications,
+                zoning: {
+                    zoneCode,
+                    zoneLabel: zone.label,
+                    jurisdictionId: BALEARS_JURISDICTION_ID,
+                    // The fitxa's numbers reach the engine through the PACK, not as "published by
+                    // the municipality" structured fields — laundering them would overstate the tier.
+                    structuredFields: {},
+                    overlays: [],
+                    ordinanceRef: zone.ordinanceRef ?? null,
+                    provenance: {
+                        source: 'goib-muib-fitxa',
+                        label: `GOIB MUIB normative fitxa — ${record.fitxaUrl}`,
+                        version: record.feature.DINIVIGEN ?? null,
+                        license: null,
+                        crs: 'EPSG:4326',
+                    },
+                } as ZoningRecord,
+                rulePack: pack,
+            });
+            if (envelope.status === 'ok') {
+                dispatchEnvelope(
+                    ctx,
+                    site.id,
+                    {
+                        ...envelope,
+                        caveats: [
+                            ...envelope.caveats,
+                            // ⚠ `c: string` is annotated, not inferred: in the root tsconfig this
+                            // module's `@pryzm/site-parcel-data` types do not resolve until the
+                            // package is built, and an un-annotated callback param becomes an
+                            // implicit `any` — one more error in a hard-failing build.
+                            ...BALEARS_MISSING_CONSTRAINTS.map(
+                                (c: string) => `OPEN TOP (ADR-0293) — not accounted for: ${c}`,
+                            ),
+                        ],
+                    },
+                    JURISDICTION_REF,
+                );
+                console.log(`${TAG} zone ${zoneCode} RENDERED at ${envelope.confidence ?? 'n/a'}.`);
+                return;
+            }
+            // The fitxa's own rule leaves no buildable footprint on THIS parcel. A cited refusal is
+            // the honest answer; the estimated triple would overstate it.
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(
+                    zoneCode,
+                    {
+                        code: 'source-data-unavailable',
+                        headline: `${zone.label} (${zoneCode}): the fitxa's own conditions leave no buildable footprint on this parcel.`,
+                        detail:
+                            'PRYZM applied the zone\'s published parameters to your parcel boundary and the ' +
+                            'resulting footprint is empty — typically a plot narrower than the zone\'s ' +
+                            'setbacks permit. PRYZM will not substitute an estimated figure. ' +
+                            BALEARS_ROADMAP_LINE,
+                        ordinanceRef: zone.ordinanceRef ?? null,
+                        legallyGrounded: false,
+                        knownFacts: [...baseFacts, ...parameterFacts],
+                    },
+                    'none',
+                ),
+                JURISDICTION_REF,
+            );
+            console.log(`${TAG} zone ${zoneCode} produced status=${envelope.status} — refusal dispatched.`);
+            return;
+        }
+
+        // ── THE SHIPPED PATH: the zone and its parameters are KNOWN and are SHOWN, and PRYZM
+        //    publishes no figure. `posture.authorisationReason` distinguishes "a human has not
+        //    signed" (`gate-shut`) from "nobody has ever looked here" (`unknown-jurisdiction`) —
+        //    collapsing them would lose the difference this whole subsystem exists to keep.
+        const indicativeNote =
+            posture.posture === 'open-top-indicative'
+                ? ' ⚠ This jurisdiction is listed as OPEN-TOP INDICATIVE, but the renderer cannot yet ' +
+                  'express an open top (an indicative solid would render identically to a determined ' +
+                  'one), so PRYZM still draws nothing rather than ship a solid that looks complete.'
+                : '';
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(
+                zoneCode,
+                {
+                    // A statement about PRYZM's publication state, never about the land.
+                    code: 'no-rule-pack',
+                    headline:
+                        `${zone.label} (${zoneCode})${record.feature.MUNICIPI ? ` — ${record.feature.MUNICIPI}` : ''}: ` +
+                        'PRYZM has read this zone\'s published rule but publishes no buildable figure from it yet.',
+                    detail:
+                        'The Govern de les Illes Balears publishes this zone\'s parameters in its normative ' +
+                        'fitxa, and they are listed below exactly as printed. PRYZM does not draw them, for ' +
+                        'two reasons that are both about PRYZM and neither about your land: the reading is ' +
+                        'not yet human-signed, and six constraint families are unmodelled (heritage, flood, ' +
+                        'airport, coastal, environmental, and the island territorial plans), each of which ' +
+                        'can only reduce a buildable envelope — so any solid drawn today would be an upper ' +
+                        `bound shown as a determination.${indicativeNote} ` +
+                        BALEARS_ROADMAP_LINE,
+                    // The fitxa, the plan and (where printed) the article — a citation the user can
+                    // dereference, which is the whole difference from a generic coverage gap.
+                    ordinanceRef: zone.ordinanceRef ?? null,
+                    legallyGrounded: false,
+                    knownFacts: [...baseFacts, ...parameterFacts],
+                },
+                'none',
+            ),
+            JURISDICTION_REF,
+        );
+        console.log(
+            `${TAG} RESOLVED zone=${zoneCode} municipi=${record.feature.MUNICIPI ?? 'n/a'} ` +
+                `pla=${record.feature.CODIPLA ?? 'n/a'} drawability=${record.drawability.tier} ` +
+                `articles=[${record.articleRefs.join(', ')}] — posture=${posture.posture} ` +
+                `(${posture.authorisationReason}). Parameters SHOWN as cited prose; NO number rendered.`,
+        );
+    } catch (e) {
+        // ⛔ NEVER the estimated triple on Balears land — `applyEstimatedZoning` refuses inside a
+        // registered jurisdiction (§L-663), and Balears is now registered, so this is a cited
+        // refusal too. The call is kept so the chokepoint owns that decision in ONE place.
+        console.warn(`${TAG} Balears path failed (non-fatal) — the §L-663 chokepoint refuses:`, e);
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
     }
 }
 

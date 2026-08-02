@@ -946,6 +946,94 @@ export {
     type MurciaWidthProvenance,
 } from './rulepacks/esMurciaAnchoDeCalle.js';
 // ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ §BALEARS (L-680) — ILLES BALEARS, the LIVE-RESOLVED jurisdiction. Confine Balears edits here.║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+//
+// The shape is Denmark's, not Madrid's: PRYZM transcribes NO ordinance. `ES_BALEARS` has no static
+// zone table — `balearsResolvedPack()` builds a one-zone contract from the *fitxa* fetched at the
+// point. The four surfaces, in the order a parcel meets them:
+//   1. `isInBalears` — the coarse routing gate. ⚠ Its numbers are the extent of the MUIB
+//      CLASSIFICACIO layer ITSELF, so "inside the box" and "the service has something to say here"
+//      are the same claim. `balearsCodiMuniFromIne` is the ONE place the MUIB municipal key is
+//      converted — measured: `'07040'` returns 0 features on a CLEAN 200, `'040'` returns 9,442.
+//   2. `resolveBalearsMuib` — the ONE impure seam, through the same-origin `/api/es/balears-muib`
+//      proxy. Never throws; 12 DISCRIMINATED refusal reasons, never a silent null; failure and
+//      absence stay different answers all the way to the card.
+//   3. `balearsResolvedPack` / `balearsRefusal` — PURE. What PRYZM may say, per resolution.
+//   4. `BALEARS_ENVELOPE_VERIFIED` — ⛔ `false`. THE PACK RENDERS NO NUMBER. Registration in
+//      `registry.ts` is WIRING (it closes the §L-663 estimated-triple hole over the four islands);
+//      it is not authorisation. `openTopIndicative.ts` holds the built-but-unlisted third state.
+export {
+    BALEARS_BBOX,
+    isInBalears,
+    BALEARS_INE_PROVINCE,
+    balearsCodiMuniFromIne,
+    balearsIneFromCodiMuni,
+} from './providers/balearsBbox.js';
+export {
+    resolveBalearsMuib,
+    readBalearsZoningFeature,
+    balearsObsDeclaresNotCurrent,
+    balearsIsInForce,
+    balearsRefusalIsTransient,
+    BALEARS_MUIB_PATH,
+    BALEARS_MUIB_SERVICE,
+    BALEARS_QUALIFICACIONS_LAYER,
+    BALEARS_FITXA_HOST,
+    BALEARS_DFIVIGEN_OPEN_ENDED,
+    BALEARS_BUILDABLE_CLASSES,
+    BALEARS_MISSING_CONSTRAINTS,
+    type BalearsLatLon,
+    type BalearsMuibDeps,
+    type BalearsMuibRefusalReason,
+    type BalearsZoningFeature,
+    type BalearsMuibRecord,
+    type BalearsMuibResolution,
+} from './providers/resolveBalearsMuib.js';
+export {
+    parseBalearsFitxa,
+    classifyBalearsFitxa,
+    balearsDrawability,
+    type BalearsParameter,
+    type BalearsParameters,
+    type BalearsParsedFitxa,
+    type BalearsDrawability,
+} from './providers/balearsMuibFitxa.js';
+export {
+    BALEARS_JURISDICTION_ID,
+    BALEARS_SOURCE_NAME,
+    BALEARS_ENVELOPE_VERIFIED,
+    BALEARS_PACK_CONFIDENCE,
+    BALEARS_ROADMAP_LINE,
+    BALEARS_OPEN_TOP_REASONS,
+    balearsResolvedPack,
+    balearsRefusal,
+    balearsRegistryRefusal,
+    balearsMaxCoverage,
+    balearsPlotRatioFAR,
+    balearsMaxHeightM,
+    balearsMaxFloors,
+    balearsSetbacks,
+    balearsGeometricRule,
+} from './rulepacks/esBalearsMuib.js';
+// §OPEN-TOP-INDICATIVE — the THIRD publication state (draw, refuse to claim). ⛔ Its registry ships
+// EMPTY and `rendererCanExpressOpenTop` is `false`, so today this NARROWS nothing and grants nothing.
+export {
+    envelopePublicationPosture,
+    mayPublishAsDetermination,
+    mayDrawEnvelope,
+    openTopIndicativeRecord,
+    OPEN_TOP_INDICATIVE_JURISDICTIONS,
+    BALEARS_OPEN_TOP_INDICATIVE,
+    rendererCanExpressOpenTop,
+    type OpenTopReason,
+    type OpenTopIndicativeRecord,
+    type EnvelopePosture,
+    type EnvelopePublicationPosture,
+    type SupersessionStatus,
+    type ArticleGovernanceStatus,
+} from './rulepacks/openTopIndicative.js';
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
 // ║ ⚠ VALÈNCIA (INE 46250), Comunitat Valenciana — the CITED-REFUSAL jurisdiction whose gate a   ║
 // ║   SIGNATURE CANNOT LIFT. Confine València edits to this block.                               ║
 // ╚══════════════════════════════════════════════════════════════════════════════════════════════╝

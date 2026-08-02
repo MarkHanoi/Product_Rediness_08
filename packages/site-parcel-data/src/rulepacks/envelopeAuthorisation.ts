@@ -105,6 +105,8 @@ import { LHOSPITALET_ENVELOPE_VERIFIED, LHOSPITALET_JURISDICTION_ID } from './es
 import { MADRID_ENVELOPE_VERIFIED } from './esMadridPgoum97.js';
 import { MADRID_JURISDICTION_ID } from './esMadridNZ1.js';
 import { MURCIA_ENVELOPE_VERIFIED, MURCIA_JURISDICTION_ID } from './esMurciaEnvelope.js';
+// ── ILLES BALEARS (L-680) — a LIVE-RESOLVED jurisdiction that still owes a gate. See the row below. ──
+import { BALEARS_ENVELOPE_VERIFIED, BALEARS_JURISDICTION_ID } from './esBalearsMuib.js';
 import { SANT_BOI_ENVELOPE_VERIFIED, SANT_BOI_JURISDICTION_ID } from './esSantBoi.js';
 // ⚠ VALÈNCIA — a gate of a THIRD kind. See the third group in the table below.
 import { VALENCIA_ENVELOPE_VERIFIED, VALENCIA_JURISDICTION_ID } from './esValenciaEnvelope.js';
@@ -182,6 +184,27 @@ const GATE_DECLARATIONS: readonly GateDeclaration[] = Object.freeze([
     // interlock that stops a later author packing a guessed Np and shipping it (L-616 mechanism-A).
     // ⇒ It is registered here so the classifier cannot FAIL OPEN on València, not so it can be signed.
     { gate: 'VALENCIA_ENVELOPE_VERIFIED', value: VALENCIA_ENVELOPE_VERIFIED, jurisdictions: [VALENCIA_JURISDICTION_ID] },
+    // ── ⚠ A FOURTH KIND, AND THE ONE MOST LIKELY TO BE MIS-SORTED: LIVE-RESOLVED, YET GATED. ──
+    // §BALEARS-GATE (L-680). Balears looks like Denmark — the authority publishes the parameters as
+    // machine-readable data, PRYZM transcribes NO ordinance, and `ES_BALEARS` has no static zone
+    // table (`balearsResolvedPack()` builds a one-zone contract from the fetched fitxa). The
+    // tempting move is therefore `UNGATED_AUTHORISED_JURISDICTIONS` on the Denmark precedent.
+    //
+    // ⛔ THAT WOULD BE THE SIGNATURE PERFORMED BY A SIDE DOOR, and the Denmark reason does not
+    // transfer. Plandata.dk IS the determination register — the municipality's own binding plan,
+    // published as the legal instrument. MUIB is a MAPPING PRODUCT that links to a normative fitxa,
+    // and only **2.0 %** of fitxes cite the governing article on the parameter itself. So publishing
+    // a fitxa cell as a determination asserts a relationship between that cell and the ordinance
+    // that NOBODY HAS ESTABLISHED (`articleGovernance: 'NOT_ESTABLISHED'`, `supersession:
+    // 'NOT_VERIFIED'` — `openTopIndicative.ts`). "PRYZM transcribes nothing" is necessary for the
+    // ungated tier; it is not sufficient. The determination has to BE the published thing.
+    //
+    // ⇒ Balears owes a gate, the gate is SHUT, and listing it here is worth doing anyway: it moves
+    // Balears from `unknown-jurisdiction` ("nobody has ever looked at this place") to `gate-shut`
+    // ("a human has not signed") — the same delta the 31 AMB rows below buy. Both refuse; only one
+    // is true. The genuinely productive unlock is `openTopIndicative.ts` + the renderer input it
+    // names, NOT a signature here. See `BALEARS_ENVELOPE_VERIFIED`'s own docstring.
+    { gate: 'BALEARS_ENVELOPE_VERIFIED', value: BALEARS_ENVELOPE_VERIFIED, jurisdictions: [BALEARS_JURISDICTION_ID] },
     // ── NOT waiting on a signature: there is nothing to sign (no Catalonia-wide instrument
     //    exists). Listed because the gate EXISTS and totality demands it — never because a
     //    signature would open it. See `esCatalunya.ts`: do not "fix" this by flipping it.

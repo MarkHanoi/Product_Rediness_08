@@ -102,6 +102,13 @@ import {
 // ocupación/retranqueo, so the client's honest output is a CITED REFUSAL (PGOU Arts. 6.6.1–6.6.2 /
 // 5.24.5 remit the ordering to a prior instrument). This route makes that refusal SPECIFIC.
 import { MURCIA_PGOU_PATH, murciaPgouHandler } from './server/murciaPgouProxy.js';
+// §BALEARS-MUIB-PROXY (L-680) — the Illes Balears zone + normative *fitxa* point lookup. Client
+// consumer: @pryzm/site-parcel-data → resolveBalearsMuib. ⚠ TWO upstreams, ONE route: the ArcGIS
+// zoning layer (which our OWN CSP allowlist blocks, despite the remote sending CORS) and the fitxa
+// page (no CORS, and published as plain http:// = mixed content). Both measured before the proxy was
+// written — `tools/balears-muib-probe/r1-reachability.mjs`. Returns what the Govern publishes;
+// authorises nothing (BALEARS_ENVELOPE_VERIFIED is false).
+import { BALEARS_MUIB_PATH, balearsMuibHandler } from './server/balearsMuibProxy.js';
 // SWITZERLAND: same-origin KEYLESS national Nutzungsplanung WFS proxy (geodienste.ch) — returns the
 // zone-identification GML so the client renders the real zone; the buildable envelope refuses (Outcome B).
 import { CH_GRUNDNUTZUNG_PATH, chGrundnutzungHandler } from './server/chGrundnutzungProxy.js';
@@ -531,6 +538,14 @@ app.get(CORDOBA_VCATASTRO_PATH, apiLimiter, cordobaVcatastroHandler);
 // absence never collapse; both layers down → 502. Identity RENDERS in the refusal card; the
 // buildable envelope REFUSES (the numbers live in a prior, separately approved instrument).
 app.get(MURCIA_PGOU_PATH, apiLimiter, murciaPgouHandler);
+// §BALEARS-MUIB-PROXY — same-origin KEYLESS GOIB MUIB point lookup (ArcGIS REST + the fitxa page).
+// GET /api/es/balears-muib?lat=&lon= → { qualificacions, fitxa } (7-day coord cache).
+// `qualificacions: null` = the zoning layer did not answer (→ 502); `[]` = it answered and covers
+// nothing here; `fitxa: null` = the fitxa page did not load — three distinct facts, never one.
+// ⚠ The fitxa URL comes from the FEATURE, never from the request, and is host-allowlisted (SSRF).
+// Zone identity + the fitxa's own parameters RENDER in the refusal card; the buildable envelope
+// REFUSES — the reading is unsigned (L-449) and six constraint families are unmodelled (ADR-0293).
+app.get(BALEARS_MUIB_PATH, apiLimiter, balearsMuibHandler);
 // SWITZERLAND — same-origin KEYLESS national Nutzungsplanung WFS proxy (geodienste.ch, NOT
 // geo-blocked). GET /api/ch/grundnutzung?lat=&lon= → the zone GML at the point (24-h coord cache).
 // Zone RENDERS client-side; buildable envelope REFUSES (density/height model+PDF-bound — Outcome B).

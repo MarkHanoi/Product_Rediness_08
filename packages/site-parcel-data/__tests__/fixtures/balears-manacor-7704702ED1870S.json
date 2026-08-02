@@ -1,0 +1,125 @@
+{
+  "_what": "ONE REAL BALEARS PARCEL — captured live 2026-08-02, never hand-edited.",
+  "_parcelSource": "Spanish Direccion General del Catastro, INSPIRE CP WFS stored query GetParcel, srsName=EPSG:4326",
+  "_zoningSource": "GOIB MUIB QUALIFICACIONS (layer 10) point query, inSR=4326, esriSpatialRelIntersects",
+  "refcat": "7704702ED1870S",
+  "address": "PZ DE L'EBENISTA 8 MANACOR (ILLES BALEARS)",
+  "officialAreaM2": 297,
+  "ringLonLat": [
+    [
+      3.204135,
+      39.57139
+    ],
+    [
+      3.204245,
+      39.57139
+    ],
+    [
+      3.204341,
+      39.57139
+    ],
+    [
+      3.20434,
+      39.571335
+    ],
+    [
+      3.20434,
+      39.571307
+    ],
+    [
+      3.204339,
+      39.571283
+    ],
+    [
+      3.204339,
+      39.571247
+    ],
+    [
+      3.204338,
+      39.571247
+    ],
+    [
+      3.204334,
+      39.571234
+    ],
+    [
+      3.204334,
+      39.571234
+    ],
+    [
+      3.204329,
+      39.571189
+    ],
+    [
+      3.204295,
+      39.571205
+    ],
+    [
+      3.204266,
+      39.571218
+    ],
+    [
+      3.204248,
+      39.571227
+    ],
+    [
+      3.204243,
+      39.571229
+    ],
+    [
+      3.204202,
+      39.571249
+    ],
+    [
+      3.204177,
+      39.57126
+    ],
+    [
+      3.204168,
+      39.57126
+    ],
+    [
+      3.204154,
+      39.57126
+    ],
+    [
+      3.204151,
+      39.57128
+    ],
+    [
+      3.20415,
+      39.571287
+    ],
+    [
+      3.204149,
+      39.571298
+    ],
+    [
+      3.204142,
+      39.571347
+    ],
+    [
+      3.204135,
+      39.57139
+    ]
+  ],
+  "queryPoint": {
+    "lat": 39.571284,
+    "lon": 3.2042448
+  },
+  "muibAttributes": {
+    "OBJECTID": 44648,
+    "CODIMUIB": "RE_NA",
+    "CODIAJ": "RE-NA",
+    "CODIMUNI": "033",
+    "MUNICIPI": "MANACOR",
+    "NOM": "Nucli antic RE-NA",
+    "CODIPLA": "2021_PG_MANACOR_033",
+    "CODICLAS": "SU",
+    "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292430",
+    "IDENTITAT": 292430,
+    "OBS": null,
+    "DINIVIGEN": "22/12/2021",
+    "DFIVIGEN": 99999999
+  }
+}

@@ -285,6 +285,12 @@ import { CATALUNYA_BBOX, isInCatalunya } from '../providers/catalunyaBbox.js';
 import { TELDE_JURISDICTION_ID, canariasNoRulePackRefusal } from './esCanariasSipu.js';
 import { ES_TELDE_PGO2003_PACK, TELDE_PGO2003_ZONE_CODES } from './esTeldePgo2003.js';
 import { TELDE_BBOX, isInTelde } from '../providers/teldeBbox.js';
+// ── ILLES BALEARS (autonomous community) — LIVE-RESOLVED, `packsByZone` EMPTY, GATE SHUT (L-680).
+//    The Denmark/Paris/NL shape: the pack is built per parcel from the MUIB fitxa by the L5 dispatch
+//    (`resolveBalearsMuib` → `/api/es/balears-muib`), so there is nothing static to key here. See the
+//    registration at the end of `REGISTRATIONS`.
+import { BALEARS_JURISDICTION_ID, balearsRegistryRefusal } from './esBalearsMuib.js';
+import { BALEARS_BBOX, isInBalears } from '../providers/balearsBbox.js';
 // §JURISDICTION-ID-CARRIES-THE-INE — the branded INE vocabulary. See the section near the bottom.
 import { parseIneCode, type IneCode } from '../providers/esMunicipalCode.js';
 
@@ -1446,6 +1452,61 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
     // ╔════════════════════════════════════════════════════════════════════════════════════════╗
     // ║ ⚠ END OF THE TELDE / CANARIAS BLOCK.                                                    ║
     // ╚════════════════════════════════════════════════════════════════════════════════════════╝
+    // ── §BALEARS-REGISTRATION (L-680) — the ILLES BALEARS, the second `'regional'` registration. ──
+    //
+    // ⚠ THE DEFECT IT CLOSES IS THE CÓRDOBA-MUNICIPAL ONE, MEASURED: before this entry a click in
+    // Mallorca matched NO `contains` predicate in this table, so §L-663's chokepoint read
+    // `resolveRegisteredJurisdictionAt → 'none'` ("genuinely uncovered land, the estimate is honest
+    // here") and `applyEstimatedZoning` PUBLISHED the generic triple — 3,0/1,5/3,0 m, FAR 2,00,
+    // coverage 50 % — on land PRYZM has read no article about. Registering the community makes that
+    // structurally impossible with no edit to `siteDispatch.ts`.
+    //
+    // ⚠ `'regional'` IS THE TRUE DECLARATION AND IT MATTERS. The box is the extent of the MUIB
+    // CLASSIFICACIO layer, i.e. the whole autonomous community — 4 islands, 67 municipalities. Any
+    // future Palma or Eivissa registration at `'municipal'` therefore out-ranks this one on its own
+    // land automatically, with no re-ordering (§JURISDICTION-SPECIFICITY). Declaring it
+    // `'municipal'` would make a future Palma entry TIE, and a tie is refused as ambiguous.
+    //
+    // ⚠ `packsByZone` IS EMPTY BY CONSTRUCTION, NOT AS A TODO. The 5,273 MUIB fitxes are already
+    // machine-readable at stable URLs the zoning layer itself publishes; transcribing them into a
+    // static table would freeze a live source. The pack is built PER PARCEL by `balearsResolvedPack`
+    // — the same shape Denmark, Paris and the Netherlands register with.
+    //
+    // ⛔ REGISTRATION IS NOT AUTHORISATION (the Murcia/Córdoba precedent, stated once more because
+    // this jurisdiction is the most tempting one yet). `BALEARS_ENVELOPE_VERIFIED` is `false` and
+    // `OPEN_TOP_INDICATIVE_JURISDICTIONS` is empty, so every Balears parcel receives a CITED REFUSAL
+    // and no number reaches the panel, the massing or `site.updateZoning`. Wire it so it is
+    // SIGNABLE; let the signature be the legal act — never the wiring.
+    {
+        jurisdictionId: BALEARS_JURISDICTION_ID, // 'es-ib-balears'
+        displayName: 'Illes Balears (Mapa Urbanístic de les Illes Balears)',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        // ⚠ THE SAME OBJECT/PREDICATE the L5 Balears dispatch routes on — imported, not restated.
+        extent: BALEARS_BBOX,
+        contains: isInBalears,
+        extentResolution: 'regional',
+        answerSummary:
+            'Everywhere in the Illes Balears — Mallorca, Menorca, Eivissa and Formentera — PRYZM ' +
+            'resolves your parcel from the national Catastro and its planning qualification live ' +
+            'from the Govern’s Mapa Urbanístic de les Illes Balears: the zone code, the ' +
+            'municipality’s own designation, the governing plan, the land class and the record’s ' +
+            'validity interval, at the point. Uniquely among the Spanish sources measured so far, ' +
+            'MUIB also links each zone to a STRUCTURED normative fitxa carrying the numeric ' +
+            'parameters themselves — storeys, height, occupation, buildability, setbacks — which ' +
+            'PRYZM reads and shows you. ⚠ PRYZM publishes NO buildable figure here: the reading is ' +
+            'not human-signed (L-449) and six constraint families are unmodelled (heritage, flood, ' +
+            'airport, coastal, environmental, and the island territorial plans), each of which can ' +
+            'only reduce an envelope. Every parcel therefore receives a cited refusal that shows ' +
+            'what the fitxa says — never an estimate.',
+        // EMPTY BY CONSTRUCTION — the pack is live-resolved per parcel. See the block comment above.
+        packsByZone: packMap(),
+        // No per-zone legal refusal TABLE: the legal classification (superseded record, disowned
+        // plan, rustic regime) is a function of the LIVE record, which this path does not hold.
+        refusalFor: () => null,
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            balearsRegistryRefusal(zoneCode ?? null, zoneLabel ?? null, knownFacts ?? []),
+    },
 ];
 
 const BY_JURISDICTION: ReadonlyMap<string, JurisdictionRegistration> = new Map(

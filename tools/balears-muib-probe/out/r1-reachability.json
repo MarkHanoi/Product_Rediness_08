@@ -1,0 +1,108 @@
+{
+  "probe": "r1-reachability",
+  "runAt": "2026-08-02T20:43:08.789Z",
+  "parcel": {
+    "refcat": "7704702ED1870S",
+    "address": "PZ DE L'EBENISTA 8 MANACOR (ILLES BALEARS)",
+    "officialAreaM2": 297,
+    "queryPoint": {
+      "lat": 39.571284,
+      "lon": 3.2042448
+    }
+  },
+  "A_upstream": {
+    "url": "https://ideib.caib.es/geoserveis/rest/services/public/GOIB_MUIB/MapServer/10/query?f=json&geometry=%7B%22x%22%3A3.2042448%2C%22y%22%3A39.571284%2C%22spatialReference%22%3A%7B%22wkid%22%3A4326%7D%7D&geometryType=esriGeometryPoint&inSR=4326&outSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=false&where=1%3D1",
+    "state": "ANSWERED",
+    "why": null,
+    "httpStatus": 200,
+    "featureCount": 1,
+    "elapsedMs": 362,
+    "attributes": {
+      "OBJECTID": 44648,
+      "CODIPLA": "2021_PG_MANACOR_033",
+      "CODICLAS": "SU",
+      "NOM": "Nucli antic RE-NA",
+      "CODIAJ": "RE-NA",
+      "CODIMUIB": "RE_NA",
+      "CODIMUIB_G": "RE_NA",
+      "CODIMUNI": "033",
+      "MUNICIPI": "MANACOR",
+      "OBS": null,
+      "DINIVIGEN": "22/12/2021",
+      "DFIVIGEN": 99999999,
+      "IDENTITAT": 292430,
+      "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292430",
+      "Shape_Length": 211.75619847955318,
+      "Shape_Area": 2531.590918969844
+    },
+    "matchesFixture": true,
+    "seaControl": {
+      "note": "open sea inside the Balears bbox — MUST be ANSWERED_EMPTY, proving empty ≠ failure",
+      "state": "ANSWERED_EMPTY",
+      "httpStatus": 200,
+      "featureCount": 0,
+      "why": null
+    },
+    "controlHeld": true
+  },
+  "A2_fitxa": {
+    "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292430",
+    "state": "ANSWERED",
+    "why": null,
+    "httpStatus": 200,
+    "bodyBytes": 23748,
+    "corsAllowOrigin": null,
+    "sampleRows": "Govern de les Illes Balears var identitat = 292430; function cridaLlistat(idpla,idtramit,mun) { window.open(\"normativa_llistat.jsp?idPla=\"+idpla+\"&idTramit=\"+idtramit+\"&mun=\"+escape(mun), \"_self\",\"\"); } function anarPlanejament() { var mun = escape(\"Manacor\"); var elPla = escape(\"2021 PG i CAT Manacor.\"); var url = \"normativa_pla_info.jsp?mun=\"+mun+\"&elPla=\"+elPla; location.href = url; } function anarMunicipi() { var mun = escape(\"Manacor\"); var url = \"normativa_triar_pla.jsp?municipi=\"+mun; location.href = url; } function historiaEntitat() { var w = window.open(\"historiaEntitat.jsp?identitat="
+  },
+  "B_transport": {
+    "question": "can the BROWSER call these two hosts directly, or is a same-origin proxy required?",
+    "zoningHost": {
+      "host": "ideib.caib.es",
+      "corsAllowOrigin": "https://pryzm.fly.dev",
+      "cspAllowlisted": {
+        "measured": true,
+        "allowed": false,
+        "why": "\"ideib.caib.es\" does NOT appear in the connect-src allowlist in server/securityHeaders.js"
+      },
+      "browserCouldReach": false
+    },
+    "fitxaHost": {
+      "host": "muib.caib.es",
+      "corsAllowOrigin": null,
+      "cspAllowlisted": {
+        "measured": true,
+        "allowed": false,
+        "why": "\"muib.caib.es\" does NOT appear in the connect-src allowlist in server/securityHeaders.js"
+      },
+      "plainHttpMixedContent": true,
+      "browserCouldReach": false
+    },
+    "verdict": "A SAME-ORIGIN PROXY IS REQUIRED — see the two host blocks for which condition fails."
+  },
+  "C_wiring": {
+    "rulepackRegistry": {
+      "exists": true,
+      "balearsMentions": 24
+    },
+    "envelopeAuthorisation": {
+      "exists": true,
+      "balearsMentions": 14
+    },
+    "l449Gates": {
+      "exists": true,
+      "balearsMentions": 8
+    },
+    "serverEntry": {
+      "exists": true,
+      "balearsMentions": 12
+    },
+    "siteDispatch": {
+      "exists": true,
+      "balearsMentions": 45
+    }
+  },
+  "VERDICT": {
+    "upstreamAnswersAtTheParcel": true,
+    "proxyRequired": true
+  }
+}

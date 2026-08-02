@@ -156,7 +156,18 @@ describe('L-664 — no pack\'s PUBLISHED confidence changed when the vocabulary 
         // `murciaAnchoResolvedPack` once a street width has been measured, so there is no module
         // constant to pin. It is pinned by `murciaAnchoDeCalle.test.ts` (`estimated-ruleset` — the
         // tier SIG-MU2 signed, and ADR-0285: a signature on METHODOLOGY does not promote the tier).
-        const FUNCTION_BUILT = new Set(['dkPlandataEnvelope.ts', 'esMurciaAnchoDeCalle.ts']);
+        // `esBalearsMuib.ts` is the SAME SHAPE, and deliberately so: the Balears pack is built
+        // per-parcel by `balearsResolvedPack()` from the live MUIB fitxa, because the 5,273 distinct
+        // fitxes are a LIVE source, not a table anyone should freeze into a module constant. There is
+        // therefore no constant to pin, and it is pinned by `balearsRealParcelEnvelope.test.ts`
+        // (`estimated-ruleset` — see `BALEARS_PACK_CONFIDENCE` for why NOT `structured`, even though
+        // every number is machine-read: only 2.0 % of fitxes cite the governing article, so claiming
+        // the table cell IS the determination would over-state what has been established).
+        const FUNCTION_BUILT = new Set([
+            'dkPlandataEnvelope.ts',
+            'esMurciaAnchoDeCalle.ts',
+            'esBalearsMuib.ts',
+        ]);
         const declaring = filesDeclaringDefaultConfidence().filter((f) => !FUNCTION_BUILT.has(f));
         expect(declaring.length).toBeGreaterThan(0);
         expect(declaring.length).toBe(PUBLISHED.length);
