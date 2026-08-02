@@ -1,0 +1,158 @@
+{
+  "measuredAt": "2026-08-02T16:10:56.825Z",
+  "docs": [
+    {
+      "zone": "Uso Industrial",
+      "url": "https://visor.pgou.coacordoba.org/doc/ordenanzas/O_INDUSTRIAL.pdf",
+      "chars": 19376,
+      "params": {
+        "altura": {
+          "state": "VALUE",
+          "example": "15 metros",
+          "evidence": "La altura máxima edificable será de 15 metros."
+        },
+        "plantas": {
+          "state": "NAMED_BUT_NO_VALUE",
+          "example": null,
+          "evidence": "El número máximo de plantas será de dos para edificaciones complementarias y de 7,50 metros para naves industriales."
+        },
+        "ocupacion": {
+          "state": "NAMED_BUT_NO_VALUE",
+          "example": null,
+          "evidence": "Ocupación máxima de parcela."
+        },
+        "edificabilidad": {
+          "state": "VALUE",
+          "example": "1,16 m2t/m2s",
+          "evidence": "Edificabilidad neta máxima 1,16 m2t/m2s sobre superficie industrial neta."
+        },
+        "retranqueo": {
+          "state": "VALUE",
+          "example": "5 metros",
+          "evidence": "La separación mínima a linderos privados será de 5 metros salvo que la parcela se encontrara enclavada en una estructura parcelaria medianera, en cuyo caso el edificio habrá de ser igualmente medianero manteniendo la separación a vial o via"
+        },
+        "alineacion": {
+          "state": "VALUE",
+          "example": "(qualitative)",
+          "evidence": "Se regirán por las condiciones de alineación a vial o separación a linderos acorde con la normativa preexistente."
+        },
+        "fondo": {
+          "state": "ABSENT",
+          "example": null,
+          "evidence": null
+        },
+        "parcelaMinima": {
+          "state": "VALUE",
+          "example": "2.000 m2",
+          "evidence": "La parcela mínima edificable será de 2.000 m2 para cualquier caso, debiendo el planeamiento de desarrollo fijar el resto de las determinaciones sobre ocupación máxima, edificabilidad neta, separación a linderos y condiciones de ordenación d"
+        },
+        "densidad": {
+          "state": "ABSENT",
+          "example": null,
+          "evidence": null
+        }
+      },
+      "articles": [
+        "Artículo 13.11.1",
+        "Artículo 13.11.2",
+        "Artículo 13.11.3",
+        "Artículo 13.11.4",
+        "Artículo 13.11.5",
+        "Artículo 13.11.6",
+        "Artículo 13.11.7",
+        "Artículo 13.11.8",
+        "Artículo 13.11.9",
+        "Artículo 13.11.10",
+        "Artículo 13.11.11",
+        "Artículo 13.11.12",
+        "Artículo 13.11.13",
+        "Artículo 13.11.14",
+        "Artículo 13.11.15",
+        "Artículo 13.11.16",
+        "Artículo 13.11.17",
+        "Artículo 13.11.18"
+      ],
+      "articleCount": 18,
+      "drawable": "PARTIAL-DRAWABLE (footprint + height -> a solid with an OPEN TOP where no constraint is served)",
+      "complete": "INCOMPLETE"
+    },
+    {
+      "zone": "Unifamiliar Adosada",
+      "url": "https://visor.pgou.coacordoba.org/doc/ordenanzas/O_UAD3.pdf",
+      "chars": 1120388,
+      "params": {
+        "altura": {
+          "state": "ABSENT",
+          "example": null,
+          "evidence": null
+        },
+        "plantas": {
+          "state": "ABSENT",
+          "example": null,
+          "evidence": null
+        },
+        "ocupacion": {
+          "state": "ABSENT",
+          "example": null,
+          "evidence": null
+        },
+        "edificabilidad": {
+          "state": "ABSENT",
+          "example": null,
+          "evidence": null
+        },
+        "retranqueo": {
+          "state": "ABSENT",
+          "example": null,
+          "evidence": null
+        },
+        "alineacion": {
+          "state": "ABSENT",
+          "example": null,
+          "evidence": null
+        },
+        "fondo": {
+          "state": "ABSENT",
+          "example": null,
+          "evidence": null
+        },
+        "parcelaMinima": {
+          "state": "ABSENT",
+          "example": null,
+          "evidence": null
+        },
+        "densidad": {
+          "state": "ABSENT",
+          "example": null,
+          "evidence": null
+        }
+      },
+      "articles": [],
+      "articleCount": 0,
+      "drawable": "NOT DRAWABLE",
+      "complete": "INCOMPLETE"
+    }
+  ],
+  "MAX": {
+    "completeRule": {
+      "row": 0,
+      "land": 0,
+      "zones": []
+    },
+    "partialDrawable": {
+      "row": 0.02,
+      "land": 0.1,
+      "zones": [
+        "Uso Industrial"
+      ]
+    },
+    "max": {
+      "row": 0.02,
+      "land": 0.1
+    },
+    "cityWideMax": {
+      "row": 0
+    },
+    "note": "These are of PRIVATE-DEVELOPABLE land inside the 2-district COACo pilot. The pilot is 14.44% of Córdoba's urban parcels, so the city-wide figure is this × 0.1444."
+  }
+}

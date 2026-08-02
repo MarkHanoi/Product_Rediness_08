@@ -1,0 +1,381 @@
+{
+  "measuredAt": "2026-08-02T15:12:20.231Z",
+  "service": "https://sig.malaga.eu/geoserver/wfs",
+  "capsStatus": 200,
+  "capsBytes": 118276,
+  "featureTypes": [
+    {
+      "name": "DatosAbiertos:da_cartografiaBarrio",
+      "title": "Barrio",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "muralPGOU:DENOMPGOUAPR_V",
+      "title": "DENOMPGOUAPR_V",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "muralPGOU:DENOMPGOUEXP_V",
+      "title": "DENOMPGOUEXP_V",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "muralPGOU:DENOMPGOUTRM_V",
+      "title": "DENOMPGOUTRM_V",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "Limasa:ENVASES_S",
+      "title": "ENVASES_S",
+      "crs": "urn:ogc:def:crs:EPSG::23030"
+    },
+    {
+      "name": "GeoPortal:gp_ENVASES",
+      "title": "ENVASES_S",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "muralPGOU:EXPCONSULTA_V",
+      "title": "EXPCONSULTA_V",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "muralPGOU:EXPTOPO_V",
+      "title": "EXPTOPO_V",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "Limasa:INDUSTRIA_S",
+      "title": "INDUSTRIA_S",
+      "crs": "urn:ogc:def:crs:EPSG::23030"
+    },
+    {
+      "name": "GeoPortal:gp_INDUSTRIA",
+      "title": "INDUSTRIA_S",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "muralPGOU:LINALIN_T",
+      "title": "LINALIN_T",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "DatosAbiertos:da_cartografiaNumero",
+      "title": "Número de gobierno",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "Limasa:PAPELERAS_S",
+      "title": "PAPELERAS_S",
+      "crs": "urn:ogc:def:crs:EPSG::23030"
+    },
+    {
+      "name": "GeoPortal:gp_PAPELERAS",
+      "title": "PAPELERAS_S",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "Limasa:PAPEL_CARTON_S",
+      "title": "PAPEL_CARTON_S",
+      "crs": "urn:ogc:def:crs:EPSG::23030"
+    },
+    {
+      "name": "GeoPortal:gp_PAPEL_CARTON",
+      "title": "PAPEL_CARTON_S",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "muralPGOU:POLCALIF_T",
+      "title": "POLCALIF_T",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "Limasa:RSU_S",
+      "title": "RSU_S",
+      "crs": "urn:ogc:def:crs:EPSG::23030"
+    },
+    {
+      "name": "GeoPortal:gp_RSU",
+      "title": "RSU_S",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "muralPGOU:TEXTOPON_T",
+      "title": "TEXTOPON_T",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "Limasa:VIDRIO_S",
+      "title": "VIDRIO_S",
+      "crs": "urn:ogc:def:crs:EPSG::23030"
+    },
+    {
+      "name": "GeoPortal:gp_VIDRIO",
+      "title": "VIDRIO_S",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "AgenciaDeLaEnergia:ecoPuntos",
+      "title": "ecoPuntos",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_CentrosComerciales",
+      "title": "gp_CentrosComerciales",
+      "abstract": "Equipamientos Comercio: Centros comerciales",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_OficinasRegistroMunicipales",
+      "title": "gp_OficinasRegistro",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_aparcamientoResidente",
+      "title": "gp_aparcamientoResidente",
+      "abstract": "Urbanismo e Infraestructuras: Aparcamientos para residentes",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_aparcamientoRotacion",
+      "title": "gp_aparcamientoRotacion",
+      "abstract": "Urbanismo e Infraestructuras: Aparcamientos de Rotación",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "DatosAbiertos:gp_belenes2015",
+      "title": "gp_belenes2015",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_bibliotecas",
+      "title": "gp_bibliotecas",
+      "abstract": "Cultura: Bibliotecas",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "DatosAbiertos:gp_casetasreal2016",
+      "title": "gp_casetasreal2016",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_centroCultural",
+      "title": "gp_centroCultural",
+      "abstract": "Cultura: Centros Culturales",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_cines",
+      "title": "gp_cines",
+      "abstract": "Cultural: Cines",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_consulado",
+      "title": "gp_consulado",
+      "abstract": "Legislación y Justicia: Consulados",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_galeriaArte",
+      "title": "gp_galeriaArte",
+      "abstract": "Equipamientos Cultura: Galerias de Arte",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_mercados",
+      "title": "gp_mercados",
+      "abstract": "Comercio: Mercados",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_monumentos",
+      "title": "gp_monumentos",
+      "abstract": "Cultura: Monumentos",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_museos",
+      "title": "gp_museos",
+      "abstract": "Equipamientos Cultura: Museos",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_poligonos",
+      "title": "gp_poligonos",
+      "abstract": "Equipamientos Comercio:Poligonos Industriales",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_salaExposiciones",
+      "title": "gp_salaExposiciones",
+      "abstract": "Cultura: Salas de exposiciones",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_sedesWifi",
+      "title": "gp_sedesWifi",
+      "abstract": "Ciencia y Tecnología: Sedes Wifi",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "GeoPortal:gp_teatros",
+      "title": "gp_teatros",
+      "abstract": "Cultura: Teatros",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "DatosAbiertos:gp_telecentros",
+      "title": "gp_telecentros",
+      "crs": "urn:ogc:def:crs:EPSG::25830"
+    },
+    {
+      "name": "Limasa:tiposDepositos_S",
+      "title": "tiposDepositos_S",
+      "crs": "urn:ogc:def:crs:EPSG::23030"
+    }
+  ],
+  "wmsStatus": 200,
+  "wmsLayers": [
+    {
+      "name": "Limasa:ENVASES_S",
+      "title": "ENVASES_S"
+    },
+    {
+      "name": "Limasa:INDUSTRIA_S",
+      "title": "INDUSTRIA_S"
+    },
+    {
+      "name": "Limasa:PAPELERAS_S",
+      "title": "PAPELERAS_S"
+    },
+    {
+      "name": "Limasa:PAPEL_CARTON_S",
+      "title": "PAPEL_CARTON_S"
+    },
+    {
+      "name": "Limasa:RSU_S",
+      "title": "RSU_S"
+    },
+    {
+      "name": "Limasa:VIDRIO_S",
+      "title": "VIDRIO_S"
+    },
+    {
+      "name": "DatosAbiertos:da_cartografiaBarrio",
+      "title": "Barrio"
+    },
+    {
+      "name": "DatosAbiertos:da_cartografiaNumero",
+      "title": "Número de gobierno"
+    },
+    {
+      "name": "AgenciaDeLaEnergia:ecoPuntos",
+      "title": "ecoPuntos"
+    },
+    {
+      "name": "GeoPortal:gp_CentrosComerciales",
+      "title": "gp_CentrosComerciales"
+    },
+    {
+      "name": "GeoPortal:gp_ENVASES",
+      "title": "ENVASES_S"
+    },
+    {
+      "name": "GeoPortal:gp_INDUSTRIA",
+      "title": "INDUSTRIA_S"
+    },
+    {
+      "name": "GeoPortal:gp_OficinasRegistroMunicipales",
+      "title": "gp_OficinasRegistro"
+    },
+    {
+      "name": "GeoPortal:gp_PAPELERAS",
+      "title": "PAPELERAS_S"
+    },
+    {
+      "name": "GeoPortal:gp_PAPEL_CARTON",
+      "title": "PAPEL_CARTON_S"
+    },
+    {
+      "name": "GeoPortal:gp_RSU",
+      "title": "RSU_S"
+    },
+    {
+      "name": "GeoPortal:gp_VIDRIO",
+      "title": "VIDRIO_S"
+    },
+    {
+      "name": "GeoPortal:gp_aparcamientoResidente",
+      "title": "gp_aparcamientoResidente"
+    },
+    {
+      "name": "GeoPortal:gp_aparcamientoRotacion",
+      "title": "gp_aparcamientoRotacion"
+    },
+    {
+      "name": "DatosAbiertos:gp_belenes2015",
+      "title": "gp_belenes2015"
+    },
+    {
+      "name": "GeoPortal:gp_bibliotecas",
+      "title": "gp_bibliotecas"
+    },
+    {
+      "name": "DatosAbiertos:gp_casetasreal2016",
+      "title": "gp_casetasreal2016"
+    },
+    {
+      "name": "GeoPortal:gp_centroCultural",
+      "title": "gp_centroCultural"
+    },
+    {
+      "name": "GeoPortal:gp_cines",
+      "title": "gp_cines"
+    },
+    {
+      "name": "GeoPortal:gp_consulado",
+      "title": "gp_consulado"
+    },
+    {
+      "name": "GeoPortal:gp_galeriaArte",
+      "title": "gp_galeriaArte"
+    },
+    {
+      "name": "GeoPortal:gp_mercados",
+      "title": "gp_mercados"
+    },
+    {
+      "name": "GeoPortal:gp_monumentos",
+      "title": "gp_monumentos"
+    },
+    {
+      "name": "GeoPortal:gp_museos",
+      "title": "gp_museos"
+    },
+    {
+      "name": "GeoPortal:gp_poligonos",
+      "title": "gp_poligonos"
+    },
+    {
+      "name": "GeoPortal:gp_salaExposiciones",
+      "title": "gp_salaExposiciones"
+    },
+    {
+      "name": "GeoPortal:gp_sedesWifi",
+      "title": "gp_sedesWifi"
+    },
+    {
+      "name": "GeoPortal:gp_teatros",
+      "title": "gp_teatros"
+    },
+    {
+      "name": "DatosAbiertos:gp_telecentros",
+      "title": "gp_telecentros"
+    },
+    {
+      "name": "Limasa:tiposDepositos_S",
+      "title": "tiposDepositos_S"
+    }
+  ]
+}

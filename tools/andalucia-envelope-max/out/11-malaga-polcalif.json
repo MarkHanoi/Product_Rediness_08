@@ -1,0 +1,22 @@
+{
+  "measuredAt": "2026-08-02T15:32:16.770Z",
+  "service": "https://sig.malaga.eu/geoserver/wfs",
+  "typeName": "muralPGOU:POLCALIF_T",
+  "steps": {
+    "dft": {
+      "status": 200,
+      "attempts": 2,
+      "bytes": 445,
+      "body": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><xsd:schema xmlns:gml=\"http://www.opengis.net/gml/3.2\" xmlns:muralPGOU=\"www.malaga.eu/muralPGOU\" xmlns:wfs=\"http://www.opengis.net/wfs/2.0\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" elementFormDefault=\"qualified\" targetNamespace=\"www.malaga.eu/muralPGOU\">\n  <xsd:import namespace=\"http://www.opengis.net/gml/3.2\" schemaLocation=\"https://sig.malaga.eu/geoserver/schemas/gml/3.2.1/gml.xsd\"/>\n</xsd:schema>\n"
+    },
+    "hits": {
+      "status": 0,
+      "attempts": 5,
+      "body": ""
+    },
+    "geojsonStatus": 0,
+    "geojsonHead": "",
+    "gmlStatus": 0,
+    "gmlHead": ""
+  }
+}

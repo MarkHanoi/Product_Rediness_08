@@ -1,0 +1,746 @@
+{
+  "measuredAt": "2026-08-02T14:51:21.599Z",
+  "service": "https://geoserver.pgou.coacordoba.org/geoserver/wfs",
+  "layers": {
+    "ordenanzas": {
+      "dftStatus": 200,
+      "hitsStatus": 200,
+      "numberMatched": 453,
+      "declaredFields": [
+        {
+          "name": "geom",
+          "type": "gml:SurfacePropertyType"
+        },
+        {
+          "name": "ordenanza",
+          "type": "xsd:string"
+        },
+        {
+          "name": "et",
+          "type": "xsd:string"
+        },
+        {
+          "name": "sup_m2",
+          "type": "xsd:float"
+        },
+        {
+          "name": "link",
+          "type": "xsd:string"
+        },
+        {
+          "name": "ordenanzas",
+          "type": "coaco:ordenanzasType"
+        }
+      ],
+      "observedFields": [
+        "ordenanza",
+        "et",
+        "sup_m2",
+        "link"
+      ],
+      "sampleProps": [
+        {
+          "ordenanza": "Uso Industrial",
+          "et": null,
+          "sup_m2": 1920.35,
+          "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_INDUSTRIAL.pdf"
+        },
+        {
+          "ordenanza": "Plurifamiliar aislada",
+          "et": null,
+          "sup_m2": 7129.68,
+          "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_PAS2.pdf"
+        },
+        {
+          "ordenanza": "Ordenacion Abierta",
+          "et": "1",
+          "sup_m2": 3954.13,
+          "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf"
+        }
+      ],
+      "sampleErr": null
+    },
+    "usos_globales": {
+      "dftStatus": 200,
+      "hitsStatus": 200,
+      "numberMatched": 108,
+      "declaredFields": [
+        {
+          "name": "geom",
+          "type": "gml:SurfacePropertyType"
+        },
+        {
+          "name": "layer",
+          "type": "xsd:string"
+        },
+        {
+          "name": "tipo",
+          "type": "xsd:string"
+        },
+        {
+          "name": "et",
+          "type": "xsd:string"
+        },
+        {
+          "name": "actuacion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "sup_m2",
+          "type": "xsd:decimal"
+        },
+        {
+          "name": "usos_globales",
+          "type": "coaco:usos_globalesType"
+        }
+      ],
+      "observedFields": [
+        "layer",
+        "tipo",
+        "et",
+        "actuacion",
+        "sup_m2"
+      ],
+      "sampleProps": [
+        {
+          "layer": "USOS_GLOBALES",
+          "tipo": "Espacios Libres",
+          "et": "SG",
+          "actuacion": null,
+          "sup_m2": 68528.02
+        },
+        {
+          "layer": "USOS_GLOBALES",
+          "tipo": "Espacios Libres",
+          "et": null,
+          "actuacion": null,
+          "sup_m2": 16375.72
+        },
+        {
+          "layer": "USOS_GLOBALES",
+          "tipo": "Espacios Libres",
+          "et": null,
+          "actuacion": null,
+          "sup_m2": 39147.22
+        }
+      ],
+      "sampleErr": null
+    },
+    "usos_dotacionales": {
+      "dftStatus": 200,
+      "hitsStatus": 200,
+      "numberMatched": 339,
+      "declaredFields": [
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "et",
+          "type": "xsd:string"
+        },
+        {
+          "name": "sup_m2",
+          "type": "xsd:double"
+        },
+        {
+          "name": "layer",
+          "type": "xsd:string"
+        },
+        {
+          "name": "tipo",
+          "type": "xsd:string"
+        },
+        {
+          "name": "usos_dotacionales",
+          "type": "coaco:usos_dotacionalesType"
+        }
+      ],
+      "observedFields": [
+        "et",
+        "sup_m2",
+        "layer",
+        "tipo"
+      ],
+      "sampleProps": [
+        {
+          "et": "E",
+          "sup_m2": 32152.07,
+          "layer": "E_EDU",
+          "tipo": "Educativo"
+        },
+        {
+          "et": "E*",
+          "sup_m2": 7380.11,
+          "layer": "E_EDU",
+          "tipo": "Educativo"
+        },
+        {
+          "et": null,
+          "sup_m2": 445.74,
+          "layer": "E_EQUIP",
+          "tipo": "Comunitario"
+        }
+      ],
+      "sampleErr": null
+    },
+    "hojas_cus": {
+      "dftStatus": 200,
+      "hitsStatus": 200,
+      "numberMatched": 8,
+      "declaredFields": [
+        {
+          "name": "idhoja",
+          "type": "xsd:string"
+        },
+        {
+          "name": "link",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "hojas_cus",
+          "type": "coaco:hojas_cusType"
+        }
+      ],
+      "observedFields": [
+        "idhoja",
+        "link"
+      ],
+      "sampleProps": [
+        {
+          "idhoja": "CUS41W",
+          "link": "http://visor.pgou.coacordoba.org/doc/planos/cus/CUS41W.jpg"
+        },
+        {
+          "idhoja": "CUS46W",
+          "link": "http://visor.pgou.coacordoba.org/doc/planos/cus/CUS46W.jpg"
+        },
+        {
+          "idhoja": "CUS45W",
+          "link": "http://visor.pgou.coacordoba.org/doc/planos/cus/CUS45W.jpg"
+        }
+      ],
+      "sampleErr": null
+    },
+    "vcatastro_urbanismo": {
+      "dftStatus": 200,
+      "hitsStatus": 200,
+      "numberMatched": 5725,
+      "declaredFields": [
+        {
+          "name": "id",
+          "type": "xsd:long"
+        },
+        {
+          "name": "zona_cod",
+          "type": "xsd:string"
+        },
+        {
+          "name": "zona_nom",
+          "type": "xsd:string"
+        },
+        {
+          "name": "direccion_postal",
+          "type": "xsd:string"
+        },
+        {
+          "name": "cp",
+          "type": "xsd:string"
+        },
+        {
+          "name": "refcat",
+          "type": "xsd:string"
+        },
+        {
+          "name": "uso_dominante",
+          "type": "xsd:string"
+        },
+        {
+          "name": "link_catastro",
+          "type": "xsd:string"
+        },
+        {
+          "name": "img_fachada",
+          "type": "xsd:string"
+        },
+        {
+          "name": "equipamiento",
+          "type": "xsd:string"
+        },
+        {
+          "name": "ordenanza",
+          "type": "xsd:string"
+        },
+        {
+          "name": "actuacion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "usos",
+          "type": "xsd:string"
+        },
+        {
+          "name": "sup_pc_m2",
+          "type": "xsd:double"
+        },
+        {
+          "name": "sup_total_m2",
+          "type": "xsd:int"
+        },
+        {
+          "name": "sup_srasante_m2",
+          "type": "xsd:int"
+        },
+        {
+          "name": "sup_brasante_m2",
+          "type": "xsd:int"
+        },
+        {
+          "name": "sup_cubierta_m2",
+          "type": "xsd:int"
+        },
+        {
+          "name": "n_construc",
+          "type": "xsd:long"
+        },
+        {
+          "name": "max_plantas",
+          "type": "xsd:int"
+        },
+        {
+          "name": "max_plantasbr",
+          "type": "xsd:int"
+        },
+        {
+          "name": "c_semisotano",
+          "type": "xsd:long"
+        },
+        {
+          "name": "c_piscina",
+          "type": "xsd:long"
+        },
+        {
+          "name": "c_jardin",
+          "type": "xsd:long"
+        },
+        {
+          "name": "c_suelo",
+          "type": "xsd:long"
+        },
+        {
+          "name": "c_ruina",
+          "type": "xsd:long"
+        },
+        {
+          "name": "c_construccion",
+          "type": "xsd:long"
+        },
+        {
+          "name": "n_inmuebles",
+          "type": "xsd:long"
+        },
+        {
+          "name": "anyo_antiguedad_inmueble",
+          "type": "xsd:decimal"
+        },
+        {
+          "name": "geom",
+          "type": "gml:SurfacePropertyType"
+        },
+        {
+          "name": "vcatastro_urbanismo",
+          "type": "coaco:vcatastro_urbanismoType"
+        }
+      ],
+      "observedFields": [
+        "id",
+        "zona_cod",
+        "zona_nom",
+        "direccion_postal",
+        "cp",
+        "refcat",
+        "uso_dominante",
+        "link_catastro",
+        "img_fachada",
+        "equipamiento",
+        "ordenanza",
+        "actuacion",
+        "usos",
+        "sup_pc_m2",
+        "sup_total_m2",
+        "sup_srasante_m2",
+        "sup_brasante_m2",
+        "sup_cubierta_m2",
+        "n_construc",
+        "max_plantas",
+        "max_plantasbr",
+        "c_semisotano",
+        "c_piscina",
+        "c_jardin",
+        "c_suelo",
+        "c_ruina",
+        "c_construccion",
+        "n_inmuebles",
+        "anyo_antiguedad_inmueble"
+      ],
+      "sampleProps": [
+        {
+          "id": 1,
+          "zona_cod": "01",
+          "zona_nom": "Sur",
+          "direccion_postal": "CR CASTRO 233 ",
+          "cp": "14009",
+          "refcat": "4122616UG4942S",
+          "uso_dominante": "Residencial",
+          "link_catastro": "https://www1.sedecatastro.gob.es/CYCBienInmueble/OVCListaBienes.aspx?rc1=4122616&rc2=UG4942S",
+          "img_fachada": "http://ovc.catastro.meh.es/OVCServWeb/OVCWcfLibres/OVCFotoFachada.svc/RecuperarFotoFachadaGet?ReferenciaCatastral=4122616UG4942S",
+          "equipamiento": "",
+          "ordenanza": "Colonia Tradicional Popular",
+          "actuacion": "",
+          "usos": "",
+          "sup_pc_m2": 110,
+          "sup_total_m2": 75,
+          "sup_srasante_m2": 75,
+          "sup_brasante_m2": 0,
+          "sup_cubierta_m2": 37,
+          "n_construc": 4,
+          "max_plantas": 1,
+          "max_plantasbr": 0,
+          "c_semisotano": 0,
+          "c_piscina": 0,
+          "c_jardin": 0,
+          "c_suelo": 0,
+          "c_ruina": 0,
+          "c_construccion": 0,
+          "n_inmuebles": 1,
+          "anyo_antiguedad_inmueble": 1952
+        },
+        {
+          "id": 2,
+          "zona_cod": "01",
+          "zona_nom": "Sur",
+          "direccion_postal": "CL ACERA LINDERO 52 ",
+          "cp": "14009",
+          "refcat": "4222218UG4942S",
+          "uso_dominante": "Residencial",
+          "link_catastro": "https://www1.sedecatastro.gob.es/CYCBienInmueble/OVCListaBienes.aspx?rc1=4222218&rc2=UG4942S",
+          "img_fachada": "http://ovc.catastro.meh.es/OVCServWeb/OVCWcfLibres/OVCFotoFachada.svc/RecuperarFotoFachadaGet?ReferenciaCatastral=4222218UG4942S",
+          "equipamiento": "",
+          "ordenanza": "Colonia Tradicional Popular",
+          "actuacion": "",
+          "usos": "",
+          "sup_pc_m2": 68,
+          "sup_total_m2": 65,
+          "sup_srasante_m2": 65,
+          "sup_brasante_m2": 0,
+          "sup_cubierta_m2": 0,
+          "n_construc": 4,
+          "max_plantas": 1,
+          "max_plantasbr": 0,
+          "c_semisotano": 0,
+          "c_piscina": 0,
+          "c_jardin": 0,
+          "c_suelo": 0,
+          "c_ruina": 0,
+          "c_construccion": 0,
+          "n_inmuebles": 1,
+          "anyo_antiguedad_inmueble": 1956
+        },
+        {
+          "id": 3,
+          "zona_cod": "01",
+          "zona_nom": "Sur",
+          "direccion_postal": "CR CASTRO 239 ",
+          "cp": "14009",
+          "refcat": "4222221UG4942S",
+          "uso_dominante": "Residencial",
+          "link_catastro": "https://www1.sedecatastro.gob.es/CYCBienInmueble/OVCListaBienes.aspx?rc1=4222221&rc2=UG4942S",
+          "img_fachada": "http://ovc.catastro.meh.es/OVCServWeb/OVCWcfLibres/OVCFotoFachada.svc/RecuperarFotoFachadaGet?ReferenciaCatastral=4222221UG4942S",
+          "equipamiento": "",
+          "ordenanza": "Colonia Tradicional Popular",
+          "actuacion": "",
+          "usos": "",
+          "sup_pc_m2": 94,
+          "sup_total_m2": 61,
+          "sup_srasante_m2": 61,
+          "sup_brasante_m2": 0,
+          "sup_cubierta_m2": 30,
+          "n_construc": 2,
+          "max_plantas": 1,
+          "max_plantasbr": 0,
+          "c_semisotano": 0,
+          "c_piscina": 0,
+          "c_jardin": 0,
+          "c_suelo": 0,
+          "c_ruina": 0,
+          "c_construccion": 0,
+          "n_inmuebles": 1,
+          "anyo_antiguedad_inmueble": 1949
+        }
+      ],
+      "sampleErr": null
+    },
+    "distritos": {
+      "dftStatus": 200,
+      "hitsStatus": 200,
+      "numberMatched": 2,
+      "declaredFields": [
+        {
+          "name": "nombre",
+          "type": "xsd:string"
+        },
+        {
+          "name": "zona",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "sup_m2",
+          "type": "xsd:float"
+        },
+        {
+          "name": "sup_ha",
+          "type": "xsd:float"
+        },
+        {
+          "name": "distritos",
+          "type": "coaco:distritosType"
+        }
+      ],
+      "observedFields": [
+        "nombre",
+        "zona",
+        "sup_m2",
+        "sup_ha"
+      ],
+      "sampleProps": [
+        {
+          "nombre": "Sur",
+          "zona": "01",
+          "sup_m2": 2488982.8,
+          "sup_ha": 248.89827
+        },
+        {
+          "nombre": "Noroeste",
+          "zona": "02",
+          "sup_m2": 2472361.8,
+          "sup_ha": 247.23616
+        }
+      ],
+      "sampleErr": null
+    },
+    "actuaciones": {
+      "dftStatus": 200,
+      "hitsStatus": 200,
+      "numberMatched": 40,
+      "declaredFields": [
+        {
+          "name": "idac",
+          "type": "xsd:string"
+        },
+        {
+          "name": "actuacion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "descripcion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "instrumento",
+          "type": "xsd:string"
+        },
+        {
+          "name": "fecha",
+          "type": "xsd:date"
+        },
+        {
+          "name": "clase_suelo",
+          "type": "xsd:string"
+        },
+        {
+          "name": "link",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "tramitado",
+          "type": "xsd:boolean"
+        },
+        {
+          "name": "distrito",
+          "type": "xsd:string"
+        },
+        {
+          "name": "ficha",
+          "type": "xsd:boolean"
+        },
+        {
+          "name": "doc",
+          "type": "xsd:boolean"
+        },
+        {
+          "name": "actuaciones",
+          "type": "coaco:actuacionesType"
+        }
+      ],
+      "observedFields": [
+        "idac",
+        "actuacion",
+        "descripcion",
+        "instrumento",
+        "fecha",
+        "clase_suelo",
+        "link",
+        "tramitado",
+        "distrito",
+        "ficha",
+        "doc"
+      ],
+      "sampleProps": [
+        {
+          "idac": "P_ED_MA_7",
+          "actuacion": "ED MA-7",
+          "descripcion": "CTRA. DE SANTA MARÍA DE TRASIERRA",
+          "instrumento": "ESTUDIO DE DETALLE",
+          "fecha": "2002-07-31Z",
+          "clase_suelo": "URBANO",
+          "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_ED_MA-7.pdf",
+          "tramitado": true,
+          "distrito": "Noroeste",
+          "ficha": true,
+          "doc": true
+        },
+        {
+          "idac": "P_SGEL_SUP-3",
+          "actuacion": "SGEL SUP-3",
+          "descripcion": "PARQUE FIGUEROA-OESTE",
+          "instrumento": "SISTEMA GENERAL ESPACIOS LIBRES",
+          "fecha": null,
+          "clase_suelo": "URBANIZABLE PROGRAMADO",
+          "link": null,
+          "tramitado": true,
+          "distrito": "Noroeste",
+          "ficha": false,
+          "doc": false
+        },
+        {
+          "idac": "P_CASCO_HISTORICO",
+          "actuacion": "PEPCH",
+          "descripcion": "Forma parte del PLAN ESPECIAL DE PROTECCION DE CASCO HISTORICO",
+          "instrumento": "PLAN ESPECIAL",
+          "fecha": null,
+          "clase_suelo": "URBANO",
+          "link": null,
+          "tramitado": true,
+          "distrito": "Sector Sur",
+          "ficha": false,
+          "doc": false
+        }
+      ],
+      "sampleErr": null
+    },
+    "vbuilding": {
+      "dftStatus": 200,
+      "hitsStatus": 200,
+      "numberMatched": 5544,
+      "declaredFields": [
+        {
+          "name": "id",
+          "type": "xsd:int"
+        },
+        {
+          "name": "zona",
+          "type": "xsd:string"
+        },
+        {
+          "name": "nombre",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:GeometryPropertyType"
+        },
+        {
+          "name": "vbuilding",
+          "type": "coaco:vbuildingType"
+        }
+      ],
+      "observedFields": [
+        "id",
+        "zona",
+        "nombre"
+      ],
+      "sampleProps": [
+        {
+          "id": 17310,
+          "zona": "01",
+          "nombre": "Sur"
+        },
+        {
+          "id": 17932,
+          "zona": "01",
+          "nombre": "Sur"
+        },
+        {
+          "id": 17934,
+          "zona": "01",
+          "nombre": "Sur"
+        }
+      ],
+      "sampleErr": null
+    },
+    "vhex25_max_plantas": {
+      "dftStatus": 200,
+      "hitsStatus": 200,
+      "numberMatched": 9202,
+      "declaredFields": [
+        {
+          "name": "id",
+          "type": "xsd:long"
+        },
+        {
+          "name": "max_plantas",
+          "type": "xsd:decimal"
+        },
+        {
+          "name": "geom",
+          "type": "gml:GeometryPropertyType"
+        },
+        {
+          "name": "vhex25_max_plantas",
+          "type": "coaco:vhex25_max_plantasType"
+        }
+      ],
+      "observedFields": [
+        "id",
+        "max_plantas"
+      ],
+      "sampleProps": [
+        {
+          "id": 6,
+          "max_plantas": 4
+        },
+        {
+          "id": 7,
+          "max_plantas": 4
+        },
+        {
+          "id": 8,
+          "max_plantas": 4
+        }
+      ],
+      "sampleErr": null
+    }
+  }
+}

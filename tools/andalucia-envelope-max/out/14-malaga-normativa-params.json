@@ -1,0 +1,1292 @@
+{
+  "measuredAt": "2026-08-02T15:47:22.868Z",
+  "base": "https://www.malaga.eu/recursos/urbanismo/GIS_URBANISMO/PGOU/PDF_Normativa_GIS/",
+  "zones": [
+    {
+      "zone": "SUNC",
+      "file": "Norm_TXI_SUNC.pdf",
+      "status": 200,
+      "attempts": 2,
+      "bytes": 260911,
+      "ct": "application/pdf",
+      "sha256": "fdab4f15e7900170",
+      "jbig2": false,
+      "chars": 388352,
+      "articles": [
+        "Artículo 11.2.5",
+        "artículo 4",
+        "artículo 11",
+        "Artículo 11.2.13"
+      ],
+      "articleCount": 4,
+      "params": {
+        "altura": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "plantas": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "ocupacion": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "edificabilidad": {
+          "mentions": 17,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": ")Tj 0 Tc -5.164 -1.153 Td ( )Tj 0.0012 Tc 0.1089 Tw 2.585 -1.153 Td [(c) )-1355(El derecho )5(de los propietarios del )5(aprovechamiento urbaní)6(stico re)5(sulta)5(nte )]TJ 0.0014 Tc 0.218 Tw 2.579 -1.153 Td [(de la aplica)6(c)-1(ión a las superficie)6(s)-1( ",
+          "exampleValue": null
+        },
+        "retranqueo": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "alineacion": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "fondo": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "parcelaMinima": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "densidad": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        }
+      },
+      "graphicDeferralAnywhere": true,
+      "textSample": "c\u0000-\u00002\u00007\u0000;\u0000@\u0000E\u0000J\u0000O\u0000T\u0000Y\u0000^\u0000c\u0000h\u0000m\u0000r\u0000w\u0000|\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000¤\u0000©\u0000®\u0000²\u0000·\u0000¼\u0000Á\u0000Æ\u0000Ë\u0000Ð\u0000Õ\u0000Û\u0000à\u0000å\u0000ë\u0000ð\u0000ö\u0000û\u0001\u0001\u0001\u0007\u0001 \u0001\u0013\u0001\u0019\u0001\u001f\u0001%\u0001+\u00012\u00018\u0001>\u0001E\u0001L\u0001R\u0001Y\u0001`\u0001g\u0001n\u0001u\u0001|\u0001\u0001\u0001\u0001\u0001¡\u0001©\u0001±\u0001¹\u0001Á\u0001É\u0001Ñ\u0001Ù\u0001á\u0001é\u0001ò\u0001ú\u0002\u0003\u0002 \u0002\u0014\u0002\u001d\u0002&\u0002/\u00028\u0002A\u0002K\u0002T\u0002]\u0002g\u0002q\u0002z\u0002\u0002\u0002\u0002¢\u0002¬\u0002¶\u0002Á\u0002Ë\u0002Õ\u0002à\u0002ë\u0002õ\u0003\u0000\u0003 \u0003\u0016\u0003!\u0003-\u00038\u0003C\u0003O\u0003Z\u0003f\u0003r\u0003~\u0003\u0003\u0003¢\u0003®\u0003º\u0003Ç\u0003Ó\u0003à\u0003ì\u0003ù\u0004\u0006\u0004\u0013\u0004 \u0004-\u0004;\u0004H\u0004U\u0004c\u0004q\u0004~\u0004\u0004\u0004¨\u0004¶\u0004Ä\u0004Ó\u0004á\u0004ð\u0004þ\u0005 \u0005\u001c\u0005+\u0005:\u0005I\u0005X\u0005g\u0005w\u0005\u0005\u0005¦\u0005µ\u0005Å\u0005Õ\u0005å\u0005ö\u0006\u0006\u0006\u0016\u0006'\u00067\u0006H\u0006Y\u0006j\u0006{\u0006\u0006\u0006¯\u0006À\u0006Ñ\u0006ã\u0006õ\u0007\u0007\u0007\u0019\u0007+\u0007=\u0007O\u0007a\u0007t\u0007\u0007\u0007¬\u0007¿\u0007Ò\u0007å\u0007ø\b \b\u001f\b2\bF\bZ\bn\b\b\bª\b¾\bÒ\bç\bû \u0010 % : O d y  ¤ º Ï å û \u0011 ' = T j   ® Å Ü ó \" 9 Q i   ° È á ù \u0012 * C u  § À Ù ó & @ Z t "
+    },
+    {
+      "zone": "OG",
+      "file": "Norm_TXII_C1-2_Ordenanza_General_Edificacion_OG.pdf",
+      "status": 200,
+      "attempts": 1,
+      "bytes": 469134,
+      "ct": "application/pdf",
+      "sha256": "53f67089191d8192",
+      "jbig2": false,
+      "chars": 213934,
+      "articles": [
+        "Artículo 12.1.1",
+        "Artículo 12.1.2",
+        "artículo 10.2",
+        "Artículo 12.2.1",
+        "Artículo 12.2.2",
+        "artículo 67",
+        "Artículo 12.2.3",
+        "Artículo 12.2.4",
+        "Artículo 12.2.5",
+        "artículo 2.3.6",
+        "artículo 18",
+        "Artículo 12.2.6",
+        "Artículo 12.2.7",
+        "Artículo 12.2.8",
+        "Artículo 12.2.9",
+        "Artículo 12.2.10",
+        "Artículo 12.2.11",
+        "Artículo 12.2.12",
+        "Artículo 12.2.13",
+        "Artículo 12.2.14",
+        "Artículo 12.2.15",
+        "Artículo 12.2.16",
+        "Artículo 12.2.17",
+        "Artículo 12.2.18",
+        "Artículo 12.2.19",
+        "Artículo 12.2.20",
+        "Artículo 12.2.21",
+        "Artículo 12.2.22",
+        "Artículo 12.2.28",
+        "Artículo 12.2.23",
+        "Artículo 12.2.24",
+        "artículo 12.2.36",
+        "Artículo 12.2.25",
+        "Artículo 12.2.26",
+        "artículo 12.2.27.1",
+        "Artículo 12.2.27",
+        "artículo 12.2.25",
+        "artículo 12.2.21",
+        "Artículo 12.2.29",
+        "Artículo 12.2.30",
+        "artículo 92",
+        "Artículo 12.2.31",
+        "artículo 9",
+        "Artículo 12.2.32",
+        "Artículo 12.2.33",
+        "Artículo 12.2.34",
+        "artículo 12",
+        "Artículo 12.2.35",
+        "Artículo 12.2.36",
+        "artículo 4.2.3",
+        "artículo 4.1",
+        "Artículo 12.2.37",
+        "Artículo 12.2.38",
+        "Artículo 12.2.39",
+        "Artículo 12.2.40",
+        "Artículo 12.2.41",
+        "Artículo 12.2.42",
+        "Artículo 12.2.43",
+        "Artículo 12.2.44",
+        "Artículo 12.2.45",
+        "Artículo 12.2.46",
+        "Artículo 12.2.47",
+        "artículo 36",
+        "Artículo 12.2.48",
+        "Artículo 12.2.49",
+        "Artículo 12.2.50",
+        "artículo 12.6.3",
+        "Artículo 12.2.51",
+        "Artículo 12.2.52",
+        "Artículo 12.2.53",
+        "Artículo 12.2.54",
+        "Artículo 12.2.55",
+        "Artículo 12.2.56",
+        "Artículo 12.2.57"
+      ],
+      "articleCount": 74,
+      "params": {
+        "altura": {
+          "mentions": 42,
+          "withNumericValue": 9,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Sobre la alineación al vial, y a lo largo de todo su recorrido en porciones de terreno con pendiente superior al 50%, se dispondrá un muro corrido con una altura máxima de 4 metros.",
+          "exampleValue": "4 metros"
+        },
+        "plantas": {
+          "mentions": 9,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Altura reguladora máxima y número máximo de plantas.",
+          "exampleValue": null
+        },
+        "ocupacion": {
+          "mentions": 10,
+          "withNumericValue": 2,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "2.5 Los casetones de acceso a terraza, con una altura de 2,70 metros hasta cara superior de último forjado, y una ocupación máxima de un 15% de la superficie total de la cubierta.",
+          "exampleValue": "15%"
+        },
+        "edificabilidad": {
+          "mentions": 24,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "2.4 Condiciones de edificabilidad y aprovechamiento.",
+          "exampleValue": null
+        },
+        "retranqueo": {
+          "mentions": 26,
+          "withNumericValue": 2,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Los muros de nivelación que hubieran de disponerse en el interior de la parcela, salvo los muros laterales de la primera plataforma de nivelación, no alcanzarán en ningún punto de los linderos medianeros, una altura superior a 1,50 metros por encima o por deba",
+          "exampleValue": "1,50 metros"
+        },
+        "alineacion": {
+          "mentions": 14,
+          "withNumericValue": 14,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Dicha altura de valla afectará igualmente a setos vegetales que se dispongan en la alineación a vial.",
+          "exampleValue": "(qualitative rule)"
+        },
+        "fondo": {
+          "mentions": 1,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Para las ordenanzas con edificación alineada a vial y siempre que sea para uso exclusivo de aparcamientos se permitirá que el sótano exceda del fondo máximo edificable.",
+          "exampleValue": null
+        },
+        "parcelaMinima": {
+          "mentions": 1,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Febrero 2018 \u00011.2 Cuando en las Ordenanzas de Zona o en los Planes Parciales o Especiales se establece una parcela mínima o unas dimensiones mínimas en algunos de sus lados, será obligatorio cumplir tales mínimos para poder edificar, salvo en los casos especif",
+          "exampleValue": null
+        },
+        "densidad": {
+          "mentions": 2,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Densidad máxima de viviendas.",
+          "exampleValue": null
+        }
+      },
+      "graphicDeferralAnywhere": true,
+      "textSample": " TITULO XII. NORMAS GENERALES DE EDIFICACIÓN NORMAS URBANÍSTICAS. ORDENANZAS PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001CAPITULO PRIMERO. DETERMINACIONES GENERALES DEL SUELO URBANO. Artículo 12.1.1. Zonas. El Suelo Urbano se regula estableciendo las siguientes Zonas a efectos de aplicación de normativa específica: 1. Edificios Protegidos 2. Ciudad Histórica. 2.1 CH PEPRI Centro 2.2 CH Perchel Norte 2.3 CH Trinidad "
+    },
+    {
+      "zone": "EP",
+      "file": "Norm_TXII_C3_Edificios_Protegidos_EP.pdf",
+      "status": 200,
+      "attempts": 1,
+      "bytes": 133050,
+      "ct": "application/pdf",
+      "sha256": "6046403219ec5faa",
+      "jbig2": false,
+      "chars": 42581,
+      "articles": [
+        "Artículo 12.3.1",
+        "Artículo 12.3.2",
+        "Artículo 12.3.3",
+        "Artículo 12.3.4",
+        "Artículo 12.3.5",
+        "Artículo 12.3.6",
+        "Artículo 12.3.7",
+        "Artículo 12.3.8",
+        "Artículo 12.3.9",
+        "Artículo 12.3.10",
+        "Artículo 12.3.11",
+        "Artículo 12.3.12",
+        "Artículo 12.3.13",
+        "Artículo 12.3.14",
+        "Artículo 12.3.15"
+      ],
+      "articleCount": 15,
+      "params": {
+        "altura": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "plantas": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "ocupacion": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "edificabilidad": {
+          "mentions": 1,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "La edificabilidad y aprovechamiento máximo de estas parcelas es, pues, la del edificio existente que se protege, con independencia de su calificación u ordenanza de aplicación, cuyos parámetros solo tendrán el carácter de máximos en cuanto al índice de edifica",
+          "exampleValue": null
+        },
+        "retranqueo": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "alineacion": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "fondo": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "parcelaMinima": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "densidad": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        }
+      },
+      "graphicDeferralAnywhere": false,
+      "textSample": " PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001CAPITULO TERCERO. EDIFICIOS PROTEGIDOS. Artículo 12.3.1. Delimitación del área de aplicación. El área de aplicación de la Ordenanza de \"Edificios Protegidos\" de este Plan general se extiende a la totalidad del ámbito regulado por el Plan, excepto para la zona C.1 Centro Histórico, que se regulará por el PEPRI del Centro, excepto en lo que modifique este Plan. Artículo 1"
+    },
+    {
+      "zone": "CH",
+      "file": "Norm_TXII_C4_Ciudad_Historica_CH.pdf",
+      "status": 200,
+      "attempts": 1,
+      "bytes": 182994,
+      "ct": "application/pdf",
+      "sha256": "f84f4abb39b18189",
+      "jbig2": false,
+      "chars": 67858,
+      "articles": [
+        "Artículo 12.4.1",
+        "Artículo 12.4.2",
+        "Artículo 12.4.3",
+        "artículo 4",
+        "Artículo 12.4.4",
+        "artículo 6",
+        "artículo 3.2",
+        "artículo 6.2",
+        "Artículo 12.4.5",
+        "artículo 19",
+        "Artículo 12.4.6",
+        "artículo 38",
+        "Artículo 12.4.7",
+        "artículo 39",
+        "artículo 12",
+        "artículo 12.2.32",
+        "artículo 12.2.45",
+        "artículo 40",
+        "artículo 12.4.8",
+        "artículo 6.3.3",
+        "artículo 6.4.3",
+        "artículo 6.4.2",
+        "artículo 6.4.8",
+        "artículo 6.4.7",
+        "artículo 6.5.1",
+        "Artículo 12.4.8",
+        "Artículo 12.4.9",
+        "artículo 25",
+        "artículo 10.2.5",
+        "Artículo 12.4.10",
+        "artículo 29",
+        "artículo 37.3",
+        "artículo 33",
+        "Artículo 12.4.11",
+        "artículo 30",
+        "Artículo 12.4.12"
+      ],
+      "articleCount": 36,
+      "params": {
+        "altura": {
+          "mentions": 5,
+          "withNumericValue": 1,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "La altura máxima de la cumbrera será de 2,75 metros, contados a partir del último forjado.",
+          "exampleValue": "2,75 metros"
+        },
+        "plantas": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "ocupacion": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "edificabilidad": {
+          "mentions": 2,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "En este caso, dicha superficie contabilizará a efectos del aprovechamiento patrimonizable.",
+          "exampleValue": null
+        },
+        "retranqueo": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "alineacion": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "fondo": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "parcelaMinima": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "densidad": {
+          "mentions": 2,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "La prohibición de las viviendas en sótano y semisótano así como el parámetro de densidad máxima de viviendas será de aplicación igualmente en todos los PA y PAM recogidos como tales por el presente PGOU.",
+          "exampleValue": null
+        }
+      },
+      "graphicDeferralAnywhere": false,
+      "textSample": " PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001 CAPÍTULO CUARTO. ZONA CIUDAD HISTÓRICA. Artículo 12.4.1. Definición y ámbito de aplicación. Comprende esta zona todo el área central de la Ciudad, con tramas correspondientes a procesos e urbanización histórica, de las que se pretende conservar y proteger la relación de su arquitectura con el espacio urbano, permitiendo y regulando la renovación de la edificación. La zon"
+    },
+    {
+      "zone": "MC",
+      "file": "Norm_TXII_C5_Manzana_Cerrada_MC.pdf",
+      "status": 200,
+      "attempts": 1,
+      "bytes": 135192,
+      "ct": "application/pdf",
+      "sha256": "d224e813587bfeb2",
+      "jbig2": false,
+      "chars": 49743,
+      "articles": [
+        "Artículo 12.5.1",
+        "Artículo 12.5.2",
+        "Artículo 12.5.3",
+        "artículo 12.2.27",
+        "artículo 12.2.18",
+        "Artículo 12.5.4",
+        "artículo 6.4.4",
+        "artículo 6.3.3",
+        "artículo 6.5.1"
+      ],
+      "articleCount": 9,
+      "params": {
+        "altura": {
+          "mentions": 4,
+          "withNumericValue": 1,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Las Plantas últimas contenidas dentro de la altura reguladora máxima podrán retranquearse libremente, pero con un mínimo de 3,00 metros desde alineación de PB para formación de pérgolas o similares, siempre que la medianería que de tal proceder pudiera derivar",
+          "exampleValue": "3,00 metros"
+        },
+        "plantas": {
+          "mentions": 7,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 1,
+          "state": "GRAPHIC_PLAN",
+          "evidence": "El número de plantas edificables será el indicado en el plano correspondiente de Alineaciones, viniendo las alturas en metros determinadas por la relación del cuadro incluido en este artículo.",
+          "exampleValue": null
+        },
+        "ocupacion": {
+          "mentions": 2,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Ocupación máxima de parcela.",
+          "exampleValue": null
+        },
+        "edificabilidad": {
+          "mentions": 3,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Edificabilidad neta.",
+          "exampleValue": null
+        },
+        "retranqueo": {
+          "mentions": 9,
+          "withNumericValue": 4,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "En la Planta Baja del edificio, siempre que el retranqueo se produzca al tratar el bajo como soportal, quedando los pilares en la alineación del vial y el parámetro retranqueado situado a una distancia de aquella igual o superior a 3 metros y en todo caso, en ",
+          "exampleValue": "3 metros"
+        },
+        "alineacion": {
+          "mentions": 2,
+          "withNumericValue": 2,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "En parcelas de superficie superior a 1.500 m² será necesario realizar, previamente al Proyecto de Edificación un Estudio de Detalle en donde se recojan las alineaciones exteriores y se fijen las interiores, estudiando la integración del edificio con el entorno",
+          "exampleValue": "(qualitative rule)"
+        },
+        "fondo": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "parcelaMinima": {
+          "mentions": 1,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Se fija una parcela mínima edificable que habrá de cumplir las siguientes condiciones:",
+          "exampleValue": null
+        },
+        "densidad": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        }
+      },
+      "graphicDeferralAnywhere": true,
+      "textSample": " PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001CAPITULO QUINTO. ZONA DE ORDENACION EN MANZANA CERRADA (MC). Artículo 12.5.1. Definición y objetivos. Comprende aquellos sectores de la ciudad coincidentes en su mayor parte con los ensanches y extensiones del casco histórico producidos en el primer tercio del siglo XX y que, sin modificar su estructura original, se mantienen en proceso de renovación urbana con aumento de"
+    },
+    {
+      "zone": "OA",
+      "file": "Norm_TXII_C6_Ordenacion_Abierta_OA.pdf",
+      "status": 200,
+      "attempts": 1,
+      "bytes": 125382,
+      "ct": "application/pdf",
+      "sha256": "d6b6c34fef91534d",
+      "jbig2": false,
+      "chars": 48086,
+      "articles": [
+        "Artículo 12.6.1",
+        "Artículo 12.6.2",
+        "Artículo 12.6.3",
+        "artículo12.2.7",
+        "Artículo 12.6.4",
+        "artículo 12.6.3.4",
+        "artículo 12.6.3",
+        "Artículo 12.6.5",
+        "artículo 6.4.4",
+        "articulo 6.3.3",
+        "artículo 6.5.1"
+      ],
+      "articleCount": 11,
+      "params": {
+        "altura": {
+          "mentions": 5,
+          "withNumericValue": 3,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Nº de Plantas Distancia mínima al eje del vial Altura máxima PB 6 metros 4,20 metros PB+1 6 metros 8,00 metros PB+2 6 metros 11,50 metros PB+3 6 metros 14,60 metros PB+4 7,50 metros 18,20 metros PB+5 10 metros 21,80 metros PB+6 12,50 metros 25,40 metros En cas",
+          "exampleValue": "6 metros"
+        },
+        "plantas": {
+          "mentions": 4,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 1,
+          "state": "GRAPHIC_PLAN",
+          "evidence": "el número de plantas edificables será el indicado en el plano correspondiente (plano de alineaciones), viniendo las alturas en metros determinadas por la relación del cuadro del artículo 12.6.3.4.",
+          "exampleValue": null
+        },
+        "ocupacion": {
+          "mentions": 4,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Ocupación máxima de parcela.",
+          "exampleValue": null
+        },
+        "edificabilidad": {
+          "mentions": 4,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Comprende aquellos sectores de Suelo Urbano y zonas de extensión procedentes del planeamiento parcial, en su mayor parte consolidadas y con su edificabilidad agotada, urbanizados mediante ordenación abierta de edificios o polígonos de vivienda plurifamiliar en",
+          "exampleValue": null
+        },
+        "retranqueo": {
+          "mentions": 10,
+          "withNumericValue": 1,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Febrero 2018 \u0001 \u0004\u0003 En el ARCO SOLAR III la altura para dicha separación será medida desde la cota de referencia hasta la coronación de la fachada de ático, a excepción de plantas de ático cuyo retranqueo sea superior a 4,50 m, con objeto de garantizar la accesi",
+          "exampleValue": "4,50 m"
+        },
+        "alineacion": {
+          "mentions": 3,
+          "withNumericValue": 3,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Sobre los espacios públicos, el vuelo máximo de cuerpos salientes, medidos normalmente al plano de la alineación a vial, no podrá exceder de 1,50 metros.",
+          "exampleValue": "(qualitative rule)"
+        },
+        "fondo": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "parcelaMinima": {
+          "mentions": 1,
+          "withNumericValue": 1,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "La parcela mínima edificable será de 400 m², estableciéndose la condición morfológica adicional de poder inscribir en el interior de la misma un círculo de 15 metros de diámetro.",
+          "exampleValue": "400 m²"
+        },
+        "densidad": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        }
+      },
+      "graphicDeferralAnywhere": true,
+      "textSample": " PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001CAPITULO SEXTO. ZONA DE ORDENACION ABIERTA (OA). Artículo 12.6.1. Definición y objetivos. Comprende aquellos sectores de Suelo Urbano y zonas de extensión procedentes del planeamiento parcial, en su mayor parte consolidadas y con su edificabilidad agotada, urbanizados mediante ordenación abierta de edificios o polígonos de vivienda plurifamiliar en altura, generalmente en"
+    },
+    {
+      "zone": "CJ",
+      "file": "Norm_TXII_C7_Ciudad_Jardin_CJ.pdf",
+      "status": 200,
+      "attempts": 1,
+      "bytes": 119924,
+      "ct": "application/pdf",
+      "sha256": "a9abde6ca2acf2e5",
+      "jbig2": false,
+      "chars": 43837,
+      "articles": [
+        "Artículo 12.7.1",
+        "Artículo 12.7.2",
+        "Artículo 12.7.3",
+        "artículo 12.2.26",
+        "artículo12.2.7",
+        "Artículo 12.7.4",
+        "artículo 6.4.4",
+        "artículo 6.3.3",
+        "artículo 6.5.1",
+        "Artículo 12.7.5"
+      ],
+      "articleCount": 10,
+      "params": {
+        "altura": {
+          "mentions": 8,
+          "withNumericValue": 2,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Se realizará hasta 1.00 metros de altura con elementos sólidos y opacos, y hasta una altura máxima de 2,10 metros con cerramiento ligero y transparente.",
+          "exampleValue": "1.00 metros"
+        },
+        "plantas": {
+          "mentions": 1,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "La correspondencia entre el número de plantas y la altura máxima, expresada en metros, se regula mediante la siguiente relación:",
+          "exampleValue": null
+        },
+        "ocupacion": {
+          "mentions": 1,
+          "withNumericValue": 1,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Subzona Altura máxima Ocupación máxima CJ-1 PB+2 45% CJ-1ª PB+1 45% CJ-2 PB+3 45% CJ-2a PB+2 45% CJ-3 PB+3 50% CJ-4 PB+4 50% En la subzona CJ-1 exclusivamente, se podrá reducir la altura máxima a PB+1, según criterio municipal en aquellas zonas consolidadas po",
+          "exampleValue": "45%"
+        },
+        "edificabilidad": {
+          "mentions": 3,
+          "withNumericValue": 1,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Subzona Índice de edificabilidad neto CJ-1, CJ-1a 0,66 m²t/m²s CJ-2, CJ-2a 0,83 m²t/m²s CJ-3 1,16 m²t/m²s CJ-4 1,50 m²t/m²s PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas.",
+          "exampleValue": "0,66 m²t/m²s"
+        },
+        "retranqueo": {
+          "mentions": 9,
+          "withNumericValue": 2,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "En todas las Subzonas, la separación a linderos privados será como mínimo de 1/2 de la altura en cada punto del edificio, con un mínimo absoluto de 3 metros.",
+          "exampleValue": "3 metros"
+        },
+        "alineacion": {
+          "mentions": 2,
+          "withNumericValue": 2,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Las parcelas que den fachada a viales estructurantes de los Planes Parciales, cuya alineación a vial es obligatoria.",
+          "exampleValue": "(qualitative rule)"
+        },
+        "fondo": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "parcelaMinima": {
+          "mentions": 1,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Subzona Parcela mínima (m²) CJ-1 300 CJ-1ª 500 CJ-2 300 CJ-2ª 500 CJ-3 300 CJ-4 500 3.",
+          "exampleValue": null
+        },
+        "densidad": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        }
+      },
+      "graphicDeferralAnywhere": false,
+      "textSample": " PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001CAPITULO SEPTIMO. ZONA DE CIUDAD JARDIN (CJ). Artículo 12.7.1. Definición y objetivos. Bajo esta denominación se designan zonas ocupadas por conjuntos residenciales de baja o media densidad, con vivienda unifamiliar o plurifamiliar extensiva, de procedencia diversa: en unos casos se trata de la evolución, por densificación y cambio de la tipología edificatoria, de primiti"
+    },
+    {
+      "zone": "UAS",
+      "file": "Norm_TXII_C8_Unifamiliar_Aislada_UAS.pdf",
+      "status": 200,
+      "attempts": 1,
+      "bytes": 119597,
+      "ct": "application/pdf",
+      "sha256": "10412d3de088b3b9",
+      "jbig2": false,
+      "chars": 43342,
+      "articles": [
+        "Artículo 12.8.1",
+        "Artículo 12.8.2",
+        "Artículo 12.8.3",
+        "Artículo 12.8.4",
+        "artículo 12.2.28",
+        "artículo12.2.7",
+        "Artículo 12.8.5",
+        "artículo 6.4.4",
+        "artículo 6.5.1"
+      ],
+      "articleCount": 9,
+      "params": {
+        "altura": {
+          "mentions": 6,
+          "withNumericValue": 4,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Para todas las Subzonas, la altura máxima permitida será PB+1, con un total de 7 metros de altura medidos de acuerdo con los criterios establecidos en los artículos 12.2.24 y 12.2.25.2 de las presentes Normas.",
+          "exampleValue": "7 metros"
+        },
+        "plantas": {
+          "mentions": 2,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Altura máxima y número de Plantas.",
+          "exampleValue": null
+        },
+        "ocupacion": {
+          "mentions": 3,
+          "withNumericValue": 1,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "c) La ocupación máxima admisible será del 60%.",
+          "exampleValue": "60%"
+        },
+        "edificabilidad": {
+          "mentions": 4,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Edificabilidad neta.",
+          "exampleValue": null
+        },
+        "retranqueo": {
+          "mentions": 4,
+          "withNumericValue": 1,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "La separación mínima a lindero privado deberá ser mayor o igual a 6 metros.",
+          "exampleValue": "6 metros"
+        },
+        "alineacion": {
+          "mentions": 1,
+          "withNumericValue": 1,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Dicha altura de valla afectará igualmente a setos vegetales que se dispongan en la alineación a vial.",
+          "exampleValue": "(qualitative rule)"
+        },
+        "fondo": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "parcelaMinima": {
+          "mentions": 4,
+          "withNumericValue": 1,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "a) La parcela mínima edificable será de 100 m².",
+          "exampleValue": "100 m²"
+        },
+        "densidad": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        }
+      },
+      "graphicDeferralAnywhere": false,
+      "textSample": " PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001 CAPITULO OCTAVO. ZONA DE VIVIENDA UNIFAMILIAR AISLADA (UAS). Artículo 12.8.1. Definición. Comprende las áreas de trama urbana tradicional o de urbanizaciones, que han desarrollado con edificación aislada de viviendas unifamiliares, cuyo espacio libre de parcela ajardinado constituye el elemento determinante de su morfología. Artículo 12.8.2. Definición de Subzonas. Se es"
+    },
+    {
+      "zone": "UAD",
+      "file": "Norm_TXII_C9_Unifamiliar_Adosada_UAD.pdf",
+      "status": 200,
+      "attempts": 1,
+      "bytes": 121940,
+      "ct": "application/pdf",
+      "sha256": "7b3d4117c7f6eee2",
+      "jbig2": false,
+      "chars": 46339,
+      "articles": [
+        "Artículo 12.9.1",
+        "Artículo 12.9.2",
+        "Artículo 12.9.3",
+        "Artículo 12.9.4",
+        "artículo12.2.7",
+        "artículo 12.2.28",
+        "Artículo 12.9.5",
+        "Artículo 12.9.6",
+        "artículo 6.4.4",
+        "artículo 6.5.1"
+      ],
+      "articleCount": 10,
+      "params": {
+        "altura": {
+          "mentions": 6,
+          "withNumericValue": 4,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Se realizará hasta 1.00 metros de altura con elementos sólidos y opacos, y hasta una altura máxima de 2,10 metros con cerramiento ligero y transparente.",
+          "exampleValue": "1.00 metros"
+        },
+        "plantas": {
+          "mentions": 2,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Altura máxima y número de Plantas.",
+          "exampleValue": null
+        },
+        "ocupacion": {
+          "mentions": 3,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Ocupación máxima de parcela.",
+          "exampleValue": null
+        },
+        "edificabilidad": {
+          "mentions": 4,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Edificabilidad neta.",
+          "exampleValue": null
+        },
+        "retranqueo": {
+          "mentions": 6,
+          "withNumericValue": 3,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "5 metros (1) Siempre que la parcela linde lateralmente con otros terrenos con una calificación que exija separación a linderos las separaciones de la edificación a linderos privados será variable en función de la orientación de las fachadas.",
+          "exampleValue": "5 metros"
+        },
+        "alineacion": {
+          "mentions": 2,
+          "withNumericValue": 2,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Dicha altura de valla afectará igualmente a setos vegetales que se dispongan en la alineación a vial.",
+          "exampleValue": "(qualitative rule)"
+        },
+        "fondo": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "parcelaMinima": {
+          "mentions": 2,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Parcela mínima.",
+          "exampleValue": null
+        },
+        "densidad": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        }
+      },
+      "graphicDeferralAnywhere": false,
+      "textSample": " PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001 CAPITULO NOVENO. ZONA DE VIVIENDA UNIFAMILIAR ADOSADA (UAD). Artículo 12.9.1. Definición. Comprende las áreas que se han desarrollado con edificación residencial unifamiliar, cuya morfología está caracterizada por la correlación entre parcelas y unidades de edificación, bien con viviendas aisladas o bien con viviendas adosadas, pero donde la calle ha sido el elemento ord"
+    },
+    {
+      "zone": "CTP",
+      "file": "Norm_TXII_C10_Colonia_Tradicional_Popular_CTP.pdf",
+      "status": 200,
+      "attempts": 1,
+      "bytes": 106602,
+      "ct": "application/pdf",
+      "sha256": "d76f9a9e8caeaa20",
+      "jbig2": false,
+      "chars": 32293,
+      "articles": [
+        "Artículo 12.10.1",
+        "Artículo 12.10.2",
+        "Artículo 12.10.3",
+        "Artículo 12.10.4",
+        "artículo 12.2.25.1",
+        "Artículo 12.10.5",
+        "Artículo 12.10.6",
+        "artículo 6.4.4",
+        "artículo 6.3.3",
+        "artículo 6.5.1"
+      ],
+      "articleCount": 10,
+      "params": {
+        "altura": {
+          "mentions": 1,
+          "withNumericValue": 1,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Subzona Nº máximo de Plantas Altura máxima edificable CTP-1 PB+1 750 metros CTP-2 PB+2 11,00 metros Medidos de acuerdo con los criterios establecidos en el artículo 12.2.25.1 de las presentes Normas.",
+          "exampleValue": "50 metros"
+        },
+        "plantas": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "ocupacion": {
+          "mentions": 5,
+          "withNumericValue": 2,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "La ocupación máxima permitida en Planta Baja será del 100%.",
+          "exampleValue": "100%"
+        },
+        "edificabilidad": {
+          "mentions": 5,
+          "withNumericValue": 1,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Subzona Indice de Edificabilidad CTP-1 1,80 m²t/m²s CTP-2 2,60 m²t/m²s La edificabilidad máxima de las parcelas en las que sea obligatoria o conveniente la tramitación de Estudio de Detalle, según lo especificado en el artículo anterior, no será superior a la ",
+          "exampleValue": "1,80 m²t/m²s"
+        },
+        "retranqueo": {
+          "mentions": 1,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Separación a linderos privados.",
+          "exampleValue": null
+        },
+        "alineacion": {
+          "mentions": 2,
+          "withNumericValue": 2,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Las casas son de una, dos y tres Plantas, medianeras, con alineación a vial rigurosa, con alto porcentaje de ocupación de la parcela, dejando un espacio libre para jardín circundante en unos casos, delantero en otros y, en la mayoría de ellos, para un patio tr",
+          "exampleValue": "(qualitative rule)"
+        },
+        "fondo": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "parcelaMinima": {
+          "mentions": 2,
+          "withNumericValue": 1,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Subzona Parcela mínima Fachada mínima CTP-1 70 m² 4 metros CTP-2 100 m² 4 metros Se exceptúan de esta Norma aquellas parcelas del Suelo Urbano que no cumplan con alguna de las condiciones antedichas y que se encuentren encajadas entre dos edificios medianeros ",
+          "exampleValue": "70 m²"
+        },
+        "densidad": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        }
+      },
+      "graphicDeferralAnywhere": false,
+      "textSample": " PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001CAPITULO DECIMO. ZONA DE ORDENACION EN COLONIA Y EDIFICACION TRADICIONAL POPULAR (CTP). Artículo 12.10.1. Definición y objetivos Con esta calificación se comprende una serie de conjuntos de vivienda unifamiliar y plurifamiliar, que bajo su diversidad de forma y estilos, presenta una gran similitud en los parámetros de composición interna, lo que permite asimilarlos a un m"
+    },
+    {
+      "zone": "PROD",
+      "file": "Norm_TXII_C11_Productivo_PROD.pdf",
+      "status": 200,
+      "attempts": 1,
+      "bytes": 221429,
+      "ct": "application/pdf",
+      "sha256": "99a09150dcf4b67f",
+      "jbig2": false,
+      "chars": 128942,
+      "articles": [
+        "Artículo 12.11.1",
+        "Artículo 12.11.2",
+        "Artículo 12.11.3",
+        "artículo 6.5.1",
+        "Artículo 12.11.4",
+        "artículo 12.2.41",
+        "Artículo 12.2.41",
+        "Artículo 12.11.5",
+        "Artículo 12.11.6",
+        "Artículo 12.11.7",
+        "artículo 12.11.3",
+        "Artículo 12.11.8",
+        "Artículo 12.11.9"
+      ],
+      "articleCount": 13,
+      "params": {
+        "altura": {
+          "mentions": 17,
+          "withNumericValue": 9,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "En Productivo 1 el número máximo de plantas habitables podrá ser de 2, incluida la baja, y en cualquier caso la altura de edificación podrá alcanzar un máximo de 9 metros a cornisa o arranque de cubierta y 12 metros a coronación.",
+          "exampleValue": "9 metros"
+        },
+        "plantas": {
+          "mentions": 3,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "En Productivo 1 el número máximo de plantas habitables podrá ser de 2, incluida la baja, y en cualquier caso la altura de edificación podrá alcanzar un máximo de 9 metros a cornisa o arranque de cubierta y 12 metros a coronación.",
+          "exampleValue": null
+        },
+        "ocupacion": {
+          "mentions": 15,
+          "withNumericValue": 2,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "La ocupación máxima de la parcela industrial neta será del 60%.",
+          "exampleValue": "60%"
+        },
+        "edificabilidad": {
+          "mentions": 22,
+          "withNumericValue": 5,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "Edificabilidad Productivo 1a la edificabilidad neta de parcelas no rebasará 0.85 m²t/m²s.",
+          "exampleValue": "0.85 m²t/m²s"
+        },
+        "retranqueo": {
+          "mentions": 8,
+          "withNumericValue": 3,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "En la ordenación en el grado 1a la fachada deberá respetarse un retranqueo mínimo de 12 metros respecto a la alineación oficial en el que se adecuarán las funciones de carga y descarga así como el espacio de aparcamiento obligatorio.",
+          "exampleValue": "12 metros"
+        },
+        "alineacion": {
+          "mentions": 9,
+          "withNumericValue": 9,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "En la ordenación en el grado 1a la fachada deberá respetarse un retranqueo mínimo de 12 metros respecto a la alineación oficial en el que se adecuarán las funciones de carga y descarga así como el espacio de aparcamiento obligatorio.",
+          "exampleValue": "(qualitative rule)"
+        },
+        "fondo": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "parcelaMinima": {
+          "mentions": 11,
+          "withNumericValue": 2,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "La parcela mínima a efectos de reparcelaciones y segregaciones será de 2.000 m².",
+          "exampleValue": "2.000 m²"
+        },
+        "densidad": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        }
+      },
+      "graphicDeferralAnywhere": true,
+      "textSample": " PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001CAPITULO UNDECIMO. ZONA DE USO PRODUCTIVO. Artículo 12.11.1. Ámbito. Definición y Agrupaciones. 1. Pertenecen a esta ordenanza los suelos identificados en los Planos de Calificación, Usos y Sistemas con el código Uso Productivo. 2. Se denomina uso productivo a una categoría normativa que identifica, con carácter global general, un espacio dado por su capacidad para acoger"
+    },
+    {
+      "zone": "GSM",
+      "file": "Norm_TXII_C15_Gran_Superficie_Minorista_GSM.pdf",
+      "status": 200,
+      "attempts": 1,
+      "bytes": 104875,
+      "ct": "application/pdf",
+      "sha256": "20bedfcc4f33e2cc",
+      "jbig2": false,
+      "chars": 62888,
+      "articles": [
+        "Artículo 12.15.1",
+        "artículo 6.4.7",
+        "Artículo 12.15.2",
+        "Artículo 12.15.3",
+        "Artículo 12.15.4"
+      ],
+      "articleCount": 5,
+      "params": {
+        "altura": {
+          "mentions": 3,
+          "withNumericValue": 1,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "La altura máxima edificable será de 12 metros y dos plantas.",
+          "exampleValue": "12 metros"
+        },
+        "plantas": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "ocupacion": {
+          "mentions": 3,
+          "withNumericValue": 2,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "La ocupación máxima de la parcela será del 80% en suelo urbano y del 60% en suelo urbanizable.",
+          "exampleValue": "80%"
+        },
+        "edificabilidad": {
+          "mentions": 6,
+          "withNumericValue": 1,
+          "graphicDeferralOnly": 0,
+          "state": "VALUE",
+          "evidence": "1.1 Edificabilidad 0,85 m2t/m2s 1.2 Altura PB+1 y 8 m.",
+          "exampleValue": "0,85 m2t/m2s"
+        },
+        "retranqueo": {
+          "mentions": 1,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "Febrero 2018 \u0001 2.5 Separación a linderos públicos y privados.",
+          "exampleValue": null
+        },
+        "alineacion": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "fondo": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        },
+        "parcelaMinima": {
+          "mentions": 2,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "NAMED_BUT_NO_VALUE",
+          "evidence": "2.1 Parcela mínima edificable.",
+          "exampleValue": null
+        },
+        "densidad": {
+          "mentions": 0,
+          "withNumericValue": 0,
+          "graphicDeferralOnly": 0,
+          "state": "ABSENT",
+          "evidence": null,
+          "exampleValue": null
+        }
+      },
+      "graphicDeferralAnywhere": true,
+      "textSample": " PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001CAPITULO DECIMOQUINTO. ZONA DE GRAN SUPERFICIE MINORISTA. Artículo 12.15.1. Definición y objetivos. Comprende esta calificación los suelos actualmente dedicados a este uso, definido según la Ley de Comercio Interior de Andalucía en vigor, y según el artículo 6.4.7. de este PGOU, así como los que, en cumplimiento del PGOU puedan llegar a establecerse mediante su calificaci"
+    }
+  ]
+}

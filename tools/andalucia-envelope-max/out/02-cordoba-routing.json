@@ -1,0 +1,207 @@
+{
+  "measuredAt": "2026-08-02T14:52:33.062Z",
+  "city": "cordoba",
+  "ine": "14021",
+  "service": "https://geoserver.pgou.coacordoba.org/geoserver/wfs",
+  "truncation": {
+    "ordenanzas": {
+      "returned": 453,
+      "numberMatched": 453,
+      "truncated": false
+    },
+    "vcatastro_urbanismo": {
+      "returned": 5725,
+      "numberMatched": 5725,
+      "truncated": false
+    },
+    "usos_dotacionales": {
+      "returned": 339,
+      "numberMatched": 339,
+      "truncated": false
+    },
+    "usos_globales": {
+      "returned": 108,
+      "numberMatched": 108,
+      "truncated": false
+    }
+  },
+  "zoneVocabulary": [
+    {
+      "code": "Manzana Cerrada",
+      "polys": 226,
+      "m2": 716991,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC2.pdf",
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC4.pdf",
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC3.pdf",
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC.pdf",
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC1.pdf"
+      ],
+      "ets": [
+        "2 (III)",
+        "2",
+        "4"
+      ]
+    },
+    {
+      "code": "Ordenacion Abierta",
+      "polys": 43,
+      "m2": 296977,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf"
+      ],
+      "ets": [
+        "1"
+      ]
+    },
+    {
+      "code": "Colonia Tradicional Popular",
+      "polys": 99,
+      "m2": 280140,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf"
+      ],
+      "ets": [
+        "1"
+      ]
+    },
+    {
+      "code": "Plurifamiliar aislada",
+      "polys": 30,
+      "m2": 172761,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_PAS2.pdf"
+      ],
+      "ets": [
+        "2"
+      ]
+    },
+    {
+      "code": "Unifamiliar Adosada",
+      "polys": 22,
+      "m2": 87912,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_UAD1.pdf",
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_UAD3.pdf"
+      ],
+      "ets": [
+        "1"
+      ]
+    },
+    {
+      "code": "Uso Comercial",
+      "polys": 8,
+      "m2": 37096,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_COMERCIAL.pdf"
+      ],
+      "ets": []
+    },
+    {
+      "code": "CTP1- Campo de la Verdad",
+      "polys": 16,
+      "m2": 21285,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_PTC.pdf"
+      ],
+      "ets": [
+        "(II)"
+      ]
+    },
+    {
+      "code": "Elemento protegido",
+      "polys": 7,
+      "m2": 10846,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_EP.pdf"
+      ],
+      "ets": []
+    },
+    {
+      "code": "Unifamiliar Aislada",
+      "polys": 1,
+      "m2": 2688,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_UAS1.pdf"
+      ],
+      "ets": [
+        "1"
+      ]
+    },
+    {
+      "code": "Uso Industrial",
+      "polys": 1,
+      "m2": 1920,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_INDUSTRIAL.pdf"
+      ],
+      "ets": []
+    }
+  ],
+  "ordenanzaFieldUnion": [
+    "ordenanza",
+    "et",
+    "sup_m2",
+    "link"
+  ],
+  "routing": {
+    "parcelsServed": 5725,
+    "attrAssignedUnique": 5303,
+    "attrNull": 422,
+    "attrMultiOrUnknown": 0,
+    "uniqueAssignmentRateOfServed": 92.63
+  },
+  "buildable": {
+    "nonBuildable": 164,
+    "buildable": 5561,
+    "note": "buildable = served parcel not flagged equipamiento and not a dotacional/viario/verde ordenanza code"
+  },
+  "parameterFieldsPresentInSchema": [],
+  "parcelFieldUnion": [
+    "id",
+    "zona_cod",
+    "zona_nom",
+    "direccion_postal",
+    "cp",
+    "refcat",
+    "uso_dominante",
+    "link_catastro",
+    "img_fachada",
+    "equipamiento",
+    "ordenanza",
+    "actuacion",
+    "usos",
+    "sup_pc_m2",
+    "sup_total_m2",
+    "sup_srasante_m2",
+    "sup_brasante_m2",
+    "sup_cubierta_m2",
+    "n_construc",
+    "max_plantas",
+    "max_plantasbr",
+    "c_semisotano",
+    "c_piscina",
+    "c_jardin",
+    "c_suelo",
+    "c_ruina",
+    "c_construccion",
+    "n_inmuebles",
+    "anyo_antiguedad_inmueble"
+  ],
+  "parcelParameterFieldsPresent": [
+    "plantas"
+  ],
+  "observedHeight": {
+    "field": "vcatastro_urbanismo.max_plantas",
+    "validOfBuildable": 97.48,
+    "provenance": "OBSERVED (Catastro built stock) — NOT a normative maximum. Cannot be used as an envelope height."
+  },
+  "citation": {
+    "zonesTotal": 10,
+    "zonesWithDocumentPointer": 10,
+    "zonesWithArticleLevelCitation": 0,
+    "documentPointerRate": 100,
+    "articleCitationRate": 0,
+    "areaWeightedDocumentPointerRate": 0
+  }
+}

@@ -1,0 +1,360 @@
+{
+  "measuredAt": "2026-08-02T15:50:02.396Z",
+  "truncationControl": {
+    "ordenanzas": {
+      "got": 453,
+      "matched": 453
+    },
+    "parcels": {
+      "got": 5725,
+      "matched": 5725
+    }
+  },
+  "routing": {
+    "parcels": 5725,
+    "geomUnique": 5391,
+    "geomMulti": 0,
+    "geomNone": 334,
+    "geometricUniqueAssignmentRate": 94.17,
+    "crossCheckAgainstPublisherAttribute": {
+      "comparable": 5287,
+      "agree": 5140,
+      "disagree": 147,
+      "agreementRate": 97.22
+    }
+  },
+  "et": {
+    "distinct": {
+      "1": 149,
+      "2": 88,
+      "4": 6,
+      "(null)": 183,
+      "2 (III)": 19,
+      "(II)": 8
+    },
+    "pairs": 360,
+    "byEt": {
+      "2": {
+        "n": 67,
+        "atOrBelow": 31,
+        "above": 36,
+        "builtSum": 165,
+        "max": 4
+      },
+      "3": {
+        "n": 293,
+        "atOrBelow": 184,
+        "above": 109,
+        "builtSum": 877,
+        "max": 6
+      }
+    },
+    "overallConsistency": 59.72,
+    "verdict": "REFUTED — only 59.72% of built stock respects it; et is NOT a plantas cap. Córdoba serves NO normative height.",
+    "polygonsWithRomanNumeral": 27,
+    "polygonCoverageOfRoman": 5.96,
+    "landWeightedCoverageOfRoman": 3.96
+  },
+  "samplePairs": [
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 2,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 2,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 2,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 6,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 2,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 2,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 2,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 1,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 5,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 1,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 2,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 2,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 1,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 4,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    },
+    {
+      "et": 3,
+      "built": 3,
+      "zone": "Manzana Cerrada"
+    }
+  ]
+}

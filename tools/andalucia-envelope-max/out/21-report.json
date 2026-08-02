@@ -1,0 +1,264 @@
+{
+  "measuredAt": "2026-08-02T16:15:38.758Z",
+  "region": "Andalucía",
+  "firstMeasurement": true,
+  "cordoba": {
+    "ine": "14021",
+    "service": "geoserver.pgou.coacordoba.org (COACo)",
+    "corpusServed": {
+      "parcels": 5725,
+      "cityUrbanParcels": 39639,
+      "coverageOfCity": 14.44,
+      "districts": 2,
+      "cusSheetsServed": 8,
+      "cusSheetsTotal": 49
+    },
+    "privateDevelopableSplit": {
+      "rowPct": 97.14,
+      "landPct": 73.67
+    },
+    "routing": {
+      "rowWeighted": 95.29,
+      "landWeighted": 71.81,
+      "geometricUnique": 94.17,
+      "agreementWithPublisherAttribute": 97.22
+    },
+    "parameterFieldsInService": "NONE — coaco:ordenanzas serves ordenanza, et, sup_m2, link and nothing else",
+    "etHypothesis": "REFUTED against Catastro built stock (59.72% consistency); et is not a plantas cap, and covers only 3.96% of land anyway",
+    "ordinanceCorpus": {
+      "distinctUrls": 15,
+      "distinctDocumentsByContentHash": 13,
+      "readableByLanguageGate": 1,
+      "readable": [
+        "O_INDUSTRIAL.pdf"
+      ],
+      "deadLinks200": 2
+    },
+    "readabilityOfPrivateLand": {
+      "row": 0.02,
+      "land": 0.07
+    },
+    "MAX": {
+      "completeRule": {
+        "row": 0,
+        "land": 0
+      },
+      "partialDrawable": {
+        "row": 0.02,
+        "land": 0.1,
+        "zones": [
+          "Uso Industrial"
+        ]
+      },
+      "max": {
+        "row": 0.02,
+        "land": 0.1
+      },
+      "cityWide": 0
+    },
+    "citation": {
+      "documentPointerOfZones": 100,
+      "documentPointerOfPrivateLand": 71.81,
+      "articleLevel": 0
+    },
+    "grammar": {
+      "UNKNOWN": {
+        "row": 4.71,
+        "land": 28.19
+      },
+      "SETBACK": {
+        "row": 19.62,
+        "land": 18.3
+      },
+      "ALIGNMENT/CLOSED-BLOCK": {
+        "row": 74.02,
+        "land": 51.8
+      },
+      "INDUSTRIAL": {
+        "row": 1.65,
+        "land": 1.71
+      }
+    }
+  },
+  "malaga": {
+    "ine": "29067",
+    "service": "sig.malaga.eu/geoserver (muralPGOU) + www.malaga.eu PDF_Normativa_GIS",
+    "routing": {
+      "verdict": "BLOCKED AT R",
+      "cause": "ORA-28000: la cuenta está bloqueada — the Oracle account behind the muralPGOU datastore is LOCKED",
+      "layersAffected": [
+        "muralPGOU:POLCALIF_T",
+        "muralPGOU:LINALIN_T",
+        "muralPGOU:DENOMPGOUAPR_V",
+        "muralPGOU:DENOMPGOUEXP_V",
+        "muralPGOU:DENOMPGOUTRM_V",
+        "muralPGOU:EXPCONSULTA_V",
+        "muralPGOU:EXPTOPO_V",
+        "muralPGOU:TEXTOPON_T"
+      ],
+      "attribution": "ATTRIBUTED TO THE LAYER: 3/3 control layers served rows in the same run with the same code, 0/8 muralPGOU layers did.",
+      "routesTried": 13,
+      "rate": 0
+    },
+    "normativaCorpus": {
+      "documentsProbed": 12,
+      "readableByLanguageGate": 12,
+      "zoneChaptersUsable": 10,
+      "filenameEncodesZoneCode": true,
+      "pattern": "Norm_T<TÍTULO>_C<CAPÍTULO>_<ZoneName>_<ZONECODE>.pdf"
+    },
+    "parametersDocumentWeighted": {
+      "completeRule": 20,
+      "partialDrawable": 60,
+      "notDrawable": 20,
+      "completeZones": [
+        "CJ",
+        "PROD"
+      ],
+      "partialZones": [
+        "MC",
+        "OA",
+        "UAS",
+        "UAD",
+        "CTP",
+        "GSM"
+      ],
+      "notDrawableZones": [
+        "EP",
+        "CH"
+      ]
+    },
+    "perParameterDocumentWeighted": {
+      "altura": {
+        "VALUE": 90,
+        "GRAPHIC_PLAN": 0,
+        "NAMED_NO_VALUE": 0,
+        "ABSENT": 10
+      },
+      "plantas": {
+        "VALUE": 0,
+        "GRAPHIC_PLAN": 20,
+        "NAMED_NO_VALUE": 40,
+        "ABSENT": 40
+      },
+      "ocupacion": {
+        "VALUE": 50,
+        "GRAPHIC_PLAN": 0,
+        "NAMED_NO_VALUE": 30,
+        "ABSENT": 20
+      },
+      "edificabilidad": {
+        "VALUE": 40,
+        "GRAPHIC_PLAN": 0,
+        "NAMED_NO_VALUE": 60,
+        "ABSENT": 0
+      },
+      "retranqueo": {
+        "VALUE": 60,
+        "GRAPHIC_PLAN": 0,
+        "NAMED_NO_VALUE": 20,
+        "ABSENT": 20
+      },
+      "alineacion": {
+        "VALUE": 70,
+        "GRAPHIC_PLAN": 0,
+        "NAMED_NO_VALUE": 0,
+        "ABSENT": 30
+      },
+      "fondo": {
+        "VALUE": 0,
+        "GRAPHIC_PLAN": 0,
+        "NAMED_NO_VALUE": 0,
+        "ABSENT": 100
+      },
+      "parcelaMinima": {
+        "VALUE": 40,
+        "GRAPHIC_PLAN": 0,
+        "NAMED_NO_VALUE": 40,
+        "ABSENT": 20
+      },
+      "densidad": {
+        "VALUE": 0,
+        "GRAPHIC_PLAN": 0,
+        "NAMED_NO_VALUE": 10,
+        "ABSENT": 90
+      }
+    },
+    "citation": {
+      "zonesCarryingArticleNumbers": 10,
+      "rate": 100,
+      "meanArticlesPerZone": 12.8
+    },
+    "MAXofBuildableLand": 0,
+    "maxCaveat": "The rule corpus is the richest measured in this programme, and it converts to ZERO envelope because no parcel can be assigned to a zone. Document-weighted rates CANNOT be land-weighted for Málaga — there is no served polygon to weight by.",
+    "closedBlockDepth": {
+      "lexemeUsed": "profundidad edificable",
+      "lexemeSearchedByPriorProbes": "fondo edificable",
+      "CTP": "HARD VALUE — Profundidad Máxima Edificable desde vial público de 15 metros, with edificabilidad banded across it",
+      "MC": "DEFERRED to a PERI / Estudio de Detalle (an instrument, not a plan sheet)",
+      "CH": "DEFERRED to the PEPRI Centro",
+      "definedIn": "Artículo 12.2.14 of the Ordenanza General",
+      "correction": "⛔ step 21 first reported fondo ABSENT on 100% of zone chapters. That was a regex artefact. The parameter is present, numeric and machine-readable."
+    }
+  },
+  "regionalSchema": {
+    "instrument": "Orden de 18 de febrero de 2026, Normas Directoras (BOJA 37, 24-feb-2026; applies to instruments without initial approval from 24-abr-2026)",
+    "source": "https://www.juntadeandalucia.es/sites/default/files/inline-files/2026/07/2026.07.31_Plantilla_NNDD.zip",
+    "featureClasses": 22,
+    "zoningClass": "INE_TIP_FT_OU_04_ZSU",
+    "zoningColumns": [
+      "fid",
+      "geom",
+      "COD_INS",
+      "COD_MUN",
+      "COD_ZSU",
+      "NOM_ZSU",
+      "TIPO_ZSU",
+      "USO_G",
+      "USO_P",
+      "EDIF_GLOB",
+      "DENS",
+      "NDOT_EX",
+      "NDOT_OB",
+      "NDOT_EX_H",
+      "NDOT_OB_H",
+      "ESP_VER_UR",
+      "APARC",
+      "NDOT_EL",
+      "NDOT_EL_H",
+      "NDOT_EQ",
+      "NDOT_EQ_H",
+      "NDOT_PRI",
+      "NDOT_PRI_H",
+      "AREA",
+      "OBSERV"
+    ],
+    "bulkFields": [
+      "DENS",
+      "DENS_MAX",
+      "DENS_MIN",
+      "EDIF_GLOB",
+      "EDIF_GLOBAL",
+      "EDIF_MAX",
+      "EDIF_MIN",
+      "EDIF_PROD",
+      "EDIF_PROT",
+      "EDIF_RES",
+      "EDIF_SERV",
+      "EDIF_TUR"
+    ],
+    "heightFields": [],
+    "setbackFields": [],
+    "predictionVerdict": "⭐ CONFIRMED — BULK WITHOUT HEIGHT. The mandated schema defines EDIF_*/DENS and defines NO height, no storey count, no setback and no depth. A dataset can be 100% conformant to the Andalusian standard and still be incapable of producing an envelope: the standard normalises the RATIO layer, not the FORM layer.",
+    "SCHEMA_SCOPE_vs_CORPUS_SERVED": {
+      "schemaScope": "22 mandated feature classes, 99 fields, region-wide, legally binding",
+      "corpusServed": "0 instruments. No endpoint returns any OU_* layer. The mandate is forward-only and no conforming instrument has yet been published as data.",
+      "note": "⛔ THESE ARE TWO NUMBERS AND MUST NEVER BE COMBINED. A rich schema over an empty corpus is 0% of envelope."
+    }
+  },
+  "nationalFinding": {
+    "claim": "⭐⭐ THE STANDING NATIONAL CONCLUSION THAT NO SPANISH REGION SERVES CLOSED-BLOCK DEPTH MAY BE A VOCABULARY ARTEFACT.",
+    "detail": "Every probe in this programme has searched for `fondo`. Málaga's PGOU never uses that lexeme and instead defines PROFUNDIDAD EDIFICABLE, with CTP carrying a hard 15 m. Canarias' empty `FonMaxEd` column, Huesca's and Barcelona's plan-sheet deferrals were all established with fondo-shaped searches.",
+    "action": "RE-TEST every city already measured against `profundidad edificable` (and `crujía`) before the \"closed-block depth is never served\" conclusion is relied on. Cheap re-check, high leverage."
+  }
+}

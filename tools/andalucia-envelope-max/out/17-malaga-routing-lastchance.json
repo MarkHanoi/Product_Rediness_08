@@ -1,0 +1,150 @@
+{
+  "measuredAt": "2026-08-02T16:06:52.149Z",
+  "typeName": "muralPGOU:POLCALIF_T",
+  "tests": [
+    {
+      "label": "WFS 2.0.0 count",
+      "url": "https://sig.malaga.eu/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=muralPGOU%3APOLCALIF_T&count=5&outputFormat=application/json",
+      "status": 500,
+      "bytes": 3113,
+      "ct": "text/html",
+      "features": null,
+      "note": "",
+      "err": null,
+      "isPng": false
+    },
+    {
+      "label": "WFS 1.1.0 maxFeatures",
+      "url": "https://sig.malaga.eu/geoserver/wfs?service=WFS&version=1.1.0&request=GetFeature&typeName=muralPGOU%3APOLCALIF_T&maxFeatures=5",
+      "status": 200,
+      "bytes": 872,
+      "ct": "application/xml",
+      "features": null,
+      "note": "",
+      "err": null,
+      "isPng": false
+    },
+    {
+      "label": "WFS 1.0.0 maxFeatures",
+      "url": "https://sig.malaga.eu/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=muralPGOU%3APOLCALIF_T&maxFeatures=5",
+      "status": 200,
+      "bytes": 742,
+      "ct": "text/xml;charset=UTF-8",
+      "features": null,
+      "note": "",
+      "err": null,
+      "isPng": false
+    },
+    {
+      "label": "WFS 2.0.0 GML (no outputFormat)",
+      "url": "https://sig.malaga.eu/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=muralPGOU%3APOLCALIF_T&count=5",
+      "status": 500,
+      "bytes": 3113,
+      "ct": "text/html",
+      "features": null,
+      "note": "",
+      "err": null,
+      "isPng": false
+    },
+    {
+      "label": "workspace mount /muralPGOU/wfs",
+      "url": "https://sig.malaga.eu/geoserver/muralPGOU/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=muralPGOU%3APOLCALIF_T&count=5&outputFormat=application/json",
+      "status": 500,
+      "bytes": 3113,
+      "ct": "text/html",
+      "features": null,
+      "note": "",
+      "err": null,
+      "isPng": false
+    },
+    {
+      "label": "workspace mount ows",
+      "url": "https://sig.malaga.eu/geoserver/muralPGOU/ows?service=WFS&version=2.0.0&request=GetFeature&typeNames=muralPGOU%3APOLCALIF_T&count=5&outputFormat=application/json",
+      "status": 500,
+      "bytes": 3113,
+      "ct": "text/html",
+      "features": null,
+      "note": "",
+      "err": null,
+      "isPng": false
+    },
+    {
+      "label": "root /ows",
+      "url": "https://sig.malaga.eu/geoserver/ows?service=WFS&version=2.0.0&request=GetFeature&typeNames=muralPGOU%3APOLCALIF_T&count=5&outputFormat=application/json",
+      "status": 500,
+      "bytes": 3113,
+      "ct": "text/html",
+      "features": null,
+      "note": "",
+      "err": null,
+      "isPng": false
+    },
+    {
+      "label": "bbox EPSG:25830",
+      "url": "https://sig.malaga.eu/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=muralPGOU%3APOLCALIF_T&count=5&outputFormat=application/json&bbox=366000,4064000,374000,4070000,EPSG:25830",
+      "status": 500,
+      "bytes": 3113,
+      "ct": "text/html",
+      "features": null,
+      "note": "",
+      "err": null,
+      "isPng": false
+    },
+    {
+      "label": "bbox EPSG:4326 lon,lat",
+      "url": "https://sig.malaga.eu/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=muralPGOU%3APOLCALIF_T&count=5&outputFormat=application/json&bbox=-4.52,36.68,-4.36,36.76,EPSG:4326",
+      "status": 500,
+      "bytes": 3113,
+      "ct": "text/html",
+      "features": null,
+      "note": "",
+      "err": null,
+      "isPng": false
+    },
+    {
+      "label": "bbox EPSG:4326 lat,lon (axis flip)",
+      "url": "https://sig.malaga.eu/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=muralPGOU%3APOLCALIF_T&count=5&outputFormat=application/json&bbox=36.68,-4.52,36.76,-4.36,EPSG:4326",
+      "status": 500,
+      "bytes": 3113,
+      "ct": "text/html",
+      "features": null,
+      "note": "",
+      "err": null,
+      "isPng": false
+    },
+    {
+      "label": "WMS GetMap (does it RENDER?)",
+      "url": "https://sig.malaga.eu/geoserver/wms?service=WMS&version=1.1.1&request=GetMap&layers=muralPGOU%3APOLCALIF_T&styles=&bbox=366000,4064000,374000,4070000&srs=EPSG:25830&width=256&height=256&format=image/png",
+      "status": 200,
+      "bytes": 788,
+      "ct": "application/vnd.ogc.se_xml;charset=UTF-8",
+      "features": null,
+      "note": "",
+      "err": null,
+      "isPng": false
+    },
+    {
+      "label": "WMS GetFeatureInfo (per-point)",
+      "url": "https://sig.malaga.eu/geoserver/wms?service=WMS&version=1.1.1&request=GetFeatureInfo&layers=muralPGOU%3APOLCALIF_T&query_layers=muralPGOU%3APOLCALIF_T&styles=&bbox=366000,4064000,374000,4070000&srs=EPSG:25830&width=256&height=256&x=128&y=128&info_format=application/json&feature_count=10",
+      "status": 200,
+      "bytes": 788,
+      "ct": "application/vnd.ogc.se_xml;charset=UTF-8",
+      "features": null,
+      "note": "",
+      "err": null,
+      "isPng": false
+    },
+    {
+      "label": "WMS GetLegendGraphic (is a STYLE bound?)",
+      "url": "https://sig.malaga.eu/geoserver/wms?service=WMS&version=1.1.1&request=GetLegendGraphic&layer=muralPGOU%3APOLCALIF_T&format=image/png",
+      "status": 200,
+      "bytes": 674,
+      "ct": "application/vnd.ogc.se_xml;charset=UTF-8",
+      "features": null,
+      "note": "EXCEPTION: java.io.IOExceptionUnable to obtain connection: Cannot create PoolableConnectionFactory (ORA-28000: la cuenta está bloqueada https://docs.oracle.com/error-help/db/ora-28000/) Cannot create PoolableConnectionFactory (ORA-28000: la cuenta está bloqueada https://docs.oracle.com/error-help/db/ora-28000/) ORA-28000: la cuenta está bloqueada https://docs.oracle.com/error-help/db/ora-28000/",
+      "err": null,
+      "isPng": false
+    }
+  ],
+  "verdict": "NO ROUTE. Eleven parameterisations across WFS 1.0/1.1/2.0, three mount paths, three CRS/axis combinations, plus WMS GetMap, GetFeatureInfo and GetLegendGraphic. muralPGOU:POLCALIF_T is advertised in GetCapabilities and backed by nothing. MÁLAGA IS BLOCKED AT R — parcel->zone cannot be proven from any public endpoint."
+}

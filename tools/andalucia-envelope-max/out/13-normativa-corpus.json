@@ -1,0 +1,642 @@
+{
+  "measuredAt": "2026-08-02T15:43:19.732Z",
+  "cordoba": [
+    {
+      "url": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_INDUSTRIAL.pdf",
+      "label": "cordoba",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 40702,
+      "sha256": "2f740caa07f5ad52",
+      "pdfVersion": "1.7",
+      "producer": "PDFium",
+      "codecsRaw": [
+        "/FlateDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": false,
+      "hasFont": true,
+      "textOps": 1044,
+      "vectorOps": 12,
+      "chars": 19376,
+      "klass": "TEXT",
+      "params": {
+        "altura": true,
+        "plantas": false,
+        "ocupacion": true,
+        "edificabilidad": true,
+        "retranqueo": true,
+        "alineacion": true,
+        "fondo": false,
+        "parcelaMinima": true,
+        "densidad": false
+      },
+      "graphicDeferral": true,
+      "graphicSnippet": "plano de Calificación",
+      "articles": [
+        "artículo 13.11"
+      ],
+      "articleCount": 1,
+      "textSample": "PLAN GENERAL DE ORDENACION CORDOBA 2001 TEXTO REFUNDIDO OCT. 2002 NORMATIVA: USOS ORDENANZAS Y URBANIZACIÓN GERENCIA DE URBANISMO. AYUNTAMIENTO DE CORDOBA 68 CAPITULO UNDECIMO ZONA DE INDUSTRIA. Artículo 13.11.1. Definición y subzonificación Comprende la zona grafiada con la trama de IND. en el plano de Calificación, Usos y Sistemas que se ha subdividido en las zonas llamadas: IND-1, IND-2 , IND-3 e IND-G. IND-1. Industria escaparate: Zonas industriales o situadas a lo largo de las principales vías de comunicación con capacidad para configurar fachadas urbanas. IND-2. Industria pequeña y media: Son zonas industriales que se caracterizan por la presencia de parcelas de pequeño y medio tamaño."
+    },
+    {
+      "url": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_PAS2.pdf",
+      "label": "cordoba",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 761762,
+      "sha256": "6794a17c7e3e5acb",
+      "pdfVersion": "1.7",
+      "producer": "Microsoft: Print To PDF",
+      "codecsRaw": [
+        "/FlateDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": false,
+      "hasFont": false,
+      "textOps": 0,
+      "vectorOps": 157457,
+      "chars": 0,
+      "klass": "OUTLINED-VECTOR"
+    },
+    {
+      "url": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf",
+      "label": "cordoba",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 525909,
+      "sha256": "d4caf6e6d7fd2e2b",
+      "pdfVersion": "1.7",
+      "producer": "Microsoft: Print To PDF",
+      "codecsRaw": [
+        "/FlateDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": false,
+      "hasFont": false,
+      "textOps": 0,
+      "vectorOps": 108039,
+      "chars": 0,
+      "klass": "OUTLINED-VECTOR"
+    },
+    {
+      "url": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC2.pdf",
+      "label": "cordoba",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 1243005,
+      "sha256": "fb696f73a0dced69",
+      "pdfVersion": "1.7",
+      "producer": "Microsoft: Print To PDF",
+      "codecsRaw": [
+        "/FlateDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": false,
+      "hasFont": false,
+      "textOps": 0,
+      "vectorOps": 256911,
+      "chars": 0,
+      "klass": "OUTLINED-VECTOR"
+    },
+    {
+      "url": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_EP.pdf",
+      "label": "cordoba",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 3650124,
+      "sha256": "4c670938c9ac1276",
+      "pdfVersion": "1.7",
+      "producer": "Microsoft: Print To PDF",
+      "codecsRaw": [
+        "/FlateDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": false,
+      "hasFont": false,
+      "textOps": 0,
+      "vectorOps": 758408,
+      "chars": 0,
+      "klass": "OUTLINED-VECTOR"
+    },
+    {
+      "url": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_UAD1.pdf",
+      "label": "cordoba",
+      "status": 200,
+      "ct": "text/html",
+      "bytes": 69,
+      "sha256": "e6d49d2bf0c19274",
+      "klass": "HTML (placeholder / error page served with HTTP 200)",
+      "magic": "<html>..<body>.."
+    },
+    {
+      "url": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+      "label": "cordoba",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 3156020,
+      "sha256": "f5e358cc76a62fd2",
+      "pdfVersion": "1.7",
+      "producer": "Microsoft: Print To PDF",
+      "codecsRaw": [
+        "/FlateDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": false,
+      "hasFont": false,
+      "textOps": 0,
+      "vectorOps": 665656,
+      "chars": 0,
+      "klass": "OUTLINED-VECTOR"
+    },
+    {
+      "url": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_UAS1.pdf",
+      "label": "cordoba",
+      "status": 200,
+      "ct": "text/html",
+      "bytes": 69,
+      "sha256": "e6d49d2bf0c19274",
+      "klass": "HTML (placeholder / error page served with HTTP 200)",
+      "magic": "<html>..<body>.."
+    },
+    {
+      "url": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_PTC.pdf",
+      "label": "cordoba",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 92046,
+      "sha256": "0cc4d2ba54817d78",
+      "pdfVersion": "1.7",
+      "producer": "Microsoft: Print To PDF",
+      "codecsRaw": [
+        "/FlateDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": false,
+      "hasFont": false,
+      "textOps": 0,
+      "vectorOps": 18502,
+      "chars": 0,
+      "klass": "OUTLINED-VECTOR"
+    },
+    {
+      "url": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC4.pdf",
+      "label": "cordoba",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 1243005,
+      "sha256": "e945f3539aafaa4f",
+      "pdfVersion": "1.7",
+      "producer": "Microsoft: Print To PDF",
+      "codecsRaw": [
+        "/FlateDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": false,
+      "hasFont": false,
+      "textOps": 0,
+      "vectorOps": 256911,
+      "chars": 0,
+      "klass": "OUTLINED-VECTOR"
+    },
+    {
+      "url": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC3.pdf",
+      "label": "cordoba",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 1243005,
+      "sha256": "e945f3539aafaa4f",
+      "pdfVersion": "1.7",
+      "producer": "Microsoft: Print To PDF",
+      "codecsRaw": [
+        "/FlateDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": false,
+      "hasFont": false,
+      "textOps": 0,
+      "vectorOps": 256911,
+      "chars": 0,
+      "klass": "OUTLINED-VECTOR"
+    },
+    {
+      "url": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_COMERCIAL.pdf",
+      "label": "cordoba",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 675041,
+      "sha256": "a8bf3b86f1083818",
+      "pdfVersion": "1.7",
+      "producer": "Microsoft: Print To PDF",
+      "codecsRaw": [
+        "/FlateDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": false,
+      "hasFont": false,
+      "textOps": 0,
+      "vectorOps": 121418,
+      "chars": 0,
+      "klass": "OUTLINED-VECTOR"
+    },
+    {
+      "url": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC.pdf",
+      "label": "cordoba",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 1243005,
+      "sha256": "f3275dc387f89807",
+      "pdfVersion": "1.7",
+      "producer": "Microsoft: Print To PDF",
+      "codecsRaw": [
+        "/FlateDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": false,
+      "hasFont": false,
+      "textOps": 0,
+      "vectorOps": 256911,
+      "chars": 0,
+      "klass": "OUTLINED-VECTOR"
+    },
+    {
+      "url": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC1.pdf",
+      "label": "cordoba",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 1243005,
+      "sha256": "8a9c95913e763b3a",
+      "pdfVersion": "1.7",
+      "producer": "Microsoft: Print To PDF",
+      "codecsRaw": [
+        "/FlateDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": false,
+      "hasFont": false,
+      "textOps": 0,
+      "vectorOps": 256911,
+      "chars": 0,
+      "klass": "OUTLINED-VECTOR"
+    },
+    {
+      "url": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_UAD3.pdf",
+      "label": "cordoba",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 344195,
+      "sha256": "c458b5367f9ee384",
+      "pdfVersion": "1.7",
+      "producer": "Microsoft: Print To PDF",
+      "codecsRaw": [
+        "/FlateDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": false,
+      "hasFont": true,
+      "textOps": 352,
+      "vectorOps": 659,
+      "chars": 1120388,
+      "klass": "TEXT",
+      "params": {
+        "altura": false,
+        "plantas": true,
+        "ocupacion": false,
+        "edificabilidad": false,
+        "retranqueo": false,
+        "alineacion": false,
+        "fondo": false,
+        "parcelaMinima": false,
+        "densidad": false
+      },
+      "graphicDeferral": false,
+      "graphicSnippet": null,
+      "articles": [],
+      "articleCount": 0,
+      "textSample": "\u0000\u00009Úhdmx÷%\u0014¬\u0000\u0000Pð\u0000\u00018\bheadï\u001dð\u0000\u0000\u0001\u0000\u0000\u00006hhea\u000eG\u000ej\u0000\u0000\u0001Ä\u0000\u0000\u0000$hmtxF3 w\u0000\u0000\u0002h\u0000\u0000/ôkern\u0000\u0010þÔ\u0000\u0001ñü\u0000\u0000\u0000ÌlocaYgt\u0000\u0001Ø\u0004\u0000\u0000\u0019ømaxp\u0010\u0007\u0007­\u0000\u0000\u0001è\u0000\u0000\u0000 metaË?nÇ\u0000\u0003·x\u0000\u0000\u0000ZnameÍ® \u0000\u0001òÈ\u0000\u00000®postÿ\u001e\u0000\u0000\u0002#x\u0000\u0000\u0000 prepb8Å\u0000\u0001ô\u0000\u0000\u0006Ë\u0000\u0001\u0000\u0000\u0000\u0007\u0002WÅWô_\u000f<õ\b\u0019\b\u0000\u0000\u0000\u0000\u0000£rÂ¿\u0000\u0000\u0000\u0000ÝºBûÝýg ß\u0007û\u0000\u0002\u0000 \u0000\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0001\u0000\u0000\u0007>þN\u0000C ªûÝúR ß\u0000!\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000 ÿ\u0000\u0001\u0000\u0000 û\u0000\u0000\u0010\u00000\u0000\u0003\u0000\u0002\u0000\u0010\u0000/\u0000V\u0000\u0000\u0002\u0006Ë\u0000\u0002\u0000\u0001\u0000\u0003\u0003\u0001\u0000\u0005\u0000\b\u0005\u00053\u0000\u001e\u0001\u001b\u0005\u00053\u0000Z\u0003Ñ\u0000f\u0002\u0012\b\u0005\u0002 \u0006\u0004\u0002\u0002\u0002 \u0002\u0004à\u0000\u000eÿ\u0000\u0000x[\u0000\u0000\u0000\u0001\u0000\u0000\u0000\u0000TMC \u0000\u0001\u0000 %Ì\u0005ÓþW\u00013\u0007>\u0001²@\u0000\u0001¿ß÷\u0000\u0000\u0004&\u0005º\u0000\u0000\u0000 \u0000\u0004\u0006\u0000\u0001\u0000\u0000\u0000\u0000\u0000\u00029\u0000\u0000\u00029\u0000\u0000\u0000\u0000\u0000\u0000\u0002×\u0001\u0015\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0001\u0001\u0004\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u00029\u0000v\u0000\u0000\u0000\u0000\u0004s\u0000\u0004s\u0001/\u0004s\u0000x\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u00029\u0000u\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0005Vÿ×\u0005V\u0000Y\u0005Ç\u0000º\u0005Ç\u0000[\u0005V\u0000\u0000\u0000\u0000\u0000\u00069\u0000Ç\u0000\u0000\u0000\u0000\u00029\u0000u\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0004s\u0000R\u0006ª\u0000Z\u0005Ç\u0000d\u00069\u0000»\u0005V\u0000X\u0000\u0000\u0000\u0000\u0005Ç\u0000`\u0005V\u0000\u0004ã\u0000ÿ\u0005Ç\u0000Æ\u0005V\u0000þ\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0005V\u0000ï\u0004ã\u00002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0004s\u0000l\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+    }
+  ],
+  "malaga": [
+    {
+      "url": "https://www.malaga.eu/recursos/urbanismo/GIS_URBANISMO/PGOU/PDF_Normativa_GIS/Norm_TXI_SUNC.pdf",
+      "label": "malaga",
+      "status": 0,
+      "ct": "",
+      "bytes": 0,
+      "klass": "DEAD",
+      "note": "fetch failed"
+    },
+    {
+      "url": "https://www.malaga.eu/recursos/urbanismo/GIS_URBANISMO/PGOU/PDF_Normativa_GIS/Norm_TXII_C1-2_Ordenanza_General_Edificacion_OG.pdf",
+      "label": "malaga",
+      "status": 0,
+      "ct": "",
+      "bytes": 0,
+      "klass": "DEAD",
+      "note": "fetch failed"
+    },
+    {
+      "url": "https://www.malaga.eu/recursos/urbanismo/GIS_URBANISMO/PGOU/PDF_Normativa_GIS/Norm_TXII_C3_Edificios_Protegidos_EP.pdf",
+      "label": "malaga",
+      "status": 0,
+      "ct": "",
+      "bytes": 0,
+      "klass": "DEAD",
+      "note": "fetch failed"
+    },
+    {
+      "url": "https://www.malaga.eu/recursos/urbanismo/GIS_URBANISMO/PGOU/PDF_Normativa_GIS/Norm_TXII_C4_Ciudad_Historica_CH.pdf",
+      "label": "malaga",
+      "status": 0,
+      "ct": "",
+      "bytes": 0,
+      "klass": "DEAD",
+      "note": "fetch failed"
+    },
+    {
+      "url": "https://www.malaga.eu/recursos/urbanismo/GIS_URBANISMO/PGOU/PDF_Normativa_GIS/Norm_TXII_C5_Manzana_Cerrada_MC.pdf",
+      "label": "malaga",
+      "status": 0,
+      "ct": "",
+      "bytes": 0,
+      "klass": "DEAD",
+      "note": "fetch failed"
+    },
+    {
+      "url": "https://www.malaga.eu/recursos/urbanismo/GIS_URBANISMO/PGOU/PDF_Normativa_GIS/Norm_TXII_C6_Ordenacion_Abierta_OA.pdf",
+      "label": "malaga",
+      "status": 0,
+      "ct": "",
+      "bytes": 0,
+      "klass": "DEAD",
+      "note": "fetch failed"
+    },
+    {
+      "url": "https://www.malaga.eu/recursos/urbanismo/GIS_URBANISMO/PGOU/PDF_Normativa_GIS/Norm_TXII_C7_Ciudad_Jardin_CJ.pdf",
+      "label": "malaga",
+      "status": 0,
+      "ct": "",
+      "bytes": 0,
+      "klass": "DEAD",
+      "note": "fetch failed"
+    },
+    {
+      "url": "https://www.malaga.eu/recursos/urbanismo/GIS_URBANISMO/PGOU/PDF_Normativa_GIS/Norm_TXII_C8_Unifamiliar_Aislada_UAS.pdf",
+      "label": "malaga",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 119597,
+      "sha256": "10412d3de088b3b9",
+      "pdfVersion": "1.4",
+      "producer": "GPL Ghostscript 8.15",
+      "codecsRaw": [
+        "/FlateDecode",
+        "/DCTDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": true,
+      "hasFont": true,
+      "textOps": 851,
+      "vectorOps": 998,
+      "chars": 43342,
+      "klass": "TEXT",
+      "params": {
+        "altura": true,
+        "plantas": true,
+        "ocupacion": true,
+        "edificabilidad": true,
+        "retranqueo": true,
+        "alineacion": true,
+        "fondo": false,
+        "parcelaMinima": true,
+        "densidad": false
+      },
+      "graphicDeferral": false,
+      "graphicSnippet": null,
+      "articles": [
+        "artículo 12.8",
+        "artículo 12.2",
+        "artículo12.2",
+        "artículo 6.4",
+        "artículo 6.5"
+      ],
+      "articleCount": 5,
+      "textSample": " PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001 CAPITULO OCTAVO. ZONA DE VIVIENDA UNIFAMILIAR AISLADA (UAS). Artículo 12.8.1. Definición. Comprende las áreas de trama urbana tradicional o de urbanizaciones, que han desarrollado con edificación aislada de viviendas unifamiliares, cuyo espacio libre de parcela ajardinado constituye el elemento determinante de su morfología. Artículo 12.8.2. Definición de Subzonas. Se establecen cinco Subzonas, tituladas UAS-1, UAS-2, UAS-3, UAS-4 y UAS-5, diferenciadas por sus condiciones de intensidad y edificación. Artículo 12.8.3. Condiciones de Ordenación. 1. Edificabilidad neta"
+    },
+    {
+      "url": "https://www.malaga.eu/recursos/urbanismo/GIS_URBANISMO/PGOU/PDF_Normativa_GIS/Norm_TXII_C9_Unifamiliar_Adosada_UAD.pdf",
+      "label": "malaga",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 121940,
+      "sha256": "7b3d4117c7f6eee2",
+      "pdfVersion": "1.4",
+      "producer": "GPL Ghostscript 8.15",
+      "codecsRaw": [
+        "/FlateDecode",
+        "/DCTDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": true,
+      "hasFont": true,
+      "textOps": 631,
+      "vectorOps": 36,
+      "chars": 46339,
+      "klass": "TEXT",
+      "params": {
+        "altura": true,
+        "plantas": true,
+        "ocupacion": true,
+        "edificabilidad": true,
+        "retranqueo": true,
+        "alineacion": true,
+        "fondo": false,
+        "parcelaMinima": true,
+        "densidad": false
+      },
+      "graphicDeferral": false,
+      "graphicSnippet": null,
+      "articles": [
+        "artículo 12.9",
+        "artículo12.2",
+        "artículo 12.2",
+        "artículo 6.4",
+        "artículo 6.5"
+      ],
+      "articleCount": 5,
+      "textSample": " PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001 CAPITULO NOVENO. ZONA DE VIVIENDA UNIFAMILIAR ADOSADA (UAD). Artículo 12.9.1. Definición. Comprende las áreas que se han desarrollado con edificación residencial unifamiliar, cuya morfología está caracterizada por la correlación entre parcelas y unidades de edificación, bien con viviendas aisladas o bien con viviendas adosadas, pero donde la calle ha sido el elemento ordenador fundamental en la mayoría de los casos. En estas áreas el proceso de edificación debe ser mantenido, o en su caso reconducido, en ordenación adosada a fin de que, manteniéndose la relación entr"
+    },
+    {
+      "url": "https://www.malaga.eu/recursos/urbanismo/GIS_URBANISMO/PGOU/PDF_Normativa_GIS/Norm_TXII_C10_Colonia_Tradicional_Popular_CTP.pdf",
+      "label": "malaga",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 106602,
+      "sha256": "d76f9a9e8caeaa20",
+      "pdfVersion": "1.4",
+      "producer": "GPL Ghostscript 8.15",
+      "codecsRaw": [
+        "/FlateDecode",
+        "/DCTDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": true,
+      "hasFont": true,
+      "textOps": 557,
+      "vectorOps": 358,
+      "chars": 32293,
+      "klass": "TEXT",
+      "params": {
+        "altura": true,
+        "plantas": true,
+        "ocupacion": true,
+        "edificabilidad": true,
+        "retranqueo": true,
+        "alineacion": true,
+        "fondo": false,
+        "parcelaMinima": true,
+        "densidad": false
+      },
+      "graphicDeferral": false,
+      "graphicSnippet": null,
+      "articles": [
+        "artículo 12.10",
+        "artículo 12.2",
+        "artículo 6.4",
+        "artículo 6.3",
+        "artículo  6.4",
+        "artículo 6.5"
+      ],
+      "articleCount": 6,
+      "textSample": " PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001CAPITULO DECIMO. ZONA DE ORDENACION EN COLONIA Y EDIFICACION TRADICIONAL POPULAR (CTP). Artículo 12.10.1. Definición y objetivos Con esta calificación se comprende una serie de conjuntos de vivienda unifamiliar y plurifamiliar, que bajo su diversidad de forma y estilos, presenta una gran similitud en los parámetros de composición interna, lo que permite asimilarlos a un mismo tipo edificatorio que no es otro que el de la vivienda tradicional popular de los núcleos rurales, del cual estos conjuntos son un trasunto a nivel urbano. Las casas son de una, dos y tres Planta"
+    },
+    {
+      "url": "https://www.malaga.eu/recursos/urbanismo/GIS_URBANISMO/PGOU/PDF_Normativa_GIS/Norm_TXII_C11_Productivo_PROD.pdf",
+      "label": "malaga",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 221429,
+      "sha256": "99a09150dcf4b67f",
+      "pdfVersion": "1.4",
+      "producer": "GPL Ghostscript 8.15",
+      "codecsRaw": [
+        "/FlateDecode",
+        "/DCTDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": true,
+      "hasFont": true,
+      "textOps": 2176,
+      "vectorOps": 106,
+      "chars": 128942,
+      "klass": "TEXT",
+      "params": {
+        "altura": true,
+        "plantas": true,
+        "ocupacion": true,
+        "edificabilidad": true,
+        "retranqueo": true,
+        "alineacion": true,
+        "fondo": false,
+        "parcelaMinima": true,
+        "densidad": false
+      },
+      "graphicDeferral": true,
+      "graphicSnippet": "Planos de Calificación",
+      "articles": [
+        "artículo 12.11",
+        "artículo 6.5",
+        "artículo 12.2"
+      ],
+      "articleCount": 3,
+      "textSample": " PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001CAPITULO UNDECIMO. ZONA DE USO PRODUCTIVO. Artículo 12.11.1. Ámbito. Definición y Agrupaciones. 1. Pertenecen a esta ordenanza los suelos identificados en los Planos de Calificación, Usos y Sistemas con el código Uso Productivo. 2. Se denomina uso productivo a una categoría normativa que identifica, con carácter global general, un espacio dado por su capacidad para acoger a un conjunto de actividades empresariales dedicadas a la producción de bienes o a la prestación de servicios a otras empresas. 3. La Ordenanza comprende cinco grados, identificados en los planos con"
+    },
+    {
+      "url": "https://www.malaga.eu/recursos/urbanismo/GIS_URBANISMO/PGOU/PDF_Normativa_GIS/Norm_TXII_C15_Gran_Superficie_Minorista_GSM.pdf",
+      "label": "malaga",
+      "status": 200,
+      "ct": "application/pdf",
+      "bytes": 104875,
+      "sha256": "20bedfcc4f33e2cc",
+      "pdfVersion": "1.4",
+      "producer": "GPL Ghostscript 8.15",
+      "codecsRaw": [
+        "/FlateDecode",
+        "/DCTDecode"
+      ],
+      "codecsTree": [],
+      "jbig2": false,
+      "hasImage": true,
+      "hasFont": true,
+      "textOps": 252,
+      "vectorOps": 27,
+      "chars": 62888,
+      "klass": "TEXT",
+      "params": {
+        "altura": true,
+        "plantas": true,
+        "ocupacion": true,
+        "edificabilidad": true,
+        "retranqueo": true,
+        "alineacion": false,
+        "fondo": false,
+        "parcelaMinima": true,
+        "densidad": false
+      },
+      "graphicDeferral": true,
+      "graphicSnippet": "reflejadas en Plano",
+      "articles": [
+        "artículo 12.15",
+        "artículo 6.4"
+      ],
+      "articleCount": 2,
+      "textSample": " PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001CAPITULO DECIMOQUINTO. ZONA DE GRAN SUPERFICIE MINORISTA. Artículo 12.15.1. Definición y objetivos. Comprende esta calificación los suelos actualmente dedicados a este uso, definido según la Ley de Comercio Interior de Andalucía en vigor, y según el artículo 6.4.7. de este PGOU, así como los que, en cumplimiento del PGOU puedan llegar a establecerse mediante su calificación específica. La calificación comercial, o cualquiera otra, o el establecimiento de un uso global de un suelo, aun cumpliendo las determinaciones para el establecimiento de una gran superficie minori"
+    }
+  ],
+  "cordobaDistinctOracle": {
+    "distinctUrls": 15,
+    "urlsThatResolve": 15,
+    "distinctDocumentsByContentHash": 13,
+    "aliasGroups": [
+      {
+        "sha256": "e6d49d2bf0c19274",
+        "urls": [
+          "O_UAD1.pdf",
+          "O_UAS1.pdf"
+        ]
+      },
+      {
+        "sha256": "e945f3539aafaa4f",
+        "urls": [
+          "O_MC4.pdf",
+          "O_MC3.pdf"
+        ]
+      }
+    ],
+    "overstatementFactor": 1.15
+  },
+  "malagaDistinctOracle": {
+    "distinctUrls": 12,
+    "urlsThatResolve": 5,
+    "distinctDocumentsByContentHash": 5,
+    "aliasGroups": [],
+    "overstatementFactor": 1
+  }
+}

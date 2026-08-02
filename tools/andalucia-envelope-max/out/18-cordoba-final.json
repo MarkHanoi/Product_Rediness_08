@@ -1,0 +1,222 @@
+{
+  "measuredAt": "2026-08-02T16:08:52.329Z",
+  "city": "Córdoba",
+  "ine": "14021",
+  "service": "https://geoserver.pgou.coacordoba.org/geoserver/wfs",
+  "truncationControl": {
+    "ordenanzas": {
+      "returned": 453,
+      "numberMatched": 453
+    },
+    "parcels": {
+      "returned": 5725,
+      "numberMatched": 5725
+    },
+    "dotacionales": {
+      "returned": 339,
+      "numberMatched": 339
+    }
+  },
+  "denominators": {
+    "D1_served": 5725,
+    "D2_privateDevelopable": 5561,
+    "D3_cityWideUrbanParcels": 39639,
+    "D3": {
+      "urbanParcelsCityWide": 39639,
+      "allParcels": 50530,
+      "source": "geoserver.pgou.coacordoba.org WFS coaco:ordenanzas (453 polygons prefetched in EPSG:4326) · field link",
+      "coacoCoverageOfCity": 14.44
+    }
+  },
+  "privateDevelopableSplit": {
+    "rows": {
+      "total": 5725,
+      "publicSystems": 164,
+      "privateDevelopable": 5561
+    },
+    "land": {
+      "total": 2676577,
+      "publicSystems": 704823,
+      "privateDevelopable": 1971754
+    },
+    "rowPct": 97.14,
+    "landPct": 73.67
+  },
+  "routing": {
+    "rowWeighted": 95.29,
+    "landWeighted": 71.81
+  },
+  "parameterReadability": {
+    "machineReadableOrdinance": {
+      "row": 8.07,
+      "land": 4.48
+    },
+    "outlinedVectorOrdinance": {
+      "row": 87.14,
+      "land": 67.14
+    },
+    "deadLink": {
+      "row": 0.07,
+      "land": 0.19
+    },
+    "noZoneOrNoDocument": {
+      "row": 4.71,
+      "land": 28.19
+    }
+  },
+  "MAX": {
+    "completeRule": {
+      "row": 0,
+      "land": 0
+    },
+    "partialDrawable": {
+      "row": 0,
+      "land": 0
+    },
+    "max": {
+      "row": 0,
+      "land": 0
+    },
+    "basis": "machine-readable today, without human OCR/transcription of a raster or outlined-vector PDF",
+    "ceilingIfTranscribed": {
+      "row": 95.21000000000001,
+      "land": 71.62
+    }
+  },
+  "citation": {
+    "zonesTotal": 10,
+    "zonesWithDocumentPointer": 10,
+    "zonesWithArticleLevelCitation": 0,
+    "documentPointerRate": {
+      "row": 100,
+      "landOfPrivate": 71.81
+    },
+    "articleCitationRate": 0
+  },
+  "grammar": {
+    "UNKNOWN": {
+      "row": 4.71,
+      "land": 28.19
+    },
+    "SETBACK": {
+      "row": 19.62,
+      "land": 18.3
+    },
+    "ALIGNMENT/CLOSED-BLOCK": {
+      "row": 74.02,
+      "land": 51.8
+    },
+    "INDUSTRIAL": {
+      "row": 1.65,
+      "land": 1.71
+    }
+  },
+  "fondoNote": "coaco:ordenanzas has no fondo/depth column and the ordinance PDFs have no text layer, so Córdoba's closed-block DEPTH is UNPROVEN — it is UNKNOWN, not GRAPHIC_PLAN. It cannot be added to the national no-region-serves-closed-block-depth tally as evidence, only as a non-contradiction.",
+  "zones": [
+    {
+      "code": "Uso Industrial",
+      "polys": 1,
+      "m2": 1920,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_INDUSTRIAL.pdf"
+      ],
+      "docState": "TEXT — machine-readable",
+      "grammar": "INDUSTRIAL"
+    },
+    {
+      "code": "Plurifamiliar aislada",
+      "polys": 30,
+      "m2": 172761,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_PAS2.pdf"
+      ],
+      "docState": "OUTLINED-VECTOR — legible to a human, ZERO extractable characters",
+      "grammar": "SETBACK"
+    },
+    {
+      "code": "Ordenacion Abierta",
+      "polys": 43,
+      "m2": 296977,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf"
+      ],
+      "docState": "OUTLINED-VECTOR — legible to a human, ZERO extractable characters",
+      "grammar": "SETBACK"
+    },
+    {
+      "code": "Manzana Cerrada",
+      "polys": 226,
+      "m2": 716991,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC2.pdf",
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC4.pdf",
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC3.pdf",
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC.pdf",
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC1.pdf"
+      ],
+      "docState": "OUTLINED-VECTOR — legible to a human, ZERO extractable characters",
+      "grammar": "ALIGNMENT/CLOSED-BLOCK"
+    },
+    {
+      "code": "Elemento protegido",
+      "polys": 7,
+      "m2": 10846,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_EP.pdf"
+      ],
+      "docState": "OUTLINED-VECTOR — legible to a human, ZERO extractable characters",
+      "grammar": "UNKNOWN"
+    },
+    {
+      "code": "Unifamiliar Adosada",
+      "polys": 22,
+      "m2": 87912,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_UAD1.pdf",
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_UAD3.pdf"
+      ],
+      "docState": "TEXT — machine-readable",
+      "grammar": "SETBACK"
+    },
+    {
+      "code": "Colonia Tradicional Popular",
+      "polys": 99,
+      "m2": 280140,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf"
+      ],
+      "docState": "OUTLINED-VECTOR — legible to a human, ZERO extractable characters",
+      "grammar": "ALIGNMENT/CLOSED-BLOCK"
+    },
+    {
+      "code": "Unifamiliar Aislada",
+      "polys": 1,
+      "m2": 2688,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_UAS1.pdf"
+      ],
+      "docState": "DEAD LINK (HTTP 200, 69-byte placeholder)",
+      "grammar": "SETBACK"
+    },
+    {
+      "code": "CTP1- Campo de la Verdad",
+      "polys": 16,
+      "m2": 21285,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_PTC.pdf"
+      ],
+      "docState": "OUTLINED-VECTOR — legible to a human, ZERO extractable characters",
+      "grammar": "ALIGNMENT/CLOSED-BLOCK"
+    },
+    {
+      "code": "Uso Comercial",
+      "polys": 8,
+      "m2": 37096,
+      "links": [
+        "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_COMERCIAL.pdf"
+      ],
+      "docState": "OUTLINED-VECTOR — legible to a human, ZERO extractable characters",
+      "grammar": "INDUSTRIAL"
+    }
+  ]
+}

@@ -1,0 +1,750 @@
+{
+  "measuredAt": "2026-08-02T15:53:29.824Z",
+  "source": "https://www.juntadeandalucia.es/sites/default/files/inline-files/2026/07/2026.07.31_Plantilla_NNDD.zip",
+  "zipStatus": 200,
+  "zipBytes": 188973,
+  "entries": [
+    {
+      "name": "2026.02.18_nndd_iiou.gpkg",
+      "bytes": 716800
+    },
+    {
+      "name": "2026.02.18_Plantilla_NNDD.qgs~",
+      "bytes": 679821
+    },
+    {
+      "name": "2026.07.31_Plantilla_NNDD.qgs",
+      "bytes": 680521
+    }
+  ],
+  "featureClasses": {
+    "2026.02.18_nndd_iiou.gpkg": [
+      {
+        "table": "ogr_empty_table",
+        "cols": [
+          "fid",
+          "geom"
+        ]
+      },
+      {
+        "table": "Nivel_Ins",
+        "cols": [
+          "fid",
+          "cod_nv_ord"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_21_ATR",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_19_PROT_POL",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "ogr_empty_table",
+        "cols": [
+          "fid",
+          "geom"
+        ]
+      },
+      {
+        "table": "Nivel_Ins",
+        "cols": [
+          "fid",
+          "cod_nv_ord"
+        ]
+      },
+      {
+        "table": "TIP",
+        "cols": [
+          "fid",
+          "cod_tip"
+        ]
+      },
+      {
+        "table": "SCAT_SR",
+        "cols": [
+          "fid",
+          "cod_sct_sr"
+        ]
+      },
+      {
+        "table": "CAT_SR",
+        "cols": [
+          "fid",
+          "cod_cat_sr"
+        ]
+      },
+      {
+        "table": "C_S",
+        "cols": [
+          "fid",
+          "cod_cs"
+        ]
+      },
+      {
+        "table": "TIPO_ZSU",
+        "cols": [
+          "fid",
+          "cod_tzsu"
+        ]
+      },
+      {
+        "table": "ORIGEN_SU",
+        "cols": [
+          "fid",
+          "cod_or_su"
+        ]
+      },
+      {
+        "table": "FT",
+        "cols": [
+          "fid",
+          "cod_ft"
+        ]
+      },
+      {
+        "table": "TIP",
+        "cols": [
+          "fid",
+          "cod_tip"
+        ]
+      },
+      {
+        "table": "SCAT_SR",
+        "cols": [
+          "fid",
+          "cod_sct_sr"
+        ]
+      },
+      {
+        "table": "SCAT_ESTR",
+        "cols": [
+          "fid",
+          "cod_sct_ee"
+        ]
+      },
+      {
+        "table": "CAT_ESTR",
+        "cols": [
+          "fid",
+          "cod_cat_ee"
+        ]
+      },
+      {
+        "table": "USO_P",
+        "cols": [
+          "fid",
+          "cod_uso_p"
+        ]
+      },
+      {
+        "table": "USO_G",
+        "cols": [
+          "fid",
+          "cod_uso_g"
+        ]
+      },
+      {
+        "table": "USOS_PRO",
+        "cols": [
+          "fid",
+          "cod_uso_pr"
+        ]
+      },
+      {
+        "table": "CAR_PROT",
+        "cols": [
+          "fid",
+          "cod_cprot"
+        ]
+      },
+      {
+        "table": "TIPO_ATU",
+        "cols": [
+          "fid",
+          "cod_tp_atu"
+        ]
+      },
+      {
+        "table": "OBT_ESTR",
+        "cols": [
+          "fid",
+          "cod_obt_ee"
+        ]
+      },
+      {
+        "table": "TIT_ESTR",
+        "cols": [
+          "fid",
+          "cod_tit_ree"
+        ]
+      },
+      {
+        "table": "PROP_ATU",
+        "cols": [
+          "fid",
+          "cod_pr_atu"
+        ]
+      },
+      {
+        "table": "SIT_ESTR",
+        "cols": [
+          "fid",
+          "cod_sit_ee"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_03_DEL_URB",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "CAR_PROT",
+        "cols": [
+          "fid",
+          "cod_cprot"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_02_DEL",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_01_MUN",
+        "cols": [
+          "fid",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "MUNICIPIO",
+        "cols": [
+          "fid",
+          "cod_mun"
+        ]
+      },
+      {
+        "table": "TIP_BIC",
+        "cols": [
+          "fid",
+          "cod_tbic"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_05_SR",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_04_ZSU",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_03_DEL_URB",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_13_SSGG_POL",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_20_PROT_PUN",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_19_PROT_POL",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_09_AAEEII",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_08_HRD",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_07_ZSR",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_16_PROP_ATU",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_18_ATU",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_ATU"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_16_PROP_ATU",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_11_RAIP_LIN",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_12_RAIP_PUN",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_10_RAIP_POL",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_04_ZSU",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_15_SSGG_PUN",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_13_SSGG_POL",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_14_SSGG_LIN",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_TR_OU_13_SSGG_LIN",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_16_PROP_ATU",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_18_ATU",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_17_MUN_ATU",
+        "cols": [
+          "fid",
+          "COD_ATU"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_01_MUN",
+        "cols": [
+          "fid",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_02_DEL",
+        "cols": [
+          "fid",
+          "geom",
+          "NOM_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_10_RAIP_POL",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_11_RAIP_LIN",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_07_ZSR",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_05_SR",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_12_RAIP_PUN",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_09_AAEEII",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_02_DEL",
+        "cols": [
+          "fid",
+          "geom",
+          "NOM_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_18_ATU",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_17_MUN_ATU",
+        "cols": [
+          "fid",
+          "COD_ATU"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_16_PROP_ATU",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_02_DEL",
+        "cols": [
+          "fid",
+          "geom",
+          "NOM_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_01_MUN",
+        "cols": [
+          "fid",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_02_DEL",
+        "cols": [
+          "fid",
+          "geom",
+          "NOM_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_01_MUN",
+        "cols": [
+          "fid",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_02_DEL",
+        "cols": [
+          "fid",
+          "geom",
+          "NOM_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_01_MUN",
+        "cols": [
+          "fid",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_14_SSGG_LIN",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_02_DEL",
+        "cols": [
+          "fid",
+          "geom",
+          "NOM_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_01_MUN",
+        "cols": [
+          "fid",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_16_PROP_ATU",
+        "cols": [
+          "fid"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_15_SSGG_PUN",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_02_DEL",
+        "cols": [
+          "fid",
+          "geom",
+          "NOM_INS"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_01_MUN",
+        "cols": [
+          "fid",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_03_DEL_URB",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_01_MUN",
+        "cols": [
+          "fid",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_19_PROT_POL",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_18_ATU",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_ATU"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_08_HRD",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_21_ATR",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_20_PROT_PUN",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_05_SR",
+        "cols": [
+          "fid",
+          "geom",
+          "COD_MUN"
+        ]
+      },
+      {
+        "table": "INE_TIP_FT_OU_06_UUPP",
+        "cols": [
+          "fid",
+          "COD_SR"
+        ]
+      },
+      {
+        "table": "qgis_projects",
+        "cols": [
+          "name",
+          "metadata",
+          "content"
+        ]
+      }
+    ]
+  },
+  "fieldUnionAcrossMandatedSchema": [
+    "COD_ATU",
+    "COD_INS",
+    "COD_MUN",
+    "COD_SR",
+    "NOM_INS",
+    "cod_cat_ee",
+    "cod_cat_sr",
+    "cod_cprot",
+    "cod_cs",
+    "cod_ft",
+    "cod_mun",
+    "cod_nv_ord",
+    "cod_obt_ee",
+    "cod_or_su",
+    "cod_pr_atu",
+    "cod_sct_ee",
+    "cod_sct_sr",
+    "cod_sit_ee",
+    "cod_tbic",
+    "cod_tip",
+    "cod_tit_ree",
+    "cod_tp_atu",
+    "cod_tzsu",
+    "cod_uso_g",
+    "cod_uso_p",
+    "cod_uso_pr",
+    "content",
+    "fid",
+    "geom",
+    "metadata",
+    "name"
+  ],
+  "heightShapedFields": [],
+  "bulkFields": [],
+  "zoningTables": [
+    "TIPO_ZSU",
+    "INE_TIP_FT_OU_04_ZSU",
+    "INE_TIP_FT_OU_04_ZSU"
+  ],
+  "prediction": {
+    "claim": "the mandated schema carries EDIF_* + DENS and NO altura -> a P failure at HEIGHT specifically",
+    "heightShapedFieldsFound": [],
+    "bulkFieldsFound": [],
+    "verdict": "INDETERMINATE — neither bulk nor height fields recovered; extraction may have failed, treat as UNKNOWN"
+  }
+}

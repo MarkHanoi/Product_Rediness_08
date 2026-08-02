@@ -1,0 +1,297 @@
+{
+  "measuredAt": "2026-08-02T16:14:57.664Z",
+  "method": "exhaustive vocabulary sweep with context capture; absence proven by exhaustion, not asserted from one regex",
+  "docs": [
+    {
+      "zone": "MC",
+      "file": "Norm_TXII_C5_Manzana_Cerrada_MC.pdf",
+      "chars": 25633,
+      "terms": {
+        "fondo": {
+          "count": 2,
+          "contexts": [
+            "rá de cumplir las siguientes condiciones: 1.1. Superficie mínima: 300 m². 1.2. Longitud mínima de fachada de vial: 7 metros. 1.3. Fondo mínimo de parcela: 9 metros. 1.4. La forma de la parcela permitirá la inscripción de un círculo de diámetro igual o superior a 7 metros. Se exceptúan de esta Norma aquellas parcelas de",
+            "plantas. 5.3. Igualmente en parcelas con frente a dos calles formando esquina que tengan una superficie inferior a la mínima o un fondo medio edificable inferior a 8 metros perpendicular a una de las dos fachadas, la ocupación podrá ser del 100% en todas sus plantas. 6. Separación a linderos privados. La edificación es"
+          ]
+        },
+        "profundidad": {
+          "count": 3,
+          "contexts": [
+            " pudiera derivarse sea cubierta con elementos vegetales u otro tipo de ocultación que la equipare a un tratamiento de fachada. 4. Profundidad máxima edificable. En determinados Planes Especiales de Reforma Interior, o Estudios de Detalle dentro del ámbito de la presente zona, se fijarán en cada caso unas alineaciones i",
+            "rma Interior, o Estudios de Detalle dentro del ámbito de la presente zona, se fijarán en cada caso unas alineaciones interiores o profundidad máxima edificable. En los demás casos, cuando este parámetro no venga expresamente fijado, se entenderá libre, con la única condición de que la ocupación del edificio en planta n",
+            ".1. Excepcionalmente en parcelas que den fachada a viales opuestos, cuya longitud de fachada sea igual o inferior a 8 metros y su profundidad - igual o inferior a 15 metros - no permita concebir la existencia de un Patio de Luces de ventilación o de manzana, la ocupación en todas sus plantas podrá ser del 100 %. 5.2. E"
+          ]
+        },
+        "crujia": {
+          "count": 0,
+          "contexts": []
+        },
+        "patio de manzana": {
+          "count": 2,
+          "contexts": [
+            "se exigirá la incorporación de huecos en planta baja que permitan desarrollar estrategias de ventilación y evacuación de calor de patio de manzana debidamente justificadas en proyecto. En los casos en que se admita una ocupación del 100% en planta baja para usos no residenciales, los criterios del apartado anterior ser",
+            "metros y se realizará por zonas comunes con acceso directo desde el vial público. (1) Sólo Podrán ventilar e iluminar a través de patio de manzana alojamientos completos cuando las dimensiones de patios sean superiores a 350 m² (sin hueco de ventilación e iluminación alguna a la vía pública) considerándose interiores y"
+          ]
+        },
+        "linea de edificacion": {
+          "count": 0,
+          "contexts": []
+        },
+        "area de movimiento": {
+          "count": 0,
+          "contexts": []
+        },
+        "edificabilidad de manzana": {
+          "count": 0,
+          "contexts": []
+        },
+        "envolvente": {
+          "count": 0,
+          "contexts": []
+        },
+        "ocupacion en plantas": {
+          "count": 0,
+          "contexts": []
+        }
+      }
+    },
+    {
+      "zone": "CTP",
+      "file": "Norm_TXII_C10_Colonia_Tradicional_Popular_CTP.pdf",
+      "chars": 19461,
+      "terms": {
+        "fondo": {
+          "count": 2,
+          "contexts": [
+            ". La ocupación podrá ser del 100% en todas las plantas, en parcelas menores de 70 m² en las que la dimensión de fachada supere al fondo medio. Igualmente en parcelas con frente a dos calles formando esquina que tengan una superficie inferior a la mínima o un fondo medio edificable inferior a 8 metros perpendicular a un",
+            " fondo medio. Igualmente en parcelas con frente a dos calles formando esquina que tengan una superficie inferior a la mínima o un fondo medio edificable inferior a 8 metros perpendicular a una de las dos fachadas, la ocupación podrá ser del 100% en todas sus plantas. PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEX"
+          ]
+        },
+        "profundidad": {
+          "count": 8,
+          "contexts": [
+            "ntorno. Para aquellas parcelas menores de 800 m² en las cuales, una vez trazada una línea paralela al vial público a 15 metros de profundidad, la superficie que quede tras esa línea sea igual o superior a la mitad de la superficie de la parcela, podrá redactarse igualmente Estudio de Detalle que resuelva los objetivos ",
+            "icable será la resultante de la aplicación de las Normas de composición del edificio expresadas en el presente capítulo, como son Profundidad Edificable y Ocupación Máxima, así como de las ordenanzas generales de edificación. No obstante no se superarán los índices de edificabilidad que se especifican a continuación, s",
+            "licar el índice de edificabilidad de 1,8 m²t/m²s para CTP 1 y 2,6 m²t/m²s para CTP 2 en la franja de la parcela delimitada por la Profundidad Máxima Edificable desde vial público de 15 metros, y de aplicar el índice de 0,6 m²t/m²s al resto de la parcela. PLAN GENERAL DE ORDENACIÓN URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001",
+            "habrá de alinearse el paramento exterior del edificio. Esta doble alineación será fijada en las alineaciones correspondientes. 4. Profundidad máxima edificable. La profundidad máxima edificable se fija en 15 metros medidos desde la fachada de la edificación hacia el vial. No obstante, cuando alguno de los linderos priv",
+            "terior del edificio. Esta doble alineación será fijada en las alineaciones correspondientes. 4. Profundidad máxima edificable. La profundidad máxima edificable se fija en 15 metros medidos desde la fachada de la edificación hacia el vial. No obstante, cuando alguno de los linderos privados esté configurado por la media",
+            " No obstante, cuando alguno de los linderos privados esté configurado por la medianería de un edificio preexistente colindante, a profundidad superior a 15 metros que no esté fuera de ordenación y que por su estado de conservación y antigüedad no sea previsible su sustitución, podrá admitirse el adosamiento de la nueva",
+            "onservación y antigüedad no sea previsible su sustitución, podrá admitirse el adosamiento de la nueva edificación sobrepasando la profundidad de 15 metros, sin que puedan crearse nuevas medianerías vistas, y sin que se imposibilite la configuración de espacios libres interiores de manzana. En cualquier caso, las condic",
+            "mas, teniendo como objetivo el logro de una adecuada recomposición urbana. Asimismo, en caso de existencia de doble alineación la profundidad máxima edificable se medirá desde la alineación de fachada de la edificación. Para los casos en que previa propuesta de edificación se permita sobrepasar la Profundidad máxima ed"
+          ]
+        },
+        "crujia": {
+          "count": 0,
+          "contexts": []
+        },
+        "patio de manzana": {
+          "count": 0,
+          "contexts": []
+        },
+        "linea de edificacion": {
+          "count": 0,
+          "contexts": []
+        },
+        "area de movimiento": {
+          "count": 0,
+          "contexts": []
+        },
+        "edificabilidad de manzana": {
+          "count": 0,
+          "contexts": []
+        },
+        "envolvente": {
+          "count": 0,
+          "contexts": []
+        },
+        "ocupacion en plantas": {
+          "count": 0,
+          "contexts": []
+        }
+      }
+    },
+    {
+      "zone": "CH",
+      "file": "Norm_TXII_C4_Ciudad_Historica_CH.pdf",
+      "chars": 48331,
+      "terms": {
+        "fondo": {
+          "count": 2,
+          "contexts": [
+            "enos la primer crujía que dé frente a fachada de vía pública. Dicha crujía destinada a local comercial o vivienda deberá tener un fondo mínimo de 3,5 metros Se permiten los edificios de nueva planta destinados a uso exclusivo de aparcamientos en los solares que el Plan señala a este efecto y también en aquellos otros q",
+            "tiende que la restricción en planta baja afecta a las parcelas o edificios situados en las calles mencionadas, incluyendo todo el fondo o profundidad máxima edificable de la parcela o edificio en cuestión, por lo que las esquinas de calle se consideran vinculadas a la restricción hasta el límite parcelario, aún cuando "
+          ]
+        },
+        "profundidad": {
+          "count": 2,
+          "contexts": [
+            " PB+4 16,70 17,80/18,20 * > 16,50 PB+5 20 21,20/21,60 * * Uso comercial o Terciario en planta baja PEPRI Centro. Artículo 12.4.4. Profundidad edificable, ocupación y patios. El artículo 6 del PEPRI Centro; El apartado 5.5º del PERI Perchel Sur; el artículo 3.2 del PERI Perchel Norte y el artículo 6.2 del PERI Trinidad ",
+            "ue la restricción en planta baja afecta a las parcelas o edificios situados en las calles mencionadas, incluyendo todo el fondo o profundidad máxima edificable de la parcela o edificio en cuestión, por lo que las esquinas de calle se consideran vinculadas a la restricción hasta el límite parcelario, aún cuando ésta dé "
+          ]
+        },
+        "crujia": {
+          "count": 3,
+          "contexts": [
+            "itiva. En el caso de utilizar la planta baja para aparcamientos, deberá dedicarse a local comercial o vivienda al menos la primer crujía que dé frente a fachada de vía pública. Dicha crujía destinada a local comercial o vivienda deberá tener un fondo mínimo de 3,5 metros Se permiten los edificios de nueva planta destin",
+            "rcamientos, deberá dedicarse a local comercial o vivienda al menos la primer crujía que dé frente a fachada de vía pública. Dicha crujía destinada a local comercial o vivienda deberá tener un fondo mínimo de 3,5 metros Se permiten los edificios de nueva planta destinados a uso exclusivo de aparcamientos en los solares ",
+            "prevaleciendo sobre dicha altura la necesidad de adaptarse al orden de las edificaciones colindantes), y deberán tener la primera crujía dedicada a local o vivienda. 3. Uso de Oficinas o Terciario (Productivo 5). Se entiende por uso de oficinas o terciario aquel que tiene como función principal prestar servicios admini"
+          ]
+        },
+        "patio de manzana": {
+          "count": 0,
+          "contexts": []
+        },
+        "linea de edificacion": {
+          "count": 0,
+          "contexts": []
+        },
+        "area de movimiento": {
+          "count": 0,
+          "contexts": []
+        },
+        "edificabilidad de manzana": {
+          "count": 0,
+          "contexts": []
+        },
+        "envolvente": {
+          "count": 0,
+          "contexts": []
+        },
+        "ocupacion en plantas": {
+          "count": 0,
+          "contexts": []
+        }
+      }
+    },
+    {
+      "zone": "OG",
+      "file": "Norm_TXII_C1-2_Ordenanza_General_Edificacion_OG.pdf",
+      "chars": 133500,
+      "terms": {
+        "fondo": {
+          "count": 7,
+          "contexts": [
+            "il trazado entre las calles superior e inferior; o el teórico del perfil trazado entre la calle de acceso y la cota de rasante de fondo de parcela. 2. El terreno resultante del movimiento de tierras realizado al amparo de proyecto de urbanización aprobado y en el que se recojan tales movimientos de tierras y perfiles r",
+            "ínimas a linderos privados y públicos. 1. Las separaciones mínimas de la edificación o edificaciones al frente de vía pública, al fondo de la parcela, a los lindes laterales de esta y entre edificaciones de una misma parcela, son las distancias mínimas a las que se podrá situar la edificación, incluidos sus cuerpos sal",
+            "anzas con edificación alineada a vial y siempre que sea para uso exclusivo de aparcamientos se permitirá que el sótano exceda del fondo máximo edificable. 4. Los terrenos no ocupados por la edificación al aplicar la regla de ocupación máxima, no podrán ser objeto de ningún otro tipo de aprovechamiento en superficie más",
+            "ano con edificaciones exentas cuya pendiente natural media medida en cualquier sección vertical entre la alineación del vial y el fondo de parcela sea superior al 50% serán de aplicación las normas contenidas en este artículo. Se podrá admitir igualmente la aplicación de este artículo, cuando alguna de las parcelas col",
+            "icadas con muro alineado a vial y la pendiente natural media medida en cualquier sección vertical entre la alineación a vial y el fondo de parcela sea superior al 30%. En cualquier caso se justificará gráficamente la integración con el entorno. A los efectos de medición de pendientes se tomarán como referencia: 1. Los ",
+            " a la siguiente tabla: Nº plantas Altura reguladora metros Distancias mínimas Entre fachadas en ARCO SOLAR I Distancias mínimas a fondo de parcela en ARCO SOLAR I PB < 4,00 7 4 PB + 1 <7,00 12 6 PB + 2 <11,00 19 9,5 PB + 3 <14,20 24 12 PB + 4 <17,40 29,5 15 PB + 5 <20,60 35 17,5 PB + 6 <23,70 40 20 Los elementos corres",
+            "ulos de instalaciones, siempre superior a 2,30 metros. En una franja de un metro de ancho, perimetral al muro de sótano y que sea fondo de plazas de aparcamientos, siempre que no afecte a circulación rodada ni peatonal, se permitirá una altura libre de 2,00 metros. Si dicha planta es la planta baja, en altura deberá ac"
+          ]
+        },
+        "profundidad": {
+          "count": 8,
+          "contexts": [
+            " 2018 \u0001 Artículo 12.2.13. Manzana. Es la superficie de suelo delimitada por alineaciones de vialidad contiguas. Artículo 12.2.14. Profundidad edificable. Es la distancia normal a la línea de fachada, medida en proyección horizontal sobre rasante definitiva del terreno entre la alineación de la edificación y la fachada ",
+            "as que tengan la consideración de Sótano, salvo que dicha planta se destine a aparcamientos en cuyo caso podrá sobrepasarse dicha profundidad. Los Estudios de Detalle podrán modificar justificadamente este parámetro, cuando así se considerase oportuno a criterio municipal. Artículo 12.2.15. Espacio libre interior de ma",
+            "icipal. Artículo 12.2.15. Espacio libre interior de manzana. Es el espacio no ocupado por edificación, que resulte de aplicar las profundidades edificables. Artículo 12.2.16. Medianería. Es la pared lateral límite entre dos edificaciones o parcelas contiguas hasta el punto común de elevación, pudiendo interrumpirse su ",
+            "mancomunado. Artículo 12.2.17. Reglas sobre medianerías. 1. Cuando por aplicación de diferentes alturas reguladoras, retranqueos, profundidad edificable u otras causas, aparezcan medianerías al descubierto, estas habrán de acabarse con los materiales y tratamientos propios de la fachada del edificio, y optativamente po",
+            "ada de la edificación. En todas las ordenanzas que regulen edificaciones con alineación a vial, esta altura se aplicará hasta una profundidad edificable determinada por el lugar geométrico de los puntos equidistantes de la alineación, objeto de la edificación y de la alineación de la fachada opuesta de la misma manzana",
+            "le más estrecha, sin poder sobrepasar en ningún caso la distancia de 20 metros. A partir de este punto, ortogonalmente en toda la profundidad se tomará la altura correspondiente a la calle mas estrecha. El paramento originado por la diferencia de altura recibirá tratamiento de fachada y deberá llevar huecos. Además hab",
+            "ce la ordenanza correspondiente, por el ancho del vial a que dé cada fachada de la edificación. Esta altura se aplicará hasta una profundidad edificable determinada por el lugar geométrico de los puntos equidistantes de la alineación, objeto de la edificación en una de las fachadas y de la alineación de la fachada opue",
+            "da. En cualquiera de los casos anteriores, en terrenos en pendiente ascendente, las alturas correspondientes se mantendrán en una profundidad de 15 metros. En terrenos con pendiente descendente las alturas correspondientes se mantendrán en una profundidad máxima de 8 metros. A partir de esa profundidad, se deberá escal"
+          ]
+        },
+        "crujia": {
+          "count": 5,
+          "contexts": [
+            "s de aire en condiciones de confort adecuadas para el ser humano (velocidades de 0.2 m/s a 1 m/s). En edificaciones de más de una crujía se identificarán asimismo los mecanismos pasivos de distribución de aire a través de divisiones interiores que permitan la ventilación cruzada. En escaleras, se potenciarán los sistem",
+            "as propuestas para la eliminación de bolsas de aire caliente en parte superior de dichos espacios. En edificaciones de más de una crujía se identificarán asimismo los mecanismos pasivos de distribución de aire a través de divisiones interiores que permitan la ventilación cruzada. Las escaleras cumplirán los anchos míni",
+            " URBANÍSTICA DE MÁLAGA TEXTO REFUNDIDO\u0001\u0001Normas Urbanísticas. Ordenanzas. Título XII. Febrero 2018 \u0001En edificaciones de más de una crujía se identificarán asimismo los mecanismos pasivos de distribución de aire a través de divisiones interiores que permitan la ventilación cruzada. En escaleras, se potenciarán los sistem",
+            "4,50 metros. y un mínimo de 3,50 metros. Así mismo, en el caso de Ordenanza plurifamiliar alineadas a vial, deberá destinarse una crujía de la fachada, a locales comerciales, vivienda u otro uso que no impida mantener la calidad arquitectónica de la fachada en esta planta. (1'\u0001\u0001\u0002\u0003\u0004\u0005\u0003\u0002\u0006\u0002\u0007\b \u0002 \u000e \u000e \u000f\u000e \u000e\u0004\u000f\u0002\u0006\u000e\u0006\u0002\u0007\b \u000f \u0010\u0011\u0010\u0012\u000f\u0005 \u0013",
+            "prevaleciendo sobre dicha altura la necesidad de adaptarse al orden de las edificaciones colindantes), y deberán tener la primera crujía dedicada a local o vivienda. 2. Edificación bajo rasante de los espacios públicos. Podrán autorizarse aparcamientos bajo los espacios públicos, mediante la correspondiente concesión, "
+          ]
+        },
+        "patio de manzana": {
+          "count": 5,
+          "contexts": [
+            "tural acondicionado con vegetación seleccionada de acuerdo a los requerimientos recogidos en el Título VIII. En el caso de que el patio de manzana contenga áreas estanciales, deberá incorporarse en las mismas, arbolado de sombreamiento, ajustándose los criterios de selección del mismo a los contenidos en el Título VIII",
+            "entre la parte superior de las paredes del patio y la claraboya, con una superficie de ventilación mínima de un 20% del patio. 7. Patio de Manzana. (1) Se define como patio de manzana aquel que tiene definida por el planeamiento su forma y posición en la parcela para, junto con los de las parcelas colindantes, formar u",
+            "s del patio y la claraboya, con una superficie de ventilación mínima de un 20% del patio. 7. Patio de Manzana. (1) Se define como patio de manzana aquel que tiene definida por el planeamiento su forma y posición en la parcela para, junto con los de las parcelas colindantes, formar un espacio común para todas las que in",
+            "registro de la Propiedad. Deberá disponer al menos de un acceso desde las zonas comunes de los edificios. La dimensión mínima del Patio de manzana se regula dependiendo del número de plantas a las que de luz y siempre con una superficie mínima en la que se pueda inscribir un círculo cuyo diámetro sea igual o mayor a ½ ",
+            "cial y de oficinas podrá realizarse mediante Patios de Manzana, garantizándose la iluminación y ventilación directa al exterior o patio de manzana mediante hueco de superficie no menor que una décima (1/10) parte de la superficie en planta de la estancia. 10. Organización del edificio. Todas las estancias tendrán venti"
+          ]
+        },
+        "linea de edificacion": {
+          "count": 6,
+          "contexts": [
+            "de las parcelas a las que el vial da fachada. 2.7 Alineación exterior de la parcela: en la línea de fachada de dicha parcela. 2.8 Línea de edificación: refleja el retranqueo mínimo que todo cuerpo construido en el interior de la parcela debe respetar respecto a la alineación y restantes lindes de la parcela. 2.9 Anchur",
+            "planación producida. Como criterio general estas alineaciones coincidirán con la arista exterior de la plataforma. Sin embargo la línea de edificación adoptará como referencia a efectos de retranqueo la arista exterior de la explanación - línea de coronación de muro -, de acuerdo con la Ordenanza específica de la zona.",
+            "ón de muro -, de acuerdo con la Ordenanza específica de la zona. 7. Alineación de parcelas sometidas a Ordenación Abierta. 7.1 La línea de edificación de parcelas consolidadas sometidas a la ordenanza Ordenación Abierta, será la línea de silueta del edificio. 7.2 La alineación exterior de parcela coincidirá como norma ",
+            "licencias con anterioridad a la redacción de estos documentos en parcelas colindantes con los referidos sistemas, la alineación y línea de edificación será la reflejada en el plano \"P.2.5\", complementada con las protecciones y servidumbres previstas por la Norma de este Plan y legislación específica correspondiente. 9.",
+            " de una parcela determinada, en el expediente de alineación, levantándose acta del mismo por el técnico municipal competente. 10. Línea de edificación de fachadas irregulares. Se considerará como línea de edificación a la envolvente de las aristas que componen los planos de la fachada en Planta Baja de una edificación.",
+            "tándose acta del mismo por el técnico municipal competente. 10. Línea de edificación de fachadas irregulares. Se considerará como línea de edificación a la envolvente de las aristas que componen los planos de la fachada en Planta Baja de una edificación. 11. Definición de la rasante de un vial. 11.1 La rasante de vías "
+          ]
+        },
+        "area de movimiento": {
+          "count": 0,
+          "contexts": []
+        },
+        "edificabilidad de manzana": {
+          "count": 0,
+          "contexts": []
+        },
+        "envolvente": {
+          "count": 4,
+          "contexts": [
+            " el técnico municipal competente. 10. Línea de edificación de fachadas irregulares. Se considerará como línea de edificación a la envolvente de las aristas que componen los planos de la fachada en Planta Baja de una edificación. 11. Definición de la rasante de un vial. 11.1 La rasante de vías ya urbanizadas será la def",
+            "sivas propuestas para la eliminación de bolsas de aire caliente en parte superior de dichos espacios. Condiciones de diseño de la envolvente del edificio. Los valores de coeficiente de transmitancia térmica U se ajustarán, como mínimo, a los previstos en el Código Técnico de la Edificación para la zona climática. \b' Di",
+            "s propuestas para la eliminación de bolsas de aire caliente en parte superior de dichos espacios. 11. Condiciones de diseño de la envolvente del edificio. Los valores de coeficiente de transmitancia térmica U se ajustarán, como mínimo, a los previstos en el Código Técnico de la Edificación para la zona climática. En hu",
+            "s descritas en el DB SI 4. La proyección vertical en planta del hueco ocupado por dichos ascensores de emergencia y su estructura envolvente no computará a efectos de edificabilidad. 2. Áreas de Refugio En edificación en altura, dada la especial complejidad de la evacuación de personas en caso de incendio, se determina"
+          ]
+        },
+        "ocupacion en plantas": {
+          "count": 0,
+          "contexts": []
+        }
+      }
+    },
+    {
+      "zone": "OA",
+      "file": "Norm_TXII_C6_Ordenacion_Abierta_OA.pdf",
+      "chars": 22248,
+      "terms": {
+        "fondo": {
+          "count": 1,
+          "contexts": [
+            "lineaciones, con las siguientes condiciones mínimas: - Superficie mínima: 300 m² - Longitud mínima de fachada de vial: 7 metros - Fondo mínimo de parcela: 9 metros Se exceptúan de esta Norma aquellas parcelas del Suelo Urbano de superficie inferior a 120 m² encajadas entre dos edificios medianeros que por sus caracterí"
+          ]
+        },
+        "profundidad": {
+          "count": 0,
+          "contexts": []
+        },
+        "crujia": {
+          "count": 0,
+          "contexts": []
+        },
+        "patio de manzana": {
+          "count": 0,
+          "contexts": []
+        },
+        "linea de edificacion": {
+          "count": 0,
+          "contexts": []
+        },
+        "area de movimiento": {
+          "count": 0,
+          "contexts": []
+        },
+        "edificabilidad de manzana": {
+          "count": 0,
+          "contexts": []
+        },
+        "envolvente": {
+          "count": 0,
+          "contexts": []
+        },
+        "ocupacion en plantas": {
+          "count": 0,
+          "contexts": []
+        }
+      }
+    }
+  ],
+  "verdict": "DEPTH VOCABULARY IS PRESENT in Málaga's closed-block chapters — step 21's \"100% absent\" was a regex artefact. See contexts."
+}

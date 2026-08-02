@@ -1,0 +1,78 @@
+{
+  "measuredAt": "2026-08-02T15:13:37.975Z",
+  "service": "https://sig.malaga.eu/geoserver/wfs",
+  "layers": {
+    "muralPGOU:POLCALIF_T": {
+      "dftStatus": 200,
+      "numberMatched": null,
+      "declared": [],
+      "observed": [],
+      "sample": [],
+      "parseError": null,
+      "hitsRaw": "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>500 Unknown Reason</title>\n</head><body>\n<h1>Unknown Reason</h1>\n<p>The server encountered an internal error or\nmisconfiguration and was unable to complete\nyour request.</p>\n<p>Please contact the server administrator at \n dba@mal"
+    },
+    "muralPGOU:LINALIN_T": {
+      "dftStatus": 0,
+      "numberMatched": null,
+      "declared": [],
+      "observed": [],
+      "sample": [],
+      "parseError": null,
+      "hitsRaw": "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<html><head>\n<title>500 Unknown Reason</title>\n</head><body>\n<h1>Unknown Reason</h1>\n<p>The server encountered an internal error or\nmisconfiguration and was unable to complete\nyour request.</p>\n<p>Please contact the server administrator at \n dba@mal"
+    },
+    "muralPGOU:DENOMPGOUAPR_V": {
+      "dftStatus": 0,
+      "numberMatched": null,
+      "declared": [],
+      "observed": [],
+      "sample": [],
+      "parseError": null,
+      "hitsRaw": ""
+    },
+    "muralPGOU:DENOMPGOUEXP_V": {
+      "dftStatus": 0,
+      "numberMatched": null,
+      "declared": [],
+      "observed": [],
+      "sample": [],
+      "parseError": null,
+      "hitsRaw": "<!DOCTYPE html>\r\n<html lang=\"es\" class=\"h-100\">\r\n\r\n\r\n<head>\r\n      <meta charset=\"UTF-8\">\r\n      <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\r\n      <meta name=\"author\" content=\"Ayuntamiento de Málaga\">\r\n      <link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"assets/img"
+    },
+    "muralPGOU:DENOMPGOUTRM_V": {
+      "dftStatus": 0,
+      "numberMatched": null,
+      "declared": [],
+      "observed": [],
+      "sample": [],
+      "parseError": null,
+      "hitsRaw": ""
+    },
+    "muralPGOU:EXPCONSULTA_V": {
+      "dftStatus": 200,
+      "numberMatched": null,
+      "declared": [],
+      "observed": [],
+      "sample": [],
+      "parseError": null,
+      "hitsRaw": "<!DOCTYPE html>\r\n<html lang=\"es\" class=\"h-100\">\r\n\r\n\r\n<head>\r\n      <meta charset=\"UTF-8\">\r\n      <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\r\n      <meta name=\"author\" content=\"Ayuntamiento de Málaga\">\r\n      <link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"assets/img"
+    },
+    "muralPGOU:EXPTOPO_V": {
+      "dftStatus": 200,
+      "numberMatched": null,
+      "declared": [],
+      "observed": [],
+      "sample": [],
+      "parseError": null,
+      "hitsRaw": "<!DOCTYPE html>\r\n<html lang=\"es\" class=\"h-100\">\r\n\r\n\r\n<head>\r\n      <meta charset=\"UTF-8\">\r\n      <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\r\n      <meta name=\"author\" content=\"Ayuntamiento de Málaga\">\r\n      <link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"assets/img"
+    },
+    "muralPGOU:TEXTOPON_T": {
+      "dftStatus": 0,
+      "numberMatched": null,
+      "declared": [],
+      "observed": [],
+      "sample": [],
+      "parseError": null,
+      "hitsRaw": ""
+    }
+  }
+}

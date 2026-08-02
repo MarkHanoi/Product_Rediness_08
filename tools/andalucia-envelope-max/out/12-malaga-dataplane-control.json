@@ -1,0 +1,800 @@
+{
+  "measuredAt": "2026-08-02T15:40:50.753Z",
+  "service": "https://sig.malaga.eu/geoserver/wfs",
+  "results": {
+    "DatosAbiertos:da_cartografiaBarrio": {
+      "group": "CONTROL",
+      "dftStatus": 0,
+      "dftBytes": 0,
+      "dftElements": 0,
+      "dftTries": [
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        }
+      ],
+      "hitsStatus": 0,
+      "numberMatched": null,
+      "hitsTries": [
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        }
+      ],
+      "geojsonStatus": 200,
+      "geojsonFeatures": 3,
+      "geojsonErr": null,
+      "geojsonTries": [
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 200,
+          "bytes": 10157,
+          "err": null
+        }
+      ],
+      "verdict": "SERVED"
+    },
+    "GeoPortal:gp_museos": {
+      "group": "CONTROL",
+      "dftStatus": 200,
+      "dftBytes": 1212,
+      "dftElements": 5,
+      "dftTries": [
+        {
+          "status": 200,
+          "bytes": 1212,
+          "err": null
+        }
+      ],
+      "hitsStatus": 200,
+      "numberMatched": 34,
+      "hitsTries": [
+        {
+          "status": 200,
+          "bytes": 717,
+          "err": null
+        }
+      ],
+      "geojsonStatus": 200,
+      "geojsonFeatures": 3,
+      "geojsonErr": null,
+      "geojsonTries": [
+        {
+          "status": 200,
+          "bytes": 5231,
+          "err": null
+        }
+      ],
+      "verdict": "SERVED"
+    },
+    "Limasa:PAPELERAS_S": {
+      "group": "CONTROL",
+      "dftStatus": 200,
+      "dftBytes": 1488,
+      "dftElements": 8,
+      "dftTries": [
+        {
+          "status": 200,
+          "bytes": 1488,
+          "err": null
+        }
+      ],
+      "hitsStatus": 200,
+      "numberMatched": 12224,
+      "hitsTries": [
+        {
+          "status": 200,
+          "bytes": 719,
+          "err": null
+        }
+      ],
+      "geojsonStatus": 200,
+      "geojsonFeatures": 3,
+      "geojsonErr": null,
+      "geojsonTries": [
+        {
+          "status": 200,
+          "bytes": 1143,
+          "err": null
+        }
+      ],
+      "verdict": "SERVED"
+    },
+    "muralPGOU:POLCALIF_T": {
+      "group": "SUBJECT-muralPGOU",
+      "dftStatus": 200,
+      "dftBytes": 445,
+      "dftElements": 0,
+      "dftTries": [
+        {
+          "status": 200,
+          "bytes": 445,
+          "err": null
+        }
+      ],
+      "hitsStatus": 0,
+      "numberMatched": null,
+      "hitsTries": [
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 500,
+          "bytes": 643,
+          "err": null
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        }
+      ],
+      "geojsonStatus": 0,
+      "geojsonFeatures": null,
+      "geojsonErr": "",
+      "geojsonTries": [
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        }
+      ],
+      "verdict": "REGISTERED BUT UNBACKED — GetCapabilities advertises it, DescribeFeatureType returns a schema with ZERO elements, data plane never answers"
+    },
+    "muralPGOU:LINALIN_T": {
+      "group": "SUBJECT-muralPGOU",
+      "dftStatus": 200,
+      "dftBytes": 445,
+      "dftElements": 0,
+      "dftTries": [
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 200,
+          "bytes": 445,
+          "err": null
+        }
+      ],
+      "hitsStatus": 0,
+      "numberMatched": null,
+      "hitsTries": [
+        {
+          "status": 500,
+          "bytes": 643,
+          "err": null
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        }
+      ],
+      "geojsonStatus": 0,
+      "geojsonFeatures": null,
+      "geojsonErr": "",
+      "geojsonTries": [
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        }
+      ],
+      "verdict": "REGISTERED BUT UNBACKED — GetCapabilities advertises it, DescribeFeatureType returns a schema with ZERO elements, data plane never answers"
+    },
+    "muralPGOU:DENOMPGOUAPR_V": {
+      "group": "SUBJECT-muralPGOU",
+      "dftStatus": 200,
+      "dftBytes": 445,
+      "dftElements": 0,
+      "dftTries": [
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 200,
+          "bytes": 445,
+          "err": null
+        }
+      ],
+      "hitsStatus": 0,
+      "numberMatched": null,
+      "hitsTries": [
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 500,
+          "bytes": 643,
+          "err": null
+        }
+      ],
+      "geojsonStatus": 0,
+      "geojsonFeatures": null,
+      "geojsonErr": "",
+      "geojsonTries": [
+        {
+          "status": 500,
+          "bytes": 643,
+          "err": null
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        }
+      ],
+      "verdict": "REGISTERED BUT UNBACKED — GetCapabilities advertises it, DescribeFeatureType returns a schema with ZERO elements, data plane never answers"
+    },
+    "muralPGOU:DENOMPGOUEXP_V": {
+      "group": "SUBJECT-muralPGOU",
+      "dftStatus": 200,
+      "dftBytes": 445,
+      "dftElements": 0,
+      "dftTries": [
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 200,
+          "bytes": 445,
+          "err": null
+        }
+      ],
+      "hitsStatus": 0,
+      "numberMatched": null,
+      "hitsTries": [
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        }
+      ],
+      "geojsonStatus": 0,
+      "geojsonFeatures": null,
+      "geojsonErr": "",
+      "geojsonTries": [
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        }
+      ],
+      "verdict": "REGISTERED BUT UNBACKED — GetCapabilities advertises it, DescribeFeatureType returns a schema with ZERO elements, data plane never answers"
+    },
+    "muralPGOU:DENOMPGOUTRM_V": {
+      "group": "SUBJECT-muralPGOU",
+      "dftStatus": 0,
+      "dftBytes": 0,
+      "dftElements": 0,
+      "dftTries": [
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        }
+      ],
+      "hitsStatus": 0,
+      "numberMatched": null,
+      "hitsTries": [
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        }
+      ],
+      "geojsonStatus": 0,
+      "geojsonFeatures": null,
+      "geojsonErr": "",
+      "geojsonTries": [
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 0,
+          "bytes": 0,
+          "err": "fetch failed"
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        }
+      ],
+      "verdict": "DEGRADED/UNKNOWN"
+    },
+    "muralPGOU:EXPCONSULTA_V": {
+      "group": "SUBJECT-muralPGOU",
+      "dftStatus": 200,
+      "dftBytes": 445,
+      "dftElements": 0,
+      "dftTries": [
+        {
+          "status": 200,
+          "bytes": 445,
+          "err": null
+        }
+      ],
+      "hitsStatus": 0,
+      "numberMatched": null,
+      "hitsTries": [
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        }
+      ],
+      "geojsonStatus": 0,
+      "geojsonFeatures": null,
+      "geojsonErr": "",
+      "geojsonTries": [
+        {
+          "status": 500,
+          "bytes": 643,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        }
+      ],
+      "verdict": "REGISTERED BUT UNBACKED — GetCapabilities advertises it, DescribeFeatureType returns a schema with ZERO elements, data plane never answers"
+    },
+    "muralPGOU:EXPTOPO_V": {
+      "group": "SUBJECT-muralPGOU",
+      "dftStatus": 200,
+      "dftBytes": 445,
+      "dftElements": 0,
+      "dftTries": [
+        {
+          "status": 200,
+          "bytes": 445,
+          "err": null
+        }
+      ],
+      "hitsStatus": 0,
+      "numberMatched": null,
+      "hitsTries": [
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        }
+      ],
+      "geojsonStatus": 0,
+      "geojsonFeatures": null,
+      "geojsonErr": "",
+      "geojsonTries": [
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        }
+      ],
+      "verdict": "REGISTERED BUT UNBACKED — GetCapabilities advertises it, DescribeFeatureType returns a schema with ZERO elements, data plane never answers"
+    },
+    "muralPGOU:TEXTOPON_T": {
+      "group": "SUBJECT-muralPGOU",
+      "dftStatus": 200,
+      "dftBytes": 445,
+      "dftElements": 0,
+      "dftTries": [
+        {
+          "status": 200,
+          "bytes": 445,
+          "err": null
+        }
+      ],
+      "hitsStatus": 0,
+      "numberMatched": null,
+      "hitsTries": [
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        }
+      ],
+      "geojsonStatus": 0,
+      "geojsonFeatures": null,
+      "geojsonErr": "",
+      "geojsonTries": [
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        },
+        {
+          "status": 500,
+          "bytes": 3113,
+          "err": null
+        }
+      ],
+      "verdict": "REGISTERED BUT UNBACKED — GetCapabilities advertises it, DescribeFeatureType returns a schema with ZERO elements, data plane never answers"
+    }
+  },
+  "attribution": "ATTRIBUTED TO THE LAYER: 3/3 control layers served rows in the same run with the same code, 0/8 muralPGOU layers did."
+}

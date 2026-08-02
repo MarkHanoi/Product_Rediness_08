@@ -1,0 +1,1501 @@
+{
+  "measuredAt": "2026-08-02T16:04:28.684Z",
+  "source": "https://www.juntadeandalucia.es/sites/default/files/inline-files/2026/07/2026.07.31_Plantilla_NNDD.zip",
+  "featureClasses": {
+    "INE_TIP_FT_OU_01_MUN": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      }
+    ],
+    "INE_TIP_FT_OU_02_DEL": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOLYGON"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "NOM_INS",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "NIVEL_INS",
+        "type": "TEXT(4)"
+      },
+      {
+        "name": "TIPO_INS",
+        "type": "TEXT(4)"
+      },
+      {
+        "name": "FECHA_AV",
+        "type": "DATE"
+      },
+      {
+        "name": "FECHA_AI",
+        "type": "DATE"
+      },
+      {
+        "name": "FECHA_AD",
+        "type": "DATE"
+      },
+      {
+        "name": "NDOT_MN_EX",
+        "type": "REAL"
+      },
+      {
+        "name": "NDOT_MN_OB",
+        "type": "REAL"
+      },
+      {
+        "name": "AREA",
+        "type": "REAL"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_FT_OU_03_DEL_URB": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOLYGON"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_SU",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_SU",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "ORIGEN_SU",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "AREA",
+        "type": "REAL"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_FT_OU_04_ZSU": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOLYGON"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_ZSU",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_ZSU",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "TIPO_ZSU",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "USO_G",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "USO_P",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "EDIF_GLOB",
+        "type": "REAL"
+      },
+      {
+        "name": "DENS",
+        "type": "REAL"
+      },
+      {
+        "name": "NDOT_EX",
+        "type": "REAL"
+      },
+      {
+        "name": "NDOT_OB",
+        "type": "REAL"
+      },
+      {
+        "name": "NDOT_EX_H",
+        "type": "REAL"
+      },
+      {
+        "name": "NDOT_OB_H",
+        "type": "REAL"
+      },
+      {
+        "name": "ESP_VER_UR",
+        "type": "REAL"
+      },
+      {
+        "name": "APARC",
+        "type": "REAL"
+      },
+      {
+        "name": "NDOT_EL",
+        "type": "REAL"
+      },
+      {
+        "name": "NDOT_EL_H",
+        "type": "REAL"
+      },
+      {
+        "name": "NDOT_EQ",
+        "type": "REAL"
+      },
+      {
+        "name": "NDOT_EQ_H",
+        "type": "REAL"
+      },
+      {
+        "name": "NDOT_PRI",
+        "type": "REAL"
+      },
+      {
+        "name": "NDOT_PRI_H",
+        "type": "REAL"
+      },
+      {
+        "name": "AREA",
+        "type": "REAL"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_FT_OU_05_SR": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOLYGON"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_SR",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_SR",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "CAT_SR",
+        "type": "TEXT(6)"
+      },
+      {
+        "name": "SCAT_SR",
+        "type": "TEXT(8)"
+      },
+      {
+        "name": "USOS_PRO",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "AREA",
+        "type": "REAL"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_FT_OU_06_UUPP": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "COD_SR",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "USOS_PRO",
+        "type": "TEXT(3)"
+      }
+    ],
+    "INE_TIP_FT_OU_07_ZSR": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOLYGON"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_ZSR",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_ZSR",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "AREA",
+        "type": "REAL"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_FT_OU_08_HRD": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOLYGON"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_HRD",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_HRD",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "AREA",
+        "type": "REAL"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_FT_OU_09_AAEEII": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOLYGON"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_AEI",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_AEI",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "COMP_AGR",
+        "type": "TEXT(2)"
+      },
+      {
+        "name": "AREA",
+        "type": "REAL"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_FT_OU_10_RAIP_POL": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOLYGON"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_RAIP",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_RAIP",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "AREA",
+        "type": "REAL"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_FT_OU_11_RAIP_LIN": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTILINESTRING"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_RAIP",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_RAIP",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "LONG",
+        "type": "REAL"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_FT_OU_12_RAIP_PUN": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOINT"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_RAIP",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_RAIP",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_FT_OU_13_SSGG_POL": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOLYGON"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_ESTR",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_ESTR",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "CAT_ESTR",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "SCAT_ESTR",
+        "type": "TEXT(7)"
+      },
+      {
+        "name": "SIT_ESTR",
+        "type": "TEXT(4)"
+      },
+      {
+        "name": "TIT_ESTR",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "OBT_ESTR",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "COD_ATU",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "AREA",
+        "type": "REAL"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(35)"
+      }
+    ],
+    "INE_TIP_FT_OU_14_SSGG_LIN": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTILINESTRING"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_ESTR",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_ESTR",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "CAT_ESTR",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "SCAT_ESTR",
+        "type": "TEXT(7)"
+      },
+      {
+        "name": "SIT_ESTR",
+        "type": "TEXT(4)"
+      },
+      {
+        "name": "TIT_ESTR",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "OBT_ESTR",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "COD_ATU",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "LONG",
+        "type": "REAL"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_FT_OU_15_SSGG_PUN": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOINT"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_ESTR",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_ESTR",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "CAT_ESTR",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "SCAT_ESTR",
+        "type": "TEXT(7)"
+      },
+      {
+        "name": "SIT_ESTR",
+        "type": "TEXT(4)"
+      },
+      {
+        "name": "TIT_ESTR",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "OBT_ESTR",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "COD_ATU",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_FT_OU_16_PROP_ATU": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOLYGON"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_PD_ATU",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_PD_ATU",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "COD_CS",
+        "type": "TEXT(2)"
+      },
+      {
+        "name": "TIPO_ATU",
+        "type": "TEXT(2)"
+      },
+      {
+        "name": "PROP_ATU",
+        "type": "TEXT(4)"
+      },
+      {
+        "name": "USO_G",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "EDIF_MAX",
+        "type": "REAL"
+      },
+      {
+        "name": "EDIF_MIN",
+        "type": "REAL"
+      },
+      {
+        "name": "DENS_MAX",
+        "type": "REAL"
+      },
+      {
+        "name": "DENS_MIN",
+        "type": "REAL"
+      },
+      {
+        "name": "FECHA_APR",
+        "type": "DATE"
+      },
+      {
+        "name": "FECHA_CAD",
+        "type": "DATE"
+      },
+      {
+        "name": "AREA",
+        "type": "REAL"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_FT_OU_17_MUN_ATU": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "COD_ATU",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      }
+    ],
+    "INE_TIP_FT_OU_18_ATU": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOLYGON"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_ATU",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_ATU",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "COD_CS",
+        "type": "TEXT(2)"
+      },
+      {
+        "name": "TIPO_ATU",
+        "type": "TEXT(2)"
+      },
+      {
+        "name": "PROP_ATU",
+        "type": "TEXT(4)"
+      },
+      {
+        "name": "COD_PD_ATU",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "EDIF_GLOBAL",
+        "type": "REAL"
+      },
+      {
+        "name": "USO_G",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "DENS",
+        "type": "REAL"
+      },
+      {
+        "name": "EDIF_RES",
+        "type": "REAL"
+      },
+      {
+        "name": "NUM_VIV",
+        "type": "MEDIUMINT"
+      },
+      {
+        "name": "EDIF_PROT",
+        "type": "REAL"
+      },
+      {
+        "name": "N_VIV_PROT",
+        "type": "MEDIUMINT"
+      },
+      {
+        "name": "EDIF_PROD",
+        "type": "REAL"
+      },
+      {
+        "name": "EDIF_SERV",
+        "type": "REAL"
+      },
+      {
+        "name": "EDIF_TUR",
+        "type": "REAL"
+      },
+      {
+        "name": "S_SGEL_IN",
+        "type": "REAL"
+      },
+      {
+        "name": "S_SGEL_AD",
+        "type": "REAL"
+      },
+      {
+        "name": "S_SGEQ_IN",
+        "type": "REAL"
+      },
+      {
+        "name": "S_SGEQ_AD",
+        "type": "REAL"
+      },
+      {
+        "name": "S_SGMOV_IN",
+        "type": "REAL"
+      },
+      {
+        "name": "S_SGMOV_AD",
+        "type": "REAL"
+      },
+      {
+        "name": "S_EL",
+        "type": "REAL"
+      },
+      {
+        "name": "S_EQ_BAS",
+        "type": "REAL"
+      },
+      {
+        "name": "S_EQ_GES",
+        "type": "REAL"
+      },
+      {
+        "name": "S_DOT_PRI",
+        "type": "REAL"
+      },
+      {
+        "name": "AREA",
+        "type": "REAL"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_FT_OU_19_PROT_POL": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOLYGON"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_PROT",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_PROT",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "CAR_PROT",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "TIP_BIC",
+        "type": "TEXT(2)"
+      },
+      {
+        "name": "AREA",
+        "type": "REAL"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_FT_OU_20_PROT_PUN": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOINT"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_PROT",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_PROT",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "TIP_BIC",
+        "type": "TEXT(2)"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(35)"
+      }
+    ],
+    "INE_TIP_FT_OU_21_ATR": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTIPOLYGON"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_ATR",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_ATR",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "BB_DD",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "PLAZO",
+        "type": "MEDIUMINT"
+      },
+      {
+        "name": "OBJET",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "ADM_ACT",
+        "type": "TEXT(255)"
+      },
+      {
+        "name": "AREA",
+        "type": "REAL"
+      },
+      {
+        "name": "OBSERV",
+        "type": "TEXT(255)"
+      }
+    ],
+    "INE_TIP_TR_OU_13_SSGG_LIN": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "geom",
+        "type": "MULTILINESTRING"
+      },
+      {
+        "name": "COD_INS",
+        "type": "TEXT(33)"
+      },
+      {
+        "name": "COD_MUN",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "COD_ESTR",
+        "type": "TEXT(25)"
+      },
+      {
+        "name": "NOM_ESTR",
+        "type": "TEX6\u000f\u0007\u0017YY\u0002Etablertree_INE_TIP_FT_OU_18_ATU_geom_parentrtree_INE_TIP_FT_OU_18_ATU_geom_parent\u0000CREATE"
+      }
+    ]
+  },
+  "codeLists": {
+    "CAR_PROT": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_cprot",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "des_cprot",
+        "type": "TEXT(23)"
+      }
+    ],
+    "CAT_ESTR": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_cat_ee",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "des_cat_ee",
+        "type": "TEXT(50)"
+      }
+    ],
+    "CAT_SR": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_cat_sr",
+        "type": "TEXT(6)"
+      },
+      {
+        "name": "des_cat_sr",
+        "type": "TEXT(67)"
+      },
+      {
+        "name": "cod_cs",
+        "type": "TEXT(2)"
+      }
+    ],
+    "C_S": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_cs",
+        "type": "TEXT(2)"
+      },
+      {
+        "name": "des_cs",
+        "type": "TEXT(14)"
+      }
+    ],
+    "FT": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_ft",
+        "type": "TEXT(2)"
+      },
+      {
+        "name": "des_ft",
+        "type": "TEXT(23)"
+      }
+    ],
+    "MUNICIPIO": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_mun",
+        "type": "TEXT(5)"
+      },
+      {
+        "name": "nombre_mun",
+        "type": "TEXT(40)"
+      }
+    ],
+    "Nivel_Ins": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_nv_ord",
+        "type": "TEXT(4)"
+      },
+      {
+        "name": "des_nv_ord",
+        "type": "TEXT(58)"
+      }
+    ],
+    "OBT_ESTR": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_obt_ee",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "des_obt_ee",
+        "type": "TEXT(105)"
+      }
+    ],
+    "ORIGEN_SU": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_or_su",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "des_or_su",
+        "type": "TEXT(25)"
+      }
+    ],
+    "PROP_ATU": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_pr_atu",
+        "type": "TEXT(4)"
+      },
+      {
+        "name": "des_pr_atu",
+        "type": "TEXT(32)"
+      },
+      {
+        "name": "cod_cs",
+        "type": "TEXT(2)"
+      }
+    ],
+    "SCAT_ESTR": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_sct_ee",
+        "type": "TEXT(7)"
+      },
+      {
+        "name": "des_sct_ee",
+        "type": "TEXT(57)"
+      },
+      {
+        "name": "cod_cat_ee",
+        "type": "TEXT(5)"
+      }
+    ],
+    "SCAT_SR": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_sct_sr",
+        "type": "TEXT(8)"
+      },
+      {
+        "name": "des_sct_sr",
+        "type": "TEXT(58)"
+      },
+      {
+        "name": "cod_cat_sr",
+        "type": "TEXT(6)"
+      }
+    ],
+    "SIT_ESTR": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_sit_ee",
+        "type": "TEXT(4)"
+      },
+      {
+        "name": "des_sit_ee",
+        "type": "TEXT(10)"
+      }
+    ],
+    "TIP": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_tip",
+        "type": "TEXT(4)"
+      },
+      {
+        "name": "des_tip",
+        "type": "TEXT(36)"
+      },
+      {
+        "name": "cod_nv_ord",
+        "type": "TEXT(4)"
+      }
+    ],
+    "TIPO_ATU": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_tp_atu",
+        "type": "TEXT(2)"
+      },
+      {
+        "name": "des_tp_atu",
+        "type": "TEXT(20)"
+      },
+      {
+        "name": "cod_cs",
+        "type": "TEXT(2)"
+      }
+    ],
+    "TIPO_ZSU": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_tzsu",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "des_tzsu",
+        "type": "TEXT(25)"
+      }
+    ],
+    "TIP_BIC": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_tbic",
+        "type": "TEXT(2)"
+      },
+      {
+        "name": "des_tbic",
+        "type": "TEXT(180)"
+      },
+      {
+        "name": "cod_cprot",
+        "type": "TEXT(3)"
+      }
+    ],
+    "TIT_ESTR": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_tit_ree",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "des_tit_ee",
+        "type": "TEXT(42)"
+      }
+    ],
+    "USOS_PRO": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_uso_pr",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "des_uso_pr",
+        "type": "TEXT(136)"
+      }
+    ],
+    "USO_G": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_uso_g",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "des_uso_g",
+        "type": "TEXT(13)"
+      }
+    ],
+    "USO_P": [
+      {
+        "name": "fid",
+        "type": "INTEGER"
+      },
+      {
+        "name": "cod_uso_p",
+        "type": "TEXT(3)"
+      },
+      {
+        "name": "des_uso_p",
+        "type": "TEXT(50)"
+      },
+      {
+        "name": "cod_uso_g",
+        "type": "TEXT(3)"
+      }
+    ],
+    "qgis_projects": [
+      {
+        "name": "name",
+        "type": "TEXT"
+      },
+      {
+        "name": "metadata",
+        "type": "BLOB"
+      },
+      {
+        "name": "content",
+        "type": "BLOB"
+      }
+    ]
+  },
+  "fieldUnion": [
+    "ADM_ACT",
+    "APARC",
+    "AREA",
+    "BB_DD",
+    "CAR_PROT",
+    "CAT_ESTR",
+    "CAT_SR",
+    "COD_AEI",
+    "COD_ATR",
+    "COD_ATU",
+    "COD_CS",
+    "COD_ESTR",
+    "COD_HRD",
+    "COD_INS",
+    "COD_MUN",
+    "COD_PD_ATU",
+    "COD_PROT",
+    "COD_RAIP",
+    "COD_SR",
+    "COD_SU",
+    "COD_ZSR",
+    "COD_ZSU",
+    "COMP_AGR",
+    "DENS",
+    "DENS_MAX",
+    "DENS_MIN",
+    "EDIF_GLOB",
+    "EDIF_GLOBAL",
+    "EDIF_MAX",
+    "EDIF_MIN",
+    "EDIF_PROD",
+    "EDIF_PROT",
+    "EDIF_RES",
+    "EDIF_SERV",
+    "EDIF_TUR",
+    "ESP_VER_UR",
+    "FECHA_AD",
+    "FECHA_AI",
+    "FECHA_APR",
+    "FECHA_AV",
+    "FECHA_CAD",
+    "LONG",
+    "NDOT_EL",
+    "NDOT_EL_H",
+    "NDOT_EQ",
+    "NDOT_EQ_H",
+    "NDOT_EX",
+    "NDOT_EX_H",
+    "NDOT_MN_EX",
+    "NDOT_MN_OB",
+    "NDOT_OB",
+    "NDOT_OB_H",
+    "NDOT_PRI",
+    "NDOT_PRI_H",
+    "NIVEL_INS",
+    "NOM_AEI",
+    "NOM_ATR",
+    "NOM_ATU",
+    "NOM_ESTR",
+    "NOM_HRD",
+    "NOM_INS",
+    "NOM_PD_ATU",
+    "NOM_PROT",
+    "NOM_RAIP",
+    "NOM_SR",
+    "NOM_SU",
+    "NOM_ZSR",
+    "NOM_ZSU",
+    "NUM_VIV",
+    "N_VIV_PROT",
+    "OBJET",
+    "OBSERV",
+    "OBT_ESTR",
+    "ORIGEN_SU",
+    "PLAZO",
+    "PROP_ATU",
+    "SCAT_ESTR",
+    "SCAT_SR",
+    "SIT_ESTR",
+    "S_DOT_PRI",
+    "S_EL",
+    "S_EQ_BAS",
+    "S_EQ_GES",
+    "S_SGEL_AD",
+    "S_SGEL_IN",
+    "S_SGEQ_AD",
+    "S_SGEQ_IN",
+    "S_SGMOV_AD",
+    "S_SGMOV_IN",
+    "TIPO_ATU",
+    "TIPO_INS",
+    "TIPO_ZSU",
+    "TIP_BIC",
+    "TIT_ESTR",
+    "USOS_PRO",
+    "USO_G",
+    "USO_P",
+    "fid",
+    "geom"
+  ],
+  "heightFields": [],
+  "bulkFields": [
+    "DENS",
+    "DENS_MAX",
+    "DENS_MIN",
+    "EDIF_GLOB",
+    "EDIF_GLOBAL",
+    "EDIF_MAX",
+    "EDIF_MIN",
+    "EDIF_PROD",
+    "EDIF_PROT",
+    "EDIF_RES",
+    "EDIF_SERV",
+    "EDIF_TUR"
+  ],
+  "setbackFields": [],
+  "zoningClassOU_04_ZSU": [
+    "fid",
+    "geom",
+    "COD_INS",
+    "COD_MUN",
+    "COD_ZSU",
+    "NOM_ZSU",
+    "TIPO_ZSU",
+    "USO_G",
+    "USO_P",
+    "EDIF_GLOB",
+    "DENS",
+    "NDOT_EX",
+    "NDOT_OB",
+    "NDOT_EX_H",
+    "NDOT_OB_H",
+    "ESP_VER_UR",
+    "APARC",
+    "NDOT_EL",
+    "NDOT_EL_H",
+    "NDOT_EQ",
+    "NDOT_EQ_H",
+    "NDOT_PRI",
+    "NDOT_PRI_H",
+    "AREA",
+    "OBSERV"
+  ],
+  "verdict": "⭐ CONFIRMED — BULK WITHOUT HEIGHT. The mandated schema defines EDIF_*/DENS and defines NO height, no storey count, no setback and no depth. A dataset can be 100% conformant to the Andalusian standard and still be incapable of producing an envelope: the standard normalises the RATIO layer, not the FORM layer."
+}
