@@ -284,6 +284,26 @@ All ADR files, sorted by filename. **Canonical form is `ADR-NNNN-kebab.md`.** Th
 | `ADR-0265-solidity-poche-and-lod-across-view-types` | [ADR-0265 — Solidity, Poché, Pen Hierarchy and Level of Detail ACROSS Plan, Elevation and Section](./ADR-0265-solidity-poche-and-lod-across-view-types.md) |
 | `ADR-0266-dimension-drives-model-or-overrides-text` | [ADR-0266 — Does an editable DIMENSION drive the model, or override the text?](./ADR-0266-dimension-drives-model-or-overrides-text.md) |
 
+## §6b — The CORPUS DOCTRINE SET (ADR-0283–0287, founder-signed 2026-08-02)
+
+Five ADRs ratified together as one family. They govern **every municipality**, and a city dossier
+should CITE them rather than re-argue the doctrine.
+
+| ADR | The rule, in one line |
+|---|---|
+| [ADR-0283](./ADR-0283-authoritative-publication-bounds-knowledge-unknown-is-valid.md) | Authoritative publication defines the boundary of verified knowledge. **UNKNOWN is a valid product state.** |
+| [ADR-0284](./ADR-0284-derived-geometry-permissible-derived-law-is-not.md) | **Derived geometry is permissible; derived law is not.** |
+| [ADR-0285](./ADR-0285-computing-an-observable-criterion-is-implementation.md) | Computing an observable quantity is *implementation* where the ordinance states the criterion but not the method. |
+| [ADR-0286](./ADR-0286-every-derived-value-exposes-legal-computational-source-and-tier.md) | Every derived value exposes **legal source · computational source · confidence tier**. |
+| [ADR-0287](./ADR-0287-resolvers-refuse-when-uncertainty-changes-the-legal-outcome.md) | Resolvers **refuse** whenever uncertainty can change the legal outcome. |
+
+> PRYZM may assert only what authoritative publication demonstrates. Where evidence is incomplete or
+> legally insufficient, PRYZM returns Unknown rather than inferring entitlement.
+
+⚠ **The §6 table above is STALE** — it ends at ADR-0266 while the directory holds ADRs through 0287.
+Deliberately not backfilled here (16 entries authored by others); recorded so the gap is known rather
+than mistaken for "no ADRs exist in that range".
+
 ## §7 — Update / supersession rule
 
 You don't edit an ACCEPTED ADR. To change a decision:
