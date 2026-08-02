@@ -97,6 +97,34 @@ so.* The quantum set is **city-specific** (Barcelona has no 10/15/25 m quantum; 
 arteries measure 48 m), so Barcelona's set may not be assumed. Result:
 `tools/murcia-street-width-probe/snapGate.mts` — **see `../ENVELOPE.md` §3.3.3.**
 
+### ⚠⚠ PREMISE DEFECT FOUND AFTER SIGNING (2026-08-02) — recorded here, not buried in a findings file
+
+The signature's rationale states the ordinance *"does not prescribe a measurement methodology."*
+**Art. 4.5.3 does prescribe one**, and it was not read before signing because it sits in Título 4
+(general height rules), not in the Título 5 zone articles every quote came from:
+
+> «el ancho de las vías públicas será el que conste en los planos de ordenación (**ancho entre
+> alineaciones de parcela**) … **a)** Aplicación estricta de la **regla de media aritmética** …
+> **hasta completar la manzana** … **ii)** … se le aplicará el **índice 1,50** …»
+
+- ✅ **The INPUT is confirmed by the ordinance's own words** — *ancho entre alineaciones de parcela*
+  is precisely what `resolveMurciaStreetWidth` measures, from the layer that publishes those
+  alignments.
+- ⚠ **The AGGREGATION diverges.** Art. 4.5.3 wants an arithmetic mean over the *tramo*; we take a
+  per-edge median. **Art. 4.5.4** gives a corner solar *«la altura correspondiente a la calle de
+  mayor ancho»*; `governingStreetWidth` takes the **narrowest**.
+- **Both divergences UNDER-grant**, so nothing published is over-stated and no envelope must be
+  withdrawn. But **SIG-MU2's stated rationale is not accurate for Murcia**, and a signature should
+  rest on a true premise.
+
+`status: open · severity: under-publication + premise-defect · owner: founder · exit: either restate
+the rationale as "the ordinance prescribes a method we implement conservatively and divergently, and
+the divergence is declared", or implement Art. 4.5.3's aggregation and Art. 4.5.4's corner rule.`
+
+⚠ Do **not** fix the corner rule by flipping `governingStreetWidth` to widest — it is shared with
+Barcelona, whose Art. 327 resolves corners the other way. It needs a per-jurisdiction policy
+(ADR-0289 §3.1).
+
 ### Reversal
 
 Flipping this back withdraws a published determination; route it through the founder exactly as the

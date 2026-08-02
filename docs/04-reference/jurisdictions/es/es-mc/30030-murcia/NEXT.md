@@ -154,6 +154,28 @@ the **bbox fetch landed** (`?extent=neighbourhood`), the **snap gate ran and REF
 at any quantum — max ×0.58 against Barcelona's ×7.55), and **SIG-MU2 is SIGNED**. Murcia now
 publishes on **28.03 %** of its buildable land, axis **11.21 %**. Detail: `ENVELOPE.md` §3.3.3.
 
+## 4.0 — ⚠ NEW 2026-08-02: a PREMISE DEFECT in SIG-MU2, found by the derived-variable inventory
+
+**Art. 4.5.3 «Alturas en función del ancho de la calle» PRESCRIBES a measurement methodology** —
+*«el ancho … será el que conste en los planos de ordenación (ancho entre alineaciones de parcela)»*,
+then an **arithmetic mean over the whole *tramo*, hasta completar la manzana**, weighted ×1.50 toward
+the wider part in the 25–50 % case. SIG-MU2's rationale states the ordinance *"does not prescribe a
+measurement methodology"*. **For Murcia that is false.**
+
+- ✅ It **confirms our input**: *ancho entre alineaciones de parcela* is exactly what we measure.
+- ⚠ It **contradicts our aggregation** (per-edge median, then narrowest frontage) and **Art. 4.5.4**
+  says a corner takes the **WIDER** street, where `governingStreetWidth` takes the narrowest.
+- **Both divergences UNDER-grant.** No over-statement, so not an L-616 defect — but the signature's
+  premise needs amending, or Art. 4.5.3's aggregation needs implementing. **Founder decision.**
+
+Full analysis, with the 13-row derivability inventory and the 100 % coverage-loss matrix:
+[`findings/MURCIA-DERIVED-VARIABLE-INVENTORY.md`](./findings/MURCIA-DERIVED-VARIABLE-INVENTORY.md).
+Cross-city architecture proposal: [`ADR-0289`](../../../../../02-decisions/adrs/ADR-0289-urban-geometry-engine.md)
+(**PROPOSED, not built — needs an owner**).
+
+⚠ **And read inventory §3 before planning against it:** all remaining derivable work in Murcia is
+worth **≤ +0.15 pp of ENVELOPE axis**. It is a CORRECTNESS programme, not a coverage one.
+
 ## 4.1 — REMAINING BLOCKERS (BLOCKER-CLASSIFICATION-STANDARD: one class, one owner, one exit)
 
 | # | Blocker | Class | Owner | Exit criterion |
