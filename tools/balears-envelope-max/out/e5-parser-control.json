@@ -1,0 +1,360 @@
+{
+  "probe": "e5-parser-control",
+  "runAt": "2026-08-02T15:20:18.131Z",
+  "fixtures": [
+    {
+      "id": "292430",
+      "source": "C:\\Users\\LENOVO\\OneDrive\\Desktop\\PRYZM\\Product_Rediness_08\\tools\\balears-muib-probe\\out\\p-test-292430.html",
+      "identitat": "292430",
+      "municipi": "Manacor",
+      "codiMuib": "RE_NA",
+      "codesFound": [
+        "PM",
+        "AM",
+        "NP",
+        "O",
+        "IRP",
+        "E",
+        "T"
+      ],
+      "articleRefsAll": [
+        "Article 66",
+        "Article 56.3.j"
+      ],
+      "drawability": {
+        "tier": "COMPLETE",
+        "reasons": [
+          "height+occupation+FAR"
+        ],
+        "heightStoreys": true,
+        "heightAny": true,
+        "heightAnyIncludingSuspect": true,
+        "occupation": true,
+        "occupationIncludingSuspect": true,
+        "far": true,
+        "setbackCount": 0,
+        "setbacks": []
+      },
+      "checks": [
+        {
+          "check": "PM === 200",
+          "got": "PRESENT/VALID/200",
+          "pass": true
+        },
+        {
+          "check": "AM === 7",
+          "got": "PRESENT/VALID/7",
+          "pass": true
+        },
+        {
+          "check": "NP === 3",
+          "got": "PRESENT/VALID/3",
+          "pass": true
+        },
+        {
+          "check": "O === 80",
+          "got": "PRESENT/VALID/80",
+          "pass": true
+        },
+        {
+          "check": "IRP === 120",
+          "got": "PRESENT/VALID/120",
+          "pass": true
+        },
+        {
+          "check": "E === 2.4",
+          "got": "PRESENT/VALID/2.4",
+          "pass": true
+        },
+        {
+          "check": "PM units ~ /m2/i",
+          "got": "m2",
+          "pass": true
+        },
+        {
+          "check": "AM units ~ /^m$/i",
+          "got": "m",
+          "pass": true
+        },
+        {
+          "check": "NP units ~ /plantes/i",
+          "got": "plantes",
+          "pass": true
+        },
+        {
+          "check": "O units ~ /%/",
+          "got": "%",
+          "pass": true
+        },
+        {
+          "check": "AT NOT parsed as a parameter (it is a USE)",
+          "got": "ABSENT",
+          "pass": true
+        },
+        {
+          "check": "RL NOT parsed as a parameter (it is a USE)",
+          "got": "ABSENT",
+          "pass": true
+        },
+        {
+          "check": "CO NOT parsed as a parameter (it is a USE)",
+          "got": "ABSENT",
+          "pass": true
+        },
+        {
+          "check": "UN NOT parsed as a parameter (it is a USE)",
+          "got": "ABSENT",
+          "pass": true
+        },
+        {
+          "check": "PL NOT parsed as a parameter (it is a USE)",
+          "got": "ABSENT",
+          "pass": true
+        },
+        {
+          "check": "article \"Article 66\" found",
+          "got": "Article 66 | Article 56.3.j",
+          "pass": true
+        },
+        {
+          "check": "article \"Article 56.3.j\" found",
+          "got": "Article 66 | Article 56.3.j",
+          "pass": true
+        },
+        {
+          "check": "Article 66 attached to the NP row itself",
+          "got": "Article 66",
+          "pass": true
+        },
+        {
+          "check": "no unparsed code cells",
+          "got": "(none)",
+          "pass": true
+        }
+      ],
+      "articleOnNP": [
+        "Article 66"
+      ],
+      "articleOnO": [
+        "Article 56.3.j"
+      ],
+      "codeCellsSeen": 7,
+      "codeCellsUnparsed": [],
+      "parameters": {
+        "PM": {
+          "status": "PRESENT",
+          "verdict": "VALID",
+          "value": 200,
+          "units": "m2",
+          "raw": "200",
+          "rawUnits": "m2",
+          "articleRefs": []
+        },
+        "AM": {
+          "status": "PRESENT",
+          "verdict": "VALID",
+          "value": 7,
+          "units": "m",
+          "raw": "7",
+          "rawUnits": "m",
+          "articleRefs": []
+        },
+        "NP": {
+          "status": "PRESENT",
+          "verdict": "VALID",
+          "kind": "STOREYS",
+          "value": 3,
+          "units": "plantes",
+          "raw": "3",
+          "rawUnits": "plantes",
+          "articleRefs": [
+            "Article 66"
+          ]
+        },
+        "O": {
+          "status": "PRESENT",
+          "verdict": "VALID",
+          "kind": "PERCENT",
+          "value": 80,
+          "units": "%",
+          "raw": "80",
+          "rawUnits": "%",
+          "articleRefs": [
+            "Article 56.3.j"
+          ]
+        },
+        "IRP": {
+          "status": "PRESENT",
+          "verdict": "VALID",
+          "value": 120,
+          "units": "m2/habitatge",
+          "raw": "120",
+          "rawUnits": "m2/habitatge",
+          "articleRefs": []
+        },
+        "E": {
+          "status": "PRESENT",
+          "verdict": "VALID",
+          "kind": "RATIO",
+          "value": 2.4,
+          "units": "m2 superf. edificable/m2 superf. del solar",
+          "raw": "2.4",
+          "rawUnits": "m2 superf. edificable/m2 super",
+          "articleRefs": []
+        },
+        "T": {
+          "status": "PRESENT",
+          "verdict": "VALID",
+          "kind": "TEXT",
+          "value": "EM: Alineada o retranquejada a a espai, entre mitgeres",
+          "units": "",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres",
+          "rawUnits": "",
+          "articleRefs": []
+        }
+      }
+    },
+    {
+      "id": "292441",
+      "source": "C:\\Users\\LENOVO\\OneDrive\\Desktop\\PRYZM\\Product_Rediness_08\\tools\\balears-muib-probe\\out\\p-test-292441.html",
+      "identitat": "292441",
+      "municipi": "Manacor",
+      "codiMuib": "RE_IP_1",
+      "codesFound": [
+        "PM",
+        "AM",
+        "NP",
+        "IRP",
+        "E",
+        "T"
+      ],
+      "articleRefsAll": [
+        "Article 66",
+        "Article 74"
+      ],
+      "drawability": {
+        "tier": "NOT_DRAWABLE",
+        "reasons": [
+          "FAR alone — fixes floor area, fixes neither footprint nor height"
+        ],
+        "heightStoreys": false,
+        "far": true,
+        "setbackCount": 0,
+        "setbacks": []
+      },
+      "checks": [
+        {
+          "check": "no unparsed code cells",
+          "got": "(none)",
+          "pass": true
+        }
+      ],
+      "codeCellsSeen": 6,
+      "codeCellsUnparsed": [],
+      "parameters": {
+        "PM": {
+          "status": "PRESENT",
+          "verdict": "VALID",
+          "value": 400,
+          "units": "m2",
+          "raw": "400",
+          "rawUnits": "m2",
+          "articleRefs": []
+        },
+        "AM": {
+          "status": "PRESENT",
+          "verdict": "VALID",
+          "value": 12,
+          "units": "m",
+          "raw": "12",
+          "rawUnits": "m",
+          "articleRefs": []
+        },
+        "NP": {
+          "status": "PRESENT_EMPTY",
+          "units": "",
+          "raw": "plantes",
+          "rawUnits": "",
+          "articleRefs": [
+            "Article 66"
+          ]
+        },
+        "IRP": {
+          "status": "PRESENT",
+          "verdict": "VALID",
+          "value": 90,
+          "units": "m2/habitatge",
+          "raw": "90",
+          "rawUnits": "m2/habitatge",
+          "articleRefs": []
+        },
+        "E": {
+          "status": "PRESENT",
+          "verdict": "VALID",
+          "kind": "RATIO",
+          "value": 2,
+          "units": "m2 superf. edificable/m2 superf. del solar",
+          "raw": "2",
+          "rawUnits": "m2 superf. edificable/m2 super",
+          "articleRefs": []
+        },
+        "T": {
+          "status": "PRESENT",
+          "verdict": "VALID",
+          "kind": "TEXT",
+          "value": "EM: Alineada o retranquejada a a espai, entre mitgeres",
+          "units": "",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres",
+          "rawUnits": "",
+          "articleRefs": []
+        }
+      }
+    },
+    {
+      "id": "280990",
+      "source": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=280990 (live)",
+      "identitat": "280990",
+      "municipi": "Alcúdia",
+      "codiMuib": "RE_NA_VE",
+      "codesFound": [
+        "T"
+      ],
+      "articleRefsAll": [],
+      "drawability": {
+        "tier": "NOT_DRAWABLE",
+        "reasons": [
+          "no height signal"
+        ],
+        "setbackCount": 0,
+        "setbacks": []
+      },
+      "checks": [
+        {
+          "check": "T row parsed",
+          "got": "\"VE: Volumetria específica\"",
+          "pass": true
+        },
+        {
+          "check": "no unparsed code cells",
+          "got": "(none)",
+          "pass": true
+        }
+      ],
+      "codeCellsSeen": 1,
+      "codeCellsUnparsed": [],
+      "parameters": {
+        "T": {
+          "status": "PRESENT",
+          "verdict": "VALID",
+          "kind": "TEXT",
+          "value": "VE: Volumetria específica",
+          "units": "",
+          "raw": "VE: Volumetria específica",
+          "rawUnits": "",
+          "articleRefs": []
+        }
+      }
+    }
+  ],
+  "pass": true
+}

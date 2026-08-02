@@ -1,0 +1,968 @@
+{
+  "probe": "e3-pti-reach",
+  "runAt": "2026-08-02T15:01:27.723Z",
+  "errors": [],
+  "controls": {},
+  "obsDistinct_RUSTIC_CATEGORIES": {
+    "n": 1,
+    "deduplicated": true,
+    "oracleGroups": 1,
+    "oracleSumN": 26113,
+    "agrees": true,
+    "exceededTransferLimit": false,
+    "values": [
+      "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    ]
+  },
+  "obsDistinct_QUALIFICACIONS": {
+    "n": 3,
+    "deduplicated": true,
+    "oracleGroups": 3,
+    "oracleSumN": 10678,
+    "agrees": true,
+    "exceededTransferLimit": false,
+    "values": [
+      "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+      "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament",
+      "Del municipi d'Eivissa el MUIB NO mostra l'actual normativa vigent. Consultau la informació proporcionada per l'Ajuntament"
+    ]
+  },
+  "obsVerbatimBuildable_RUSTIC_CATEGORIES": [
+    {
+      "codiMuni": "001",
+      "municipi": "ALARÓ",
+      "codiclas": "SB",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "001",
+      "municipi": "ALARÓ",
+      "codiclas": "SU",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "codiclas": "SB",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "codiclas": "SB",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "codiclas": "SB",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "codiclas": "SB",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "codiclas": "SB",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "codiclas": "SB",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "codiclas": "SB",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "codiclas": "SB",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "codiclas": "SU",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "codiclas": "SU",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "codiclas": "SU",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "codiclas": "SU",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "codiclas": "SU",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "codiclas": "SU",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "codiclas": "SU",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "003",
+      "municipi": "ALCÚDIA",
+      "codiclas": "SB",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "003",
+      "municipi": "ALCÚDIA",
+      "codiclas": "SB",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "003",
+      "municipi": "ALCÚDIA",
+      "codiclas": "SB",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "003",
+      "municipi": "ALCÚDIA",
+      "codiclas": "SB",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "003",
+      "municipi": "ALCÚDIA",
+      "codiclas": "SU",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "003",
+      "municipi": "ALCÚDIA",
+      "codiclas": "SU",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "003",
+      "municipi": "ALCÚDIA",
+      "codiclas": "SU",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "003",
+      "municipi": "ALCÚDIA",
+      "codiclas": "SU",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    }
+  ],
+  "obsVerbatimBuildable_QUALIFICACIONS": [
+    {
+      "codiMuni": "040",
+      "municipi": "PALMA",
+      "codiclas": "SU",
+      "obs": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SB",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SU",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SU",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SU",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SU",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SU",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SU",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SU",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SU",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SU",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SU",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SU",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SU",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SB",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SB",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SB",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SB",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SB",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SB",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SB",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SB",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SB",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SB",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    },
+    {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "codiclas": "SU",
+      "obs": "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+    }
+  ],
+  "obsVerbatimRustic": [
+    {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    },
+    {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "obs": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments."
+    }
+  ],
+  "flagTextCounts": {
+    "RUSTIC_CATEGORIES": {
+      "pti": {
+        "all": 0,
+        "buildable": 0
+      },
+      "pla_territorial": {
+        "all": 26113,
+        "buildable": 849
+      },
+      "derogad": {
+        "all": 0,
+        "buildable": 0
+      },
+      "adaptat": {
+        "all": 26113,
+        "buildable": 849
+      },
+      "rustic_word": {
+        "all": 26113,
+        "buildable": 849
+      },
+      "no_vigent": {
+        "all": 0,
+        "buildable": 0
+      }
+    },
+    "QUALIFICACIONS": {
+      "pti": {
+        "all": 0,
+        "buildable": 0
+      },
+      "pla_territorial": {
+        "all": 0,
+        "buildable": 0
+      },
+      "derogad": {
+        "all": 0,
+        "buildable": 0
+      },
+      "adaptat": {
+        "all": 0,
+        "buildable": 0
+      },
+      "rustic_word": {
+        "all": 0,
+        "buildable": 0
+      },
+      "no_vigent": {
+        "all": 9707,
+        "buildable": 9705
+      }
+    }
+  },
+  "rusticLayer": {
+    "layerId": 11,
+    "byClass": [
+      {
+        "codiclas": "SB",
+        "features": 297,
+        "areaKm2": 34.1717,
+        "flaggedFeatures": 297,
+        "flaggedAreaKm2": 34.1717,
+        "flaggedFeaturePct": 100,
+        "flaggedAreaPct": 100
+      },
+      {
+        "codiclas": "SU",
+        "features": 552,
+        "areaKm2": 238.7739,
+        "flaggedFeatures": 552,
+        "flaggedAreaKm2": 238.7739,
+        "flaggedFeaturePct": 100,
+        "flaggedAreaPct": 100
+      },
+      {
+        "codiclas": "SR",
+        "features": 25264,
+        "areaKm2": 4712.9872,
+        "flaggedFeatures": 25264,
+        "flaggedAreaKm2": 4712.9872,
+        "flaggedFeaturePct": 100,
+        "flaggedAreaPct": 100
+      }
+    ],
+    "control_partition": {
+      "total": 26113,
+      "flaggedTotal": 26113,
+      "unflagged": 0,
+      "matches": true
+    }
+  },
+  "qualLayer": {
+    "layerId": 10,
+    "byClass": [
+      {
+        "codiclas": "SU",
+        "features": 42959,
+        "areaKm2": 238.783,
+        "flaggedFeatures": 9859,
+        "flaggedAreaKm2": 53.9365,
+        "flaggedFeaturePct": 22.95,
+        "flaggedAreaPct": 22.5881
+      },
+      {
+        "codiclas": "SB",
+        "features": 3581,
+        "areaKm2": 34.2284,
+        "flaggedFeatures": 816,
+        "flaggedAreaKm2": 10.9669,
+        "flaggedFeaturePct": 22.79,
+        "flaggedAreaPct": 32.0404
+      },
+      {
+        "codiclas": "SR",
+        "features": 67,
+        "areaKm2": 4712.9872,
+        "flaggedFeatures": 3,
+        "flaggedAreaKm2": 236.1779,
+        "flaggedFeaturePct": 4.48,
+        "flaggedAreaPct": 5.0112
+      }
+    ],
+    "control_partition": {
+      "total": 46607,
+      "flaggedTotal": 10678,
+      "unflagged": 35929,
+      "matches": true
+    }
+  },
+  "ptiReachIntoBuildable": {
+    "viaRusticCategoriesLayer": {
+      "buildableFeatures": 849,
+      "flaggedBuildableFeatures": 849,
+      "flaggedFeaturePct": 100,
+      "buildableAreaKm2": 272.9456,
+      "flaggedBuildableAreaKm2": 272.9456,
+      "flaggedAreaPct": 100
+    },
+    "viaQualificacionsLayer": {
+      "buildableFeatures": 46540,
+      "flaggedBuildableFeatures": 10675,
+      "flaggedFeaturePct": 22.94,
+      "buildableAreaKm2": 273.0114,
+      "flaggedBuildableAreaKm2": 64.9034,
+      "flaggedAreaPct": 23.77
+    }
+  },
+  "perMuniBuildableFlag": [
+    {
+      "codiMuni": "001",
+      "buildableRows": 2,
+      "flagged": 2,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "002",
+      "buildableRows": 15,
+      "flagged": 15,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "003",
+      "buildableRows": 14,
+      "flagged": 14,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "004",
+      "buildableRows": 6,
+      "flagged": 6,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "005",
+      "buildableRows": 20,
+      "flagged": 20,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "006",
+      "buildableRows": 9,
+      "flagged": 9,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "007",
+      "buildableRows": 9,
+      "flagged": 9,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "008",
+      "buildableRows": 4,
+      "flagged": 4,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "009",
+      "buildableRows": 3,
+      "flagged": 3,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "010",
+      "buildableRows": 12,
+      "flagged": 12,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "011",
+      "buildableRows": 21,
+      "flagged": 21,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "012",
+      "buildableRows": 7,
+      "flagged": 7,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "013",
+      "buildableRows": 11,
+      "flagged": 11,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "014",
+      "buildableRows": 12,
+      "flagged": 12,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "015",
+      "buildableRows": 21,
+      "flagged": 21,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "016",
+      "buildableRows": 4,
+      "flagged": 4,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "017",
+      "buildableRows": 6,
+      "flagged": 6,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "018",
+      "buildableRows": 7,
+      "flagged": 7,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "019",
+      "buildableRows": 4,
+      "flagged": 4,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "020",
+      "buildableRows": 7,
+      "flagged": 7,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "021",
+      "buildableRows": 2,
+      "flagged": 2,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "022",
+      "buildableRows": 15,
+      "flagged": 15,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "023",
+      "buildableRows": 6,
+      "flagged": 6,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "024",
+      "buildableRows": 13,
+      "flagged": 13,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "025",
+      "buildableRows": 2,
+      "flagged": 2,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "026",
+      "buildableRows": 21,
+      "flagged": 21,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "027",
+      "buildableRows": 16,
+      "flagged": 16,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "028",
+      "buildableRows": 5,
+      "flagged": 5,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "029",
+      "buildableRows": 4,
+      "flagged": 4,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "030",
+      "buildableRows": 1,
+      "flagged": 1,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "031",
+      "buildableRows": 24,
+      "flagged": 24,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "032",
+      "buildableRows": 20,
+      "flagged": 20,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "033",
+      "buildableRows": 44,
+      "flagged": 44,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "034",
+      "buildableRows": 2,
+      "flagged": 2,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "035",
+      "buildableRows": 1,
+      "flagged": 1,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "036",
+      "buildableRows": 13,
+      "flagged": 13,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "037",
+      "buildableRows": 24,
+      "flagged": 24,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "038",
+      "buildableRows": 9,
+      "flagged": 9,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "039",
+      "buildableRows": 4,
+      "flagged": 4,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "040",
+      "buildableRows": 66,
+      "flagged": 66,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "041",
+      "buildableRows": 4,
+      "flagged": 4,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "042",
+      "buildableRows": 21,
+      "flagged": 21,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "043",
+      "buildableRows": 7,
+      "flagged": 7,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "044",
+      "buildableRows": 13,
+      "flagged": 13,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "045",
+      "buildableRows": 3,
+      "flagged": 3,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "046",
+      "buildableRows": 51,
+      "flagged": 51,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "047",
+      "buildableRows": 3,
+      "flagged": 3,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "048",
+      "buildableRows": 91,
+      "flagged": 91,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "049",
+      "buildableRows": 1,
+      "flagged": 1,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "050",
+      "buildableRows": 12,
+      "flagged": 12,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "051",
+      "buildableRows": 10,
+      "flagged": 10,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "052",
+      "buildableRows": 14,
+      "flagged": 14,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "053",
+      "buildableRows": 4,
+      "flagged": 4,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "054",
+      "buildableRows": 34,
+      "flagged": 34,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "055",
+      "buildableRows": 10,
+      "flagged": 10,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "056",
+      "buildableRows": 3,
+      "flagged": 3,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "057",
+      "buildableRows": 28,
+      "flagged": 28,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "058",
+      "buildableRows": 4,
+      "flagged": 4,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "059",
+      "buildableRows": 3,
+      "flagged": 3,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "060",
+      "buildableRows": 4,
+      "flagged": 4,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "061",
+      "buildableRows": 7,
+      "flagged": 7,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "062",
+      "buildableRows": 10,
+      "flagged": 10,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "063",
+      "buildableRows": 7,
+      "flagged": 7,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "064",
+      "buildableRows": 10,
+      "flagged": 10,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "065",
+      "buildableRows": 1,
+      "flagged": 1,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "901",
+      "buildableRows": 2,
+      "flagged": 2,
+      "allFlagged": true
+    },
+    {
+      "codiMuni": "902",
+      "buildableRows": 6,
+      "flagged": 6,
+      "allFlagged": true
+    }
+  ],
+  "perMuniBuildableFlagSummary": {
+    "municipalities": 67,
+    "allFlagged": 67,
+    "noneFlagged": 0
+  }
+}

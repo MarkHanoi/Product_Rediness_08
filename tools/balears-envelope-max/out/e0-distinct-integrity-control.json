@@ -1,0 +1,196 @@
+{
+  "probe": "e0-distinct-integrity-control",
+  "runAt": "2026-08-02T15:00:00.514Z",
+  "trials": [
+    {
+      "name": "CLASSIFICACIO.CODIMUNI  (no extras)",
+      "layerId": 12,
+      "field": "CODIMUNI",
+      "extra": {},
+      "rowsReturned": 67,
+      "trueDistinctInResponse": 67,
+      "exceededTransferLimit": false,
+      "expected": 67,
+      "serverDeduplicated": true,
+      "verdict": "HONOURED"
+    },
+    {
+      "name": "CLASSIFICACIO.CODIMUNI  (+resultRecordCount 60000)",
+      "layerId": 12,
+      "field": "CODIMUNI",
+      "extra": {
+        "resultRecordCount": "60000"
+      },
+      "rowsReturned": 916,
+      "trueDistinctInResponse": 67,
+      "exceededTransferLimit": false,
+      "expected": 67,
+      "serverDeduplicated": false,
+      "verdict": "⛔ SILENTLY IGNORED (duplicates present in response)"
+    },
+    {
+      "name": "CLASSIFICACIO.CODICLAS  (no extras)",
+      "layerId": 12,
+      "field": "CODICLAS",
+      "extra": {},
+      "rowsReturned": 3,
+      "trueDistinctInResponse": 3,
+      "exceededTransferLimit": false,
+      "expected": 3,
+      "serverDeduplicated": true,
+      "verdict": "HONOURED"
+    },
+    {
+      "name": "CLASSIFICACIO.CODICLAS  (+resultRecordCount 60000)",
+      "layerId": 12,
+      "field": "CODICLAS",
+      "extra": {
+        "resultRecordCount": "60000"
+      },
+      "rowsReturned": 916,
+      "trueDistinctInResponse": 3,
+      "exceededTransferLimit": false,
+      "expected": 3,
+      "serverDeduplicated": false,
+      "verdict": "⛔ SILENTLY IGNORED (duplicates present in response)"
+    },
+    {
+      "name": "QUALIFICACIONS.CODICLAS (no extras)",
+      "layerId": 10,
+      "field": "CODICLAS",
+      "extra": {},
+      "rowsReturned": 3,
+      "trueDistinctInResponse": 3,
+      "exceededTransferLimit": false,
+      "expected": 3,
+      "serverDeduplicated": true,
+      "verdict": "HONOURED"
+    },
+    {
+      "name": "QUALIFICACIONS.CODICLAS (+resultRecordCount 60000)",
+      "layerId": 10,
+      "field": "CODICLAS",
+      "extra": {
+        "resultRecordCount": "60000"
+      },
+      "rowsReturned": 46607,
+      "trueDistinctInResponse": 3,
+      "exceededTransferLimit": false,
+      "expected": 3,
+      "serverDeduplicated": false,
+      "verdict": "⛔ SILENTLY IGNORED (duplicates present in response)"
+    },
+    {
+      "name": "QUALIFICACIONS.URL      (no extras)  ⭐ headline 5,273",
+      "layerId": 10,
+      "field": "URL",
+      "extra": {},
+      "rowsReturned": 5274,
+      "trueDistinctInResponse": 5274,
+      "exceededTransferLimit": false,
+      "expected": null,
+      "serverDeduplicated": true,
+      "verdict": "HONOURED"
+    },
+    {
+      "name": "QUALIFICACIONS.URL      (+resultRecordCount 60000)",
+      "layerId": 10,
+      "field": "URL",
+      "extra": {
+        "resultRecordCount": "60000"
+      },
+      "rowsReturned": 46607,
+      "trueDistinctInResponse": 5274,
+      "exceededTransferLimit": false,
+      "expected": null,
+      "serverDeduplicated": false,
+      "verdict": "⛔ SILENTLY IGNORED (duplicates present in response)"
+    },
+    {
+      "name": "GESTIO.URL              (no extras)  ⭐ headline 1,951",
+      "layerId": 8,
+      "field": "URL",
+      "extra": {},
+      "rowsReturned": 1951,
+      "trueDistinctInResponse": 1951,
+      "exceededTransferLimit": false,
+      "expected": null,
+      "serverDeduplicated": true,
+      "verdict": "HONOURED"
+    },
+    {
+      "name": "CLASSIFICACIO.CODIMUNI",
+      "groups": 67,
+      "sumN": 916,
+      "exceededTransferLimit": false,
+      "method": "GROUP BY oracle"
+    },
+    {
+      "name": "QUALIFICACIONS.CODICLAS",
+      "groups": 3,
+      "sumN": 46607,
+      "exceededTransferLimit": false,
+      "method": "GROUP BY oracle"
+    },
+    {
+      "name": "QUALIFICACIONS.URL ⭐",
+      "groups": 5274,
+      "sumN": 46607,
+      "exceededTransferLimit": false,
+      "method": "GROUP BY oracle"
+    },
+    {
+      "name": "QUALIFICACIONS.URL on SU+SB ⭐",
+      "groups": 5273,
+      "sumN": 46540,
+      "exceededTransferLimit": false,
+      "method": "GROUP BY oracle"
+    },
+    {
+      "name": "GESTIO.URL ⭐",
+      "groups": 1951,
+      "sumN": 2210,
+      "exceededTransferLimit": false,
+      "method": "GROUP BY oracle"
+    }
+  ],
+  "knownAnswers": {
+    "classificacioRows": 916,
+    "qualRows": 46607,
+    "gestioRows": 2210,
+    "municipalitiesExpected": 67,
+    "codiclasExpected": 3
+  },
+  "oracles": {
+    "classificacioCodimuni": {
+      "name": "CLASSIFICACIO.CODIMUNI",
+      "groups": 67,
+      "sumN": 916,
+      "exceededTransferLimit": false
+    },
+    "qualCodiclas": {
+      "name": "QUALIFICACIONS.CODICLAS",
+      "groups": 3,
+      "sumN": 46607,
+      "exceededTransferLimit": false
+    },
+    "qualUrl": {
+      "name": "QUALIFICACIONS.URL ⭐",
+      "groups": 5274,
+      "sumN": 46607,
+      "exceededTransferLimit": false
+    },
+    "qualUrlBuildable": {
+      "name": "QUALIFICACIONS.URL on SU+SB ⭐",
+      "groups": 5273,
+      "sumN": 46540,
+      "exceededTransferLimit": false
+    },
+    "gestioUrl": {
+      "name": "GESTIO.URL ⭐",
+      "groups": 1951,
+      "sumN": 2210,
+      "exceededTransferLimit": false
+    }
+  }
+}

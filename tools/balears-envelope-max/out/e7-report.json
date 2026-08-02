@@ -1,0 +1,3368 @@
+{
+  "probe": "e7-report",
+  "runAt": "2026-08-02T15:27:50.067Z",
+  "inputs": {
+    "e1": "2026-08-02T14:55:21.526Z",
+    "e3": "2026-08-02T15:01:27.723Z",
+    "e4": "2026-08-02T15:05:43.538Z",
+    "e6": "2026-08-02T15:20:56.379Z"
+  },
+  "denominatorLadder": {
+    "allQualificacionsFeatures": 46607,
+    "allClassifiedLandKm2": 4985.93,
+    "rusticLandKm2": 4712.99,
+    "rusticSharePct": 94.53,
+    "buildableFeatures": 46540,
+    "buildableLandKm2": 272.96,
+    "buildableShareOfLandPct": 5.47,
+    "distinctBuildableFitxes": 5272,
+    "byZoneClass": {
+      "NON_ENVELOPE": {
+        "fitxes": 1425,
+        "features": 11272,
+        "areaM2": 88860060.69999957,
+        "areaKm2": 88.86,
+        "shareOfBuildablePct": 32.55
+      },
+      "PRIVATE_DEVELOPABLE": {
+        "fitxes": 2631,
+        "features": 32325,
+        "areaM2": 166084404.52999967,
+        "areaKm2": 166.084,
+        "shareOfBuildablePct": 60.85
+      },
+      "FACILITY": {
+        "fitxes": 1216,
+        "features": 2942,
+        "areaM2": 18015546.30999996,
+        "areaKm2": 18.016,
+        "shareOfBuildablePct": 6.6
+      }
+    },
+    "rusticRowsInQualificacions": 67
+  },
+  "uniformArm": {
+    "allBuildable": {
+      "label": "all buildable fitxes, uniform",
+      "n": 200,
+      "completeRule": {
+        "pct": 41.6,
+        "pooledPct": 43,
+        "lo": 36.33,
+        "hi": 49.93,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 42.22,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 30,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 52.5,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 50,
+            "weight": 0.015
+          }
+        }
+      },
+      "partialDrawable": {
+        "pct": 16.92,
+        "pooledPct": 14,
+        "lo": 9.87,
+        "hi": 19.49,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 17.78,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 22.5,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 5,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 3.33,
+            "weight": 0.015
+          }
+        }
+      },
+      "anyDrawable": {
+        "pct": 58.52,
+        "pooledPct": 57,
+        "lo": 50.07,
+        "hi": 63.67,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 60,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 52.5,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 57.5,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 53.33,
+            "weight": 0.015
+          }
+        }
+      },
+      "notDrawable": {
+        "pct": 41.48,
+        "pooledPct": 43,
+        "lo": 36.33,
+        "hi": 49.93,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 40,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 47.5,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 42.5,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 46.67,
+            "weight": 0.015
+          }
+        }
+      },
+      "height": {
+        "pct": 66.97,
+        "pooledPct": 64.5,
+        "lo": 57.65,
+        "hi": 70.8,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 68.89,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 60,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 65,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 56.67,
+            "weight": 0.015
+          }
+        }
+      },
+      "heightInStoreysOnly": {
+        "pct": 7.55,
+        "pooledPct": 8.5,
+        "lo": 5.37,
+        "hi": 13.19,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 5.56,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 12.5,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 15,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 3.33,
+            "weight": 0.015
+          }
+        }
+      },
+      "heightInMetres": {
+        "pct": 59.43,
+        "pooledPct": 56,
+        "lo": 49.07,
+        "hi": 62.7,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 63.33,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 47.5,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 50,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 53.33,
+            "weight": 0.015
+          }
+        }
+      },
+      "occupation": {
+        "pct": 51.87,
+        "pooledPct": 52.5,
+        "lo": 45.6,
+        "hi": 59.31,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 52.22,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 42.5,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 62.5,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 53.33,
+            "weight": 0.015
+          }
+        }
+      },
+      "far": {
+        "pct": 48.67,
+        "pooledPct": 48.5,
+        "lo": 41.67,
+        "hi": 55.39,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 51.11,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 30,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 57.5,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 53.33,
+            "weight": 0.015
+          }
+        }
+      },
+      "anySetback": {
+        "pct": 50.8,
+        "pooledPct": 49,
+        "lo": 42.16,
+        "hi": 55.88,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 54.44,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 35,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 47.5,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 53.33,
+            "weight": 0.015
+          }
+        }
+      },
+      "heightPlusOccupation": {
+        "pct": 50.97,
+        "pooledPct": 51,
+        "lo": 44.12,
+        "hi": 57.84,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 52.22,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 40,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 57.5,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 53.33,
+            "weight": 0.015
+          }
+        }
+      },
+      "heightPlusSetback": {
+        "pct": 50.17,
+        "pooledPct": 48,
+        "lo": 41.18,
+        "hi": 54.9,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 54.44,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 32.5,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 45,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 53.33,
+            "weight": 0.015
+          }
+        }
+      },
+      "farAloneNoHeight": {
+        "pct": 1.62,
+        "pooledPct": 1,
+        "lo": 0.27,
+        "hi": 3.57,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 2.22,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 0,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 0,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 0,
+            "weight": 0.015
+          }
+        }
+      },
+      "nothingAtAll": {
+        "pct": 26.91,
+        "pooledPct": 28.5,
+        "lo": 22.69,
+        "hi": 35.12,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 25.56,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 32.5,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 27.5,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 33.33,
+            "weight": 0.015
+          }
+        }
+      },
+      "articleAnywhere": {
+        "pct": 4.04,
+        "pooledPct": 3.5,
+        "lo": 1.71,
+        "hi": 7.05,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 4.44,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 5,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 0,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 3.33,
+            "weight": 0.015
+          }
+        }
+      },
+      "articleOnEnvelopeParam": {
+        "pct": 3.18,
+        "pooledPct": 2.5,
+        "lo": 1.07,
+        "hi": 5.72,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 3.33,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 5,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 0,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 0,
+            "weight": 0.015
+          }
+        }
+      },
+      "completeRuleWithArticle": {
+        "pct": 2,
+        "pooledPct": 1.5,
+        "lo": 0.51,
+        "hi": 4.32,
+        "n": 200,
+        "perIsland": {
+          "Mallorca": {
+            "n": 90,
+            "ratePct": 2.22,
+            "weight": 0.7312
+          },
+          "Menorca": {
+            "n": 40,
+            "ratePct": 2.5,
+            "weight": 0.1489
+          },
+          "Eivissa": {
+            "n": 40,
+            "ratePct": 0,
+            "weight": 0.1049
+          },
+          "Formentera": {
+            "n": 30,
+            "ratePct": 0,
+            "weight": 0.015
+          }
+        }
+      }
+    },
+    "privateDevelopable": {
+      "label": "private developable only",
+      "n": 115,
+      "completeRule": {
+        "pct": 56.24,
+        "pooledPct": 58.26,
+        "lo": 49.12,
+        "hi": 66.86,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 56.86,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 47.62,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 66.67,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 63.64,
+            "weight": 0.0186
+          }
+        }
+      },
+      "partialDrawable": {
+        "pct": 26.88,
+        "pooledPct": 20.87,
+        "lo": 14.44,
+        "hi": 29.18,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 27.45,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 38.1,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 4.76,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 4.55,
+            "weight": 0.0186
+          }
+        }
+      },
+      "anyDrawable": {
+        "pct": 83.12,
+        "pooledPct": 79.13,
+        "lo": 70.82,
+        "hi": 85.56,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 84.31,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 85.71,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 71.43,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 68.18,
+            "weight": 0.0186
+          }
+        }
+      },
+      "notDrawable": {
+        "pct": 16.88,
+        "pooledPct": 20.87,
+        "lo": 14.44,
+        "hi": 29.18,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 15.69,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 14.29,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 28.57,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 31.82,
+            "weight": 0.0186
+          }
+        }
+      },
+      "height": {
+        "pct": 89.44,
+        "pooledPct": 85.22,
+        "lo": 77.6,
+        "hi": 90.56,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 90.2,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 90.48,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 85.71,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 68.18,
+            "weight": 0.0186
+          }
+        }
+      },
+      "heightInStoreysOnly": {
+        "pct": 8.91,
+        "pooledPct": 10.43,
+        "lo": 6.07,
+        "hi": 17.36,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 5.88,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 14.29,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 23.81,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 4.55,
+            "weight": 0.0186
+          }
+        }
+      },
+      "heightInMetres": {
+        "pct": 80.53,
+        "pooledPct": 74.78,
+        "lo": 66.13,
+        "hi": 81.83,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 84.31,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 76.19,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 61.9,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 63.64,
+            "weight": 0.0186
+          }
+        }
+      },
+      "occupation": {
+        "pct": 69.52,
+        "pooledPct": 69.57,
+        "lo": 60.64,
+        "hi": 77.23,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 70.59,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 61.9,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 76.19,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 68.18,
+            "weight": 0.0186
+          }
+        }
+      },
+      "far": {
+        "pct": 65.53,
+        "pooledPct": 65.22,
+        "lo": 56.15,
+        "hi": 73.3,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 68.63,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 47.62,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 76.19,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 63.64,
+            "weight": 0.0186
+          }
+        }
+      },
+      "anySetback": {
+        "pct": 70.24,
+        "pooledPct": 66.96,
+        "lo": 57.93,
+        "hi": 74.88,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 74.51,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 61.9,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 52.38,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 68.18,
+            "weight": 0.0186
+          }
+        }
+      },
+      "heightPlusOccupation": {
+        "pct": 69.1,
+        "pooledPct": 68.7,
+        "lo": 59.73,
+        "hi": 76.45,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 70.59,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 61.9,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 71.43,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 68.18,
+            "weight": 0.0186
+          }
+        }
+      },
+      "heightPlusSetback": {
+        "pct": 70.24,
+        "pooledPct": 66.96,
+        "lo": 57.93,
+        "hi": 74.88,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 74.51,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 61.9,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 52.38,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 68.18,
+            "weight": 0.0186
+          }
+        }
+      },
+      "farAloneNoHeight": {
+        "pct": 1.41,
+        "pooledPct": 0.87,
+        "lo": 0.15,
+        "hi": 4.76,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 1.96,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 0,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 0,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 0,
+            "weight": 0.0186
+          }
+        }
+      },
+      "nothingAtAll": {
+        "pct": 3.5,
+        "pooledPct": 7.83,
+        "lo": 4.17,
+        "hi": 14.21,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 1.96,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 4.76,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 9.52,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 22.73,
+            "weight": 0.0186
+          }
+        }
+      },
+      "articleAnywhere": {
+        "pct": 7.38,
+        "pooledPct": 6.09,
+        "lo": 2.98,
+        "hi": 12.03,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 7.84,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 9.52,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 0,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 4.55,
+            "weight": 0.0186
+          }
+        }
+      },
+      "articleOnEnvelopeParam": {
+        "pct": 5.89,
+        "pooledPct": 4.35,
+        "lo": 1.87,
+        "hi": 9.78,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 5.88,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 9.52,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 0,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 0,
+            "weight": 0.0186
+          }
+        }
+      },
+      "completeRuleWithArticle": {
+        "pct": 3.65,
+        "pooledPct": 2.61,
+        "lo": 0.89,
+        "hi": 7.39,
+        "n": 115,
+        "perIsland": {
+          "Mallorca": {
+            "n": 51,
+            "ratePct": 3.92,
+            "weight": 0.7184
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 4.76,
+            "weight": 0.1748
+          },
+          "Eivissa": {
+            "n": 21,
+            "ratePct": 0,
+            "weight": 0.0882
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 0,
+            "weight": 0.0186
+          }
+        }
+      }
+    },
+    "privateDevelopableCurrentOnly": {
+      "label": "private developable, excluding self-declared not-current municipalities",
+      "n": 101,
+      "completeRule": {
+        "pct": 56.43,
+        "pooledPct": 58.42,
+        "lo": 48.67,
+        "hi": 67.55,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 57.5,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 47.62,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 66.67,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 63.64,
+            "weight": 0.0222
+          }
+        }
+      },
+      "partialDrawable": {
+        "pct": 28.84,
+        "pooledPct": 21.78,
+        "lo": 14.85,
+        "hi": 30.78,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 30,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 38.1,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 5.56,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 4.55,
+            "weight": 0.0222
+          }
+        }
+      },
+      "anyDrawable": {
+        "pct": 85.27,
+        "pooledPct": 80.2,
+        "lo": 71.38,
+        "hi": 86.8,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 87.5,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 85.71,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 72.22,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 68.18,
+            "weight": 0.0222
+          }
+        }
+      },
+      "notDrawable": {
+        "pct": 14.73,
+        "pooledPct": 19.8,
+        "lo": 13.2,
+        "hi": 28.62,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 12.5,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 14.29,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 27.78,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 31.82,
+            "weight": 0.0222
+          }
+        }
+      },
+      "height": {
+        "pct": 89.51,
+        "pooledPct": 85.15,
+        "lo": 76.93,
+        "hi": 90.79,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 90,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 90.48,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 88.89,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 68.18,
+            "weight": 0.0222
+          }
+        }
+      },
+      "heightInStoreysOnly": {
+        "pct": 9.05,
+        "pooledPct": 10.89,
+        "lo": 6.19,
+        "hi": 18.46,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 5,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 14.29,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 27.78,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 4.55,
+            "weight": 0.0222
+          }
+        }
+      },
+      "heightInMetres": {
+        "pct": 80.46,
+        "pooledPct": 74.26,
+        "lo": 64.95,
+        "hi": 81.78,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 85,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 76.19,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 61.11,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 63.64,
+            "weight": 0.0222
+          }
+        }
+      },
+      "occupation": {
+        "pct": 72.38,
+        "pooledPct": 71.29,
+        "lo": 61.81,
+        "hi": 79.2,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 75,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 61.9,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 77.78,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 68.18,
+            "weight": 0.0222
+          }
+        }
+      },
+      "far": {
+        "pct": 64.23,
+        "pooledPct": 64.36,
+        "lo": 54.65,
+        "hi": 73.01,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 67.5,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 47.62,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 77.78,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 63.64,
+            "weight": 0.0222
+          }
+        }
+      },
+      "anySetback": {
+        "pct": 72.51,
+        "pooledPct": 69.31,
+        "lo": 59.74,
+        "hi": 77.46,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 77.5,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 61.9,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 61.11,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 68.18,
+            "weight": 0.0222
+          }
+        }
+      },
+      "heightPlusOccupation": {
+        "pct": 71.86,
+        "pooledPct": 70.3,
+        "lo": 60.77,
+        "hi": 78.33,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 75,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 61.9,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 72.22,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 68.18,
+            "weight": 0.0222
+          }
+        }
+      },
+      "heightPlusSetback": {
+        "pct": 72.51,
+        "pooledPct": 69.31,
+        "lo": 59.74,
+        "hi": 77.46,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 77.5,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 61.9,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 61.11,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 68.18,
+            "weight": 0.0222
+          }
+        }
+      },
+      "farAloneNoHeight": {
+        "pct": 1.69,
+        "pooledPct": 0.99,
+        "lo": 0.17,
+        "hi": 5.4,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 2.5,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 0,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 0,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 0,
+            "weight": 0.0222
+          }
+        }
+      },
+      "nothingAtAll": {
+        "pct": 3.71,
+        "pooledPct": 7.92,
+        "lo": 4.07,
+        "hi": 14.86,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 2.5,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 4.76,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 5.56,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 22.73,
+            "weight": 0.0222
+          }
+        }
+      },
+      "articleAnywhere": {
+        "pct": 8.85,
+        "pooledPct": 6.93,
+        "lo": 3.4,
+        "hi": 13.62,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 10,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 9.52,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 0,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 4.55,
+            "weight": 0.0222
+          }
+        }
+      },
+      "articleOnEnvelopeParam": {
+        "pct": 7.06,
+        "pooledPct": 4.95,
+        "lo": 2.13,
+        "hi": 11.07,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 7.5,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 9.52,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 0,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 0,
+            "weight": 0.0222
+          }
+        }
+      },
+      "completeRuleWithArticle": {
+        "pct": 4.37,
+        "pooledPct": 2.97,
+        "lo": 1.02,
+        "hi": 8.37,
+        "n": 101,
+        "perIsland": {
+          "Mallorca": {
+            "n": 40,
+            "ratePct": 5,
+            "weight": 0.676
+          },
+          "Menorca": {
+            "n": 21,
+            "ratePct": 4.76,
+            "weight": 0.2084
+          },
+          "Eivissa": {
+            "n": 18,
+            "ratePct": 0,
+            "weight": 0.0933
+          },
+          "Formentera": {
+            "n": 22,
+            "ratePct": 0,
+            "weight": 0.0222
+          }
+        }
+      }
+    },
+    "perIsland": {
+      "Mallorca": {
+        "label": "Mallorca",
+        "n": 90,
+        "completeRule": {
+          "pct": 42.22,
+          "pooledPct": 42.22,
+          "lo": 32.54,
+          "hi": 52.54,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 42.22,
+              "weight": 1
+            }
+          }
+        },
+        "partialDrawable": {
+          "pct": 17.78,
+          "pooledPct": 17.78,
+          "lo": 11.25,
+          "hi": 26.94,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 17.78,
+              "weight": 1
+            }
+          }
+        },
+        "anyDrawable": {
+          "pct": 60,
+          "pooledPct": 60,
+          "lo": 49.67,
+          "hi": 69.51,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 60,
+              "weight": 1
+            }
+          }
+        },
+        "notDrawable": {
+          "pct": 40,
+          "pooledPct": 40,
+          "lo": 30.49,
+          "hi": 50.33,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 40,
+              "weight": 1
+            }
+          }
+        },
+        "height": {
+          "pct": 68.89,
+          "pooledPct": 68.89,
+          "lo": 58.72,
+          "hi": 77.51,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 68.89,
+              "weight": 1
+            }
+          }
+        },
+        "heightInStoreysOnly": {
+          "pct": 5.56,
+          "pooledPct": 5.56,
+          "lo": 2.4,
+          "hi": 12.35,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 5.56,
+              "weight": 1
+            }
+          }
+        },
+        "heightInMetres": {
+          "pct": 63.33,
+          "pooledPct": 63.33,
+          "lo": 53.02,
+          "hi": 72.55,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 63.33,
+              "weight": 1
+            }
+          }
+        },
+        "occupation": {
+          "pct": 52.22,
+          "pooledPct": 52.22,
+          "lo": 42.02,
+          "hi": 62.24,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 52.22,
+              "weight": 1
+            }
+          }
+        },
+        "far": {
+          "pct": 51.11,
+          "pooledPct": 51.11,
+          "lo": 40.95,
+          "hi": 61.18,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 51.11,
+              "weight": 1
+            }
+          }
+        },
+        "anySetback": {
+          "pct": 54.44,
+          "pooledPct": 54.44,
+          "lo": 44.18,
+          "hi": 64.34,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 54.44,
+              "weight": 1
+            }
+          }
+        },
+        "heightPlusOccupation": {
+          "pct": 52.22,
+          "pooledPct": 52.22,
+          "lo": 42.02,
+          "hi": 62.24,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 52.22,
+              "weight": 1
+            }
+          }
+        },
+        "heightPlusSetback": {
+          "pct": 54.44,
+          "pooledPct": 54.44,
+          "lo": 44.18,
+          "hi": 64.34,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 54.44,
+              "weight": 1
+            }
+          }
+        },
+        "farAloneNoHeight": {
+          "pct": 2.22,
+          "pooledPct": 2.22,
+          "lo": 0.61,
+          "hi": 7.74,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 2.22,
+              "weight": 1
+            }
+          }
+        },
+        "nothingAtAll": {
+          "pct": 25.56,
+          "pooledPct": 25.56,
+          "lo": 17.67,
+          "hi": 35.44,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 25.56,
+              "weight": 1
+            }
+          }
+        },
+        "articleAnywhere": {
+          "pct": 4.44,
+          "pooledPct": 4.44,
+          "lo": 1.74,
+          "hi": 10.88,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 4.44,
+              "weight": 1
+            }
+          }
+        },
+        "articleOnEnvelopeParam": {
+          "pct": 3.33,
+          "pooledPct": 3.33,
+          "lo": 1.14,
+          "hi": 9.35,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 3.33,
+              "weight": 1
+            }
+          }
+        },
+        "completeRuleWithArticle": {
+          "pct": 2.22,
+          "pooledPct": 2.22,
+          "lo": 0.61,
+          "hi": 7.74,
+          "n": 90,
+          "perIsland": {
+            "Mallorca": {
+              "n": 90,
+              "ratePct": 2.22,
+              "weight": 1
+            }
+          }
+        }
+      },
+      "Menorca": {
+        "label": "Menorca",
+        "n": 40,
+        "completeRule": {
+          "pct": 30,
+          "pooledPct": 30,
+          "lo": 18.07,
+          "hi": 45.43,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 30,
+              "weight": 1
+            }
+          }
+        },
+        "partialDrawable": {
+          "pct": 22.5,
+          "pooledPct": 22.5,
+          "lo": 12.32,
+          "hi": 37.5,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 22.5,
+              "weight": 1
+            }
+          }
+        },
+        "anyDrawable": {
+          "pct": 52.5,
+          "pooledPct": 52.5,
+          "lo": 37.5,
+          "hi": 67.06,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 52.5,
+              "weight": 1
+            }
+          }
+        },
+        "notDrawable": {
+          "pct": 47.5,
+          "pooledPct": 47.5,
+          "lo": 32.94,
+          "hi": 62.5,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 47.5,
+              "weight": 1
+            }
+          }
+        },
+        "height": {
+          "pct": 60,
+          "pooledPct": 60,
+          "lo": 44.6,
+          "hi": 73.65,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 60,
+              "weight": 1
+            }
+          }
+        },
+        "heightInStoreysOnly": {
+          "pct": 12.5,
+          "pooledPct": 12.5,
+          "lo": 5.46,
+          "hi": 26.11,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 12.5,
+              "weight": 1
+            }
+          }
+        },
+        "heightInMetres": {
+          "pct": 47.5,
+          "pooledPct": 47.5,
+          "lo": 32.94,
+          "hi": 62.5,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 47.5,
+              "weight": 1
+            }
+          }
+        },
+        "occupation": {
+          "pct": 42.5,
+          "pooledPct": 42.5,
+          "lo": 28.51,
+          "hi": 57.81,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 42.5,
+              "weight": 1
+            }
+          }
+        },
+        "far": {
+          "pct": 30,
+          "pooledPct": 30,
+          "lo": 18.07,
+          "hi": 45.43,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 30,
+              "weight": 1
+            }
+          }
+        },
+        "anySetback": {
+          "pct": 35,
+          "pooledPct": 35,
+          "lo": 22.13,
+          "hi": 50.49,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 35,
+              "weight": 1
+            }
+          }
+        },
+        "heightPlusOccupation": {
+          "pct": 40,
+          "pooledPct": 40,
+          "lo": 26.35,
+          "hi": 55.4,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 40,
+              "weight": 1
+            }
+          }
+        },
+        "heightPlusSetback": {
+          "pct": 32.5,
+          "pooledPct": 32.5,
+          "lo": 20.08,
+          "hi": 47.98,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 32.5,
+              "weight": 1
+            }
+          }
+        },
+        "farAloneNoHeight": {
+          "pct": 0,
+          "pooledPct": 0,
+          "lo": 0,
+          "hi": 8.76,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 0,
+              "weight": 1
+            }
+          }
+        },
+        "nothingAtAll": {
+          "pct": 32.5,
+          "pooledPct": 32.5,
+          "lo": 20.08,
+          "hi": 47.98,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 32.5,
+              "weight": 1
+            }
+          }
+        },
+        "articleAnywhere": {
+          "pct": 5,
+          "pooledPct": 5,
+          "lo": 1.38,
+          "hi": 16.5,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 5,
+              "weight": 1
+            }
+          }
+        },
+        "articleOnEnvelopeParam": {
+          "pct": 5,
+          "pooledPct": 5,
+          "lo": 1.38,
+          "hi": 16.5,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 5,
+              "weight": 1
+            }
+          }
+        },
+        "completeRuleWithArticle": {
+          "pct": 2.5,
+          "pooledPct": 2.5,
+          "lo": 0.44,
+          "hi": 12.88,
+          "n": 40,
+          "perIsland": {
+            "Menorca": {
+              "n": 40,
+              "ratePct": 2.5,
+              "weight": 1
+            }
+          }
+        }
+      },
+      "Eivissa": {
+        "label": "Eivissa",
+        "n": 40,
+        "completeRule": {
+          "pct": 52.5,
+          "pooledPct": 52.5,
+          "lo": 37.5,
+          "hi": 67.06,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 52.5,
+              "weight": 1
+            }
+          }
+        },
+        "partialDrawable": {
+          "pct": 5,
+          "pooledPct": 5,
+          "lo": 1.38,
+          "hi": 16.5,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 5,
+              "weight": 1
+            }
+          }
+        },
+        "anyDrawable": {
+          "pct": 57.5,
+          "pooledPct": 57.5,
+          "lo": 42.19,
+          "hi": 71.49,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 57.5,
+              "weight": 1
+            }
+          }
+        },
+        "notDrawable": {
+          "pct": 42.5,
+          "pooledPct": 42.5,
+          "lo": 28.51,
+          "hi": 57.81,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 42.5,
+              "weight": 1
+            }
+          }
+        },
+        "height": {
+          "pct": 65,
+          "pooledPct": 65,
+          "lo": 49.51,
+          "hi": 77.87,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 65,
+              "weight": 1
+            }
+          }
+        },
+        "heightInStoreysOnly": {
+          "pct": 15,
+          "pooledPct": 15,
+          "lo": 7.06,
+          "hi": 29.07,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 15,
+              "weight": 1
+            }
+          }
+        },
+        "heightInMetres": {
+          "pct": 50,
+          "pooledPct": 50,
+          "lo": 35.2,
+          "hi": 64.8,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 50,
+              "weight": 1
+            }
+          }
+        },
+        "occupation": {
+          "pct": 62.5,
+          "pooledPct": 62.5,
+          "lo": 47.03,
+          "hi": 75.78,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 62.5,
+              "weight": 1
+            }
+          }
+        },
+        "far": {
+          "pct": 57.5,
+          "pooledPct": 57.5,
+          "lo": 42.19,
+          "hi": 71.49,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 57.5,
+              "weight": 1
+            }
+          }
+        },
+        "anySetback": {
+          "pct": 47.5,
+          "pooledPct": 47.5,
+          "lo": 32.94,
+          "hi": 62.5,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 47.5,
+              "weight": 1
+            }
+          }
+        },
+        "heightPlusOccupation": {
+          "pct": 57.5,
+          "pooledPct": 57.5,
+          "lo": 42.19,
+          "hi": 71.49,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 57.5,
+              "weight": 1
+            }
+          }
+        },
+        "heightPlusSetback": {
+          "pct": 45,
+          "pooledPct": 45,
+          "lo": 30.71,
+          "hi": 60.17,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 45,
+              "weight": 1
+            }
+          }
+        },
+        "farAloneNoHeight": {
+          "pct": 0,
+          "pooledPct": 0,
+          "lo": 0,
+          "hi": 8.76,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 0,
+              "weight": 1
+            }
+          }
+        },
+        "nothingAtAll": {
+          "pct": 27.5,
+          "pooledPct": 27.5,
+          "lo": 16.11,
+          "hi": 42.84,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 27.5,
+              "weight": 1
+            }
+          }
+        },
+        "articleAnywhere": {
+          "pct": 0,
+          "pooledPct": 0,
+          "lo": 0,
+          "hi": 8.76,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 0,
+              "weight": 1
+            }
+          }
+        },
+        "articleOnEnvelopeParam": {
+          "pct": 0,
+          "pooledPct": 0,
+          "lo": 0,
+          "hi": 8.76,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 0,
+              "weight": 1
+            }
+          }
+        },
+        "completeRuleWithArticle": {
+          "pct": 0,
+          "pooledPct": 0,
+          "lo": 0,
+          "hi": 8.76,
+          "n": 40,
+          "perIsland": {
+            "Eivissa": {
+              "n": 40,
+              "ratePct": 0,
+              "weight": 1
+            }
+          }
+        }
+      },
+      "Formentera": {
+        "label": "Formentera",
+        "n": 30,
+        "completeRule": {
+          "pct": 50,
+          "pooledPct": 50,
+          "lo": 33.15,
+          "hi": 66.85,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 50,
+              "weight": 1
+            }
+          }
+        },
+        "partialDrawable": {
+          "pct": 3.33,
+          "pooledPct": 3.33,
+          "lo": 0.59,
+          "hi": 16.67,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 3.33,
+              "weight": 1
+            }
+          }
+        },
+        "anyDrawable": {
+          "pct": 53.33,
+          "pooledPct": 53.33,
+          "lo": 36.14,
+          "hi": 69.77,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 53.33,
+              "weight": 1
+            }
+          }
+        },
+        "notDrawable": {
+          "pct": 46.67,
+          "pooledPct": 46.67,
+          "lo": 30.23,
+          "hi": 63.86,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 46.67,
+              "weight": 1
+            }
+          }
+        },
+        "height": {
+          "pct": 56.67,
+          "pooledPct": 56.67,
+          "lo": 39.2,
+          "hi": 72.62,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 56.67,
+              "weight": 1
+            }
+          }
+        },
+        "heightInStoreysOnly": {
+          "pct": 3.33,
+          "pooledPct": 3.33,
+          "lo": 0.59,
+          "hi": 16.67,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 3.33,
+              "weight": 1
+            }
+          }
+        },
+        "heightInMetres": {
+          "pct": 53.33,
+          "pooledPct": 53.33,
+          "lo": 36.14,
+          "hi": 69.77,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 53.33,
+              "weight": 1
+            }
+          }
+        },
+        "occupation": {
+          "pct": 53.33,
+          "pooledPct": 53.33,
+          "lo": 36.14,
+          "hi": 69.77,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 53.33,
+              "weight": 1
+            }
+          }
+        },
+        "far": {
+          "pct": 53.33,
+          "pooledPct": 53.33,
+          "lo": 36.14,
+          "hi": 69.77,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 53.33,
+              "weight": 1
+            }
+          }
+        },
+        "anySetback": {
+          "pct": 53.33,
+          "pooledPct": 53.33,
+          "lo": 36.14,
+          "hi": 69.77,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 53.33,
+              "weight": 1
+            }
+          }
+        },
+        "heightPlusOccupation": {
+          "pct": 53.33,
+          "pooledPct": 53.33,
+          "lo": 36.14,
+          "hi": 69.77,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 53.33,
+              "weight": 1
+            }
+          }
+        },
+        "heightPlusSetback": {
+          "pct": 53.33,
+          "pooledPct": 53.33,
+          "lo": 36.14,
+          "hi": 69.77,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 53.33,
+              "weight": 1
+            }
+          }
+        },
+        "farAloneNoHeight": {
+          "pct": 0,
+          "pooledPct": 0,
+          "lo": 0,
+          "hi": 11.35,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 0,
+              "weight": 1
+            }
+          }
+        },
+        "nothingAtAll": {
+          "pct": 33.33,
+          "pooledPct": 33.33,
+          "lo": 19.23,
+          "hi": 51.22,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 33.33,
+              "weight": 1
+            }
+          }
+        },
+        "articleAnywhere": {
+          "pct": 3.33,
+          "pooledPct": 3.33,
+          "lo": 0.59,
+          "hi": 16.67,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 3.33,
+              "weight": 1
+            }
+          }
+        },
+        "articleOnEnvelopeParam": {
+          "pct": 0,
+          "pooledPct": 0,
+          "lo": 0,
+          "hi": 11.35,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 0,
+              "weight": 1
+            }
+          }
+        },
+        "completeRuleWithArticle": {
+          "pct": 0,
+          "pooledPct": 0,
+          "lo": 0,
+          "hi": 11.35,
+          "n": 30,
+          "perIsland": {
+            "Formentera": {
+              "n": 30,
+              "ratePct": 0,
+              "weight": 1
+            }
+          }
+        }
+      }
+    }
+  },
+  "landWeighted": {
+    "allBuildable": {
+      "complete": {
+        "ratePct": 44.54,
+        "certainty": {
+          "fitxes": 60,
+          "areaKm2": 92.036,
+          "hitAreaKm2": 31.104,
+          "ratePct": 33.8,
+          "weight": 0.3372
+        },
+        "ppsRemainder": {
+          "draws": 180,
+          "usable": 180,
+          "hits": 90,
+          "ratePct": 50,
+          "weight": 0.6628
+        },
+        "subpopulationAreaKm2": 272.96
+      },
+      "partialDrawable": {
+        "ratePct": 8.67,
+        "certainty": {
+          "fitxes": 60,
+          "areaKm2": 92.036,
+          "hitAreaKm2": 4.575,
+          "ratePct": 4.97,
+          "weight": 0.3372
+        },
+        "ppsRemainder": {
+          "draws": 180,
+          "usable": 180,
+          "hits": 19,
+          "ratePct": 10.56,
+          "weight": 0.6628
+        },
+        "subpopulationAreaKm2": 272.96
+      },
+      "anyDrawable": {
+        "ratePct": 53.21,
+        "certainty": {
+          "fitxes": 60,
+          "areaKm2": 92.036,
+          "hitAreaKm2": 35.679,
+          "ratePct": 38.77,
+          "weight": 0.3372
+        },
+        "ppsRemainder": {
+          "draws": 180,
+          "usable": 180,
+          "hits": 109,
+          "ratePct": 60.56,
+          "weight": 0.6628
+        },
+        "subpopulationAreaKm2": 272.96
+      },
+      "notDrawable": {
+        "ratePct": 46.79,
+        "certainty": {
+          "fitxes": 60,
+          "areaKm2": 92.036,
+          "hitAreaKm2": 56.357,
+          "ratePct": 61.23,
+          "weight": 0.3372
+        },
+        "ppsRemainder": {
+          "draws": 180,
+          "usable": 180,
+          "hits": 71,
+          "ratePct": 39.44,
+          "weight": 0.6628
+        },
+        "subpopulationAreaKm2": 272.96
+      },
+      "height": {
+        "ratePct": 63.5,
+        "certainty": {
+          "fitxes": 60,
+          "areaKm2": 92.036,
+          "hitAreaKm2": 42.668,
+          "ratePct": 46.36,
+          "weight": 0.3372
+        },
+        "ppsRemainder": {
+          "draws": 180,
+          "usable": 180,
+          "hits": 130,
+          "ratePct": 72.22,
+          "weight": 0.6628
+        },
+        "subpopulationAreaKm2": 272.96
+      },
+      "heightStoreys": {
+        "ratePct": 59.45,
+        "certainty": {
+          "fitxes": 60,
+          "areaKm2": 92.036,
+          "hitAreaKm2": 42.668,
+          "ratePct": 46.36,
+          "weight": 0.3372
+        },
+        "ppsRemainder": {
+          "draws": 180,
+          "usable": 180,
+          "hits": 119,
+          "ratePct": 66.11,
+          "weight": 0.6628
+        },
+        "subpopulationAreaKm2": 272.96
+      },
+      "heightMetres": {
+        "ratePct": 60.18,
+        "certainty": {
+          "fitxes": 60,
+          "areaKm2": 92.036,
+          "hitAreaKm2": 39.64,
+          "ratePct": 43.07,
+          "weight": 0.3372
+        },
+        "ppsRemainder": {
+          "draws": 180,
+          "usable": 180,
+          "hits": 124,
+          "ratePct": 68.89,
+          "weight": 0.6628
+        },
+        "subpopulationAreaKm2": 272.96
+      },
+      "occupation": {
+        "ratePct": 47.81,
+        "certainty": {
+          "fitxes": 60,
+          "areaKm2": 92.036,
+          "hitAreaKm2": 32.002,
+          "ratePct": 34.77,
+          "weight": 0.3372
+        },
+        "ppsRemainder": {
+          "draws": 180,
+          "usable": 180,
+          "hits": 98,
+          "ratePct": 54.44,
+          "weight": 0.6628
+        },
+        "subpopulationAreaKm2": 272.96
+      },
+      "far": {
+        "ratePct": 53.61,
+        "certainty": {
+          "fitxes": 60,
+          "areaKm2": 92.036,
+          "hitAreaKm2": 38.792,
+          "ratePct": 42.15,
+          "weight": 0.3372
+        },
+        "ppsRemainder": {
+          "draws": 180,
+          "usable": 180,
+          "hits": 107,
+          "ratePct": 59.44,
+          "weight": 0.6628
+        },
+        "subpopulationAreaKm2": 272.96
+      },
+      "anySetback": {
+        "ratePct": 46.49,
+        "certainty": {
+          "fitxes": 60,
+          "areaKm2": 92.036,
+          "hitAreaKm2": 30.403,
+          "ratePct": 33.03,
+          "weight": 0.3372
+        },
+        "ppsRemainder": {
+          "draws": 180,
+          "usable": 180,
+          "hits": 96,
+          "ratePct": 53.33,
+          "weight": 0.6628
+        },
+        "subpopulationAreaKm2": 272.96
+      },
+      "threeOfThree": {
+        "ratePct": 44.54,
+        "certainty": {
+          "fitxes": 60,
+          "areaKm2": 92.036,
+          "hitAreaKm2": 31.104,
+          "ratePct": 33.8,
+          "weight": 0.3372
+        },
+        "ppsRemainder": {
+          "draws": 180,
+          "usable": 180,
+          "hits": 90,
+          "ratePct": 50,
+          "weight": 0.6628
+        },
+        "subpopulationAreaKm2": 272.96
+      },
+      "articleAnywhere": {
+        "ratePct": 2.83,
+        "certainty": {
+          "fitxes": 60,
+          "areaKm2": 92.036,
+          "hitAreaKm2": 1.693,
+          "ratePct": 1.84,
+          "weight": 0.3372
+        },
+        "ppsRemainder": {
+          "draws": 180,
+          "usable": 180,
+          "hits": 6,
+          "ratePct": 3.33,
+          "weight": 0.6628
+        },
+        "subpopulationAreaKm2": 272.96
+      },
+      "articleOnEnvelopeParam": {
+        "ratePct": 2.46,
+        "certainty": {
+          "fitxes": 60,
+          "areaKm2": 92.036,
+          "hitAreaKm2": 1.693,
+          "ratePct": 1.84,
+          "weight": 0.3372
+        },
+        "ppsRemainder": {
+          "draws": 180,
+          "usable": 180,
+          "hits": 5,
+          "ratePct": 2.78,
+          "weight": 0.6628
+        },
+        "subpopulationAreaKm2": 272.96
+      },
+      "emptyParse": {
+        "ratePct": 31.89,
+        "certainty": {
+          "fitxes": 60,
+          "areaKm2": 92.036,
+          "hitAreaKm2": 45.834,
+          "ratePct": 49.8,
+          "weight": 0.3372
+        },
+        "ppsRemainder": {
+          "draws": 180,
+          "usable": 180,
+          "hits": 41,
+          "ratePct": 22.78,
+          "weight": 0.6628
+        },
+        "subpopulationAreaKm2": 272.96
+      }
+    },
+    "privateDevelopable": {
+      "complete": {
+        "ratePct": 61.43,
+        "certainty": {
+          "fitxes": 30,
+          "areaKm2": 44.018,
+          "hitAreaKm2": 24.935,
+          "ratePct": 56.65,
+          "weight": 0.265
+        },
+        "ppsRemainder": {
+          "draws": 133,
+          "usable": 133,
+          "hits": 84,
+          "ratePct": 63.16,
+          "weight": 0.735
+        },
+        "subpopulationAreaKm2": 166.084
+      },
+      "partialDrawable": {
+        "ratePct": 12.7,
+        "certainty": {
+          "fitxes": 30,
+          "areaKm2": 44.018,
+          "hitAreaKm2": 4.575,
+          "ratePct": 10.39,
+          "weight": 0.265
+        },
+        "ppsRemainder": {
+          "draws": 133,
+          "usable": 133,
+          "hits": 18,
+          "ratePct": 13.53,
+          "weight": 0.735
+        },
+        "subpopulationAreaKm2": 166.084
+      },
+      "anyDrawable": {
+        "ratePct": 74.13,
+        "certainty": {
+          "fitxes": 30,
+          "areaKm2": 44.018,
+          "hitAreaKm2": 29.51,
+          "ratePct": 67.04,
+          "weight": 0.265
+        },
+        "ppsRemainder": {
+          "draws": 133,
+          "usable": 133,
+          "hits": 102,
+          "ratePct": 76.69,
+          "weight": 0.735
+        },
+        "subpopulationAreaKm2": 166.084
+      },
+      "notDrawable": {
+        "ratePct": 25.87,
+        "certainty": {
+          "fitxes": 30,
+          "areaKm2": 44.018,
+          "hitAreaKm2": 14.508,
+          "ratePct": 32.96,
+          "weight": 0.265
+        },
+        "ppsRemainder": {
+          "draws": 133,
+          "usable": 133,
+          "hits": 31,
+          "ratePct": 23.31,
+          "weight": 0.735
+        },
+        "subpopulationAreaKm2": 166.084
+      },
+      "height": {
+        "ratePct": 85.86,
+        "certainty": {
+          "fitxes": 30,
+          "areaKm2": 44.018,
+          "hitAreaKm2": 35.225,
+          "ratePct": 80.02,
+          "weight": 0.265
+        },
+        "ppsRemainder": {
+          "draws": 133,
+          "usable": 133,
+          "hits": 117,
+          "ratePct": 87.97,
+          "weight": 0.735
+        },
+        "subpopulationAreaKm2": 166.084
+      },
+      "heightStoreys": {
+        "ratePct": 80.89,
+        "certainty": {
+          "fitxes": 30,
+          "areaKm2": 44.018,
+          "hitAreaKm2": 35.225,
+          "ratePct": 80.02,
+          "weight": 0.265
+        },
+        "ppsRemainder": {
+          "draws": 133,
+          "usable": 133,
+          "hits": 108,
+          "ratePct": 81.2,
+          "weight": 0.735
+        },
+        "subpopulationAreaKm2": 166.084
+      },
+      "heightMetres": {
+        "ratePct": 80.73,
+        "certainty": {
+          "fitxes": 30,
+          "areaKm2": 44.018,
+          "hitAreaKm2": 32.197,
+          "ratePct": 73.15,
+          "weight": 0.265
+        },
+        "ppsRemainder": {
+          "draws": 133,
+          "usable": 133,
+          "hits": 111,
+          "ratePct": 83.46,
+          "weight": 0.735
+        },
+        "subpopulationAreaKm2": 166.084
+      },
+      "occupation": {
+        "ratePct": 65.84,
+        "certainty": {
+          "fitxes": 30,
+          "areaKm2": 44.018,
+          "hitAreaKm2": 25.833,
+          "ratePct": 58.69,
+          "weight": 0.265
+        },
+        "ppsRemainder": {
+          "draws": 133,
+          "usable": 133,
+          "hits": 91,
+          "ratePct": 68.42,
+          "weight": 0.735
+        },
+        "subpopulationAreaKm2": 166.084
+      },
+      "far": {
+        "ratePct": 70.27,
+        "certainty": {
+          "fitxes": 30,
+          "areaKm2": 44.018,
+          "hitAreaKm2": 31.349,
+          "ratePct": 71.22,
+          "weight": 0.265
+        },
+        "ppsRemainder": {
+          "draws": 133,
+          "usable": 133,
+          "hits": 93,
+          "ratePct": 69.92,
+          "weight": 0.735
+        },
+        "subpopulationAreaKm2": 166.084
+      },
+      "anySetback": {
+        "ratePct": 66.51,
+        "certainty": {
+          "fitxes": 30,
+          "areaKm2": 44.018,
+          "hitAreaKm2": 27.867,
+          "ratePct": 63.31,
+          "weight": 0.265
+        },
+        "ppsRemainder": {
+          "draws": 133,
+          "usable": 133,
+          "hits": 90,
+          "ratePct": 67.67,
+          "weight": 0.735
+        },
+        "subpopulationAreaKm2": 166.084
+      },
+      "threeOfThree": {
+        "ratePct": 61.43,
+        "certainty": {
+          "fitxes": 30,
+          "areaKm2": 44.018,
+          "hitAreaKm2": 24.935,
+          "ratePct": 56.65,
+          "weight": 0.265
+        },
+        "ppsRemainder": {
+          "draws": 133,
+          "usable": 133,
+          "hits": 84,
+          "ratePct": 63.16,
+          "weight": 0.735
+        },
+        "subpopulationAreaKm2": 166.084
+      },
+      "articleAnywhere": {
+        "ratePct": 4.33,
+        "certainty": {
+          "fitxes": 30,
+          "areaKm2": 44.018,
+          "hitAreaKm2": 1.693,
+          "ratePct": 3.85,
+          "weight": 0.265
+        },
+        "ppsRemainder": {
+          "draws": 133,
+          "usable": 133,
+          "hits": 6,
+          "ratePct": 4.51,
+          "weight": 0.735
+        },
+        "subpopulationAreaKm2": 166.084
+      },
+      "articleOnEnvelopeParam": {
+        "ratePct": 3.78,
+        "certainty": {
+          "fitxes": 30,
+          "areaKm2": 44.018,
+          "hitAreaKm2": 1.693,
+          "ratePct": 3.85,
+          "weight": 0.265
+        },
+        "ppsRemainder": {
+          "draws": 133,
+          "usable": 133,
+          "hits": 5,
+          "ratePct": 3.76,
+          "weight": 0.735
+        },
+        "subpopulationAreaKm2": 166.084
+      },
+      "emptyParse": {
+        "ratePct": 11.5,
+        "certainty": {
+          "fitxes": 30,
+          "areaKm2": 44.018,
+          "hitAreaKm2": 8.091,
+          "ratePct": 18.38,
+          "weight": 0.265
+        },
+        "ppsRemainder": {
+          "draws": 133,
+          "usable": 133,
+          "hits": 12,
+          "ratePct": 9.02,
+          "weight": 0.735
+        },
+        "subpopulationAreaKm2": 166.084
+      }
+    },
+    "buildingCapable": {
+      "complete": {
+        "ratePct": 59.27,
+        "certainty": {
+          "fitxes": 31,
+          "areaKm2": 45.26,
+          "hitAreaKm2": 26.177,
+          "ratePct": 57.84,
+          "weight": 0.2458
+        },
+        "ppsRemainder": {
+          "draws": 149,
+          "usable": 149,
+          "hits": 89,
+          "ratePct": 59.73,
+          "weight": 0.7542
+        },
+        "subpopulationAreaKm2": 184.1
+      },
+      "partialDrawable": {
+        "ratePct": 12.1,
+        "certainty": {
+          "fitxes": 31,
+          "areaKm2": 45.26,
+          "hitAreaKm2": 4.575,
+          "ratePct": 10.11,
+          "weight": 0.2458
+        },
+        "ppsRemainder": {
+          "draws": 149,
+          "usable": 149,
+          "hits": 19,
+          "ratePct": 12.75,
+          "weight": 0.7542
+        },
+        "subpopulationAreaKm2": 184.1
+      },
+      "anyDrawable": {
+        "ratePct": 71.37,
+        "certainty": {
+          "fitxes": 31,
+          "areaKm2": 45.26,
+          "hitAreaKm2": 30.752,
+          "ratePct": 67.95,
+          "weight": 0.2458
+        },
+        "ppsRemainder": {
+          "draws": 149,
+          "usable": 149,
+          "hits": 108,
+          "ratePct": 72.48,
+          "weight": 0.7542
+        },
+        "subpopulationAreaKm2": 184.1
+      },
+      "notDrawable": {
+        "ratePct": 28.63,
+        "certainty": {
+          "fitxes": 31,
+          "areaKm2": 45.26,
+          "hitAreaKm2": 14.508,
+          "ratePct": 32.05,
+          "weight": 0.2458
+        },
+        "ppsRemainder": {
+          "draws": 149,
+          "usable": 149,
+          "hits": 41,
+          "ratePct": 27.52,
+          "weight": 0.7542
+        },
+        "subpopulationAreaKm2": 184.1
+      },
+      "height": {
+        "ratePct": 83.58,
+        "certainty": {
+          "fitxes": 31,
+          "areaKm2": 45.26,
+          "hitAreaKm2": 36.467,
+          "ratePct": 80.57,
+          "weight": 0.2458
+        },
+        "ppsRemainder": {
+          "draws": 149,
+          "usable": 149,
+          "hits": 126,
+          "ratePct": 84.56,
+          "weight": 0.7542
+        },
+        "subpopulationAreaKm2": 184.1
+      },
+      "heightStoreys": {
+        "ratePct": 78.01,
+        "certainty": {
+          "fitxes": 31,
+          "areaKm2": 45.26,
+          "hitAreaKm2": 36.467,
+          "ratePct": 80.57,
+          "weight": 0.2458
+        },
+        "ppsRemainder": {
+          "draws": 149,
+          "usable": 149,
+          "hits": 115,
+          "ratePct": 77.18,
+          "weight": 0.7542
+        },
+        "subpopulationAreaKm2": 184.1
+      },
+      "heightMetres": {
+        "ratePct": 78.9,
+        "certainty": {
+          "fitxes": 31,
+          "areaKm2": 45.26,
+          "hitAreaKm2": 33.439,
+          "ratePct": 73.88,
+          "weight": 0.2458
+        },
+        "ppsRemainder": {
+          "draws": 149,
+          "usable": 149,
+          "hits": 120,
+          "ratePct": 80.54,
+          "weight": 0.7542
+        },
+        "subpopulationAreaKm2": 184.1
+      },
+      "occupation": {
+        "ratePct": 63.8,
+        "certainty": {
+          "fitxes": 31,
+          "areaKm2": 45.26,
+          "hitAreaKm2": 27.075,
+          "ratePct": 59.82,
+          "weight": 0.2458
+        },
+        "ppsRemainder": {
+          "draws": 149,
+          "usable": 149,
+          "hits": 97,
+          "ratePct": 65.1,
+          "weight": 0.7542
+        },
+        "subpopulationAreaKm2": 184.1
+      },
+      "far": {
+        "ratePct": 69.84,
+        "certainty": {
+          "fitxes": 31,
+          "areaKm2": 45.26,
+          "hitAreaKm2": 32.591,
+          "ratePct": 72.01,
+          "weight": 0.2458
+        },
+        "ppsRemainder": {
+          "draws": 149,
+          "usable": 149,
+          "hits": 103,
+          "ratePct": 69.13,
+          "weight": 0.7542
+        },
+        "subpopulationAreaKm2": 184.1
+      },
+      "anySetback": {
+        "ratePct": 64.4,
+        "certainty": {
+          "fitxes": 31,
+          "areaKm2": 45.26,
+          "hitAreaKm2": 29.109,
+          "ratePct": 64.32,
+          "weight": 0.2458
+        },
+        "ppsRemainder": {
+          "draws": 149,
+          "usable": 149,
+          "hits": 96,
+          "ratePct": 64.43,
+          "weight": 0.7542
+        },
+        "subpopulationAreaKm2": 184.1
+      },
+      "threeOfThree": {
+        "ratePct": 59.27,
+        "certainty": {
+          "fitxes": 31,
+          "areaKm2": 45.26,
+          "hitAreaKm2": 26.177,
+          "ratePct": 57.84,
+          "weight": 0.2458
+        },
+        "ppsRemainder": {
+          "draws": 149,
+          "usable": 149,
+          "hits": 89,
+          "ratePct": 59.73,
+          "weight": 0.7542
+        },
+        "subpopulationAreaKm2": 184.1
+      },
+      "articleAnywhere": {
+        "ratePct": 3.96,
+        "certainty": {
+          "fitxes": 31,
+          "areaKm2": 45.26,
+          "hitAreaKm2": 1.693,
+          "ratePct": 3.74,
+          "weight": 0.2458
+        },
+        "ppsRemainder": {
+          "draws": 149,
+          "usable": 149,
+          "hits": 6,
+          "ratePct": 4.03,
+          "weight": 0.7542
+        },
+        "subpopulationAreaKm2": 184.1
+      },
+      "articleOnEnvelopeParam": {
+        "ratePct": 3.45,
+        "certainty": {
+          "fitxes": 31,
+          "areaKm2": 45.26,
+          "hitAreaKm2": 1.693,
+          "ratePct": 3.74,
+          "weight": 0.2458
+        },
+        "ppsRemainder": {
+          "draws": 149,
+          "usable": 149,
+          "hits": 5,
+          "ratePct": 3.36,
+          "weight": 0.7542
+        },
+        "subpopulationAreaKm2": 184.1
+      },
+      "emptyParse": {
+        "ratePct": 13,
+        "certainty": {
+          "fitxes": 31,
+          "areaKm2": 45.26,
+          "hitAreaKm2": 8.091,
+          "ratePct": 17.88,
+          "weight": 0.2458
+        },
+        "ppsRemainder": {
+          "draws": 149,
+          "usable": 149,
+          "hits": 17,
+          "ratePct": 11.41,
+          "weight": 0.7542
+        },
+        "subpopulationAreaKm2": 184.1
+      }
+    }
+  },
+  "contradictions": {
+    "fitxesSampled": 418,
+    "occupationPublished": 220,
+    "occupationExactly100": 11,
+    "occupationExactly100AlsoPublishingASetback": 4,
+    "occupationExactly100Examples": [
+      {
+        "municipi": "Pollença",
+        "codiMuib": "RE_IP_I4_18_V",
+        "setbacks": [
+          "RA=4"
+        ],
+        "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=282941"
+      },
+      {
+        "municipi": "Santa Margalida",
+        "codiMuib": "TE_CO_SS",
+        "setbacks": [
+          "RA=5"
+        ],
+        "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=90935"
+      },
+      {
+        "municipi": "Alaró",
+        "codiMuib": "RE_IU_EMA",
+        "setbacks": [
+          "RF=5"
+        ],
+        "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=138124"
+      },
+      {
+        "municipi": "Alaró",
+        "codiMuib": "RE_NA_EMA_CA",
+        "setbacks": [
+          "RF=5"
+        ],
+        "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=138075"
+      }
+    ],
+    "occupationExactly0": 0,
+    "occupationPublishedAsAbsoluteM2NotPercent": 0,
+    "fitxesWithAZeroSetback": 1,
+    "note": "⚠ O = 100 % beside a published setback is a CONTRADICTION, and 0 and 100 have both been null substitutes in this dataset. Both are scored SUSPECT / UNUSABLE, never VALID, so none of them enters a COMPLETE or PARTIAL_DRAWABLE count."
+  },
+  "currency": {
+    "selfDeclaredNotCurrentMunicipalities": [
+      "PALMA",
+      "ANDRATX",
+      "EIVISSA"
+    ],
+    "buildableFeaturesAffected": 10675,
+    "buildableAreaAffectedKm2": 64.9034,
+    "shareOfBuildableFeaturesPct": 22.94,
+    "shareOfBuildableAreaPct": 23.77,
+    "crossCheckFromInventoryPct": 23.43,
+    "note": "⚠ These three municipalities publish, in OBS on the zoning layer itself, that MUIB does NOT show their current planning. This is a CURRENCY ceiling on buildable land and it is DISTINCT from the PTI ceiling."
+  },
+  "ptiCeiling": {
+    "flagText": "Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials, NI a certes normatives municipals o generals. Consultau la informació proporcionada pels consells i ajuntaments.",
+    "distinctFlagStrings": 1,
+    "flagOnRusticCategoriesLayer": {
+      "buildableFeatures": 849,
+      "flaggedBuildableFeatures": 849,
+      "flaggedFeaturePct": 100,
+      "buildableAreaKm2": 272.9456,
+      "flaggedBuildableAreaKm2": 272.9456,
+      "flaggedAreaPct": 100
+    },
+    "reachIntoBuildableByAttributeAttachmentPct": 100,
+    "reachIntoBuildableByTheFlagsOwnScopePct": 0,
+    "verdict": "⭐ THE FLAG IS ATTACHED TO 100 % OF BUILDABLE-CLASS ROWS ON LAYER 11 AND ITS TEXT SCOPES ITSELF TO RUSTIC. It reads \"Les àrees de transició (AT), i la resta de categories del sòl rústic, NO estan adaptades a les darreres modificacions dels plans territorials\" — it names the transition areas and the REST OF THE RUSTIC CATEGORIES, and nothing else. The 100 % attachment is a TABLE artefact: layer 11 carries the whole-territory classification polygons (552 SU + 297 SB, matching CLASSIFICACIO to the square metre) alongside the 25,264 rustic-category polygons, and the same boilerplate string is stamped on every row. ⛔ UNKNOWN NEVER NO: this measures the reach of the PUBLISHED FLAG, not the reach of the island territorial plans themselves. Balears PTIs do carry determinations over urban land (growth ceilings, tourist-place limits). What is proven is that MUIB PUBLISHES NO ABROGATION FLAG OVER BUILDABLE LAND — absence of a flag has never been evidence of currency in this corpus, and it is not evidence here."
+  },
+  "nationalFinding": {
+    "id": "ARCGIS-DISTINCT-SILENTLY-CANCELLED",
+    "statement": "⛔ ON THIS ArcGIS MapServer, SENDING `resultRecordCount` ALONGSIDE `returnDistinctValues` SILENTLY CANCELS THE DE-DUPLICATION. HTTP 200, no Esri error, and the response is the WHOLE TABLE projected onto the requested field — so a caller that counts returned rows reads a ROW count and labels it a DISTINCT count. Measured: CLASSIFICACIO.CODICLAS → 3 without it, 916 with it. QUALIFICACIONS.CODICLAS → 3 without it, 46,607 with it. This is the CQL_FILTER failure class on a different parameter. The independent oracle is a statistics GROUP BY, whose returned rows ARE the groups and whose counts must sum to the filtered total.",
+    "evidence": "tools/balears-envelope-max/out/e0-distinct-integrity-control.json",
+    "publishedNumbersRetested": {
+      "QUALIFICACIONS.URL distinct (published 5,273)": "CONFIRMED — 5,274 over all rows, 5,273 over SU+SB, GROUP BY oracle agrees",
+      "GESTIO.URL distinct (published 1,951)": "CONFIRMED — GROUP BY oracle agrees"
+    }
+  },
+  "headline": {
+    "all features (published baseline)": "36.7%  (per-fitxa, n=60; the committed artefact at n=80 gives 31.3%)",
+    "buildable only, per fitxa": "41.6%  [36.3–49.9, n=200]",
+    "buildable only, per km² of land": "44.54%",
+    "private developable, per fitxa": "56.2%  [49.1–66.9, n=115]",
+    "private developable, per km² — THE MAXIMUM (complete rule)": "61.43%",
+    "private developable, per km² — THE MAXIMUM (any drawable)": "74.13%",
+    "  of which complete rule": "61.43%",
+    "  of which partial-drawable": "12.7%",
+    "article cited (any, per fitxa)": "4.0%  [1.7–7.0, n=200]",
+    "article cited on the envelope parameter itself": "3.2%  [1.1–5.7, n=200]",
+    "complete rule AND an article on the parameter": "2.0%  [0.5–4.3, n=200]",
+    "PTI reach into buildable (flag attachment)": "100%",
+    "PTI reach into buildable (flag scope, by its own words)": "0%",
+    "buildable land self-declared NOT CURRENT": "23.77% by area, 22.94% by feature"
+  }
+}
