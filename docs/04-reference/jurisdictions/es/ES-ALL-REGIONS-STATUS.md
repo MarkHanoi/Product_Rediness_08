@@ -155,3 +155,43 @@ retrievable**. `EnlaceGIS` on all three layers is the candidate bridge to the ex
 **313 municipalities**, each with its own PXOM / normas subsidiarias, zoning codes, FAR, heights, setbacks
 and effective dates. **No regional instrument supplies parcel-level buildability for all of Galicia** — the
 PBA supplies a *supletory and complementary* regime, which is a different and narrower claim.
+
+---
+
+## ARAGON - SEQUENCED, NOT PARKED (2026-08-02)
+
+Full evidence ledger: **[ARAGON-BUILDABILITY-RESEARCH](./es-ar/ARAGON-BUILDABILITY-RESEARCH.md)**.
+
+**L1 - vector layer MEASURED.** Not closed as impossible; blocked by **MISSING EVIDENCE, not by
+evidence of absence.** Moved from *"likely impossible"* to *"promising but unverified."*
+
+| Serves | Does NOT serve |
+|---|---|
+| **classification** - `clase` **100 %**, `notepa` **97.4 %** | **buildability** - `edificab` **1.3 %**, `aprove` **0.0 %**, `densidad` **1.3 %** |
+
+**THE CEILING:** `fiab_geom` is present on **100 %** of records but reads *"Aprobada"* on **21.8 %**,
+and its meaning is **UNKNOWN** - legal approval status, geometry quality, or digitisation confidence.
+**If it means approval status, Aragon caps at 21.8 % regardless of everything else.**
+
+**THE DISCOVERY:** an **officially published** ficha pattern -
+`idearagon.aragon.es/fichaDescarga/fichaDescarga_<CMUNIINE>.html` (Fraga = INE 22112). **The earlier
+404s were a PATH-SHAPE error** - `fichaDescarga/` read as a directory when it is a **file prefix**.
+**Now logged as a negative-proof condition** alongside axis order, CRS family, alternate
+parameterisation, and bbox-vs-attribute. **Contents `READ`, never `MEASURED`.**
+
+**THE HYPOTHESIS THAT DECIDES THE COST MODEL:** if Aragon's residential zoning is **setback-based**
+rather than alignment-and-depth, it needs **LESS than Catalunya** - no block ring, no dissolve, no
+Art. 242.2 equivalent, no street-width ladder - and **PRYZM already has that path**
+(`esBarcelona20aAillada` is `kind: 'setback'`; `requiresBlockRing` routes such rules away from block
+construction, L-591). **One document answers it. Not a 20-municipality survey.**
+
+**ORDER IS NOT NEGOTIABLE - CATALUNYA A2 BEFORE ARAGON B1.** Catalunya has **24 municipalities one
+run away from being measured**; Aragon has **zero envelopes and three unrun tests.**
+
+### And Aragon gave the programme a standing rule
+
+> **NEVER REPORT NON-NULL RATES WITHOUT SEMANTIC VALIDATION. POPULATED IS NOT PRESENT.**
+
+Proven by **70 of 78 records with `shape_area > 0` AND `perimeter == 0`** - geometrically impossible,
+therefore **`0` is that schema's null substitute.** The rule now applies to every region, and it is
+why the A2 run must validate for internal contradiction rather than trusting a completeness rate.
