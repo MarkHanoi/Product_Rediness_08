@@ -61,6 +61,35 @@
 // signature is owed, and `envelopeAuthorisation.test.ts` asserts the set is exactly this list, so
 // adding one is a stated act rather than an absorbed one.
 //
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §GATE-KEYED-ON-THE-CORPUS (L-678, 2026-08-02) — ONE GATE CONSTANT MAY GOVERN MANY JURISDICTIONS.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// The paragraph above anticipated this exactly: *"the AMB layer's 36 municipalities become
+// reachable, and 26 of them have no entry anywhere in this package."* They now have one. 31 new
+// rows arrived from `esAmbMetropolitanCorpus.ts`, and they are gated by just TWO constants.
+//
+// ⭐ WHY A GATE MAY BE KEYED ON A CORPUS RATHER THAN A CITY. `BCN_REFOS_OV_CERTIFIED` / SIG-3
+// already certifies a DATASET VINTAGE across the whole 36-municipality AMB Refós service — a
+// corpus, not a city. Under that precedent, extending a corpus gate to another municipality is a
+// SCOPING CHANGE, not a new legal instrument, and a human signing the PGM-1976 Normes Urbanístiques
+// signs ONE document once rather than twenty-two times. So the VALUE is shared.
+//
+// ⚠⚠ THE MEMBERSHIP IS STILL ENUMERATED PER MUNICIPALITY, AND THAT IS THE FAIL-CLOSED PROPERTY.
+// A blanket `'Catalunya' → true` would have been the easy edit and it is EXACTLY what Step 0 exists
+// to prevent: an unassessed id must never inherit an assessed one's authorisation. Every gated id
+// is a literal row in `AMB_ENVELOPE_GATE_ROUTING` carrying its own measured evidence, so a **37th
+// AMB municipality nobody assessed is absent from that table, presents no id, and still refuses
+// `unknown-jurisdiction`.** Signing the corpus opens 22 named places; it opens nothing else.
+//
+// ⚠ THE TABLE SHAPE CHANGED TO SAY WHICH CONSTANT GOVERNS WHICH ID. `ENVELOPE_PUBLICATION_GATES`
+// keeps its `id → boolean` contract for every existing caller, but it is now PROJECTED from
+// `GATE_DECLARATIONS` alongside `ENVELOPE_GATE_CONSTANT_BY_JURISDICTION` (`id → constant NAME`).
+// The old §TOTALITY test compared `ENVELOPE_PUBLICATION_GATES.size` to the number of
+// `*_ENVELOPE_VERIFIED` constants on disk, which was only ever a proxy for "every gate is
+// represented" and is FALSE the moment one constant governs many ids. Projecting both maps from ONE
+// literal lets totality assert the real property — every declared constant is NAMED here — without
+// creating a second statement that can drift.
+//
 // PURITY: L2-pure (C58 §1.1/§1.9) — no I/O, no clock, no RNG. It reads compile-time constants.
 //
 // Strategic context — C58 §1.4/§1.13, C60 §2, L-449 (the human-verification gate), L-665.
@@ -78,6 +107,15 @@ import { MURCIA_ENVELOPE_VERIFIED, MURCIA_JURISDICTION_ID } from './esMurciaEnve
 import { SANT_BOI_ENVELOPE_VERIFIED, SANT_BOI_JURISDICTION_ID } from './esSantBoi.js';
 // ⚠ VALÈNCIA — a gate of a THIRD kind. See the third group in the table below.
 import { VALENCIA_ENVELOPE_VERIFIED, VALENCIA_JURISDICTION_ID } from './esValenciaEnvelope.js';
+// ── §GATE-KEYED-ON-THE-CORPUS — the two AMB corpus gates and the 31 ids they govern. ──
+import {
+    AMB_PGM_NNUU_ENVELOPE_VERIFIED,
+    AMB_NO_HELD_CORPUS_ENVELOPE_VERIFIED,
+    AMB_PGM_CORPUS_JURISDICTIONS,
+    AMB_NO_CORPUS_JURISDICTIONS,
+    ambAuthorisationIdForIne,
+} from './esAmbMetropolitanCorpus.js';
+import type { IneCode } from '../providers/esMunicipalCode.js';
 // ── The UNGATED-BY-RECORD allowlist. Ids only; these packs declare no `*_ENVELOPE_VERIFIED`. ──
 import { BCN_JURISDICTION_ID } from './esBarcelonaVolumetria18.js';
 import { CH_JURISDICTION_ID } from './chZoning.js';
@@ -90,7 +128,25 @@ import { SA_RIYADH_JURISDICTION_ID } from './saRiyadhDemo.js';
 const tracer = trace.getTracer('pryzm.zoning.authorisation');
 
 /**
- * Every jurisdiction that declares a human-verification gate, mapped to the gate's CURRENT state.
+ * ONE gate declaration: the constant's NAME, its CURRENT VALUE, and every jurisdiction it governs.
+ *
+ * ⚠ THE NAME IS CARRIED SO TOTALITY CAN BE CHECKED AGAINST DISK. Before 2026-08-02 the totality
+ * test compared the gate table's SIZE to the number of `*_ENVELOPE_VERIFIED` constants found in
+ * `src/rulepacks/`. That equality was a proxy, and it silently assumed one constant ⇒ one
+ * jurisdiction. It stops being true the moment a gate is keyed on a CORPUS, so the name is now
+ * stated and the test compares SETS instead of counts — a strictly stronger property.
+ */
+interface GateDeclaration {
+    /** The exported constant's NAME, so `envelopeAuthorisation.test.ts` can match it on disk. */
+    readonly gate: string;
+    /** ⚠ READ from the constant. Never a literal — see the map docstring. */
+    readonly value: boolean;
+    /** Every jurisdiction id this ONE constant governs. Usually one; for a corpus gate, many. */
+    readonly jurisdictions: readonly string[];
+}
+
+/**
+ * Every human-verification gate in this package, with the jurisdictions each governs.
  *
  * ⚠ THE VALUES ARE READ FROM THE GATE CONSTANTS, NEVER RESTATED. Writing `false` here would create
  * a second statement of the signature that could drift from the one the dispatcher checks — the
@@ -98,18 +154,23 @@ const tracer = trace.getTracer('pryzm.zoning.authorisation');
  * flipping ITS constant, in ITS own file, next to the pack it governs; this table then follows with
  * no edit.
  *
- * ⚠ THE KEY IS THE JURISDICTION ID CONSTANT, not a literal, for the same reason.
+ * ⚠ THE KEYS ARE JURISDICTION ID CONSTANTS, not literals, for the same reason.
  */
-export const ENVELOPE_PUBLICATION_GATES: ReadonlyMap<string, boolean> = new Map<string, boolean>([
+const GATE_DECLARATIONS: readonly GateDeclaration[] = Object.freeze([
     // ── Awaiting a signature on a transcription PRYZM already holds. ──
-    [MADRID_JURISDICTION_ID, MADRID_ENVELOPE_VERIFIED],
-    [CORDOBA_JURISDICTION_ID, CORDOBA_ENVELOPE_VERIFIED],
-    [MURCIA_JURISDICTION_ID, MURCIA_ENVELOPE_VERIFIED],
+    { gate: 'MADRID_ENVELOPE_VERIFIED', value: MADRID_ENVELOPE_VERIFIED, jurisdictions: [MADRID_JURISDICTION_ID] },
+    { gate: 'CORDOBA_ENVELOPE_VERIFIED', value: CORDOBA_ENVELOPE_VERIFIED, jurisdictions: [CORDOBA_JURISDICTION_ID] },
+    { gate: 'MURCIA_ENVELOPE_VERIFIED', value: MURCIA_ENVELOPE_VERIFIED, jurisdictions: [MURCIA_JURISDICTION_ID] },
     // ── Awaiting a per-clau confirmation that Barcelona's numbers transfer (Envelope Phase 2). ──
-    [LHOSPITALET_JURISDICTION_ID, LHOSPITALET_ENVELOPE_VERIFIED],
-    [BADALONA_JURISDICTION_ID, BADALONA_ENVELOPE_VERIFIED],
-    [SANT_BOI_JURISDICTION_ID, SANT_BOI_ENVELOPE_VERIFIED],
-    [CORNELLA_JURISDICTION_ID, CORNELLA_ENVELOPE_VERIFIED],
+    // ⚠ THESE FOUR ARE DELIBERATELY **NOT** FOLDED INTO THE AMB CORPUS GATE BELOW, even though all
+    // four are measured PGM='S'. Each already owns a municipal signature question, and re-keying it
+    // onto a shared constant would create two statements of one signature. Badalona is the case
+    // that proves the corpus is not uniform — it rewrote Arts. 238/242/320/323/327/328/330/342/343/
+    // 363 for its own territory, so a metropolitan-corpus signature must never reach its land.
+    { gate: 'LHOSPITALET_ENVELOPE_VERIFIED', value: LHOSPITALET_ENVELOPE_VERIFIED, jurisdictions: [LHOSPITALET_JURISDICTION_ID] },
+    { gate: 'BADALONA_ENVELOPE_VERIFIED', value: BADALONA_ENVELOPE_VERIFIED, jurisdictions: [BADALONA_JURISDICTION_ID] },
+    { gate: 'SANT_BOI_ENVELOPE_VERIFIED', value: SANT_BOI_ENVELOPE_VERIFIED, jurisdictions: [SANT_BOI_JURISDICTION_ID] },
+    { gate: 'CORNELLA_ENVELOPE_VERIFIED', value: CORNELLA_ENVELOPE_VERIFIED, jurisdictions: [CORNELLA_JURISDICTION_ID] },
     // ── ⚠ A THIRD KIND OF GATE: NOT awaiting a signature, and NOT signable at all. ──
     // Madrid/Córdoba/Murcia are `false` because a human has not yet signed a transcription PRYZM
     // HOLDS. València is `false` because there is NO NUMBER TO SIGN: the PGOU *Normas Urbanísticas*
@@ -119,12 +180,82 @@ export const ENVELOPE_PUBLICATION_GATES: ReadonlyMap<string, boolean> = new Map<
     // construction, so flipping this constant would authorise nothing — it would merely remove the
     // interlock that stops a later author packing a guessed Np and shipping it (L-616 mechanism-A).
     // ⇒ It is registered here so the classifier cannot FAIL OPEN on València, not so it can be signed.
-    [VALENCIA_JURISDICTION_ID, VALENCIA_ENVELOPE_VERIFIED],
+    { gate: 'VALENCIA_ENVELOPE_VERIFIED', value: VALENCIA_ENVELOPE_VERIFIED, jurisdictions: [VALENCIA_JURISDICTION_ID] },
     // ── NOT waiting on a signature: there is nothing to sign (no Catalonia-wide instrument
     //    exists). Listed because the gate EXISTS and totality demands it — never because a
     //    signature would open it. See `esCatalunya.ts`: do not "fix" this by flipping it.
-    [CATALUNYA_JURISDICTION_ID, CATALUNYA_ENVELOPE_VERIFIED],
+    { gate: 'CATALUNYA_ENVELOPE_VERIFIED', value: CATALUNYA_ENVELOPE_VERIFIED, jurisdictions: [CATALUNYA_JURISDICTION_ID] },
+
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // §GATE-KEYED-ON-THE-CORPUS (L-678) — THE 31 AMB MUNICIPALITIES, ALL SHUT, ALL UNSIGNED.
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // ⛔ THESE ARE THE ONLY TWO ROWS WHERE ONE CONSTANT GOVERNS MANY JURISDICTIONS, and it is a
+    // decision, not a shortcut: a human signing the PGM-1976 Normes Urbanístiques signs ONE
+    // document. The membership is still enumerated municipality by municipality in
+    // `AMB_ENVELOPE_GATE_ROUTING`, each row carrying its own 2026-08-02 measurement, so an
+    // unassessed municipality inherits nothing. ⛔ NEITHER CONSTANT MAY BE FLIPPED HERE — flipping
+    // one is a legal act performed at its declaration, and neither has a recorded signature
+    // (`l449CertificationGates.ts`, `signature: null`), so opening one turns §NO-UNSIGNED-OPEN-GATE
+    // RED. What these rows buy is that all 31 now answer `gate-shut` — *"a human has not signed"* —
+    // instead of `unknown-jurisdiction`, which claimed nobody had ever looked at municipalities the
+    // cold-start probe had just measured at 3 000 parcels apiece.
+    {
+        gate: 'AMB_PGM_NNUU_ENVELOPE_VERIFIED',
+        value: AMB_PGM_NNUU_ENVELOPE_VERIFIED,
+        jurisdictions: AMB_PGM_CORPUS_JURISDICTIONS, // 22 — measured PGM='S', no municipal gate.
+    },
+    {
+        gate: 'AMB_NO_HELD_CORPUS_ENVELOPE_VERIFIED',
+        value: AMB_NO_HELD_CORPUS_ENVELOPE_VERIFIED,
+        jurisdictions: AMB_NO_CORPUS_JURISDICTIONS, // 9 — measured PGM='N'; PRYZM holds no plan.
+    },
 ]);
+
+/**
+ * Every jurisdiction that declares a human-verification gate, mapped to the gate's CURRENT state.
+ *
+ * ⚠ PROJECTED from `GATE_DECLARATIONS`, never hand-maintained — see the header §GATE-KEYED-ON-THE-
+ * CORPUS. The `id → boolean` contract is unchanged for every existing caller.
+ *
+ * ⚠ THROWS at module load on a duplicate id, for the same reason `packMap()` in `registry.ts` does:
+ * two gates claiming one jurisdiction is not a resolvable ambiguity — whichever the map ordering
+ * kept would silently decide whose signature governs someone's land, and the loser would fail
+ * nowhere. A load-time throw is the only failure mode that cannot be mistaken for a working gate.
+ */
+export const ENVELOPE_PUBLICATION_GATES: ReadonlyMap<string, boolean> = (() => {
+    const m = new Map<string, boolean>();
+    const claimedBy = new Map<string, string>();
+    for (const d of GATE_DECLARATIONS) {
+        for (const id of d.jurisdictions) {
+            if (m.has(id)) {
+                throw new Error(
+                    `[site-parcel-data] duplicate publication gate for jurisdiction "${id}" ` +
+                        `(${claimedBy.get(id)!} vs ${d.gate}). One jurisdiction, one signature.`,
+                );
+            }
+            m.set(id, d.value);
+            claimedBy.set(id, d.gate);
+        }
+    }
+    return m;
+})();
+
+/**
+ * Which gate CONSTANT governs each jurisdiction — `id → constant name`.
+ *
+ * ⚠ Projected from the SAME literal as `ENVELOPE_PUBLICATION_GATES`, so the two cannot disagree.
+ * It exists so §TOTALITY can assert the real property ("every `*_ENVELOPE_VERIFIED` constant on
+ * disk is named here") instead of the count proxy that broke when one constant came to govern 22
+ * municipalities. It is also what a refusal card reads to name the signature it is waiting on.
+ */
+export const ENVELOPE_GATE_CONSTANT_BY_JURISDICTION: ReadonlyMap<string, string> = new Map(
+    GATE_DECLARATIONS.flatMap((d) => d.jurisdictions.map((id) => [id, d.gate] as const)),
+);
+
+/** Every gate constant NAME this table reads. Derived — the totality test compares it to disk. */
+export const ENVELOPE_GATE_CONSTANT_NAMES: readonly string[] = Object.freeze(
+    GATE_DECLARATIONS.map((d) => d.gate),
+);
 
 /**
  * Jurisdictions that publish WITHOUT a human-verification gate, each with the reason none is owed.
@@ -248,6 +379,60 @@ export function isEnvelopePublicationAuthorised(jurisdictionId: string): boolean
         span.setAttribute('authorised', authorised);
         span.setAttribute('reason', reason);
         return authorised;
+    } finally {
+        span.end();
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §AMB-CORPUS-GATE — THE ROUTE FROM AN AMB `CODI_INE` TO AN AUTHORISATION ANSWER.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+//
+// ⚠ WHY THIS SEAM AND NOT THE DISPATCHER'S BBOX CHAIN. `siteDispatch.ts` peels municipalities off
+// by `isInX(lat, lon)`, and there is no bbox module for 31 of the 36 — nor should there be one
+// invented here, because the AMB Refós response ALREADY CARRIES the municipality: `CODI_INE` is a
+// column on the layers this pipeline reads. The identity is a fact returned by the service, not a
+// box a human drew, so the honest route into the gate is INE-keyed. Adding 31 hand-drawn boxes
+// would be a second, drift-prone statement of a fact the data already answers.
+
+/**
+ * Whether PRYZM may publish a numeric envelope in the AMB municipality with this INE code.
+ *
+ * ⭐ THE ONE CALL that closes the L-678 gap. Given a `CODI_INE` read off an AMB Refós feature, it
+ * answers with the SAME vocabulary every other jurisdiction uses, and it distinguishes the three
+ * states that were previously collapsed into one:
+ *   • `gate-shut`            — assessed, measured, and awaiting a HUMAN SIGNATURE (35 of 36 today).
+ *   • `ungated-by-record`    — Barcelona, the one municipality that publishes.
+ *   • `unknown-jurisdiction` — the AMB publishes nothing for this INE code; nobody assessed it.
+ *
+ * ⚠ `jurisdictionId` is `null` exactly when the answer is `unknown-jurisdiction`. It is an
+ * ASSESSMENT identity, never a routing registration — `registry.ts` still registers six Catalan
+ * jurisdictions, and this function grants nothing.
+ *
+ * PURE, total, never throws. P8 — emits `pryzm.zoning.ambEnvelopeAuthorisationForIne`.
+ */
+export function ambEnvelopeAuthorisationForIne(ine: IneCode): {
+    readonly authorised: boolean;
+    readonly reason: EnvelopeAuthorisationReason;
+    readonly jurisdictionId: string | null;
+} {
+    const span = tracer.startSpan('pryzm.zoning.ambEnvelopeAuthorisationForIne');
+    try {
+        const jurisdictionId = ambAuthorisationIdForIne(ine);
+        span.setAttribute('ineCode', ine as string);
+        span.setAttribute('assessed', jurisdictionId !== null);
+        if (jurisdictionId === null) {
+            // ⛔ Outside the AMB Refós's 36. The fail-closed answer, and the correct one — this is
+            // the state a 37th municipality lands in, and it must stay reachable.
+            span.setAttribute('reason', 'unknown-jurisdiction');
+            span.setAttribute('authorised', false);
+            return { authorised: false, reason: 'unknown-jurisdiction', jurisdictionId: null };
+        }
+        const { authorised, reason } = envelopePublicationAuthorisation(jurisdictionId);
+        span.setAttribute('jurisdictionId', jurisdictionId);
+        span.setAttribute('authorised', authorised);
+        span.setAttribute('reason', reason);
+        return { authorised, reason, jurisdictionId };
     } finally {
         span.end();
     }

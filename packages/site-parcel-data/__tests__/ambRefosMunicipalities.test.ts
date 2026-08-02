@@ -195,7 +195,14 @@ describe('§JURISDICTION-ID-CARRIES-THE-INE — derived, never restated', () => 
             const m = ambMunicipalityByIne(ineCodeLiteral(ine))!;
             expect(isEnvelopePublicationAuthorised(m.jurisdictionId!), ine).toBe(false);
         }
-        // And the 31 unregistered ones cannot even present an id to the gate.
+        // ⚠ CORRECTED 2026-08-02 (L-678). This assertion used to be captioned *"the 31 unregistered
+        // ones cannot even present an id to the gate"*, and that caption is no longer true — they
+        // now present an AUTHORISATION id and answer `gate-shut` (`ambCorpusGate.test.ts`). What is
+        // still true, and is what this field means, is that they carry no ROUTING REGISTRATION:
+        // `AmbMunicipality.jurisdictionId` is non-null exactly when a `registry.ts` REGISTRATIONS
+        // row exists, and it is that narrowness which keeps `isAmbRegisteredMunicipality` a usable
+        // guard against a municipality falling into the PACK path. The two identities are
+        // deliberately separate; widening this one would weaken the guard.
         for (const m of AMB_REFOS_MUNICIPALITIES.filter((x) => !isAmbRegisteredMunicipality(x))) {
             expect(m.jurisdictionId).toBeNull();
         }

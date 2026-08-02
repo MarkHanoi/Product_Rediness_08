@@ -28,6 +28,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
     ENVELOPE_PUBLICATION_GATES,
+    ENVELOPE_GATE_CONSTANT_BY_JURISDICTION,
+    ENVELOPE_GATE_CONSTANT_NAMES,
     UNGATED_AUTHORISED_JURISDICTIONS,
     envelopePublicationAuthorisation,
     isEnvelopePublicationAuthorised,
@@ -55,9 +57,16 @@ describe('§TOTALITY — a future gated city CANNOT re-open this hole', () => {
     it('every `*_ENVELOPE_VERIFIED` gate in src/rulepacks/ is registered in the gate table', () => {
         // Scanned from disk, not from an import list, for the same reason
         // `packPublishedConfidenceUnchanged.test.ts` scans: an import list can silently omit the
-        // one file that matters. `ENVELOPE_PUBLICATION_GATES` fails OPEN by absence (correctly —
-        // Barcelona, DK, Paris and NL declare no gate and must keep answering), so THIS assertion
-        // is what makes that default safe.
+        // one file that matters. `ENVELOPE_PUBLICATION_GATES` fails CLOSED by absence since
+        // 2026-08-02, but an UNREGISTERED gate is still invisible to the classifier, so THIS
+        // assertion is what makes the table total over the constants that exist.
+        //
+        // ⚠ REWRITTEN 2026-08-02 (§GATE-KEYED-ON-THE-CORPUS, L-678). This used to assert
+        // `ENVELOPE_PUBLICATION_GATES.size === declared.size`. That equality was never the property
+        // — it was a proxy that silently assumed ONE CONSTANT ⇒ ONE JURISDICTION, and it becomes
+        // FALSE the moment a gate is keyed on an ordinance CORPUS: `AMB_PGM_NNUU_ENVELOPE_VERIFIED`
+        // governs 22 municipalities under one signature. Comparing NAME SETS instead of counts is
+        // strictly stronger — a count can be right while the membership is wrong.
         const declared = new Set<string>();
         for (const file of readdirSync(RULEPACK_DIR).filter((f) => f.endsWith('.ts'))) {
             const src = readFileSync(join(RULEPACK_DIR, file), 'utf8');
@@ -70,26 +79,47 @@ describe('§TOTALITY — a future gated city CANNOT re-open this hole', () => {
         expect(declared).toContain('MADRID_ENVELOPE_VERIFIED');
         expect(declared).toContain('CORDOBA_ENVELOPE_VERIFIED');
         expect(declared).toContain('MURCIA_ENVELOPE_VERIFIED');
+        // The corpus gate — the constant whose existence broke the old count proxy.
+        expect(declared).toContain('AMB_PGM_NNUU_ENVELOPE_VERIFIED');
 
-        // Every declared gate must be represented in the table. The table is keyed by jurisdiction
-        // id, so compare COUNTS plus explicit membership of the three signature-critical cities.
+        const named = new Set(ENVELOPE_GATE_CONSTANT_NAMES);
+        const unregistered = [...declared].filter((d) => !named.has(d)).sort();
         expect(
-            ENVELOPE_PUBLICATION_GATES.size,
-            `${declared.size} *_ENVELOPE_VERIFIED constants exist but only ${ENVELOPE_PUBLICATION_GATES.size} ` +
-                `are registered in ENVELOPE_PUBLICATION_GATES. An unregistered gate FAILS OPEN — the ` +
-                `classifier would promise a full envelope for a city that refuses every parcel. ` +
-                `Register it in src/rulepacks/envelopeAuthorisation.ts.`,
-        ).toBe(declared.size);
+            unregistered,
+            `${unregistered.length} *_ENVELOPE_VERIFIED constant(s) exist on disk but are NOT read ` +
+                `by ENVELOPE_PUBLICATION_GATES: ${unregistered.join(', ')}. An unregistered gate is ` +
+                `one the classifier cannot see — it would promise a full envelope for a city that ` +
+                `refuses every parcel. Register it in src/rulepacks/envelopeAuthorisation.ts.`,
+        ).toEqual([]);
+
+        const phantom = [...named].filter((n) => !declared.has(n)).sort();
+        expect(phantom, 'the gate table names a constant that no longer exists on disk').toEqual([]);
+
+        // …and every gated jurisdiction resolves to one of those constants, so the two projections
+        // of `GATE_DECLARATIONS` cannot drift apart.
+        for (const id of ENVELOPE_PUBLICATION_GATES.keys()) {
+            expect(ENVELOPE_GATE_CONSTANT_BY_JURISDICTION.get(id), id).toBeDefined();
+            expect(named.has(ENVELOPE_GATE_CONSTANT_BY_JURISDICTION.get(id)!), id).toBe(true);
+        }
     });
 
     it('the table READS the gate constants — it never restates them as literals', () => {
         // A second hand-written `false` could drift from the constant the dispatcher checks (the
-        // L-422/457/467/469 family). Assert the source contains no literal booleans in the map.
+        // L-422/457/467/469 family). Assert the declaration literal contains no boolean literals.
         const src = readFileSync(join(RULEPACK_DIR, 'envelopeAuthorisation.ts'), 'utf8');
-        const map = src.slice(src.indexOf('ENVELOPE_PUBLICATION_GATES'), src.indexOf(']);'));
-        expect(map).not.toMatch(/,\s*(true|false)\s*\]/);
-        for (const gate of ['MADRID_ENVELOPE_VERIFIED', 'CORDOBA_ENVELOPE_VERIFIED', 'MURCIA_ENVELOPE_VERIFIED']) {
-            expect(map).toContain(gate);
+        const start = src.indexOf('const GATE_DECLARATIONS');
+        expect(start, 'GATE_DECLARATIONS must exist — it is the single source of both gate maps')
+            .toBeGreaterThan(0);
+        const table = src.slice(start, src.indexOf('export const ENVELOPE_PUBLICATION_GATES'));
+        expect(table.length).toBeGreaterThan(500);
+        expect(table).not.toMatch(/value:\s*(true|false)\b/);
+        for (const gate of [
+            'MADRID_ENVELOPE_VERIFIED',
+            'CORDOBA_ENVELOPE_VERIFIED',
+            'MURCIA_ENVELOPE_VERIFIED',
+            'AMB_PGM_NNUU_ENVELOPE_VERIFIED',
+        ]) {
+            expect(table).toContain(gate);
         }
     });
 
@@ -112,9 +142,15 @@ describe('§TOTALITY — a future gated city CANNOT re-open this hole', () => {
     //    passed before 2026-08-02, and the first one is the whole reason the default inverted.
     // ═══════════════════════════════════════════════════════════════════════════════════════════
     it('⛔ an UNRECOGNISED jurisdiction id REFUSES — it does not publish', () => {
+        // ⚠ UPDATED 2026-08-02 (L-678). This list used to name `es-08204-sant-climent` and
+        // `es-08245-santa-coloma` as *"a real AMB municipality, never assessed"*. Both ARE now
+        // assessed and gated (see §AMB-CORPUS-GATE below), so leaving them here would have kept the
+        // test green for the WRONG REASON — those two literals are not the ids the corpus table
+        // mints, so it would have been asserting a slug typo, not the fail-closed default. The ids
+        // below carry no INE the AMB publishes, or no INE at all.
         for (const unknown of [
-            'es-08204-sant-climent',        // a real AMB municipality, never assessed
-            'es-08245-santa-coloma',        // ditto
+            'es-08015-badalona-metro',      // right municipality, an id nobody registered
+            'es-25120-lleida',              // a real Catalan municipality, outside the AMB
             'es-99999-nowhere',
             '',
             'undefined',
@@ -129,11 +165,13 @@ describe('§TOTALITY — a future gated city CANNOT re-open this hole', () => {
 
     it('⛔ parameterising the Barcelona hardcodes cannot silently publish the other 35 AMB municipalities', () => {
         // The AMB Refos layer covers 36 municipalities by CODI_INE. Barcelona is the only one
-        // assessed. Every other id built the same way must refuse until it is explicitly recorded.
+        // AUTHORISED. Every other id must refuse — and an id built by GUESSING a slug must refuse
+        // as unassessed, because inheriting a neighbour's authorisation is the whole hazard.
         const ambIne = ['08015', '08020', '08056', '08123', '08196', '08204', '08245', '08301'];
         for (const ine of ambIne) {
             const id = `es-${ine}-amb`;
             expect(isEnvelopePublicationAuthorised(id), `${id} must refuse`).toBe(false);
+            expect(envelopePublicationAuthorisation(id).reason, id).toBe('unknown-jurisdiction');
         }
     });
 

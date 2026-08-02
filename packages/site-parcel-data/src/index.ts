@@ -758,6 +758,34 @@ export {
     type AmbArticleScopeVerdict,
     type AmbArticleScopeAnswer,
 } from './rulepacks/esAmbPgmScope.js';
+// ── §AMB-CORPUS-GATE (L-678) — the AUTHORISATION route for all 36 AMB municipalities.
+//
+// ⛔ IT AUTHORISES NOTHING. Both corpus gates are SHUT and unsigned; what this module adds is that
+// the 31 municipalities which previously presented NO id now answer `gate-shut` ("a human has not
+// signed") instead of `unknown-jurisdiction` ("nobody has assessed this place") — two different
+// product states that the fail-closed default was collapsing into one, over municipalities the
+// 2026-08-02 cold-start probe had just measured at 3 000 parcels each.
+//
+// ⚠ `AMB_CORPUS_CEILINGS` is the honest cap and it is carried as DATA so refusal copy quotes it:
+// delegation 8.29 %–59.53 %; a non-official, non-exhaustive deviation list stale to 31-12-2009;
+// ABSENT heritage/airport/flood/environmental constraints (absent for Barcelona too, which IS
+// published); and the unanswered legal question of MPGM reach beyond Barcelona.
+export {
+    AMB_PGM_NNUU_ENVELOPE_VERIFIED,
+    AMB_NO_HELD_CORPUS_ENVELOPE_VERIFIED,
+    AMB_ENVELOPE_GATE_ROUTING,
+    AMB_PGM_CORPUS_JURISDICTIONS,
+    AMB_NO_CORPUS_JURISDICTIONS,
+    AMB_CORPUS_CEILINGS,
+    AMB_PGM_CORPUS_INSTRUMENT_REF,
+    ambCorpusMemberForIne,
+    ambAuthorisationIdForIne,
+    ambCorpusGateRefusal,
+    type AmbCorpusKey,
+    type AmbGateRoute,
+    type AmbCorpusMember,
+    type AmbMeasuredCoverage,
+} from './rulepacks/esAmbMetropolitanCorpus.js';
 
 // ── Envelope Phase 2 — L'Hospitalet de Llobregat (INE 08101), the SECOND Catalan municipality. ──
 // The S2 router predicate + the S5 honesty gate + cited refusal. Registered as a REFUSAL

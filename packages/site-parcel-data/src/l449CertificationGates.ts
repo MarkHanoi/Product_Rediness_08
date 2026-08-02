@@ -51,6 +51,10 @@ import { BCN_REFOS_OV_CERTIFIED } from './providers/bcnRefosOVProvider.js';
 import { CH_FAR_CERTIFIED } from './providers/resolveChFarFromCantonCatalogue.js';
 import { MADRID_NZ1_CERTIFIED } from './providers/resolveMadridNZ1Ring.js';
 import { NL_BESTEMMINGSPLAN_CERTIFIED } from './providers/resolveNlBestemmingsplan.js';
+import {
+    AMB_NO_HELD_CORPUS_ENVELOPE_VERIFIED,
+    AMB_PGM_NNUU_ENVELOPE_VERIFIED,
+} from './rulepacks/esAmbMetropolitanCorpus.js';
 import { BADALONA_ENVELOPE_VERIFIED } from './rulepacks/esBadalona.js';
 import { CATALUNYA_ENVELOPE_VERIFIED } from './rulepacks/esCatalunya.js';
 import { CORDOBA_ENVELOPE_VERIFIED } from './rulepacks/esCordobaZoneClassification.js';
@@ -208,6 +212,45 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         gate: 'CORNELLA_ENVELOPE_VERIFIED',
         file: 'packages/site-parcel-data/src/rulepacks/esCornella.ts',
         value: CORNELLA_ENVELOPE_VERIFIED,
+        signature: null,
+    },
+
+    // ── §GATE-KEYED-ON-THE-CORPUS (L-678, 2026-08-02) — THE FIRST TWO GATES WHOSE UNIT IS AN
+    //    ORDINANCE CORPUS RATHER THAN A CITY. Both SHUT, both `signature: null`.
+    //
+    // ⭐ WHY A CORPUS MAY BE THE UNIT. `BCN_REFOS_OV_CERTIFIED` / SIG-3 already certifies a DATASET
+    // VINTAGE across the whole 36-municipality AMB Refós — a corpus, not a city. Signing an
+    // ordinance is reading ONE document; demanding twenty-two signatures for the same 1976 text
+    // would be ceremony, not diligence. The membership is nonetheless enumerated per municipality
+    // (`AMB_ENVELOPE_GATE_ROUTING`), so an unassessed 37th inherits nothing.
+    //
+    // ⛔ THESE TWO ARE THE HIGHEST-LEVERAGE UNSIGNED GATES IN THE REPO — one flip would authorise 22
+    // municipalities at once. That is precisely why they arrive SHUT, with the signature slot empty
+    // and this row already in place: the ROUTE is engineering and it is done; the OPENING is a legal
+    // act reserved to a human (L-449), and §NO-UNSIGNED-OPEN-GATE turns RED if one is opened without
+    // a dereferenceable signature recorded here.
+    //
+    // ⚠ WHAT A SIGNATURE ON `AMB_PGM_NNUU_ENVELOPE_VERIFIED` WOULD *NOT* BUY is written into
+    // `esAmbMetropolitanCorpus.ts` §THE-CEILING and carried as data in `AMB_CORPUS_CEILINGS`:
+    // per-municipality DELEGATION spanning 8.29 %–59.53 %; a deviation list that is non-official,
+    // non-exhaustive and stale to 31-12-2009; ABSENT heritage/airport/flood/environmental
+    // constraints (absent for Barcelona too, which IS published); and the unanswered LEGAL question
+    // of whether Barcelona-scoped MPGM articles govern in the other 26 — which carries 42–65 % of
+    // the envelope in Castelldefels, Pallejà, Sant Just Desvern and Sant Cugat.
+    {
+        gate: 'AMB_PGM_NNUU_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esAmbMetropolitanCorpus.ts',
+        value: AMB_PGM_NNUU_ENVELOPE_VERIFIED,
+        signature: null, // ⛔ 22 municipalities await ONE signature. None has been given.
+    },
+    {
+        // NOT signable at all today, and the distinction matters: the 22 above wait on a signature
+        // over a corpus PRYZM HOLDS; these 9 are measured PGM='N' and PRYZM holds NO governing text
+        // for them. The route to opening them is ACQUIRING NINE MUNICIPAL PLANS, then registering
+        // nine municipal gates — never flipping this. Same shape as `VALENCIA_ENVELOPE_VERIFIED`.
+        gate: 'AMB_NO_HELD_CORPUS_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esAmbMetropolitanCorpus.ts',
+        value: AMB_NO_HELD_CORPUS_ENVELOPE_VERIFIED,
         signature: null,
     },
 ]);
