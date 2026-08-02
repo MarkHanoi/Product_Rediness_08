@@ -1,0 +1,136 @@
+{
+ "ok": true,
+ "city": "murcia",
+ "ine": "30030",
+ "service": "geoserver.murcia.es WFS Murcia:pgou_alineaciones (calificacion, sector, f_fin) + Murcia:pgou_sectores (clase_suelo)",
+ "measuredAt": "2026-08-02T09:11:14.737Z",
+ "seed": 20260802,
+ "requested": 10,
+ "parcelPopulationTotal": 150647,
+ "parcelPopulationUrban": 91484,
+ "sampled": 10,
+ "assessed": 10,
+ "transportFailures": {},
+ "counts": {
+  "envelope": 1,
+  "refusal-terminal": 0,
+  "refusal-delegated": 4,
+  "refusal-external": 0,
+  "no-pack": 1,
+  "nonBuildable": 4
+ },
+ "denominatorPrivateBuildableParcels": 6,
+ "pct": {
+  "ofBuildable": {
+   "envelope": 0.16666666666666666,
+   "refusalTerminal": 0,
+   "refusalDelegated": 0.6666666666666666,
+   "refusalExternal": 0,
+   "refusalTotal": 0.6666666666666666,
+   "determination": 0.8333333333333334,
+   "noPack": 0.16666666666666666
+  },
+  "ofAllUrbanParcels": {
+   "envelope": 0.1,
+   "refusalTotal": 0.4,
+   "determination": 0.5,
+   "noPack": 0.1,
+   "nonBuildable": 0.4
+  }
+ },
+ "inheritedApplied": {
+  "mur-street": 1
+ },
+ "rows": [
+  {
+   "ref": "0251806XH7005S",
+   "lat": 37.9758115,
+   "lon": -1.0640594,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "0345428XH6004N",
+   "lat": 37.972807,
+   "lon": -1.1755803,
+   "code": "EW",
+   "cat": "nonBuildable",
+   "why": "calificación \"EW\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "4660412XH6046S",
+   "lat": 37.9854092,
+   "lon": -1.1262285,
+   "code": "RR",
+   "cat": "refusal-delegated",
+   "why": "calificacion-remitida — Arts. 5.24.5.1 / 5.24.6",
+   "inherited": null
+  },
+  {
+   "ref": "2593310XH7029S",
+   "lat": 38.0129203,
+   "lon": -1.0357304,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "6894506XH6069S",
+   "lat": 38.0160844,
+   "lon": -1.0993423,
+   "code": "IX",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "5112604XH6051S",
+   "lat": 37.9435299,
+   "lon": -1.1201034,
+   "code": "VM",
+   "cat": "nonBuildable",
+   "why": "calificación \"VM\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7019603XH6171N",
+   "lat": 38.0371561,
+   "lon": -1.0970706,
+   "code": "RR",
+   "cat": "refusal-delegated",
+   "why": "calificacion-remitida — Arts. 5.24.5.1 / 5.24.6",
+   "inherited": null
+  },
+  {
+   "ref": "7325106XH6072N",
+   "lat": 37.9528575,
+   "lon": -1.0967803,
+   "code": "NF",
+   "cat": "nonBuildable",
+   "why": "calificación \"NF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7143604XH6074S",
+   "lat": 37.9695564,
+   "lon": -1.0980471,
+   "code": "IP",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "0342601XH7004S",
+   "lat": 37.9672838,
+   "lon": -1.0629248,
+   "code": "FV",
+   "cat": "nonBuildable",
+   "why": "calificación \"FV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  }
+ ]
+}

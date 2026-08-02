@@ -1,0 +1,288 @@
+{
+ "vc": [
+  {
+   "ine": "03130",
+   "name": "Tollos",
+   "layers": {
+    "zonificacion": {
+     "st": "COVERED",
+     "nTotalInBbox": 30,
+     "nThisMuni": 13,
+     "props": {
+      "id": "40051",
+      "cod_ine_mun": "03130",
+      "noms_mun": "Tollos",
+      "expediente": "00000000",
+      "denominaci": "DELIMITACIÓN DE SUELO URBANO, Por la Disposición",
+      "denominaci_val": "DELIMITACIÓN DE SUELO URBANO, Por la Disposición",
+      "clas_suelo": "SNU-P",
+      "zon_suelo": "ZRP-NA-MU",
+      "descripcio": "Zona rural protegida municipal (forestal, paisajística, medioambiental)",
+      "descripcio_val": "Zona rural protegida municipal (forestal, paisatgística, mediambiental)",
+      "dotacion": "",
+      "dot_descri": "",
+      "dot_descri_val": "",
+      "info_adici": "",
+      "info_adici_val": "",
+      "url_abs": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/2%20ALICANTE/03130%20TOLLOS"
+     }
+    },
+    "clasificacion": {
+     "st": "COVERED",
+     "nTotalInBbox": 30,
+     "nThisMuni": 13,
+     "props": {
+      "id": "40051",
+      "cod_ine_mun": "03130",
+      "noms_mun": "Tollos",
+      "expediente": "00000000",
+      "denominaci": "DELIMITACIÓN DE SUELO URBANO, Por la Disposición",
+      "denominaci_val": "DELIMITACIÓN DE SUELO URBANO, Por la Disposición",
+      "clas_suelo": "SNU-P",
+      "zon_suelo": "ZRP-NA-MU",
+      "descripcio": "Zona rural protegida municipal (forestal, paisajística, medioambiental)",
+      "descripcio_val": "Zona rural protegida municipal (forestal, paisatgística, mediambiental)",
+      "dotacion": "",
+      "dot_descri": "",
+      "dot_descri_val": "",
+      "info_adici": "",
+      "info_adici_val": "",
+      "url_abs": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/2%20ALICANTE/03130%20TOLLOS"
+     }
+    }
+   }
+  },
+  {
+   "ine": "12126",
+   "name": "Vall de Uxó",
+   "layers": {
+    "zonificacion": {
+     "st": "COVERED",
+     "nTotalInBbox": 877,
+     "nThisMuni": 441,
+     "props": {
+      "id": "28504",
+      "cod_ine_mun": "12126",
+      "noms_mun": "la Vall d&#39;Uixó",
+      "expediente": "19940378",
+      "denominaci": "Plan general",
+      "denominaci_val": "Plan general",
+      "clas_suelo": "SNU-P",
+      "zon_suelo": "ZRP-CR",
+      "descripcio": "Zona rural protegida carreteras",
+      "descripcio_val": "Zona rural protegida carreteres",
+      "dotacion": "",
+      "dot_descri": "",
+      "dot_descri_val": "",
+      "info_adici": "",
+      "info_adici_val": "",
+      "url_abs": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/3%20CASTELL%d3N/12126%20LA%20VALL%20D%27UIX%d3"
+     }
+    },
+    "clasificacion": {
+     "st": "COVERED",
+     "nTotalInBbox": 877,
+     "nThisMuni": 441,
+     "props": {
+      "id": "28504",
+      "cod_ine_mun": "12126",
+      "noms_mun": "la Vall d&#39;Uixó",
+      "expediente": "19940378",
+      "denominaci": "Plan general",
+      "denominaci_val": "Plan general",
+      "clas_suelo": "SNU-P",
+      "zon_suelo": "ZRP-CR",
+      "descripcio": "Zona rural protegida carreteras",
+      "descripcio_val": "Zona rural protegida carreteres",
+      "dotacion": "",
+      "dot_descri": "",
+      "dot_descri_val": "",
+      "info_adici": "",
+      "info_adici_val": "",
+      "url_abs": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/3%20CASTELL%d3N/12126%20LA%20VALL%20D%27UIX%d3"
+     }
+    }
+   }
+  },
+  {
+   "ine": "46190",
+   "name": "Paterna",
+   "layers": {
+    "zonificacion": {
+     "st": "COVERED",
+     "nTotalInBbox": 1500,
+     "nThisMuni": 713,
+     "props": {
+      "id": "100306",
+      "cod_ine_mun": "46190",
+      "noms_mun": "Paterna",
+      "expediente": "20010775",
+      "denominaci": "Plan Parcial Parque Tecnológico",
+      "denominaci_val": "Plan Parcial Parque Tecnológico",
+      "clas_suelo": "SUZ",
+      "zon_suelo": "ZND-IN",
+      "descripcio": "Zona de nuevo desarrollo industrial",
+      "descripcio_val": "Zona de nou desenvolupament industrial",
+      "dotacion": "",
+      "dot_descri": "",
+      "dot_descri_val": "",
+      "info_adici": "",
+      "info_adici_val": "",
+      "url_abs": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/4%20VALENCIA/46190%20PATERNA"
+     }
+    },
+    "clasificacion": {
+     "st": "COVERED",
+     "nTotalInBbox": 1500,
+     "nThisMuni": 713,
+     "props": {
+      "id": "100306",
+      "cod_ine_mun": "46190",
+      "noms_mun": "Paterna",
+      "expediente": "20010775",
+      "denominaci": "Plan Parcial Parque Tecnológico",
+      "denominaci_val": "Plan Parcial Parque Tecnológico",
+      "clas_suelo": "SUZ",
+      "zon_suelo": "ZND-IN",
+      "descripcio": "Zona de nuevo desarrollo industrial",
+      "descripcio_val": "Zona de nou desenvolupament industrial",
+      "dotacion": "",
+      "dot_descri": "",
+      "dot_descri_val": "",
+      "info_adici": "",
+      "info_adici_val": "",
+      "url_abs": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/4%20VALENCIA/46190%20PATERNA"
+     }
+    }
+   }
+  }
+ ],
+ "cn": [
+  {
+   "pt": [
+    -15.4194,
+    27.995
+   ],
+   "lyr": "ZONIF",
+   "http": 200,
+   "hit": true,
+   "body": "GetFeatureInfo results: Layer 'ZONIF' Feature 1225: ePlanZON = 'C.1.1' cod = '29' ntZON = '9' ApdoZON = '222' cDocZON = '1506' codZON = '1209_1208_1208' DocZON = 'Aprobación Definitiva de Revisión del Plan Insular de Ordenación de Gran Canaria, publicado el 19/01/2023 en el BOC 013/23' EtiZON = 'C-11' TxtZON = 'Subzona de la zona C. Aptitud Estructurante. Clasificadas para crecimiento regular, de suelos urbanos' tPla"
+  },
+  {
+   "pt": [
+    -15.4194,
+    27.995
+   ],
+   "lyr": "CLASI",
+   "http": 200,
+   "hit": true,
+   "body": "GetFeatureInfo results: Layer 'CLASI' Feature 110: ePlanCLASI = 'SU' cod = '3' ntCLASI = '' ApdoCLASI = '' cDocCLASI = '658' codCLASI = '3' DocCLASI = 'Aprobación Definitiva de Adaptación Plena al D.L. 1/2000 de Plan General de Ordenación de Telde, publicado el 19/03/2003 en el BOC 054/03' EtiCLASI = 'SU' TxtCLASI = 'Suelo Urbano' tPlanCLASI = 'Suelo Urbano' obsCLASI = '' pdf = '' Clas = 'Suelo Urbano' Ambito = 'Teld"
+  },
+  {
+   "pt": [
+    -15.4194,
+    27.995
+   ],
+   "lyr": "EDIFL",
+   "http": 200,
+   "hit": false,
+   "body": "GetFeatureInfo results: Search returned no results."
+  },
+  {
+   "pt": [
+    -15.4194,
+    27.995
+   ],
+   "lyr": "ZUSO",
+   "http": 200,
+   "hit": true,
+   "body": "GetFeatureInfo results: Layer 'ZUSO' Feature 8855: ePlanZUSO = 'A' cod = '360' ntZUSO = '9' ApdoZUSO = '184' cDocZUSO = '658' codZUSO = '4_1750_1750' DocZUSO = 'Aprobación Definitiva de Adaptación Plena al D.L. 1/2000 de Plan General de Ordenación de Telde, publicado el 19/03/2003 en el BOC 054/03' EtiZUSO = 'RE-1' TxtZUSO = 'Ordenanza A' tPlanZUSO = 'Ordenanza A' obsZUSO = '' pdf = '' Ambito = 'Telde' fVigor = '' Fe"
+  },
+  {
+   "pt": [
+    -15.416,
+    28
+   ],
+   "lyr": "ZONIF",
+   "http": 200,
+   "hit": true,
+   "body": "GetFeatureInfo results: Layer 'ZONIF' Feature 1225: ePlanZON = 'C.1.1' cod = '29' ntZON = '9' ApdoZON = '222' cDocZON = '1506' codZON = '1209_1208_1208' DocZON = 'Aprobación Definitiva de Revisión del Plan Insular de Ordenación de Gran Canaria, publicado el 19/01/2023 en el BOC 013/23' EtiZON = 'C-11' TxtZON = 'Subzona de la zona C. Aptitud Estructurante. Clasificadas para crecimiento regular, de suelos urbanos' tPla"
+  },
+  {
+   "pt": [
+    -15.416,
+    28
+   ],
+   "lyr": "CLASI",
+   "http": 200,
+   "hit": true,
+   "body": "GetFeatureInfo results: Layer 'CLASI' Feature 110: ePlanCLASI = 'SU' cod = '3' ntCLASI = '' ApdoCLASI = '' cDocCLASI = '658' codCLASI = '3' DocCLASI = 'Aprobación Definitiva de Adaptación Plena al D.L. 1/2000 de Plan General de Ordenación de Telde, publicado el 19/03/2003 en el BOC 054/03' EtiCLASI = 'SU' TxtCLASI = 'Suelo Urbano' tPlanCLASI = 'Suelo Urbano' obsCLASI = '' pdf = '' Clas = 'Suelo Urbano' Ambito = 'Teld"
+  },
+  {
+   "pt": [
+    -15.416,
+    28
+   ],
+   "lyr": "EDIFL",
+   "http": 200,
+   "hit": false,
+   "body": "GetFeatureInfo results: Search returned no results."
+  },
+  {
+   "pt": [
+    -15.416,
+    28
+   ],
+   "lyr": "ZUSO",
+   "http": 200,
+   "hit": true,
+   "body": "GetFeatureInfo results: Layer 'ZUSO' Feature 7183: ePlanZUSO = 'EV' cod = '267' ntZUSO = '9' ApdoZUSO = '184' cDocZUSO = '658' codZUSO = '1_86_86' DocZUSO = 'Aprobación Definitiva de Adaptación Plena al D.L. 1/2000 de Plan General de Ordenación de Telde, publicado el 19/03/2003 en el BOC 054/03' EtiZUSO = 'IE-TrRv' TxtZUSO = 'Espacio Viario' tPlanZUSO = 'Espacio Viario' obsZUSO = '' pdf = '' Ambito = 'Telde' fVigor ="
+  }
+ ],
+ "ga": [
+  {
+   "layer": 8,
+   "res": {
+    "n": 0
+   }
+  },
+  {
+   "layer": 28,
+   "res": {
+    "n": 0
+   }
+  },
+  {
+   "layer": 5,
+   "res": {
+    "n": 1,
+    "props": {
+     "OBJECTID": 2,
+     "Shape_Length": 1641530.8997429968
+    }
+   }
+  },
+  {
+   "layer": 29,
+   "res": {
+    "n": 3,
+    "props": {
+     "OBJECTID": 1257,
+     "NOME_PROVI": "PONTEVEDRA",
+     "NOME_CONCE": "PONTEVEDRA",
+     "SHP_nombre": "O RAÑADOIRO",
+     "EnlaceGIS": "36038_23_128",
+     "IdSuelo": 23,
+     "SIglaSuelo": "SNUNRT",
+     "SiglaHomog": "NR",
+     "CODINE": "36038",
+     "Velado": "1",
+     "conclusion": " ",
+     "Adaptado": "NO LOUGA",
+     "Shape_Length": 859.436800357908,
+     "Shape_Area": 18706.64505828132
+    }
+   }
+  }
+ ]
+}

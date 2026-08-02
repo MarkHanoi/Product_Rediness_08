@@ -1,0 +1,3018 @@
+{
+  "_what": "REFUSAL AUDIT — per-sample verdicts. correct/incorrect/unverifiable kept strictly apart.",
+  "_method": "Seeded uniform-over-area draw + live municipal zoning service + article re-read from the committed corpus PDF where one exists.",
+  "seedBase": 20260802,
+  "ranAt": "2026-08-02T09:10:13.777Z",
+  "cities": {
+    "barcelona": {
+      "seed": 20260803,
+      "bbox": [
+        2.09,
+        41.32,
+        2.23,
+        41.47
+      ],
+      "draws": 313,
+      "sampleSize": 30,
+      "correct": 3,
+      "incorrect": 26,
+      "unverifiable": 1,
+      "upstreamFailures": 0,
+      "rejectedDraws": 283,
+      "samples": [
+        {
+          "id": "barcelona-1",
+          "draw": 9,
+          "lon": 2.1280728,
+          "lat": 41.3359814,
+          "zone": "22a",
+          "article": "Art. 350.1 PGM",
+          "slice": "22a — cited Art. 350.1 refusal",
+          "attrs": {
+            "CLAU_URB": "22a",
+            "CODI_INE": "08019"
+          },
+          "verdict": "incorrect",
+          "why": "Two independent grounds. (a) The SHIPPED code marks clau 22a `regime-undetermined` with `legallyGrounded: FALSE` (esBarcelonaZoneClassification.ts:798) — the product's own answer is that this is PRYZM's gap, not a legal refusal, so scoring it `not-determined` contradicts the code. (b) Art. 350.1 governs ONLY «la zona industrial que compti amb Pla Parcial definitivament aprovat»; Art. 350.2 opens «Per a la zona industrial que estigui mancada de Pla Parcial regiran les condicions següents» and then STATES a full direct ordinance (FAR 2 m²st/m²s, ocupació 90 %/70 %, the 350.2.b block band, the 350.2.c/e heights) which PRYZM has already implemented. On no-Pla-Parcial land Art. 350.1 does not govern.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-2",
+          "draw": 22,
+          "lon": 2.1470264,
+          "lat": 41.4310265,
+          "zone": "18",
+          "article": "Art. 306 PGM",
+          "slice": "18 — cited Art. 306 refusal (73.6 % of clau 18)",
+          "attrs": {
+            "CLAU_URB": "18",
+            "CODI_INE": "08019"
+          },
+          "ovProbe": {
+            "hit": false
+          },
+          "verdict": "incorrect",
+          "why": "Art. 306 is the USES article for clau 18 — its whole body is «condicions d'ús». It states no envelope and delegates none. The article that terminates this parcel is Art. 334.1.b / 334.3.a (Secció 5a, Arts. 333-336). REFUSAL OUTCOME IS CORRECT; THE CITATION IS NOT.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-3",
+          "draw": 24,
+          "lon": 2.1402438,
+          "lat": 41.3420505,
+          "zone": "22a",
+          "article": "Art. 350.1 PGM",
+          "slice": "22a — cited Art. 350.1 refusal",
+          "attrs": {
+            "CLAU_URB": "22a",
+            "CODI_INE": "08019"
+          },
+          "verdict": "incorrect",
+          "why": "Two independent grounds. (a) The SHIPPED code marks clau 22a `regime-undetermined` with `legallyGrounded: FALSE` (esBarcelonaZoneClassification.ts:798) — the product's own answer is that this is PRYZM's gap, not a legal refusal, so scoring it `not-determined` contradicts the code. (b) Art. 350.1 governs ONLY «la zona industrial que compti amb Pla Parcial definitivament aprovat»; Art. 350.2 opens «Per a la zona industrial que estigui mancada de Pla Parcial regiran les condicions següents» and then STATES a full direct ordinance (FAR 2 m²st/m²s, ocupació 90 %/70 %, the 350.2.b block band, the 350.2.c/e heights) which PRYZM has already implemented. On no-Pla-Parcial land Art. 350.1 does not govern.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-4",
+          "draw": 34,
+          "lon": 2.1267216,
+          "lat": 41.3333873,
+          "zone": "22a",
+          "article": "Art. 350.1 PGM",
+          "slice": "22a — cited Art. 350.1 refusal",
+          "attrs": {
+            "CLAU_URB": "22a",
+            "CODI_INE": "08019"
+          },
+          "verdict": "incorrect",
+          "why": "Two independent grounds. (a) The SHIPPED code marks clau 22a `regime-undetermined` with `legallyGrounded: FALSE` (esBarcelonaZoneClassification.ts:798) — the product's own answer is that this is PRYZM's gap, not a legal refusal, so scoring it `not-determined` contradicts the code. (b) Art. 350.1 governs ONLY «la zona industrial que compti amb Pla Parcial definitivament aprovat»; Art. 350.2 opens «Per a la zona industrial que estigui mancada de Pla Parcial regiran les condicions següents» and then STATES a full direct ordinance (FAR 2 m²st/m²s, ocupació 90 %/70 %, the 350.2.b block band, the 350.2.c/e heights) which PRYZM has already implemented. On no-Pla-Parcial land Art. 350.1 does not govern.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-5",
+          "draw": 42,
+          "lon": 2.1265706,
+          "lat": 41.3381159,
+          "zone": "22a",
+          "article": "Art. 350.1 PGM",
+          "slice": "22a — cited Art. 350.1 refusal",
+          "attrs": {
+            "CLAU_URB": "22a",
+            "CODI_INE": "08019"
+          },
+          "verdict": "incorrect",
+          "why": "Two independent grounds. (a) The SHIPPED code marks clau 22a `regime-undetermined` with `legallyGrounded: FALSE` (esBarcelonaZoneClassification.ts:798) — the product's own answer is that this is PRYZM's gap, not a legal refusal, so scoring it `not-determined` contradicts the code. (b) Art. 350.1 governs ONLY «la zona industrial que compti amb Pla Parcial definitivament aprovat»; Art. 350.2 opens «Per a la zona industrial que estigui mancada de Pla Parcial regiran les condicions següents» and then STATES a full direct ordinance (FAR 2 m²st/m²s, ocupació 90 %/70 %, the 350.2.b block band, the 350.2.c/e heights) which PRYZM has already implemented. On no-Pla-Parcial land Art. 350.1 does not govern.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-6",
+          "draw": 48,
+          "lon": 2.135919,
+          "lat": 41.3414371,
+          "zone": "22a",
+          "article": "Art. 350.1 PGM",
+          "slice": "22a — cited Art. 350.1 refusal",
+          "attrs": {
+            "CLAU_URB": "22a",
+            "CODI_INE": "08019"
+          },
+          "verdict": "incorrect",
+          "why": "Two independent grounds. (a) The SHIPPED code marks clau 22a `regime-undetermined` with `legallyGrounded: FALSE` (esBarcelonaZoneClassification.ts:798) — the product's own answer is that this is PRYZM's gap, not a legal refusal, so scoring it `not-determined` contradicts the code. (b) Art. 350.1 governs ONLY «la zona industrial que compti amb Pla Parcial definitivament aprovat»; Art. 350.2 opens «Per a la zona industrial que estigui mancada de Pla Parcial regiran les condicions següents» and then STATES a full direct ordinance (FAR 2 m²st/m²s, ocupació 90 %/70 %, the 350.2.b block band, the 350.2.c/e heights) which PRYZM has already implemented. On no-Pla-Parcial land Art. 350.1 does not govern.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-7",
+          "draw": 69,
+          "lon": 2.1387474,
+          "lat": 41.3567682,
+          "zone": "18",
+          "article": "Art. 306 PGM",
+          "slice": "18 — cited Art. 306 refusal (73.6 % of clau 18)",
+          "attrs": {
+            "CLAU_URB": "18",
+            "CODI_INE": "08019"
+          },
+          "ovProbe": {
+            "hit": false
+          },
+          "verdict": "incorrect",
+          "why": "Art. 306 is the USES article for clau 18 — its whole body is «condicions d'ús». It states no envelope and delegates none. The article that terminates this parcel is Art. 334.1.b / 334.3.a (Secció 5a, Arts. 333-336). REFUSAL OUTCOME IS CORRECT; THE CITATION IS NOT.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-8",
+          "draw": 78,
+          "lon": 2.1704263,
+          "lat": 41.379118,
+          "zone": "12b",
+          "article": "Arts. 320.3a / 320.2a PGM",
+          "slice": "12b — permanent cited derived-plan refusal",
+          "attrs": {
+            "CLAU_URB": "12b",
+            "CODI_INE": "08019"
+          },
+          "verdict": "correct",
+          "why": "Art. 320.2a verbatim, subzona II: «la profunditat edificable serà, com a màxim, la de les edificacions contigües existents, MENTRE ES REDACTI LA DETERMINACIÓ EN PARTICULAR I EN DETALL AL PLA ESPECIAL». An express delegation to a pla especial, and Art. 320.3a keys the height to the mean of existing buildings on an undefined tram de vial. Cited articles govern and refuse. Shipped code agrees: `derived-plan`, `legallyGrounded: true`.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-9",
+          "draw": 81,
+          "lon": 2.1942252,
+          "lat": 41.3937008,
+          "zone": "18",
+          "article": "Art. 306 PGM",
+          "slice": "18 — cited Art. 306 refusal (73.6 % of clau 18)",
+          "attrs": {
+            "CLAU_URB": "18",
+            "CODI_INE": "08019"
+          },
+          "ovProbe": {
+            "hit": false
+          },
+          "verdict": "incorrect",
+          "why": "Art. 306 is the USES article for clau 18 — its whole body is «condicions d'ús». It states no envelope and delegates none. The article that terminates this parcel is Art. 334.1.b / 334.3.a (Secció 5a, Arts. 333-336). REFUSAL OUTCOME IS CORRECT; THE CITATION IS NOT.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-10",
+          "draw": 89,
+          "lon": 2.120103,
+          "lat": 41.3343926,
+          "zone": "22a",
+          "article": "Art. 350.1 PGM",
+          "slice": "22a — cited Art. 350.1 refusal",
+          "attrs": {
+            "CLAU_URB": "22a",
+            "CODI_INE": "08019"
+          },
+          "verdict": "incorrect",
+          "why": "Two independent grounds. (a) The SHIPPED code marks clau 22a `regime-undetermined` with `legallyGrounded: FALSE` (esBarcelonaZoneClassification.ts:798) — the product's own answer is that this is PRYZM's gap, not a legal refusal, so scoring it `not-determined` contradicts the code. (b) Art. 350.1 governs ONLY «la zona industrial que compti amb Pla Parcial definitivament aprovat»; Art. 350.2 opens «Per a la zona industrial que estigui mancada de Pla Parcial regiran les condicions següents» and then STATES a full direct ordinance (FAR 2 m²st/m²s, ocupació 90 %/70 %, the 350.2.b block band, the 350.2.c/e heights) which PRYZM has already implemented. On no-Pla-Parcial land Art. 350.1 does not govern.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-11",
+          "draw": 97,
+          "lon": 2.1955882,
+          "lat": 41.392132,
+          "zone": "18",
+          "article": "Art. 306 PGM",
+          "slice": "18 — cited Art. 306 refusal (73.6 % of clau 18)",
+          "attrs": {
+            "CLAU_URB": "18",
+            "CODI_INE": "08019"
+          },
+          "ovProbe": {
+            "hit": false
+          },
+          "verdict": "incorrect",
+          "why": "Art. 306 is the USES article for clau 18 — its whole body is «condicions d'ús». It states no envelope and delegates none. The article that terminates this parcel is Art. 334.1.b / 334.3.a (Secció 5a, Arts. 333-336). REFUSAL OUTCOME IS CORRECT; THE CITATION IS NOT.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-12",
+          "draw": 122,
+          "lon": 2.1623518,
+          "lat": 41.4330158,
+          "zone": "15",
+          "article": "derived plan / verd privat protegit",
+          "slice": "tail",
+          "attrs": {
+            "CLAU_URB": "15",
+            "CODI_INE": "08019"
+          },
+          "verdict": "unverifiable",
+          "why": "The `tail` slice is cited only as \"derived plan / verd privat protegit\" — no article number is named in the measurement record for clau 15, so there is no citation to test. A refusal with no article is not a cited refusal; it cannot be graded correct.",
+          "evidence": "none"
+        },
+        {
+          "id": "barcelona-13",
+          "draw": 125,
+          "lon": 2.1219024,
+          "lat": 41.3255383,
+          "zone": "22a",
+          "article": "Art. 350.1 PGM",
+          "slice": "22a — cited Art. 350.1 refusal",
+          "attrs": {
+            "CLAU_URB": "22a",
+            "CODI_INE": "08019"
+          },
+          "verdict": "incorrect",
+          "why": "Two independent grounds. (a) The SHIPPED code marks clau 22a `regime-undetermined` with `legallyGrounded: FALSE` (esBarcelonaZoneClassification.ts:798) — the product's own answer is that this is PRYZM's gap, not a legal refusal, so scoring it `not-determined` contradicts the code. (b) Art. 350.1 governs ONLY «la zona industrial que compti amb Pla Parcial definitivament aprovat»; Art. 350.2 opens «Per a la zona industrial que estigui mancada de Pla Parcial regiran les condicions següents» and then STATES a full direct ordinance (FAR 2 m²st/m²s, ocupació 90 %/70 %, the 350.2.b block band, the 350.2.c/e heights) which PRYZM has already implemented. On no-Pla-Parcial land Art. 350.1 does not govern.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-14",
+          "draw": 132,
+          "lon": 2.2156119,
+          "lat": 41.4096314,
+          "zone": "18",
+          "article": "Art. 306 PGM",
+          "slice": "18 — cited Art. 306 refusal (73.6 % of clau 18)",
+          "attrs": {
+            "CLAU_URB": "18",
+            "CODI_INE": "08019"
+          },
+          "ovProbe": {
+            "hit": false
+          },
+          "verdict": "incorrect",
+          "why": "Art. 306 is the USES article for clau 18 — its whole body is «condicions d'ús». It states no envelope and delegates none. The article that terminates this parcel is Art. 334.1.b / 334.3.a (Secció 5a, Arts. 333-336). REFUSAL OUTCOME IS CORRECT; THE CITATION IS NOT.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-15",
+          "draw": 160,
+          "lon": 2.1814239,
+          "lat": 41.449369,
+          "zone": "18",
+          "article": "Art. 306 PGM",
+          "slice": "18 — cited Art. 306 refusal (73.6 % of clau 18)",
+          "attrs": {
+            "CLAU_URB": "18",
+            "CODI_INE": "08019"
+          },
+          "ovProbe": {
+            "hit": false
+          },
+          "verdict": "incorrect",
+          "why": "Art. 306 is the USES article for clau 18 — its whole body is «condicions d'ús». It states no envelope and delegates none. The article that terminates this parcel is Art. 334.1.b / 334.3.a (Secció 5a, Arts. 333-336). REFUSAL OUTCOME IS CORRECT; THE CITATION IS NOT.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-16",
+          "draw": 169,
+          "lon": 2.1087929,
+          "lat": 41.33597,
+          "zone": "22a",
+          "article": "Art. 350.1 PGM",
+          "slice": "22a — cited Art. 350.1 refusal",
+          "attrs": {
+            "CLAU_URB": "22a",
+            "CODI_INE": "08019"
+          },
+          "verdict": "incorrect",
+          "why": "Two independent grounds. (a) The SHIPPED code marks clau 22a `regime-undetermined` with `legallyGrounded: FALSE` (esBarcelonaZoneClassification.ts:798) — the product's own answer is that this is PRYZM's gap, not a legal refusal, so scoring it `not-determined` contradicts the code. (b) Art. 350.1 governs ONLY «la zona industrial que compti amb Pla Parcial definitivament aprovat»; Art. 350.2 opens «Per a la zona industrial que estigui mancada de Pla Parcial regiran les condicions següents» and then STATES a full direct ordinance (FAR 2 m²st/m²s, ocupació 90 %/70 %, the 350.2.b block band, the 350.2.c/e heights) which PRYZM has already implemented. On no-Pla-Parcial land Art. 350.1 does not govern.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-17",
+          "draw": 170,
+          "lon": 2.130925,
+          "lat": 41.340479,
+          "zone": "22a",
+          "article": "Art. 350.1 PGM",
+          "slice": "22a — cited Art. 350.1 refusal",
+          "attrs": {
+            "CLAU_URB": "22a",
+            "CODI_INE": "08019"
+          },
+          "verdict": "incorrect",
+          "why": "Two independent grounds. (a) The SHIPPED code marks clau 22a `regime-undetermined` with `legallyGrounded: FALSE` (esBarcelonaZoneClassification.ts:798) — the product's own answer is that this is PRYZM's gap, not a legal refusal, so scoring it `not-determined` contradicts the code. (b) Art. 350.1 governs ONLY «la zona industrial que compti amb Pla Parcial definitivament aprovat»; Art. 350.2 opens «Per a la zona industrial que estigui mancada de Pla Parcial regiran les condicions següents» and then STATES a full direct ordinance (FAR 2 m²st/m²s, ocupació 90 %/70 %, the 350.2.b block band, the 350.2.c/e heights) which PRYZM has already implemented. On no-Pla-Parcial land Art. 350.1 does not govern.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-18",
+          "draw": 174,
+          "lon": 2.1854694,
+          "lat": 41.4407344,
+          "zone": "18",
+          "article": "Art. 306 PGM",
+          "slice": "18 — cited Art. 306 refusal (73.6 % of clau 18)",
+          "attrs": {
+            "CLAU_URB": "18",
+            "CODI_INE": "08019"
+          },
+          "ovProbe": {
+            "hit": false
+          },
+          "verdict": "incorrect",
+          "why": "Art. 306 is the USES article for clau 18 — its whole body is «condicions d'ús». It states no envelope and delegates none. The article that terminates this parcel is Art. 334.1.b / 334.3.a (Secció 5a, Arts. 333-336). REFUSAL OUTCOME IS CORRECT; THE CITATION IS NOT.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-19",
+          "draw": 199,
+          "lon": 2.1281378,
+          "lat": 41.3352551,
+          "zone": "22a",
+          "article": "Art. 350.1 PGM",
+          "slice": "22a — cited Art. 350.1 refusal",
+          "attrs": {
+            "CLAU_URB": "22a",
+            "CODI_INE": "08019"
+          },
+          "verdict": "incorrect",
+          "why": "Two independent grounds. (a) The SHIPPED code marks clau 22a `regime-undetermined` with `legallyGrounded: FALSE` (esBarcelonaZoneClassification.ts:798) — the product's own answer is that this is PRYZM's gap, not a legal refusal, so scoring it `not-determined` contradicts the code. (b) Art. 350.1 governs ONLY «la zona industrial que compti amb Pla Parcial definitivament aprovat»; Art. 350.2 opens «Per a la zona industrial que estigui mancada de Pla Parcial regiran les condicions següents» and then STATES a full direct ordinance (FAR 2 m²st/m²s, ocupació 90 %/70 %, the 350.2.b block band, the 350.2.c/e heights) which PRYZM has already implemented. On no-Pla-Parcial land Art. 350.1 does not govern.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-20",
+          "draw": 200,
+          "lon": 2.1768902,
+          "lat": 41.4616012,
+          "zone": "18",
+          "article": "Art. 306 PGM",
+          "slice": "18 — cited Art. 306 refusal (73.6 % of clau 18)",
+          "attrs": {
+            "CLAU_URB": "18",
+            "CODI_INE": "08019"
+          },
+          "ovProbe": {
+            "hit": false
+          },
+          "verdict": "incorrect",
+          "why": "Art. 306 is the USES article for clau 18 — its whole body is «condicions d'ús». It states no envelope and delegates none. The article that terminates this parcel is Art. 334.1.b / 334.3.a (Secció 5a, Arts. 333-336). REFUSAL OUTCOME IS CORRECT; THE CITATION IS NOT.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-21",
+          "draw": 213,
+          "lon": 2.1741189,
+          "lat": 41.3872212,
+          "zone": "12b",
+          "article": "Arts. 320.3a / 320.2a PGM",
+          "slice": "12b — permanent cited derived-plan refusal",
+          "attrs": {
+            "CLAU_URB": "12b",
+            "CODI_INE": "08019"
+          },
+          "verdict": "correct",
+          "why": "Art. 320.2a verbatim, subzona II: «la profunditat edificable serà, com a màxim, la de les edificacions contigües existents, MENTRE ES REDACTI LA DETERMINACIÓ EN PARTICULAR I EN DETALL AL PLA ESPECIAL». An express delegation to a pla especial, and Art. 320.3a keys the height to the mean of existing buildings on an undefined tram de vial. Cited articles govern and refuse. Shipped code agrees: `derived-plan`, `legallyGrounded: true`.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-22",
+          "draw": 245,
+          "lon": 2.1739891,
+          "lat": 41.378908,
+          "zone": "12b",
+          "article": "Arts. 320.3a / 320.2a PGM",
+          "slice": "12b — permanent cited derived-plan refusal",
+          "attrs": {
+            "CLAU_URB": "12b",
+            "CODI_INE": "08019"
+          },
+          "verdict": "correct",
+          "why": "Art. 320.2a verbatim, subzona II: «la profunditat edificable serà, com a màxim, la de les edificacions contigües existents, MENTRE ES REDACTI LA DETERMINACIÓ EN PARTICULAR I EN DETALL AL PLA ESPECIAL». An express delegation to a pla especial, and Art. 320.3a keys the height to the mean of existing buildings on an undefined tram de vial. Cited articles govern and refuse. Shipped code agrees: `derived-plan`, `legallyGrounded: true`.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-23",
+          "draw": 246,
+          "lon": 2.2038523,
+          "lat": 41.4436128,
+          "zone": "22a",
+          "article": "Art. 350.1 PGM",
+          "slice": "22a — cited Art. 350.1 refusal",
+          "attrs": {
+            "CLAU_URB": "22a",
+            "CODI_INE": "08019"
+          },
+          "verdict": "incorrect",
+          "why": "Two independent grounds. (a) The SHIPPED code marks clau 22a `regime-undetermined` with `legallyGrounded: FALSE` (esBarcelonaZoneClassification.ts:798) — the product's own answer is that this is PRYZM's gap, not a legal refusal, so scoring it `not-determined` contradicts the code. (b) Art. 350.1 governs ONLY «la zona industrial que compti amb Pla Parcial definitivament aprovat»; Art. 350.2 opens «Per a la zona industrial que estigui mancada de Pla Parcial regiran les condicions següents» and then STATES a full direct ordinance (FAR 2 m²st/m²s, ocupació 90 %/70 %, the 350.2.b block band, the 350.2.c/e heights) which PRYZM has already implemented. On no-Pla-Parcial land Art. 350.1 does not govern.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-24",
+          "draw": 251,
+          "lon": 2.1249756,
+          "lat": 41.3334195,
+          "zone": "22a",
+          "article": "Art. 350.1 PGM",
+          "slice": "22a — cited Art. 350.1 refusal",
+          "attrs": {
+            "CLAU_URB": "22a",
+            "CODI_INE": "08019"
+          },
+          "verdict": "incorrect",
+          "why": "Two independent grounds. (a) The SHIPPED code marks clau 22a `regime-undetermined` with `legallyGrounded: FALSE` (esBarcelonaZoneClassification.ts:798) — the product's own answer is that this is PRYZM's gap, not a legal refusal, so scoring it `not-determined` contradicts the code. (b) Art. 350.1 governs ONLY «la zona industrial que compti amb Pla Parcial definitivament aprovat»; Art. 350.2 opens «Per a la zona industrial que estigui mancada de Pla Parcial regiran les condicions següents» and then STATES a full direct ordinance (FAR 2 m²st/m²s, ocupació 90 %/70 %, the 350.2.b block band, the 350.2.c/e heights) which PRYZM has already implemented. On no-Pla-Parcial land Art. 350.1 does not govern.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-25",
+          "draw": 253,
+          "lon": 2.2038117,
+          "lat": 41.4404346,
+          "zone": "22a",
+          "article": "Art. 350.1 PGM",
+          "slice": "22a — cited Art. 350.1 refusal",
+          "attrs": {
+            "CLAU_URB": "22a",
+            "CODI_INE": "08019"
+          },
+          "verdict": "incorrect",
+          "why": "Two independent grounds. (a) The SHIPPED code marks clau 22a `regime-undetermined` with `legallyGrounded: FALSE` (esBarcelonaZoneClassification.ts:798) — the product's own answer is that this is PRYZM's gap, not a legal refusal, so scoring it `not-determined` contradicts the code. (b) Art. 350.1 governs ONLY «la zona industrial que compti amb Pla Parcial definitivament aprovat»; Art. 350.2 opens «Per a la zona industrial que estigui mancada de Pla Parcial regiran les condicions següents» and then STATES a full direct ordinance (FAR 2 m²st/m²s, ocupació 90 %/70 %, the 350.2.b block band, the 350.2.c/e heights) which PRYZM has already implemented. On no-Pla-Parcial land Art. 350.1 does not govern.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-26",
+          "draw": 260,
+          "lon": 2.1384365,
+          "lat": 41.3646877,
+          "zone": "18",
+          "article": "Art. 306 PGM",
+          "slice": "18 — cited Art. 306 refusal (73.6 % of clau 18)",
+          "attrs": {
+            "CLAU_URB": "18",
+            "CODI_INE": "08019"
+          },
+          "ovProbe": {
+            "hit": false
+          },
+          "verdict": "incorrect",
+          "why": "Art. 306 is the USES article for clau 18 — its whole body is «condicions d'ús». It states no envelope and delegates none. The article that terminates this parcel is Art. 334.1.b / 334.3.a (Secció 5a, Arts. 333-336). REFUSAL OUTCOME IS CORRECT; THE CITATION IS NOT.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-27",
+          "draw": 299,
+          "lon": 2.1194977,
+          "lat": 41.3348952,
+          "zone": "22a",
+          "article": "Art. 350.1 PGM",
+          "slice": "22a — cited Art. 350.1 refusal",
+          "attrs": {
+            "CLAU_URB": "22a",
+            "CODI_INE": "08019"
+          },
+          "verdict": "incorrect",
+          "why": "Two independent grounds. (a) The SHIPPED code marks clau 22a `regime-undetermined` with `legallyGrounded: FALSE` (esBarcelonaZoneClassification.ts:798) — the product's own answer is that this is PRYZM's gap, not a legal refusal, so scoring it `not-determined` contradicts the code. (b) Art. 350.1 governs ONLY «la zona industrial que compti amb Pla Parcial definitivament aprovat»; Art. 350.2 opens «Per a la zona industrial que estigui mancada de Pla Parcial regiran les condicions següents» and then STATES a full direct ordinance (FAR 2 m²st/m²s, ocupació 90 %/70 %, the 350.2.b block band, the 350.2.c/e heights) which PRYZM has already implemented. On no-Pla-Parcial land Art. 350.1 does not govern.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-28",
+          "draw": 300,
+          "lon": 2.1252395,
+          "lat": 41.4119271,
+          "zone": "18",
+          "article": "Art. 306 PGM",
+          "slice": "18 — cited Art. 306 refusal (73.6 % of clau 18)",
+          "attrs": {
+            "CLAU_URB": "18",
+            "CODI_INE": "08019"
+          },
+          "ovProbe": {
+            "hit": false
+          },
+          "verdict": "incorrect",
+          "why": "Art. 306 is the USES article for clau 18 — its whole body is «condicions d'ús». It states no envelope and delegates none. The article that terminates this parcel is Art. 334.1.b / 334.3.a (Secció 5a, Arts. 333-336). REFUSAL OUTCOME IS CORRECT; THE CITATION IS NOT.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-29",
+          "draw": 308,
+          "lon": 2.2082357,
+          "lat": 41.4209468,
+          "zone": "18",
+          "article": "Art. 306 PGM",
+          "slice": "18 — cited Art. 306 refusal (73.6 % of clau 18)",
+          "attrs": {
+            "CLAU_URB": "18",
+            "CODI_INE": "08019"
+          },
+          "ovProbe": {
+            "hit": true,
+            "plantes": "ED",
+            "exp": "SM223"
+          },
+          "verdict": "incorrect",
+          "why": "Art. 306 is the USES article for clau 18 — its whole body is «condicions d'ús». It states no envelope and delegates none. The article that terminates this parcel is Art. 334.1.b / 334.3.a (Secció 5a, Arts. 333-336). REFUSAL OUTCOME IS CORRECT; THE CITATION IS NOT.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "barcelona-30",
+          "draw": 313,
+          "lon": 2.2089084,
+          "lat": 41.4221362,
+          "zone": "18",
+          "article": "Art. 306 PGM",
+          "slice": "18 — cited Art. 306 refusal (73.6 % of clau 18)",
+          "attrs": {
+            "CLAU_URB": "18",
+            "CODI_INE": "08019"
+          },
+          "ovProbe": {
+            "hit": false
+          },
+          "verdict": "incorrect",
+          "why": "Art. 306 is the USES article for clau 18 — its whole body is «condicions d'ús». It states no envelope and delegates none. The article that terminates this parcel is Art. 334.1.b / 334.3.a (Secció 5a, Arts. 333-336). REFUSAL OUTCOME IS CORRECT; THE CITATION IS NOT.",
+          "evidence": "corpus"
+        }
+      ],
+      "rejectionReasons": {
+        "envelope-slice": 36,
+        "not-in-any-slice": 116,
+        "outside-08019-or-no-qualificacio": 131
+      }
+    },
+    "madrid": {
+      "seed": 20260804,
+      "bbox": [
+        -3.8,
+        40.33,
+        -3.58,
+        40.52
+      ],
+      "draws": 168,
+      "sampleSize": 30,
+      "correct": 26,
+      "incorrect": 4,
+      "unverifiable": 0,
+      "upstreamFailures": 0,
+      "rejectedDraws": 138,
+      "samples": [
+        {
+          "id": "madrid-1",
+          "draw": 10,
+          "lon": -3.6241754,
+          "lat": 40.44563,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-2",
+          "draw": 12,
+          "lon": -3.7144822,
+          "lat": 40.3878009,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-3",
+          "draw": 15,
+          "lon": -3.6433423,
+          "lat": 40.4612408,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-4",
+          "draw": 17,
+          "lon": -3.7660119,
+          "lat": 40.3962997,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-5",
+          "draw": 23,
+          "lon": -3.6564602,
+          "lat": 40.4758271,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-6",
+          "draw": 28,
+          "lon": -3.7485925,
+          "lat": 40.4690998,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-7",
+          "draw": 33,
+          "lon": -3.5831489,
+          "lat": 40.4569001,
+          "zone": "3.2",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.2",
+            "OBJECTID": 1723474
+          },
+          "verdict": "incorrect",
+          "why": "This parcel is Norma Zonal 3 GRADO 2º (`AMB_TX_ETIQ = \"3.2\"`, separately published by the live NORMAS_ZONALES layer). Art. 8.3.1 is «Definición general» and states no operative regime. Art. 8.3.5 — the article the record weighs it against — sits expressly under «Sección Primera: Condiciones de edificación del Grado 1º» and does not reach this land at all. The governing article is Art. 8.3.10.c) (Sección Segunda, Grado 2º). REFUSAL OUTCOME CORRECT (8.3.10.c) delegates to the antecedent planning); CITATION WRONG.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-8",
+          "draw": 34,
+          "lon": -3.7017543,
+          "lat": 40.4826636,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-9",
+          "draw": 47,
+          "lon": -3.7575762,
+          "lat": 40.3903451,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-10",
+          "draw": 50,
+          "lon": -3.632616,
+          "lat": 40.3922398,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-11",
+          "draw": 52,
+          "lon": -3.6094463,
+          "lat": 40.4075831,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-12",
+          "draw": 59,
+          "lon": -3.5878251,
+          "lat": 40.4523678,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-13",
+          "draw": 66,
+          "lon": -3.7132569,
+          "lat": 40.3898755,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-14",
+          "draw": 68,
+          "lon": -3.7177843,
+          "lat": 40.4554422,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-15",
+          "draw": 74,
+          "lon": -3.6245874,
+          "lat": 40.4281971,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-16",
+          "draw": 79,
+          "lon": -3.6401189,
+          "lat": 40.3893772,
+          "zone": "3.2",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.2",
+            "OBJECTID": 1723474
+          },
+          "verdict": "incorrect",
+          "why": "This parcel is Norma Zonal 3 GRADO 2º (`AMB_TX_ETIQ = \"3.2\"`, separately published by the live NORMAS_ZONALES layer). Art. 8.3.1 is «Definición general» and states no operative regime. Art. 8.3.5 — the article the record weighs it against — sits expressly under «Sección Primera: Condiciones de edificación del Grado 1º» and does not reach this land at all. The governing article is Art. 8.3.10.c) (Sección Segunda, Grado 2º). REFUSAL OUTCOME CORRECT (8.3.10.c) delegates to the antecedent planning); CITATION WRONG.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-17",
+          "draw": 82,
+          "lon": -3.6584167,
+          "lat": 40.3923755,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-18",
+          "draw": 89,
+          "lon": -3.6527534,
+          "lat": 40.4126614,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-19",
+          "draw": 92,
+          "lon": -3.6742808,
+          "lat": 40.4824792,
+          "zone": "3.2",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.2",
+            "OBJECTID": 1723474
+          },
+          "verdict": "incorrect",
+          "why": "This parcel is Norma Zonal 3 GRADO 2º (`AMB_TX_ETIQ = \"3.2\"`, separately published by the live NORMAS_ZONALES layer). Art. 8.3.1 is «Definición general» and states no operative regime. Art. 8.3.5 — the article the record weighs it against — sits expressly under «Sección Primera: Condiciones de edificación del Grado 1º» and does not reach this land at all. The governing article is Art. 8.3.10.c) (Sección Segunda, Grado 2º). REFUSAL OUTCOME CORRECT (8.3.10.c) delegates to the antecedent planning); CITATION WRONG.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-20",
+          "draw": 106,
+          "lon": -3.6765238,
+          "lat": 40.4503431,
+          "zone": "3.1.b",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.b",
+            "OBJECTID": 1723453
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-21",
+          "draw": 113,
+          "lon": -3.643959,
+          "lat": 40.3790618,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-22",
+          "draw": 115,
+          "lon": -3.7268131,
+          "lat": 40.4232802,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-23",
+          "draw": 123,
+          "lon": -3.6638872,
+          "lat": 40.4433671,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-24",
+          "draw": 137,
+          "lon": -3.5982168,
+          "lat": 40.4453226,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-25",
+          "draw": 161,
+          "lon": -3.6680177,
+          "lat": 40.4600605,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-26",
+          "draw": 164,
+          "lon": -3.668669,
+          "lat": 40.4477662,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-27",
+          "draw": 165,
+          "lon": -3.7250176,
+          "lat": 40.4005942,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-28",
+          "draw": 166,
+          "lon": -3.6678121,
+          "lat": 40.3703035,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-29",
+          "draw": 167,
+          "lon": -3.7929777,
+          "lat": 40.4533758,
+          "zone": "3.2",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.2",
+            "OBJECTID": 1723474
+          },
+          "verdict": "incorrect",
+          "why": "This parcel is Norma Zonal 3 GRADO 2º (`AMB_TX_ETIQ = \"3.2\"`, separately published by the live NORMAS_ZONALES layer). Art. 8.3.1 is «Definición general» and states no operative regime. Art. 8.3.5 — the article the record weighs it against — sits expressly under «Sección Primera: Condiciones de edificación del Grado 1º» and does not reach this land at all. The governing article is Art. 8.3.10.c) (Sección Segunda, Grado 2º). REFUSAL OUTCOME CORRECT (8.3.10.c) delegates to the antecedent planning); CITATION WRONG.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "madrid-30",
+          "draw": 168,
+          "lon": -3.6552495,
+          "lat": 40.3683199,
+          "zone": "3.1.a",
+          "article": "Art. 8.3.1 PGOUM-97 (contested against Art. 8.3.5)",
+          "slice": "NZ 3 Volumetría Específica — not-determined",
+          "attrs": {
+            "AMB_TX_ETIQ": "3.1.a",
+            "OBJECTID": 1723472
+          },
+          "verdict": "correct",
+          "why": "Norma Zonal 3 Grado 1º. Art. 8.3.1 verbatim-confirmed in the committed PDF and it does describe an exhausted-aprovechamiento zone, but the OPERATIVE article is Art. 8.3.5 (Sección Primera), whose substitution route measures the envelope by «la envolvente exterior del edificio existente … y respetará la superficie total edificada del mismo» — a datum PRYZM measured as unobtainable (PG_ANALISIS_EDIFICACION carries no attributes). The refusal is CORRECT in outcome and correct in kind, and 8.3.1 is a defensible if imprecise anchor for it. GRADED CORRECT — but see the two named defects in the record's supporting argument (§3).",
+          "evidence": "corpus"
+        }
+      ],
+      "rejectionReasons": {
+        "no-norma-zonal-at-point": 121,
+        "not-nz3": 17
+      }
+    },
+    "murcia": {
+      "seed": 20260805,
+      "bbox": [
+        -1.2007,
+        37.9322,
+        -1.0607,
+        38.0522
+      ],
+      "draws": 177,
+      "sampleSize": 30,
+      "correct": 25,
+      "incorrect": 5,
+      "unverifiable": 0,
+      "upstreamFailures": 0,
+      "rejectedDraws": 147,
+      "samples": [
+        {
+          "id": "murcia-1",
+          "draw": 17,
+          "lon": -1.1265297,
+          "lat": 37.9757304,
+          "zone": "RR (family RR)",
+          "article": "Arts. 5.24.5.1 / 5.24.6",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RR",
+            "family": "RR",
+            "sector": "UA-664",
+            "claseSuelo": "Urbano",
+            "ground": "calificacion-remitida",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Art. 5.24.5.1 verbatim: «Dentro de los ámbitos UA, UH y UM, los suelos … se califican genéricamente … con el código RR, entendiéndose que sus condiciones de edificación son enteramente concordantes con las definidas en los anteriores instrumentos convalidados.» Sector UA-664 is in scope. Governs and refuses.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-2",
+          "draw": 19,
+          "lon": -1.1612091,
+          "lat": 37.9896177,
+          "zone": "RL (family RL)",
+          "article": "Art. 6.2.2.3",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RL",
+            "family": "RL",
+            "sector": "SH",
+            "claseSuelo": "Urbanizable",
+            "ground": "clase-urbanizable",
+            "packedExact": true
+          },
+          "verdict": "correct",
+          "why": "Art. 6.2.2.3 verbatim: «Los planes parciales o especiales desarrollarán la ordenación de acuerdo con las determinaciones vinculantes asignadas a su sector en la ficha correspondiente al mismo.» Residential family RL on Urbanizable land — in scope.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-3",
+          "draw": 26,
+          "lon": -1.1035406,
+          "lat": 38.0343234,
+          "zone": "RB-II (family RB)",
+          "article": "Art. 6.2.2.3",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RB-II",
+            "family": "RB",
+            "sector": "ZU-CT3",
+            "claseSuelo": "Urbanizable",
+            "ground": "clase-urbanizable",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Art. 6.2.2.3 verbatim: «Los planes parciales o especiales desarrollarán la ordenación de acuerdo con las determinaciones vinculantes asignadas a su sector en la ficha correspondiente al mismo.» Residential family RB on Urbanizable land — in scope.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-4",
+          "draw": 29,
+          "lon": -1.1620352,
+          "lat": 37.9895192,
+          "zone": "RL (family RL)",
+          "article": "Art. 6.2.2.3",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RL",
+            "family": "RL",
+            "sector": "SH",
+            "claseSuelo": "Urbanizable",
+            "ground": "clase-urbanizable",
+            "packedExact": true
+          },
+          "verdict": "correct",
+          "why": "Art. 6.2.2.3 verbatim: «Los planes parciales o especiales desarrollarán la ordenación de acuerdo con las determinaciones vinculantes asignadas a su sector en la ficha correspondiente al mismo.» Residential family RL on Urbanizable land — in scope.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-5",
+          "draw": 35,
+          "lon": -1.112824,
+          "lat": 38.0107861,
+          "zone": "RL (family RL)",
+          "article": "Art. 6.2.2.3",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RL",
+            "family": "RL",
+            "sector": "ZM-Zn2",
+            "claseSuelo": "Urbanizable",
+            "ground": "clase-urbanizable",
+            "packedExact": true
+          },
+          "verdict": "correct",
+          "why": "Art. 6.2.2.3 verbatim: «Los planes parciales o especiales desarrollarán la ordenación de acuerdo con las determinaciones vinculantes asignadas a su sector en la ficha correspondiente al mismo.» Residential family RL on Urbanizable land — in scope.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-6",
+          "draw": 43,
+          "lon": -1.162566,
+          "lat": 37.9397688,
+          "zone": "RC (family RC)",
+          "article": "Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RC",
+            "family": "RC",
+            "sector": "PC-Pm1",
+            "claseSuelo": "Urbano",
+            "ground": "ambito-delegante",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Sector PC-Pm1 carries a delegating prefix (PC). Arts. 5.24 (UA/UH/UM) · 5.25.1 (UE) · 5.25.2 (UD) · 5.26.2 (P*) · 6.6.2 (TA/TM) are cited as a set and one of them reaches this ámbito. Governs and refuses.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-7",
+          "draw": 50,
+          "lon": -1.0826452,
+          "lat": 38.0515791,
+          "zone": "RR (family RR)",
+          "article": "Arts. 5.24.5.1 / 5.24.6",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RR",
+            "family": "RR",
+            "sector": "UM-5088",
+            "claseSuelo": "Urbano",
+            "ground": "calificacion-remitida",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Art. 5.24.5.1 verbatim: «Dentro de los ámbitos UA, UH y UM, los suelos … se califican genéricamente … con el código RR, entendiéndose que sus condiciones de edificación son enteramente concordantes con las definidas en los anteriores instrumentos convalidados.» Sector UM-5088 is in scope. Governs and refuses.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-8",
+          "draw": 57,
+          "lon": -1.0818218,
+          "lat": 37.9674848,
+          "zone": "RX (family RX)",
+          "article": "Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RX",
+            "family": "RX",
+            "sector": "U",
+            "claseSuelo": "Urbano",
+            "ground": "calificacion-generica",
+            "packedExact": false
+          },
+          "verdict": "incorrect",
+          "why": "Genérica code RX on sector U (clase Urbano). NONE of the four cited articles' stated scopes reaches this parcel: Art. 5.25.3.3 is scoped to «las fichas de los Estudios de Detalle» (UD), Art. 5.26.3.3 to «las fichas de los Planes Especiales» (P*), and Arts. 6.2.2.4 / 6.5.1 to suelo urbanizable sectorizado. This parcel is none of them.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-9",
+          "draw": 67,
+          "lon": -1.1206222,
+          "lat": 37.9737078,
+          "zone": "RX (family RX)",
+          "article": "Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RX",
+            "family": "RX",
+            "sector": "PC-Mc05-1",
+            "claseSuelo": "Urbano",
+            "ground": "calificacion-generica",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Genérica code RX inside a scope one of the cited articles actually reaches (sector PC-Mc05-1, clase Urbano). Art. 5.25.3.3 / 5.26.3.3 verbatim: «se reduce a las condiciones de uso y tipología de las edificaciones, PERO NO A LOS PARÁMETROS DEFINITORIOS DE LA ALTURA O EDIFICABILIDAD».",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-10",
+          "draw": 73,
+          "lon": -1.1108824,
+          "lat": 38.0030154,
+          "zone": "IX (family IX)",
+          "article": "Art. 6.2.2.3",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "IX",
+            "family": "IX",
+            "sector": "ZM-Zn2",
+            "claseSuelo": "Urbanizable",
+            "ground": "clase-urbanizable",
+            "packedExact": true
+          },
+          "verdict": "incorrect",
+          "why": "Family IX is INDUSTRIAL/TERCIARIO, but the sole cited article for the clase-urbanizable ground is Art. 6.2.2.3, whose article heading in the committed PDF is «Ordenación de los SECTORES RESIDENCIALES». Industrial/terciario urbanizable sectors are Arts. 6.5.x / 6.6.x, which are not cited. Outcome right, citation out of scope.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-11",
+          "draw": 75,
+          "lon": -1.128785,
+          "lat": 38.0187563,
+          "zone": "RBA (family RB)",
+          "article": "Art. 6.2.2.3",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RBA",
+            "family": "RB",
+            "sector": "ZM-Ch1",
+            "claseSuelo": "Urbanizable",
+            "ground": "clase-urbanizable",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Art. 6.2.2.3 verbatim: «Los planes parciales o especiales desarrollarán la ordenación de acuerdo con las determinaciones vinculantes asignadas a su sector en la ficha correspondiente al mismo.» Residential family RB on Urbanizable land — in scope.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-12",
+          "draw": 82,
+          "lon": -1.0794688,
+          "lat": 37.9579926,
+          "zone": "RR (family RR)",
+          "article": "Arts. 5.24.5.1 / 5.24.6",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RR",
+            "family": "RR",
+            "sector": "TA-307",
+            "claseSuelo": "Urbanizable",
+            "ground": "calificacion-remitida",
+            "packedExact": false
+          },
+          "verdict": "incorrect",
+          "why": "Family RR on sector TA-307. Art. 5.24.5.1's stated scope is «Dentro de los ámbitos UA, UH y UM» — sector prefix TA is not one of them, and Art. 5.24.6 covers only TR/IR/GR. The cited article does not reach this parcel.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-13",
+          "draw": 83,
+          "lon": -1.0858258,
+          "lat": 38.04144,
+          "zone": "RR (family RR)",
+          "article": "Arts. 5.24.5.1 / 5.24.6",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RR",
+            "family": "RR",
+            "sector": "UA-357",
+            "claseSuelo": "Urbano",
+            "ground": "calificacion-remitida",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Art. 5.24.5.1 verbatim: «Dentro de los ámbitos UA, UH y UM, los suelos … se califican genéricamente … con el código RR, entendiéndose que sus condiciones de edificación son enteramente concordantes con las definidas en los anteriores instrumentos convalidados.» Sector UA-357 is in scope. Governs and refuses.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-14",
+          "draw": 89,
+          "lon": -1.0897302,
+          "lat": 38.047398,
+          "zone": "TC (family TC)",
+          "article": "Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "TC",
+            "family": "TC",
+            "sector": "SB1-CNE",
+            "claseSuelo": "Urbanizable",
+            "ground": "calificacion-generica",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Genérica code TC inside a scope one of the cited articles actually reaches (sector SB1-CNE, clase Urbanizable). Art. 5.25.3.3 / 5.26.3.3 verbatim: «se reduce a las condiciones de uso y tipología de las edificaciones, PERO NO A LOS PARÁMETROS DEFINITORIOS DE LA ALTURA O EDIFICABILIDAD».",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-15",
+          "draw": 92,
+          "lon": -1.132987,
+          "lat": 38.0073858,
+          "zone": "RS (family RS)",
+          "article": "Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RS",
+            "family": "RS",
+            "sector": "PE-SZ4",
+            "claseSuelo": "Sistemas Generles",
+            "ground": "calificacion-generica",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Genérica code RS inside a scope one of the cited articles actually reaches (sector PE-SZ4, clase Sistemas Generles). Art. 5.25.3.3 / 5.26.3.3 verbatim: «se reduce a las condiciones de uso y tipología de las edificaciones, PERO NO A LOS PARÁMETROS DEFINITORIOS DE LA ALTURA O EDIFICABILIDAD».",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-16",
+          "draw": 101,
+          "lon": -1.1318605,
+          "lat": 38.0354424,
+          "zone": "RD (family RD)",
+          "article": "Art. 6.2.2.3",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RD",
+            "family": "RD",
+            "sector": "ZB-CT2",
+            "claseSuelo": "Urbanizable",
+            "ground": "clase-urbanizable",
+            "packedExact": true
+          },
+          "verdict": "correct",
+          "why": "Art. 6.2.2.3 verbatim: «Los planes parciales o especiales desarrollarán la ordenación de acuerdo con las determinaciones vinculantes asignadas a su sector en la ficha correspondiente al mismo.» Residential family RD on Urbanizable land — in scope.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-17",
+          "draw": 111,
+          "lon": -1.1205789,
+          "lat": 37.9640878,
+          "zone": "RM (family RM)",
+          "article": "Art. 6.2.2.3",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RM",
+            "family": "RM",
+            "sector": "ZM-SB1",
+            "claseSuelo": "Urbanizable",
+            "ground": "clase-urbanizable",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Art. 6.2.2.3 verbatim: «Los planes parciales o especiales desarrollarán la ordenación de acuerdo con las determinaciones vinculantes asignadas a su sector en la ficha correspondiente al mismo.» Residential family RM on Urbanizable land — in scope.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-18",
+          "draw": 123,
+          "lon": -1.1098006,
+          "lat": 38.0019309,
+          "zone": "RR (family RR)",
+          "article": "Arts. 5.24.5.1 / 5.24.6",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RR",
+            "family": "RR",
+            "sector": "UA-4401",
+            "claseSuelo": "Urbano",
+            "ground": "calificacion-remitida",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Art. 5.24.5.1 verbatim: «Dentro de los ámbitos UA, UH y UM, los suelos … se califican genéricamente … con el código RR, entendiéndose que sus condiciones de edificación son enteramente concordantes con las definidas en los anteriores instrumentos convalidados.» Sector UA-4401 is in scope. Governs and refuses.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-19",
+          "draw": 125,
+          "lon": -1.1318892,
+          "lat": 38.0349035,
+          "zone": "RD (family RD)",
+          "article": "Art. 6.2.2.3",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RD",
+            "family": "RD",
+            "sector": "ZB-CT2",
+            "claseSuelo": "Urbanizable",
+            "ground": "clase-urbanizable",
+            "packedExact": true
+          },
+          "verdict": "correct",
+          "why": "Art. 6.2.2.3 verbatim: «Los planes parciales o especiales desarrollarán la ordenación de acuerdo con las determinaciones vinculantes asignadas a su sector en la ficha correspondiente al mismo.» Residential family RD on Urbanizable land — in scope.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-20",
+          "draw": 132,
+          "lon": -1.1082522,
+          "lat": 38.0039209,
+          "zone": "RX (family RX)",
+          "article": "Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RX",
+            "family": "RX",
+            "sector": "UD-PT1",
+            "claseSuelo": "Urbano",
+            "ground": "calificacion-generica",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Genérica code RX inside a scope one of the cited articles actually reaches (sector UD-PT1, clase Urbano). Art. 5.25.3.3 / 5.26.3.3 verbatim: «se reduce a las condiciones de uso y tipología de las edificaciones, PERO NO A LOS PARÁMETROS DEFINITORIOS DE LA ALTURA O EDIFICABILIDAD».",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-21",
+          "draw": 136,
+          "lon": -1.1242771,
+          "lat": 37.9891493,
+          "zone": "RR (family RR)",
+          "article": "Arts. 5.24.5.1 / 5.24.6",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RR",
+            "family": "RR",
+            "sector": "UA-257",
+            "claseSuelo": "Sistemas Generles",
+            "ground": "calificacion-remitida",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Art. 5.24.5.1 verbatim: «Dentro de los ámbitos UA, UH y UM, los suelos … se califican genéricamente … con el código RR, entendiéndose que sus condiciones de edificación son enteramente concordantes con las definidas en los anteriores instrumentos convalidados.» Sector UA-257 is in scope. Governs and refuses.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-22",
+          "draw": 139,
+          "lon": -1.1381894,
+          "lat": 38.0244412,
+          "zone": "RM (family RM)",
+          "article": "Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RM",
+            "family": "RM",
+            "sector": "UA-405",
+            "claseSuelo": "Urbano",
+            "ground": "ambito-delegante",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Sector UA-405 carries a delegating prefix (UA). Arts. 5.24 (UA/UH/UM) · 5.25.1 (UE) · 5.25.2 (UD) · 5.26.2 (P*) · 6.6.2 (TA/TM) are cited as a set and one of them reaches this ámbito. Governs and refuses.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-23",
+          "draw": 145,
+          "lon": -1.1420553,
+          "lat": 38.0058693,
+          "zone": "RB1 (family RB)",
+          "article": "Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RB1",
+            "family": "RB",
+            "sector": "PERI-UM-114",
+            "claseSuelo": "Urbano",
+            "ground": "ambito-delegante",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Sector PERI-UM-114 carries a delegating prefix (PERI). Arts. 5.24 (UA/UH/UM) · 5.25.1 (UE) · 5.25.2 (UD) · 5.26.2 (P*) · 6.6.2 (TA/TM) are cited as a set and one of them reaches this ámbito. Governs and refuses.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-24",
+          "draw": 147,
+          "lon": -1.1046188,
+          "lat": 37.9961826,
+          "zone": "IC (family IC)",
+          "article": "Art. 6.2.2.3",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "IC",
+            "family": "IC",
+            "sector": "TA-202",
+            "claseSuelo": "Urbanizable",
+            "ground": "clase-urbanizable",
+            "packedExact": true
+          },
+          "verdict": "incorrect",
+          "why": "Family IC is INDUSTRIAL/TERCIARIO, but the sole cited article for the clase-urbanizable ground is Art. 6.2.2.3, whose article heading in the committed PDF is «Ordenación de los SECTORES RESIDENCIALES». Industrial/terciario urbanizable sectors are Arts. 6.5.x / 6.6.x, which are not cited. Outcome right, citation out of scope.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-25",
+          "draw": 153,
+          "lon": -1.1610326,
+          "lat": 37.9624436,
+          "zone": "RL (family RL)",
+          "article": "Art. 6.2.2.3",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RL",
+            "family": "RL",
+            "sector": "SH",
+            "claseSuelo": "Urbanizable",
+            "ground": "clase-urbanizable",
+            "packedExact": true
+          },
+          "verdict": "correct",
+          "why": "Art. 6.2.2.3 verbatim: «Los planes parciales o especiales desarrollarán la ordenación de acuerdo con las determinaciones vinculantes asignadas a su sector en la ficha correspondiente al mismo.» Residential family RL on Urbanizable land — in scope.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-26",
+          "draw": 154,
+          "lon": -1.1541753,
+          "lat": 38.0144873,
+          "zone": "RX (family RX)",
+          "article": "Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RX",
+            "family": "RX",
+            "sector": "UA-027",
+            "claseSuelo": "Urbano",
+            "ground": "calificacion-generica",
+            "packedExact": false
+          },
+          "verdict": "incorrect",
+          "why": "Genérica code RX on sector UA-027 (clase Urbano). NONE of the four cited articles' stated scopes reaches this parcel: Art. 5.25.3.3 is scoped to «las fichas de los Estudios de Detalle» (UD), Art. 5.26.3.3 to «las fichas de los Planes Especiales» (P*), and Arts. 6.2.2.4 / 6.5.1 to suelo urbanizable sectorizado. This parcel is none of them.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-27",
+          "draw": 160,
+          "lon": -1.1290388,
+          "lat": 37.9453152,
+          "zone": "RB (family RB)",
+          "article": "Art. 6.2.2.3",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RB",
+            "family": "RB",
+            "sector": "ZM-SA1",
+            "claseSuelo": "Urbanizable",
+            "ground": "clase-urbanizable",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Art. 6.2.2.3 verbatim: «Los planes parciales o especiales desarrollarán la ordenación de acuerdo con las determinaciones vinculantes asignadas a su sector en la ficha correspondiente al mismo.» Residential family RB on Urbanizable land — in scope.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-28",
+          "draw": 166,
+          "lon": -1.1226412,
+          "lat": 37.9802349,
+          "zone": "RR (family RR)",
+          "article": "Arts. 5.24.5.1 / 5.24.6",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RR",
+            "family": "RR",
+            "sector": "UM-5254",
+            "claseSuelo": "Urbano",
+            "ground": "calificacion-remitida",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Art. 5.24.5.1 verbatim: «Dentro de los ámbitos UA, UH y UM, los suelos … se califican genéricamente … con el código RR, entendiéndose que sus condiciones de edificación son enteramente concordantes con las definidas en los anteriores instrumentos convalidados.» Sector UM-5254 is in scope. Governs and refuses.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-29",
+          "draw": 173,
+          "lon": -1.0787091,
+          "lat": 37.9595016,
+          "zone": "RM (family RM)",
+          "article": "Art. 6.2.2.3",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "RM",
+            "family": "RM",
+            "sector": "TA-307",
+            "claseSuelo": "Urbanizable",
+            "ground": "clase-urbanizable",
+            "packedExact": false
+          },
+          "verdict": "correct",
+          "why": "Art. 6.2.2.3 verbatim: «Los planes parciales o especiales desarrollarán la ordenación de acuerdo con las determinaciones vinculantes asignadas a su sector en la ficha correspondiente al mismo.» Residential family RM on Urbanizable land — in scope.",
+          "evidence": "corpus"
+        },
+        {
+          "id": "murcia-30",
+          "draw": 177,
+          "lon": -1.1278223,
+          "lat": 37.9794355,
+          "zone": "MC (family MC)",
+          "article": "Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+          "slice": "legally delegated to a derived instrument (67 %)",
+          "attrs": {
+            "calificacion": "MC",
+            "family": "MC",
+            "sector": "UM-5006",
+            "claseSuelo": "Urbano",
+            "ground": "ambito-delegante",
+            "packedExact": true
+          },
+          "verdict": "correct",
+          "why": "Sector UM-5006 carries a delegating prefix (UM). Arts. 5.24 (UA/UH/UM) · 5.25.1 (UE) · 5.25.2 (UD) · 5.26.2 (P*) · 6.6.2 (TA/TM) are cited as a set and one of them reaches this ámbito. Governs and refuses.",
+          "evidence": "corpus"
+        }
+      ],
+      "rejectionReasons": {
+        "not-private-buildable": 99,
+        "no-calificacion-at-point": 22,
+        "pgou-direct": 26
+      }
+    },
+    "valencia": {
+      "seed": 20260806,
+      "bbox": [
+        -0.43,
+        39.4,
+        -0.3,
+        39.52
+      ],
+      "draws": 700,
+      "sampleSize": 23,
+      "correct": 19,
+      "incorrect": 4,
+      "unverifiable": 0,
+      "upstreamFailures": 0,
+      "rejectedDraws": 677,
+      "samples": [
+        {
+          "id": "valencia-1",
+          "draw": 27,
+          "lon": -0.3300162,
+          "lat": 39.4561726,
+          "zone": "TER · origen=PE1894",
+          "article": "derived instrument «PE1894»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "TER",
+            "tipoca": "DOT",
+            "origen": "PE1894",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PE1894` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-2",
+          "draw": 51,
+          "lon": -0.3338567,
+          "lat": 39.4720089,
+          "zone": "ENS · origen=PE2070",
+          "article": "derived instrument «PE2070»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "ENS",
+            "tipoca": " ",
+            "origen": "PE2070",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PE2070` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-3",
+          "draw": 82,
+          "lon": -0.396668,
+          "lat": 39.4594424,
+          "zone": "EDA · origen=PRI1878",
+          "article": "derived instrument «PRI1878»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "EDA",
+            "tipoca": "1",
+            "origen": "PRI1878",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PRI1878` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-4",
+          "draw": 143,
+          "lon": -0.3882792,
+          "lat": 39.4767659,
+          "zone": "CHP2 · origen=PE2013",
+          "article": "derived instrument «PE2013»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "CHP2",
+            "tipoca": " ",
+            "origen": "PE2013",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PE2013` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-5",
+          "draw": 146,
+          "lon": -0.36889,
+          "lat": 39.4721221,
+          "zone": "CHP · origen=PE2020",
+          "article": "derived instrument «PE2020»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "CHP",
+            "tipoca": "#",
+            "origen": "PE2020",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PE2020` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-6",
+          "draw": 171,
+          "lon": -0.3314161,
+          "lat": 39.4694414,
+          "zone": "CHP · origen=PE2070",
+          "article": "derived instrument «PE2070»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "CHP",
+            "tipoca": " ",
+            "origen": "PE2070",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PE2070` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-7",
+          "draw": 203,
+          "lon": -0.3886496,
+          "lat": 39.4759843,
+          "zone": "CHP2 · origen=PE2013",
+          "article": "derived instrument «PE2013»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "CHP2",
+            "tipoca": " ",
+            "origen": "PE2013",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PE2013` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-8",
+          "draw": 299,
+          "lon": -0.3718334,
+          "lat": 39.4615883,
+          "zone": "ENS · origen=MP2098A",
+          "article": "derived instrument «MP2098A»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "ENS",
+            "tipoca": "2",
+            "origen": "MP2098A",
+            "clase": "SU"
+          },
+          "verdict": "incorrect",
+          "why": "`origen = MP2098A` is a MODIFICACIÓN PUNTUAL of the PGOU itself. A modificación puntual AMENDS the general plan; it is not a derived instrument the plan DELEGATES to. So this land is still PGOU-ordered — the correct classification is a document-acquisition gap (`no-pack`), not a cited legal delegation (`not-determined`). The city record already treats MP as a SUPERSESSION problem under LEGISLATION («169 distinct instruments … 6.19 % of buildable land») while counting the same land as a delegation here. The two treatments contradict.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-9",
+          "draw": 354,
+          "lon": -0.3879299,
+          "lat": 39.4854157,
+          "zone": "EDA · origen=PRI2089",
+          "article": "derived instrument «PRI2089»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "EDA",
+            "tipoca": null,
+            "origen": "PRI2089",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PRI2089` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-10",
+          "draw": 372,
+          "lon": -0.3747021,
+          "lat": 39.4699764,
+          "zone": "CHP · origen=PE2020",
+          "article": "derived instrument «PE2020»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "CHP",
+            "tipoca": "#",
+            "origen": "PE2020",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PE2020` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-11",
+          "draw": 408,
+          "lon": -0.3289516,
+          "lat": 39.4712958,
+          "zone": "CHP · origen=PE2070",
+          "article": "derived instrument «PE2070»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "CHP",
+            "tipoca": " ",
+            "origen": "PE2070",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PE2070` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-12",
+          "draw": 445,
+          "lon": -0.3277967,
+          "lat": 39.4689935,
+          "zone": "CHP · origen=PE2070",
+          "article": "derived instrument «PE2070»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "CHP",
+            "tipoca": " ",
+            "origen": "PE2070",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PE2070` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-13",
+          "draw": 464,
+          "lon": -0.3446381,
+          "lat": 39.46778,
+          "zone": "ENS · origen=MP2102",
+          "article": "derived instrument «MP2102»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "ENS",
+            "tipoca": "1",
+            "origen": "MP2102",
+            "clase": "SU"
+          },
+          "verdict": "incorrect",
+          "why": "`origen = MP2102` is a MODIFICACIÓN PUNTUAL of the PGOU itself. A modificación puntual AMENDS the general plan; it is not a derived instrument the plan DELEGATES to. So this land is still PGOU-ordered — the correct classification is a document-acquisition gap (`no-pack`), not a cited legal delegation (`not-determined`). The city record already treats MP as a SUPERSESSION problem under LEGISLATION («169 distinct instruments … 6.19 % of buildable land») while counting the same land as a delegation here. The two treatments contradict.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-14",
+          "draw": 479,
+          "lon": -0.3389012,
+          "lat": 39.4639003,
+          "zone": "ENS · origen=RI1529",
+          "article": "derived instrument «RI1529»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "ENS",
+            "tipoca": "1",
+            "origen": "RI1529",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = RI1529` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-15",
+          "draw": 481,
+          "lon": -0.374275,
+          "lat": 39.4818533,
+          "zone": "ENS · origen=MP2002",
+          "article": "derived instrument «MP2002»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "ENS",
+            "tipoca": "1",
+            "origen": "MP2002",
+            "clase": "SU"
+          },
+          "verdict": "incorrect",
+          "why": "`origen = MP2002` is a MODIFICACIÓN PUNTUAL of the PGOU itself. A modificación puntual AMENDS the general plan; it is not a derived instrument the plan DELEGATES to. So this land is still PGOU-ordered — the correct classification is a document-acquisition gap (`no-pack`), not a cited legal delegation (`not-determined`). The city record already treats MP as a SUPERSESSION problem under LEGISLATION («169 distinct instruments … 6.19 % of buildable land») while counting the same land as a delegation here. The two treatments contradict.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-16",
+          "draw": 542,
+          "lon": -0.4079983,
+          "lat": 39.4593169,
+          "zone": "IND · origen=PP158",
+          "article": "derived instrument «PP158»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "IND",
+            "tipoca": "2A",
+            "origen": "PP158",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PP158` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-17",
+          "draw": 545,
+          "lon": -0.3597303,
+          "lat": 39.4529736,
+          "zone": "EDA · origen=RI34",
+          "article": "derived instrument «RI34»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "EDA",
+            "tipoca": " ",
+            "origen": "RI34",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = RI34` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-18",
+          "draw": 551,
+          "lon": -0.4043058,
+          "lat": 39.4666615,
+          "zone": "EDA · origen=MP2083",
+          "article": "derived instrument «MP2083»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "EDA",
+            "tipoca": null,
+            "origen": "MP2083",
+            "clase": "SU"
+          },
+          "verdict": "incorrect",
+          "why": "`origen = MP2083` is a MODIFICACIÓN PUNTUAL of the PGOU itself. A modificación puntual AMENDS the general plan; it is not a derived instrument the plan DELEGATES to. So this land is still PGOU-ordered — the correct classification is a document-acquisition gap (`no-pack`), not a cited legal delegation (`not-determined`). The city record already treats MP as a SUPERSESSION problem under LEGISLATION («169 distinct instruments … 6.19 % of buildable land») while counting the same land as a delegation here. The two treatments contradict.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-19",
+          "draw": 559,
+          "lon": -0.3814692,
+          "lat": 39.4928144,
+          "zone": "ENS · origen=PRI2018",
+          "article": "derived instrument «PRI2018»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "ENS",
+            "tipoca": "1",
+            "origen": "PRI2018",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PRI2018` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-20",
+          "draw": 609,
+          "lon": -0.333617,
+          "lat": 39.4659967,
+          "zone": "CHP · origen=PE2070",
+          "article": "derived instrument «PE2070»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "CHP",
+            "tipoca": " ",
+            "origen": "PE2070",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PE2070` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-21",
+          "draw": 611,
+          "lon": -0.3330453,
+          "lat": 39.4609161,
+          "zone": "ENS · origen=RI1705",
+          "article": "derived instrument «RI1705»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "ENS",
+            "tipoca": "1BC",
+            "origen": "RI1705",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = RI1705` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-22",
+          "draw": 616,
+          "lon": -0.3821504,
+          "lat": 39.4729466,
+          "zone": "CHP · origen=PE2020",
+          "article": "derived instrument «PE2020»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "CHP",
+            "tipoca": "*",
+            "origen": "PE2020",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PE2020` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        },
+        {
+          "id": "valencia-23",
+          "draw": 681,
+          "lon": -0.3888257,
+          "lat": 39.4776194,
+          "zone": "CHP2 · origen=PE2013",
+          "article": "derived instrument «PE2013»",
+          "slice": "legally delegated to a derived instrument (36.40 %)",
+          "attrs": {
+            "califi": "CHP2",
+            "tipoca": " ",
+            "origen": "PE2013",
+            "clase": "SU"
+          },
+          "verdict": "correct",
+          "why": "`origen = PE2013` names a genuine derived instrument (PE Plan Especial · PP Plan Parcial · ED Estudio de Detalle · PRI/RI Plan de Reforma Interior). The plan expressly delegates this land, so the refusal is a correct determination ABOUT THE LAND. ⚠ It is NOT what the product ships — see the shipped-behaviour flag.",
+          "evidence": "weak"
+        }
+      ],
+      "rejectionReasons": {
+        "no-calificacion-at-point": 323,
+        "not-in-Art-6.3.1-six": 293,
+        "PGOU-ordered(no-pack)": 54,
+        "not-suelo-urbano": 7
+      }
+    },
+    "cordoba": {
+      "seed": 20260807,
+      "bbox": [
+        -4.8091,
+        37.8557,
+        -4.7684,
+        37.8983
+      ],
+      "draws": 100,
+      "sampleSize": 30,
+      "correct": 27,
+      "incorrect": 0,
+      "unverifiable": 3,
+      "upstreamFailures": 0,
+      "rejectedDraws": 70,
+      "samples": [
+        {
+          "id": "cordoba-1",
+          "draw": 3,
+          "lon": -4.7773469,
+          "lat": 37.8708771,
+          "zone": "Ordenacion Abierta · actuacion=PERI SS-1",
+          "article": "PLAN ESPECIAL DE REFORMA INTERIOR (cited delegation; ficha=true doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Ordenacion Abierta",
+            "et": "1",
+            "sup_m2": 10928.55,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf",
+            "joinedActuacion": {
+              "idac": "P_PERI_SS-1",
+              "actuacion": "PERI SS-1",
+              "descripcion": "CARRETERA DE CASTRO",
+              "instrumento": "PLAN ESPECIAL DE REFORMA INTERIOR",
+              "fecha": "2009-02-19Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PERI_SS-1.pdf",
+              "tramitado": true,
+              "distrito": "Sector Sur",
+              "ficha": true,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PERI SS-1», `instrumento = \"PLAN ESPECIAL DE REFORMA INTERIOR\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-2",
+          "draw": 6,
+          "lon": -4.7735541,
+          "lat": 37.8606653,
+          "zone": "Manzana Cerrada · actuacion=PAM SS-5",
+          "article": "PLAN ESPECIAL (cited delegation; ficha=false doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Manzana Cerrada",
+            "et": null,
+            "sup_m2": 8364.84,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_SS-5",
+              "actuacion": "PAM SS-5",
+              "descripcion": "POLIGONO GUADALQUIVIR",
+              "instrumento": "PLAN ESPECIAL",
+              "fecha": "1998-04-02Z",
+              "clase_suelo": "URBANO",
+              "link": null,
+              "tramitado": true,
+              "distrito": "Sector Sur",
+              "ficha": false,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM SS-5», `instrumento = \"PLAN ESPECIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-3",
+          "draw": 7,
+          "lon": -4.7764709,
+          "lat": 37.8745614,
+          "zone": "Colonia Tradicional Popular",
+          "slice": "legally-grounded refusal (Campo de la Verdad / Elemento protegido / Uso Comercial)",
+          "article": "Art. 13.4.1 → Tomo VI",
+          "attrs": {
+            "ordenanza": "Colonia Tradicional Popular",
+            "et": "1",
+            "sup_m2": 6995.33,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+            "joinedActuacion": null
+          },
+          "verdict": "unverifiable",
+          "why": "OUT OF POPULATION — this probe mis-captured it. `ordenanza = \"Colonia Tradicional Popular\"` is the 17.201 % PGOU-DIRECT family, not «CTP1-Campo de la Verdad» (1.307 %). The classifier matched on the shared publisher link `O_CTP1.pdf`, which COACo serves for BOTH ordenanzas — a real finding in its own right: the routing key the Campo-de-la-Verdad refusal binds on cannot distinguish the two families.",
+          "evidence": "none"
+        },
+        {
+          "id": "cordoba-4",
+          "draw": 13,
+          "lon": -4.7800743,
+          "lat": 37.8637622,
+          "zone": "Manzana Cerrada · actuacion=PAM SS-5",
+          "article": "PLAN ESPECIAL (cited delegation; ficha=false doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Manzana Cerrada",
+            "et": "2",
+            "sup_m2": 1802.99,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_SS-5",
+              "actuacion": "PAM SS-5",
+              "descripcion": "POLIGONO GUADALQUIVIR",
+              "instrumento": "PLAN ESPECIAL",
+              "fecha": "1998-04-02Z",
+              "clase_suelo": "URBANO",
+              "link": null,
+              "tramitado": true,
+              "distrito": "Sector Sur",
+              "ficha": false,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM SS-5», `instrumento = \"PLAN ESPECIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-5",
+          "draw": 15,
+          "lon": -4.7818029,
+          "lat": 37.8677286,
+          "zone": "Ordenacion Abierta · actuacion=ED SS-12",
+          "article": "ESTUDIO DE DETALLE (cited delegation; ficha=true doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Ordenacion Abierta",
+            "et": "1",
+            "sup_m2": 12135.43,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf",
+            "joinedActuacion": {
+              "idac": "P_ED_SS-12",
+              "actuacion": "ED SS-12",
+              "descripcion": "AVENIDA DE CADIZ",
+              "instrumento": "ESTUDIO DE DETALLE",
+              "fecha": "2015-02-10Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_ED_SS-12.pdf",
+              "tramitado": true,
+              "distrito": "Sector Sur",
+              "ficha": true,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «ED SS-12», `instrumento = \"ESTUDIO DE DETALLE\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-6",
+          "draw": 27,
+          "lon": -4.8005558,
+          "lat": 37.894196,
+          "zone": "usos_globales «Residencial» · actuacion=PP 0-4",
+          "article": "derived instrument via actuación PP 0-4 (PLAN PARCIAL)",
+          "slice": "`usos_globales` lucrative — 48 of 48 carrying an `actuacion`",
+          "attrs": {
+            "layer": null,
+            "tipo": "Residencial",
+            "et": null,
+            "actuacion": "PP 0-4",
+            "sup_m2": 8839.23,
+            "joinedActuacion": {
+              "idac": "P_PP_O-4",
+              "actuacion": "PP O-4",
+              "descripcion": "CORTIJO DEL CURA",
+              "instrumento": "PLAN PARCIAL",
+              "fecha": "2004-05-06Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PP_O-4.pdf",
+              "tramitado": true,
+              "distrito": "Noroeste",
+              "ficha": true,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PP O-4», `instrumento = \"PLAN PARCIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-7",
+          "draw": 28,
+          "lon": -4.7986023,
+          "lat": 37.8977307,
+          "zone": "Plurifamiliar aislada · actuacion=PAM PP MA-1.1",
+          "article": "PLAN PARCIAL (cited delegation; ficha=true doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Plurifamiliar aislada",
+            "et": null,
+            "sup_m2": 8793.23,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_PAS2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_PP_MA-1",
+              "actuacion": "PAM PP MA-1.1",
+              "descripcion": "POLÍGONO 1 MARÍA LA JUDÍA",
+              "instrumento": "PLAN PARCIAL\n",
+              "fecha": "1991-03-07Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PAM_PP_MA-1.1.pdf",
+              "tramitado": true,
+              "distrito": "Noroeste",
+              "ficha": true,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM PP MA-1.1», `instrumento = \"PLAN PARCIAL\n\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-8",
+          "draw": 30,
+          "lon": -4.7992267,
+          "lat": 37.8974755,
+          "zone": "Plurifamiliar aislada · actuacion=PAM PP MA-1.1",
+          "article": "PLAN PARCIAL (cited delegation; ficha=true doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Plurifamiliar aislada",
+            "et": null,
+            "sup_m2": 1947.3,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_PAS2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_PP_MA-1",
+              "actuacion": "PAM PP MA-1.1",
+              "descripcion": "POLÍGONO 1 MARÍA LA JUDÍA",
+              "instrumento": "PLAN PARCIAL\n",
+              "fecha": "1991-03-07Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PAM_PP_MA-1.1.pdf",
+              "tramitado": true,
+              "distrito": "Noroeste",
+              "ficha": true,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM PP MA-1.1», `instrumento = \"PLAN PARCIAL\n\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-9",
+          "draw": 38,
+          "lon": -4.7995556,
+          "lat": 37.8927449,
+          "zone": "Manzana Cerrada · actuacion=PP O-4",
+          "article": "PLAN PARCIAL (cited delegation; ficha=true doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Manzana Cerrada",
+            "et": null,
+            "sup_m2": 1089.76,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PP_O-4",
+              "actuacion": "PP O-4",
+              "descripcion": "CORTIJO DEL CURA",
+              "instrumento": "PLAN PARCIAL",
+              "fecha": "2004-05-06Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PP_O-4.pdf",
+              "tramitado": true,
+              "distrito": "Noroeste",
+              "ficha": true,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PP O-4», `instrumento = \"PLAN PARCIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-10",
+          "draw": 41,
+          "lon": -4.7783985,
+          "lat": 37.8590777,
+          "zone": "Manzana Cerrada · actuacion=PAM SS-5",
+          "article": "PLAN ESPECIAL (cited delegation; ficha=false doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Manzana Cerrada",
+            "et": null,
+            "sup_m2": 6778.02,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_SS-5",
+              "actuacion": "PAM SS-5",
+              "descripcion": "POLIGONO GUADALQUIVIR",
+              "instrumento": "PLAN ESPECIAL",
+              "fecha": "1998-04-02Z",
+              "clase_suelo": "URBANO",
+              "link": null,
+              "tramitado": true,
+              "distrito": "Sector Sur",
+              "ficha": false,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM SS-5», `instrumento = \"PLAN ESPECIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-11",
+          "draw": 42,
+          "lon": -4.7867196,
+          "lat": 37.8918429,
+          "zone": "Manzana Cerrada · actuacion=PAM PP RENFE",
+          "article": "PLAN PARCIAL (cited delegation; ficha=false doc=false)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Manzana Cerrada",
+            "et": "2",
+            "sup_m2": 7709.54,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_PP_RENFE",
+              "actuacion": "PAM PP RENFE",
+              "descripcion": "RENFE",
+              "instrumento": "PLAN PARCIAL",
+              "fecha": "1996-11-07Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PAM_PP_RENFE.pdf",
+              "tramitado": true,
+              "distrito": "Noroeste",
+              "ficha": false,
+              "doc": false
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM PP RENFE», `instrumento = \"PLAN PARCIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-12",
+          "draw": 44,
+          "lon": -4.7989204,
+          "lat": 37.8917413,
+          "zone": "Plurifamiliar aislada · actuacion=PA PP MA-3",
+          "article": "PLAN PARCIAL (cited delegation; ficha=true doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Plurifamiliar aislada",
+            "et": null,
+            "sup_m2": 3254.53,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_PAS2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PA_PP_MA-3",
+              "actuacion": "PA PP MA-3",
+              "descripcion": "NOREÑA",
+              "instrumento": "PLAN PARCIAL",
+              "fecha": "1994-06-19Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PA_PP_MA-3.pdf",
+              "tramitado": true,
+              "distrito": "Noroeste",
+              "ficha": true,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PA PP MA-3», `instrumento = \"PLAN PARCIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-13",
+          "draw": 45,
+          "lon": -4.7801017,
+          "lat": 37.8609111,
+          "zone": "Manzana Cerrada · actuacion=PAM SS-5",
+          "article": "PLAN ESPECIAL (cited delegation; ficha=false doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Manzana Cerrada",
+            "et": null,
+            "sup_m2": 6405.45,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_SS-5",
+              "actuacion": "PAM SS-5",
+              "descripcion": "POLIGONO GUADALQUIVIR",
+              "instrumento": "PLAN ESPECIAL",
+              "fecha": "1998-04-02Z",
+              "clase_suelo": "URBANO",
+              "link": null,
+              "tramitado": true,
+              "distrito": "Sector Sur",
+              "ficha": false,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM SS-5», `instrumento = \"PLAN ESPECIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-14",
+          "draw": 47,
+          "lon": -4.8041469,
+          "lat": 37.8847606,
+          "zone": "usos_globales «Residencial» · actuacion=PAM PP E-1.1",
+          "article": "derived instrument via actuación PAM PP E-1.1 (PLAN PARCIAL)",
+          "slice": "`usos_globales` lucrative — 48 of 48 carrying an `actuacion`",
+          "attrs": {
+            "layer": "USOS_GLOBALES",
+            "tipo": "Residencial",
+            "et": null,
+            "actuacion": "PAM PP E-1.1",
+            "sup_m2": 15623.7,
+            "joinedActuacion": {
+              "idac": "P_PAM_PP_E-1.1",
+              "actuacion": "PAM PP E-1.1",
+              "descripcion": "HUERTA SANTA ISABEL",
+              "instrumento": "PLAN PARCIAL",
+              "fecha": "1998-07-02Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PAM_PP_E-1.1.pdf",
+              "tramitado": true,
+              "distrito": "Noroeste",
+              "ficha": true,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM PP E-1.1», `instrumento = \"PLAN PARCIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-15",
+          "draw": 49,
+          "lon": -4.7767408,
+          "lat": 37.8744209,
+          "zone": "Colonia Tradicional Popular",
+          "slice": "legally-grounded refusal (Campo de la Verdad / Elemento protegido / Uso Comercial)",
+          "article": "Art. 13.4.1 → Tomo VI",
+          "attrs": {
+            "ordenanza": "Colonia Tradicional Popular",
+            "et": "1",
+            "sup_m2": 6995.33,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+            "joinedActuacion": null
+          },
+          "verdict": "unverifiable",
+          "why": "OUT OF POPULATION — this probe mis-captured it. `ordenanza = \"Colonia Tradicional Popular\"` is the 17.201 % PGOU-DIRECT family, not «CTP1-Campo de la Verdad» (1.307 %). The classifier matched on the shared publisher link `O_CTP1.pdf`, which COACo serves for BOTH ordenanzas — a real finding in its own right: the routing key the Campo-de-la-Verdad refusal binds on cannot distinguish the two families.",
+          "evidence": "none"
+        },
+        {
+          "id": "cordoba-16",
+          "draw": 50,
+          "lon": -4.7855933,
+          "lat": 37.8604644,
+          "zone": "Manzana Cerrada · actuacion=PERI SS-8",
+          "article": "PLAN ESPECIAL DE REFORMA INTERIOR (cited delegation; ficha=true doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Manzana Cerrada",
+            "et": null,
+            "sup_m2": 8232.73,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PERI_SS-8",
+              "actuacion": "PERI SS-8",
+              "descripcion": "CORDEL DE ECIJA SUR",
+              "instrumento": "PLAN ESPECIAL DE REFORMA INTERIOR",
+              "fecha": "2006-11-01Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PERI_SS-8.pdf",
+              "tramitado": true,
+              "distrito": "Sector Sur",
+              "ficha": true,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PERI SS-8», `instrumento = \"PLAN ESPECIAL DE REFORMA INTERIOR\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-17",
+          "draw": 53,
+          "lon": -4.7762927,
+          "lat": 37.8740788,
+          "zone": "Elemento protegido",
+          "slice": "legally-grounded refusal (Campo de la Verdad / Elemento protegido / Uso Comercial)",
+          "article": "Art. 13.3",
+          "attrs": {
+            "ordenanza": "Elemento protegido",
+            "et": null,
+            "sup_m2": 2790.54,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_EP.pdf",
+            "joinedActuacion": null
+          },
+          "verdict": "correct",
+          "why": "Ordenanza «Elemento protegido» is one of the three families the PGOU-2001 grounds a refusal on (Art. 13.4.1 Campo de la Verdad → Tomo VI · Art. 13.3 Elemento protegido · Art. 13.12.2 Uso Comercial). ⚠ WEAK: Córdoba has no in-repo corpus, so the article text could not be re-read.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-18",
+          "draw": 60,
+          "lon": -4.7865515,
+          "lat": 37.8949437,
+          "zone": "Manzana Cerrada · actuacion=PAM PP MA-1.1",
+          "article": "PLAN PARCIAL (cited delegation; ficha=true doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Manzana Cerrada",
+            "et": "2 (III)",
+            "sup_m2": 4637.3,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_PP_MA-1",
+              "actuacion": "PAM PP MA-1.1",
+              "descripcion": "POLÍGONO 1 MARÍA LA JUDÍA",
+              "instrumento": "PLAN PARCIAL\n",
+              "fecha": "1991-03-07Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PAM_PP_MA-1.1.pdf",
+              "tramitado": true,
+              "distrito": "Noroeste",
+              "ficha": true,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM PP MA-1.1», `instrumento = \"PLAN PARCIAL\n\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-19",
+          "draw": 68,
+          "lon": -4.7767977,
+          "lat": 37.8628013,
+          "zone": "Ordenacion Abierta · actuacion=PAM SS-5",
+          "article": "PLAN ESPECIAL (cited delegation; ficha=false doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Ordenacion Abierta",
+            "et": "1",
+            "sup_m2": 17757.52,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_SS-5",
+              "actuacion": "PAM SS-5",
+              "descripcion": "POLIGONO GUADALQUIVIR",
+              "instrumento": "PLAN ESPECIAL",
+              "fecha": "1998-04-02Z",
+              "clase_suelo": "URBANO",
+              "link": null,
+              "tramitado": true,
+              "distrito": "Sector Sur",
+              "ficha": false,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM SS-5», `instrumento = \"PLAN ESPECIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-20",
+          "draw": 73,
+          "lon": -4.7903776,
+          "lat": 37.8922318,
+          "zone": "Manzana Cerrada · actuacion=PAM PP RENFE",
+          "article": "PLAN PARCIAL (cited delegation; ficha=false doc=false)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Manzana Cerrada",
+            "et": "4",
+            "sup_m2": 8579.01,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC4.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_PP_RENFE",
+              "actuacion": "PAM PP RENFE",
+              "descripcion": "RENFE",
+              "instrumento": "PLAN PARCIAL",
+              "fecha": "1996-11-07Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PAM_PP_RENFE.pdf",
+              "tramitado": true,
+              "distrito": "Noroeste",
+              "ficha": false,
+              "doc": false
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM PP RENFE», `instrumento = \"PLAN PARCIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-21",
+          "draw": 76,
+          "lon": -4.7823833,
+          "lat": 37.8675755,
+          "zone": "Manzana Cerrada · actuacion=ED SS-12",
+          "article": "ESTUDIO DE DETALLE (cited delegation; ficha=true doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Manzana Cerrada",
+            "et": null,
+            "sup_m2": 1064.55,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC.pdf",
+            "joinedActuacion": {
+              "idac": "P_ED_SS-12",
+              "actuacion": "ED SS-12",
+              "descripcion": "AVENIDA DE CADIZ",
+              "instrumento": "ESTUDIO DE DETALLE",
+              "fecha": "2015-02-10Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_ED_SS-12.pdf",
+              "tramitado": true,
+              "distrito": "Sector Sur",
+              "ficha": true,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «ED SS-12», `instrumento = \"ESTUDIO DE DETALLE\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-22",
+          "draw": 79,
+          "lon": -4.7735295,
+          "lat": 37.8612659,
+          "zone": "Manzana Cerrada · actuacion=PAM SS-5",
+          "article": "PLAN ESPECIAL (cited delegation; ficha=false doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Manzana Cerrada",
+            "et": null,
+            "sup_m2": 8364.84,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_SS-5",
+              "actuacion": "PAM SS-5",
+              "descripcion": "POLIGONO GUADALQUIVIR",
+              "instrumento": "PLAN ESPECIAL",
+              "fecha": "1998-04-02Z",
+              "clase_suelo": "URBANO",
+              "link": null,
+              "tramitado": true,
+              "distrito": "Sector Sur",
+              "ficha": false,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM SS-5», `instrumento = \"PLAN ESPECIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-23",
+          "draw": 80,
+          "lon": -4.8001791,
+          "lat": 37.8888808,
+          "zone": "Plurifamiliar aislada · actuacion=PAM PP E-1.1",
+          "article": "PLAN PARCIAL (cited delegation; ficha=true doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Plurifamiliar aislada",
+            "et": null,
+            "sup_m2": 4864.59,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_PAS2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_PP_E-1.1",
+              "actuacion": "PAM PP E-1.1",
+              "descripcion": "HUERTA SANTA ISABEL",
+              "instrumento": "PLAN PARCIAL",
+              "fecha": "1998-07-02Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PAM_PP_E-1.1.pdf",
+              "tramitado": true,
+              "distrito": "Noroeste",
+              "ficha": true,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM PP E-1.1», `instrumento = \"PLAN PARCIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-24",
+          "draw": 81,
+          "lon": -4.7747563,
+          "lat": 37.8723249,
+          "zone": "Colonia Tradicional Popular",
+          "slice": "legally-grounded refusal (Campo de la Verdad / Elemento protegido / Uso Comercial)",
+          "article": "Art. 13.4.1 → Tomo VI",
+          "attrs": {
+            "ordenanza": "Colonia Tradicional Popular",
+            "et": "1",
+            "sup_m2": 5050.96,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+            "joinedActuacion": null
+          },
+          "verdict": "unverifiable",
+          "why": "OUT OF POPULATION — this probe mis-captured it. `ordenanza = \"Colonia Tradicional Popular\"` is the 17.201 % PGOU-DIRECT family, not «CTP1-Campo de la Verdad» (1.307 %). The classifier matched on the shared publisher link `O_CTP1.pdf`, which COACo serves for BOTH ordenanzas — a real finding in its own right: the routing key the Campo-de-la-Verdad refusal binds on cannot distinguish the two families.",
+          "evidence": "none"
+        },
+        {
+          "id": "cordoba-25",
+          "draw": 88,
+          "lon": -4.795946,
+          "lat": 37.887441,
+          "zone": "Plurifamiliar aislada · actuacion=PAM PP RENFE",
+          "article": "PLAN PARCIAL (cited delegation; ficha=false doc=false)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Plurifamiliar aislada",
+            "et": null,
+            "sup_m2": 3852.38,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_PAS2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_PP_RENFE",
+              "actuacion": "PAM PP RENFE",
+              "descripcion": "RENFE",
+              "instrumento": "PLAN PARCIAL",
+              "fecha": "1996-11-07Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PAM_PP_RENFE.pdf",
+              "tramitado": true,
+              "distrito": "Noroeste",
+              "ficha": false,
+              "doc": false
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM PP RENFE», `instrumento = \"PLAN PARCIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-26",
+          "draw": 89,
+          "lon": -4.7963378,
+          "lat": 37.8981372,
+          "zone": "Plurifamiliar aislada · actuacion=PAM PP MA-1.1",
+          "article": "PLAN PARCIAL (cited delegation; ficha=true doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Plurifamiliar aislada",
+            "et": null,
+            "sup_m2": 4714.91,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_PAS2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_PP_MA-1",
+              "actuacion": "PAM PP MA-1.1",
+              "descripcion": "POLÍGONO 1 MARÍA LA JUDÍA",
+              "instrumento": "PLAN PARCIAL\n",
+              "fecha": "1991-03-07Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PAM_PP_MA-1.1.pdf",
+              "tramitado": true,
+              "distrito": "Noroeste",
+              "ficha": true,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM PP MA-1.1», `instrumento = \"PLAN PARCIAL\n\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-27",
+          "draw": 90,
+          "lon": -4.7920419,
+          "lat": 37.895155,
+          "zone": "Manzana Cerrada · actuacion=PAM PP MA-1.1",
+          "article": "PLAN PARCIAL (cited delegation; ficha=true doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Manzana Cerrada",
+            "et": "4",
+            "sup_m2": 9751.91,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC4.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_PP_MA-1",
+              "actuacion": "PAM PP MA-1.1",
+              "descripcion": "POLÍGONO 1 MARÍA LA JUDÍA",
+              "instrumento": "PLAN PARCIAL\n",
+              "fecha": "1991-03-07Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PAM_PP_MA-1.1.pdf",
+              "tramitado": true,
+              "distrito": "Noroeste",
+              "ficha": true,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM PP MA-1.1», `instrumento = \"PLAN PARCIAL\n\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-28",
+          "draw": 92,
+          "lon": -4.7744329,
+          "lat": 37.8630947,
+          "zone": "Ordenacion Abierta · actuacion=PAM SS-5",
+          "article": "PLAN ESPECIAL (cited delegation; ficha=false doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Ordenacion Abierta",
+            "et": "1",
+            "sup_m2": 24840.04,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_SS-5",
+              "actuacion": "PAM SS-5",
+              "descripcion": "POLIGONO GUADALQUIVIR",
+              "instrumento": "PLAN ESPECIAL",
+              "fecha": "1998-04-02Z",
+              "clase_suelo": "URBANO",
+              "link": null,
+              "tramitado": true,
+              "distrito": "Sector Sur",
+              "ficha": false,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM SS-5», `instrumento = \"PLAN ESPECIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-29",
+          "draw": 96,
+          "lon": -4.7918246,
+          "lat": 37.890663,
+          "zone": "Ordenacion Abierta · actuacion=PAM PP RENFE",
+          "article": "PLAN PARCIAL (cited delegation; ficha=false doc=false)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Ordenacion Abierta",
+            "et": "1",
+            "sup_m2": 1053.71,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf",
+            "joinedActuacion": {
+              "idac": "P_PAM_PP_RENFE",
+              "actuacion": "PAM PP RENFE",
+              "descripcion": "RENFE",
+              "instrumento": "PLAN PARCIAL",
+              "fecha": "1996-11-07Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PAM_PP_RENFE.pdf",
+              "tramitado": true,
+              "distrito": "Noroeste",
+              "ficha": false,
+              "doc": false
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PAM PP RENFE», `instrumento = \"PLAN PARCIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        },
+        {
+          "id": "cordoba-30",
+          "draw": 100,
+          "lon": -4.7967942,
+          "lat": 37.890199,
+          "zone": "Plurifamiliar aislada · actuacion=PA PP MA-2",
+          "article": "PLAN PARCIAL (cited delegation; ficha=true doc=true)",
+          "slice": "pilot ordenanza DELEGATED to a Plan Parcial / PE / PERI / ED",
+          "attrs": {
+            "ordenanza": "Plurifamiliar aislada",
+            "et": null,
+            "sup_m2": 2565.81,
+            "link": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_PAS2.pdf",
+            "joinedActuacion": {
+              "idac": "P_PA_PP_MA-2",
+              "actuacion": "PA PP MA-2",
+              "descripcion": "COLONIA LA PAZ",
+              "instrumento": "PLAN PARCIAL",
+              "fecha": "1990-06-07Z",
+              "clase_suelo": "URBANO",
+              "link": "http://visor.pgou.coacordoba.org/doc/fichas/P_PA_PP_MA-2.pdf",
+              "tramitado": true,
+              "distrito": "Noroeste",
+              "ficha": true,
+              "doc": true
+            }
+          },
+          "verdict": "correct",
+          "why": "The point falls inside published `coaco:actuaciones` polygon «PA PP MA-2», `instrumento = \"PLAN PARCIAL\"`, `clase_suelo = \"URBANO\"`, tramitado=true. A named, published derived instrument governs this land, so the delegation refusal is a correct determination.",
+          "evidence": "weak"
+        }
+      ],
+      "rejectionReasons": {
+        "outside-pilot-vector-coverage": 52,
+        "pilot-not-a-cited-refusal": 18
+      }
+    }
+  }
+}

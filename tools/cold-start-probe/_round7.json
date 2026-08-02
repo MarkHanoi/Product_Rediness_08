@@ -1,0 +1,100 @@
+[
+ {
+  "cc": "MD",
+  "viewer": "https://idem.madrid.org/cartografia/sitcm/html/visor.htm",
+  "http": 200,
+  "services": [],
+  "allHosts": [
+   "www.w3.org",
+   "code.jquery.com",
+   "maps.googleapis.com",
+   "estadisticas.comunidad.madrid"
+  ],
+  "scripts": [
+   "../js/Config.js",
+   "/cartografia/staticFiles/printCapabilities.prod.simpli.js",
+   "/cartografia/staticFiles/printCapabilities.prod.plantilla.js",
+   "/cartografia/ICM/GIS/FW/0.9.1/Produccion/ICM.GIS.FW.framework.js",
+   "/cartografia/ICM/GIS/FW/0.9.2/Produccion/index.js",
+   "../js/Planeamiento.js",
+   "../js/datosPlaneamiento.js",
+   "../js/arbol.js",
+   "../js/reur.js",
+   "../js/filtro.js",
+   "../js/buscaordenanza.js",
+   "../js/buscasentencia.js",
+   "../js/Init.js",
+   "../js/pdfobject.js",
+   "https://code.jquery.com/jquery-2.0.0.js",
+   "https://code.jquery.com/jquery-migrate-1.1.1.js"
+  ]
+ },
+ {
+  "cc": "CM",
+  "viewer": "https://urbanismo.castillalamancha.es/planeamiento/sistema-de-informacion-urbana",
+  "http": 200,
+  "services": [
+   "https://castillalamancha.maps.arcgis.com/apps/webappviewer/index.html"
+  ],
+  "allHosts": [
+   "purl.org",
+   "xmlns.com",
+   "ogp.me",
+   "www.w3.org",
+   "schema.org",
+   "rdfs.org",
+   "matomoportales.jccm.es",
+   "urbanismo.castillalamancha.es",
+   "www.drupal.org",
+   "use.fontawesome.com",
+   "fonts.googleapis.com",
+   "fonts.gstatic.com",
+   "www.castillalamancha.es",
+   "registrounicociudadanos.jccm.es",
+   "castillalamancha.maps.arcgis.com",
+   "vivienda.castillalamancha.es",
+   "www.serif.com",
+   "www.facebook.com",
+   "www.flickr.com",
+   "www.instagram.com",
+   "es.linkedin.com",
+   "castillalamancha.es",
+   "twitter.com",
+   "www.youtube.com",
+   "urbanismo--castillalamancha--es.insuit.net"
+  ],
+  "scripts": [
+   "https://use.fontawesome.com/releases/v6.7.2/js/all.js",
+   "https://use.fontawesome.com/releases/v6.7.2/js/v4-shims.js",
+   "https://urbanismo--castillalamancha--es.insuit.net/i4tservice/insuit-app.js"
+  ]
+ },
+ {
+  "cc": "EX",
+  "viewer": "https://sitex.juntaex.es/SITEX/",
+  "http": 200,
+  "services": [],
+  "allHosts": [
+   "www.w3.org",
+   "geoportal.ideex.es",
+   "es-es.facebook.com",
+   "twitter.com",
+   "forms.office.com",
+   "forms.gle",
+   "www.juntaex.es",
+   "www.youtube.com",
+   "plus.google.com"
+  ],
+  "scripts": [
+   "/SITEX/js/prototype.js",
+   "/SITEX/js/jquery.js",
+   "/SITEX/js/jquery-ui.js",
+   "/SITEX/js/jquery.layout-latest.min.js",
+   "/SITEX/js/jquery.tablesorter.min.js",
+   "/SITEX/js/jquery.treeview.js",
+   "/SITEX/js/jquery.collapse.js",
+   "/SITEX/js/jquery.qtip.min.js",
+   "/SITEX/js/jquery.anythingslider.min.js"
+  ]
+ }
+]

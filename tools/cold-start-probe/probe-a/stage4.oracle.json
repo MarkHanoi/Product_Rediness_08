@@ -1,0 +1,82 @@
+{
+ "agree": 15,
+ "disagree": 0,
+ "err": 0,
+ "sample": [
+  {
+   "ref": "3792309DF1839S",
+   "clau": "8f",
+   "state": "refuse-delegated"
+  },
+  {
+   "ref": "3394713DF1839S",
+   "clau": "9",
+   "state": "envelope"
+  },
+  {
+   "ref": "3996701DF1839N",
+   "clau": "P",
+   "state": "refuse-terminal"
+  },
+  {
+   "ref": "3888002DF1838N",
+   "clau": "8a",
+   "state": "envelope"
+  },
+  {
+   "ref": "4191312DF1849S",
+   "clau": "2",
+   "state": "refuse-no-parameters"
+  },
+  {
+   "ref": "4397001DF1849N",
+   "clau": "11b",
+   "state": "refuse-delegated"
+  },
+  {
+   "ref": "4292201DF1849S",
+   "clau": "1",
+   "state": "refuse-no-parameters"
+  },
+  {
+   "ref": "4088235DF1848N",
+   "clau": "8a",
+   "state": "envelope"
+  },
+  {
+   "ref": "4786402DF1848N",
+   "clau": "8a",
+   "state": "envelope"
+  },
+  {
+   "ref": "4590715DF1849S",
+   "clau": "1",
+   "state": "refuse-no-parameters"
+  },
+  {
+   "ref": "3098424DF1839N",
+   "clau": "8f",
+   "state": "refuse-delegated"
+  },
+  {
+   "ref": "3394707DF1839S",
+   "clau": "9",
+   "state": "envelope"
+  },
+  {
+   "ref": "3605803DF1930N",
+   "clau": "11b",
+   "state": "refuse-no-parameters"
+  },
+  {
+   "ref": "3993001DF1839S",
+   "clau": "P",
+   "state": "refuse-terminal"
+  },
+  {
+   "ref": "2997208DF1829N",
+   "clau": "9",
+   "state": "envelope"
+  }
+ ]
+}

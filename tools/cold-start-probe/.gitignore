@@ -1,0 +1,13 @@
+# Catastro per-municipality CP downloads — ~1.3 GB of GML/zip for six municipalities.
+# Re-derivable in ~15 s each from the ATOM enclosure; never committed.
+.cache/
+v231.json
+
+# §NO-SCRAPED-VENDOR-BUNDLES — probe intermediates, not artefacts.
+# rpuc_main.js (2.36 MB) carried a live Mapbox Secret Access Token belonging to
+# the RPUC portal and was blocked by GitHub Push Protection. A scraped bundle is
+# a means of finding an endpoint, never evidence worth keeping: the endpoint it
+# yielded is recorded in probe-a.log.md, which is the durable artefact.
+*.scraped.js
+rpuc_main.js
+*_main.js

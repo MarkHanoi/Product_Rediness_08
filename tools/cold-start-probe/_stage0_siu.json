@@ -1,0 +1,554 @@
+[
+ {
+  "ine": "05124",
+  "name": "Medinilla",
+  "pop": 79,
+  "band": "<5k",
+  "siu_figura": "Delimitación de Suelo",
+  "siu_fecha": 1997,
+  "siu_urllink": "https://servicios.jcyl.es/PlanPublica/default_plau.do",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -5.6408351127486736,
+   "ymin": 40.425076158752404,
+   "xmax": -5.559625694383749,
+   "ymax": 40.477535016277564,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 2,
+  "siu_sectores": 0,
+  "siu_recintos": 0
+ },
+ {
+  "ine": "47211",
+  "name": "Villalba de la Loma",
+  "pop": 56,
+  "band": "<5k",
+  "siu_figura": "Delimitación de Suelo",
+  "siu_fecha": 1983,
+  "siu_urllink": "https://servicios.jcyl.es/PlanPublica/default_plau.do",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -5.220215743522913,
+   "ymin": 42.14895256004409,
+   "xmax": -5.170654816135593,
+   "ymax": 42.200666161180514,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 2,
+  "siu_sectores": 0,
+  "siu_recintos": 0
+ },
+ {
+  "ine": "50091",
+  "name": "Las Cuerlas",
+  "pop": 44,
+  "band": "<5k",
+  "siu_figura": "Sin Planeamiento",
+  "siu_fecha": 0,
+  "siu_urllink": "https://idearagon.aragon.es/SIUa/inicio",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -1.6174491638159711,
+   "ymin": 40.93621568393709,
+   "xmax": -1.508071017965375,
+   "ymax": 40.99255233624237,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 0,
+  "siu_sectores": 0,
+  "siu_recintos": 0
+ },
+ {
+  "ine": "37314",
+  "name": "Tabera de Abajo",
+  "pop": 97,
+  "band": "<5k",
+  "siu_figura": "Delimitación de Suelo",
+  "siu_fecha": 1977,
+  "siu_urllink": "https://servicios.jcyl.es/PlanPublica/default_plau.do",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -6.077178836151095,
+   "ymin": 40.88293708390762,
+   "xmax": -5.9616835773390076,
+   "ymax": 40.97862595237251,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 2,
+  "siu_sectores": 0,
+  "siu_recintos": 0
+ },
+ {
+  "ine": "03130",
+  "name": "Tollos",
+  "pop": 32,
+  "band": "<5k",
+  "siu_figura": "Delimitación de Suelo",
+  "siu_fecha": 1989,
+  "siu_urllink": "https://politicaterritorial.gva.es/va/web/urbanismo/registro-autonomico-de-instrumentos-de-planeamiento-urbanistico",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -0.2870404613989636,
+   "ymin": 38.74491799479186,
+   "xmax": -0.19569203510329458,
+   "ymax": 38.778798624647784,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 0,
+  "siu_sectores": 0,
+  "siu_recintos": 0
+ },
+ {
+  "ine": "04086",
+  "name": "Sorbas",
+  "pop": 2564,
+  "band": "<5k",
+  "siu_figura": "Plan General",
+  "siu_fecha": 2015,
+  "siu_urllink": "https://ws132.juntadeandalucia.es/situadifusion/pages/search.jsf",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -2.1994274161267984,
+   "ymin": 36.97979770261196,
+   "xmax": -1.9891377064525602,
+   "ymax": 37.21724315312064,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 4,
+  "siu_sectores": 43,
+  "siu_recintos": 44
+ },
+ {
+  "ine": "44221",
+  "name": "Torrecilla de Alcañiz",
+  "pop": 436,
+  "band": "<5k",
+  "siu_figura": "Plan General",
+  "siu_fecha": 2007,
+  "siu_urllink": "https://idearagon.aragon.es/SIUa/inicio",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -0.12983640508060046,
+   "ymin": 40.93442445711396,
+   "xmax": -0.02816070553019126,
+   "ymax": 40.990773462425956,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 0,
+  "siu_sectores": 0,
+  "siu_recintos": 0
+ },
+ {
+  "ine": "16020",
+  "name": "Arandilla del Arroyo",
+  "pop": 14,
+  "band": "<5k",
+  "siu_figura": "Sin Planeamiento",
+  "siu_fecha": 0,
+  "siu_urllink": "https://urbanismo.castillalamancha.es/planeamiento/sistema-de-informacion-urbana",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -2.4118208939581494,
+   "ymin": 40.487334157373866,
+   "xmax": -2.3484155545184864,
+   "ymax": 40.54358728707858,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 0,
+  "siu_sectores": 0,
+  "siu_recintos": 0
+ },
+ {
+  "ine": "36043",
+  "name": "Puentecaldelas",
+  "pop": 5609,
+  "band": "5k-20k",
+  "siu_figura": "Normas Subsidiarias",
+  "siu_fecha": 1993,
+  "siu_urllink": "https://siotuga.xunta.gal/siotuga/inicio.php?lang=es_ES",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -8.595160088154271,
+   "ymin": 42.337138547237046,
+   "xmax": -8.431694495827829,
+   "ymax": 42.43043420812729,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 4,
+  "siu_sectores": 1,
+  "siu_recintos": 2
+ },
+ {
+  "ine": "06149",
+  "name": "Villafranca de los Barros",
+  "pop": 12284,
+  "band": "5k-20k",
+  "siu_figura": "Normas Subsidiarias",
+  "siu_fecha": 2004,
+  "siu_urllink": "https://sitex.juntaex.es/SITEX/",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -6.3940200788540675,
+   "ymin": 38.50930246888736,
+   "xmax": -6.288823890688344,
+   "ymax": 38.659542885997524,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 4,
+  "siu_sectores": 23,
+  "siu_recintos": 36
+ },
+ {
+  "ine": "28023",
+  "name": "El Boalo",
+  "pop": 8770,
+  "band": "5k-20k",
+  "siu_figura": "Normas Subsidiarias",
+  "siu_fecha": 1998,
+  "siu_urllink": "https://idem.madrid.org/cartografia/sitcm/html/visor.htm",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -3.9686032540376392,
+   "ymin": 40.648578337314305,
+   "xmax": -3.8323023350173013,
+   "ymax": 40.7681983668027,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 3,
+  "siu_sectores": 30,
+  "siu_recintos": 35
+ },
+ {
+  "ine": "41077",
+  "name": "La Puebla de Cazalla",
+  "pop": 10830,
+  "band": "5k-20k",
+  "siu_figura": "Plan General",
+  "siu_fecha": 2020,
+  "siu_urllink": "https://ws132.juntadeandalucia.es/situadifusion/pages/search.jsf",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -5.361331527363238,
+   "ymin": 37.060462922057454,
+   "xmax": -5.198490239006438,
+   "ymax": 37.265004301622035,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 5,
+  "siu_sectores": 20,
+  "siu_recintos": 23
+ },
+ {
+  "ine": "30041",
+  "name": "La Unión",
+  "pop": 21380,
+  "band": "20k-50k",
+  "siu_figura": "Normas Subsidiarias",
+  "siu_fecha": 1983,
+  "siu_urllink": "https://sitmurcia.carm.es/web/sitmurcia/ordenacion-del-territorio",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -0.9292697160473348,
+   "ymin": 37.57568496486934,
+   "xmax": -0.8405671813013237,
+   "ymax": 37.645726028812575,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 5,
+  "siu_sectores": 18,
+  "siu_recintos": 29
+ },
+ {
+  "ine": "12126",
+  "name": "Vall de Uxó",
+  "pop": 32242,
+  "band": "20k-50k",
+  "siu_figura": "Plan General",
+  "siu_fecha": 1995,
+  "siu_urllink": "https://politicaterritorial.gva.es/va/web/urbanismo/registro-autonomico-de-instrumentos-de-planeamiento-urbanistico",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -0.3085683105017819,
+   "ymin": 39.77054221700958,
+   "xmax": -0.1712852499065754,
+   "ymax": 39.86354371310354,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 5,
+  "siu_sectores": 17,
+  "siu_recintos": 23
+ },
+ {
+  "ine": "41053",
+  "name": "Lebrija",
+  "pop": 27788,
+  "band": "20k-50k",
+  "siu_figura": "Plan General",
+  "siu_fecha": 2015,
+  "siu_urllink": "https://ws132.juntadeandalucia.es/situadifusion/pages/search.jsf",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -6.230994081603481,
+   "ymin": 36.84219154600039,
+   "xmax": -5.869604589850322,
+   "ymax": 37.07624938110534,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 5,
+  "siu_sectores": 28,
+  "siu_recintos": 38
+ },
+ {
+  "ine": "30005",
+  "name": "Alcantarilla",
+  "pop": 43876,
+  "band": "20k-50k",
+  "siu_figura": "Plan General",
+  "siu_fecha": 1984,
+  "siu_urllink": "https://sitmurcia.carm.es/web/sitmurcia/ordenacion-del-territorio",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -1.2733165925383971,
+   "ymin": 37.94967985828075,
+   "xmax": -1.1908498022703011,
+   "ymax": 37.99196854598515,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 5,
+  "siu_sectores": 20,
+  "siu_recintos": 25
+ },
+ {
+  "ine": "46190",
+  "name": "Paterna",
+  "pop": 76019,
+  "band": "50k-100k",
+  "siu_figura": "Plan General",
+  "siu_fecha": 1990,
+  "siu_urllink": "https://politicaterritorial.gva.es/va/web/urbanismo/registro-autonomico-de-instrumentos-de-planeamiento-urbanistico",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -0.5184989949979999,
+   "ymin": 39.48635053630221,
+   "xmax": -0.41871586968142616,
+   "ymax": 39.5653718707764,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 5,
+  "siu_sectores": 31,
+  "siu_recintos": 40
+ },
+ {
+  "ine": "28047",
+  "name": "Collado Villalba",
+  "pop": 67274,
+  "band": "50k-100k",
+  "siu_figura": "Plan General",
+  "siu_fecha": 2001,
+  "siu_urllink": "https://idem.madrid.org/cartografia/sitcm/html/visor.htm",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -4.029666741227197,
+   "ymin": 40.61618963038376,
+   "xmax": -3.9465143980567574,
+   "ymax": 40.6811020349168,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 5,
+  "siu_sectores": 24,
+  "siu_recintos": 36
+ },
+ {
+  "ine": "28113",
+  "name": "Pinto",
+  "pop": 56651,
+  "band": "50k-100k",
+  "siu_figura": "Plan General",
+  "siu_fecha": 2002,
+  "siu_urllink": "https://idem.madrid.org/cartografia/sitcm/html/visor.htm",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -3.741267053344864,
+   "ymin": 40.19892977983035,
+   "xmax": -3.622528019364307,
+   "ymax": 40.292818175894034,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 5,
+  "siu_sectores": 58,
+  "siu_recintos": 65
+ },
+ {
+  "ine": "07026",
+  "name": "Ibiza",
+  "pop": 55337,
+  "band": "50k-100k",
+  "siu_figura": "Plan General",
+  "siu_fecha": 2023,
+  "siu_urllink": "https://www.caib.es/sites/muib/es/aplicaciones_de_consulta-69600/",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": 1.3846121977528225,
+   "ymin": 38.88353659921515,
+   "xmax": 1.4633623881959268,
+   "ymax": 38.9299694050157,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 5,
+  "siu_sectores": 24,
+  "siu_recintos": 25
+ },
+ {
+  "ine": "35026",
+  "name": "Telde",
+  "pop": 104168,
+  "band": ">100k",
+  "siu_figura": "Plan General",
+  "siu_fecha": 2002,
+  "siu_urllink": "https://www3.gobiernodecanarias.org/aplicaciones/archivoplaneamientopt/",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -15.531948879562004,
+   "ymin": 27.928782518723747,
+   "xmax": -15.358514089639609,
+   "ymax": 28.038842112750995,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 7,
+  "siu_sectores": 200,
+  "siu_recintos": 225
+ },
+ {
+  "ine": "08187",
+  "name": "Sabadell",
+  "pop": 225368,
+  "band": ">100k",
+  "siu_figura": "Plan General",
+  "siu_fecha": 2000,
+  "siu_urllink": "https://dtes.gencat.cat/rpucportal/#/inici",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": 2.0468946163538013,
+   "ymin": 41.506717604600524,
+   "xmax": 2.150162935478163,
+   "ymax": 41.5905502022295,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 4,
+  "siu_sectores": 40,
+  "siu_recintos": 48
+ },
+ {
+  "ine": "28058",
+  "name": "Fuenlabrada",
+  "pop": 190076,
+  "band": ">100k",
+  "siu_figura": "Plan General",
+  "siu_fecha": 1999,
+  "siu_urllink": "https://idem.madrid.org/cartografia/sitcm/html/visor.htm",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -3.8493210339576382,
+   "ymin": 40.24980651433178,
+   "xmax": -3.7393008091728634,
+   "ymax": 40.327792913417426,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 5,
+  "siu_sectores": 53,
+  "siu_recintos": 60
+ },
+ {
+  "ine": "28065",
+  "name": "Getafe",
+  "pop": 193238,
+  "band": ">100k",
+  "siu_figura": "Plan General",
+  "siu_fecha": 2003,
+  "siu_urllink": "https://idem.madrid.org/cartografia/sitcm/html/visor.htm",
+  "siu_planRecord": "present",
+  "extent": {
+   "xmin": -3.7617434342890816,
+   "ymin": 40.26637541966863,
+   "xmax": -3.570036399447983,
+   "ymax": 40.3349861693051,
+   "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+   }
+  },
+  "siu_clases_suelo": 5,
+  "siu_sectores": 23,
+  "siu_recintos": 28
+ }
+]

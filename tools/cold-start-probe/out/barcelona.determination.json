@@ -1,0 +1,3647 @@
+{
+ "ok": true,
+ "city": "barcelona",
+ "ine": "08019",
+ "service": "AMB Refós qualificacio_refos_3857/MapServer/16 · field CLAU_URB",
+ "measuredAt": "2026-08-02T09:14:39.292Z",
+ "seed": 20260802,
+ "requested": 400,
+ "parcelPopulationTotal": 78371,
+ "parcelPopulationUrban": 76398,
+ "sampled": 400,
+ "assessed": 400,
+ "transportFailures": {},
+ "counts": {
+  "envelope": 269,
+  "refusal-terminal": 21,
+  "refusal-delegated": 56,
+  "refusal-external": 0,
+  "no-pack": 7,
+  "nonBuildable": 47
+ },
+ "denominatorPrivateBuildableParcels": 353,
+ "pct": {
+  "ofBuildable": {
+   "envelope": 0.7620396600566572,
+   "refusalTerminal": 0.059490084985835696,
+   "refusalDelegated": 0.15864022662889518,
+   "refusalExternal": 0,
+   "refusalTotal": 0.21813031161473087,
+   "determination": 0.9801699716713881,
+   "noPack": 0.019830028328611898
+  },
+  "ofAllUrbanParcels": {
+   "envelope": 0.6725,
+   "refusalTotal": 0.1925,
+   "determination": 0.865,
+   "noPack": 0.0175,
+   "nonBuildable": 0.1175
+  }
+ },
+ "inheritedApplied": {
+  "bcn-dissolve": 245,
+  "bcn-clau18": 35
+ },
+ "rows": [
+  {
+   "ref": "2471517DF3827A",
+   "lat": 41.4314349,
+   "lon": 2.1911662,
+   "code": "12",
+   "cat": "no-pack",
+   "why": "block-ring dissolve refuses (L-676)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0212303DF3801C",
+   "lat": 41.3786773,
+   "lon": 2.1642887,
+   "code": "12b",
+   "cat": "refusal-terminal",
+   "why": "Arts. 320.3a/320.2a — tram de vial undefined, permanent (L-676)",
+   "inherited": null
+  },
+  {
+   "ref": "0506405DF3800F",
+   "lat": 41.3728677,
+   "lon": 2.1682576,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9235304DF2893E",
+   "lat": 41.3990064,
+   "lon": 2.1523348,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "4949413DF3844H",
+   "lat": 41.4132352,
+   "lon": 2.2191404,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "0887728DF3808F",
+   "lat": 41.445119,
+   "lon": 2.1715556,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8949208DF2884H",
+   "lat": 41.4113356,
+   "lon": 2.148579,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1985216DF3818F",
+   "lat": 41.4441805,
+   "lon": 2.1838821,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1453409DF3815C",
+   "lat": 41.4150531,
+   "lon": 2.1790315,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0015812DF3801E",
+   "lat": 41.3806889,
+   "lon": 2.1622674,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0233403DF3803C",
+   "lat": 41.3973652,
+   "lon": 2.1641985,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1952821DF3815B",
+   "lat": 41.413683,
+   "lon": 2.1843379,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "4927742DF2842F",
+   "lat": 41.3952198,
+   "lon": 2.1018745,
+   "code": "28",
+   "cat": "nonBuildable",
+   "why": "clau 28 is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "7444977DF2874C",
+   "lat": 41.4053067,
+   "lon": 2.1287301,
+   "code": "20a/10",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "1345833DF3814E",
+   "lat": 41.4075855,
+   "lon": 2.1777238,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9876348DF2897F",
+   "lat": 41.4361465,
+   "lon": 2.158126,
+   "code": "20a/8",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "7444922DF2874C",
+   "lat": 41.4071624,
+   "lon": 2.1318913,
+   "code": "7a",
+   "cat": "nonBuildable",
+   "why": "clau 7a is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "1741925DF3814B",
+   "lat": 41.404543,
+   "lon": 2.1825339,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "3749419DF3834H",
+   "lat": 41.4113363,
+   "lon": 2.2062648,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "1359501DF3815G",
+   "lat": 41.4202373,
+   "lon": 2.1770353,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1663816DF3816D",
+   "lat": 41.4239838,
+   "lon": 2.1807999,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1940402DF3814B",
+   "lat": 41.4035693,
+   "lon": 2.1827023,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "6111746DF2861A",
+   "lat": 41.3760783,
+   "lon": 2.1151385,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8714622DF2881D",
+   "lat": 41.3798034,
+   "lon": 2.1468702,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1882402DF3818D",
+   "lat": 41.4413259,
+   "lon": 2.1826142,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9725330DF2892F",
+   "lat": 41.3902,
+   "lon": 2.1582016,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0011216DF3801A",
+   "lat": 41.3771772,
+   "lon": 2.1624695,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0205218DF3800E",
+   "lat": 41.3714128,
+   "lon": 2.1644033,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9725320DF2892F",
+   "lat": 41.3895827,
+   "lon": 2.1581465,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "6212706DF2861A",
+   "lat": 41.3772055,
+   "lon": 2.1173507,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "1485235DF3818E",
+   "lat": 41.4437104,
+   "lon": 2.177942,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0407335DF3800G",
+   "lat": 41.3744751,
+   "lon": 2.1671729,
+   "code": "7a",
+   "cat": "nonBuildable",
+   "why": "clau 7a is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "3332421DF3833C",
+   "lat": 41.3963926,
+   "lon": 2.2009453,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1236405DF3813E",
+   "lat": 41.4004239,
+   "lon": 2.1766313,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2473716DF3827C",
+   "lat": 41.4328134,
+   "lon": 2.1895779,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1532805DF3813B",
+   "lat": 41.3960088,
+   "lon": 2.1799773,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1567607DF3816F",
+   "lat": 41.4270518,
+   "lon": 2.1804754,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "2563226DF3826D",
+   "lat": 41.4234169,
+   "lon": 2.1915644,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0837713DF3803F",
+   "lat": 41.4004347,
+   "lon": 2.1722731,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "61613I6DF2766A",
+   "lat": 41.3294335,
+   "lon": 2.1217948,
+   "code": "22a",
+   "cat": "refusal-delegated",
+   "why": "Art. 350.1 — ~2,595 Pla Parcials",
+   "inherited": null
+  },
+  {
+   "ref": "3478745DF3837G",
+   "lat": 41.436376,
+   "lon": 2.2028652,
+   "code": "22a",
+   "cat": "refusal-delegated",
+   "why": "Art. 350.1 — ~2,595 Pla Parcials",
+   "inherited": null
+  },
+  {
+   "ref": "1761520DF3816B",
+   "lat": 41.4227534,
+   "lon": 2.1824464,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8758928DF2885H",
+   "lat": 41.4192996,
+   "lon": 2.1483235,
+   "code": "7b",
+   "cat": "nonBuildable",
+   "why": "clau 7b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "7918104DF2871H",
+   "lat": 41.3829919,
+   "lon": 2.1367102,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2310303DF3821A",
+   "lat": 41.3770219,
+   "lon": 2.1893019,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9441118DF2894A",
+   "lat": 41.4036311,
+   "lon": 2.1544821,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8957704DF2885F",
+   "lat": 41.4181821,
+   "lon": 2.1492128,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8737611DF2883H",
+   "lat": 41.4002562,
+   "lon": 2.1471184,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0155806DF3805E",
+   "lat": 41.4161886,
+   "lon": 2.1632763,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9435118DF2893E",
+   "lat": 41.3984345,
+   "lon": 2.1541873,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9118706DF2891G",
+   "lat": 41.3835363,
+   "lon": 2.1515668,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2047715DF3824E",
+   "lat": 41.4097711,
+   "lon": 2.1864895,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "18029B9DF3910B",
+   "lat": 41.4566848,
+   "lon": 2.1850147,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "9806916DF2890F",
+   "lat": 41.3724106,
+   "lon": 2.1594808,
+   "code": "12",
+   "cat": "no-pack",
+   "why": "block-ring dissolve refuses (L-676)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8560407DF2886B",
+   "lat": 41.4213301,
+   "lon": 2.1435991,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8537617DF2883H",
+   "lat": 41.4004404,
+   "lon": 2.1437081,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9862664DF2896D",
+   "lat": 41.4230128,
+   "lon": 2.1599585,
+   "code": "20a/9",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "9458902DF2895G",
+   "lat": 41.4196958,
+   "lon": 2.1542762,
+   "code": "6a",
+   "cat": "nonBuildable",
+   "why": "clau 6a is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "3978104DF3837H",
+   "lat": 41.4374781,
+   "lon": 2.2079539,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "1355401DF3815E",
+   "lat": 41.4172446,
+   "lon": 2.1768559,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "7814223DF2871D",
+   "lat": 41.3789344,
+   "lon": 2.1358699,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "3673501DF3837D",
+   "lat": 41.4337982,
+   "lon": 2.2045819,
+   "code": "22a",
+   "cat": "refusal-delegated",
+   "why": "Art. 350.1 — ~2,595 Pla Parcials",
+   "inherited": null
+  },
+  {
+   "ref": "2368604DF3826G",
+   "lat": 41.4284555,
+   "lon": 2.1893231,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2463504DF3826C",
+   "lat": 41.4243906,
+   "lon": 2.1908056,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0431613DF3803A",
+   "lat": 41.395072,
+   "lon": 2.168185,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0618807DF3801H",
+   "lat": 41.3829818,
+   "lon": 2.1696991,
+   "code": "12b",
+   "cat": "refusal-terminal",
+   "why": "Arts. 320.3a/320.2a — tram de vial undefined, permanent (L-676)",
+   "inherited": null
+  },
+  {
+   "ref": "0816960DF3801F",
+   "lat": 41.3810892,
+   "lon": 2.171913,
+   "code": "5",
+   "cat": "nonBuildable",
+   "why": "clau 5 is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "0052501DF3805C",
+   "lat": 41.4140946,
+   "lon": 2.1615402,
+   "code": "13b",
+   "cat": "no-pack",
+   "why": "block-ring dissolve refuses (L-676)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8620218DF2882B",
+   "lat": 41.3849028,
+   "lon": 2.1444842,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1065718DF3816E",
+   "lat": 41.4256118,
+   "lon": 2.1748058,
+   "code": "13b",
+   "cat": "no-pack",
+   "why": "block-ring dissolve refuses (L-676)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0351401DF3805A",
+   "lat": 41.4134207,
+   "lon": 2.166227,
+   "code": "6a",
+   "cat": "nonBuildable",
+   "why": "clau 6a is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "8026419DF2882E",
+   "lat": 41.390388,
+   "lon": 2.1379811,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0270719DF3807A",
+   "lat": 41.4295921,
+   "lon": 2.1641944,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9841714DF2894B",
+   "lat": 41.4037075,
+   "lon": 2.1600834,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1043805DF3814C",
+   "lat": 41.4055908,
+   "lon": 2.1740651,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8351889DF2885A",
+   "lat": 41.4124877,
+   "lon": 2.142317,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "4665754DF2846F",
+   "lat": 41.4241868,
+   "lon": 2.0965499,
+   "code": "20a",
+   "cat": "refusal-terminal",
+   "why": "Arts. 314.5/338.2/339 — missing SELECTOR not missing rule (L-673)",
+   "inherited": null
+  },
+  {
+   "ref": "2950726DF3825B",
+   "lat": 41.4124127,
+   "lon": 2.1972111,
+   "code": "18",
+   "cat": "envelope",
+   "why": "AMB Refós OV footprint + PLANTES (SIG-3)",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "1732810DF3813B",
+   "lat": 41.3955873,
+   "lon": 2.1827644,
+   "code": "7b",
+   "cat": "nonBuildable",
+   "why": "clau 7b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "0162963DF3806A",
+   "lat": 41.4224077,
+   "lon": 2.1630518,
+   "code": "18",
+   "cat": "envelope",
+   "why": "AMB Refós OV footprint + PLANTES (SIG-3)",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "1885805DF3818F",
+   "lat": 41.4434794,
+   "lon": 2.1829419,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0969609DF3806H",
+   "lat": 41.4295279,
+   "lon": 2.1727925,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "7357826DF2775E",
+   "lat": 41.3255536,
+   "lon": 2.1299471,
+   "code": "22a",
+   "cat": "refusal-delegated",
+   "why": "Art. 350.1 — ~2,595 Pla Parcials",
+   "inherited": null
+  },
+  {
+   "ref": "2072601DF3827C",
+   "lat": 41.4320982,
+   "lon": 2.1858118,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2280229DF3828A",
+   "lat": 41.4397501,
+   "lon": 2.1880452,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1016306DF3811E",
+   "lat": 41.38163,
+   "lon": 2.1740227,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "1474121DF3817C",
+   "lat": 41.4333153,
+   "lon": 2.178077,
+   "code": "18",
+   "cat": "envelope",
+   "why": "AMB Refós OV footprint + PLANTES (SIG-3)",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "0620225DF3802B",
+   "lat": 41.3853658,
+   "lon": 2.168412,
+   "code": "12b",
+   "cat": "refusal-terminal",
+   "why": "Arts. 320.3a/320.2a — tram de vial undefined, permanent (L-676)",
+   "inherited": null
+  },
+  {
+   "ref": "9829710DF2892H",
+   "lat": 41.3927188,
+   "lon": 2.1607306,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2171807DF3827A",
+   "lat": 41.431026,
+   "lon": 2.186318,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "75688C0DF2876H",
+   "lat": 41.4279435,
+   "lon": 2.1321578,
+   "code": "5",
+   "cat": "nonBuildable",
+   "why": "clau 5 is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "0244513DF3804C",
+   "lat": 41.4069373,
+   "lon": 2.1649639,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1350104DF3815A",
+   "lat": 41.4117578,
+   "lon": 2.1764124,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2171826DF3827A",
+   "lat": 41.4311658,
+   "lon": 2.1875564,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0746217DF3804F",
+   "lat": 41.4083053,
+   "lon": 2.1700413,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0105303DF3800E",
+   "lat": 41.3720562,
+   "lon": 2.1633926,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9534312DF2893D",
+   "lat": 41.3977765,
+   "lon": 2.1559781,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0619201DF3801H",
+   "lat": 41.3842127,
+   "lon": 2.1691919,
+   "code": "6a",
+   "cat": "nonBuildable",
+   "why": "clau 6a is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "0744332DF3804D",
+   "lat": 41.4068558,
+   "lon": 2.1691505,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1112102DF3811A",
+   "lat": 41.3782128,
+   "lon": 2.1752248,
+   "code": "12b",
+   "cat": "refusal-terminal",
+   "why": "Arts. 320.3a/320.2a — tram de vial undefined, permanent (L-676)",
+   "inherited": null
+  },
+  {
+   "ref": "6812606DF2861D",
+   "lat": 41.3779547,
+   "lon": 2.1244074,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2214410DF3821C",
+   "lat": 41.3801234,
+   "lon": 2.188774,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2390903DF3829A",
+   "lat": 41.4491887,
+   "lon": 2.189076,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "0022308DF3802C",
+   "lat": 41.3873944,
+   "lon": 2.1625492,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9057630DF2895G",
+   "lat": 41.4180328,
+   "lon": 2.1501285,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1149611DF3814G",
+   "lat": 41.4112593,
+   "lon": 2.1751327,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8307901DF2880G",
+   "lat": 41.3736997,
+   "lon": 2.1416589,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1758532DF3815H",
+   "lat": 41.4197098,
+   "lon": 2.182931,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0534711DF3803D",
+   "lat": 41.3977105,
+   "lon": 2.1690612,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9967703DF2896F",
+   "lat": 41.4267895,
+   "lon": 2.1595618,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "8507506DF2880H",
+   "lat": 41.3737724,
+   "lon": 2.1449126,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1059926DF3815G",
+   "lat": 41.4206866,
+   "lon": 2.1737418,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1767113DF3816F",
+   "lat": 41.4270494,
+   "lon": 2.181963,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "0032910DF3803C",
+   "lat": 41.3960856,
+   "lon": 2.1619622,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0131208DF3803A",
+   "lat": 41.3951422,
+   "lon": 2.163308,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1859603DF3815H",
+   "lat": 41.4210243,
+   "lon": 2.1836323,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "3979307DF3837H",
+   "lat": 41.43896,
+   "lon": 2.2079074,
+   "code": "5b",
+   "cat": "nonBuildable",
+   "why": "clau 5b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "7049308DF2874G",
+   "lat": 41.4111837,
+   "lon": 2.1254156,
+   "code": "20a/10",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "2475730DF3827E",
+   "lat": 41.4343583,
+   "lon": 2.191093,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "0376812DF3807E",
+   "lat": 41.4352081,
+   "lon": 2.1650968,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "9750106DF2895B",
+   "lat": 41.41193,
+   "lon": 2.1580441,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1572709DF3817B",
+   "lat": 41.4315848,
+   "lon": 2.1802374,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "1242507DF3814C",
+   "lat": 41.4052583,
+   "lon": 2.1773351,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8589935DF2788H",
+   "lat": 41.3565699,
+   "lon": 2.1448426,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2053323DF3825C",
+   "lat": 41.415506,
+   "lon": 2.1860582,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2212303DF3821C",
+   "lat": 41.3786201,
+   "lon": 2.1882457,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "9739517DF2893H",
+   "lat": 41.4023543,
+   "lon": 2.1589566,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0571403DF3807B",
+   "lat": 41.431467,
+   "lon": 2.1676448,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "6637411DF2863H",
+   "lat": 41.4002754,
+   "lon": 2.1214921,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "3639701DF3833H",
+   "lat": 41.402112,
+   "lon": 2.205603,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "2964617DF3826D",
+   "lat": 41.4234151,
+   "lon": 2.1967948,
+   "code": "7b",
+   "cat": "nonBuildable",
+   "why": "clau 7b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "9156101DF2895E",
+   "lat": 41.4173822,
+   "lon": 2.1503502,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "7806956DF2870F",
+   "lat": 41.3731785,
+   "lon": 2.1361249,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1412103DF3811A",
+   "lat": 41.377942,
+   "lon": 2.1788448,
+   "code": "12b",
+   "cat": "refusal-terminal",
+   "why": "Arts. 320.3a/320.2a — tram de vial undefined, permanent (L-676)",
+   "inherited": null
+  },
+  {
+   "ref": "0788952DF3808H",
+   "lat": 41.4473135,
+   "lon": 2.1717736,
+   "code": "20a/9",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "6111717DF2861A",
+   "lat": 41.3765035,
+   "lon": 2.1155968,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "3776616DF3837H",
+   "lat": 41.4387283,
+   "lon": 2.2068254,
+   "code": "5",
+   "cat": "nonBuildable",
+   "why": "clau 5 is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "1494332DF3819C",
+   "lat": 41.4573414,
+   "lon": 2.1797609,
+   "code": "16",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "9411922DF2891A",
+   "lat": 41.3772693,
+   "lon": 2.1551083,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "8963821DF2886D",
+   "lat": 41.4231728,
+   "lon": 2.1484148,
+   "code": "7b-6b",
+   "cat": "nonBuildable",
+   "why": "clau 7b-6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "8948609DF2884H",
+   "lat": 41.4105997,
+   "lon": 2.1492934,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2085107DF3828E",
+   "lat": 41.4437019,
+   "lon": 2.1848267,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1864614DF3816D",
+   "lat": 41.4248181,
+   "lon": 2.1833662,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "1518203DF3811H",
+   "lat": 41.3832438,
+   "lon": 2.1800171,
+   "code": "17/7",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "9409403DF2890G",
+   "lat": 41.3756215,
+   "lon": 2.1555524,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2484316DF3828C",
+   "lat": 41.4438109,
+   "lon": 2.1902373,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "6435601DF2863E",
+   "lat": 41.3986312,
+   "lon": 2.1194958,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "2081602DF3828A",
+   "lat": 41.4404072,
+   "lon": 2.1862505,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9473613DF2897C",
+   "lat": 41.4321798,
+   "lon": 2.1546479,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "6542815DF2864B",
+   "lat": 41.4026431,
+   "lon": 2.1216361,
+   "code": "20a/10",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "8799504DF2789H",
+   "lat": 41.366385,
+   "lon": 2.1462843,
+   "code": "6c",
+   "cat": "nonBuildable",
+   "why": "clau 6c is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "7709303DF2870H",
+   "lat": 41.3749178,
+   "lon": 2.1346597,
+   "code": "6a",
+   "cat": "nonBuildable",
+   "why": "clau 6a is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "0175910DF3807E",
+   "lat": 41.4346811,
+   "lon": 2.1627983,
+   "code": "20a/8",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "1386116DF3818E",
+   "lat": 41.4443354,
+   "lon": 2.1766323,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "9671431DF2897B",
+   "lat": 41.4312651,
+   "lon": 2.1568162,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "1520121DF3812B",
+   "lat": 41.3853645,
+   "lon": 2.1796156,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9407606DF2890E",
+   "lat": 41.3734711,
+   "lon": 2.1554871,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "3037605DF3833G",
+   "lat": 41.4002319,
+   "lon": 2.1984057,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1400330DF3910A",
+   "lat": 41.4570299,
+   "lon": 2.1766164,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "9668220DF2896H",
+   "lat": 41.4279358,
+   "lon": 2.1568195,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9569814DF2896H",
+   "lat": 41.4289284,
+   "lon": 2.1561903,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "9062132DF2896A",
+   "lat": 41.4222508,
+   "lon": 2.1489868,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0959332DF3805H",
+   "lat": 41.4209205,
+   "lon": 2.1727568,
+   "code": "20a/9",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "2086913DF3828E",
+   "lat": 41.4447508,
+   "lon": 2.1852522,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0774614DF3807D",
+   "lat": 41.4337292,
+   "lon": 2.1708358,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "8559730DF2885H",
+   "lat": 41.4173427,
+   "lon": 2.1438713,
+   "code": "20a/9u",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "1663811DF3816D",
+   "lat": 41.4236601,
+   "lon": 2.1810883,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8709773DF2880H",
+   "lat": 41.3746443,
+   "lon": 2.1471545,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "6545108DF2864F",
+   "lat": 41.4067703,
+   "lon": 2.1191335,
+   "code": "20a/10",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "3145811DF3834E",
+   "lat": 41.4093698,
+   "lon": 2.1988539,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2592656DF3829D",
+   "lat": 41.4498266,
+   "lon": 2.1916177,
+   "code": "7b",
+   "cat": "nonBuildable",
+   "why": "clau 7b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "4151326DF3845A",
+   "lat": 41.413315,
+   "lon": 2.211107,
+   "code": "18",
+   "cat": "envelope",
+   "why": "AMB Refós OV footprint + PLANTES (SIG-3)",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "7518331DF2871H",
+   "lat": 41.383292,
+   "lon": 2.1320556,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0942318DF3804D",
+   "lat": 41.4052875,
+   "lon": 2.1728048,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "3781210DF3838B",
+   "lat": 41.4397429,
+   "lon": 2.2041449,
+   "code": "22a",
+   "cat": "refusal-delegated",
+   "why": "Art. 350.1 — ~2,595 Pla Parcials",
+   "inherited": null
+  },
+  {
+   "ref": "6730305DF2863B",
+   "lat": 41.3946929,
+   "lon": 2.1220319,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "3677816DF3837F",
+   "lat": 41.43643,
+   "lon": 2.2049789,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0826215DF3802F",
+   "lat": 41.3904938,
+   "lon": 2.1706737,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "7870743DF2777B",
+   "lat": 41.3387733,
+   "lon": 2.1307907,
+   "code": "22a",
+   "cat": "refusal-delegated",
+   "why": "Art. 350.1 — ~2,595 Pla Parcials",
+   "inherited": null
+  },
+  {
+   "ref": "8734104DF2883D",
+   "lat": 41.3976942,
+   "lon": 2.1460582,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "4757707DF2845F",
+   "lat": 41.4176774,
+   "lon": 2.0991169,
+   "code": "29",
+   "cat": "nonBuildable",
+   "why": "clau 29 is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "9745311DF2894F",
+   "lat": 41.4079873,
+   "lon": 2.1582826,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2440815DF3824A",
+   "lat": 41.4024251,
+   "lon": 2.1914352,
+   "code": "22@",
+   "cat": "refusal-terminal",
+   "why": "Art. 8.1 MPGM 22@ — omission intentional in law (DEC-1)",
+   "inherited": null
+  },
+  {
+   "ref": "3939542DF3833H",
+   "lat": 41.4030076,
+   "lon": 2.2081376,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9419813DF2891G",
+   "lat": 41.3842068,
+   "lon": 2.155308,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2571603DF3827B",
+   "lat": 41.4315555,
+   "lon": 2.1918205,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2349408DF3824G",
+   "lat": 41.4119507,
+   "lon": 2.1893408,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9856709DF2895F",
+   "lat": 41.4173602,
+   "lon": 2.1594875,
+   "code": "16",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "3862902DF3836B",
+   "lat": 41.4232052,
+   "lon": 2.2066997,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "0364215DF3806C",
+   "lat": 41.4245841,
+   "lon": 2.1649068,
+   "code": "20a/9",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "0512834DF3801B",
+   "lat": 41.377914,
+   "lon": 2.168005,
+   "code": "12b",
+   "cat": "refusal-terminal",
+   "why": "Arts. 320.3a/320.2a — tram de vial undefined, permanent (L-676)",
+   "inherited": null
+  },
+  {
+   "ref": "3240108DF3834A",
+   "lat": 41.4032284,
+   "lon": 2.1997336,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0431614DF3803A",
+   "lat": 41.3949691,
+   "lon": 2.1681769,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "4062905DF3846A",
+   "lat": 41.4229048,
+   "lon": 2.2096492,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "1353207DF3815C",
+   "lat": 41.4153252,
+   "lon": 2.1769364,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "4056704DF3845E",
+   "lat": 41.4173434,
+   "lon": 2.2097094,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "0524801DF3802D",
+   "lat": 41.3884036,
+   "lon": 2.1675725,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0750206DF3805B",
+   "lat": 41.412418,
+   "lon": 2.1699992,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2672810DF3827B",
+   "lat": 41.4320832,
+   "lon": 2.1931047,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1786120DF3818F",
+   "lat": 41.4446571,
+   "lon": 2.1814235,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9435319DF2893E",
+   "lat": 41.3988443,
+   "lon": 2.154554,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8927509DF2882H",
+   "lat": 41.3914091,
+   "lon": 2.1497864,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0831705DF3803B",
+   "lat": 41.3952386,
+   "lon": 2.1716395,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "7309225DF2870G",
+   "lat": 41.3744907,
+   "lon": 2.1298345,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2836805DF3823F",
+   "lat": 41.3996469,
+   "lon": 2.1953878,
+   "code": "22@",
+   "cat": "refusal-terminal",
+   "why": "Art. 8.1 MPGM 22@ — omission intentional in law (DEC-1)",
+   "inherited": null
+  },
+  {
+   "ref": "2936522DF3823F",
+   "lat": 41.3993922,
+   "lon": 2.1972649,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "9845417DF2894F",
+   "lat": 41.4080799,
+   "lon": 2.1600137,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2027208DF3822E",
+   "lat": 41.3918922,
+   "lon": 2.1858551,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1359524DF3815G",
+   "lat": 41.4203535,
+   "lon": 2.1775998,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0475304DF3807E",
+   "lat": 41.4350958,
+   "lon": 2.1659141,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "0341811DF3804A",
+   "lat": 41.4037204,
+   "lon": 2.165801,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8740610DF2884B",
+   "lat": 41.4029081,
+   "lon": 2.1467317,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "7428701DF2872G",
+   "lat": 41.3922504,
+   "lon": 2.1307617,
+   "code": "18",
+   "cat": "envelope",
+   "why": "AMB Refós OV footprint + PLANTES (SIG-3)",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "1275620DF3817E",
+   "lat": 41.434903,
+   "lon": 2.1763756,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "9828201DF2892H",
+   "lat": 41.3924473,
+   "lon": 2.1588297,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0264915DF3806C",
+   "lat": 41.4246612,
+   "lon": 2.163897,
+   "code": "20a/9",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "8709701DF2880H",
+   "lat": 41.3749795,
+   "lon": 2.1461928,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9641416DF2894B",
+   "lat": 41.4040231,
+   "lon": 2.1577583,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0274403DF3807C",
+   "lat": 41.4342164,
+   "lon": 2.1640328,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "2093915DF3829C",
+   "lat": 41.4507419,
+   "lon": 2.1848368,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "1349704DF3814G",
+   "lat": 41.4109258,
+   "lon": 2.1776739,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9759727DF2895H",
+   "lat": 41.419959,
+   "lon": 2.1590669,
+   "code": "20a/9",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "0246515DF3804E",
+   "lat": 41.4086712,
+   "lon": 2.1650457,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0655114DF3805F",
+   "lat": 41.4176534,
+   "lon": 2.1692296,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1284625DF3818C",
+   "lat": 41.4428953,
+   "lon": 2.1760631,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9942402DF2894D",
+   "lat": 41.4054856,
+   "lon": 2.1606605,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0850519DF3805B",
+   "lat": 41.4121119,
+   "lon": 2.1713899,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9645803DF2894F",
+   "lat": 41.4074493,
+   "lon": 2.1567497,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1572818DF3817B",
+   "lat": 41.4315315,
+   "lon": 2.1797301,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0714705DF3801D",
+   "lat": 41.3802371,
+   "lon": 2.170532,
+   "code": "12b",
+   "cat": "refusal-terminal",
+   "why": "Arts. 320.3a/320.2a — tram de vial undefined, permanent (L-676)",
+   "inherited": null
+  },
+  {
+   "ref": "1469801DF3816G",
+   "lat": 41.4291703,
+   "lon": 2.1784484,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9544821DF2894D",
+   "lat": 41.4062162,
+   "lon": 2.1559271,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8248701DF2884G",
+   "lat": 41.4102551,
+   "lon": 2.1408021,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "7906457DF2870F",
+   "lat": 41.3732929,
+   "lon": 2.1369978,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "3037604DF3833G",
+   "lat": 41.400263,
+   "lon": 2.1984809,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8947249DF2884H",
+   "lat": 41.4100155,
+   "lon": 2.1476826,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8523102DF2882D",
+   "lat": 41.3876289,
+   "lon": 2.1441266,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2186336DF3828E",
+   "lat": 41.4455544,
+   "lon": 2.1862171,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "3536431DF3833F",
+   "lat": 41.4002764,
+   "lon": 2.2040123,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0712409DF3801D",
+   "lat": 41.3781162,
+   "lon": 2.1707751,
+   "code": "12b",
+   "cat": "refusal-terminal",
+   "why": "Arts. 320.3a/320.2a — tram de vial undefined, permanent (L-676)",
+   "inherited": null
+  },
+  {
+   "ref": "2378219DF3827G",
+   "lat": 41.4376713,
+   "lon": 2.1888499,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0782603DF3808B",
+   "lat": 41.4414253,
+   "lon": 2.1695895,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "0468110DF3806G",
+   "lat": 41.4280424,
+   "lon": 2.1664733,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8151522DF2885A",
+   "lat": 41.4122776,
+   "lon": 2.1409687,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "7115822DF2871E",
+   "lat": 41.3801057,
+   "lon": 2.1282316,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2178537DF3827G",
+   "lat": 41.437695,
+   "lon": 2.187913,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "4665707DF2846F",
+   "lat": 41.4259153,
+   "lon": 2.0978778,
+   "code": "20a",
+   "cat": "refusal-terminal",
+   "why": "Arts. 314.5/338.2/339 — missing SELECTOR not missing rule (L-673)",
+   "inherited": null
+  },
+  {
+   "ref": "7422717DF2872A",
+   "lat": 41.3864564,
+   "lon": 2.1316731,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9364415DF2896C",
+   "lat": 41.4254676,
+   "lon": 2.1540873,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "1189119DF3818G",
+   "lat": 41.4468534,
+   "lon": 2.1735315,
+   "code": "13b",
+   "cat": "no-pack",
+   "why": "block-ring dissolve refuses (L-676)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9011424DF2891A",
+   "lat": 41.3773816,
+   "lon": 2.1502069,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9310410DF2891A",
+   "lat": 41.3761333,
+   "lon": 2.1537961,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8718707DF2881H",
+   "lat": 41.3831692,
+   "lon": 2.1477702,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0918718DF3801H",
+   "lat": 41.3824978,
+   "lon": 2.1735065,
+   "code": "12b",
+   "cat": "refusal-terminal",
+   "why": "Arts. 320.3a/320.2a — tram de vial undefined, permanent (L-676)",
+   "inherited": null
+  },
+  {
+   "ref": "1260903DF3816A",
+   "lat": 41.4214123,
+   "lon": 2.1759392,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2059917DF3825G",
+   "lat": 41.4205556,
+   "lon": 2.1852801,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "9264110DF2896C",
+   "lat": 41.4245541,
+   "lon": 2.1518447,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2214404DF3821C",
+   "lat": 41.3805641,
+   "lon": 2.1883834,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "5156216DF2855E",
+   "lat": 41.4180048,
+   "lon": 2.1006627,
+   "code": "29",
+   "cat": "nonBuildable",
+   "why": "clau 29 is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "1173704DF3817C",
+   "lat": 41.4325308,
+   "lon": 2.1749961,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2570325DF3827B",
+   "lat": 41.4307183,
+   "lon": 2.1914615,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8362822DF2886A",
+   "lat": 41.4220669,
+   "lon": 2.1416248,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "9836953DF2893F",
+   "lat": 41.3998984,
+   "lon": 2.1595309,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1060203DF3816A",
+   "lat": 41.4213733,
+   "lon": 2.1732631,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "9411909DF2891A",
+   "lat": 41.3768582,
+   "lon": 2.1558859,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "7605322DF2870F",
+   "lat": 41.3714168,
+   "lon": 2.1330779,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0434101DF3803C",
+   "lat": 41.3975776,
+   "lon": 2.1656335,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1618414DF3811H",
+   "lat": 41.3837342,
+   "lon": 2.1808624,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2182903DF3828C",
+   "lat": 41.4416908,
+   "lon": 2.1866501,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8709726DF2880H",
+   "lat": 41.3743684,
+   "lon": 2.1475896,
+   "code": "7a",
+   "cat": "nonBuildable",
+   "why": "clau 7a is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "7908711DF2870H",
+   "lat": 41.3735816,
+   "lon": 2.1379152,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1352515DF3815C",
+   "lat": 41.414113,
+   "lon": 2.1778392,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "3537612DF3833F",
+   "lat": 41.4005441,
+   "lon": 2.2046017,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "3075979DF3837E",
+   "lat": 41.4344341,
+   "lon": 2.1979642,
+   "code": "5",
+   "cat": "nonBuildable",
+   "why": "clau 5 is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "3463791DF2836C",
+   "lat": 41.4255944,
+   "lon": 2.0878502,
+   "code": "20a",
+   "cat": "refusal-terminal",
+   "why": "Arts. 314.5/338.2/339 — missing SELECTOR not missing rule (L-673)",
+   "inherited": null
+  },
+  {
+   "ref": "1809234DF3910H",
+   "lat": 41.4666404,
+   "lon": 2.1820481,
+   "code": "20a/9",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "7852407DF2875D",
+   "lat": 41.4139165,
+   "lon": 2.1349916,
+   "code": "7b",
+   "cat": "nonBuildable",
+   "why": "clau 7b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "0475807DF3807E",
+   "lat": 41.4342175,
+   "lon": 2.1662222,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "6744614DF2864D",
+   "lat": 41.4067643,
+   "lon": 2.1223363,
+   "code": "20a/10",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "1457224DF3815E",
+   "lat": 41.4183981,
+   "lon": 2.1788348,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8351896DF2885A",
+   "lat": 41.4114975,
+   "lon": 2.1448261,
+   "code": "5",
+   "cat": "nonBuildable",
+   "why": "clau 5 is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "7623603DF2872D",
+   "lat": 41.3876164,
+   "lon": 2.1338351,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1521509DF3812B",
+   "lat": 41.3865047,
+   "lon": 2.1805649,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1332709DF3813A",
+   "lat": 41.3959267,
+   "lon": 2.1781741,
+   "code": "7a",
+   "cat": "nonBuildable",
+   "why": "clau 7a is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "0867602DF3806F",
+   "lat": 41.4277571,
+   "lon": 2.1718823,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "39575A9DF2835H",
+   "lat": 41.4231715,
+   "lon": 2.0904156,
+   "code": "20a",
+   "cat": "refusal-terminal",
+   "why": "Arts. 314.5/338.2/339 — missing SELECTOR not missing rule (L-673)",
+   "inherited": null
+  },
+  {
+   "ref": "9435108DF2893E",
+   "lat": 41.3984013,
+   "lon": 2.1546732,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1419602DF3811G",
+   "lat": 41.3843835,
+   "lon": 2.1793558,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "7407612DF2870G",
+   "lat": 41.3731109,
+   "lon": 2.1316855,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0036811DF3803E",
+   "lat": 41.3988839,
+   "lon": 2.1620384,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2694435DF3829D",
+   "lat": 41.4521356,
+   "lon": 2.1923079,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9865403DF2896F",
+   "lat": 41.4258658,
+   "lon": 2.1590399,
+   "code": "5",
+   "cat": "nonBuildable",
+   "why": "clau 5 is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "1189115DF3818G",
+   "lat": 41.4469154,
+   "lon": 2.1738385,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1330702DF3813A",
+   "lat": 41.3941863,
+   "lon": 2.1775217,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2477812DF3827E",
+   "lat": 41.4368531,
+   "lon": 2.1898966,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1381928DF3818A",
+   "lat": 41.4404639,
+   "lon": 2.1768879,
+   "code": "13b",
+   "cat": "no-pack",
+   "why": "block-ring dissolve refuses (L-676)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0774607DF3807D",
+   "lat": 41.4337077,
+   "lon": 2.1704318,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "7213213DF2871C",
+   "lat": 41.3788578,
+   "lon": 2.128722,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "4572311DF2847B",
+   "lat": 41.4311032,
+   "lon": 2.0956047,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "1954612DF3815D",
+   "lat": 41.4162074,
+   "lon": 2.1850325,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9964704DF2896D",
+   "lat": 41.425042,
+   "lon": 2.1606111,
+   "code": "20a/9",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "9738115DF2893H",
+   "lat": 41.4009837,
+   "lon": 2.1580124,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "7431408DF2873A",
+   "lat": 41.3948637,
+   "lon": 2.130798,
+   "code": "20a/8",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "8507521DF2880H",
+   "lat": 41.3734694,
+   "lon": 2.144318,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2226603DF3822E",
+   "lat": 41.3908852,
+   "lon": 2.1892575,
+   "code": "7a",
+   "cat": "nonBuildable",
+   "why": "clau 7a is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "7506310DF2870F",
+   "lat": 41.3724136,
+   "lon": 2.132108,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1644917DF3814D",
+   "lat": 41.4067139,
+   "lon": 2.1806809,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0281704DF3808A",
+   "lat": 41.440228,
+   "lon": 2.1646976,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "0734723DF3803D",
+   "lat": 41.3970507,
+   "lon": 2.1708006,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2287542DF3828G",
+   "lat": 41.4454665,
+   "lon": 2.1885211,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "9043122DF2894C",
+   "lat": 41.4047336,
+   "lon": 2.1496997,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1020706DF3812A",
+   "lat": 41.3847504,
+   "lon": 2.1748507,
+   "code": "12b",
+   "cat": "refusal-terminal",
+   "why": "Arts. 320.3a/320.2a — tram de vial undefined, permanent (L-676)",
+   "inherited": null
+  },
+  {
+   "ref": "7313612DF2871C",
+   "lat": 41.3786144,
+   "lon": 2.1305578,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1386619DF3818E",
+   "lat": 41.4445732,
+   "lon": 2.1773609,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9136203DF2893E",
+   "lat": 41.3991779,
+   "lon": 2.1508188,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "6738106DF2863H",
+   "lat": 41.4007064,
+   "lon": 2.1222703,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1450744DF3815A",
+   "lat": 41.4126132,
+   "lon": 2.1786929,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9862613DF2896D",
+   "lat": 41.423172,
+   "lon": 2.1596564,
+   "code": "20a/9",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "9941412DF2894B",
+   "lat": 41.4043979,
+   "lon": 2.1611064,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "6050109DF2865A",
+   "lat": 41.4100506,
+   "lon": 2.1140532,
+   "code": "20a/11",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "1181707DF3818A",
+   "lat": 41.4400291,
+   "lon": 2.1750674,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "7818506DF2871H",
+   "lat": 41.3836446,
+   "lon": 2.1363108,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "3136422DF3833E",
+   "lat": 41.4004552,
+   "lon": 2.199342,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1317607DF3811E",
+   "lat": 41.3822558,
+   "lon": 2.1783539,
+   "code": "12b",
+   "cat": "refusal-terminal",
+   "why": "Arts. 320.3a/320.2a — tram de vial undefined, permanent (L-676)",
+   "inherited": null
+  },
+  {
+   "ref": "1453408DF3815C",
+   "lat": 41.4151232,
+   "lon": 2.1791134,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "7902177DF2870B",
+   "lat": 41.368483,
+   "lon": 2.1375362,
+   "code": "7b",
+   "cat": "nonBuildable",
+   "why": "clau 7b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "4746506DF3844F",
+   "lat": 41.4083512,
+   "lon": 2.219437,
+   "code": "6b",
+   "cat": "nonBuildable",
+   "why": "clau 6b is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "0059601DF3805G",
+   "lat": 41.4195155,
+   "lon": 2.1599201,
+   "code": "6a",
+   "cat": "nonBuildable",
+   "why": "clau 6a is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "0218817DF3801G",
+   "lat": 41.383052,
+   "lon": 2.1649187,
+   "code": "12b",
+   "cat": "refusal-terminal",
+   "why": "Arts. 320.3a/320.2a — tram de vial undefined, permanent (L-676)",
+   "inherited": null
+  },
+  {
+   "ref": "6834514DF2863D",
+   "lat": 41.3977045,
+   "lon": 2.1248387,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9727403DF2892H",
+   "lat": 41.3918603,
+   "lon": 2.1587312,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1095318DF3819E",
+   "lat": 41.4530278,
+   "lon": 2.172955,
+   "code": "16",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "9510919DF2891B",
+   "lat": 41.3756868,
+   "lon": 2.156273,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "7904515DF2870D",
+   "lat": 41.3711329,
+   "lon": 2.1376123,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1748313DF3814H",
+   "lat": 41.4108449,
+   "lon": 2.1820627,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "4472918DF2847A",
+   "lat": 41.4305854,
+   "lon": 2.0936576,
+   "code": "20a",
+   "cat": "refusal-terminal",
+   "why": "Arts. 314.5/338.2/339 — missing SELECTOR not missing rule (L-673)",
+   "inherited": null
+  },
+  {
+   "ref": "7819910DF2871H",
+   "lat": 41.383903,
+   "lon": 2.135974,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "1021404DF3812A",
+   "lat": 41.3864236,
+   "lon": 2.1744223,
+   "code": "12b",
+   "cat": "refusal-terminal",
+   "why": "Arts. 320.3a/320.2a — tram de vial undefined, permanent (L-676)",
+   "inherited": null
+  },
+  {
+   "ref": "7918116DF2871H",
+   "lat": 41.3825556,
+   "lon": 2.1362406,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8065610DF2886E",
+   "lat": 41.4254912,
+   "lon": 2.138612,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "1864118DF3816D",
+   "lat": 41.4243343,
+   "lon": 2.182649,
+   "code": "18",
+   "cat": "envelope",
+   "why": "AMB Refós OV footprint + PLANTES (SIG-3)",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "61613D9DF2766A",
+   "lat": 41.3311201,
+   "lon": 2.1202755,
+   "code": "7c",
+   "cat": "nonBuildable",
+   "why": "clau 7c is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "7910909DF2871B",
+   "lat": 41.3762858,
+   "lon": 2.1372682,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "7006605DF2870E",
+   "lat": 41.3723428,
+   "lon": 2.1270914,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1172204DF3817C",
+   "lat": 41.4322568,
+   "lon": 2.1745403,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1847301DF3814H",
+   "lat": 41.4099225,
+   "lon": 2.1823748,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9978509DF2897H",
+   "lat": 41.4377037,
+   "lon": 2.1608702,
+   "code": "20a/8",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "61613L3DF2766A",
+   "lat": 41.3336928,
+   "lon": 2.113704,
+   "code": "7c",
+   "cat": "nonBuildable",
+   "why": "clau 7c is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "8250121DF2885A",
+   "lat": 41.4118804,
+   "lon": 2.1395808,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8642103DF2884B",
+   "lat": 41.4047306,
+   "lon": 2.1447456,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1579508DF3817H",
+   "lat": 41.4386651,
+   "lon": 2.1799017,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1846217DF3814F",
+   "lat": 41.4085346,
+   "lon": 2.1831103,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "0026428DF3802E",
+   "lat": 41.3903365,
+   "lon": 2.1616719,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9569405DF2896H",
+   "lat": 41.4292506,
+   "lon": 2.1560396,
+   "code": "15",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "7511533DF2871B",
+   "lat": 41.3772093,
+   "lon": 2.133213,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8110114DF2881A",
+   "lat": 41.375747,
+   "lon": 2.1392104,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "6734710DF2863D",
+   "lat": 41.3971992,
+   "lon": 2.1233251,
+   "code": "12",
+   "cat": "no-pack",
+   "why": "block-ring dissolve refuses (L-676)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "7657501DF2875H",
+   "lat": 41.4182848,
+   "lon": 2.1332888,
+   "code": "20a/9",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "1836415DF3813F",
+   "lat": 41.3993885,
+   "lon": 2.1837043,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9318914DF2891G",
+   "lat": 41.3829655,
+   "lon": 2.1545599,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0768347DF3806H",
+   "lat": 41.4285385,
+   "lon": 2.170307,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1271802DF3817A",
+   "lat": 41.4309059,
+   "lon": 2.1758854,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "3757904DF3835F",
+   "lat": 41.4192703,
+   "lon": 2.2060672,
+   "code": "18",
+   "cat": "envelope",
+   "why": "AMB Refós OV footprint + PLANTES (SIG-3)",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "9329913DF2892G",
+   "lat": 41.3931316,
+   "lon": 2.1544049,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1660208DF3816B",
+   "lat": 41.4211623,
+   "lon": 2.1806731,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1769803DF3816H",
+   "lat": 41.429276,
+   "lon": 2.1822508,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1958937DF3815H",
+   "lat": 41.4191441,
+   "lon": 2.1847162,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "0671603DF3807B",
+   "lat": 41.4313266,
+   "lon": 2.1688738,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "7789703DF2778H",
+   "lat": 41.3568797,
+   "lon": 2.1351434,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "9819105DF2891H",
+   "lat": 41.383943,
+   "lon": 2.1603324,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2376911DF3827E",
+   "lat": 41.4355873,
+   "lon": 2.189361,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "6635543DF2863F",
+   "lat": 41.3989374,
+   "lon": 2.1211153,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0248119DF3804G",
+   "lat": 41.4096349,
+   "lon": 2.1632311,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1655602DF3815F",
+   "lat": 41.4166465,
+   "lon": 2.1813269,
+   "code": "17/7",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "1260935DF3816A",
+   "lat": 41.4212948,
+   "lon": 2.1763721,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "4954127DF2845D",
+   "lat": 41.4131131,
+   "lon": 2.0992371,
+   "code": "20a/10",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "1130715DF3813A",
+   "lat": 41.3933712,
+   "lon": 2.1756987,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1859205DF3815H",
+   "lat": 41.4209257,
+   "lon": 2.183243,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "3440114DF3834A",
+   "lat": 41.4032373,
+   "lon": 2.2023164,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "6536809DF2863F",
+   "lat": 41.3987714,
+   "lon": 2.1200668,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0245501DF3804E",
+   "lat": 41.4080693,
+   "lon": 2.1649501,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9518813DF2891H",
+   "lat": 41.3828205,
+   "lon": 2.1565641,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "6327408DF2862G",
+   "lat": 41.3916143,
+   "lon": 2.1172376,
+   "code": "18",
+   "cat": "refusal-delegated",
+   "why": "Art. 306 — per-site approved volumetric ordering not held",
+   "inherited": "bcn-clau18"
+  },
+  {
+   "ref": "7759337DF2875H",
+   "lat": 41.4198545,
+   "lon": 2.1344507,
+   "code": "20a/9",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  },
+  {
+   "ref": "2858806DF3825H",
+   "lat": 41.4196091,
+   "lon": 2.1963938,
+   "code": "7a",
+   "cat": "nonBuildable",
+   "why": "clau 7a is a system / non-urbanitzable / composite overlay — outside the L-656 private-buildable set",
+   "inherited": null
+  },
+  {
+   "ref": "0569602DF3806H",
+   "lat": 41.4294364,
+   "lon": 2.1680221,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0152111DF3805A",
+   "lat": 41.4132929,
+   "lon": 2.1628162,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "8609805DF2880H",
+   "lat": 41.3747869,
+   "lon": 2.1455729,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9670418DF2897B",
+   "lat": 41.4303169,
+   "lon": 2.1567679,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "1012109DF3811A",
+   "lat": 41.3778579,
+   "lon": 2.1735658,
+   "code": "12b",
+   "cat": "refusal-terminal",
+   "why": "Arts. 320.3a/320.2a — tram de vial undefined, permanent (L-676)",
+   "inherited": null
+  },
+  {
+   "ref": "1139321DF3813G",
+   "lat": 41.4023615,
+   "lon": 2.17511,
+   "code": "14a",
+   "cat": "refusal-delegated",
+   "why": "derived plan / verd privat protegit",
+   "inherited": null
+  },
+  {
+   "ref": "9714826DF2891D",
+   "lat": 41.379445,
+   "lon": 2.1579645,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2941227DF3824B",
+   "lat": 41.4041576,
+   "lon": 2.1966452,
+   "code": "13a",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "7606729DF2870F",
+   "lat": 41.3722266,
+   "lon": 2.134162,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9646807DF2894F",
+   "lat": 41.4083229,
+   "lon": 2.1571007,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "6834902DF2863D",
+   "lat": 41.3974638,
+   "lon": 2.1234745,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9642111DF2894B",
+   "lat": 41.4043785,
+   "lon": 2.156662,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "9465609DF2896E",
+   "lat": 41.4253801,
+   "lon": 2.1553321,
+   "code": "13b",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "2572722DF3827B",
+   "lat": 41.4317874,
+   "lon": 2.1915429,
+   "code": "12",
+   "cat": "envelope",
+   "why": "Art. 242.2 profunditat constructed (ADR-0271)",
+   "inherited": "bcn-dissolve"
+  },
+  {
+   "ref": "0060249DF3806A",
+   "lat": 41.4210761,
+   "lon": 2.1620333,
+   "code": "20a/9",
+   "cat": "envelope",
+   "why": "native setback pack, Arts. 339-343",
+   "inherited": null
+  }
+ ]
+}

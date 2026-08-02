@@ -1,0 +1,228 @@
+{
+ "vc": [
+  {
+   "ine": "03130",
+   "name": "Tollos",
+   "layers": {
+    "zonificacion": {
+     "n": 3,
+     "props": {
+      "id": "40637",
+      "cod_ine_mun": "03039",
+      "noms_mun": "Benimassot",
+      "expediente": "00000000",
+      "denominaci": "DELIMITACIÓN",
+      "denominaci_val": "DELIMITACIÓN",
+      "clas_suelo": "SNU-P",
+      "zon_suelo": "ZRP-NA-MU",
+      "descripcio": "Zona rural protegida municipal (forestal, paisajística, medioambiental)",
+      "descripcio_val": "Zona rural protegida municipal (forestal, paisatgística, mediambiental)",
+      "dotacion": "",
+      "dot_descri": "",
+      "dot_descri_val": "",
+      "info_adici": "",
+      "info_adici_val": "",
+      "url_abs": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/2%20ALICANTE/03039%20BENIMASSOT"
+     }
+    },
+    "clasificacion": {
+     "n": 3,
+     "props": {
+      "id": "40637",
+      "cod_ine_mun": "03039",
+      "noms_mun": "Benimassot",
+      "expediente": "00000000",
+      "denominaci": "DELIMITACIÓN",
+      "denominaci_val": "DELIMITACIÓN",
+      "clas_suelo": "SNU-P",
+      "zon_suelo": "ZRP-NA-MU",
+      "descripcio": "Zona rural protegida municipal (forestal, paisajística, medioambiental)",
+      "descripcio_val": "Zona rural protegida municipal (forestal, paisatgística, mediambiental)",
+      "dotacion": "",
+      "dot_descri": "",
+      "dot_descri_val": "",
+      "info_adici": "",
+      "info_adici_val": "",
+      "url_abs": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/2%20ALICANTE/03039%20BENIMASSOT"
+     }
+    }
+   }
+  },
+  {
+   "ine": "12126",
+   "name": "Vall de Uxó",
+   "layers": {
+    "zonificacion": {
+     "n": 3,
+     "props": {
+      "id": "50",
+      "cod_ine_mun": "12136",
+      "noms_mun": "la Vilavella",
+      "expediente": "20000896",
+      "denominaci": "Plan Parcial de Mejora Polígono Industrial",
+      "denominaci_val": "Plan Parcial de Mejora Polígono Industrial",
+      "clas_suelo": "SUZ",
+      "zon_suelo": "ZND-IN",
+      "descripcio": "Zona de nuevo desarrollo industrial",
+      "descripcio_val": "Zona de nou desenvolupament industrial",
+      "dotacion": "",
+      "dot_descri": "",
+      "dot_descri_val": "",
+      "info_adici": "",
+      "info_adici_val": "",
+      "url_abs": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/3%20CASTELL%d3N/12136%20VILAVELLA"
+     }
+    },
+    "clasificacion": {
+     "n": 3,
+     "props": {
+      "id": "50",
+      "cod_ine_mun": "12136",
+      "noms_mun": "la Vilavella",
+      "expediente": "20000896",
+      "denominaci": "Plan Parcial de Mejora Polígono Industrial",
+      "denominaci_val": "Plan Parcial de Mejora Polígono Industrial",
+      "clas_suelo": "SUZ",
+      "zon_suelo": "ZND-IN",
+      "descripcio": "Zona de nuevo desarrollo industrial",
+      "descripcio_val": "Zona de nou desenvolupament industrial",
+      "dotacion": "",
+      "dot_descri": "",
+      "dot_descri_val": "",
+      "info_adici": "",
+      "info_adici_val": "",
+      "url_abs": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/3%20CASTELL%d3N/12136%20VILAVELLA"
+     }
+    }
+   }
+  },
+  {
+   "ine": "46190",
+   "name": "Paterna",
+   "layers": {
+    "zonificacion": {
+     "n": 3,
+     "props": {
+      "id": "60983",
+      "cod_ine_mun": "46250",
+      "noms_mun": "València",
+      "expediente": "19880578",
+      "denominaci": "Plan general",
+      "denominaci_val": "Plan general",
+      "clas_suelo": "SNU-P",
+      "zon_suelo": "ZRP-CR",
+      "descripcio": "Zona rural protegida carreteras",
+      "descripcio_val": "Zona rural protegida carreteres",
+      "dotacion": "PCV",
+      "dot_descri": "Dotaciones red primaria comunicaciones red viaria (dominio público)",
+      "dot_descri_val": "Dotacions xarxa primària comunicacions xarxa viària (domini públic)",
+      "info_adici": "",
+      "info_adici_val": "",
+      "url_abs": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/4%20VALENCIA/46250%20VALENCIA"
+     }
+    },
+    "clasificacion": {
+     "n": 3,
+     "props": {
+      "id": "60983",
+      "cod_ine_mun": "46250",
+      "noms_mun": "València",
+      "expediente": "19880578",
+      "denominaci": "Plan general",
+      "denominaci_val": "Plan general",
+      "clas_suelo": "SNU-P",
+      "zon_suelo": "ZRP-CR",
+      "descripcio": "Zona rural protegida carreteras",
+      "descripcio_val": "Zona rural protegida carreteres",
+      "dotacion": "PCV",
+      "dot_descri": "Dotaciones red primaria comunicaciones red viaria (dominio público)",
+      "dot_descri_val": "Dotacions xarxa primària comunicacions xarxa viària (domini públic)",
+      "info_adici": "",
+      "info_adici_val": "",
+      "url_abs": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/4%20VALENCIA/46250%20VALENCIA"
+     }
+    }
+   }
+  }
+ ],
+ "ib": [
+  {
+   "where": "MUNICIPI='EIVISSA'",
+   "res": {
+    "n": 3,
+    "props": {
+     "OBJECTID": 15380,
+     "CODIPLA": "P28_CAS_SERRES",
+     "CODICLAS": "SU",
+     "NOM": "Assistencial",
+     "CODIAJ": "E-AS",
+     "CODIMUIB": "EQ_AS_E_AS",
+     "CODIMUIB_G": "EQ_AS",
+     "CODIMUNI": "026",
+     "MUNICIPI": "EIVISSA",
+     "OBS": "Del municipi d'Eivissa el MUIB NO mostra l'actual normativa vigent. Consultau la informació proporcionada per l'Ajuntament",
+     "DINIVIGEN": "15/11/1976",
+     "DFIVIGEN": 99999999,
+     "IDENTITAT": 271763,
+     "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=271763",
+     "Shape_Length": 325.41934828245144,
+     "Shape_Area": 5317.483032029109
+    }
+   }
+  },
+  {
+   "where": "CODIMUNI='026'",
+   "res": {
+    "n": 3,
+    "props": {
+     "OBJECTID": 15380,
+     "CODIPLA": "P28_CAS_SERRES",
+     "CODICLAS": "SU",
+     "NOM": "Assistencial",
+     "CODIAJ": "E-AS",
+     "CODIMUIB": "EQ_AS_E_AS",
+     "CODIMUIB_G": "EQ_AS",
+     "CODIMUNI": "026",
+     "MUNICIPI": "EIVISSA",
+     "OBS": "Del municipi d'Eivissa el MUIB NO mostra l'actual normativa vigent. Consultau la informació proporcionada per l'Ajuntament",
+     "DINIVIGEN": "15/11/1976",
+     "DFIVIGEN": 99999999,
+     "IDENTITAT": 271763,
+     "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=271763",
+     "Shape_Length": 325.41934828245144,
+     "Shape_Area": 5317.483032029109
+    }
+   }
+  },
+  {
+   "where": "MUNICIPI LIKE '%EIVISSA%'",
+   "res": {
+    "n": 3,
+    "props": {
+     "OBJECTID": 15380,
+     "CODIPLA": "P28_CAS_SERRES",
+     "CODICLAS": "SU",
+     "NOM": "Assistencial",
+     "CODIAJ": "E-AS",
+     "CODIMUIB": "EQ_AS_E_AS",
+     "CODIMUIB_G": "EQ_AS",
+     "CODIMUNI": "026",
+     "MUNICIPI": "EIVISSA",
+     "OBS": "Del municipi d'Eivissa el MUIB NO mostra l'actual normativa vigent. Consultau la informació proporcionada per l'Ajuntament",
+     "DINIVIGEN": "15/11/1976",
+     "DFIVIGEN": 99999999,
+     "IDENTITAT": 271763,
+     "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=271763",
+     "Shape_Length": 325.41934828245144,
+     "Shape_Area": 5317.483032029109
+    }
+   }
+  },
+  {
+   "where": "MUNICIPI LIKE '%IBIZA%'",
+   "res": {
+    "n": 0
+   }
+  }
+ ]
+}

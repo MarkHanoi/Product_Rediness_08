@@ -1,0 +1,360 @@
+{
+ "vc": [
+  {
+   "ine": "03130",
+   "name": "Tollos",
+   "rows": [
+    {
+     "tn": "ms:Planeamiento.Zonificacion",
+     "axis": "lonlat",
+     "fmt": "geojson",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Zonificacion",
+     "axis": "lonlat",
+     "fmt": "application/json",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Zonificacion",
+     "axis": "latlon",
+     "fmt": "geojson",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Zonificacion",
+     "axis": "latlon",
+     "fmt": "application/json",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Zonificacion",
+     "result": "EMPTY-OR-FAIL"
+    },
+    {
+     "tn": "ms:Planeamiento.Clasificacion",
+     "axis": "lonlat",
+     "fmt": "geojson",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Clasificacion",
+     "axis": "lonlat",
+     "fmt": "application/json",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Clasificacion",
+     "axis": "latlon",
+     "fmt": "geojson",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Clasificacion",
+     "axis": "latlon",
+     "fmt": "application/json",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Clasificacion",
+     "result": "EMPTY-OR-FAIL"
+    }
+   ]
+  },
+  {
+   "ine": "12126",
+   "name": "Vall de Uxó",
+   "rows": [
+    {
+     "tn": "ms:Planeamiento.Zonificacion",
+     "axis": "lonlat",
+     "fmt": "geojson",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Zonificacion",
+     "axis": "lonlat",
+     "fmt": "application/json",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Zonificacion",
+     "axis": "latlon",
+     "fmt": "geojson",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Zonificacion",
+     "axis": "latlon",
+     "fmt": "application/json",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Zonificacion",
+     "result": "EMPTY-OR-FAIL"
+    },
+    {
+     "tn": "ms:Planeamiento.Clasificacion",
+     "axis": "lonlat",
+     "fmt": "geojson",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Clasificacion",
+     "axis": "lonlat",
+     "fmt": "application/json",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Clasificacion",
+     "axis": "latlon",
+     "fmt": "geojson",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Clasificacion",
+     "axis": "latlon",
+     "fmt": "application/json",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Clasificacion",
+     "result": "EMPTY-OR-FAIL"
+    }
+   ]
+  },
+  {
+   "ine": "46190",
+   "name": "Paterna",
+   "rows": [
+    {
+     "tn": "ms:Planeamiento.Zonificacion",
+     "axis": "lonlat",
+     "fmt": "geojson",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Zonificacion",
+     "axis": "lonlat",
+     "fmt": "application/json",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Zonificacion",
+     "axis": "latlon",
+     "fmt": "geojson",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Zonificacion",
+     "axis": "latlon",
+     "fmt": "application/json",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Zonificacion",
+     "result": "EMPTY-OR-FAIL"
+    },
+    {
+     "tn": "ms:Planeamiento.Clasificacion",
+     "axis": "lonlat",
+     "fmt": "geojson",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Clasificacion",
+     "axis": "lonlat",
+     "fmt": "application/json",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Clasificacion",
+     "axis": "latlon",
+     "fmt": "geojson",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Clasificacion",
+     "axis": "latlon",
+     "fmt": "application/json",
+     "fail": "OWS-EXCEPTION <?xml version=\"1.0\" encoding=\"UTF-8\"?> <ows:ExceptionReport xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ows=\"http://www.opengis.net/ows\" version"
+    },
+    {
+     "tn": "ms:Planeamiento.Clasificacion",
+     "result": "EMPTY-OR-FAIL"
+    }
+   ]
+  }
+ ],
+ "ib": [
+  {
+   "ine": "07026",
+   "name": "Ibiza",
+   "parsed": {
+    "n": 3,
+    "props": {
+     "OBJECTID": 75,
+     "CODIPLA": "NNSS_2011_STAEUL",
+     "CODICLAS": "SU",
+     "NOM": "Residencial 1",
+     "CODIAJ": "R1",
+     "CODIMUIB": "RE_EP_R1",
+     "CODIMUIB_G": "RE_EP",
+     "CODIMUNI": "054",
+     "MUNICIPI": "SANTA EULÀRIA DES RIU",
+     "OBS": null,
+     "DINIVIGEN": "01/01/2011",
+     "DFIVIGEN": 99999999,
+     "IDENTITAT": 290712,
+     "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=290712",
+     "Shape_Length": 827.8894711518567,
+     "Shape_Area": 37448.50924137834
+    }
+   }
+  }
+ ],
+ "ga": [
+  {
+   "layers": [
+    "0:Entrada",
+    "1:03_PlaneamientoUrbanistico.jpg",
+    "2:Urbanismo",
+    "3:LimitesConcellosIURB_V9",
+    "4:DMT_Lineas",
+    "5:Ámbito",
+    "6:AmbitoPOL",
+    "7:Límites municipais",
+    "8:SUNc",
+    "9:Cartografia",
+    "10:Toponimia",
+    "11:INEambitoGestion",
+    "12:NucleosIdentidadLitoral",
+    "13:ToponimiaInterior5k",
+    "14:PRAIA",
+    "15:ToponimiaCostaRecuadro",
+    "16:Portos",
+    "17:Edificacións",
+    "18:Sistemas Generales",
+    "19:Portos",
+    "20:Aeroportos",
+    "21:SGAeroportuarios",
+    "22:Ferrocarriles",
+    "23:FERROCARRIL",
+    "24:AVE",
+    "25:Estradas",
+    "26:Pistas e camiños",
+    "27:Hidrografía",
+    "28:SUc",
+    "29:IURB_V9"
+   ]
+  }
+ ],
+ "cn": [
+  {
+   "lyr": "ZONIF",
+   "http": 200,
+   "body": "GetFeatureInfo results: Layer 'ZONIF' Feature 491: ePlanZON = 'B.b.2' cod = '28' ntZON = '9' ApdoZON = '222' cDocZON = '1506' codZON = '485_484_484' DocZON = 'Aprobación Definitiva de Revisión del Plan Insular de Ordenación de Gran Canaria, publicado el 19/01/2023 en "
+  },
+  {
+   "lyr": "ZON",
+   "http": 200,
+   "body": "GetFeatureInfo results: Search returned no results. "
+  },
+  {
+   "lyr": "CLASIF",
+   "http": 200,
+   "body": "GetFeatureInfo results: Search returned no results. "
+  },
+  {
+   "lyr": "EDIF",
+   "http": 200,
+   "body": "GetFeatureInfo results: Search returned no results. "
+  }
+ ],
+ "hunt2": [
+  {
+   "cc": "MD",
+   "url": "https://idem.madrid.org/arcgis/rest/services?f=json",
+   "http": 404,
+   "outcome": "UNKNOWN(http 404)"
+  },
+  {
+   "cc": "MD",
+   "url": "https://idem.madrid.org/cartografia/rest/services?f=json",
+   "http": 404,
+   "outcome": "UNKNOWN(http 404)"
+  },
+  {
+   "cc": "MD",
+   "url": "https://geoportal.comunidad.madrid/arcgis/rest/services?f=json",
+   "http": null,
+   "outcome": "UNKNOWN(TypeError)"
+  },
+  {
+   "cc": "EX",
+   "url": "https://sitex.juntaex.es/arcgis/rest/services?f=json",
+   "http": 404,
+   "outcome": "UNKNOWN(http 404)"
+  },
+  {
+   "cc": "EX",
+   "url": "https://www.ideex.es/geoserver/wfs?service=WFS&version=2.0.0&request=GetCapabilities",
+   "http": 404,
+   "outcome": "UNKNOWN(http 404)"
+  },
+  {
+   "cc": "CM",
+   "url": "https://ide.castillalamancha.es/geoserver/wfs?service=WFS&version=2.0.0&request=GetCapabilities",
+   "http": null,
+   "outcome": "UNKNOWN(TypeError)"
+  },
+  {
+   "cc": "CM",
+   "url": "https://urbanismo.castillalamancha.es/geoserver/wfs?service=WFS&version=2.0.0&request=GetCapabilities",
+   "http": 404,
+   "outcome": "UNKNOWN(http 404)"
+  },
+  {
+   "cc": "CN",
+   "url": "https://idecan2.grafcan.es/ServicioWMS/Planeamiento?service=WMS&version=1.1.1&request=GetCapabilities",
+   "http": 200,
+   "outcome": "WFS/WMS 21",
+   "detail": [
+    "OGC:WMS",
+    "WMS_Planeamiento",
+    "SUSP",
+    "default",
+    "AMB",
+    "AFE",
+    "GES",
+    "DES",
+    "EDIFL",
+    "TRAP",
+    "TRA",
+    "EDIF",
+    "CAT",
+    "EST",
+    "ZUSO",
+    "UG",
+    "CLASIF",
+    "CLA",
+    "ZONIF",
+    "ZON",
+    "CLASI"
+   ]
+  },
+  {
+   "cc": "AN",
+   "url": "https://www.ideandalucia.es/services/DERA_g11_pat/wfs?service=WFS&version=2.0.0&request=GetCapabilities",
+   "http": 404,
+   "outcome": "UNKNOWN(http 404)"
+  },
+  {
+   "cc": "AN",
+   "url": "https://ws132.juntadeandalucia.es/situadifusion/rest/services/situa/MapServer?f=json",
+   "http": 404,
+   "outcome": "UNKNOWN(http 404)"
+  }
+ ]
+}

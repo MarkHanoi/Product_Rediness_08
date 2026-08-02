@@ -1,0 +1,31 @@
+<html>
+	<body> 
+		<script type="text/javascript">
+		   //alert( "Titulo: " + document.referrer );
+		   if (document.URL == "http://geoportalplanejament.amb.cat/" ||
+				document.URL == "https://geoportalplanejament.amb.cat/" ||
+				document.URL == "http://geoportalplanejament.amb.cat/AppGeoportalPlanejament" || 
+				document.URL == "https://geoportalplanejament.amb.cat/AppGeoportalPlanejament")
+				
+				window.location.replace("https://geoportalplanejament.amb.cat/AppGeoportalPlanejament2/index.html");
+				
+		   else if (document.URL == "http://geoportalcartografia.amb.cat/" || 
+					document.URL == "https://geoportalcartografia.amb.cat/" ||
+					document.URL == "http://geoportalcartografia.amb.cat/AppGeoportalCartografia" ||
+					document.URL == "https://geoportalcartografia.amb.cat/AppGeoportalCartografia")
+					
+				window.location.replace("https://geoportalcartografia.amb.cat/AppGeoportalCartografia2/index.html");  
+			
+			// redirecció al Web especial de la IDEAMB, només s'utilitza quan l'adreça cercada és "ide.amb.cat" sense
+			// espcificar cap dels seus components (Visor, Catàleg o Metadades)
+			else if (document.URL == "http://ide.amb.cat/" ||
+					 document.URL == "https://ide.amb.cat/" )
+				window.location.replace("https://www.amb.cat/web/area-metropolitana/dades-espacials");
+			else if (document.URL == "http://infopae.amb.cat/" ||
+					 document.URL == "https://infopae.amb.cat/" )
+				window.location.replace("https://agenciaeconomica.amb.cat/ca/projectes/detall/-/projecteADE/7222133/7154508");
+			else	
+				window.location.replace("http://www.amb.cat");  
+		</script>
+	</body>
+</html>

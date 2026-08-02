@@ -1,0 +1,3644 @@
+{
+ "ok": true,
+ "city": "madrid",
+ "ine": "28079",
+ "service": "sigma.madrid.es NORMAS_ZONALES/MapServer/0 · field AMB_TX_ETIQ",
+ "measuredAt": "2026-08-02T09:17:08.331Z",
+ "seed": 20260802,
+ "requested": 400,
+ "parcelPopulationTotal": 141064,
+ "parcelPopulationUrban": 137382,
+ "sampled": 400,
+ "assessed": 400,
+ "transportFailures": {},
+ "counts": {
+  "envelope": 48,
+  "refusal-terminal": 106,
+  "refusal-delegated": 0,
+  "refusal-external": 0,
+  "no-pack": 133,
+  "nonBuildable": 113
+ },
+ "denominatorPrivateBuildableParcels": 287,
+ "pct": {
+  "ofBuildable": {
+   "envelope": 0.1672473867595819,
+   "refusalTerminal": 0.3693379790940767,
+   "refusalDelegated": 0,
+   "refusalExternal": 0,
+   "refusalTotal": 0.3693379790940767,
+   "determination": 0.5365853658536586,
+   "noPack": 0.4634146341463415
+  },
+  "ofAllUrbanParcels": {
+   "envelope": 0.12,
+   "refusalTotal": 0.265,
+   "determination": 0.385,
+   "noPack": 0.3325,
+   "nonBuildable": 0.2825
+  }
+ },
+ "inheritedApplied": {},
+ "rows": [
+  {
+   "ref": "7100715VK3770A",
+   "lat": 40.3762907,
+   "lon": -3.7411211,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "7915426VK3771F",
+   "lat": 40.3906794,
+   "lon": -3.7326676,
+   "code": "9.1",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0881807VK4608B",
+   "lat": 40.3590934,
+   "lon": -3.6975984,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "8958303VK3785H",
+   "lat": 40.4295625,
+   "lon": -3.720961,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "0206323VK4700E",
+   "lat": 40.3824624,
+   "lon": -3.7055457,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0276978VK5607E",
+   "lat": 40.3563133,
+   "lon": -3.5865487,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "6692503VK4669D",
+   "lat": 40.3707605,
+   "lon": -3.6283229,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "8009903VK3780G",
+   "lat": 40.3849958,
+   "lon": -3.7309158,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "8109421VK3880G",
+   "lat": 40.4754793,
+   "lon": -3.7311116,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "7636104VK3773F",
+   "lat": 40.4091131,
+   "lon": -3.7362473,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "2463314VK4726C",
+   "lat": 40.4338777,
+   "lon": -3.6806142,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "8229615VK4782G",
+   "lat": 40.4032876,
+   "lon": -3.6106716,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "3588720VK4738H",
+   "lat": 40.4563338,
+   "lon": -3.666863,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "7101117VK3770A",
+   "lat": 40.3775952,
+   "lon": -3.7429289,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "7552704VK4775B",
+   "lat": 40.4242928,
+   "lon": -3.6191908,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "8269506VK4786G",
+   "lat": 40.4400969,
+   "lon": -3.6106488,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "7141601VK4774A",
+   "lat": 40.4144278,
+   "lon": -3.6239916,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "8383618VK4788C",
+   "lat": 40.453193,
+   "lon": -3.6088667,
+   "code": "8.3.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "7282425VK4778C",
+   "lat": 40.451474,
+   "lon": -3.6239388,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0985902VK4608F",
+   "lat": 40.3629743,
+   "lon": -3.6992812,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "0920833VK4702B",
+   "lat": 40.3940548,
+   "lon": -3.6979818,
+   "code": "1.4",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "0199450VK4709G",
+   "lat": 40.4665616,
+   "lon": -3.706826,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0121913VK5702A",
+   "lat": 40.3969684,
+   "lon": -3.5886796,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0267507VK4606G",
+   "lat": 40.3474803,
+   "lon": -3.7042278,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "1270706VK4616G",
+   "lat": 40.3497736,
+   "lon": -3.6924229,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "5909506VK4750H",
+   "lat": 40.3852616,
+   "lon": -3.6380283,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "7092905VK3679A",
+   "lat": 40.3695585,
+   "lon": -3.7433253,
+   "code": "9.4.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "5188107VK4758G",
+   "lat": 40.4563395,
+   "lon": -3.648397,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "7660176VK4776B",
+   "lat": 40.4301244,
+   "lon": -3.6196134,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "8237801VK4783E",
+   "lat": 40.4107747,
+   "lon": -3.6116401,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "4818529VK3741H",
+   "lat": 40.3927511,
+   "lon": -3.768543,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "0353630VK4705C",
+   "lat": 40.4249505,
+   "lon": -3.7039524,
+   "code": "1.2",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "8136506VK4783E",
+   "lat": 40.4099956,
+   "lon": -3.6118183,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "5058912VK4755G",
+   "lat": 40.4297069,
+   "lon": -3.6494098,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0402205VK4800A",
+   "lat": 40.4690789,
+   "lon": -3.7040589,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "6396622VK3669E",
+   "lat": 40.3730022,
+   "lon": -3.7502841,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0781613VK5708B",
+   "lat": 40.4512989,
+   "lon": -3.5826908,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "4312733VK4841A",
+   "lat": 40.4780342,
+   "lon": -3.6572521,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "2594801VK4729C",
+   "lat": 40.4618413,
+   "lon": -3.6796631,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0693602VK4709D",
+   "lat": 40.460932,
+   "lon": -3.7006709,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3517204VK4731F",
+   "lat": 40.3929152,
+   "lon": -3.6664605,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3725104VK4732F",
+   "lat": 40.3996491,
+   "lon": -3.664316,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "5099211VK4759G",
+   "lat": 40.4665012,
+   "lon": -3.6500189,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "6920743VK3762B",
+   "lat": 40.3943476,
+   "lon": -3.7434596,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9968915VK3796H",
+   "lat": 40.4376295,
+   "lon": -3.7090076,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "4483304VK3748C",
+   "lat": 40.451547,
+   "lon": -3.7747866,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "4704904VK4740D",
+   "lat": 40.3810678,
+   "lon": -3.6522336,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "1901407VK4810B",
+   "lat": 40.4679395,
+   "lon": -3.6857562,
+   "code": "3.1.b",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "3930819VK4733B",
+   "lat": 40.4038519,
+   "lon": -3.6621287,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3007503VK4730G",
+   "lat": 40.3840369,
+   "lon": -3.6717525,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0522915VK4702B",
+   "lat": 40.3968099,
+   "lon": -3.7023202,
+   "code": "3.1",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "5196325VK3759E",
+   "lat": 40.4629031,
+   "lon": -3.7659973,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "4190605VK3749A",
+   "lat": 40.4577262,
+   "lon": -3.7778535,
+   "code": "8.3.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "9984904VK3798D",
+   "lat": 40.4524609,
+   "lon": -3.7092158,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "8416768VK3881E",
+   "lat": 40.480359,
+   "lon": -3.7269383,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "3750211VK4735B",
+   "lat": 40.4221107,
+   "lon": -3.6648741,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "45339E7VK4743D",
+   "lat": 40.406103,
+   "lon": -3.6528687,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9999718VK4799H",
+   "lat": 40.4667749,
+   "lon": -3.5910599,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0729201VK4702H",
+   "lat": 40.4032234,
+   "lon": -3.7001235,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "7398914VK4679G",
+   "lat": 40.3760982,
+   "lon": -3.6220518,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "4752319VK4745D",
+   "lat": 40.4246645,
+   "lon": -3.6526596,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "2122207VK4722A",
+   "lat": 40.3984482,
+   "lon": -3.6818156,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "8003431VK3780C",
+   "lat": 40.3795464,
+   "lon": -3.7320123,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "4103921VK4840C",
+   "lat": 40.470203,
+   "lon": -3.6607044,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "8221109VK3782A",
+   "lat": 40.3956311,
+   "lon": -3.728976,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "6441910VK4864A",
+   "lat": 40.5043408,
+   "lon": -3.6323431,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "1960524VK4616B",
+   "lat": 40.3419459,
+   "lon": -3.6846392,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "5456801VK4755E",
+   "lat": 40.4277688,
+   "lon": -3.6439855,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "5686002VK4758F",
+   "lat": 40.454171,
+   "lon": -3.6441434,
+   "code": "8.2.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "6115558VK4861E",
+   "lat": 40.4831325,
+   "lon": -3.6366701,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "8340313VK4884A",
+   "lat": 40.5073568,
+   "lon": -3.6138846,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "4295503VK4649E",
+   "lat": 40.3728962,
+   "lon": -3.6572748,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9402528VK3790C",
+   "lat": 40.3787742,
+   "lon": -3.7137684,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "1532904VK4813D",
+   "lat": 40.4961669,
+   "lon": -3.6910855,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0781622VK5708B",
+   "lat": 40.450715,
+   "lon": -3.5822033,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "94946C7VK3699C",
+   "lat": 40.3714562,
+   "lon": -3.7147497,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "3809708VK3730H",
+   "lat": 40.3835285,
+   "lon": -3.7798824,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "1749405VK4714H",
+   "lat": 40.421383,
+   "lon": -3.6879824,
+   "code": "1.4",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "4391406VK3749A",
+   "lat": 40.4599492,
+   "lon": -3.7737474,
+   "code": "8.3.c",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "4930806VK4743B",
+   "lat": 40.4048172,
+   "lon": -3.6505423,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9202513VK3890C",
+   "lat": 40.469332,
+   "lon": -3.7165238,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "8748509VK4784H",
+   "lat": 40.4214715,
+   "lon": -3.6045572,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "7352349VK4775C",
+   "lat": 40.4252405,
+   "lon": -3.6219752,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "4033948VK4743C",
+   "lat": 40.4069877,
+   "lon": -3.6599643,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "9249702VK3794G",
+   "lat": 40.421039,
+   "lon": -3.7176065,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "0740903VK4704B",
+   "lat": 40.4134361,
+   "lon": -3.6993733,
+   "code": "1.1",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "3877417VK4737H",
+   "lat": 40.4466479,
+   "lon": -3.6628496,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "1744602VK4814D",
+   "lat": 40.5074941,
+   "lon": -3.6889877,
+   "code": "8.2.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0025301VK5702E",
+   "lat": 40.4013622,
+   "lon": -3.5915059,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0866906VK4706F",
+   "lat": 40.4365147,
+   "lon": -3.6984495,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "6218607VK4861G",
+   "lat": 40.4839624,
+   "lon": -3.6349369,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "5121307VK4752A",
+   "lat": 40.3965425,
+   "lon": -3.6473876,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "0669201VK4606H",
+   "lat": 40.3497116,
+   "lon": -3.701819,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "1175607VK4617E",
+   "lat": 40.3545204,
+   "lon": -3.6938622,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "46107E3VK3741B",
+   "lat": 40.386761,
+   "lon": -3.770132,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "1074107VK4717C",
+   "lat": 40.4434941,
+   "lon": -3.6961114,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "0593303VK4709D",
+   "lat": 40.4615005,
+   "lon": -3.7033328,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "4890901VK4749B",
+   "lat": 40.4587756,
+   "lon": -3.6523701,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "7730301VK4873B",
+   "lat": 40.4952153,
+   "lon": -3.6181094,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "9250522VK3695A",
+   "lat": 40.3313891,
+   "lon": -3.7153414,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "8217614VK3881E",
+   "lat": 40.4821682,
+   "lon": -3.7297647,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "2503943VK4820C",
+   "lat": 40.4702958,
+   "lon": -3.6813329,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0738603VK4703H",
+   "lat": 40.4114232,
+   "lon": -3.6992226,
+   "code": "1.1",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "9279130VK4797G",
+   "lat": 40.4497259,
+   "lon": -3.59994,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "1693204VK4619D",
+   "lat": 40.370677,
+   "lon": -3.6885712,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "3887123VK3738F",
+   "lat": 40.4546261,
+   "lon": -3.7822182,
+   "code": "8.3.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "5436238VK4753E",
+   "lat": 40.4093355,
+   "lon": -3.6430897,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "4806508VK3740F",
+   "lat": 40.3826806,
+   "lon": -3.7679968,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9335115VK3793E",
+   "lat": 40.4080677,
+   "lon": -3.7160047,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "2020905VK4812B",
+   "lat": 40.4857505,
+   "lon": -3.6859763,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "1151808VK4715A",
+   "lat": 40.4227728,
+   "lon": -3.6944114,
+   "code": "1.1",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "45091A0VK3740H",
+   "lat": 40.3878421,
+   "lon": -3.7725441,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "5060604VK4756A",
+   "lat": 40.4313929,
+   "lon": -3.6484054,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "7109901VK3770G",
+   "lat": 40.3854214,
+   "lon": -3.7424008,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0248502VK4704G",
+   "lat": 40.4209279,
+   "lon": -3.7051597,
+   "code": "1.1",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "0586607VK5608F",
+   "lat": 40.365259,
+   "lon": -3.5837027,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "9230204VK4793A",
+   "lat": 40.4045834,
+   "lon": -3.5994426,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "8312410VK3781C",
+   "lat": 40.3878888,
+   "lon": -3.7275167,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "1125210VK4712E",
+   "lat": 40.3993993,
+   "lon": -3.694511,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "3044805VK4734C",
+   "lat": 40.4164895,
+   "lon": -3.6720636,
+   "code": "1.4",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "1874504VK5717D",
+   "lat": 40.4446756,
+   "lon": -3.5687256,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "2755907VK4725F",
+   "lat": 40.4271417,
+   "lon": -3.6758671,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "3824403VK4732D",
+   "lat": 40.3992526,
+   "lon": -3.6630819,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "2827404VK5722H",
+   "lat": 40.4018381,
+   "lon": -3.5567098,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "2866409VK4726F",
+   "lat": 40.4371562,
+   "lon": -3.6752971,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "60920D7VK4759B",
+   "lat": 40.4603576,
+   "lon": -3.6374915,
+   "code": "8.2.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "4103912VK4840C",
+   "lat": 40.4697591,
+   "lon": -3.6603689,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "4483313VK3748C",
+   "lat": 40.451543,
+   "lon": -3.7750508,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "0488102VK4608G",
+   "lat": 40.3661278,
+   "lon": -3.7035015,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "6357503VK4765G",
+   "lat": 40.4286373,
+   "lon": -3.6338486,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "6959536VK4765H",
+   "lat": 40.4309349,
+   "lon": -3.6266607,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "1006402VK5810E",
+   "lat": 40.4739742,
+   "lon": -3.5782696,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0762908VK4706B",
+   "lat": 40.4326319,
+   "lon": -3.700368,
+   "code": "1.4",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "3911207VK4831B",
+   "lat": 40.4775232,
+   "lon": -3.662674,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "0191509VK4709A",
+   "lat": 40.4587723,
+   "lon": -3.7069013,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3210915VK4731A",
+   "lat": 40.3862618,
+   "lon": -3.6703493,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "6372201VK4767A",
+   "lat": 40.4425909,
+   "lon": -3.634465,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "5185321VK4758E",
+   "lat": 40.4544082,
+   "lon": -3.6476252,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "6807405VK3760H",
+   "lat": 40.3832078,
+   "lon": -3.7452046,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3611024VK4831D",
+   "lat": 40.4784546,
+   "lon": -3.6665556,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "2775802VK4727F",
+   "lat": 40.4447515,
+   "lon": -3.6763163,
+   "code": "1.6",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "8533201VK3783D",
+   "lat": 40.4045594,
+   "lon": -3.7275591,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "1853101VK4715D",
+   "lat": 40.425081,
+   "lon": -3.6874831,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "2676730VK5727F",
+   "lat": 40.4457629,
+   "lon": -3.5606248,
+   "code": "9.5",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "2993916VK4729D",
+   "lat": 40.4613801,
+   "lon": -3.6736673,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "5462929VK4756A",
+   "lat": 40.433054,
+   "lon": -3.644501,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "4835709VK4743F",
+   "lat": 40.4094936,
+   "lon": -3.6503177,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "8157505VK3785G",
+   "lat": 40.4283807,
+   "lon": -3.7297888,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "3991414VK4839B",
+   "lat": 40.4592975,
+   "lon": -3.6631768,
+   "code": "7.1.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3001541VK4730A",
+   "lat": 40.3784487,
+   "lon": -3.6712891,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "8623754VK3882D",
+   "lat": 40.4870957,
+   "lon": -3.724555,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "5465511VK4756E",
+   "lat": 40.436154,
+   "lon": -3.6446191,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3107207VK4730G",
+   "lat": 40.3832858,
+   "lon": -3.6717718,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3184727VK4738C",
+   "lat": 40.452469,
+   "lon": -3.6711446,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "7923812VK3772D",
+   "lat": 40.3970565,
+   "lon": -3.7328037,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0837216VK4703H",
+   "lat": 40.4103243,
+   "lon": -3.698932,
+   "code": "1.1",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "3206204VK4730E",
+   "lat": 40.3825397,
+   "lon": -3.6703943,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3007515VK4730G",
+   "lat": 40.384186,
+   "lon": -3.6718696,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0529720VK4702H",
+   "lat": 40.4035958,
+   "lon": -3.7018758,
+   "code": "1.4",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "2297806VK4729E",
+   "lat": 40.4635482,
+   "lon": -3.6828738,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "5897917VK3659F",
+   "lat": 40.3740137,
+   "lon": -3.7578462,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3056311VK4735E",
+   "lat": 40.4276943,
+   "lon": -3.6728562,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "0355413VK4605E",
+   "lat": 40.3365897,
+   "lon": -3.7021349,
+   "code": "9.5",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "44993G9VK3840A",
+   "lat": 40.4648752,
+   "lon": -3.7774692,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "3251701VK4835A",
+   "lat": 40.5138705,
+   "lon": -3.6713236,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "5190104VK4759A",
+   "lat": 40.4583779,
+   "lon": -3.6490338,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "4889223VK4748H",
+   "lat": 40.4573305,
+   "lon": -3.6525818,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "2552512VK4725D",
+   "lat": 40.4245463,
+   "lon": -3.6783609,
+   "code": "1.4",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "1729204VK4812H",
+   "lat": 40.493464,
+   "lon": -3.6890318,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "8832907VK4783B",
+   "lat": 40.405896,
+   "lon": -3.6046332,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0440610VK4704A",
+   "lat": 40.4126429,
+   "lon": -3.7026567,
+   "code": "1.1",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "0064908VK4606C",
+   "lat": 40.3446163,
+   "lon": -3.7071784,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0738302VK4703H",
+   "lat": 40.4116881,
+   "lon": -3.6999062,
+   "code": "1.2",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "2277206VK4627E",
+   "lat": 40.3564364,
+   "lon": -3.6818433,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "5194416VK4759E",
+   "lat": 40.4618176,
+   "lon": -3.648107,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "8540606VK3784B",
+   "lat": 40.4129689,
+   "lon": -3.725646,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "7735709VK3773F",
+   "lat": 40.4081643,
+   "lon": -3.7347824,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "4499384VK3840A",
+   "lat": 40.4660583,
+   "lon": -3.7763739,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0397203VK4709G",
+   "lat": 40.4644674,
+   "lon": -3.7050087,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "1018202VK4711G",
+   "lat": 40.393486,
+   "lon": -3.6962061,
+   "code": "3.1",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9867202VK3696F",
+   "lat": 40.3472359,
+   "lon": -3.7097201,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0583501VK4708D",
+   "lat": 40.4525075,
+   "lon": -3.7023128,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "1485403VK4718E",
+   "lat": 40.4542566,
+   "lon": -3.6921788,
+   "code": "3.1.b",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9940520VK3794B",
+   "lat": 40.4134834,
+   "lon": -3.7087757,
+   "code": "1.1",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "0991213VK4709B",
+   "lat": 40.4590316,
+   "lon": -3.6980427,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "2926804VK4722F",
+   "lat": 40.4000209,
+   "lon": -3.6730553,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "4401812VK3740A",
+   "lat": 40.3770327,
+   "lon": -3.7743983,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "0353204VK4705C",
+   "lat": 40.4249201,
+   "lon": -3.7053448,
+   "code": "1.1",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "6859903VK4765H",
+   "lat": 40.4307088,
+   "lon": -3.6277171,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0504102VK3800D",
+   "lat": 40.469773,
+   "lon": -3.8206322,
+   "code": "8.3.c",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "2830206VK5723B",
+   "lat": 40.4046474,
+   "lon": -3.557707,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "4959216VK4745H",
+   "lat": 40.430064,
+   "lon": -3.6514825,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0508316VK4700H",
+   "lat": 40.3835938,
+   "lon": -3.7023128,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "5270122VK4757A",
+   "lat": 40.4399526,
+   "lon": -3.6475975,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "5872420VK4757D",
+   "lat": 40.4425357,
+   "lon": -3.6403883,
+   "code": "7.1.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "8482322VK4788C",
+   "lat": 40.4522583,
+   "lon": -3.609311,
+   "code": "8.3.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0411213VK4701A",
+   "lat": 40.3863266,
+   "lon": -3.7029252,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "9928411VK4792H",
+   "lat": 40.4034386,
+   "lon": -3.5898418,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0443518VK4704C",
+   "lat": 40.4164962,
+   "lon": -3.7030776,
+   "code": "1.1",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "8887402VK3788H",
+   "lat": 40.4536922,
+   "lon": -3.7162258,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "1100036DS1810D",
+   "lat": 40.3360665,
+   "lon": -3.6081996,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "8926524VK4782F",
+   "lat": 40.4012235,
+   "lon": -3.6029474,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "1929548VK4812H",
+   "lat": 40.4940078,
+   "lon": -3.6858541,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9991224VK3799B",
+   "lat": 40.4587628,
+   "lon": -3.7099112,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0100201VK5700A",
+   "lat": 40.3797839,
+   "lon": -3.5883518,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "4392903VK3749C",
+   "lat": 40.4595244,
+   "lon": -3.7753709,
+   "code": "8.3.c",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "5107501VK3750G",
+   "lat": 40.3837052,
+   "lon": -3.7642658,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "3104637VK5730C",
+   "lat": 40.3908931,
+   "lon": -3.5467487,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "3752961VK4735D",
+   "lat": 40.4240118,
+   "lon": -3.6651565,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "5462943VK4756A",
+   "lat": 40.4337135,
+   "lon": -3.6449271,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0726111VK4802F",
+   "lat": 40.4900537,
+   "lon": -3.7010761,
+   "code": "8.6",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "7718918VK3871H",
+   "lat": 40.4832487,
+   "lon": -3.7353248,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9689311VK4798H",
+   "lat": 40.457599,
+   "lon": -3.5953945,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "4725105VK4742F",
+   "lat": 40.3997918,
+   "lon": -3.6510499,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "6799206VK3669H",
+   "lat": 40.3760046,
+   "lon": -3.7468342,
+   "code": "5.3",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "4512618VK4741D",
+   "lat": 40.3881681,
+   "lon": -3.6550399,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "3991406VK4839B",
+   "lat": 40.4596682,
+   "lon": -3.6619233,
+   "code": "7.1.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0692702VK4709B",
+   "lat": 40.4596412,
+   "lon": -3.7008198,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "9565514VK3796F",
+   "lat": 40.4357708,
+   "lon": -3.7140849,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "4508402VK3840H",
+   "lat": 40.47238,
+   "lon": -3.7826695,
+   "code": "8.1.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "6816710VK3761F",
+   "lat": 40.391159,
+   "lon": -3.7452018,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3097730VK4739E",
+   "lat": 40.4636178,
+   "lon": -3.6735523,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "4494317VK4749C",
+   "lat": 40.4621232,
+   "lon": -3.6570916,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "7031108VK3773A",
+   "lat": 40.4043489,
+   "lon": -3.7439463,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3812169VK4731B",
+   "lat": 40.3882041,
+   "lon": -3.662712,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "4194329VK3749C",
+   "lat": 40.462328,
+   "lon": -3.7784538,
+   "code": "8.3.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "6594817VK3669D",
+   "lat": 40.37141,
+   "lon": -3.747552,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3803923VK4830D",
+   "lat": 40.4699943,
+   "lon": -3.6637035,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "8003608VK4780C",
+   "lat": 40.3801277,
+   "lon": -3.6134397,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "7853901VK4775D",
+   "lat": 40.4259187,
+   "lon": -3.6164129,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0200833VK4800A",
+   "lat": 40.4667827,
+   "lon": -3.7064631,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0592211VK4609B",
+   "lat": 40.369777,
+   "lon": -3.7021241,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "31005J4VK4730A",
+   "lat": 40.3775577,
+   "lon": -3.6699638,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "1861922VK4616B",
+   "lat": 40.3404333,
+   "lon": -3.6870952,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "6650808VK4765B",
+   "lat": 40.4216017,
+   "lon": -3.6287225,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "5463618VK4756C",
+   "lat": 40.4341164,
+   "lon": -3.6441443,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "9460401VK3796A",
+   "lat": 40.4317197,
+   "lon": -3.7154446,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "1204201VK4810C",
+   "lat": 40.4705718,
+   "lon": -3.6948578,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "38993A9VK4639H",
+   "lat": 40.3761343,
+   "lon": -3.6634317,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9387605VK3798E",
+   "lat": 40.4551423,
+   "lon": -3.7160257,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "6860706VK4767B",
+   "lat": 40.4312794,
+   "lon": -3.6277697,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "8378622VK4787G",
+   "lat": 40.4479448,
+   "lon": -3.609416,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "2697412VK4729H",
+   "lat": 40.4651072,
+   "lon": -3.6779412,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "4551301VK4745B",
+   "lat": 40.4239142,
+   "lon": -3.6548006,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "5004510VK4850E",
+   "lat": 40.4715938,
+   "lon": -3.6488908,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "5436246VK4753E",
+   "lat": 40.4092812,
+   "lon": -3.642892,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "3085902VK4738E",
+   "lat": 40.4548829,
+   "lon": -3.6738034,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9690109VK4699B",
+   "lat": 40.3681865,
+   "lon": -3.5950609,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "7652806VK4775B",
+   "lat": 40.4239941,
+   "lon": -3.6182542,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "8428106VK4782G",
+   "lat": 40.4024581,
+   "lon": -3.6093668,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "6809508VK3760H",
+   "lat": 40.3854283,
+   "lon": -3.7444299,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "5669921VK4756F",
+   "lat": 40.4395009,
+   "lon": -3.6423301,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "3A28014A06RAD3",
+   "lat": 40.4126953,
+   "lon": -3.609308,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "4084704VK3748C",
+   "lat": 40.4520144,
+   "lon": -3.7785251,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "2888404VK3728H",
+   "lat": 40.4558393,
+   "lon": -3.793655,
+   "code": "8.3.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "6610718VK3761B",
+   "lat": 40.3865689,
+   "lon": -3.7469768,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "5472708VK4757A",
+   "lat": 40.4420729,
+   "lon": -3.6440027,
+   "code": "7.1.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3063702VK4736C",
+   "lat": 40.4338522,
+   "lon": -3.6720107,
+   "code": "1.6",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "0440618VK4704A",
+   "lat": 40.4132367,
+   "lon": -3.7029327,
+   "code": "1.1",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "3830805VK4733B",
+   "lat": 40.404187,
+   "lon": -3.6630116,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "02129C1VK4801A",
+   "lat": 40.4769483,
+   "lon": -3.7081125,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "5524807VK4752D",
+   "lat": 40.4000914,
+   "lon": -3.6461717,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "7695805VK4679F",
+   "lat": 40.3726717,
+   "lon": -3.6180603,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "0357801VK4705E",
+   "lat": 40.4280842,
+   "lon": -3.7048163,
+   "code": "1.2",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "7652803VK4775B",
+   "lat": 40.4241695,
+   "lon": -3.618282,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0381303VK4708A",
+   "lat": 40.4505673,
+   "lon": -3.7054909,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "2897612VK4729H",
+   "lat": 40.4648218,
+   "lon": -3.6752782,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "8925905VK3882F",
+   "lat": 40.4895338,
+   "lon": -3.7230143,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "9617209VK3791F",
+   "lat": 40.3923098,
+   "lon": -3.7126552,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0721005VK4802B",
+   "lat": 40.4855407,
+   "lon": -3.6999063,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "1879126VK5717H",
+   "lat": 40.4485804,
+   "lon": -3.5701331,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "4284111VK3748C",
+   "lat": 40.4515935,
+   "lon": -3.7772794,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9708401VK3790H",
+   "lat": 40.3850595,
+   "lon": -3.7114823,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "7648215VK4774H",
+   "lat": 40.4209553,
+   "lon": -3.6181351,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "0105908VK4700E",
+   "lat": 40.3815451,
+   "lon": -3.7064638,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0903702VK5800D",
+   "lat": 40.4701556,
+   "lon": -3.5794684,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "8614411VK3781D",
+   "lat": 40.3895855,
+   "lon": -3.7244007,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "1762983VK4616B",
+   "lat": 40.3419031,
+   "lon": -3.6862997,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "3024305VK4732C",
+   "lat": 40.398823,
+   "lon": -3.6733394,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "3217522VK4731G",
+   "lat": 40.3925427,
+   "lon": -3.6693096,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "5206705VK3750E",
+   "lat": 40.3816801,
+   "lon": -3.7637111,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "3749911VK4734H",
+   "lat": 40.4214491,
+   "lon": -3.6643255,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "2476712VK4727E",
+   "lat": 40.4451617,
+   "lon": -3.6798392,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "4893115VK4749D",
+   "lat": 40.4607695,
+   "lon": -3.6518887,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0385505VK4708E",
+   "lat": 40.4541155,
+   "lon": -3.7046004,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0305502VK4700E",
+   "lat": 40.3817442,
+   "lon": -3.7035829,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "7316124VK3871C",
+   "lat": 40.4797822,
+   "lon": -3.7431609,
+   "code": "8.2.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "6614305VK4861D",
+   "lat": 40.4803128,
+   "lon": -3.6312842,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "7394706VK4679C",
+   "lat": 40.3717843,
+   "lon": -3.6210484,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3589106VK3738H",
+   "lat": 40.456379,
+   "lon": -3.7852091,
+   "code": "8.3.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "5208620VK4850G",
+   "lat": 40.4740171,
+   "lon": -3.6456508,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "5909501VK4750H",
+   "lat": 40.3860415,
+   "lon": -3.6377196,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9705113VK4890D",
+   "lat": 40.4716447,
+   "lon": -3.5941403,
+   "code": "8.5",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3382906VK4738A",
+   "lat": 40.4510857,
+   "lon": -3.6690372,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "7011106VK4871A",
+   "lat": 40.4782187,
+   "lon": -3.6264334,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "2803598VK4720D",
+   "lat": 40.3797848,
+   "lon": -3.6724404,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "6060824VK4766A",
+   "lat": 40.4309914,
+   "lon": -3.6377709,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "2831809VK4723B",
+   "lat": 40.404946,
+   "lon": -3.6748563,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "4373103VK4747C",
+   "lat": 40.4423237,
+   "lon": -3.6578847,
+   "code": "9.3",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "9617206VK3791F",
+   "lat": 40.3921316,
+   "lon": -3.712557,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "6317828VK4861E",
+   "lat": 40.4827431,
+   "lon": -3.6343645,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "5864115VK4756D",
+   "lat": 40.4345845,
+   "lon": -3.6406919,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0356913VK4705E",
+   "lat": 40.4273351,
+   "lon": -3.7049079,
+   "code": "1.1",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "1795908VK4719F",
+   "lat": 40.4623788,
+   "lon": -3.6880908,
+   "code": "3.1.b",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "4681602VK3748B",
+   "lat": 40.4496463,
+   "lon": -3.7715486,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "1197413VK4719G",
+   "lat": 40.4647907,
+   "lon": -3.6958656,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "6898405VK4769H",
+   "lat": 40.4644341,
+   "lon": -3.6262455,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "6811707VK4861B",
+   "lat": 40.4770503,
+   "lon": -3.6278545,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "8108433VK3880G",
+   "lat": 40.4745131,
+   "lon": -3.731177,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "5364403VK4756C",
+   "lat": 40.4353502,
+   "lon": -3.6456256,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "8415911VK3781E",
+   "lat": 40.3901866,
+   "lon": -3.725781,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "1721211VK4812B",
+   "lat": 40.4860669,
+   "lon": -3.6887593,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9099808VK3799G",
+   "lat": 40.4662334,
+   "lon": -3.7203115,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "3402213VK4730C",
+   "lat": 40.3792995,
+   "lon": -3.6664144,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "0400201VK5800A",
+   "lat": 40.4678488,
+   "lon": -3.5862337,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "6377305VK4767G",
+   "lat": 40.4466163,
+   "lon": -3.6347964,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "1200039DS1810D",
+   "lat": 40.3439398,
+   "lon": -3.6161826,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "3683809VK4738D",
+   "lat": 40.4516115,
+   "lon": -3.6658544,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0570212VK4707B",
+   "lat": 40.4389897,
+   "lon": -3.7007921,
+   "code": "1.4",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "2848304VK4724H",
+   "lat": 40.4211808,
+   "lon": -3.6748659,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "5766303VK4756F",
+   "lat": 40.4370705,
+   "lon": -3.6412646,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "2811202VK4821B",
+   "lat": 40.4772615,
+   "lon": -3.6757567,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "3723703VK4732D",
+   "lat": 40.3973557,
+   "lon": -3.6634431,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0283720VK4708C",
+   "lat": 40.4516035,
+   "lon": -3.7058024,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "1007418VK3810G",
+   "lat": 40.4749217,
+   "lon": -3.8214439,
+   "code": "8.1.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "9494638VK3699C",
+   "lat": 40.3709162,
+   "lon": -3.7140151,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "1530204VK4813B",
+   "lat": 40.4940412,
+   "lon": -3.6914831,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "6671420VK4767B",
+   "lat": 40.4414987,
+   "lon": -3.6305472,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "5416301VK3751E",
+   "lat": 40.3921242,
+   "lon": -3.7614002,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9465509VK3796F",
+   "lat": 40.435834,
+   "lon": -3.7146202,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "5186933VK4758E",
+   "lat": 40.4547749,
+   "lon": -3.6489753,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "8913325VK3781D",
+   "lat": 40.3886202,
+   "lon": -3.7207363,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "4112638VK4741A",
+   "lat": 40.38779,
+   "lon": -3.6594012,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "7660818VK3776B",
+   "lat": 40.4302547,
+   "lon": -3.7364249,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "5297605VK4759G",
+   "lat": 40.4645993,
+   "lon": -3.6463127,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "0612904VK4701B",
+   "lat": 40.3878404,
+   "lon": -3.7003047,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "3319822VK4731G",
+   "lat": 40.3937754,
+   "lon": -3.6686255,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0498710VK5709G",
+   "lat": 40.4658851,
+   "lon": -3.585165,
+   "code": "8.3.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "1926406VK4712F",
+   "lat": 40.4004472,
+   "lon": -3.6849016,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "2511110VK4821A",
+   "lat": 40.4829981,
+   "lon": -3.6790851,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "2888417VK3728H",
+   "lat": 40.4558786,
+   "lon": -3.7930711,
+   "code": "8.3.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "94946L9VK3699C",
+   "lat": 40.3719064,
+   "lon": -3.7148153,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "4401822VK3740A",
+   "lat": 40.3777158,
+   "lon": -3.7734211,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "6812715VK4861B",
+   "lat": 40.478328,
+   "lon": -3.6280775,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "4394516VK3749C",
+   "lat": 40.4621498,
+   "lon": -3.7757025,
+   "code": "8.2.b",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "1537301VK4813H",
+   "lat": 40.5009258,
+   "lon": -3.6913068,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "5180305VK3758A",
+   "lat": 40.4492988,
+   "lon": -3.7661893,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "5567530VK4756H",
+   "lat": 40.4376935,
+   "lon": -3.6440165,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0281310VK4708A",
+   "lat": 40.450371,
+   "lon": -3.7068796,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0364634VK4606C",
+   "lat": 40.3448296,
+   "lon": -3.7039144,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "7403109VK4770C",
+   "lat": 40.3797619,
+   "lon": -3.6205856,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "2322901VK4722C",
+   "lat": 40.3987132,
+   "lon": -3.6789267,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "2108212VK4820G",
+   "lat": 40.4743378,
+   "lon": -3.6842223,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "6260944VK4766A",
+   "lat": 40.4322321,
+   "lon": -3.6354702,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "4980211VK2748B",
+   "lat": 40.4488058,
+   "lon": -3.7685661,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "9148503VK3694G",
+   "lat": 40.3308091,
+   "lon": -3.716658,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "4004915VK3740C",
+   "lat": 40.3791816,
+   "lon": -3.7774327,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "4592139VK4749B",
+   "lat": 40.4601398,
+   "lon": -3.6553753,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "7921207VK3772B",
+   "lat": 40.3955823,
+   "lon": -3.7325382,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "1594206VK4619D",
+   "lat": 40.3715418,
+   "lon": -3.690334,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "9855207VK3795F",
+   "lat": 40.426455,
+   "lon": -3.710778,
+   "code": "1.2",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "2523905VK5722D",
+   "lat": 40.3984808,
+   "lon": -3.5595171,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "8340602VK3784A",
+   "lat": 40.4129921,
+   "lon": -3.7272546,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "4318308VK4741G",
+   "lat": 40.3937291,
+   "lon": -3.6575424,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "7315803VK3871E",
+   "lat": 40.4799715,
+   "lon": -3.7418243,
+   "code": "8.2.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0776412VK4607F",
+   "lat": 40.3560049,
+   "lon": -3.697607,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "7270801VK4777A",
+   "lat": 40.4403388,
+   "lon": -3.6229802,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "2986412VK3728F",
+   "lat": 40.4538702,
+   "lon": -3.7923142,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "3923404VK4732D",
+   "lat": 40.3983372,
+   "lon": -3.6620748,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "8412718VK3881A",
+   "lat": 40.4774306,
+   "lon": -3.7272606,
+   "code": "8.4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "4991217VK3749B",
+   "lat": 40.4582321,
+   "lon": -3.7679622,
+   "code": "8.2.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "6540317VK4864B",
+   "lat": 40.5031,
+   "lon": -3.6320414,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "9869402VK3796H",
+   "lat": 40.439553,
+   "lon": -3.7102043,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "3156607VK4735E",
+   "lat": 40.4279208,
+   "lon": -3.6709127,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "1732220VK4813B",
+   "lat": 40.4957279,
+   "lon": -3.6886591,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "5591615VK3659B",
+   "lat": 40.3684072,
+   "lon": -3.7599947,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "6456207VK4765E",
+   "lat": 40.4278989,
+   "lon": -3.6329086,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "0935405VK4703F",
+   "lat": 40.4087983,
+   "lon": -3.6958314,
+   "code": "1.2",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "5356305VK4755E",
+   "lat": 40.427662,
+   "lon": -3.6458216,
+   "code": "3.2",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "3307403VK4730G",
+   "lat": 40.3840067,
+   "lon": -3.6683919,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "1979109VK5717H",
+   "lat": 40.4485093,
+   "lon": -3.5688888,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "5669901VK4756F",
+   "lat": 40.4400025,
+   "lon": -3.6421621,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "0066209VK4606E",
+   "lat": 40.3462159,
+   "lon": -3.707427,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "1023527VK4712C",
+   "lat": 40.3982354,
+   "lon": -3.6957992,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "6746713VK4764F",
+   "lat": 40.4209176,
+   "lon": -3.6333924,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "0513925VK4801D",
+   "lat": 40.4777864,
+   "lon": -3.7023876,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "7497403VK4679G",
+   "lat": 40.375176,
+   "lon": -3.6204893,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "2866112VK4726F",
+   "lat": 40.435935,
+   "lon": -3.6748993,
+   "code": "1.6",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "8584007VK4788D",
+   "lat": 40.4527502,
+   "lon": -3.6089458,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "9513901VK4791D",
+   "lat": 40.3918271,
+   "lon": -3.5948891,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "3623816VK4732D",
+   "lat": 40.3976215,
+   "lon": -3.6659913,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "0497107VK4709E",
+   "lat": 40.4645474,
+   "lon": -3.7034958,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "1851618VK4715B",
+   "lat": 40.4232816,
+   "lon": -3.6863001,
+   "code": "1.3",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "0534919VK4703D",
+   "lat": 40.4073781,
+   "lon": -3.7022559,
+   "code": "1.1",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "8073727VK4787C",
+   "lat": 40.4432798,
+   "lon": -3.6128823,
+   "code": "8.3.a",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "9849417VK3794H",
+   "lat": 40.4209986,
+   "lon": -3.7099401,
+   "code": "1.2",
+   "cat": "envelope",
+   "why": "NZ 1 published footprint clipped to parcel (SIG-M2, Doctrine B / ADR-0280)",
+   "inherited": null
+  },
+  {
+   "ref": "9194780VK3699C",
+   "lat": 40.3709885,
+   "lon": -3.7178701,
+   "code": "3.1.a",
+   "cat": "refusal-terminal",
+   "why": "NZ 3 — Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico»; terminal, permanently (L-678)",
+   "inherited": null
+  },
+  {
+   "ref": "1614209VK4711D",
+   "lat": 40.3901904,
+   "lon": -3.6890278,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no Norma Zonal polygon at point (system / APE / APR / outside NZ-governed land)",
+   "inherited": null
+  },
+  {
+   "ref": "7711308VK3771B",
+   "lat": 40.3869028,
+   "lon": -3.7351383,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  },
+  {
+   "ref": "7834720VK3773D",
+   "lat": 40.4072889,
+   "lon": -3.7332519,
+   "code": "4",
+   "cat": "no-pack",
+   "why": "packed but MADRID_ENVELOPE_VERIFIED=false ⇒ no number reaches the panel (L-651)",
+   "inherited": null
+  }
+ ]
+}

@@ -1,0 +1,493 @@
+[
+ {
+  "ine": "05124",
+  "name": "Medinilla",
+  "band": "<5k",
+  "ccaa": "CL",
+  "results": {
+   "CyL plau_clasificacion (clase)": {
+    "st": "COVERED",
+    "n": 2,
+    "props": {
+     "fid": 20046,
+     "c_instrum": "DSU",
+     "n_prov": "Ávila",
+     "n_mun": "Medinilla",
+     "c_mun": "05124",
+     "n_clase_sue": "Suelo rústico",
+     "c_clase_sue": "SR",
+     "m_sup_m": 22664960.91
+    }
+   }
+  }
+ },
+ {
+  "ine": "47211",
+  "name": "Villalba de la Loma",
+  "band": "<5k",
+  "ccaa": "CL",
+  "results": {
+   "CyL plau_clasificacion (clase)": {
+    "st": "COVERED",
+    "n": 2,
+    "props": {
+     "fid": 23412,
+     "c_instrum": "NUT",
+     "n_prov": "Valladolid",
+     "n_mun": "Villalba de la Loma",
+     "c_mun": "47211",
+     "n_clase_sue": "Suelo urbano",
+     "c_clase_sue": "SU",
+     "m_sup_m": 63523.45
+    }
+   }
+  }
+ },
+ {
+  "ine": "50091",
+  "name": "Las Cuerlas",
+  "band": "<5k",
+  "ccaa": "AR",
+  "results": {
+   "AR SIUa:clasificacion (clase+params)": {
+    "st": "COVERED",
+    "n": 2,
+    "props": {
+     "objectid": 1939,
+     "cod_ine": 50091,
+     "d_muni_ine": "LAS CUERLAS",
+     "nucl_ent": "LAS CUERLAS",
+     "cd_mun_ine": "50091_LAS CUERLAS",
+     "d_comarca": "CAMPO DE DAROCA",
+     "n_expedien": null,
+     "cot": null,
+     "cod_plan": "SinPlan_SinPDSU",
+     "clasesiose": "SNU-G",
+     "c_catego": 4,
+     "clase": "SENU",
+     "clase_s": "CL-SNU",
+     "notepa": null,
+     "tip_snue": null,
+     "dot_sg": null,
+     "sectores": null,
+     "nombre": null,
+     "uso_glob": null,
+     "sup_ssgg": 0,
+     "porc_otr": 0,
+     "edificab": 0,
+     "aprove": 0,
+     "densidad": 0,
+     "viv_libr": 0,
+     "viv_prot": 0,
+     "sup_plan": 0,
+     "shape_leng": 0,
+     "perimeter": 0,
+     "pdf": "https://idearagon.aragon.es/datosdescarga/documento.php?file=planeamiento/fichas_notepa/50/50091/ficha_general.pdf",
+     "date_acu": "NO",
+     "web_acu": "NO",
+     "escala": null,
+     "observ": null,
+     "plano": null,
+     "control": 0,
+     "mosaico": 0,
+     "nplanos": 0,
+     "bd_origina": "SinPlan",
+     "fin": null,
+     "inicio": "NO",
+     "shape_le_1": 27074.2500841673,
+     "fiab_exp": null,
+     "fiab_geom": "No disponible",
+     "acuerdo": null,
+     "shape_area": 32482903.947440542
+    }
+   }
+  }
+ },
+ {
+  "ine": "37314",
+  "name": "Tabera de Abajo",
+  "band": "<5k",
+  "ccaa": "CL",
+  "results": {
+   "CyL plau_clasificacion (clase)": {
+    "st": "COVERED",
+    "n": 2,
+    "props": {
+     "fid": 22095,
+     "c_instrum": "DSU",
+     "n_prov": "Salamanca",
+     "n_mun": "Tabera de Abajo",
+     "c_mun": "37314",
+     "n_clase_sue": "Suelo rústico",
+     "c_clase_sue": "SR",
+     "m_sup_m": 63757934.47
+    }
+   }
+  }
+ },
+ {
+  "ine": "03130",
+  "name": "Tollos",
+  "band": "<5k",
+  "ccaa": "VC",
+  "results": {
+   "VC Zonificacion (CALIF)": {
+    "st": "UNKNOWN",
+    "why": "OWS msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed\nmsPostGISLayerWhichShapes(): Query error. Error exec"
+   },
+   "VC Clasificacion (clase)": {
+    "st": "UNKNOWN",
+    "why": "OWS msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed\nmsPostGISLayerWhichShapes(): Query error. Error exec"
+   }
+  }
+ },
+ {
+  "ine": "04086",
+  "name": "Sorbas",
+  "band": "<5k",
+  "ccaa": "AN",
+  "results": {
+   "AN DERA g07_04_Manzana (URBAN FABRIC, not planning)": {
+    "st": "COVERED",
+    "n": 3,
+    "props": {
+     "id_dera": 10705300188471,
+     "cod_mun": "04086",
+     "municipio": "Sorbas",
+     "provincia": "Almería"
+    }
+   }
+  }
+ },
+ {
+  "ine": "44221",
+  "name": "Torrecilla de Alcañiz",
+  "band": "<5k",
+  "ccaa": "AR",
+  "results": {
+   "AR SIUa:clasificacion (clase+params)": {
+    "st": "COVERED",
+    "n": 3,
+    "props": {
+     "objectid": 572,
+     "cod_ine": 44221,
+     "d_muni_ine": "TORRECILLA DE ALCAÑIZ",
+     "nucl_ent": "TORRECILLA DE ALCAÑIZ",
+     "cd_mun_ine": "44221_TORRECILLA DE ALCAÑIZ",
+     "d_comarca": "BAJO ARAGON",
+     "n_expedien": "COT-44/2006/326",
+     "cot": "COT-44-06-326",
+     "cod_plan": "TRPGOU",
+     "clasesiose": null,
+     "c_catego": 1,
+     "clase": "SUNC",
+     "clase_s": "CL-SU",
+     "notepa": "SU-NC",
+     "tip_snue": null,
+     "dot_sg": "SI",
+     "sectores": "NO",
+     "nombre": null,
+     "uso_glob": "SGEQ",
+     "sup_ssgg": 0,
+     "porc_otr": 0,
+     "edificab": 0,
+     "aprove": 0,
+     "densidad": 0,
+     "viv_libr": 0,
+     "viv_prot": 0,
+     "sup_plan": 0,
+     "shape_leng": 0,
+     "perimeter": 0,
+     "pdf": null,
+     "date_acu": "06/03/2007",
+     "web_acu": "http://www.boa.aragon.es/cgi-bin/EBOA/BRSCGI?CMD=VERDOC&amp;BASE=BZHT&amp;PIECE=BOPT&amp;DOCS=1-15&amp;DOCR=1&amp;SEC=BUSQUEDA_FECHA&amp;RNG=200&amp;SEPARADOR=&amp;SECC-C=TERUEL&amp;PUBL-C=20070306&amp;PUBL=&amp;@PUBL-E=",
+     "escala": "1000",
+     "observ": null,
+     "plano": "44221COT4406326PGOUTPO02",
+     "control": 5,
+     "mosaico": 0,
+     "nplanos": 1,
+     "bd_origina": "ConPlan",
+     "fin": null,
+     "inicio": "06/03/2007",
+     "shape_le_1": 63.355282199518314,
+     "fiab_exp": null,
+     "fiab_geom": "No disponible",
+     "acuerdo": "Mostrar conformidad con texto refundido",
+     "shape_area": 157.0931716032027
+    }
+   }
+  }
+ },
+ {
+  "ine": "16020",
+  "name": "Arandilla del Arroyo",
+  "band": "<5k",
+  "ccaa": "CM",
+  "results": {}
+ },
+ {
+  "ine": "36043",
+  "name": "Puentecaldelas",
+  "band": "5k-20k",
+  "ccaa": "GA",
+  "results": {}
+ },
+ {
+  "ine": "06149",
+  "name": "Villafranca de los Barros",
+  "band": "5k-20k",
+  "ccaa": "EX",
+  "results": {}
+ },
+ {
+  "ine": "28023",
+  "name": "El Boalo",
+  "band": "5k-20k",
+  "ccaa": "MD",
+  "results": {}
+ },
+ {
+  "ine": "41077",
+  "name": "La Puebla de Cazalla",
+  "band": "5k-20k",
+  "ccaa": "AN",
+  "results": {
+   "AN DERA g07_04_Manzana (URBAN FABRIC, not planning)": {
+    "st": "COVERED",
+    "n": 3,
+    "props": {
+     "id_dera": 10705300192695,
+     "cod_mun": "41077",
+     "municipio": "La Puebla de Cazalla",
+     "provincia": "Sevilla"
+    }
+   }
+  }
+ },
+ {
+  "ine": "30041",
+  "name": "La Unión",
+  "band": "20k-50k",
+  "ccaa": "MC",
+  "results": {
+   "MC plu_ze_37_mun_uso_suelo": {
+    "st": "COVERED",
+    "n": 3,
+    "props": {
+     "Uso_Especifico": "Residencial de baja densidad",
+     "Municipio": "La Unión",
+     "Ambito": "Suelo Urbanizable Sectorizado. La Unión",
+     "Clasificacion": "Suelo Urbanizable Sectorizado",
+     "Area_m2": 88344,
+     "Sistema_general": "N",
+     "Area_suspendida": null,
+     "Fecha_acuerdo-suspension": null,
+     "Area_con_deficiencias": null,
+     "Fecha_acuerdo_deficiencias": null,
+     "Enlace_ficha": "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=5066&widi=es&x=0&y=0",
+     "uso_esp_lynd": "Residencial de baja densidad"
+    }
+   },
+   "MC plu_clasific_tipos_urbano (EDIFICABILIDAD)": {
+    "st": "COVERED",
+    "n": 3,
+    "props": {
+     "Clasificacion": "Suelo Urbano",
+     "Municipio": "La Unión",
+     "Ambito": "SGC.",
+     "Uso_global": "4_1_TransportNetworks",
+     "Uso_especifico": "Comunicaciones",
+     "Edificabilidad": 0,
+     "Area_m2": 0,
+     "Sistema_general": "S",
+     "Area_suspendida": null,
+     "Fecha_acuerdo_suspension": null,
+     "Area_con_deficiencias": null,
+     "Fecha_acuerdo_deficiencias": null,
+     "Enlace_ficha": "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=735&widi=es&x=0&y=0"
+    }
+   }
+  }
+ },
+ {
+  "ine": "12126",
+  "name": "Vall de Uxó",
+  "band": "20k-50k",
+  "ccaa": "VC",
+  "results": {
+   "VC Zonificacion (CALIF)": {
+    "st": "UNKNOWN",
+    "why": "OWS msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed\nmsPostGISLayerWhichShapes(): Query error. Error exec"
+   },
+   "VC Clasificacion (clase)": {
+    "st": "UNKNOWN",
+    "why": "OWS msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed\nmsPostGISLayerWhichShapes(): Query error. Error exec"
+   }
+  }
+ },
+ {
+  "ine": "41053",
+  "name": "Lebrija",
+  "band": "20k-50k",
+  "ccaa": "AN",
+  "results": {
+   "AN DERA g07_04_Manzana (URBAN FABRIC, not planning)": {
+    "st": "COVERED",
+    "n": 3,
+    "props": {
+     "id_dera": 10705300192618,
+     "cod_mun": "41053",
+     "municipio": "Lebrija",
+     "provincia": "Sevilla"
+    }
+   }
+  }
+ },
+ {
+  "ine": "30005",
+  "name": "Alcantarilla",
+  "band": "20k-50k",
+  "ccaa": "MC",
+  "results": {
+   "MC plu_ze_37_mun_uso_suelo": {
+    "st": "COVERED",
+    "n": 3,
+    "props": {
+     "Uso_Especifico": "Residencial",
+     "Municipio": "Alcantarilla",
+     "Ambito": "Sector 2c.6, UA I Montaje de Aviación.",
+     "Clasificacion": "Suelo Urbano",
+     "Area_m2": 0,
+     "Sistema_general": "N",
+     "Area_suspendida": null,
+     "Fecha_acuerdo-suspension": null,
+     "Area_con_deficiencias": null,
+     "Fecha_acuerdo_deficiencias": null,
+     "Enlace_ficha": "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=4481&widi=es&x=0&y=0",
+     "uso_esp_lynd": "Residencial"
+    }
+   },
+   "MC plu_clasific_tipos_urbano (EDIFICABILIDAD)": {
+    "st": "COVERED",
+    "n": 3,
+    "props": {
+     "Clasificacion": "Suelo Urbano",
+     "Municipio": "Alcantarilla",
+     "Ambito": "Sector 2c.6, UA I Montaje de Aviación.",
+     "Uso_global": "5_ResidentialUse",
+     "Uso_especifico": "Residencial",
+     "Edificabilidad": 1.2,
+     "Area_m2": 0,
+     "Sistema_general": "N",
+     "Area_suspendida": null,
+     "Fecha_acuerdo_suspension": null,
+     "Area_con_deficiencias": null,
+     "Fecha_acuerdo_deficiencias": null,
+     "Enlace_ficha": "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=4481&widi=es&x=0&y=0"
+    }
+   }
+  }
+ },
+ {
+  "ine": "46190",
+  "name": "Paterna",
+  "band": "50k-100k",
+  "ccaa": "VC",
+  "results": {
+   "VC Zonificacion (CALIF)": {
+    "st": "UNKNOWN",
+    "why": "OWS msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed\nmsPostGISLayerWhichShapes(): Query error. Error exec"
+   },
+   "VC Clasificacion (clase)": {
+    "st": "UNKNOWN",
+    "why": "OWS msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed\nmsPostGISLayerWhichShapes(): Query error. Error exec"
+   }
+  }
+ },
+ {
+  "ine": "28047",
+  "name": "Collado Villalba",
+  "band": "50k-100k",
+  "ccaa": "MD",
+  "results": {}
+ },
+ {
+  "ine": "28113",
+  "name": "Pinto",
+  "band": "50k-100k",
+  "ccaa": "MD",
+  "results": {}
+ },
+ {
+  "ine": "07026",
+  "name": "Ibiza",
+  "band": "50k-100k",
+  "ccaa": "IB",
+  "results": {
+   "IB MUIB QUALIFICACIONS (CALIF)": {
+    "st": "COVERED",
+    "n": 3,
+    "props": {
+     "OBJECTID": 15380,
+     "CODIPLA": "P28_CAS_SERRES",
+     "CODICLAS": "SU",
+     "NOM": "Assistencial",
+     "CODIAJ": "E-AS",
+     "CODIMUIB": "EQ_AS_E_AS",
+     "CODIMUIB_G": "EQ_AS",
+     "CODIMUNI": "026",
+     "MUNICIPI": "EIVISSA",
+     "OBS": "Del municipi d'Eivissa el MUIB NO mostra l'actual normativa vigent. Consultau la informació proporcionada per l'Ajuntament",
+     "DINIVIGEN": "15/11/1976",
+     "DFIVIGEN": 99999999,
+     "IDENTITAT": 271763,
+     "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=271763",
+     "Shape_Length": 325.41934828245144,
+     "Shape_Area": 5317.483032029109
+    }
+   }
+  }
+ },
+ {
+  "ine": "35026",
+  "name": "Telde",
+  "band": ">100k",
+  "ccaa": "CN",
+  "results": {}
+ },
+ {
+  "ine": "08187",
+  "name": "Sabadell",
+  "band": ">100k",
+  "ccaa": "CT",
+  "results": {
+   "CT MUC_QUALIFICACIONS (CALIF)": {
+    "st": "COVERED",
+    "n": 3,
+    "props": {
+     "ID": 7786857,
+     "CODI_QUAL_MUC": "SE",
+     "DESC_QUAL_MUC": "Sistemes, Equipaments",
+     "CODI_QUAL_AJUNT": "c-1",
+     "DESC_QUAL_AJUNT": "Equipament educatiu",
+     "CODI_INE": "08187"
+    }
+   }
+  }
+ },
+ {
+  "ine": "28058",
+  "name": "Fuenlabrada",
+  "band": ">100k",
+  "ccaa": "MD",
+  "results": {}
+ },
+ {
+  "ine": "28065",
+  "name": "Getafe",
+  "band": ">100k",
+  "ccaa": "MD",
+  "results": {}
+ }
+]

@@ -1,0 +1,193 @@
+{
+  "seed": 20260802,
+  "prng": "mulberry32, Fisher-Yates shuffle over INE-code-ascending frame, take first N per band with rejection of AC capitals",
+  "perBand": {
+    "<5k": 8,
+    "5k-20k": 4,
+    "20k-50k": 4,
+    "50k-100k": 4,
+    ">100k": 4
+  },
+  "rejected": [
+    {
+      "ine": "06083",
+      "name": "Mérida",
+      "pop": 60225,
+      "band": "50k-100k",
+      "why": "autonomous-community capital"
+    }
+  ],
+  "frameSource": "Wikidata SPARQL (P31/P279* Q2074737, P772 INE code, P1082 population), fetched 2026-08-02",
+  "frameSizeAllINE": 8166,
+  "frameSizeAfterExclusions": 7567,
+  "exclusions": {
+    "foralProvinces": [
+      "01 Alava",
+      "20 Gipuzkoa",
+      "48 Bizkaia",
+      "31 Navarra"
+    ],
+    "capitals": "52 provincial capitals + Ceuta + Melilla by INE code",
+    "noPopulation": 28
+  },
+  "bandCounts": {
+    "<5k": 6383,
+    "5k-20k": 824,
+    "20k-50k": 260,
+    "50k-100k": 71,
+    ">100k": 29
+  },
+  "bandShareOfFrame": {
+    "<5k": 0.84353,
+    "5k-20k": 0.10889,
+    "20k-50k": 0.03436,
+    "50k-100k": 0.00938,
+    ">100k": 0.00383
+  },
+  "drawn": [
+    {
+      "ine": "05124",
+      "name": "Medinilla",
+      "pop": 79,
+      "band": "<5k"
+    },
+    {
+      "ine": "47211",
+      "name": "Villalba de la Loma",
+      "pop": 56,
+      "band": "<5k"
+    },
+    {
+      "ine": "50091",
+      "name": "Las Cuerlas",
+      "pop": 44,
+      "band": "<5k"
+    },
+    {
+      "ine": "37314",
+      "name": "Tabera de Abajo",
+      "pop": 97,
+      "band": "<5k"
+    },
+    {
+      "ine": "03130",
+      "name": "Tollos",
+      "pop": 32,
+      "band": "<5k"
+    },
+    {
+      "ine": "04086",
+      "name": "Sorbas",
+      "pop": 2564,
+      "band": "<5k"
+    },
+    {
+      "ine": "44221",
+      "name": "Torrecilla de Alcañiz",
+      "pop": 436,
+      "band": "<5k"
+    },
+    {
+      "ine": "16020",
+      "name": "Arandilla del Arroyo",
+      "pop": 14,
+      "band": "<5k"
+    },
+    {
+      "ine": "36043",
+      "name": "Puentecaldelas",
+      "pop": 5609,
+      "band": "5k-20k"
+    },
+    {
+      "ine": "06149",
+      "name": "Villafranca de los Barros",
+      "pop": 12284,
+      "band": "5k-20k"
+    },
+    {
+      "ine": "28023",
+      "name": "El Boalo",
+      "pop": 8770,
+      "band": "5k-20k"
+    },
+    {
+      "ine": "41077",
+      "name": "La Puebla de Cazalla",
+      "pop": 10830,
+      "band": "5k-20k"
+    },
+    {
+      "ine": "30041",
+      "name": "La Unión",
+      "pop": 21380,
+      "band": "20k-50k"
+    },
+    {
+      "ine": "12126",
+      "name": "Vall de Uxó",
+      "pop": 32242,
+      "band": "20k-50k"
+    },
+    {
+      "ine": "41053",
+      "name": "Lebrija",
+      "pop": 27788,
+      "band": "20k-50k"
+    },
+    {
+      "ine": "30005",
+      "name": "Alcantarilla",
+      "pop": 43876,
+      "band": "20k-50k"
+    },
+    {
+      "ine": "46190",
+      "name": "Paterna",
+      "pop": 76019,
+      "band": "50k-100k"
+    },
+    {
+      "ine": "28047",
+      "name": "Collado Villalba",
+      "pop": 67274,
+      "band": "50k-100k"
+    },
+    {
+      "ine": "28113",
+      "name": "Pinto",
+      "pop": 56651,
+      "band": "50k-100k"
+    },
+    {
+      "ine": "07026",
+      "name": "Ibiza",
+      "pop": 55337,
+      "band": "50k-100k"
+    },
+    {
+      "ine": "35026",
+      "name": "Telde",
+      "pop": 104168,
+      "band": ">100k"
+    },
+    {
+      "ine": "08187",
+      "name": "Sabadell",
+      "pop": 225368,
+      "band": ">100k"
+    },
+    {
+      "ine": "28058",
+      "name": "Fuenlabrada",
+      "pop": 190076,
+      "band": ">100k"
+    },
+    {
+      "ine": "28065",
+      "name": "Getafe",
+      "pop": 193238,
+      "band": ">100k"
+    }
+  ]
+}

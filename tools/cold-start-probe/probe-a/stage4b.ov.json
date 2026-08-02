@@ -1,0 +1,32 @@
+{
+ "ine": "08196",
+ "ovPolygons": 221,
+ "plantesDist": {
+  "B+2": 40,
+  "B+4": 32,
+  "B+3": 28,
+  "B+1": 12,
+  "B+5": 22,
+  "ED": 77,
+  "B+7": 2,
+  "B+3+A": 1,
+  "B+4+A": 1,
+  "B+6": 6
+ },
+ "clauDist": {
+  "1": 54,
+  "2": 85,
+  "4": 18,
+  "13a": 1,
+  "3a": 7,
+  "3c": 9,
+  "3b": 47
+ },
+ "parcelsInOv": 515,
+ "parcelsInOvWithPlantes": 452,
+ "converts": 452,
+ "convertedFrom": {
+  "refuse-delegated": 27,
+  "refuse-no-parameters": 425
+ }
+}

@@ -1,0 +1,142 @@
+{
+  "probe": "COLD-START PROBE B",
+  "city": { "name": "Lugo", "region": "Galicia", "country": "ES", "ine": "27028", "lat": 43.012, "lon": -7.556 },
+  "date": "2026-08-02",
+  "priorCoverage": "NONE. Zero Galicia/es-ga artefacts in packages/site-parcel-data/{rulepacks,providers}. Zero Galicia rows in MACHINE-READABLE-EVIDENCE-REGISTER.md (mandatory first check performed).",
+  "clock": { "source": "date -u +%H:%M:%SZ via Bash, logged live before each stage", "start": "08:44:07Z", "end": "09:11:31Z", "totalMinutes": 27.4 },
+
+  "stages": [
+    { "n": 1, "name": "dataset discovery",     "start": "08:44:07Z", "end": "08:48:36Z", "minutes": 4.48,
+      "outcome": "Publisher SIOTUGA, INE-keyed WMS+WFS, and the plan PDF all found. Faster than any of the five shipped cities." },
+    { "n": 2, "name": "legal stack",           "start": "08:48:36Z", "end": "08:54:33Z", "minutes": 5.95,
+      "outcome": "PXOM identified; 5 sibling vintages disambiguated; WFS discovered; ordenación proven RASTER; in-force vector layer proven EMPTY." },
+    { "n": 3, "name": "variable resolution",   "start": "08:54:33Z", "end": "09:04:17Z", "minutes": 9.73,
+      "outcome": "Censused all 8 vector layers. NO depth/height/setback/coverage field exists in any schema. FAR (edif_ficha) 1.8% populated, and only on the SUPERSEDED-VINTAGE sector fichas. LONGEST STAGE." },
+    { "n": 4, "name": "constraint resolution", "start": "09:04:17Z", "end": "09:10:51Z", "minutes": 6.57,
+      "outcome": "Real parcel + soil class resolved with ZERO new code. Governing article located verbatim in primary bytes. Second refusal ground (PEPRI) established." },
+    { "n": 5, "name": "determination",         "start": "09:10:51Z", "end": "09:11:31Z", "minutes": 0.67,
+      "outcome": "Refusal stated. Near-zero because stage 4 had already assembled the whole citation chain." }
+  ],
+
+  "parcel": {
+    "refcat": "ES.SDGC.CP.7832909PH1673B",
+    "areaOfficialM2": 2063,
+    "lat": 43.0107, "lon": -7.5556,
+    "source": "Catastro INSPIRE CP WFS, adapter reused verbatim from tools/city-completion/parcelSampleProbe.mjs:284",
+    "siuClaseSuelo": "SUELO URBANO",
+    "siuInForce": true,
+    "insideRecintoAmurallado": true
+  },
+
+  "determination": {
+    "reached": true,
+    "type": "REFUSAL",
+    "envelopePct": 0.0,
+    "refusalPct": 100.0,
+    "determinationPct": 100.0,
+    "formula": "Determination % = Envelope % + Refusal % = 0% + 100%",
+    "denominator": "The 0% ENVELOPE figure is a CENSUS of the publisher's own service, not a sample: the in-force vector cualificación layer returns 0 features UNFILTERED across the whole municipality. The 100% REFUSAL figure is asserted for the one parcel carried end-to-end (N=1) and is NOT a city-wide measurement — see notMeasured.",
+    "refusalCategories": {
+      "legallyTerminal": 0.0,
+      "delegatedToInstrumentNotHeld": 100.0,
+      "gatedOnExternalAuthority": 0.0
+    },
+    "refusalCategoryNote": "NOT legally terminal. Lei 2/2016 Art. 53 GRANTS an envelope in solo urbano consolidado; it is the DATA that refuses, not the law. Two independent delegations, either sufficient alone: (a) the cualificación is published only as raster; (b) the parcel is inside the Recinto Amurallado, delegated to a PEPRI that SIOTUGA does not serve and whose host returns 502.",
+    "citationChain": [
+      { "step": 1, "source": "SIU OGC_Clases_Suelo layer 15 (national)", "finding": "ClaseSuelo = SUELO URBANO, FechaBaja = 99999999 (in force)" },
+      { "step": 2, "source": "Lei 2/2016 do solo de Galicia, Artigo 53.b)", "verbatim": "Cualificación dos terreos, entendida como a asignación detallada de usos pormenorizados, tipoloxías edificatorias e condicións de edificación correspondentes a cada zona.", "provenance": "xunta.gal DOG AnuncioC3B0-150216-0001_gl.html, HTTP 200, 345876 B, read from LOCAL bytes" },
+      { "step": 3, "source": "SIOTUGA WMS/WFS codine=27028", "finding": "cualificación exists ONLY as raster PORD_02CL; vector 3CLAS is CLASIFICACIÓN and is EMPTY for the in-force expediente" },
+      { "step": 4, "source": "PEPRI do Recinto Amurallado / Decreto 443 do 22-02-1973", "finding": "delegated instrument, absent from SIOTUGA (0 of 20 layers), host HTTP 502" }
+    ]
+  },
+
+  "tier": {
+    "assigned": 2,
+    "label": "Tier 2 — determination only: correct refusal with cited article",
+    "why": "Tier 1 is impossible: no vector planning data carrying envelope variables is published for the in-force plan. Tier 3 is wrong: the refusal IS produced, correctly, with a verbatim statutory citation and a real parcel behind it.",
+    "tier1CeilingCaveatApplies": false,
+    "tier1CeilingCaveatNote": "Not claiming Tier 1, so the unmodelled-constraint caveat does not gate this result. Recorded anyway for the programme: airport, flood and infrastructure constraints remain UNMODELLED across the whole programme and constrain downward, so every published envelope anywhere is an upper bound with a missing ceiling. Lugo would add a fifth: UNESCO World Heritage buffer around the Roman wall."
+  },
+
+  "codeCost": {
+    "municipalitySpecificProductionLines": 0,
+    "regionSpecificProductionLines": 0,
+    "productionFilesModified": 0,
+    "note": "NO production code was written. The probe proved a Lugo adapter cannot be written usefully — the data it would parse does not exist. Writing one would be hand-fitting.",
+    "reusedVerbatim": [
+      { "file": "tools/city-completion/parcelSampleProbe.mjs", "lines": "273-306 (catastro adapter)", "reuse": "URL template + EPSG:4326 lat,lon axis note used verbatim; worked on Lugo first try, 0 lines changed" },
+      { "file": "SIU OGC_Clases_Suelo layer 15", "lines": "n/a — national service, INE-keyed", "reuse": "0 lines changed; covers all 8132 municipalities" }
+    ],
+    "throwawayProbeCode": [
+      { "file": "scratchpad/sweep.mjs", "lines": 48, "purpose": "census 8 WFS layers + attribute population; keeps ok/empty/ows-exception/http-error/network-error as five distinct bins" },
+      { "file": "scratchpad/pdftext.mjs", "lines": 34, "purpose": "generic PDF text-layer extractor; NOT municipality-specific" },
+      { "file": "scratchpad/docs.mjs", "lines": 12, "purpose": "expediente document HEAD sweep" }
+    ],
+    "hypotheticalAdapterIfDataExisted": {
+      "lines": "~15, and REGION-generic not municipality-specific",
+      "detail": "One INE-keyed URL template — https://siotuga.xunta.gal/siotuga/ws?codine=<INE> — serves all 313 Galician concellos over both WMS and WFS. This is the single most reusable publisher pattern the programme has met. It buys CLASIFICACIÓN only.",
+      "measuredCaveat": "For Lugo's in-force plan that adapter returns 0 features. The generic surface is excellent and the payload is empty."
+    }
+  },
+
+  "humanJudgementPoints": [
+    { "id": "HJ-1", "stage": 2, "judgement": "WHICH of 5 sibling instrument vintages governs. The service exposes P.X.O.U._199012, PXOM_201104, MP_201604, MP_201903 and PXOM_202304 side by side with NO in-force flag, no validity dates, no supersession links.", "resolvedBy": "Decoding the undocumented layer-name grammar, then reading a Galician-language gazette announcement.", "automatable": false },
+    { "id": "HJ-2", "stage": 3, "judgement": "Whether the 2023 expediente SUPERSEDES or COMPLETES the 2011 one. I initially concluded 'supersedes'. WRONG.", "resolvedBy": "BOP Lugo N.º 258 of 10-11-2023 states the 2023 act approves only 'os ámbitos e determinacións que non foron obxeto de aprobación pola Orde da CMATI do 29-04-11'. BOTH are in force over different ámbitos.", "automatable": false, "classification": "SUPERSEDED belief — recorded per BLOCKER-CLASSIFICATION-STANDARD, the category that generates institutional learning" },
+    { "id": "HJ-3", "stage": 3, "judgement": "That CLASIFICACIÓN (3CLAS) is NOT CUALIFICACIÓN and cannot substitute for it. Two near-identical Spanish words; only one carries the envelope.", "resolvedBy": "Lei 2/2016 Art. 53.b) read verbatim. A field-name-matching adapter would have shipped soil classes as if they were zoning.", "automatable": false },
+    { "id": "HJ-4", "stage": 3, "judgement": "Whether edif_ficha (1.8% populated, values 0.150-1.250) may be published as a FAR.", "resolvedBy": "NO. It is a sector-ficha figure on the 2011 vintage, with no height/coverage/setback companion. ADR-0284: derived law is not permissible. A FAR without a height ceiling over-states, exactly as L-616.", "automatable": false },
+    { "id": "HJ-5", "stage": 4, "judgement": "Whether the parcel falls inside the Recinto Amurallado, which changes the governing instrument entirely.", "resolvedBy": "Visual inspection of the rendered raster sheet against the parcel coordinate. There is no vector heritage boundary to test against.", "automatable": false, "note": "THIS ONE IS DAMNING: the trigger for a whole separate legal regime is only visible to a human looking at a picture." },
+    { "id": "HJ-6", "stage": 4, "judgement": "Whether to trust a summarising fetch's article citation.", "resolvedBy": "NO. WebFetch returned a fabricated 'Artigo 45. Determinacións de ordenación detallada'; the primary bytes show Artigo 45 is 'Instrumentos de planeamento urbanístico'. Caught only because the primary source was held locally.", "automatable": true, "note": "Automatable as a RULE (never cite an article not verified against local bytes), not as a judgement." },
+    { "id": "HJ-7", "stage": 1, "judgement": "How to treat the publisher's own declaration that its vector data has NO LEGAL VALIDITY.", "resolvedBy": "Escalated, not resolved. This is a Legal blocker under BLOCKER-CLASSIFICATION-STANDARD and freezes any engineering that would publish an entitlement from SIOTUGA vectors.", "automatable": false }
+  ],
+
+  "breaks": [
+    { "id": "B1", "severity": "medium", "title": "The documented SIU predicate fails CLOSED", "detail": "FechaBaja is esriFieldTypeString. where=...AND FechaBaja=99999999 returns HTTP 200 carrying an ArcGIS 400 error body. A naive client records 'no soil data for Lugo'. Must be quoted.", "neverExposedBecause": "the five cities' SIU calls evidently never used the numeric compare the brief documents" },
+    { "id": "B2", "severity": "CRITICAL", "title": "The publisher DISCLAIMS LEGAL VALIDITY of its own vector planning data", "verbatim": "La información vectorial no tiene validez legal al tratarse de un producto derivado de los planos del documento original diligenciado, pero no formar parte del mismo.", "provenance": "siotuga.xunta.gal/siotuga/conf/config.js, HTTP 200, 1994 B", "detail": "Also warns of unresolved geopositioning errors. Engages ADR-0284 and ADR-0288 head-on.", "neverExposedBecause": "no previous publisher declared its own data legally void; ADR-0288 anticipated 'geometry does not authorize entitlement' but as OUR inference, not as the PUBLISHER'S disclaimer" },
+    { "id": "B3", "severity": "high", "title": "Supersession unresolved in the service", "detail": "5 instrument vintages served as peers, no in-force flag.", "neverExposedBecause": "all five shipped cities had ONE consolidated instrument" },
+    { "id": "B4", "severity": "CRITICAL", "title": "The in-force ordenación is RASTER", "detail": "PORD_02CL in WMS only; WFS exposes only its TILEINDEX (43 sheets, 0.0% attribute population). GetFeatureInfo returns one attribute-less gml:Box PER PIXEL. GetMap returns 1136623 B of plan imagery.", "neverExposedBecause": "Barcelona/Madrid/Murcia/Córdoba/València all had SOME vector zoning; Córdoba's raster problem was 41 dead sheets, not a live raster-only service" },
+    { "id": "B5", "severity": "CRITICAL", "title": "ADVERTISED + FULLY SCHEMA'D + EMPTY", "detail": "_27028_PXOM_202304_AD_3CLAS_28600: in GetCapabilities, DescribeFeatureType returns all 19 fields incl. edif_ficha, and GetFeature UNFILTERED returns 0 features (750 B); GetMap 1476 B blank; GetFeatureInfo 'no results'. Three independent methods agree; both bbox axis orders tested.", "neverExposedBecause": "no prior city advertised a rich schema over an empty table. A capability-document-driven onboarding check would have scored Lugo TIER 1." },
+    { "id": "B6", "severity": "high", "title": "The SUPERSEDED plan is vectorised; the IN-FORCE plan is not", "detail": "2011 vintage returns 3000+ features (11.8 MB); 2023 vintage returns 0.", "neverExposedBecause": "inverted incentive nobody had met — the vector pipeline works, it was simply never run on the plan that governs" },
+    { "id": "B7", "severity": "CRITICAL", "title": "CLASIFICACIÓN is not CUALIFICACIÓN", "detail": "3CLAS carries soil classes (SU/SUZ/SR/SNR, SUC/SUZD/SRPAU...) — the axis SIU already gives free nationally. NO depth, height, setback or coverage field exists in ANY Lugo schema. uso 25.2%, sup_ficha 1.9%, edif_ficha 1.8%.", "neverExposedBecause": "prior cities' zoning layers carried the ordinance code directly; here the only vector layer is a decoy that a field-matching adapter would happily consume" },
+    { "id": "B8", "severity": "high", "title": "The obvious search result is the WRONG legal document", "detail": "Web search for the Lugo normativa returns 27519no002.pdf (2011). The expediente number is the ONLY discriminator and is learnable only by decoding WMS layer names.", "neverExposedBecause": "prior cities' normativa were unambiguous single documents" },
+    { "id": "B9", "severity": "high", "title": "Born-digital PDF with an UNMAPPABLE text layer", "detail": "27519no002.pdf: 131048 text operators, 595796 chars, ALL mojibake. ToUnicode occurs 0 times (vs 2 in the 2023 doc, which extracted cleanly). Transcription needs OCR, not parsing.", "neverExposedBecause": "Madrid's Compendio and Murcia's vol. 11 both had clean text layers; 'born-digital' was treated as equivalent to 'extractable'" },
+    { "id": "B10", "severity": "CRITICAL", "title": "A whole parallel legal regime with NO machine-readable trigger", "detail": "Parcel is inside the Recinto Amurallado -> PEPRI (Decreto 443 do 22-02-1973) governs, not the PXOM ordinance. SIOTUGA serves 0 plan-especial layers for Lugo. Its host returns HTTP 502. The only way to know the trigger fired was to LOOK AT A PICTURE.", "neverExposedBecause": "prior cities' heritage overlays were at least enumerable (València's returned 499 Token Required — gated but VISIBLE). Here it is invisible." }
+  ],
+
+  "failuresNotAbsences": [
+    { "target": "https://concellodelugo.gal/es/actuaciones/normativa-urbanistica", "result": "HTTP 000, curl exit 28 (timeout)", "clientVaried": true, "protocolVaried": true, "classification": "UNKNOWN" },
+    { "target": "http://www.lugo.es/ws/documentos/pxom/9INDICE_DE_TOMOS_PXOM.pdf", "result": "HTTP 502, 568 B", "classification": "UNKNOWN" },
+    { "target": "http://www.lugo.es/urban/docs/pepri.pdf", "result": "HTTP 502, 568 B", "classification": "UNKNOWN" },
+    { "target": "http://www.lugo.es/urban/pepri.html", "result": "HTTP 502, 568 B", "classification": "UNKNOWN" },
+    { "target": "https://ideg.xunta.gal/servizos/services/Urbanismo/MapServer/WMSServer", "result": "ArcGIS Server Error (wrong service name guess)", "classification": "UNKNOWN — not probed to exhaustion" }
+  ],
+  "failureCount": 5,
+  "measuredEmptiesNotFailures": 4,
+  "measuredEmptiesNote": "PXOM_202304_3CLAS, P.X.O.U._199012_3CLAS, and both 1DEL layers returned HTTP 200 with 0 features. Genuine MEASURED ABSENCES, kept in the denominator, never folded in with the 5 failures above.",
+
+  "guardsHonoured": {
+    "failureNotEmpty": "5 failures counted separately from 4 measured empties; every negative carries URL + status + content-type + byte count",
+    "spatialExtentVerified": "WMS EX_GeographicBoundingBox lon -7.74287..-7.39948, lat 42.8783..43.1071 CONTAINS Lugo (43.012, -7.556). Not a GMU_Services-style acronym collision.",
+    "axisOrderTested": "WFS bbox tried as lat,lon AND lon,lat; both 0 features. Empty is real, not an axis artefact. Catastro axis reused from a live-verified note.",
+    "proxyNotSource": "SIU soil class was NOT accepted as a substitute for cualificación; Lei 2/2016 Art. 53.b) distinguishes them and the refusal turns on that distinction.",
+    "clientAndProtocolVaried": "browser UA + probe UA, https and http, WMS and WFS and ArcGIS REST"
+  },
+
+  "notMeasured": [
+    "CITY-WIDE refusal rate. Exactly ONE parcel was carried end-to-end (N=1). The 0% envelope figure IS a census of the service; the 100% refusal figure is NOT a city-wide sample. Per BLOCKER-CLASSIFICATION-STANDARD rule 6, N is stated and N is 1.",
+    "Whether the 2011 3CLAS layer covers the URBAN core. The 3000-feature draw hit MAXFEATURES and skewed rural (SRPAU/SRPAG). Total feature count unknown — no returnCountOnly on this MapServer WFS 1.1.0.",
+    "PEPRI content. Both known hosts 502. Cannot say whether it is machine-readable, only that we could not reach it.",
+    "Whether the 2023 3CLAS emptiness is a publication defect or intended (the 2023 approval covering scattered ámbitos). Distinguishing them needs the Concello — External authority.",
+    "Whether ToUnicode maps hide inside compressed object streams of the 2011 PDF. Measured only that naive extraction yields mojibake.",
+    "Any raster->vector cost for PORD_02CL. Deliberately not estimated: Córdoba D-002 forbids assuming vectorisation is authorised.",
+    "ideg.xunta.gal service catalogue — one wrong-name guess, then deprioritised. NOT an exhausted search."
+  ],
+
+  "registerRowsProposed": [
+    { "city": "Lugo", "dataset": "SIOTUGA per-INE WMS/WFS (codine=27028) — CLASIFICACIÓN vector (3CLAS)", "machineReadable": "Yes for the 2011 expediente (3000+ features); NO for the in-force 2023 expediente (0 features, censused)", "publishable": "No — publisher declares vector data has NO LEGAL VALIDITY (config.js)", "status": "Investigate", "action": "Ask Ajuntamento/Xunta whether 2023 3CLAS emptiness is a publication defect. Owner: the founder. Exit: a written answer, or the layer populates." },
+    { "city": "Lugo", "dataset": "SIOTUGA PORD_02CL — ORDENACIÓN / cualificación", "machineReadable": "No — RASTER. GetFeatureInfo returns attribute-less per-pixel boxes; only TILEINDEX (43 sheets, 0% attributes) is in WFS", "publishable": "N/A — carries no machine-readable figure", "status": "Closed", "action": "None. Do not re-probe for vector cualificación on this service; it does not exist. VECTORISATION NOT AUTHORISED (cf. Córdoba D-002)." },
+    { "city": "Lugo", "dataset": "PEPRI do Recinto Amurallado (Decreto 443 do 22-02-1973)", "machineReadable": "Unknown — host HTTP 502 on both known routes, NOT absent", "publishable": "No — constrains downward; refuse where it may apply", "status": "External", "action": "Obtain the PEPRI from the Concello. Owner: the founder. Exit: document in hand, or a written refusal." },
+    { "city": "All (Spain)", "dataset": "SIU OGC_Clases_Suelo layer 15", "machineReadable": "Yes — INE-keyed, works cold on an untouched municipality", "publishable": "Yes — CLASS axis only, never the ENVELOPE axis", "status": "Use", "action": "Fix the documented predicate: FechaBaja is a STRING, quote it. The numeric form returns a 400 body under HTTP 200." }
+  ],
+
+  "verdict": "TRUE ADAPTER COST FOR A COLD PUBLISHER: 27.4 minutes to a correct, article-cited determination, with ZERO lines of municipality-specific code. The cost is NOT engineering. Every one of the seven human-judgement points is a LEGAL or SEMANTIC reading, and the binding constraint is that the in-force plan's envelope data is a picture. Galicia's publisher surface is the BEST the programme has met (one INE-keyed template, 313 municipalities) and its payload for the plan that governs is EMPTY."
+}

@@ -1,0 +1,1973 @@
+{
+ "ine": "08196",
+ "totalAreaM2": 5620216.061856153,
+ "qualMuniRows": 60,
+ "polygons": 637,
+ "report": [
+  {
+   "clau": "18a",
+   "areaM2": 989957.0774286813,
+   "pct": 17.614217434582656,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_6.capitol_2"
+   ]
+  },
+  {
+   "clau": "V",
+   "areaM2": 842136.6648735678,
+   "pct": 14.98406210019336,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD",
+    "PG",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_7.capitol_2",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "P",
+   "areaM2": 487837.01401334745,
+   "pct": 8.680040209205634,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_7.capitol_7",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "11b",
+   "areaM2": 415344.94478799927,
+   "pct": 7.390195327309638,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_10",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "11d",
+   "areaM2": 308628.06447392923,
+   "pct": 5.491391453231792,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD*"
+   ],
+   "normativ": [
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "E",
+   "areaM2": 275002.77951322973,
+   "pct": 4.893099775641121,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_7.capitol_10",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "19b",
+   "areaM2": 212218.78501271523,
+   "pct": 3.7759897960689264,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_7.capitol_12"
+   ]
+  },
+  {
+   "clau": "11e",
+   "areaM2": 212020.31269349376,
+   "pct": 3.7724583959049993,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD*"
+   ],
+   "normativ": [
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "11a",
+   "areaM2": 172350.0659037014,
+   "pct": 3.06660925499687,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_10",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "8c",
+   "areaM2": 159346.73676154355,
+   "pct": 2.8352421865595874,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": true,
+    "N_PLANTES": true,
+    "OCUP_MAX": true,
+    "SEP_FVIAL": true,
+    "SEP_LAT": true,
+    "SEP_FONS": true,
+    "S_MIN_PAR": true,
+    "F_MIN_PAR": true,
+    "ST_MAX": false,
+    "DENS_U": true,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [
+     7
+    ],
+    "N_PLANTES": [
+     "2"
+    ],
+    "OCUP_MAX": [
+     40
+    ],
+    "SEP_FVIAL": [
+     3
+    ],
+    "SEP_LAT": [
+     2
+    ],
+    "SEP_FONS": [
+     2
+    ],
+    "S_MIN_PAR": [
+     200
+    ],
+    "F_MIN_PAR": [
+     10
+    ],
+    "ST_MAX": [],
+    "DENS_U": [
+     1
+    ],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_8"
+   ]
+  },
+  {
+   "clau": "9",
+   "areaM2": 157520.84660515317,
+   "pct": 2.802754286872198,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": true,
+    "N_PLANTES": true,
+    "OCUP_MAX": true,
+    "SEP_FVIAL": true,
+    "SEP_LAT": true,
+    "SEP_FONS": true,
+    "S_MIN_PAR": true,
+    "F_MIN_PAR": true,
+    "ST_MAX": false,
+    "DENS_U": true,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [
+     9
+    ],
+    "N_PLANTES": [
+     "3"
+    ],
+    "OCUP_MAX": [
+     30
+    ],
+    "SEP_FVIAL": [
+     6
+    ],
+    "SEP_LAT": [
+     3
+    ],
+    "SEP_FONS": [
+     3
+    ],
+    "S_MIN_PAR": [
+     400
+    ],
+    "F_MIN_PAR": [
+     15
+    ],
+    "ST_MAX": [],
+    "DENS_U": [
+     1
+    ],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_8",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "F",
+   "areaM2": 152260.4325724619,
+   "pct": 2.7091562120865476,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_7.capitol_6"
+   ]
+  },
+  {
+   "clau": "SH",
+   "areaM2": 140105.7245079081,
+   "pct": 2.4928885823232263,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD",
+    "PG"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_7.capitol_8"
+   ]
+  },
+  {
+   "clau": "3b",
+   "areaM2": 122012.17930663306,
+   "pct": 2.1709517563696092,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD*"
+   ],
+   "normativ": [
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "2",
+   "areaM2": 99429.6014540204,
+   "pct": 1.769141975320828,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_3",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "8b",
+   "areaM2": 81960.75173746653,
+   "pct": 1.4583203000633018,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": true,
+    "N_PLANTES": true,
+    "OCUP_MAX": true,
+    "SEP_FVIAL": true,
+    "SEP_LAT": true,
+    "SEP_FONS": true,
+    "S_MIN_PAR": true,
+    "F_MIN_PAR": true,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [
+     7
+    ],
+    "N_PLANTES": [
+     "2"
+    ],
+    "OCUP_MAX": [
+     40
+    ],
+    "SEP_FVIAL": [
+     3
+    ],
+    "SEP_LAT": [
+     2
+    ],
+    "SEP_FONS": [
+     2
+    ],
+    "S_MIN_PAR": [
+     200
+    ],
+    "F_MIN_PAR": [
+     10
+    ],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_8",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "EGC",
+   "areaM2": 71354.01805700085,
+   "pct": 1.269595639592461,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_7.capitol_11"
+   ]
+  },
+  {
+   "clau": "8a",
+   "areaM2": 69665.16126533781,
+   "pct": 1.2395459622655491,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": true,
+    "N_PLANTES": true,
+    "OCUP_MAX": true,
+    "SEP_FVIAL": true,
+    "SEP_LAT": true,
+    "SEP_FONS": true,
+    "S_MIN_PAR": true,
+    "F_MIN_PAR": true,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [
+     11
+    ],
+    "N_PLANTES": [
+     "3"
+    ],
+    "OCUP_MAX": [
+     40
+    ],
+    "SEP_FVIAL": [
+     3
+    ],
+    "SEP_LAT": [
+     2
+    ],
+    "SEP_FONS": [
+     2
+    ],
+    "S_MIN_PAR": [
+     200
+    ],
+    "F_MIN_PAR": [
+     10
+    ],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_8",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "6",
+   "areaM2": 59865.69798110542,
+   "pct": 1.065184991506073,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD",
+    "PG"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_7.capitol_5"
+   ]
+  },
+  {
+   "clau": "1",
+   "areaM2": 57005.906759721496,
+   "pct": 1.0143009829571306,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_2",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "11f",
+   "areaM2": 56386.68711655043,
+   "pct": 1.0032832634183098,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_10"
+   ]
+  },
+  {
+   "clau": "11t",
+   "areaM2": 53066.837188721925,
+   "pct": 0.9442134715937571,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_10"
+   ]
+  },
+  {
+   "clau": "8f",
+   "areaM2": 47549.38365564948,
+   "pct": 0.8460419160459401,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD*"
+   ],
+   "normativ": [
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "FC",
+   "areaM2": 47170.98597534984,
+   "pct": 0.8393091200798244,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_7.capitol_3"
+   ]
+  },
+  {
+   "clau": "16a",
+   "areaM2": 31228.987860394755,
+   "pct": 0.555654578341619,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_12"
+   ]
+  },
+  {
+   "clau": "3c",
+   "areaM2": 29448.217034511807,
+   "pct": 0.5239694828526953,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_4"
+   ]
+  },
+  {
+   "clau": "Vp",
+   "areaM2": 28017.446472485986,
+   "pct": 0.49851191064766365,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_7.capitol_2",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "7b",
+   "areaM2": 26271.556219123915,
+   "pct": 0.46744744205523253,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_7.capitol_9",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "8e",
+   "areaM2": 22485.145449695978,
+   "pct": 0.40007617504779613,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": true,
+    "N_PLANTES": true,
+    "OCUP_MAX": true,
+    "SEP_FVIAL": true,
+    "SEP_LAT": true,
+    "SEP_FONS": true,
+    "S_MIN_PAR": true,
+    "F_MIN_PAR": true,
+    "ST_MAX": false,
+    "DENS_U": true,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [
+     7
+    ],
+    "N_PLANTES": [
+     "2"
+    ],
+    "OCUP_MAX": [
+     40
+    ],
+    "SEP_FVIAL": [
+     3
+    ],
+    "SEP_LAT": [
+     2
+    ],
+    "SEP_FONS": [
+     2
+    ],
+    "S_MIN_PAR": [
+     200
+    ],
+    "F_MIN_PAR": [
+     10
+    ],
+    "ST_MAX": [],
+    "DENS_U": [
+     1
+    ],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_8"
+   ]
+  },
+  {
+   "clau": "5",
+   "areaM2": 21422.357882068816,
+   "pct": 0.38116609123731426,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_6"
+   ]
+  },
+  {
+   "clau": "19a",
+   "areaM2": 21074.742783402133,
+   "pct": 0.37498100698359826,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_6.capitol_3"
+   ]
+  },
+  {
+   "clau": "Vs",
+   "areaM2": 20022.11048813331,
+   "pct": 0.3562516150227992,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_7.capitol_2",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "18b",
+   "areaM2": 19132.077747765725,
+   "pct": 0.3404153423497938,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_6.capitol_2"
+   ]
+  },
+  {
+   "clau": "11c",
+   "areaM2": 18856.712254475457,
+   "pct": 0.33551578884046973,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_10"
+   ]
+  },
+  {
+   "clau": "S",
+   "areaM2": 16004.936444942794,
+   "pct": 0.2847743977952503,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_7.capitol_4",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "7a",
+   "areaM2": 15267.111108394869,
+   "pct": 0.27164633779849195,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_7.capitol_9",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "6b",
+   "areaM2": 13540.559550227692,
+   "pct": 0.2409259608741045,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_7"
+   ]
+  },
+  {
+   "clau": "4",
+   "areaM2": 12756.28639675176,
+   "pct": 0.22697145903922458,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG",
+    "PD"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_5"
+   ]
+  },
+  {
+   "clau": "3a",
+   "areaM2": 11175.305759120167,
+   "pct": 0.19884121243960448,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_4",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "13a",
+   "areaM2": 11003.80283511063,
+   "pct": 0.19578967630430338,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_11"
+   ]
+  },
+  {
+   "clau": "10a",
+   "areaM2": 6490.18596623479,
+   "pct": 0.1154792964328015,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_9",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "10b",
+   "areaM2": 3566.7659917000074,
+   "pct": 0.06346314718943445,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": false,
+    "N_PLANTES": false,
+    "OCUP_MAX": false,
+    "SEP_FVIAL": false,
+    "SEP_LAT": false,
+    "SEP_FONS": false,
+    "S_MIN_PAR": false,
+    "F_MIN_PAR": false,
+    "ST_MAX": false,
+    "DENS_U": false,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [],
+    "N_PLANTES": [],
+    "OCUP_MAX": [],
+    "SEP_FVIAL": [],
+    "SEP_LAT": [],
+    "SEP_FONS": [],
+    "S_MIN_PAR": [],
+    "F_MIN_PAR": [],
+    "ST_MAX": [],
+    "DENS_U": [],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PD",
+    "PD*"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_9",
+    "Asterisc"
+   ]
+  },
+  {
+   "clau": "8d",
+   "areaM2": 2255.093966320816,
+   "pct": 0.04012468455840896,
+   "qualMuniRows": 1,
+   "vars": {
+    "IE": false,
+    "ARM": true,
+    "N_PLANTES": true,
+    "OCUP_MAX": true,
+    "SEP_FVIAL": true,
+    "SEP_LAT": true,
+    "SEP_FONS": true,
+    "S_MIN_PAR": true,
+    "F_MIN_PAR": true,
+    "ST_MAX": false,
+    "DENS_U": true,
+    "ESPLADERIVAT": false,
+    "ASTERISC": false
+   },
+   "values": {
+    "IE": [],
+    "ARM": [
+     7
+    ],
+    "N_PLANTES": [
+     "2"
+    ],
+    "OCUP_MAX": [
+     60
+    ],
+    "SEP_FVIAL": [
+     5
+    ],
+    "SEP_LAT": [
+     2
+    ],
+    "SEP_FONS": [
+     2
+    ],
+    "S_MIN_PAR": [
+     600
+    ],
+    "F_MIN_PAR": [
+     10
+    ],
+    "ST_MAX": [],
+    "DENS_U": [
+     1
+    ],
+    "ESPLADERIVAT": [],
+    "ASTERISC": []
+   },
+   "plan": [
+    "PG"
+   ],
+   "normativ": [
+    "num_poum_sant_andreu_de_la_barca.titol_4.capitol_8"
+   ]
+  }
+ ]
+}

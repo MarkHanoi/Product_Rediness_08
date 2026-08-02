@@ -1,0 +1,56 @@
+[
+ {
+  "cc": "MD",
+  "url": "https://idem.madrid.org/cartografia/js/Config.js",
+  "http": 404,
+  "bytes": 196
+ },
+ {
+  "cc": "MD",
+  "url": "https://idem.madrid.org/cartografia/sitcm/js/Config.js",
+  "http": 200,
+  "bytes": 5761,
+  "svc": [
+   "https://gestiona3.madrid.org/mova_rest_servicios/v1/consultas/do",
+   "https://idem.madrid.org/geoserver",
+   "https://idem.comunidad.madrid/geoserver3",
+   "https://idem.comunidad.madrid/geoserver3/wms",
+   "https://idem.comunidad.madrid/geosrvg/ows"
+  ]
+ },
+ {
+  "cc": "MD",
+  "url": "https://idem.madrid.org/cartografia/sitcm/js/Planeamiento.js",
+  "http": 200,
+  "bytes": 67951,
+  "svc": []
+ },
+ {
+  "cc": "EX",
+  "url": "https://geoportal.ideex.es/",
+  "http": 200,
+  "bytes": 20518,
+  "svc": [
+   "http://www.ideex.es/IDEEXVisor/DIRECTORIO_DE_SERVICIOS_Y_CAPAS_DE_LA_IDE_DE_EXTREMADURA.pdf",
+   "http://geoportal.ideex.es/img/ideex/visualizador_nuevo.png",
+   "http://geoportal.ideex.es/img/ideex/visualizador.png",
+   "http://geoportal.ideex.es/img/ideex/centrodescargas.png",
+   "http://geoportal.ideex.es/img/ideex/metadatosverde.png",
+   "http://geoportal.ideex.es/img/logoCICTEX20years.webp",
+   "http://geoportal.ideex.es/pages/memoriaCICTEX",
+   "http://geoportal.ideex.es/img/ideex/visorincendios.png",
+   "http://geoportal.ideex.es/img/ideex/sepadmayores.jpg",
+   "http://geoportal.ideex.es/img/ideex/ideDidactica_4.png",
+   "http://geoportal.ideex.es/img/extremaduratuobjetivo.png",
+   "http://geoportal.ideex.es/img/logo_ideex-buenasnoches_final.png",
+   "http://geoportal.ideex.es/img/ideex/calendario2026_small.webp",
+   "http://geoportal.ideex.es/files/calendarios/IDEEX2026.pdf"
+  ]
+ },
+ {
+  "cc": "EX",
+  "url": "https://geoportal.ideex.es/geoserver/wfs?service=WFS&version=2.0.0&request=GetCapabilities",
+  "http": 404,
+  "bytes": 9531
+ }
+]

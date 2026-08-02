@@ -1,0 +1,67 @@
+{
+ "builtAt": "2026-08-02T08:56:34.658Z",
+ "source": "Catastro INSPIRE CadastralParcels per-municipality ATOM enclosure A.ES.SDGC.CP.<DGC>.zip",
+ "note": "DGC municipality code ≠ INE code for provincial capitals (<prov>900). Resolved by name.",
+ "rows": [
+  {
+   "city": "barcelona",
+   "ine": "08019",
+   "name": "BARCELONA",
+   "ok": true,
+   "parcelTotal": 78371,
+   "parcelUrban": 76398,
+   "parcelRustic": 1973,
+   "gmlBytes": 175911638
+  },
+  {
+   "city": "madrid",
+   "ine": "28079",
+   "name": "MADRID",
+   "ok": true,
+   "parcelTotal": 141064,
+   "parcelUrban": 137382,
+   "parcelRustic": 3682,
+   "gmlBytes": 324429820
+  },
+  {
+   "city": "murcia",
+   "ine": "30030",
+   "name": "MURCIA",
+   "ok": true,
+   "parcelTotal": 150647,
+   "parcelUrban": 91484,
+   "parcelRustic": 59163,
+   "gmlBytes": 359039513
+  },
+  {
+   "city": "cordoba",
+   "ine": "14021",
+   "name": "CORDOBA",
+   "ok": true,
+   "parcelTotal": 50530,
+   "parcelUrban": 39639,
+   "parcelRustic": 10891,
+   "gmlBytes": 119270145
+  },
+  {
+   "city": "valencia",
+   "ine": "46250",
+   "name": "VALENCIA",
+   "ok": true,
+   "parcelTotal": 56374,
+   "parcelUrban": 40665,
+   "parcelRustic": 15709,
+   "gmlBytes": 130808014
+  },
+  {
+   "city": "lugo",
+   "ine": "27028",
+   "name": "LUGO",
+   "ok": true,
+   "parcelTotal": 91816,
+   "parcelUrban": 19230,
+   "parcelRustic": 72586,
+   "gmlBytes": 206027931
+  }
+ ]
+}

@@ -1,0 +1,160 @@
+
+=== barcelona ===
+  barcelona 1/30 (draw 9) 22a
+  barcelona 2/30 (draw 22) 18
+  barcelona 3/30 (draw 24) 22a
+  barcelona 4/30 (draw 34) 22a
+  barcelona 5/30 (draw 42) 22a
+  barcelona 6/30 (draw 48) 22a
+  barcelona 7/30 (draw 69) 18
+  barcelona 8/30 (draw 78) 12b
+  barcelona 9/30 (draw 81) 18
+  barcelona 10/30 (draw 89) 22a
+  barcelona 11/30 (draw 97) 18
+  barcelona 12/30 (draw 122) 15
+  barcelona 13/30 (draw 125) 22a
+  barcelona 14/30 (draw 132) 18
+  barcelona 15/30 (draw 160) 18
+  barcelona 16/30 (draw 169) 22a
+  barcelona 17/30 (draw 170) 22a
+  barcelona 18/30 (draw 174) 18
+  barcelona 19/30 (draw 199) 22a
+  barcelona 20/30 (draw 200) 18
+  barcelona 21/30 (draw 213) 12b
+  barcelona 22/30 (draw 245) 12b
+  barcelona 23/30 (draw 246) 22a
+  barcelona 24/30 (draw 251) 22a
+  barcelona 25/30 (draw 253) 22a
+  barcelona 26/30 (draw 260) 18
+  barcelona 27/30 (draw 299) 22a
+  barcelona 28/30 (draw 300) 18
+  barcelona 29/30 (draw 308) 18
+  barcelona 30/30 (draw 313) 18
+
+=== madrid ===
+  madrid 1/30 (draw 10) 3.1.a
+  madrid 2/30 (draw 12) 3.1.a
+  madrid 3/30 (draw 15) 3.1.a
+  madrid 4/30 (draw 17) 3.1.a
+  madrid 5/30 (draw 23) 3.1.a
+  madrid 6/30 (draw 28) 3.1.a
+  madrid 7/30 (draw 33) 3.2
+  madrid 8/30 (draw 34) 3.1.a
+  madrid 9/30 (draw 47) 3.1.a
+  madrid 10/30 (draw 50) 3.1.a
+  madrid 11/30 (draw 52) 3.1.a
+  madrid 12/30 (draw 59) 3.1.a
+  madrid 13/30 (draw 66) 3.1.a
+  madrid 14/30 (draw 68) 3.1.a
+  madrid 15/30 (draw 74) 3.1.a
+  madrid 16/30 (draw 79) 3.2
+  madrid 17/30 (draw 82) 3.1.a
+  madrid 18/30 (draw 89) 3.1.a
+  madrid 19/30 (draw 92) 3.2
+  madrid 20/30 (draw 106) 3.1.b
+  madrid 21/30 (draw 113) 3.1.a
+  madrid 22/30 (draw 115) 3.1.a
+  madrid 23/30 (draw 123) 3.1.a
+  madrid 24/30 (draw 137) 3.1.a
+  madrid 25/30 (draw 161) 3.1.a
+  madrid 26/30 (draw 164) 3.1.a
+  madrid 27/30 (draw 165) 3.1.a
+  madrid 28/30 (draw 166) 3.1.a
+  madrid 29/30 (draw 167) 3.2
+  madrid 30/30 (draw 168) 3.1.a
+
+=== murcia ===
+  murcia 1/30 (draw 17) RR (family RR)
+  murcia 2/30 (draw 19) RL (family RL)
+  murcia 3/30 (draw 26) RB-II (family RB)
+  murcia 4/30 (draw 29) RL (family RL)
+  murcia 5/30 (draw 35) RL (family RL)
+  murcia 6/30 (draw 43) RC (family RC)
+  murcia 7/30 (draw 50) RR (family RR)
+  murcia 8/30 (draw 57) RX (family RX)
+  murcia 9/30 (draw 67) RX (family RX)
+  murcia 10/30 (draw 73) IX (family IX)
+  murcia 11/30 (draw 75) RBA (family RB)
+  murcia 12/30 (draw 82) RR (family RR)
+  murcia 13/30 (draw 83) RR (family RR)
+  murcia 14/30 (draw 89) TC (family TC)
+  murcia 15/30 (draw 92) RS (family RS)
+  murcia 16/30 (draw 101) RD (family RD)
+  murcia 17/30 (draw 111) RM (family RM)
+  murcia 18/30 (draw 123) RR (family RR)
+  murcia 19/30 (draw 125) RD (family RD)
+  murcia 20/30 (draw 132) RX (family RX)
+  murcia 21/30 (draw 136) RR (family RR)
+  murcia 22/30 (draw 139) RM (family RM)
+  murcia 23/30 (draw 145) RB1 (family RB)
+  murcia 24/30 (draw 147) IC (family IC)
+  murcia 25/30 (draw 153) RL (family RL)
+  murcia 26/30 (draw 154) RX (family RX)
+  murcia 27/30 (draw 160) RB (family RB)
+  murcia 28/30 (draw 166) RR (family RR)
+  murcia 29/30 (draw 173) RM (family RM)
+  murcia 30/30 (draw 177) MC (family MC)
+
+=== valencia ===
+  valencia 1/30 (draw 27) TER · origen=PE1894
+  valencia 2/30 (draw 51) ENS · origen=PE2070
+  valencia 3/30 (draw 82) EDA · origen=PRI1878
+  valencia 4/30 (draw 143) CHP2 · origen=PE2013
+  valencia 5/30 (draw 146) CHP · origen=PE2020
+  valencia 6/30 (draw 171) CHP · origen=PE2070
+  valencia 7/30 (draw 203) CHP2 · origen=PE2013
+  valencia 8/30 (draw 299) ENS · origen=MP2098A
+  valencia 9/30 (draw 354) EDA · origen=PRI2089
+  valencia 10/30 (draw 372) CHP · origen=PE2020
+  valencia 11/30 (draw 408) CHP · origen=PE2070
+  valencia 12/30 (draw 445) CHP · origen=PE2070
+  valencia 13/30 (draw 464) ENS · origen=MP2102
+  valencia 14/30 (draw 479) ENS · origen=RI1529
+  valencia 15/30 (draw 481) ENS · origen=MP2002
+  valencia 16/30 (draw 542) IND · origen=PP158
+  valencia 17/30 (draw 545) EDA · origen=RI34
+  valencia 18/30 (draw 551) EDA · origen=MP2083
+  valencia 19/30 (draw 559) ENS · origen=PRI2018
+  valencia 20/30 (draw 609) CHP · origen=PE2070
+  valencia 21/30 (draw 611) ENS · origen=RI1705
+  valencia 22/30 (draw 616) CHP · origen=PE2020
+  valencia 23/30 (draw 681) CHP2 · origen=PE2013
+
+=== cordoba ===
+  cordoba 1/30 (draw 3) Ordenacion Abierta · actuacion=PERI SS-1
+  cordoba 2/30 (draw 6) Manzana Cerrada · actuacion=PAM SS-5
+  cordoba 3/30 (draw 7) Colonia Tradicional Popular
+  cordoba 4/30 (draw 13) Manzana Cerrada · actuacion=PAM SS-5
+  cordoba 5/30 (draw 15) Ordenacion Abierta · actuacion=ED SS-12
+  cordoba 6/30 (draw 27) usos_globales «Residencial» · actuacion=PP 0-4
+  cordoba 7/30 (draw 28) Plurifamiliar aislada · actuacion=PAM PP MA-1.1
+  cordoba 8/30 (draw 30) Plurifamiliar aislada · actuacion=PAM PP MA-1.1
+  cordoba 9/30 (draw 38) Manzana Cerrada · actuacion=PP O-4
+  cordoba 10/30 (draw 41) Manzana Cerrada · actuacion=PAM SS-5
+  cordoba 11/30 (draw 42) Manzana Cerrada · actuacion=PAM PP RENFE
+  cordoba 12/30 (draw 44) Plurifamiliar aislada · actuacion=PA PP MA-3
+  cordoba 13/30 (draw 45) Manzana Cerrada · actuacion=PAM SS-5
+  cordoba 14/30 (draw 47) usos_globales «Residencial» · actuacion=PAM PP E-1.1
+  cordoba 15/30 (draw 49) Colonia Tradicional Popular
+  cordoba 16/30 (draw 50) Manzana Cerrada · actuacion=PERI SS-8
+  cordoba 17/30 (draw 53) Elemento protegido
+  cordoba 18/30 (draw 60) Manzana Cerrada · actuacion=PAM PP MA-1.1
+  cordoba 19/30 (draw 68) Ordenacion Abierta · actuacion=PAM SS-5
+  cordoba 20/30 (draw 73) Manzana Cerrada · actuacion=PAM PP RENFE
+  cordoba 21/30 (draw 76) Manzana Cerrada · actuacion=ED SS-12
+  cordoba 22/30 (draw 79) Manzana Cerrada · actuacion=PAM SS-5
+  cordoba 23/30 (draw 80) Plurifamiliar aislada · actuacion=PAM PP E-1.1
+  cordoba 24/30 (draw 81) Colonia Tradicional Popular
+  cordoba 25/30 (draw 88) Plurifamiliar aislada · actuacion=PAM PP RENFE
+  cordoba 26/30 (draw 89) Plurifamiliar aislada · actuacion=PAM PP MA-1.1
+  cordoba 27/30 (draw 90) Manzana Cerrada · actuacion=PAM PP MA-1.1
+  cordoba 28/30 (draw 92) Ordenacion Abierta · actuacion=PAM SS-5
+  cordoba 29/30 (draw 96) Ordenacion Abierta · actuacion=PAM PP RENFE
+  cordoba 30/30 (draw 100) Plurifamiliar aislada · actuacion=PA PP MA-2
+
+DONE
+barcelona: samples=30 draws=313 skipped=283 failures=0
+madrid: samples=30 draws=168 skipped=138 failures=0
+murcia: samples=30 draws=177 skipped=147 failures=0
+valencia: samples=23 draws=700 skipped=677 failures=0
+cordoba: samples=30 draws=100 skipped=70 failures=0

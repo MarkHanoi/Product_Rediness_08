@@ -1,0 +1,175 @@
+[
+ {
+  "cc": "MD",
+  "url": "https://idem.madrid.org/geoserver/ows?service=WFS&version=2.0.0&request=GetCapabilities",
+  "http": 404,
+  "bytes": 196,
+  "outcome": "UNKNOWN(http 404)"
+ },
+ {
+  "cc": "MD",
+  "url": "https://idem.madrid.org/geoserver/sitcm/wfs?service=WFS&version=2.0.0&request=GetCapabilities",
+  "http": 404,
+  "bytes": 196,
+  "outcome": "UNKNOWN(http 404)"
+ },
+ {
+  "cc": "MD",
+  "url": "https://gestiona.comunidad.madrid/nomecalles/wfs?service=WFS&version=2.0.0&request=GetCapabilities",
+  "http": 404,
+  "bytes": 1587,
+  "outcome": "UNKNOWN(http 404)"
+ },
+ {
+  "cc": "MD",
+  "url": "https://idem.madrid.org/geoserver/web/",
+  "http": 404,
+  "bytes": 196,
+  "outcome": "UNKNOWN(http 404)"
+ },
+ {
+  "cc": "MD",
+  "url": "https://servicios.idem.madrid.org/geoserver/wfs?service=WFS&version=2.0.0&request=GetCapabilities",
+  "http": null,
+  "outcome": "UNKNOWN(TypeError)"
+ },
+ {
+  "cc": "EX",
+  "url": "https://sitex.juntaex.es/geoserver/ows?service=WFS&version=2.0.0&request=GetCapabilities",
+  "http": 404,
+  "bytes": 196,
+  "outcome": "UNKNOWN(http 404)"
+ },
+ {
+  "cc": "EX",
+  "url": "https://ideextremadura.juntaex.es/geoserver/wfs?service=WFS&version=2.0.0&request=GetCapabilities",
+  "http": null,
+  "outcome": "UNKNOWN(TypeError)"
+ },
+ {
+  "cc": "EX",
+  "url": "https://sitex.juntaex.es/SITEX/",
+  "http": 200,
+  "bytes": 84469,
+  "outcome": "HTML/other"
+ },
+ {
+  "cc": "EX",
+  "url": "https://ideex.juntaex.es/geoserver/wfs?service=WFS&version=2.0.0&request=GetCapabilities",
+  "http": null,
+  "outcome": "UNKNOWN(TypeError)"
+ },
+ {
+  "cc": "CM",
+  "url": "https://ide.jccm.es/geoserver/wfs?service=WFS&version=2.0.0&request=GetCapabilities",
+  "http": null,
+  "outcome": "UNKNOWN(TypeError)"
+ },
+ {
+  "cc": "CM",
+  "url": "https://geoservicios.castillalamancha.es/geoserver/wfs?service=WFS&version=2.0.0&request=GetCapabilities",
+  "http": 404,
+  "bytes": 1173,
+  "outcome": "UNKNOWN(http 404)"
+ },
+ {
+  "cc": "CM",
+  "url": "https://urbanismo.castillalamancha.es/planeamiento/sistema-de-informacion-urbana",
+  "http": 200,
+  "bytes": 77187,
+  "outcome": "HTML/other"
+ },
+ {
+  "cc": "CM",
+  "url": "https://ides.jccm.es/geoserver/wfs?service=WFS&version=2.0.0&request=GetCapabilities",
+  "http": null,
+  "outcome": "UNKNOWN(TypeError)"
+ },
+ {
+  "cc": "GA",
+  "url": "https://ideg.xunta.gal/servizos/rest/services/Ordenacion?f=json",
+  "http": 200,
+  "bytes": 553,
+  "outcome": "JSON",
+  "json": [
+   "Ordenacion/Paisaxe",
+   "Ordenacion/POL_AD_ModeloGestion",
+   "Ordenacion/POL_AD_ModeloTerritorial",
+   "Ordenacion/POL_AD_Ortofoto1956_57",
+   "Ordenacion/POL_AD_Ortofoto_2007_2008",
+   "Ordenacion/POL_AD_PlaneamientoSectorial",
+   "Ordenacion/POL_AD_PlaneamientoUrbanistico",
+   "Ordenacion/POL_AD_Usos"
+  ]
+ },
+ {
+  "cc": "GA",
+  "url": "https://ideg.xunta.gal/servizos/rest/services?f=json",
+  "http": 200,
+  "bytes": 271,
+  "outcome": "JSON",
+  "json": [
+   "SampleWorldCities"
+  ]
+ },
+ {
+  "cc": "CN",
+  "url": "https://idecan2.grafcan.es/ServicioWFS/Planeamiento?service=WFS&version=2.0.0&request=GetCapabilities",
+  "http": 404,
+  "bytes": 306,
+  "outcome": "UNKNOWN(http 404)"
+ },
+ {
+  "cc": "CN",
+  "url": "https://idecan1.grafcan.es/ServicioWFS/Planeamiento?service=WFS&version=2.0.0&request=GetCapabilities",
+  "http": 404,
+  "bytes": 222,
+  "outcome": "UNKNOWN(http 404)"
+ },
+ {
+  "cc": "IB",
+  "url": "https://ideib.caib.es/geoserveis/rest/services/public/GOIB_MUIB/MapServer/10?f=json",
+  "http": 200,
+  "bytes": 17604,
+  "outcome": "JSON",
+  "json": [
+   "OBJECTID",
+   "Shape",
+   "CODIPLA",
+   "CODICLAS",
+   "NOM",
+   "CODIAJ",
+   "CODIMUIB",
+   "CODIMUIB_G",
+   "CODIMUNI",
+   "MUNICIPI",
+   "OBS",
+   "DINIVIGEN",
+   "DFIVIGEN",
+   "IDENTITAT",
+   "URL",
+   "Shape_Length",
+   "Shape_Area"
+  ]
+ },
+ {
+  "cc": "AN",
+  "url": "https://www.ideandalucia.es/services/urbanismo/wfs?service=WFS&version=2.0.0&request=GetCapabilities",
+  "http": 404,
+  "bytes": 678,
+  "outcome": "UNKNOWN(http 404)"
+ },
+ {
+  "cc": "AN",
+  "url": "https://ws132.juntadeandalucia.es/situadifusion/rest/services?f=json",
+  "http": 404,
+  "bytes": 1013,
+  "outcome": "UNKNOWN(http 404)"
+ },
+ {
+  "cc": "AN",
+  "url": "https://ws172.juntadeandalucia.es/arcgis/rest/services?f=json",
+  "http": null,
+  "outcome": "UNKNOWN(TypeError)"
+ }
+]

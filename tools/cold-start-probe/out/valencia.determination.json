@@ -1,0 +1,134 @@
+{
+ "ok": true,
+ "city": "valencia",
+ "ine": "46250",
+ "service": "geoportal.valencia.es OPENDATA/UrbanismoEInfraestructuras/MapServer/231 · fields clase, califi, origen",
+ "measuredAt": "2026-08-02T09:11:18.571Z",
+ "seed": 20260802,
+ "requested": 10,
+ "parcelPopulationTotal": 56374,
+ "parcelPopulationUrban": 40665,
+ "sampled": 10,
+ "assessed": 10,
+ "transportFailures": {},
+ "counts": {
+  "envelope": 0,
+  "refusal-terminal": 0,
+  "refusal-delegated": 3,
+  "refusal-external": 0,
+  "no-pack": 6,
+  "nonBuildable": 1
+ },
+ "denominatorPrivateBuildableParcels": 9,
+ "pct": {
+  "ofBuildable": {
+   "envelope": 0,
+   "refusalTerminal": 0,
+   "refusalDelegated": 0.3333333333333333,
+   "refusalExternal": 0,
+   "refusalTotal": 0.3333333333333333,
+   "determination": 0.3333333333333333,
+   "noPack": 0.6666666666666666
+  },
+  "ofAllUrbanParcels": {
+   "envelope": 0,
+   "refusalTotal": 0.3,
+   "determination": 0.3,
+   "noPack": 0.6,
+   "nonBuildable": 0.1
+  }
+ },
+ "inheritedApplied": {},
+ "rows": [
+  {
+   "ref": "9729925YJ2792H",
+   "lat": 39.473786,
+   "lon": -0.3303044,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "7179127YJ2677G",
+   "lat": 39.4296553,
+   "lon": -0.3626899,
+   "code": "SU|UFA|RI1464",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI1464)",
+   "inherited": null
+  },
+  {
+   "ref": "9624912YJ2792D",
+   "lat": 39.469201,
+   "lon": -0.3316897,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "8515402YJ2781F",
+   "lat": 39.4615799,
+   "lon": -0.3444142,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "1255515YJ2715E",
+   "lat": 39.4993876,
+   "lon": -0.4279886,
+   "code": "SU|PJL|MP2057",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=PJL — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "4894103YJ2649D",
+   "lat": 39.4430668,
+   "lon": -0.3884458,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "8220316YJ2782A",
+   "lat": 39.4664647,
+   "lon": -0.3479632,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "7523116YJ2772C",
+   "lat": 39.4692358,
+   "lon": -0.3567607,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5938104YJ2753H",
+   "lat": 39.4835125,
+   "lon": -0.3744523,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9902204YJ2790D",
+   "lat": 39.4495077,
+   "lon": -0.3290069,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  }
+ ]
+}

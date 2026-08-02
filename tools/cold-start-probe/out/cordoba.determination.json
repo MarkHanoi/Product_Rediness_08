@@ -1,0 +1,134 @@
+{
+ "ok": true,
+ "city": "cordoba",
+ "ine": "14021",
+ "service": "geoserver.pgou.coacordoba.org WFS coaco:ordenanzas (453 polygons prefetched in EPSG:4326) · field link",
+ "measuredAt": "2026-08-02T09:11:19.922Z",
+ "seed": 20260802,
+ "requested": 10,
+ "parcelPopulationTotal": 50530,
+ "parcelPopulationUrban": 39639,
+ "sampled": 10,
+ "assessed": 10,
+ "transportFailures": {},
+ "counts": {
+  "envelope": 0,
+  "refusal-terminal": 0,
+  "refusal-delegated": 0,
+  "refusal-external": 0,
+  "no-pack": 10,
+  "nonBuildable": 0
+ },
+ "denominatorPrivateBuildableParcels": 10,
+ "pct": {
+  "ofBuildable": {
+   "envelope": 0,
+   "refusalTerminal": 0,
+   "refusalDelegated": 0,
+   "refusalExternal": 0,
+   "refusalTotal": 0,
+   "determination": 0,
+   "noPack": 1
+  },
+  "ofAllUrbanParcels": {
+   "envelope": 0,
+   "refusalTotal": 0,
+   "determination": 0,
+   "noPack": 1,
+   "nonBuildable": 0
+  }
+ },
+ "inheritedApplied": {},
+ "rows": [
+  {
+   "ref": "2540512UG4924S",
+   "lat": 37.8784223,
+   "lon": -4.7917867,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1710903UG4911S",
+   "lat": 37.8509004,
+   "lon": -4.8000373,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0446810UG4904N",
+   "lat": 37.8833164,
+   "lon": -4.8158187,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1184637UG4918S",
+   "lat": 37.9184338,
+   "lon": -4.8075695,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3034802UG4933S",
+   "lat": 37.8728914,
+   "lon": -4.7854749,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9851246UG4995S",
+   "lat": 37.8898794,
+   "lon": -4.7085325,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4029711UG4942N",
+   "lat": 37.8687259,
+   "lon": -4.7737143,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "5594910UG4959S",
+   "lat": 37.9280848,
+   "lon": -4.7584064,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6939213UG3963N",
+   "lat": 37.8764786,
+   "lon": -4.8563905,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "8213401UH3081S",
+   "lat": 37.9425641,
+   "lon": -4.842451,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  }
+ ]
+}
