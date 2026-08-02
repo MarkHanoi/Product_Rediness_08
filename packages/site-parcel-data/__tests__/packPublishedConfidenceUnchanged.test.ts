@@ -58,6 +58,7 @@ import { CH_ZONING_PACK } from '../src/rulepacks/chZoning.js';
 import { CH_ZURICH_BZO_PACK } from '../src/rulepacks/chZurichBzo.js';
 import { SA_RIYADH_DEMO_PACK } from '../src/rulepacks/saRiyadhDemo.js';
 import { ESTIMATED_DEFAULT_PACK } from '../src/rulepacks/estimatedDefault.js';
+import { ES_TELDE_PGO2003_PACK } from '../src/rulepacks/esTeldePgo2003.js';
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // THE FROZEN MANIFEST — every pack's PUBLISHED `defaultConfidence`, as shipped before L-664.
@@ -72,6 +73,13 @@ const PUBLISHED: ReadonlyArray<readonly [string, { defaultConfidence: RulePackDe
     // data), so this seed describes NOTHING today. It is pinned at the floor tier precisely so a
     // future zone cannot inherit a flattering default by being added to an unpinned pack.
     ['esValenciaPgou', ES_VALENCIA_PGOU_PACK, 'estimated-ruleset'],
+    // Telde PGO-2003 (Canarias SIPU) — landed after this manifest was frozen. ⚠ Its numbers are
+    // PUBLISHED STRUCTURED DATA (the Gobierno de Canarias' own typed EDIF columns), which is
+    // stronger provenance than an OCR read — and it is pinned at `estimated-ruleset` ANYWAY,
+    // because nobody has checked those columns against the Normas Urbanísticas they summarise.
+    // Better plumbing is not a better legal claim, and this line is what stops the two being
+    // confused.
+    ['esTeldePgo2003', ES_TELDE_PGO2003_PACK, 'estimated-ruleset'],
     // Barcelona — every clau ships the curated-estimate seed. The `block-constructed` tier is
     // ENGINE-stamped per parcel (C58 §1.2 / L-572); a pack cannot self-certify.
     ['ES_BARCELONA_ENSANCHE_PACK', ES_BARCELONA_ENSANCHE_PACK, 'estimated-ruleset'],

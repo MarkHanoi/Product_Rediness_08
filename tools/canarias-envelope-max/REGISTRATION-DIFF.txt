@@ -1,0 +1,132 @@
+CANARIAS / TELDE — THE EXACT REGISTRATION DIFF, **UNAPPLIED**.
+===============================================================================
+
+⛔ WHY THIS IS A TEXT FILE AND NOT A COMMIT.
+`registry.ts`, `envelopeAuthorisation.ts`, `l449CertificationGates.ts` and `siteDispatch.ts`
+are owned by a concurrent Catalunya agent. Two agents editing one registry is how this repo
+produced parallel wiring before. So the Canarias adapter ships as NEW FILES ONLY and the three
+one-line registrations are handed over as text for the owner to apply.
+
+⚠⚠ UNTIL BLOCKS 1 AND 2 ARE APPLIED, TWO TOTALITY GUARDS ARE RED ON THIS BRANCH:
+      __tests__/envelopeAuthorisation.test.ts   §TOTALITY  (expected 9 to be 10)
+      __tests__/l449CertificationGates.test.ts  §TOTALITY  (CANARIAS_ENVELOPE_VERIFIED)
+   THAT IS THE GUARDS WORKING, NOT A DEFECT. Both exist precisely to fail when a gate constant
+   appears on disk and nothing registers it — the MADRID_NZ1_CERTIFIED hole. A gate nothing can
+   audit FAILS OPEN, so leaving these red is safer than silently suppressing them.
+   (The third guard, packPublishedConfidenceUnchanged.test.ts, was NOT in the owned set and has
+   already been fixed in this branch: Telde is pinned at `estimated-ruleset`.)
+
+⭐ EVERY BLOCK BELOW LEAVES THE GATE **SHUT**. This is a ROUTE, not a permission.
+
+===============================================================================
+BLOCK 1 — src/l449CertificationGates.ts
+===============================================================================
+Add to the import block:
+
+    import { CANARIAS_ENVELOPE_VERIFIED } from './rulepacks/esCanariasSipu.js';
+
+Add to `L449_CERTIFICATION_GATES`, in the SHUT (`false`) section:
+
+    {
+        // ⛔ SHUT, and `signature: null` — the honest default under
+        // §UNSIGNED-GATE-DEFAULTS-SHUT. Canarias' built-form parameters are PUBLISHED
+        // STRUCTURED DATA (SIPU 2.6.A `EDIF.mdb`), so unlike Córdoba there is no OCR step
+        // to distrust — but nobody has checked those columns against the Normas
+        // Urbanísticas they summarise, and the schema's dominant sentinel `'I'` has an
+        // UNKNOWN meaning region-wide. A signature is the only thing missing, and a
+        // signature is not something a pack may write for itself.
+        gate: 'CANARIAS_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esCanariasSipu.ts',
+        value: CANARIAS_ENVELOPE_VERIFIED,
+        signature: null,
+    },
+
+===============================================================================
+BLOCK 2 — src/rulepacks/envelopeAuthorisation.ts
+===============================================================================
+Add to the import block:
+
+    import { CANARIAS_ENVELOPE_VERIFIED } from './esCanariasSipu.js';
+
+Add to `ENVELOPE_PUBLICATION_GATES` (match the surrounding entries' exact shape — the table
+is keyed by jurisdiction id in the shipped file; use `TELDE_JURISDICTION_ID` if the key is an
+id, or the gate-name form if it is a name):
+
+    {
+        jurisdictionId: 'es-35026-telde',
+        gate: 'CANARIAS_ENVELOPE_VERIFIED',
+        verified: CANARIAS_ENVELOPE_VERIFIED,
+    },
+
+⚠ An unregistered `*_ENVELOPE_VERIFIED` FAILS OPEN: the classifier would promise a full
+envelope for a jurisdiction that refuses every parcel. That is why block 2 is not optional.
+
+===============================================================================
+BLOCK 3 — src/rulepacks/registry.ts
+===============================================================================
+Add to the import block:
+
+    import {
+        CANARIAS_MULTI_INSTRUMENT_BLOCKER,
+        TELDE_JURISDICTION_ID,
+        canariasNoRulePackRefusal,
+    } from './esCanariasSipu.js';
+    import {
+        ES_TELDE_PGO2003_PACK,
+        TELDE_PGO2003_ZONE_CODES,
+    } from './esTeldePgo2003.js';
+
+Add ONE registration entry, inside its own fenced block so Canarias edits stay confined:
+
+    // ╔════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ START OF THE TELDE / CANARIAS BLOCK (INE 35026, Gran Canaria).                    ║
+    // ╚════════════════════════════════════════════════════════════════════════════════════╝
+    //
+    // ⚠ REGISTERED-AND-REFUSING, like Córdoba. `packsByZone` is POPULATED (unlike València,
+    // whose zones array is empty BY CONSTRUCTION) — Canarias publishes real numbers. What is
+    // missing is a signature, so `CANARIAS_ENVELOPE_VERIFIED` keeps every parcel on a cited
+    // refusal. Registering it lights the C60 coverage globe honestly: PRESENT with zones and
+    // gated, rather than ABSENT (failure ≠ empty, §CONTEXT-DATA-HONESTY, L-422/457/467/469).
+    //
+    // ⚠ SCOPE IS 41 MUNICIPALITIES, NOT 88. The other 46 publish 2+ base instruments and
+    // Canarias publishes NO vigencia field in any SIPU family, so their governing plan is
+    // undeterminable — `CANARIAS_MULTI_INSTRUMENT_BLOCKER` names that blocker. Telde itself
+    // is registered on the adaptación-PLENA argument, which is ASSERTED-UNVERIFIED.
+    {
+        jurisdictionId: TELDE_JURISDICTION_ID, // 'es-35026-telde'
+        displayName: 'Telde',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        extent: TELDE_BBOX,          // ⚠ NEEDS A NEW providers/teldeBbox.ts — see NOTE below
+        contains: isInTelde,
+        extentResolution: 'municipal',
+        answerSummary:
+            'The Gobierno de Canarias publishes every municipal plan as a SIPU package, and ' +
+            'inside it EDIF.mdb carries the built-form parameters as NAMED NUMERIC COLUMNS — ' +
+            'setbacks, buildable depth, coverage, FAR, storeys, and height with the DATUM ' +
+            'disambiguated by schema (street vs parcel). That is machine-readable published ' +
+            'data, not a PDF transcription, and it names BOTH geometric grammars PRYZM ' +
+            'implements. PRYZM reads it and still publishes NO number: nobody has signed the ' +
+            'reading against the plan\'s own Normas Urbanísticas, so every parcel gets a cited ' +
+            'refusal. Zones whose building line the plan puts on a DRAWING (DispObl = GRF) ' +
+            'refuse on stronger, legally-grounded terms and will keep refusing after any ' +
+            'signature.',
+        packsByZone: packMap([ES_TELDE_PGO2003_PACK, TELDE_PGO2003_ZONE_CODES]),
+        refusalFor: () => null,
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            canariasNoRulePackRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
+    },
+    // ╔════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ END OF THE TELDE / CANARIAS BLOCK.                                               ║
+    // ╚════════════════════════════════════════════════════════════════════════════════════╝
+
+NOTE — `TELDE_BBOX` / `isInTelde` DO NOT EXIST YET and are DELIBERATELY NOT INVENTED HERE.
+Every other registration imports its extent from a `providers/<city>Bbox.ts` that was drawn
+from a measured boundary; writing a rectangle from memory would be exactly the fabricated
+determination this whole adapter refuses to make elsewhere. The SIPU package ships
+`EDIF.shp` in WGS84-UTM-28N, so the box should be computed from that shapefile's own extent
+and reprojected — a small, sourced job, not a guess.
+
+⚠ CONSEQUENCE, STATED PLAINLY: until that bbox exists, BLOCK 3 CANNOT BE APPLIED and no
+Telde parcel routes here. Blocks 1 and 2 are independent of it and should be applied now, so
+the gate is auditable and cannot fail open.
