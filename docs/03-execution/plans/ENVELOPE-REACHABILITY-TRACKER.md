@@ -250,6 +250,37 @@ classification and it closes.*
 3. ⭐ **One shared corrections channel.** The week's best findings were **NATIONAL corrections discovered incidentally by CITY agents** — the stale dissolve figure, the empty-parse defect, three DGC/INE collisions. **Those must reach everyone, not sit in one worktree.**
 4. ⛔ **`main` must move first.** Five consecutive agents built on a stale base because `origin/main` is still `ed5d3a0e`. **Fanning out onto that yields four divergent trees.** Founder-owned, and *"now the actual blocker."*
 
+### 7.2 - THE STATUS VOCABULARY, DEFINED - because two agents already diverged on it
+
+Step 1 reported **`proven 1`** where the measurement record holds **`proven 2`**. Neither was wrong:
+**the word had never been defined.** An undefined term in a headline count is the same defect class as
+an undefined gate default - it produces a number nobody can reproduce.
+
+| status | Definition - a municipality qualifies **only** if |
+|---|---|
+| **`published`** | an envelope is **drawn in production today**, behind an OPEN gate with a RECORDED signature. |
+| **`proven`** | a **coverage figure has been COMPUTED from a real run against live services**, and the run is **seeded and re-runnable**. It does **NOT** require publication, a signature, or a gate. |
+| **`reachable`** | the **code path resolves** for this municipality - no hardcode blocks it - but **no coverage figure has been computed**. |
+| **`blocked`** | a **named blocker** prevents even a refusal being determined, **with its class recorded** (engineering / legal / data / external). |
+| **`untested`** | none of the above has been attempted. **The honest default.** |
+
+**Applying these to the record as it stands:**
+
+- **`published` = 1** - Barcelona.
+- **`proven` = 3** - Barcelona **34.03 %**, Santa Coloma **59.03 %**, Sant Climent **43.88 %**. All
+  three are computed, seeded runs in `task2-pgm-cold-pipeline.json`. **Barcelona is BOTH published and
+  proven**; the statuses are **not mutually exclusive**, and a row may carry the highest one it earns.
+- **`reachable`** - **the number A2 is measuring.** Step 1 moved municipalities INTO this state by
+  parameterising the INE key; it did **not** compute coverage for any of them, which is exactly why
+  `reachable` and `proven` must stay distinct words.
+
+> **`proven` is about EVIDENCE. `published` is about AUTHORISATION. `reachable` is about CODE.**
+> A municipality can be reachable and unproven, proven and unpublished, or published and stale.
+> **Collapsing any two of them produces a count that cannot be reproduced from the repo.**
+
+**And the two-number rule still binds on top of this:** a `proven` row carries **envelope % AND
+determination %**, never one alone.
+
 ### Deferred ON PURPOSE — not forgotten
 
 - **Delegated instruments (*plans parcials*)** — a real per-municipality **sourcing** cost. ⭐ **Refuse
