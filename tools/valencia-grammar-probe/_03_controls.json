@@ -1,0 +1,182 @@
+{
+ "transport": "CQL_FILTER",
+ "controls": {
+  "POSITIVE valencia-46250": {
+   "cql": "cod_ine_mun='46250'",
+   "expect": "COVERED",
+   "got": "COVERED",
+   "n": 3,
+   "pass": true,
+   "cells": [
+    {
+     "crs": "none",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "EPSG:4326",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "urn:4326",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "EPSG:25830",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "urn:25830",
+     "st": "COVERED",
+     "n": 3
+    }
+   ]
+  },
+  "POSITIVE alicante-03014": {
+   "cql": "cod_ine_mun='03014'",
+   "expect": "COVERED",
+   "got": "COVERED",
+   "n": 3,
+   "pass": true,
+   "cells": [
+    {
+     "crs": "none",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "EPSG:4326",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "urn:4326",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "EPSG:25830",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "urn:25830",
+     "st": "COVERED",
+     "n": 3
+    }
+   ]
+  },
+  "NEGATIVE madrid-28079": {
+   "cql": "cod_ine_mun='28079'",
+   "expect": "EMPTY",
+   "got": "COVERED",
+   "n": 3,
+   "pass": false,
+   "cells": [
+    {
+     "crs": "none",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "EPSG:4326",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "urn:4326",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "EPSG:25830",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "urn:25830",
+     "st": "COVERED",
+     "n": 3
+    }
+   ]
+  },
+  "NEGATIVE nonsense-99999": {
+   "cql": "cod_ine_mun='99999'",
+   "expect": "EMPTY",
+   "got": "COVERED",
+   "n": 3,
+   "pass": false,
+   "cells": [
+    {
+     "crs": "none",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "EPSG:4326",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "urn:4326",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "EPSG:25830",
+     "st": "COVERED",
+     "n": 3
+    },
+    {
+     "crs": "urn:25830",
+     "st": "COVERED",
+     "n": 3
+    }
+   ]
+  }
+ },
+ "hits": {
+  "46250": {
+   "st": "OK",
+   "n": 122840
+  },
+  "03130": {
+   "st": "OK",
+   "n": 122840
+  }
+ },
+ "truncation": {
+  "46250": {
+   "st": "UNKNOWN",
+   "why": "HTTP Error"
+  },
+  "03130": {
+   "st": "UNKNOWN",
+   "why": "HTTP Error"
+  }
+ },
+ "sample": {
+  "feature": {
+   "id": "1",
+   "cod_ine_mun": "12052",
+   "noms_mun": "Xert",
+   "expediente": "00000000",
+   "denominaci": "MUNICIPIO SIN PLANEAMIENTO. (Se le aplica el régimen establecido en el art. 17 de la Ley 16/2005, Urbanística Valenciana).",
+   "denominaci_val": "MUNICIPIO SIN PLANEAMIENTO. (Se le aplica el régimen establecido en el art. 17 de la Ley 16/2005, Urbanística Valenciana).",
+   "clas_suelo": "0",
+   "zon_suelo": "0",
+   "descripcio": "",
+   "descripcio_val": "",
+   "dotacion": "",
+   "dot_descri": "",
+   "dot_descri_val": "",
+   "info_adici": "",
+   "info_adici_val": "",
+   "url_abs": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/3%20CASTELL%d3N/12052%20XERT"
+  }
+ },
+ "controlsPass": false
+}

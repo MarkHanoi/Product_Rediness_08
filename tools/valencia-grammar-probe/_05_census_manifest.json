@@ -1,0 +1,19 @@
+{
+ "pulledAt": "2026-08-02T13:02:13.632Z",
+ "passes": {
+  "A": {
+   "st": "OK",
+   "members": 122840,
+   "hits": 122840,
+   "bytes": 46232637,
+   "file": "_census_A.xml"
+  },
+  "B": {
+   "st": "OK",
+   "members": 122840,
+   "hits": 122840,
+   "bytes": 53191415,
+   "file": "_census_B.xml"
+  }
+ }
+}

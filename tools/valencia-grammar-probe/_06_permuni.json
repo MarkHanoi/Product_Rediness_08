@@ -1,0 +1,7592 @@
+[
+ {
+  "ine": "12052",
+  "codes": [
+   "0"
+  ]
+ },
+ {
+  "ine": "03057",
+  "codes": [
+   "0"
+  ]
+ },
+ {
+  "ine": "46131",
+  "codes": [
+   "ZND-IN",
+   "ZUR-RE",
+   "ZRC-FO",
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZND-TR",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-OT"
+  ]
+ },
+ {
+  "ine": "03082",
+  "codes": [
+   "1",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CT",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46235",
+  "codes": [
+   "ZND-IN",
+   "ZRP-NA-LG",
+   "ZUR-NHT",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-CT",
+   "ZRP-NA-MU",
+   "ZUR-TR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46107",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46170",
+  "codes": [
+   "ZND-IN",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46162",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46212",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46138",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12004",
+  "codes": [
+   "ZND-RE",
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CT",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-TR",
+   "ZRP-CF",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZUR-TR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12057",
+  "codes": [
+   "ZND-IN",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46160",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-RE",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46150",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46020",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZRP-RI",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-CF",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "12136",
+  "codes": [
+   "ZND-IN",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46177",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-AG",
+   "ZRP-CR",
+   "ZRP-CF",
+   "ZRP-OT",
+   "ZUR-RE",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "46238",
+  "codes": [
+   "ZRP-CR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-NA-LG",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46202",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZND-TR",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46111",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZRP-AG",
+   "ZRP-DP",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46133",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRP-DP",
+   "ZRP-PC",
+   "ZUR-RE",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03120",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRC-FO"
+  ]
+ },
+ {
+  "ine": "12138",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZUR-RE",
+   "ZND-TR",
+   "ZRP-CT",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-TR",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03046",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZUR-TR",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46060",
+  "codes": [
+   "ZND-IN",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZRP-DP",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CR",
+   "ZRP-RI",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-NA-MU",
+   "ZRP-PC"
+  ]
+ },
+ {
+  "ine": "46230",
+  "codes": [
+   "ZND-IN",
+   "ZRP-CR",
+   "ZRP-CF",
+   "ZND-RE",
+   "ZUR-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZRP-RI",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRC-EX"
+  ]
+ },
+ {
+  "ine": "46214",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZND-TR",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-RE",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46029",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZND-TR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZRP-RI",
+   "ZUR-TR",
+   "ZUR-NHT",
+   "ZRP-NA-MU"
+  ]
+ },
+ {
+  "ine": "12074",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-CF"
+  ]
+ },
+ {
+  "ine": "46076",
+  "codes": [
+   "ZND-IN",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRC-EX",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46011",
+  "codes": [
+   "ZND-IN",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-OT"
+  ]
+ },
+ {
+  "ine": "46012",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZUR-NHT",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-AG",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-PC",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46148",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZRP-RI",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46250",
+  "codes": [
+   "ZND-IN",
+   "ZUR-RE",
+   "ZRP-AG",
+   "ZND-RE",
+   "ZRP-CR",
+   "ZUR-NHT",
+   "ZND-TR",
+   "ZUR-TR",
+   "ZRP-CA",
+   "ZRC-AG",
+   "ZRP-CT",
+   "ZRP-NA-LG",
+   "ZUR-IN",
+   "ZRC-FO",
+   "ZRP-NA-MU"
+  ]
+ },
+ {
+  "ine": "12011",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CR",
+   "ZRP-CT",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZRP-CF"
+  ]
+ },
+ {
+  "ine": "12084",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03064",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12045",
+  "codes": [
+   "ZND-IN",
+   "ZRP-CA",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "03005",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZND-RE",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRP-NA-MU",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "46145",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46186",
+  "codes": [
+   "ZND-IN",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-CF",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46089",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03065",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZUR-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-CT",
+   "ZRP-NA-LG",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "03031",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-CT",
+   "ZUR-RE",
+   "ZUR-NHT",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZRP-RI"
+  ]
+ },
+ {
+  "ine": "03048",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-AG",
+   "ZRP-DP",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12021",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "46164",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZUR-RE",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-CT",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRP-CF"
+  ]
+ },
+ {
+  "ine": "03028",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03015",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZRP-DP",
+   "ZRP-NA-LG",
+   "ZND-TR",
+   "ZND-RE",
+   "ZUR-TR",
+   "ZRP-NA-MU",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "46166",
+  "codes": [
+   "ZND-IN",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CT",
+   "ZUR-IN",
+   "ZRP-CF",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "03080",
+  "codes": [
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZND-IN",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "03081",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-AG",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03096",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZUR-IN",
+   "ZRP-CR",
+   "ZRP-OT"
+  ]
+ },
+ {
+  "ine": "46056",
+  "codes": [
+   "ZND-IN",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CR",
+   "ZRP-RI",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46132",
+  "codes": [
+   "ZND-IN",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03063",
+  "codes": [
+   "ZUR-NHT",
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZRP-CA",
+   "ZND-RE",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZND-TR",
+   "ZRP-RI",
+   "ZRC-EX",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-TR",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "03024",
+  "codes": [
+   "ZND-IN",
+   "ZND-TR",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-TR",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "12140",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRC-FO",
+   "ZND-RE",
+   "ZUR-RE",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRP-CF"
+  ]
+ },
+ {
+  "ine": "46196",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46109",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-DP",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-AG",
+   "ZUR-RE",
+   "ZUR-IN",
+   "ZRP-OT"
+  ]
+ },
+ {
+  "ine": "46104",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-CA",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46258",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZRP-AG",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46149",
+  "codes": [
+   "ZND-IN",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "46184",
+  "codes": [
+   "ZND-IN",
+   "ZRP-AG",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-EX",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12009",
+  "codes": [
+   "ZND-IN",
+   "ZUR-IN",
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "46114",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRC-AG",
+   "ZRC-EX",
+   "ZRP-AG",
+   "ZRP-DP",
+   "ZRP-RI",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "03095",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12124",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46220",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZND-TR",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CT",
+   "ZRP-NA-LG",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRP-CF"
+  ]
+ },
+ {
+  "ine": "12032",
+  "codes": [
+   "ZND-IN",
+   "ZRP-CT",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZRP-DP",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-TR",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46260",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46169",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-TR",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "03099",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-CT",
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZND-TR",
+   "ZUR-TR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZRP-AG",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "12040",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZUR-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CF",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03030",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46165",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46019",
+  "codes": [
+   "ZND-IN",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-AG",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03021",
+  "codes": [
+   "ZND-IN",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03107",
+  "codes": [
+   "ZND-IN",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12902",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03059",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-OT",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-NA-LG",
+   "ZRP-RI",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03091",
+  "codes": [
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46110",
+  "codes": [
+   "ZND-RE",
+   "ZND-IN",
+   "ZUR-RE",
+   "ZND-TR",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12096",
+  "codes": [
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03139",
+  "codes": [
+   "ZND-RE",
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-CT",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46172",
+  "codes": [
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZND-IN",
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "03113",
+  "codes": [
+   "ZND-RE",
+   "ZND-TR",
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12901",
+  "codes": [
+   "ZND-RE",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "03083",
+  "codes": [
+   "ZND-RE",
+   "ZRC-FO",
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46216",
+  "codes": [
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46228",
+  "codes": [
+   "ZND-RE",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46168",
+  "codes": [
+   "ZND-RE",
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-CR",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "12085",
+  "codes": [
+   "ZND-RE",
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZND-TR",
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46256",
+  "codes": [
+   "ZND-RE",
+   "ZRC-AG",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46079",
+  "codes": [
+   "ZND-RE",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-RI",
+   "ZND-IN",
+   "ZUR-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "03101",
+  "codes": [
+   "ZND-RE",
+   "ZRC-AG",
+   "ZND-TR",
+   "ZND-IN",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46028",
+  "codes": [
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-CF"
+  ]
+ },
+ {
+  "ine": "03041",
+  "codes": [
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-CT",
+   "ZRP-NA-LG",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03011",
+  "codes": [
+   "ZND-RE",
+   "ZRC-FO",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03014",
+  "codes": [
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-CT",
+   "ZND-TR",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZRC-EX",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46155",
+  "codes": [
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZRC-EX",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46039",
+  "codes": [
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03129",
+  "codes": [
+   "ZND-RE",
+   "ZRC-FO",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46181",
+  "codes": [
+   "ZND-TR",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZND-IN",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRC-EX",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-TR",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12060",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZUR-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "12042",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-DP",
+   "ZRP-CR",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03047",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03006",
+  "codes": [
+   "ZRC-AG",
+   "ZUR-NHT",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZUR-IN",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46247",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-NA-LG"
+  ]
+ },
+ {
+  "ine": "03127",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZND-TR",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46248",
+  "codes": [
+   "ZRC-AG",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZND-IN",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46097",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "46124",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46086",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZRP-OT",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46141",
+  "codes": [
+   "ZRC-AG",
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12043",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CF",
+   "ZRP-CR",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZRP-DP",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "12133",
+  "codes": [
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZRP-CR",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "03117",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46030",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CF",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZUR-RE",
+   "ZRP-DP",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12078",
+  "codes": [
+   "ZRC-AG",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46239",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46068",
+  "codes": [
+   "ZRC-AG",
+   "ZUR-NHT",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-EX",
+   "ZRP-CF",
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZRP-PC"
+  ]
+ },
+ {
+  "ine": "46263",
+  "codes": [
+   "ZRC-AG",
+   "ZND-IN",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03042",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46167",
+  "codes": [
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZRP-AG",
+   "ZRP-DP",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03022",
+  "codes": [
+   "ZRP-CA",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZUR-NHT",
+   "ZRP-AG",
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12093",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-NA-LG"
+  ]
+ },
+ {
+  "ine": "46139",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-CA",
+   "ZND-IN",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12130",
+  "codes": [
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU"
+  ]
+ },
+ {
+  "ine": "46125",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03018",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CT",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-AG",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZND-TR",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03040",
+  "codes": [
+   "ZRC-AG",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03069",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CR",
+   "ZRP-CT",
+   "ZRP-DP",
+   "ZRP-NA-LG",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46203",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03094",
+  "codes": [
+   "ZRC-AG",
+   "ZND-TR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03029",
+  "codes": [
+   "ZRC-AG",
+   "ZUR-NHT",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "12029",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-RI",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-CF",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "03100",
+  "codes": [
+   "ZRC-AG",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-RI",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03136",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46082",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-AG",
+   "ZRP-DP",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12071",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRC-EX",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03123",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-TR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12112",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46178",
+  "codes": [
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12015",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-AG",
+   "ZRP-DP",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRP-CR",
+   "ZRP-PC",
+   "ZRP-OT"
+  ]
+ },
+ {
+  "ine": "46224",
+  "codes": [
+   "ZRC-AG",
+   "ZUR-NHT",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12012",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZUR-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-DP",
+   "ZRP-PC"
+  ]
+ },
+ {
+  "ine": "46241",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46108",
+  "codes": [
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46119",
+  "codes": [
+   "ZRC-AG",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CF",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-PC"
+  ]
+ },
+ {
+  "ine": "12050",
+  "codes": [
+   "ZRC-AG",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12108",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-DP",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03050",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-CT",
+   "ZRP-NA-MU",
+   "ZND-TR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03053",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46194",
+  "codes": [
+   "ZUR-RE",
+   "ZRC-FO",
+   "ZND-IN",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46257",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZND-RE",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "46171",
+  "codes": [
+   "ZRC-AG",
+   "ZUR-IN",
+   "ZND-IN",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12122",
+  "codes": [
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZRP-CA",
+   "ZRP-NA-MU"
+  ]
+ },
+ {
+  "ine": "46085",
+  "codes": [
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-EX",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZRP-RI",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-OT"
+  ]
+ },
+ {
+  "ine": "03102",
+  "codes": [
+   "ZRC-AG",
+   "ZND-IN",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZND-TR",
+   "ZUR-RE",
+   "ZUR-NHT",
+   "ZND-RE",
+   "ZRC-EX",
+   "ZRP-NA-LG",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-TR",
+   "ZRP-AG"
+  ]
+ },
+ {
+  "ine": "03128",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZUR-TR",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-EX",
+   "ZRP-AG",
+   "ZRP-CT",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46062",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-CA",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZUR-IN",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46093",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46031",
+  "codes": [
+   "ZRC-AG",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46044",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12100",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03901",
+  "codes": [
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CT",
+   "ZRP-NA-LG",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46191",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46221",
+  "codes": [
+   "ZUR-RE",
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46042",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46188",
+  "codes": [
+   "ZND-RE",
+   "ZUR-RE",
+   "ZRP-RI",
+   "ZUR-IN",
+   "ZRP-AG",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZRP-DP",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46219",
+  "codes": [
+   "ZRC-EX",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZRP-RI",
+   "ZRP-PC",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46024",
+  "codes": [
+   "ZRC-EX",
+   "ZRP-NA-MU",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZRP-DP",
+   "ZUR-IN",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46185",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46022",
+  "codes": [
+   "ZUR-RE",
+   "ZUR-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-TR",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46251",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46255",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "03075",
+  "codes": [
+   "ZRC-FO",
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46261",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46146",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-EX",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46192",
+  "codes": [
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03105",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-OT",
+   "ZND-RE",
+   "ZRC-EX",
+   "ZRP-RI",
+   "ZUR-IN",
+   "ZUR-TR",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "03132",
+  "codes": [
+   "ZRC-FO",
+   "ZUR-RE",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT"
+  ]
+ },
+ {
+  "ine": "03114",
+  "codes": [
+   "ZRC-FO",
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03124",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46153",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-AG",
+   "ZND-RE",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRC-EX",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZRP-NA-LG",
+   "ZRP-OT",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03116",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "03112",
+  "codes": [
+   "ZRC-FO",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12001",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46136",
+  "codes": [
+   "ZUR-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03037",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03079",
+  "codes": [
+   "ZRC-FO",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZND-TR",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03038",
+  "codes": [
+   "ZRC-FO",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-RE",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "12022",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZUR-TR",
+   "ZRP-DP",
+   "ZND-TR"
+  ]
+ },
+ {
+  "ine": "03034",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-AG",
+   "ZND-RE",
+   "ZND-TR",
+   "ZUR-RE",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "03043",
+  "codes": [
+   "ZRC-FO",
+   "ZND-IN",
+   "ZRP-NA-MU",
+   "ZRP-CR",
+   "ZND-RE",
+   "ZND-TR",
+   "ZUR-RE",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03076",
+  "codes": [
+   "ZRC-FO",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-IN",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-CT",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03010",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-TR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12020",
+  "codes": [
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZRP-RI",
+   "ZUR-TR",
+   "ZRP-CF"
+  ]
+ },
+ {
+  "ine": "12039",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU"
+  ]
+ },
+ {
+  "ine": "03089",
+  "codes": [
+   "ZRC-FO",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03092",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03085",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "03088",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03140",
+  "codes": [
+   "ZRC-FO",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-EX",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03009",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46206",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "12105",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZND-IN",
+   "ZND-RE",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03019",
+  "codes": [
+   "ZRC-FO",
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZUR-NHT",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "46218",
+  "codes": [
+   "ZRC-FO",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-RE",
+   "ZRP-AG"
+  ]
+ },
+ {
+  "ine": "46229",
+  "codes": [
+   "ZRC-FO",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46057",
+  "codes": [
+   "ZUR-RE",
+   "ZRC-FO",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46126",
+  "codes": [
+   "ZRP-AG",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-NA-LG",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46128",
+  "codes": [
+   "ZRP-CF",
+   "ZRP-AG",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46015",
+  "codes": [
+   "ZND-RE",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12061",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-CR",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12073",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRP-CR",
+   "ZRC-AG",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46198",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12033",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12044",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12028",
+  "codes": [
+   "ZRC-FO",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-AG",
+   "ZRP-CT",
+   "ZRP-DP",
+   "ZUR-TR",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRP-CF"
+  ]
+ },
+ {
+  "ine": "12106",
+  "codes": [
+   "ZRC-FO",
+   "ZUR-NHT",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "12038",
+  "codes": [
+   "ZUR-NHT",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZRP-RI"
+  ]
+ },
+ {
+  "ine": "46121",
+  "codes": [
+   "ZRC-FO",
+   "ZUR-NHT",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46098",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46083",
+  "codes": [
+   "ZRC-FO",
+   "ZND-TR",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46123",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12025",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZRC-AG",
+   "ZRP-PC"
+  ]
+ },
+ {
+  "ine": "46127",
+  "codes": [
+   "ZRC-FO",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46903",
+  "codes": [
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZUR-TR",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46017",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-AG",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "46051",
+  "codes": [
+   "ZRC-FO",
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-EX",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12013",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRP-NA-LG",
+   "ZRP-PC",
+   "ZRP-RI",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46118",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46137",
+  "codes": [
+   "ZRC-FO",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "03104",
+  "codes": [
+   "ZRC-FO",
+   "ZUR-RE",
+   "ZUR-IN",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "03002",
+  "codes": [
+   "ZRC-FO",
+   "ZND-TR",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-EX",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03106",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-EX",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03066",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-EX",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "46120",
+  "codes": [
+   "ZRP-CR",
+   "ZRP-AG",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZRP-NA-MU",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46158",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46179",
+  "codes": [
+   "ZRC-FO",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03902",
+  "codes": [
+   "ZRC-FO",
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-CT",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46066",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46231",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46071",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46004",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46234",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-NA-LG",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46210",
+  "codes": [
+   "ZRC-FO",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46045",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRC-EX"
+  ]
+ },
+ {
+  "ine": "46006",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZUR-RE",
+   "ZRP-OT",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CF",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46008",
+  "codes": [
+   "ZRC-FO",
+   "ZND-IN",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-NA-MU"
+  ]
+ },
+ {
+  "ine": "03122",
+  "codes": [
+   "ZUR-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-TR",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "46092",
+  "codes": [
+   "ZRP-AG",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46047",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-RE",
+   "ZUR-NHT",
+   "ZND-IN",
+   "ZND-RE"
+  ]
+ },
+ {
+  "ine": "46215",
+  "codes": [
+   "ZUR-NHT",
+   "ZRC-FO",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03903",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-TR",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-AG"
+  ]
+ },
+ {
+  "ine": "46090",
+  "codes": [
+   "ZRC-FO",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12114",
+  "codes": [
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRC-AG",
+   "ZRP-CF",
+   "ZRP-CR",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "12075",
+  "codes": [
+   "ZRP-AG",
+   "ZRP-NA-MU",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZUR-NHT",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "12076",
+  "codes": [
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46101",
+  "codes": [
+   "ZRP-AG",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZRP-RI",
+   "ZUR-NHT",
+   "ZRP-CR",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "12064",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRC-AG",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "46144",
+  "codes": [
+   "ZRP-AG",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46182",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-NA-LG",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46142",
+  "codes": [
+   "ZRP-AG",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46201",
+  "codes": [
+   "ZRP-AG",
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03077",
+  "codes": [
+   "ZRC-FO",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46025",
+  "codes": [
+   "ZRP-AG",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZND-RE",
+   "ZND-TR",
+   "ZUR-TR",
+   "ZUR-NHT",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZRP-CA"
+  ]
+ },
+ {
+  "ine": "03115",
+  "codes": [
+   "ZUR-RE",
+   "ZRC-AG",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46099",
+  "codes": [
+   "ZRP-AG",
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46032",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-CF",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12058",
+  "codes": [
+   "ZUR-NHT",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-AG",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46005",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-AG",
+   "ZND-IN",
+   "ZUR-NHT",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-TR",
+   "ZRP-CF",
+   "ZND-RE"
+  ]
+ },
+ {
+  "ine": "46242",
+  "codes": [
+   "ZRP-AG",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12098",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-NA-LG",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12102",
+  "codes": [
+   "ZRP-CA",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-RE",
+   "ZRP-CF"
+  ]
+ },
+ {
+  "ine": "46112",
+  "codes": [
+   "ZRP-CA",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-PC",
+   "ZRP-RI",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03137",
+  "codes": [
+   "ZUR-NHT",
+   "ZRP-CA",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12079",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12116",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRC-AG",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12142",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-NA-LG"
+  ]
+ },
+ {
+  "ine": "12008",
+  "codes": [
+   "ZRP-CA",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46161",
+  "codes": [
+   "ZND-IN",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZRP-NA-LG",
+   "ZRP-OT",
+   "ZRP-NA-MU",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "03131",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZND-RE",
+   "ZUR-NHT",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46143",
+  "codes": [
+   "ZND-RE",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12113",
+  "codes": [
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12059",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-DP",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZND-TR"
+  ]
+ },
+ {
+  "ine": "46246",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03098",
+  "codes": [
+   "ZRP-CA",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46087",
+  "codes": [
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-PC",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03055",
+  "codes": [
+   "ZND-IN",
+   "ZRP-CR",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46075",
+  "codes": [
+   "ZND-IN",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZRP-CR",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "46088",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "12094",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZRP-RI",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46259",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZRP-OT",
+   "ZRP-RI",
+   "ZRC-AG",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-CF",
+   "ZRP-NA-LG",
+   "ZUR-TR",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "12003",
+  "codes": [
+   "ZRP-CR",
+   "ZRC-AG",
+   "ZUR-NHT",
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12109",
+  "codes": [
+   "ZRP-CR",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-AG",
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12002",
+  "codes": [
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03045",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZND-TR",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46050",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZUR-NHT",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "46154",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03072",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-AG",
+   "ZRP-DP",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "12126",
+  "codes": [
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12053",
+  "codes": [
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03003",
+  "codes": [
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03052",
+  "codes": [
+   "ZRP-CR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46176",
+  "codes": [
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46080",
+  "codes": [
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZUR-NHT",
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-CF",
+   "ZRP-AG",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZRP-OT"
+  ]
+ },
+ {
+  "ine": "03125",
+  "codes": [
+   "ZND-TR",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "12121",
+  "codes": [
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46156",
+  "codes": [
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-EX",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46130",
+  "codes": [
+   "ZRP-CR",
+   "ZND-TR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZRP-RI",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46105",
+  "codes": [
+   "ZRP-CR",
+   "ZRP-CT",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-IN",
+   "ZND-TR",
+   "ZUR-TR",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZRP-NA-LG",
+   "ZRP-OT",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46026",
+  "codes": [
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46208",
+  "codes": [
+   "ZUR-RE",
+   "ZUR-NHT",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRP-RI",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "46010",
+  "codes": [
+   "ZRP-CA",
+   "ZND-IN",
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZRP-CF"
+  ]
+ },
+ {
+  "ine": "12063",
+  "codes": [
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "03013",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZRP-CA"
+  ]
+ },
+ {
+  "ine": "46174",
+  "codes": [
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46078",
+  "codes": [
+   "ZUR-RE",
+   "ZND-TR",
+   "ZUR-TR",
+   "ZRP-AG",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRP-CF"
+  ]
+ },
+ {
+  "ine": "46049",
+  "codes": [
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZUR-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12097",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12092",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12131",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03020",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-NA-MU"
+  ]
+ },
+ {
+  "ine": "12069",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46065",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-TR",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "03070",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03056",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-IN",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-RE",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "12046",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRC-AG",
+   "ZRP-NA-LG",
+   "ZUR-NHT",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZRP-PC"
+  ]
+ },
+ {
+  "ine": "46236",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-RI",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12056",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZRC-AG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12018",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12010",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12049",
+  "codes": [
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46135",
+  "codes": [
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-NA-MU",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46059",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46103",
+  "codes": [
+   "ZUR-NHT",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-RI",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "46195",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12041",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03073",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12088",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46033",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "12055",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12087",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12014",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03074",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT"
+  ]
+ },
+ {
+  "ine": "12048",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZRC-AG",
+   "ZRC-EX",
+   "ZUR-RE",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03135",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12065",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZUR-RE",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "03068",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03904",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46225",
+  "codes": [
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03039",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03032",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZRC-AG",
+   "ZRP-OT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03103",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "03111",
+  "codes": [
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "03058",
+  "codes": [
+   "ZND-RE",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRC-EX",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03084",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46002",
+  "codes": [
+   "ZND-RE",
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZRP-RI",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46199",
+  "codes": [
+   "ZND-TR",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "46116",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12119",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "03012",
+  "codes": [
+   "ZND-TR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "46106",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-PC",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "12036",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZRC-AG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03017",
+  "codes": [
+   "ZND-TR",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03133",
+  "codes": [
+   "ZND-TR",
+   "ZRP-CT",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-IN",
+   "ZUR-TR",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZRP-AG"
+  ]
+ },
+ {
+  "ine": "46134",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12024",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-NA-LG"
+  ]
+ },
+ {
+  "ine": "46226",
+  "codes": [
+   "ZUR-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU"
+  ]
+ },
+ {
+  "ine": "46207",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CR",
+   "ZRP-PC",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "46902",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZRC-AG",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03001",
+  "codes": [
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRC-EX",
+   "ZRP-AG"
+  ]
+ },
+ {
+  "ine": "03008",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "12099",
+  "codes": [
+   "ZND-TR",
+   "ZRC-AG",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "03051",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46063",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-OT",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46009",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-CF",
+   "ZRP-CR",
+   "ZRP-CT",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46095",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03121",
+  "codes": [
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-EX",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-CT",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "03119",
+  "codes": [
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "12107",
+  "codes": [
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "46173",
+  "codes": [
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZND-TR"
+  ]
+ },
+ {
+  "ine": "03093",
+  "codes": [
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03004",
+  "codes": [
+   "ZRP-CR",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-OT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03090",
+  "codes": [
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12117",
+  "codes": [
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46074",
+  "codes": [
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "12016",
+  "codes": [
+   "ZUR-RE",
+   "ZRC-AG",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03078",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46094",
+  "codes": [
+   "ZUR-RE",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-AG",
+   "ZRP-CR",
+   "ZRP-CF",
+   "ZRP-DP",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46223",
+  "codes": [
+   "ZUR-RE",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-CF",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "46084",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46147",
+  "codes": [
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRP-RI",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRP-CR",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-CF"
+  ]
+ },
+ {
+  "ine": "03049",
+  "codes": [
+   "ZRC-FO",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "46070",
+  "codes": [
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRP-CF",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46007",
+  "codes": [
+   "ZND-RE",
+   "ZUR-IN",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CF",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "12089",
+  "codes": [
+   "ZND-TR",
+   "ZND-RE",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-NA-LG",
+   "ZUR-NHT",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46036",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-CR",
+   "ZRP-RI",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-EX",
+   "ZRP-DP",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46115",
+  "codes": [
+   "ZRC-EX",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-DP",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZRP-PC",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46072",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-TR",
+   "ZUR-RE",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "46001",
+  "codes": [
+   "ZRC-AG",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-AG",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46244",
+  "codes": [
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZND-RE",
+   "ZND-IN",
+   "ZND-TR",
+   "ZRP-CF",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZUR-IN",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZRP-RI",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12082",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CT",
+   "ZRP-DP",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12080",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZUR-TR",
+   "ZRP-PC",
+   "ZRP-OT",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "46096",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46213",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZUR-IN",
+   "ZUR-TR",
+   "ZRP-NA-LG",
+   "ZUR-NHT",
+   "ZRP-OT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12005",
+  "codes": [
+   "ZRC-AG",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "46077",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZRC-EX",
+   "ZRP-AG",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRP-CF"
+  ]
+ },
+ {
+  "ine": "12031",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12027",
+  "codes": [
+   "ZRC-AG",
+   "ZND-IN",
+   "ZUR-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CF",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZRP-CT",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12034",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-RI",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRC-EX",
+   "ZRP-AG",
+   "ZRP-DP",
+   "ZUR-RE",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZRP-CR",
+   "ZRP-OT"
+  ]
+ },
+ {
+  "ine": "46041",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "12132",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46254",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-DP",
+   "ZUR-IN",
+   "ZND-RE",
+   "ZND-IN",
+   "ZRP-AG",
+   "ZRP-CF",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZRP-RI",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46209",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-RI",
+   "ZUR-NHT",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-DP",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46190",
+  "codes": [
+   "ZRP-AG",
+   "ZND-IN",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-CF",
+   "ZRP-DP",
+   "ZUR-RE",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZRP-RI",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRC-EX"
+  ]
+ },
+ {
+  "ine": "46159",
+  "codes": [
+   "ZRP-CA",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-CF",
+   "ZRP-OT"
+  ]
+ },
+ {
+  "ine": "46038",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-DP",
+   "ZRC-AG",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "12072",
+  "codes": [
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46058",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZND-RE"
+  ]
+ },
+ {
+  "ine": "12128",
+  "codes": [
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-PC",
+   "ZRC-AG",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CA",
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46249",
+  "codes": [
+   "ZRP-CR",
+   "ZUR-RE",
+   "ZRP-DP",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CF",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12104",
+  "codes": [
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZUR-RE",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-CF"
+  ]
+ },
+ {
+  "ine": "12137",
+  "codes": [
+   "ZUR-TR",
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12051",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-NA-LG",
+   "ZRP-PC",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46018",
+  "codes": [
+   "ZUR-NHT",
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46227",
+  "codes": [
+   "ZUR-NHT",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZRP-NA-MU"
+  ]
+ },
+ {
+  "ine": "12120",
+  "codes": [
+   "ZRP-PC",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-RI",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "46048",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZRP-RI",
+   "ZUR-NHT",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "12115",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZRC-FO"
+  ]
+ },
+ {
+  "ine": "46205",
+  "codes": [
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-CF",
+   "ZRP-CT",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46081",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "12007",
+  "codes": [
+   "ZUR-RE",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-NA-MU"
+  ]
+ },
+ {
+  "ine": "03097",
+  "codes": [
+   "ZND-TR",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "12026",
+  "codes": [
+   "ZRP-DP",
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03138",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46052",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46240",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46122",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46253",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-AG",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03062",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46067",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZND-TR",
+   "ZUR-NHT",
+   "ZRP-AG",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "03118",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46061",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03023",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12077",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46193",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46233",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46187",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46211",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-EX",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46180",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46222",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-AG",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46175",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46217",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12095",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46183",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46157",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46113",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZUR-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46027",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZUR-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "46034",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46200",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46189",
+  "codes": [
+   "ZND-IN",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "03044",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZUR-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "46140",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRC-FO",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "03061",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46023",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZUR-IN",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46064",
+  "codes": [
+   "ZND-IN",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZND-RE",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "46035",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03109",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46037",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZUR-NHT",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRC-AG"
+  ]
+ },
+ {
+  "ine": "46100",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46197",
+  "codes": [
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03026",
+  "codes": [
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "12139",
+  "codes": [
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12101",
+  "codes": [
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03071",
+  "codes": [
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46243",
+  "codes": [
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03025",
+  "codes": [
+   "ZND-RE",
+   "ZRC-EX",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46245",
+  "codes": [
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-LG",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-CF"
+  ]
+ },
+ {
+  "ine": "03110",
+  "codes": [
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46014",
+  "codes": [
+   "ZND-RE",
+   "ZRP-AG",
+   "ZRP-CT",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46091",
+  "codes": [
+   "ZND-RE",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46046",
+  "codes": [
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-FO",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46003",
+  "codes": [
+   "ZND-RE",
+   "ZRC-FO",
+   "ZUR-TR",
+   "ZRP-OT",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZND-IN",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "46232",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "12067",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12125",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12070",
+  "codes": [
+   "ZRC-FO",
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-OT",
+   "ZRP-PC",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12118",
+  "codes": [
+   "ZRP-AG",
+   "ZRC-AG",
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZRP-RI",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46237",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46129",
+  "codes": [
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03036",
+  "codes": [
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46016",
+  "codes": [
+   "ZRC-FO",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03027",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03007",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46043",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46073",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-AG",
+   "ZRC-FO",
+   "ZRP-OT"
+  ]
+ },
+ {
+  "ine": "46053",
+  "codes": [
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZRC-FO",
+   "ZUR-RE",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "12090",
+  "codes": [
+   "ZRP-DP",
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46262",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12006",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12068",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "03134",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12111",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12103",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12134",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12037",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12123",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12017",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12083",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12141",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-NHT"
+  ]
+ },
+ {
+  "ine": "12127",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12091",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12110",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46252",
+  "codes": [
+   "ZRP-NA-LG",
+   "ZUR-IN",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03130",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZRP-OT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03086",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "03033",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03035",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "03054",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03060",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "03016",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "03067",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46151",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZUR-RE",
+   "ZRP-CR"
+  ]
+ },
+ {
+  "ine": "46069",
+  "codes": [
+   "ZRP-NA-MU",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46054",
+  "codes": [
+   "ZUR-RE",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "46904",
+  "codes": [
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZRC-FO",
+   "ZND-RE",
+   "ZRP-NA-MU",
+   "ZRP-OT"
+  ]
+ },
+ {
+  "ine": "46117",
+  "codes": [
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46152",
+  "codes": [
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46163",
+  "codes": [
+   "ZRC-AG",
+   "ZND-IN",
+   "ZND-RE",
+   "ZRP-CF",
+   "ZRP-CR",
+   "ZRP-CT",
+   "ZRP-DP",
+   "ZUR-TR",
+   "ZUR-IN",
+   "ZRP-RI",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46021",
+  "codes": [
+   "ZRP-CR",
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-CF",
+   "ZRP-DP",
+   "ZUR-TR",
+   "ZUR-RE",
+   "ZUR-IN"
+  ]
+ },
+ {
+  "ine": "46102",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZUR-IN",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZRP-RI",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-CF",
+   "ZRP-DP",
+   "ZRP-OT"
+  ]
+ },
+ {
+  "ine": "46204",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZND-TR",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-CF",
+   "ZRP-CA",
+   "ZRP-CT",
+   "ZRP-DP",
+   "ZUR-RE",
+   "ZRP-NA-LG",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-NHT",
+   "ZUR-IN",
+   "ZUR-TR"
+  ]
+ },
+ {
+  "ine": "46055",
+  "codes": [
+   "ZND-IN",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CA",
+   "ZRP-NA-MU",
+   "ZRP-PC",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "12135",
+  "codes": [
+   "ZND-IN",
+   "ZND-TR",
+   "ZND-RE",
+   "ZRC-AG",
+   "ZUR-TR",
+   "ZUR-IN",
+   "ZUR-RE",
+   "ZRP-NA-MU",
+   "ZUR-NHT",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "12129",
+  "codes": [
+   "ZND-IN",
+   "ZRC-AG",
+   "ZRP-CR",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "12081",
+  "codes": [
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-CF",
+   "ZRP-CA",
+   "ZRP-CR",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE",
+   "ZUR-TR",
+   "ZRP-DP"
+  ]
+ },
+ {
+  "ine": "46040",
+  "codes": [
+   "ZND-RE",
+   "ZRC-AG",
+   "ZRP-AG",
+   "ZRP-DP",
+   "ZRP-NA-MU",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-RE"
+  ]
+ },
+ {
+  "ine": "46013",
+  "codes": [
+   "ZND-TR",
+   "ZND-RE",
+   "ZRP-AG",
+   "ZUR-RE",
+   "ZRP-CR",
+   "ZRP-CT",
+   "ZRP-NA-LG",
+   "ZUR-IN",
+   "ZUR-NHT",
+   "ZUR-TR"
+  ]
+ }
+]

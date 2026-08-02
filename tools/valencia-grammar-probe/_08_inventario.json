@@ -1,0 +1,178 @@
+{
+ "sectors": 8446,
+ "hits": 8446,
+ "agree": true,
+ "municipalities": 468,
+ "population": {
+  "cod_ine_mun": {
+   "absent": 0,
+   "empty": 0,
+   "valued": 8446,
+   "zeroValued": 0,
+   "pctValued": 100,
+   "pctValuedNonZero": 100
+  },
+  "noms_mun": {
+   "absent": 0,
+   "empty": 0,
+   "valued": 8446,
+   "zeroValued": 0,
+   "pctValued": 100,
+   "pctValuedNonZero": 100
+  },
+  "clasificacion": {
+   "absent": 0,
+   "empty": 0,
+   "valued": 8446,
+   "zeroValued": 0,
+   "pctValued": 100,
+   "pctValuedNonZero": 100
+  },
+  "uso": {
+   "absent": 0,
+   "empty": 0,
+   "valued": 8446,
+   "zeroValued": 0,
+   "pctValued": 100,
+   "pctValuedNonZero": 100
+  },
+  "ord_porm": {
+   "absent": 0,
+   "empty": 0,
+   "valued": 8446,
+   "zeroValued": 0,
+   "pctValued": 100,
+   "pctValuedNonZero": 100
+  },
+  "sup_m2": {
+   "absent": 0,
+   "empty": 0,
+   "valued": 8446,
+   "zeroValued": 157,
+   "pctValued": 100,
+   "pctValuedNonZero": 98.14
+  },
+  "edif_m2": {
+   "absent": 0,
+   "empty": 0,
+   "valued": 8446,
+   "zeroValued": 1061,
+   "pctValued": 100,
+   "pctValuedNonZero": 87.44
+  },
+  "situacion": {
+   "absent": 0,
+   "empty": 0,
+   "valued": 8446,
+   "zeroValued": 0,
+   "pctValued": 100,
+   "pctValuedNonZero": 100
+  },
+  "gestion": {
+   "absent": 0,
+   "empty": 3868,
+   "valued": 4578,
+   "zeroValued": 0,
+   "pctValued": 54.2,
+   "pctValuedNonZero": 54.2
+  },
+  "legislacion_pg": {
+   "absent": 0,
+   "empty": 7144,
+   "valued": 1302,
+   "zeroValued": 0,
+   "pctValued": 15.42,
+   "pctValuedNonZero": 15.42
+  },
+  "legislacion_pp": {
+   "absent": 0,
+   "empty": 1736,
+   "valued": 6710,
+   "zeroValued": 0,
+   "pctValued": 79.45,
+   "pctValuedNonZero": 79.45
+  },
+  "f_aprob": {
+   "absent": 0,
+   "empty": 1546,
+   "valued": 6900,
+   "zeroValued": 0,
+   "pctValued": 81.7,
+   "pctValuedNonZero": 81.7
+  },
+  "cons_edif": {
+   "absent": 0,
+   "empty": 77,
+   "valued": 8369,
+   "zeroValued": 0,
+   "pctValued": 99.09,
+   "pctValuedNonZero": 99.09
+  }
+ },
+ "contradiction": {
+  "bothPos": 7382,
+  "bothZero": 154,
+  "supZeroEdifPos": 3,
+  "edifZeroSupPos": 907,
+  "farQuantiles": {
+   "p05": 0.142,
+   "p25": 0.313,
+   "p50": 0.574,
+   "p75": 0.95,
+   "p95": 2.145
+  },
+  "farOver20": 7
+ },
+ "domains": {
+  "ord_porm": [
+   [
+    "Si",
+    6953
+   ],
+   [
+    "No",
+    1493
+   ]
+  ],
+  "clasificacion": [
+   [
+    "SUZ",
+    4431
+   ],
+   [
+    "SU",
+    3945
+   ],
+   [
+    "SNU",
+    69
+   ],
+   [
+    "SNU-C",
+    1
+   ]
+  ],
+  "uso": [
+   [
+    "Residencial",
+    6635
+   ],
+   [
+    "Industrial",
+    1401
+   ],
+   [
+    "Terciario",
+    273
+   ],
+   [
+    "Dotacional",
+    136
+   ],
+   [
+    "No definido",
+    1
+   ]
+  ]
+ }
+}

@@ -1,0 +1,121 @@
+{
+ "controls": {
+  "POSITIVE valencia-46250": {
+   "ine": "46250",
+   "expect": "COVERED",
+   "got": "UNKNOWN",
+   "n": 0,
+   "pass": false,
+   "cells": [
+    {
+     "crs": "none",
+     "st": "UNKNOWN",
+     "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+    },
+    {
+     "crs": "EPSG:4326",
+     "st": "UNKNOWN",
+     "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+    },
+    {
+     "crs": "urn:4326",
+     "st": "UNKNOWN",
+     "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+    },
+    {
+     "crs": "EPSG:25830",
+     "st": "UNKNOWN",
+     "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+    },
+    {
+     "crs": "urn:25830",
+     "st": "UNKNOWN",
+     "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+    }
+   ]
+  },
+  "NEGATIVE madrid-28079": {
+   "ine": "28079",
+   "expect": "EMPTY",
+   "got": "UNKNOWN",
+   "n": 0,
+   "pass": false,
+   "cells": [
+    {
+     "crs": "none",
+     "st": "UNKNOWN",
+     "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+    },
+    {
+     "crs": "EPSG:4326",
+     "st": "UNKNOWN",
+     "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+    },
+    {
+     "crs": "urn:4326",
+     "st": "UNKNOWN",
+     "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+    },
+    {
+     "crs": "EPSG:25830",
+     "st": "UNKNOWN",
+     "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+    },
+    {
+     "crs": "urn:25830",
+     "st": "UNKNOWN",
+     "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+    }
+   ]
+  },
+  "NEGATIVE nonsense-99999": {
+   "ine": "99999",
+   "expect": "EMPTY",
+   "got": "UNKNOWN",
+   "n": 0,
+   "pass": false,
+   "cells": [
+    {
+     "crs": "none",
+     "st": "UNKNOWN",
+     "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+    },
+    {
+     "crs": "EPSG:4326",
+     "st": "UNKNOWN",
+     "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+    },
+    {
+     "crs": "urn:4326",
+     "st": "UNKNOWN",
+     "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+    },
+    {
+     "crs": "EPSG:25830",
+     "st": "UNKNOWN",
+     "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+    },
+    {
+     "crs": "urn:25830",
+     "st": "UNKNOWN",
+     "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+    }
+   ]
+  }
+ },
+ "hits": {
+  "28079": {
+   "st": "UNKNOWN",
+   "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs (message repeated 1 times)"
+  },
+  "46250": {
+   "st": "UNKNOWN",
+   "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs (message repeated 1 times)"
+  }
+ },
+ "sample": {},
+ "truncation": {
+  "st": "UNKNOWN",
+  "why": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check server logs"
+ }
+}

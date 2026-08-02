@@ -1,0 +1,22 @@
+{
+ "rows": 122840,
+ "municipalities": 542,
+ "distinctUrls": 542,
+ "urlsPerMuni": 1,
+ "muniWithUrl": 542,
+ "muniWithoutUrl": [],
+ "distinctExpediente": 2834,
+ "expedienteZeroPct": 7.79,
+ "sampleUrls": [
+  "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/3%20CASTELL%d3N/12052%20XERT",
+  "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/2%20ALICANTE/03057%20CONFRIDES",
+  "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/4%20VALENCIA/46131%20GAND%cdA",
+  "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/2%20ALICANTE/03082%20X%c0BIA",
+  "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/4%20VALENCIA/46235%20SUECA",
+  "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/4%20VALENCIA/46107%20CHELLA",
+  "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/4%20VALENCIA/46170%20MOIXENT",
+  "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/4%20VALENCIA/46162%20MASSALAV%c9S",
+  "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/4%20VALENCIA/46212%20REAL",
+  "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/4%20VALENCIA/46138%20GUADASS%c9QUIES"
+ ]
+}

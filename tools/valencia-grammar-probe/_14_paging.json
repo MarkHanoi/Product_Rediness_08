@@ -1,0 +1,126 @@
+{
+ "engine": "MapServer (per OWS exception strings)",
+ "tests": [
+  {
+   "version": "1.1.0",
+   "sortBy": "(none)",
+   "p0": [
+    "Planeamiento.Zonificacion.1",
+    "Planeamiento.Zonificacion.2",
+    "Planeamiento.Zonificacion.5"
+   ],
+   "p1": [
+    "Planeamiento.Zonificacion.10",
+    "Planeamiento.Zonificacion.11",
+    "Planeamiento.Zonificacion.12"
+   ],
+   "verdict": "DISJOINT — paging works"
+  },
+  {
+   "version": "1.1.0",
+   "sortBy": "id",
+   "p0": [
+    "Planeamiento.Zonificacion.1",
+    "Planeamiento.Zonificacion.10",
+    "Planeamiento.Zonificacion.100"
+   ],
+   "p1": [
+    "Planeamiento.Zonificacion.100005",
+    "Planeamiento.Zonificacion.100006",
+    "Planeamiento.Zonificacion.100007"
+   ],
+   "verdict": "DISJOINT — paging works"
+  },
+  {
+   "version": "1.1.0",
+   "sortBy": "id A",
+   "p0": [
+    "Planeamiento.Zonificacion.1",
+    "Planeamiento.Zonificacion.10",
+    "Planeamiento.Zonificacion.100"
+   ],
+   "p1": [
+    "Planeamiento.Zonificacion.100005",
+    "Planeamiento.Zonificacion.100006",
+    "Planeamiento.Zonificacion.100007"
+   ],
+   "verdict": "DISJOINT — paging works"
+  },
+  {
+   "version": "1.1.0",
+   "sortBy": "cod_ine_mun",
+   "p0": [
+    "Planeamiento.Zonificacion.68224",
+    "Planeamiento.Zonificacion.3874",
+    "Planeamiento.Zonificacion.3875"
+   ],
+   "p1": [
+    "Planeamiento.Zonificacion.11229",
+    "Planeamiento.Zonificacion.11230",
+    "Planeamiento.Zonificacion.11231"
+   ],
+   "verdict": "DISJOINT — paging works"
+  },
+  {
+   "version": "2.0.0",
+   "sortBy": "(none)",
+   "p0": [
+    "Planeamiento.Zonificacion.1",
+    "Planeamiento.Zonificacion.2",
+    "Planeamiento.Zonificacion.5"
+   ],
+   "p1": [
+    "Planeamiento.Zonificacion.10",
+    "Planeamiento.Zonificacion.11",
+    "Planeamiento.Zonificacion.12"
+   ],
+   "verdict": "DISJOINT — paging works"
+  },
+  {
+   "version": "2.0.0",
+   "sortBy": "id",
+   "p0": [
+    "Planeamiento.Zonificacion.1",
+    "Planeamiento.Zonificacion.10",
+    "Planeamiento.Zonificacion.100"
+   ],
+   "p1": [
+    "Planeamiento.Zonificacion.100005",
+    "Planeamiento.Zonificacion.100006",
+    "Planeamiento.Zonificacion.100007"
+   ],
+   "verdict": "DISJOINT — paging works"
+  },
+  {
+   "version": "2.0.0",
+   "sortBy": "id A",
+   "p0": [
+    "Planeamiento.Zonificacion.1",
+    "Planeamiento.Zonificacion.10",
+    "Planeamiento.Zonificacion.100"
+   ],
+   "p1": [
+    "Planeamiento.Zonificacion.100005",
+    "Planeamiento.Zonificacion.100006",
+    "Planeamiento.Zonificacion.100007"
+   ],
+   "verdict": "DISJOINT — paging works"
+  },
+  {
+   "version": "2.0.0",
+   "sortBy": "cod_ine_mun",
+   "p0": [
+    "Planeamiento.Zonificacion.68224",
+    "Planeamiento.Zonificacion.3874",
+    "Planeamiento.Zonificacion.3875"
+   ],
+   "p1": [
+    "Planeamiento.Zonificacion.11229",
+    "Planeamiento.Zonificacion.11230",
+    "Planeamiento.Zonificacion.11231"
+   ],
+   "verdict": "DISJOINT — paging works"
+  }
+ ],
+ "hitsOracle": 122840
+}

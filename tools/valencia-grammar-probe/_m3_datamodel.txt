@@ -1,0 +1,641 @@
+ 
+Descripci�n de los campos de la tabla de atributos
+ 
+ 
+https://idev.gva.es/
+ 
+ 
+1
+ 
+ 
+https://icv.gva.es/
+ 
+                                                    
+ 
+CAPA:
+ 
+   
+Planeamiento
+ 
+ 
+NOMBRE 
+ 
+ALIAS
+ 
+DEFINICI�N
+ 
+VALORES
+ 
+DESCRIPCI�N
+ 
+MUNICIPIO
+ 
+Municipio
+ 
+Nombre del municipio 
+al que pertenece la 
+zona
+ 
+ 
+ 
+CPM
+ 
+C�digo 
+INE
+ 
+C�digo INE 
+del 
+municipio al 
+que 
+pertenece la zona
+ 
+ 
+ 
+EXPEDIENTE
+ 
+Expediente
+ 
+N�mero de expte. del 
+registro general de 
+planeamiento (a�o y 
+n�mero de 
+documento)
+ 
+ 
+ 
+DENOMINACION
+ 
+Denominaci�n
+ 
+Denominaci�n del 
+documento de 
+planeamiento (p.e.: 
+Modificaci�n puntual 
+n�5 del PG)
+ 
+ 
+ 
+CLAS_SUELO
+ 
+Clasificaci�n
+ 
+C�digo de la clase de 
+suelo seg�n la tabla 1 
+del anexo IV
+ 
+SU
+ 
+Suelo urbano
+ 
+ 
+SUZ
+ 
+Suelo urbanizable
+ 
+SNU
+-
+C
+ 
+Suelo no 
+urbanizable Com�n
+ 
+SNU
+-
+P
+ 
+Suelo no 
+urbanizable 
+Protegido
+ 
+ZON_SUELO
+ 
+Zonificaci�n
+ 
+C�digo de la 
+zonificaci�n del suelo 
+seg�n la tabla 2 del 
+anexo IV
+ 
+ZUR
+-
+RE
+ 
+Zona urbanizada 
+residencial
+ 
+ 
+ 
+ZUR
+-
+IN
+ 
+Zona urbanizada 
+industrial
+ 
+ 
+ZUR
+-
+TR
+ 
+Zona urbanizada 
+terciaria
+ 
+ 
+ZUR
+-
+NHT
+ 
+Zona urbanizada 
+n�cleo hist�rico 
+tradicional
+ 
+ 
+ZND
+-
+RE
+ 
+Zona de nuevo 
+desarrollo 
+residencial
+ 
+
+ 
+Descripci�n de los campos de la tabla de atributos
+ 
+ 
+https://idev.gva.es/
+ 
+ 
+2
+ 
+ 
+https://icv.gva.es/
+ 
+ 
+ZND
+-
+IN
+ 
+Zona de nuevo 
+desarrollo industrial
+ 
+ 
+ZND
+-
+TR
+ 
+Zona de nuevo 
+desarrollo terciaria
+ 
+ 
+ZRC
+-
+AG
+ 
+ 
+Zona rural com�n 
+agropecuaria
+ 
+ZRC
+-
+EX
+ 
+ 
+Zona rural com�n de 
+explotaci�n de 
+recursos naturales
+ 
+ZRC
+-
+FO
+ 
+Zona rural com�n 
+forestal
+ 
+ 
+ZRP
+-
+AG
+ 
+Zona rural protegida 
+agr�cola
+ 
+ 
+ZRP
+-
+NA
+-
+LG
+ 
+Zona rural protegida 
+legislaci�n 
+medioambiental 
+(Espacios
+ 
+Naturales, 
+PATs ...)
+ 
+ 
+ZRP
+-
+NA
+-
+MU
+ 
+Zona rural protegida 
+municipal 
+(forestal, 
+paisaj�stica o
+ 
+ambiental)
+ 
+ 
+ZRP
+-
+CA
+ 
+Zona rural protegida 
+cauces (dominio 
+p�blico)
+ 
+ 
+ZRP
+-
+CT
+ 
+Zona rural protegida 
+costas (dominio 
+p�blico)
+ 
+ 
+ZRP
+-
+CR
+ 
+Zona rural protegida 
+carreteras (dominio 
+p�blico)
+ 
+ 
+ZRP
+-
+CF
+ 
+Zona rural protegida 
+ferrocarriles 
+(dominio p�blico)
+ 
+ 
+ZRP
+-
+PC
+ 
+ 
+Zona rural protegida 
+patrimonio cultural, 
+arqueol�gico,
+ 
+
+ 
+Descripci�n de los campos de la tabla de atributos
+ 
+ 
+https://idev.gva.es/
+ 
+ 
+3
+ 
+ 
+https://icv.gva.es/
+ 
+paisaj�stico o 
+etnol�gico
+ 
+ 
+ZRP
+-
+DP
+ 
+Zona rural protegida 
+v�as pecuarias 
+(dominio p�blico)
+ 
+ZRP
+-
+OT
+ 
+ 
+Zona rural protegida 
+otras afecciones
+ 
+ZRP
+-
+RI
+ 
+ 
+Zona rural protegida 
+riesgos
+ 
+DESCRIPCION
+ 
+Descripci�n
+ 
+Descripci�n del c�digo 
+de zonificaci�n seg�n 
+la tabla 2 del anexo IV
+ 
+ 
+ 
+DOTACION
+ 
+Dotaci�n
+ 
+C�digo de la dotaci�n 
+o equipamiento
+. 
+Se 
+antepondr� la inicial P 
+o S seg�n se trate de 
+una 
+dotaci�n de red
+ 
+primaria o de red 
+secundaria.
+ 
+ 
+CV
+ 
+Comunicaciones, 
+red viaria
+ 
+ 
+CVT
+ 
+Comunicaciones, 
+red viaria tr�nsito
+ 
+CVP
+ 
+Comunicaciones, 
+red viaria peatonal
+ 
+CF
+ 
+Comunicaciones, 
+red ferroviaria
+ 
+CA
+ 
+Comunicaciones, 
+aparcamientos
+ 
+VP
+ 
+Zonas verdes, 
+parques
+ 
+VJ
+ 
+Zonas verdes, 
+jardines
+ 
+VA
+ 
+Zonas verdes, �reas 
+de juegos
+ 
+EL
+ 
+Zonas verdes, 
+espacios libres
+ 
+QE
+-
+DOC
+ 
+Equipamiento 
+educativo cultural, 
+centros docentes
+ 
+QE
+-
+CUL
+ 
+Equipamiento 
+educativo
+-
+cultural, 
+centros 
+culturales
+ 
+QD
+-
+DEP
+ 
+Equipamiento 
+deportivo
+-
+recreativo, 
+centros deportivos
+ 
+QD
+-
+GLF
+ 
+Equipamiento 
+deportivo
+-
+recreativo, 
+campos de golf
+ 
+
+ 
+Descripci�n de los campos de la tabla de atributos
+ 
+ 
+https://idev.gva.es/
+ 
+ 
+4
+ 
+ 
+https://icv.gva.es/
+ 
+QD
+-
+RCR
+ 
+Equipamiento 
+deportivo
+-
+recreativo, 
+centros recreativos
+ 
+QS
+-
+SAN
+ 
+Equipamiento 
+sanitario
+-
+ 
+asistencial, centros 
+sanitarios
+ 
+QS
+-
+ASI
+ 
+Equipamiento 
+sanitario
+-
+ 
+asistencial, centros 
+asistenciales
+ 
+QA
+ 
+Equipamiento 
+administrativo
+-
+institucional
+ 
+QR
+ 
+Equipamiento 
+residencial 
+dotacional
+ 
+QM
+ 
+Equipamiento 
+dotacional m�ltiple
+ 
+QI
+ 
+Infraestructuras y 
+servicios urbanos 
+gen�rico
+ 
+QI
+-
+HID
+ 
+Infraestructuras 
+hidr�ulicas: 
+depuradoras, 
+dep�sitos agua,
+ 
+plantas 
+potabilizadoras, 
+desaladoras, etc.
+ 
+QI
+-
+TRA
+ 
+ 
+Infraestructuras de 
+transportes: 
+estaciones 
+ferroviarias, de
+ 
+metro o tranv�a, 
+estaciones de 
+autob�s, 
+intercambiadores
+ 
+de 
+transporte, �reas 
+servicio carreteras, 
+nodos tr�fico,
+ 
+aeroportuarias, 
+mar�timas, etc
+ 
+QI
+-
+SUR
+ 
+Infraestructuras de 
+servicios urbanos: 
+mataderos, 
+mercados,
+ 
+abastos, 
+etc
+ 
+QI
+-
+RES
+ 
+Infraestructuras de 
+tratamientos de 
+residuos: 
+vertederos,
+ 
+incineradoras, 
+
+ 
+Descripci�n de los campos de la tabla de atributos
+ 
+ 
+https://idev.gva.es/
+ 
+ 
+5
+ 
+ 
+https://icv.gva.es/
+ 
+tratamientos 
+residuos, etc
+ 
+QI
+-
+SEG
+ 
+Infraestructuras de 
+seguridad: 
+bomberos, 
+cuarteles,
+ 
+protecci�n 
+civil, extinci�n de 
+incendio
+ 
+DOT_DESCRI
+ 
+Dotaci�n 
+descripci�n
+ 
+Descripci�n del c�digo 
+de la 
+dotaci�n
+ 
+ 
+ 
+INFO_ADICI
+ 
+Informaci�n 
+adicional
+ 
+Descripci�n libre del 
+recinto (p.e.Centro 
+Escolar Cervantes, 
+Sector R
+-
+1, Zona de 
+protecci�n LIC)
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+

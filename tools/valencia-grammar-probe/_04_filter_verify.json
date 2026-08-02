@@ -1,0 +1,89 @@
+[
+ {
+  "tag": "BASELINE no filter",
+  "st": "OK",
+  "n": 50,
+  "parsed": 50,
+  "distinctReturned": [
+   "Xert",
+   "Confrides",
+   "Gandia",
+   "Xàbia/Jávea",
+   "Sueca",
+   "Chella"
+  ],
+  "filterApplied": "NO — values leak"
+ },
+ {
+  "tag": "OGC noms_mun=València (positive)",
+  "st": "OK",
+  "n": 50,
+  "parsed": 50,
+  "distinctReturned": [
+   "València"
+  ],
+  "filterApplied": "YES"
+ },
+ {
+  "tag": "OGC noms_mun=Tollos (positive)",
+  "st": "OK",
+  "n": 13,
+  "parsed": 13,
+  "distinctReturned": [
+   "Tollos"
+  ],
+  "filterApplied": "YES"
+ },
+ {
+  "tag": "OGC noms_mun=Madrid (NEGATIVE)",
+  "st": "OK",
+  "n": 0,
+  "parsed": 0,
+  "distinctReturned": [],
+  "filterApplied": "ZERO"
+ },
+ {
+  "tag": "OGC noms_mun=ZZZNOTREAL (NEGATIVE)",
+  "st": "OK",
+  "n": 0,
+  "parsed": 0,
+  "distinctReturned": [],
+  "filterApplied": "ZERO"
+ },
+ {
+  "tag": "OGC cod_ine_mun LIKE 46250",
+  "st": "OK",
+  "n": 50,
+  "parsed": 50,
+  "distinctReturned": [
+   "46250"
+  ],
+  "filterApplied": "YES"
+ },
+ {
+  "tag": "OGC cod_ine_mun LIKE 99999 (NEGATIVE)",
+  "st": "OK",
+  "n": 0,
+  "parsed": 0,
+  "distinctReturned": [],
+  "filterApplied": "ZERO"
+ },
+ {
+  "tag": "OGC zon_suelo LIKE ZRP-NA-MU",
+  "st": "OK",
+  "n": 50,
+  "parsed": 50,
+  "distinctReturned": [
+   "ZRP-NA-MU"
+  ],
+  "filterApplied": "YES"
+ },
+ {
+  "tag": "OGC zon_suelo LIKE ZZZNOT (NEGATIVE)",
+  "st": "OK",
+  "n": 0,
+  "parsed": 0,
+  "distinctReturned": [],
+  "filterApplied": "ZERO"
+ }
+]

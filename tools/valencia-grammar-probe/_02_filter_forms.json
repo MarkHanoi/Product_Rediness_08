@@ -1,0 +1,72 @@
+[
+ {
+  "tag": "1.1.0 filter cod_ine_mun",
+  "http": 200,
+  "exception": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check s",
+  "n": 0,
+  "bytes": 600
+ },
+ {
+  "tag": "1.1.0 filter ms:cod_ine_mun",
+  "http": 200,
+  "exception": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check s",
+  "n": 0,
+  "bytes": 600
+ },
+ {
+  "tag": "1.1.0 filter noms_mun",
+  "http": 200,
+  "exception": null,
+  "n": 3,
+  "bytes": 8580
+ },
+ {
+  "tag": "1.1.0 filter ogc-ns",
+  "http": 200,
+  "exception": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check s",
+  "n": 0,
+  "bytes": 600
+ },
+ {
+  "tag": "1.1.0 like",
+  "http": 200,
+  "exception": null,
+  "n": 3,
+  "bytes": 8580
+ },
+ {
+  "tag": "1.1.0 CQL",
+  "http": 200,
+  "exception": null,
+  "n": 3,
+  "bytes": 77499
+ },
+ {
+  "tag": "2.0.0 CQL",
+  "http": 200,
+  "exception": null,
+  "n": 3,
+  "bytes": 78096
+ },
+ {
+  "tag": "2.0.0 fes filter",
+  "http": 403,
+  "exception": "msWFSGetFeature(): WFS server error. FLTApplyFilterToLayer() failed msPostGISLayerWhichShapes(): Query error. Error executing query. Check s",
+  "n": 0,
+  "bytes": 617
+ },
+ {
+  "tag": "1.1.0 NO FILTER (control)",
+  "http": 200,
+  "exception": null,
+  "n": 3,
+  "bytes": 77499
+ },
+ {
+  "tag": "2.0.0 NO FILTER (control)",
+  "http": 200,
+  "exception": null,
+  "n": 3,
+  "bytes": 78051
+ }
+]

@@ -1,0 +1,48 @@
+{
+ "polygonWeighted": {
+  "URBAN-UNDETERMINED": {
+   "n": 47891,
+   "pct": 38.99
+  },
+  "RURAL": {
+   "n": 68542,
+   "pct": 55.8
+  },
+  "INDUSTRIAL": {
+   "n": 6404,
+   "pct": 5.21
+  },
+  "DIRTY/UNKNOWN": {
+   "n": 3,
+   "pct": 0
+  }
+ },
+ "areaWeighted": {
+  "RURAL": {
+   "km2": 21562.5,
+   "pct": 92.64
+  },
+  "URBAN-UNDETERMINED": {
+   "km2": 1283.3,
+   "pct": 5.51
+  },
+  "INDUSTRIAL": {
+   "km2": 307.4,
+   "pct": 1.32
+  },
+  "DIRTY/UNKNOWN": {
+   "km2": 121.9,
+   "pct": 0.52
+  }
+ },
+ "buildableLand": {
+  "pctOfRegion": 6.83,
+  "undeterminedPctOfBuildable": 80.68,
+  "industrialPctOfBuildable": 19.32
+ },
+ "areaSample": {
+  "seed": 20260802,
+  "municipalities": 542,
+  "km2": 23275
+ }
+}

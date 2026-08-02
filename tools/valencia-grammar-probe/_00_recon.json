@@ -1,0 +1,332 @@
+{
+ "base": "https://terramapas.icv.gva.es/0702_Planeamiento",
+ "caps": {
+  "1.1.0": {
+   "http": 200,
+   "ok": true,
+   "exception": null,
+   "bytes": 15172,
+   "names": [
+    "MinimizacionViviendasSNU",
+    "InventarioSuSuz",
+    "DeclaracionInteresComunitario",
+    "Planeamiento.Dotaciones",
+    "Planeamiento.Zonificacion",
+    "Planeamiento.Clasificacion"
+   ]
+  },
+  "2.0.0": {
+   "http": 200,
+   "ok": true,
+   "exception": null,
+   "bytes": 26068,
+   "names": [
+    "ms:MinimizacionViviendasSNU",
+    "ms:InventarioSuSuz",
+    "ms:DeclaracionInteresComunitario",
+    "ms:Planeamiento.Dotaciones",
+    "ms:Planeamiento.Zonificacion",
+    "ms:Planeamiento.Clasificacion"
+   ]
+  }
+ },
+ "srsDefault": [
+  "urn:ogc:def:crs:EPSG::25830"
+ ],
+ "srsOther": [
+  "urn:ogc:def:crs:EPSG::25831",
+  "urn:ogc:def:crs:EPSG::3857",
+  "urn:ogc:def:crs:EPSG::23030",
+  "urn:ogc:def:crs:EPSG::23031",
+  "urn:ogc:def:crs:EPSG::4230",
+  "urn:ogc:def:crs:EPSG::4258",
+  "urn:ogc:def:crs:EPSG::4326"
+ ],
+ "schemas": {
+  "Planeamiento.Dotaciones": {
+   "st": "OK",
+   "fields": [
+    {
+     "name": "Planeamiento.Dotaciones",
+     "type": "ms:Planeamiento.DotacionesType",
+     "nillable": false
+    },
+    {
+     "name": "msGeometry",
+     "type": "gml:GeometryPropertyType",
+     "nillable": false
+    },
+    {
+     "name": "id",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "cod_ine_mun",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "noms_mun",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "expediente",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "denominaci",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "denominaci_val",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "clas_suelo",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "zon_suelo",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "descripcio",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "descripcio_val",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "dotacion",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "dot_descri",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "dot_descri_val",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "info_adici",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "info_adici_val",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "url_abs",
+     "type": "string",
+     "nillable": false
+    }
+   ]
+  },
+  "Planeamiento.Zonificacion": {
+   "st": "OK",
+   "fields": [
+    {
+     "name": "Planeamiento.Zonificacion",
+     "type": "ms:Planeamiento.ZonificacionType",
+     "nillable": false
+    },
+    {
+     "name": "msGeometry",
+     "type": "gml:GeometryPropertyType",
+     "nillable": false
+    },
+    {
+     "name": "id",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "cod_ine_mun",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "noms_mun",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "expediente",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "denominaci",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "denominaci_val",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "clas_suelo",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "zon_suelo",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "descripcio",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "descripcio_val",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "dotacion",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "dot_descri",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "dot_descri_val",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "info_adici",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "info_adici_val",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "url_abs",
+     "type": "string",
+     "nillable": false
+    }
+   ]
+  },
+  "Planeamiento.Clasificacion": {
+   "st": "OK",
+   "fields": [
+    {
+     "name": "Planeamiento.Clasificacion",
+     "type": "ms:Planeamiento.ClasificacionType",
+     "nillable": false
+    },
+    {
+     "name": "msGeometry",
+     "type": "gml:GeometryPropertyType",
+     "nillable": false
+    },
+    {
+     "name": "id",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "cod_ine_mun",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "noms_mun",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "expediente",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "denominaci",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "denominaci_val",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "clas_suelo",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "zon_suelo",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "descripcio",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "descripcio_val",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "dotacion",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "dot_descri",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "dot_descri_val",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "info_adici",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "info_adici_val",
+     "type": "string",
+     "nillable": false
+    },
+    {
+     "name": "url_abs",
+     "type": "string",
+     "nillable": false
+    }
+   ]
+  }
+ }
+}

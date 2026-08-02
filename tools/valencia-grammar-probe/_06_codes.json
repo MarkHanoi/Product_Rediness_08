@@ -1,0 +1,285 @@
+{
+ "total": 122840,
+ "municipalities": 542,
+ "codes": [
+  {
+   "code": "ZUR-RE",
+   "n": 27140,
+   "pct": 22.094,
+   "muniCount": 535,
+   "clasSuelo": [
+    "SU"
+   ],
+   "topDescr": "Zona urbanizada residencial",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZRP-CR",
+   "n": 15329,
+   "pct": 12.479,
+   "muniCount": 402,
+   "clasSuelo": [
+    "SNU-P"
+   ],
+   "topDescr": "Zona rural protegida carreteras",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZND-RE",
+   "n": 13927,
+   "pct": 11.338,
+   "muniCount": 406,
+   "clasSuelo": [
+    "SUZ"
+   ],
+   "topDescr": "Zona de nuevo desarrollo residencial",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZRP-NA-MU",
+   "n": 12551,
+   "pct": 10.217,
+   "muniCount": 455,
+   "clasSuelo": [
+    "SNU-P"
+   ],
+   "topDescr": "Zona rural protegida municipal (forestal, paisajística, medioambiental)",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZRC-AG",
+   "n": 11406,
+   "pct": 9.285,
+   "muniCount": 284,
+   "clasSuelo": [
+    "SNU-C"
+   ],
+   "topDescr": "Zona rural común agropecuaria",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZRP-CA",
+   "n": 7566,
+   "pct": 6.159,
+   "muniCount": 358,
+   "clasSuelo": [
+    "SNU-P"
+   ],
+   "topDescr": "Zona rural protegida cauces",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZRC-FO",
+   "n": 6365,
+   "pct": 5.182,
+   "muniCount": 254,
+   "clasSuelo": [
+    "SNU-C"
+   ],
+   "topDescr": "Zona rural común forestal",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZRP-DP",
+   "n": 4350,
+   "pct": 3.541,
+   "muniCount": 130,
+   "clasSuelo": [
+    "SNU-P"
+   ],
+   "topDescr": "Zona rural protegida dominio pecuario",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZUR-NHT",
+   "n": 4032,
+   "pct": 3.282,
+   "muniCount": 368,
+   "clasSuelo": [
+    "SU"
+   ],
+   "topDescr": "Zona urbanizada núcleo histórico tradicional",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZND-IN",
+   "n": 3598,
+   "pct": 2.929,
+   "muniCount": 329,
+   "clasSuelo": [
+    "SUZ"
+   ],
+   "topDescr": "Zona de nuevo desarrollo industrial",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZRP-AG",
+   "n": 3425,
+   "pct": 2.788,
+   "muniCount": 147,
+   "clasSuelo": [
+    "SNU-P"
+   ],
+   "topDescr": "Zona rural protegida agrícola",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZUR-IN",
+   "n": 2806,
+   "pct": 2.284,
+   "muniCount": 298,
+   "clasSuelo": [
+    "SU"
+   ],
+   "topDescr": "Zona urbanizada industrial",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZRP-NA-LG",
+   "n": 1965,
+   "pct": 1.6,
+   "muniCount": 118,
+   "clasSuelo": [
+    "SNU-P"
+   ],
+   "topDescr": "Zona rural protegida legislación medioambiental (Espacios Naturales, PATs)",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZRP-OT",
+   "n": 1766,
+   "pct": 1.438,
+   "muniCount": 169,
+   "clasSuelo": [
+    "SNU-P"
+   ],
+   "topDescr": "Zona rural protegida otras (tendidos eléctrico, gaseoductos, etc)",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZRP-RI",
+   "n": 1527,
+   "pct": 1.243,
+   "muniCount": 41,
+   "clasSuelo": [
+    "SNU-P"
+   ],
+   "topDescr": "Zona rural protegida riesgos",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZND-TR",
+   "n": 1475,
+   "pct": 1.201,
+   "muniCount": 192,
+   "clasSuelo": [
+    "SUZ"
+   ],
+   "topDescr": "Zona de nuevo desarrollo terciaria",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZUR-TR",
+   "n": 1317,
+   "pct": 1.072,
+   "muniCount": 168,
+   "clasSuelo": [
+    "SU"
+   ],
+   "topDescr": "Zona urbanizada terciaria",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZRP-CF",
+   "n": 1307,
+   "pct": 1.064,
+   "muniCount": 66,
+   "clasSuelo": [
+    "SNU-P"
+   ],
+   "topDescr": "Zona rural protegida ferrocarriles",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZRP-PC",
+   "n": 660,
+   "pct": 0.537,
+   "muniCount": 86,
+   "clasSuelo": [
+    "SNU-P"
+   ],
+   "topDescr": "Zona rural protegida patrimonio cultural, arqueológico, paisajístico o etnológico",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZRP-CT",
+   "n": 173,
+   "pct": 0.141,
+   "muniCount": 35,
+   "clasSuelo": [
+    "SNU-P"
+   ],
+   "topDescr": "Zona rural protegida costas",
+   "descrVariants": 1
+  },
+  {
+   "code": "ZRC-EX",
+   "n": 152,
+   "pct": 0.124,
+   "muniCount": 36,
+   "clasSuelo": [
+    "SNU-C"
+   ],
+   "topDescr": "Zona rural común de explotación de recursos naturales",
+   "descrVariants": 1
+  },
+  {
+   "code": "0",
+   "n": 2,
+   "pct": 0.002,
+   "muniCount": 2,
+   "clasSuelo": [
+    "0"
+   ],
+   "topDescr": "",
+   "descrVariants": 1
+  },
+  {
+   "code": "1",
+   "n": 1,
+   "pct": 0.001,
+   "muniCount": 1,
+   "clasSuelo": [
+    "1"
+   ],
+   "topDescr": "",
+   "descrVariants": 1
+  }
+ ],
+ "clasSuelo": [
+  [
+   "0",
+   2
+  ],
+  [
+   "SUZ",
+   19000
+  ],
+  [
+   "1",
+   1
+  ],
+  [
+   "SNU-P",
+   50619
+  ],
+  [
+   "SNU-C",
+   17923
+  ],
+  [
+   "SU",
+   35295
+  ]
+ ]
+}

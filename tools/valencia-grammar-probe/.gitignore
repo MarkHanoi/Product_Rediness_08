@@ -1,0 +1,8 @@
+# Raw WFS payload caches (~188 MB). Regenerate with 05-census.mjs / 08-inventario.mjs.
+*.xml
+_area_census.log
+
+# Kept deliberately:
+#   _*.json            — measured results, the re-runnable record
+#   _m3_datamodel.pdf  — M3 primary source, as obtained
+#   _m3_datamodel.txt  — its extracted text

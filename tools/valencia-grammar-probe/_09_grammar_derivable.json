@@ -1,0 +1,117 @@
+{
+ "n": 122840,
+ "population": {
+  "cod_ine_mun": {
+   "absent": 0,
+   "empty": 0,
+   "valued": 122840,
+   "pctValued": 100,
+   "distinct": 542
+  },
+  "zon_suelo": {
+   "absent": 0,
+   "empty": 0,
+   "valued": 122840,
+   "pctValued": 100,
+   "distinct": 23
+  },
+  "denominaci": {
+   "absent": 0,
+   "empty": 227,
+   "valued": 122613,
+   "pctValued": 99.82,
+   "distinct": 3881
+  },
+  "info_adici": {
+   "absent": 0,
+   "empty": 81038,
+   "valued": 41802,
+   "pctValued": 34.03,
+   "distinct": 9780
+  },
+  "dot_descri": {
+   "absent": 0,
+   "empty": 68563,
+   "valued": 54277,
+   "pctValued": 44.19,
+   "distinct": 40
+  },
+  "dotacion": {
+   "absent": 0,
+   "empty": 68492,
+   "valued": 54348,
+   "pctValued": 44.24,
+   "distinct": 40
+  }
+ },
+ "valencia": {
+  "polygons": 3589,
+  "byCode": [
+   [
+    "ZND-IN",
+    8
+   ],
+   [
+    "ZUR-RE",
+    1967
+   ],
+   [
+    "ZRP-AG",
+    157
+   ],
+   [
+    "ZND-RE",
+    560
+   ],
+   [
+    "ZRP-CR",
+    286
+   ],
+   [
+    "ZUR-NHT",
+    160
+   ],
+   [
+    "ZND-TR",
+    31
+   ],
+   [
+    "ZUR-TR",
+    101
+   ],
+   [
+    "ZRP-CA",
+    44
+   ],
+   [
+    "ZRC-AG",
+    3
+   ],
+   [
+    "ZRP-CT",
+    2
+   ],
+   [
+    "ZRP-NA-LG",
+    133
+   ],
+   [
+    "ZUR-IN",
+    90
+   ],
+   [
+    "ZRC-FO",
+    36
+   ],
+   [
+    "ZRP-NA-MU",
+    11
+   ]
+  ]
+ },
+ "denominaciPerMuni": {
+  "median": 4,
+  "min": 0,
+  "max": 226
+ }
+}
