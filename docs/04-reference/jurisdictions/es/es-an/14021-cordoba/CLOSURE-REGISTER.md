@@ -255,7 +255,31 @@ SUELO URBANO, and live in [`tools/city-completion/measurements/cordoba.measureme
 evidence exists.** **Negative evidence closes a blocker** — *"no authoritative source exists, here is
 exactly where we looked"* is a valid, permanent closure.
 
-## Taxonomy (ratified 2026-08-01)
+## ⭐ CATEGORY · OWNER · EXIT — the founder's standing rule (2026-08-02)
+
+[`BLOCKER-CLASSIFICATION-STANDARD.md`](../../../../standards/BLOCKER-CLASSIFICATION-STANDARD.md) is
+BINDING: exactly one of **Legal · Engineering · Data acquisition · External authority**, **one
+owner**, **one exit criterion**, and **no migration without explicit evidence**. Córdoba's open rows:
+
+| # | Blocker | Category | Owner | Exit criterion |
+|---|---|---|---|---|
+| **2** | `CORDOBA_ENVELOPE_VERIFIED` signature | **External authority** | the founder | §SIG-1 signed (or refused). ⚠ **not before 4 and 3** |
+| **3** | COACo subzone resolver authored but never called | **Engineering** | the Córdoba agent | resolver called from the dispatcher; the delegation branch driven by a test |
+| **4** | UAD *profundidad* stated in Art. 13.9.3.3, absent from the pack (D1) | **Engineering** | the Córdoba agent | each UAD subzone carries a `geometricRule` with its stated depth |
+| **8** | MC per-street-width height table | **Engineering** | the Córdoba agent | a width source bound to the frontage and the table evaluated — ⭐ candidate source now found, row **25** |
+| **9** | SIU clasificación mounted, called by nothing | **Engineering** | the Córdoba agent | a client caller renders the clase de suelo on the refusal card |
+| **22** | 41 of 49 urban CUS sheets are unpublished | **Data acquisition** | the founder (request to GMU) | GMU serves the 41 sheets, or answers that it will not |
+| **22b** | vectorise the 2 live un-vectorised sheets (CUS18W · CUS19W) | **Engineering** | the Córdoba agent | both vectorised, bound through the resolver, ENVELOPE re-measured |
+| **25** | Ayuntamiento street-width layers unprobed | **Engineering** | the Córdoba agent | `sup_viales`/`tramo_vial` probed for a per-frontage width and bound behind 8 |
+| **7** | bare `O_MC` subzone key | **External authority** | COACo | COACo populates a subzone attribute (**not PRYZM-closable**) |
+| **21** | HEIGHTS pre-bake | **Engineering** | the orchestrator | national bake lands; histogram re-probed |
+
+⚠ **Rows that must NOT migrate back.** **20 (cadastral dissolve)** — CLOSED; the P1 ceiling came from
+a **three-block sample** and is refuted at scale (Catastro INSPIRE 76.9 %, COACo 88.5 %). **22** —
+stays **Data acquisition**; the one-shot search concluded no machine-readable source exists *and*
+that the rasters are unpublished, so it does **not** become Engineering.
+
+## Taxonomy (ratified 2026-08-01, superseded by the standard above for OPEN rows)
 
 | | Bucket | Unblocked by |
 |---|---|---|

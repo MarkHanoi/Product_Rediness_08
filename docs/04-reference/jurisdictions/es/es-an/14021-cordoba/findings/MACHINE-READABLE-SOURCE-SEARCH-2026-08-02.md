@@ -276,7 +276,87 @@ The probes make the request precise, which is the whole value of having run them
 
 ---
 
-*Authority: C58 · C60 §2/§3 · C63 §1.1/§1.5 · L-422/457/467/469 · L-656 · L-661 ·
+## 11 — THE STOPPING RULE IS SATISFIED, AND THE PRE-APPROVAL'S PREMISE IS NOT
+
+The founder's rule: if ArcGIS REST · FeatureServer · MapServer · ArcGIS Online · hidden layers ·
+relationship tables all fail, declare **"no discoverable machine-readable source exists"**, and
+full vectorisation is pre-authorised — *"The source data are already public."*
+
+**The first half is satisfied. Declared, on the probe evidence in §§1–5, 7:**
+
+> ## No discoverable machine-readable calificación source exists for Córdoba beyond the COACo 2-district pilot.
+
+⚠⚠ **THE SECOND HALF IS NOT, AND IT MUST BE SAID BEFORE ANYONE STARTS TRACING.** The pre-approval
+rests on *"the source data are already public"*. **Measured: they are not.** 41 of the 49 urban CUS
+sheets return a 69-byte "Server under construction" page (§6). **Vectorisation is authorised and the
+thing to vectorise is missing.** The available work is **2 sheets** — CUS18W and CUS19W, the only
+live sheets COACo has not already done — not 69.
+
+⇒ **Blocker 22 does NOT migrate Data acquisition → Engineering.** Under the new standard a category
+change requires explicit evidence; the evidence points the other way. It **stays Data acquisition**,
+because the exit criterion *"the dataset is obtained"* is precisely what is unmet.
+
+| | |
+|---|---|
+| **Blocker 22 — the 41 unpublished CUS sheets** | **Category: Data acquisition** · Owner: **the founder** (a request to GMU Córdoba; no agent can close it) · **Exit: GMU serves the 41 missing sheets, or answers that it will not.** |
+| **Blocker 22b — vectorise the 2 live un-vectorised sheets** *(new, split out)* | **Category: Engineering** · Owner: **the Córdoba agent** · **Exit: CUS18W + CUS19W vectorised, bound through the existing resolver, and the ENVELOPE axis re-measured.** |
+
+## 12 — COSTED VECTORISATION PLAN, WITH THE DELEGATION NETTED OUT
+
+⚠ **Sized so nobody reads "vectorise the sheets" as "unlock 97 % of Córdoba".** Three deductions
+apply to *any* newly vectorised land, all measured, all permanent-or-blocked:
+
+| Deduction | Measured | Nature |
+|---|---:|---|
+| **Legally delegated** to a Plan Parcial / Plan Especial / PERI / Estudio de Detalle | **44.73 %** of ordenanza land (178/453 polygons, 728 522.65 m², centroid method) | ⛔ **PERMANENT.** Correctly `not-determined`. Vectorising more geometry produces more *cited refusals* here, not more envelopes. |
+| **Manzana Cerrada**, blocked on the street-width table (Art. 13.5.3.1) | 16.86 pp of ordenanza land | Blocked until blocker 8 — for which §8 above just found a candidate source |
+| Legally-grounded / unbindable families (Comercial · PTC · EP · UAS · IND) | 4.53 % | ⛔ Permanent (see ENVELOPE.md) |
+| **⇒ PGOU-direct AND packed — the only slice that can ever become an envelope** | **52.87 %** of ordenanza land | the real multiplier |
+
+**Per-sheet yield, measured:** the 6 vectorised sheets carry 1 628 615.63 m² of ordenanza polygons =
+**≈ 0.27 km² per sheet**. ⚠ Per-sheet yield varies with how much of a sheet is urban fabric, so this
+is an **order of magnitude, not a forecast**.
+
+| Scenario | New ordenanza land | Direct+packed (×0.5287) | ENVELOPE axis after blockers 2+3+4 |
+|---|---:|---:|---:|
+| **today** | — | — | **0.0 %** (gate shut, resolver uncalled) |
+| blockers 2+3+4 only, no new geometry | — | 567 649 m² | **≈ 0.68 %** |
+| **\+ blocker 22b — the 2 live sheets** *(the only work available now)* | ≈ 0.54 km² | ≈ 0.29 km² | **≈ 1.0 %** |
+| \+ blocker 8 (MC street width) on existing pilot | — | +293 410 m² | **≈ 1.35 %** |
+| **hypothetical: all 49 urban sheets published AND vectorised** | — | — | **≈ 8 %, order of magnitude only** |
+
+⚠ **THE 8 % IS AN EXTRAPOLATION AND IS LABELLED AS ONE.** It assumes the pilot's measured
+private-buildable fraction (**37.3 %** of district area) and its 52.87 % direct+packed share hold
+city-wide, at tier `estimated-ruleset` (0.4). **Applying a pilot ratio city-wide is exactly what
+produced the withdrawn "~19 % / ~89 %".** It is quoted only to establish that the full prize is
+single-digit percent, not the ~31 % a careless reading of the pilot suggests. **Do not put it in a
+tracker as a target.**
+
+**Doctrine constraints on the derived dataset** (`fd1492ef`):
+- **ADR-0283** — the CUS sheets are a published *drawing*, not authoritative published geometry.
+  Anything traced from them is **our derivation** and its tier must say so. It may not exceed
+  `estimated-ruleset`, and `authoritative` remains unreachable (blocker 19).
+- **ADR-0284** — tracing a calificación boundary is derived **geometry**: permitted. Deciding which
+  ordenanza applies where a sheet is illegible, or which MC subzone a bare label means, is derived
+  **law**: **forbidden** — that is a cited refusal (`regime-undetermined`), exactly as the bare-`O_MC`
+  case already ships.
+- **ADR-0286** — every derived polygon carries legal source (the PGOU article), computational source
+  (the sheet id + the georeferencing used), and its confidence tier, through to the UI.
+- The ordinance **TEXT** is already transcribed and is per-*ordenanza*, not per-district, so
+  vectorisation adds **geometry only** and re-opens no legal question. Keep it that way.
+
+⚠ **Vectorisation does not bypass the gate sequencing.** Blockers **4** (the missing UAD
+*profundidad*, Art. 13.9.3.3) and **3** (the uncalled resolver) must land **before** 2, or flipping
+the gate ships the L-616 whole-parcel overstatement on UAD-3's 31 505 m² of clickable land. New
+geometry only enlarges that exposure.
+
+⚠ **The dissolve is NOT a blocker and must not re-enter the list.** Measured at scale: Catastro
+INSPIRE **76.9 %**, COACo **88.5 %**. The three-block sample that made it a P1 is refuted.
+
+---
+
+*Authority: C58 · C60 §2/§3 · C63 §1.1/§1.5 · ADR-0283/0284/0286 · BLOCKER-CLASSIFICATION-STANDARD ·
+L-422/457/467/469 · L-656 · L-661 ·
 §CONTEXT-DATA-HONESTY · the founder's platform doctrine on authoritative published geometry.
 All probes run 2026-08-02 and reproducible from the URLs above. Sibling:
 [`../CLOSURE-REGISTER.md`](../CLOSURE-REGISTER.md) blocker 22,
