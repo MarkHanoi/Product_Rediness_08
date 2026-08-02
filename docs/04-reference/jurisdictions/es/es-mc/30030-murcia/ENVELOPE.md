@@ -278,6 +278,47 @@ answer before the cross-tab was run. Packing
 one width would publish one street's answer for the whole zone — the L-526 failure verbatim, and
 Córdoba's `MC` refuses on exactly this ground.
 
+#### 3.3.1 — §MURCIA-STREET-WIDTH-SOURCE-SURVEY: every candidate probed, and the typed refusal
+
+Probed live 2026-08-01/02 against `geoserver.murcia.es` (statuses in
+[`corpus/RETRIEVAL-LOG.md`](./corpus/RETRIEVAL-LOG.md) §3). **No published Murcia layer carries a
+width.** ADR-0275 already established that no *declared*-width dataset exists anywhere in Spain and
+that the width must be **constructed**; this records what Murcia specifically does and does not
+publish, so the next attempt does not re-probe the same four dead ends.
+
+| candidate | what it actually is | verdict |
+|---|---|---|
+| `Murcia:viales` | MultiLineString street **centrelines**; `cod_padron · cod_ine · tipo_via · nombre · matricula` | ❌ **no width attribute.** A street-name gazetteer, not a section. |
+| `Murcia:comunicaciones_poligonos` | MultiPolygon road **surfaces**, classified by `elemento` | ❌ **not urban.** A 350 × 440 m box over the Casco Antiguo returns **4 features: 1 `Carretera Secundaria` + 3 `Carril Bicicleta`**. This is the 1:5 000 topographic *carretera* network; the historic centre's streets — precisely the `RC`/`RM` land that needs a width — are **absent**. |
+| `Murcia:pgou_eje_comercial` | LineString axes of the *Ejes Comerciales* | ⚠ **useful but insufficient.** It resolves the *categorical* half of Art. 5.5.3's 5-plantas case, but the article's own test is *«Ejes Comerciales con **sección mayor de 12 metros**»* — still width-dependent. |
+| `Murcia:pgou_ejes` | LineString, DXF-derived axes | ❌ no width. Candidate for `MX`'s *eje viario principal* vs *vía secundaria* classification only. |
+| per-zone fiche PDFs (`url` = `MC.pdf` on `pgou_alineaciones`) | — | ❌ **HTTP 404** at the `infourb/documentos/` path. Not located; not proven absent. |
+
+**TYPED REFUSAL — what is missing, named precisely:**
+`missing-input: street-section-width` · `granularity: per-street-segment` · `blocks:` Arts. 5.3.3
+(`RC`), 5.5.3 base (`RM`), 5.7.3 (`RN`), 5.9.3 (`RD1` 3rd storey), 5.6.3.2 (`MZ` FAR), 5.22.3 (`MX`
+frontage) · `share: 8.81 pp of buildable land` · `published source: NONE — probed, not assumed`.
+
+**THE ONE VIABLE ROUTE, and its preconditions.** The PGOU measures *ancho de calle* between
+**alineaciones**, not between kerbs — so the input is the **void between facing
+`Murcia:pgou_alineaciones` polygons**, a layer PRYZM already fetches on every Murcia click. That is
+ADR-0275's construction (`geometry/streetWidth.ts` + the dissolve) applied to a layer we hold,
+rather than a new feed. It is therefore **engineering, not sourcing**. Three preconditions, none
+discharged:
+
+1. **ADR-0275's snap gate applies unchanged.** *Cluster ⇒ ship the snap; no cluster ⇒ ship the raw
+   measured width and say so.* Murcia is **not** in the 5-city probe
+   ([`../../SPAIN-STREET-WIDTH-DISTRIBUTION-PROBE.md`](../../SPAIN-STREET-WIDTH-DISTRIBUTION-PROBE.md)),
+   and the quantum set is CITY-SPECIFIC — so the probe must be re-run for Murcia before any snap.
+2. **The band edges are STEPS.** Art. 5.3.3 jumps 2→3→4 plantas at exactly 4 m and 8 m. A measured
+   width either side of a boundary is a whole storey, so the measurement's error bar has to be
+   stated, not the width alone.
+3. **⚠ IT NEEDS A NEW SIGNATURE, AND SIG-MU1 IS NOT IT.** SIG-MU1 authorises publication for *the
+   14 transcribed calificaciones on non-delegated soil* and expressly does **not** authorise
+   *"resolving the street-width blocker"* or *"any number for the … REFUSED calificaciones"*. So
+   even a correct resolver moves **0 pp** on this axis until a founder signs SIG-MU2. Building it
+   first and signing after is the right order — but the ENVELOPE number does not move on build.
+
 ---
 
 ## 4 — WHAT SHIPS TODAY

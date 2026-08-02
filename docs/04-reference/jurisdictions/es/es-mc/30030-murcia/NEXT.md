@@ -95,15 +95,31 @@ and the two 🟠 source-provenance blockers stand unchanged.
 - 🔴 **Signature.** Transcription is a legal act. `sources/VERIFICATION.md` does not yet exist and
   must be human-signed (L-449) before `MURCIA_ENVELOPE_VERIFIED` flips.
 - 🟠 **BORM approval reference `not-located-in-source`.** We hold the normative text, not the
-  gazette act that enacted it. That is *not located*, not *does not exist*.
-- 🟠 **2017 re-edition undiffed.** «NORMAS URBANÍSTICAS REFUNDIDAS ADAPTADAS A LS REG. act.
-  28_02_2017» (196 pp) is the version the municipality links publicly. Every quote in the pack came
-  from the 2012 TR. Concordance is UNVERIFIED.
+  gazette act that enacted it. That is *not located*, not *does not exist*. **STILL OPEN.**
+- ✅ ~~**2017 re-edition undiffed.**~~ **CLOSED 2026-08-01 (L-676).** Both consolidations are filed in
+  [`corpus/pdf/`](./corpus/pdf/) with SHA-256s and diffed article-by-article: **all 22 cited zone
+  articles are BYTE-IDENTICAL**; the 4 cited articles that differ move no published value. And the
+  worry was **backwards** — the murcia.es «act. 28_02_2017» file is the **earlier** consolidation
+  (the 2012 TR carries Arts. 2.1.10 + 6.2.7/zone `ZE` it lacks, and corrects a stale Art. 5.1.5
+  cross-reference). PRYZM cites the LATER text. See [`corpus/INDEX.md`](./corpus/INDEX.md) §2–§3.
+- ✅ ~~**Cited document not in the repo (L-674).**~~ **CLOSED 2026-08-01.** ⚠ And the recorded reason
+  was FALSE: the *"HTTP 403"* was measured on the **directory index**; the PDF returns **200** to
+  plain `curl`. `esMurciaPgou2012.ts:12` had recorded that 200 and the exact byte count all along —
+  two artefacts disagreed and nobody diffed them. **Probe the artefact, not its container.**
 - 🟠 **No Murcia street-width / frontage-class source.** Blocks `RC`, `RM` (base), `RN`, `RD1`'s
   third storey, `MZ`'s FAR and `MX`'s frontage rule — **8.81 % of buildable land** (⬆ measured
   2026-08-01; the earlier "~4 %" omitted the `RM` base zone), one resolver. It sits entirely inside
   the 33.00 % ceiling and entirely outside the 23.51 % a signature renders, so it is **strictly
   additive** to signature coverage.
+  **SURVEYED 2026-08-02 — every candidate probed and refused** (`ENVELOPE.md` §3.3.1): `Murcia:viales`
+  is centrelines with no width; `Murcia:comunicaciones_poligonos` is the 1:5 000 *carretera* network
+  and returns **4 features over the whole Casco Antiguo**, so the streets that need a width are not in
+  it; `pgou_eje_comercial` / `pgou_ejes` are axes with no section; the per-zone fiche PDFs **404**.
+  ⇒ **It is not a SOURCING problem — it is ENGINEERING.** The PGOU measures between *alineaciones*,
+  so the input is the void between `pgou_alineaciones` polygons, a layer PRYZM already fetches.
+  ⚠ **But it moves 0 pp without SIG-MU2**: SIG-MU1 expressly does not authorise resolving this
+  blocker or any number for the refused calificaciones. Build first, sign after — the axis moves on
+  the signature, not the build.
 - 🟠 **L5 does not consume an `envelope` disposition.** Interlocked today (the branch carries a
   `reason` and degrades to a cited refusal), but it must be taught before the gate opens, or Murcia
   will silently keep refusing after sign-off.
@@ -117,9 +133,23 @@ and the two 🟠 source-provenance blockers stand unchanged.
 
 ## 4 — SMALLEST NEXT STEP
 
-**Verify five zones, not fourteen.** Take `RL`, `RD`, `IX`, `RF`, `MC` — together the large majority
-of the PGOU-direct land — and check each transcription against the source PDF. That is the smallest
-unit of work that converts into a signature and a rendered envelope.
+~~**Verify five zones, not fourteen.**~~ **DONE AND OVERTAKEN (2026-08-01):** the source PDF is in
+`corpus/pdf/`, all 22 cited articles are diffed against the second consolidation, and SIG-MU1 is
+signed — Murcia renders on 23.51 % of buildable land.
+
+**The smallest next step is now `classifyEdges`, not more transcription.** The founder's live RM1
+report (L-676) was settled in the engine: the 15 m *fondo máximo edificable* **does** bind
+(`packages/site-parcel-data/__tests__/murciaRm1DepthBand.test.ts` — a 38.3 × 17.5 m plot yields
+574.5 m², not 670 m²), so the 671 m² is **not** an L-616 overstatement from that branch. Three
+defects were found and fixed alongside it (missing parcel ring on the card, no length guard on
+`edgeClassifications`, a Catalan string on a Castilian card). **One remains open and it is the
+likeliest residual cause:** `boundaryProjection.classifyEdges` picks `front` purely by orientation
+(the edge whose normal points most toward −Z), not by street adjacency. On an irregular 8-edge plot
+that can select a **0.5 m sliver**, and a 15 m band measured off a sliver retains most of the
+polygon — which would produce a near-whole-plot footprint under a binding cap. It is **cross-city**
+shared code, so it needs an owner and an ADR, not a unilateral edit from a city agent.
+
+After that: the street-width construction (§3.3.1) — engineering, then **SIG-MU2**.
 
 ## 5 — THE REGISTRY SNIPPET (apply by hand; deliberately NOT applied by this work)
 
