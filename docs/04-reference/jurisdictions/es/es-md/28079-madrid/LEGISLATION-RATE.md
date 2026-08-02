@@ -1,5 +1,21 @@
 # LEGISLATION-RATE — Madrid (`es-md`, INE 28079) city
 
+> ⚠⚠ **SUPERSEDED 2026-08-01 (§MADRID-NZ1-DECERTIFIED, L-677) — THE ENVELOPE AXIS IS A MEASURED 0 %, NOT ≤4.7 %.**
+> The ≤4.7 % was `0.11695 × 0.4`, the NZ-1 slice, and it was authorised by `MADRID_NZ1_CERTIFIED = true` —
+> a gate whose docstring credited *"the L-608 sign-off, 2026-07-25"* while `sources/VERIFICATION.md §3
+> "Signed off (legal)"` was **empty**. `git log -S` locates the flip in ONE commit — `3e571724`,
+> *"fix(madrid): ship the parcel ring on compound COEF_Z + flip NZ1 gate ON"*, **`Co-Authored-By: Claude
+> Opus 4.8`** — whose message is entirely about the COEF_Z parse. **The gate cited as its authority the
+> very commit that opened it, and the signatory was a machine.** The gate is now `false`; every NZ-1
+> parcel receives the cited refusal the path was designed to give, and **no Madrid parcel receives a
+> numeric envelope from any path today**.
+> ⚠ **This is a correction, not a regression, and it is not a finding against NZ 1's geometry** — the
+> footprint is real published municipal data and `sources/VERIFICATION.md` SIG-M2 may well be answered
+> *"reading published geometry is not a transcription, so no L-449 signature is owed"*, which would
+> restore the 4.7 % legitimately. It has to be answered **by a person, in writing, with a date**.
+> ⇒ **Every `≤4.7 %` below reads as `0 %` until SIG-M2 is answered.** [`CLOSURE-REGISTER.md`](./CLOSURE-REGISTER.md) row 5.
+
+
 > **Naming note (L-649 reconciliation, 2026-07-30).** This file was `RATE.md`; its content is the
 > **structured legislation / data-fill rate** (the C58/L-449 comparable ruler), which the
 > [`NAMING-CONVENTION`](../../_TEMPLATE/NAMING-CONVENTION.md) §1 names `LEGISLATION-RATE.md`. It now
@@ -44,7 +60,7 @@ calificación / Norma-Zonal plane (`PG_ORDENACION`), the `Alineaciones` layer, a
    structured layers PRYZM has not yet consumed.
 > ⛔ **CORRECTED 2026-08-01.** Caveat 1 above is stale in three places: the `explicitAreaFootprint`
 > fix **landed** (`ZoningRulesEngine.ts:84`), the proxy is **mounted** (`server.js:514`), and
-> **NZ 1 renders** (`MADRID_NZ1_CERTIFIED = true`) ⇒ shippable resolution today is **≤4.7 %**, not
+> ~~**NZ 1 renders** (`MADRID_NZ1_CERTIFIED = true`)~~ **— WITHDRAWN 2026-08-01, the gate is `false`.** Shippable resolution today is **0 %**, and was ≤4.7 %, not
 > 0 %. And the **~60–62 % ceiling is DISPROVEN by measurement**: NZ 3 alone holds **60.458 %** of
 > Norma-Zonal-governed land and refuses by law, so ENVELOPE caps at **≈36.8 %**. Caveat 2's
 > "UNSOURCED" is now **SOURCED** — see below. ⇒ [`CLOSURE-REGISTER.md`](./CLOSURE-REGISTER.md).

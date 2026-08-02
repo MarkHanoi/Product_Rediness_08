@@ -1,5 +1,21 @@
 # NEXT — Madrid (28079, es-md, Spain)
 
+> ⚠⚠ **SUPERSEDED 2026-08-01 (§MADRID-NZ1-DECERTIFIED, L-677) — THE ENVELOPE AXIS IS A MEASURED 0 %, NOT ≤4.7 %.**
+> The ≤4.7 % was `0.11695 × 0.4`, the NZ-1 slice, and it was authorised by `MADRID_NZ1_CERTIFIED = true` —
+> a gate whose docstring credited *"the L-608 sign-off, 2026-07-25"* while `sources/VERIFICATION.md §3
+> "Signed off (legal)"` was **empty**. `git log -S` locates the flip in ONE commit — `3e571724`,
+> *"fix(madrid): ship the parcel ring on compound COEF_Z + flip NZ1 gate ON"*, **`Co-Authored-By: Claude
+> Opus 4.8`** — whose message is entirely about the COEF_Z parse. **The gate cited as its authority the
+> very commit that opened it, and the signatory was a machine.** The gate is now `false`; every NZ-1
+> parcel receives the cited refusal the path was designed to give, and **no Madrid parcel receives a
+> numeric envelope from any path today**.
+> ⚠ **This is a correction, not a regression, and it is not a finding against NZ 1's geometry** — the
+> footprint is real published municipal data and `sources/VERIFICATION.md` SIG-M2 may well be answered
+> *"reading published geometry is not a transcription, so no L-449 signature is owed"*, which would
+> restore the 4.7 % legitimately. It has to be answered **by a person, in writing, with a date**.
+> ⇒ **Every `≤4.7 %` below reads as `0 %` until SIG-M2 is answered.** [`CLOSURE-REGISTER.md`](./CLOSURE-REGISTER.md) row 5.
+
+
 > Where we stopped and how to resume. Convention: README = what is true now; this = where we
 > stopped. **Last updated 2026-08-01** · Maintainer: Phase-4 jurisdiction documentation agent ·
 > Status: **pack REGISTERED and routed end to end, gate SHUT; NZ 1 renders; nothing L-449-signed.**
@@ -14,7 +30,7 @@
 > | This file said | Measured / verified truth |
 > |---|---|
 > | "no pack registered", `packsByZone` **empty** | **23 zones registered**; Madrid routed end to end; the gate (`MADRID_ENVELOPE_VERIFIED=false`) is what withholds numbers |
-> | ENVELOPE = a measured **0 %** | **≤4.7 %** — NZ 1 (`MADRID_NZ1_CERTIFIED=true`) **renders a constructed envelope** on 11.695 % of NZ-governed land |
+> | ENVELOPE = a measured **0 %** | **a measured 0 %** — the ≤4.7 % this row corrected TO was itself withdrawn 2026-08-01: NZ 1's gate was de-certified (row 5). ⚠ The original `0 %` and today's `0 %` are the SAME NUMBER FOR OPPOSITE REASONS — that one rested on a false claim that `packsByZone` was empty, this one on a measured absence of authority |
 > | ceiling **≈60–62 %** (0.65 × 0.96, unsourced) | **DISPROVEN.** Measured: NZ 3 alone is **60.458 %** and refuses by law; ENVELOPE caps at **≈36.8 %** |
 > | §4.1 all NZ 4/5/7/8/9 values document-gated, **zero** extracted | **282 cited records extracted** (`tools/madrid-extract/`); NZ 4 ships `buildableDepth_m: 12` (Art. 8.4.7.1, quoted). What is missing is a **signature**, not a read |
 > | §4.2(b) 🔴 tsc defect — `explicitAreaFootprint` undeclared | **CLOSED.** `ZoningRulesEngine.ts:84` declares it |
@@ -50,7 +66,7 @@ municipal ≈604 km²; not the L-656 private-buildable denominator, which Madrid
 | PENDING one signature (NZ 4·5·7·8·9) | **27.847 %** |
 | **TERMINAL TODAY** | **72.153 %** — *of which human-signed: **0 %*** |
 
-**ENVELOPE axis: ≤4.7 % today · ≈7.5 % realistic · ARITHMETIC MAXIMUM ≈36.8 %.** ~96 % of the
+**ENVELOPE axis: 0 % today (≤4.7 % the moment SIG-M2 is answered) · ≈7.5 % realistic · ARITHMETIC MAXIMUM ≈36.8 %.** ~96 % of the
 ENVELOPE gap is **LAW** (NZ 3), not effort.
 
 > ⛔ **STALE, struck 2026-08-01.** ~~"Shippable envelope resolution today = 0 % (measured:

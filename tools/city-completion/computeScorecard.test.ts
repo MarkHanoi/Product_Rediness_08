@@ -40,6 +40,9 @@ import {
     wilson95,
     ENVELOPE_AXIS_TIER_WEIGHT as TOOL_ENVELOPE_WEIGHTS,
     ENVELOPE_AXIS_TIER_WEIGHT_VERSION as TOOL_ENVELOPE_WEIGHTS_VERSION,
+    // ⚠ READ the version, never restate it. A hard-coded `scorecard@1.1` below meant bumping the
+    // tool's own version stamp broke a test that has nothing to do with versioning (L-677).
+    SCORECARD_VERSION,
 } from './computeScorecard.mjs';
 
 const NOW = '2026-07-30T00:00:00.000Z';
@@ -150,7 +153,7 @@ test('every axis carries a derivation + the generatedBy stamp (non-forgeable, C6
     const card = computeScorecard(BCN, { now: NOW });
     for (const ax of Object.values(card.axes)) {
         assert.ok(ax.derivation.length > 0);
-        assert.equal(ax.generatedBy, `scorecard@1.1 ${NOW}`);
+        assert.equal(ax.generatedBy, `scorecard@${SCORECARD_VERSION} ${NOW}`);
     }
 });
 

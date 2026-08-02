@@ -43,10 +43,17 @@ a human sign-off (the L-449 gate), and none does.**
 | V16 | **`COEF_Z` is measurably NOT a FAR** — 15,907 polygons, 57 distinct values, **100 % integers 0–8**, **47.56 % compound** (`"0 / 5"`, `"0 / 6 / 7"`) | `groupBy COEF_Z` census on `PG_CONDICIONES_EDIFICACION/6` | 2026-08-01 | ✅ **VERIFIED-NEGATIVE** — the quarantine is now evidence-backed. ⚠ Says nothing about what `COEF_Z` **is**; §2's NZ-1 checklist is unchanged |
 | V17 | **`Ficha Específica` holds 131 points**, and the SHIPPED NZ-1 resolver never reads it | `returnCountOnly` on `PG_CONDICIONES_EDIFICACION/1` + `grep -i ficha providers/resolveMadridNZ1Ring.ts` (0 hits) | 2026-08-01 | ✅ **VERIFIED — a live correctness gap**, `CLOSURE-REGISTER.md` row 3 |
 | V18 | **`Ámbitos de Ordenación` cannot supply the derived-ámbito AREA** — `PG_ORDENACION/4` is polyline with `OBJECTID` only | `?f=json` | 2026-08-01 | ✅ **VERIFIED-NEGATIVE** — the cheapest route to the L-656 denominator is closed off |
+| V19 | **THE PRIMARY DOCUMENT IS NOW IN THE REPO** — `corpus/pdf/COMPENDIO_MPG_NNUU_24-09-2025_PGOUM-97.pdf`, 25,735,355 bytes, **626 pp**, sha256 `1A3AA172B7ABE092F03E58FB2AFC26C87020B907887F919CEE20002E5FC4D0B5` | recovered from the extraction session's scratchpad (it was never downloaded again); identity taken from the document itself — PDF `title` metadata `COMPENDIO MPG NNUU (24-09-2025)`, `creationDate D:20251020`, cover page *«ACTUALIZADO A 24 DE SEPTIEMBRE 2025»* | 2026-08-01 | ✅ **VERIFIED — it is the transparencia 24-09-2025 edition, NOT the superseded 07-07-2025 geoportal one (V10).** Closes `CLOSURE-REGISTER` row 15(i). `corpus/RETRIEVAL-LOG.md` §R1 |
+| V20 | 🔴 **`madrid.es` serves an Akamai ACCESS DENIED to automated GETs of the Compendio PDF** — the `compendio2025.pdf` committed in `40c2bdba` is **536 bytes of denial HTML**, not a document | `git cat-file -p` on the blob | 2026-08-01 | ✅ **VERIFIED-BLOCKED.** ⚠ **QUALIFIES V2:** the `curl -I` HEAD *is* allowed and the GET *is* denied, so a HEAD-only reachability check reports a document as retrievable that cannot be retrieved. UNKNOWN, never absence (L-422/457/467/469). `RETRIEVAL-LOG.md` §R2 |
+| V21 | **§MADRID-QUOTE-CONCORDANCE — all 1,321 `verbatim` strings in `extracted/*.json` re-read against the V19 PDF: 992 on the cited page, 40 spanning from it, **0 mis-paged**, **0 fabricated**; 25 are synthesised table rows mislabelled `verbatim`; 216 carry **no page citation** and are uncheckable | `tools/madrid-extract/verify_quotes.py`; raw result `extracted/quote-concordance-2026-08-01.json` | 2026-08-01 | ✅ **VERIFIED-CONCORDANT.** ⚠⚠ **THIS MOVES THE LEGISLATION AXIS BY EXACTLY ZERO AND MUST NEVER BE QUOTED AS IF IT DID** — it proves a string was COPIED from the document; whether the extracted NUMBER correctly INTERPRETS that string is the reading L-449 reserves to a human. A second machine pass is not a human one. §2 is still entirely unsigned |
 
 **What §1 does NOT establish:** any numeric rule value, any article number, `COEF_Z`'s meaning, the
 cause of the 2/6/10/11 absence, NZ 9's identity, NZ 5's rule kind, any land-share figure, any licence
 grant, or the contents of any of the four unprobed layers. Those are §2, §1a, and §3.
+
+⚠ **V19–V21 do not change that sentence by one word, and the temptation to think they do is the whole
+reason they are worded as they are.** Holding the document and proving the quotes were copied from it
+makes a human verification POSSIBLE and CHEAP for the first time. It does not perform one.
 
 ---
 
@@ -224,26 +231,51 @@ proven end to end by `apps/editor/__tests__/madridSiteDispatch.test.ts`.
 
 ---
 
-## SIG-M2 · ⏳ **NOT SIGNED** — the MISSING signature nobody had noticed
+## SIG-M2 · ⛔ **GATE CLOSED 2026-08-01 — DE-CERTIFIED, still awaiting a human yes/no**
 
-> ⚠⚠ **Raised 2026-08-01. This block is a REQUEST, not a signature, and nothing below has been
-> agreed by anyone.** It exists because an audit found a gate **already OPEN** with no record of who
-> opened it. `CLOSURE-REGISTER.md` row **5**.
+> ⚠⚠ **This block is STILL a REQUEST, not a signature. Nothing below has been agreed by anyone.**
+> What changed on 2026-08-01 is that the gate it concerns is no longer OPEN while unanswered:
+> `MADRID_NZ1_CERTIFIED` is now `false` (§MADRID-NZ1-DECERTIFIED, L-677).
+> `CLOSURE-REGISTER.md` row **5**.
 
 | | |
 |---|---|
-| **Verifier** | *(unassigned)* |
+| **Verifier** | *(unassigned — must be Spanish-planning-literate, or the founder answering the doctrine question below)* |
 | **Date** | — |
 | **Axis** | ENVELOPE |
 | **Artefact** | `packages/site-parcel-data/src/providers/resolveMadridNZ1Ring.ts` → `MADRID_NZ1_CERTIFIED` |
-| **Current value** | **`true`** — and it is what authorises **the only Madrid envelope that renders today** |
+| **Value 2026-07-25 → 2026-08-01** | **`true`** — and it authorised **the only Madrid envelope that rendered at all** |
+| **Value now** | **`false`** — every NZ-1 parcel receives the cited refusal the path was designed to give |
 
-**THE PROBLEM, stated plainly.** `MADRID_NZ1_CERTIFIED = true` (line 85) lets
-`applyMadridNZ1ExplicitArea` clip a parcel to the published NZ-1 footprint and dispatch a real
-envelope over **11.695 %** of Madrid's Norma-Zonal-governed land (measured, V14). The code comments
-attribute this to *"the L-608 sign-off, 2026-07-25"* — but **§3 of this file is empty**, SIG-M1
-covers a different flag and **explicitly excludes** NZ 1, and there is **no recorded signatory, date
-or scope anywhere** for it. A gate is open on an attribution with no artefact behind it.
+**THE PROBLEM, AS FIRST STATED.** `MADRID_NZ1_CERTIFIED = true` let `applyMadridNZ1ExplicitArea`
+clip a parcel to the published NZ-1 footprint and dispatch a real envelope over **11.695 %** of
+Madrid's Norma-Zonal-governed land (measured, V14). The code comments attributed this to *"the L-608
+sign-off, 2026-07-25"* — but **§3 of this file is empty**, SIG-M1 covers a different flag and
+**explicitly excludes** NZ 1, and there was **no recorded signatory, date or scope anywhere**.
+
+**⚠ WHO OPENED IT — MEASURED 2026-08-01, and it is worse than "unattributed".**
+`git log -S "MADRID_NZ1_CERTIFIED: boolean = true"` returns exactly one commit:
+
+> `3e571724` — *"fix(madrid): ship the parcel ring on compound COEF_Z + flip NZ1 gate ON"*
+> `Author: MarkHanoi` · `Sat Jul 25 08:32:39 2026` · **`Co-Authored-By: Claude Opus 4.8`**
+> Body: *entirely about the COEF_Z parse.* The flip is four words in the subject line and is nowhere
+> explained. Files touched: the resolver, its test, and `siteDispatch.ts`. **No document was read.**
+
+So the attribution was **circular** — the gate cited as its authority the very commit that opened it
+— and **the signatory was a machine**. L-449's entire content is that transcribing an ordinance is a
+LEGAL act and *a pack cannot sign its own transcription*; **a model flipping its own publication
+gate is that rule's limiting case.** The resolver's test then pinned it (`expect(MADRID_NZ1_CERTIFIED)
+.toBe(true)`, *"the L-608 sign-off"*), so the repo asserted the signature as a fact in two places
+while it existed in none.
+
+**⇒ ACTION TAKEN, and it is deliberately the smaller of the two available.** An agent cannot produce
+the missing signature (that is the point of L-449), so the gate was **shut** rather than
+rationalised. Madrid's ENVELOPE axis therefore falls from a reported **≤4.7 % to a measured 0 %**.
+That is a **correction, not a regression**: the 4.7 % was authorised by a machine signing its own
+work, and a number that only exists because nobody checked its authority was never ours to report.
+
+**⚠ THIS IS NOT A FINDING AGAINST THE FOOTPRINT.** Nothing here says NZ 1's geometry is wrong. The
+case for re-opening (below) is strong and unrebutted; it simply has to be MADE by a person.
 
 **THE QUESTION TO BE ANSWERED — and a reasoned NO is a complete answer.** *Does reading a buildable
 footprint that the municipality PUBLISHES AS GEOMETRY require an L-449 signature at all?*
@@ -272,6 +304,26 @@ shipped resolver **never reads `Ficha Específica`** (131 points, V17), so parce
 individually-defined conditions currently receive the **general manzana footprint**. Signing this
 block while that is true would certify a footprint applied to parcels it was not drawn for.
 
+**⚠ HOW TO RE-OPEN THIS GATE — the mechanics, so nobody flips a boolean again.**
+1. Answer the doctrine question above in writing, in this block, with a **name and a date**.
+2. Close row 3 (the *ficha* deferral), because §2's own precondition says *before, not after*.
+3. Set `MADRID_NZ1_CERTIFIED = true` **and** register the signature reference in
+   `packages/site-parcel-data/src/l449CertificationGates.ts` (`signature: { doc, anchor }`).
+   `l449CertificationGates.test.ts` **opens the named document and fails if the anchor is not in
+   it** — so a `true` with an imaginary signature is now a RED TEST, not a silent claim. That guard
+   is repo-wide and scans `src/**` for both `*_CERTIFIED` and `*_ENVELOPE_VERIFIED`; the older
+   `envelopeAuthorisation.test.ts §TOTALITY` scanned only `src/rulepacks/` for the latter, which is
+   precisely why this gate was invisible for a week.
+
+**⚠ THE SAME DEFECT EXISTS IN TWO OTHER JURISDICTIONS — found by that guard, not fixed here.**
+`NL_BESTEMMINGSPLAN_CERTIFIED` and `FR_PARIS_PLU_CERTIFIED` are both `true` while their national
+`sources/VERIFICATION.md` files read `Verifier: UNASSIGNED` / `Status: OPEN`. They are inventoried in
+`UNSIGNED_OPEN_GATES` (a dated quarantine, not a permission) so a NEW instance is a red test.
+⚠ Paris's own docstring justifies itself with *"Same discipline as `MADRID_NZ1_CERTIFIED` /
+`NL_BESTEMMINGSPLAN_CERTIFIED` (both ON…)"* — **Madrid's unattributed flip was already being cited as
+precedent by a third jurisdiction.** Neither is Madrid's to answer, and each may have the same
+"published as geometry" defence; each needs it written down.
+
 ---
 
 ## §3 — Signed off (legal)
@@ -286,6 +338,36 @@ LEGISLATION axis is a **measured 0 %**, not `not-assessed`. See [`../RATE.md`](.
 ---
 
 ## §4 — Explicit non-confirmations recorded (each pass)
+
+**2026-08-01 (L-677 §MADRID-NZ1-DECERTIFIED + §MADRID-QUOTE-CONCORDANCE — one gate SHUT, one
+document CUSTODIED, nothing SIGNED)**
+- **§3 is still empty and `verified_cited_claus` is still 0.** No article was read by a human, no
+  parameter was signed, and the LEGISLATION axis did not move. It is now a MEASURED 0 % rather than
+  an unmeasured one — a better statement of the same fact, not a better fact.
+- **No gate was OPENED. One was CLOSED.** `MADRID_NZ1_CERTIFIED` `true → false`.
+  `MADRID_ENVELOPE_VERIFIED` untouched (`false`). ⇒ **no Madrid parcel receives a numeric envelope
+  from any path today.**
+- **⚠ The Compendio WAS opened in this pass — mechanically, and only as a string index.** V21 checks
+  that quotes are PRESENT; it does not read them for meaning, and **no numeric value in
+  `extracted/*.json` or in `esMadridPgoum97.ts` was checked against its article's sense.** Whether
+  *fondo edificable* was correctly identified, whether an *ocupación* denominator is *parcela* or
+  *manzana*, whether NZ 5's rule KIND is *retranqueo a linderos* or *distancia entre edificios* — all
+  exactly as open as before.
+- **216 of the 1,321 quotes carry no page citation and were not checked at all** (V21). They are
+  UNEXAMINED, which is a different value from clean.
+- **25 strings in a field named `verbatim` are synthesised table rows, not quotes** (V21). Their
+  cells are on the cited page; the string is a reconstruction. Recorded, not repaired at source.
+- **Supersession is still unexamined** — but it is newly TRACTABLE: the in-repo PDF carries per-article
+  amendment footnotes (MPG 00/343 → BOCM 27.11.2023 on Arts. 8.5.6/8.8.9; MPG 00/335 → BOCM
+  19.05.2016 on Cap. 8.3). **No BOCM publication was retrieved.** `laterModifications: none` is still
+  written nowhere and must not be.
+- **The `carácter informativo` problem is unchanged** (V3): the repo now holds a CONSOLIDATION, not
+  the binding text. Holding it makes a human check possible and cheap; it does not make the
+  consolidation the law.
+- **Row 3 (the `Ficha Específica` deferral) was NOT fixed** — it was made moot by shutting the gate,
+  which is not the same thing. It re-arms the moment SIG-M2 is answered yes.
+- **P3, P4, P5, P6-usability and P7 were not run.** No `Alineación Oficial` polyline was fetched.
+- **No live sigma.madrid.es dispatch was performed.** Everything here is git, PDF and R2 bytes.
 
 **2026-08-01 (L-676 land-share + `COEF_Z` probe pass — six things MEASURED, nothing SIGNED)**
 - **No gate was flipped and no number was authorised.** `MADRID_ENVELOPE_VERIFIED` is still `false`;

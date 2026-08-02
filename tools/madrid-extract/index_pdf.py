@@ -8,15 +8,21 @@ Usage:
   python index_pdf.py arts PREFIX      # first page of each article matching prefix (e.g. 8.4.)
   python index_pdf.py tables N [M]     # detect tables on page N..M
 """
+import pathlib
 import re
 import sys
 
 import fitz
 
-PDF = (
-    "C:/Users/LENOVO/AppData/Local/Temp/claude/"
-    "c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08/"
-    "85d1d1c6-e522-4ce0-88a6-0945260ed2a4/scratchpad/compendio.pdf"
+# §CORPUS-CUSTODY (L-677). This pointed at ONE session's scratchpad — an absolute path outside the
+# repo, on one machine, that a process cleanup would have deleted. The 282 cited records in
+# `extracted/*.json` were read from that file and NOTHING in the repo could re-derive them, which is
+# exactly the gap `799c3e49` / L-674 logged. The document is now committed beside the dossier, so
+# this tool is reproducible by anyone with a checkout.
+PDF = str(
+    pathlib.Path(__file__).resolve().parents[2]
+    / "docs/04-reference/jurisdictions/es/es-md/28079-madrid"
+    / "corpus/pdf/COMPENDIO_MPG_NNUU_24-09-2025_PGOUM-97.pdf"
 )
 
 ART_RE = re.compile(r"[Aa]rt(?:ículo|iculo)?\.?\s*(\d+)\.(\d+)\.(\d+)")

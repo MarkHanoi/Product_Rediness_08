@@ -67,7 +67,10 @@ const P = {
 
 // ── The scorecard version stamp (C63 §6 / SPEC §6 — the CI gate re-runs + diffs this). ───────────
 // 1.1 (L-664) — the ENVELOPE axis became SCOREABLE: `axisEnvelope` + the tier-weight ladder.
-export const SCORECARD_VERSION = '1.1';
+// 1.2 (L-677) — §STATED-DENOMINATOR: the ENVELOPE derivation prints the measurement record's OWN
+//               denominator instead of asserting L-656 over shares measured against something else
+//               (Madrid: Norma-Zonal-governed land — the substitution that kept its record unwritten).
+export const SCORECARD_VERSION = '1.2';
 
 // ── The RATIFIED weight vector (C63 §4, founder 2026-07-30 L-649). MIRRORS the L0 schema's
 // CITY_COMPLETION_WEIGHTS — the tool cannot import the TS schema at runtime, so the unit test
@@ -500,12 +503,27 @@ function axisEnvelope(input, stamp) {
             'the supplied coverage breakdown sums to zero buildable-land share — nothing was measured', stamp);
     }
     const detail = slices.map((s) => `${s.zoneCode}=${s.tier}@${s.buildableLandShare}`).join(', ');
+    // §STATED-DENOMINATOR (L-677). This string hard-coded "the PRIVATE-BUILDABLE denominator
+    // (L-656)" for EVERY city. L-656 is the ratified denominator, but it is not automatically the
+    // one a city can MEASURE: València CONSTRUCTED its 18.696 M m² by intersecting suelo urbano with
+    // six calificación codes, while Madrid can only offer Norma-Zonal-GOVERNED land (149,577,170 m²,
+    // L-676) because `PG_ORDENACION/4 Ámbitos de Ordenación` is polyline-with-OBJECTID-only and the
+    // private-buildable census cannot be derived from it. Printing L-656 over Madrid's shares would
+    // emit a DERIVATION STRING THAT IS FALSE — which is exactly why Madrid's measurement record was
+    // deliberately WITHHELD rather than written (`CLOSURE-REGISTER.md` row 9). The number was never
+    // the problem; the tool's claim about it was.
+    // ⚠ A SUBSTITUTED DENOMINATOR IS NOT A LESSER SIN THAN A WRONG FIGURE — the axis is comparable
+    // between cities ONLY when the denominator is, so a substitution must travel WITH the figure and
+    // be loud, never normalised away into a uniform sentence.
+    const denom = typeof input.envelopeDenominator === 'string' && input.envelopeDenominator.trim()
+        ? `STATED denominator: ${input.envelopeDenominator.trim()}`
+        : 'PRIVATE-BUILDABLE denominator (L-656) — ⚠ ASSUMED: the measurement record stated none';
     return mkAxis('envelope', {
         score: weighted / measuredShare,
         validationState: 'auto-validated',
         derivation:
             `Σ(share×tierWeight)/Σ(share) over ${(measuredShare * 100).toFixed(1)}% of the `
-            + `PRIVATE-BUILDABLE denominator (L-656), weights ${ENVELOPE_AXIS_TIER_WEIGHT_VERSION}: ${detail}`
+            + `${denom}, weights ${ENVELOPE_AXIS_TIER_WEIGHT_VERSION}: ${detail}`
             + (measuredShare < 1 - 1e-9 ? ' — PARTIAL: unmeasured buildable land is excluded, not scored 0' : ''),
         provenance: [prov('rulepacks/registry.ts', 'generated')],
         stamp,
@@ -858,6 +876,9 @@ if (isMain) {
         // never be able to score an axis by merely EXISTING.
         if (m.envelope?.status === 'measured' && Array.isArray(m.envelope.coverage)) {
             out.envelopeCoverage = m.envelope.coverage;
+            // §STATED-DENOMINATOR (L-677) — carry the record's OWN denominator into the derivation.
+            // Without it the tool asserted L-656 over shares measured against something else.
+            if (typeof m.envelope.denominator === 'string') out.envelopeDenominator = m.envelope.denominator;
         }
         if (m.legislation?.status === 'measured') out.legislationAudit = m.legislation;
         if (m.heightsLod?.status === 'measured') out.heightsSample = m.heightsLod;

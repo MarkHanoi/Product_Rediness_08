@@ -1,0 +1,146 @@
+{
+  "_readme": [
+    "§PER-CITY-MEASUREMENTS (L-662) — the three EXPENSIVE C63 axes (LEGISLATION 25 · ENVELOPE 20 ·",
+    "HEIGHTS 10 = 55 % of the ratified weight) are AUDITS, not config reads, so computeScorecard.mjs",
+    "will not score them without a committed, reviewable measurement record. Absent ⇒ not-assessed.",
+    "⚠ `status: 'measured'` is the ONLY key that unlocks an axis. Never set it to make a number appear.",
+    "⚠ Every figure below is CITED to an artefact or a probe. INV-3: cited derivation, never a guess.",
+    "",
+    "⚠⚠ THIS RECORD REPORTS THREE ZEROS AND ONE NEAR-ZERO, AND EVERY ONE OF THEM IS AN IMPROVEMENT",
+    "OVER `not-assessed`. Madrid's board previously read 71.0 % over 45 % of the ratified weight —",
+    "a headline computed by measuring only the axes that were cheap. Scoring the expensive ones",
+    "honestly moves the composite DOWN and the assessed weight UP. That direction is the point:",
+    "C63 §1.5 / L-656 — a cited refusal is a correct answer, and a smaller number over a larger",
+    "denominator is a better measurement than a larger number over a smaller one.",
+    "",
+    "⚠ WHY THIS FILE DID NOT EXIST UNTIL NOW. `CLOSURE-REGISTER.md` row 9 deliberately withheld it:",
+    "the tool hard-coded the string 'of the PRIVATE-BUILDABLE denominator (L-656)' into every ENVELOPE",
+    "derivation, and Madrid's shares are of Norma-Zonal-GOVERNED land, so writing this file would have",
+    "generated a FALSE derivation string. That was the correct call, and the fix was to the TOOL, not",
+    "to the number: scorecard 1.2 §STATED-DENOMINATOR now prints the record's own denominator and",
+    "labels the substitution loudly. Row 9 stays OPEN — the substitution is disclosed, not resolved."
+  ],
+  "jurisdictionId": "es-md-28079-madrid",
+  "city": "madrid",
+  "measuredAt": "2026-08-01",
+  "generatedBy": "madrid city agent, cited-audit (L-677 §MADRID-NZ1-DECERTIFIED / §MADRID-QUOTE-CONCORDANCE)",
+
+  "envelope": {
+    "status": "measured",
+    "denominator": "Norma-Zonal-GOVERNED land = 149,577,170 m² (server-side SHAPE.STArea() over all 34 AMB_TX_ETIQ codes, VERIFICATION.md V14). ⚠ SUBSTITUTED — this is NOT the ratified L-656 private-buildable set; PG_ORDENACION/4 Ámbitos de Ordenación is polyline-with-OBJECTID-only (V18), so the private-buildable census cannot be derived. Every figure here is an UPPER BOUND on the L-656 measure (CLOSURE-REGISTER row 9, OPEN).",
+    "source": "docs/04-reference/jurisdictions/es/es-md/28079-madrid/extracted/nz-land-share-and-coefz-probe.json (L-676, 2026-08-01) + sources/VERIFICATION.md V14",
+    "note": [
+      "Three NON-OVERLAPPING slices covering 100 % of the stated denominator, so measuredShare = 1.0.",
+      "  60.458 %  Norma Zonal 3, Volumetría Específica → `not-determined`. THE PLAN DECLINES TO STATE",
+      "            AN ENVELOPE: Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico» and «sin",
+      "            imponer un nuevo modelo». A cited `derived-plan` refusal ships TODAY, gate-independent.",
+      "  11.695 %  Norma Zonal 1 → `not-determined` as of 2026-08-01. IT WAS `estimated-ruleset` UNTIL",
+      "            TODAY, and this is the only figure in the record that MOVED DOWN. See below.",
+      "  27.847 %  the 23 packed PGOUM-97 zones (NZ 4·5·7·8·9) → `no-pack` for scoring purposes: the",
+      "            pack EXISTS with 282 cited records, but MADRID_ENVELOPE_VERIFIED is `false`, so every",
+      "            parcel receives `madridPgoum97UnverifiedRefusal` and NO number reaches the panel, the",
+      "            massing or `site.updateZoning`. Scoring a tier for numbers nobody can see would be the",
+      "            authored-but-unwired fabrication (L-651). Under SIG-M1 as currently scoped this slice",
+      "            becomes 17.248 % at `pipeline-extracted-unverified` (0.1) ⇒ the axis would read 1.7 %.",
+      "",
+      "⚠⚠ THE NZ-1 SLICE WENT 0.4 → 0.0 TODAY, AND THAT IS THE WHOLE POINT OF THIS TURN.",
+      "`MADRID_NZ1_CERTIFIED` shipped `= true` and published a clipped published-footprint envelope over",
+      "11.695 % of this denominator. Its docstring credited «the L-608 sign-off, 2026-07-25». `git log -S`",
+      "puts the flip in ONE commit — `3e571724`, «fix(madrid): ship the parcel ring on compound COEF_Z +",
+      "flip NZ1 gate ON», `Co-Authored-By: Claude Opus 4.8` — and `sources/VERIFICATION.md §3 “Signed off",
+      "(legal)”` is EMPTY. A MACHINE OPENED ITS OWN PUBLICATION GATE and cited the commit that opened it",
+      "as the authority. De-certified 2026-08-01 pending a human yes/no on SIG-M2. ⇒ Madrid's ENVELOPE",
+      "axis is a MEASURED 0 %, not the ≤4.7 % every Madrid document reported this week.",
+      "⚠ The de-certification is not a claim that NZ 1's footprint is wrong. The footprint is real",
+      "published municipal geometry and SIG-M2 may well be answered «reading geometry is not a",
+      "transcription, no L-449 signature is owed» — which would restore this slice legitimately. What was",
+      "unacceptable was an open gate resting on an authority that did not exist."
+    ],
+    "coverage": [
+      {
+        "zoneCode": "NZ 3 Volumetría Específica — legally delegated (cited refusal, Art. 8.3.1; terminal, never an envelope)",
+        "tier": "not-determined",
+        "buildableLandShare": 0.60458
+      },
+      {
+        "zoneCode": "NZ 1 — published footprint, gate DE-CERTIFIED 2026-08-01 (was estimated-ruleset on an unsigned gate)",
+        "tier": "not-determined",
+        "buildableLandShare": 0.11695
+      },
+      {
+        "zoneCode": "NZ 4·5·7·8·9 — 23 packed zones, MADRID_ENVELOPE_VERIFIED=false ⇒ cited refusal, no number published",
+        "tier": "no-pack",
+        "buildableLandShare": 0.27847
+      }
+    ]
+  },
+
+  "legislation": {
+    "status": "measured",
+    "citedVerifiedClaus": 0,
+    "totalClausPresent": 34,
+    "signedVerification": false,
+    "documentInRepo": true,
+    "supersessionChecked": false,
+    "source": "docs/04-reference/jurisdictions/es/es-md/28079-madrid/sources/VERIFICATION.md §3 (EMPTY) + V13 (34-code inventory, VERIFIED-LIVE) + V19–V21 (corpus custody + quote concordance)",
+    "note": [
+      "DENOMINATOR = 34, the calificación families the LIVE sigma.madrid.es NORMAS_ZONALES/0 layer",
+      "returns over the 28079 extent — unfiltered `returnCountOnly` = 34, groupBy = 34 groups × n=1",
+      "(V13, VERIFIED-LIVE and EXHAUSTIVE). NOT the 23 we packed. Scoring cited/authored would report",
+      "100 % — the 'Barcelona-borrow' trap C63 §3 Axis 2 names.",
+      "",
+      "⚠ NUMERATOR = 0, AND IT IS A MEASURED 0, NOT A MISSING MEASUREMENT. `VERIFICATION.md §3 “Signed",
+      "off (legal)”` has no rows. Madrid holds 282 machine-extracted records carrying article + apartado",
+      "+ PDF page + verbatim quote, and NO human has re-read one line of them. L-449: transcribing an",
+      "ordinance is a legal act and a pack cannot sign its own transcription. An agent cannot raise this",
+      "number; only a Spanish-planning-literate human reading Título 8 can.",
+      "",
+      "⚠ documentInRepo FLIPPED false → TRUE ON 2026-08-01, and this is the substantive change of the",
+      "turn (L-674 flagged it as load-bearing; CLOSURE-REGISTER row 15(i)). The primary source is now at",
+      "`corpus/pdf/COMPENDIO_MPG_NNUU_24-09-2025_PGOUM-97.pdf` — 25,735,355 bytes, 626 pp, sha256",
+      "1A3AA172B7ABE092F03E58FB2AFC26C87020B907887F919CEE20002E5FC4D0B5, PDF `title` metadata",
+      "«COMPENDIO MPG NNUU (24-09-2025)». It is the transparencia 24-09-2025 consolidation, NOT the",
+      "superseded 07-07-2025 geoportal edition (the V10 hazard). Madrid is now the SECOND Spanish city",
+      "after Barcelona whose cited quotes can be re-read offline; Córdoba and Murcia still cannot.",
+      "⚠ It remains `carácter informativo` (V3) — the OFFICIAL text is the BOCM publication — so holding",
+      "it does not make a signature on it a signature on the law. It makes one POSSIBLE.",
+      "",
+      "§MADRID-QUOTE-CONCORDANCE (V21): all 1,321 `verbatim` strings in `extracted/*.json` were",
+      "mechanically re-read against that PDF — 992 present on the page cited, 40 spanning from it, 0",
+      "found on a wrong page, 0 fabricated. ⚠ THIS DOES NOT MOVE THIS AXIS BY ONE FIELD AND MUST NOT BE",
+      "REPORTED AS IF IT DID: a concordance check proves a string was COPIED from the document. Whether",
+      "the extracted NUMBER correctly INTERPRETS that string is the reading L-449 requires, and a second",
+      "machine pass is not a human one. It is recorded because it removes 'the quotes may be fabricated'",
+      "from the risk register — nothing more.",
+      "",
+      "⚠ supersessionChecked: FALSE. No search has been made for a *modificación puntual* affecting any",
+      "Título 8 article the pack cites, and no `effectiveDate` is established for any of them; the pack",
+      "carries only `readFrom`. ⚠ The PDF's own amendment footnotes are now readable in-repo (e.g. Art.",
+      "8.8.9 carries «modificado por la MPG 00/343, BOCM 27.11.2023»), so this is newly TRACTABLE — it is",
+      "not done. CLOSURE-REGISTER row 14."
+    ]
+  },
+
+  "heightsLod": {
+    "status": "measured",
+    "tagged": 269,
+    "derivedLevels": 28281,
+    "assumed": 92608,
+    "total": 121158,
+    "bbox": [-3.7826, 40.3568, -3.625, 40.4768],
+    "source": "tools/context-height-probe/probe.mjs against the SHIPPED R2 tiles (https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/buildings.pmtiles?v=L659a — the same bytes the browser reads, the same provenance ladder), run 2026-08-01, verdict `unmeasured`",
+    "note": [
+      "⚠ measured-lidar = 0 across 121,158 footprints. Tiles: 900 covering, 832 read, 68 absent, 0",
+      "FAILED — so the zero is a MEASURED ABSENCE, not an unreachable source (§CONTEXT-DATA-HONESTY:",
+      "0 failures is what makes this a data verdict rather than a network one).",
+      "The 269 `tagged` are OSM-surveyed heights, not MDS samples. 76.4 % of Madrid's context buildings",
+      "render the FABRICATED 9 m default (median height 9.0 m, which is the default itself).",
+      "⚠ THIS RECORD IS A PRE-BAKE BASELINE, DELIBERATELY. A national buildings bake was IN FLIGHT on",
+      "this SHA and `tools/context-bake/` was NOT touched by this turn. Re-probe and update this block",
+      "after it publishes; do NOT edit these counts to predict the outcome (§SIZE-IS-NOT-PROVENANCE — a",
+      "green bake is precisely what L-658 produced while shipping nothing).",
+      "⚠ The bbox is the probe's ±0.06° window about Puerta del Sol (40.4168,-3.7038), i.e. central",
+      "Madrid, NOT the municipal boundary. Comparisons with any other city must use the same window."
+    ]
+  }
+}

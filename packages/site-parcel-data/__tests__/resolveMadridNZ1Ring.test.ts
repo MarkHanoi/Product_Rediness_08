@@ -45,8 +45,19 @@ function fakeFetch(body: unknown): { fetchImpl: typeof fetch; calls: () => numbe
 }
 
 describe('resolveMadridNZ1Ring — the spatial ring resolver', () => {
-    it('the certification gate is ON (L-608 sign-off — NZ 1 renders estimated-ruleset)', () => {
-        expect(MADRID_NZ1_CERTIFIED).toBe(true);
+    it('the certification gate is SHUT — §MADRID-NZ1-DECERTIFIED (L-677)', () => {
+        // This assertion read `toBe(true)` and cited "the L-608 sign-off". There is no such
+        // sign-off: `git log -S` puts the flip in `3e571724`, `Co-Authored-By: Claude Opus 4.8`, a
+        // commit about a COEF_Z parse, while Madrid's `sources/VERIFICATION.md §3 "Signed off
+        // (legal)"` was — and is — EMPTY. A machine opened its own publication gate, and this test
+        // ratified it. De-certified 2026-08-01 pending a human answer to SIG-M2 (which may
+        // legitimately be "reading published geometry needs no L-449 signature" — but has to be
+        // WRITTEN DOWN).
+        //
+        // ⚠ THE RESOLVER'S OWN BEHAVIOUR IS UNAFFECTED and is still fully exercised below: the gate
+        // is read by the L5 dispatcher, not by `resolveMadridNZ1Ring`. Every parse/refusal case in
+        // this file still runs, so shutting the gate cost no coverage.
+        expect(MADRID_NZ1_CERTIFIED).toBe(false);
     });
 
     it('the ringRef constant equals the pack rule handle (no vintage drift)', () => {

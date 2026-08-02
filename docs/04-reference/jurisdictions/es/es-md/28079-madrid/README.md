@@ -1,5 +1,21 @@
 # Madrid (INE 28079, ISO es-md) — jurisdiction record
 
+> ⚠⚠ **SUPERSEDED 2026-08-01 (§MADRID-NZ1-DECERTIFIED, L-677) — THE ENVELOPE AXIS IS A MEASURED 0 %, NOT ≤4.7 %.**
+> The ≤4.7 % was `0.11695 × 0.4`, the NZ-1 slice, and it was authorised by `MADRID_NZ1_CERTIFIED = true` —
+> a gate whose docstring credited *"the L-608 sign-off, 2026-07-25"* while `sources/VERIFICATION.md §3
+> "Signed off (legal)"` was **empty**. `git log -S` locates the flip in ONE commit — `3e571724`,
+> *"fix(madrid): ship the parcel ring on compound COEF_Z + flip NZ1 gate ON"*, **`Co-Authored-By: Claude
+> Opus 4.8`** — whose message is entirely about the COEF_Z parse. **The gate cited as its authority the
+> very commit that opened it, and the signatory was a machine.** The gate is now `false`; every NZ-1
+> parcel receives the cited refusal the path was designed to give, and **no Madrid parcel receives a
+> numeric envelope from any path today**.
+> ⚠ **This is a correction, not a regression, and it is not a finding against NZ 1's geometry** — the
+> footprint is real published municipal data and `sources/VERIFICATION.md` SIG-M2 may well be answered
+> *"reading published geometry is not a transcription, so no L-449 signature is owed"*, which would
+> restore the 4.7 % legitimately. It has to be answered **by a person, in writing, with a date**.
+> ⇒ **Every `≤4.7 %` below reads as `0 %` until SIG-M2 is answered.** [`CLOSURE-REGISTER.md`](./CLOSURE-REGISTER.md) row 5.
+
+
 > **What governs here · pack status · granularity · the number · open questions · file index.**
 > Follows the JURISDICTION-PLAYBOOK file contract (§3.1) and the C63 §5 dossier standard.
 > **Last updated 2026-07-31.** Maintainer: UNASSIGNED. Status: **IN PROGRESS** — spec + recon
@@ -97,7 +113,7 @@ private-buildable set, which Madrid still lacks).
 | Parcels reaching a **TERMINAL** answer today | **72.153 %** | **measured** — NZ 3 delegation 60.458 % + NZ 1 envelope 11.695 % |
 | …of which carries a **human-signed** citation | **0 %** | **measured** — `VERIFICATION.md §3` is empty |
 | Pending **one** signature (NZ 4·5·7·8·9) | **27.847 %** | **measured** — 17.248 % under SIG-M1 as currently scoped |
-| C63 ENVELOPE axis **today** | **≤4.7 %** | **measured**, upper bound *(was reported 0 % on a false derivation)* |
+| C63 ENVELOPE axis **today** | **0 %** | **measured** — the ≤4.7 % was withdrawn 2026-08-01 when NZ 1's unsigned gate was de-certified (CLOSURE-REGISTER row 5). Restored by one human answer to SIG-M2 |
 | C63 ENVELOPE **arithmetic maximum** | **≈36.8 %** | **~96 % of the gap is LAW** (NZ 3), not effort |
 | C63 LEGISLATION axis | **0 %** | **measured** (0 cited+signed of 34 claus); max **100 %**, effort-bound |
 | C63 overall | **43.0 %** | computed, `partial: true` — max **≈87 %** |

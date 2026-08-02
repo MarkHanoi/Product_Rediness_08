@@ -1,5 +1,21 @@
 # ENVELOPE — Madrid (INE 28079)
 
+> ⚠⚠ **SUPERSEDED 2026-08-01 (§MADRID-NZ1-DECERTIFIED, L-677) — THE ENVELOPE AXIS IS A MEASURED 0 %, NOT ≤4.7 %.**
+> The ≤4.7 % was `0.11695 × 0.4`, the NZ-1 slice, and it was authorised by `MADRID_NZ1_CERTIFIED = true` —
+> a gate whose docstring credited *"the L-608 sign-off, 2026-07-25"* while `sources/VERIFICATION.md §3
+> "Signed off (legal)"` was **empty**. `git log -S` locates the flip in ONE commit — `3e571724`,
+> *"fix(madrid): ship the parcel ring on compound COEF_Z + flip NZ1 gate ON"*, **`Co-Authored-By: Claude
+> Opus 4.8`** — whose message is entirely about the COEF_Z parse. **The gate cited as its authority the
+> very commit that opened it, and the signatory was a machine.** The gate is now `false`; every NZ-1
+> parcel receives the cited refusal the path was designed to give, and **no Madrid parcel receives a
+> numeric envelope from any path today**.
+> ⚠ **This is a correction, not a regression, and it is not a finding against NZ 1's geometry** — the
+> footprint is real published municipal data and `sources/VERIFICATION.md` SIG-M2 may well be answered
+> *"reading published geometry is not a transcription, so no L-449 signature is owed"*, which would
+> restore the 4.7 % legitimately. It has to be answered **by a person, in writing, with a date**.
+> ⇒ **Every `≤4.7 %` below reads as `0 %` until SIG-M2 is answered.** [`CLOSURE-REGISTER.md`](./CLOSURE-REGISTER.md) row 5.
+
+
 > Per-municipality envelope status (ADR-0279 / `ENVELOPE-REPLICATION-STANDARD.md`; feeds C63 Axis 4).
 > **Last updated:** 2026-07-31. **Maintainer:** UNASSIGNED.
 
@@ -9,7 +25,7 @@
 > |---|---|
 > | `packsByZone` is **EMPTY** (§S4, "the entire Axis-4 zero") | **23 codes registered** since `40c80164`; what withholds numbers is the **gate** `MADRID_ENVELOPE_VERIFIED = false`, not the absence of a pack |
 > | `esMadridNZ1.ts` is **UNREGISTERED**, so nothing renders | `MADRID_NZ1_CERTIFIED = true` — NZ 1 **renders a constructed envelope** (published footprint ∩ parcel) on **11.695 %** of Norma-Zonal-governed land |
-> | Axis 4 = **0 %** | **≤4.7 %** (`0.11695 × 0.4`), an **UPPER BOUND** on the NZ-governed-land denominator |
+> | Axis 4 = **0 %** | **0 %** — the `0.11695 × 0.4` was withdrawn 2026-08-01 with NZ 1's gate; the tier is now `not-determined`. One human answer to SIG-M2 restores it |
 >
 > **Arithmetic maximum ≈36.8 %**, of which ~96 % of the gap is **LAW**: Norma Zonal 3 holds
 > **60.458 %** of the city's zoned land and the PGOUM declines to state an envelope on it.
