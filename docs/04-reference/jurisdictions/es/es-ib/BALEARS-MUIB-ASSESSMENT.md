@@ -86,15 +86,26 @@ HTTP 200**; `'040'` returns **9,442**.
 [ADR-0293](../../../../02-decisions/adrs/ADR-0293-envelope-tier-is-per-dimension-and-keyed-on-error-direction.md) ·
 [ES-LEGAL-COUNSEL-QUESTIONS Q4](../ES-LEGAL-COUNSEL-QUESTIONS-2026-08-02.md)
 
-> ⛔ **DO NOT WRITE "BALEARS IS ENVELOPE-CAPABLE." FOUR EXTERNAL RESEARCH PASSES CONVERGED ON THAT
-> PHRASING AND NONE OF THEM RAN A QUERY.** `R` is **claimed by the publisher** and **unverified by
-> us.** *Convergence is not corroboration when every pass read the same documentation.*
+> ⛔ **DO NOT WRITE "BALEARS IS ENVELOPE-CAPABLE."** The prohibition STANDS, but as of 2026-08-02
+> **THE REASON HAS CHANGED, and the new reason is the stronger one.**
+>
+> **It WAS:** four external passes converged on that phrasing and **none ran a query** — *convergence
+> is not corroboration when every pass read the same documentation.*
+>
+> **It IS NOW:** `R` **has** been verified by census (97.1 %), and the phrase is still wrong — because
+> ⛔ **THE PTI CEILING IS UNMEASURED AND CAN ONLY OVER-GRANT.** 67 of 67 municipalities carry the
+> abrogation flag on rustic, covering **94.53 % of the land**, and that override is **invisible in
+> GESTIO**. ⭐ **A VERIFIED ROUTING RATE IS NOT A PUBLICATION LICENCE.**
 
 ---
 
 ## ✅ MEASURED
 
-- **`CODIAJ`** + **per-feature normativa URL.** Rated **L2–3**.
+- ⚠ ~~`CODIAJ` + per-feature normativa URL, rated L2–3~~ — ⛔ **SUPERSEDED. `CODIAJ` IS NOT A
+  MUNICIPALITY CODE** (it is the municipal ZONE label; the key is `CODIMUNI`, province-prefix
+  stripped) **and the rating is now `R` = `proven` / `P` = `proven`-but-partial by census.** See the
+  measured header above. *Left visible rather than deleted, because the wrong key was load-bearing in
+  an earlier plan.*
 - ⭐ **THE REFERENCE CASE FOR CURRENCY.** Eivissa's `QUALIFICACIONS` rows carry `OBS`:
   > *"Del municipi d'Eivissa el MUIB NO mostra l'actual normativa vigent. Consultau la informació
   > proporcionada per l'Ajuntament."*
@@ -169,7 +180,8 @@ rate IS the `R` measurement.**
 
 **Q3 · PTI ADAPTATION STATUS AND VALIDITY, ALL 67.** Which municipalities are **adapted to their
 island territorial plan?** ⭐ **Unadapted ones carry attributes the publisher says may be abrogated —
-THIS IS THE DEVIATION LIST** (intake item 8). Plus `OBS` and `DFIVIGEN` prevalence: **how many
+THIS IS THE DEVIATION LIST** (intake item 8). Plus `OBS` prevalence — ⚠ **NOT `DFIVIGEN`, which was MEASURED as a NULL SUBSTITUTE (100 % non-null,
+ONE distinct value `99999999`, zero information)**: **how many
 self-declare not-in-force, as Eivissa does?**
 
 **THEN, only if Q1–Q3 land — ONE ORDINANCE.** One municipality, one zone, follow the normativa URL,
