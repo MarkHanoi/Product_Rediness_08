@@ -1,0 +1,2910 @@
+{
+  "probeCVersion": "1.0",
+  "runAt": "2026-08-02T09:38:33.154Z",
+  "sampling": {
+    "frameSource": "INE table 29005 «Cifras oficiales del padrón por municipio»",
+    "frameSourceNote": "⚠ NOT Wikidata P1082 — unevenly maintained, and a bad band assignment biases the tier estimate directly.",
+    "latestPeriod": 2025,
+    "municipalitiesInIne": 8136,
+    "foralExcluded": 524,
+    "frameSize": 7612,
+    "bands": [
+      {
+        "id": "A",
+        "label": "<1,000",
+        "min": 0,
+        "max": 999
+      },
+      {
+        "id": "B",
+        "label": "1,000–4,999",
+        "min": 1000,
+        "max": 4999
+      },
+      {
+        "id": "C",
+        "label": "5,000–19,999",
+        "min": 5000,
+        "max": 19999
+      },
+      {
+        "id": "D",
+        "label": "20,000–99,999",
+        "min": 20000,
+        "max": 99999
+      },
+      {
+        "id": "E",
+        "label": ">=100,000",
+        "min": 100000,
+        "max": null
+      }
+    ],
+    "perBand": 4,
+    "seed": 20260802,
+    "method": "seeded Fisher–Yates within band, take head",
+    "reproduce": "node probeC.mjs --ine <29005.csv> --n 20 --seed 20260802"
+  },
+  "results": [
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:35:21.936Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Lobras",
+        "cc": "es",
+        "ineCode": "18121",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 36.914259,
+          "lon": -3.2158351
+        }
+      },
+      "populationBand": "<1,000",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 26,
+        "wallClockMinutes": 0.136,
+        "bytes": 772813,
+        "failedProbes": 24,
+        "unknownProbes": 10,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 8163
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 139,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.lobras.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "lobras.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "www.aytolobras.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientolobras.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2lobras.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.lobras.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.lobras.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.lobras.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.lobras.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.lobras.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.lobras.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.lobras.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "city",
+        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:35:23.103Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Velamazán",
+        "cc": "es",
+        "ineCode": "42200",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 41.4493695,
+          "lon": -2.698678
+        }
+      },
+      "populationBand": "<1,000",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 12,
+        "wallClockMinutes": 0.008,
+        "bytes": 0,
+        "failedProbes": 12,
+        "unknownProbes": 12,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 496
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 66,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.velamazan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "velamazan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytovelamazan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientovelamazan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2velamazan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.velamazan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.velamazan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.velamazan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.velamazan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.velamazan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.velamazan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.velamazan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "tool",
+        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:35:24.284Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Benissuera",
+        "cc": "es",
+        "ineCode": "46069",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 38.9127559,
+          "lon": -0.477434
+        }
+      },
+      "populationBand": "<1,000",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 12,
+        "wallClockMinutes": 0.016,
+        "bytes": 0,
+        "failedProbes": 12,
+        "unknownProbes": 12,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 974
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 196,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.benissuera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "benissuera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytobenissuera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientobenissuera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2benissuera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.benissuera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.benissuera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.benissuera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.benissuera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.benissuera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.benissuera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.benissuera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "tool",
+        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:35:24.663Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Paradinas de San Juan",
+        "cc": "es",
+        "ineCode": "37232",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 40.9839936,
+          "lon": -5.1534922
+        }
+      },
+      "populationBand": "<1,000",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 12,
+        "wallClockMinutes": 0.004,
+        "bytes": 0,
+        "failedProbes": 12,
+        "unknownProbes": 12,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 256
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 380,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.paradinasdesanjuan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "paradinasdesanjuan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytoparadinasdesanjuan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientoparadinasdesanjuan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2paradinasdesanjuan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.paradinasdesanjuan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.paradinasdesanjuan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.paradinasdesanjuan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.paradinasdesanjuan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.paradinasdesanjuan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.paradinasdesanjuan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.paradinasdesanjuan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "tool",
+        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:35:45.864Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Paderne de Allariz",
+        "cc": "es",
+        "ineCode": "32055",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 42.2737426,
+          "lon": -7.7463419
+        }
+      },
+      "populationBand": "1,000–4,999",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 12,
+        "wallClockMinutes": 0.35,
+        "bytes": 0,
+        "failedProbes": 12,
+        "unknownProbes": 12,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 20973
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 1346,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.padernedeallariz.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "padernedeallariz.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytopadernedeallariz.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientopadernedeallariz.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2padernedeallariz.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.padernedeallariz.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.padernedeallariz.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.padernedeallariz.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.padernedeallariz.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.padernedeallariz.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.padernedeallariz.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.padernedeallariz.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "tool",
+        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:35:52.515Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Batres",
+        "cc": "es",
+        "ineCode": "28017",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 40.2091393,
+          "lon": -3.9215947
+        }
+      },
+      "populationBand": "1,000–4,999",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 26,
+        "wallClockMinutes": 0.107,
+        "bytes": 1574642,
+        "failedProbes": 24,
+        "unknownProbes": 10,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 6407
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 1976,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.batres.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "batres.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "www.aytobatres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientobatres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2batres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.batres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.batres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.batres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.batres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.batres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.batres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.batres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "city",
+        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:35:59.593Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Fuenmayor",
+        "cc": "es",
+        "ineCode": "26064",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 42.4670856,
+          "lon": -2.5614574
+        }
+      },
+      "populationBand": "1,000–4,999",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 26,
+        "wallClockMinutes": 0.113,
+        "bytes": 444490,
+        "failedProbes": 24,
+        "unknownProbes": 10,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 6801
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 3281,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.fuenmayor.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "fuenmayor.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "www.aytofuenmayor.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientofuenmayor.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2fuenmayor.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.fuenmayor.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.fuenmayor.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.fuenmayor.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.fuenmayor.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.fuenmayor.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.fuenmayor.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.fuenmayor.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "city",
+        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:36:01.273Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Bonrepòs i Mirambell",
+        "cc": "es",
+        "ineCode": "46074",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 39.5174981,
+          "lon": -0.3655773
+        }
+      },
+      "populationBand": "1,000–4,999",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 12,
+        "wallClockMinutes": 0.024,
+        "bytes": 0,
+        "failedProbes": 12,
+        "unknownProbes": 12,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 1413
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 4115,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.bonreposimirambell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "bonreposimirambell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytobonreposimirambell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientobonreposimirambell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2bonreposimirambell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.bonreposimirambell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.bonreposimirambell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.bonreposimirambell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.bonreposimirambell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.bonreposimirambell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.bonreposimirambell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.bonreposimirambell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "tool",
+        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:36:04.114Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Benahavís",
+        "cc": "es",
+        "ineCode": "29023",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 36.5222736,
+          "lon": -5.0441068
+        }
+      },
+      "populationBand": "5,000–19,999",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 26,
+        "wallClockMinutes": 0.043,
+        "bytes": 14704,
+        "failedProbes": 26,
+        "unknownProbes": 10,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 2594
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 9472,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.benahavis.es",
+            "outcome": "http-error",
+            "httpStatus": 403
+          },
+          {
+            "host": "benahavis.es",
+            "outcome": "http-error",
+            "httpStatus": 403
+          },
+          {
+            "host": "www.aytobenahavis.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientobenahavis.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2benahavis.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.benahavis.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.benahavis.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.benahavis.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.benahavis.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.benahavis.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.benahavis.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.benahavis.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "city",
+        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:36:04.758Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Casar, El",
+        "cc": "es",
+        "ineCode": "19071",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 40.3186945,
+          "lon": -3.7100108
+        }
+      },
+      "populationBand": "5,000–19,999",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 12,
+        "wallClockMinutes": 0.007,
+        "bytes": 0,
+        "failedProbes": 12,
+        "unknownProbes": 12,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 421
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 13962,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.casarel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "casarel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytocasarel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientocasarel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2casarel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.casarel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.casarel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.casarel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.casarel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.casarel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.casarel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.casarel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "tool",
+        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:36:05.692Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Campana, La",
+        "cc": "es",
+        "ineCode": "41022",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 39.0998433,
+          "lon": -2.1727015
+        }
+      },
+      "populationBand": "5,000–19,999",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 12,
+        "wallClockMinutes": 0.005,
+        "bytes": 0,
+        "failedProbes": 12,
+        "unknownProbes": 12,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 295
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 5122,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.campanala.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "campanala.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytocampanala.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientocampanala.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2campanala.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.campanala.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.campanala.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.campanala.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.campanala.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.campanala.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.campanala.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.campanala.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "tool",
+        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:36:26.159Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Venta de Baños",
+        "cc": "es",
+        "ineCode": "34023",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 41.9206919,
+          "lon": -4.4931598
+        }
+      },
+      "populationBand": "5,000–19,999",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 26,
+        "wallClockMinutes": 0.337,
+        "bytes": 1724338,
+        "failedProbes": 24,
+        "unknownProbes": 10,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 20238
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 6372,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.ventadebanos.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "ventadebanos.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "www.aytoventadebanos.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientoventadebanos.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2ventadebanos.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.ventadebanos.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.ventadebanos.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.ventadebanos.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.ventadebanos.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.ventadebanos.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.ventadebanos.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.ventadebanos.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "city",
+        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:36:37.471Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Mieres",
+        "cc": "es",
+        "ineCode": "33037",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 43.2349957,
+          "lon": -5.769932
+        }
+      },
+      "populationBand": "20,000–99,999",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 26,
+        "wallClockMinutes": 0.184,
+        "bytes": 4037747,
+        "failedProbes": 24,
+        "unknownProbes": 10,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 11058
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 36373,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.mieres.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "mieres.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "www.aytomieres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientomieres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2mieres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.mieres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.mieres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.mieres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.mieres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.mieres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.mieres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.mieres.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "city",
+        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:36:38.043Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Castelldefels",
+        "cc": "es",
+        "ineCode": "08056",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 41.2861022,
+          "lon": 1.9824173
+        }
+      },
+      "populationBand": "20,000–99,999",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 12,
+        "wallClockMinutes": 0.007,
+        "bytes": 0,
+        "failedProbes": 12,
+        "unknownProbes": 12,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 407
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 70057,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.castelldefels.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "castelldefels.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytocastelldefels.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientocastelldefels.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2castelldefels.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.castelldefels.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.castelldefels.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.castelldefels.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.castelldefels.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.castelldefels.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.castelldefels.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.castelldefels.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "tool",
+        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:36:38.489Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Vendrell, El",
+        "cc": "es",
+        "ineCode": "43163",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 41.1873979,
+          "lon": 1.5563183
+        }
+      },
+      "populationBand": "20,000–99,999",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 12,
+        "wallClockMinutes": 0.004,
+        "bytes": 0,
+        "failedProbes": 12,
+        "unknownProbes": 12,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 216
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 41133,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.vendrellel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "vendrellel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytovendrellel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientovendrellel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2vendrellel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.vendrellel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.vendrellel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.vendrellel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.vendrellel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.vendrellel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.vendrellel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.vendrellel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "tool",
+        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:36:39.218Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Puerto del Rosario",
+        "cc": "es",
+        "ineCode": "35017",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 28.4993424,
+          "lon": -13.8599051
+        }
+      },
+      "populationBand": "20,000–99,999",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 12,
+        "wallClockMinutes": 0.006,
+        "bytes": 0,
+        "failedProbes": 12,
+        "unknownProbes": 12,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 346
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 46150,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.puertodelrosario.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "puertodelrosario.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytopuertodelrosario.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientopuertodelrosario.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2puertodelrosario.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.puertodelrosario.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.puertodelrosario.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.puertodelrosario.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.puertodelrosario.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.puertodelrosario.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.puertodelrosario.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.puertodelrosario.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "tool",
+        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:37:42.142Z",
+      "mode": "live",
+      "municipality": {
+        "name": "León",
+        "cc": "es",
+        "ineCode": "24089",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 42.6341451,
+          "lon": -5.9714151
+        }
+      },
+      "populationBand": ">=100,000",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 26,
+        "wallClockMinutes": 1.044,
+        "bytes": 3579955,
+        "failedProbes": 22,
+        "unknownProbes": 10,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 62646
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 123446,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.leon.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "leon.es",
+            "outcome": "timeout",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytoleon.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "www.ayuntamientoleon.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2leon.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.leon.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.leon.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.leon.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.leon.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.leon.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.leon.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.leon.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "city",
+        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:38:07.832Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Huelva",
+        "cc": "es",
+        "ineCode": "21041",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 37.2575874,
+          "lon": -6.9484945
+        }
+      },
+      "populationBand": ">=100,000",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 19,
+        "wallClockMinutes": 0.423,
+        "bytes": 1205785,
+        "failedProbes": 18,
+        "unknownProbes": 11,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 25382
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 143215,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.huelva.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "huelva.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytohuelva.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientohuelva.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "www.ayt2huelva.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.huelva.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.huelva.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.huelva.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.huelva.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.huelva.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.huelva.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.huelva.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "city",
+        "reason": "1/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:38:32.173Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Telde",
+        "cc": "es",
+        "ineCode": "35026",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 27.9984538,
+          "lon": -15.4166761
+        }
+      },
+      "populationBand": ">=100,000",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 26,
+        "wallClockMinutes": 0.402,
+        "bytes": 2189774,
+        "failedProbes": 24,
+        "unknownProbes": 10,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 24106
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 104168,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.telde.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "telde.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "www.aytotelde.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientotelde.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2telde.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.telde.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.telde.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.telde.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.telde.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.telde.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.telde.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.telde.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "city",
+        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+      }
+    },
+    {
+      "schema": "pryzm.stage0.cold-start-record/1.0",
+      "protocolVersion": "1.0",
+      "classifierVersion": "1.0",
+      "runAt": "2026-08-02T09:38:33.151Z",
+      "mode": "live",
+      "municipality": {
+        "name": "Jerez de la Frontera",
+        "cc": "es",
+        "ineCode": "11020",
+        "jurisdictionId": null,
+        "centroid": {
+          "lat": 36.6816936,
+          "lon": -6.1377402
+        }
+      },
+      "populationBand": ">=100,000",
+      "foral": {
+        "excluded": false
+      },
+      "publishedGisService": {
+        "value": "Unknown",
+        "evidence": "no endpoints were declared for this municipality — nothing was probed",
+        "basis": "not-probed"
+      },
+      "digitalPgou": {
+        "value": "Unknown",
+        "evidence": "no service answered — cannot say",
+        "basis": "probe-failed"
+      },
+      "vectorOrScanned": "Unknown",
+      "publisher": "Unknown",
+      "publisherIsPlanningAuthority": {
+        "value": "unknown",
+        "evidence": "no service answered — no planning evidence to attribute",
+        "basis": "probe-failed"
+      },
+      "counts": {
+        "endpointsDeclared": 0,
+        "endpointsAnswered": 0,
+        "endpointsFailed": 0,
+        "layersEnumerated": 0,
+        "normativeLayers": 0,
+        "reusableGeometryLayers": 0,
+        "instrumentAttributedVectorLayers": 0,
+        "localityFar": 0,
+        "localityUnknown": 0
+      },
+      "cost": {
+        "requests": 12,
+        "wallClockMinutes": 0.005,
+        "bytes": 0,
+        "failedProbes": 12,
+        "unknownProbes": 12,
+        "geocodeRequests": 1,
+        "totalWallClockMs": 272
+      },
+      "undecided": [],
+      "undecidedTotal": 0,
+      "tierSignal": {
+        "value": "undetermined",
+        "basis": "no service answered — UNKNOWN, and an unknown may not be counted as tier 3",
+        "caveats": [],
+        "note": "⚠ A SIGNAL, NOT A DETERMINATION. Stage 0 never reads the ordinance, so it cannot know whether the instrument GRANTS a determination (ADR-0288). This bounds the GIS route only."
+      },
+      "knownLimitations": [
+        "Only DECLARED endpoints are probed. A municipality whose service this tool was never told about reads as `Unknown`, not `No`.",
+        "No ordinance text is opened. `digitalPgou: No` is a statement about GIS, not about the plan.",
+        "Classification is lexical. A planning layer named in an idiom absent from taxonomy.mjs is a FALSE NEGATIVE and would read as `No` — the most expensive error available (ADR-0290)."
+      ],
+      "population": 213634,
+      "centroidSource": "nominatim",
+      "sweep": {
+        "hostsProbed": 12,
+        "hostOutcomes": [
+          {
+            "host": "www.jerezdelafrontera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "jerezdelafrontera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytojerezdelafrontera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientojerezdelafrontera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayt2jerezdelafrontera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.jerezdelafrontera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.jerezdelafrontera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.jerezdelafrontera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.jerezdelafrontera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.jerezdelafrontera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.jerezdelafrontera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.jerezdelafrontera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          }
+        ],
+        "endpointsFound": 0
+      },
+      "failureAttribution": {
+        "attribution": "tool",
+        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+      }
+    }
+  ]
+}

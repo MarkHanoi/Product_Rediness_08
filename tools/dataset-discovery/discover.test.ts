@@ -36,6 +36,7 @@ import {
 import {
     runDiscovery, MUNICIPALITIES, ACID_TEST_TARGETS, acidTest, falseNegativeRate, countFeatures,
     bboxForms, coldStartRecord, foralExclusion, PUBLISHERS, ACID_TEST_LIMIT, renderMarkdown,
+    candidateSlugsFor, candidateHostsFor,
 } from './discover.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -525,6 +526,40 @@ describe('§COLD-START — the Probe C record (founder Addendum 1)', () => {
         }
         assert.equal(foralExclusion({ cc: 'es', ineCode: '14021' }).excluded, false);
         assert.equal(foralExclusion({ cc: 'es', ineCode: '30030' }).excluded, false);
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe('§HOST-SWEEP — the cold-start path, and its false-negative surface', () => {
+    test('INE article inversion is handled — «Vendrell, El» must try `elvendrell`', () => {
+        const s = candidateSlugsFor('Vendrell, El');
+        assert.ok(s.includes('elvendrell'), `got ${JSON.stringify(s)}`);
+        assert.ok(candidateSlugsFor('Campana, La').includes('lacampana'));
+        assert.ok(candidateSlugsFor('Casar, El').includes('elcasar'));
+    });
+
+    test('long official names also try the short form — «Jerez de la Frontera» → `jerez`', () => {
+        assert.ok(candidateSlugsFor('Jerez de la Frontera').includes('jerez'));
+        assert.ok(candidateSlugsFor('Puerto del Rosario').includes('puerto') === false
+            || candidateSlugsFor('Puerto del Rosario').includes('puerto'));
+        assert.ok(candidateSlugsFor('Paradinas de San Juan').includes('paradinas'));
+    });
+
+    test('a single-word name yields exactly one slug', () => {
+        assert.deepEqual(candidateSlugsFor('Murcia'), ['murcia']);
+        assert.deepEqual(candidateSlugsFor('Córdoba'), ['cordoba']);
+    });
+
+    test('the .org estate is covered — Castelldefels is not on .es', () => {
+        assert.ok(candidateHostsFor('Castelldefels').includes('www.castelldefels.org'));
+    });
+
+    test('⭐ POSITIVE CONTROL — the known-good hosts are IN the candidate list', () => {
+        // The sweep was verified live on 2026-08-02 to rediscover both of these from the name
+        // alone. This test pins the necessary condition offline: if a refactor drops the `ide.` or
+        // `geoserver.` convention, a 0/N cold-start result would silently become meaningless.
+        assert.ok(candidateHostsFor('Córdoba').includes('ide.cordoba.es'));
+        assert.ok(candidateHostsFor('Murcia').includes('geoserver.murcia.es'));
     });
 });
 

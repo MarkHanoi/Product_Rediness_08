@@ -511,6 +511,37 @@ the reasoning that produced George Mason University.
 
 ---
 
+## §12 — Operational note: the Murcia `f_fin` check, measured
+
+Trap 6 was raised as a possible **live over-grant** on shipped land, so it was measured before anything
+else. The finding, stated plainly:
+
+**The shipped Murcia path does NOT filter `f_fin`.** `server/murciaPgouProxy.js` builds its WFS query with
+no `cql_filter` (the repo uses `CQL_FILTER` in five other proxies — Córdoba, Denmark, Paris, Plandata — so
+its absence here is a gap, not a house style). `resolveMurciaStreetWidth.ts` consumes
+`body.alineaciones` from that unfiltered response and ships a measured envelope.
+
+**And it currently changes nothing.** Measured live 2026-08-02 against `geoserver.murcia.es`:
+
+| layer | total | `f_fin > today` | `f_fin < today` |
+|---|---:|---:|---:|
+| `Murcia:pgou_alineaciones` | 23 066 | **23 066** | **0** |
+| `Murcia:pgou_sectores` | 3 611 | **3 611** | **0** |
+| `Murcia:pgou_eje_comercial` | 69 | **69** | **0** |
+
+Every served feature carries the `2999-12-30Z` in-force sentinel. Murcia publishes superseded editions as
+**separate layers** (`_2001` / `_2007` / `_2012`), not as expired rows inside the current one. **No repealed
+geometry is reaching a shipped envelope.**
+
+⇒ **The risk is LATENT, not live.** The correct classification is a **guard to add**, not an incident. Two
+things would make it live, and neither is visible from our side: Murcia expiring a feature *in place*, or
+another city being onboarded whose publisher does. That is precisely why detection is now a per-layer flag
+rather than a Murcia-specific fix.
+
+⚠ **Not written into the Murcia dossier** — a city agent owns it. Reported to the coordinator instead.
+
+---
+
 *Authority: ADR-0290 (the invariant this discharges) · ADR-0283 · ADR-0284 · ADR-0285 · ADR-0288 ·
 MACHINE-READABLE-EVIDENCE-REGISTER · PROBE-DISCIPLINE · BLOCKER-CLASSIFICATION-STANDARD · C58 · C63 ·
 L-422/457/467/469 · L-584 · L-616 · L-656.

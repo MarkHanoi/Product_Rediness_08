@@ -134,20 +134,54 @@ export const SWEEP_PATHS = [
  * Conventions are drawn from the Spanish municipal web estate: `{slug}.es` for the corporation,
  * and the `ide`/`sig`/`geoportal`/`cartografia` prefixes for its spatial-data infrastructure.
  */
-export function candidateHostsFor(name, extra = []) {
-    const slug = String(name)
+/**
+ * Base slugs for a municipality name.
+ *
+ * ⚠ THREE BUGS THE FIRST PROBE-C RUN EXPOSED, each of which manufactured a false negative:
+ *  1. **INE inverts the article.** The register writes «Vendrell, El» and «Campana, La», so the
+ *     naive slug was `vendrellel` — a host that cannot exist. The real one is `elvendrell`.
+ *  2. **Long official names are used in short form.** «Jerez de la Frontera» serves at `jerez.es`,
+ *     not `jerezdelafrontera.es`.
+ *  3. **Not every corporation is on `.es`.** Castelldefels is `castelldefels.org`.
+ * All three read as "this city publishes nothing", which is exactly the under-report Probe C must
+ * not commit.
+ */
+export function candidateSlugsFor(name) {
+    const base = (s) => String(s)
         .normalize('NFD').replace(/[̀-ͯ]/g, '')
         .toLowerCase()
         .replace(/\([^)]*\)/g, '')
         .split('/')[0]
         .replace(/[^a-z0-9]+/g, '');
-    if (!slug) return [...extra];
-    const hosts = [
-        `www.${slug}.es`, `${slug}.es`,
-        `www.ayto${slug}.es`, `www.ayuntamiento${slug}.es`, `www.ayt2${slug}.es`,
-        `ide.${slug}.es`, `sig.${slug}.es`, `geoportal.${slug}.es`,
-        `cartografia.${slug}.es`, `mapas.${slug}.es`, `geoserver.${slug}.es`, `visor.${slug}.es`,
-    ];
+    const raw = String(name).split('/')[0].replace(/\([^)]*\)/g, '').trim();
+    const slugs = [base(raw)];
+
+    // (1) article inversion — «Vendrell, El» → «El Vendrell»
+    const inv = /^(.*),\s*(el|la|los|las|l'|els|les|o|a|as|os)$/i.exec(raw);
+    if (inv) slugs.push(base(`${inv[2]}${inv[1]}`));
+
+    // (2) short form — drop the qualifying tail after a preposition («de», «del», «de la», «d'»)
+    const shortened = raw.replace(/,\s*(el|la|los|las|l'|els|les|o|a|as|os)$/i, '').trim();
+    const cut = /^(.+?)\s+(de|del|de\s+la|de\s+los|d'|dels|da|do|des)\s+/i.exec(shortened);
+    if (cut && base(cut[1]).length >= 4) slugs.push(base(cut[1]));
+
+    return [...new Set(slugs.filter((s) => s.length >= 3))];
+}
+
+export function candidateHostsFor(name, extra = []) {
+    const slugs = candidateSlugsFor(name);
+    if (!slugs.length) return [...extra];
+    const hosts = [];
+    for (const s of slugs) {
+        // The corporation site — the most likely to exist, and the cheapest way to learn the host
+        // actually resolves. (3) covers the `.org` estate.
+        hosts.push(`www.${s}.es`, `${s}.es`, `www.${s}.org`);
+        hosts.push(`www.ayto${s}.es`, `www.ayuntamiento${s}.es`);
+        // The spatial-data infrastructure prefixes.
+        for (const p of ['ide', 'sig', 'geoportal', 'cartografia', 'mapas', 'geoserver', 'visor', 'gis']) {
+            hosts.push(`${p}.${s}.es`);
+        }
+    }
     return [...new Set([...extra, ...hosts])];
 }
 
