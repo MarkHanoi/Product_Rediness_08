@@ -1,0 +1,194 @@
+{
+ "generatedAt": "2026-08-02T09:26:35.929Z",
+ "rows": [
+  {
+   "city": "barcelona",
+   "old": {
+    "denominator": "private buildable land",
+    "envelope": 0.5893,
+    "refusal": 0.3937,
+    "noPack": 0.017,
+    "determination": 0.9830000000000001
+   },
+   "new": {
+    "n": 353,
+    "sampled": 400,
+    "popTotal": 78371,
+    "popUrban": 76398,
+    "envelope": 0.7620396600566572,
+    "refusalTerminal": 0.059490084985835696,
+    "refusalDelegated": 0.15864022662889518,
+    "refusal": 0.21813031161473087,
+    "determination": 0.9801699716713881,
+    "noPack": 0.019830028328611898,
+    "ci": [
+     0.9596393675978759,
+     0.9903619775367719
+    ],
+    "nonBuildable": 47,
+    "failures": {},
+    "allUrban": {
+     "envelope": 0.6725,
+     "refusalTotal": 0.1925,
+     "determination": 0.865,
+     "noPack": 0.0175,
+     "nonBuildable": 0.1175
+    }
+   }
+  },
+  {
+   "city": "murcia",
+   "old": {
+    "denominator": "private buildable land",
+    "envelope": 0.2809,
+    "refusal": 0.67,
+    "noPack": 0.0491,
+    "determination": 0.9509000000000001
+   },
+   "new": {
+    "n": 233,
+    "sampled": 400,
+    "popTotal": 150647,
+    "popUrban": 91484,
+    "envelope": 0.3261802575107296,
+    "refusalTerminal": 0,
+    "refusalDelegated": 0.5236051502145923,
+    "refusal": 0.5236051502145923,
+    "determination": 0.8497854077253219,
+    "noPack": 0.15021459227467812,
+    "ci": [
+     0.7982567385318186,
+     0.8899669519009431
+    ],
+    "nonBuildable": 167,
+    "failures": {},
+    "allUrban": {
+     "envelope": 0.19,
+     "refusalTotal": 0.305,
+     "determination": 0.495,
+     "noPack": 0.0875,
+     "nonBuildable": 0.4175
+    }
+   }
+  },
+  {
+   "city": "madrid",
+   "old": {
+    "denominator": "Norma-Zonal-GOVERNED land",
+    "envelope": 0.11695,
+    "refusal": 0.60458,
+    "noPack": 0.27847,
+    "determination": 0.72153
+   },
+   "new": {
+    "n": 287,
+    "sampled": 400,
+    "popTotal": 141064,
+    "popUrban": 137382,
+    "envelope": 0.1672473867595819,
+    "refusalTerminal": 0.3693379790940767,
+    "refusalDelegated": 0,
+    "refusal": 0.3693379790940767,
+    "determination": 0.5365853658536586,
+    "noPack": 0.4634146341463415,
+    "ci": [
+     0.47878986609959595,
+     0.5934143852867257
+    ],
+    "nonBuildable": 113,
+    "failures": {},
+    "allUrban": {
+     "envelope": 0.12,
+     "refusalTotal": 0.265,
+     "determination": 0.385,
+     "noPack": 0.3325,
+     "nonBuildable": 0.2825
+    }
+   }
+  },
+  {
+   "city": "valencia",
+   "old": {
+    "denominator": "private buildable land",
+    "envelope": 0,
+    "refusal": 0.364,
+    "noPack": 0.636,
+    "determination": 0.364
+   },
+   "new": {
+    "n": 325,
+    "sampled": 400,
+    "popTotal": 56374,
+    "popUrban": 40665,
+    "envelope": 0,
+    "refusalTerminal": 0,
+    "refusalDelegated": 0.38153846153846155,
+    "refusal": 0.38153846153846155,
+    "determination": 0.38153846153846155,
+    "noPack": 0.6184615384615385,
+    "ci": [
+     0.33040062611556215,
+     0.43544408452931965
+    ],
+    "nonBuildable": 75,
+    "failures": {},
+    "allUrban": {
+     "envelope": 0,
+     "refusalTotal": 0.31,
+     "determination": 0.31,
+     "noPack": 0.5025,
+     "nonBuildable": 0.1875
+    }
+   }
+  },
+  {
+   "city": "cordoba",
+   "old": {
+    "denominator": "Córdoba SUELO URBANO",
+    "envelope": 0,
+    "refusal": 0.029614,
+    "noPack": 0.970386,
+    "determination": 0.029614
+   },
+   "new": {
+    "n": 400,
+    "sampled": 400,
+    "popTotal": 50530,
+    "popUrban": 39639,
+    "envelope": 0,
+    "refusalTerminal": 0.0025,
+    "refusalDelegated": 0,
+    "refusal": 0.0025,
+    "determination": 0.0025,
+    "noPack": 0.9975,
+    "ci": [
+     0.00044143642943440895,
+     0.014023640967247855
+    ],
+    "nonBuildable": 0,
+    "failures": {},
+    "allUrban": {
+     "envelope": 0,
+     "refusalTotal": 0.0025,
+     "determination": 0.0025,
+     "noPack": 0.9975,
+     "nonBuildable": 0
+    }
+   }
+  }
+ ],
+ "oldRank": [
+  "barcelona",
+  "murcia",
+  "madrid",
+  "valencia",
+  "cordoba"
+ ],
+ "newRank": [
+  "barcelona",
+  "murcia",
+  "madrid",
+  "valencia",
+  "cordoba"
+ ]
+}

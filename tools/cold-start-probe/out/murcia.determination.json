@@ -3,43 +3,43 @@
  "city": "murcia",
  "ine": "30030",
  "service": "geoserver.murcia.es WFS Murcia:pgou_alineaciones (calificacion, sector, f_fin) + Murcia:pgou_sectores (clase_suelo)",
- "measuredAt": "2026-08-02T09:11:14.737Z",
+ "measuredAt": "2026-08-02T09:22:56.775Z",
  "seed": 20260802,
- "requested": 10,
+ "requested": 400,
  "parcelPopulationTotal": 150647,
  "parcelPopulationUrban": 91484,
- "sampled": 10,
- "assessed": 10,
+ "sampled": 400,
+ "assessed": 400,
  "transportFailures": {},
  "counts": {
-  "envelope": 1,
+  "envelope": 76,
   "refusal-terminal": 0,
-  "refusal-delegated": 4,
+  "refusal-delegated": 122,
   "refusal-external": 0,
-  "no-pack": 1,
-  "nonBuildable": 4
+  "no-pack": 35,
+  "nonBuildable": 167
  },
- "denominatorPrivateBuildableParcels": 6,
+ "denominatorPrivateBuildableParcels": 233,
  "pct": {
   "ofBuildable": {
-   "envelope": 0.16666666666666666,
+   "envelope": 0.3261802575107296,
    "refusalTerminal": 0,
-   "refusalDelegated": 0.6666666666666666,
+   "refusalDelegated": 0.5236051502145923,
    "refusalExternal": 0,
-   "refusalTotal": 0.6666666666666666,
-   "determination": 0.8333333333333334,
-   "noPack": 0.16666666666666666
+   "refusalTotal": 0.5236051502145923,
+   "determination": 0.8497854077253219,
+   "noPack": 0.15021459227467812
   },
   "ofAllUrbanParcels": {
-   "envelope": 0.1,
-   "refusalTotal": 0.4,
-   "determination": 0.5,
-   "noPack": 0.1,
-   "nonBuildable": 0.4
+   "envelope": 0.19,
+   "refusalTotal": 0.305,
+   "determination": 0.495,
+   "noPack": 0.0875,
+   "nonBuildable": 0.4175
   }
  },
  "inheritedApplied": {
-  "mur-street": 1
+  "mur-street": 57
  },
  "rows": [
   {
@@ -130,6 +130,3516 @@
    "code": "FV",
    "cat": "nonBuildable",
    "why": "calificación \"FV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "2746309XH6024N",
+   "lat": 37.9732298,
+   "lon": -1.1480351,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "0674861XH6007S",
+   "lat": 37.9988603,
+   "lon": -1.1728998,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "3462502XH6036S",
+   "lat": 37.9868838,
+   "lon": -1.1396764,
+   "code": "RR",
+   "cat": "refusal-delegated",
+   "why": "calificacion-remitida — Arts. 5.24.5.1 / 5.24.6",
+   "inherited": null
+  },
+  {
+   "ref": "1770603XH6017S",
+   "lat": 37.9946991,
+   "lon": -1.1588786,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "D2150210000215",
+   "lat": 37.736441,
+   "lon": -1.0858377,
+   "code": "RD1",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "6965009XG5966N",
+   "lat": 37.9011882,
+   "lon": -1.2157546,
+   "code": "NF",
+   "cat": "nonBuildable",
+   "why": "calificación \"NF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7860404XH5076S",
+   "lat": 37.9864799,
+   "lon": -1.2035992,
+   "code": "IP",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "8776807XG6787N",
+   "lat": 37.7285924,
+   "lon": -1.0860251,
+   "code": "RX",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "5710814XH6051S",
+   "lat": 37.9401777,
+   "lon": -1.1158727,
+   "code": "NF",
+   "cat": "nonBuildable",
+   "why": "calificación \"NF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "0539705XH6003N",
+   "lat": 37.9667893,
+   "lon": -1.1729996,
+   "code": "RL",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "7588116XG5978N",
+   "lat": 37.9213113,
+   "lon": -1.2092857,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9365901XH5096N",
+   "lat": 37.9925918,
+   "lon": -1.1854977,
+   "code": "Z0",
+   "cat": "nonBuildable",
+   "why": "calificación \"Z0\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "4747704XH6044N",
+   "lat": 37.9734173,
+   "lon": -1.125803,
+   "code": "RM",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "6965010XG5966N",
+   "lat": 37.9010252,
+   "lon": -1.215716,
+   "code": "NF",
+   "cat": "nonBuildable",
+   "why": "calificación \"NF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9077106XG6887N",
+   "lat": 37.8196539,
+   "lon": -1.0814842,
+   "code": "RD1",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "9930301XH5093S",
+   "lat": 37.958852,
+   "lon": -1.1810141,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1095503XG6919N",
+   "lat": 37.9298424,
+   "lon": -1.1670266,
+   "code": "RX",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "8390604XH6089S",
+   "lat": 38.0114847,
+   "lon": -1.0831296,
+   "code": "RJ",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "9248502XH5094N",
+   "lat": 37.975746,
+   "lon": -1.1875878,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1156117XH7015N",
+   "lat": 37.9804844,
+   "lon": -1.0531701,
+   "code": "RC",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "5588601XH7058N",
+   "lat": 38.0079688,
+   "lon": -1.002681,
+   "code": "RD1",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "4413208XH6041S",
+   "lat": 37.9428466,
+   "lon": -1.1296932,
+   "code": "FV",
+   "cat": "nonBuildable",
+   "why": "calificación \"FV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6121701XG6962S",
+   "lat": 37.8614247,
+   "lon": -1.1107178,
+   "code": "GO",
+   "cat": "nonBuildable",
+   "why": "calificación \"GO\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "8167702XH5086N",
+   "lat": 37.993944,
+   "lon": -1.200337,
+   "code": "RX",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "8325155XH6182N",
+   "lat": 38.0441249,
+   "lon": -1.0847347,
+   "code": "RJ",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "7302505XH6170S",
+   "lat": 38.0228525,
+   "lon": -1.0944058,
+   "code": "VD",
+   "cat": "nonBuildable",
+   "why": "calificación \"VD\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5264905XH6056S",
+   "lat": 37.9889996,
+   "lon": -1.1190555,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5496601XH6059N",
+   "lat": 38.0174633,
+   "lon": -1.1159425,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "4658512XH6045N",
+   "lat": 37.9834526,
+   "lon": -1.1260945,
+   "code": "MC",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "2509612XG7920N",
+   "lat": 37.8474374,
+   "lon": -1.0391744,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7394701XG5979S",
+   "lat": 37.9267114,
+   "lon": -1.2118409,
+   "code": "RM",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "4296801XH7049N",
+   "lat": 38.0157673,
+   "lon": -1.016243,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "7327210XH6072N",
+   "lat": 37.9546319,
+   "lon": -1.096966,
+   "code": "NF",
+   "cat": "nonBuildable",
+   "why": "calificación \"NF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "4456708XH6045N",
+   "lat": 37.98143,
+   "lon": -1.1292562,
+   "code": "VD",
+   "cat": "nonBuildable",
+   "why": "calificación \"VD\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6553103XH6065S",
+   "lat": 37.9783882,
+   "lon": -1.1053901,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "5918501XG6951N",
+   "lat": 37.8594548,
+   "lon": -1.1130435,
+   "code": "IP",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "6310312XH6161S",
+   "lat": 38.0306072,
+   "lon": -1.1071922,
+   "code": "UC",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "4988802XG5948N",
+   "lat": 37.923549,
+   "lon": -1.2358917,
+   "code": "UC",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "6620401XH6062S",
+   "lat": 37.9492857,
+   "lon": -1.1043942,
+   "code": "NF",
+   "cat": "nonBuildable",
+   "why": "calificación \"NF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "8065909XH5086N",
+   "lat": 37.9911145,
+   "lon": -1.2012925,
+   "code": "ALCANTARILLA",
+   "cat": "nonBuildable",
+   "why": "calificación \"ALCANTARILLA\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9848002XH6094N",
+   "lat": 37.9730765,
+   "lon": -1.0681892,
+   "code": "ET",
+   "cat": "nonBuildable",
+   "why": "calificación \"ET\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7060403XH5075N",
+   "lat": 37.9858338,
+   "lon": -1.2127988,
+   "code": "RM",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "6669102XH6077S",
+   "lat": 37.9932308,
+   "lon": -1.1037353,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "8290702XH6088N",
+   "lat": 38.0111783,
+   "lon": -1.0843593,
+   "code": "RJ",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "2385012XG6828N",
+   "lat": 37.8277688,
+   "lon": -1.1571855,
+   "code": "AR",
+   "cat": "nonBuildable",
+   "why": "calificación \"AR\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "2965101XH6026N",
+   "lat": 37.9897606,
+   "lon": -1.1460324,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "3310040XH6030N",
+   "lat": 37.9399004,
+   "lon": -1.1429175,
+   "code": "FV",
+   "cat": "nonBuildable",
+   "why": "calificación \"FV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "000200600XH60A",
+   "lat": 37.9517809,
+   "lon": -1.1606552,
+   "code": "RL",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "2128310XH6022N",
+   "lat": 37.9562281,
+   "lon": -1.1561004,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5631102XH5053S",
+   "lat": 37.9608124,
+   "lon": -1.2300671,
+   "code": "EF",
+   "cat": "nonBuildable",
+   "why": "calificación \"EF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "8037601XH6183N",
+   "lat": 38.0545071,
+   "lon": -1.085366,
+   "code": "EH",
+   "cat": "nonBuildable",
+   "why": "calificación \"EH\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9512830XH5091S",
+   "lat": 37.9426159,
+   "lon": -1.1844056,
+   "code": "EH",
+   "cat": "nonBuildable",
+   "why": "calificación \"EH\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "8566412XH5086N",
+   "lat": 37.9919629,
+   "lon": -1.1953142,
+   "code": "RC",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "4945401XH6044N",
+   "lat": 37.9720083,
+   "lon": -1.1230641,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "6286101XH7068N",
+   "lat": 38.0064949,
+   "lon": -0.9941547,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1053807XH7005S",
+   "lat": 37.9778877,
+   "lon": -1.0547206,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "9433404XH5093S",
+   "lat": 37.9624188,
+   "lon": -1.1864456,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "2894603XH7029S",
+   "lat": 38.0135384,
+   "lon": -1.0331105,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "1884412XH6018S",
+   "lat": 38.0076061,
+   "lon": -1.1570864,
+   "code": "RC",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "7890806XH6079S",
+   "lat": 38.0115969,
+   "lon": -1.0896724,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "9451116XH6095S",
+   "lat": 37.9760492,
+   "lon": -1.0729758,
+   "code": "ET",
+   "cat": "nonBuildable",
+   "why": "calificación \"ET\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "2015609XH7111S",
+   "lat": 38.0327834,
+   "lon": -1.0421333,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "3898906XH6039N",
+   "lat": 38.0194935,
+   "lon": -1.1343381,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "1988928XH6018N",
+   "lat": 38.0109683,
+   "lon": -1.1566219,
+   "code": "RC",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "4650215XH6045S",
+   "lat": 37.9767048,
+   "lon": -1.1265826,
+   "code": "RM2",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "3288405XH7038N",
+   "lat": 38.0091485,
+   "lon": -1.0285685,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "4294633XH6049N",
+   "lat": 38.016839,
+   "lon": -1.131184,
+   "code": "DE",
+   "cat": "nonBuildable",
+   "why": "calificación \"DE\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "2775024XH6027N",
+   "lat": 37.9990499,
+   "lon": -1.1485818,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "3106205XH6030N",
+   "lat": 37.9365003,
+   "lon": -1.1449165,
+   "code": "RF",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "1140603XH6013N",
+   "lat": 37.9672417,
+   "lon": -1.1678354,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "3506003XH6030N",
+   "lat": 37.9364064,
+   "lon": -1.1403297,
+   "code": "RG",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "7594002XG5979S",
+   "lat": 37.926749,
+   "lon": -1.2090268,
+   "code": "RD1",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "3526604XH7132N",
+   "lat": 38.0423002,
+   "lon": -1.0245056,
+   "code": "RJ",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "2386801XG6828N",
+   "lat": 37.8288488,
+   "lon": -1.1571908,
+   "code": "AR",
+   "cat": "nonBuildable",
+   "why": "calificación \"AR\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "8805901XH5080N",
+   "lat": 37.9368028,
+   "lon": -1.1935964,
+   "code": "RX",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "0954612XH6005S",
+   "lat": 37.9798691,
+   "lon": -1.1686052,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "4393802XH7049S",
+   "lat": 38.0128852,
+   "lon": -1.0151748,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "6060411XH6068S",
+   "lat": 37.9860516,
+   "lon": -1.1094241,
+   "code": "VE",
+   "cat": "nonBuildable",
+   "why": "calificación \"VE\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "001200200XG59G",
+   "lat": 37.9226732,
+   "lon": -1.2806707,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "2466707XH6026N",
+   "lat": 37.9905745,
+   "lon": -1.1505649,
+   "code": "RH",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "6885801XH6068N",
+   "lat": 38.0077074,
+   "lon": -1.1011129,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "5979210XH6057N",
+   "lat": 38.0017891,
+   "lon": -1.1106248,
+   "code": "IX",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "0044168XG8904S",
+   "lat": 37.8794945,
+   "lon": -0.9561424,
+   "code": "NF",
+   "cat": "nonBuildable",
+   "why": "calificación \"NF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7092901XH6079S",
+   "lat": 38.0136323,
+   "lon": -1.0981248,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no in-force calificación polygon at point (viario / espacio libre / equipamiento)",
+   "inherited": null
+  },
+  {
+   "ref": "3007203XH7130N",
+   "lat": 38.026038,
+   "lon": -1.0300585,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "8534802XH6183S",
+   "lat": 38.0511885,
+   "lon": -1.0810476,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "9782601XH6098S",
+   "lat": 38.0042616,
+   "lon": -1.0672692,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "8161308XH5086S",
+   "lat": 37.9874459,
+   "lon": -1.1998326,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "7529201XH6072N",
+   "lat": 37.9572686,
+   "lon": -1.0952802,
+   "code": "FV",
+   "cat": "nonBuildable",
+   "why": "calificación \"FV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5032611XH5053S",
+   "lat": 37.9620707,
+   "lon": -1.2362681,
+   "code": "EA",
+   "cat": "nonBuildable",
+   "why": "calificación \"EA\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6183612XH6057N",
+   "lat": 38.0058618,
+   "lon": -1.1088638,
+   "code": "IX",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "5643202XH6054S",
+   "lat": 37.9698086,
+   "lon": -1.115662,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "6069604XH6066N",
+   "lat": 37.992942,
+   "lon": -1.1100757,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "2008118XH6020N",
+   "lat": 37.9389987,
+   "lon": -1.1574704,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "4016004XH6041N",
+   "lat": 37.9472829,
+   "lon": -1.1320625,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6561664XH6066S",
+   "lat": 37.985256,
+   "lon": -1.104526,
+   "code": "EH",
+   "cat": "nonBuildable",
+   "why": "calificación \"EH\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5128215XG6852N",
+   "lat": 37.7765141,
+   "lon": -1.125259,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "0677525XH6007N",
+   "lat": 38.0008138,
+   "lon": -1.1710862,
+   "code": "RC",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "4500001XH6140S",
+   "lat": 38.0215397,
+   "lon": -1.1277572,
+   "code": "RM",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "4897405XH6049N",
+   "lat": 38.0186452,
+   "lon": -1.1232263,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "6900518XH6170S",
+   "lat": 38.0198992,
+   "lon": -1.0988741,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "1190701XH7019S",
+   "lat": 38.010724,
+   "lon": -1.0511575,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "7585002XG5878N",
+   "lat": 37.8287087,
+   "lon": -1.2114902,
+   "code": "NF",
+   "cat": "nonBuildable",
+   "why": "calificación \"NF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "3760117XH6036S",
+   "lat": 37.98639,
+   "lon": -1.1374305,
+   "code": "MC",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "2813810XH6121S",
+   "lat": 38.0324058,
+   "lon": -1.1439974,
+   "code": "EH",
+   "cat": "nonBuildable",
+   "why": "calificación \"EH\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5029303XH5052N",
+   "lat": 37.9596477,
+   "lon": -1.2362325,
+   "code": "EF",
+   "cat": "nonBuildable",
+   "why": "calificación \"EF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5681512XH6058S",
+   "lat": 38.003869,
+   "lon": -1.1143654,
+   "code": "RX",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "0840319XH6004S",
+   "lat": 37.9675466,
+   "lon": -1.169909,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "1110314XH6011S",
+   "lat": 37.9406813,
+   "lon": -1.1677834,
+   "code": "EE",
+   "cat": "nonBuildable",
+   "why": "calificación \"EE\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "0997023XH7009S",
+   "lat": 38.0168869,
+   "lon": -1.0541237,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "5533819XH5053S",
+   "lat": 37.9627599,
+   "lon": -1.2319669,
+   "code": "EA",
+   "cat": "nonBuildable",
+   "why": "calificación \"EA\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "4706904XH6140N",
+   "lat": 38.026885,
+   "lon": -1.1244381,
+   "code": "RM-A",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "0745705XH6004N",
+   "lat": 37.9720692,
+   "lon": -1.171742,
+   "code": "EW",
+   "cat": "nonBuildable",
+   "why": "calificación \"EW\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1711329XH6011S",
+   "lat": 37.940864,
+   "lon": -1.1608278,
+   "code": "RC",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "4400008XH6140S",
+   "lat": 38.0210869,
+   "lon": -1.1280212,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "3310032XH6030N",
+   "lat": 37.9394669,
+   "lon": -1.1425443,
+   "code": "RO",
+   "cat": "nonBuildable",
+   "why": "calificación \"RO\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "3410731XH6031S",
+   "lat": 37.9401143,
+   "lon": -1.1420734,
+   "code": "RC",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "8463813XH5086N",
+   "lat": 37.9890349,
+   "lon": -1.197362,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "5016202XH6061N",
+   "lat": 37.9459876,
+   "lon": -1.123286,
+   "code": "FV",
+   "cat": "nonBuildable",
+   "why": "calificación \"FV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "4610701XH6141S",
+   "lat": 38.0296902,
+   "lon": -1.1237844,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7630501XG6973S",
+   "lat": 37.8681475,
+   "lon": -1.0948183,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "4414201XH6041S",
+   "lat": 37.9462416,
+   "lon": -1.1282457,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6706439XH6160N",
+   "lat": 38.0264978,
+   "lon": -1.1005795,
+   "code": "RF",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "1108601XH6010N",
+   "lat": 37.9385487,
+   "lon": -1.1684156,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "1110303XH6011S",
+   "lat": 37.9411544,
+   "lon": -1.1677792,
+   "code": "EE",
+   "cat": "nonBuildable",
+   "why": "calificación \"EE\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "0859301XH7005N",
+   "lat": 37.9837348,
+   "lon": -1.0561467,
+   "code": "FV",
+   "cat": "nonBuildable",
+   "why": "calificación \"FV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "8420604XH6181N",
+   "lat": 38.0379557,
+   "lon": -1.0824135,
+   "code": "RR",
+   "cat": "refusal-delegated",
+   "why": "calificacion-remitida — Arts. 5.24.5.1 / 5.24.6",
+   "inherited": null
+  },
+  {
+   "ref": "6115401XH6061S",
+   "lat": 37.9436762,
+   "lon": -1.1109584,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "5331401XG6853S",
+   "lat": 37.7782529,
+   "lon": -1.1239536,
+   "code": "RD1",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "7683307XG5878S",
+   "lat": 37.8268967,
+   "lon": -1.208195,
+   "code": "NF",
+   "cat": "nonBuildable",
+   "why": "calificación \"NF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5648305XH6054N",
+   "lat": 37.974402,
+   "lon": -1.1155265,
+   "code": "RF",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "8246801XH6084N",
+   "lat": 37.9718501,
+   "lon": -1.0856979,
+   "code": "EH",
+   "cat": "nonBuildable",
+   "why": "calificación \"EH\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1588103XH6018N",
+   "lat": 38.0114093,
+   "lon": -1.1613479,
+   "code": "VM",
+   "cat": "nonBuildable",
+   "why": "calificación \"VM\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "3891536XH6039S",
+   "lat": 38.0128861,
+   "lon": -1.1337419,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7831403XH6073S",
+   "lat": 37.9577581,
+   "lon": -1.0906177,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "0677535XH6007N",
+   "lat": 38.0013204,
+   "lon": -1.1715093,
+   "code": "RC",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "8350048XH5085S",
+   "lat": 37.977589,
+   "lon": -1.1990507,
+   "code": "DE",
+   "cat": "nonBuildable",
+   "why": "calificación \"DE\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9944605XH6094S",
+   "lat": 37.9692232,
+   "lon": -1.067499,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "3908028XH6030N",
+   "lat": 37.9384473,
+   "lon": -1.1362134,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "3423205XH7132S",
+   "lat": 38.0401572,
+   "lon": -1.0254024,
+   "code": "RH",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "9896701XH6099N",
+   "lat": 38.0163749,
+   "lon": -1.0658151,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "7299606XH6079N",
+   "lat": 38.0196643,
+   "lon": -1.0958529,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6088202XH6068N",
+   "lat": 38.010337,
+   "lon": -1.1099844,
+   "code": "IX",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "9537701XH5093N",
+   "lat": 37.9652695,
+   "lon": -1.1846353,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "9904702XH5090S",
+   "lat": 37.9325177,
+   "lon": -1.1809315,
+   "code": "IC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "3609002XH6030N",
+   "lat": 37.9393106,
+   "lon": -1.1400394,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "7753102XH5075S",
+   "lat": 37.9801178,
+   "lon": -1.2056348,
+   "code": "ALCANTARILLA",
+   "cat": "nonBuildable",
+   "why": "calificación \"ALCANTARILLA\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1008701XH7110N",
+   "lat": 38.026979,
+   "lon": -1.0521485,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "4186602XH6048N",
+   "lat": 38.0090397,
+   "lon": -1.1310834,
+   "code": "VD",
+   "cat": "nonBuildable",
+   "why": "calificación \"VD\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7903510XH6170S",
+   "lat": 38.0230461,
+   "lon": -1.0876133,
+   "code": "VD",
+   "cat": "nonBuildable",
+   "why": "calificación \"VD\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5582603XH6058S",
+   "lat": 38.0044313,
+   "lon": -1.1155287,
+   "code": "RM",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "8740803XH6184S",
+   "lat": 38.0562641,
+   "lon": -1.0787715,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "8160029XH5085N",
+   "lat": 37.9871484,
+   "lon": -1.1999234,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "9583514XG6798S",
+   "lat": 37.734978,
+   "lon": -1.0773893,
+   "code": "IC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "7505807XH6170N",
+   "lat": 38.0258722,
+   "lon": -1.0921524,
+   "code": "DE",
+   "cat": "nonBuildable",
+   "why": "calificación \"DE\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6662111XH5066S",
+   "lat": 37.9885747,
+   "lon": -1.2180869,
+   "code": "ALCANTARILLA",
+   "cat": "nonBuildable",
+   "why": "calificación \"ALCANTARILLA\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5400101XH6150S",
+   "lat": 38.0220295,
+   "lon": -1.1166536,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "5439215XH6053N",
+   "lat": 37.9657806,
+   "lon": -1.1177734,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "2646514XH6024N",
+   "lat": 37.9727394,
+   "lon": -1.149385,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "2217110XH7121N",
+   "lat": 38.0352808,
+   "lon": -1.0392323,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "8067014XH5086N",
+   "lat": 37.9924791,
+   "lon": -1.2021254,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7425610XH6172S",
+   "lat": 38.0433577,
+   "lon": -1.0928964,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "3046908XH6034N",
+   "lat": 37.9727707,
+   "lon": -1.1445901,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7527429XG7972N",
+   "lat": 37.8612781,
+   "lon": -0.9817475,
+   "code": "EF",
+   "cat": "nonBuildable",
+   "why": "calificación \"EF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "3425808XH7132N",
+   "lat": 38.0422306,
+   "lon": -1.0257581,
+   "code": "RJ",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "D2262750000226",
+   "lat": 38.0067252,
+   "lon": -1.0685002,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "2291802XH7029S",
+   "lat": 38.011853,
+   "lon": -1.0395958,
+   "code": "VR",
+   "cat": "nonBuildable",
+   "why": "calificación \"VR\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "0829202XH6002N",
+   "lat": 37.9579869,
+   "lon": -1.1707425,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7064911XH6076S",
+   "lat": 37.989766,
+   "lon": -1.0999527,
+   "code": "RJ",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "0751702XH6005S",
+   "lat": 37.9777576,
+   "lon": -1.1707889,
+   "code": "RL",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "1053001XH7015S",
+   "lat": 37.9773989,
+   "lon": -1.0539861,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "3174709XH7037S",
+   "lat": 37.9961962,
+   "lon": -1.0307253,
+   "code": "ET",
+   "cat": "nonBuildable",
+   "why": "calificación \"ET\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5006809XH6150S",
+   "lat": 38.0264618,
+   "lon": -1.1214879,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "0686303XH6008N",
+   "lat": 38.0104205,
+   "lon": -1.169994,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6870507XH6067S",
+   "lat": 37.9937766,
+   "lon": -1.1009328,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "7900817XH5070S",
+   "lat": 37.9326111,
+   "lon": -1.2054312,
+   "code": "RM",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "7173503XH6077S",
+   "lat": 37.9961028,
+   "lon": -1.0971435,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "6307814XH6160N",
+   "lat": 38.0264807,
+   "lon": -1.1056898,
+   "code": "VM",
+   "cat": "nonBuildable",
+   "why": "calificación \"VM\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5302703XH6150S",
+   "lat": 38.0227037,
+   "lon": -1.1175558,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "7806013XH6170N",
+   "lat": 38.0257914,
+   "lon": -1.0894065,
+   "code": "RC",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "D57F002000057F",
+   "lat": 37.7927922,
+   "lon": -1.1310582,
+   "code": "AR",
+   "cat": "nonBuildable",
+   "why": "calificación \"AR\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "4376905XH6047N",
+   "lat": 37.9996477,
+   "lon": -1.1294608,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6706422XH6160N",
+   "lat": 38.0258819,
+   "lon": -1.1006103,
+   "code": "VM",
+   "cat": "nonBuildable",
+   "why": "calificación \"VM\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "2744603XH6024S",
+   "lat": 37.9709365,
+   "lon": -1.1480625,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7050601XH6075S",
+   "lat": 37.9759602,
+   "lon": -1.0990758,
+   "code": "RL",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "3626704XH7132N",
+   "lat": 38.0428202,
+   "lon": -1.0221329,
+   "code": "RX",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "6637403XG6963N",
+   "lat": 37.874435,
+   "lon": -1.1070762,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "0168101XH7006N",
+   "lat": 37.9911528,
+   "lon": -1.0641114,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "3110702XH6031S",
+   "lat": 37.9404216,
+   "lon": -1.1454092,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "1605607XH6010S",
+   "lat": 37.9356076,
+   "lon": -1.1627754,
+   "code": "RU",
+   "cat": "no-pack",
+   "why": "PGOU-direct family RU but no packed ordinance — the 0.68 pp residual",
+   "inherited": null
+  },
+  {
+   "ref": "4716806XG7941N",
+   "lat": 37.8531792,
+   "lon": -1.014718,
+   "code": "RG",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "7688523XG5978N",
+   "lat": 37.9218326,
+   "lon": -1.20804,
+   "code": "RB-3",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "3074002XH7027S",
+   "lat": 37.9961724,
+   "lon": -1.0310165,
+   "code": "ET",
+   "cat": "nonBuildable",
+   "why": "calificación \"ET\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7298403XH6079N",
+   "lat": 38.019392,
+   "lon": -1.0955075,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7164602XH6076S",
+   "lat": 37.9883132,
+   "lon": -1.0971803,
+   "code": "RX",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "002400300XH70G",
+   "lat": 38.00057,
+   "lon": -1.026508,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "5331901XG7953S",
+   "lat": 37.8691949,
+   "lon": -1.0064396,
+   "code": "DE",
+   "cat": "nonBuildable",
+   "why": "calificación \"DE\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6273403XH6067S",
+   "lat": 37.9974211,
+   "lon": -1.1068377,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "0874309XH6007N",
+   "lat": 37.9991379,
+   "lon": -1.1690676,
+   "code": "RC",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "2749309XH6024N",
+   "lat": 37.976043,
+   "lon": -1.1481597,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "0043106XH6094S",
+   "lat": 37.9688832,
+   "lon": -1.0663533,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "4294650XH6049S",
+   "lat": 38.0162976,
+   "lon": -1.1301229,
+   "code": "RBA",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "3072805XH7027S",
+   "lat": 37.9945685,
+   "lon": -1.0316438,
+   "code": "ET",
+   "cat": "nonBuildable",
+   "why": "calificación \"ET\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9747611XH6094N",
+   "lat": 37.9714597,
+   "lon": -1.0693184,
+   "code": "DE",
+   "cat": "nonBuildable",
+   "why": "calificación \"DE\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "3876708XH6037N",
+   "lat": 37.9990016,
+   "lon": -1.1404031,
+   "code": "RR",
+   "cat": "refusal-delegated",
+   "why": "calificacion-remitida — Arts. 5.24.5.1 / 5.24.6",
+   "inherited": null
+  },
+  {
+   "ref": "8066008XH5076N",
+   "lat": 37.991538,
+   "lon": -1.2022298,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "9844508XH6094S",
+   "lat": 37.9690946,
+   "lon": -1.0680714,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "0617701XH7101N",
+   "lat": 38.0353956,
+   "lon": -1.0564133,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "6584706XH6068S",
+   "lat": 38.0062768,
+   "lon": -1.1034954,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6361101XH5066S",
+   "lat": 37.9876931,
+   "lon": -1.2214976,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "9115207XH5081N",
+   "lat": 37.9457394,
+   "lon": -1.1925324,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6585711XH6068N",
+   "lat": 38.0073852,
+   "lon": -1.1037083,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "7498802XG5979N",
+   "lat": 37.9305519,
+   "lon": -1.2111048,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "3836207XH6033N",
+   "lat": 37.9636936,
+   "lon": -1.1366812,
+   "code": "RD1",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "4734201XH7143S",
+   "lat": 38.0502396,
+   "lon": -1.0099057,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "4231204XH6043S",
+   "lat": 37.9600868,
+   "lon": -1.1308443,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1656101XH6015N",
+   "lat": 37.9820861,
+   "lon": -1.1611531,
+   "code": "EH",
+   "cat": "nonBuildable",
+   "why": "calificación \"EH\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6451309XH6065S",
+   "lat": 37.9766129,
+   "lon": -1.1068132,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "7921518XH6172S",
+   "lat": 38.0405076,
+   "lon": -1.0948948,
+   "code": "RR",
+   "cat": "refusal-delegated",
+   "why": "calificacion-remitida — Arts. 5.24.5.1 / 5.24.6",
+   "inherited": null
+  },
+  {
+   "ref": "4029502XH7132N",
+   "lat": 38.044964,
+   "lon": -1.0183599,
+   "code": "RM",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "7629028XH6072N",
+   "lat": 37.95566,
+   "lon": -1.0929708,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "3437701XH6033N",
+   "lat": 37.9644353,
+   "lon": -1.1400175,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "1687525XH6018N",
+   "lat": 38.0102343,
+   "lon": -1.1599695,
+   "code": "RM",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "8175302XH6087N",
+   "lat": 37.9984116,
+   "lon": -1.0866406,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "2911512XH6021S",
+   "lat": 37.9406274,
+   "lon": -1.1473918,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "0259320XH6005N",
+   "lat": 37.9854998,
+   "lon": -1.1754599,
+   "code": "RL",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "7830624XG6973S",
+   "lat": 37.867861,
+   "lon": -1.0933669,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "8041807XH6183N",
+   "lat": 38.0558201,
+   "lon": -1.0834026,
+   "code": "DE",
+   "cat": "nonBuildable",
+   "why": "calificación \"DE\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5333601XH6153S",
+   "lat": 38.0509589,
+   "lon": -1.1164602,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "2790111XH7029S",
+   "lat": 38.0118028,
+   "lon": -1.0336803,
+   "code": "DE",
+   "cat": "nonBuildable",
+   "why": "calificación \"DE\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9070506XH5097S",
+   "lat": 37.9955542,
+   "lon": -1.1894814,
+   "code": "RJ",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "4492423XH6049S",
+   "lat": 38.0161863,
+   "lon": -1.1254396,
+   "code": "ED",
+   "cat": "nonBuildable",
+   "why": "calificación \"ED\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "2798305XH6029N",
+   "lat": 38.0202478,
+   "lon": -1.1458316,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6687501XH6068N",
+   "lat": 38.0094502,
+   "lon": -1.1025335,
+   "code": "TC",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "2177902XH6027N",
+   "lat": 38.0009748,
+   "lon": -1.154659,
+   "code": "EW",
+   "cat": "nonBuildable",
+   "why": "calificación \"EW\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "2492601XH6029S",
+   "lat": 38.0144389,
+   "lon": -1.1510063,
+   "code": "RR",
+   "cat": "refusal-delegated",
+   "why": "calificacion-remitida — Arts. 5.24.5.1 / 5.24.6",
+   "inherited": null
+  },
+  {
+   "ref": "4367405XH6046N",
+   "lat": 37.9913696,
+   "lon": -1.1300051,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "2932503XH6023S",
+   "lat": 37.9604818,
+   "lon": -1.1458908,
+   "code": "MX",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "9606601XH6190N",
+   "lat": 38.0258534,
+   "lon": -1.0680666,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "6142602XH6064S",
+   "lat": 37.968733,
+   "lon": -1.1095009,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "1155809XH7015N",
+   "lat": 37.9791822,
+   "lon": -1.0538087,
+   "code": "RC",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "4515203XH6041N",
+   "lat": 37.944629,
+   "lon": -1.1285653,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "5285302XH6058N",
+   "lat": 38.0081398,
+   "lon": -1.1193093,
+   "code": "RX",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "0761111XH7006S",
+   "lat": 37.9839776,
+   "lon": -1.0566645,
+   "code": "FV",
+   "cat": "nonBuildable",
+   "why": "calificación \"FV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "4008505XH6030N",
+   "lat": 37.9380586,
+   "lon": -1.1349017,
+   "code": "RG",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "1889406XH6018N",
+   "lat": 38.0114515,
+   "lon": -1.1570113,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "4850714XH6044N",
+   "lat": 37.9757147,
+   "lon": -1.1252094,
+   "code": "RM2",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "4824225XH5042N",
+   "lat": 37.9556148,
+   "lon": -1.2374427,
+   "code": "EF",
+   "cat": "nonBuildable",
+   "why": "calificación \"EF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5247321XH6054N",
+   "lat": 37.9737909,
+   "lon": -1.1204993,
+   "code": "RX",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "6681206XH6068S",
+   "lat": 38.0040219,
+   "lon": -1.1033221,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7134005XH6173S",
+   "lat": 38.0517616,
+   "lon": -1.0967235,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1649201XH6014N",
+   "lat": 37.9759134,
+   "lon": -1.1611873,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5656761XH5065N",
+   "lat": 37.9844511,
+   "lon": -1.2237449,
+   "code": "ALCANTARILLA",
+   "cat": "nonBuildable",
+   "why": "calificación \"ALCANTARILLA\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9486014XH6098N",
+   "lat": 38.0074839,
+   "lon": -1.0719581,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "4420102XH7141N",
+   "lat": 38.0371176,
+   "lon": -1.01357,
+   "code": "EH",
+   "cat": "nonBuildable",
+   "why": "calificación \"EH\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7385714XG6878N",
+   "lat": 37.8254443,
+   "lon": -1.0986625,
+   "code": "DE",
+   "cat": "nonBuildable",
+   "why": "calificación \"DE\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "4352710XH6045S",
+   "lat": 37.9778987,
+   "lon": -1.1305925,
+   "code": "MC",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "5772004XH6057S",
+   "lat": 37.9947323,
+   "lon": -1.1140642,
+   "code": "VD",
+   "cat": "nonBuildable",
+   "why": "calificación \"VD\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1810304XH6011S",
+   "lat": 37.9409579,
+   "lon": -1.1596311,
+   "code": "RM",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "9486005XH6098N",
+   "lat": 38.0072653,
+   "lon": -1.0710014,
+   "code": "RM",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "3005003XH6020S",
+   "lat": 37.935529,
+   "lon": -1.1466571,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "4009701XG7940N",
+   "lat": 37.8473528,
+   "lon": -1.0225887,
+   "code": "RD",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "5513609XH6051S",
+   "lat": 37.9420375,
+   "lon": -1.1183443,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "5288510XH6058N",
+   "lat": 38.0098115,
+   "lon": -1.1188734,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7109304XH6160N",
+   "lat": 38.0263666,
+   "lon": -1.1000167,
+   "code": "RF",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "7697305XG5979N",
+   "lat": 37.9294897,
+   "lon": -1.2072684,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "0750701XH7005S",
+   "lat": 37.9748845,
+   "lon": -1.0568795,
+   "code": "FV",
+   "cat": "nonBuildable",
+   "why": "calificación \"FV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5488705XH7058N",
+   "lat": 38.0078199,
+   "lon": -1.0040839,
+   "code": "DE",
+   "cat": "nonBuildable",
+   "why": "calificación \"DE\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1555103XH6015N",
+   "lat": 37.981075,
+   "lon": -1.1621562,
+   "code": "EH",
+   "cat": "nonBuildable",
+   "why": "calificación \"EH\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "8526011XH6182N",
+   "lat": 38.0432648,
+   "lon": -1.0806532,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "4483114XH6048S",
+   "lat": 38.0068783,
+   "lon": -1.1287039,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "0044186XG8904S",
+   "lat": 37.8746249,
+   "lon": -0.9527546,
+   "code": "NF",
+   "cat": "nonBuildable",
+   "why": "calificación \"NF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "3985602XH6038N",
+   "lat": 38.0073692,
+   "lon": -1.1340968,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "8633901XH6083S",
+   "lat": 37.9622088,
+   "lon": -1.0800083,
+   "code": "RB",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "8102712XH5080S",
+   "lat": 37.9339697,
+   "lon": -1.2028701,
+   "code": "RR",
+   "cat": "refusal-delegated",
+   "why": "calificacion-remitida — Arts. 5.24.5.1 / 5.24.6",
+   "inherited": null
+  },
+  {
+   "ref": "1054701XH7015S",
+   "lat": 37.9787461,
+   "lon": -1.0539469,
+   "code": "RC",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "3510703XH6031S",
+   "lat": 37.9404331,
+   "lon": -1.140559,
+   "code": "RC",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "5087537XH6058N",
+   "lat": 38.0117099,
+   "lon": -1.1210373,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "4347716XH6044N",
+   "lat": 37.9733833,
+   "lon": -1.130571,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "9925711XH5092N",
+   "lat": 37.9559754,
+   "lon": -1.1823547,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "3760605XH6036S",
+   "lat": 37.9852991,
+   "lon": -1.137016,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "4411907XH6141S",
+   "lat": 38.0310826,
+   "lon": -1.1275362,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "7729308XH6072N",
+   "lat": 37.9565441,
+   "lon": -1.0917741,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "5141009XH6054S",
+   "lat": 37.9675979,
+   "lon": -1.1219341,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "3531105XH6033S",
+   "lat": 37.9592556,
+   "lon": -1.1398586,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "3352823XH6035S",
+   "lat": 37.9778641,
+   "lon": -1.1388527,
+   "code": "VE",
+   "cat": "nonBuildable",
+   "why": "calificación \"VE\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7160007XG5975N",
+   "lat": 37.8948239,
+   "lon": -1.213535,
+   "code": "NF",
+   "cat": "nonBuildable",
+   "why": "calificación \"NF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9455901XH5095N",
+   "lat": 37.981647,
+   "lon": -1.1855393,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "2811207XG7921S",
+   "lat": 37.8494449,
+   "lon": -1.0372259,
+   "code": "RJ",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "3352806XH6035S",
+   "lat": 37.9782502,
+   "lon": -1.1422907,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5611812XH6051S",
+   "lat": 37.9407277,
+   "lon": -1.1175535,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "2090605XH6028N",
+   "lat": 38.012249,
+   "lon": -1.1552778,
+   "code": "RM",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "1686102XH6018N",
+   "lat": 38.0091784,
+   "lon": -1.1600455,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "6752308XH6065S",
+   "lat": 37.9786477,
+   "lon": -1.1029871,
+   "code": "RD1",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "9903401XH6090S",
+   "lat": 38.0234527,
+   "lon": -1.0651551,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "4906504XG7940N",
+   "lat": 37.8448552,
+   "lon": -1.0124091,
+   "code": "EW",
+   "cat": "nonBuildable",
+   "why": "calificación \"EW\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1609110XH6010N",
+   "lat": 37.9392896,
+   "lon": -1.162264,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "8552703XH5085S",
+   "lat": 37.9791431,
+   "lon": -1.1957923,
+   "code": "ALCANTARILLA",
+   "cat": "nonBuildable",
+   "why": "calificación \"ALCANTARILLA\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "7413809XH5071S",
+   "lat": 37.9439107,
+   "lon": -1.2076488,
+   "code": "GP",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "2218802XH7121N",
+   "lat": 38.0359691,
+   "lon": -1.0385911,
+   "code": "RD1",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "1200203XH6010S",
+   "lat": 37.931919,
+   "lon": -1.1667565,
+   "code": "RX",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "7201826XH6170S",
+   "lat": 38.0218197,
+   "lon": -1.0967895,
+   "code": "VM",
+   "cat": "nonBuildable",
+   "why": "calificación \"VM\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "8462020XH5086S",
+   "lat": 37.9876166,
+   "lon": -1.1969458,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6457212XH7065N",
+   "lat": 37.9793817,
+   "lon": -0.9929312,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "4671506XH6047S",
+   "lat": 37.9944722,
+   "lon": -1.1267429,
+   "code": "RM2",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "4492420XH6049N",
+   "lat": 38.0166106,
+   "lon": -1.1257028,
+   "code": "RBA",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "6317406XH6061N",
+   "lat": 37.9455627,
+   "lon": -1.1080701,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "8938308XH6083N",
+   "lat": 37.9669463,
+   "lon": -1.0767964,
+   "code": "RD",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "1302801XH6010S",
+   "lat": 37.9334084,
+   "lon": -1.1660264,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "0856610XH6005N",
+   "lat": 37.9825799,
+   "lon": -1.168863,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "4613801XH6041S",
+   "lat": 37.9435986,
+   "lon": -1.1285342,
+   "code": "FV",
+   "cat": "nonBuildable",
+   "why": "calificación \"FV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5303904XH6150S",
+   "lat": 38.0238837,
+   "lon": -1.1173078,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "4534017XH6043S",
+   "lat": 37.9617316,
+   "lon": -1.1285544,
+   "code": "RD1",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "000600600XH60D",
+   "lat": 37.9705893,
+   "lon": -1.1168035,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "0246412XH7004N",
+   "lat": 37.9731032,
+   "lon": -1.0623475,
+   "code": "RU",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "1560303XH7016S",
+   "lat": 37.9837577,
+   "lon": -1.0475963,
+   "code": "RM",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "1988765XH6018N",
+   "lat": 38.0102948,
+   "lon": -1.1567886,
+   "code": "RES",
+   "cat": "nonBuildable",
+   "why": "calificación \"RES\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5202712XH6150S",
+   "lat": 38.0229076,
+   "lon": -1.118971,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "1982501XH7018S",
+   "lat": 38.0041,
+   "lon": -1.0422775,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "7730809XH6073S",
+   "lat": 37.9577516,
+   "lon": -1.0923642,
+   "code": "RC",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "1390801XH6019S",
+   "lat": 38.0128545,
+   "lon": -1.163679,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "3359301XH6036S",
+   "lat": 37.9855269,
+   "lon": -1.1412352,
+   "code": "VD",
+   "cat": "nonBuildable",
+   "why": "calificación \"VD\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1342701XH6014S",
+   "lat": 37.9694976,
+   "lon": -1.1640003,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "5777102XH6057N",
+   "lat": 38.0008709,
+   "lon": -1.1137488,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "9551408XH6095S",
+   "lat": 37.9758185,
+   "lon": -1.0705923,
+   "code": "ET",
+   "cat": "nonBuildable",
+   "why": "calificación \"ET\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9685015XH6098N",
+   "lat": 38.0062452,
+   "lon": -1.0700408,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "0606204XH6000N",
+   "lat": 37.9372391,
+   "lon": -1.1733833,
+   "code": "RM",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "3898910XH6039N",
+   "lat": 38.0196715,
+   "lon": -1.1345431,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "5363604XH6056S",
+   "lat": 37.9876402,
+   "lon": -1.1180806,
+   "code": "RS",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "1905207XH6010S",
+   "lat": 37.9358584,
+   "lon": -1.1584384,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "8338013XH6083N",
+   "lat": 37.9654543,
+   "lon": -1.0861596,
+   "code": "RL",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "1985606XG6818S",
+   "lat": 37.8271556,
+   "lon": -1.1625122,
+   "code": "NF",
+   "cat": "nonBuildable",
+   "why": "calificación \"NF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "3033710XH6023S",
+   "lat": 37.9608886,
+   "lon": -1.146035,
+   "code": "MX",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "9404401XH6190S",
+   "lat": 38.0243842,
+   "lon": -1.070643,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "000800600XH50A",
+   "lat": 37.9506154,
+   "lon": -1.2694383,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "4713610XH7141S",
+   "lat": 38.0308039,
+   "lon": -1.0091215,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "2091701XH7029S",
+   "lat": 38.0116193,
+   "lon": -1.0410231,
+   "code": "RD1",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "5783316XH6058S",
+   "lat": 38.006488,
+   "lon": -1.1134804,
+   "code": "DE",
+   "cat": "nonBuildable",
+   "why": "calificación \"DE\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9831701XH5093S",
+   "lat": 37.9597016,
+   "lon": -1.1810637,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5612001XH6051S",
+   "lat": 37.9413757,
+   "lon": -1.1166265,
+   "code": "FV",
+   "cat": "nonBuildable",
+   "why": "calificación \"FV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9932903XH5093S",
+   "lat": 37.9607772,
+   "lon": -1.1804163,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "D34M039000034M",
+   "lat": 37.9219871,
+   "lon": -1.2338241,
+   "code": "UC",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "6078812XH6068S",
+   "lat": 38.001844,
+   "lon": -1.1101171,
+   "code": "RX",
+   "cat": "refusal-delegated",
+   "why": "calificacion-generica — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.4 / 6.5.1",
+   "inherited": null
+  },
+  {
+   "ref": "9277703XG6897N",
+   "lat": 37.8189099,
+   "lon": -1.0795064,
+   "code": "RD1",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "002500300XG59G",
+   "lat": 37.9111626,
+   "lon": -1.2480383,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no in-force calificación polygon at point (viario / espacio libre / equipamiento)",
+   "inherited": null
+  },
+  {
+   "ref": "7018309XH6171N",
+   "lat": 38.0380716,
+   "lon": -1.0981625,
+   "code": "RR",
+   "cat": "refusal-delegated",
+   "why": "calificacion-remitida — Arts. 5.24.5.1 / 5.24.6",
+   "inherited": null
+  },
+  {
+   "ref": "6769701XH6066N",
+   "lat": 37.9927097,
+   "lon": -1.1025013,
+   "code": "RC",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "0715337XH6001S",
+   "lat": 37.9444252,
+   "lon": -1.1719911,
+   "code": "ED",
+   "cat": "nonBuildable",
+   "why": "calificación \"ED\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1196806XH7019N",
+   "lat": 38.0158905,
+   "lon": -1.0519879,
+   "code": "RM",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "2681021XH6028S",
+   "lat": 38.0036541,
+   "lon": -1.1497013,
+   "code": "EW",
+   "cat": "nonBuildable",
+   "why": "calificación \"EW\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1111504XH6111S",
+   "lat": 38.0321014,
+   "lon": -1.1649183,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9567302XH6096N",
+   "lat": 37.9909518,
+   "lon": -1.0708301,
+   "code": "EH",
+   "cat": "nonBuildable",
+   "why": "calificación \"EH\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "8745407XH5084N",
+   "lat": 37.9727611,
+   "lon": -1.1932672,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9849701XH6094N",
+   "lat": 37.9738368,
+   "lon": -1.068458,
+   "code": "ET",
+   "cat": "nonBuildable",
+   "why": "calificación \"ET\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "2187909XH6028N",
+   "lat": 38.0101316,
+   "lon": -1.1544159,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "9177701XG6897N",
+   "lat": 37.8192711,
+   "lon": -1.0806477,
+   "code": "RD1",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "001200300XH60D",
+   "lat": 37.9662858,
+   "lon": -1.1111214,
+   "code": "EW",
+   "cat": "nonBuildable",
+   "why": "calificación \"EW\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "4889702XH7048N",
+   "lat": 38.0097783,
+   "lon": -1.010435,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1209607XH6010N",
+   "lat": 37.9387385,
+   "lon": -1.1670505,
+   "code": "RM",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "4714709XH6041S",
+   "lat": 37.9452626,
+   "lon": -1.1237181,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "0840346XH6004S",
+   "lat": 37.9676012,
+   "lon": -1.1698246,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "2289405XH6028N",
+   "lat": 38.0115327,
+   "lon": -1.1522874,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "4534043XH6043S",
+   "lat": 37.9612501,
+   "lon": -1.1294127,
+   "code": "RD1",
+   "cat": "refusal-delegated",
+   "why": "ambito-delegante — Arts. 5.24 / 5.25.1 / 5.25.2 / 5.26.2 / 6.6.2",
+   "inherited": null
+  },
+  {
+   "ref": "7712602XH6171S",
+   "lat": 38.0324846,
+   "lon": -1.090137,
+   "code": "NF",
+   "cat": "nonBuildable",
+   "why": "calificación \"NF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9446508XH6094N",
+   "lat": 37.9712525,
+   "lon": -1.0720855,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "2895402XH6029N",
+   "lat": 38.0169909,
+   "lon": -1.145637,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "1655201XH6015N",
+   "lat": 37.981444,
+   "lon": -1.161103,
+   "code": "EH",
+   "cat": "nonBuildable",
+   "why": "calificación \"EH\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5778706XH6057N",
+   "lat": 38.0015815,
+   "lon": -1.114078,
+   "code": "RM",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "2636401XH6023N",
+   "lat": 37.9645187,
+   "lon": -1.1498268,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "7053201XH6075N",
+   "lat": 37.9788222,
+   "lon": -1.0997177,
+   "code": "RF",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "5733101XH5053S",
+   "lat": 37.9629936,
+   "lon": -1.2293905,
+   "code": "EA",
+   "cat": "nonBuildable",
+   "why": "calificación \"EA\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "3898038XH6039N",
+   "lat": 38.0191148,
+   "lon": -1.1347449,
+   "code": "RC",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "0406425XH6000N",
+   "lat": 37.9380778,
+   "lon": -1.1752558,
+   "code": "IC",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "2267501XH7026N",
+   "lat": 37.9895375,
+   "lon": -1.0403313,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "4007505XH6140N",
+   "lat": 38.02903,
+   "lon": -1.1298604,
+   "code": "EV",
+   "cat": "nonBuildable",
+   "why": "calificación \"EV\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "1511602XH6011S",
+   "lat": 37.9411999,
+   "lon": -1.163572,
+   "code": "RC",
+   "cat": "envelope",
+   "why": "constructed street width (SIG-MU2)",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "1685835XH6018N",
+   "lat": 38.0086886,
+   "lon": -1.1606082,
+   "code": "DE",
+   "cat": "nonBuildable",
+   "why": "calificación \"DE\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5330710XH6053S",
+   "lat": 37.9583217,
+   "lon": -1.1186477,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no in-force calificación polygon at point (viario / espacio libre / equipamiento)",
+   "inherited": null
+  },
+  {
+   "ref": "7483602XG5878S",
+   "lat": 37.8267849,
+   "lon": -1.2118394,
+   "code": "NF",
+   "cat": "nonBuildable",
+   "why": "calificación \"NF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "0954006XH7005S",
+   "lat": 37.9783283,
+   "lon": -1.0555107,
+   "code": "RM",
+   "cat": "no-pack",
+   "why": "band-edge 44.6 % / no-opposing-frontage 3.4 % — ADR-0287 requires the refusal",
+   "inherited": "mur-street"
+  },
+  {
+   "ref": "0037401XH6003N",
+   "lat": 37.9657265,
+   "lon": -1.1794288,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "9245701XH5084N",
+   "lat": 37.9726873,
+   "lon": -1.1880757,
+   "code": "EW",
+   "cat": "nonBuildable",
+   "why": "calificación \"EW\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "6458108XH5065N",
+   "lat": 37.9846599,
+   "lon": -1.2201951,
+   "code": "ALCANTARILLA",
+   "cat": "nonBuildable",
+   "why": "calificación \"ALCANTARILLA\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "9885402XH6098N",
+   "lat": 38.0072118,
+   "lon": -1.0666732,
+   "code": "RL",
+   "cat": "envelope",
+   "why": "packed + PGOU-direct calificación (SIG-MU1)",
+   "inherited": null
+  },
+  {
+   "ref": "4541101XH6044S",
+   "lat": 37.9679219,
+   "lon": -1.1285622,
+   "code": "RD1",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "3647802XH6034N",
+   "lat": 37.9738234,
+   "lon": -1.1384836,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "5329501XG7952N",
+   "lat": 37.8676183,
+   "lon": -1.0062952,
+   "code": "RD1",
+   "cat": "refusal-delegated",
+   "why": "clase-urbanizable — Art. 6.2.2.3",
+   "inherited": null
+  },
+  {
+   "ref": "0523702XH6002S",
+   "lat": 37.9516567,
+   "lon": -1.1751919,
+   "code": "EG",
+   "cat": "nonBuildable",
+   "why": "calificación \"EG\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
+   "inherited": null
+  },
+  {
+   "ref": "8588601XH6088N",
+   "lat": 38.0098258,
+   "lon": -1.0808674,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no in-force calificación polygon at point (viario / espacio libre / equipamiento)",
+   "inherited": null
+  },
+  {
+   "ref": "8013020XH6171S",
+   "lat": 38.0315319,
+   "lon": -1.0873835,
+   "code": "NF",
+   "cat": "nonBuildable",
+   "why": "calificación \"NF\" is not one of the 34 buildable families (classify.mjs BUILDABLE_FAMILIES)",
    "inherited": null
   }
  ]

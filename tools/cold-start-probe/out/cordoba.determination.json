@@ -3,38 +3,38 @@
  "city": "cordoba",
  "ine": "14021",
  "service": "geoserver.pgou.coacordoba.org WFS coaco:ordenanzas (453 polygons prefetched in EPSG:4326) · field link",
- "measuredAt": "2026-08-02T09:11:19.922Z",
+ "measuredAt": "2026-08-02T09:24:59.431Z",
  "seed": 20260802,
- "requested": 10,
+ "requested": 400,
  "parcelPopulationTotal": 50530,
  "parcelPopulationUrban": 39639,
- "sampled": 10,
- "assessed": 10,
+ "sampled": 400,
+ "assessed": 400,
  "transportFailures": {},
  "counts": {
   "envelope": 0,
-  "refusal-terminal": 0,
+  "refusal-terminal": 1,
   "refusal-delegated": 0,
   "refusal-external": 0,
-  "no-pack": 10,
+  "no-pack": 399,
   "nonBuildable": 0
  },
- "denominatorPrivateBuildableParcels": 10,
+ "denominatorPrivateBuildableParcels": 400,
  "pct": {
   "ofBuildable": {
    "envelope": 0,
-   "refusalTerminal": 0,
+   "refusalTerminal": 0.0025,
    "refusalDelegated": 0,
    "refusalExternal": 0,
-   "refusalTotal": 0,
-   "determination": 0,
-   "noPack": 1
+   "refusalTotal": 0.0025,
+   "determination": 0.0025,
+   "noPack": 0.9975
   },
   "ofAllUrbanParcels": {
    "envelope": 0,
-   "refusalTotal": 0,
-   "determination": 0,
-   "noPack": 1,
+   "refusalTotal": 0.0025,
+   "determination": 0.0025,
+   "noPack": 0.9975,
    "nonBuildable": 0
   }
  },
@@ -125,6 +125,3516 @@
    "ref": "8213401UH3081S",
    "lat": 37.9425641,
    "lon": -4.842451,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3301801UH5030S",
+   "lat": 37.9348764,
+   "lon": -4.6700535,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6553101UG4965S",
+   "lat": 37.8905856,
+   "lon": -4.7467615,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4030643UG4943S",
+   "lat": 37.8698865,
+   "lon": -4.7737386,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "5114412UG3951S",
+   "lat": 37.8576683,
+   "lon": -4.8756722,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3749215UG4934N",
+   "lat": 37.8865161,
+   "lon": -4.7784779,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5554919UG4955S",
+   "lat": 37.891488,
+   "lon": -4.7575921,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4132407UG4943S",
+   "lat": 37.8718652,
+   "lon": -4.7727864,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "2643603UG4924S",
+   "lat": 37.8812403,
+   "lon": -4.7896161,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0122913UG4902S",
+   "lat": 37.8631735,
+   "lon": -4.8175326,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5996602UG4959N",
+   "lat": 37.9299315,
+   "lon": -4.7541549,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5748401UG4954N",
+   "lat": 37.8866096,
+   "lon": -4.7552397,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4125823UG4942N",
+   "lat": 37.865327,
+   "lon": -4.7721625,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "5355610UG4955N",
+   "lat": 37.8919312,
+   "lon": -4.7598002,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9260101UG4996S",
+   "lat": 37.8972689,
+   "lon": -4.7170042,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3863214UG4936S",
+   "lat": 37.8992655,
+   "lon": -4.7768163,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0210818UH4001S",
+   "lat": 37.9397407,
+   "lon": -4.8195049,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6732051UG3963S",
+   "lat": 37.8705641,
+   "lon": -4.8552151,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2214011UH5021S",
+   "lat": 37.9434094,
+   "lon": -4.6823931,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2248910UG4924N",
+   "lat": 37.88556,
+   "lon": -4.7926698,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4030411UG4943S",
+   "lat": 37.869962,
+   "lon": -4.7742088,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "4356931UG4945N",
+   "lat": 37.8935894,
+   "lon": -4.7708168,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3872917UG4937S",
+   "lat": 37.907309,
+   "lon": -4.7774557,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "7230919UG3973S",
+   "lat": 37.8682294,
+   "lon": -4.8523741,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6098409UG4969N",
+   "lat": 37.9315849,
+   "lon": -4.752898,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1657303UG4915N",
+   "lat": 37.8938232,
+   "lon": -4.8025898,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6699501UG3869N",
+   "lat": 37.8404846,
+   "lon": -4.8573967,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2072401UG4927S",
+   "lat": 37.9086555,
+   "lon": -4.7989825,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2983310UG4928S",
+   "lat": 37.9176751,
+   "lon": -4.7885924,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1107705UG3910N",
+   "lat": 37.845692,
+   "lon": -4.9228633,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4559238UG4945N",
+   "lat": 37.896221,
+   "lon": -4.7697103,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "7940805UH3074S",
+   "lat": 37.9676826,
+   "lon": -4.8460951,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3944903UG4934S",
+   "lat": 37.8822726,
+   "lon": -4.7757936,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3352603UG4935S",
+   "lat": 37.8897533,
+   "lon": -4.7817661,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9954312UG4995S",
+   "lat": 37.8931584,
+   "lon": -4.7061589,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5455514UG4955N",
+   "lat": 37.8926716,
+   "lon": -4.7587888,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2796923UG5929N",
+   "lat": 37.931554,
+   "lon": -4.6736465,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1810108UG3911S",
+   "lat": 37.8493388,
+   "lon": -4.9128525,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4668107UG3946N",
+   "lat": 37.8999846,
+   "lon": -4.8803413,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1890514UG4919S",
+   "lat": 37.9254374,
+   "lon": -4.8004165,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4299203UG3849N",
+   "lat": 37.8397774,
+   "lon": -4.8856198,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1144507UG4914S",
+   "lat": 37.8816889,
+   "lon": -4.8072145,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2588215UG4928N",
+   "lat": 37.9206731,
+   "lon": -4.7923529,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3551906UG4935S",
+   "lat": 37.8879403,
+   "lon": -4.7807115,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3274911UG4937S",
+   "lat": 37.9085041,
+   "lon": -4.7816041,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1304204UG3910S",
+   "lat": 37.8440159,
+   "lon": -4.9183887,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2005406UG4920N",
+   "lat": 37.847566,
+   "lon": -4.7961171,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4852801UG4945S",
+   "lat": 37.8892834,
+   "lon": -4.7656384,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6153312UG4965S",
+   "lat": 37.8909709,
+   "lon": -4.7513373,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3935714UG4933N",
+   "lat": 37.8734994,
+   "lon": -4.7747627,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "8606206UH3080N",
+   "lat": 37.9372079,
+   "lon": -4.8383949,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "8635141UH3083N",
+   "lat": 37.9633241,
+   "lon": -4.8426682,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1892914UG5919S",
+   "lat": 37.9288223,
+   "lon": -4.6821821,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9684314UG5998S",
+   "lat": 37.9248995,
+   "lon": -4.5959623,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0390808UG3909S",
+   "lat": 37.8308801,
+   "lon": -4.9292045,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4034512UG4943S",
+   "lat": 37.8735037,
+   "lon": -4.7741807,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "3832509UG4933S",
+   "lat": 37.8714479,
+   "lon": -4.7760517,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "6378215UG5567N",
+   "lat": 37.7355455,
+   "lon": -4.6315765,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "7834913UG3973S",
+   "lat": 37.8724909,
+   "lon": -4.844098,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4459416UG4945N",
+   "lat": 37.8957852,
+   "lon": -4.7697644,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3358110UG4935N",
+   "lat": 37.893627,
+   "lon": -4.7844648,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC2.pdf",
+   "cat": "no-pack",
+   "why": "Manzana Cerrada — per-street-width height table (Art. 13.5.3.1) unresolved",
+   "inherited": null
+  },
+  {
+   "ref": "4940613UG4944S",
+   "lat": 37.8795012,
+   "lon": -4.7645095,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3995039UG3939N",
+   "lat": 37.9259912,
+   "lon": -4.8914424,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4910906UG3941S",
+   "lat": 37.8496177,
+   "lon": -4.8777761,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1373109UG4917S",
+   "lat": 37.9074809,
+   "lon": -4.8050272,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5054808UG4955S",
+   "lat": 37.8914482,
+   "lon": -4.7634784,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3673624UG4937S",
+   "lat": 37.9081024,
+   "lon": -4.7798496,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9812704UG2991S",
+   "lat": 37.8508703,
+   "lon": -4.933512,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4133710UG3942N",
+   "lat": 37.8726243,
+   "lon": -4.8842327,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4650930UG4945S",
+   "lat": 37.8885818,
+   "lon": -4.7681626,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3774905UG4937S",
+   "lat": 37.9094465,
+   "lon": -4.7781839,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2445208UG4924N",
+   "lat": 37.8828464,
+   "lon": -4.7928904,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "8932706UH3083S",
+   "lat": 37.9622788,
+   "lon": -4.8345464,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4544910UG4944S",
+   "lat": 37.8828335,
+   "lon": -4.7684019,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1190608UG4919S",
+   "lat": 37.9231152,
+   "lon": -4.8076184,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3364402UG4936S",
+   "lat": 37.9005688,
+   "lon": -4.7828383,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "000250100UG39B",
+   "lat": 37.8445501,
+   "lon": -4.8217349,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3622702UG4932S",
+   "lat": 37.8617312,
+   "lon": -4.7765697,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5949419UG4954N",
+   "lat": 37.8875116,
+   "lon": -4.7529713,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2451901UG4925S",
+   "lat": 37.889034,
+   "lon": -4.7929808,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_UAD1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "1406115UG3910N",
+   "lat": 37.8460408,
+   "lon": -4.9170276,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2982106UG4928S",
+   "lat": 37.915645,
+   "lon": -4.7875168,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9851234UG4995S",
+   "lat": 37.8906349,
+   "lon": -4.7057449,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5598015UG4959N",
+   "lat": 37.9315082,
+   "lon": -4.7588416,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9110905UH3091S",
+   "lat": 37.9399146,
+   "lon": -4.8300485,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3932721UG4933S",
+   "lat": 37.870983,
+   "lon": -4.7753568,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "0219052UG4901N",
+   "lat": 37.8601925,
+   "lon": -4.8176928,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9614210UG3991S",
+   "lat": 37.8550084,
+   "lon": -4.8226438,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3827701UG4932N",
+   "lat": 37.8665945,
+   "lon": -4.7761187,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "5694144UG4959S",
+   "lat": 37.9352831,
+   "lon": -4.7521092,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "7032903UG3973S",
+   "lat": 37.8702195,
+   "lon": -4.853777,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3888810UG5939N",
+   "lat": 37.9323781,
+   "lon": -4.6654233,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4973018UH4047S",
+   "lat": 37.998305,
+   "lon": -4.7674098,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9562803UG4996S",
+   "lat": 37.9013772,
+   "lon": -4.7103184,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3311207UH5031S",
+   "lat": 37.9427759,
+   "lon": -4.6696087,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3471723UG4937S",
+   "lat": 37.9063516,
+   "lon": -4.781978,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "8241802UG3984S",
+   "lat": 37.8784034,
+   "lon": -4.8400734,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1210209UG3911S",
+   "lat": 37.8502401,
+   "lon": -4.9201006,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3844454UG4934S",
+   "lat": 37.8819492,
+   "lon": -4.7768384,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3673618UG4937S",
+   "lat": 37.9079685,
+   "lon": -4.7796292,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3745904UG4934N",
+   "lat": 37.8834344,
+   "lon": -4.7776327,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2305211UH5020N",
+   "lat": 37.9397375,
+   "lon": -4.682377,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3702401UH5030S",
+   "lat": 37.9365915,
+   "lon": -4.6657581,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2716902UG4921N",
+   "lat": 37.8562346,
+   "lon": -4.7882903,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3430218UH5033S",
+   "lat": 37.9350322,
+   "lon": -4.6671786,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "8738115UH3083N",
+   "lat": 37.9651465,
+   "lon": -4.8368546,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4054718UG4945S",
+   "lat": 37.8913109,
+   "lon": -4.774478,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6477111UG5567N",
+   "lat": 37.7338473,
+   "lon": -4.6305663,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3650507UG4935S",
+   "lat": 37.8879364,
+   "lon": -4.7786125,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4226422UG4942N",
+   "lat": 37.8661251,
+   "lon": -4.7729675,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "1845216UG4914N",
+   "lat": 37.8831815,
+   "lon": -4.8001445,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4503802UG3940S",
+   "lat": 37.8437586,
+   "lon": -4.8810541,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4551327UG4945S",
+   "lat": 37.8891991,
+   "lon": -4.7697743,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3300508UH5030S",
+   "lat": 37.9359974,
+   "lon": -4.6668192,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4063406UG4946S",
+   "lat": 37.8999835,
+   "lon": -4.7741502,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3527814UG4932N",
+   "lat": 37.8667892,
+   "lon": -4.7802345,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "7563501UG4976S",
+   "lat": 37.9016937,
+   "lon": -4.7330317,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9114101UH3091S",
+   "lat": 37.9434755,
+   "lon": -4.8313588,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6031505UG3963S",
+   "lat": 37.869626,
+   "lon": -4.8650558,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3245408UG4934N",
+   "lat": 37.8830661,
+   "lon": -4.7834901,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "8636904UG3983N",
+   "lat": 37.8743928,
+   "lon": -4.8353284,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5292405UG5959S",
+   "lat": 37.9292549,
+   "lon": -4.6514908,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4153921UG4945S",
+   "lat": 37.8904215,
+   "lon": -4.7730791,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1306607UG3910N",
+   "lat": 37.8459282,
+   "lon": -4.9179112,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3352602UG4935S",
+   "lat": 37.8898779,
+   "lon": -4.7817665,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "56941C1UG4959S",
+   "lat": 37.9336227,
+   "lon": -4.7596054,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6052707UG4965S",
+   "lat": 37.8896979,
+   "lon": -4.7515309,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3238111UG4933N",
+   "lat": 37.8763719,
+   "lon": -4.7838394,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5551215UG4955S",
+   "lat": 37.8887784,
+   "lon": -4.7586083,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4227729UG4942N",
+   "lat": 37.8664278,
+   "lon": -4.7730502,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "4449615UG4944N",
+   "lat": 37.8870057,
+   "lon": -4.7702586,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5547707UG4954N",
+   "lat": 37.8855066,
+   "lon": -4.7572308,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "7607903UH3070N",
+   "lat": 37.9380638,
+   "lon": -4.8483389,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4657606UG4945N",
+   "lat": 37.8936145,
+   "lon": -4.767309,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2108512UH5020N",
+   "lat": 37.9510691,
+   "lon": -4.6808876,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4130915UG4943S",
+   "lat": 37.8691704,
+   "lon": -4.7726303,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "2816903UG3921N",
+   "lat": 37.8542809,
+   "lon": -4.902731,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1890556UG4919S",
+   "lat": 37.9248419,
+   "lon": -4.8011994,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4215307UG3941N",
+   "lat": 37.8549,
+   "lon": -4.8869694,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0146705UG4904N",
+   "lat": 37.8829389,
+   "lon": -4.8184706,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6000107UH4060S",
+   "lat": 37.9325198,
+   "lon": -4.7533948,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5853103UG4955S",
+   "lat": 37.8904815,
+   "lon": -4.7539501,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4653719UG4945S",
+   "lat": 37.8897614,
+   "lon": -4.7675637,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "7073028UG4977S",
+   "lat": 37.9108942,
+   "lon": -4.7395091,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3547302UG4934N",
+   "lat": 37.8856611,
+   "lon": -4.7804268,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6939221UG3963N",
+   "lat": 37.8776049,
+   "lon": -4.854111,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2553301UG4925S",
+   "lat": 37.8907256,
+   "lon": -4.792308,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "4134212UG4943S",
+   "lat": 37.8732018,
+   "lon": -4.7740156,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "0961425UG4906S",
+   "lat": 37.8974116,
+   "lon": -4.8098582,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0567610UG4806N",
+   "lat": 37.8136818,
+   "lon": -4.8122928,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4143416UG4944S",
+   "lat": 37.8822312,
+   "lon": -4.773159,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0210803UH4001S",
+   "lat": 37.9404031,
+   "lon": -4.8206728,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0202965UG3900S",
+   "lat": 37.8403011,
+   "lon": -4.9341982,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4329338UG4942N",
+   "lat": 37.8699035,
+   "lon": -4.7715709,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "5364104UH4056S",
+   "lat": 37.9924984,
+   "lon": -4.7590356,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2699011UG3929N",
+   "lat": 37.9296777,
+   "lon": -4.9070967,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4133915UG4943S",
+   "lat": 37.8722225,
+   "lon": -4.7737748,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "6379020UG5567N",
+   "lat": 37.7352731,
+   "lon": -4.6321448,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "7639301UG3973N",
+   "lat": 37.8765478,
+   "lon": -4.8489487,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3929325UG4932N",
+   "lat": 37.8696047,
+   "lon": -4.7759454,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_EP.pdf",
+   "cat": "refusal-terminal",
+   "why": "Elemento protegido Art. 13.3 / Uso Comercial Art. 13.12.2",
+   "inherited": null
+  },
+  {
+   "ref": "1105320UG3910N",
+   "lat": 37.8447089,
+   "lon": -4.9203436,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4726907UG3942N",
+   "lat": 37.8648098,
+   "lon": -4.879998,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "7714032UG3971S",
+   "lat": 37.8553072,
+   "lon": -4.8445699,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6019103UG3961N",
+   "lat": 37.8597829,
+   "lon": -4.8639455,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3863716UG4936S",
+   "lat": 37.8989248,
+   "lon": -4.7769011,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4746201UG4944N",
+   "lat": 37.8843329,
+   "lon": -4.7670906,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0960408UG4906S",
+   "lat": 37.8964921,
+   "lon": -4.809595,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3524309UG4932S",
+   "lat": 37.8643804,
+   "lon": -4.7804171,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "1646812UG4914N",
+   "lat": 37.8836173,
+   "lon": -4.8017923,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9809514UG2990N",
+   "lat": 37.8492437,
+   "lon": -4.935003,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2368712UG4926N",
+   "lat": 37.9033404,
+   "lon": -4.7949375,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4027618UG4942N",
+   "lat": 37.8671707,
+   "lon": -4.774137,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "4215303UG3941N",
+   "lat": 37.8559255,
+   "lon": -4.8837606,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6377106UG5567N",
+   "lat": 37.7344024,
+   "lon": -4.6315462,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4713916UG3941S",
+   "lat": 37.8524294,
+   "lon": -4.8833184,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1625301UG4912N",
+   "lat": 37.8669043,
+   "lon": -4.800655,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4037832UG4943N",
+   "lat": 37.8754769,
+   "lon": -4.7746653,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_PTC.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "6412101UG3961S",
+   "lat": 37.8509656,
+   "lon": -4.8604804,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9614225UG3991S",
+   "lat": 37.8554131,
+   "lon": -4.8230174,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4231236UG3943S",
+   "lat": 37.8673887,
+   "lon": -4.8857762,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0719105UG4901N",
+   "lat": 37.8612529,
+   "lon": -4.8120019,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0758113UG4805N",
+   "lat": 37.8074772,
+   "lon": -4.8082885,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4126717UG4942N",
+   "lat": 37.8660668,
+   "lon": -4.7722886,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "3525911UG4932N",
+   "lat": 37.8647594,
+   "lon": -4.7801496,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "3498007UG3939N",
+   "lat": 37.9285828,
+   "lon": -4.8953825,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3648108UG4934N",
+   "lat": 37.8851077,
+   "lon": -4.7796596,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1277415UG4917N",
+   "lat": 37.9123253,
+   "lon": -4.8070132,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5093817UG4959S",
+   "lat": 37.9325717,
+   "lon": -4.7618643,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "10009059230105",
+   "lat": 37.8788038,
+   "lon": -4.8459557,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2346104UG4924N",
+   "lat": 37.8836248,
+   "lon": -4.7938896,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4425917UG4942N",
+   "lat": 37.8655225,
+   "lon": -4.7700675,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "2595923UG5929S",
+   "lat": 37.9296891,
+   "lon": -4.6757443,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2789544UG4928N",
+   "lat": 37.9213926,
+   "lon": -4.7901883,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1777201UG4917N",
+   "lat": 37.9123491,
+   "lon": -4.8012755,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4226723UG4942N",
+   "lat": 37.865608,
+   "lon": -4.7721242,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "3759302UG4935N",
+   "lat": 37.8967673,
+   "lon": -4.7777655,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4677058UH4047N",
+   "lat": 38.0031896,
+   "lon": -4.7717519,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "7031512UG3973S",
+   "lat": 37.8695574,
+   "lon": -4.8535008,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6152112UG4965S",
+   "lat": 37.8901372,
+   "lon": -4.7503954,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0245402UG4904N",
+   "lat": 37.883096,
+   "lon": -4.8172713,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2586833UG4928N",
+   "lat": 37.9226408,
+   "lon": -4.7928048,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3747818UG4934N",
+   "lat": 37.8847185,
+   "lon": -4.7777432,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1111156UG3911S",
+   "lat": 37.847666,
+   "lon": -4.9204457,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6152817UG4965S",
+   "lat": 37.8895011,
+   "lon": -4.750735,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "7031519UG3973S",
+   "lat": 37.8692422,
+   "lon": -4.8532014,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5651909UG4955S",
+   "lat": 37.8888175,
+   "lon": -4.7561492,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1684537UG4918S",
+   "lat": 37.9175389,
+   "lon": -4.8031734,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4376012UH4047N",
+   "lat": 38.0002074,
+   "lon": -4.772185,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0445708UG4904N",
+   "lat": 37.8822393,
+   "lon": -4.8152166,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0101024UG3900S",
+   "lat": 37.8434334,
+   "lon": -4.9258573,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1046312UG4914N",
+   "lat": 37.8841186,
+   "lon": -4.8092919,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "8611810UH3081S",
+   "lat": 37.9423588,
+   "lon": -4.8361859,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3353707UG4935S",
+   "lat": 37.8902478,
+   "lon": -4.7826549,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1210219UG3911S",
+   "lat": 37.8495945,
+   "lon": -4.9198723,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5999115UG4959N",
+   "lat": 37.9317308,
+   "lon": -4.7544689,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4224803UG4942S",
+   "lat": 37.8644252,
+   "lon": -4.771937,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "4029737UG4942N",
+   "lat": 37.8689489,
+   "lon": -4.7733496,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "0445704UG4904N",
+   "lat": 37.8822668,
+   "lon": -4.8149311,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "8643105UH3084S",
+   "lat": 37.9703072,
+   "lon": -4.8393317,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6031501UG3963S",
+   "lat": 37.8700261,
+   "lon": -4.8653237,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2108101UG3910N",
+   "lat": 37.847017,
+   "lon": -4.9091409,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4329305UG4942N",
+   "lat": 37.870039,
+   "lon": -4.7714977,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "4299101UG3849N",
+   "lat": 37.8421571,
+   "lon": -4.8834615,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2917709UG3921N",
+   "lat": 37.8559401,
+   "lon": -4.8995246,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2445415UG4924N",
+   "lat": 37.882697,
+   "lon": -4.7923556,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1160416UG4916S",
+   "lat": 37.8965372,
+   "lon": -4.8079989,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4444302UG4944S",
+   "lat": 37.8835953,
+   "lon": -4.7693947,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4227711UG4942N",
+   "lat": 37.8665599,
+   "lon": -4.7723892,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "3773904UG4937S",
+   "lat": 37.9085108,
+   "lon": -4.7784612,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2997804UG5929N",
+   "lat": 37.9333607,
+   "lon": -4.6748264,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2405303UH3020N",
+   "lat": 37.935163,
+   "lon": -4.9074323,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4652919UG4945S",
+   "lat": 37.8897117,
+   "lon": -4.7683279,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4747202UG4944N",
+   "lat": 37.8857816,
+   "lon": -4.7683387,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1951518UG4915S",
+   "lat": 37.8885588,
+   "lon": -4.7988433,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_UAD1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "5039201UG4953N",
+   "lat": 37.8781418,
+   "lon": -4.7628201,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4125714UG4942N",
+   "lat": 37.8652716,
+   "lon": -4.7715399,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "3150505UG4935N",
+   "lat": 37.8876579,
+   "lon": -4.7831826,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "7833625UG3973S",
+   "lat": 37.871077,
+   "lon": -4.8451227,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3945712UG4934N",
+   "lat": 37.8828392,
+   "lon": -4.7749417,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2724103UH5022S",
+   "lat": 37.9536603,
+   "lon": -4.6772838,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3842313UG4934S",
+   "lat": 37.8811466,
+   "lon": -4.7767325,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4411005UG3941S",
+   "lat": 37.8518854,
+   "lon": -4.8826581,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5551116UG4955S",
+   "lat": 37.8885502,
+   "lon": -4.7583234,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6484102UG4968S",
+   "lat": 37.9254626,
+   "lon": -4.7463193,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4049536UG4944N",
+   "lat": 37.8876434,
+   "lon": -4.7746713,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3846305UG4934N",
+   "lat": 37.8842833,
+   "lon": -4.7775194,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5650608UG4955S",
+   "lat": 37.887922,
+   "lon": -4.7555859,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2313013UH5021S",
+   "lat": 37.9446254,
+   "lon": -4.6816348,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5663101UG4956S",
+   "lat": 37.8997379,
+   "lon": -4.7572108,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1352501UG4915S",
+   "lat": 37.8901664,
+   "lon": -4.8053301,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "1770602UG4917S",
+   "lat": 37.9046477,
+   "lon": -4.7995239,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1845206UG4914N",
+   "lat": 37.8830973,
+   "lon": -4.7999831,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0592715UG3809S",
+   "lat": 37.8326459,
+   "lon": -4.9266136,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3624604UG4932S",
+   "lat": 37.864404,
+   "lon": -4.778549,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "1911319UG3911S",
+   "lat": 37.8501272,
+   "lon": -4.9107531,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5662201UG4956S",
+   "lat": 37.898769,
+   "lon": -4.7577412,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3642715UG4934S",
+   "lat": 37.8796698,
+   "lon": -4.7781462,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0550104UG4905S",
+   "lat": 37.8866622,
+   "lon": -4.8147743,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6732029UG3963S",
+   "lat": 37.8714782,
+   "lon": -4.8553043,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5999611UG4959N",
+   "lat": 37.9320108,
+   "lon": -4.7537712,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0309820UG3901S",
+   "lat": 37.8482371,
+   "lon": -4.9309254,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4646203UG4944N",
+   "lat": 37.8836808,
+   "lon": -4.7681135,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5694117UG4959S",
+   "lat": 37.9347346,
+   "lon": -4.7568641,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3360910UG4936S",
+   "lat": 37.8965603,
+   "lon": -4.7831161,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "7761233UG4976S",
+   "lat": 37.8980111,
+   "lon": -4.731713,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9873054UG3997S",
+   "lat": 37.9065307,
+   "lon": -4.8217886,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5650614UG4955S",
+   "lat": 37.8879005,
+   "lon": -4.7559295,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2956906UG4925N",
+   "lat": 37.8927518,
+   "lon": -4.7870255,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC2.pdf",
+   "cat": "no-pack",
+   "why": "Manzana Cerrada — per-street-width height table (Art. 13.5.3.1) unresolved",
+   "inherited": null
+  },
+  {
+   "ref": "0782612UG4908S",
+   "lat": 37.9155451,
+   "lon": -4.814302,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3596302UG5939N",
+   "lat": 37.9308102,
+   "lon": -4.6647669,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5051209UG4955S",
+   "lat": 37.8891215,
+   "lon": -4.7639186,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4407602UG3940N",
+   "lat": 37.8459758,
+   "lon": -4.8830665,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0961428UG4906S",
+   "lat": 37.8973151,
+   "lon": -4.8102696,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6524504UG3962S",
+   "lat": 37.8614597,
+   "lon": -4.8582094,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "8553524UG4985S",
+   "lat": 37.892192,
+   "lon": -4.7203484,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0141203UG4904S",
+   "lat": 37.8784835,
+   "lon": -4.8195874,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "7129807UG3972N",
+   "lat": 37.8672636,
+   "lon": -4.8525795,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0812908UG3901S",
+   "lat": 37.8511024,
+   "lon": -4.9261418,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4324101UG4942S",
+   "lat": 37.8645907,
+   "lon": -4.7713745,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "3366823UG4936N",
+   "lat": 37.9020495,
+   "lon": -4.7824363,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4343322UG4944S",
+   "lat": 37.8816072,
+   "lon": -4.7718427,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0591406UG3809S",
+   "lat": 37.8324489,
+   "lon": -4.926892,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0947506UG4904N",
+   "lat": 37.8848458,
+   "lon": -4.809695,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0961421UG4906S",
+   "lat": 37.897418,
+   "lon": -4.8107059,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3863711UG4936S",
+   "lat": 37.899168,
+   "lon": -4.7773394,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4357706UG4945N",
+   "lat": 37.893947,
+   "lon": -4.7707993,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4956603UG4945N",
+   "lat": 37.8930233,
+   "lon": -4.7645923,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3247202UG4934N",
+   "lat": 37.8851422,
+   "lon": -4.7840407,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1204614UG3910S",
+   "lat": 37.8441904,
+   "lon": -4.9188415,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3661701UG4936S",
+   "lat": 37.8973517,
+   "lon": -4.7789628,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3834904UG4933S",
+   "lat": 37.8745098,
+   "lon": -4.7754887,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "4425104UG4942N",
+   "lat": 37.8666156,
+   "lon": -4.7710955,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "2616334UG4921N",
+   "lat": 37.8543276,
+   "lon": -4.7917255,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "7329801UG3972N",
+   "lat": 37.8691295,
+   "lon": -4.849476,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5249501UG4954N",
+   "lat": 37.8897247,
+   "lon": -4.7601906,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5451515UG4955S",
+   "lat": 37.8890715,
+   "lon": -4.7587382,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3352615UG4935S",
+   "lat": 37.8892863,
+   "lon": -4.7824961,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3342516UG4934S",
+   "lat": 37.8799595,
+   "lon": -4.7812549,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9598407UG2899N",
+   "lat": 37.8386311,
+   "lon": -4.9378778,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4048528UG4944N",
+   "lat": 37.8865753,
+   "lon": -4.7742106,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1206904UG3910N",
+   "lat": 37.8454108,
+   "lon": -4.9190024,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5357234UG4955N",
+   "lat": 37.8943424,
+   "lon": -4.7601942,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3596001UG3939N",
+   "lat": 37.9268376,
+   "lon": -4.8965559,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3704708UG3930S",
+   "lat": 37.8452209,
+   "lon": -4.8900458,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2586815UG4928N",
+   "lat": 37.9232375,
+   "lon": -4.7917054,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2215101UH4021N",
+   "lat": 37.9451988,
+   "lon": -4.7966367,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2642312UG4924S",
+   "lat": 37.8801346,
+   "lon": -4.7912163,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3451612UG4935S",
+   "lat": 37.8883894,
+   "lon": -4.7822337,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9848314UG4994N",
+   "lat": 37.8889049,
+   "lon": -4.7063636,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4062123UG4946S",
+   "lat": 37.8984005,
+   "lon": -4.7753553,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3876901UG4937N",
+   "lat": 37.9109361,
+   "lon": -4.777623,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4559201UG4945N",
+   "lat": 37.8967369,
+   "lon": -4.7698479,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "8871016UG4987S",
+   "lat": 37.9099953,
+   "lon": -4.7160928,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0843508UG4904S",
+   "lat": 37.8813381,
+   "lon": -4.8108194,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5651719UG4955S",
+   "lat": 37.8883041,
+   "lon": -4.7570431,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4147366UG4944N",
+   "lat": 37.8858385,
+   "lon": -4.7749032,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1555904UG4915N",
+   "lat": 37.8921699,
+   "lon": -4.8035124,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "8507601UH3080N",
+   "lat": 37.9377447,
+   "lon": -4.839842,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4554111UG4945S",
+   "lat": 37.8915547,
+   "lon": -4.7696091,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2435201UG4923N",
+   "lat": 37.8739545,
+   "lon": -4.7925176,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2789563UG4928N",
+   "lat": 37.9248635,
+   "lon": -4.7948914,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0363204UG4806S",
+   "lat": 37.8106589,
+   "lon": -4.8134091,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4677034UH4047N",
+   "lat": 38.0002786,
+   "lon": -4.7699606,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1476106UG4917N",
+   "lat": 37.9097902,
+   "lon": -4.8051906,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3495024UG3939N",
+   "lat": 37.9253244,
+   "lon": -4.888945,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5455520UG4955N",
+   "lat": 37.8929954,
+   "lon": -4.7583683,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2647915UG4924N",
+   "lat": 37.8848708,
+   "lon": -4.7901137,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2234501UG4923S",
+   "lat": 37.8735267,
+   "lon": -4.7948604,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1555701UG5915N",
+   "lat": 37.8934752,
+   "lon": -4.6895433,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9964305UG3996S",
+   "lat": 37.8994722,
+   "lon": -4.8203618,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4229531UG4942N",
+   "lat": 37.8698354,
+   "lon": -4.7719104,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "002500100UG57G",
+   "lat": 37.732255,
+   "lon": -4.6608199,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1062612UG4916S",
+   "lat": 37.8980937,
+   "lon": -4.8086581,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "8553510UG4985S",
+   "lat": 37.8929534,
+   "lon": -4.7219609,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1304517UG3910S",
+   "lat": 37.8443125,
+   "lon": -4.91753,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1555604UG4915N",
+   "lat": 37.8922555,
+   "lon": -4.803121,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_OA1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "4291503UG5949S",
+   "lat": 37.9273671,
+   "lon": -4.6566864,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "6458401UG4965N",
+   "lat": 37.8955551,
+   "lon": -4.7476332,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1372902UG4917S",
+   "lat": 37.9068575,
+   "lon": -4.8051283,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "8539915UH3084S",
+   "lat": 37.9666812,
+   "lon": -4.8398814,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2646115UG4924N",
+   "lat": 37.8834907,
+   "lon": -4.7908133,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4030426UG4943S",
+   "lat": 37.8698453,
+   "lon": -4.7748867,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "3059610UG4935N",
+   "lat": 37.895253,
+   "lon": -4.7855439,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_MC2.pdf",
+   "cat": "no-pack",
+   "why": "Manzana Cerrada — per-street-width height table (Art. 13.5.3.1) unresolved",
+   "inherited": null
+  },
+  {
+   "ref": "4126119UG4942N",
+   "lat": 37.865348,
+   "lon": -4.7735978,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "6198201UG4969N",
+   "lat": 37.9318144,
+   "lon": -4.7518221,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4254216UG4945S",
+   "lat": 37.8910081,
+   "lon": -4.773833,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1846707UG4914N",
+   "lat": 37.8829128,
+   "lon": -4.7992258,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4324706UG4942S",
+   "lat": 37.8644713,
+   "lon": -4.7706446,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "3271707UG4937S",
+   "lat": 37.906449,
+   "lon": -4.784335,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "7460505UG4976S",
+   "lat": 37.8976314,
+   "lon": -4.735858,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1162217UG4916S",
+   "lat": 37.8979616,
+   "lon": -4.80831,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1974416UG4917S",
+   "lat": 37.9097114,
+   "lon": -4.7979374,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "0963023UG4906S",
+   "lat": 37.8985677,
+   "lon": -4.8097893,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4452308UG4945S",
+   "lat": 37.8898588,
+   "lon": -4.7706867,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2796915UG5929N",
+   "lat": 37.9319117,
+   "lon": -4.6737708,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3546906UG4934N",
+   "lat": 37.8833538,
+   "lon": -4.7801082,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1082508UG4918S",
+   "lat": 37.9160402,
+   "lon": -4.8102369,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2586808UG4928N",
+   "lat": 37.9232171,
+   "lon": -4.7934473,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2646112UG4924N",
+   "lat": 37.8834849,
+   "lon": -4.7903964,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1473205UG4917S",
+   "lat": 37.9075674,
+   "lon": -4.8044291,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2540522UG4924S",
+   "lat": 37.8788501,
+   "lon": -4.7912296,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4046815UG4944N",
+   "lat": 37.8835398,
+   "lon": -4.7735641,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2586886UG4928N",
+   "lat": 37.9226572,
+   "lon": -4.7934618,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3976401UG4937N",
+   "lat": 37.9115814,
+   "lon": -4.776292,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9769004UG3996N",
+   "lat": 37.9052706,
+   "lon": -4.8214187,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1546128UG4914N",
+   "lat": 37.8834609,
+   "lon": -4.8035474,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4226712UG4942N",
+   "lat": 37.8657909,
+   "lon": -4.7715097,
+   "code": "http://visor.pgou.coacordoba.org/doc/ordenanzas/O_CTP1.pdf",
+   "cat": "no-pack",
+   "why": "pilot ordenanza packed, but the signature (blocker 2) and resolver call (blocker 3) are both outstanding — nothing renders",
+   "inherited": null
+  },
+  {
+   "ref": "3963142UG4936S",
+   "lat": 37.8982142,
+   "lon": -4.7767896,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "8511109UG3981S",
+   "lat": 37.8501489,
+   "lon": -4.835988,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2275701UG4927N",
+   "lat": 37.9090335,
+   "lon": -4.7949959,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "002400100UH30B",
+   "lat": 37.9329878,
+   "lon": -4.8428036,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5100902UH4050S",
+   "lat": 37.9329457,
+   "lon": -4.763726,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5562204UG4956S",
+   "lat": 37.8987727,
+   "lon": -4.7583869,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "5976912UG5757N",
+   "lat": 37.7329974,
+   "lon": -4.6365874,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3373817UG4937S",
+   "lat": 37.9093254,
+   "lon": -4.7844309,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1194802UG4919S",
+   "lat": 37.9257989,
+   "lon": -4.8090675,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2364412UG4926S",
+   "lat": 37.9000943,
+   "lon": -4.7945459,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "8368643UG4986N",
+   "lat": 37.9040631,
+   "lon": -4.7249968,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2517309UG4921N",
+   "lat": 37.8548016,
+   "lon": -4.7930875,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3944274UG4934S",
+   "lat": 37.8825564,
+   "lon": -4.7758741,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3751302UG4935S",
+   "lat": 37.8889628,
+   "lon": -4.7789789,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2983307UG4928S",
+   "lat": 37.9172056,
+   "lon": -4.788394,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2999003UG3929N",
+   "lat": 37.9309024,
+   "lon": -4.9015525,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "3430226UH5033S",
+   "lat": 37.9356411,
+   "lon": -4.6661272,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "9812716UG2991S",
+   "lat": 37.8497185,
+   "lon": -4.9369918,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1606501UG3910N",
+   "lat": 37.8461227,
+   "lon": -4.9145005,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2078409UG4927N",
+   "lat": 37.9132006,
+   "lon": -4.7984608,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "4357414UG4945N",
+   "lat": 37.8945214,
+   "lon": -4.7715507,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "8237701UG3983N",
+   "lat": 37.8748942,
+   "lon": -4.8400086,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "1306613UG3910N",
+   "lat": 37.84599,
+   "lon": -4.917676,
+   "code": null,
+   "cat": "no-pack",
+   "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",
+   "inherited": null
+  },
+  {
+   "ref": "2109901UG4920N",
+   "lat": 37.8503856,
+   "lon": -4.7953472,
    "code": null,
    "cat": "no-pack",
    "why": "outside the 2-district COACo pilot — no machine-readable calificación exists (blocker 22)",

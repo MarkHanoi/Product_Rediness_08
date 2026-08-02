@@ -1,0 +1,80 @@
+{
+ "generatedAt": "2026-08-02T09:26:35.938Z",
+ "rows": [
+  {
+   "city": "barcelona",
+   "n": 353,
+   "moved": 11,
+   "envelope": 0.7620396600566572,
+   "refusalTerminal": 0.0453257790368272,
+   "refusalDelegated": 0.141643059490085,
+   "refusal": 0.18696883852691218,
+   "determination": 0.9490084985835694,
+   "noPack": 0.05099150141643059,
+   "ci": [
+    0.9208438725192615,
+    0.9675054679163827
+   ]
+  },
+  {
+   "city": "murcia",
+   "n": 233,
+   "moved": 0,
+   "envelope": 0.3261802575107296,
+   "refusalTerminal": 0,
+   "refusalDelegated": 0.5236051502145923,
+   "refusal": 0.5236051502145923,
+   "determination": 0.8497854077253219,
+   "noPack": 0.15021459227467812,
+   "ci": [
+    0.7982567385318186,
+    0.8899669519009431
+   ]
+  },
+  {
+   "city": "madrid",
+   "n": 287,
+   "moved": 0,
+   "envelope": 0.1672473867595819,
+   "refusalTerminal": 0.3693379790940767,
+   "refusalDelegated": 0,
+   "refusal": 0.3693379790940767,
+   "determination": 0.5365853658536586,
+   "noPack": 0.4634146341463415,
+   "ci": [
+    0.47878986609959595,
+    0.5934143852867257
+   ]
+  },
+  {
+   "city": "valencia",
+   "n": 325,
+   "moved": 8,
+   "envelope": 0,
+   "refusalTerminal": 0,
+   "refusalDelegated": 0.3569230769230769,
+   "refusal": 0.3569230769230769,
+   "determination": 0.3569230769230769,
+   "noPack": 0.6430769230769231,
+   "ci": [
+    0.306785247887532,
+    0.4104038182160266
+   ]
+  },
+  {
+   "city": "cordoba",
+   "n": 400,
+   "moved": 0,
+   "envelope": 0,
+   "refusalTerminal": 0.0025,
+   "refusalDelegated": 0,
+   "refusal": 0.0025,
+   "determination": 0.0025,
+   "noPack": 0.9975,
+   "ci": [
+    0.00044143642943440895,
+    0.014023640967247855
+   ]
+  }
+ ]
+}

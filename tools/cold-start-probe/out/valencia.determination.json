@@ -3,39 +3,39 @@
  "city": "valencia",
  "ine": "46250",
  "service": "geoportal.valencia.es OPENDATA/UrbanismoEInfraestructuras/MapServer/231 · fields clase, califi, origen",
- "measuredAt": "2026-08-02T09:11:18.571Z",
+ "measuredAt": "2026-08-02T09:24:58.018Z",
  "seed": 20260802,
- "requested": 10,
+ "requested": 400,
  "parcelPopulationTotal": 56374,
  "parcelPopulationUrban": 40665,
- "sampled": 10,
- "assessed": 10,
+ "sampled": 400,
+ "assessed": 400,
  "transportFailures": {},
  "counts": {
   "envelope": 0,
   "refusal-terminal": 0,
-  "refusal-delegated": 3,
+  "refusal-delegated": 124,
   "refusal-external": 0,
-  "no-pack": 6,
-  "nonBuildable": 1
+  "no-pack": 201,
+  "nonBuildable": 75
  },
- "denominatorPrivateBuildableParcels": 9,
+ "denominatorPrivateBuildableParcels": 325,
  "pct": {
   "ofBuildable": {
    "envelope": 0,
    "refusalTerminal": 0,
-   "refusalDelegated": 0.3333333333333333,
+   "refusalDelegated": 0.38153846153846155,
    "refusalExternal": 0,
-   "refusalTotal": 0.3333333333333333,
-   "determination": 0.3333333333333333,
-   "noPack": 0.6666666666666666
+   "refusalTotal": 0.38153846153846155,
+   "determination": 0.38153846153846155,
+   "noPack": 0.6184615384615385
   },
   "ofAllUrbanParcels": {
    "envelope": 0,
-   "refusalTotal": 0.3,
-   "determination": 0.3,
-   "noPack": 0.6,
-   "nonBuildable": 0.1
+   "refusalTotal": 0.31,
+   "determination": 0.31,
+   "noPack": 0.5025,
+   "nonBuildable": 0.1875
   }
  },
  "inheritedApplied": {},
@@ -126,6 +126,3516 @@
    "lat": 39.4495077,
    "lon": -0.3290069,
    "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5394204YJ2659E",
+   "lat": 39.4439688,
+   "lon": -0.3825046,
+   "code": "SUP|E/RD|MP1570",
+   "cat": "nonBuildable",
+   "why": "clase=SUP califi=E/RD — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "0304101YJ3700G",
+   "lat": 39.4340858,
+   "lon": -0.3217281,
+   "code": "SNU|MAR|PE1210",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=MAR — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "8123717YJ2782C",
+   "lat": 39.4684898,
+   "lon": -0.3497126,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4890310YJ2749B",
+   "lat": 39.5300028,
+   "lon": -0.3856954,
+   "code": "SU|NHT|RI1509",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=NHT — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "4610806YJ2741B",
+   "lat": 39.4578082,
+   "lon": -0.3904365,
+   "code": "SU|ENS|ED1237",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=ED1237)",
+   "inherited": null
+  },
+  {
+   "ref": "000901200YJ26H",
+   "lat": 39.442371,
+   "lon": -0.3474428,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "9404429YJ2790D",
+   "lat": 39.4512389,
+   "lon": -0.3339686,
+   "code": "SU|CHP|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4323802YJ2742C",
+   "lat": 39.4697974,
+   "lon": -0.3942104,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9524807YJ2792D",
+   "lat": 39.4693458,
+   "lon": -0.3333469,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "6009008YJ2760G",
+   "lat": 39.455895,
+   "lon": -0.3743317,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6021701YJ2752B",
+   "lat": 39.4669787,
+   "lon": -0.3745973,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "3200612YJ2830A",
+   "lat": 39.538949,
+   "lon": -0.4035471,
+   "code": "SU|NHT|RI1491",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=NHT — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "1456203YJ2715E",
+   "lat": 39.5004379,
+   "lon": -0.4256408,
+   "code": "SU|ENS|PE1574",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE1574)",
+   "inherited": null
+  },
+  {
+   "ref": "8718518YJ2781H",
+   "lat": 39.4633876,
+   "lon": -0.3422463,
+   "code": "SU|ENS|ED1335",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=ED1335)",
+   "inherited": null
+  },
+  {
+   "ref": "9502517YJ2790B",
+   "lat": 39.4489348,
+   "lon": -0.3331916,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "000306800YJ26H",
+   "lat": 39.4451799,
+   "lon": -0.3593891,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5477919YJ2757E",
+   "lat": 39.5170765,
+   "lon": -0.3783533,
+   "code": "SU|CHP|RI162",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI162)",
+   "inherited": null
+  },
+  {
+   "ref": "4152808YJ2745C",
+   "lat": 39.4957339,
+   "lon": -0.3953614,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5650305YJ2755B",
+   "lat": 39.493976,
+   "lon": -0.3766974,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5881911YJ2658B",
+   "lat": 39.4312976,
+   "lon": -0.3771763,
+   "code": "SU|RV|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=RV — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "9739405YJ2793H",
+   "lat": 39.4826066,
+   "lon": -0.3294414,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "1350004YJ3515A",
+   "lat": 39.3120893,
+   "lon": -0.3175798,
+   "code": "SU|CHP|RI1265",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI1265)",
+   "inherited": null
+  },
+  {
+   "ref": "6502503YJ2760D",
+   "lat": 39.4502275,
+   "lon": -0.3678386,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5476226YJ2757E",
+   "lat": 39.5166205,
+   "lon": -0.3793566,
+   "code": "SU|CHP|CRI1646",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=CRI1646)",
+   "inherited": null
+  },
+  {
+   "ref": "3922840YJ2732D",
+   "lat": 39.4694383,
+   "lon": -0.3989369,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "8821504YJ2782B",
+   "lat": 39.4663381,
+   "lon": -0.340018,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "8314101YJ2781C",
+   "lat": 39.4601257,
+   "lon": -0.3473929,
+   "code": "SUNP|RED|ED1388",
+   "cat": "nonBuildable",
+   "why": "clase=SUNP califi=RED — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "002404400YJ27B",
+   "lat": 39.4487091,
+   "lon": -0.3496591,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "4654102YJ2745D",
+   "lat": 39.4971016,
+   "lon": -0.3885388,
+   "code": "SUNP|UFA|PP1555",
+   "cat": "nonBuildable",
+   "why": "clase=SUNP califi=UFA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5247420YJ2754E",
+   "lat": 39.4909154,
+   "lon": -0.3812631,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "8132302YJ2783C",
+   "lat": 39.4768691,
+   "lon": -0.3482018,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6611602YJ2761B",
+   "lat": 39.4585192,
+   "lon": -0.3661012,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5334226YJ2753C",
+   "lat": 39.4792304,
+   "lon": -0.3819463,
+   "code": "SU|CV|PE2020",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=CV — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "9601909YJ2790B",
+   "lat": 39.4487951,
+   "lon": -0.3324977,
+   "code": "SU|UFA|RI1409",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI1409)",
+   "inherited": null
+  },
+  {
+   "ref": "6913010YJ2761D",
+   "lat": 39.459985,
+   "lon": -0.3634454,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5847411YJ2754F",
+   "lat": 39.4903176,
+   "lon": -0.374797,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5982608YJ2668C",
+   "lat": 39.432379,
+   "lon": -0.3751756,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9622306YJ2792B",
+   "lat": 39.4673274,
+   "lon": -0.3311623,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "7174190YJ2677E",
+   "lat": 39.4261629,
+   "lon": -0.3624917,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9170535YJ2697A",
+   "lat": 39.4202618,
+   "lon": -0.3399092,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5227308YJ2752G",
+   "lat": 39.4732679,
+   "lon": -0.3827115,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "6917510YJ2761F",
+   "lat": 39.4629494,
+   "lon": -0.3630815,
+   "code": "SU|ENS|PE1761",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE1761)",
+   "inherited": null
+  },
+  {
+   "ref": "4816502YJ3541F",
+   "lat": 39.2811907,
+   "lon": -0.2773873,
+   "code": "SU|EDA|PRI1834",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PRI1834)",
+   "inherited": null
+  },
+  {
+   "ref": "5061806YJ2756A",
+   "lat": 39.5033883,
+   "lon": -0.384,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6445708YJ2764E",
+   "lat": 39.4887072,
+   "lon": -0.3689549,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "3642212YJ3534B",
+   "lat": 39.3040529,
+   "lon": -0.2928485,
+   "code": "SU|EDA|PGOU PS3/5",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9719528YJ2791H",
+   "lat": 39.4637462,
+   "lon": -0.3304922,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "1458906YJ2715G",
+   "lat": 39.5020274,
+   "lon": -0.4256542,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4346513YJ2744E",
+   "lat": 39.4899863,
+   "lon": -0.3915722,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "8620822YJ2782B",
+   "lat": 39.4658991,
+   "lon": -0.3438695,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4894903YJ2649D",
+   "lat": 39.4432862,
+   "lon": -0.3878758,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6014919YJ2761C",
+   "lat": 39.4608497,
+   "lon": -0.3743378,
+   "code": "SU|ENS|PE1761",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE1761)",
+   "inherited": null
+  },
+  {
+   "ref": "000301300YJ26F",
+   "lat": 39.4236936,
+   "lon": -0.3601863,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "7341217YJ2774A",
+   "lat": 39.485158,
+   "lon": -0.3574835,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5333922YJ2753C",
+   "lat": 39.4782682,
+   "lon": -0.381274,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "5840716YJ2753H",
+   "lat": 39.4840833,
+   "lon": -0.3752652,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4407215YJ2740G",
+   "lat": 39.4554291,
+   "lon": -0.3926049,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9622901YJ2792D",
+   "lat": 39.4674335,
+   "lon": -0.3319623,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "9823704YJ2792D",
+   "lat": 39.4681388,
+   "lon": -0.3299484,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "4515211YJ2741F",
+   "lat": 39.4623638,
+   "lon": -0.3907582,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "000909500YJ26H",
+   "lat": 39.4389207,
+   "lon": -0.3489377,
+   "code": "SNU|GTR|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=GTR — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "9328203YJ2792G",
+   "lat": 39.4732372,
+   "lon": -0.3349896,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "3742201YJ2734D",
+   "lat": 39.4878551,
+   "lon": -0.4002827,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4649803YJ2744H",
+   "lat": 39.4934212,
+   "lon": -0.3893125,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9604841YJ2790D",
+   "lat": 39.4508654,
+   "lon": -0.3326851,
+   "code": "SU|CHP|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6445715YJ2764E",
+   "lat": 39.4892347,
+   "lon": -0.3695323,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "000804800YJ26H",
+   "lat": 39.440476,
+   "lon": -0.3521965,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "9525508YJ2792F",
+   "lat": 39.4699353,
+   "lon": -0.3325467,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "5922206YJ2752D",
+   "lat": 39.4686134,
+   "lon": -0.3743598,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "5604302YJ2750D",
+   "lat": 39.4524511,
+   "lon": -0.3783491,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4842313YJ2744D",
+   "lat": 39.4870343,
+   "lon": -0.386275,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6815111YJ2761F",
+   "lat": 39.4618299,
+   "lon": -0.3652369,
+   "code": "SU|ENS|PE1761",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE1761)",
+   "inherited": null
+  },
+  {
+   "ref": "6980311YJ2678A",
+   "lat": 39.4308481,
+   "lon": -0.3635624,
+   "code": "SU|NHT|RI1464",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=NHT — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5113921YJ2751C",
+   "lat": 39.4598012,
+   "lon": -0.3840796,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9524909YJ2792D",
+   "lat": 39.4693126,
+   "lon": -0.3326742,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "5543511YJ2754D",
+   "lat": 39.4872233,
+   "lon": -0.3780188,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9722910YJ2792D",
+   "lat": 39.4675071,
+   "lon": -0.3303605,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "7227408YJ2772E",
+   "lat": 39.4719988,
+   "lon": -0.3592539,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "8826501YJ2782F",
+   "lat": 39.4711423,
+   "lon": -0.3402458,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6210515YJ2761A",
+   "lat": 39.4572102,
+   "lon": -0.3714939,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4852703YJ2745B",
+   "lat": 39.4951732,
+   "lon": -0.3858868,
+   "code": "SUNP|UFA|PP1438",
+   "cat": "nonBuildable",
+   "why": "clase=SUNP califi=UFA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "4993706YJ2659C",
+   "lat": 39.442154,
+   "lon": -0.3867284,
+   "code": "SU|PRV|RI1733",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=PRV — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5831105YJ2753B",
+   "lat": 39.4761228,
+   "lon": -0.376002,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "6228109YJ2762G",
+   "lat": 39.4740587,
+   "lon": -0.3713834,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "3926308YJ2732F",
+   "lat": 39.4729838,
+   "lon": -0.3973498,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6230921YJ2763A",
+   "lat": 39.4753776,
+   "lon": -0.370853,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "6822713YJ2762B",
+   "lat": 39.4679212,
+   "lon": -0.3651373,
+   "code": "SU|ENS|PE1653",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE1653)",
+   "inherited": null
+  },
+  {
+   "ref": "4528210YJ2742G",
+   "lat": 39.4743464,
+   "lon": -0.3915419,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "7012914YJ2771A",
+   "lat": 39.4583479,
+   "lon": -0.3627728,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5430826YJ2752G",
+   "lat": 39.4751196,
+   "lon": -0.380043,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "9729108YJ2793B",
+   "lat": 39.4741787,
+   "lon": -0.3307928,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "1855902YJ2715F",
+   "lat": 39.499518,
+   "lon": -0.4210334,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "7145403YJ2774E",
+   "lat": 39.4887031,
+   "lon": -0.359539,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4925614YJ2742D",
+   "lat": 39.4702395,
+   "lon": -0.3866908,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "3918903YJ2731H",
+   "lat": 39.4654075,
+   "lon": -0.3981875,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5033612YJ2753C",
+   "lat": 39.4782136,
+   "lon": -0.3841752,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "1450204YJ3515A",
+   "lat": 39.3120952,
+   "lon": -0.3172164,
+   "code": "SU|CHP|RI1265",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI1265)",
+   "inherited": null
+  },
+  {
+   "ref": "6829123YJ2763B",
+   "lat": 39.4750803,
+   "lon": -0.3641088,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "2359425YJ2725G",
+   "lat": 39.5021184,
+   "lon": -0.4142206,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "001602000YJ27F",
+   "lat": 39.5008051,
+   "lon": -0.3827882,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "9629635YJ2792H",
+   "lat": 39.473019,
+   "lon": -0.3316476,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "001100500YJ36C",
+   "lat": 39.3918583,
+   "lon": -0.3302358,
+   "code": "SNU|PM|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PM — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "1255165YJ2715E",
+   "lat": 39.499907,
+   "lon": -0.4288278,
+   "code": "SU|PJL|MP2057",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=PJL — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5334601YJ2753C",
+   "lat": 39.4796761,
+   "lon": -0.3808251,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "9625309YJ2792F",
+   "lat": 39.4702653,
+   "lon": -0.3313447,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "4347304YJ2744G",
+   "lat": 39.4915809,
+   "lon": -0.3918991,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4006301YJ2740E",
+   "lat": 39.4551581,
+   "lon": -0.3971041,
+   "code": "SU|TER|PRI1878",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PRI1878)",
+   "inherited": null
+  },
+  {
+   "ref": "4831328YJ2743B",
+   "lat": 39.4766393,
+   "lon": -0.3855223,
+   "code": "SU|CHP2|PE2013",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2013)",
+   "inherited": null
+  },
+  {
+   "ref": "0125720YJ3702E",
+   "lat": 39.4695851,
+   "lon": -0.325737,
+   "code": "SU|ARP|PE2070",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=ARP — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "7723518YJ2772D",
+   "lat": 39.4682583,
+   "lon": -0.3535654,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5015903YJ3551E",
+   "lat": 39.2795677,
+   "lon": -0.2761465,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9616603YJ2791F",
+   "lat": 39.461608,
+   "lon": -0.3320414,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4409410YJ2740G",
+   "lat": 39.4571053,
+   "lon": -0.3927226,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5532107YJ2753B",
+   "lat": 39.4771794,
+   "lon": -0.3791642,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "0036317YJ3703E",
+   "lat": 39.4792439,
+   "lon": -0.3260961,
+   "code": "SU|ARU|MP1549",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=ARU — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "000410500YJ26H",
+   "lat": 39.4439668,
+   "lon": -0.3516614,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "9724313YJ2792F",
+   "lat": 39.4697721,
+   "lon": -0.3300105,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "9403401YJ2790C",
+   "lat": 39.4504316,
+   "lon": -0.3346347,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "8912801YJ2781D",
+   "lat": 39.4587043,
+   "lon": -0.3400768,
+   "code": "SU|TER|MP1836",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=MP1836)",
+   "inherited": null
+  },
+  {
+   "ref": "6213208YJ2761C",
+   "lat": 39.4600565,
+   "lon": -0.371757,
+   "code": "SU|ENS|MP2098A",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=MP2098A)",
+   "inherited": null
+  },
+  {
+   "ref": "4647304YJ2744H",
+   "lat": 39.4917764,
+   "lon": -0.3884379,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6981302YJ2668B",
+   "lat": 39.4313661,
+   "lon": -0.3641702,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "001001400YJ35A",
+   "lat": 39.2802698,
+   "lon": -0.279301,
+   "code": "SNU|GRV|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=GRV — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "9424909YJ2792C",
+   "lat": 39.4694412,
+   "lon": -0.3336682,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "4129001YJ2742G",
+   "lat": 39.4743472,
+   "lon": -0.3969329,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6514615YJ2761D",
+   "lat": 39.4607594,
+   "lon": -0.3684942,
+   "code": "SU|ENS|PE1761",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE1761)",
+   "inherited": null
+  },
+  {
+   "ref": "6515220YJ2761F",
+   "lat": 39.4616855,
+   "lon": -0.3678513,
+   "code": "SU|ENS|MP2098A",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=MP2098A)",
+   "inherited": null
+  },
+  {
+   "ref": "7011602YJ2771A",
+   "lat": 39.4577302,
+   "lon": -0.3619259,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "7828517YJ2772H",
+   "lat": 39.4730741,
+   "lon": -0.3522829,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4710821YJ2741B",
+   "lat": 39.4576338,
+   "lon": -0.3890667,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6014930YJ2761E",
+   "lat": 39.4616257,
+   "lon": -0.3738616,
+   "code": "SU|ENS|PE1761",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE1761)",
+   "inherited": null
+  },
+  {
+   "ref": "6011417YJ2761A",
+   "lat": 39.4587639,
+   "lon": -0.3736995,
+   "code": "SU|ENS|PE1761",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE1761)",
+   "inherited": null
+  },
+  {
+   "ref": "6819902YJ2761H",
+   "lat": 39.4658014,
+   "lon": -0.3642582,
+   "code": "SU|ENS|PE1761",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE1761)",
+   "inherited": null
+  },
+  {
+   "ref": "5419806YJ2751G",
+   "lat": 39.4656995,
+   "lon": -0.3807466,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5546923YJ2754F",
+   "lat": 39.4896739,
+   "lon": -0.3787643,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4011005YJ2741A",
+   "lat": 39.4588797,
+   "lon": -0.3973189,
+   "code": "SU|EDA|PRI1878",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PRI1878)",
+   "inherited": null
+  },
+  {
+   "ref": "6205713YJ2760C",
+   "lat": 39.4521142,
+   "lon": -0.371755,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "0026901YJ3702E",
+   "lat": 39.4701253,
+   "lon": -0.3271863,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "9517704YJ2791F",
+   "lat": 39.4628363,
+   "lon": -0.3334422,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5335343YJ2753E",
+   "lat": 39.4802939,
+   "lon": -0.3826061,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "2720601YJ2722B",
+   "lat": 39.4672515,
+   "lon": -0.4115885,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6808007YJ2760H",
+   "lat": 39.4551183,
+   "lon": -0.3653775,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4490504YJ2649A",
+   "lat": 39.440199,
+   "lon": -0.3929872,
+   "code": "SUP|PJL|RI1733",
+   "cat": "nonBuildable",
+   "why": "clase=SUP califi=PJL — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "7932210YJ2773D",
+   "lat": 39.4779709,
+   "lon": -0.3507026,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6033806YJ2763C",
+   "lat": 39.4779133,
+   "lon": -0.3734803,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "5228703YJ2752G",
+   "lat": 39.4737079,
+   "lon": -0.3821859,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "3314706YJ2731E",
+   "lat": 39.4624297,
+   "lon": -0.4061898,
+   "code": "SU|IND|PP158",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PP158)",
+   "inherited": null
+  },
+  {
+   "ref": "3199934YJ2739G",
+   "lat": 39.5383575,
+   "lon": -0.4049132,
+   "code": "SU|UFA|RI1456",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI1456)",
+   "inherited": null
+  },
+  {
+   "ref": "5401018YJ2750A",
+   "lat": 39.448973,
+   "lon": -0.3823633,
+   "code": "SU|EDA|RI1733C",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI1733C)",
+   "inherited": null
+  },
+  {
+   "ref": "6613402YJ2761D",
+   "lat": 39.4604322,
+   "lon": -0.3667967,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6116401YJ2761E",
+   "lat": 39.4632306,
+   "lon": -0.3720948,
+   "code": "SU|ENS|MP2098A",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=MP2098A)",
+   "inherited": null
+  },
+  {
+   "ref": "5231120YJ2753A",
+   "lat": 39.4765212,
+   "lon": -0.3829756,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "5529105YJ2752H",
+   "lat": 39.4745297,
+   "lon": -0.3792619,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "5918105YJ2751H",
+   "lat": 39.464976,
+   "lon": -0.374599,
+   "code": "SU|ENS|PE1653",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE1653)",
+   "inherited": null
+  },
+  {
+   "ref": "5481405YJ2658A",
+   "lat": 39.4322598,
+   "lon": -0.3822207,
+   "code": "SU|IND|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4911901YJ2741B",
+   "lat": 39.4586546,
+   "lon": -0.386478,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9701831YJ2790B",
+   "lat": 39.4489722,
+   "lon": -0.3307158,
+   "code": "SU|UFA|MP1766",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=MP1766)",
+   "inherited": null
+  },
+  {
+   "ref": "9627801YJ2792F",
+   "lat": 39.471322,
+   "lon": -0.3321132,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "6621710YJ2762B",
+   "lat": 39.46656,
+   "lon": -0.3671939,
+   "code": "SU|ENS|PE1761",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE1761)",
+   "inherited": null
+  },
+  {
+   "ref": "4429310YJ2742G",
+   "lat": 39.4751567,
+   "lon": -0.3919336,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "0020502YJ3702A",
+   "lat": 39.4651056,
+   "lon": -0.3264365,
+   "code": "SU|EDA|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "4961601YJ2746B",
+   "lat": 39.5034962,
+   "lon": -0.3845585,
+   "code": "SU|RV|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=RV — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "1455402YJ2715E",
+   "lat": 39.499107,
+   "lon": -0.4254247,
+   "code": "SU|ENS|PE1574",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE1574)",
+   "inherited": null
+  },
+  {
+   "ref": "4831324YJ2743B",
+   "lat": 39.4770967,
+   "lon": -0.3856219,
+   "code": "SU|CHP2|PE2013",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2013)",
+   "inherited": null
+  },
+  {
+   "ref": "4741501YJ2744B",
+   "lat": 39.4858934,
+   "lon": -0.3874677,
+   "code": "SU|EDA|PRI2089",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PRI2089)",
+   "inherited": null
+  },
+  {
+   "ref": "9604811YJ2790D",
+   "lat": 39.4510119,
+   "lon": -0.3327701,
+   "code": "SU|CHP|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "3717405YJ2731H",
+   "lat": 39.4647213,
+   "lon": -0.3999952,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5232520YJ2753C",
+   "lat": 39.4776145,
+   "lon": -0.3810168,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "5730316YJ2753B",
+   "lat": 39.4754944,
+   "lon": -0.3773225,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "9597903YJ2699H",
+   "lat": 39.4455838,
+   "lon": -0.3337519,
+   "code": "SU|UFA|RI1409",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI1409)",
+   "inherited": null
+  },
+  {
+   "ref": "002202600YJ27E",
+   "lat": 39.4968664,
+   "lon": -0.4252018,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "6311423YJ2761A",
+   "lat": 39.4581412,
+   "lon": -0.3697214,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9428310YJ2792G",
+   "lat": 39.4731696,
+   "lon": -0.33345,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "000304800YJ26H",
+   "lat": 39.4457873,
+   "lon": -0.3586344,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "9734303YJ2793D",
+   "lat": 39.478216,
+   "lon": -0.3297955,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6206022YJ2760E",
+   "lat": 39.4536881,
+   "lon": -0.3725958,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "8625108YJ2782F",
+   "lat": 39.4704292,
+   "lon": -0.3436295,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "000902800YJ26H",
+   "lat": 39.4415275,
+   "lon": -0.3441455,
+   "code": "SNU|AR|PE1629",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=AR — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "7243908YJ2774C",
+   "lat": 39.4869588,
+   "lon": -0.3585681,
+   "code": "SU|NHT|RI1449",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=NHT — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "3914918YJ2731D",
+   "lat": 39.4617959,
+   "lon": -0.3980657,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "7327606YJ2772E",
+   "lat": 39.4719298,
+   "lon": -0.3586994,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "7619421YJ2771H",
+   "lat": 39.46466,
+   "lon": -0.3547442,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5798901YJ2659H",
+   "lat": 39.446754,
+   "lon": -0.3778221,
+   "code": "SUP|EDA|MP1965",
+   "cat": "nonBuildable",
+   "why": "clase=SUP califi=EDA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5950206YJ2755B",
+   "lat": 39.4934491,
+   "lon": -0.3742072,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5847421YJ2754F",
+   "lat": 39.4906331,
+   "lon": -0.3747578,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "1712123YJ2811B",
+   "lat": 39.5504388,
+   "lon": -0.4199808,
+   "code": "SUNP|EDA|PP1760",
+   "cat": "nonBuildable",
+   "why": "clase=SUNP califi=EDA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5212108YJ2751A",
+   "lat": 39.458723,
+   "lon": -0.3837693,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "2308904YJ2820G",
+   "lat": 39.5466295,
+   "lon": -0.4155044,
+   "code": "SUP|RA|PP1196",
+   "cat": "nonBuildable",
+   "why": "clase=SUP califi=RA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "3841102YJ2734B",
+   "lat": 39.4857919,
+   "lon": -0.3986302,
+   "code": "SU|EDA|MP2075",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=MP2075)",
+   "inherited": null
+  },
+  {
+   "ref": "5982602YJ2658D",
+   "lat": 39.4325521,
+   "lon": -0.3759508,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5634511YJ2753D",
+   "lat": 39.4794546,
+   "lon": -0.377546,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "6278412YJ2667G",
+   "lat": 39.4294515,
+   "lon": -0.3723625,
+   "code": "SU|IND|RI1540",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI1540)",
+   "inherited": null
+  },
+  {
+   "ref": "9403303YJ2790C",
+   "lat": 39.4503446,
+   "lon": -0.3351435,
+   "code": "SU|UFA|CRI1735",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=CRI1735)",
+   "inherited": null
+  },
+  {
+   "ref": "5415719YJ2751E",
+   "lat": 39.4609231,
+   "lon": -0.3818267,
+   "code": "SU|ENS|RI1733C",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI1733C)",
+   "inherited": null
+  },
+  {
+   "ref": "001500400YJ27D",
+   "lat": 39.4825881,
+   "lon": -0.3375713,
+   "code": "SNU|PA|PE1573",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5634911YJ2753D",
+   "lat": 39.4795292,
+   "lon": -0.3777542,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "2307606YJ2820G",
+   "lat": 39.5463491,
+   "lon": -0.4120465,
+   "code": "SUP|RA|PP1196",
+   "cat": "nonBuildable",
+   "why": "clase=SUP califi=RA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "3503316YJ2730D",
+   "lat": 39.4528307,
+   "lon": -0.4032924,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9639103YJ2793H",
+   "lat": 39.4827796,
+   "lon": -0.3307227,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "1348210YJ3514G",
+   "lat": 39.3104642,
+   "lon": -0.3173713,
+   "code": "SU|CHP|RI1265",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI1265)",
+   "inherited": null
+  },
+  {
+   "ref": "5439309YJ2753G",
+   "lat": 39.483203,
+   "lon": -0.3797918,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4915201YJ3541F",
+   "lat": 39.2798123,
+   "lon": -0.2780644,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9431108YJ2793A",
+   "lat": 39.4770479,
+   "lon": -0.3324227,
+   "code": "SU |TER|PE2070",
+   "cat": "nonBuildable",
+   "why": "clase=SU  califi=TER — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5732524YJ2753D",
+   "lat": 39.4782141,
+   "lon": -0.3763932,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "2056214YJ2725E",
+   "lat": 39.499744,
+   "lon": -0.4187734,
+   "code": "SU|NHT|RI1446",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=NHT — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "4784719YJ2648D",
+   "lat": 39.4340824,
+   "lon": -0.3895972,
+   "code": "SU|CHP|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "1762606YJ2716B",
+   "lat": 39.5049733,
+   "lon": -0.4224077,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4211303YJ2741A",
+   "lat": 39.4595534,
+   "lon": -0.3940922,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "8821102YJ2782B",
+   "lat": 39.4670416,
+   "lon": -0.3411121,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6411410YJ2761A",
+   "lat": 39.4581519,
+   "lon": -0.3689629,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6014927YJ2751D",
+   "lat": 39.4615474,
+   "lon": -0.3747495,
+   "code": "SU|ENS|PE1761",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE1761)",
+   "inherited": null
+  },
+  {
+   "ref": "4322012YJ2742A",
+   "lat": 39.4683752,
+   "lon": -0.3937204,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9424919YJ2792C",
+   "lat": 39.4688912,
+   "lon": -0.3340516,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "5019913YJ2751G",
+   "lat": 39.4656194,
+   "lon": -0.3849632,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4890320YJ2749B",
+   "lat": 39.529913,
+   "lon": -0.385939,
+   "code": "SU|NHT|RI1509",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=NHT — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5322515YJ2752A",
+   "lat": 39.4679765,
+   "lon": -0.3815474,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9627810YJ2792F",
+   "lat": 39.4717987,
+   "lon": -0.3318992,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "6611840YJ2761B",
+   "lat": 39.4578038,
+   "lon": -0.3678243,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9228410YJ2792G",
+   "lat": 39.4726751,
+   "lon": -0.3357554,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "3917401YJ2731F",
+   "lat": 39.4643361,
+   "lon": -0.3975764,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "002204000YJ27E",
+   "lat": 39.4985392,
+   "lon": -0.4249117,
+   "code": "SNU|PI|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PI — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "000405000YJ26H",
+   "lat": 39.4447789,
+   "lon": -0.3469898,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "6511005YJ2761A",
+   "lat": 39.4578764,
+   "lon": -0.3689994,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6973513YJ2677C",
+   "lat": 39.4243265,
+   "lon": -0.364042,
+   "code": "SU|CHP|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4147714YJ2744E",
+   "lat": 39.4907323,
+   "lon": -0.3946377,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5433508YJ2753C",
+   "lat": 39.4783453,
+   "lon": -0.3798824,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "6206024YJ2760E",
+   "lat": 39.4541104,
+   "lon": -0.3724502,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "000500300YJ26H",
+   "lat": 39.4468185,
+   "lon": -0.3376787,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5215724YJ2751C",
+   "lat": 39.4614476,
+   "lon": -0.3843827,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "001402500YJ26H",
+   "lat": 39.436893,
+   "lon": -0.3439312,
+   "code": "SNU|AR|PE1629",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=AR — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "4716402YJ2741F",
+   "lat": 39.4635912,
+   "lon": -0.3881639,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6252606YJ2765C",
+   "lat": 39.4953785,
+   "lon": -0.3703109,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "1559107YJ2715H",
+   "lat": 39.5033836,
+   "lon": -0.4246243,
+   "code": "SU|EDA|MP2025",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=MP2025)",
+   "inherited": null
+  },
+  {
+   "ref": "2459920YJ2725G",
+   "lat": 39.5028718,
+   "lon": -0.4144052,
+   "code": null,
+   "cat": "nonBuildable",
+   "why": "no calificación polygon at point",
+   "inherited": null
+  },
+  {
+   "ref": "4965703YJ2746F",
+   "lat": 39.5070243,
+   "lon": -0.3843377,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "3415603YJ2731E",
+   "lat": 39.462395,
+   "lon": -0.4036771,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "7031605YJ2773A",
+   "lat": 39.4762129,
+   "lon": -0.3615156,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6998002YJ2669H",
+   "lat": 39.4458593,
+   "lon": -0.3644396,
+   "code": "SU|GSP|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=GSP — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "0320605YJ3701G",
+   "lat": 39.4647304,
+   "lon": -0.3234256,
+   "code": "SU|TER|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "4683713YJ2648D",
+   "lat": 39.4332577,
+   "lon": -0.3913294,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "7281915YJ2678A",
+   "lat": 39.4310482,
+   "lon": -0.3617117,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4806716YJ2740F",
+   "lat": 39.4535204,
+   "lon": -0.387915,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5755903YJ2755F",
+   "lat": 39.498004,
+   "lon": -0.3757761,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9597940YJ2699H",
+   "lat": 39.4451335,
+   "lon": -0.3336979,
+   "code": "SU|UFA|RI1409",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI1409)",
+   "inherited": null
+  },
+  {
+   "ref": "5639705YJ2753H",
+   "lat": 39.4836037,
+   "lon": -0.3777136,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6128702YJ2762G",
+   "lat": 39.473415,
+   "lon": -0.3725199,
+   "code": "SU|CHP1|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "5434507YJ2753C",
+   "lat": 39.4795164,
+   "lon": -0.3795464,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "4839602YJ2743H",
+   "lat": 39.4834586,
+   "lon": -0.3864156,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "03041J4YJ3700G",
+   "lat": 39.4447756,
+   "lon": -0.3061124,
+   "code": "SU|MAR|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=MAR — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "4594602YJ2649D",
+   "lat": 39.44314,
+   "lon": -0.3912737,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9621820YJ2792B",
+   "lat": 39.4663423,
+   "lon": -0.3317171,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "2908602YJ2730G",
+   "lat": 39.4556968,
+   "lon": -0.4090612,
+   "code": "SUP|RV|RI1695",
+   "cat": "nonBuildable",
+   "why": "clase=SUP califi=RV — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "6023502YJ2762C",
+   "lat": 39.468995,
+   "lon": -0.3734817,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "5027421YJ2752E",
+   "lat": 39.4728886,
+   "lon": -0.3844263,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9117807YJ2791G",
+   "lat": 39.4630588,
+   "lon": -0.3377202,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6127509YJ2762E",
+   "lat": 39.4723503,
+   "lon": -0.3717779,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "7181611YJ2678A",
+   "lat": 39.4309664,
+   "lon": -0.362309,
+   "code": "SU|UFA|RI1464",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI1464)",
+   "inherited": null
+  },
+  {
+   "ref": "3926133YJ2732F",
+   "lat": 39.4724303,
+   "lon": -0.3980463,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5838207YJ2753H",
+   "lat": 39.4829336,
+   "lon": -0.3753092,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4926319YJ2742F",
+   "lat": 39.4723138,
+   "lon": -0.386014,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9499543YJ2699G",
+   "lat": 39.4459927,
+   "lon": -0.3343121,
+   "code": "SU|ENS|RI1409",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI1409)",
+   "inherited": null
+  },
+  {
+   "ref": "7720912YJ2772B",
+   "lat": 39.4660184,
+   "lon": -0.3539971,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4124829YJ2742C",
+   "lat": 39.4708613,
+   "lon": -0.3971833,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "7931712YJ2773B",
+   "lat": 39.4758578,
+   "lon": -0.3518898,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4744702YJ2744D",
+   "lat": 39.4886655,
+   "lon": -0.3880638,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "3923811YJ2732D",
+   "lat": 39.4693302,
+   "lon": -0.3980217,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5530117YJ2752H",
+   "lat": 39.4751339,
+   "lon": -0.3796131,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "001002300YJ27D",
+   "lat": 39.4840056,
+   "lon": -0.3382053,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "6409051YJ2760G",
+   "lat": 39.4563256,
+   "lon": -0.3711835,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4018501YJ2741G",
+   "lat": 39.4651673,
+   "lon": -0.3968582,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "8972406YJ2687D",
+   "lat": 39.4226578,
+   "lon": -0.3414037,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "7075755YJ2677C",
+   "lat": 39.4252638,
+   "lon": -0.3636768,
+   "code": "SU|CHP|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9826322YJ2792F",
+   "lat": 39.4709694,
+   "lon": -0.3289528,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "4049715YJ2744G",
+   "lat": 39.4927366,
+   "lon": -0.3958168,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9330904YJ2793A",
+   "lat": 39.474557,
+   "lon": -0.3348884,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "002300400YJ26H",
+   "lat": 39.4297052,
+   "lon": -0.3589869,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "4608711YJ2740H",
+   "lat": 39.4556326,
+   "lon": -0.3891821,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6126910YJ2762E",
+   "lat": 39.4718456,
+   "lon": -0.3719057,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "000902900YJ26H",
+   "lat": 39.4416325,
+   "lon": -0.3435836,
+   "code": "SNU|AR|PE1629",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=AR — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "3917812YJ2731F",
+   "lat": 39.4643327,
+   "lon": -0.3983412,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5952110YJ2755D",
+   "lat": 39.4958027,
+   "lon": -0.3740993,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9820617YJ2791H",
+   "lat": 39.4649248,
+   "lon": -0.3295197,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "4624912YJ2742D",
+   "lat": 39.4701816,
+   "lon": -0.3897548,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4429509YJ2742H",
+   "lat": 39.4747948,
+   "lon": -0.3909744,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "1350504YJ3515A",
+   "lat": 39.3124047,
+   "lon": -0.3173922,
+   "code": "SU|CHP|RI1265",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI1265)",
+   "inherited": null
+  },
+  {
+   "ref": "8427306YJ2782G",
+   "lat": 39.4722976,
+   "lon": -0.3457387,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6644804YJ2764D",
+   "lat": 39.4878955,
+   "lon": -0.3664701,
+   "code": "SU|RV|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=RV — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "9300401YJ2790A",
+   "lat": 39.4476931,
+   "lon": -0.3360091,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4611513YJ2741B",
+   "lat": 39.4596496,
+   "lon": -0.389887,
+   "code": "SU|GSP|ED1450",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=GSP — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5635704YJ2753F",
+   "lat": 39.4797105,
+   "lon": -0.3776618,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "8716104YJ2781F",
+   "lat": 39.4617195,
+   "lon": -0.342185,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9327516YJ2792E",
+   "lat": 39.4716318,
+   "lon": -0.3347102,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5401019YJ2750A",
+   "lat": 39.4490198,
+   "lon": -0.3824397,
+   "code": "SU|PRV|RI1733C",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=PRV — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "4600711YJ2740B",
+   "lat": 39.4488293,
+   "lon": -0.3907303,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "03041N3YJ3700G",
+   "lat": 39.4323526,
+   "lon": -0.3358642,
+   "code": "SNU|GTR|MP1896",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=GTR — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "4233603YJ2743C",
+   "lat": 39.4778472,
+   "lon": -0.3942744,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9927112YJ2792H",
+   "lat": 39.4722106,
+   "lon": -0.3283408,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "5734813YJ2753D",
+   "lat": 39.4791032,
+   "lon": -0.3763087,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "6507201YJ2760H",
+   "lat": 39.4550017,
+   "lon": -0.3681107,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9208803YJ2890G",
+   "lat": 39.5444431,
+   "lon": -0.3334989,
+   "code": "SU|CHP|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9307106YJ2790E",
+   "lat": 39.4535814,
+   "lon": -0.3358695,
+   "code": "SUNP|EBM|PP1589A",
+   "cat": "nonBuildable",
+   "why": "clase=SUNP califi=EBM — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5717907YJ2751F",
+   "lat": 39.4637766,
+   "lon": -0.3773546,
+   "code": "SU|ENS|PE1653",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE1653)",
+   "inherited": null
+  },
+  {
+   "ref": "7547909YJ2774E",
+   "lat": 39.4899675,
+   "lon": -0.3561972,
+   "code": "SUP|RV|RI1593",
+   "cat": "nonBuildable",
+   "why": "clase=SUP califi=RV — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "8929901YJ2782H",
+   "lat": 39.4736027,
+   "lon": -0.3382841,
+   "code": "SUP|GEC|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SUP califi=GEC — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "4324010YJ2742C",
+   "lat": 39.4701353,
+   "lon": -0.3934043,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6051307YJ2765A",
+   "lat": 39.4948058,
+   "lon": -0.3720884,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6974704YJ2667D",
+   "lat": 39.4246459,
+   "lon": -0.3649275,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5728304YJ2752H",
+   "lat": 39.4740635,
+   "lon": -0.3771772,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "9838405YJ2793H",
+   "lat": 39.4821327,
+   "lon": -0.3282105,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6610304YJ2761B",
+   "lat": 39.4575455,
+   "lon": -0.3676846,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9720528YJ2791H",
+   "lat": 39.4647523,
+   "lon": -0.3303576,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "4020003YJ2732B",
+   "lat": 39.46789,
+   "lon": -0.3985895,
+   "code": "SU|GEL|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=GEL — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "001102900YJ26H",
+   "lat": 39.4346641,
+   "lon": -0.375887,
+   "code": "SNU|PI|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PI — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "6237613YJ2763E",
+   "lat": 39.4811781,
+   "lon": -0.3706665,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5899302YJ2750B",
+   "lat": 39.4482739,
+   "lon": -0.3782141,
+   "code": "SU|RV|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=RV — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "000603200YJ27F",
+   "lat": 39.5069743,
+   "lon": -0.381885,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5355310YJ2755E",
+   "lat": 39.4985214,
+   "lon": -0.3796168,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "000410400YJ26H",
+   "lat": 39.4443843,
+   "lon": -0.3514938,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "6154213YJ2765C",
+   "lat": 39.4971475,
+   "lon": -0.3709739,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5389703YJ2658G",
+   "lat": 39.4402601,
+   "lon": -0.381734,
+   "code": "SUNP|EDA|PP1756E",
+   "cat": "nonBuildable",
+   "why": "clase=SUNP califi=EDA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5840722YJ2754B",
+   "lat": 39.4844365,
+   "lon": -0.3756701,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4811117YJ2741B",
+   "lat": 39.4583842,
+   "lon": -0.3887416,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "7443712YJ2774C",
+   "lat": 39.4865515,
+   "lon": -0.3565176,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9826602YJ2792F",
+   "lat": 39.470448,
+   "lon": -0.3294774,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "4225009YJ2742E",
+   "lat": 39.4711023,
+   "lon": -0.3955968,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "3839201YJ2733H",
+   "lat": 39.4844904,
+   "lon": -0.3985145,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "8314102YJ2781C",
+   "lat": 39.4598292,
+   "lon": -0.3472761,
+   "code": "SUNP|RED|ED1388",
+   "cat": "nonBuildable",
+   "why": "clase=SUNP califi=RED — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "9927211YJ2792H",
+   "lat": 39.4720091,
+   "lon": -0.3278826,
+   "code": "SU|ENS|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "5043105YJ2754C",
+   "lat": 39.4878327,
+   "lon": -0.3849062,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5428401YJ2752G",
+   "lat": 39.4743447,
+   "lon": -0.3811885,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "4514230YJ2741D",
+   "lat": 39.461616,
+   "lon": -0.3910999,
+   "code": "SU|ENS|PEPRI2076",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PEPRI2076)",
+   "inherited": null
+  },
+  {
+   "ref": "4380601YJ2648A",
+   "lat": 39.4306463,
+   "lon": -0.394613,
+   "code": "SUP|ZND|PE1691A",
+   "cat": "nonBuildable",
+   "why": "clase=SUP califi=ZND — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "2521402YJ2722B",
+   "lat": 39.4683492,
+   "lon": -0.4139006,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "001401300YJ26G",
+   "lat": 39.4382103,
+   "lon": -0.400126,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "9719609YJ2791H",
+   "lat": 39.4643854,
+   "lon": -0.3308069,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "0022308YJ3702C",
+   "lat": 39.4676131,
+   "lon": -0.3260316,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "3717432YJ2731H",
+   "lat": 39.4644069,
+   "lon": -0.3998349,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9834304YJ2793D",
+   "lat": 39.4783266,
+   "lon": -0.3290207,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6229920YJ2762G",
+   "lat": 39.4749491,
+   "lon": -0.3708909,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "0304104YJ3700G",
+   "lat": 39.4470263,
+   "lon": -0.3084685,
+   "code": "SU|GTR|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=GTR — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "4617508YJ2741F",
+   "lat": 39.4638389,
+   "lon": -0.3893641,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4623302YJ2742D",
+   "lat": 39.4699126,
+   "lon": -0.3889982,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "7311701YJ2771A",
+   "lat": 39.4579553,
+   "lon": -0.3595537,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4607906YJ2740F",
+   "lat": 39.4550375,
+   "lon": -0.3902708,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4250715YJ2744G",
+   "lat": 39.4930421,
+   "lon": -0.3938728,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6595404YJ2669F",
+   "lat": 39.4439328,
+   "lon": -0.3685729,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5531709YJ2753B",
+   "lat": 39.4760597,
+   "lon": -0.3785505,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "5820512YJ2751H",
+   "lat": 39.4657635,
+   "lon": -0.3745663,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "8021609YJ2782A",
+   "lat": 39.4662706,
+   "lon": -0.3499418,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "000409900YJ26H",
+   "lat": 39.4437971,
+   "lon": -0.3435074,
+   "code": "SNU|AR|PE1629",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=AR — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "000803300YJ26H",
+   "lat": 39.4413417,
+   "lon": -0.3556595,
+   "code": "SNU|PA|PGOU",
+   "cat": "nonBuildable",
+   "why": "clase=SNU califi=PA — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "4812605YJ2741D",
+   "lat": 39.4600342,
+   "lon": -0.3877704,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "7341209YJ2774A",
+   "lat": 39.4858651,
+   "lon": -0.3573979,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9601939YJ2790B",
+   "lat": 39.4484997,
+   "lon": -0.3323474,
+   "code": "SU|UFA|RI1409",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=RI1409)",
+   "inherited": null
+  },
+  {
+   "ref": "6979305YJ2668B",
+   "lat": 39.429845,
+   "lon": -0.3641271,
+   "code": "SU|NHT|RI1464",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=NHT — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "9317511YJ2791E",
+   "lat": 39.4621707,
+   "lon": -0.3351721,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6971620YJ2667B",
+   "lat": 39.4219347,
+   "lon": -0.3645687,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5827901YJ2752H",
+   "lat": 39.4729736,
+   "lon": -0.3759672,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "4831315YJ2743B",
+   "lat": 39.4781017,
+   "lon": -0.3856582,
+   "code": "SU|CHP2|PE2013",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2013)",
+   "inherited": null
+  },
+  {
+   "ref": "6895903YJ2669F",
+   "lat": 39.4436957,
+   "lon": -0.3651184,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4609203YJ2740H",
+   "lat": 39.4569211,
+   "lon": -0.3903283,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6019205YJ2762A",
+   "lat": 39.4662504,
+   "lon": -0.3733958,
+   "code": "SU|ENS|PE1653",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE1653)",
+   "inherited": null
+  },
+  {
+   "ref": "5029315YJ2752G",
+   "lat": 39.475047,
+   "lon": -0.3846133,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9528216YJ2792H",
+   "lat": 39.4729943,
+   "lon": -0.3326611,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "5752305YJ2755D",
+   "lat": 39.4958702,
+   "lon": -0.3744848,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4357304YJ2745G",
+   "lat": 39.5005557,
+   "lon": -0.3914052,
+   "code": "SU|IND|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9726203YJ2792F",
+   "lat": 39.4712612,
+   "lon": -0.33076,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "7619440YJ2771H",
+   "lat": 39.4653309,
+   "lon": -0.3545891,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9729915YJ2793B",
+   "lat": 39.4741407,
+   "lon": -0.3303686,
+   "code": "SU|CHP|PE2070",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2070)",
+   "inherited": null
+  },
+  {
+   "ref": "7281901YJ2678A",
+   "lat": 39.4302166,
+   "lon": -0.3618897,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "7520301YJ2772B",
+   "lat": 39.4666423,
+   "lon": -0.3563429,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9507905YJ2790F",
+   "lat": 39.4537798,
+   "lon": -0.3335308,
+   "code": "SU|UFA|MP1817",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=MP1817)",
+   "inherited": null
+  },
+  {
+   "ref": "4738402YJ2743H",
+   "lat": 39.4829351,
+   "lon": -0.387592,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6311029YJ2761A",
+   "lat": 39.4576351,
+   "lon": -0.3705912,
+   "code": "SU|UFA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4785409YJ2648F",
+   "lat": 39.4357885,
+   "lon": -0.3901656,
+   "code": "SU|EDA|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5406701YJ2750F",
+   "lat": 39.4543251,
+   "lon": -0.3809686,
+   "code": "SU|PJL|RI1733C",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=PJL — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "4789920YJ2748H",
+   "lat": 39.5285323,
+   "lon": -0.3859497,
+   "code": "SU|NHT|RI1509",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=NHT — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "6042415YJ2764A",
+   "lat": 39.4860298,
+   "lon": -0.3724149,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "4494404YJ2649C",
+   "lat": 39.4439269,
+   "lon": -0.3925203,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5533606YJ2753D",
+   "lat": 39.47828,
+   "lon": -0.3783476,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "8421617YJ2782A",
+   "lat": 39.4663812,
+   "lon": -0.3460739,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "5825706YJ2752F",
+   "lat": 39.4711016,
+   "lon": -0.3761462,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "0040309YJ3704A",
+   "lat": 39.4834415,
+   "lon": -0.3260669,
+   "code": "SU|ARU|MP1549",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=ARU — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "5929203YJ2752H",
+   "lat": 39.4747081,
+   "lon": -0.3745177,
+   "code": "SU|CHP|PE2020",
+   "cat": "refusal-delegated",
+   "why": "expressly delegated to a derived instrument (origen=PE2020)",
+   "inherited": null
+  },
+  {
+   "ref": "3301618YJ2830A",
+   "lat": 39.5399541,
+   "lon": -0.4023381,
+   "code": "SU|NHT|RI1491",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=NHT — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "8918708YJ2781H",
+   "lat": 39.4636763,
+   "lon": -0.3399406,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "6307707YJ2760E",
+   "lat": 39.4541474,
+   "lon": -0.3701314,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9530801YJ2793B",
+   "lat": 39.4744599,
+   "lon": -0.3322725,
+   "code": "SU|RV|PE2070",
+   "cat": "nonBuildable",
+   "why": "clase=SU califi=RV — outside Art. 6.3.1's six suelo-urbano buildable zones",
+   "inherited": null
+  },
+  {
+   "ref": "6595403YJ2669F",
+   "lat": 39.4439518,
+   "lon": -0.3686427,
+   "code": "SU|ENS|PGOU",
+   "cat": "no-pack",
+   "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
+   "inherited": null
+  },
+  {
+   "ref": "9740903YJ2794B",
+   "lat": 39.4833609,
+   "lon": -0.3298639,
+   "code": "SU|EDA|PGOU",
    "cat": "no-pack",
    "why": "PGOU-ordered, but Arts. 6.18.2/6.19.1 key every parameter to Plano C, which the city does not publish as data",
    "inherited": null
