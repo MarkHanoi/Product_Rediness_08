@@ -1,0 +1,513 @@
+{
+ "probe": "AMB BASE LADDER DELTA — corpus verification of the Art. 327/328 footnote apparatus",
+ "source": {
+  "file": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+  "pages": 512,
+  "committed": true,
+  "limitation": "The MMAMB compendium declares itself «merament divulgativa» and is consolidated only to 31-12-2009. Absence from its apparatus is not-recorded-in-this-source, NEVER does-not-exist, and it says nothing about 2010–2026."
+ },
+ "art327_baseTableFromCorpus": {
+  "found": true,
+  "pdfPageIndex": 107,
+  "printedPage": 107,
+  "article": "Art. 327 (base metropolitan, clau 13a)",
+  "bands": [
+   {
+    "raw": "De menys de 8 m.",
+    "minWidth_m": 0.0,
+    "maxWidth_m": 8.0,
+    "height_m": 8.55,
+    "floorsAboveGround": 1
+   },
+   {
+    "raw": "De 8 a menys de 12 m.",
+    "minWidth_m": 8.0,
+    "maxWidth_m": 12.0,
+    "height_m": 11.6,
+    "floorsAboveGround": 2
+   },
+   {
+    "raw": "De 12 a menys de 15 m.",
+    "minWidth_m": 12.0,
+    "maxWidth_m": 15.0,
+    "height_m": 14.65,
+    "floorsAboveGround": 3
+   },
+   {
+    "raw": "De 15 a menys de 20 m.",
+    "minWidth_m": 15.0,
+    "maxWidth_m": 20.0,
+    "height_m": 17.7,
+    "floorsAboveGround": 4
+   },
+   {
+    "raw": "De 20 a menys de 30 m.",
+    "minWidth_m": 20.0,
+    "maxWidth_m": 30.0,
+    "height_m": 20.75,
+    "floorsAboveGround": 5
+   },
+   {
+    "raw": "De 30 m. o més metres",
+    "minWidth_m": 30.0,
+    "maxWidth_m": "Infinity",
+    "height_m": 23.8,
+    "floorsAboveGround": 6
+   }
+  ],
+  "digitCheck": "digits present"
+ },
+ "art328_baseTableFromCorpus": {
+  "found": true,
+  "pdfPageIndex": 108,
+  "printedPage": 108,
+  "article": "Art. 328 (base metropolitan, clau 13b)",
+  "bands": [
+   {
+    "raw": "De menys de 8 m.",
+    "minWidth_m": 0.0,
+    "maxWidth_m": 8.0,
+    "height_m": 7.55,
+    "floorsAboveGround": 1
+   },
+   {
+    "raw": "De 8 a menys de 11 m.",
+    "minWidth_m": 8.0,
+    "maxWidth_m": 11.0,
+    "height_m": 10.6,
+    "floorsAboveGround": 2
+   },
+   {
+    "raw": "De 11 a menys de 15 m.",
+    "minWidth_m": 11.0,
+    "maxWidth_m": 15.0,
+    "height_m": 13.65,
+    "floorsAboveGround": 3
+   },
+   {
+    "raw": "De 15 en endavant",
+    "minWidth_m": 15.0,
+    "maxWidth_m": "Infinity",
+    "height_m": 16.7,
+    "floorsAboveGround": 4
+   }
+  ],
+  "digitCheck": "digits present"
+ },
+ "art327_footnote49_modifyingMunicipalities": [
+  {
+   "municipality": "Badalona",
+   "page": 137
+  },
+  {
+   "municipality": "Barcelona",
+   "page": 276
+  }
+ ],
+ "art328_footnote50_modifyingMunicipalities": [
+  {
+   "municipality": "Badalona",
+   "page": 137
+  },
+  {
+   "municipality": "Barcelona",
+   "page": 277
+  }
+ ],
+ "barcelonaModification": {
+  "art327": {
+   "found": true,
+   "pdfPageIndex": 276,
+   "printedPageCited": 276,
+   "readVia": "deglyph-full",
+   "article": "Art. 327 as modified for Barcelona (MPGM 02-03-2007, DOGC 4893)",
+   "headingMatched": "Art. 327",
+   "mentionsMunicipality": false,
+   "bands": [
+    {
+     "minWidth_m": 0.0,
+     "maxWidth_m": "Infinity",
+     "height_m": 9.0,
+     "floorsAboveGround": 1
+    },
+    {
+     "minWidth_m": 8.0,
+     "maxWidth_m": 12.0,
+     "height_m": 12.35,
+     "floorsAboveGround": 2
+    },
+    {
+     "minWidth_m": 12.0,
+     "maxWidth_m": 15.0,
+     "height_m": 15.7,
+     "floorsAboveGround": 3
+    },
+    {
+     "minWidth_m": 15.0,
+     "maxWidth_m": 20.0,
+     "height_m": 19.05,
+     "floorsAboveGround": 4
+    },
+    {
+     "minWidth_m": 20.0,
+     "maxWidth_m": 30.0,
+     "height_m": 22.4,
+     "floorsAboveGround": 5
+    },
+    {
+     "minWidth_m": 30.0,
+     "maxWidth_m": "Infinity",
+     "height_m": 25.75,
+     "floorsAboveGround": 6
+    }
+   ],
+   "digitCheck": "digits present (recovered by the §GLYPH-SHIFT decoder — the raw extraction drops every digit)",
+   "attempts": [
+    {
+     "pdfPageIndex": 276,
+     "variant": "deglyph-full",
+     "headingFound": true,
+     "continuation": null,
+     "bands": 6,
+     "hasProse": true,
+     "hasDigits": true
+    }
+   ]
+  },
+  "art328": {
+   "found": false,
+   "printedPageCited": 277,
+   "article": "Art. 328 as modified for Barcelona (MPGM 02-03-2007, DOGC 4893)",
+   "attempts": [
+    {
+     "pdfPageIndex": 277,
+     "variant": "deglyph-full",
+     "headingFound": true,
+     "continuation": null,
+     "bands": 0,
+     "hasProse": false,
+     "hasDigits": false
+    }
+   ],
+   "digitCheck": "not located — not-located-in-source, NEVER does-not-exist"
+  }
+ },
+ "badalonaModification": {
+  "art327": {
+   "found": true,
+   "pdfPageIndex": 137,
+   "printedPageCited": 137,
+   "readVia": "deglyph-full",
+   "article": "Art. 327 as modified for Badalona (its OWN instrument)",
+   "headingMatched": "Article 327",
+   "mentionsMunicipality": false,
+   "bands": [
+    {
+     "minWidth_m": 0.0,
+     "maxWidth_m": "Infinity",
+     "height_m": 9.0,
+     "floorsAboveGround": 1
+    },
+    {
+     "minWidth_m": 8.0,
+     "maxWidth_m": 12.0,
+     "height_m": 12.35,
+     "floorsAboveGround": 2
+    },
+    {
+     "minWidth_m": 12.0,
+     "maxWidth_m": 15.0,
+     "height_m": 15.7,
+     "floorsAboveGround": 3
+    },
+    {
+     "minWidth_m": 15.0,
+     "maxWidth_m": 20.0,
+     "height_m": 19.05,
+     "floorsAboveGround": 4
+    },
+    {
+     "minWidth_m": 20.0,
+     "maxWidth_m": 30.0,
+     "height_m": 22.4,
+     "floorsAboveGround": 5
+    },
+    {
+     "minWidth_m": 30.0,
+     "maxWidth_m": "Infinity",
+     "height_m": 25.75,
+     "floorsAboveGround": 6
+    }
+   ],
+   "digitCheck": "digits present (recovered by the §GLYPH-SHIFT decoder — the raw extraction drops every digit)",
+   "attempts": [
+    {
+     "pdfPageIndex": 137,
+     "variant": "deglyph-digits",
+     "headingFound": true,
+     "continuation": null,
+     "bands": 0,
+     "hasProse": false,
+     "hasDigits": true
+    },
+    {
+     "pdfPageIndex": 137,
+     "variant": "deglyph-full",
+     "headingFound": true,
+     "continuation": null,
+     "bands": 6,
+     "hasProse": true,
+     "hasDigits": true
+    }
+   ]
+  },
+  "art328": {
+   "found": true,
+   "pdfPageIndex": 137,
+   "printedPageCited": 137,
+   "readVia": "deglyph-full",
+   "article": "Art. 328 as modified for Badalona (its OWN instrument)",
+   "headingMatched": "Article 328",
+   "mentionsMunicipality": false,
+   "bands": [
+    {
+     "minWidth_m": 0.0,
+     "maxWidth_m": "Infinity",
+     "height_m": 8.25,
+     "floorsAboveGround": 1
+    },
+    {
+     "minWidth_m": 8.0,
+     "maxWidth_m": 11.0,
+     "height_m": 12.0,
+     "floorsAboveGround": 2
+    },
+    {
+     "minWidth_m": 11.0,
+     "maxWidth_m": 15.0,
+     "height_m": 15.4,
+     "floorsAboveGround": 3
+    },
+    {
+     "minWidth_m": 15.0,
+     "maxWidth_m": "Infinity",
+     "height_m": 18.8,
+     "floorsAboveGround": 4
+    }
+   ],
+   "digitCheck": "digits present (recovered by the §GLYPH-SHIFT decoder — the raw extraction drops every digit)",
+   "attempts": [
+    {
+     "pdfPageIndex": 137,
+     "variant": "deglyph-full",
+     "headingFound": true,
+     "continuation": null,
+     "bands": 4,
+     "hasProse": true,
+     "hasDigits": true
+    }
+   ]
+  }
+ },
+ "badalonaSeparateInstrumentInCorpus": {
+  "file": "DOGC-5224_2008-09-29_MPGM-BADALONA-correccio-errades_NOT-BARCELONA.pdf",
+  "pages": 16,
+  "mentionsBadalona": true,
+  "mentionsBarcelona": true,
+  "dogcNumberFound": [
+   "5189"
+  ],
+  "heightFiguresFound": [
+   "0,60",
+   "0,75",
+   "0,80",
+   "1,00",
+   "1,50",
+   "10,60",
+   "11,25",
+   "12,20",
+   "13,65",
+   "14,60",
+   "15,25",
+   "16,70",
+   "17,95",
+   "2,00",
+   "2,20",
+   "2,50",
+   "3,05",
+   "3,30",
+   "3,70",
+   "4,00",
+   "4,50",
+   "5,00",
+   "7,55",
+   "7,90",
+   "9,15"
+  ],
+  "textSample": "Diari Oicial de la Generalitat de Catalunya Núm. 5224 – 29.9.2008 70883 Disposicions CORRECCIÓ D’ERRADES a l’Edicte de 25 de juliol de 2008, sobre una resolució del conseller de Política Territorial i Obres Públiques referent al municipi de Badalona (DOGC núm. 5189, pàg. 61333, de 6.8.2008). Havent observat errades al text original català de la Modiicació puntual de les Normes urbanístiques del Pla general metropolità, al terme municipal de Badalona, publicada mitjançant l’Edicte esmentat, tramès al DOGC i publicat al núm. 5189, pàg. 61333, de 6.8.2008, es torna a publicar tot l’Edicte. Barcelona, 18 de setembre de 2008 M. DOLORS VERGÉS I FERNÁNDEZ Secretària de la Comissió d’Urbanisme de Catalunya EDICTE de 25 de juliol de 2008, sobre una resolució de conseller de Política Territorial i Obres Públiques referent al municipi de Badalona. El conseller de Política Territorial i Obres Publiq"
+ },
+ "badalonaVsBarcelonaFigures": {
+  "art327": {
+   "comparable": true,
+   "label": "Badalona Art. 327 vs Barcelona Art. 327",
+   "numericallyIdentical": true,
+   "a": [
+    [
+     9.0,
+     1
+    ],
+    [
+     12.35,
+     2
+    ],
+    [
+     15.7,
+     3
+    ],
+    [
+     19.05,
+     4
+    ],
+    [
+     22.4,
+     5
+    ],
+    [
+     25.75,
+     6
+    ]
+   ],
+   "b": [
+    [
+     9.0,
+     1
+    ],
+    [
+     12.35,
+     2
+    ],
+    [
+     15.7,
+     3
+    ],
+    [
+     19.05,
+     4
+    ],
+    [
+     22.4,
+     5
+    ],
+    [
+     25.75,
+     6
+    ]
+   ],
+   "consequence": "⛔ NUMERICALLY IDENTICAL. A value check PASSES while the attribution stays WRONG. Badalona reaches these figures through its OWN instrument; the product reaches them by reading Barcelona's. Same number, different law. THE ATTRIBUTION IS THE DEFECT."
+  },
+  "art328": {
+   "comparable": false,
+   "label": "Badalona Art. 328 vs Barcelona Art. 328",
+   "why": "one side could not be read from the corpus — UNKNOWN, and UNKNOWN NEVER NO. A failed read must not be reported as \"the values differ\" OR as \"the values agree\"."
+  }
+ },
+ "wholeCompendiumModificationSweep": {
+  "pagesCarryingAModificationReference": 51,
+  "municipalitiesModifyingAnyArticle": {
+   "Badalona": [
+    125,
+    127,
+    128,
+    129,
+    130,
+    131,
+    133,
+    135,
+    136,
+    137,
+    138,
+    463
+   ],
+   "Barcelona": [
+    146,
+    147,
+    148,
+    149,
+    151,
+    177,
+    178,
+    179,
+    181,
+    184,
+    185,
+    187,
+    209,
+    273,
+    274,
+    276,
+    277,
+    278,
+    463,
+    464,
+    465,
+    466
+   ],
+   "Castelldefells": [
+    280
+   ],
+   "Cerdanyola": [
+    467
+   ],
+   "Cerdanyola del Vallès": [
+    282,
+    287
+   ],
+   "Gavà": [
+    320,
+    468
+   ],
+   "Hospitalet": [
+    475
+   ],
+   "Hospitalet de Llobregat": [
+    324,
+    325
+   ],
+   "L’Hospitalet de Llobregat": [
+    323,
+    324
+   ],
+   "Pallejà": [
+    495
+   ],
+   "Ripollet": [
+    338
+   ],
+   "Sant Cugat del Vallès": [
+    346
+   ],
+   "Sant Joan Despí": [
+    356
+   ],
+   "Santa Coloma de Gramenet": [
+    362,
+    364,
+    375,
+    376,
+    377,
+    477,
+    478,
+    479,
+    480,
+    481
+   ]
+  },
+  "note": "Every municipality named ANYWHERE in the compendium's modification apparatus, with the pages cited. This is what makes absence from footnote 49/50 an ENUMERATED finding rather than a failed search."
+ },
+ "corpusPdfDir": [
+  "DOGC-4893_2007-05-29_MPGM-alcades-alineacio-vial_BARCELONA.pdf",
+  "DOGC-5224_2008-09-29_MPGM-BADALONA-correccio-errades_NOT-BARCELONA.pdf",
+  "RPUC_2006-025790-B_acord-aprovacio-definitiva.pdf",
+  "RPUC_2006-025790-B_document-unitari_text-aprovacio-definitiva.pdf"
+ ]
+}

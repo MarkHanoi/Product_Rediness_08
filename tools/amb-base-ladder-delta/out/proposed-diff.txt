@@ -1,0 +1,149 @@
+═══════════════════════════════════════════════════════════════════════════════════════════════
+THE PROPOSED FIX — AS TEXT, UNAPPLIED.
+═══════════════════════════════════════════════════════════════════════════════════════════════
+
+⛔ NOTHING IN THIS FILE HAS BEEN APPLIED. The sibling Catalunya agent is sole owner of
+   `bcnAlcadaReguladora.ts`, `bcnAlcadaSemiintensiva.ts`, `rulepacks/registry.ts`,
+   `rulepacks/envelopeAuthorisation.ts`, `l449CertificationGates.ts` and `siteDispatch.ts`.
+   This run MEASURES. It does not fix, does not publish, and flips no gate.
+
+⚠ AND THE FIX MUST NOT LAND BEFORE THE FIGURES ARE RESTATED. The measured height delta is real
+  (25 municipalities, every value LOWER). Applying the selector without restating the artefacts
+  named in AMB-LADDER-RESTATEMENT-PLAN.md §Tier 1–3 would leave the corpus quoting heights the
+  code no longer emits.
+
+───────────────────────────────────────────────────────────────────────────────────────────────
+DEFECT 1 (measured) — `heightFromFloorsAboveGround()` has no municipality parameter
+───────────────────────────────────────────────────────────────────────────────────────────────
+FILE  packages/site-parcel-data/src/rulepacks/bcnAlcadaReguladora.ts
+CALL SITES  apps/editor/src/ui/site/siteDispatch.ts:3940   (the ONLY production caller)
+            packages/site-parcel-data/__tests__/bcnRefosOVProvider.test.ts:84-95
+            packages/site-parcel-data/__tests__/bcnClau18OvRouteEndToEnd.test.ts:230
+
+--- a/packages/site-parcel-data/src/rulepacks/bcnAlcadaReguladora.ts
++++ b/packages/site-parcel-data/src/rulepacks/bcnAlcadaReguladora.ts
+@@
++/**
++ * §AMB-LADDER — WHICH MUNICIPALITY'S Art. 327/328 LADDER GOVERNS.
++ *
++ * ⛔ SELECT ON MUNICIPALITY, NEVER ON FIGURES. Badalona's bands are NUMERICALLY IDENTICAL to
++ *   Barcelona's — VERIFIED FROM THE COMMITTED CORPUS, not quoted: compendium footnote 49 cites
++ *   Badalona at pàg. 137 and Barcelona at pàg. 276, and both tables read
++ *   9,00 / 12,35 / 15,70 / 19,05 / 22,40 / 25,75. A value check therefore PASSES while the
++ *   attribution stays WRONG, which is why this misattribution recurred three times.
++ *
++ * ⚠ `null` MEANS REFUSE, AND IT IS NOT OPTIONAL. A municipality whose footnote status is not
++ *   established must NOT fall back to either table. Defaulting to the base ladder would be the
++ *   same class of silent default as the defect being fixed — merely wrong in the pessimistic
++ *   direction.
++ */
++export type AlcadaLadderSource =
++    | 'barcelona-mpgm-2007'      // DOGC 4893, «al terme municipal de Barcelona». SIGNED SIG-2.
++    | 'badalona-own-instrument'  // compendium footnote 49/50 → pàg. 137; DOGC 5224 in corpus.
++    | 'base-metropolitan';       // PGM Arts. 327.2a/328.2a as published. No footnote entry.
++
++/**
++ * ⛔ KEYED ON INE. Never on NOMMUNI — the AMB layer 17 carries a BLANK `NOMMUNI` on 4,912 of
++ *   Barcelona's 5,073 OV polygons, so a name-keyed lookup loses 96.83 % of the reference city.
++ *
++ * ⚠ SCOPE OF THE EVIDENCE. Derived from the MMAMB compendium's own modification apparatus, which
++ *   ENUMERATES its modifiers explicitly — so absence is a positive finding, not a failed search.
++ *   The compendium is consolidated only to 31-12-2009 and declares itself «merament divulgativa».
++ *   It cannot speak to 2010–2026: this is `not-recorded-in-this-source`, NEVER `does-not-exist`.
++ */
++const AMB_LADDER_DEVIATIONS: Readonly<Record<string, AlcadaLadderSource>> = Object.freeze({
++    '08019': 'barcelona-mpgm-2007',
++    '08015': 'badalona-own-instrument',
++});
++
++/** The 26 PGM-governed municipalities other than Barcelona, read from AMB layer 16 `PGM='S'`. */
++export function alcadaLadderFor(ine: string, pgmGoverned: boolean): AlcadaLadderSource | null {
++    if (!pgmGoverned) return null;          // its own general plan governs; PRYZM does not hold it
++    return AMB_LADDER_DEVIATIONS[ine] ?? 'base-metropolitan';
++}
++
++const ART327_BY_SOURCE: Readonly<Record<AlcadaLadderSource, ReadonlyArray<AlcadaBand>>> =
++    Object.freeze({
++        'barcelona-mpgm-2007': BCN_ALCADA_REGULADORA_TABLE,
++        // ⚠ SAME FIGURES, DIFFERENT LAW. Badalona reaches these bands through its OWN instrument.
++        //   Aliasing the constant is correct; aliasing the CITATION would not be.
++        'badalona-own-instrument': BCN_ALCADA_REGULADORA_TABLE,
++        'base-metropolitan': BCN_ART327_BASE_METROPOLITAN_TABLE,
++    });
++
+-export function heightFromFloorsAboveGround(floorsAboveGround: number): FloorsToHeight | null {
+-    if (!Number.isInteger(floorsAboveGround) || floorsAboveGround < 1) return null;
+-    const band = BCN_ALCADA_REGULADORA_TABLE.find(
+-        (b) => b.floorsAboveGround === floorsAboveGround,
+-    );
+-    if (band) return { height_m: band.height_m, basis: 'table-exact' };
+-    // Above PB+6 — extrapolate on the table's own slope. ESTIMATE.
+-    return {
+-        height_m: BCN_GROUND_FLOOR_DATUM_M + BCN_STOREY_MODULE_M * floorsAboveGround,
+-        basis: 'table-module-extrapolated',
+-    };
+-}
++export function heightFromFloorsAboveGround(
++    floorsAboveGround: number,
++    /** ⛔ REQUIRED. The whole defect was that this function could not be told whom it served. */
++    ladder: AlcadaLadderSource,
++): FloorsToHeight | null {
++    if (!Number.isInteger(floorsAboveGround) || floorsAboveGround < 1) return null;
++    const table = ART327_BY_SOURCE[ladder];
++    const band = table.find((b) => b.floorsAboveGround === floorsAboveGround);
++    if (band) return { height_m: band.height_m, basis: 'table-exact', ladder };
++    // Above the table's top band — extrapolate. ⚠ SEE DEFECT 2: the constants are the BASE
++    // ladder's and were not updated by SIG-2, so this branch is wrong for EVERY municipality.
++    return {
++        height_m: BCN_GROUND_FLOOR_DATUM_M + BCN_STOREY_MODULE_M * floorsAboveGround,
++        basis: 'table-module-extrapolated',
++        ladder,
++    };
++}
+
+--- a/apps/editor/src/ui/site/siteDispatch.ts
++++ b/apps/editor/src/ui/site/siteDispatch.ts
+@@ -3940
+-        const h = heightFromFloorsAboveGround(resolution.plantes.floorsAboveGround);
++        const ladder = alcadaLadderFor(resolution.codiIne, resolution.pgmGoverned);
++        // ⛔ REFUSE, CITED. Not a fallback — see the type comment.
++        const h = ladder === null
++            ? null
++            : heightFromFloorsAboveGround(resolution.plantes.floorsAboveGround, ladder);
+
+───────────────────────────────────────────────────────────────────────────────────────────────
+DEFECT 2 (found while measuring defect 1 — SEPARATE, NOT FIXED BY THE ABOVE)
+───────────────────────────────────────────────────────────────────────────────────────────────
+§EXTRAPOLATION-DISCONTINUITY. `BCN_STOREY_MODULE_M = 3.05` and `BCN_GROUND_FLOOR_DATUM_M = 5.5`
+are derived, VERBATIM in the module comment, from the BASE table:
+    «module = (23.8 − 8.55)/(6 − 1) = 3.05 m and base = 8.55 − 3.05 = 5.5 m»
+SIG-2 replaced the table and did NOT replace the constants. Barcelona's applied ladder has a slope
+of (25.75 − 9.00)/5 = 3.35 m/storey. So the function is internally inconsistent:
+
+    PB+6  →  25.75 m   (table, Barcelona's slope)
+    PB+7  →  5.5 + 3.05×7 = 26.85 m   (extrapolated, the BASE ladder's slope)
+    ⇒ one whole extra storey buys 1.10 m.
+
+⚠ NOT A CORNER CASE. `OV_Trames.PLANTES` reaches B+32, and 4,669 of the 21,649 comparable parcels
+  measured in this run (21.6 %) land in this branch. Because BOTH arms extrapolate on the SAME
+  constants, every one of those parcels recorded a delta of EXACTLY ZERO.
+  ⇒ ⭐ THE MEASURED HEIGHT DELTA IN THIS RUN IS A LOWER BOUND. The masked parcels are not correct;
+    they are served by a slope belonging to neither governing table, in Barcelona too.
+
+⛔ NO FIX IS PROPOSED HERE. Choosing a slope above PB+6 is a legal question, not a refactor: the
+  articles' tables simply stop, and the correct behaviour may well be to REFUSE rather than
+  extrapolate at all. That is a founder/legal decision and it needs its own signature.
+
+───────────────────────────────────────────────────────────────────────────────────────────────
+DEFECT 3 (same class, second function — NOT measured by this run)
+───────────────────────────────────────────────────────────────────────────────────────────────
+`resolveAlcadaReguladora(amplada_m, opts)` at bcnAlcadaReguladora.ts:543 ALSO takes no
+municipality parameter and ALSO reads `BCN_ALCADA_REGULADORA_TABLE` unconditionally (lines
+555–556). It is the WIDTH→height ladder — the route this census counts as `PGM_REGIONAL_PACK`,
+2.93–90.33 % of each municipality's envelopes. `resolveAlcadaSemiintensiva` (Art. 328) has the
+same shape.
+
+⚠ THIS RUN DID NOT MEASURE DEFECT 3, and says so rather than implying the ladder route is clean.
+  Measuring it needs the *ample oficial del carrer* per parcel, which Barcelona itself does not
+  publish machine-readably (probed 2026-07-21: four `vial` datasets, none carrying a width
+  attribute). ⇒ RECORDED AS OPEN, NOT AS ABSENT.

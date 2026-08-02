@@ -1,0 +1,6 @@
+# Catastro per-municipality CP downloads — ~700 MB of GML/zip for the 36 AMB municipalities.
+# Re-derivable from the province ATOM enclosure; a pure accelerator, never evidence. Not committed.
+.cache/
+
+# The run transcript. The artefacts in out/*.json are the durable record.
+out/run.log
