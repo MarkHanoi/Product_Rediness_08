@@ -1,0 +1,980 @@
+{
+  "Estructura": {
+    "typename": "Estructura",
+    "features_pulled": 9031,
+    "numberMatched": 9031,
+    "pull_is_complete": true,
+    "response_bytes": 20092967,
+    "fields": {
+      "calificacion": {
+        "n": 9031,
+        "distinct": 42,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "ZV",
+            1665
+          ],
+          [
+            "EQ",
+            1614
+          ],
+          [
+            "A1",
+            1325
+          ],
+          [
+            "PR-R",
+            805
+          ],
+          [
+            "SUZ-PD-R",
+            537
+          ],
+          [
+            "B",
+            347
+          ],
+          [
+            "SNU-EP-V",
+            270
+          ],
+          [
+            "F",
+            267
+          ],
+          [
+            "A2",
+            248
+          ],
+          [
+            "G",
+            211
+          ],
+          [
+            "VT-PIGA",
+            185
+          ],
+          [
+            "SNU-EN-SE",
+            184
+          ],
+          [
+            "C",
+            164
+          ],
+          [
+            "H",
+            123
+          ],
+          [
+            "AL-PIGA",
+            104
+          ],
+          [
+            "PR-OU",
+            101
+          ],
+          [
+            "D",
+            93
+          ],
+          [
+            "SNU-EP-S",
+            90
+          ],
+          [
+            "SNU-EC",
+            86
+          ],
+          [
+            "SNU-EP-HH",
+            62
+          ],
+          [
+            "A6",
+            56
+          ],
+          [
+            "SNU-EN-RF",
+            55
+          ],
+          [
+            "SNU-EP-R",
+            49
+          ],
+          [
+            "SNU-EN-CC",
+            45
+          ],
+          [
+            "SNU-EN-SR",
+            41
+          ],
+          [
+            "SUZ-P",
+            37
+          ],
+          [
+            "A3",
+            32
+          ],
+          [
+            "SUZ-R",
+            31
+          ],
+          [
+            "A4",
+            30
+          ],
+          [
+            "SNU-EN-NI",
+            27
+          ],
+          [
+            "AC",
+            27
+          ],
+          [
+            "SNU-ES-SCI",
+            26
+          ],
+          [
+            "SUZ-PD-P",
+            19
+          ],
+          [
+            "SNU-G-NRT",
+            17
+          ],
+          [
+            "SNU-EN-VB",
+            17
+          ],
+          [
+            "SNU-EN-MA",
+            10
+          ],
+          [
+            "K",
+            10
+          ],
+          [
+            "SNU-ET",
+            7
+          ],
+          [
+            "SNU-ES-D",
+            6
+          ],
+          [
+            "E",
+            5
+          ],
+          [
+            "SNU-G-VT",
+            2
+          ],
+          [
+            "SNU-G-C",
+            1
+          ]
+        ]
+      },
+      "descripcion": {
+        "n": 9031,
+        "distinct": 41,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "Zonas Verdes – Espacios libres",
+            1665
+          ],
+          [
+            "Equipamientos y Servicios",
+            1614
+          ],
+          [
+            "A1. Edificación en manzana cerrada",
+            1325
+          ],
+          [
+            "PR-R: Planeamiento recogido Residencial",
+            805
+          ],
+          [
+            "Suelo urbanizable Residencial",
+            537
+          ],
+          [
+            "B. Ciudad histórica",
+            347
+          ],
+          [
+            "Vales",
+            270
+          ],
+          [
+            "Zona F. Área de reforma interior pendiente de ordenación",
+            267
+          ],
+          [
+            "A2. Edificación en ordenación abierta",
+            248
+          ],
+          [
+            "Zona G. Área de reforma interior pendiente de gestión",
+            211
+          ],
+          [
+            "Vertido, tratamiento, recuperación y valoración de residuos",
+            187
+          ],
+          [
+            "Protección del suelo estepario",
+            184
+          ],
+          [
+            "C. Conjuntos urbanos contemporáneos",
+            164
+          ],
+          [
+            "Zona H. Área de edificación destinada a usos productivos",
+            123
+          ],
+          [
+            "Terminales de transporte y actividades logísticas",
+            104
+          ],
+          [
+            "PR-OU: Planeamiento recogido Otros Usos",
+            101
+          ],
+          [
+            "D. Zona de edificación residencial en agrupaciones de densidad media",
+            93
+          ],
+          [
+            "Protección de la agricultura en el secano tradicional",
+            90
+          ],
+          [
+            "Patrimonio cultural en medio rural",
+            86
+          ],
+          [
+            "Protección de la huerta honda",
+            62
+          ],
+          [
+            "A6. Edificación destinada a usos productivos",
+            56
+          ],
+          [
+            "Montes y suelos de repoblación forestal",
+            55
+          ],
+          [
+            "Protección de la agricultura en el regadío alto tradicional",
+            49
+          ],
+          [
+            "Protección de cauces y canales de crecida",
+            45
+          ],
+          [
+            "Sotos, galachos y riberas fluviales",
+            41
+          ],
+          [
+            "SUZ-P: Suelo urbanizable Usos productivos",
+            37
+          ],
+          [
+            "A3. Edificación en ordenación abierta extensiva ",
+            32
+          ],
+          [
+            "SUZ-R: Suelo urbanizable Residencial",
+            31
+          ],
+          [
+            "A4. Vivienda unifamiliar aislada o agrupada",
+            30
+          ],
+          [
+            "Otros espacios naturales de interés",
+            27
+          ],
+          [
+            "Zona AC. Área pendiente de convenio urbanístico",
+            27
+          ],
+          [
+            "Protección del sistema de comunicaciones e infraestructuras",
+            26
+          ],
+          [
+            "Suelo urbanizable Usos productivos",
+            19
+          ],
+          [
+            "Núcleos Rurales Tradicionales",
+            17
+          ],
+          [
+            "Protección de vaguadas y barrancos",
+            17
+          ],
+          [
+            "Masas arbóreas y terrenos forestales naturales",
+            10
+          ],
+          [
+            "Zona K. Núcleo de población por parcelaciones urbanísticas irregulares",
+            10
+          ],
+          [
+            "Transición del tramo urbano del Ebro",
+            7
+          ],
+          [
+            "Áreas de la Defensa",
+            6
+          ],
+          [
+            "Zona E. Área de nueva ordenación por renovación de uso",
+            5
+          ],
+          [
+            "Núcleos Tradicionales de Cuevas",
+            1
+          ]
+        ]
+      }
+    }
+  },
+  "Clasificaciones": {
+    "typename": "Clasificaciones",
+    "features_pulled": 683,
+    "numberMatched": 683,
+    "pull_is_complete": true,
+    "response_bytes": 4448651,
+    "fields": {
+      "clasificacion": {
+        "n": 683,
+        "distinct": 10,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "SU",
+            200
+          ],
+          [
+            "SU-NC",
+            192
+          ],
+          [
+            "SUZ",
+            84
+          ],
+          [
+            "SGU",
+            55
+          ],
+          [
+            "SNU-E",
+            46
+          ],
+          [
+            "SGUZ",
+            38
+          ],
+          [
+            "SNU-G",
+            31
+          ],
+          [
+            "RIO",
+            18
+          ],
+          [
+            "SGNU",
+            13
+          ],
+          [
+            "SUZ (D)",
+            6
+          ]
+        ]
+      },
+      "clase": {
+        "n": 683,
+        "distinct": 1,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "P",
+            683
+          ]
+        ]
+      },
+      "descripcion": {
+        "n": 683,
+        "distinct": 8,
+        "non_null_pct": 96.5,
+        "VALID_pct_nonzero_nonblank": 96.5,
+        "top": [
+          [
+            "Suelo  urbano consolidado",
+            200
+          ],
+          [
+            "Suelo  urbano  no consolidado",
+            192
+          ],
+          [
+            "Suelo urbanizable",
+            84
+          ],
+          [
+            "Sistema general urbano",
+            55
+          ],
+          [
+            "Suelo no urbanizable especial",
+            46
+          ],
+          [
+            "Sistema general urbanizable",
+            38
+          ],
+          [
+            "Suelo no urbanizable genérico",
+            31
+          ],
+          [
+            "None",
+            24
+          ],
+          [
+            "Sistema general no urbanizable",
+            13
+          ]
+        ]
+      },
+      "perimetro": {
+        "n": 683,
+        "distinct": 680,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "125.64",
+            4
+          ],
+          [
+            "352.8",
+            1
+          ],
+          [
+            "7494.24",
+            1
+          ],
+          [
+            "380.03",
+            1
+          ],
+          [
+            "627.57",
+            1
+          ],
+          [
+            "539.91",
+            1
+          ],
+          [
+            "3155.09",
+            1
+          ],
+          [
+            "996.2",
+            1
+          ],
+          [
+            "919.33",
+            1
+          ],
+          [
+            "1272.29",
+            1
+          ],
+          [
+            "809.17",
+            1
+          ],
+          [
+            "1351.72",
+            1
+          ],
+          [
+            "528.24",
+            1
+          ],
+          [
+            "201.17",
+            1
+          ],
+          [
+            "1922.61",
+            1
+          ],
+          [
+            "485.19",
+            1
+          ],
+          [
+            "2045.11",
+            1
+          ],
+          [
+            "1516.77",
+            1
+          ],
+          [
+            "1287.16",
+            1
+          ],
+          [
+            "2584.82",
+            1
+          ],
+          [
+            "1528.87",
+            1
+          ],
+          [
+            "715.73",
+            1
+          ],
+          [
+            "323.92",
+            1
+          ],
+          [
+            "1553.51",
+            1
+          ],
+          [
+            "2093.7",
+            1
+          ],
+          [
+            "429.87",
+            1
+          ],
+          [
+            "892.23",
+            1
+          ],
+          [
+            "2119.31",
+            1
+          ],
+          [
+            "1367.4",
+            1
+          ],
+          [
+            "2409.09",
+            1
+          ],
+          [
+            "1442.22",
+            1
+          ],
+          [
+            "913.05",
+            1
+          ],
+          [
+            "232.2",
+            1
+          ],
+          [
+            "414.13",
+            1
+          ],
+          [
+            "703.82",
+            1
+          ],
+          [
+            "1173.83",
+            1
+          ],
+          [
+            "1239.68",
+            1
+          ],
+          [
+            "201.21",
+            1
+          ],
+          [
+            "3137.9",
+            1
+          ],
+          [
+            "584.65",
+            1
+          ],
+          [
+            "2156.6",
+            1
+          ],
+          [
+            "818.62",
+            1
+          ],
+          [
+            "1343.17",
+            1
+          ],
+          [
+            "208.96",
+            1
+          ],
+          [
+            "1340.74",
+            1
+          ],
+          [
+            "2746.75",
+            1
+          ],
+          [
+            "630.55",
+            1
+          ],
+          [
+            "285.64",
+            1
+          ],
+          [
+            "372.37",
+            1
+          ],
+          [
+            "364.31",
+            1
+          ],
+          [
+            "243.5",
+            1
+          ],
+          [
+            "385.45",
+            1
+          ],
+          [
+            "1970.63",
+            1
+          ],
+          [
+            "908.94",
+            1
+          ],
+          [
+            "987.22",
+            1
+          ],
+          [
+            "1397.45",
+            1
+          ],
+          [
+            "7511.49",
+            1
+          ],
+          [
+            "387.43",
+            1
+          ],
+          [
+            "376.01",
+            1
+          ],
+          [
+            "411.25",
+            1
+          ]
+        ]
+      },
+      "superficie": {
+        "n": 683,
+        "distinct": 682,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "1255.72",
+            2
+          ],
+          [
+            "6208.01",
+            1
+          ],
+          [
+            "383874.84",
+            1
+          ],
+          [
+            "7011.99",
+            1
+          ],
+          [
+            "24499.67",
+            1
+          ],
+          [
+            "4504.72",
+            1
+          ],
+          [
+            "375903.48",
+            1
+          ],
+          [
+            "53886.41",
+            1
+          ],
+          [
+            "19202.28",
+            1
+          ],
+          [
+            "67443.88",
+            1
+          ],
+          [
+            "8766.94",
+            1
+          ],
+          [
+            "79559.5",
+            1
+          ],
+          [
+            "9394.16",
+            1
+          ],
+          [
+            "2476.63",
+            1
+          ],
+          [
+            "77403.86",
+            1
+          ],
+          [
+            "10916.28",
+            1
+          ],
+          [
+            "97688.47",
+            1
+          ],
+          [
+            "106639.23",
+            1
+          ],
+          [
+            "30483.44",
+            1
+          ],
+          [
+            "142022.53",
+            1
+          ],
+          [
+            "56373.76",
+            1
+          ],
+          [
+            "25027.14",
+            1
+          ],
+          [
+            "3157.73",
+            1
+          ],
+          [
+            "48396.78",
+            1
+          ],
+          [
+            "23632.7",
+            1
+          ],
+          [
+            "9889.41",
+            1
+          ],
+          [
+            "41186.84",
+            1
+          ],
+          [
+            "146904.86",
+            1
+          ],
+          [
+            "40792.91",
+            1
+          ],
+          [
+            "78111.42",
+            1
+          ],
+          [
+            "116810.35",
+            1
+          ],
+          [
+            "47801.44",
+            1
+          ],
+          [
+            "2222.3",
+            1
+          ],
+          [
+            "6797.92",
+            1
+          ],
+          [
+            "32393.73",
+            1
+          ],
+          [
+            "83059.91",
+            1
+          ],
+          [
+            "62469.19",
+            1
+          ],
+          [
+            "2337.25",
+            1
+          ],
+          [
+            "130178.33",
+            1
+          ],
+          [
+            "19446.08",
+            1
+          ],
+          [
+            "181471.73",
+            1
+          ],
+          [
+            "36015.04",
+            1
+          ],
+          [
+            "48693.6",
+            1
+          ],
+          [
+            "1339.79",
+            1
+          ],
+          [
+            "105052.62",
+            1
+          ],
+          [
+            "208976.37",
+            1
+          ],
+          [
+            "28429.96",
+            1
+          ],
+          [
+            "3584.02",
+            1
+          ],
+          [
+            "4793.68",
+            1
+          ],
+          [
+            "4694.08",
+            1
+          ],
+          [
+            "1978.05",
+            1
+          ],
+          [
+            "6979.27",
+            1
+          ],
+          [
+            "185802.61",
+            1
+          ],
+          [
+            "37716.12",
+            1
+          ],
+          [
+            "35806.77",
+            1
+          ],
+          [
+            "87401.55",
+            1
+          ],
+          [
+            "1094254.98",
+            1
+          ],
+          [
+            "7951.16",
+            1
+          ],
+          [
+            "9059.69",
+            1
+          ],
+          [
+            "7955.02",
+            1
+          ]
+        ]
+      },
+      "tipo": {
+        "n": 683,
+        "distinct": 1,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "CLAS",
+            683
+          ]
+        ]
+      }
+    }
+  }
+}

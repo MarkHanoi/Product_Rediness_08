@@ -1,0 +1,1408 @@
+{
+  "probe": "zaragoza-calificacion-code-space",
+  "when": "2026-08-02",
+  "hidden_wfs_attempts": [
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "Estructura",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "urbanismo:Estructura",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "Clasificaciones",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "urbanismo:Clasificaciones",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "Plano_Estructura",
+      "version": "2.0.0",
+      "http": 400,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "Plano_Estructura",
+      "version": "1.1.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "Plano_Estructura",
+      "version": "1.0.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "urbanismo:Plano_Estructura",
+      "version": "2.0.0",
+      "http": 400,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "urbanismo:Plano_Estructura",
+      "version": "1.1.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "urbanismo:Plano_Estructura",
+      "version": "1.0.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "Plano_Clasificacion",
+      "version": "2.0.0",
+      "http": 400,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "Plano_Clasificacion",
+      "version": "1.1.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "Plano_Clasificacion",
+      "version": "1.0.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "urbanismo:Plano_Clasificacion",
+      "version": "2.0.0",
+      "http": 400,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "urbanismo:Plano_Clasificacion",
+      "version": "1.1.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "urbanismo:Plano_Clasificacion",
+      "version": "1.0.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "Parcelario_Ordenacion",
+      "version": "2.0.0",
+      "http": 400,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "Parcelario_Ordenacion",
+      "version": "1.1.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "Parcelario_Ordenacion",
+      "version": "1.0.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "urbanismo:Parcelario_Ordenacion",
+      "version": "2.0.0",
+      "http": 400,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "urbanismo:Parcelario_Ordenacion",
+      "version": "1.1.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "urbanismo:Parcelario_Ordenacion",
+      "version": "1.0.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "Estructura",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "urbanismo:Estructura",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "Clasificaciones",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "urbanismo:Clasificaciones",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "Plano_Estructura",
+      "version": "2.0.0",
+      "http": 400,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "Plano_Estructura",
+      "version": "1.1.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "Plano_Estructura",
+      "version": "1.0.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "urbanismo:Plano_Estructura",
+      "version": "2.0.0",
+      "http": 400,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "urbanismo:Plano_Estructura",
+      "version": "1.1.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "urbanismo:Plano_Estructura",
+      "version": "1.0.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "Plano_Clasificacion",
+      "version": "2.0.0",
+      "http": 400,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "Plano_Clasificacion",
+      "version": "1.1.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "Plano_Clasificacion",
+      "version": "1.0.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "urbanismo:Plano_Clasificacion",
+      "version": "2.0.0",
+      "http": 400,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "urbanismo:Plano_Clasificacion",
+      "version": "1.1.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "urbanismo:Plano_Clasificacion",
+      "version": "1.0.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "Parcelario_Ordenacion",
+      "version": "2.0.0",
+      "http": 400,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "Parcelario_Ordenacion",
+      "version": "1.1.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "Parcelario_Ordenacion",
+      "version": "1.0.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "urbanismo:Parcelario_Ordenacion",
+      "version": "2.0.0",
+      "http": 400,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "urbanismo:Parcelario_Ordenacion",
+      "version": "1.1.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "urbanismo:Parcelario_Ordenacion",
+      "version": "1.0.0",
+      "http": 200,
+      "served": false,
+      "features": 0
+    }
+  ],
+  "hidden_wfs_served": [
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "Estructura",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "urbanismo:Estructura",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "Clasificaciones",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+      "typename": "urbanismo:Clasificaciones",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "Estructura",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "urbanismo:Estructura",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "Clasificaciones",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    },
+    {
+      "base": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+      "typename": "urbanismo:Clasificaciones",
+      "version": "2.0.0",
+      "http": 200,
+      "served": true,
+      "features": 5
+    }
+  ],
+  "bulk_pulls": {
+    "Estructura": {
+      "typename": "Estructura",
+      "http": 400,
+      "error": "non-200",
+      "features_pulled": 0
+    },
+    "urbanismo:Estructura": {
+      "typename": "urbanismo:Estructura",
+      "http": 400,
+      "error": "non-200",
+      "features_pulled": 0
+    },
+    "Clasificaciones": {
+      "typename": "Clasificaciones",
+      "http": 400,
+      "error": "non-200",
+      "features_pulled": 0
+    },
+    "urbanismo:Clasificaciones": {
+      "typename": "urbanismo:Clasificaciones",
+      "http": 400,
+      "error": "non-200",
+      "features_pulled": 0
+    }
+  },
+  "wms_grid_control_estructura": {
+    "layer": "Plano_Estructura",
+    "grid_step_m": 250,
+    "points_sampled": 783,
+    "points_inside_a_polygon": 778,
+    "points_outside": 5,
+    "errors": 0,
+    "HIT_RATE_pct_of_sampled_points": 99.4,
+    "HIT_RATE_CAVEAT": "this is the fraction of GRID POINTS inside a polygon. The grid bbox deliberately overshoots the urban area, so this is NOT a coverage figure for the city.",
+    "fields": {
+      "LEVEL": {
+        "observations": 1115,
+        "distinct": 21,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "12",
+            248
+          ],
+          [
+            "15",
+            238
+          ],
+          [
+            "24",
+            108
+          ],
+          [
+            "10",
+            99
+          ],
+          [
+            "11",
+            76
+          ],
+          [
+            "21",
+            67
+          ],
+          [
+            "20",
+            56
+          ],
+          [
+            "17",
+            49
+          ],
+          [
+            "26",
+            34
+          ],
+          [
+            "39",
+            27
+          ],
+          [
+            "7",
+            26
+          ],
+          [
+            "4",
+            21
+          ],
+          [
+            "14",
+            21
+          ],
+          [
+            "13",
+            18
+          ],
+          [
+            "27",
+            11
+          ],
+          [
+            "18",
+            5
+          ],
+          [
+            "22",
+            3
+          ],
+          [
+            "5",
+            3
+          ],
+          [
+            "16",
+            2
+          ],
+          [
+            "23",
+            2
+          ],
+          [
+            "2",
+            1
+          ]
+        ]
+      },
+      "BLUE": {
+        "observations": 1115,
+        "distinct": 3,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 41.6,
+        "top": [
+          [
+            "0",
+            651
+          ],
+          [
+            "255",
+            446
+          ],
+          [
+            "210",
+            18
+          ]
+        ]
+      },
+      "GREEN": {
+        "observations": 1115,
+        "distinct": 4,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 68.9,
+        "top": [
+          [
+            "255",
+            680
+          ],
+          [
+            "0",
+            347
+          ],
+          [
+            "134",
+            70
+          ],
+          [
+            "210",
+            18
+          ]
+        ]
+      },
+      "RED": {
+        "observations": 1115,
+        "distinct": 5,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 75.1,
+        "top": [
+          [
+            "255",
+            472
+          ],
+          [
+            "245",
+            307
+          ],
+          [
+            "0",
+            278
+          ],
+          [
+            "126",
+            40
+          ],
+          [
+            "210",
+            18
+          ]
+        ]
+      },
+      "COMMENT": {
+        "observations": 1115,
+        "distinct": 21,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "edificaciones",
+            248
+          ],
+          [
+            "aceras y bordillos",
+            238
+          ],
+          [
+            "zonas verdes urbanas",
+            108
+          ],
+          [
+            "parcelario campos",
+            99
+          ],
+          [
+            "límite de parcelas edificadas",
+            76
+          ],
+          [
+            "ferrocarriles y caminos",
+            67
+          ],
+          [
+            "carreteras",
+            56
+          ],
+          [
+            "carril bici",
+            49
+          ],
+          [
+            "ríos, acequias, canales...",
+            34
+          ],
+          [
+            "masas arbóreas",
+            27
+          ],
+          [
+            "taludes",
+            26
+          ],
+          [
+            "curvas de nivel",
+            21
+          ],
+          [
+            "zonas deportivas",
+            21
+          ],
+          [
+            "líneas aparcamientos",
+            18
+          ],
+          [
+            "tranvía",
+            11
+          ],
+          [
+            "fuentes ornamentales",
+            5
+          ],
+          [
+            "piscinas",
+            3
+          ],
+          [
+            "curvas de nivel directoras",
+            3
+          ],
+          [
+            "contorno depósitos",
+            2
+          ],
+          [
+            "puentes y pasos elevados",
+            2
+          ],
+          [
+            "planeamiento manzanas (obsoleto)",
+            1
+          ]
+        ]
+      },
+      "LEVEL_NAME": {
+        "observations": 1115,
+        "distinct": 21,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "Nivel 12",
+            248
+          ],
+          [
+            "Nivel 15",
+            238
+          ],
+          [
+            "Nivel 24",
+            108
+          ],
+          [
+            "Nivel 10",
+            99
+          ],
+          [
+            "Nivel 11",
+            76
+          ],
+          [
+            "Nivel 21",
+            67
+          ],
+          [
+            "Nivel 20",
+            56
+          ],
+          [
+            "Nivel 17",
+            49
+          ],
+          [
+            "Nivel 26",
+            34
+          ],
+          [
+            "Nivel 39",
+            27
+          ],
+          [
+            "Nivel 7",
+            26
+          ],
+          [
+            "Nivel 4",
+            21
+          ],
+          [
+            "Nivel 14",
+            21
+          ],
+          [
+            "Nivel 13",
+            18
+          ],
+          [
+            "Nivel 27",
+            11
+          ],
+          [
+            "Nivel 18",
+            5
+          ],
+          [
+            "Nivel 22",
+            3
+          ],
+          [
+            "Nivel 5",
+            3
+          ],
+          [
+            "Nivel 16",
+            2
+          ],
+          [
+            "Nivel 23",
+            2
+          ],
+          [
+            "Nivel 38",
+            1
+          ]
+        ]
+      },
+      "calificacion": {
+        "observations": 782,
+        "distinct": 26,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "EQ",
+            154
+          ],
+          [
+            "ZV",
+            118
+          ],
+          [
+            "A1",
+            89
+          ],
+          [
+            "SNU-EP-HH",
+            64
+          ],
+          [
+            "SNU-EN-CC",
+            64
+          ],
+          [
+            "PR-R",
+            62
+          ],
+          [
+            "SNU-ET",
+            40
+          ],
+          [
+            "SNU-EN-SR",
+            32
+          ],
+          [
+            "SNU-ES-SCI",
+            24
+          ],
+          [
+            "A2",
+            23
+          ],
+          [
+            "A6",
+            16
+          ],
+          [
+            "SUZ-P",
+            16
+          ],
+          [
+            "B",
+            14
+          ],
+          [
+            "C",
+            13
+          ],
+          [
+            "H",
+            11
+          ],
+          [
+            "G",
+            8
+          ],
+          [
+            "F",
+            7
+          ],
+          [
+            "PR-OU",
+            7
+          ],
+          [
+            "A3",
+            5
+          ],
+          [
+            "SUZ-PD-R",
+            4
+          ],
+          [
+            "SUZ-R",
+            4
+          ],
+          [
+            "SNU-G-C",
+            2
+          ],
+          [
+            "E",
+            2
+          ],
+          [
+            "A4",
+            1
+          ],
+          [
+            "SNU-G-NRT",
+            1
+          ],
+          [
+            "SNU-EP-R",
+            1
+          ]
+        ]
+      },
+      "descripcion": {
+        "observations": 1213,
+        "distinct": 36,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "Zona de seguridad radioeléctrica",
+            269
+          ],
+          [
+            "Equipamientos y Servicios",
+            154
+          ],
+          [
+            "Zonas Verdes – Espacios libres",
+            118
+          ],
+          [
+            "A1. Edificación en manzana cerrada",
+            89
+          ],
+          [
+            "P.O.R.N. del Ebro. Zona 2",
+            74
+          ],
+          [
+            "Protección de la huerta honda",
+            64
+          ],
+          [
+            "Protección de cauces y canales de crecida",
+            64
+          ],
+          [
+            "PR-R: Planeamiento recogido Residencial",
+            62
+          ],
+          [
+            "P.O.R.N. del Ebro. Zona 1",
+            55
+          ],
+          [
+            "Transición del tramo urbano del Ebro",
+            40
+          ],
+          [
+            "Sotos, galachos y riberas fluviales",
+            32
+          ],
+          [
+            "Protección del sistema de comunicaciones e infraestructuras",
+            24
+          ],
+          [
+            "A2. Edificación en ordenación abierta",
+            23
+          ],
+          [
+            "Lics y Zepas",
+            19
+          ],
+          [
+            "A6. Edificación destinada a usos productivos",
+            16
+          ],
+          [
+            "SUZ-P: Suelo urbanizable Usos productivos",
+            16
+          ],
+          [
+            "B. Ciudad histórica",
+            14
+          ],
+          [
+            "C. Conjuntos urbanos contemporáneos",
+            13
+          ],
+          [
+            "Zona H. Área de edificación destinada a usos productivos",
+            11
+          ],
+          [
+            "Zona G. Área de reforma interior pendiente de gestión",
+            8
+          ],
+          [
+            "Zona F. Área de reforma interior pendiente de ordenación",
+            7
+          ],
+          [
+            "PR-OU: Planeamiento recogido Otros Usos",
+            7
+          ],
+          [
+            "A3. Edificación en ordenación abierta extensiva ",
+            5
+          ],
+          [
+            "Suelo urbanizable Residencial",
+            4
+          ],
+          [
+            "SUZ-R: Suelo urbanizable Residencial",
+            4
+          ],
+          [
+            "Riesgo de erosión de márgenes fluviales",
+            4
+          ],
+          [
+            "Protección activa del paisaje",
+            3
+          ],
+          [
+            "Núcleos Tradicionales de Cuevas",
+            2
+          ],
+          [
+            "Vías pecuarias",
+            2
+          ],
+          [
+            "Zona E. Área de nueva ordenación por renovación de uso",
+            2
+          ]
+        ]
+      },
+      "proteccion_sistemas": {
+        "observations": 431,
+        "distinct": 10,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "SRD",
+            269
+          ],
+          [
+            "PORN Z2",
+            74
+          ],
+          [
+            "PORN Z1",
+            55
+          ],
+          [
+            "LyZ",
+            19
+          ],
+          [
+            "EMF",
+            4
+          ],
+          [
+            "PAP",
+            3
+          ],
+          [
+            "VP",
+            2
+          ],
+          [
+            "PPP",
+            2
+          ],
+          [
+            "RH",
+            2
+          ],
+          [
+            "SM",
+            1
+          ]
+        ]
+      },
+      "clase": {
+        "observations": 431,
+        "distinct": 1,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "P",
+            431
+          ]
+        ]
+      },
+      "perimetro": {
+        "observations": 431,
+        "distinct": 0,
+        "non_null_pct": 0.0,
+        "VALID_pct_nonzero_nonblank": 0.0,
+        "top": [
+          [
+            "None",
+            431
+          ]
+        ]
+      },
+      "superficie": {
+        "observations": 431,
+        "distinct": 14,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "50264218.21",
+            269
+          ],
+          [
+            "7612965.49",
+            55
+          ],
+          [
+            "8473546.74",
+            37
+          ],
+          [
+            "4624623.16",
+            21
+          ],
+          [
+            "1163109.11",
+            19
+          ],
+          [
+            "4835454.29",
+            16
+          ],
+          [
+            "114478.37",
+            4
+          ],
+          [
+            "18718109.16",
+            2
+          ],
+          [
+            "401754.54",
+            2
+          ],
+          [
+            "153073",
+            2
+          ],
+          [
+            "38010.61",
+            1
+          ],
+          [
+            "40131.39",
+            1
+          ],
+          [
+            "10212.94",
+            1
+          ],
+          [
+            "23218.05",
+            1
+          ]
+        ]
+      },
+      "tipo": {
+        "observations": 431,
+        "distinct": 1,
+        "non_null_pct": 100.0,
+        "VALID_pct_nonzero_nonblank": 100.0,
+        "top": [
+          [
+            "PRTS",
+            431
+          ]
+        ]
+      }
+    },
+    "calificacion_examples": {
+      "ZV": {
+        "descripcion": "Zonas Verdes – Espacios libres",
+        "at": [
+          673500,
+          4611000
+        ],
+        "vertices": 6
+      },
+      "PR-R": {
+        "descripcion": "PR-R: Planeamiento recogido Residencial",
+        "at": [
+          673500,
+          4611000
+        ],
+        "vertices": 9
+      },
+      "EQ": {
+        "descripcion": "Equipamientos y Servicios",
+        "at": [
+          673500,
+          4611250
+        ],
+        "vertices": 20
+      },
+      "A3": {
+        "descripcion": "A3. Edificación en ordenación abierta extensiva ",
+        "at": [
+          673500,
+          4612000
+        ],
+        "vertices": 18
+      },
+      "A1": {
+        "descripcion": "A1. Edificación en manzana cerrada",
+        "at": [
+          673500,
+          4613000
+        ],
+        "vertices": 5
+      },
+      "SNU-EN-SR": {
+        "descripcion": "Sotos, galachos y riberas fluviales",
+        "at": [
+          673500,
+          4614750
+        ],
+        "vertices": 158
+      },
+      "SNU-EP-HH": {
+        "descripcion": "Protección de la huerta honda",
+        "at": [
+          673500,
+          4615750
+        ],
+        "vertices": 86
+      },
+      "SNU-ET": {
+        "descripcion": "Transición del tramo urbano del Ebro",
+        "at": [
+          673500,
+          4616250
+        ],
+        "vertices": 87
+      },
+      "SNU-ES-SCI": {
+        "descripcion": "Protección del sistema de comunicaciones e infraestructuras",
+        "at": [
+          673500,
+          4616500
+        ],
+        "vertices": 175
+      },
+      "A4": {
+        "descripcion": "A4. Vivienda unifamiliar aislada o agrupada",
+        "at": [
+          673750,
+          4611000
+        ],
+        "vertices": 15
+      },
+      "A2": {
+        "descripcion": "A2. Edificación en ordenación abierta",
+        "at": [
+          673750,
+          4612500
+        ],
+        "vertices": 8
+      },
+      "C": {
+        "descripcion": "C. Conjuntos urbanos contemporáneos",
+        "at": [
+          673750,
+          4612500
+        ],
+        "vertices": 16
+      },
+      "G": {
+        "descripcion": "Zona G. Área de reforma interior pendiente de gestión",
+        "at": [
+          674000,
+          4613750
+        ],
+        "vertices": 6
+      },
+      "SNU-EN-CC": {
+        "descripcion": "Protección de cauces y canales de crecida",
+        "at": [
+          674000,
+          4617500
+        ],
+        "vertices": 34
+      },
+      "SNU-G-C": {
+        "descripcion": "Núcleos Tradicionales de Cuevas",
+        "at": [
+          675250,
+          4617500
+        ],
+        "vertices": 133
+      },
+      "B": {
+        "descripcion": "B. Ciudad histórica",
+        "at": [
+          675750,
+          4613750
+        ],
+        "vertices": 13
+      },
+      "E": {
+        "descripcion": "Zona E. Área de nueva ordenación por renovación de uso",
+        "at": [
+          676500,
+          4611750
+        ],
+        "vertices": 21
+      },
+      "A6": {
+        "descripcion": "A6. Edificación destinada a usos productivos",
+        "at": [
+          677250,
+          4615000
+        ],
+        "vertices": 18
+      },
+      "F": {
+        "descripcion": "Zona F. Área de reforma interior pendiente de ordenación",
+        "at": [
+          677250,
+          4616250
+        ],
+        "vertices": 17
+      },
+      "PR-OU": {
+        "descripcion": "PR-OU: Planeamiento recogido Otros Usos",
+        "at": [
+          677500,
+          4616250
+        ],
+        "vertices": 9
+      },
+      "SUZ-P": {
+        "descripcion": "SUZ-P: Suelo urbanizable Usos productivos",
+        "at": [
+          677500,
+          4616500
+        ],
+        "vertices": 39
+      },
+      "H": {
+        "descripcion": "Zona H. Área de edificación destinada a usos productivos",
+        "at": [
+          677500,
+          4616750
+        ],
+        "vertices": 16
+      },
+      "SUZ-PD-R": {
+        "descripcion": "Suelo urbanizable Residencial",
+        "at": [
+          677500,
+          4617500
+        ],
+        "vertices": 6
+      },
+      "SUZ-R": {
+        "descripcion": "SUZ-R: Suelo urbanizable Residencial",
+        "at": [
+          677750,
+          4611000
+        ],
+        "vertices": 28
+      },
+      "SNU-G-NRT": {
+        "descripcion": "Núcleos Rurales Tradicionales",
+        "at": [
+          680250,
+          4613750
+        ],
+        "vertices": 35
+      },
+      "SNU-EP-R": {
+        "descripcion": "Protección de la agricultura en el regadío alto tradicional",
+        "at": [
+          680250,
+          4615000
+        ],
+        "vertices": 46
+      }
+    }
+  }
+}

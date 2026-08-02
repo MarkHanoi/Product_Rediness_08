@@ -1,0 +1,4 @@
+# Fetched source documents — re-downloadable from the URLs recorded in the JSON
+# outputs. Not committed: 12 MB of municipal PDFs, and the repo is not their archive.
+out/pdf_cache/
+__pycache__/

@@ -1,0 +1,1077 @@
+{
+  "probe": "huesca-plano5-line-classes",
+  "question": "Is the linea de fondo edificable drawn in a graphics state distinguishable from the base map?",
+  "colour_is_ruled_out": "all paint colours on all sampled sheets are greyscale (r==g==b) -- zone identity is NOT colour-coded on this plan",
+  "sheets": [
+    {
+      "file": "huesca_plano5_H-01.pdf",
+      "distinct_stroke_classes": 26,
+      "distinct_line_widths": 8,
+      "distinct_dash_patterns": 3,
+      "dash_patterns": [
+        {
+          "pattern": "solid",
+          "strokes": 6669
+        },
+        {
+          "pattern": "11.88,3.96",
+          "strokes": 4
+        },
+        {
+          "pattern": "7.92,3.0,1.98,3.0",
+          "strokes": 1
+        }
+      ],
+      "line_widths": [
+        {
+          "width_pt": 0.0,
+          "strokes": 6577
+        },
+        {
+          "width_pt": 0.3,
+          "strokes": 60
+        },
+        {
+          "width_pt": 0.6,
+          "strokes": 16
+        },
+        {
+          "width_pt": 0.12,
+          "strokes": 7
+        },
+        {
+          "width_pt": 0.42,
+          "strokes": 6
+        },
+        {
+          "width_pt": 0.9,
+          "strokes": 4
+        },
+        {
+          "width_pt": 0.72,
+          "strokes": 3
+        },
+        {
+          "width_pt": 0.66,
+          "strokes": 1
+        }
+      ],
+      "top_classes": [
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 5282
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 1276
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 26
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 26
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 14
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.51,
+          "strokes": 11
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 8
+        },
+        {
+          "width_pt": 0.12,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 5
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 4
+        },
+        {
+          "width_pt": 0.42,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 3
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.91,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.42,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.12,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.72,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 1
+        }
+      ],
+      "dashed_stroke_count": 5,
+      "dashed_classes": [
+        {
+          "width_pt": 0.9,
+          "dash": "11.88,3.96",
+          "gray": 0.25,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "7.92,3.0,1.98,3.0",
+          "gray": 0.0,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.9,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 1
+        }
+      ]
+    },
+    {
+      "file": "huesca_plano5_H-05.pdf",
+      "distinct_stroke_classes": 22,
+      "distinct_line_widths": 8,
+      "distinct_dash_patterns": 2,
+      "dash_patterns": [
+        {
+          "pattern": "solid",
+          "strokes": 6230
+        },
+        {
+          "pattern": "11.88,3.96",
+          "strokes": 7
+        }
+      ],
+      "line_widths": [
+        {
+          "width_pt": 0.0,
+          "strokes": 6111
+        },
+        {
+          "width_pt": 0.3,
+          "strokes": 87
+        },
+        {
+          "width_pt": 0.6,
+          "strokes": 19
+        },
+        {
+          "width_pt": 0.12,
+          "strokes": 8
+        },
+        {
+          "width_pt": 0.42,
+          "strokes": 4
+        },
+        {
+          "width_pt": 0.72,
+          "strokes": 4
+        },
+        {
+          "width_pt": 0.9,
+          "strokes": 3
+        },
+        {
+          "width_pt": 0.66,
+          "strokes": 1
+        }
+      ],
+      "top_classes": [
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 5406
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 680
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 72
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 16
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 14
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 8
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 7
+        },
+        {
+          "width_pt": 0.12,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 6
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 5
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.51,
+          "strokes": 4
+        },
+        {
+          "width_pt": 0.42,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 3
+        },
+        {
+          "width_pt": 0.72,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 3
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.91,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.12,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 2
+        }
+      ],
+      "dashed_stroke_count": 7,
+      "dashed_classes": [
+        {
+          "width_pt": 0.0,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 5
+        },
+        {
+          "width_pt": 0.9,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 1
+        }
+      ]
+    },
+    {
+      "file": "huesca_plano5_H-13.pdf",
+      "distinct_stroke_classes": 25,
+      "distinct_line_widths": 9,
+      "distinct_dash_patterns": 3,
+      "dash_patterns": [
+        {
+          "pattern": "solid",
+          "strokes": 8238
+        },
+        {
+          "pattern": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "strokes": 1658
+        },
+        {
+          "pattern": "11.88,3.96",
+          "strokes": 4
+        }
+      ],
+      "line_widths": [
+        {
+          "width_pt": 0.0,
+          "strokes": 8409
+        },
+        {
+          "width_pt": 1.0,
+          "strokes": 1159
+        },
+        {
+          "width_pt": 0.3,
+          "strokes": 232
+        },
+        {
+          "width_pt": 0.6,
+          "strokes": 70
+        },
+        {
+          "width_pt": 0.12,
+          "strokes": 18
+        },
+        {
+          "width_pt": 0.42,
+          "strokes": 4
+        },
+        {
+          "width_pt": 0.72,
+          "strokes": 4
+        },
+        {
+          "width_pt": 0.9,
+          "strokes": 3
+        },
+        {
+          "width_pt": 0.66,
+          "strokes": 1
+        }
+      ],
+      "top_classes": [
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 7823
+        },
+        {
+          "width_pt": 1.0,
+          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "gray": 0.0,
+          "strokes": 702
+        },
+        {
+          "width_pt": 1.0,
+          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "gray": 0.75,
+          "strokes": 457
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 264
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "gray": 0.25,
+          "strokes": 249
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "gray": 0.75,
+          "strokes": 158
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "gray": 0.0,
+          "strokes": 69
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 66
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 51
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "gray": 0.0,
+          "strokes": 17
+        },
+        {
+          "width_pt": 0.12,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 16
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "gray": 0.25,
+          "strokes": 4
+        },
+        {
+          "width_pt": 0.72,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 4
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 3
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 2
+        }
+      ],
+      "dashed_stroke_count": 1662,
+      "dashed_classes": [
+        {
+          "width_pt": 1.0,
+          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "gray": 0.0,
+          "strokes": 702
+        },
+        {
+          "width_pt": 1.0,
+          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "gray": 0.75,
+          "strokes": 457
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "gray": 0.25,
+          "strokes": 249
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "gray": 0.75,
+          "strokes": 158
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "gray": 0.0,
+          "strokes": 69
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "gray": 0.0,
+          "strokes": 17
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "gray": 0.25,
+          "strokes": 4
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.9,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
+          "gray": 0.0,
+          "strokes": 1
+        }
+      ]
+    },
+    {
+      "file": "huesca_plano5_H-14.pdf",
+      "distinct_stroke_classes": 23,
+      "distinct_line_widths": 9,
+      "distinct_dash_patterns": 2,
+      "dash_patterns": [
+        {
+          "pattern": "solid",
+          "strokes": 9889
+        },
+        {
+          "pattern": "11.88,3.96",
+          "strokes": 4
+        }
+      ],
+      "line_widths": [
+        {
+          "width_pt": 0.0,
+          "strokes": 9652
+        },
+        {
+          "width_pt": 0.3,
+          "strokes": 146
+        },
+        {
+          "width_pt": 0.6,
+          "strokes": 67
+        },
+        {
+          "width_pt": 0.12,
+          "strokes": 12
+        },
+        {
+          "width_pt": 0.42,
+          "strokes": 5
+        },
+        {
+          "width_pt": 0.72,
+          "strokes": 4
+        },
+        {
+          "width_pt": 0.9,
+          "strokes": 4
+        },
+        {
+          "width_pt": 1.0,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.66,
+          "strokes": 1
+        }
+      ],
+      "top_classes": [
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 8104
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 1450
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 96
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 70
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 67
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 62
+        },
+        {
+          "width_pt": 0.12,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 10
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 9
+        },
+        {
+          "width_pt": 0.42,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 3
+        },
+        {
+          "width_pt": 0.72,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 3
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 3
+        },
+        {
+          "width_pt": 1.0,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.42,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.91,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.12,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 2
+        }
+      ],
+      "dashed_stroke_count": 4,
+      "dashed_classes": [
+        {
+          "width_pt": 0.6,
+          "dash": "11.88,3.96",
+          "gray": 0.25,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.9,
+          "dash": "11.88,3.96",
+          "gray": 0.25,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.9,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 1
+        }
+      ]
+    },
+    {
+      "file": "huesca_plano5_H-21.pdf",
+      "distinct_stroke_classes": 24,
+      "distinct_line_widths": 8,
+      "distinct_dash_patterns": 3,
+      "dash_patterns": [
+        {
+          "pattern": "solid",
+          "strokes": 6411
+        },
+        {
+          "pattern": "11.88,3.96",
+          "strokes": 5
+        },
+        {
+          "pattern": "7.92,3.0,1.98,3.0",
+          "strokes": 1
+        }
+      ],
+      "line_widths": [
+        {
+          "width_pt": 0.0,
+          "strokes": 6308
+        },
+        {
+          "width_pt": 0.3,
+          "strokes": 74
+        },
+        {
+          "width_pt": 0.6,
+          "strokes": 16
+        },
+        {
+          "width_pt": 0.12,
+          "strokes": 8
+        },
+        {
+          "width_pt": 0.42,
+          "strokes": 4
+        },
+        {
+          "width_pt": 0.9,
+          "strokes": 4
+        },
+        {
+          "width_pt": 0.72,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.66,
+          "strokes": 1
+        }
+      ],
+      "top_classes": [
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 5301
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 970
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 40
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 31
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 27
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 14
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 7
+        },
+        {
+          "width_pt": 0.12,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 6
+        },
+        {
+          "width_pt": 0.42,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.91,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.42,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.12,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.72,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 1
+        }
+      ],
+      "dashed_stroke_count": 6,
+      "dashed_classes": [
+        {
+          "width_pt": 0.0,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.9,
+          "dash": "11.88,3.96",
+          "gray": 0.25,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "7.92,3.0,1.98,3.0",
+          "gray": 0.0,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.9,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 1
+        }
+      ]
+    },
+    {
+      "file": "huesca_plano5_H-28.pdf",
+      "distinct_stroke_classes": 20,
+      "distinct_line_widths": 8,
+      "distinct_dash_patterns": 2,
+      "dash_patterns": [
+        {
+          "pattern": "solid",
+          "strokes": 6783
+        },
+        {
+          "pattern": "11.88,3.96",
+          "strokes": 3
+        }
+      ],
+      "line_widths": [
+        {
+          "width_pt": 0.0,
+          "strokes": 6666
+        },
+        {
+          "width_pt": 0.3,
+          "strokes": 76
+        },
+        {
+          "width_pt": 0.6,
+          "strokes": 26
+        },
+        {
+          "width_pt": 0.12,
+          "strokes": 7
+        },
+        {
+          "width_pt": 0.42,
+          "strokes": 4
+        },
+        {
+          "width_pt": 0.9,
+          "strokes": 4
+        },
+        {
+          "width_pt": 0.72,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.66,
+          "strokes": 1
+        }
+      ],
+      "top_classes": [
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 5420
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 1242
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 69
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 24
+        },
+        {
+          "width_pt": 0.3,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 7
+        },
+        {
+          "width_pt": 0.12,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 5
+        },
+        {
+          "width_pt": 0.42,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 3
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.91,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.0,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.12,
+          "dash": "solid",
+          "gray": 0.75,
+          "strokes": 2
+        },
+        {
+          "width_pt": 0.72,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.9,
+          "dash": "11.88,3.96",
+          "gray": 0.25,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.9,
+          "dash": "solid",
+          "gray": 0.25,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.66,
+          "dash": "solid",
+          "gray": 0.0,
+          "strokes": 1
+        }
+      ],
+      "dashed_stroke_count": 3,
+      "dashed_classes": [
+        {
+          "width_pt": 0.9,
+          "dash": "11.88,3.96",
+          "gray": 0.25,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.9,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 1
+        },
+        {
+          "width_pt": 0.6,
+          "dash": "11.88,3.96",
+          "gray": 0.0,
+          "strokes": 1
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,277 @@
+{
+  "probe": "huesca-plano5-vector-or-raster",
+  "when": "2026-08-02",
+  "question": "Is plano nº5 (alineaciones + linea de fondo edificable, 1:1.000) available as DATA -- i.e. extractable vector geometry -- or as an image only?",
+  "sheets": [
+    {
+      "sheet": "H-01",
+      "url": "https://www.huesca.es/documents/33451/300865/05+Calificacion+del+Suelo+Urbano+H-01.pdf/db40abac-6f90-7808-833f-a109f527dec0?t=1552033978540",
+      "http": 200,
+      "bytes": 521565,
+      "source": "net",
+      "anatomy": {
+        "file": "huesca_plano5_H-01.pdf",
+        "bytes": 521565,
+        "pdf_header": "%PDF-1.6\r",
+        "pages_declared": 1,
+        "content_stream_bytes_inflated": 2143184,
+        "undecodable_streams": 1,
+        "object_streams_objstm": 0,
+        "painted_text_ops": {
+          "Tj_TJ": 0,
+          "quote_ops": 0,
+          "BT_blocks": 0,
+          "total": 0
+        },
+        "vector_path_ops": {
+          "m": 27008,
+          "l": 78497,
+          "c": 5695,
+          "v": 0,
+          "y": 1,
+          "re": 264
+        },
+        "vector_path_ops_total": 111465,
+        "fill_ops": 132,
+        "stroke_ops": 205,
+        "images": {
+          "image_xobjects": 0,
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "inline_BI": 0,
+          "ABSENCE_IS_UNSOUND": false
+        },
+        "font_objects": 0,
+        "VERDICT": "OUTLINED_TEXT_VECTOR",
+        "why": "heavy vector path load with ZERO painted-text operators -- renders perfectly, extracts zero characters. NOT EMPTY."
+      }
+    },
+    {
+      "sheet": "H-05",
+      "url": "https://www.huesca.es/documents/33451/300865/05+Calificacion+del+Suelo+Urbano+H-05.pdf/1d520327-42b7-708e-8958-59be50dd8427?t=1552033986499",
+      "http": 200,
+      "bytes": 678302,
+      "source": "net",
+      "anatomy": {
+        "file": "huesca_plano5_H-05.pdf",
+        "bytes": 678302,
+        "pdf_header": "%PDF-1.6\r",
+        "pages_declared": 1,
+        "content_stream_bytes_inflated": 2585522,
+        "undecodable_streams": 1,
+        "object_streams_objstm": 0,
+        "painted_text_ops": {
+          "Tj_TJ": 0,
+          "quote_ops": 0,
+          "BT_blocks": 0,
+          "total": 0
+        },
+        "vector_path_ops": {
+          "m": 35087,
+          "l": 85395,
+          "c": 9793,
+          "v": 0,
+          "y": 1,
+          "re": 265
+        },
+        "vector_path_ops_total": 130541,
+        "fill_ops": 145,
+        "stroke_ops": 316,
+        "images": {
+          "image_xobjects": 0,
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "inline_BI": 0,
+          "ABSENCE_IS_UNSOUND": false
+        },
+        "font_objects": 0,
+        "VERDICT": "OUTLINED_TEXT_VECTOR",
+        "why": "heavy vector path load with ZERO painted-text operators -- renders perfectly, extracts zero characters. NOT EMPTY."
+      }
+    },
+    {
+      "sheet": "H-13",
+      "url": "https://www.huesca.es/documents/33451/300865/05+Calificacion+del+Suelo+Urbano+H-13.pdf/dd34684d-4346-a10e-c69c-72493272a0f1?t=1552034007875",
+      "http": 200,
+      "bytes": 1925866,
+      "source": "net",
+      "anatomy": {
+        "file": "huesca_plano5_H-13.pdf",
+        "bytes": 1925866,
+        "pdf_header": "%PDF-1.6\r",
+        "pages_declared": 1,
+        "content_stream_bytes_inflated": 6583256,
+        "undecodable_streams": 1,
+        "object_streams_objstm": 0,
+        "painted_text_ops": {
+          "Tj_TJ": 0,
+          "quote_ops": 0,
+          "BT_blocks": 0,
+          "total": 0
+        },
+        "vector_path_ops": {
+          "m": 99047,
+          "l": 206973,
+          "c": 29285,
+          "v": 0,
+          "y": 1,
+          "re": 266
+        },
+        "vector_path_ops_total": 335572,
+        "fill_ops": 248,
+        "stroke_ops": 901,
+        "images": {
+          "image_xobjects": 0,
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "inline_BI": 0,
+          "ABSENCE_IS_UNSOUND": false
+        },
+        "font_objects": 0,
+        "VERDICT": "OUTLINED_TEXT_VECTOR",
+        "why": "heavy vector path load with ZERO painted-text operators -- renders perfectly, extracts zero characters. NOT EMPTY."
+      }
+    },
+    {
+      "sheet": "H-14",
+      "url": "https://www.huesca.es/documents/33451/300865/05+Calificacion+del+Suelo+Urbano+H-14.pdf/11782809-cf74-0708-c519-d2c6beff2408?t=1552034005168",
+      "http": 200,
+      "bytes": 1595946,
+      "source": "net",
+      "anatomy": {
+        "file": "huesca_plano5_H-14.pdf",
+        "bytes": 1595946,
+        "pdf_header": "%PDF-1.6\r",
+        "pages_declared": 1,
+        "content_stream_bytes_inflated": 5400971,
+        "undecodable_streams": 1,
+        "object_streams_objstm": 0,
+        "painted_text_ops": {
+          "Tj_TJ": 0,
+          "quote_ops": 0,
+          "BT_blocks": 0,
+          "total": 0
+        },
+        "vector_path_ops": {
+          "m": 73637,
+          "l": 155310,
+          "c": 31326,
+          "v": 0,
+          "y": 1,
+          "re": 360
+        },
+        "vector_path_ops_total": 260634,
+        "fill_ops": 280,
+        "stroke_ops": 709,
+        "images": {
+          "image_xobjects": 0,
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "inline_BI": 0,
+          "ABSENCE_IS_UNSOUND": false
+        },
+        "font_objects": 0,
+        "VERDICT": "OUTLINED_TEXT_VECTOR",
+        "why": "heavy vector path load with ZERO painted-text operators -- renders perfectly, extracts zero characters. NOT EMPTY."
+      }
+    },
+    {
+      "sheet": "H-21",
+      "url": "https://www.huesca.es/documents/33451/300865/05+Calificacion+del+Suelo+Urbano+H-21.pdf/8b9f1306-954c-20af-0f93-f6f09aa4f14c?t=1552034025290",
+      "http": 200,
+      "bytes": 550658,
+      "source": "net",
+      "anatomy": {
+        "file": "huesca_plano5_H-21.pdf",
+        "bytes": 550658,
+        "pdf_header": "%PDF-1.6\r",
+        "pages_declared": 1,
+        "content_stream_bytes_inflated": 2263984,
+        "undecodable_streams": 1,
+        "object_streams_objstm": 0,
+        "painted_text_ops": {
+          "Tj_TJ": 0,
+          "quote_ops": 0,
+          "BT_blocks": 0,
+          "total": 0
+        },
+        "vector_path_ops": {
+          "m": 29570,
+          "l": 84530,
+          "c": 5484,
+          "v": 0,
+          "y": 1,
+          "re": 264
+        },
+        "vector_path_ops_total": 119849,
+        "fill_ops": 131,
+        "stroke_ops": 222,
+        "images": {
+          "image_xobjects": 0,
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "inline_BI": 0,
+          "ABSENCE_IS_UNSOUND": false
+        },
+        "font_objects": 0,
+        "VERDICT": "OUTLINED_TEXT_VECTOR",
+        "why": "heavy vector path load with ZERO painted-text operators -- renders perfectly, extracts zero characters. NOT EMPTY."
+      }
+    },
+    {
+      "sheet": "H-28",
+      "url": "https://www.huesca.es/documents/33451/300865/05+Calificacion+del+Suelo+Urbano+H-28.pdf/c107800f-6b22-6629-aafa-7c7bff110543?t=1552034077279",
+      "http": 200,
+      "bytes": 691643,
+      "source": "net",
+      "anatomy": {
+        "file": "huesca_plano5_H-28.pdf",
+        "bytes": 691643,
+        "pdf_header": "%PDF-1.6\r",
+        "pages_declared": 1,
+        "content_stream_bytes_inflated": 2533334,
+        "undecodable_streams": 1,
+        "object_streams_objstm": 0,
+        "painted_text_ops": {
+          "Tj_TJ": 0,
+          "quote_ops": 0,
+          "BT_blocks": 0,
+          "total": 0
+        },
+        "vector_path_ops": {
+          "m": 33510,
+          "l": 77776,
+          "c": 12957,
+          "v": 0,
+          "y": 1,
+          "re": 263
+        },
+        "vector_path_ops_total": 124507,
+        "fill_ops": 156,
+        "stroke_ops": 257,
+        "images": {
+          "image_xobjects": 0,
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "inline_BI": 0,
+          "ABSENCE_IS_UNSOUND": false
+        },
+        "font_objects": 0,
+        "VERDICT": "OUTLINED_TEXT_VECTOR",
+        "why": "heavy vector path load with ZERO painted-text operators -- renders perfectly, extracts zero characters. NOT EMPTY."
+      }
+    }
+  ]
+}

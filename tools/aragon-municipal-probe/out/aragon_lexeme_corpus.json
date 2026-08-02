@@ -1,0 +1,633 @@
+{
+  "probe": "aragon-lexeme-and-grammar",
+  "when": "2026-08-02",
+  "docs": {
+    "huesca_normas_pgou08": {
+      "url": "https://www.huesca.es/documents/33451/85658/normas_urbanisticas_pgou08.pdf/6846c65e-e78d-4a0b-4433-904840d671c8?t=1542714308255",
+      "http": 200,
+      "bytes": 2138245,
+      "anatomy": {
+        "painted_text_ops": 24783,
+        "vector_path_ops": 46828,
+        "image_xobjects": 19,
+        "objstm": 0,
+        "readable_by_text": true
+      },
+      "extractor": "pdftotext[cp1252]",
+      "chars": 971642,
+      "lexemes": {
+        "depth_fondo": {
+          "label_hits": 46,
+          "hits_with_number_nearby": 30,
+          "samples": [
+            "..................... 186 Artículo 6.3.7. Fondo edificable. ................................................................................. 186 Artí",
+            "......... 286 Artículo 8.4.8. Ocupación y fondo edificable ........................................................... 286 Artículo 8.4.9. Posición de",
+            "ificación y el espacio libre de parcela. Artículo 6.3.7. Fondo edificable. Se denomina así a la distancia máxima, medida en la perpendicular a la alineación oficial, a la que se s",
+            "4.8 de las presentes Normas. Artículo 8.4.8. Ocupación y fondo edificable 1. La ocupación viene definida por la alineación oficial, los linderos laterales y la línea de fondo"
+          ]
+        },
+        "depth_profundidad": {
+          "label_hits": 8,
+          "hits_with_number_nearby": 3,
+          "samples": [
+            "n de cuarenta (40) metros en longitud de fachada ni en profundidad de edificación, medida ésta desde el límite en que se permita edificar de acuerdo con la regulación sect",
+            "o pudiendo mantenerse dicha altura más que en una profundidad igual a la mitad del fondo de la parcela, siempre que esta dimensión sea inferior al fondo máximo e",
+            "ción sobre la fachada exterior en que se sitúa, así como su profundidad desde aquélla, serán inferiores a trescientos cincuenta (350) centímetros. - Estarán separ",
+            "riores a la baja se admiten las terrazas entrantes, con una profundidad no superior a su altura, medida desde el plano de fachada. A efectos de cómputo de edificabilidad, computará"
+          ]
+        },
+        "setback_retranqueo": {
+          "label_hits": 41,
+          "hits_with_number_nearby": 23,
+          "samples": [
+            "..................... 185 Artículo 6.3.4. Retranqueos y separaciones a los linderos. ..................................... 185 Artículo 6.3.5. O",
+            "e lugar en caso de infracción de alineaciones, replanteo y retranqueos oficiales. El señalamiento de alineaciones y rasantes no implica la concesión de licencia de construcción",
+            "minadas horas. 4. En las zonas en que sea obligatorio el retranqueo, la valla se colocará en la alineación oficial. No será obligatoria cuando esté construido el cerramient",
+            "orecer la erosión o arrastre de las tierras. El retranqueo de los cerramientos serán como mínimo de tres (3) metros desde el borde del camino, línea ferroviaria, c"
+          ]
+        },
+        "setback_linderos": {
+          "label_hits": 79,
+          "hits_with_number_nearby": 44,
+          "samples": [
+            "ificada en proporción a la parcela, pero mantendrán la separación a linderos, y tendrán una ocupación máxima del setenta (70) por ciento de la superficie de la parcela y una altura",
+            "alor mínimo. Se medirá en la forma determinada para la separación a linderos en el apartado siguiente. 2. Separación a linderos. Es la distancia entre cada punto de la fachada del edi",
+            "ra la separación a linderos en el apartado siguiente. 2. Separación a linderos. Es la distancia entre cada punto de la fachada del edificio y el lindero de referencia más próximo, med",
+            "planeamiento de desarrollo o de las A.P.I., el espacio de separación a linderos podrá ocuparse por las plantas bajo AYUNTAMIENTO DE HUESCA 185 TEXTO REFUNDIDO NORMAS URBANÍSTI"
+          ]
+        },
+        "height_reguladora": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "height_cornisa": {
+          "label_hits": 34,
+          "hits_with_number_nearby": 13,
+          "samples": [
+            "rreno, hasta el plano inferior del forjado del último piso (altura de cornisa). c) Si la rasante de la calle a que da fachada el edificio, originase en algún punto de la fachada",
+            "e no podrán rebasar en más de cien(100) centímetros la altura de cornisa. b) Las cubiertas, cuando no sean planas, se realizarán con vertientes de tejado cuya pendiente respe",
+            "ada fachada, desde la línea horizontal correspondiente a la altura de cornisa o desde el borde superior de los aleros permitidos. La cubierta de la planta de ático se regula con la m",
+            "la fachada y a 250 cm., como máximo, por encima de la altura de cornisa, bien desde el borde superior del alero del ático. El saliente máximo de este último no será superior al"
+          ]
+        },
+        "height_maxima": {
+          "label_hits": 26,
+          "hits_with_number_nearby": 17,
+          "samples": [
+            "tamiento, a efectos de comprobar el cumplimiento de su altura máxima, volumen y demás condiciones urbanísticas contenidas en la licencia municipal. 6. Dentro del plazo de quin",
+            "nto de fachada con calidad de obra terminada. 3. La altura máxima del cerramiento de parcela será de dos y medio (2,50) metros. La parte baja podrá ser de fábrica con sol",
+            "perficie construida máxima de quince (15) metros cuadrados, altura máxima de una planta y dos y medio (2,50) metros, y retranqueos mínimos a todos los linderos de tres (3) metros",
+            "a (70) por ciento de la superficie de la parcela y una altura máxima de una planta y cinco (5) metros. La instalación de estos elementos requerirá el mismo trámite y la mism"
+          ]
+        },
+        "height_plantas": {
+          "label_hits": 119,
+          "hits_with_number_nearby": 58,
+          "samples": [
+            "erencia. Para su medición se utilizarán unidades métricas o número de plantas del edificio. 2. De cornisa Es la distancia vertical desde la rasante en la acera, o del terreno en",
+            "ión de las alturas se establecen dos tipos de unidades: por número de plantas y por distancia vertical. Cuando las Normas señalen ambos tipos, habrán de respetarse los dos.",
+            "habrán de respetarse los dos. La relación entre número de plantas y altura máxima de cornisa, salvo indicación en contrario en las normas zonales será la siguiente:",
+            "da. En cualquier caso nunca se podrá superar el número de plantas máximo permitido en cualquier punto de la fachada. Las plantas bajas diáfanas se contab"
+          ]
+        },
+        "alignment": {
+          "label_hits": 137,
+          "hits_with_number_nearby": 74,
+          "samples": [
+            "sa y situada a la distancia máxima de dos metros de la alineación oficial. Deberá quedar remetida de la calzada, al menos 0,60 metros, para permitir el paso de peatones. 2. Cu",
+            "e sea obligatorio el retranqueo, la valla se colocará en la alineación oficial. No será obligatoria cuando esté construido el cerramiento definitivo. 5. La instalación de vallas se",
+            "erta de entrada al garaje no sobrepasará en ningún punto la alineación oficial, no pudiendo situarse sobre la alineación oficial si su apertura se realiza hacia el exterior de la misma.",
+            "punto la alineación oficial, no pudiendo situarse sobre la alineación oficial si su apertura se realiza hacia el exterior de la misma. Se admitirá la utilización de aparatos elevadore"
+          ]
+        },
+        "far": {
+          "label_hits": 99,
+          "hits_with_number_nearby": 34,
+          "samples": [
+            "..................... 187 Artículo 6.4.3. Edificabilidad........................................................................................ 187",
+            "..................... 273 Artículo 8.1.7. Edificabilidad........................................................................................ 273",
+            "..................... 279 Artículo 8.3.7. Edificabilidad........................................................................................ 280",
+            "...... 280 Artículo 8.3.8. Condiciones de edificabilidad del grado 5...................................... 280 Artículo 8.3.9. Ocupación............"
+          ]
+        },
+        "coverage": {
+          "label_hits": 86,
+          "hits_with_number_nearby": 38,
+          "samples": [
+            "..................... 185 Artículo 6.3.5. Ocupación máxima de parcela. ....................................................... 186 Artículo 6.3.6. Ali",
+            "anística de Aragón. La autorización sólo podrá amparar una ocupación máxima por la edificación del 40 por ciento de la superficie de la parcela. Se exigirá, como condición de dicha aut",
+            "ero mantendrán la separación a linderos, y tendrán una ocupación máxima del setenta (70) por ciento de la superficie de la parcela y una altura máxima de una planta y cinco (5)",
+            "er caso, su dimensionamiento deberá tener en cuenta la ocupación máxima teórica prevista para la actividad y cumplirá las condiciones establecidas en el Real Decreto 314/2006,"
+          ]
+        },
+        "plan_sheet_reference": {
+          "label_hits": 85,
+          "hits_with_number_nearby": 40,
+          "samples": [
+            "idado. El suelo urbano aparece delimitado en el plano nº 5 de \"Clasificación, calificación y regulación del suelo y la edificación en suelo urbano. Red viaria",
+            ". El suelo urbanizable aparece delimitado en el plano nº 3 de \"Estructura general y orgánica del territorio. Clasificación del suelo y sistemas generales. Cal",
+            ", así como de sus categorías aparece fijada en el plano nº 2 \"Categorías del Suelo no Urbanizable\", E: 1/20.000. El Suelo no Urbanizable se regula específicamen",
+            "iento del suelo de sistemas generales queda reflejado en el plano nº 1 \"Estructura general y orgánica del territorio. Clasificación del suelo y sistemas generales.\", E: 1/20.0"
+          ]
+        }
+      },
+      "articles": {
+        "distinct_article_headings": 7,
+        "distinct_ids_anywhere": 381,
+        "targeted_as_heading": {
+          "8.3.10": 0,
+          "8.4.8": 0,
+          "8.5.8": 0
+        },
+        "targeted_anywhere": {
+          "8.3.10": 2,
+          "8.4.8": 3,
+          "8.5.8": 2
+        }
+      },
+      "NZ3_art_8_3_10": "8.3.10. Posición de la edificación 1. Alineaciones y retranqueos Las alineaciones serán las fijadas en el plano nº 5 de \"Clasificación, calificación y regulación del suelo y la edificación en suelo urbano. Red viaria, alineaciones y rasantes\". La separación entre el plano de fachada y la alineación oficial será superior a los siguientes valores: - Grado 1: Tres (3) metros mínimo - Grado 2: Cinco (5) metros mínimo - Grado 3: Cinco (5) metros mínimo - Grado 4: Cinco (5) metros mínimo - Grado 5: La existente en la edificación principal en cada caso. Los Estudios de Detalle que se redacten podrán definir otros retranqueos para las construcciones auxiliares que determinen como edificables. AYUNTAMIENTO DE HUESCA 281 TEXTO REFUNDIDO NORMAS URBANÍSTICAS 2. Separación a linderos La separación de la edificación con respecto a los linderos de las parcelas colindantes será: - Grado 1: Un mínimo de tres (3) metros respecto al lindero testero. - Grado 2: Un mínimo de tres (3) metros respecto al lindero testero, y en el caso de disponer de edificación pareada, un mínimo de tres (3) metros, respecto al lindero opuesto al que se adosa la edificación. - Grado 3: Un mínimo de tres (3) metros respecto al lindero testero. En el caso de disponer de edificación pareada, un mínimo de tres (3) metros, respecto al lindero opuesto al que se adosa la edificación y en el caso de edificación aislada un mínimo de tres (3) metros respecto a ambos linderos laterales. - Grado 4: Un mínimo de tres (3) metros respecto al lindero testero y a los laterales. - Grado 5: La existente en la edificación principal en cada caso. Los Estudios de Detalle que se redacten podrán definir otros retranqueos para las construcciones auxiliares que determinen como edificables. En los grados 1, 2, 3 y 4, la edificación aislada se autorizará siempre que se cumplan las separaciones mínimas a linderos laterales, salvo cuando existan parcelas consolidadas por edificaciones que presenten medianeras cuya desaparición no esté contemplada en el Plan, en cuyo caso se deberán cubrir dichas medianeras con las nuevas edificaciones. No se permitirá la creación de nuevas medianeras salvo cuando responda a proyecto conjunto o medie acuerdo entre colindantes autorizándose la carga mediante inscripción registral. En cualquier caso, el conjunto continuo de planos de fachadas, no superará una longitud máxima de sesenta y cuatro (64) metros lineales. Artículo 8.3.11. Altura de la edificación La altura de la edificación no podrá exceder de dos (2) plantas, ni de siete (7) metros a cornisa. En el grado 5, salvo que el Estudio de Detalle correspondiente disponga lo contrario, ser",
+      "NZ4_art_8_4_8": "8.4.8. Ocupación y fondo edificable 1. La ocupación viene definida por la alineación oficial, los linderos laterales y la línea de fondo edificable. 2. El fondo máximo edificable se fija en función de los grados: - Grado 1: El fondo máximo se calcula en función de la separación de la edificación al lindero testero, según lo establecido en el artículo 8.4.9 de las presentes Normas. - Grado 2: El fondo máximo se fija en veinte (20) metros, medidos perpendicularmente a la línea de alineación oficial, con excepción de los casos en los que gráficamente se determine un fondo edificable diferente al definido en este artículo. Si el fondo máximo de la edificación existente difiere cincuenta (50) centímetros por exceso o por defecto del acotado gráficamente, se adaptará la nueva edificación a dicho fondo existente, con objeto de evitar la aparición de medianeras. En cualquier caso, para el cálculo de la edificabilidad se utilizará el fondo definido gráficamente en el plano nº5 de \"Clasificación, calificación y regulación del suelo y la edificación en suelo urbano. Red viaria, alineaciones y rasantes\". Artículo 8.4.9. Posición de la edificación 1. Alineaciones y retranqueos Las alineaciones exteriores serán las fijadas en el plano nº5 de \"Clasificación, calificación y regulación del suelo y la edificación en suelo urbano. Red viaria, alineaciones y rasantes\". Las alineaciones interiores serán las fijadas en el plano de \"Clasificación, calificación y regulación del suelo y la edificación en suelo urbano. Red viaria, alineaciones y rasantes\", y en su defecto, las definidas por el fondo máximo edificable. AYUNTAMIENTO DE HUESCA 286 TEXTO REFUNDIDO NORMAS URBANÍSTICAS 2. Separación a linderos. - Linderos laterales. Grados 1 y 2: En el caso de que por las características o servidumbres de la edificación colindante, o por tratarse de parcelas colindantes con otras correspondientes a otra norma zonal o de uso dotacional, no fuera posible el adosamiento, se admite la separación a los linderos afectados con un ancho mínimo de tres (3) metros, debiéndose tratar las medianeras resultantes como fachadas por el propietario de la nueva edificación. - Lindero testero. Grado 1: Respecto al lindero testero, la línea de edificación se separará una distancia igual o superior a un tercio (1/3) de la altura de coronación de cada uno de los cuerpos de edificación enfrentados al mismo, con un mínimo de tres (3) metros. No serán de aplicación las condiciones establecidas en el párrafo anterior, en parcelas con fondos menores o iguales a quince (15) metros, cuando resuelvan su organización interior sin que existan piezas habitables que recaigan a fachadas posteriores. 3",
+      "NZ5_art_8_5_8": "8.5.8. Posición de la edificación Con carácter general, cuando la línea de edificación esté indicada gráficamente, incluso coincidiendo con la alineación oficial, no será obligatorio cumplir los retranqueos establecidos en el presente artículo. 1. Alineaciones y retranqueos Las alineaciones serán las fijadas en el plano de \"Clasificación, calificación y regulación del suelo y la edificación en suelo urbano. Red viaria, alineaciones y rasantes\". El retranqueo mínimo del plano más exterior de la fachada de la edificación, será el mayor de los siguientes parámetros: a) Altura (H) del edificio, medida desde el plano más exterior de la fachada de la edificación situada en la alineación opuesta de la calle o espacio libre público. b) Mitad de la altura (H/2) del edificio, medida respecto al eje de la calle o espacio libre público al que de frente la parcela. Cuando no esté edificada la parcela opuesta, será de aplicación el apartado b). El retranqueo mínimo podrá reducirse, llegando incluso a coincidir la línea de edificación con la alineación oficial, mediante la tramitación de un Estudio de Detalle en el que quede debidamente justificada la conveniencia y oportunidad de la solución adoptada, así como la ausencia de impactos visuales negativos en relación con el entorno. AYUNTAMIENTO DE HUESCA 291 TEXTO REFUNDIDO NORMAS URBANÍSTICAS 2. Separación a linderos a) A linderos laterales y posterior. Los retranqueos mínimos respecto a los linderos laterales y posterior para la edificación exenta o adosada (en el lado libre), será de dos quintos (2/5) de su altura, no pudiendo ser inferior en ningún caso a tres (3) metros. b) La nueva edificación podrá adosarse a uno de los linderos cuando concurra alguna de las siguientes circunstancias: - Que se trate de edificaciones adosadas de proyecto unitario. - Que la parcela esté enclavada en una estructura parcelaria en que una de las construcciones colindantes sea ya medianera, en cuyo caso se adaptará a dicha medianera existente. - Cuando exista acuerdo entre propietarios de parcelas colindantes, que deberá inscribirse en el Registro de la Propiedad, siendo preceptiva la construcción simultánea o la constitución formal de realizar la construcción de acuerdo con la ordenación aprobada mediante un Estudio de Detalle. En todos los casos la edificación respetará las separaciones mínimas a los restantes linderos, excepto en el caso de la edificación entre dos medianeras, que deberá realizarse adosada a ambas. c) Separación entre edificios dentro de una misma parcela: - La distancia entre edificios dentro de una misma parcela no será inferior a la altura (H) del más alto, cuando en los parámetro"
+    },
+    "zaragoza_ficha_AI_G-44-01": {
+      "url": "https://www.zaragoza.es/pgou/fichas/AI/G-44-01.pdf",
+      "http": 200,
+      "bytes": 466810,
+      "anatomy": {
+        "painted_text_ops": 751,
+        "vector_path_ops": 20047,
+        "image_xobjects": 0,
+        "objstm": 35,
+        "readable_by_text": true
+      },
+      "extractor": "pdftotext[cp1252]",
+      "chars": 20062,
+      "lexemes": {
+        "depth_fondo": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "depth_profundidad": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "setback_retranqueo": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "setback_linderos": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "height_reguladora": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "height_cornisa": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "height_maxima": {
+          "label_hits": 1,
+          "hits_with_number_nearby": 1,
+          "samples": [
+            "Altura máxima: Sistema de Actuación: Compensación Aprovechamiento medio sector (m²/m²): 2,4418 % ap"
+          ]
+        },
+        "height_plantas": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "alignment": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "far": {
+          "label_hits": 8,
+          "hits_with_number_nearby": 6,
+          "samples": [
+            "computan edificabilidad (art. 130 TRLUA): Superficie aportada: 12.",
+            "al ubicado en la primera parcela proporcionalmente a la edificabilidad que tenían reconocida en el Plan anterior. Estimativamente corresponden a la parcela de las calles Caspe",
+            "rdenar los volúmenes sin alteración ni de los usos ni de la edificabilidad.. Superficie edificable en cada parcela (m²): a) 31.675 m²t de uso residencial y 1.935,26 m²t de otros us",
+            "S PARA VIVIENDAS PROTEGIDAS: % s/ edificabilidad real total (incluido aprovechamiento municipal): 0 CESIONES DE SUELO. (% sobre s"
+          ]
+        },
+        "coverage": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "plan_sheet_reference": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        }
+      },
+      "articles": {
+        "distinct_article_headings": 0,
+        "distinct_ids_anywhere": 0,
+        "targeted_as_heading": {
+          "8.3.10": 0,
+          "8.4.8": 0,
+          "8.5.8": 0
+        },
+        "targeted_anywhere": {
+          "8.3.10": 0,
+          "8.4.8": 0,
+          "8.5.8": 0
+        }
+      }
+    },
+    "zaragoza_ficha_AI_G-91-01": {
+      "url": "https://www.zaragoza.es/pgou/fichas/AI/G-91-01.pdf",
+      "http": 200,
+      "bytes": 337738,
+      "anatomy": {
+        "painted_text_ops": 348,
+        "vector_path_ops": 21401,
+        "image_xobjects": 0,
+        "objstm": 17,
+        "readable_by_text": true
+      },
+      "extractor": "pdftotext[cp1252]",
+      "chars": 23889,
+      "lexemes": {
+        "depth_fondo": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "depth_profundidad": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "setback_retranqueo": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "setback_linderos": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "height_reguladora": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "height_cornisa": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "height_maxima": {
+          "label_hits": 1,
+          "hits_with_number_nearby": 1,
+          "samples": [
+            "ción: Compensación Altura máxima: B+1 Aprovechamiento medio sector (m²/m²): 0,14 % ap"
+          ]
+        },
+        "height_plantas": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "alignment": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "far": {
+          "label_hits": 6,
+          "hits_with_number_nearby": 5,
+          "samples": [
+            "IFICACIÓN DEL EMPLAZAMIENTO: computan edificabilidad (art. 130 TRLUA): 0,00 - Entrada a la Urbanización \"El Zorongo\".",
+            "DAS PROTEGIDAS: % s/ edificabilidad real total (incluido aprovechamiento municipal): 0 CESIONES DE SUELO. (% sobre suelo bruto): Dot",
+            "VINCULANTES: - Las cesiones correspondientes al 10% del aprovechamiento se entienden cumplidas por cuanto se hicieron efectivas en el marco del Plan Parcial del Zorongo. - Las ces",
+            "Altura máxima: B+1 Aprovechamiento medio sector (m²/m²): 0,14 % aprovechamiento municipal: 0 RESERVAS"
+          ]
+        },
+        "coverage": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "plan_sheet_reference": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        }
+      },
+      "articles": {
+        "distinct_article_headings": 0,
+        "distinct_ids_anywhere": 0,
+        "targeted_as_heading": {
+          "8.3.10": 0,
+          "8.4.8": 0,
+          "8.5.8": 0
+        },
+        "targeted_anywhere": {
+          "8.3.10": 0,
+          "8.4.8": 0,
+          "8.5.8": 0
+        }
+      }
+    },
+    "zaragoza_normas_titulo4_TR2024": {
+      "url": "https://www.zaragoza.es/contenidos/urbanismo/pgouz/TR2024/Titulo_4_Normas_refundido_2026_con.pdf",
+      "http": 200,
+      "bytes": 426273,
+      "anatomy": {
+        "painted_text_ops": 7999,
+        "vector_path_ops": 640,
+        "image_xobjects": 0,
+        "objstm": 6,
+        "readable_by_text": true
+      },
+      "extractor": "pdftotext[cp1252]",
+      "chars": 343427,
+      "lexemes": {
+        "depth_fondo": {
+          "label_hits": 78,
+          "hits_with_number_nearby": 27,
+          "samples": [
+            "pación fuera del fondo edificable con destino a construcciones accesorias (cuar-",
+            "ue tienen el carácter de limitaciones de la ocupación y del fondo máximos. b) Cuando el solar linde con edificios de tipos singulares (edificios catalogados, ARTÍCU",
+            "s pertenecientes a las instalaciones funcionales de los de fondo máximo y de ocupación, siguiéndose el criterio de concentrar la superficie edificios sobre los techos",
+            "caso de que un edificio no alcance el fondo máximo dibujado en planos, su pro-"
+          ]
+        },
+        "depth_profundidad": {
+          "label_hits": 6,
+          "hits_with_number_nearby": 3,
+          "samples": [
+            "anchura mínima, y una profundidad máxima igual a vez y media (1'50) la anchura. 3. Condiciones dimensionales y de aprovechamiento:",
+            "longitud de la fachada, medida sobre la alineación, con una profundidad cons- lograr la mejor integración urbanística del edificio resultante. tante de e",
+            "royecto de edificación hasta alcanzar los lí- cho con profundidad igual al fondo mínimo. Sí se podrá considerar el revolvi- mites de revolvimiento señalados por el",
+            "neras en altura ni profundidad. c) Viviendas unifamiliares aisladas, pareadas, doblemente pareadas o en hilera, ARTÍCULO"
+          ]
+        },
+        "setback_retranqueo": {
+          "label_hits": 82,
+          "hits_with_number_nearby": 20,
+          "samples": [
+            "os o privados, salvo lo dispuesto en este artículo para los retranqueos frontales. No se admitirán retranqueos frontales ni laterales, salvo que estén grafiados e",
+            "os retranqueos frontales. No se admitirán retranqueos frontales ni laterales, salvo que estén grafiados en los planos de regulación del plan general y",
+            "párrafos siguientes. 2. Solamente se permitirán retranqueos frontales en los siguientes casos: a) Cuando existan servidumbres constituidas con anterio",
+            "frentes de manzana completos. En este caso, los retranqueos podrán ser contemplados directamente por el proyecto de edificación que sea objeto de"
+          ]
+        },
+        "setback_linderos": {
+          "label_hits": 40,
+          "hits_with_number_nearby": 10,
+          "samples": [
+            "acuerdo con las condiciones de separación a linderos y entre edificios.",
+            "para poder satisfacer las condiciones de separación a linderos y entre",
+            "para poder satisfacer las condiciones de separación a linderos y entre edifi-",
+            "la edificación cumpla las condiciones de separación a linderos y a otros edificios."
+          ]
+        },
+        "height_reguladora": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        },
+        "height_cornisa": {
+          "label_hits": 20,
+          "hits_with_number_nearby": 7,
+          "samples": [
+            "que se valorarán conjuntamente con la altura de cornisa proyectada como vación de altura sobre el máximo establecido por las normas según el ancho de calle",
+            "En la calle de Alfonso I, se mantendrá en cada manzana una altura de cornisa uni- 3. Los edificios tendrán en la fachada un zócalo de sillería o aplacado en piedra de 10 for",
+            "e la uniformidad con los colindantes tanto en la altura de cornisa como en las de los pisos. b) En las fachadas hacia la plaza y su unión con la Ciudad Universitaria se",
+            "carácter vinculante, de las cotas de los forjados y de la cornisa resultante de"
+          ]
+        },
+        "height_maxima": {
+          "label_hits": 48,
+          "hits_with_number_nearby": 24,
+          "samples": [
+            "amente inferior al admitido pueda realizar la altura máxima permitida por el plan mediante plantas que alcancen por el plan, presente características constructivas",
+            "1. Cuando la altura máxima de la edificación se determine en función de la anchura",
+            ") sin que exista una calle interpuesta, se considerará como altura máxima la específicas, prevalecerán sobre las indicadas en la sección de estas normas corres- mayor",
+            "la elevación de altura. La altura máxima correspondiente se establecerá me- 2. En las zonas en que se indica expresamente, la regulación establece un"
+          ]
+        },
+        "height_plantas": {
+          "label_hits": 217,
+          "hits_with_number_nearby": 78,
+          "samples": [
+            "ción ni la superficie edificable en la letra b) en un número de plantas igual al establecido por las normas es- más allá de las máximas derivadas de la aplicación del fon",
+            "en el ámbito. No procederá la elevación del número de plantas sobre el máximo establecido se- gún el ancho de calle cuando sólo se motive por la colindancia del solar con",
+            "tículo 2.7.5. ocupable SA en cada planta alzada, y el número de plantas según el ancho de ca- lle era B+n, en el estudio de detalle deberán establecerse unas nuevas áreas de",
+            "n el cual el número máximo de viviendas será igual al número de plantas con uso residencial, sin que obste la posibilidad de realización 2.3. Índice de edificabilidad: d"
+          ]
+        },
+        "alignment": {
+          "label_hits": 35,
+          "hits_with_number_nearby": 4,
+          "samples": [
+            "1. Los edificios alinearán sus fachadas frontales con las alineaciones de vial y sus fa- chadas laterales con los linderos laterales, dando lugar a ordenaciones de edi",
+            "ada en manzanas cerradas. Se considerarán alineaciones frontales las que separen las parcelas de calles de titularidad pública pertenecientes al sistem",
+            "No se considerarán fachada, a estos efectos, las alineaciones recayentes a viales particulares ni a espacios libres públicos o privados, salvo lo dispuesto en",
+            "e adecuada para la aplicación de la norma ge- rán desde la alineación de la fachada del edificio, alineada a vial o retranqueada con - neral. En este caso, la s"
+          ]
+        },
+        "far": {
+          "label_hits": 115,
+          "hits_with_number_nearby": 25,
+          "samples": [
+            "edificación que sea objeto de licencia. yor altura o edificabilidad que las que les corresponderían sin ellos.",
+            "ficables, sino por coeficientes de ocupación y edificabilidad, todo edificio que se cons-",
+            "limitaciones establecidas por las normas generales de edificabilidad y ocupación de la c) La edificación que se proyecte podrá ocupar la superficie en planta indicada",
+            "o mínimo sobre la resultante de la aplicación del índice de edificabilidad propio de se encuentre fuera de ordenación, esté destinado a usos no admitidos en la la"
+          ]
+        },
+        "coverage": {
+          "label_hits": 77,
+          "hits_with_number_nearby": 13,
+          "samples": [
+            "a) Se calculará la superficie construida total y la ocupación máxima en planta",
+            "En la planta baja y en las situadas por debajo de ella, la ocupación máxima será del 100%,",
+            "En plantas alzadas, la ocupación máxima será la que resulte de la ordenación",
+            "los planos de regulación del centro histórico (*B1/1), la ocupación máxima será del c) Índice de edificabilidad: 70% en las plantas de semisótano, baja y alzadas"
+          ]
+        },
+        "plan_sheet_reference": {
+          "label_hits": 2,
+          "hits_with_number_nearby": 0,
+          "samples": [
+            "mitirán retranqueos frontales ni laterales, salvo que estén grafiados en los planos de regulación del plan general y en los casos que expresamente se con- t",
+            "itaria y hotelero: De este modo, si los fondos grafiados en los planos de calificación y regula- -- En situación a) de las definidas en el artículo 2.6."
+          ]
+        }
+      },
+      "articles": {
+        "distinct_article_headings": 4,
+        "distinct_ids_anywhere": 97,
+        "targeted_as_heading": {
+          "8.3.10": 0,
+          "8.4.8": 0,
+          "8.5.8": 0
+        },
+        "targeted_anywhere": {
+          "8.3.10": 0,
+          "8.4.8": 0,
+          "8.5.8": 0
+        }
+      }
+    },
+    "zaragoza_normas_titulo2_TR2024": {
+      "url": "https://www.zaragoza.es/contenidos/urbanismo/pgouz/TR2024/Titulo_2_Normas_refundido_2026_con.pdf",
+      "http": 200,
+      "bytes": 817650,
+      "anatomy": {
+        "painted_text_ops": 13861,
+        "vector_path_ops": 1030,
+        "image_xobjects": 1,
+        "objstm": 9,
+        "readable_by_text": true
+      },
+      "extractor": "pdftotext[cp1252]",
+      "chars": 575600,
+      "lexemes": {
+        "depth_fondo": {
+          "label_hits": 26,
+          "hits_with_number_nearby": 3,
+          "samples": [
+            "iones de reordenación destinadas a implan- fondo edificable. tar o ampliar los sistemas viarios y la dotaci",
+            "oyecto de obras para la instala- se rebase puntualmente el fondo máximo, se disminuya la distancia entre edificios o ción del ascensor que en su momento se tramite se ac",
+            "upe- ración de la superficie edificable, la ocupación y el fondo máximos fijados por las nor- mas de zona o la disminución de los retranqueos mínimos a linderos, pero no la re-",
+            "eriores de los paramentos verticales 3. Por aplicación del fondo máximo edificable quedarán definidas unas líneas interio- que la separan del exterior o de otras piezas, d"
+          ]
+        },
+        "depth_profundidad": {
+          "label_hits": 21,
+          "hits_with_number_nearby": 9,
+          "samples": [
+            "dimensión lineal máxima que alcanza o que puede alcanzar la profundidad de perficie construida con destino a la construcción de nuevas plazas de estacionamiento un edific",
+            "éste sea contiguo, de la misma profundidad y anchura máxima de ARTÍCULO 2.2.19. CÓMPUTO DE LA SUPERFICIE EDIFICADA",
+            "in acceso del público, tales que su profundidad no exceda de 1'50 m medidos en cada punto des- como locales destinados a instalaciones técni",
+            "esta profundidad se considerará a efectos del cómputo de edificabili- -- cuando se trate de locales de uso producti"
+          ]
+        },
+        "setback_retranqueo": {
+          "label_hits": 24,
+          "hits_with_number_nearby": 3,
+          "samples": [
+            "s, enterrados o integrados en la edifica- ARTÍCULO 2.2.11. RETRANQUEOS ción o el cerramiento de la parcela serán a",
+            "a la fachada una vez 2. Será obligatoria la disposición de retranqueos en las zonas y tipos de ordenación abiertas y en el trámite de autorización no se exija otra cosa m",
+            "espacios correspondientes a los retranqueos, salvo mayores limitaciones establecidas 3. En los límites de autopistas, autovías, carreteras y ferrocarri",
+            "espondiente. deberán satisfacer las dimensiones mínimas de retranqueo con respecto a la alinea- ción de vial que se señalan en cada zona, además de las distancias que determine l"
+          ]
+        },
+        "setback_linderos": {
+          "label_hits": 43,
+          "hits_with_number_nearby": 7,
+          "samples": [
+            "igación incluirá la satisfac- b) Los terrenos tendrán linderos regulares, de modo que permitan la correcta in- ción, en la futura ejecución de la unidad",
+            "ARTÍCULO 2.2.2. CONDICIONES DE LAS PARCELAS Y DE SUS LINDEROS APROVECHAMIENTO 1. Son las",
+            "con planes nistración, mediante sus linderos, superficie, nombre de calle a la que den aprobados con anterioridad al presente plan general revisado no se",
+            "b) Linderos: son las líneas perimetrales que delimitan las parcelas y terrenos se-"
+          ]
+        },
+        "height_reguladora": {
+          "label_hits": 1,
+          "hits_with_number_nearby": 0,
+          "samples": [
+            "e una referen- Si el plan determina la misma altura reguladora para todas las calles a las que cia representativa de éste, establecida conforme a lo dispuesto en el artícu"
+          ]
+        },
+        "height_cornisa": {
+          "label_hits": 12,
+          "hits_with_number_nearby": 0,
+          "samples": [
+            "a. a) la cara inferior del techo de la última planta (altura de cornisa), o",
+            "su techo. superar en más de 1,50 m la altura de cornisa, con excepción de ornamentos aislados. La misma limitación vinculará a estos elementos aun cuando",
+            "e particular, podrán prescribirse ajustes en la altura de cornisa, en la posición del plano deberá cuidarse la adecuación de las nuevas obras:",
+            ") la cara inferior del techo de la última planta (altura de cornisa), o"
+          ]
+        },
+        "height_maxima": {
+          "label_hits": 19,
+          "hits_with_number_nearby": 6,
+          "samples": [
+            "n ningún nuevo paño de ce- La medición de la altura máxima se hará en el punto medio de la longitud de rramiento que no sea vertical y se mantengan ínt",
+            "dos como construcción situada por encima de la altura máxima; se tos efectos equivalente a una calle de anchura igual a la de mayor ancho de",
+            "de plan- tas, incluida la baja; a este límite se denomina altura máxima. Cuando se establezca c) Solares con frente a dos calles opuestas: la altura en metros y en núme",
+            "e go, el Ayuntamiento podrá exigir la edificación hasta la altura máxima en los casos en plantas como si se tratara de edificios independientes. los que se entienda q"
+          ]
+        },
+        "height_plantas": {
+          "label_hits": 103,
+          "hits_with_number_nearby": 24,
+          "samples": [
+            "con frente a dos calles opuestas: la altura en metros y en número de plantas, ambos límites habrán de respetarse si- multáneamente como máximos admitidos.",
+            "vicio de los elementos pro- te por una mayor profundidad o número de plantas cuando se justifiquen atendiendo a pios de estructura y de las instalaciones de un edificio, cuan",
+            "cuadrado del número de plantas que ventilen a él, con un mínimo de 9 m2.",
+            "m2. NÚMERO DE PLANTAS Altura Lado mínimo Superficie mínima 5. Salvo que se trate de un s"
+          ]
+        },
+        "alignment": {
+          "label_hits": 69,
+          "hits_with_number_nearby": 17,
+          "samples": [
+            "tos verticales de apoyo no podrán sobrepasar la alineación oficial. Los para- Entre los espacios abiertos porticados, se distinguen los siguientes tipos: me",
+            "s, so- vidumbres de luces y vistas. brepasen la alineación oficial, permitiéndose, no obstante, una ocupación máxima de 10 cm cuando la anchura de la acera sea superior a 1 m.",
+            "interés histórico-artistico. sobresalir hasta 25 cm de la alineación oficial, siempre que no sea posible otra solu- ción constructiva y que se eleven, al menos, 2'50 m sobre la rasante",
+            "miento completo, cuya cara exterior coincida con la alineación oficial y que satisfaga trucciones, siempre que legalmente no corresponda a otras instancias. Cuando cesen"
+          ]
+        },
+        "far": {
+          "label_hits": 89,
+          "hits_with_number_nearby": 26,
+          "samples": [
+            "los correspondientes a la municipio será proporcional a la edificabilidad real que le corresponda. Administración. ARTÍCULO 2.1.15. DEBER DE DISTRIBUCIÓN EQU",
+            "En las zonas en las que la edificabilidad se determina mediante un índice relativo",
+            "currentes en cada zona y grado, entre las que el índice de edificabilidad, cuando se determine expresamente, es una más, que sólo Todos los instrumentos de planeami",
+            "cuando ésta se deter- mine por aplicación de un índice de edificabilidad. La superficie afectada por el cha- flán no será computable como espacio libre de edificación de la parcela,"
+          ]
+        },
+        "coverage": {
+          "label_hits": 47,
+          "hits_with_number_nearby": 8,
+          "samples": [
+            "espacio libre de edificación de la parcela, por lo que la ocupación máxima en cada planta, incluidas las de sótano, deberá determinarse sin su consideración.",
+            "s la que resulta de sumar a la su - afectar a la ocupación máxima, tales como retranqueos, fondos edificables, perficie útil, la superficie de los elementos materia",
+            "de dichos usos, admi- los límites de fondo y ocupación máxima, y que su vuelo no supere el ad- tiéndose además una superficie comercial recayente a ellos, como máxi-",
+            "asen la alineación oficial, permitiéndose, no obstante, una ocupación máxima de 10 cm cuando la anchura de la acera sea superior a 1 m. En"
+          ]
+        },
+        "plan_sheet_reference": {
+          "label_hits": 0,
+          "hits_with_number_nearby": 0,
+          "samples": []
+        }
+      },
+      "articles": {
+        "distinct_article_headings": 6,
+        "distinct_ids_anywhere": 175,
+        "targeted_as_heading": {
+          "8.3.10": 0,
+          "8.4.8": 0,
+          "8.5.8": 0
+        },
+        "targeted_anywhere": {
+          "8.3.10": 0,
+          "8.4.8": 0,
+          "8.5.8": 0
+        }
+      }
+    }
+  }
+}

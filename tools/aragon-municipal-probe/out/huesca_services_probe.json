@@ -1,0 +1,343 @@
+{
+  "probe": "huesca-municipal-service-discovery",
+  "when": "2026-08-02",
+  "note": "UNREACHABLE != ABSENT. A timeout from this network is an UNKNOWN, not a negative. Only an HTTP status is evidence about the resource.",
+  "hosts": {
+    "gis.huesca.es": {
+      "dns": {
+        "resolves": true,
+        "addrs": [
+          "194.179.101.147"
+        ]
+      },
+      "probes": [
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8181,
+          "url": "https://gis.huesca.es/"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8020,
+          "url": "https://gis.huesca.es/GEOINFOHUESCA/"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8020,
+          "url": "https://gis.huesca.es/geoinfohuesca/"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8014,
+          "url": "https://gis.huesca.es/PLANEAMIENTO/"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8022,
+          "url": "https://gis.huesca.es/PGOU/"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8016,
+          "url": "https://gis.huesca.es/URBANISMO/"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8013,
+          "url": "https://gis.huesca.es/ITE/"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8034,
+          "url": "https://gis.huesca.es/BARRIOS/"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8005,
+          "url": "https://gis.huesca.es/ZONAZUL/"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8014,
+          "url": "https://gis.huesca.es/geoserver/wfs"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8013,
+          "url": "https://gis.huesca.es/geoserver/ows"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8012,
+          "url": "https://gis.huesca.es/geoserver/wms"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8052,
+          "url": "https://gis.huesca.es/geoserver/huesca/wfs"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8083,
+          "url": "https://gis.huesca.es/geoserver/urbanismo/wfs"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8065,
+          "url": "https://gis.huesca.es/wfs"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8058,
+          "url": "https://gis.huesca.es/wms"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8014,
+          "url": "https://gis.huesca.es/ows"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8011,
+          "url": "https://gis.huesca.es/cgi-bin/mapserv"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8123,
+          "url": "https://gis.huesca.es/arcgis/rest/services"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8020,
+          "url": "https://gis.huesca.es/server/rest/services"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8018,
+          "url": "https://gis.huesca.es/arcgis/rest/services?f=json"
+        },
+        {
+          "http": null,
+          "state": "UNREACHABLE_URLError",
+          "detail": "<urlopen error timed out>",
+          "ms": 8017,
+          "url": "https://gis.huesca.es/server/rest/services?f=json"
+        }
+      ]
+    },
+    "www.huesca.es": {
+      "dns": {
+        "resolves": true,
+        "addrs": [
+          "194.179.101.131"
+        ]
+      },
+      "probes": [
+        {
+          "http": 200,
+          "bytes": 238147,
+          "ctype": "text/html;charset=UTF-8",
+          "ms": 453,
+          "head": "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\n\t\t\n\t\t\t<!DOCTYPE html>\r\n\r\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\r\n\r\n\r\n\r\n\r\n\r\n\t\r\n\r\n\r\n<html class=\"ltr\" dir=\"ltr\" lang=\"es-ES\">\r\n\r",
+          "state": "REACHED",
+          "url": "https://www.huesca.es/"
+        },
+        {
+          "http": 200,
+          "bytes": 106306,
+          "ctype": "text/html;charset=UTF-8",
+          "ms": 348,
+          "head": "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\n\t\t\n\t\t\t<!DOCTYPE html>\r\n\r\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\r\n\r\n\r\n\r\n\r\n\r\n\t\r\n\r\n\r\n<html class=\"ltr\" dir=\"ltr\" lang=\"es-ES\">\r\n\r",
+          "state": "REACHED",
+          "url": "https://www.huesca.es/GEOINFOHUESCA/"
+        },
+        {
+          "http": 200,
+          "bytes": 106306,
+          "ctype": "text/html;charset=UTF-8",
+          "ms": 295,
+          "head": "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\n\t\t\n\t\t\t<!DOCTYPE html>\r\n\r\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\r\n\r\n\r\n\r\n\r\n\r\n\t\r\n\r\n\r\n<html class=\"ltr\" dir=\"ltr\" lang=\"es-ES\">\r\n\r",
+          "state": "REACHED",
+          "url": "https://www.huesca.es/geoinfohuesca/"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 125,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/PLANEAMIENTO/"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 119,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/PGOU/"
+        },
+        {
+          "http": 200,
+          "bytes": 122594,
+          "ctype": "text/html;charset=UTF-8",
+          "ms": 456,
+          "head": "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\t\n\t\t\n\t\t\t<!DOCTYPE html>\r\n\r\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\r\n\r\n\r\n\r\n\r\n\r\n\t\r\n\r\n\r\n<html class=\"ltr\" dir=\"ltr\" lang=\"es-ES\">\r\n\r",
+          "state": "REACHED",
+          "url": "https://www.huesca.es/URBANISMO/"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 127,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/ITE/"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 135,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/BARRIOS/"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 128,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/ZONAZUL/"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 119,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/geoserver/wfs"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 134,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/geoserver/ows"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 133,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/geoserver/wms"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 133,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/geoserver/huesca/wfs"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 130,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/geoserver/urbanismo/wfs"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 144,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/wfs"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 115,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/wms"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 126,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/ows"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 119,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/cgi-bin/mapserv"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 122,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/arcgis/rest/services"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 116,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/server/rest/services"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 138,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/arcgis/rest/services?f=json"
+        },
+        {
+          "http": 404,
+          "bytes": 0,
+          "ms": 136,
+          "state": "REACHED",
+          "url": "https://www.huesca.es/server/rest/services?f=json"
+        }
+      ]
+    }
+  }
+}

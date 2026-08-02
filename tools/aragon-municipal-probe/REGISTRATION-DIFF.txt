@@ -1,0 +1,139 @@
+ARAGÓN MUNICIPAL — PROPOSED REGISTRATION DIFF
+=============================================
+STATUS: ⛔ UNAPPLIED. TEXT ONLY. NOTHING IN THIS FILE HAS BEEN WRITTEN TO
+        packages/site-parcel-data/src/rulepacks/registry.ts, envelopeAuthorisation.ts,
+        l449CertificationGates.ts OR siteDispatch.ts. Those four files are owned by
+        another agent this run and were NOT edited.
+
+WHY A DIFF AND NOT A PACK
+-------------------------
+Zaragoza now has more evidence behind it than Madrid NZ-1 did when NZ-1 was
+registered, and more than València had when València was registered as a
+refusal-jurisdiction. But it is still SHORT OF A NUMERIC ENVELOPE by one
+specific, nameable data item (the A1 subgrado — see §3). Registering a pack now
+would publish a number with no signature behind it, which is the L-449 failure
+that shut Paris and the Netherlands. So the honest registration is a REFUSAL
+jurisdiction with a live zone source — exactly València's shape.
+
+
+§1 — WHAT IS MEASURED AND WOULD BE TRUE ON THE DAY THIS IS APPLIED
+------------------------------------------------------------------
+  PARCEL   urbanismo:Parcelas, IDEZar municipal WFS, EPSG:25830, 33,606 features.
+           referencia_catastral 100% non-null, 1000/1000 distinct.
+           superficie vs polygon area: 421/421 internally consistent (<2% rel).
+           National Catastro INSPIRE also covers it — two independent routes.
+
+  ZONING   `Estructura`, IDEZar WFS. 9,031 polygons. numberMatched == pulled.
+           calificacion  100% non-null, 100% VALID (non-blank, non-zero), 42 distinct.
+           descripcion   100% non-null, 41 distinct.
+           ⛔ THE TYPENAME IS NOT IN GetCapabilities. It is served anyway.
+
+  CLASS    `Clasificaciones`, IDEZar WFS. 683 polygons, 10 classes,
+           clasificacion 100% non-null / 100% VALID.
+
+  INSTRUMENT  urbanismo:PLA_1_Instrumentos_ambito, 525 rows, 82 distinct
+           tipo_instrumento, with enlace_normas / enlace_planos / enlace_acuerdo
+           columns. This is the governing-instrument chain, served as data.
+           ⚠ enlace_normas is populated on only 9.0% of rows.
+
+  RULE TEXT  PGOU Zaragoza, Normas Urbanísticas, TEXTO REFUNDIDO 2024, published
+           per-Título as text-layer PDF. Título Cuarto = zonas de suelo urbano
+           consolidado, 73 articles, 343,427 characters, extractable.
+
+
+§2 — THE PROPOSED REGISTRATION (a REFUSAL jurisdiction, not a pack)
+--------------------------------------------------------------------
+    // ── ZARAGOZA (INE 50297) — municipal zoning LIVE, envelope REFUSED.
+    {
+        jurisdictionId: 'es-50297-zaragoza',
+        displayName: 'Zaragoza',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        extent: ZARAGOZA_BBOX,
+        contains: isInZaragoza,
+        // `municipal` — the box is drawn to the término municipal, which for
+        // Zaragoza is unusually large (973 km²) and contains 14 barrios rurales
+        // that are separate urban nuclei. Authoritative answer stays Catastro
+        // <cp>+<cm> → 50297 via composeIneCode().
+        extentResolution: 'municipal',
+        answerSummary:
+            'The PARCEL half is complete and keyless — national Catastro plus the ' +
+            "city's own parcel layer, two independent routes. The ZONING half is " +
+            'live: the municipal GIS serves 9,031 calificación polygons in ' +
+            'EPSG:25830 with a 42-code vocabulary, 100% populated, at parcel ' +
+            'precision — NOT the 1:15,000 regional layer. The governing ' +
+            'instrument is served too, 525 ámbitos with links to their own normas ' +
+            'and planos. The buildable ENVELOPE refuses, and the reason is ' +
+            'precise: for zone A1 (edificación en manzana cerrada, 1,325 ' +
+            'polygons) the plan regulates the fondo edificable GRAPHICALLY, and ' +
+            'art. 4.1.3 makes the 7,50 m prose figure a MINIMUM that applies only ' +
+            'where no graphic regulation exists — a condition that cannot be ' +
+            'evaluated without the plan sheet. And the calificación polygon ' +
+            'carries the zone but NOT the subgrado (A1/3.1, A1/3.2, A1/4.1, ' +
+            'A1/4.2), so the aprovechamiento article cannot be selected. No ' +
+            'height, buildability, occupation or depth is published here — never ' +
+            'an estimate, never a proxy figure.',
+        packsByZone: packMap(),          // ⚠ EMPTY BY CONSTRUCTION, as València.
+        refusalFor: () => null,          // refusal is a function of the live zone,
+                                         // not of a static enumeration
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            zaragozaNoRulePackRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
+    },
+
+    // ── HUESCA (INE 22125) — NOT PROPOSED THIS RUN. See §4.
+
+
+§3 — THE ONE ITEM THAT SEPARATES A REFUSAL FROM A PACK
+-------------------------------------------------------
+⭐ THE A1 SUBGRADO. Título 4 Capítulo 4.1 splits CONDICIONES DE APROVECHAMIENTO
+across arts. 4.1.8 / 4.1.10 / 4.1.12 (A1/3.1) / 4.1.13 (A1/3.2) / 4.1.15 (A1/4.1)
+/ 4.1.17 (A1/4.2). The Estructura polygon's `calificacion` reads `A1` and nothing
+finer. Without the subgrado NO aprovechamiento article can be selected, so no FAR
+and no height ladder can be applied.
+
+⛔ THIS IS A DATA GAP, NOT A LEGAL ONE. The law is published, article-numbered and
+readable. A 28-name sweep for a subgrado-bearing typename returned HTTP 400 on all
+28 (`Regulacion`, `Calificacion`, `Zonas`, `Grados`, `Subgrados`, `Alturas`,
+`Fondos`, `Alineaciones`, … ) — a 400 is an unknown-typename answer, which IS
+evidence, unlike a timeout. The subgrado is presumably on the calificación PLAN
+SHEET (tomo 11, 242 MB) — see §4.
+
+
+§4 — WHAT WOULD CLOSE IT, IN COST ORDER
+----------------------------------------
+  1. Ask the Ayuntamiento for the subgrado attribute, or for `Parcelario_Ordenacion`
+     as data. It paints on WMS and returns an empty FeatureCollection to
+     GetFeatureInfo at all three probe points — it exists and is withheld, not absent.
+  2. Extract the subgrado + fondo lines from the calificación plan sheets. For
+     HUESCA this is proven tractable (§5). For Zaragoza the equivalent sheet
+     (tomo_11_calificacion_y_regulacion_tr_2024.pdf, 242 MB) was NOT anatomised
+     this run — UNKNOWN, not absent.
+  3. Only then author `esZaragozaPgouTR2024.ts` and flip packsByZone.
+
+
+§5 — HUESCA IS THE MORE INTERESTING CASE AND IS DELIBERATELY NOT REGISTERED
+----------------------------------------------------------------------------
+Huesca has the OPPOSITE profile: the RULE is fully read (arts. 8.3.10, 8.4.8,
+8.5.8 extracted verbatim) and the DATA is missing (gis.huesca.es resolves to
+194.179.101.147 but is unreachable over both HTTPS and HTTP from here — UNKNOWN,
+not absent; www.huesca.es answers 404 on all 12 OGC path shapes tried).
+
+But plano nº5 — the sheet that carries the alineación oficial and the línea de
+fondo edificable at 1:1.000 — is a PURE VECTOR PDF. Six sheets sampled, all six:
+zero fonts, zero images, zero painted-text operators, 111k–336k path operators,
+2.1–6.6 MB of inflated content stream. Geometry extraction succeeded: 27k–99k
+subpaths, 141k–483k vertices per sheet, 20–26 distinct stroke classes
+(width × dash × grey), so the line work IS differentiated and classification is
+tractable.
+
+⛔ TWO THINGS BLOCK IT, BOTH NAMEABLE:
+   (a) NO GEOREFERENCE. The PDF carries no CRS. Placing the sheet in EPSG:25830
+       needs control points — feasible by affine fit against Catastro parcels,
+       not attempted here.
+   (b) THE LEGEND IS NOT MACHINE-READABLE. The sheets are GREYSCALE (every paint
+       colour satisfies r == g == b), so zone identity is not colour-coded, and
+       the labels are OUTLINED TEXT with no text layer. Mapping stroke-class →
+       "this is the fondo line" needs ONE human read of ONE rendered sheet
+       against the PGOU legend. Once. Then it applies to all 28.
+
+⇒ Huesca is a 1–2 week extraction project with a known method, NOT a closed region.

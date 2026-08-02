@@ -1,0 +1,1355 @@
+{
+  "probe": "zaragoza-idezar-municipal",
+  "when": "2026-08-02",
+  "endpoints": {
+    "wfs": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wfs",
+    "wms": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wms",
+    "root_wfs": "https://idezar-sig.zaragoza.es/servicios/geoserver/wfs",
+    "published_at": "https://www.zaragoza.es/sede/portal/urbanismo/info-geografica/datos"
+  },
+  "version_ladder": [
+    {
+      "service": "WFS",
+      "version": "2.0.0",
+      "http": 200,
+      "bytes": 106888,
+      "name_elements": 23,
+      "error": ""
+    },
+    {
+      "service": "WFS",
+      "version": "1.1.0",
+      "http": 200,
+      "bytes": 35168,
+      "name_elements": 23,
+      "error": ""
+    },
+    {
+      "service": "WFS",
+      "version": "1.0.0",
+      "http": 200,
+      "bytes": 27563,
+      "name_elements": 24,
+      "error": ""
+    },
+    {
+      "service": "WMS",
+      "version": "1.3.0",
+      "http": 200,
+      "bytes": 52927,
+      "name_elements": 57,
+      "error": ""
+    },
+    {
+      "service": "WMS",
+      "version": "1.1.1",
+      "http": 200,
+      "bytes": 49049,
+      "name_elements": 69,
+      "error": ""
+    },
+    {
+      "service": "WFS-root",
+      "version": "2.0.0",
+      "http": 200,
+      "bytes": 199612,
+      "name_elements": 178,
+      "error": ""
+    },
+    {
+      "service": "WFS-root",
+      "version": "1.1.0",
+      "http": 200,
+      "bytes": 125596,
+      "name_elements": 178,
+      "error": ""
+    },
+    {
+      "service": "WFS-root",
+      "version": "1.0.0",
+      "http": 200,
+      "bytes": 86291,
+      "name_elements": 179,
+      "error": ""
+    }
+  ],
+  "wms_layers": [
+    {
+      "name": "Parcelario_Integral",
+      "title": "Parcelario integral"
+    },
+    {
+      "name": "Parcelario_Ordenacion",
+      "title": "Parcelario ordenación"
+    },
+    {
+      "name": "Plano_Clasificacion",
+      "title": "Plano de clasificación del suelo"
+    },
+    {
+      "name": "Plano_Estructura",
+      "title": "Plano de estructura urbanística"
+    },
+    {
+      "name": "Alturas_Edificios",
+      "title": "Alturas de edificios"
+    },
+    {
+      "name": "Areas_Referencia",
+      "title": "Areas de referencia"
+    },
+    {
+      "name": "Clavos_Topograficos",
+      "title": "Clavos topográficos"
+    },
+    {
+      "name": "Distritos_Municipales",
+      "title": "Distritos_Municipales"
+    },
+    {
+      "name": "IDEZar_Ordenacion_lineas",
+      "title": "Líneas de ordenación"
+    },
+    {
+      "name": "IDEZar_Zona_Menor_Agua",
+      "title": "Zonas menores de agua"
+    },
+    {
+      "name": "Juntas_Municipales_Vecinales",
+      "title": "Juntas municipales y vecinales"
+    },
+    {
+      "name": "Lineas_Edificaciones",
+      "title": "Líneas edificaciones"
+    },
+    {
+      "name": "Manzanas",
+      "title": "Manzanas"
+    },
+    {
+      "name": "Municipios",
+      "title": "Límite municipal"
+    },
+    {
+      "name": "PLA_1_Ambitos_desarrollo",
+      "title": "PLA_1_Ámbitos de planeamiento de desarrollo"
+    },
+    {
+      "name": "PLA_1_Ambitos_recogido",
+      "title": "PLA_1_Ámbitos de planeamiento recogido"
+    },
+    {
+      "name": "PLA_1_Equipamientos_etiquetado",
+      "title": "PLA_1_Equipamientos_etiquetado"
+    },
+    {
+      "name": "Parcelas",
+      "title": "Parcelas"
+    },
+    {
+      "name": "Portales",
+      "title": "Portales"
+    },
+    {
+      "name": "Textos_Edificaciones",
+      "title": "Textos_Edificaciones"
+    },
+    {
+      "name": "Vias",
+      "title": "Vías"
+    },
+    {
+      "name": "hoja_pgou_2000",
+      "title": "hoja_pgou_2000"
+    },
+    {
+      "name": "hoja_pgou_5000",
+      "title": "hoja_pgou_5000"
+    },
+    {
+      "name": "hoja_pgou_chc",
+      "title": "hoja_pgou_chc"
+    },
+    {
+      "name": "hoja_pgou_chr",
+      "title": "hoja_pgou_chr"
+    },
+    {
+      "name": "suelos_vacantes",
+      "title": "Suelos vacantes"
+    },
+    {
+      "name": "v_ambitos_desarrollo_etiquetas",
+      "title": "Ámbitos desarrollo - etiquetas (sin agrupar)"
+    }
+  ],
+  "layers": {
+    "urbanismo:Alturas_Edificios": {
+      "describe": {
+        "http": 200,
+        "error": "",
+        "fields": [
+          {
+            "name": "geom",
+            "type": "gml:GeometryPropertyType"
+          },
+          {
+            "name": "etiqueta",
+            "type": "xsd:string"
+          },
+          {
+            "name": "Alturas_Edificios",
+            "type": "urbanismo:Alturas_EdificiosType"
+          }
+        ]
+      },
+      "sample": {
+        "http": 200,
+        "returned": 1000,
+        "totalFeatures_declared": 179692,
+        "field_stats": {
+          "etiqueta": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 4.3,
+            "VALID_pct_nonzero": 4.3,
+            "distinct": 22,
+            "min": 1.0,
+            "max": 2.0,
+            "values": [
+              "1",
+              "1.I",
+              "1.II",
+              "1.III",
+              "1.IV",
+              "1.V",
+              "2",
+              "2.I",
+              "2.IX",
+              "2.VI",
+              "2.VIII",
+              "B",
+              "DEP.",
+              "E",
+              "E.T.",
+              "I",
+              "II",
+              "III",
+              "MARQ.",
+              "P",
+              "SOLAR",
+              "ZV"
+            ]
+          }
+        },
+        "lexeme_hits": {}
+      }
+    },
+    "urbanismo:IDEZar_Ordenacion_lineas": {
+      "describe": {
+        "http": 200,
+        "error": "",
+        "fields": [
+          {
+            "name": "the_geom",
+            "type": "gml:MultiCurvePropertyType"
+          },
+          {
+            "name": "LEVEL",
+            "type": "xsd:long"
+          },
+          {
+            "name": "BLUE",
+            "type": "xsd:long"
+          },
+          {
+            "name": "GREEN",
+            "type": "xsd:long"
+          },
+          {
+            "name": "RED",
+            "type": "xsd:long"
+          },
+          {
+            "name": "COMMENT",
+            "type": "xsd:string"
+          },
+          {
+            "name": "LEVEL_NAME",
+            "type": "xsd:string"
+          },
+          {
+            "name": "IDEZar_Ordenacion_lineas",
+            "type": "urbanismo:IDEZar_Ordenacion_lineasType"
+          }
+        ]
+      },
+      "sample": {
+        "http": 200,
+        "returned": 1000,
+        "totalFeatures_declared": 219089,
+        "field_stats": {
+          "LEVEL": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 100.0,
+            "distinct": 7,
+            "min": 4.0,
+            "max": 22.0,
+            "values": [
+              "10",
+              "12",
+              "21",
+              "22",
+              "4",
+              "5",
+              "9"
+            ]
+          },
+          "BLUE": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 48.1,
+            "distinct": 2,
+            "min": 255.0,
+            "max": 255.0,
+            "values": [
+              "0",
+              "255"
+            ]
+          },
+          "GREEN": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 92.5,
+            "distinct": 3,
+            "min": 127.0,
+            "max": 255.0,
+            "values": [
+              "0",
+              "127",
+              "255"
+            ]
+          },
+          "RED": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 79.3,
+            "distinct": 4,
+            "min": 120.0,
+            "max": 255.0,
+            "values": [
+              "0",
+              "120",
+              "240",
+              "255"
+            ]
+          },
+          "COMMENT": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 7,
+            "values": [
+              "curvas de nivel",
+              "curvas de nivel directoras",
+              "edificaciones",
+              "ferrocarriles y caminos",
+              "límite términos colindantes",
+              "parcelario campos",
+              "piscinas"
+            ]
+          },
+          "LEVEL_NAME": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 7,
+            "values": [
+              "Nivel 10",
+              "Nivel 12",
+              "Nivel 21",
+              "Nivel 22",
+              "Nivel 4",
+              "Nivel 5",
+              "Nivel 9"
+            ]
+          }
+        },
+        "lexeme_hits": {}
+      }
+    },
+    "urbanismo:Lineas_Edificaciones": {
+      "describe": {
+        "http": 200,
+        "error": "",
+        "fields": [
+          {
+            "name": "geom",
+            "type": "gml:CurvePropertyType"
+          },
+          {
+            "name": "tipo",
+            "type": "xsd:string"
+          },
+          {
+            "name": "Lineas_Edificaciones",
+            "type": "urbanismo:Lineas_EdificacionesType"
+          }
+        ]
+      },
+      "sample": {
+        "http": 200,
+        "returned": 1000,
+        "totalFeatures_declared": 676482,
+        "field_stats": {
+          "tipo": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 1,
+            "values": [
+              "visible"
+            ]
+          }
+        },
+        "lexeme_hits": {}
+      }
+    },
+    "urbanismo:PLA_1_Instrumentos_ambito": {
+      "describe": {
+        "http": 200,
+        "error": "",
+        "fields": [
+          {
+            "name": "id",
+            "type": "xsd:int"
+          },
+          {
+            "name": "codigo_ambito",
+            "type": "xsd:string"
+          },
+          {
+            "name": "tipo_ambito",
+            "type": "xsd:string"
+          },
+          {
+            "name": "tipo_instrumento",
+            "type": "xsd:string"
+          },
+          {
+            "name": "nombre_instrumento",
+            "type": "xsd:string"
+          },
+          {
+            "name": "tipo_base",
+            "type": "xsd:string"
+          },
+          {
+            "name": "identificacion_instrumento",
+            "type": "xsd:string"
+          },
+          {
+            "name": "expediente",
+            "type": "xsd:string"
+          },
+          {
+            "name": "apr_definitiva",
+            "type": "xsd:string"
+          },
+          {
+            "name": "fecha_publicacion",
+            "type": "xsd:string"
+          },
+          {
+            "name": "area",
+            "type": "xsd:string"
+          },
+          {
+            "name": "orden",
+            "type": "xsd:string"
+          },
+          {
+            "name": "observaciones",
+            "type": "xsd:string"
+          },
+          {
+            "name": "pgou_1986",
+            "type": "xsd:string"
+          },
+          {
+            "name": "ante_pgou_1986",
+            "type": "xsd:string"
+          },
+          {
+            "name": "prescripciones",
+            "type": "xsd:string"
+          },
+          {
+            "name": "enlace_documentos",
+            "type": "xsd:string"
+          },
+          {
+            "name": "apr_definitiva_rep",
+            "type": "xsd:string"
+          },
+          {
+            "name": "apr_definitiva_urb",
+            "type": "xsd:string"
+          },
+          {
+            "name": "enlace_acuerdo",
+            "type": "xsd:string"
+          },
+          {
+            "name": "enlace_memoria",
+            "type": "xsd:string"
+          },
+          {
+            "name": "enlace_normas",
+            "type": "xsd:string"
+          },
+          {
+            "name": "enlace_planos",
+            "type": "xsd:string"
+          },
+          {
+            "name": "PLA_1_Instrumentos_ambito",
+            "type": "urbanismo:PLA_1_Instrumentos_ambitoType"
+          }
+        ]
+      },
+      "sample": {
+        "http": 200,
+        "returned": 525,
+        "totalFeatures_declared": 525,
+        "field_stats": {
+          "id": {
+            "n": 525,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 100.0,
+            "distinct": 525,
+            "min": 1.0,
+            "max": 525.0
+          },
+          "codigo_ambito": {
+            "n": 525,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 346
+          },
+          "tipo_ambito": {
+            "n": 525,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 3,
+            "values": [
+              "AI",
+              "PR",
+              "SUZ"
+            ]
+          },
+          "tipo_instrumento": {
+            "n": 525,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 82
+          },
+          "nombre_instrumento": {
+            "n": 525,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 82
+          },
+          "tipo_base": {
+            "n": 525,
+            "non_null_pct": 99.2,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 7,
+            "values": [
+              "AA",
+              "ED",
+              "MPG",
+              "PAU",
+              "PE",
+              "PP",
+              "REP"
+            ]
+          },
+          "identificacion_instrumento": {
+            "n": 525,
+            "non_null_pct": 75.4,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 345
+          },
+          "expediente": {
+            "n": 525,
+            "non_null_pct": 91.6,
+            "numeric_pct": 0.2,
+            "VALID_pct_nonzero": 0.2,
+            "distinct": 472,
+            "min": 3080295.0,
+            "max": 3080295.0
+          },
+          "apr_definitiva": {
+            "n": 525,
+            "non_null_pct": 93.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 293
+          },
+          "fecha_publicacion": {
+            "n": 525,
+            "non_null_pct": 0.8,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 1,
+            "values": [
+              "NULL"
+            ]
+          },
+          "area": {
+            "n": 525,
+            "non_null_pct": 99.8,
+            "numeric_pct": 92.4,
+            "VALID_pct_nonzero": 91.4,
+            "distinct": 80,
+            "min": 1.0,
+            "max": 91.0
+          },
+          "orden": {
+            "n": 525,
+            "non_null_pct": 96.0,
+            "numeric_pct": 96.0,
+            "VALID_pct_nonzero": 96.0,
+            "distinct": 302,
+            "min": 1.0,
+            "max": 316.0
+          },
+          "observaciones": {
+            "n": 525,
+            "non_null_pct": 2.3,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 10,
+            "values": [
+              "-",
+              "Actuación aislada\nParque Hispanidad I",
+              "Actuación aislada\nParque Hispanidad II",
+              "Acuerdo del Consejo de Gerencia de Urbanismo de 17 de febrero de 2020 favorable a acoger la sugerencia del Servicio de Seguridad y Protección Civil de la Dirección General de Interior del Gobierno de Aragón, sobre el cambio de clasificación del área F63/5, de suelo urbano no consolidado a suelo no urbanizable. El acuerdo municipal esta actualmente recurrido ante la jurisdicción contencioso administrativa.  ",
+              "C/ Cartagena, camino de\nCabaldós y otras calles",
+              "Declarado nulo por sentencia de la Sección 1ª de la Sala de lo Contencioso-Administrativo del TSJA de 21 de abril de 2025. En septiembre de 2025 la sentencia no es firme.",
+              "Declarado nulo por sentencia de la Sección 1ª de la Sala de lo Contencioso-Administrativo del TSJA de 28 de febrero de 2025. En septiembre de 2025 la sentencia no es firme.",
+              "En trámite MPG 152, aprobada inicialmente el 30/04/2019, que convierte la zona F36/1 en zona «G».",
+              "Incluye suelo área de suelo urbano no consolidado correspondiente al antiguo poblado de la Quinta Julieta.",
+              "Valles Verdes"
+            ]
+          },
+          "pgou_1986": {
+            "n": 525,
+            "non_null_pct": 52.8,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 215
+          },
+          "ante_pgou_1986": {
+            "n": 525,
+            "non_null_pct": 6.1,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 24,
+            "values": [
+              "Actur 10-14\n(polígono Zalfonada)",
+              "Actur 15-16-17-18-19",
+              "Actur 7 a 19",
+              "Actur 7-8",
+              "Actur 9-11-12-13\n(polígono Rey Fernando)",
+              "Area de referencia 37 (revisión del plan parcial)",
+              "Manzana n.º 28",
+              "NULL",
+              "Pol¡gono 13,  rea Sur",
+              "Pol¡gono 45, subpol¡gono Puerta Sancho",
+              "Pol¡gono Universidad",
+              "Polígono 13, área Sur",
+              "Polígono 38-A/B",
+              "Polígono 45",
+              "Polígono 45, subpolígono Puerta Sancho",
+              "Polígono 69-A\n(Ciudad del Transporte)",
+              "Polígono Gran Vía",
+              "Polígono Monsalud",
+              "Polígono Universidad",
+              "Reparcelación",
+              "SUP 62/1 (Torreblanca)",
+              "SUP 65/1 (Torre Pinar)",
+              "Torres de San Lamberto",
+              "Urbanización El Zorongo"
+            ]
+          },
+          "prescripciones": {
+            "n": 525,
+            "non_null_pct": 10.3,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 43
+          },
+          "enlace_documentos": {
+            "n": 525,
+            "non_null_pct": 1.1,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 4,
+            "values": [
+              "https://www.zaragoza.es/pgou/fichas/AI/ - No aparece en normas.pdf",
+              "https://www.zaragoza.es/pgou/fichas/AI/G-44-01.pdf",
+              "https://www.zaragoza.es/pgou/fichas/AI/G-91-01.pdf",
+              "https://www.zaragoza.es/pgou/fichas/AI/NULL.pdf"
+            ]
+          },
+          "apr_definitiva_rep": {
+            "n": 525,
+            "non_null_pct": 20.4,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 83
+          },
+          "apr_definitiva_urb": {
+            "n": 525,
+            "non_null_pct": 19.4,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 76
+          },
+          "enlace_acuerdo": {
+            "n": 525,
+            "non_null_pct": 11.6,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 53
+          },
+          "enlace_memoria": {
+            "n": 525,
+            "non_null_pct": 2.1,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 8,
+            "values": [
+              "NULL",
+              "https://www.zaragoza.es/contenidos/urbanismo/planesparciales//SUZ-MN-1yMN-2/MPP1_SUZ-MN-1yMN-2/2021_0001039_M1PP_SUZ-MN-1yMN-2_Memoria.pdf",
+              "https://www.zaragoza.es/contenidos/urbanismo/planesparciales/SUZ_88-1/MPP6_SUZ88-1/2016_0806510_MPP6_SUZ-88-1_Memoria.pdf",
+              "https://www.zaragoza.es/contenidos/urbanismo/planesparciales/SUZ_88-1/MPP9_SUZ88-1/2017_1339613_MPP9_SUZ-88-1_Memoria.pdf",
+              "https://www.zaragoza.es/contenidos/urbanismo/planesparciales/SUZ_89-3/MPP3_SUZ%2089-3/2016_0863740_MPP3_SUZ-89-3_Memoria.pdf",
+              "https://www.zaragoza.es/contenidos/urbanismo/planesparciales/SUZ_89-3/MPP4_SUZ%2089-3/2017_0455338_MPP4_SUZ-89-3_Memoria.pdf",
+              "https://www.zaragoza.es/contenidos/urbanismo/planesparciales/SUZ_89-3/MPP5_SUZ%2089-3/2021_0101010_M5PP_SUZ%2089-3_Memoria.pdf",
+              "https://www.zaragoza.es/contenidos/urbanismo/planesparciales/SUZ_MZ-2/MPP1_SUZ%20MZ-2/2006_1122926_MPP1_SUZ-MZ-2_Memoria.pdf"
+            ]
+          },
+          "enlace_normas": {
+            "n": 525,
+            "non_null_pct": 9.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 41
+          },
+          "enlace_planos": {
+            "n": 525,
+            "non_null_pct": 10.1,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 48
+          }
+        },
+        "lexeme_hits": {}
+      }
+    },
+    "urbanismo:PLA_1_Ambitos_recogido": {
+      "describe": {
+        "http": 200,
+        "error": "",
+        "fields": [
+          {
+            "name": "codigo_ambito",
+            "type": "xsd:string"
+          },
+          {
+            "name": "tipo_ambito",
+            "type": "xsd:string"
+          },
+          {
+            "name": "descripcion",
+            "type": "xsd:string"
+          },
+          {
+            "name": "etiqueta_visor",
+            "type": "xsd:string"
+          },
+          {
+            "name": "enlace_ficha",
+            "type": "xsd:string"
+          },
+          {
+            "name": "geom",
+            "type": "gml:SurfacePropertyType"
+          },
+          {
+            "name": "tiene_instrumentos",
+            "type": "xsd:boolean"
+          },
+          {
+            "name": "PLA_1_Ambitos_recogido",
+            "type": "urbanismo:PLA_1_Ambitos_recogidoType"
+          }
+        ]
+      },
+      "sample": {
+        "http": 200,
+        "returned": 230,
+        "totalFeatures_declared": 230,
+        "field_stats": {
+          "codigo_ambito": {
+            "n": 230,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 195
+          },
+          "tipo_ambito": {
+            "n": 230,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 1,
+            "values": [
+              "PR"
+            ]
+          },
+          "descripcion": {
+            "n": 230,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 195
+          },
+          "etiqueta_visor": {
+            "n": 230,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 100
+          },
+          "enlace_ficha": {
+            "n": 230,
+            "non_null_pct": 0.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 0
+          },
+          "tiene_instrumentos": {
+            "n": 230,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 1,
+            "values": [
+              "True"
+            ]
+          }
+        },
+        "lexeme_hits": {}
+      }
+    },
+    "urbanismo:PLA_1_Ambitos_desarrollo": {
+      "describe": {
+        "http": 200,
+        "error": "",
+        "fields": [
+          {
+            "name": "codigo_ambito",
+            "type": "xsd:string"
+          },
+          {
+            "name": "tipo_ambito",
+            "type": "xsd:string"
+          },
+          {
+            "name": "descripcion",
+            "type": "xsd:string"
+          },
+          {
+            "name": "etiqueta_visor",
+            "type": "xsd:string"
+          },
+          {
+            "name": "enlace_ficha",
+            "type": "xsd:string"
+          },
+          {
+            "name": "geom",
+            "type": "gml:GeometryPropertyType"
+          },
+          {
+            "name": "tiene_instrumentos",
+            "type": "xsd:boolean"
+          },
+          {
+            "name": "PLA_1_Ambitos_desarrollo",
+            "type": "urbanismo:PLA_1_Ambitos_desarrolloType"
+          }
+        ]
+      },
+      "sample": {
+        "http": 200,
+        "returned": 312,
+        "totalFeatures_declared": 312,
+        "field_stats": {
+          "codigo_ambito": {
+            "n": 312,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 312
+          },
+          "tipo_ambito": {
+            "n": 312,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 2,
+            "values": [
+              "AI",
+              "SUZ"
+            ]
+          },
+          "descripcion": {
+            "n": 312,
+            "non_null_pct": 16.7,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 48
+          },
+          "etiqueta_visor": {
+            "n": 312,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 312
+          },
+          "enlace_ficha": {
+            "n": 312,
+            "non_null_pct": 78.2,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 163
+          },
+          "tiene_instrumentos": {
+            "n": 312,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 2,
+            "values": [
+              "False",
+              "True"
+            ]
+          }
+        },
+        "lexeme_hits": {}
+      }
+    },
+    "urbanismo:Parcelas": {
+      "describe": {
+        "http": 200,
+        "error": "",
+        "fields": [
+          {
+            "name": "codigo_municipal",
+            "type": "xsd:string"
+          },
+          {
+            "name": "referencia_catastral",
+            "type": "xsd:string"
+          },
+          {
+            "name": "geom",
+            "type": "gml:MultiSurfacePropertyType"
+          },
+          {
+            "name": "numero_parcela",
+            "type": "xsd:string"
+          },
+          {
+            "name": "perimetro",
+            "type": "xsd:double"
+          },
+          {
+            "name": "superficie",
+            "type": "xsd:double"
+          },
+          {
+            "name": "igm",
+            "type": "xsd:decimal"
+          },
+          {
+            "name": "referencia",
+            "type": "xsd:string"
+          },
+          {
+            "name": "referencia_manzana",
+            "type": "xsd:string"
+          },
+          {
+            "name": "es_rustico",
+            "type": "xsd:boolean"
+          },
+          {
+            "name": "plano_catastro",
+            "type": "xsd:string"
+          },
+          {
+            "name": "tipo_referencia",
+            "type": "xsd:string"
+          },
+          {
+            "name": "Parcelas",
+            "type": "urbanismo:ParcelasType"
+          }
+        ]
+      },
+      "sample": {
+        "http": 200,
+        "returned": 1000,
+        "totalFeatures_declared": 33606,
+        "field_stats": {
+          "codigo_municipal": {
+            "n": 1000,
+            "non_null_pct": 0.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 0
+          },
+          "referencia_catastral": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 1000
+          },
+          "numero_parcela": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 100.0,
+            "distinct": 54,
+            "min": 1.0,
+            "max": 56.0
+          },
+          "perimetro": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 100.0,
+            "distinct": 950,
+            "min": 10.03,
+            "max": 1010.35
+          },
+          "superficie": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 100.0,
+            "distinct": 988,
+            "min": 2.95,
+            "max": 25689.74
+          },
+          "igm": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 100.0,
+            "distinct": 1000,
+            "min": 37676.0,
+            "max": 53439.0
+          },
+          "referencia": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 1000
+          },
+          "referencia_manzana": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 100.0,
+            "distinct": 140,
+            "min": 25334.0,
+            "max": 85417.0
+          },
+          "es_rustico": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 1,
+            "values": [
+              "False"
+            ]
+          },
+          "plano_catastro": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 20,
+            "values": [
+              "XM7123D",
+              "XM7124B",
+              "XM7133E",
+              "XM7153H",
+              "XM7154B",
+              "XM7154D",
+              "XM7163D",
+              "XM7163E",
+              "XM7163F",
+              "XM7163G",
+              "XM7163H",
+              "XM7164A",
+              "XM7164B",
+              "XM7173C",
+              "XM7173E",
+              "XM7173G",
+              "XM7182G",
+              "XM7183A",
+              "XM7184B",
+              "XM7184G"
+            ]
+          },
+          "tipo_referencia": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 1,
+            "values": [
+              "U"
+            ]
+          }
+        },
+        "lexeme_hits": {}
+      }
+    },
+    "urbanismo:Manzanas": {
+      "describe": {
+        "http": 200,
+        "error": "",
+        "fields": [
+          {
+            "name": "referencia",
+            "type": "xsd:string"
+          },
+          {
+            "name": "geom",
+            "type": "gml:SurfacePropertyType"
+          },
+          {
+            "name": "perimetro",
+            "type": "xsd:double"
+          },
+          {
+            "name": "superficie",
+            "type": "xsd:double"
+          },
+          {
+            "name": "codigo_municipal",
+            "type": "xsd:string"
+          },
+          {
+            "name": "es_rustico",
+            "type": "xsd:boolean"
+          },
+          {
+            "name": "igm",
+            "type": "xsd:decimal"
+          },
+          {
+            "name": "plano_catastro",
+            "type": "xsd:string"
+          },
+          {
+            "name": "Manzanas",
+            "type": "urbanismo:ManzanasType"
+          }
+        ]
+      },
+      "sample": {
+        "http": 200,
+        "returned": 1000,
+        "totalFeatures_declared": 4549,
+        "field_stats": {
+          "referencia": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 100.0,
+            "distinct": 953,
+            "min": 23155.0,
+            "max": 92516.0
+          },
+          "perimetro": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 100.0,
+            "distinct": 980,
+            "min": 21.86,
+            "max": 2068.14
+          },
+          "superficie": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 100.0,
+            "distinct": 998,
+            "min": 27.43,
+            "max": 227903.84
+          },
+          "codigo_municipal": {
+            "n": 1000,
+            "non_null_pct": 99.7,
+            "numeric_pct": 99.7,
+            "VALID_pct_nonzero": 99.7,
+            "distinct": 963,
+            "min": 71891240.0,
+            "max": 78681290.0
+          },
+          "es_rustico": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 1,
+            "values": [
+              "False"
+            ]
+          },
+          "igm": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 100.0,
+            "distinct": 1000,
+            "min": 4593.0,
+            "max": 7163.0
+          },
+          "plano_catastro": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 121
+          }
+        },
+        "lexeme_hits": {}
+      }
+    },
+    "urbanismo:suelos_vacantes": {
+      "describe": {
+        "http": 200,
+        "error": "",
+        "fields": [
+          {
+            "name": "ogc_fid",
+            "type": "xsd:int"
+          },
+          {
+            "name": "geom",
+            "type": "gml:MultiSurfacePropertyType"
+          },
+          {
+            "name": "referencia_catastral",
+            "type": "xsd:string"
+          },
+          {
+            "name": "superficie",
+            "type": "xsd:double"
+          },
+          {
+            "name": "perimetro",
+            "type": "xsd:double"
+          },
+          {
+            "name": "codigo_municipal",
+            "type": "xsd:string"
+          },
+          {
+            "name": "suelos_vacantes",
+            "type": "urbanismo:suelos_vacantesType"
+          }
+        ]
+      },
+      "sample": {
+        "http": 200,
+        "returned": 1000,
+        "totalFeatures_declared": 3081,
+        "field_stats": {
+          "ogc_fid": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 100.0,
+            "distinct": 1000,
+            "min": 1198111.0,
+            "max": 1217085.0
+          },
+          "referencia_catastral": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 1000
+          },
+          "superficie": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 100.0,
+            "distinct": 980,
+            "min": 6.5,
+            "max": 171161.89
+          },
+          "perimetro": {
+            "n": 1000,
+            "non_null_pct": 100.0,
+            "numeric_pct": 100.0,
+            "VALID_pct_nonzero": 100.0,
+            "distinct": 957,
+            "min": 12.84,
+            "max": 6439.34
+          },
+          "codigo_municipal": {
+            "n": 1000,
+            "non_null_pct": 0.0,
+            "numeric_pct": 0.0,
+            "VALID_pct_nonzero": 0.0,
+            "distinct": 0
+          }
+        },
+        "lexeme_hits": {}
+      }
+    }
+  }
+}

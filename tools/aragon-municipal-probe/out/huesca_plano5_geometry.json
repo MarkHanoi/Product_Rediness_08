@@ -1,0 +1,328 @@
+{
+  "probe": "huesca-plano5-geometry-extraction",
+  "assumption_not_measurement": {
+    "metres_per_pt": 0.35277777777777775,
+    "basis": "published sheet scale 1/1.000; 1 pt = 25.4/72 mm",
+    "WARNING": "gives LENGTHS only. There is NO georeference in the file. Absolute placement in EPSG:25830 requires control points and is NOT attempted here."
+  },
+  "sheets": [
+    {
+      "subpath_count": 27023,
+      "vertex_count": 140745,
+      "bbox_pt": [
+        0.03,
+        0.0,
+        1684.05,
+        2383.98
+      ],
+      "sheet_extent_m_ASSUMES_1_1000": [
+        594.1,
+        841.0
+      ],
+      "segment_length_m_p50": 0.198,
+      "segment_length_m_p90": 1.09,
+      "segment_length_m_p99": 34.01,
+      "segment_length_m_max": 841.02,
+      "segments_over_5m": 4056,
+      "distinct_paint_colours": 8,
+      "top_colours": [
+        [
+          "stroke:0.00,0.00,0.00",
+          15053
+        ],
+        [
+          "stroke:0.75,0.75,0.75",
+          5249
+        ],
+        [
+          "fill:0.00,0.00,0.00",
+          4269
+        ],
+        [
+          "fill:0.75,0.75,0.75",
+          2142
+        ],
+        [
+          "stroke:0.51,0.51,0.51",
+          210
+        ],
+        [
+          "stroke:0.25,0.25,0.25",
+          88
+        ],
+        [
+          "fill:0.25,0.25,0.25",
+          10
+        ],
+        [
+          "fill:0.91,0.91,0.91",
+          2
+        ]
+      ],
+      "file": "huesca_plano5_H-01.pdf"
+    },
+    {
+      "subpath_count": 35103,
+      "vertex_count": 180315,
+      "bbox_pt": [
+        0.03,
+        0.0,
+        1684.05,
+        2383.98
+      ],
+      "sheet_extent_m_ASSUMES_1_1000": [
+        594.1,
+        841.0
+      ],
+      "segment_length_m_p50": 0.234,
+      "segment_length_m_p90": 1.143,
+      "segment_length_m_p99": 19.068,
+      "segment_length_m_max": 841.02,
+      "segments_over_5m": 3418,
+      "distinct_paint_colours": 8,
+      "top_colours": [
+        [
+          "stroke:0.00,0.00,0.00",
+          27617
+        ],
+        [
+          "fill:0.00,0.00,0.00",
+          4277
+        ],
+        [
+          "fill:0.75,0.75,0.75",
+          1559
+        ],
+        [
+          "stroke:0.75,0.75,0.75",
+          1298
+        ],
+        [
+          "stroke:0.51,0.51,0.51",
+          219
+        ],
+        [
+          "stroke:0.25,0.25,0.25",
+          123
+        ],
+        [
+          "fill:0.25,0.25,0.25",
+          8
+        ],
+        [
+          "fill:0.91,0.91,0.91",
+          2
+        ]
+      ],
+      "file": "huesca_plano5_H-05.pdf"
+    },
+    {
+      "subpath_count": 99062,
+      "vertex_count": 482808,
+      "bbox_pt": [
+        0.03,
+        0.0,
+        1684.05,
+        2383.98
+      ],
+      "sheet_extent_m_ASSUMES_1_1000": [
+        594.1,
+        841.0
+      ],
+      "segment_length_m_p50": 0.384,
+      "segment_length_m_p90": 1.105,
+      "segment_length_m_p99": 15.62,
+      "segment_length_m_max": 841.02,
+      "segments_over_5m": 13589,
+      "distinct_paint_colours": 7,
+      "top_colours": [
+        [
+          "stroke:0.00,0.00,0.00",
+          58673
+        ],
+        [
+          "stroke:0.75,0.75,0.75",
+          31556
+        ],
+        [
+          "fill:0.00,0.00,0.00",
+          6943
+        ],
+        [
+          "fill:0.75,0.75,0.75",
+          1590
+        ],
+        [
+          "fill:0.25,0.25,0.25",
+          265
+        ],
+        [
+          "stroke:0.25,0.25,0.25",
+          33
+        ],
+        [
+          "fill:0.91,0.91,0.91",
+          2
+        ]
+      ],
+      "file": "huesca_plano5_H-13.pdf"
+    },
+    {
+      "subpath_count": 73656,
+      "vertex_count": 418361,
+      "bbox_pt": [
+        0.03,
+        0.0,
+        1684.05,
+        2383.98
+      ],
+      "sheet_extent_m_ASSUMES_1_1000": [
+        594.1,
+        841.0
+      ],
+      "segment_length_m_p50": 0.255,
+      "segment_length_m_p90": 1.08,
+      "segment_length_m_p99": 19.25,
+      "segment_length_m_max": 841.02,
+      "segments_over_5m": 9047,
+      "distinct_paint_colours": 7,
+      "top_colours": [
+        [
+          "stroke:0.00,0.00,0.00",
+          50524
+        ],
+        [
+          "stroke:0.75,0.75,0.75",
+          13418
+        ],
+        [
+          "fill:0.00,0.00,0.00",
+          6625
+        ],
+        [
+          "fill:0.75,0.75,0.75",
+          2410
+        ],
+        [
+          "stroke:0.25,0.25,0.25",
+          669
+        ],
+        [
+          "fill:0.25,0.25,0.25",
+          8
+        ],
+        [
+          "fill:0.91,0.91,0.91",
+          2
+        ]
+      ],
+      "file": "huesca_plano5_H-14.pdf"
+    },
+    {
+      "subpath_count": 29585,
+      "vertex_count": 148074,
+      "bbox_pt": [
+        0.03,
+        0.0,
+        1684.05,
+        2383.98
+      ],
+      "sheet_extent_m_ASSUMES_1_1000": [
+        594.1,
+        841.0
+      ],
+      "segment_length_m_p50": 0.233,
+      "segment_length_m_p90": 1.082,
+      "segment_length_m_p99": 19.908,
+      "segment_length_m_max": 841.02,
+      "segments_over_5m": 3561,
+      "distinct_paint_colours": 8,
+      "top_colours": [
+        [
+          "stroke:0.00,0.00,0.00",
+          15411
+        ],
+        [
+          "stroke:0.75,0.75,0.75",
+          7892
+        ],
+        [
+          "fill:0.00,0.00,0.00",
+          4274
+        ],
+        [
+          "fill:0.75,0.75,0.75",
+          1862
+        ],
+        [
+          "stroke:0.25,0.25,0.25",
+          124
+        ],
+        [
+          "stroke:0.51,0.51,0.51",
+          12
+        ],
+        [
+          "fill:0.25,0.25,0.25",
+          8
+        ],
+        [
+          "fill:0.91,0.91,0.91",
+          2
+        ]
+      ],
+      "file": "huesca_plano5_H-21.pdf"
+    },
+    {
+      "subpath_count": 33524,
+      "vertex_count": 190093,
+      "bbox_pt": [
+        0.03,
+        0.0,
+        1684.05,
+        2383.98
+      ],
+      "sheet_extent_m_ASSUMES_1_1000": [
+        594.1,
+        841.0
+      ],
+      "segment_length_m_p50": 0.229,
+      "segment_length_m_p90": 0.805,
+      "segment_length_m_p99": 16.429,
+      "segment_length_m_max": 841.02,
+      "segments_over_5m": 3157,
+      "distinct_paint_colours": 7,
+      "top_colours": [
+        [
+          "stroke:0.00,0.00,0.00",
+          26911
+        ],
+        [
+          "fill:0.00,0.00,0.00",
+          4366
+        ],
+        [
+          "fill:0.75,0.75,0.75",
+          2109
+        ],
+        [
+          "stroke:0.25,0.25,0.25",
+          81
+        ],
+        [
+          "stroke:0.75,0.75,0.75",
+          47
+        ],
+        [
+          "fill:0.25,0.25,0.25",
+          8
+        ],
+        [
+          "fill:0.91,0.91,0.91",
+          2
+        ]
+      ],
+      "file": "huesca_plano5_H-28.pdf"
+    }
+  ]
+}

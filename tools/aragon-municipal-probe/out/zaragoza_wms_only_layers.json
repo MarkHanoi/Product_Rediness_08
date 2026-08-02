@@ -1,0 +1,248 @@
+{
+  "probe": "zaragoza-wms-only-layers",
+  "when": "2026-08-02",
+  "endpoint": "https://idezar-sig.zaragoza.es/servicios/geoserver/urbanismo/wms",
+  "crs": "EPSG:25830",
+  "rows": [
+    {
+      "layer": "Parcelario_Ordenacion",
+      "point": "plaza_del_pilar",
+      "bbox": "676040.0,4614410.0,676340.0,4614710.0",
+      "getmap_http": 200,
+      "getmap_bytes": 4660,
+      "getmap_ctype": "image/png",
+      "tile_probably_blank": false,
+      "getfeatureinfo": {
+        "info_format": "application/json",
+        "http": 200,
+        "bytes": 137,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[],\"totalFeatures\":\"unknown\",\"numberReturned\":0,\"timeStamp\":\"2026-08-02T17:40:53.261Z\",\"crs\":null}"
+      },
+      "verdict": "QUERYABLE"
+    },
+    {
+      "layer": "Parcelario_Ordenacion",
+      "point": "gran_via",
+      "bbox": "676750.0,4612750.0,677050.0,4613050.0",
+      "getmap_http": 200,
+      "getmap_bytes": 4660,
+      "getmap_ctype": "image/png",
+      "tile_probably_blank": false,
+      "getfeatureinfo": {
+        "info_format": "application/json",
+        "http": 200,
+        "bytes": 137,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[],\"totalFeatures\":\"unknown\",\"numberReturned\":0,\"timeStamp\":\"2026-08-02T17:40:53.865Z\",\"crs\":null}"
+      },
+      "verdict": "QUERYABLE"
+    },
+    {
+      "layer": "Parcelario_Ordenacion",
+      "point": "actur",
+      "bbox": "675050.0,4616250.0,675350.0,4616550.0",
+      "getmap_http": 200,
+      "getmap_bytes": 4660,
+      "getmap_ctype": "image/png",
+      "tile_probably_blank": false,
+      "getfeatureinfo": {
+        "info_format": "application/json",
+        "http": 200,
+        "bytes": 137,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[],\"totalFeatures\":\"unknown\",\"numberReturned\":0,\"timeStamp\":\"2026-08-02T17:40:54.439Z\",\"crs\":null}"
+      },
+      "verdict": "QUERYABLE"
+    },
+    {
+      "layer": "Parcelario_Integral",
+      "point": "plaza_del_pilar",
+      "bbox": "676040.0,4614410.0,676340.0,4614710.0",
+      "getmap_http": 200,
+      "getmap_bytes": 92195,
+      "getmap_ctype": "image/png",
+      "tile_probably_blank": false,
+      "getfeatureinfo": {
+        "info_format": "application/json",
+        "http": 200,
+        "bytes": 137,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[],\"totalFeatures\":\"unknown\",\"numberReturned\":0,\"timeStamp\":\"2026-08-02T17:40:55.167Z\",\"crs\":null}"
+      },
+      "verdict": "QUERYABLE"
+    },
+    {
+      "layer": "Parcelario_Integral",
+      "point": "gran_via",
+      "bbox": "676750.0,4612750.0,677050.0,4613050.0",
+      "getmap_http": 200,
+      "getmap_bytes": 102659,
+      "getmap_ctype": "image/png",
+      "tile_probably_blank": false,
+      "getfeatureinfo": {
+        "info_format": "application/json",
+        "http": 200,
+        "bytes": 137,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[],\"totalFeatures\":\"unknown\",\"numberReturned\":0,\"timeStamp\":\"2026-08-02T17:40:55.918Z\",\"crs\":null}"
+      },
+      "verdict": "QUERYABLE"
+    },
+    {
+      "layer": "Parcelario_Integral",
+      "point": "actur",
+      "bbox": "675050.0,4616250.0,675350.0,4616550.0",
+      "getmap_http": 200,
+      "getmap_bytes": 73393,
+      "getmap_ctype": "image/png",
+      "tile_probably_blank": false,
+      "getfeatureinfo": {
+        "info_format": "application/json",
+        "http": 200,
+        "bytes": 137,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[],\"totalFeatures\":\"unknown\",\"numberReturned\":0,\"timeStamp\":\"2026-08-02T17:40:56.577Z\",\"crs\":null}"
+      },
+      "verdict": "QUERYABLE"
+    },
+    {
+      "layer": "Plano_Clasificacion",
+      "point": "plaza_del_pilar",
+      "bbox": "676040.0,4614410.0,676340.0,4614710.0",
+      "getmap_http": 200,
+      "getmap_bytes": 92431,
+      "getmap_ctype": "image/png",
+      "tile_probably_blank": false,
+      "getfeatureinfo": {
+        "info_format": "application/json",
+        "http": 200,
+        "bytes": 128264,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"id\":\"Clasificaciones.fid--741f910a_19fc37cac8a_-2c4b\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[675921.5,4614411.4],[675970.4,4614438.6],[675982.5,4614416.6],[676020.4,4614437.5],[676093.2,4614422.2],[676086.3,4614389.6],[676083.9,4614380.1],[676082.1,4614376.7],[676078.5,4614372.1],[676073.8,4614368.7],[676068.7,4614367],[676060.9,4614366.1],[676111.9,4614352.6],[676111.4,4614364.5],[676112.3,4614371.1],[676150.9,4614556.7],[676152.1,4614572.2],[676148.1,4614598.2],[676184.3,4614617.8],[676185.7,4614617.7],[676187.7,4614615.5],[676191.1,4614599.9],[676192.4,4614582.8],[676191.4,4614564.1],[676151.1,4614369.4],[676150.2,4614359.1],[676152.5,4614344.7],[676191.4,4614338.1],[676246.6,4614333.3],[676248.9,4614334.8],[676299.1,4614334.3],[676336.6,4614336.1],[676349.4,4614338.8],[676360.5,4614346.5],[676366,4614354.4],[676368.5,4614363.1],[676410.3,4614792.7],[676407.8,4614805.2],[676401.8,4614816.5],[676353.1,4614869],[676345.5,4614874.2],[676341.5,4614875.8],[676332.9,4614877.8],[676320,4614878.7],[676278.5,4614872.1],[676241.6,4614863.6],[676211.4,4614854.1],[676167.5,4614837.4],[676119.5,4614813.1],[676088,4614795],[676074.9,4614784.9],[676114.1,4614733],[676116.7,4614728.2],[676118.3,4614722.5],[676118.4,4614715.2],[676115.7,4614707.1],[676110.8,4614700.7],[676104.4,4614696.5],[676097.6,4614694.5],[676091.5,4614694"
+      },
+      "verdict": "QUERYABLE"
+    },
+    {
+      "layer": "Plano_Clasificacion",
+      "point": "gran_via",
+      "bbox": "676750.0,4612750.0,677050.0,4613050.0",
+      "getmap_http": 200,
+      "getmap_bytes": 106652,
+      "getmap_ctype": "image/png",
+      "tile_probably_blank": false,
+      "getfeatureinfo": {
+        "info_format": "application/json",
+        "http": 200,
+        "bytes": 1425,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"id\":\"Clasificaciones.fid--741f910a_19fc37cac8a_-2c37\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[676776.5,4612563.5],[676783.2,4612564.4],[676790.4,4612566.6],[677089.1,4612756.3],[677090.2,4612766.2],[677089.5,4612767.4],[677090.7,4612768.2],[677080.3,4612783.6],[676960.8,4612858.2],[676923.2,4612876.1],[676917.1,4612883.8],[676912.7,4612892.9],[676894.3,4612923.9],[676889.5,4612924.2],[676841.3,4612862.2],[676835.5,4612851.8],[676800.3,4612776.6],[676785.9,4612747.8],[676763.1,4612709.1],[676779.3,4612685.4],[676713.3,4612640.4],[676759.6,4612572.7],[676766,4612567.7],[676776.5,4612563.5],[676776.5,4612563.5]],[[676894.1,4612753],[676874.8,4612801.1],[676859.6,4612809.9],[676837.1,4612797.4],[676835.4,4612798.2],[676849.8,4612828.5],[676884.6,4612808],[676894.4,4612811.5],[676905.1,4612829.7],[676901.9,4612839.8],[676868.4,4612859.7],[676884.2,4612880],[676888.4,4612876.8],[676888.7,4612877.3],[676897.6,4612854.3],[676907.7,4612862.1],[676946.1,4612844.2],[676958.3,4612791.6],[676894.1,4612753],[676894.1,4612753]]]},\"geometry_name\":\"geom\",\"properties\":{\"clasificacion\":\"SU\",\"clase\":\"P\",\"descripcion\":\"Suelo  urbano consolidado\",\"perimetro\":1597.62,\"superficie\":55307.33,\"tipo\":\"CLAS\"}}],\"totalFeatures\":\"unknown\",\"numberReturned\":1,\"timeStamp\":\"2026-08-02T17:40:58.198Z\",\"crs\":{\"type\":\"name\",\"properties\":{\"name\":\"urn:og"
+      },
+      "verdict": "QUERYABLE"
+    },
+    {
+      "layer": "Plano_Clasificacion",
+      "point": "actur",
+      "bbox": "675050.0,4616250.0,675350.0,4616550.0",
+      "getmap_http": 200,
+      "getmap_bytes": 75119,
+      "getmap_ctype": "image/png",
+      "tile_probably_blank": false,
+      "getfeatureinfo": {
+        "info_format": "application/json",
+        "http": 200,
+        "bytes": 63061,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"id\":\"Clasificaciones.fid--741f910a_19fc37cac8a_-2c24\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[674043.9,4618212.6],[674255.3,4617992.2],[674280.2,4617967.1],[674306,4617942.9],[674337.9,4617914.8],[674370.8,4617888],[674398.9,4617866.7],[674599.1,4617728.4],[674621.8,4617713.7],[674659.9,4617692.9],[674823.6,4617614],[674863.2,4617592.3],[675237.3,4617354.2],[675253.4,4617341.8],[675267.4,4617326.7],[675277.5,4617311.7],[675286.1,4617293.3],[675289.9,4617280.4],[675292.4,4617266.9],[675293.5,4617237.6],[675285.5,4617237.5],[675281,4617229.2],[675276.6,4617223.5],[675247.4,4617221.3],[675222.9,4617217.2],[675196.1,4617210.3],[675183,4617205.8],[675157.5,4617195],[675133.3,4617181.8],[675121.5,4617174.3],[675110.2,4617166.2],[675089,4617148.6],[675069.6,4617128.8],[675060.6,4617118.3],[675044.2,4617096],[675030,4617072.1],[675024,4617059.8],[675011.6,4617029.5],[675002,4617000],[674886.8,4616600.6],[674881.7,4616596],[674876.1,4616589],[674872.6,4616582.5],[674870.2,4616575.5],[674869,4616562.6],[674871.9,4616549],[674853.3,4616484.4],[674840.9,4616366.3],[674837.2,4616313.9],[674833.5,4616298.6],[674824.2,4616274.3],[674822.5,4616263.3],[674823.4,4616253.5],[674827.1,4616242.7],[674831.2,4616235.9],[674844.5,4616218.6],[674848.5,4616210.6],[674852.3,4616200],[674882.5,4616053.5],[674891.6,4616015.1],[674898.8,461597"
+      },
+      "verdict": "QUERYABLE"
+    },
+    {
+      "layer": "Plano_Estructura",
+      "point": "plaza_del_pilar",
+      "bbox": "676040.0,4614410.0,676340.0,4614710.0",
+      "getmap_http": 200,
+      "getmap_bytes": 126318,
+      "getmap_ctype": "image/png",
+      "tile_probably_blank": false,
+      "getfeatureinfo": {
+        "info_format": "application/json",
+        "http": 200,
+        "bytes": 876,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"id\":\"Estructura.fid--741f910a_19fc37cac8a_-2c02\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[676150.575686,4614353.09083],[676150.248158,4614362.026965],[676151.348218,4614370.837883],[676191.37614,4614564.07553],[676192.445703,4614582.841578],[676191.116206,4614599.883689],[676187.688658,4614615.540855],[676185.699713,4614617.662923],[676184.280711,4614617.774965],[676148.11498,4614598.176943],[676152.119223,4614572.204715],[676150.928757,4614556.735684],[676112.255063,4614371.066028],[676111.398117,4614360.568379],[676150.575686,4614353.09083]]]},\"geometry_name\":\"geom\",\"properties\":{\"calificacion\":\"EQ\",\"descripcion\":\"Equipamientos y Servicios\"}}],\"totalFeatures\":\"unknown\",\"numberReturned\":1,\"timeStamp\":\"2026-08-02T17:40:59.770Z\",\"crs\":{\"type\":\"name\",\"properties\":{\"name\":\"urn:ogc:def:crs:EPSG::25830\"}}}"
+      },
+      "verdict": "QUERYABLE"
+    },
+    {
+      "layer": "Plano_Estructura",
+      "point": "gran_via",
+      "bbox": "676750.0,4612750.0,677050.0,4613050.0",
+      "getmap_http": 200,
+      "getmap_bytes": 151877,
+      "getmap_ctype": "image/png",
+      "tile_probably_blank": false,
+      "getfeatureinfo": {
+        "info_format": "application/json",
+        "http": 200,
+        "bytes": 1076,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"id\":\"Estructura.fid--741f910a_19fc37cac8a_-2bda\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[676894.118902,4612752.994827],[676902.173656,4612733.385122],[676982.805433,4612782.262854],[676976.715813,4612795.783096],[676962.417575,4612856.623786],[676960.777616,4612858.193843],[676923.238005,4612876.04507],[676917.058214,4612883.805292],[676912.69847,4612892.925464],[676894.299326,4612923.88616],[676889.449317,4612924.19631],[676841.327267,4612862.177503],[676859.476925,4612848.146913],[676884.227975,4612880.026286],[676888.367895,4612876.846145],[676888.742807,4612877.332341],[676897.587256,4612854.305768],[676907.738696,4612862.144482],[676946.14714,4612844.154234],[676958.305616,4612791.593644],[676894.118902,4612752.994827]]]},\"geometry_name\":\"geom\",\"properties\":{\"calificacion\":\"A2\",\"descripcion\":\"A2. Edificación en ordenación abierta\"}}],\"totalFeatures\":\"unknown\",\"numberReturned\":1,\"timeStamp\":\"2026-08-02T17:41:00.522Z\",\"crs\":{\"type\":\"name\",\"properties\":{\"name\":\"urn:ogc:def:crs:EPSG::25830\"}}}"
+      },
+      "verdict": "QUERYABLE"
+    },
+    {
+      "layer": "Plano_Estructura",
+      "point": "actur",
+      "bbox": "675050.0,4616250.0,675350.0,4616550.0",
+      "getmap_http": 200,
+      "getmap_bytes": 92333,
+      "getmap_ctype": "image/png",
+      "tile_probably_blank": false,
+      "getfeatureinfo": {
+        "info_format": "application/json",
+        "http": 200,
+        "bytes": 5847,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"id\":\"Protecciones_Sistemas.fid--741f910a_19fc37cac8a_-2bc9\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[680992.8,4618653.5],[680992.4,4618710],[680989.2,4618823.1],[680982.8,4618936.1],[680973.2,4619048.8],[680960.5,4619161.2],[680952.9,4619217.3],[680935.4,4619329],[680914.7,4619440.3],[680890.9,4619550.9],[680877.8,4619605.9],[680849.3,4619715.4],[680817.7,4619824],[680783.1,4619931.7],[680745.4,4620038.4],[680725.5,4620091.3],[680683.3,4620196.3],[680638.2,4620300.1],[680614.6,4620351.5],[680565.1,4620453.2],[680512.8,4620553.5],[680457.6,4620652.3],[680429,4620701.1],[680369.7,4620797.5],[680307.8,4620892.1],[680275.8,4620938.8],[680209.8,4621030.7],[680141.3,4621120.7],[680070.3,4621208.8],[679996.8,4621294.8],[679920.9,4621378.7],[679842.7,4621460.4],[679802.7,4621500.4],[679721.1,4621578.8],[679637.2,4621654.8],[679594.5,4621691.9],[679507.6,4621764.2],[679418.6,4621834.1],[679327.7,4621901.4],[679281.5,4621934.1],[679187.8,4621997.5],[679140.3,4622028.2],[679044,4622087.6],[678946.1,4622144.3],[678896.5,4622171.5],[678846.6,4622198.1],[678745.6,4622249.1],[678643.2,4622297.2],[678539.5,4622342.5],[678487.2,4622364],[678381.7,4622404.7],[678275,4622442.5],[678167.3,4622477.3],[678058.7,4622509],[677949.3,4622537.6],[677839.1,4622563.1],[677783.7,4622574.6],[677728.2,4622585.4],[677616.7,4622604.6],[677504.7,462"
+      },
+      "verdict": "QUERYABLE"
+    },
+    {
+      "layer": "PLA_1_Equipamientos_etiquetado",
+      "point": "plaza_del_pilar",
+      "bbox": "676040.0,4614410.0,676340.0,4614710.0",
+      "getmap_http": 200,
+      "getmap_bytes": 29265,
+      "getmap_ctype": "image/png",
+      "tile_probably_blank": false,
+      "getfeatureinfo": {
+        "info_format": "application/json",
+        "http": 200,
+        "bytes": 1773,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"id\":\"PLA_1_Equipamientos_etiquetado.60502\",\"geometry\":{\"type\":\"MultiPolygon\",\"coordinates\":[[[[676150.6,4614353.1],[676150.2,4614362],[676151.3,4614370.8],[676191.4,4614564.1],[676192.4,4614582.8],[676191.1,4614599.9],[676187.7,4614615.5],[676185.7,4614617.7],[676184.3,4614617.8],[676148.1,4614598.2],[676152.1,4614572.2],[676150.9,4614556.7],[676112.3,4614371.1],[676111.4,4614360.6],[676150.6,4614353.1],[676150.6,4614353.1]]]]},\"geometry_name\":\"geom\",\"properties\":{\"ogc_fid\":60502,\"mslink\":null,\"codigo\":\"A.16.02\",\"etiqueta\":\"A.16.02\",\"localizacion\":\"Escuela de Artes y Escuela de Diseńo de Zaragoza\",\"superficie\":9941,\"sistema\":\"SG\",\"sistema_descripcion\":\"SG - Sistema general\",\"publico\":true,\"zv\":false,\"ed\":false,\"ee\":true,\"es\":false,\"ea\":false,\"ec\":true,\"ere\":false,\"ees\":false,\"sp\":false,\"si\":false,\"sa\":false,\"sd\":false,\"eso\":false,\"peq\":false,\"er\":false,\"dr\":false,\"observaciones\":\"Planeamiento recogido\\n\\nModificación aislada n.ş 26 PGOU \\n(Pleno 28/09/2012)\\n\\nModificación aislada n.ş 87 PGOU \\n(Pleno 28/09/2012)\\n\\n(1)\",\"nota_pie\":\"Edificabilidad: 2’00 m²t/m²\",\"notas_act\":\"Modificada según MA 26. La 16.02 original desaparece y ésta agrupa a 16.03 y 16.04\",\"comentarios_stpr\":\"A petición de Ramón y en aplicación del art. 8.2.13,4, añadimos en el cuadro “observaciones” la edificabilidad prevista en el a"
+      },
+      "verdict": "QUERYABLE"
+    },
+    {
+      "layer": "PLA_1_Equipamientos_etiquetado",
+      "point": "gran_via",
+      "bbox": "676750.0,4612750.0,677050.0,4613050.0",
+      "getmap_http": 200,
+      "getmap_bytes": 29134,
+      "getmap_ctype": "image/png",
+      "tile_probably_blank": false,
+      "getfeatureinfo": {
+        "info_format": "application/json",
+        "http": 200,
+        "bytes": 137,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[],\"totalFeatures\":\"unknown\",\"numberReturned\":0,\"timeStamp\":\"2026-08-02T17:41:02.578Z\",\"crs\":null}"
+      },
+      "verdict": "QUERYABLE"
+    },
+    {
+      "layer": "PLA_1_Equipamientos_etiquetado",
+      "point": "actur",
+      "bbox": "675050.0,4616250.0,675350.0,4616550.0",
+      "getmap_http": 200,
+      "getmap_bytes": 12057,
+      "getmap_ctype": "image/png",
+      "tile_probably_blank": false,
+      "getfeatureinfo": {
+        "info_format": "application/json",
+        "http": 200,
+        "bytes": 137,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[],\"totalFeatures\":\"unknown\",\"numberReturned\":0,\"timeStamp\":\"2026-08-02T17:41:03.189Z\",\"crs\":null}"
+      },
+      "verdict": "QUERYABLE"
+    }
+  ]
+}

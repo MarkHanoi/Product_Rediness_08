@@ -1,0 +1,3031 @@
+{
+  "probe": "aragon-source-hierarchy-one-parcel",
+  "when": "2026-08-02",
+  "hierarchy": "municipal detailed plan -> regional SIUa -> REFUSE",
+  "tier_1_sources": {
+    "parcel": "urbanismo:Parcelas (IDEZar WFS)",
+    "zoning": "Estructura (IDEZar WFS, UNADVERTISED typename)",
+    "instrument": "urbanismo:PLA_1_Instrumentos_ambito (525 rows)",
+    "rule_text": "PGOU Zaragoza Normas Urbanisticas TR2024, Titulo Cuarto"
+  },
+  "tier_2_source": "SIUa regional -- 1:15.000, fiab_geom legal-approval ceiling 21.8%. NOT consulted for any parcel here because tier 1 resolved.",
+  "parcels_tested": 421,
+  "verdict_histogram": {
+    "DEFER": 36,
+    "REFUSE": 66,
+    "PARTIAL": 310,
+    "FALL THROUGH to TIER 2 (regional SIUa)": 9
+  },
+  "exemplar_parcel": {
+    "parcel": {
+      "referencia_catastral": "5639301XM7154B",
+      "superficie_m2_declared": 481.45,
+      "superficie_m2_from_geometry": 481.45,
+      "vertices": 14,
+      "centroid_epsg25830": [
+        675409.85,
+        4613793.68
+      ],
+      "source_TIER_1": "urbanismo:Parcelas (IDEZar municipal WFS)",
+      "declared_vs_geometry_rel_error": 0.0,
+      "declared_area_INTERNALLY_CONSISTENT": true
+    },
+    "TIER_1_municipal": {
+      "resolved": true,
+      "source": "urbanismo:Estructura -- UNADVERTISED WFS typename on IDEZar (absent from GetCapabilities; found from the GetFeatureInfo feature-id prefix 'Estructura.fid-')",
+      "calificacion": "A1",
+      "descripcion": "A1. Edificación en manzana cerrada",
+      "zone_polygon_vertices": 46,
+      "crs": "EPSG:25830"
+    },
+    "TIER_1_rule": {
+      "zone": "A1. Edificacion en manzana cerrada",
+      "chapter": "Titulo 4, Capitulo 4.1",
+      "grammar": "alignment + depth (CLOSED BLOCK)",
+      "articles": {
+        "4.1.1": "CONDICIONES DE POSICION -- fachadas frontales alineadas con las alineaciones de vial, laterales con los linderos laterales; no se admiten retranqueos salvo que esten GRAFIADOS en los planos de regulacion",
+        "4.1.3": "FONDO MINIMO -- 7'50 m en toda la longitud de fachada, aplicable SOLO 'en las manzanas que no se ordenen mediante regulacion grafica de los fondos edificables'",
+        "4.1.5": "NORMAS PARA LA DETERMINACION DE ALTURAS -- altura maxima en funcion de la ANCHURA DE LA CALLE, medida entre alineaciones oficiales opuestas, promediada sobre el frente de manzana",
+        "4.1.8+": "CONDICIONES DE APROVECHAMIENTO, por subgrado (A1/3.1, A1/3.2, A1/4.1, A1/4.2)"
+      }
+    },
+    "dimensions": {
+      "alignment": {
+        "status": "RESOLVED-BY-PROXY",
+        "value": "parcel street frontage from urbanismo:Parcelas",
+        "citation": "art. 4.1.1 -- fachadas frontales alineadas con las alineaciones de vial",
+        "caveat": "the ALINEACION OFICIAL itself is a plan-sheet line. Using the cadastral street frontage is a SUBSTITUTION. In consolidated manzana cerrada the two coincide in the common case, but this is an assumption, not a measurement."
+      },
+      "depth_fondo": {
+        "status": "REFUSE",
+        "citation": "art. 4.1.3 -- the 7'50 m fondo minimo applies ONLY 'en las manzanas que no se ordenen mediante regulacion grafica de los fondos edificables'",
+        "why": "⛔ THE PROSE DEFAULT IS NOT A SAFE UPPER BOUND. It is a MINIMUM, and it is conditioned on the block NOT being graphically regulated -- a condition that cannot be evaluated without the plan sheet. Substituting it would under-grant on regulated blocks and the direction of error on unregulated ones is unknown."
+      },
+      "height": {
+        "status": "DERIVABLE",
+        "citation": "art. 4.1.5 -- altura maxima en funcion de la ANCHURA DE LA CALLE, medida entre alineaciones oficiales opuestas, promediada sobre el frente de manzana",
+        "inputs_available": [
+          "urbanismo:Vias",
+          "urbanismo:Manzanas",
+          "urbanismo:Parcelas"
+        ],
+        "caveat": "needs the street-width ladder; PRYZM already has one (Barcelona). The ladder table itself is in the aprovechamiento articles per subgrado and was NOT read here."
+      },
+      "far_aprovechamiento": {
+        "status": "READ-NOT-MEASURED",
+        "citation": "arts. 4.1.8 / 4.1.10 / 4.1.12 / 4.1.13 / 4.1.15 / 4.1.17 -- CONDICIONES DE APROVECHAMIENTO, per SUBGRADO",
+        "why": "the subgrado (A1/3.1, A1/3.2, A1/4.1, A1/4.2) is not carried on the Estructura polygon -- `calificacion` reads 'A1' only. ⛔ WITHOUT THE SUBGRADO THE APROVECHAMIENTO ARTICLE CANNOT BE SELECTED. This is the single blocking gap for a numeric A1 envelope, and it is a DATA gap, not a legal one."
+      }
+    },
+    "VERDICT": "PARTIAL -- zone, grammar and governing articles RESOLVED from municipal data; fondo REFUSED (graphic); subgrado MISSING so aprovechamiento cannot be selected."
+  },
+  "all": [
+    {
+      "rc": "6337434XM7163G",
+      "m2": 644.65,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "6338933XM7163G",
+      "m2": 252.37,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "6337436XM7163G",
+      "m2": 254.04,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "6337435XM7163G",
+      "m2": 1123.0,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6539808XM7163H",
+      "m2": 60.24,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6539807XM7163H",
+      "m2": 288.53,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6539809XM7163H",
+      "m2": 277.58,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6539810XM7163H",
+      "m2": 71.76,
+      "area_consistent": true,
+      "calificacion": null,
+      "verdict": "FALL THROUGH to TIER 2 (regional SIUa)"
+    },
+    {
+      "rc": "6539811XM7163H",
+      "m2": 98.03,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6539812XM7163H",
+      "m2": 99.64,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6338934XM7163G",
+      "m2": 397.26,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "6437122XM7163E",
+      "m2": 134.16,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "6437121XM7163E",
+      "m2": 114.59,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "6437305XM7163G",
+      "m2": 201.95,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "6636517XM7163F",
+      "m2": 88.41,
+      "area_consistent": true,
+      "calificacion": "G",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6636518XM7163F",
+      "m2": 212.21,
+      "area_consistent": true,
+      "calificacion": null,
+      "verdict": "FALL THROUGH to TIER 2 (regional SIUa)"
+    },
+    {
+      "rc": "6636519XM7163F",
+      "m2": 200.27,
+      "area_consistent": true,
+      "calificacion": "G",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6337425XM7163G",
+      "m2": 1898.93,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6437505XM7163G",
+      "m2": 177.33,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6437708XM7163G",
+      "m2": 1591.17,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6637906XM7163F",
+      "m2": 319.36,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6635420XM7163F",
+      "m2": 229.41,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "6636920XM7163F",
+      "m2": 234.13,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6540711XM7163H",
+      "m2": 3887.35,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6437120XM7163E",
+      "m2": 532.82,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "6539813XM7163H",
+      "m2": 195.42,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6739207XM7163H",
+      "m2": 235.17,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6738112XM7163H",
+      "m2": 309.53,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6738113XM7163H",
+      "m2": 217.38,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6738118XM7163H",
+      "m2": 151.57,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6635418XM7163F",
+      "m2": 69.25,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636514XM7163F",
+      "m2": 127.47,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636513XM7163F",
+      "m2": 134.94,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636512XM7163F",
+      "m2": 125.51,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636902XM7163F",
+      "m2": 74.88,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636901XM7163F",
+      "m2": 63.55,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636515XM7163F",
+      "m2": 220.19,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636506XM7163F",
+      "m2": 42.46,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636505XM7163F",
+      "m2": 179.6,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636504XM7163F",
+      "m2": 128.4,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636509XM7163F",
+      "m2": 201.9,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636508XM7163F",
+      "m2": 85.93,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636507XM7163F",
+      "m2": 70.21,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636903XM7163F",
+      "m2": 107.72,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636915XM7163F",
+      "m2": 457.68,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636914XM7163F",
+      "m2": 67.33,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636913XM7163F",
+      "m2": 70.74,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636919XM7163F",
+      "m2": 67.23,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636918XM7163F",
+      "m2": 99.62,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636917XM7163F",
+      "m2": 51.75,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636907XM7163F",
+      "m2": 291.26,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636906XM7163F",
+      "m2": 305.33,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "6636904XM7163F",
+      "m2": 630.26,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636912XM7163F",
+      "m2": 80.98,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636911XM7163F",
+      "m2": 136.53,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636910XM7163F",
+      "m2": 516.88,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636503XM7163F",
+      "m2": 158.28,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6635402XM7163F",
+      "m2": 964.7,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6541102XM7164B",
+      "m2": 1406.82,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6635405XM7163F",
+      "m2": 811.17,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6635404XM7163F",
+      "m2": 77.44,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6635403XM7163F",
+      "m2": 72.0,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6540707XM7163H",
+      "m2": 301.27,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6540706XM7163H",
+      "m2": 197.72,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6540705XM7163H",
+      "m2": 191.87,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6540710XM7163H",
+      "m2": 184.13,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6637304XM7163H",
+      "m2": 76.71,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6540709XM7163H",
+      "m2": 255.53,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6540708XM7163H",
+      "m2": 236.32,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6635406XM7163F",
+      "m2": 241.49,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6635417XM7163F",
+      "m2": 410.07,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "6635416XM7163F",
+      "m2": 117.78,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "6635415XM7163F",
+      "m2": 109.57,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636502XM7163F",
+      "m2": 149.21,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6636501XM7163F",
+      "m2": 624.4,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6635419XM7163F",
+      "m2": 103.78,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6635409XM7163F",
+      "m2": 412.06,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6635408XM7163F",
+      "m2": 177.65,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6635407XM7163F",
+      "m2": 208.05,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6635414XM7163F",
+      "m2": 94.45,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "6635413XM7163F",
+      "m2": 111.83,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "6639208XM7163H",
+      "m2": 196.38,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6635410XM7163F",
+      "m2": 721.47,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "6637101XM7163F",
+      "m2": 87.53,
+      "area_consistent": true,
+      "calificacion": null,
+      "verdict": "FALL THROUGH to TIER 2 (regional SIUa)"
+    },
+    {
+      "rc": "6639105XM7163H",
+      "m2": 135.28,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639104XM7163H",
+      "m2": 197.55,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639103XM7163H",
+      "m2": 102.69,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639108XM7163H",
+      "m2": 423.05,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639107XM7163H",
+      "m2": 193.23,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639106XM7163H",
+      "m2": 102.65,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6638904XM7163H",
+      "m2": 157.94,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6638903XM7163H",
+      "m2": 174.97,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6638902XM7163H",
+      "m2": 842.57,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639102XM7163H",
+      "m2": 595.13,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639101XM7163H",
+      "m2": 231.58,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6638905XM7163H",
+      "m2": 693.45,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639109XM7163H",
+      "m2": 184.94,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639207XM7163H",
+      "m2": 219.25,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639206XM7163H",
+      "m2": 60.32,
+      "area_consistent": true,
+      "calificacion": null,
+      "verdict": "FALL THROUGH to TIER 2 (regional SIUa)"
+    },
+    {
+      "rc": "6639211XM7163H",
+      "m2": 335.74,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639210XM7163H",
+      "m2": 373.69,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639209XM7163H",
+      "m2": 197.28,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639201XM7163H",
+      "m2": 153.61,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639111XM7163H",
+      "m2": 100.86,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639110XM7163H",
+      "m2": 301.94,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639205XM7163H",
+      "m2": 123.81,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639204XM7163H",
+      "m2": 127.09,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6639202XM7163H",
+      "m2": 225.12,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6638901XM7163H",
+      "m2": 1059.56,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6637303XM7163H",
+      "m2": 119.18,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6637302XM7163H",
+      "m2": 221.26,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6637301XM7163H",
+      "m2": 423.56,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6637306XM7163H",
+      "m2": 307.09,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6637305XM7163H",
+      "m2": 406.79,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6637105XM7163F",
+      "m2": 382.25,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6637104XM7163F",
+      "m2": 320.82,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6637103XM7163F",
+      "m2": 160.82,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6637108XM7163F",
+      "m2": 230.86,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6637107XM7163F",
+      "m2": 93.75,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6637106XM7163F",
+      "m2": 348.33,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6934804XM7163D",
+      "m2": 275.37,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6934803XM7163D",
+      "m2": 289.29,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6934802XM7163D",
+      "m2": 1688.71,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6934807XM7163D",
+      "m2": 124.16,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6934806XM7163D",
+      "m2": 141.68,
+      "area_consistent": true,
+      "calificacion": null,
+      "verdict": "FALL THROUGH to TIER 2 (regional SIUa)"
+    },
+    {
+      "rc": "6934805XM7163D",
+      "m2": 138.39,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6934808XM7163D",
+      "m2": 339.71,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6934809XM7163D",
+      "m2": 362.71,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833310XM7163D",
+      "m2": 918.41,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6733513XM7163D",
+      "m2": 886.0,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833812XM7163D",
+      "m2": 377.03,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833311XM7163D",
+      "m2": 116.35,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "7132108XM7173A",
+      "m2": 134.72,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6733514XM7163D",
+      "m2": 377.81,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6633906XM7163D",
+      "m2": 268.22,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6633907XM7163D",
+      "m2": 280.63,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6733515XM7163D",
+      "m2": 200.79,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6730501XM7163B",
+      "m2": 3386.24,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6730502XM7163B",
+      "m2": 2934.45,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6832907XM7163B",
+      "m2": 371.78,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6730801XM7163B",
+      "m2": 904.89,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6730802XM7163B",
+      "m2": 467.27,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6730803XM7163B",
+      "m2": 1027.17,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6730804XM7163B",
+      "m2": 372.19,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6730805XM7163B",
+      "m2": 464.69,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6730806XM7163B",
+      "m2": 429.0,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6730807XM7163B",
+      "m2": 143.75,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6730808XM7163B",
+      "m2": 359.81,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6730809XM7163B",
+      "m2": 409.39,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6730810XM7163B",
+      "m2": 186.63,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6730811XM7163B",
+      "m2": 211.84,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6732401XM7163D",
+      "m2": 2144.03,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6732402XM7163D",
+      "m2": 211.3,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6732403XM7163D",
+      "m2": 216.53,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6732404XM7163D",
+      "m2": 290.25,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6732405XM7163D",
+      "m2": 271.34,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6732406XM7163D",
+      "m2": 135.75,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6732407XM7163D",
+      "m2": 697.82,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6732408XM7163D",
+      "m2": 772.61,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6732409XM7163D",
+      "m2": 553.36,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6732410XM7163D",
+      "m2": 430.73,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6733501XM7163D",
+      "m2": 1164.83,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6733502XM7163D",
+      "m2": 1258.46,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6733503XM7163D",
+      "m2": 211.99,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6733516XM7163D",
+      "m2": 511.44,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6733509XM7163D",
+      "m2": 239.07,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6733510XM7163D",
+      "m2": 127.06,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6733511XM7163D",
+      "m2": 122.93,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6733512XM7163D",
+      "m2": 259.76,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6734101XM7163D",
+      "m2": 1691.71,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6734102XM7163D",
+      "m2": 715.93,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6734103XM7163D",
+      "m2": 580.9,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6734104XM7163D",
+      "m2": 196.88,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6734106XM7163D",
+      "m2": 431.34,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6831301XM7163B",
+      "m2": 4607.93,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6831601XM7163B",
+      "m2": 282.99,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6831602XM7163B",
+      "m2": 567.4,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6831603XM7163B",
+      "m2": 445.6,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6832901XM7163D",
+      "m2": 573.67,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6832902XM7163D",
+      "m2": 631.18,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6832903XM7163D",
+      "m2": 329.25,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6832904XM7163D",
+      "m2": 1011.79,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6832905XM7163D",
+      "m2": 546.49,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6832906XM7163B",
+      "m2": 266.05,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6832908XM7163B",
+      "m2": 388.34,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6832909XM7163B",
+      "m2": 315.53,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6832910XM7163B",
+      "m2": 2282.35,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6833301XM7163D",
+      "m2": 395.75,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833302XM7163D",
+      "m2": 295.13,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833303XM7163D",
+      "m2": 124.81,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833304XM7163D",
+      "m2": 102.67,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833305XM7163D",
+      "m2": 51.62,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833306XM7163D",
+      "m2": 279.57,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833307XM7163D",
+      "m2": 63.86,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833308XM7163D",
+      "m2": 373.62,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833309XM7163D",
+      "m2": 232.15,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833801XM7163D",
+      "m2": 576.83,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833802XM7163D",
+      "m2": 468.57,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833808XM7163D",
+      "m2": 172.68,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833813XM7163D",
+      "m2": 351.9,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "7132109XM7173A",
+      "m2": 217.39,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833901XM7163D",
+      "m2": 916.67,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833902XM7163D",
+      "m2": 291.49,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833903XM7163D",
+      "m2": 189.7,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833904XM7163D",
+      "m2": 119.4,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833906XM7163D",
+      "m2": 265.68,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833907XM7163D",
+      "m2": 252.75,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833908XM7163D",
+      "m2": 136.11,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833909XM7163D",
+      "m2": 125.02,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833910XM7163D",
+      "m2": 118.58,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833911XM7163D",
+      "m2": 90.65,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833912XM7163D",
+      "m2": 154.1,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6833913XM7163D",
+      "m2": 55.15,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6932201XM7163D",
+      "m2": 1488.82,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "6932203XM7163B",
+      "m2": 945.37,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6932204XM7163B",
+      "m2": 228.02,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "7132110XM7173A",
+      "m2": 209.21,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6932205XM7163D",
+      "m2": 521.74,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933101XM7163D",
+      "m2": 167.64,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933102XM7163D",
+      "m2": 70.78,
+      "area_consistent": true,
+      "calificacion": null,
+      "verdict": "FALL THROUGH to TIER 2 (regional SIUa)"
+    },
+    {
+      "rc": "6933103XM7163D",
+      "m2": 173.82,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933105XM7163D",
+      "m2": 214.96,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933106XM7163D",
+      "m2": 85.6,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933107XM7163D",
+      "m2": 114.99,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933108XM7163D",
+      "m2": 96.99,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933109XM7163D",
+      "m2": 588.51,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933110XM7163D",
+      "m2": 150.0,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933111XM7163D",
+      "m2": 146.6,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933112XM7163D",
+      "m2": 181.11,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933113XM7163D",
+      "m2": 104.6,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933114XM7163D",
+      "m2": 88.04,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933118XM7163D",
+      "m2": 208.77,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933121XM7163D",
+      "m2": 319.82,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933104XM7163D",
+      "m2": 247.23,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933901XM7163D",
+      "m2": 174.08,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933902XM7163D",
+      "m2": 171.01,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933903XM7163D",
+      "m2": 88.72,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933904XM7163D",
+      "m2": 279.8,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933905XM7163D",
+      "m2": 422.04,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "6933906XM7163D",
+      "m2": 151.29,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5639301XM7154B",
+      "m2": 481.45,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5639323XM7153H",
+      "m2": 601.02,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5538901XM7153H",
+      "m2": 1398.0,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5538908XM7153H",
+      "m2": 494.71,
+      "area_consistent": true,
+      "calificacion": "B",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5539801XM7153H",
+      "m2": 1841.08,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5035320XM7143F",
+      "m2": 221.51,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5035321XM7143F",
+      "m2": 138.46,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5233934XM7153C",
+      "m2": 594.97,
+      "area_consistent": true,
+      "calificacion": "A2",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5035322XM7143F",
+      "m2": 74.4,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5134306XM7153C",
+      "m2": 123.8,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5134307XM7153C",
+      "m2": 86.74,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5233901XM7153C",
+      "m2": 39840.11,
+      "area_consistent": false,
+      "calificacion": "A2",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5233933XM7153C",
+      "m2": 2196.39,
+      "area_consistent": true,
+      "calificacion": "A2",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5233965XM7153C",
+      "m2": 1873.27,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5233923XM7153C",
+      "m2": 438.04,
+      "area_consistent": true,
+      "calificacion": "A2",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5233924XM7153C",
+      "m2": 373.23,
+      "area_consistent": true,
+      "calificacion": "A2",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5233925XM7153C",
+      "m2": 374.56,
+      "area_consistent": true,
+      "calificacion": "A2",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5233926XM7153C",
+      "m2": 433.41,
+      "area_consistent": true,
+      "calificacion": "A2",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5335504XM7153G",
+      "m2": 1053.74,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5335507XM7153G",
+      "m2": 4619.25,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5335508XM7153G",
+      "m2": 5688.19,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5335509XM7153G",
+      "m2": 4407.89,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5335502XM7153C",
+      "m2": 1846.88,
+      "area_consistent": true,
+      "calificacion": "G",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5437218XM7153G",
+      "m2": 883.61,
+      "area_consistent": true,
+      "calificacion": "E",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5437219XM7153G",
+      "m2": 3035.74,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5437217XM7153G",
+      "m2": 4242.86,
+      "area_consistent": true,
+      "calificacion": "E",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5137301XM7153G",
+      "m2": 2349.54,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5137303XM7153G",
+      "m2": 2292.1,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5238701XM7153G",
+      "m2": 1615.42,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5238702XM7153G",
+      "m2": 389.59,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5238703XM7153G",
+      "m2": 297.2,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5238704XM7153G",
+      "m2": 302.18,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5238705XM7153G",
+      "m2": 1414.43,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5238706XM7153G",
+      "m2": 494.62,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5238707XM7153G",
+      "m2": 3904.17,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5238708XM7153G",
+      "m2": 1115.71,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5238709XM7153G",
+      "m2": 256.51,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5437215XM7153G",
+      "m2": 442.9,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5437201XM7153G",
+      "m2": 345.84,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5437202XM7153G",
+      "m2": 341.34,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5437203XM7153G",
+      "m2": 275.19,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5437204XM7153G",
+      "m2": 269.91,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5437205XM7153G",
+      "m2": 418.14,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5437206XM7153G",
+      "m2": 411.42,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5437207XM7153G",
+      "m2": 404.44,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5437209XM7153G",
+      "m2": 340.43,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5437210XM7153G",
+      "m2": 333.45,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5437214XM7153G",
+      "m2": 795.66,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5136904XM7153E",
+      "m2": 94.26,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5437216XM7153G",
+      "m2": 373.1,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438201XM7153G",
+      "m2": 255.72,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438202XM7153G",
+      "m2": 207.48,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438203XM7153G",
+      "m2": 93.5,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438204XM7153G",
+      "m2": 106.51,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438205XM7153G",
+      "m2": 421.71,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438206XM7153G",
+      "m2": 199.04,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438207XM7153G",
+      "m2": 92.33,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438208XM7153G",
+      "m2": 516.19,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438209XM7153G",
+      "m2": 217.31,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438210XM7153G",
+      "m2": 189.28,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438211XM7153G",
+      "m2": 844.41,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438212XM7153G",
+      "m2": 280.36,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438213XM7153G",
+      "m2": 137.33,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438214XM7153G",
+      "m2": 134.86,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438215XM7153G",
+      "m2": 420.26,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438216XM7153G",
+      "m2": 411.09,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438217XM7153G",
+      "m2": 279.24,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438218XM7153G",
+      "m2": 202.82,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438219XM7153G",
+      "m2": 488.81,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438220XM7153G",
+      "m2": 804.44,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438221XM7153G",
+      "m2": 630.54,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438222XM7153G",
+      "m2": 1275.52,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438224XM7153G",
+      "m2": 206.98,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438225XM7153G",
+      "m2": 201.17,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438228XM7153G",
+      "m2": 498.72,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438227XM7153G",
+      "m2": 680.2,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438223XM7153G",
+      "m2": 1812.1,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5438226XM7153G",
+      "m2": 213.71,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5135203XM7153E",
+      "m2": 22.75,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5135204XM7153E",
+      "m2": 26.93,
+      "area_consistent": true,
+      "calificacion": null,
+      "verdict": "FALL THROUGH to TIER 2 (regional SIUa)"
+    },
+    {
+      "rc": "5135209XM7153E",
+      "m2": 70.31,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5135208XM7153E",
+      "m2": 54.76,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5135207XM7153E",
+      "m2": 24.37,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5136990XM7153E",
+      "m2": 6658.23,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5034203XM7153C",
+      "m2": 158.82,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934920XM7153C",
+      "m2": 230.52,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934915XM7143D",
+      "m2": 190.14,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5136905XM7153E",
+      "m2": 227.36,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934916XM7143D",
+      "m2": 135.84,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934917XM7143D",
+      "m2": 200.19,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934918XM7143D",
+      "m2": 199.28,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934919XM7143D",
+      "m2": 195.67,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934921XM7143D",
+      "m2": 18.89,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934922XM7143D",
+      "m2": 112.44,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934923XM7143D",
+      "m2": 108.79,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934924XM7143D",
+      "m2": 113.29,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934925XM7143D",
+      "m2": 243.42,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934926XM7143D",
+      "m2": 219.87,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934927XM7143D",
+      "m2": 425.58,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934928XM7143D",
+      "m2": 287.43,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934929XM7143D",
+      "m2": 137.08,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "4934914XM7143D",
+      "m2": 111.71,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5035324XM7153E",
+      "m2": 794.89,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5136902XM7153E",
+      "m2": 75.94,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5136903XM7153E",
+      "m2": 110.05,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5136906XM7153E",
+      "m2": 249.57,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5136907XM7153E",
+      "m2": 254.52,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5136908XM7153E",
+      "m2": 156.29,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5036401XM7153E",
+      "m2": 614.58,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5036402XM7153E",
+      "m2": 691.6,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5036403XM7153E",
+      "m2": 4411.12,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5036404XM7153E",
+      "m2": 4070.49,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5035301XM7143F",
+      "m2": 94.31,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5035302XM7153E",
+      "m2": 218.44,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5035303XM7153E",
+      "m2": 195.29,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5035304XM7153E",
+      "m2": 215.32,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5035305XM7153E",
+      "m2": 220.63,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5035306XM7153E",
+      "m2": 217.76,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5035307XM7153E",
+      "m2": 219.68,
+      "area_consistent": true,
+      "calificacion": "A1",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "5035308XM7153E",
+      "m2": 58.7,
+      "area_consistent": true,
+      "calificacion": null,
+      "verdict": "FALL THROUGH to TIER 2 (regional SIUa)"
+    },
+    {
+      "rc": "5470301XM7157A",
+      "m2": 279604.01,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5470302XM7157A",
+      "m2": 81072.23,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5163903XM7156C",
+      "m2": 15754.78,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5462201XM7156C",
+      "m2": 1045.45,
+      "area_consistent": true,
+      "calificacion": "ZV",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5262101XM7156A",
+      "m2": 1441.81,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5262401XM7156C",
+      "m2": 3986.17,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "5263401XM7156C",
+      "m2": 2451.99,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5263901XM7156C",
+      "m2": 3997.67,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "5362501XM7156C",
+      "m2": 4794.43,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "5362801XM7156A",
+      "m2": 6418.3,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "5562501XM7156D",
+      "m2": 5603.53,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "5562701XM7156B",
+      "m2": 7197.75,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "5563901XM7156D",
+      "m2": 5607.45,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "5664201XM7156F",
+      "m2": 11645.43,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "5264501XM7156E",
+      "m2": 13070.86,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "5464901XM7156E",
+      "m2": 7827.93,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "5163901XM7156C",
+      "m2": 15650.71,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "5363601XM7156C",
+      "m2": 4802.37,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "8641308XM7184B",
+      "m2": 794.88,
+      "area_consistent": true,
+      "calificacion": "ZV",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8641310XM7184B",
+      "m2": 2775.15,
+      "area_consistent": true,
+      "calificacion": "ZV",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8639101XM7183H",
+      "m2": 3435.91,
+      "area_consistent": true,
+      "calificacion": "F",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8740201XM7184B",
+      "m2": 1971.39,
+      "area_consistent": true,
+      "calificacion": "F",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8638401XM7183H",
+      "m2": 2117.62,
+      "area_consistent": true,
+      "calificacion": "ZV",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8737503XM7183H",
+      "m2": 1181.22,
+      "area_consistent": true,
+      "calificacion": "ZV",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8538201XM7183H",
+      "m2": 860.74,
+      "area_consistent": true,
+      "calificacion": "ZV",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8638801XM7183H",
+      "m2": 5183.93,
+      "area_consistent": true,
+      "calificacion": "F",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8637101XM7183F",
+      "m2": 5183.13,
+      "area_consistent": true,
+      "calificacion": "F",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8637301XM7183H",
+      "m2": 844.15,
+      "area_consistent": true,
+      "calificacion": "F",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8537601XM7183F",
+      "m2": 861.12,
+      "area_consistent": true,
+      "calificacion": "ZV",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8737502XM7183H",
+      "m2": 40.0,
+      "area_consistent": true,
+      "calificacion": null,
+      "verdict": "FALL THROUGH to TIER 2 (regional SIUa)"
+    },
+    {
+      "rc": "8737501XM7183H",
+      "m2": 36599.72,
+      "area_consistent": true,
+      "calificacion": "ZV",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8638402XM7183H",
+      "m2": 39.97,
+      "area_consistent": true,
+      "calificacion": "ZV",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8641309XM7184B",
+      "m2": 39.98,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8641311XM7184B",
+      "m2": 858.21,
+      "area_consistent": true,
+      "calificacion": "ZV",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8637302XM7183H",
+      "m2": 1674.14,
+      "area_consistent": true,
+      "calificacion": "F",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8639201XM7183H",
+      "m2": 351.9,
+      "area_consistent": true,
+      "calificacion": "ZV",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8437501XM7183G",
+      "m2": 894.94,
+      "area_consistent": true,
+      "calificacion": "A2",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "8437701XM7183E",
+      "m2": 787.88,
+      "area_consistent": true,
+      "calificacion": "A2",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "8437801XM7183E",
+      "m2": 1162.61,
+      "area_consistent": true,
+      "calificacion": "A2",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "8537201XM7183F",
+      "m2": 1024.97,
+      "area_consistent": true,
+      "calificacion": "A2",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "8538401XM7183H",
+      "m2": 2833.9,
+      "area_consistent": true,
+      "calificacion": "A2",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "8641402XM7184B",
+      "m2": 2231.03,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8641401XM7184B",
+      "m2": 5995.44,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8539501XM7183H",
+      "m2": 1900.61,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "8539503XM7183H",
+      "m2": 2105.11,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "8441401XM7184A",
+      "m2": 8232.42,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "8441402XM7184B",
+      "m2": 3930.72,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8441403XM7184A",
+      "m2": 6902.15,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "8440501XM7184A",
+      "m2": 11040.17,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "8540501XM7184B",
+      "m2": 9605.09,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8439401XM7183G",
+      "m2": 4363.27,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "8639901XM7183H",
+      "m2": 2208.06,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8438301XM7183G",
+      "m2": 9379.97,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "8337501XM7183G",
+      "m2": 11850.36,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "8342801XM7184C",
+      "m2": 10194.42,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8539502XM7183H",
+      "m2": 1504.91,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "8539504XM7183H",
+      "m2": 730.67,
+      "area_consistent": true,
+      "calificacion": "PR-R",
+      "verdict": "DEFER"
+    },
+    {
+      "rc": "8843621XM7184D",
+      "m2": 4597.25,
+      "area_consistent": true,
+      "calificacion": "ZV",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8134401XM7183C",
+      "m2": 2558.27,
+      "area_consistent": true,
+      "calificacion": "ZV",
+      "verdict": "REFUSE"
+    },
+    {
+      "rc": "8538301XM7183H",
+      "m2": 6976.33,
+      "area_consistent": true,
+      "calificacion": "A2",
+      "verdict": "PARTIAL"
+    },
+    {
+      "rc": "8539301XM8173E",
+      "m2": 959.12,
+      "area_consistent": true,
+      "calificacion": "EQ",
+      "verdict": "REFUSE"
+    }
+  ]
+}
