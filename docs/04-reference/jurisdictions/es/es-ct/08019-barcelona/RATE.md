@@ -9,6 +9,20 @@
 > complete card in the repo.** The evidence is committed and re-runnable at
 > [`tools/city-completion/measurements/barcelona.measurements.json`](../../../../../../tools/city-completion/measurements/barcelona.measurements.json).
 >
+> ### ✍ SIG-4 SIGNED 2026-08-02 — clau 22a publishes framework, delegated plans are OUT of scope
+> *"Do not require collection of ~2,600 partial plans. Publish: municipal framework · quantified
+> delegation · corpus boundary. Treat delegated plans as outside scope unless individually analysed."*
+> ⇒ [**`CORPUS-BOUNDARY.md`**](./CORPUS-BOUNDARY.md) is the new load-bearing artefact; the signature is
+> recorded at [`sources/VERIFICATION.md`](./sources/VERIFICATION.md) §SIG-4.
+> ⚠ **The ENVELOPE axis did NOT move (36.5 % → 36.5 %)** — scoping delegation out is not resolving it,
+> and `not-determined` at 0.0 stays correct (C63 §1.5). A signature that raised the number would have
+> been the failure it exists to prevent.
+> ⚠ **NEW ROW 19, and it is the city's highest-value open question:** the same census shows `PD*`
+> (governed by a **derived plan**) over **70.69 % of buildable land** — including **68.6 % of clau
+> 13a**, the family PRYZM publishes constructed envelopes on. L-590c called this out a week ago and
+> nothing was opened. **Nothing has been downgraded** — whether a derived plan displaces Art. 242.2 is
+> genuinely UNKNOWN, and moving the axis on an unread field is the inference the doctrine forbids.
+>
 > ### ✍ FOUNDER SIGNATURE GIVEN 2026-08-01 — clau 18 (L-449 gate)
 > **`BCN_REFOS_OV_CERTIFIED` signed.** Authorises an `explicit-area` envelope on the **26.4 %** of clau-18
 > land carrying an OV footprint with a parseable storey count, at `estimated-ruleset`, caveated with the
@@ -226,6 +240,7 @@ This `RATE.md` is the composite master; the siblings FEED it (naming: `../../_TE
 | [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (~48 %, the pilot ruler) | LEGISLATION |
 | [`ENVELOPE.md`](./ENVELOPE.md) | buildable-envelope solver status (13a live) | ENVELOPE |
 | [`HEIGHT.md`](./HEIGHT.md) | building-height provenance status | HEIGHTS/LOD |
+| [**`CORPUS-BOUNDARY.md`**](./CORPUS-BOUNDARY.md) | ⭐ **§SIG-4 (founder, 2026-08-02)** — what is IN PRYZM's verified planning corpus and what is OUT, so a reader can tell a **coverage boundary** from a **defect**. Carries the quantified delegation (`PD*` = **70.69 %** of buildable land; **98.92 %** of clau 22a) | LEGISLATION · ENVELOPE |
 | [`NEXT.md`](./NEXT.md) | where we stopped · blockers · resume steps | all |
 | [`RISK-REGISTER.md`](./RISK-REGISTER.md) | honesty guardrails (the L-518 real-vs-constructed decision) | — |
 | [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | phased climb to the ~48 % ceiling | all |

@@ -635,6 +635,11 @@ export {
     // ⚠ The FAR is unconditional (all three paragraphs state it); the occupation is CONDITIONAL
     // (Art. 350.1.2n caps *aïllada* sectors at 70 %) and its condition travels with the number.
     BCN_22A_REGIME_NEUTRAL_LIMITS,
+    // §SIG-4 (founder, 2026-08-02) — the QUANTIFIED DELEGATION limb of the signature: 98.92 % of
+    // Barcelona's clau-22a land is recorded by the AMB Refós as governed by a derived plan, MEASURED
+    // over a complete 81-polygon census. It authorises NO envelope on that land — it makes the
+    // existing refusal correctly reasoned. Corpus boundary: `08019-barcelona/CORPUS-BOUNDARY.md`.
+    BCN_22A_DELEGATION_MEASURED,
 } from './rulepacks/esBarcelonaIndustrial.js';
 
 

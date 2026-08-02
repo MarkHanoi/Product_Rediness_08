@@ -13,6 +13,79 @@
 
 ---
 
+## SIG-4 · ✍ **SIGNED 2026-08-02** · clau 22a — publish framework, exclude delegated plans
+
+| | |
+|---|---|
+| **Verifier** | Founder (repo owner) |
+| **Date** | 2026-08-02 |
+| **Axis** | ENVELOPE / LEGISLATION |
+| **Artefact** | `BCN_22A_DELEGATION_MEASURED` (`rulepacks/esBarcelonaIndustrial.ts`) + [`../CORPUS-BOUNDARY.md`](../CORPUS-BOUNDARY.md) |
+| **Source** | PGM-1976 NNUU Arts. 348–351 (committed, [`../PGM-NNUU-metropolitana.pdf`](../PGM-NNUU-metropolitana.pdf)) × the AMB *Refós de Planejament* `PLAN` field, complete 81-polygon census 2026-08-02 |
+
+**THE SIGNATURE, VERBATIM:**
+
+> **22a — Decision: SIGN.**
+> Do not require collection of ~2,600 partial plans.
+> Publish: **municipal framework · quantified delegation · corpus boundary.**
+> Treat delegated plans as **outside scope unless individually analysed.**
+
+**THE DOCTRINE IT APPLIES** — signed corpus-wide alongside it (Madrid SIG-M2 doctrine question; being
+raised as an ADR by the orchestrator. ⚠ **Cite the ADR from here when it lands; do not re-argue it,
+and do not author a second version.**):
+
+> *"Authoritative publication defines the boundary of knowledge, not necessarily the boundary of
+> reality. Unknown is a valid product state."*
+> *"PRYZM shall dispatch deterministic envelopes only where the applicable zoning geometry is directly
+> supported by authoritative published data. Partial publication does not authorize inference beyond
+> its demonstrated spatial extent."*
+
+**THE QUESTION SIGNED:** *must PRYZM exhaust the derived-planning corpus before publishing anything
+on clau 22a?* **Answered NO.** The municipal framework is published and authoritative; the ~2,600
+derived instruments are not in the corpus; therefore the framework publishes and the delegated land
+**refuses with a citation**.
+
+**AUTHORISES** — publishing exactly three things, and only these three:
+1. **The municipal framework** — Art. 350's regime-neutral limits (FAR 2 m²st/m²s, unconditional
+   across Arts. 350.1.1r/350.1.2n/350.2.a; occupation 90 % *with its condition attached*), as prose
+   under a citation. Already shipped as `BCN_22A_REGIME_NEUTRAL_LIMITS`.
+2. **The quantified delegation** — **98.92 %** of Barcelona's clau-22a land (79 of 81 polygons,
+   4,907,691 m², complete census, 2026-08-02) recorded by the AMB Refós as governed by a *pla
+   derivat*; **1.08 %** by the *pla general*. ⇒ **15.43 % of the city's entire private buildable
+   land.** Shipped as `BCN_22A_DELEGATION_MEASURED`.
+3. **The corpus boundary** — [`../CORPUS-BOUNDARY.md`](../CORPUS-BOUNDARY.md), stating what is in
+   verified scope and what is out, so a user can distinguish a coverage boundary from a defect.
+
+**DOES NOT AUTHORISE:**
+- ⚠⚠ **any envelope on delegated land.** Scoping the delegation OUT is not the same as resolving it.
+  `not-determined` at weight 0.0 remains the correct ENVELOPE-axis score for it (C63 §1.5 / L-656: a
+  cited refusal is a correct answer, and a correct answer is not an envelope). **The axis did not
+  move: 36.5 % before this signature and 36.5 % after** — verified by re-running the scorecard.
+- **any silent omission.** A delegated parcel must receive a cited refusal *naming the instrument
+  class and the delegating article*, never a fall-through to a framework number. Pinned by
+  `__tests__/bcnCorpusBoundary.test.ts`.
+- writing the framework FAR or occupation into a numeric `BuildableEnvelope` field (C58 §1.13.3 — the
+  generators and `storeyCap` read those and will extrude one).
+- promoting any tier, or extending the finding to `22@`, `18` or any other clau.
+
+**KNOWN LIMITS AT SIGNING, ACCEPTED:**
+- ⚠ **The signature's title and its text name different claus.** The coordinating instruction was
+  headed *"the 22@ decision"*; the signed text says **"22a"** and names *"~2,600 partial plans"*,
+  which is unambiguously **22a**'s corpus (Art. 350.1) — `22@` is a 2.06 % zone closed separately by
+  **DEC-1** under Art. 8.1 of the MPGM 22@. **Recorded as signed (22a), and the discrepancy is
+  flagged rather than resolved silently.** If `22@` was also intended, that needs its own signature.
+- ⚠ **The 98.92 % is a CITY-WIDE statistic, not a per-parcel routing key.** PRYZM's live zone read is
+  the Generalitat MUC, which carries **no** `PLAN` field, so the engine cannot tell which 22a parcel
+  is in the 1.08 %. The card states the split; it does not branch on it.
+- ⚠ **`PD*` semantics are UNREAD, and the exposure is not limited to 22a.** The same census puts
+  `PD*` over **68.6 % of clau 13a**, **80.9 % of clau 12** and **37.4 % of 13b** — the three families
+  PRYZM publishes constructed envelopes on. L-590c §7 already called the `*` an *assimilation
+  marker* meaning *"the clau we read is a translation, not the governing text"* and asked for an ADR
+  that was never written. **This signature does not cover that**, nothing has been downgraded on the
+  strength of it, and it is open as `CLOSURE-REGISTER` row **19** (`missing-evidence`).
+
+---
+
 ## SIG-3 · 2026-08-01 · clau 18 — `BCN_REFOS_OV_CERTIFIED`
 
 | | |

@@ -387,6 +387,61 @@ export const BCN_22A_REGIME_NEUTRAL_LIMITS = {
 } as const;
 
 /**
+ * §SIG-4 (founder, 2026-08-02) — **THE QUANTIFIED DELEGATION for clau 22a.**
+ *
+ * The signature the founder gave reads, verbatim: *"22a — Decision: SIGN. Do not require collection
+ * of ~2,600 partial plans. Publish: municipal framework · quantified delegation · corpus boundary.
+ * Treat delegated plans as outside scope unless individually analysed."* This constant is the
+ * **quantified delegation** limb. `BCN_22A_REGIME_NEUTRAL_LIMITS` above is the **municipal
+ * framework** limb; the **corpus boundary** limb is
+ * `docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/CORPUS-BOUNDARY.md`.
+ *
+ * ⚠⚠ IT CORRECTS A SENTENCE THIS MODULE HAS BEEN SHIPPING. `barcelonaRegimeUndeterminedRefusal`
+ * told every 22a owner *"Neither the cadastral record nor the Generalitat's planning map carries
+ * it"* — meaning whether a Pla Parcial is in force. That is true of the **Generalitat MUC**, which
+ * is what PRYZM's live path reads, and **FALSE of the AMB Refós**, which PRYZM ALREADY consumes for
+ * clau 18 (`bcnRefosOVProvider.ts`) and which carries a `PLAN` field stating the governing
+ * instrument class. Measured 2026-08-02, re-runnably, over **all 81** Barcelona 22a polygons:
+ *
+ *   `PLAN='PD*'` (pla derivat) — 79 polygons, 4,907,691 m² — **98.92 %**
+ *   `PLAN='PG'`  (pla general) —  2 polygons,    53,666 m² — **1.08 %**
+ *
+ *   curl -s -G "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857\
+ *   /MapServer/16/query" --data-urlencode "where=CODI_INE='08019' AND CLAU_URB='22a'" \
+ *   --data-urlencode "outFields=PLAN,SHAPE_Area" --data-urlencode "returnGeometry=false" \
+ *   --data-urlencode "f=json"
+ *
+ * ⇒ The delegation is not an inference from Art. 350's wording; it is a **published, authoritative,
+ * measured fact**, and the refusal now says so instead of claiming nobody records it.
+ *
+ * ⚠ WHAT THIS DOES **NOT** DO, and the distinction is the whole signature. Knowing that a derived
+ * plan governs is NOT knowing what it says. PRYZM holds **none** of the ~2,600 instruments, so this
+ * constant authorises **no envelope on delegated land** — it makes the existing refusal *correctly
+ * reasoned*, not weaker. C63 §1.5 / L-656: a cited refusal is a correct answer, and a correct answer
+ * is not an envelope. The ENVELOPE axis does not move because delegation was scoped out.
+ *
+ * ⚠ AND IT IS A CITY-WIDE STATISTIC, NOT A PER-PARCEL ONE. PRYZM's live zone read is the MUC, which
+ * carries no `PLAN`, so the engine cannot tell WHICH 22a parcel is in the 1.08 %. That is why the
+ * card states the split rather than branching on it, and why resolving it per parcel is listed as
+ * the reopening condition rather than quietly assumed.
+ */
+export const BCN_22A_DELEGATION_MEASURED = {
+    /** Share of Barcelona's clau-22a land recorded as governed by a *pla derivat*. */
+    derivedPlanShare: 0.9892,
+    /** Share governed directly by the *pla general* (the PGM itself). */
+    generalPlanShare: 0.0108,
+    /** Polygons measured. The census is complete, not sampled — `exceededTransferLimit: false`. */
+    polygonsMeasured: 81,
+    /** Square metres of clau-22a land in INE 08019, from the same census. */
+    zoneAreaM2: 4961358,
+    /** When, and against what. A share with no date is not a measurement. */
+    measuredAt: '2026-08-02',
+    source:
+        'AMB Refós de Planejament, qualificacio_refos_3857/MapServer/16 (QU_Trames), ' +
+        "CODI_INE='08019' AND CLAU_URB='22a', field PLAN. Complete census of 81 polygons.",
+} as const;
+
+/**
  * PGM **Art. 350.2.d** — *"la superfície mínima ha de ser de 300 m² i la longitud de façana igual
  * o superior a 10 m."*
  *

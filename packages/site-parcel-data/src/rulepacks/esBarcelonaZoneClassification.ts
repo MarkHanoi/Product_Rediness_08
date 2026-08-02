@@ -50,6 +50,7 @@
 import { trace } from '@opentelemetry/api';
 import type { EnvelopeRefusal } from '@pryzm/schemas';
 import {
+    BCN_22A_DELEGATION_MEASURED,
     BCN_22A_REGIME_NEUTRAL_LIMITS,
     BCN_INDUSTRIAL_ZONE_CODES,
 } from './esBarcelonaIndustrial.js';
@@ -744,6 +745,7 @@ export function barcelonaRegimeUndeterminedRefusal(
     knownFacts: readonly string[] = [],
 ): EnvelopeRefusal {
     const L = BCN_22A_REGIME_NEUTRAL_LIMITS;
+    const D = BCN_22A_DELEGATION_MEASURED;
     const named = `${(clauLabel && clauLabel.trim()) || BCN_22A_DEFAULT_LABEL} (clau ${clau})`;
     return {
         code: 'regime-undetermined',
@@ -765,13 +767,30 @@ export function barcelonaRegimeUndeterminedRefusal(
             'covered by a definitively-approved detailed plan (*Pla Parcial*); where one is in ' +
             'force, that plan sets them instead, and its heights can differ from the general ' +
             'plan’s by a factor of two. ' +
-            // ── The missing input, NAMED. This is the sentence that makes the refusal actionable
-            //    and that distinguishes it from "we don't know". ──
-            'The missing input is a single fact about your parcel: is a definitively-approved ' +
-            'Pla Parcial in force here, and if so, what ordering type does it assign this ' +
-            'sector? Neither the cadastral record nor the Generalitat’s planning map carries ' +
-            'it. We would rather give you the two figures that are certain and decline the rest ' +
-            'than publish a height that may belong to the other regime.',
+            // ── §SIG-4 — THE QUANTIFIED DELEGATION, replacing a sentence that was wrong. ──
+            //    This paragraph used to read: "The missing input is a single fact about your
+            //    parcel: is a definitively-approved Pla Parcial in force here … Neither the
+            //    cadastral record nor the Generalitat's planning map carries it." The second half
+            //    is true of the MUC (which PRYZM reads live) and FALSE of the AMB Refós (which
+            //    PRYZM already consumes for clau 18): the Refós `PLAN` field states the governing
+            //    instrument class, and a complete 81-polygon census on 2026-08-02 measured it.
+            //    Telling an owner "nobody records this" when an authoritative publisher does is a
+            //    false statement about our own coverage — the same defect already removed from
+            //    13b, 22a, 22@, bare 20a and 12b's cards, here in its sixth form.
+            `On this zone the delegation is MEASURED, not inferred: ${(D.derivedPlanShare * 100).toFixed(2)} % of ` +
+            `Barcelona’s clau-${clau} land (${D.polygonsMeasured} polygons, complete census, ${D.measuredAt}) is ` +
+            'recorded by the AMB *Refós de Planejament* as governed by a **derived plan** — a Pla ' +
+            `Parcial or equivalent — and ${(D.generalPlanShare * 100).toFixed(2)} % directly by the general plan. ` +
+            // ── The corpus boundary, stated as scope rather than as a defect (founder, SIG-4). ──
+            'Those derived plans are approximately 2,600 separate instruments and PRYZM holds NONE ' +
+            'of them: they are outside the verified corpus and are not individually analysed. So ' +
+            'the governing document for this parcel is most likely identified but unread, and the ' +
+            'honest output is this refusal rather than a general-plan height that the derived plan ' +
+            'may have replaced — its heights can differ from the general plan’s by a factor of two. ' +
+            // ── What would actually resolve it, per parcel. ──
+            'What would resolve it for YOUR parcel: the definitively-approved Pla Parcial for this ' +
+            'sector, and the ordering type it assigns. We would rather give you the two figures ' +
+            'that are certain and decline the rest.',
         // C58 §1.13.4 — cite what was actually read. This refusal makes real claims about the
         // ordinance, so it must carry the ordinance's own reference; the two other
         // `legallyGrounded: false` refusals cite nothing because they claim nothing about it.

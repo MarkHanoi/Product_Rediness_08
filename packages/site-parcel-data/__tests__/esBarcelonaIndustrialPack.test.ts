@@ -369,7 +369,15 @@ describe('§L-590c — clau 22a returns the two cited facts plus a NAMED refusal
         const r = refusalFor22a();
         expect(r.detail).toMatch(/definitively-approved detailed plan/i);
         expect(r.detail).toMatch(/Pla Parcial/);
-        expect(r.detail).toMatch(/what ordering type does it assign this sector/i);
+        // ⚠ RE-AIMED, NOT RELAXED (§SIG-4, 2026-08-02). This asserted the literal phrase "what
+        // ordering type does it assign this sector", inside a paragraph that also claimed *"Neither
+        // the cadastral record nor the Generalitat's planning map carries it"*. That claim was FALSE
+        // — the AMB Refós `PLAN` field carries exactly it, and a complete 81-polygon census measured
+        // the split — so the paragraph was rewritten and this regex went with it. The PROPERTY under
+        // test is unchanged and is what the two assertions below now pin: the card must name the
+        // missing input per-parcel and actionably, never shrug.
+        expect(r.detail).toMatch(/the ordering type it assigns/i);
+        expect(r.detail).toMatch(/What would resolve it for YOUR parcel/i);
         // …and names the zone FIRST (L-553 rule 1) so the card cannot read as a crash.
         expect(r.headline).toMatch(/clau 22a/);
         expect(r.headline).toMatch(/TWO regimes/);
