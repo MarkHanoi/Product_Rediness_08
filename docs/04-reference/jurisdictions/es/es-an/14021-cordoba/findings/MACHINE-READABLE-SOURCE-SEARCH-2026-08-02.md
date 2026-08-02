@@ -313,15 +313,25 @@ apply to *any* newly vectorised land, all measured, all permanent-or-blocked:
 | Legally-grounded / unbindable families (Comercial · PTC · EP · UAS · IND) | 4.53 % | ⛔ Permanent (see ENVELOPE.md) |
 | **⇒ PGOU-direct AND packed — the only slice that can ever become an envelope** | **52.87 %** of ordenanza land | the real multiplier |
 
-**Per-sheet yield, measured:** the 6 vectorised sheets carry 1 628 615.63 m² of ordenanza polygons =
-**≈ 0.27 km² per sheet**. ⚠ Per-sheet yield varies with how much of a sheet is urban fabric, so this
-is an **order of magnitude, not a forecast**.
+**Per-sheet yield:** the 6 vectorised sheets carry 1 628 615.63 m² of ordenanza polygons =
+**≈ 0.27 km² per sheet**.
+
+> ⚠⚠ **CORRECTED 2026-08-02 — THAT MEAN IS NEARLY USELESS AND THIS FILE OVER-SOLD IT.** The per-sheet
+> yield was measured the next day
+> ([`LAYER2-GEOMETRY-RECOVERY-2026-08-02.md`](./LAYER2-GEOMETRY-RECOVERY-2026-08-02.md) §Task 2) and
+> ranges from **995 m² (CUS45W, ONE polygon, 0.0 % of its sheet) to 632 558 m² (CUS25W)** — a **636×
+> spread** — with per-sheet coverage running 0.0 % · 2.9 % · 5.2 % · 10.2 % · 10.4 % · 29.7 %. **A mean
+> over a 636×-spread population is not a forecast**, and the "≈ 1.0 %" row below is downgraded to
+> *unknown, plausibly 0.7–1.3 %* until CUS18W/CUS19W are actually characterised. ⚠ It also means
+> **"8 sheets vectorised" overstates what COACo did**: 6 distinct sheets, of which **two are token**.
+> *(Same error class as the n=1 and n=3 samples this dossier has caught three times — committed here
+> by me, one day after documenting the other three.)*
 
 | Scenario | New ordenanza land | Direct+packed (×0.5287) | ENVELOPE axis after blockers 2+3+4 |
 |---|---:|---:|---:|
 | **today** | — | — | **0.0 %** (gate shut, resolver uncalled) |
 | blockers 2+3+4 only, no new geometry | — | 567 649 m² | **≈ 0.68 %** |
-| **\+ blocker 22b — the 2 live sheets** *(the only work available now)* | ≈ 0.54 km² | ≈ 0.29 km² | **≈ 1.0 %** |
+| **\+ blocker 22b — the 2 live sheets** *(the only work available now)* | ≈ 0.54 km² ⚠ | ≈ 0.29 km² ⚠ | **⚠ unknown, plausibly 0.7–1.3 %** |
 | \+ blocker 8 (MC street width) on existing pilot | — | +293 410 m² | **≈ 1.35 %** |
 | **hypothetical: all 49 urban sheets published AND vectorised** | — | — | **≈ 8 %, order of magnitude only** |
 
