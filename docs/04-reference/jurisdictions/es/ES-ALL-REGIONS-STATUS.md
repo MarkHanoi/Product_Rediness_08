@@ -22,8 +22,19 @@ agreed **common minimum thematic contents** for the national model. What that mo
 > envelope needs. They are not failing to publish — they are publishing to a spec never designed for this
 > use case.**
 
-That single fact explains why so many regions look identical and thin, and it means **a national SIU
-adapter cannot produce envelopes** — only regime selection.
+That single fact explains why so many regions look identical and thin.
+
+⚠ **BUT THE FIRST FILING OF THIS WAS TOO HARSH, AND THE CORRECTION MATTERS.** *"Sector-level edificabilidad
+is **not worthless**. It's a **national** buildability signal covering ten regions with an agreed model. For
+**determinations** — the proven national product — that's usable: it tells you a sector's aggregate capacity
+**even where the parcel-level ordinance is unreachable**."*
+
+> ⭐ **FILE THE SIU AS `L2-for-DETERMINATIONS` / `L0-for-ENVELOPES`. NOT a dead end.**
+> **It is the only thing in Spain with national coverage AND an agreed schema.**
+
+⇒ **The maturity ladder must be read PER OUTPUT, not per region.** A source can sit at one level for a
+*determination* and another for an *envelope*, and collapsing the two to a single number loses exactly the
+distinction that makes the national product viable.
 
 ## 1 · ⛔ THE CHALLENGE TO R0 — "no instrument" may not mean terminal
 

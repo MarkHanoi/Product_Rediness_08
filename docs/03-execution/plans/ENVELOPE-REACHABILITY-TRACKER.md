@@ -14,7 +14,7 @@
 
 | State | Meaning | Envelope |
 |---|---|---|
-| **R0** | no planning instrument exists | **never** |
+| **R0** | no **municipal** planning instrument exists | ⚠ **NOT automatically never — see the rule below** |
 | **R1** | instrument exists, raster or PDF only | not without vectorisation |
 | **R2** | classification only (urbano/urbanizable/no urbanizable) | **never** — a regime selector, not an envelope hook |
 | **R3** | ordinance/zone **code** published, parameters in the ordinance text | yes, **with corpus** |
@@ -32,6 +32,28 @@
 
 ⚠ **Denominator note:** the SIU census returns **8,217 rows**; **86 carry `CodINE 53xxx`** and are *entidades locales menores / comunidades*, **not municipalities**. Excluding them gives **8,131**, which is the frame used throughout.
 ⚠ **This tracker's first computation of R0 was WRONG** — it tested for an empty `FiguraVigente` and returned 86 (1.0 %), contradicting the known 1,357. The real vocabulary is `Sin Planeamiento`. Recorded per ADR-0292: *a verification tool with no error history has usually not been verified.*
+
+### 1.0 · ⛔ THE R0 RULE — "no municipal instrument" is NOT "no applicable ordinance"
+
+> **Supletory regional and provincial instruments defeat it.** State it once here so it is not rediscovered
+> per region.
+
+- **Galicia — the proven case.** *Plan Básico Autonómico* (Decreto 83/2018) **applies** where there is no
+  general municipal planning and is **complementary** where there is, supplying *"indeterminations and
+  gaps"* with its own ***ordenanzas***. Beneath it, *Planes Básicos Municipales* are drafted **by the
+  region** for municipalities under 5,000 — *"so all Galician municipalities end up with a basic urbanistic
+  instrument."*
+- ⭐ **Castilla y León — the evidence is in data we already hold.** Its own listing distinguishes *Sin Plan*
+  **with an explicit pointer to NSAP — provincial subsidiary norms** — and that pointer is in the open-data
+  description already in the corpus. **Check the field before re-deriving this.**
+- **Aragón** — provincial *normas subsidiarias*, same check outstanding.
+
+⇒ **R0 as counted here is an UPPER BOUND ON TERMINALITY, not a measurement of it.** A municipality leaves R0
+the moment a supletory instrument with parameters is shown to apply.
+
+⚠ **AND THE COMPLEMENTARY CLAUSE IS DANGEROUS AS WELL AS LARGE** — see counsel **Q5**. A regional instrument
+that fills municipal gaps is *"exactly the kind of thing that produces a plausible parameter with no
+municipal basis"*, and the error direction is **over-granting**.
 
 ### 1.1 · ⛔ WHY R1–R4 ARE EMPTY, AND WHY THAT IS CORRECT
 

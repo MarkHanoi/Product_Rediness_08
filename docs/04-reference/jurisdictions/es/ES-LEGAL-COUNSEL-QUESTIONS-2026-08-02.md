@@ -52,6 +52,37 @@ governing article**. Our certification is currently **scoped to one municipality
 > If the latter: **is a determination computed from the vector, but cited to the written instrument,
 > relied-upon-able?**
 
+### 5 · ⛔ May we cite a SUPLETORY regional ordinance where the municipal plan is merely SILENT?
+
+> Galicia's **Plan Básico Autonómico** (Decreto 83/2018) applies in municipalities lacking general planning
+> **and has complementary character where municipal planning exists**, to supply *"the possible
+> indeterminations and gaps of the municipal plan in force"*, with its own ***ordenanzas***.
+>
+> **Where a municipal plan is silent on a parameter, may a determination cite the regional instrument's
+> ordenanza — or does municipal silence sometimes constitute a deliberate delegation rather than a gap?**
+>
+> And: **Art. 9 of the same Decreto makes sectoral changes directly binding and prevailing over the PBA
+> cartography.** Does citing the published PBA map, when a sectoral affection has since intervened,
+> constitute a defective citation?
+
+---
+
+## Why Q5 was added (2026-08-02)
+
+⚠ **The complementary clause is genuinely large AND genuinely dangerous, and the danger runs in the
+over-granting direction.** A regional instrument that fills municipal gaps is *"exactly the kind of thing
+that produces a **plausible** parameter with **no municipal basis**."*
+
+**If PRYZM cites a PBA ordenanza where the municipal plan was merely silent, and a court reads that silence
+as a delegation rather than a gap, the citation is wrong in the over-granting direction** — the L-616 error
+class, reached through a legal route rather than an arithmetic one.
+
+⭐ **It is also the question that decides a floor.** The reachability tracker counts **1,357 municipalities**
+with no municipal instrument. If supletory regional ordinances carry parameters, those municipalities are
+**determinable and possibly envelope-capable** — and the same test then applies wherever a supletory
+instrument exists (**Aragón** and **Castilla y León** both have provincial *normas subsidiarias*; CyL's own
+listing pairs *Sin Plan* with an explicit **NSAP** pointer).
+
 ---
 
 ## Why Q4 was added (2026-08-02, second research pass)
