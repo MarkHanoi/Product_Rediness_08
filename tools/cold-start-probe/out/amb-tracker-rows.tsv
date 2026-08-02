@@ -1,7 +1,8 @@
 # INE	name	CCAA	status	statuses	envelope%	determination%	blocking item	class	last measured
 # emitted by tools/cold-start-probe/task5-amb-all-municipalities.mjs · seed 20260802 · control=PASS · NEVER hand-edit
-# status = the HIGHEST earned (published>proven>reachable>blocked>untested); statuses = ALL earned. They are not mutually exclusive.
-# a blocked row carries NEITHER percentage — a zero would read as "measured, and it is nothing".
+# col 4 = the HIGHEST status earned; col 5 = ALL statuses earned, pipe-joined. They are not mutually exclusive.
+# a row with no computed coverage carries NEITHER percentage — a zero would read as "measured, and it is nothing".
+# COUNT RECIPE: grep -cP '(\t|\|)proven(\||\t)' out/amb-tracker-rows.tsv   # same shape for: published, reachable, blocked, untested
 08015	Badalona	Catalunya	proven	proven	69.47	93.3	Phase-1 unbinding: bcnRefosOVProvider CODI_INE='08019' · siteDispatch clau-18 guard · registry.ts BARCELONA_BBOX	Engineering	2026-08-02
 08019	Barcelona	Catalunya	published	published|proven	34.03	93.56	delegated to a pla derivat not held (59.53 %)	Data acquisition	2026-08-02
 08020	Begues	Catalunya	proven	proven	61.4	80.63	PGM does not govern — municipal ordinance corpus not held; measured envelope has no article citation	Data acquisition	2026-08-02
