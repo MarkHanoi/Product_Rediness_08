@@ -1,0 +1,79 @@
+[
+  {
+    "partition": "format / whole catalogue",
+    "sums_to": 4697,
+    "expected": 4697,
+    "PASS": true,
+    "buckets": 20
+  },
+  {
+    "partition": "format / planning corpus",
+    "sums_to": 4027,
+    "expected": 4027,
+    "PASS": true,
+    "buckets": 4
+  },
+  {
+    "partition": "instrument family / all SIPU",
+    "sums_to": 1169,
+    "expected": 1169,
+    "PASS": true,
+    "buckets": 18
+  },
+  {
+    "partition": "instrument family / municipal SIPU",
+    "sums_to": 984,
+    "expected": 984,
+    "PASS": true,
+    "buckets": 13
+  },
+  {
+    "partition": "SIPU per municipality",
+    "sums_to": 984,
+    "expected": 984,
+    "PASS": true,
+    "buckets": 88
+  },
+  {
+    "partition": "island / municipal SIPU",
+    "sums_to": 984,
+    "expected": 984,
+    "PASS": true,
+    "buckets": 7
+  },
+  {
+    "partition": "vintage provenance / all SIPU",
+    "sums_to": 1169,
+    "expected": 1169,
+    "PASS": true,
+    "buckets": 4
+  },
+  {
+    "partition": "vintage year / dated SIPU",
+    "sums_to": 1143,
+    "expected": 1143,
+    "PASS": true,
+    "buckets": 54
+  },
+  {
+    "partition": "vintage decade / dated SIPU",
+    "sums_to": 1143,
+    "expected": 1143,
+    "PASS": true,
+    "buckets": 10
+  },
+  {
+    "partition": "catalogued year / all SIPU",
+    "sums_to": 1169,
+    "expected": 1169,
+    "PASS": true,
+    "buckets": 7
+  },
+  {
+    "partition": "phase / all SIPU",
+    "sums_to": 1169,
+    "expected": 1169,
+    "PASS": true,
+    "buckets": 9
+  }
+]

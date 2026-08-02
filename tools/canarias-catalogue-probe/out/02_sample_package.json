@@ -1,0 +1,137 @@
+{
+  "author": null,
+  "author_email": null,
+  "creator_user_id": "51c138a5-65bd-4ac2-b231-1d8acd702876",
+  "id": "f046ef35-4699-4251-b8c2-8310dc1f66f9",
+  "isopen": true,
+  "license_id": "gobcan-aviso-legal",
+  "license_title": "Aviso Legal del Gobierno de Canarias",
+  "license_url": "https://datos.canarias.es/portal/aviso-legal-y-condiciones-de-uso",
+  "maintainer": null,
+  "maintainer_email": null,
+  "metadata_created": "2017-12-13T13:01:40.707741",
+  "metadata_modified": "2025-10-10T12:47:04.932859",
+  "name": "planeamiento-urbanistico-de-mogan",
+  "notes": "Planeamiento urbanístico sistematizado del municipio de Mogán . Esta información es producida y mantenida por el Gobierno de Canarias y ha contado con la financiación del Ministerio de Fomento, a través del Programa Urbanismo en Red ejecutado por la empresa pública Red.es, durante el periodo 2010-2015. Los trabajos de normalización han sido realizados por Cartográfica de Canarias, S.A. (GRAFCAN)",
+  "num_resources": 342,
+  "num_tags": 0,
+  "organization": {
+    "id": "1861b8ec-6809-445e-afd4-b70cd351e7d6",
+    "name": "gobcan-politica-territorial-cohesion-territorial-y-aguas",
+    "title": "Política Territorial, Cohesión Territorial y Aguas",
+    "type": "organization",
+    "description": "Consejería de Política Territorial, Cohesión Territorial y Aguas del Gobierno de Canarias.",
+    "image_url": "2019-11-05-084737.709249gobcan.jpg",
+    "created": "2016-04-21T10:00:25.419821",
+    "is_organization": true,
+    "approval_status": "approved",
+    "state": "active"
+  },
+  "owner_org": "1861b8ec-6809-445e-afd4-b70cd351e7d6",
+  "private": false,
+  "state": "active",
+  "title": "Planeamiento urbanístico de Mogán",
+  "type": "dataset",
+  "url": null,
+  "version": null,
+  "extras": [
+    {
+      "key": "identifier",
+      "value": "https://opendata.sitcan.es/dataset/planeamiento-urbanistico-de-mogan"
+    },
+    {
+      "key": "language",
+      "value": "es"
+    },
+    {
+      "key": "publisher_name",
+      "value": "Política Territorial, Cohesión Territorial y Aguas"
+    },
+    {
+      "key": "publisher_uri",
+      "value": "https://www.gobiernodecanarias.org/planificacionterritorial/"
+    },
+    {
+      "key": "theme",
+      "value": "http://datos.gob.es/kos/sector-publico/sector/urbanismo-infraestructuras"
+    }
+  ],
+  "groups": [
+    {
+      "description": "Urbanismo e infraestructuras.",
+      "display_name": "Urbanismo e infraestructuras",
+      "id": "13630662-8f71-41c5-8a65-264e839a918b",
+      "image_display_url": "https://opendata.sitcan.es/uploads/group/2019-11-05-100620.765768grupo.png",
+      "name": "urbanismo-infraestructuras",
+      "title": "Urbanismo e infraestructuras"
+    }
+  ],
+  "resources": [
+    {
+      "cache_last_updated": null,
+      "cache_url": null,
+      "created": "2017-12-13T13:01:40.872093",
+      "description": "Sistematización FIP de Aprobación Definitiva de Sentencia del Tribunal Supremo de 19 Jun. 2013 de Anulación de Modificación Puntual de Normas Subsidiarias de Mogán en el ámbito de Costa Taurito, aprobada el 19/06/2013",
+      "format": "FIP",
+      "hash": "",
+      "id": "f4342874-ba85-4954-bcca-a124b5344901",
+      "last_modified": "2021-02-04T10:41:50.912642",
+      "metadata_modified": "2017-12-13T13:01:40.872093",
+      "mimetype": "application/zip",
+      "mimetype_inner": null,
+      "name": "Aprobación Definitiva de Sentencia del Tribunal Supremo de 19 Jun. 2013 de Anulación de Modificación Puntual de Normas Subsidiarias de Mogán en el ámbito de Costa Taurito",
+      "package_id": "f046ef35-4699-4251-b8c2-8310dc1f66f9",
+      "position": 0,
+      "resource_type": null,
+      "size": null,
+      "state": "active",
+      "url": "https://opendata.sitcan.es/upload/planeamiento/fip/350120_c0c46a5791150fe873c40a2d81d7b9e2.zip",
+      "url_type": null
+    },
+    {
+      "cache_last_updated": null,
+      "cache_url": null,
+      "created": "2017-12-13T13:01:41.123389",
+      "description": "Sistematización SIPU de Sentencia del Tribunal Supremo de 19 Jun. 2013 de Anulación de Modificación Puntual de Normas Subsidiarias de Mogán en el ámbito de Costa Taurito, aprobada el 19/06/2013",
+      "format": "SIPU",
+      "hash": "",
+      "id": "0f331bd1-a3fd-4b5e-b11b-e068a3fd4b68",
+      "last_modified": "2022-02-17T12:58:26.385439",
+      "metadata_modified": "2025-09-23T12:40:27.770627",
+      "mimetype": "application/zip",
+      "mimetype_inner": null,
+      "name": "Sentencia del Tribunal Supremo de 19 Jun. 2013 de Anulación de Modificación Puntual de Normas Subsidiarias de Mogán en el ámbito de Costa Taurito",
+      "package_id": "f046ef35-4699-4251-b8c2-8310dc1f66f9",
+      "position": 1,
+      "resource_type": null,
+      "size": 19314,
+      "state": "active",
+      "url": "https://opendata.sitcan.es/dataset/f046ef35-4699-4251-b8c2-8310dc1f66f9/resource/0f331bd1-a3fd-4b5e-b11b-e068a3fd4b68/download/1d37ce70-caa2-34e8-a929-5e8fa86c4118.zip",
+      "url_type": "upload"
+    },
+    {
+      "cache_last_updated": null,
+      "cache_url": null,
+      "created": "2017-12-13T13:01:41.384100",
+      "description": "Documentación de Sentencia del Tribunal Supremo de 19 Jun. 2013 de Anulación de Modificación Puntual de Normas Subsidiarias de Mogán en el ámbito de Costa Taurito, aprobada el 19/06/2013",
+      "format": "PDF",
+      "hash": "",
+      "id": "de5c3e8e-a9ef-4603-b9f1-e0b2053fd1d9",
+      "last_modified": "2022-02-17T09:47:21.788526",
+      "metadata_modified": "2017-12-13T13:01:41.384100",
+      "mimetype": "text/html",
+      "mimetype_inner": null,
+      "name": "Sentencia del Tribunal Supremo de 19 Jun. 2013 de Anulación de Modificación Puntual de Normas Subsidiarias de Mogán en el ámbito de Costa Taurito",
+      "package_id": "f046ef35-4699-4251-b8c2-8310dc1f66f9",
+      "position": 2,
+      "resource_type": null,
+      "size": null,
+      "state": "active",
+      "url": "https://www.idecanarias.es/resources/PLA_ENP_URB/URB_PLA/GC/Moga/401/indice.html",
+      "url_type": null
+    }
+  ],
+  "tags": [],
+  "relationships_as_subject": [],
+  "relationships_as_object": []
+}

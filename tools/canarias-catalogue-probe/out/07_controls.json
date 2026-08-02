@@ -1,0 +1,83 @@
+{
+  "known_answer_control": {
+    "tests": [
+      {
+        "municipality": "Telde",
+        "sipu_records": 5,
+        "sipu_zip_urls": 5,
+        "PASS": true,
+        "island": "Gran Canaria",
+        "example_url": "https://opendata.sitcan.es/dataset/32f72bc0-924b-4a85-ae02-1cb8d2b54686/resource/24bf8f38-53fa-4a7f-8614-9be6ead15e0b/download/030319-pgo-ad-itpu-150323-210504-sipu.zip"
+      },
+      {
+        "municipality": "Arona",
+        "sipu_records": 34,
+        "sipu_zip_urls": 34,
+        "PASS": true,
+        "island": "Tenerife",
+        "example_url": "https://opendata.sitcan.es/dataset/030ba970-d790-4aff-858e-99811ffe3b47/resource/2e4cc2ce-ef52-4f76-92d9-c7ce19db2017/download/74023e84-ba54-39ff-804c-369837d66a68.zip"
+      },
+      {
+        "municipality": "Agulo",
+        "sipu_records": 1,
+        "sipu_zip_urls": 1,
+        "PASS": true,
+        "island": "La Gomera",
+        "example_url": "https://opendata.sitcan.es/dataset/45f701fe-92d9-494b-a447-82fbe4caf6da/resource/0695144d-5b11-4c2a-8f44-851ae19ff20e/download/051018-pgo-adp-itpu-160517-180313-sipu.zip"
+      },
+      {
+        "municipality": "Arico",
+        "sipu_records": 22,
+        "sipu_zip_urls": 22,
+        "PASS": true,
+        "island": "Tenerife",
+        "example_url": "https://opendata.sitcan.es/dataset/e2e50d6c-1f6a-4ebe-b9f3-2b448e59b044/resource/17501ced-800a-4520-8430-d3a14c47fd78/download/050204-mpnnss-n5-ad-itpu-130701-190516-sipu.zip"
+      }
+    ],
+    "all_pass": true
+  },
+  "code_space": {
+    "fip_prefix_length_distribution": {
+      "6": 416,
+      "5": 5
+    },
+    "three_digit_form_present": false,
+    "ine_reference_file": "C:\\Users\\LENOVO\\OneDrive\\Desktop\\PRYZM\\Product_Rediness_08\\.claude\\worktrees\\agent-a2220479864678f60\\docs\\04-reference\\jurisdictions\\es\\priority_407.csv",
+    "ine_canarias_rows": 29,
+    "codes_tested_against_ine": 18,
+    "name_match": 17,
+    "name_mismatch": 1,
+    "mismatch_detail": [
+      {
+        "catalogue": "Pájara",
+        "code": "35014",
+        "ine5": "35014",
+        "ine_name": "Oliva, La"
+      }
+    ],
+    "municipalities_with_multiple_codes": {
+      "Puerto de La Cruz": {
+        "380282": 3,
+        "280282": 1
+      },
+      "Valverde": {
+        "370488": 1,
+        "380488": 11
+      }
+    }
+  },
+  "supersession": {
+    "ckan_relationships_subject": 0,
+    "ckan_relationships_object": 0,
+    "sipu_titles_with_supersession_verb": 48,
+    "sipu_flagged_vigente": 0,
+    "current_derivable_from_phase": false,
+    "phase_exposed": true,
+    "phase_location": "free text - resource name prefix",
+    "phase_definitive_share_pct": 93.4
+  },
+  "findings": [
+    "CODE-SPACE: 1 FIP-URL codes whose INE5 prefix names a DIFFERENT municipality than the package they sit in. Either the FIP code is not INE5+check, or instruments are filed cross-municipally. UNKNOWN which.",
+    "CODE-SPACE: 2 municipalities carry >1 distinct FIP-URL code. The FIP prefix is therefore NOT a stable municipality key on its own."
+  ]
+}

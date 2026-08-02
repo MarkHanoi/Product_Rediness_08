@@ -1,0 +1,56 @@
+[
+  {
+    "step": "oracle",
+    "url": "https://opendata.sitcan.es/api/3/action/package_search?q=&rows=0",
+    "status": 200,
+    "bytes": 220,
+    "error": null
+  },
+  {
+    "step": "package_list",
+    "url": "https://opendata.sitcan.es/api/3/action/package_list",
+    "status": 200,
+    "bytes": 7888,
+    "error": null
+  },
+  {
+    "step": "walk",
+    "start": 0,
+    "url": "https://opendata.sitcan.es/api/3/action/package_search?q=&rows=50&start=0&sort=metadata_created+asc",
+    "status": 200,
+    "bytes": 1829965,
+    "error": null
+  },
+  {
+    "step": "walk",
+    "start": 50,
+    "url": "https://opendata.sitcan.es/api/3/action/package_search?q=&rows=50&start=50&sort=metadata_created+asc",
+    "status": 200,
+    "bytes": 1726496,
+    "error": null
+  },
+  {
+    "step": "walk",
+    "start": 100,
+    "url": "https://opendata.sitcan.es/api/3/action/package_search?q=&rows=50&start=100&sort=metadata_created+asc",
+    "status": 200,
+    "bytes": 861080,
+    "error": null
+  },
+  {
+    "step": "walk",
+    "start": 150,
+    "url": "https://opendata.sitcan.es/api/3/action/package_search?q=&rows=50&start=150&sort=metadata_created+asc",
+    "status": 200,
+    "bytes": 409180,
+    "error": null
+  },
+  {
+    "step": "walk",
+    "start": 200,
+    "url": "https://opendata.sitcan.es/api/3/action/package_search?q=&rows=50&start=200&sort=metadata_created+asc",
+    "status": 200,
+    "bytes": 206,
+    "error": null
+  }
+]

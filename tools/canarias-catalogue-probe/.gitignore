@@ -1,0 +1,10 @@
+# Raw crawl dumps: ~11 MB combined and fully regenerable from a re-runnable run
+#   python 01_harvest.py   -> out/01_packages.json   (raw CKAN package records)
+#   python 05_extract.py   -> out/05_records.json    (normalised flat records)
+# Every derived artefact that IS committed (06_report, 07_controls,
+# SAMPLE-FRAME) carries the totals needed to verify a regenerated dump matches.
+out/01_packages.json
+out/05_records.json
+
+__pycache__/
+*.pyc

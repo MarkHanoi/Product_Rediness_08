@@ -1,0 +1,13 @@
+{
+  "oracle_package_count": 174,
+  "package_list_length": 174,
+  "walked_unique_packages": 174,
+  "walk_missing_vs_package_list": [],
+  "walk_extra_vs_package_list": [],
+  "total_resources": 4697,
+  "truncation_suspects": {
+    "oracle_is_round": false,
+    "resources_is_round": false
+  },
+  "reconciled": true
+}

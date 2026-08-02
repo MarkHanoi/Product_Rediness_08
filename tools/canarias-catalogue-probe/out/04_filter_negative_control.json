@@ -1,0 +1,116 @@
+{
+  "tests": [
+    {
+      "label": "UNFILTERED (control)",
+      "params": {
+        "q": ""
+      },
+      "expectation": "==174",
+      "ok": true,
+      "count": 174,
+      "status": 200,
+      "error": ""
+    },
+    {
+      "label": "fq organization=grafcan (real field, real value)",
+      "params": {
+        "fq": "organization:grafcan"
+      },
+      "expectation": "subset <174",
+      "ok": true,
+      "count": 13,
+      "status": 200,
+      "error": ""
+    },
+    {
+      "label": "fq groups=urbanismo-infraestructuras",
+      "params": {
+        "fq": "groups:urbanismo-infraestructuras"
+      },
+      "expectation": "subset <174",
+      "ok": true,
+      "count": 101,
+      "status": 200,
+      "error": ""
+    },
+    {
+      "label": "fq res_format=SIPU (real field, real value)",
+      "params": {
+        "fq": "res_format:SIPU"
+      },
+      "expectation": "subset <174",
+      "ok": true,
+      "count": 100,
+      "status": 200,
+      "error": ""
+    },
+    {
+      "label": "fq organization=ZZZ_NOT_AN_ORG (real field, impossible value)",
+      "params": {
+        "fq": "organization:ZZZ_NOT_AN_ORG"
+      },
+      "expectation": "==0",
+      "ok": true,
+      "count": 0,
+      "status": 200,
+      "error": ""
+    },
+    {
+      "label": "fq res_format=ZZZ_NOT_A_FORMAT (impossible value)",
+      "params": {
+        "fq": "res_format:ZZZ_NOT_A_FORMAT"
+      },
+      "expectation": "==0",
+      "ok": true,
+      "count": 0,
+      "status": 200,
+      "error": ""
+    },
+    {
+      "label": "fq notafield_xyz=anything (nonsense FIELD name)",
+      "params": {
+        "fq": "notafield_xyz:anything"
+      },
+      "expectation": "0 or ERROR, never 174",
+      "ok": true,
+      "count": 0,
+      "status": 200,
+      "error": ""
+    },
+    {
+      "label": "q=Telde (free text - matches ANY mention)",
+      "params": {
+        "q": "Telde"
+      },
+      "expectation": "over-match",
+      "ok": true,
+      "count": 1,
+      "status": 200,
+      "error": ""
+    },
+    {
+      "label": "q=Arona (free text)",
+      "params": {
+        "q": "Arona"
+      },
+      "expectation": "over-match",
+      "ok": true,
+      "count": 1,
+      "status": 200,
+      "error": ""
+    }
+  ],
+  "verdict": {
+    "fq_applied_at_all": true,
+    "impossible_value_returns_zero": true,
+    "nonsense_field_silently_ignored": false,
+    "nonsense_field_result": 0,
+    "fq_TRUSTWORTHY": true,
+    "q_free_text_overmatches": {
+      "Telde": 1,
+      "Arona": 1,
+      "note": "q matches across ALL fields incl. notes; NOT a partition key"
+    },
+    "probe_decision": "Partition CLIENT-SIDE from the full 174-package harvest regardless of this verdict. Every distribution in 05_extract.py is required to SUM BACK to the unfiltered totals (174 packages / 4697 resources / 1169 SIPU)."
+  }
+}
