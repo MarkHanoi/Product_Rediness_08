@@ -60,7 +60,6 @@
       "transcription, no L-449 signature is owed» — which would restore this slice legitimately. What was",
       "unacceptable was an open gate resting on an authority that did not exist.",
       "",
-      "§NZ3-IS-DATA-GATED-NOT-LAW-GATED (2026-08-02, read from the in-repo primary source). The register",
       "called NZ 3 «the only structurally impossible category». That is WRONG, and it is 60.458 % of the",
       "city. Art. 8.3.5.3.a).i) verbatim: «La nueva edificación deberá inscribirse dentro de la ENVOLVENTE",
       "EXTERIOR DEL EDIFICIO EXISTENTE, constituida por sus cubiertas, fachadas exteriores y, en su caso,",
@@ -76,11 +75,25 @@
       "ésta como la superficie edificada total del edificio existente». Borrowing the parameters WITHOUT",
       "that ceiling is the L-616 mechanism-A over-statement across 60.458 % of Madrid. A SOLID must",
       "intersect ALL derived constraints; an envelope that ignores one ceiling is worse than none.",
-      "⇒ `not-determined` is the CORRECT score for this slice, not a failure to be engineered away."
+      "⇒ `not-determined` is the CORRECT score for this slice, not a failure to be engineered away.",
+      "",
+      "§NZ3-ARTICLE-VERDICT (2026-08-02, L-678) — SUPERSEDES the §NZ3-IS-DATA-GATED note of 2026-08-01,",
+      "which was WRONG. Art. 8.3.1 GOVERNS: «se ha agotado el aprovechamiento urbanístico» … «sin imponer",
+      "un nuevo modelo». Art. 8.3.5 is an *obras* regime under «Sección Primera: Condiciones de edificación",
+      "del Grado 1º» that PRESUPPOSES an existing building and takes that building's own envelope and built",
+      "area as the measure — 8.3.1 restated operationally, not a competing grant. Five verbatim anchors in",
+      "the chapter; vacant land is «espacios libres SIN APROVECHAMIENTO URBANÍSTICO» (8.3.3.1.b); the only",
+      "vacant-land new-build route is «con carácter excepcional … enteramente subterránea» (8.3.5.3.b).",
+      "⇒ 60.458 % of Madrid is ANSWERED, permanently. `not-determined` is a DETERMINATION, not a gap, and",
+      "the tier is correct under C63 §1.5 / L-656. This slice can never rise, and it should not.",
+      "⚠ The Fondo geometry located in PG_ANALISIS_EDIFICACION MUST NOT be bound to NZ 3: ADR-0283 —",
+      "'where evidence is incomplete OR LEGALLY INSUFFICIENT, PRYZM returns Unknown rather than inferring",
+      "entitlement'. And measured extent would have capped any claim at ~4.9 % of the city anyway (layer 2),",
+      "while layer 12 «Fondo» is ONE municipality-wide polygon — a cartographic background, not a datum."
     ],
     "coverage": [
       {
-        "zoneCode": "NZ 3 Volumetría Específica — legally delegated (cited refusal, Art. 8.3.1; terminal, never an envelope)",
+        "zoneCode": "NZ 3 Volumetría Específica — the ordinance INTENTIONALLY states no municipal envelope (Art. 8.3.1 governs, L-678); terminal, permanently, never an envelope",
         "tier": "not-determined",
         "buildableLandShare": 0.60458
       },

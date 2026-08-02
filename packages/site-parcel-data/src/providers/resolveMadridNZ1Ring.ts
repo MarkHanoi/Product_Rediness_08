@@ -66,7 +66,7 @@ const tracer = trace.getTracer('pryzm.zoning');
 
 /**
  * ⚠⚠ THE L-449 CERTIFICATION GATE — de-certified 2026-08-01 (§MADRID-NZ1-DECERTIFIED, L-677),
- * **RE-OPENED 2026-08-02 on the founder's SIG-M2 signature (Doctrine B / ADR-0280).**
+ * **RE-OPENED 2026-08-02 on the founder's SIG-M2 signature (Doctrine B / ADR-0283).**
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * WHY THIS IS `false`, AND WHY RE-FLIPPING IT IS A LEGAL ACT AND NOT A CODE CHANGE
@@ -112,7 +112,7 @@ const tracer = trace.getTracer('pryzm.zoning');
  * deleting the record would delete the argument. What changed on 2026-08-02 is not that the gate is
  * open again — it is that a PERSON opened it, in writing, with a date and a scope.
  *
- * Doctrine ratified platform-wide as **ADR-0280**; it governs València's, Córdoba's and Murcia's
+ * Doctrine ratified platform-wide as **ADR-0283**; it governs València's, Córdoba's and Murcia's
  * refusals too, and is cited from `l449CertificationGates.ts`.
  *
  * ⚠ STILL NOT AUTHORISED, and unchanged by SIG-M2: any use of `COEF_Z` as an edificabilidad/FAR

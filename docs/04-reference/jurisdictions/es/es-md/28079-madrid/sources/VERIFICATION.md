@@ -243,7 +243,7 @@ proven end to end by `apps/editor/__tests__/madridSiteDispatch.test.ts`.
 | **Axis** | ENVELOPE |
 | **Artefact** | `packages/site-parcel-data/src/providers/resolveMadridNZ1Ring.ts` → `MADRID_NZ1_CERTIFIED` |
 | **Value** | **`true`** — flipped 2026-08-02 **on this signature** |
-| **Doctrine** | **B — "Evidence-bounded publication"**, ratified corpus-wide as **[ADR-0280](../../../../../02-decisions/adrs/ADR-0280-evidence-bounded-publication.md)** |
+| **Doctrine** | **B — "Evidence-bounded publication"**, ratified corpus-wide as **[ADR-0283](../../../../../02-decisions/adrs/ADR-0283-evidence-bounded-publication.md)** |
 
 ### The signature, verbatim
 
@@ -400,7 +400,7 @@ precedent by a third jurisdiction.** Neither is Madrid's to answer, and each may
 
 | Who | When | Which document version (`readFrom`) | Fields signed | What they could NOT confirm |
 |---|---|---|---|---|
-| **the founder (repo owner)** | **2026-08-02** | *n/a — no ordinance text was transcribed* | **SIG-M2 — the DOCTRINE governing `MADRID_NZ1_CERTIFIED`** (Doctrine B, ADR-0280): dispatch only inside authoritative published geometry; no inference beyond its demonstrated extent | ⚠ **No ordinance PARAMETER was signed.** `COEF_Z`'s meaning, any NZ-1 height, and every Título 8 value remain unverified. This is a signature on a PUBLICATION RULE, not on a reading of the law |
+| **the founder (repo owner)** | **2026-08-02** | *n/a — no ordinance text was transcribed* | **SIG-M2 — the DOCTRINE governing `MADRID_NZ1_CERTIFIED`** (Doctrine B, ADR-0283): dispatch only inside authoritative published geometry; no inference beyond its demonstrated extent | ⚠ **No ordinance PARAMETER was signed.** `COEF_Z`'s meaning, any NZ-1 height, and every Título 8 value remain unverified. This is a signature on a PUBLICATION RULE, not on a reading of the law |
 
 ⚠ **READ THAT ROW PRECISELY.** It does **not** move the C63 LEGISLATION axis, and nobody should
 report that it does. LEGISLATION counts `verified_cited_claus / total_claus_present` — **claus whose

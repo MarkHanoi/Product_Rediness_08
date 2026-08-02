@@ -38,13 +38,13 @@
 // fails if the anchor is not in it. A citation nobody dereferences is how Madrid got here.
 //
 // PURITY: L2-pure (C58 §1.1/§1.9) — no I/O, no clock, no RNG. It reads compile-time constants.
-// ⚠ THE DOCTRINE THESE GATES ENFORCE is ADR-0280 ("Evidence-bounded publication", founder-signed
+// ⚠ THE DOCTRINE THESE GATES ENFORCE is ADR-0283 ("Evidence-bounded publication", founder-signed
 // 2026-08-02): dispatch a deterministic envelope ONLY where the applicable zoning geometry is
 // directly supported by authoritative published data; partial publication authorises no inference
 // beyond its demonstrated spatial extent, and outside it the answer is UNKNOWN. A gate is the
 // mechanism by which that doctrine is enforced per jurisdiction.
 //
-// Strategic context — ADR-0280, C58 §1.4/§1.13, C63 §1.6, L-449, L-665, L-677.
+// Strategic context — ADR-0283, C58 §1.4/§1.13, C63 §1.6, L-449, L-665, L-677.
 
 import { trace } from '@opentelemetry/api';
 import { BCN_REFOS_OV_CERTIFIED } from './providers/bcnRefosOVProvider.js';
@@ -145,7 +145,7 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
     // ── SHUT (`false`) — a shut gate publishes nothing and owes no signature. Several name the
     //    signature they are WAITING for; that is a request, not a signature, so it stays `null`. ──
     {
-        // ⭐ SIGNED 2026-08-02 (the founder), on Doctrine B — ADR-0280. This row is the whole point
+        // ⭐ SIGNED 2026-08-02 (the founder), on Doctrine B — ADR-0283. This row is the whole point
         // of the module: the gate was OPEN for a week on a machine's self-attribution, is now open
         // on a signature the test below OPENS AND READS, and the difference is checkable in CI.
         gate: 'MADRID_NZ1_CERTIFIED',

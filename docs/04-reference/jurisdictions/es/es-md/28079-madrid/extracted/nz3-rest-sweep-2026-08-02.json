@@ -1,0 +1,1708 @@
+{
+  "service": {
+    "layerCount": 13,
+    "tableCount": 0,
+    "capabilities": "Map,Query,Data",
+    "supportsDynamicLayers": true,
+    "maxRecordCount": 2000,
+    "spatialReference": 25830,
+    "layers": [
+      {
+        "id": 0,
+        "name": "Línea de Término",
+        "parentLayerId": -1,
+        "subLayerIds": null
+      },
+      {
+        "id": 1,
+        "name": "Portales y Zaguanes",
+        "parentLayerId": -1,
+        "subLayerIds": null
+      },
+      {
+        "id": 2,
+        "name": "Fondo máximo para nueva planta o reestructuración general",
+        "parentLayerId": -1,
+        "subLayerIds": null
+      },
+      {
+        "id": 3,
+        "name": "Cartografía",
+        "parentLayerId": -1,
+        "subLayerIds": [
+          4,
+          5
+        ]
+      },
+      {
+        "id": 4,
+        "name": "Edificaciones",
+        "parentLayerId": 3,
+        "subLayerIds": null
+      },
+      {
+        "id": 5,
+        "name": "Infraestructura",
+        "parentLayerId": 3,
+        "subLayerIds": null
+      },
+      {
+        "id": 6,
+        "name": "Detalle de la edificación",
+        "parentLayerId": -1,
+        "subLayerIds": null
+      },
+      {
+        "id": 7,
+        "name": "Análisis edificación interior APE.00.01",
+        "parentLayerId": -1,
+        "subLayerIds": [
+          8,
+          9
+        ]
+      },
+      {
+        "id": 8,
+        "name": "Condiciones de protección",
+        "parentLayerId": 7,
+        "subLayerIds": null
+      },
+      {
+        "id": 9,
+        "name": "Otras condiciones",
+        "parentLayerId": 7,
+        "subLayerIds": null
+      },
+      {
+        "id": 10,
+        "name": "Análisis edificación exterior APE.00.01",
+        "parentLayerId": -1,
+        "subLayerIds": null
+      },
+      {
+        "id": 11,
+        "name": "Malla 2000",
+        "parentLayerId": -1,
+        "subLayerIds": null
+      },
+      {
+        "id": 12,
+        "name": "Fondo",
+        "parentLayerId": -1,
+        "subLayerIds": null
+      }
+    ],
+    "tables": []
+  },
+  "layers": {
+    "0": {
+      "name": "Línea de Término",
+      "type": "Feature Layer",
+      "geometryType": "esriGeometryPolygon",
+      "parentLayer": null,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID_1",
+          "domain": null,
+          "codedValues": []
+        },
+        {
+          "name": "LIMITE_ADM",
+          "type": "String",
+          "alias": "LIMITE_ADM",
+          "domain": null,
+          "codedValues": []
+        }
+      ],
+      "renderer": {
+        "type": "simple",
+        "field1": null,
+        "uniqueValueInfos": []
+      },
+      "relationships": [],
+      "types": [],
+      "subtypeField": null,
+      "hasAttachments": false,
+      "supportsStatistics": true,
+      "supportsAdvancedQueries": true,
+      "capabilities": "Map,Query,Data",
+      "extent": {
+        "xmin": 424769.5290000001,
+        "ymin": 4462571.311000001,
+        "xmax": 456035.4759999998,
+        "ymax": 4499365.107000001,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830,
+          "xyTolerance": 0.001,
+          "zTolerance": 0.001,
+          "mTolerance": 0.001,
+          "falseX": -5120900,
+          "falseY": -9998100,
+          "xyUnits": 450445547.3910538,
+          "falseZ": -100000,
+          "zUnits": 10000,
+          "falseM": -100000,
+          "mUnits": 10000
+        }
+      },
+      "minScale": 0,
+      "maxScale": 50100
+    },
+    "1": {
+      "name": "Portales y Zaguanes",
+      "type": "Feature Layer",
+      "geometryType": "esriGeometryPoint",
+      "parentLayer": null,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID",
+          "domain": null,
+          "codedValues": []
+        }
+      ],
+      "renderer": {
+        "type": "simple",
+        "field1": null,
+        "uniqueValueInfos": []
+      },
+      "relationships": [],
+      "types": [],
+      "subtypeField": null,
+      "hasAttachments": false,
+      "supportsStatistics": true,
+      "supportsAdvancedQueries": true,
+      "capabilities": "Map,Query,Data",
+      "extent": {
+        "xmin": 438527.18960000016,
+        "ymin": 4471924.5176,
+        "xmax": 443262.6878000004,
+        "ymax": 4477605.540200001,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830,
+          "xyTolerance": 0.001,
+          "zTolerance": 0.001,
+          "mTolerance": 0.001,
+          "falseX": -5120900,
+          "falseY": -9998100,
+          "xyUnits": 450445547.3910538,
+          "falseZ": -100000,
+          "zUnits": 10000,
+          "falseM": -100000,
+          "mUnits": 10000
+        }
+      },
+      "minScale": 2258,
+      "maxScale": 0
+    },
+    "2": {
+      "name": "Fondo máximo para nueva planta o reestructuración general",
+      "type": "Feature Layer",
+      "geometryType": "esriGeometryPolyline",
+      "parentLayer": null,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID",
+          "domain": null,
+          "codedValues": []
+        }
+      ],
+      "renderer": {
+        "type": "simple",
+        "field1": null,
+        "uniqueValueInfos": []
+      },
+      "relationships": [],
+      "types": [],
+      "subtypeField": null,
+      "hasAttachments": false,
+      "supportsStatistics": true,
+      "supportsAdvancedQueries": true,
+      "capabilities": "Map,Query,Data",
+      "extent": {
+        "xmin": 438546.1342000002,
+        "ymin": 4471327.673599999,
+        "xmax": 443245.42459999956,
+        "ymax": 4477566.811899999,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830,
+          "xyTolerance": 0.001,
+          "zTolerance": 0.001,
+          "mTolerance": 0.001,
+          "falseX": -5120900,
+          "falseY": -9998100,
+          "xyUnits": 450445547.3910538,
+          "falseZ": -100000,
+          "zUnits": 10000,
+          "falseM": -100000,
+          "mUnits": 10000
+        }
+      },
+      "minScale": 10100,
+      "maxScale": 0
+    },
+    "3": {
+      "name": "Cartografía",
+      "type": "Group Layer",
+      "geometryType": null,
+      "parentLayer": null,
+      "fields": [],
+      "renderer": {
+        "type": null,
+        "field1": null,
+        "uniqueValueInfos": []
+      },
+      "relationships": [],
+      "types": [],
+      "subtypeField": null,
+      "hasAttachments": false,
+      "supportsStatistics": false,
+      "supportsAdvancedQueries": false,
+      "capabilities": "Map,Query",
+      "extent": {
+        "xmin": 424753.99899999984,
+        "ymin": 4462574.311000001,
+        "xmax": 456044.0870000003,
+        "ymax": 4499370.058,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830,
+          "xyTolerance": 0.001,
+          "zTolerance": 0.001,
+          "mTolerance": 0.001,
+          "falseX": -5120900,
+          "falseY": -9998100,
+          "xyUnits": 450445547.3910538,
+          "falseZ": -100000,
+          "zUnits": 10000,
+          "falseM": -100000,
+          "mUnits": 10000
+        }
+      },
+      "minScale": 0,
+      "maxScale": 0
+    },
+    "4": {
+      "name": "Edificaciones",
+      "type": "Feature Layer",
+      "geometryType": "esriGeometryPolyline",
+      "parentLayer": "Cartografía",
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID",
+          "domain": null,
+          "codedValues": []
+        }
+      ],
+      "renderer": {
+        "type": "simple",
+        "field1": null,
+        "uniqueValueInfos": []
+      },
+      "relationships": [],
+      "types": [],
+      "subtypeField": null,
+      "hasAttachments": false,
+      "supportsStatistics": true,
+      "supportsAdvancedQueries": true,
+      "capabilities": "Map,Query,Data",
+      "extent": {
+        "xmin": 424753.99899999984,
+        "ymin": 4462672.595000001,
+        "xmax": 455961.0530000003,
+        "ymax": 4499365.107000001,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830,
+          "xyTolerance": 0.001,
+          "zTolerance": 0.001,
+          "mTolerance": 0.001,
+          "falseX": -5120900,
+          "falseY": -9998100,
+          "xyUnits": 450445547.3910538,
+          "falseZ": -100000,
+          "zUnits": 10000,
+          "falseM": -100000,
+          "mUnits": 10000
+        }
+      },
+      "minScale": 4514,
+      "maxScale": 0
+    },
+    "5": {
+      "name": "Infraestructura",
+      "type": "Feature Layer",
+      "geometryType": "esriGeometryPolyline",
+      "parentLayer": "Cartografía",
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID",
+          "domain": null,
+          "codedValues": []
+        }
+      ],
+      "renderer": {
+        "type": "simple",
+        "field1": null,
+        "uniqueValueInfos": []
+      },
+      "relationships": [],
+      "types": [],
+      "subtypeField": null,
+      "hasAttachments": false,
+      "supportsStatistics": true,
+      "supportsAdvancedQueries": true,
+      "capabilities": "Map,Query,Data",
+      "extent": {
+        "xmin": 424756.30900000036,
+        "ymin": 4462574.311000001,
+        "xmax": 456044.0870000003,
+        "ymax": 4499370.058,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830,
+          "xyTolerance": 0.001,
+          "zTolerance": 0.001,
+          "mTolerance": 0.001,
+          "falseX": -5120900,
+          "falseY": -9998100,
+          "xyUnits": 450445547.3910538,
+          "falseZ": -100000,
+          "zUnits": 10000,
+          "falseM": -100000,
+          "mUnits": 10000
+        }
+      },
+      "minScale": 15100,
+      "maxScale": 0
+    },
+    "6": {
+      "name": "Detalle de la edificación",
+      "type": "Feature Layer",
+      "geometryType": "esriGeometryPolyline",
+      "parentLayer": null,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID",
+          "domain": null,
+          "codedValues": []
+        }
+      ],
+      "renderer": {
+        "type": "simple",
+        "field1": null,
+        "uniqueValueInfos": []
+      },
+      "relationships": [],
+      "types": [],
+      "subtypeField": null,
+      "hasAttachments": false,
+      "supportsStatistics": true,
+      "supportsAdvancedQueries": true,
+      "capabilities": "Map,Query,Data",
+      "extent": {
+        "xmin": 429183.2416000003,
+        "ymin": 4466487.6779,
+        "xmax": 451172.9852,
+        "ymax": 4495425.987500001,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830,
+          "xyTolerance": 0.001,
+          "zTolerance": 0.001,
+          "mTolerance": 0.001,
+          "falseX": -5120900,
+          "falseY": -9998100,
+          "xyUnits": 450445547.3910538,
+          "falseZ": -100000,
+          "zUnits": 10000,
+          "falseM": -100000,
+          "mUnits": 10000
+        }
+      },
+      "minScale": 2258,
+      "maxScale": 0
+    },
+    "7": {
+      "name": "Análisis edificación interior APE.00.01",
+      "type": "Group Layer",
+      "geometryType": null,
+      "parentLayer": null,
+      "fields": [],
+      "renderer": {
+        "type": null,
+        "field1": null,
+        "uniqueValueInfos": []
+      },
+      "relationships": [],
+      "types": [],
+      "subtypeField": null,
+      "hasAttachments": false,
+      "supportsStatistics": false,
+      "supportsAdvancedQueries": false,
+      "capabilities": "Map,Query",
+      "extent": {
+        "xmin": 438511.43939999957,
+        "ymin": 4471048.2589,
+        "xmax": 443278.17870000005,
+        "ymax": 4477610.710100001,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830,
+          "xyTolerance": 0.001,
+          "zTolerance": 0.001,
+          "mTolerance": 0.001,
+          "falseX": -5120900,
+          "falseY": -9998100,
+          "xyUnits": 450445547.3910538,
+          "falseZ": -100000,
+          "zUnits": 10000,
+          "falseM": -100000,
+          "mUnits": 10000
+        }
+      },
+      "minScale": 0,
+      "maxScale": 0
+    },
+    "8": {
+      "name": "Condiciones de protección",
+      "type": "Feature Layer",
+      "geometryType": "esriGeometryPolygon",
+      "parentLayer": "Análisis edificación interior APE.00.01",
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID",
+          "domain": null,
+          "codedValues": []
+        },
+        {
+          "name": "TIPOANEDIF",
+          "type": "SmallInteger",
+          "alias": "Código",
+          "domain": null,
+          "codedValues": []
+        },
+        {
+          "name": "PROTECCION",
+          "type": "String",
+          "alias": "Protección :",
+          "domain": null,
+          "codedValues": []
+        },
+        {
+          "name": "PLANO_AE",
+          "type": "String",
+          "alias": "Plano_AE :",
+          "domain": null,
+          "codedValues": []
+        },
+        {
+          "name": "SHAPE",
+          "type": "Geometry",
+          "alias": "Geometría :",
+          "domain": null,
+          "codedValues": []
+        }
+      ],
+      "renderer": {
+        "type": "uniqueValue",
+        "field1": "TIPOANEDIF",
+        "uniqueValueInfos": [
+          {
+            "value": "2",
+            "label": "Áreas y elementos arquitectónicos de restauración obligatoria"
+          },
+          {
+            "value": "1",
+            "label": "Áreas y elementos arquitectónicos protegidos"
+          },
+          {
+            "value": "0",
+            "label": "Área de protección auxiliar"
+          }
+        ]
+      },
+      "relationships": [],
+      "types": [],
+      "subtypeField": null,
+      "hasAttachments": false,
+      "supportsStatistics": true,
+      "supportsAdvancedQueries": true,
+      "capabilities": "Map,Query,Data",
+      "extent": {
+        "xmin": 438511.43939999957,
+        "ymin": 4471048.2589,
+        "xmax": 443278.17870000005,
+        "ymax": 4477610.710100001,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830,
+          "xyTolerance": 0.001,
+          "zTolerance": 0.001,
+          "mTolerance": 0.001,
+          "falseX": -5120900,
+          "falseY": -9998100,
+          "xyUnits": 450445547.3910538,
+          "falseZ": -100000,
+          "zUnits": 10000,
+          "falseM": -100000,
+          "mUnits": 10000
+        }
+      },
+      "minScale": 10100,
+      "maxScale": 0
+    },
+    "9": {
+      "name": "Otras condiciones",
+      "type": "Feature Layer",
+      "geometryType": "esriGeometryPolygon",
+      "parentLayer": "Análisis edificación interior APE.00.01",
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID",
+          "domain": null,
+          "codedValues": []
+        },
+        {
+          "name": "TIPOANEDIF",
+          "type": "SmallInteger",
+          "alias": "Código",
+          "domain": null,
+          "codedValues": []
+        },
+        {
+          "name": "PROTECCION",
+          "type": "String",
+          "alias": "Protección :",
+          "domain": null,
+          "codedValues": []
+        },
+        {
+          "name": "PLANO_AE",
+          "type": "String",
+          "alias": "Plano_AE :",
+          "domain": null,
+          "codedValues": []
+        },
+        {
+          "name": "SHAPE",
+          "type": "Geometry",
+          "alias": "Geometría :",
+          "domain": null,
+          "codedValues": []
+        }
+      ],
+      "renderer": {
+        "type": "uniqueValue",
+        "field1": "TIPOANEDIF",
+        "uniqueValueInfos": [
+          {
+            "value": "3",
+            "label": "Edificación no protegida"
+          },
+          {
+            "value": "4",
+            "label": "Zona de ubicación preferente de patios"
+          },
+          {
+            "value": "5",
+            "label": "Jardines o espacios libres protegidos"
+          }
+        ]
+      },
+      "relationships": [],
+      "types": [],
+      "subtypeField": null,
+      "hasAttachments": false,
+      "supportsStatistics": true,
+      "supportsAdvancedQueries": true,
+      "capabilities": "Map,Query,Data",
+      "extent": {
+        "xmin": 438511.43939999957,
+        "ymin": 4471048.2589,
+        "xmax": 443278.17870000005,
+        "ymax": 4477610.710100001,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830,
+          "xyTolerance": 0.001,
+          "zTolerance": 0.001,
+          "mTolerance": 0.001,
+          "falseX": -5120900,
+          "falseY": -9998100,
+          "xyUnits": 450445547.3910538,
+          "falseZ": -100000,
+          "zUnits": 10000,
+          "falseM": -100000,
+          "mUnits": 10000
+        }
+      },
+      "minScale": 10100,
+      "maxScale": 0
+    },
+    "10": {
+      "name": "Análisis edificación exterior APE.00.01",
+      "type": "Feature Layer",
+      "geometryType": "esriGeometryPolygon",
+      "parentLayer": null,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID",
+          "domain": null,
+          "codedValues": []
+        },
+        {
+          "name": "ENLACE",
+          "type": "String",
+          "alias": "Plano_AE :",
+          "domain": null,
+          "codedValues": []
+        },
+        {
+          "name": "SHAPE",
+          "type": "Geometry",
+          "alias": "Geometría :",
+          "domain": null,
+          "codedValues": []
+        }
+      ],
+      "renderer": {
+        "type": "simple",
+        "field1": null,
+        "uniqueValueInfos": []
+      },
+      "relationships": [],
+      "types": [],
+      "subtypeField": null,
+      "hasAttachments": false,
+      "supportsStatistics": true,
+      "supportsAdvancedQueries": true,
+      "capabilities": "Map,Query,Data",
+      "extent": {
+        "xmin": 429239.2570000002,
+        "ymin": 4466487.1074,
+        "xmax": 451168.39520000014,
+        "ymax": 4495426.0155,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830,
+          "xyTolerance": 0.001,
+          "zTolerance": 0.001,
+          "mTolerance": 0.001,
+          "falseX": -5120900,
+          "falseY": -9998100,
+          "xyUnits": 450445547.3910538,
+          "falseZ": -100000,
+          "zUnits": 10000,
+          "falseM": -100000,
+          "mUnits": 10000
+        }
+      },
+      "minScale": 10100,
+      "maxScale": 0
+    },
+    "11": {
+      "name": "Malla 2000",
+      "type": "Feature Layer",
+      "geometryType": "esriGeometryPolygon",
+      "parentLayer": null,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID",
+          "domain": null,
+          "codedValues": []
+        },
+        {
+          "name": "HOJAPLAN97",
+          "type": "String",
+          "alias": "Hoja PG85/CBPU :",
+          "domain": null,
+          "codedValues": []
+        },
+        {
+          "name": "PLANO",
+          "type": "String",
+          "alias": "Plano Ordenación :",
+          "domain": null,
+          "codedValues": []
+        },
+        {
+          "name": "PLANOG",
+          "type": "String",
+          "alias": "Plano Gestión :",
+          "domain": null,
+          "codedValues": []
+        }
+      ],
+      "renderer": {
+        "type": "simple",
+        "field1": null,
+        "uniqueValueInfos": []
+      },
+      "relationships": [],
+      "types": [],
+      "subtypeField": null,
+      "hasAttachments": false,
+      "supportsStatistics": true,
+      "supportsAdvancedQueries": true,
+      "capabilities": "Map,Query,Data",
+      "extent": {
+        "xmin": 424146.63900000043,
+        "ymin": 4461856.392999999,
+        "xmax": 456984.3530000001,
+        "ymax": 4499678.0879999995,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830,
+          "xyTolerance": 0.001,
+          "zTolerance": 0.001,
+          "mTolerance": 0.001,
+          "falseX": -5120900,
+          "falseY": -9998100,
+          "xyUnits": 450445547.3910538,
+          "falseZ": -100000,
+          "zUnits": 10000,
+          "falseM": -100000,
+          "mUnits": 10000
+        }
+      },
+      "minScale": 10100,
+      "maxScale": 0
+    },
+    "12": {
+      "name": "Fondo",
+      "type": "Feature Layer",
+      "geometryType": "esriGeometryPolygon",
+      "parentLayer": null,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID",
+          "domain": null,
+          "codedValues": []
+        }
+      ],
+      "renderer": {
+        "type": "simple",
+        "field1": null,
+        "uniqueValueInfos": []
+      },
+      "relationships": [],
+      "types": [],
+      "subtypeField": null,
+      "hasAttachments": false,
+      "supportsStatistics": true,
+      "supportsAdvancedQueries": true,
+      "capabilities": "Map,Query,Data",
+      "extent": {
+        "xmin": 424769.5290000001,
+        "ymin": 4462571.311000001,
+        "xmax": 456035.4759999998,
+        "ymax": 4499365.107000001,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830,
+          "xyTolerance": 0.001,
+          "zTolerance": 0.001,
+          "mTolerance": 0.001,
+          "falseX": -5120900,
+          "falseY": -9998100,
+          "xyUnits": 450445547.3910538,
+          "falseZ": -100000,
+          "zUnits": 10000,
+          "falseM": -100000,
+          "mUnits": 10000
+        }
+      },
+      "minScale": 15100,
+      "maxScale": 0
+    },
+    "13": {
+      "probe": {
+        "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/13?f=json",
+        "status": 200,
+        "contentType": "application/json; charset=UTF-8",
+        "bytes": 52,
+        "arcgisError": "json"
+      }
+    },
+    "14": {
+      "probe": {
+        "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/14?f=json",
+        "status": 200,
+        "contentType": "application/json; charset=UTF-8",
+        "bytes": 52,
+        "arcgisError": "json"
+      }
+    },
+    "15": {
+      "probe": {
+        "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/15?f=json",
+        "status": 200,
+        "contentType": "application/json; charset=UTF-8",
+        "bytes": 52,
+        "arcgisError": "json"
+      }
+    },
+    "16": {
+      "probe": {
+        "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/16?f=json",
+        "status": 200,
+        "contentType": "application/json; charset=UTF-8",
+        "bytes": 52,
+        "arcgisError": "json"
+      }
+    },
+    "17": {
+      "probe": {
+        "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/17?f=json",
+        "status": 200,
+        "contentType": "application/json; charset=UTF-8",
+        "bytes": 52,
+        "arcgisError": "json"
+      }
+    },
+    "18": {
+      "probe": {
+        "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/18?f=json",
+        "status": 200,
+        "contentType": "application/json; charset=UTF-8",
+        "bytes": 52,
+        "arcgisError": "json"
+      }
+    },
+    "19": {
+      "probe": {
+        "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/19?f=json",
+        "status": 200,
+        "contentType": "application/json; charset=UTF-8",
+        "bytes": 52,
+        "arcgisError": "json"
+      }
+    }
+  },
+  "probes": {
+    "2": {
+      "count": 1785,
+      "extent": {
+        "xmin": 438546.1342000002,
+        "ymin": 4471327.673599999,
+        "xmax": 443245.42459999956,
+        "ymax": 4477566.811899999,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830
+        }
+      },
+      "idCount": 1785
+    },
+    "12": {
+      "count": 1,
+      "extent": {
+        "xmin": 424769.5290000001,
+        "ymin": 4462571.311000001,
+        "xmax": 456035.4759999998,
+        "ymax": 4499365.107000001,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830
+        }
+      },
+      "idCount": 1
+    },
+    "8": {
+      "count": 27185,
+      "extent": {
+        "xmin": 438511.43939999957,
+        "ymin": 4471048.2589,
+        "xmax": 443278.17870000005,
+        "ymax": 4477610.710100001,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830
+        }
+      },
+      "idCount": 27185
+    },
+    "9": {
+      "count": 9627,
+      "extent": {
+        "xmin": 438532.58949999977,
+        "ymin": 4471257.8771,
+        "xmax": 443272.7377000004,
+        "ymax": 4477594.508199999,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830
+        }
+      },
+      "idCount": 9627
+    },
+    "10": {
+      "count": 1258,
+      "extent": {
+        "xmin": 429239.2570000002,
+        "ymin": 4466487.1074,
+        "xmax": 451168.39520000014,
+        "ymax": 4495426.0155,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830
+        }
+      },
+      "idCount": 1258
+    },
+    "6": {
+      "count": 119552,
+      "extent": {
+        "xmin": 429183.2416000003,
+        "ymin": 4466487.6779,
+        "xmax": 451172.9852,
+        "ymax": 4495425.987500001,
+        "spatialReference": {
+          "wkid": 25830,
+          "latestWkid": 25830
+        }
+      },
+      "idCount": 119552
+    },
+    "8.TIPOANEDIF": {
+      "distinct": []
+    },
+    "9.TIPOANEDIF": {
+      "distinct": []
+    },
+    "8.PROTECCION": {
+      "distinct": []
+    },
+    "9.PROTECCION": {
+      "distinct": []
+    },
+    "8.PLANO_AE": {
+      "distinct": []
+    },
+    "10.ENLACE": {
+      "distinct": []
+    }
+  },
+  "siblings": {
+    "PG_ORDENACION": {
+      "layers": [
+        {
+          "id": 0,
+          "name": "Línea de Término"
+        },
+        {
+          "id": 1,
+          "name": "Reserva Viaria"
+        },
+        {
+          "id": 2,
+          "name": "Ámbitos de Ordenación"
+        },
+        {
+          "id": 3,
+          "name": "Ámbitos de Ordenación (Rotulación)"
+        },
+        {
+          "id": 4,
+          "name": "Ámbitos de Ordenación (Líneas)"
+        },
+        {
+          "id": 5,
+          "name": "Norma Zonal 1.5"
+        },
+        {
+          "id": 6,
+          "name": "Símbolo"
+        },
+        {
+          "id": 7,
+          "name": "Norma Zonal 1.5"
+        },
+        {
+          "id": 8,
+          "name": "Alineaciones"
+        },
+        {
+          "id": 9,
+          "name": "Cartografía"
+        },
+        {
+          "id": 10,
+          "name": "Detalle"
+        },
+        {
+          "id": 11,
+          "name": "Base"
+        },
+        {
+          "id": 12,
+          "name": "Dotaciones de Ordenación"
+        },
+        {
+          "id": 13,
+          "name": "Vía Pública Principal"
+        },
+        {
+          "id": 14,
+          "name": "Ejes Terciarios"
+        },
+        {
+          "id": 15,
+          "name": "Malla 2000"
+        },
+        {
+          "id": 16,
+          "name": "Fondo"
+        }
+      ],
+      "tables": [
+        {
+          "id": 17,
+          "name": "ALIN_DESC"
+        },
+        {
+          "id": 18,
+          "name": "USO_NPG"
+        },
+        {
+          "id": 19,
+          "name": "ESTADO"
+        },
+        {
+          "id": 20,
+          "name": "CRS_NPG"
+        },
+        {
+          "id": 21,
+          "name": "MODO_OBTENCION"
+        },
+        {
+          "id": 22,
+          "name": "USO_ESPECIFICO"
+        },
+        {
+          "id": 23,
+          "name": "SISTEMA"
+        }
+      ]
+    },
+    "PG_CONDICIONES_EDIFICACION": {
+      "layers": [
+        {
+          "id": 0,
+          "name": "Línea de Término"
+        },
+        {
+          "id": 1,
+          "name": "Ficha Específica"
+        },
+        {
+          "id": 2,
+          "name": "Fondo de la Edificación"
+        },
+        {
+          "id": 3,
+          "name": "Cartografía"
+        },
+        {
+          "id": 4,
+          "name": "Edificaciones"
+        },
+        {
+          "id": 5,
+          "name": "Infraestructura"
+        },
+        {
+          "id": 6,
+          "name": "Condiciones de la Edificación"
+        },
+        {
+          "id": 7,
+          "name": "Otras Condiciones"
+        },
+        {
+          "id": 8,
+          "name": "Planos_CE"
+        },
+        {
+          "id": 9,
+          "name": "Malla 2000"
+        },
+        {
+          "id": 10,
+          "name": "Fondo"
+        }
+      ],
+      "tables": []
+    },
+    "PG_AREAS_ESPECIALES": {
+      "layers": [
+        {
+          "id": 0,
+          "name": "Línea de Término"
+        },
+        {
+          "id": 1,
+          "name": "Límite APE 00.01"
+        },
+        {
+          "id": 2,
+          "name": "Murallas"
+        },
+        {
+          "id": 3,
+          "name": "Áreas Interes Arquelógico Paleontológico, Perímetro"
+        },
+        {
+          "id": 4,
+          "name": "Áreas Interes Arquelógico Paleontológico"
+        },
+        {
+          "id": 5,
+          "name": "Cerca Arrabal  Felipe II"
+        },
+        {
+          "id": 6,
+          "name": "Conjunto Histórico y Entorno"
+        }
+      ],
+      "tables": []
+    },
+    "PG_ORDENACION_SIN_AMBITO": {
+      "layers": [
+        {
+          "id": 0,
+          "name": "Línea de Término"
+        },
+        {
+          "id": 1,
+          "name": "Reserva Viaria"
+        },
+        {
+          "id": 2,
+          "name": "Norma Zonal 1.5"
+        },
+        {
+          "id": 3,
+          "name": "Símbolo"
+        },
+        {
+          "id": 4,
+          "name": "Norma Zonal 1.5"
+        },
+        {
+          "id": 5,
+          "name": "Alineaciones"
+        },
+        {
+          "id": 6,
+          "name": "Cartografía"
+        },
+        {
+          "id": 7,
+          "name": "Detalle"
+        },
+        {
+          "id": 8,
+          "name": "Base"
+        },
+        {
+          "id": 9,
+          "name": "Dotaciones de Ordenación"
+        },
+        {
+          "id": 10,
+          "name": "Vía Pública Principal"
+        },
+        {
+          "id": 11,
+          "name": "Ejes Terciarios"
+        },
+        {
+          "id": 12,
+          "name": "Malla 2000"
+        },
+        {
+          "id": 13,
+          "name": "Fondo"
+        }
+      ],
+      "tables": [
+        {
+          "id": 14,
+          "name": "ALIN_DESC"
+        },
+        {
+          "id": 15,
+          "name": "CRS_NPG"
+        },
+        {
+          "id": 16,
+          "name": "ESTADO"
+        },
+        {
+          "id": 17,
+          "name": "MODO_OBTENCION"
+        },
+        {
+          "id": 18,
+          "name": "USO_ESPECIFICO"
+        },
+        {
+          "id": 19,
+          "name": "SISTEMA"
+        },
+        {
+          "id": 20,
+          "name": "USO_NPG"
+        }
+      ]
+    },
+    "PG_GESTION": {
+      "layers": [
+        {
+          "id": 0,
+          "name": "Línea de Término"
+        },
+        {
+          "id": 1,
+          "name": "Acción Puntual"
+        },
+        {
+          "id": 2,
+          "name": "Independiente por Protección"
+        },
+        {
+          "id": 3,
+          "name": "Gestión de Documentación"
+        },
+        {
+          "id": 4,
+          "name": "Acciones Lineales"
+        },
+        {
+          "id": 5,
+          "name": "Ámbitos de Gestión"
+        },
+        {
+          "id": 6,
+          "name": "Ámbitos de Gestión (Rotulación)"
+        },
+        {
+          "id": 7,
+          "name": "Ámbitos de Gestión (Líneas)"
+        },
+        {
+          "id": 8,
+          "name": "Alineaciones"
+        },
+        {
+          "id": 9,
+          "name": "Cartografía"
+        },
+        {
+          "id": 10,
+          "name": "Edifcaciones"
+        },
+        {
+          "id": 11,
+          "name": "Infraestructura"
+        },
+        {
+          "id": 25,
+          "name": "Dotaciones de Gestión"
+        },
+        {
+          "id": 13,
+          "name": "Via Pública Principal"
+        },
+        {
+          "id": 14,
+          "name": "Malla 2000"
+        },
+        {
+          "id": 15,
+          "name": "Fondo"
+        }
+      ],
+      "tables": [
+        {
+          "id": 16,
+          "name": "SIG_PLANEAMIENTO.PLANEAMIENTO.ALIN_DESC"
+        },
+        {
+          "id": 17,
+          "name": "SIG_PLANEAMIENTO.PLANEAMIENTO.CRS_NPG"
+        },
+        {
+          "id": 18,
+          "name": "SIG_PLANEAMIENTO.PLANEAMIENTO.ESTADO"
+        },
+        {
+          "id": 19,
+          "name": "SIG_PLANEAMIENTO.PLANEAMIENTO.USO_NPG"
+        },
+        {
+          "id": 20,
+          "name": "SIG_PLANEAMIENTO.PLANEAMIENTO.MODO_OBTENCION"
+        },
+        {
+          "id": 21,
+          "name": "SIG_PLANEAMIENTO.PLANEAMIENTO.USO_ESPECIFICO"
+        },
+        {
+          "id": 22,
+          "name": "SIG_PLANEAMIENTO.PLANEAMIENTO.SISTEMA"
+        },
+        {
+          "id": 23,
+          "name": "SIG_PLANEAMIENTO.PLANEAMIENTO.ACCIONES_LINEALES"
+        },
+        {
+          "id": 24,
+          "name": "SIG_PLANEAMIENTO.PLANEAMIENTO.ALINEACION_GESTION"
+        }
+      ]
+    }
+  },
+  "log": [
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 9256
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/0?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 3485
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/1?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 4193
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/2?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 3365
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/3?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 2304
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/4?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 3367
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/5?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 3364
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/6?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 3347
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/7?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 2350
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/8?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 7157
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/9?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 7046
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/10?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 3822
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/11?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 3688
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/12?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 3375
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/13?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 52,
+      "arcgisError": "json"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/14?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 52,
+      "arcgisError": "json"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/15?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 52,
+      "arcgisError": "json"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/16?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 52,
+      "arcgisError": "json"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/17?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 52,
+      "arcgisError": "json"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/18?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 52,
+      "arcgisError": "json"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/19?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 52,
+      "arcgisError": "json"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/2/query?where=1%3D1&returnCountOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 14
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/2/query?where=1%3D1&returnExtentOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 168
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/2/query?where=1%3D1&returnIdsOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 7864
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/12/query?where=1%3D1&returnCountOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 11
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/12/query?where=1%3D1&returnExtentOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 168
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/12/query?where=1%3D1&returnIdsOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 48
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/8/query?where=1%3D1&returnCountOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 15
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/8/query?where=1%3D1&returnExtentOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 169
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/8/query?where=1%3D1&returnIdsOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 169093
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/9/query?where=1%3D1&returnCountOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 14
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/9/query?where=1%3D1&returnExtentOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 169
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/9/query?where=1%3D1&returnIdsOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 60844
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/10/query?where=1%3D1&returnCountOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 14
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/10/query?where=1%3D1&returnExtentOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 169
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/10/query?where=1%3D1&returnIdsOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 5686
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/6/query?where=1%3D1&returnCountOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 16
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/6/query?where=1%3D1&returnExtentOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 161
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/6/query?where=1%3D1&returnIdsOnly=true&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 725805
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/8/query?where=1%3D1&outFields=TIPOANEDIF&returnDistinctValues=true&returnGeometry=false&resultRecordCount=50&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 72,
+      "arcgisError": "Failed to execute query."
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/9/query?where=1%3D1&outFields=TIPOANEDIF&returnDistinctValues=true&returnGeometry=false&resultRecordCount=50&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 72,
+      "arcgisError": "Failed to execute query."
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/8/query?where=1%3D1&outFields=PROTECCION&returnDistinctValues=true&returnGeometry=false&resultRecordCount=50&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 72,
+      "arcgisError": "Failed to execute query."
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/9/query?where=1%3D1&outFields=PROTECCION&returnDistinctValues=true&returnGeometry=false&resultRecordCount=50&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 72,
+      "arcgisError": "Failed to execute query."
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/8/query?where=1%3D1&outFields=PLANO_AE&returnDistinctValues=true&returnGeometry=false&resultRecordCount=50&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 72,
+      "arcgisError": "Failed to execute query."
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ANALISIS_EDIFICACION/MapServer/10/query?where=1%3D1&outFields=ENLACE&returnDistinctValues=true&returnGeometry=false&resultRecordCount=50&f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 72,
+      "arcgisError": "Failed to execute query."
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ORDENACION/MapServer?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 10199
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_CONDICIONES_EDIFICACION/MapServer?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 9267
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_AREAS_ESPECIALES/MapServer?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 4053
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_ORDENACION_SIN_AMBITO/MapServer?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 9561
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/PGOUM97/PG_GESTION/MapServer?f=json",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 10450
+    }
+  ]
+}

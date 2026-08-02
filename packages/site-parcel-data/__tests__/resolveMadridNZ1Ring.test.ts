@@ -45,7 +45,7 @@ function fakeFetch(body: unknown): { fetchImpl: typeof fetch; calls: () => numbe
 }
 
 describe('resolveMadridNZ1Ring — the spatial ring resolver', () => {
-    it('the certification gate is OPEN on a HUMAN signature — SIG-M2 / ADR-0280', () => {
+    it('the certification gate is OPEN on a HUMAN signature — SIG-M2 / ADR-0283', () => {
         // ⚠ THIS ASSERTION HAS NOW BEEN WRONG IN BOTH DIRECTIONS, WHICH IS WHY IT CITES AN ARTEFACT
         // AND NOT A COMMIT.
         //   • It read `toBe(true)` citing "the L-608 sign-off" — a sign-off that did not exist. The
@@ -54,7 +54,7 @@ describe('resolveMadridNZ1Ring — the spatial ring resolver', () => {
         //   • It then read `toBe(false)` (§MADRID-NZ1-DECERTIFIED, L-677) — correct at the time,
         //     because an agent cannot supply what L-449 reserves to a human.
         //   • It reads `toBe(true)` again from 2026-08-02, on the founder's SIG-M2 signature under
-        //     Doctrine B (ADR-0280): «PRYZM shall dispatch deterministic envelopes only where the
+        //     Doctrine B (ADR-0283): «PRYZM shall dispatch deterministic envelopes only where the
         //     applicable zoning geometry is directly supported by authoritative published data.»
         //
         // The DIFFERENCE between the first `true` and this one is not the value — it is that

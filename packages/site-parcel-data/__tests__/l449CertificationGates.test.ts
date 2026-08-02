@@ -137,7 +137,7 @@ describe('§NO-UNSIGNED-OPEN-GATE — the reintroduction guard', () => {
 
     it('MADRID_NZ1_CERTIFIED is OPEN on a DEREFERENCEABLE signature, not on a commit', () => {
         // §MADRID-NZ1-DECERTIFIED's regression pin, now pointing at the SIGNED state (SIG-M2,
-        // 2026-08-02, Doctrine B / ADR-0280).
+        // 2026-08-02, Doctrine B / ADR-0283).
         //
         // ⚠ THE VALUE IS THE SAME `true` THE MACHINE SET, AND THAT IS EXACTLY WHY THIS TEST CANNOT
         // BE THE ONE THAT MATTERS. A boolean cannot tell a signature from a self-attribution. What
