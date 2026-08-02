@@ -37,7 +37,7 @@
     "schemas:test": "npm test --workspace=@pryzm/schemas",
     "schemas:typecheck": "tsc -p packages/schemas/tsconfig.tests.json --noEmit",
     "protocol:typecheck": "tsc -p packages/protocol/tsconfig.json --noEmit",
-    "test:pryzm1": "tsx --test tests/*.test.ts tools/dataset-discovery/*.test.ts",
+    "test:pryzm1": "tsx --test tests/*.test.ts tools/city-completion/*.test.ts tools/dataset-discovery/*.test.ts",
     "//test:root": "§L-540-CI-GATE — the root vitest.config.ts suite (src/ui panel + toolbar happy-dom specs). It existed and was green (23 files / 263 tests) but was invoked by NOTHING in CI. Named here so ci.yml can call a script instead of an ad-hoc `npx vitest run`.",
     "test:root": "vitest run",
     "gen:openapi": "node scripts/build/gen-openapi.mjs",
