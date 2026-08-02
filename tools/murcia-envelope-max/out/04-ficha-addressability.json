@@ -1,0 +1,88 @@
+{
+  "step": 4,
+  "measuredAt": "2026-08-02T15:02:50.903Z",
+  "notes": [
+    "viewer root issued NO Set-Cookie — a session-cookie arm could not be constructed; recorded as UNKNOWN, not as \"cookie irrelevant\""
+  ],
+  "population": {
+    "rows": 9469,
+    "withLink": 9469
+  },
+  "probeTarget": {
+    "Uso_Especifico": "Residencial",
+    "Municipio": "Murcia",
+    "Ambito": "U.",
+    "Clasificacion": "Suelo Urbano Consolidado",
+    "Area_m2": 0,
+    "Enlace_ficha": "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=4921&widi=es&x=0&y=0"
+  },
+  "matrix": [
+    {
+      "tag": "cold-no-referer-no-cookie",
+      "status": 404,
+      "contentType": "text/html; charset=iso-8859-1",
+      "bytes": 236,
+      "isPdf": false,
+      "location": null,
+      "sha256": "9448f8a1159c9b14e3e1b9d8eab1a6ddf88d26e1f888a34cef430c756e4e6e1e",
+      "looksLikeAuthWall": false,
+      "head": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\"> <html><head> <title>404 Not Found</title> </head><body> <h1>Not Found</h1> <p>The requested URL was not found on this server.</p> </body></html> "
+    },
+    {
+      "tag": "with-referer",
+      "status": 404,
+      "contentType": "text/html; charset=iso-8859-1",
+      "bytes": 236,
+      "isPdf": false,
+      "location": null,
+      "sha256": "9448f8a1159c9b14e3e1b9d8eab1a6ddf88d26e1f888a34cef430c756e4e6e1e",
+      "looksLikeAuthWall": false,
+      "head": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\"> <html><head> <title>404 Not Found</title> </head><body> <h1>Not Found</h1> <p>The requested URL was not found on this server.</p> </body></html> "
+    },
+    {
+      "tag": "with-referer-and-origin",
+      "status": 404,
+      "contentType": "text/html; charset=iso-8859-1",
+      "bytes": 236,
+      "isPdf": false,
+      "location": null,
+      "sha256": "9448f8a1159c9b14e3e1b9d8eab1a6ddf88d26e1f888a34cef430c756e4e6e1e",
+      "looksLikeAuthWall": false,
+      "head": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\"> <html><head> <title>404 Not Found</title> </head><body> <h1>Not Found</h1> <p>The requested URL was not found on this server.</p> </body></html> "
+    },
+    {
+      "tag": "bare-curl-ua",
+      "status": 404,
+      "contentType": "text/html; charset=iso-8859-1",
+      "bytes": 236,
+      "isPdf": false,
+      "location": null,
+      "sha256": "9448f8a1159c9b14e3e1b9d8eab1a6ddf88d26e1f888a34cef430c756e4e6e1e",
+      "looksLikeAuthWall": false,
+      "head": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\"> <html><head> <title>404 Not Found</title> </head><body> <h1>Not Found</h1> <p>The requested URL was not found on this server.</p> </body></html> "
+    }
+  ],
+  "viewerRoot": {
+    "status": 404,
+    "setCookie": null,
+    "bytes": 236
+  },
+  "verdict": {
+    "armsAttempted": 4,
+    "armsServingContent": 0,
+    "distinctBodyHashes": 0,
+    "coldArmWorks": false,
+    "bareClientWorks": false,
+    "classification": "UNREACHABLE — no arm served content (UNKNOWN, not \"absent\")"
+  },
+  "shape": {
+    "isPdf": false,
+    "bytes": 236,
+    "contentType": "text/html; charset=iso-8859-1",
+    "linkCount": 0,
+    "pdfLinks": [],
+    "frames": [],
+    "allLinks": [],
+    "text": " 404 Not Found Not Found The requested URL was not found on this server. "
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "step": 8,
+  "measuredAt": "2026-08-02T15:15:56.796Z",
+  "notes": [],
+  "control": {
+    "universe": "CITY of Murcia, INE 30030 — ONE municipality",
+    "service": "https://geoserver.murcia.es/geoserver/wfs",
+    "layers": [
+      "Murcia:pgou_alineaciones",
+      "Murcia:pgou_sectores"
+    ],
+    "denominator_Mm2": 75.145,
+    "denominatorBasis": "L-656 — BUILDABLE land, not all land, not clicks.",
+    "baseline_pct": 23.51,
+    "widthRecoverable_pp": 8.81,
+    "resolveRate": 0.52,
+    "uplift_pp": 4.58,
+    "reproduced_pct": 28.09,
+    "published_pct": 28.09,
+    "PASS": true,
+    "decompositionSums": true
+  },
+  "incommensurability": {
+    "finding": "The 28.09 % control and the Edificabilidad/Enlace_ficha channel are NOT the same universe and cannot be summed.",
+    "control": {
+      "universe": "city of Murcia (1 municipality)",
+      "service": "geoserver.murcia.es (MUNICIPAL)",
+      "granularity": "calificación polygon (per-plot ordinance zone)",
+      "denominator": "75.145 M m² of private buildable land in ONE city"
+    },
+    "fichaChannel": {
+      "universe": "33 municipalities (of 45 in the region)",
+      "service": "mapas-gis-inter.carm.es/geoserver/SIT_USU_PLA_URB_CARM (REGIONAL)",
+      "granularity": "ámbito de ordenación (development sector) — NOT per-plot",
+      "denominator": "not a subset or superset of the control denominator"
+    },
+    "consequence": "Tier (b) is reported as its OWN measurement on its OWN denominator. No fused \"28.09 % + N\" figure is emitted, because emitting one would be an unbalanced decomposition."
+  }
+}

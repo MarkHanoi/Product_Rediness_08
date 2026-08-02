@@ -1,0 +1,725 @@
+<!-- PROCEDURE FICHA ( WIde IN Number ) -->
+
+
+
+
+
+
+        	
+
+
+
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+
+<title>Sitmurcia - Planeamiento Urbanístico Municipal</title>
+
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<link href="images/sitmurcia.css" rel="stylesheet" type="text/css" />
+<script>var __uzdbm_1 = "1e4e3d0b-5f98-4fc6-a0d1-dc2a46f144ae";var __uzdbm_2 = "NTBhMGViNDgtZHBiZS00Y2JjLWI5OGUtMGUwMzhjZGFiNTNjJDgyLjE1NS4xOC4xMTg=";var __uzdbm_3 = "7f90001e4e3d0b-5f98-4fc6-a0d1-dc2a46f144ae1-17856831233630-002411606533c03557510";var __uzdbm_4 = "false";var __uzdbm_5 = "uzmx";var __uzdbm_6 = "7f9000cce57a12-d6f1-49de-9009-605834f79c411-17856831233630-60e7e5bbd7537eb710";var __uzdbm_7 = "carm.es";</script> <script>   (function (w, d, e, u, c, g, a, b) {     w["SSJSConnectorObj"] = w["SSJSConnectorObj"] || {       ss_cid: c,       domain_info: "auto",     };     w[g] = function (i, j) {       w["SSJSConnectorObj"][i] = j;     };     a = d.createElement(e);     a.async = true;     if (       navigator.userAgent.indexOf('MSIE') !== -1 ||       navigator.appVersion.indexOf('Trident/') > -1     ) {       u = u.replace("/advanced/", "/advanced/ie/");     }     a.src = u;     b = d.getElementsByTagName(e)[0];     b.parentNode.insertBefore(a, b);   })(     window, document, "script", "/18f5227b-e27b-445a-a53f-f845fbe69b40/stormcaster.js", "dpbg", "ssConf"   );   ssConf("c1", "https://urbmurcia.carm.es");   ssConf("c3", "c99a4269-161c-4242-a3f0-28d44fa6ce24");   ssConf("au", "urbmurcia.carm.es");   ssConf("cu", "validate.perfdrive.com, ssc"); </script> </head>
+
+<script language="javascript">
+
+function MM_openBrWindow(foto,titulo,pie) { 
+var tope=screen.height;
+var lefte=screen.width;
+//var ancho=500;
+//var alto=380;
+var img_obj = new Image();
+img_obj = foto;
+var ancho = img_obj.width;
+var alto = img_obj.height;
+
+titulo = titulo.replace('á','1a9');
+titulo = titulo.replace('é','2e8');
+titulo = titulo.replace('í','3i7');
+titulo = titulo.replace('ó','4o6');
+titulo = titulo.replace('ú','5u5');
+titulo = titulo.replace('ñ','6h4');
+tope=(tope/2)-(alto/2);
+lefte=(lefte/2)-(ancho/2);
+
+foto = foto.replace('&','(');
+foto = foto.replace('&','(');
+foto = foto.replace('&','(');
+foto = foto.replace('&','(');
+
+foto = foto.replace('=',')');
+foto = foto.replace('=',')');
+foto = foto.replace('=',')');
+foto = foto.replace('=',')');
+foto = foto.replace('=',')');
+    
+newwin = window.open("crea_pagina.jsp?foto="+foto+"&titulo="+titulo+"&pie="+pie,"zoomfoto", "resizable=yes,scrollbars=auto,toolbar=no,status=no,menubar=no,width="+ancho+",height="+alto+",top="+tope+",left="+lefte);
+newwin.focus();
+}
+
+function MM_openBrWindowGaleria(foto) { 
+var tope=screen.height;
+var lefte=screen.width;
+var img_obj = new Image();
+img_obj = foto;
+var ancho = img_obj.width;
+var alto = img_obj.height;
+//var ancho=500;
+//var alto=380;
+
+tope=(tope/2)-(alto/2);
+lefte=(lefte/2)-(ancho/2);
+
+newwin = window.open(foto,"Galeria", "resizable=yes,scrollbars=auto,toolbar=no,status=no,width="+ancho+",height="+alto+",top="+tope+",left="+lefte);
+newwin.focus();
+}
+
+</script>
+
+<script language="JavaScript" type="text/javascript">
+var dom = (document.getElementById) ? true : false;
+var ns5 = ((navigator.userAgent.indexOf("Gecko")>-1) && dom) ? true: false;
+var ie5 = ((navigator.userAgent.indexOf("MSIE")>-1) && dom) ? true : false;
+var ns4 = (document.layers && !dom) ? true : false;
+var ie4 = (document.all && !dom) ? true : false;
+var nodyn = (!ns5 && !ns4 && !ie4 && !ie5) ? true : false;
+
+var origWidth, origHeight;
+if (ns4) {
+	origWidth = window.innerWidth; origHeight = window.innerHeight;
+	window.onresize = function() { if (window.innerWidth != origWidth || window.innerHeight != origHeight) history.go(0); }
+}
+
+if (nodyn) { event = "nope" }
+
+var tipFollowMouse= true;	
+var tipWidth= 240;
+var offX= 20;	// how far from mouse to show tip
+var offY= 12; 
+var tipFontFamily= "Verdana, arial, helvetica, sans-serif";
+var tipFontSize= "8pt";
+var tipFontColor= "#5A6373";
+var tipBgColor= "#E9ECFD"; 
+var tipBorderColor= "#6a73ac";
+var tipBorderWidth= 1;
+var tipBorderStyle= "ridge";
+var tipPadding= 0;
+
+
+var messages = new Array();
+messages[0] = new Array('','texto','#FFFFFF');
+
+
+var startStr = '<table width="' + tipWidth + '"><tr><td width="100%" bgcolor="#E9ECFD">';
+var midStr = '';
+var endStr = '</td></tr></table>';
+
+var tooltip, tipcss;
+function initTip() {
+	if (nodyn) return;
+	tooltip = (ns4)? document.tipDiv.document: (ie4)? document.all['tipDiv']: (ie5||ns5)? document.getElementById('tipDiv'): null;
+	tipcss = (ns4)? document.tipDiv: tooltip.style;
+	if (ie4||ie5||ns5) {	// ns4 would lose all this on rewrites
+		tipcss.width = tipWidth+"px";
+		tipcss.fontFamily = tipFontFamily;
+		tipcss.fontSize = tipFontSize;
+		tipcss.color = tipFontColor;
+		tipcss.backgroundColor = tipBgColor;
+		tipcss.borderColor = tipBorderColor;
+		tipcss.borderWidth = tipBorderWidth+"px";
+		tipcss.padding = tipPadding+"px";
+		tipcss.borderStyle = tipBorderStyle;
+	}
+	if (tooltip&&tipFollowMouse) {
+		if (ns4) document.captureEvents(Event.MOUSEMOVE);
+		document.onmousemove = trackMouse;
+	}
+}
+
+window.onload = initTip;
+
+var t1,t2;	// for setTimeouts
+var tipOn = false;	// check if over tooltip link
+function doTooltip(evt,num,mensaje) {
+	if (!tooltip) return;
+	if (t1) clearTimeout(t1);	if (t2) clearTimeout(t2);
+	tipOn = true;
+	// set colors if included in messages array
+	if (messages[num][2])	var curBgColor = "#E9ECFD"; //messages[num][2];
+	else curBgColor = tipBgColor;
+	if (messages[num][3])	var curFontColor = messages[num][3];
+	else curFontColor = tipFontColor;
+	if (ns4) {
+		var tip = '<table bgcolor="' + tipBorderColor + '" width="' + tipWidth + '" cellspacing="0" cellpadding="' + tipBorderWidth + '" border="0"><tr><td><table bgcolor="' + curBgColor + '" width="100%" cellspacing="0" cellpadding="' + tipPadding + '" border="0"><tr><td>'+ startStr + midStr + '<span style="font-family:' + tipFontFamily + '; font-size:' + tipFontSize + '; color:' + curFontColor + ';">' + mensaje + '</span>' + endStr + '</td></tr></table></td></tr></table>';
+		tooltip.write(tip);
+		tooltip.close();
+	} else if (ie4||ie5||ns5) {
+		var tip = startStr + midStr + '<span style="font-family:' + tipFontFamily + '; font-size:' + tipFontSize + '; color:' + curFontColor + ';">' + mensaje + '</span>' + endStr;
+		tipcss.backgroundColor = curBgColor;
+	 	tooltip.innerHTML = tip;
+	}
+	if (!tipFollowMouse) positionTip(evt);
+	else t1=setTimeout("tipcss.visibility='visible'",100);
+	//CambiaFondo(celda,true);
+}
+
+var mouseX, mouseY
+function trackMouse(evt) {
+	mouseX = (ns4||ns5)? evt.pageX: window.event.clientX + document.body.scrollLeft;
+	mouseY = (ns4||ns5)? evt.pageY: window.event.clientY + document.body.scrollTop;
+	if (tipOn) positionTip(evt);
+}
+
+function positionTip(evt) {
+	if (!tipFollowMouse) {
+		mouseX = (ns4||ns5)? evt.pageX: window.event.clientX + document.body.scrollLeft;
+		mouseY = (ns4||ns5)? evt.pageY: window.event.clientY + document.body.scrollTop;
+	}
+	// tooltip width and height
+	var tpWd = (ns4)? tooltip.width: (ie4||ie5)? tooltip.clientWidth: tooltip.offsetWidth;
+	var tpHt = (ns4)? tooltip.height: (ie4||ie5)? tooltip.clientHeight: tooltip.offsetHeight;
+	// document area in view (subtract scrollbar width for ns)
+	var winWd = (ns4||ns5)? window.innerWidth-20+window.pageXOffset: document.body.clientWidth+document.body.scrollLeft;
+	var winHt = (ns4||ns5)? window.innerHeight-20+window.pageYOffset: document.body.clientHeight+document.body.scrollTop;
+	// check mouse position against tip and window dimensions
+	// and position the tooltip 
+	if ((mouseX+offX+tpWd)>winWd) 
+		tipcss.left = (ns4)? mouseX-(tpWd+offX): mouseX-(tpWd+offX)+"px";
+	else tipcss.left = (ns4)? mouseX+offX: mouseX+offX+"px";
+	if ((mouseY+offY+tpHt)>winHt) 
+		tipcss.top = (ns4)? winHt-(tpHt+offY): winHt-(tpHt+offY)+"px";
+	//else tipcss.top = (ns4)? mouseY+offY: mouseY+offY+"px";
+	else tipcss.top = (ns4)? mouseY+offY: mouseY+offY+"px";
+	if (!tipFollowMouse) t1=setTimeout("tipcss.visibility='visible'",100);
+}
+
+function hideTip() {
+	if (!tooltip) return;
+	t2=setTimeout("tipcss.visibility='hidden'",100);
+	tipOn = false;
+	//CambiaFondo(celda,false);
+}
+
+function CambiaFondo (tabla,accion)
+{
+  if(accion)
+  {
+    colorfondo = "#c2c4d0";
+  }else { 
+    colorfondo = "#e4e6f1";
+  }
+}
+
+</script>
+
+
+
+
+<script language="javascript">
+function VENTANAimprimible() {
+	var tope=screen.height;
+	var lefte=screen.width;
+	var ancho=610;
+	var alto=500;
+	var locatione="";
+	var resultado="";
+
+	tope=(tope/2)-(alto/2);
+	lefte=(lefte/2)-(ancho/2);
+	
+	
+	locatione=document.URL;
+	
+	var tamtotal=0;
+	var tam=0;
+	
+	tamtotal=locatione.length;  // Obtengo el tamaño maximo de la la URL
+   
+  while (tam<=tamtotal){    // Obtengo el tamaño de la URL 
+  			if (locatione.charAt(tam)!='&' && locatione.charAt(tam)!='%') {
+  				resultado=resultado+locatione.charAt(tam);
+  			}	else {
+ 			  	if (locatione.charAt(tam)=='%') {
+ 			  		resultado=resultado+'@';
+					} else {
+  					resultado=resultado+'$';
+  				}
+  			}
+				tam++;
+  }
+  
+	// vimp = window.open("potgisficha.jsp?wide=4921&imprimir=true&widi=es", "vimp1", "width="+ancho+",height="+alto+",top="+tope+",left="+lefte+",toolbar=yes,scrollbars=yes");
+    vimp = window.open("potgisfichacen.jsp?wide=4921&imprimir=true&widi=es&x=0&y=0", "vimp1", "width="+ancho+",height="+alto+",top="+tope+",left="+lefte+",toolbar=yes,scrollbars=yes");
+    
+	vimp.focus();	
+}
+</script>
+
+</head>
+
+<body onLoad="initTip();">
+
+	<div id="tipDiv" style="position:absolute; visibility:hidden; z-index:102; left: 14px;"></div>
+
+	<!-- superior -->
+	<table align="center" border="0" cellpadding="0" cellspacing="0" id="contenedor">
+		<tr>
+			<td>
+				<table align="center" width="100%"  border="0" cellspacing="0" cellpadding="0">
+					<tr>
+						<td colspan="2" ><a href="http://www.sitmurcia.es" style="text-decoration:none;"><img src="imgcomunes/logo.gif" alt="Sitmurcia - Ir a p&aacute;gina principal" width="311" height="91" border="0" /><script>var fotNum = Math.floor(1 + Math.random()*3);document.write('<img src="imgcomunes/cabecera'+fotNum+'.gif" alt="Sitmurcia - Ir a p&aacute;gina principal" width="439" height="91" border="0" />');</script><noscript><img src="imgcomunes/cabecera2.gif" alt="" width="439" height="91" border="0" /></noscript></a></td>
+					</tr>
+					<!-- barraico -->
+					<strong>
+					<tr>
+					
+						<td align="left" bgcolor="#92959E" style="padding-left:3px"><a href="#" onClick="javascript:window.location.href=(window.location.href.substring(0,window.location.href.indexOf('=es'))+'=en')"><img src="images/banderaing.gif" alt="English" width="23" height="17" border="0"></a></td>
+					
+						<td align="right" bgcolor="#92959E"><img src="imgcomunes/ico_aviso.gif" alt="Aviso Legal" border="0" width="55" height="17" onClick="javascript:var aviso=window.open('aviso.htm','','toolbar=0, location=0,diretories=0, status=0, menubar=0, scrollbars=yes,width=700,height=500,top=100,left=100');"><img src="imgcomunes/bton_mail.gif" alt="buzón de sugerencias" border="0" onclick="javascript:window.open('http://sitmurcia.carm.es/web/sitmurcia/contacto')"><img src="imgcomunes/ico_imprimir.gif" alt="Imprimir" width="23" height="17" hspace="1" border="0" onclick="javascript:VENTANAimprimible();"></td>
+					</tr>
+					</strong>
+
+	
+				</table>
+			</td>
+		</tr>
+		<tr>
+			<td class="columnadrcha" colspan="2">&nbsp;&nbsp;Información Urbanística&nbsp;&gt;&nbsp;
+			</td>
+		</tr>
+		<tr>
+			<td height="310px"> 
+					<table width="90%">
+						<!--TXTIMPRIMIBLE-->
+						<tr align="center">
+							<td colspan="2">
+								<table width="80%"  border="1" cellspacing="0" cellpadding="3">
+									<tr align="center">
+										<td colspan="3" class="celdacab2">Ámbito seleccionado</td>
+									</tr>
+								</table>
+							</td>
+						</tr>
+						<tr><!--primer bloque-->
+							<td colspan="2"><img src="images/pixel.gif" height="3px"></td>
+						</tr>
+						<tr align="center">
+							<td colspan="2">
+								<table width="80%" border="1" cellspacing="0" cellpadding="3">
+									<tr>
+										<td class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral">Municipio:</td>
+													<td class="textogeneral">MURCIA</td>
+												</tr>
+											</table>
+										</td>
+										<td class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral">Superficie:</td>
+													<td class="textogeneral"></td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+								</table>
+							</td>
+						</tr><!-- primer bloque-->
+						<tr><!--segundo bloque-->
+							<td colspan="2"><img src="images/pixel.gif" height="3px"></td>
+						</tr>
+						<tr align="center">
+							<td colspan="2">
+								<table width="80%"  border="1" cellspacing="0" cellpadding="3">
+									<tr>
+										<td colspan="2" class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral">Denominación:</td>
+                                                    
+                                                    <!-- 20100503-EIS -->
+						  
+                                                            <td class="textogeneral">U.</td>
+                                                        
+                                                    
+												</tr>
+											</table>
+										</td>
+									</tr>
+									<tr>
+										<td colspan="2" class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral">Nombre:</td>
+													<td class="textogeneral">Carrascoy-La Murta.</td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									<tr>
+										<td class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral">Clasificación del Suelo:</td>
+													<td class="textogeneral">Suelo Urbano Consolidado</td>
+												</tr>
+											</table>
+										</td>
+										<td class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral" colspan="2">SUc</td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									
+									<tr>
+										<td class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral">Uso global:</td>
+													<td class="textogeneral">Residencial</td>
+												</tr>
+											</table>
+										</td>
+										<td class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral" colspan="2">RES</td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									<tr>
+										<td colspan="2" class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral">Aprovechamiento de referencia:</td>
+													<td class="textogeneral"> </td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									
+								</table>
+							</td>
+						</tr><!--segundo bloque-->
+						
+						<tr><!--tercer bloque-->
+							<td colspan="2"><img src="images/pixel.gif" height="3px"></td>
+						</tr>
+						<tr align="center">
+							<td colspan="2">
+								<table width="80%"  border="1" cellspacing="0" cellpadding="3">
+									<tr>
+										<td colspan="2" class="textogeneral">
+											<table width="100%">
+											
+												<tr>
+													<td class="textogeneral">Otros usos:</td>
+													<td class="textogeneral">Dominante</td>
+													<td class="textogeneral">Residencial</td>
+													<td class="textogeneral"> </td>
+												</tr>
+											
+											</table>
+										</td>
+									</tr>
+								</table>
+							</td>
+						</tr><!--tercer bloque-->
+						
+                        <!--cuarto bloque-->
+						<!-- <tr>
+							<td colspan="2"><img src="images/pixel.gif" height="3px"></td>
+						</tr>
+						<tr align="center">
+							<td colspan="2">
+								<table width="80%"  border="1" cellspacing="0" cellpadding="3">
+									<tr>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral">Superficie total del ámbito de ordenación:</td>
+													<td class="textogeneral"> </td>
+												</tr>
+											</table>
+										</td>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral">Superficie neta del ámbito:</td>
+													<td class="textogeneral"> </td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									<tr>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral">Aprovechamiento resultante:</td>
+													<td class="textogeneral"> </td>
+												</tr>
+											</table>
+										</td>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral">SSGG vinculados/adscritos:</td>
+													<td class="textogeneral">&nbsp;</td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									<tr>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral">Densidad(viv/Ha):</td>
+													<td class="textogeneral">&nbsp;</td>
+												</tr>
+											</table>
+										</td>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral">Habitantes estimados por planeamiento:</td>
+													<td class="textogeneral">&nbsp;</td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									<tr>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral">Nº de viviendas máximo:</td>
+													<td class="textogeneral">&nbsp;</td>
+												</tr>
+											</table>
+										</td>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral">Viviendas estimadas:</td>
+													<td class="textogeneral">0</td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+								</table>
+							</td>
+						</tr> -->
+                        <!--cuarto bloque-->
+						
+						<tr><!--septimo bloque-->
+							<td colspan="2"><img src="images/pixel.gif" height="3px"></td>
+						</tr>
+						<tr align="center">
+							<td colspan="2">
+								<table width="80%"  border="1" cellspacing="0" cellpadding="3">
+									<tr>
+										<td colspan="2" class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral" valign="top">Observaciones: </td>
+													<td class="textogeneral" valign="top">&nbsp;</td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									
+									<tr>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral" width="40%">Documentación adicional:</td>
+													<td class="textogeneral"><a href="https://urbmurcia.carm.es/urbmurcia/expediente/2000/83" style="text-decoration:none; " target="_blank">Revisión PGOU</td>
+												</tr>
+											</table>
+										</td>
+									
+										<td class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral"><a href="javascript: var s=window.open('crea_galeriain5.jsp?catalo=4921&tipo=POT&num=83&anu=2000&actual=null&muni=null','','toolbar=0,location=0,directories=0,resizable=1,status=0,menubar=0,scrollbars=no,width=900, height=630,top=50,left=50');"><img src="imgcomunes/ver2.gif" border="0"></a></td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									
+									<tr>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral" width="40%">&nbsp;</td>
+													<td class="textogeneral"><a href="https://urbmurcia.carm.es/urbmurcia/expediente/2002/64" style="text-decoration:none; " target="_blank">Nº 7 DEL PGOU (ART.5.14.2.1 DE LAS NORMAS)(CONSULTA PREVIA)</td>
+												</tr>
+											</table>
+										</td>
+									
+										<td class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral"><a href="javascript: var s=window.open('crea_galeriain5.jsp?catalo=4921&tipo=POT&num=64&anu=2002&actual=null&muni=null','','toolbar=0,location=0,directories=0,resizable=1,status=0,menubar=0,scrollbars=no,width=900, height=630,top=50,left=50');"><img src="imgcomunes/ver2.gif" border="0"></a></td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									
+									<tr>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral" width="40%">&nbsp;</td>
+													<td class="textogeneral"><a href="https://urbmurcia.carm.es/urbmurcia/expediente/2002/188" style="text-decoration:none; " target="_blank">Nº8 ARTºS.9.4.1.1 Y 9.6.2 Y APDO.3 DE LA NORMA TRANSITORIA UNICA DE LEGALIZACIONES</td>
+												</tr>
+											</table>
+										</td>
+									
+										<td class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral"><a href="javascript: var s=window.open('crea_galeriain5.jsp?catalo=4921&tipo=POT&num=188&anu=2002&actual=null&muni=null','','toolbar=0,location=0,directories=0,resizable=1,status=0,menubar=0,scrollbars=no,width=900, height=630,top=50,left=50');"><img src="imgcomunes/ver2.gif" border="0"></a></td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									
+									<tr>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral" width="40%">&nbsp;</td>
+													<td class="textogeneral"><a href="https://urbmurcia.carm.es/urbmurcia/expediente/2004/42" style="text-decoration:none; " target="_blank">nº 35, artículo 3.7.3, apdo c)</td>
+												</tr>
+											</table>
+										</td>
+									
+										<td class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral"><a href="javascript: var s=window.open('crea_galeriain5.jsp?catalo=4921&tipo=POT&num=42&anu=2004&actual=null&muni=null','','toolbar=0,location=0,directories=0,resizable=1,status=0,menubar=0,scrollbars=no,width=900, height=630,top=50,left=50');"><img src="imgcomunes/ver2.gif" border="0"></a></td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									
+									<tr>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral" width="40%">&nbsp;</td>
+													<td class="textogeneral"><a href="https://urbmurcia.carm.es/urbmurcia/expediente/2004/192" style="text-decoration:none; " target="_blank">Modificación adaptación del PGOU al TRLSRM</td>
+												</tr>
+											</table>
+										</td>
+									
+										<td class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral"><a href="javascript: var s=window.open('crea_galeriain5.jsp?catalo=4921&tipo=POT&num=192&anu=2004&actual=null&muni=null','','toolbar=0,location=0,directories=0,resizable=1,status=0,menubar=0,scrollbars=no,width=900, height=630,top=50,left=50');"><img src="imgcomunes/ver2.gif" border="0"></a></td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									
+									<tr>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral" width="40%">&nbsp;</td>
+													<td class="textogeneral"><a href="https://urbmurcia.carm.es/urbmurcia/expediente/2006/336" style="text-decoration:none; " target="_blank">Nº 95, ampliación del plazo contenido en la Norma Transitoria Única</td>
+												</tr>
+											</table>
+										</td>
+									
+										<td class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral"><a href="javascript: var s=window.open('crea_galeriain5.jsp?catalo=4921&tipo=POT&num=336&anu=2006&actual=null&muni=null','','toolbar=0,location=0,directories=0,resizable=1,status=0,menubar=0,scrollbars=no,width=900, height=630,top=50,left=50');"><img src="imgcomunes/ver2.gif" border="0"></a></td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									
+									<tr>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral" width="40%">&nbsp;</td>
+													<td class="textogeneral"><a href="https://urbmurcia.carm.es/urbmurcia/expediente/2007/66" style="text-decoration:none; " target="_blank">nº 99 del PGOU, norma art. 3.7.2.3.</td>
+												</tr>
+											</table>
+										</td>
+									
+										<td class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral"><a href="javascript: var s=window.open('crea_galeriain5.jsp?catalo=4921&tipo=POT&num=66&anu=2007&actual=null&muni=null','','toolbar=0,location=0,directories=0,resizable=1,status=0,menubar=0,scrollbars=no,width=900, height=630,top=50,left=50');"><img src="imgcomunes/ver2.gif" border="0"></a></td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									
+									<tr>
+										<td class="textogeneral">
+											<table width="100%">
+												<tr>
+													<td class="textogeneral" width="40%">&nbsp;</td>
+													<td class="textogeneral"><a href="https://urbmurcia.carm.es/urbmurcia/expediente/2008/216" style="text-decoration:none; " target="_blank">nº 108, art. 6.2.5 de las normas urbanísticas</td>
+												</tr>
+											</table>
+										</td>
+									
+										<td class="textogeneral">
+											<table>
+												<tr>
+													<td class="textogeneral"><a href="javascript: var s=window.open('crea_galeriain5.jsp?catalo=4921&tipo=POT&num=216&anu=2008&actual=null&muni=null','','toolbar=0,location=0,directories=0,resizable=1,status=0,menubar=0,scrollbars=no,width=900, height=630,top=50,left=50');"><img src="imgcomunes/ver2.gif" border="0"></a></td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+									
+								</table>
+							</td>
+						</tr><!--septimo bloque-->
+						
+						<tr>
+							<td colspan="2"><img src="images/pixel.gif" height="3px"></td>
+						</tr>
+					</table>
+			</td> <!-- cierre td 310px-->
+		</tr>
+
+
+
+
+<!-- pot.potgis.pie -->
+      <tr>
+      	<td colspan="2">
+      		<table width="100%" border="0" cellspacing="0" cellpadding="0" bgcolor="BABAAF">
+						<tr>
+								<td colspan="2"><h3>&copy; Consejer&iacute;a de Fomento e Infraestructuras. Direcci&oacute;n General de Ordenación del Territorio, Arquitectura y Vivienda. Unidad de Informaci&oacute;n Territorial</h2></td>
+						</tr>
+					</table>
+				</td>
+      </tr>
+	</table> 
+
+	
+	
+</body>
+</html>
+
+
+
+
+
+
+

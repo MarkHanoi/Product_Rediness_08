@@ -1,0 +1,527 @@
+{
+  "step": 9,
+  "measuredAt": "2026-08-02T15:19:08.270Z",
+  "notes": [],
+  "landDecomposition_Mm2": {
+    "buildableNow": 557.41,
+    "delegatedPendingSectorisation": 1765.93,
+    "notBuildable": 7409.14,
+    "publicOrUnknown": 259.28,
+    "TOTAL": 9991.76
+  },
+  "edifRejectReasons": {
+    "zero — null substitute in this corpus": 3325
+  },
+  "perMunicipality": [
+    {
+      "municipio": "Murcia",
+      "polys": 1059,
+      "edifValidPolys": 334,
+      "buildableNow_Mm2": 120.287,
+      "delegatedPending_Mm2": 173.43,
+      "edifValid_Mm2": 58.401,
+      "edifValidPct": 48.55,
+      "edifZeroPct": 51.45,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.075,
+        3.8
+      ]
+    },
+    {
+      "municipio": "Molina de Segura",
+      "polys": 415,
+      "edifValidPolys": 172,
+      "buildableNow_Mm2": 64.573,
+      "delegatedPending_Mm2": 36.207,
+      "edifValid_Mm2": 38.37,
+      "edifValidPct": 59.42,
+      "edifZeroPct": 40.58,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.1,
+        1.7
+      ]
+    },
+    {
+      "municipio": "Lorca",
+      "polys": 583,
+      "edifValidPolys": 229,
+      "buildableNow_Mm2": 56.797,
+      "delegatedPending_Mm2": 217.082,
+      "edifValid_Mm2": 47.35,
+      "edifValidPct": 83.37,
+      "edifZeroPct": 16.63,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.12,
+        3.186
+      ]
+    },
+    {
+      "municipio": "Cartagena",
+      "polys": 192,
+      "edifValidPolys": 26,
+      "buildableNow_Mm2": 40.025,
+      "delegatedPending_Mm2": 34.945,
+      "edifValid_Mm2": 6.609,
+      "edifValidPct": 16.51,
+      "edifZeroPct": 83.49,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.15,
+        0.9
+      ]
+    },
+    {
+      "municipio": "Abanilla",
+      "polys": 300,
+      "edifValidPolys": 161,
+      "buildableNow_Mm2": 24.54,
+      "delegatedPending_Mm2": 89.644,
+      "edifValid_Mm2": 21.469,
+      "edifValidPct": 87.48,
+      "edifZeroPct": 12.52,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.02,
+        1
+      ]
+    },
+    {
+      "municipio": "Caravaca de la Cruz",
+      "polys": 192,
+      "edifValidPolys": 141,
+      "buildableNow_Mm2": 22.795,
+      "delegatedPending_Mm2": 387.869,
+      "edifValid_Mm2": 17.343,
+      "edifValidPct": 76.08,
+      "edifZeroPct": 23.92,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.161,
+        2.75
+      ]
+    },
+    {
+      "municipio": "Fuente Álamo",
+      "polys": 207,
+      "edifValidPolys": 69,
+      "buildableNow_Mm2": 21.971,
+      "delegatedPending_Mm2": 6.903,
+      "edifValid_Mm2": 17.444,
+      "edifValidPct": 79.4,
+      "edifZeroPct": 20.6,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.12,
+        0.5
+      ]
+    },
+    {
+      "municipio": "Cieza",
+      "polys": 216,
+      "edifValidPolys": 134,
+      "buildableNow_Mm2": 20.216,
+      "delegatedPending_Mm2": 5.371,
+      "edifValid_Mm2": 16.791,
+      "edifValidPct": 83.06,
+      "edifZeroPct": 16.94,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.008,
+        2.24
+      ]
+    },
+    {
+      "municipio": "Torre Pacheco",
+      "polys": 152,
+      "edifValidPolys": 50,
+      "buildableNow_Mm2": 19.363,
+      "delegatedPending_Mm2": 0,
+      "edifValid_Mm2": 11.319,
+      "edifValidPct": 58.46,
+      "edifZeroPct": 41.54,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.15,
+        1.11
+      ]
+    },
+    {
+      "municipio": "Alhama de Murcia",
+      "polys": 263,
+      "edifValidPolys": 154,
+      "buildableNow_Mm2": 16.356,
+      "delegatedPending_Mm2": 106.746,
+      "edifValid_Mm2": 12.166,
+      "edifValidPct": 74.38,
+      "edifZeroPct": 25.62,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.15,
+        3.13
+      ]
+    },
+    {
+      "municipio": "Fortuna",
+      "polys": 88,
+      "edifValidPolys": 67,
+      "buildableNow_Mm2": 16.063,
+      "delegatedPending_Mm2": 40.476,
+      "edifValid_Mm2": 13.873,
+      "edifValidPct": 86.36,
+      "edifZeroPct": 13.64,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.171,
+        1.15
+      ]
+    },
+    {
+      "municipio": "San Javier",
+      "polys": 125,
+      "edifValidPolys": 60,
+      "buildableNow_Mm2": 15.176,
+      "delegatedPending_Mm2": 0,
+      "edifValid_Mm2": 8.816,
+      "edifValidPct": 58.09,
+      "edifZeroPct": 41.91,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.2,
+        4.005
+      ]
+    },
+    {
+      "municipio": "Moratalla",
+      "polys": 138,
+      "edifValidPolys": 80,
+      "buildableNow_Mm2": 11.064,
+      "delegatedPending_Mm2": 88.852,
+      "edifValid_Mm2": 9.071,
+      "edifValidPct": 81.99,
+      "edifZeroPct": 18.01,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.2,
+        2.54
+      ]
+    },
+    {
+      "municipio": "Ulea",
+      "polys": 54,
+      "edifValidPolys": 21,
+      "buildableNow_Mm2": 10.862,
+      "delegatedPending_Mm2": 5.579,
+      "edifValid_Mm2": 10.624,
+      "edifValidPct": 97.8,
+      "edifZeroPct": 2.2,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.15,
+        1
+      ]
+    },
+    {
+      "municipio": "Jumilla",
+      "polys": 196,
+      "edifValidPolys": 56,
+      "buildableNow_Mm2": 9.735,
+      "delegatedPending_Mm2": 476.14,
+      "edifValid_Mm2": 5.571,
+      "edifValidPct": 57.22,
+      "edifZeroPct": 42.78,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.192,
+        2.541
+      ]
+    },
+    {
+      "municipio": "Mazarrón",
+      "polys": 82,
+      "edifValidPolys": 19,
+      "buildableNow_Mm2": 8.981,
+      "delegatedPending_Mm2": 19.548,
+      "edifValid_Mm2": 2.84,
+      "edifValidPct": 31.62,
+      "edifZeroPct": 68.38,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.15,
+        0.85
+      ]
+    },
+    {
+      "municipio": "Santomera",
+      "polys": 97,
+      "edifValidPolys": 56,
+      "buildableNow_Mm2": 7.88,
+      "delegatedPending_Mm2": 4.866,
+      "edifValid_Mm2": 5.038,
+      "edifValidPct": 63.93,
+      "edifZeroPct": 36.07,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.4,
+        0.62
+      ]
+    },
+    {
+      "municipio": "Los Alcázares",
+      "polys": 46,
+      "edifValidPolys": 13,
+      "buildableNow_Mm2": 7.273,
+      "delegatedPending_Mm2": 0,
+      "edifValid_Mm2": 4.413,
+      "edifValidPct": 60.68,
+      "edifZeroPct": 39.32,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.25,
+        1.34
+      ]
+    },
+    {
+      "municipio": "Alcantarilla",
+      "polys": 78,
+      "edifValidPolys": 61,
+      "buildableNow_Mm2": 6.061,
+      "delegatedPending_Mm2": 0,
+      "edifValid_Mm2": 1.854,
+      "edifValidPct": 30.59,
+      "edifZeroPct": 69.41,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.3,
+        3.07
+      ]
+    },
+    {
+      "municipio": "Blanca",
+      "polys": 83,
+      "edifValidPolys": 36,
+      "buildableNow_Mm2": 6.023,
+      "delegatedPending_Mm2": 8.583,
+      "edifValid_Mm2": 4.561,
+      "edifValidPct": 75.74,
+      "edifZeroPct": 24.26,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.1,
+        1.061
+      ]
+    },
+    {
+      "municipio": "Lorquí",
+      "polys": 60,
+      "edifValidPolys": 23,
+      "buildableNow_Mm2": 5.589,
+      "delegatedPending_Mm2": 0.692,
+      "edifValid_Mm2": 4.284,
+      "edifValidPct": 76.66,
+      "edifZeroPct": 23.34,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.25,
+        1.99
+      ]
+    },
+    {
+      "municipio": "Yecla",
+      "polys": 23,
+      "edifValidPolys": 12,
+      "buildableNow_Mm2": 5.417,
+      "delegatedPending_Mm2": 2.289,
+      "edifValid_Mm2": 1.258,
+      "edifValidPct": 23.23,
+      "edifZeroPct": 76.77,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.6,
+        1.65
+      ]
+    },
+    {
+      "municipio": "La Unión",
+      "polys": 58,
+      "edifValidPolys": 9,
+      "buildableNow_Mm2": 5.188,
+      "delegatedPending_Mm2": 0,
+      "edifValid_Mm2": 2.71,
+      "edifValidPct": 52.24,
+      "edifZeroPct": 47.76,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.2,
+        0.6
+      ]
+    },
+    {
+      "municipio": "San Pedro del Pinatar",
+      "polys": 14,
+      "edifValidPolys": 10,
+      "buildableNow_Mm2": 4.563,
+      "delegatedPending_Mm2": 1.737,
+      "edifValid_Mm2": 1.147,
+      "edifValidPct": 25.13,
+      "edifZeroPct": 74.87,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.5,
+        0.65
+      ]
+    },
+    {
+      "municipio": "Archena",
+      "polys": 65,
+      "edifValidPolys": 40,
+      "buildableNow_Mm2": 4.428,
+      "delegatedPending_Mm2": 1.467,
+      "edifValid_Mm2": 1.758,
+      "edifValidPct": 39.7,
+      "edifZeroPct": 60.3,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.4,
+        2
+      ]
+    },
+    {
+      "municipio": "Mula",
+      "polys": 161,
+      "edifValidPolys": 26,
+      "buildableNow_Mm2": 4.092,
+      "delegatedPending_Mm2": 1.044,
+      "edifValid_Mm2": 1.34,
+      "edifValidPct": 32.74,
+      "edifZeroPct": 67.26,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.17,
+        1.92
+      ]
+    },
+    {
+      "municipio": "Campos del Río",
+      "polys": 32,
+      "edifValidPolys": 3,
+      "buildableNow_Mm2": 4.084,
+      "delegatedPending_Mm2": 0,
+      "edifValid_Mm2": 0.545,
+      "edifValidPct": 13.35,
+      "edifZeroPct": 86.65,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.09,
+        0.432
+      ]
+    },
+    {
+      "municipio": "Ceutí",
+      "polys": 19,
+      "edifValidPolys": 12,
+      "buildableNow_Mm2": 3.627,
+      "delegatedPending_Mm2": 0,
+      "edifValid_Mm2": 1.027,
+      "edifValidPct": 28.32,
+      "edifZeroPct": 71.68,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.45,
+        1.67
+      ]
+    },
+    {
+      "municipio": "Calasparra",
+      "polys": 66,
+      "edifValidPolys": 10,
+      "buildableNow_Mm2": 3.489,
+      "delegatedPending_Mm2": 0,
+      "edifValid_Mm2": 1.533,
+      "edifValidPct": 43.94,
+      "edifZeroPct": 56.06,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.15,
+        0.84
+      ]
+    },
+    {
+      "municipio": "Bullas",
+      "polys": 141,
+      "edifValidPolys": 18,
+      "buildableNow_Mm2": 3.458,
+      "delegatedPending_Mm2": 0,
+      "edifValid_Mm2": 1.441,
+      "edifValidPct": 41.67,
+      "edifZeroPct": 58.33,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.262,
+        3
+      ]
+    },
+    {
+      "municipio": "Pliego",
+      "polys": 159,
+      "edifValidPolys": 64,
+      "buildableNow_Mm2": 2.924,
+      "delegatedPending_Mm2": 12.827,
+      "edifValid_Mm2": 2.09,
+      "edifValidPct": 71.49,
+      "edifZeroPct": 28.51,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.211,
+        1.96
+      ]
+    },
+    {
+      "municipio": "Ricote",
+      "polys": 50,
+      "edifValidPolys": 20,
+      "buildableNow_Mm2": 2.668,
+      "delegatedPending_Mm2": 35.946,
+      "edifValid_Mm2": 2.378,
+      "edifValidPct": 89.14,
+      "edifZeroPct": 10.86,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.205,
+        1.339
+      ]
+    },
+    {
+      "municipio": "Abarán",
+      "polys": 134,
+      "edifValidPolys": 37,
+      "buildableNow_Mm2": 1.847,
+      "delegatedPending_Mm2": 7.685,
+      "edifValid_Mm2": 0.745,
+      "edifValidPct": 40.33,
+      "edifZeroPct": 59.67,
+      "fichaLinkPct": 100,
+      "edifRange": [
+        0.26,
+        3.33
+      ]
+    }
+  ],
+  "regional": {
+    "municipalities": 33,
+    "buildableNow_Mm2": 557.415,
+    "edifValid_Mm2": 336.179,
+    "edifValidPct": 60.31,
+    "fichaLinkPct": 100
+  },
+  "drawability": {
+    "layersInspected": 14,
+    "shapeBearingFields": {},
+    "completeRulePct": 0,
+    "partialDrawablePct": 0,
+    "notDrawablePct": 100,
+    "verdict": "NO SHAPE CONSTRAINT ON ANY OF THE 14 LAYERS. Edificabilidad is a floor-area quantum: no footprint rule, no height. Per §4 it DOES NOT DRAW. From WFS attributes alone the regional service is 0 % complete-rule, 0 % partial-drawable, 100 % not-drawable — for every one of the 33 municipalities, at ANY Edificabilidad coverage."
+  }
+}

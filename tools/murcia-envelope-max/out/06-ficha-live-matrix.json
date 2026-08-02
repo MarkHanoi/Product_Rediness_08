@@ -1,0 +1,102 @@
+{
+  "step": 6,
+  "measuredAt": "2026-08-02T15:05:24.765Z",
+  "notes": [],
+  "cold-bare-curl": {
+    "tag": "cold-bare-curl",
+    "url": "http://urbmurcia.carm.es/urbmurcia/sitmurcia/potgisfichacen.jsp?wide=4921&widi=es&x=0&y=0",
+    "status": 200,
+    "finalUrl": "https://urbmurcia.carm.es/urbmurcia/sitmurcia/potgisfichacen.jsp?wide=4921&widi=es&x=0&y=0",
+    "contentType": "text/html;charset=UTF-8",
+    "bytes": 26928,
+    "isPdf": false,
+    "sha256": "e1fb9f430dec5e3f8f3bdd991b4f4b7e2feb5d6db8036f411e5d26f8c076e62c",
+    "looksLikeAuthWall": false,
+    "looksEmpty": false,
+    "textLen": 1283,
+    "text": "Sitmurcia - Planeamiento UrbanÃ­stico Municipal &nbsp;&nbsp;InformaciÃ³n UrbanÃ­stica&nbsp;&gt;&nbsp; Ãmbito seleccionado Municipio: MURCIA Superficie: DenominaciÃ³n: U. Nombre: Carrascoy-La Murta. ClasificaciÃ³n del Suelo: Suelo Urbano Consolidado SUc Uso global: Residencial RES Aprovechamiento de referencia: Otros usos: Dominante Residencial Superficie total del Ã¡mbito de ordenaciÃ³n: Superficie neta del Ã¡mbito: Aprovechamiento resultante: SSGG vinculados/adscritos: &nbsp; Densidad(viv/Ha): &nbsp; Habitantes estimados por planeamiento: &nbsp; NÂº de viviendas mÃ¡ximo: &nbsp; Viviendas estimadas: 0 --> Observaciones: &nbsp; DocumentaciÃ³n adicional: RevisiÃ³n PGOU &nbsp; NÂº 7 DEL PGOU ("
+  },
+  "cold-browser-ua": {
+    "tag": "cold-browser-ua",
+    "url": "http://urbmurcia.carm.es/urbmurcia/sitmurcia/potgisfichacen.jsp?wide=4921&widi=es&x=0&y=0",
+    "status": 200,
+    "finalUrl": "https://urbmurcia.carm.es/urbmurcia/sitmurcia/potgisfichacen.jsp?wide=4921&widi=es&x=0&y=0",
+    "contentType": "text/html;charset=UTF-8",
+    "bytes": 26928,
+    "isPdf": false,
+    "sha256": "fc5681dfe4982ac819d59acdef2f1bb74053782dfa5accf3e4395a8b69a928c8",
+    "looksLikeAuthWall": false,
+    "looksEmpty": false,
+    "textLen": 1283,
+    "text": "Sitmurcia - Planeamiento UrbanÃ­stico Municipal &nbsp;&nbsp;InformaciÃ³n UrbanÃ­stica&nbsp;&gt;&nbsp; Ãmbito seleccionado Municipio: MURCIA Superficie: DenominaciÃ³n: U. Nombre: Carrascoy-La Murta. ClasificaciÃ³n del Suelo: Suelo Urbano Consolidado SUc Uso global: Residencial RES Aprovechamiento de referencia: Otros usos: Dominante Residencial Superficie total del Ã¡mbito de ordenaciÃ³n: Superficie neta del Ã¡mbito: Aprovechamiento resultante: SSGG vinculados/adscritos: &nbsp; Densidad(viv/Ha): &nbsp; Habitantes estimados por planeamiento: &nbsp; NÂº de viviendas mÃ¡ximo: &nbsp; Viviendas estimadas: 0 --> Observaciones: &nbsp; DocumentaciÃ³n adicional: RevisiÃ³n PGOU &nbsp; NÂº 7 DEL PGOU ("
+  },
+  "with-referer": {
+    "tag": "with-referer",
+    "url": "http://urbmurcia.carm.es/urbmurcia/sitmurcia/potgisfichacen.jsp?wide=4921&widi=es&x=0&y=0",
+    "status": 200,
+    "finalUrl": "https://urbmurcia.carm.es/urbmurcia/sitmurcia/potgisfichacen.jsp?wide=4921&widi=es&x=0&y=0",
+    "contentType": "text/html;charset=UTF-8",
+    "bytes": 26928,
+    "isPdf": false,
+    "sha256": "269197bc5b93add0081f14bc99822fad22d6d7feb0bd8118973b343b5a74b3cd",
+    "looksLikeAuthWall": false,
+    "looksEmpty": false,
+    "textLen": 1283,
+    "text": "Sitmurcia - Planeamiento UrbanÃ­stico Municipal &nbsp;&nbsp;InformaciÃ³n UrbanÃ­stica&nbsp;&gt;&nbsp; Ãmbito seleccionado Municipio: MURCIA Superficie: DenominaciÃ³n: U. Nombre: Carrascoy-La Murta. ClasificaciÃ³n del Suelo: Suelo Urbano Consolidado SUc Uso global: Residencial RES Aprovechamiento de referencia: Otros usos: Dominante Residencial Superficie total del Ã¡mbito de ordenaciÃ³n: Superficie neta del Ã¡mbito: Aprovechamiento resultante: SSGG vinculados/adscritos: &nbsp; Densidad(viv/Ha): &nbsp; Habitantes estimados por planeamiento: &nbsp; NÂº de viviendas mÃ¡ximo: &nbsp; Viviendas estimadas: 0 --> Observaciones: &nbsp; DocumentaciÃ³n adicional: RevisiÃ³n PGOU &nbsp; NÂº 7 DEL PGOU ("
+  },
+  "viewerRoot": {
+    "status": 404,
+    "bytes": 2292,
+    "setCookie": "uzmx=7f9000b471d4f5-4e79-490a-84b7-ec05a15791811-17856831271420-ddeb6d94bf0eabb910; Domain=.carm.es; HttpOnly; path=/; Expires=Sun, 31-Jan-27 15:05:27 GMT; Max-Age=15724800; SameSite=Lax"
+  },
+  "with-cookie": {
+    "tag": "with-cookie",
+    "url": "http://urbmurcia.carm.es/urbmurcia/sitmurcia/potgisfichacen.jsp?wide=4921&widi=es&x=0&y=0",
+    "status": 200,
+    "finalUrl": "https://validate.perfdrive.com/?ssa=05de8f8a-d3d9-4c1a-a72c-8400fd03b84a&ssb=68985220533&ssc=https%3A%2F%2Furbmurcia.carm.es%2Furbmurcia%2Fsitmurcia%2Fpotgisfichacen.jsp%3Fwide%3D4921%26widi%3Des%26x%3D0%26y%3D0&ssi=dacb5146-dpbe-4c70-9e24-b31534668e11&ssk=botmanager_support@radware.com&ssm=14942643502160108107178448140653&ssn=2b40fa3c5759cd9837293c5e034b485c524bc974908f-dad5-495b-8b9b3e&sso=76f45068-960f6dca659a1a7804f84c6a968b62d030e0eafc6ef2fa61&ssp=62184820201785623615178563723600320&ssq=78524628312860826391583128440704491202397&ssr=ODIuMTU1LjE4LjExOA==&sst=Mozilla/5.0%20(Windows%20NT%2010.0;%20Win64;%20x64)%20AppleWebKit/537.36%20(KHTML,%20like%20Gecko)%20Chrome/131.0.0.0%20Safari/537.36&ssu=&ssv=&ssw=&ssx=eyJfX3V6bWYiOiI3ZjkwMDBjOTc0OTA4Zi1kYWQ1LTQ5NWItODA2OC05NjBmNmRjYTY1OWExLTE3ODU2ODMxMjg1NTAwLTAwMjI2ZWQ5NDBlNmY1YmQ4MDAxMCIsInJkIjoiY2FybS5lcyIsInV6bXgiOiI3ZjkwMDBiMjNkMTY1MC03NDE0LTQ0YmUtOGFjOC0xZWE3ZjMxMDhiZWIxLTE3ODU2ODMxMjg1NTAwLTIwZDEwYzMzOGM5ZDQ1YmIxMCJ9",
+    "contentType": "text/html; charset=UTF-8",
+    "bytes": 15126,
+    "isPdf": false,
+    "sha256": "a0ea32a6646e21aa5dd91ca468611760595dc01bf32b30a063a5d241f96dfbea",
+    "looksLikeAuthWall": false,
+    "looksEmpty": false,
+    "textLen": 768,
+    "text": "Radware Captcha Page We apologize for the inconvenience... ...but your activity and behavior on this site made us think that you are a bot. Note: A number of things could be going on here. If you are attempting to access this site using an anonymous Private/Proxy network, please disable that and try accessing site again. Due to previously detected malicious behavior which originated from the network you're using, please request unblock to site. Incident ID: dacb5146-dpbe-4c70-9e24-b31534668e11 Please solve this CAPTCHA to request unblock to the website You reached this page when trying to access https://urbmurcia.carm.es/urbmurcia/sitmurcia/potgisfichacen.jsp?wide=4921&amp;amp;widi=es&amp;am"
+  },
+  "with-cookie-and-referer": {
+    "tag": "with-cookie-and-referer",
+    "url": "http://urbmurcia.carm.es/urbmurcia/sitmurcia/potgisfichacen.jsp?wide=4921&widi=es&x=0&y=0",
+    "status": 200,
+    "finalUrl": "https://validate.perfdrive.com/?ssa=862509e2-6fc4-413d-b7db-6a6719df677c&ssb=67110226261&ssc=https%3A%2F%2Furbmurcia.carm.es%2Furbmurcia%2Fsitmurcia%2Fpotgisfichacen.jsp%3Fwide%3D4921%26widi%3Des%26x%3D0%26y%3D0&ssi=5210aac3-dpbe-4541-a932-04a335673e2e&ssk=botmanager_support@radware.com&ssm=93910294039691581102816613454812&ssn=3c64fc9e7c818a16e46be08ca53e925f4f0abea67d93-4e60-4990-a28fc7&sso=1dfdd095-220c0aa2fd2e24f52cd0e68ad9f42665edf79ddc56c01d75&ssp=58530483781785655528178566688462656&ssq=68460548312997631359183129737994980343065&ssr=ODIuMTU1LjE4LjExOA==&sst=Mozilla/5.0%20(Windows%20NT%2010.0;%20Win64;%20x64)%20AppleWebKit/537.36%20(KHTML,%20like%20Gecko)%20Chrome/131.0.0.0%20Safari/537.36&ssu=&ssv=&ssw=&ssx=eyJfX3V6bWYiOiI3ZjkwMDBiZWE2N2Q5My00ZTYwLTQ5OTAtYTA5NS0yMjBjMGFhMmZkMmUxLTE3ODU2ODMxMjk5NTgwLTAwMjk4MjJiOWI2NzE1NTk0NWIxMCIsInJkIjoiY2FybS5lcyIsInV6bXgiOiI3ZjkwMDA3N2E4NTJlOC1kNzAwLTQ4ODgtOTU0My02ZGI0Y2EyNDQwMDYxLTE3ODU2ODMxMjk5NTgwLTAyZjhmYjA0NTQ1ZjEwZTUxMCJ9",
+    "contentType": "text/html; charset=UTF-8",
+    "bytes": 15126,
+    "isPdf": false,
+    "sha256": "7b2ff3920a00af9d7184565b6a25db6299b97b02e6081877c5bfe3271d4bbf97",
+    "looksLikeAuthWall": false,
+    "looksEmpty": false,
+    "textLen": 768,
+    "text": "Radware Captcha Page We apologize for the inconvenience... ...but your activity and behavior on this site made us think that you are a bot. Note: A number of things could be going on here. If you are attempting to access this site using an anonymous Private/Proxy network, please disable that and try accessing site again. Due to previously detected malicious behavior which originated from the network you're using, please request unblock to site. Incident ID: 5210aac3-dpbe-4541-a932-04a335673e2e Please solve this CAPTCHA to request unblock to the website You reached this page when trying to access https://urbmurcia.carm.es/urbmurcia/sitmurcia/potgisfichacen.jsp?wide=4921&amp;amp;widi=es&amp;am"
+  },
+  "verdict": {
+    "armsAttempted": 5,
+    "armsServingContent": 5,
+    "distinctBodyHashesAcrossArms": 5,
+    "coldBareClientServesContent": true,
+    "classification": "ADDRESSABLE (after an UNPUBLISHED scheme-upgrade rewrite) — no Referer, no cookie, no browser UA",
+    "publishedUrlResolves": false,
+    "caveat": "the URL PUBLISHED in Enlace_ficha (http://opweb.carm.es/…) is HTTP 404. Reachability requires a scheme upgrade to https:// which then 302s to urbmurcia.carm.es. That rewrite is NOT published anywhere in the WFS attribute — it was discovered by probing."
+  },
+  "shape": {
+    "bytes": 15126,
+    "isPdf": false,
+    "contentType": "text/html; charset=UTF-8",
+    "links": [
+      "https://captcha.perfdrive.com/captcha-public/css/shieldsquare_styles.min.css",
+      "https://captcha.perfdrive.com/captcha-public/images/ss_captcha.png",
+      "https://hcaptcha.com/1/api.js?recaptchacompat=off"
+    ],
+    "pdfLinks": [],
+    "frames": [],
+    "text": "Radware Captcha Page\n    \n     \n \n    \n    \n        \n            \n        \n        \n            \nWe apologize for the inconvenience...\n            \n...but your activity and behavior on this site made us think that you are a bot.\n            \nNote:\n A number of things could be going on here.\n            \n                \nIf you are attempting to access this site using an anonymous Private/Proxy network, please disable that and try accessing site again.\n                \nDue to previously detected malicious behavior which originated from the network you're using, please request unblock to site.\n            \n        \n    \n    \nIncident ID:\n 7f436af7-dpbe-41c7-b57d-3b40a341d2fd\n    \n        \n        \n            \n                \n Please solve this CAPTCHA to request unblock to the website \n            \n        \n        \n        \n            \n                 \n                \n                \n                    \n                    \n                \n            \n        \n    \n    \n\t\n\t\tYou reached this page when trying to access\n\t\t\nhttps://urbmurcia.carm.es/urbmurcia/sitmurcia/potgisfichacen.jsp?wide=4921&amp;amp;widi=es&amp;amp;x=0&amp;amp;y=0\n from\n\t\t\n82.155.18.118\n on\n\t\t\nAugust 02 2026, 15:05:31 UTC"
+  }
+}

@@ -1,0 +1,379 @@
+{
+  "step": 15,
+  "measuredAt": "2026-08-02T15:40:53.871Z",
+  "notes": [],
+  "linkRouting": {
+    "rows": 9469,
+    "withLink": 9469,
+    "distinctLinksClientSide": 9250,
+    "distinctWideIds": 9250,
+    "distinctPerRow": 0.9769,
+    "maxRowsSharingOneLink": 43,
+    "medianMultiplicity": 1,
+    "serverSideOracle": [
+      {
+        "link": "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=8861&widi=es&x=0&y=0",
+        "clientCount": 43,
+        "serverCount": 43,
+        "agrees": true
+      },
+      {
+        "link": "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=7940&widi=es&x=0&y=0",
+        "clientCount": 13,
+        "serverCount": 13,
+        "agrees": true
+      },
+      {
+        "link": "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=11104&widi=es&x=0&y=0",
+        "clientCount": 12,
+        "serverCount": 12,
+        "agrees": true
+      },
+      {
+        "link": "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=9537&widi=es&x=0&y=0",
+        "clientCount": 1,
+        "serverCount": 1,
+        "agrees": true
+      },
+      {
+        "link": "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=10691&widi=es&x=0&y=0",
+        "clientCount": 1,
+        "serverCount": 1,
+        "agrees": true
+      }
+    ],
+    "oracleAgreesWithClient": true,
+    "defectApplicable": false,
+    "defectReason": "GeoServer WFS 2.0.0 — there is no `returnDistinctValues` / `resultRecordCount` pair in this protocol and none was sent. Distinct counts are computed client-side over a row set proven complete by numberMatched === features.length.",
+    "verdict": "PER-FEATURE ROUTING. 9250 distinct links / 9250 distinct opaque `wide` ids over 9469 rows (97.7 % distinct); the most-shared link covers only 43 rows. Server-side hits oracle agrees with the client count on every probe. This is NOT a register homepage (contrast València: 99 % coverage, 20 distinct)."
+  },
+  "byteHashControl": {
+    "documentsHarvested": 1,
+    "distinctHashes": 1,
+    "detail": [
+      {
+        "file": "ficha-4921.html",
+        "bytes": 26928,
+        "sha256": "e1fb9f430dec5e3f8f3bdd991b4f4b7e2feb5d6db8036f411e5d26f8c076e62c"
+      }
+    ],
+    "status": "BLOCKED — see report.wafBlock",
+    "note": "The preferred headline control, because it never asks the server to de-duplicate and is therefore immune to the reported ArcGIS defect entirely. ⛔ THIS RUN COULD NOT REACH n=14: the Radware WAF at urbmurcia.carm.es IP-blocked this client. The count below is what was actually obtained and is NOT presented as a corpus rate."
+  },
+  "privateVsPublic": {
+    "buildableNow_Mm2": 557.414,
+    "privateDevelopable_Mm2": 507.613,
+    "publicSystems_Mm2": 49.802,
+    "publicSharePct": 8.93,
+    "privateSharePct": 91.07,
+    "publicUsesTreatedAsNonPrivate": [
+      "Espacios Libres",
+      "Equipamientos",
+      "Comunicaciones",
+      "Infraestructuras - Servicios",
+      "Hidráulico",
+      "Protección Medio Ambiente"
+    ],
+    "privateUses": [
+      "Residencial",
+      "Industrial",
+      "Residencial de mínima densidad",
+      "Residencial de alta densidad",
+      "Residencial de baja densidad",
+      "Residencial de media densidad",
+      "Terciario",
+      "De Actividades Económicas",
+      "Area de Valor Paisajístico-Ambiental",
+      "Protección Vía Pecuaria",
+      "Otras dotaciones",
+      "Camping",
+      "Terciario comercial",
+      "Protección de Cauces",
+      "Terciario hotelero",
+      "Espacios Protegidos"
+    ],
+    "balearsComparison": "Balears measured 32.55 % of its buildable land as public/systems."
+  },
+  "perMunicipality": [
+    {
+      "municipio": "Murcia",
+      "privateDevelopable_Mm2": 116.897,
+      "publicSystems_Mm2": 3.39,
+      "publicSharePct": 2.82,
+      "privateRows": 946,
+      "publicRows": 113
+    },
+    {
+      "municipio": "Molina de Segura",
+      "privateDevelopable_Mm2": 58.01,
+      "publicSystems_Mm2": 6.563,
+      "publicSharePct": 10.16,
+      "privateRows": 217,
+      "publicRows": 198
+    },
+    {
+      "municipio": "Lorca",
+      "privateDevelopable_Mm2": 47.442,
+      "publicSystems_Mm2": 9.355,
+      "publicSharePct": 16.47,
+      "privateRows": 277,
+      "publicRows": 306
+    },
+    {
+      "municipio": "Cartagena",
+      "privateDevelopable_Mm2": 37.002,
+      "publicSystems_Mm2": 3.023,
+      "publicSharePct": 7.55,
+      "privateRows": 90,
+      "publicRows": 102
+    },
+    {
+      "municipio": "Abanilla",
+      "privateDevelopable_Mm2": 21.01,
+      "publicSystems_Mm2": 3.53,
+      "publicSharePct": 14.39,
+      "privateRows": 78,
+      "publicRows": 222
+    },
+    {
+      "municipio": "Fuente Álamo",
+      "privateDevelopable_Mm2": 20.559,
+      "publicSystems_Mm2": 1.412,
+      "publicSharePct": 6.43,
+      "privateRows": 89,
+      "publicRows": 118
+    },
+    {
+      "municipio": "Caravaca de la Cruz",
+      "privateDevelopable_Mm2": 18.561,
+      "publicSystems_Mm2": 4.235,
+      "publicSharePct": 18.58,
+      "privateRows": 108,
+      "publicRows": 84
+    },
+    {
+      "municipio": "Torre Pacheco",
+      "privateDevelopable_Mm2": 18.551,
+      "publicSystems_Mm2": 0.812,
+      "publicSharePct": 4.19,
+      "privateRows": 106,
+      "publicRows": 46
+    },
+    {
+      "municipio": "Fortuna",
+      "privateDevelopable_Mm2": 15.988,
+      "publicSystems_Mm2": 0.076,
+      "publicSharePct": 0.47,
+      "privateRows": 81,
+      "publicRows": 7
+    },
+    {
+      "municipio": "Cieza",
+      "privateDevelopable_Mm2": 14.797,
+      "publicSystems_Mm2": 5.42,
+      "publicSharePct": 26.81,
+      "privateRows": 57,
+      "publicRows": 159
+    },
+    {
+      "municipio": "Alhama de Murcia",
+      "privateDevelopable_Mm2": 14.479,
+      "publicSystems_Mm2": 1.876,
+      "publicSharePct": 11.47,
+      "privateRows": 116,
+      "publicRows": 147
+    },
+    {
+      "municipio": "San Javier",
+      "privateDevelopable_Mm2": 14.479,
+      "publicSystems_Mm2": 0.697,
+      "publicSharePct": 4.59,
+      "privateRows": 79,
+      "publicRows": 46
+    },
+    {
+      "municipio": "Ulea",
+      "privateDevelopable_Mm2": 10.832,
+      "publicSystems_Mm2": 0.03,
+      "publicSharePct": 0.28,
+      "privateRows": 23,
+      "publicRows": 31
+    },
+    {
+      "municipio": "Moratalla",
+      "privateDevelopable_Mm2": 10.051,
+      "publicSystems_Mm2": 1.013,
+      "publicSharePct": 9.16,
+      "privateRows": 43,
+      "publicRows": 95
+    },
+    {
+      "municipio": "Mazarrón",
+      "privateDevelopable_Mm2": 8.588,
+      "publicSystems_Mm2": 0.393,
+      "publicSharePct": 4.38,
+      "privateRows": 52,
+      "publicRows": 30
+    },
+    {
+      "municipio": "Jumilla",
+      "privateDevelopable_Mm2": 8.429,
+      "publicSystems_Mm2": 1.306,
+      "publicSharePct": 13.42,
+      "privateRows": 69,
+      "publicRows": 127
+    },
+    {
+      "municipio": "Santomera",
+      "privateDevelopable_Mm2": 7.88,
+      "publicSystems_Mm2": 0,
+      "publicSharePct": 0,
+      "privateRows": 97,
+      "publicRows": 0
+    },
+    {
+      "municipio": "Los Alcázares",
+      "privateDevelopable_Mm2": 6.839,
+      "publicSystems_Mm2": 0.433,
+      "publicSharePct": 5.96,
+      "privateRows": 15,
+      "publicRows": 31
+    },
+    {
+      "municipio": "Alcantarilla",
+      "privateDevelopable_Mm2": 5.986,
+      "publicSystems_Mm2": 0.075,
+      "publicSharePct": 1.23,
+      "privateRows": 76,
+      "publicRows": 2
+    },
+    {
+      "municipio": "Lorquí",
+      "privateDevelopable_Mm2": 5.341,
+      "publicSystems_Mm2": 0.247,
+      "publicSharePct": 4.43,
+      "privateRows": 35,
+      "publicRows": 25
+    },
+    {
+      "municipio": "Yecla",
+      "privateDevelopable_Mm2": 4.868,
+      "publicSystems_Mm2": 0.549,
+      "publicSharePct": 10.14,
+      "privateRows": 21,
+      "publicRows": 2
+    },
+    {
+      "municipio": "La Unión",
+      "privateDevelopable_Mm2": 4.763,
+      "publicSystems_Mm2": 0.424,
+      "publicSharePct": 8.18,
+      "privateRows": 15,
+      "publicRows": 43
+    },
+    {
+      "municipio": "Blanca",
+      "privateDevelopable_Mm2": 4.702,
+      "publicSystems_Mm2": 1.32,
+      "publicSharePct": 21.92,
+      "privateRows": 25,
+      "publicRows": 58
+    },
+    {
+      "municipio": "San Pedro del Pinatar",
+      "privateDevelopable_Mm2": 4.458,
+      "publicSystems_Mm2": 0.105,
+      "publicSharePct": 2.31,
+      "privateRows": 12,
+      "publicRows": 2
+    },
+    {
+      "municipio": "Archena",
+      "privateDevelopable_Mm2": 4.012,
+      "publicSystems_Mm2": 0.416,
+      "publicSharePct": 9.39,
+      "privateRows": 48,
+      "publicRows": 17
+    },
+    {
+      "municipio": "Campos del Río",
+      "privateDevelopable_Mm2": 3.645,
+      "publicSystems_Mm2": 0.44,
+      "publicSharePct": 10.76,
+      "privateRows": 27,
+      "publicRows": 5
+    },
+    {
+      "municipio": "Ceutí",
+      "privateDevelopable_Mm2": 3.627,
+      "publicSystems_Mm2": 0,
+      "publicSharePct": 0,
+      "privateRows": 19,
+      "publicRows": 0
+    },
+    {
+      "municipio": "Mula",
+      "privateDevelopable_Mm2": 3.545,
+      "publicSystems_Mm2": 0.547,
+      "publicSharePct": 13.36,
+      "privateRows": 79,
+      "publicRows": 82
+    },
+    {
+      "municipio": "Calasparra",
+      "privateDevelopable_Mm2": 3.211,
+      "publicSystems_Mm2": 0.279,
+      "publicSharePct": 7.99,
+      "privateRows": 25,
+      "publicRows": 41
+    },
+    {
+      "municipio": "Bullas",
+      "privateDevelopable_Mm2": 3.021,
+      "publicSystems_Mm2": 0.437,
+      "publicSharePct": 12.63,
+      "privateRows": 53,
+      "publicRows": 88
+    },
+    {
+      "municipio": "Pliego",
+      "privateDevelopable_Mm2": 2.309,
+      "publicSystems_Mm2": 0.615,
+      "publicSharePct": 21.04,
+      "privateRows": 25,
+      "publicRows": 134
+    },
+    {
+      "municipio": "Ricote",
+      "privateDevelopable_Mm2": 2.235,
+      "publicSystems_Mm2": 0.433,
+      "publicSharePct": 16.22,
+      "privateRows": 9,
+      "publicRows": 41
+    },
+    {
+      "municipio": "Abarán",
+      "privateDevelopable_Mm2": 1.496,
+      "publicSystems_Mm2": 0.351,
+      "publicSharePct": 18.99,
+      "privateRows": 43,
+      "publicRows": 91
+    }
+  ],
+  "weighting": {
+    "privateRows": 3055,
+    "publicRows": 2493,
+    "publicShare_ROW_weighted_pct": 44.94,
+    "publicShare_LAND_weighted_pct": 8.93,
+    "landConcentration": {
+      "top1pctOfRecordsGovernPctOfPrivateLand": 22.27,
+      "top10pctOfRecordsGovernPctOfPrivateLand": 63.38,
+      "balearsComparison": "Balears: top 1 % of zone records govern 32.0 % of buildable land"
+    },
+    "statement": "Every rate in this tool that is scored against LAND is AREA-WEIGHTED (m² in native EPSG:25830). Every rate scored against DOCUMENTS is ROW-WEIGHTED. They are never mixed and never averaged together."
+  },
+  "partials": {
+    "balears": "complete 61.4 % + partial-drawable 12.7 % = 74.1 % any-drawable; FAR-alone-without-height 1.6 %",
+    "murcia": "The partials lever cannot pay here, and the reason is structural rather than a threshold choice: a partial requires SOME shape constraint — a height with no footprint, or a footprint with no height. Murcia publishes NEITHER, on any of the 14 regional layers and in the ficha's fixed label set. Its published quantity is exclusively FAR-alone-without-height, which is precisely the 1.6 % tier Balears could afford to discard. So Murcia is 0 % complete, 0 % partial, 100 % not-drawable — and lowering the bar to \"partial\" recovers nothing, because there is no shape term to be partial ABOUT."
+  }
+}

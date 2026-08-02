@@ -1,0 +1,313 @@
+{
+  "step": 5,
+  "measuredAt": "2026-08-02T15:03:52.198Z",
+  "arms": [
+    {
+      "tag": "opweb-root-http",
+      "url": "http://opweb.carm.es/",
+      "status": 200,
+      "contentType": "text/html",
+      "location": null,
+      "bytes": 159,
+      "isPdf": false,
+      "sha256": "8baeec38412d1d9ca9c07cd2ffed76057185330e1f63ed0caa79d9f19f1256be",
+      "text": " CARM Lo sentimos, pero el contenido que solicita no se encuentra en nuestros servidores. "
+    },
+    {
+      "tag": "opweb-root-https",
+      "url": "https://opweb.carm.es/",
+      "status": 403,
+      "contentType": "text/html; charset=iso-8859-1",
+      "location": null,
+      "bytes": 239,
+      "isPdf": false,
+      "sha256": "ab768623070128ccef048c88def86155dbe776c3d8db423cc8fa89432673d8a8",
+      "text": " 403 Forbidden Forbidden You don't have permission to access this resource. "
+    },
+    {
+      "tag": "opweb-sitmurcia-http",
+      "url": "http://opweb.carm.es/sitmurcia/",
+      "status": 404,
+      "contentType": "text/html; charset=iso-8859-1",
+      "location": null,
+      "bytes": 236,
+      "isPdf": false,
+      "sha256": "9448f8a1159c9b14e3e1b9d8eab1a6ddf88d26e1f888a34cef430c756e4e6e1e",
+      "text": " 404 Not Found Not Found The requested URL was not found on this server. "
+    },
+    {
+      "tag": "opweb-sitmurcia-https",
+      "url": "https://opweb.carm.es/sitmurcia/",
+      "status": 302,
+      "contentType": "text/html; charset=iso-8859-1",
+      "location": "http://urbmurcia.carm.es/urbmurcia/sitmurcia/",
+      "bytes": 269,
+      "isPdf": false,
+      "sha256": "15ad90b14bdbca87463680e3ebf545c3df69c45f6662c0eb74cfa41a6811ab6a",
+      "text": " 302 Found Found The document has moved here . "
+    },
+    {
+      "tag": "published-link-https",
+      "url": "https://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=4921&widi=es&x=0&y=0",
+      "status": 302,
+      "contentType": "text/html; charset=iso-8859-1",
+      "location": "http://urbmurcia.carm.es/urbmurcia/sitmurcia/potgisfichacen.jsp?wide=4921&widi=es&x=0&y=0",
+      "bytes": 325,
+      "isPdf": false,
+      "sha256": "5461526b6697f98d603566e920d5aff66c131df1de4232b0308fe36bba8881e4",
+      "text": " 302 Found Found The document has moved here . "
+    },
+    {
+      "tag": "sitmurcia-root",
+      "url": "https://sitmurcia.carm.es/",
+      "status": 200,
+      "contentType": "text/html;charset=UTF-8",
+      "location": null,
+      "bytes": 143180,
+      "isPdf": false,
+      "sha256": "5014038f288be8959b22aa74c43c75302fee0109e872ec72f899b7ef62b8ac9d",
+      "text": " Inicio - sitmurcia #p_p_id_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_7RVQw1bWpRsK_ .portlet-content { } #p_p_id_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_FumbPaMSNrTs_ .portlet-content { } #p_p_id_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_Srs2TZ98yfOB_ .portlet-content { } #p_p_id_com_liferay_journal_content_we"
+    },
+    {
+      "tag": "sitmurcia-web",
+      "url": "https://sitmurcia.carm.es/web/guest",
+      "status": 200,
+      "contentType": "text/html;charset=UTF-8",
+      "location": null,
+      "bytes": 144830,
+      "isPdf": false,
+      "sha256": "b44c7ed206c9811104fff7b1b0c376fd408d140fbde7f1ac0e8e9ca01ef964b0",
+      "text": " Inicio - sitmurcia #p_p_id_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_7RVQw1bWpRsK_ .portlet-content { } #p_p_id_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_FumbPaMSNrTs_ .portlet-content { } #p_p_id_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_Srs2TZ98yfOB_ .portlet-content { } #p_p_id_com_liferay_journal_content_we"
+    },
+    {
+      "tag": "sitmurcia-fichacen",
+      "url": "https://sitmurcia.carm.es/potgisfichacen.jsp?wide=4921&widi=es",
+      "status": 404,
+      "contentType": "text/html;charset=UTF-8",
+      "location": null,
+      "bytes": 124462,
+      "isPdf": false,
+      "sha256": "2ea85b3a53489898e41e5a49a73901853bf77514150ae2141a537055b8a18e85",
+      "text": " 404 - sitmurcia #p_p_id_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_7RVQw1bWpRsK_ .portlet-content { } #p_p_id_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_FumbPaMSNrTs_ .portlet-content { } #p_p_id_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_Srs2TZ98yfOB_ .portlet-content { } #p_p_id_com_liferay_journal_content_web_p"
+    },
+    {
+      "tag": "sitmurcia-sitmurcia-fichacen",
+      "url": "https://sitmurcia.carm.es/sitmurcia/potgisfichacen.jsp?wide=4921&widi=es",
+      "status": 404,
+      "contentType": "text/html;charset=UTF-8",
+      "location": null,
+      "bytes": 123061,
+      "isPdf": false,
+      "sha256": "30ae597a579204d84dd717d0a4673f996e6b4ae6b8dce1ac315cf8042f64ece0",
+      "text": " 404 - sitmurcia #p_p_id_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_7RVQw1bWpRsK_ .portlet-content { } #p_p_id_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_FumbPaMSNrTs_ .portlet-content { } #p_p_id_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_Srs2TZ98yfOB_ .portlet-content { } #p_p_id_com_liferay_journal_content_web_p"
+    },
+    {
+      "tag": "carm-opweb2",
+      "url": "https://www.carm.es/sitmurcia/potgisfichacen.jsp?wide=4921&widi=es",
+      "status": 404,
+      "contentType": "text/html; charset=iso-8859-1",
+      "location": null,
+      "bytes": 1534,
+      "isPdf": false,
+      "sha256": "ade45b44f98522f0e6a1aed2f0cfae70035941bed56750b50c290be282923cad",
+      "text": " 404 Not Found Not Found The requested URL was not found on this server. "
+    },
+    {
+      "tag": "sigmurcia",
+      "url": "https://sigmurcia.carm.es/sitmurcia/potgisfichacen.jsp?wide=4921&widi=es",
+      "error": "fetch failed"
+    },
+    {
+      "tag": "mapas-gis-inter-root",
+      "url": "https://mapas-gis-inter.carm.es/",
+      "status": 302,
+      "contentType": "text/html; charset=iso-8859-1",
+      "location": "https://mapas-gis-inter.carm.es/mapstore/",
+      "bytes": 265,
+      "isPdf": false,
+      "sha256": "627afe48e07b50f04b1d4b9745decfbcae3b11f4afa27fc36a90349a6fec3bd9",
+      "text": " 302 Found Found The document has moved here . "
+    },
+    {
+      "tag": "mapas-gis-fichacen",
+      "url": "https://mapas-gis-inter.carm.es/sitmurcia/potgisfichacen.jsp?wide=4921&widi=es",
+      "status": 403,
+      "contentType": "text/html; charset=iso-8859-1",
+      "location": null,
+      "bytes": 199,
+      "isPdf": false,
+      "sha256": "5b13fb5957b84ef7bb9d0b6cd509c947ff6a37d67efdac2b896ddd3b908aad10",
+      "text": " 403 Forbidden Forbidden You don't have permission to access this resource. "
+    },
+    {
+      "tag": "carm-es-root",
+      "url": "https://www.carm.es/",
+      "status": 302,
+      "contentType": "text/html; charset=iso-8859-1",
+      "location": "https://www.carm.es/web/pagina?IDCONTENIDO=1&IDTIPO=180",
+      "bytes": 1581,
+      "isPdf": false,
+      "sha256": "f911c970dc54452705f49f7f68b1e712431064998c5469c352c18465e8510c66",
+      "text": " 302 Found Found The document has moved here . "
+    },
+    {
+      "tag": "carm-urbanismo",
+      "url": "https://www.carm.es/web/pagina?IDCONTENIDO=1&IDTIPO=180",
+      "status": 200,
+      "contentType": "text/html;charset=UTF-8",
+      "location": null,
+      "bytes": 54697,
+      "isPdf": false,
+      "sha256": "bb8af739e5136a63749d3b573ec4fc68737b6dc013aa234f149b5bac9d3eb1a7",
+      "text": " CARM.es - Portal CARM --> :root .afs_ads { display: none !important; } /CARM/js/jquery/jquery.dataTables.columnFilter.js\"> Saltar la informaci&oacute;n de la cabecera Portal CARM \"> /CARM/images/letra_mas.png\" alt=\"Aumentar el tama&ntilde;o de las fuentes\" title=\"Aumentar el tama&ntilde;o de las fuentes\"/> --> images/ico_inicio.png\" alt=\"Inicio\"/> Tama&ntilde;o letra Menu Presidente Gobierno Regi"
+    },
+    {
+      "tag": "sitmurcia-descarga",
+      "url": "https://sitmurcia.carm.es/wfs-descarga",
+      "status": 200,
+      "contentType": "text/html;charset=UTF-8",
+      "location": null,
+      "bytes": 128675,
+      "isPdf": false,
+      "sha256": "e9c3d574c6bb9afec5c6777baa1abced0412832a2fcec03020b625715b610a48",
+      "text": " WFS. Descarga - sitmurcia #p_p_id_com_liferay_journal_content_web_portlet_JournalContentPortlet_INSTANCE_socialMediaFooter_ .portlet-content { } #p_p_id_com_liferay_site_navigation_menu_web_portlet_SiteNavigationMenuPortlet_INSTANCE_menu_footer_four_ .portlet-content { } #p_p_id_com_liferay_site_navigation_menu_web_portlet_SiteNavigationMenuPortlet_INSTANCE_menu_footer_one_ .portlet-content { } #"
+    },
+    {
+      "tag": "borm-Calasparra",
+      "url": "http://www.borm.es/borm/documento?obj=anu&id=72217",
+      "status": 301,
+      "contentType": "text/html",
+      "location": "https://www.borm.es:443/borm/documento?obj=anu&id=72217",
+      "bytes": 161,
+      "isPdf": false,
+      "sha256": "105ee7acad71afb0cdfc90f16325347605dc47272abede22d916b6e9c539df10",
+      "text": " 301 Moved Permanently 301 Moved Permanently rdwr "
+    },
+    {
+      "tag": "borm-Archena",
+      "url": "http://www.borm.es/borm/documento?obj=anu&id=73517",
+      "status": 301,
+      "contentType": "text/html",
+      "location": "https://www.borm.es:443/borm/documento?obj=anu&id=73517",
+      "bytes": 161,
+      "isPdf": false,
+      "sha256": "105ee7acad71afb0cdfc90f16325347605dc47272abede22d916b6e9c539df10",
+      "text": " 301 Moved Permanently 301 Moved Permanently rdwr "
+    },
+    {
+      "tag": "borm-Bullas",
+      "url": "http://www.borm.es/borm/documento?obj=bol&id=8176",
+      "status": 301,
+      "contentType": "text/html",
+      "location": "https://www.borm.es:443/borm/documento?obj=bol&id=8176",
+      "bytes": 161,
+      "isPdf": false,
+      "sha256": "105ee7acad71afb0cdfc90f16325347605dc47272abede22d916b6e9c539df10",
+      "text": " 301 Moved Permanently 301 Moved Permanently rdwr "
+    }
+  ],
+  "notes": [],
+  "linkShapes": {
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbano": {
+      "rows": 3620,
+      "withLink": 3620,
+      "pct": 100,
+      "hosts": {
+        "opweb.carm.es": 3620
+      },
+      "paths": {
+        "/sitmurcia/potgisfichacen.jsp": 3620
+      },
+      "sample": "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=9537&widi=es&x=0&y=0"
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbanizable": {
+      "rows": 2521,
+      "withLink": 2521,
+      "pct": 100,
+      "hosts": {
+        "opweb.carm.es": 2521
+      },
+      "paths": {
+        "/sitmurcia/potgisfichacen.jsp": 2521
+      },
+      "sample": "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12725&widi=es&x=0&y=0"
+    },
+    "SIT_USU_PLA_URB_CARM:sg_plu_ze_37mun": {
+      "rows": 4949,
+      "withLink": 4949,
+      "pct": 100,
+      "hosts": {
+        "opweb.carm.es": 4949
+      },
+      "paths": {
+        "/sitmurcia/potgisfichacen.jsp": 4949
+      },
+      "sample": "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=10691&widi=es&x=0&y=0"
+    },
+    "SIT_USU_PLA_URB_CARM:plu_sgl_37mun": {
+      "rows": 320,
+      "withLink": 320,
+      "pct": 100,
+      "hosts": {
+        "opweb.carm.es": 320
+      },
+      "paths": {
+        "/sitmurcia/potgisfichacen.jsp": 320
+      },
+      "sample": "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=4401&widi=es&x=0&y=0"
+    },
+    "SIT_USU_PLA_URB_CARM:clases_plu_ze_37mun": {
+      "rows": 9469,
+      "withLink": 9469,
+      "pct": 100,
+      "hosts": {
+        "opweb.carm.es": 9469
+      },
+      "paths": {
+        "/sitmurcia/potgisfichacen.jsp": 9469
+      },
+      "sample": "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=9537&widi=es&x=0&y=0"
+    }
+  },
+  "bormProbe": [
+    {
+      "municipio": "Calasparra",
+      "ley": "TR1992",
+      "tag": "borm-Calasparra",
+      "url": "http://www.borm.es/borm/documento?obj=anu&id=72217",
+      "status": 301,
+      "contentType": "text/html",
+      "location": "https://www.borm.es:443/borm/documento?obj=anu&id=72217",
+      "bytes": 161,
+      "isPdf": false,
+      "sha256": "105ee7acad71afb0cdfc90f16325347605dc47272abede22d916b6e9c539df10",
+      "text": " 301 Moved Permanently 301 Moved Permanently rdwr "
+    },
+    {
+      "municipio": "Archena",
+      "ley": "LEY1998",
+      "tag": "borm-Archena",
+      "url": "http://www.borm.es/borm/documento?obj=anu&id=73517",
+      "status": 301,
+      "contentType": "text/html",
+      "location": "https://www.borm.es:443/borm/documento?obj=anu&id=73517",
+      "bytes": 161,
+      "isPdf": false,
+      "sha256": "105ee7acad71afb0cdfc90f16325347605dc47272abede22d916b6e9c539df10",
+      "text": " 301 Moved Permanently 301 Moved Permanently rdwr "
+    },
+    {
+      "municipio": "Bullas",
+      "ley": "TR1992",
+      "tag": "borm-Bullas",
+      "url": "http://www.borm.es/borm/documento?obj=bol&id=8176",
+      "status": 301,
+      "contentType": "text/html",
+      "location": "https://www.borm.es:443/borm/documento?obj=bol&id=8176",
+      "bytes": 161,
+      "isPdf": false,
+      "sha256": "105ee7acad71afb0cdfc90f16325347605dc47272abede22d916b6e9c539df10",
+      "text": " 301 Moved Permanently 301 Moved Permanently rdwr "
+    }
+  ]
+}

@@ -1,0 +1,1448 @@
+{
+  "step": 1,
+  "measuredAt": "2026-08-02T14:57:16.037Z",
+  "service": "https://mapas-gis-inter.carm.es/geoserver/SIT_USU_PLA_URB_CARM/wfs",
+  "notes": [],
+  "workspaceLayers": [
+    "SIT_USU_PLA_URB_CARM:clases_plu_ze_37mun",
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_no_urbanizable",
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_sin_clasificar",
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbanizable",
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbano",
+    "SIT_USU_PLA_URB_CARM:plu_prot_vp",
+    "SIT_USU_PLA_URB_CARM:plu_sgl_37mun",
+    "SIT_USU_PLA_URB_CARM:plu_ze_37_mun_uso_suelo",
+    "SIT_USU_PLA_URB_CARM:sg_plu_ze_37mun",
+    "SIT_USU_PLA_URB_CARM:sg_tipos_plu_ze_37mun",
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_lin",
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_pol",
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_pto",
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_vp"
+  ],
+  "globalLayerCount": 427,
+  "globalPlanningLayers": [
+    "SIT_EDI_SIVMURCIA_CARM:siv_construc_urbana",
+    "SIT_EDI_SIVMURCIA_CARM:siv_limites_urbana",
+    "SIT_EDI_SIVMURCIA_CARM:siv_parcela_urbana",
+    "SIT_USU_DPOT_ALTIPLANO_CARM:prot_bic_no_urbano",
+    "SIT_USU_DPOT_MULA_CARM:proteccion_bic_no_urbano",
+    "SIT_USU_DPOT_NOROESTE_CARM:proteccion_bic_no_urbano",
+    "SIT_USU_PLA_URB_CARM:clases_plu_ze_37mun",
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_no_urbanizable",
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_sin_clasificar",
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbanizable",
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbano",
+    "SIT_USU_PLA_URB_CARM:plu_prot_vp",
+    "SIT_USU_PLA_URB_CARM:plu_sgl_37mun",
+    "SIT_USU_PLA_URB_CARM:plu_ze_37_mun_uso_suelo",
+    "SIT_USU_PLA_URB_CARM:sg_plu_ze_37mun",
+    "SIT_USU_PLA_URB_CARM:sg_tipos_plu_ze_37mun",
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_lin",
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_pol",
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_pto",
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_vp",
+    "SIT_USU_PLU_CARM:plu_sp_vigente",
+    "SIT_USU_PLU_CARM:sitmurcia_plu_sp",
+    "SIT_USU_PLU_CARM:sitmurcia_plu_sr",
+    "SIT_USU_PLU_CARM:sitmurcia_plu_ze",
+    "URB_PLU_ITUPL1_CARM:Cartografia basica regional (00)",
+    "URB_PLU_ITUPL1_CARM:nnss_caminos",
+    "URB_PLU_ITUPL1_CARM:nnss_usos"
+  ],
+  "globalWorkspaces": [
+    "ALO_INF_EIEL_ABASTECIMIENTO",
+    "ALO_INF_EIEL_ALUMBRADO",
+    "ALO_INF_EIEL_EQUIPAMIENTOS",
+    "ALO_INF_EIEL_MUNICIPIO",
+    "ALO_INF_EIEL_NUCLEO_CARM",
+    "ALO_INF_EIEL_RESIDUOS",
+    "ALO_INF_EIEL_SANEAMIENTO",
+    "ALO_INF_EIEL_TRANSPORTES",
+    "ALO_INF_EIEL_VIARIO",
+    "CRE_DEM_EST_CARM",
+    "CRT_RTR_VIAS_COM_CARM",
+    "EDU_SUP_CENTROSEDU_CARM",
+    "GAN_AGR_GANADERIA_CARM",
+    "MAP_UAD_DIVISION-ADMINISTRATIVA_CARM",
+    "MA_ESP_RECREOMARITIMO_MARMENOR_CARM",
+    "PCU_LUP_BIENES_CULTURALES_CARM",
+    "PFO_ZOR_DMVP_CARM",
+    "SIG_DES_BIOTA_CARM",
+    "SIG_ELE_MDE_CARM",
+    "SIG_HAB_HABITATS_CARM",
+    "SIG_LUP_PROTECCION_CARM",
+    "SIG_LUP_SITES_CARM",
+    "SIG_RMA_LITORAL_CARM",
+    "SIG_SUP_GNSS_CARM",
+    "SIG_ZOR_FAUNA_CARM",
+    "SIG_ZOR_PLANIGEST_CARM",
+    "SIT_DEM_EST_CARM",
+    "SIT_EDI_SIVMURCIA_CARM",
+    "SIT_HID_CAUCES_CARM",
+    "SIT_HID_RED_RIEGO_MURCIA_CARM",
+    "SIT_ORT_LITORAL_CARM",
+    "SIT_RNA_RIESGOS_ACC_GRAVES_CARM",
+    "SIT_USU_DPOT_ALTIPLANO_CARM",
+    "SIT_USU_DPOT_LITORAL_CARM",
+    "SIT_USU_DPOT_MULA_CARM",
+    "SIT_USU_DPOT_NOROESTE_CARM",
+    "SIT_USU_PLA_URB_CARM",
+    "SIT_USU_PLU_CARM",
+    "SIT_ZOR_PAISAJE_CARM",
+    "SIT_ZOR_SOST_MAR_MENOR_CARM",
+    "SIT_ZRA_RIESGOS_ACC_GRAVES_CARM",
+    "TESTS",
+    "TEST_COTESA",
+    "URB_PLU_ITUPL1_CARM",
+    "imod",
+    "ine",
+    "marmenor",
+    "publico",
+    "sigpac"
+  ],
+  "schemas": {
+    "SIT_USU_PLA_URB_CARM:clases_plu_ze_37mun": {
+      "fields": [
+        {
+          "name": "Clasificacion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Ambito",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Sistema_general",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Area_m2",
+          "type": "xsd:decimal"
+        },
+        {
+          "name": "Area_suspendida",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Fecha_acuerdo_suspension",
+          "type": "xsd:date"
+        },
+        {
+          "name": "Area_con_deficiencias",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Fecha_acuerdo_deficiencias",
+          "type": "xsd:date"
+        },
+        {
+          "name": "Enlace_ficha",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "clases_plu_ze_37mun",
+          "type": "SIT_USU_PLA_URB_CARM:clases_plu_ze_37munType"
+        }
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_no_urbanizable": {
+      "fields": [
+        {
+          "name": "Clasificacion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Ambito",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Uso_global",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Edificabilidad",
+          "type": "xsd:double"
+        },
+        {
+          "name": "Area_m2",
+          "type": "xsd:decimal"
+        },
+        {
+          "name": "Sistema_general",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Area_suspendida",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Fecha_acuerdo_suspension",
+          "type": "xsd:date"
+        },
+        {
+          "name": "Area_con_deficiencias",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Fecha_acuerdo_deficiencias",
+          "type": "xsd:date"
+        },
+        {
+          "name": "Enlace_ficha",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "plu_clasific_tipos_no_urbanizable",
+          "type": "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_no_urbanizableType"
+        }
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_sin_clasificar": {
+      "fields": [
+        {
+          "name": "Clasificacion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Ambito",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Uso_global",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Edificabilidad",
+          "type": "xsd:double"
+        },
+        {
+          "name": "Area_m2",
+          "type": "xsd:decimal"
+        },
+        {
+          "name": "Sistema_general",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Enlace_ficha",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "plu_clasific_tipos_sin_clasificar",
+          "type": "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_sin_clasificarType"
+        }
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbanizable": {
+      "fields": [
+        {
+          "name": "Clasificacion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Ambito",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Uso_global",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Uso_especifico",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Edificabilidad",
+          "type": "xsd:double"
+        },
+        {
+          "name": "Area_m2",
+          "type": "xsd:decimal"
+        },
+        {
+          "name": "Sistema_general",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Area_suspendida",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Fecha_acuerdo_suspension",
+          "type": "xsd:date"
+        },
+        {
+          "name": "Area_con_deficiencias",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Fecha_acuerdo_deficiencias",
+          "type": "xsd:date"
+        },
+        {
+          "name": "Enlace_ficha",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "plu_clasific_tipos_urbanizable",
+          "type": "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbanizableType"
+        }
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbano": {
+      "fields": [
+        {
+          "name": "Clasificacion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Ambito",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Uso_global",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Uso_especifico",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Edificabilidad",
+          "type": "xsd:double"
+        },
+        {
+          "name": "Area_m2",
+          "type": "xsd:decimal"
+        },
+        {
+          "name": "Sistema_general",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Area_suspendida",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Fecha_acuerdo_suspension",
+          "type": "xsd:date"
+        },
+        {
+          "name": "Area_con_deficiencias",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Fecha_acuerdo_deficiencias",
+          "type": "xsd:date"
+        },
+        {
+          "name": "Enlace_ficha",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "plu_clasific_tipos_urbano",
+          "type": "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbanoType"
+        }
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_prot_vp": {
+      "fields": []
+    },
+    "SIT_USU_PLA_URB_CARM:plu_sgl_37mun": {
+      "fields": [
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Tipo",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Ambito",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Enlace_ficha",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiCurvePropertyType"
+        },
+        {
+          "name": "plu_sgl_37mun",
+          "type": "SIT_USU_PLA_URB_CARM:plu_sgl_37munType"
+        }
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_ze_37_mun_uso_suelo": {
+      "fields": [
+        {
+          "name": "Uso_Especifico",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Ambito",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Clasificacion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Area_m2",
+          "type": "xsd:decimal"
+        },
+        {
+          "name": "Sistema_general",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Area_suspendida",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Fecha_acuerdo-suspension",
+          "type": "xsd:date"
+        },
+        {
+          "name": "Area_con_deficiencias",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Fecha_acuerdo_deficiencias",
+          "type": "xsd:date"
+        },
+        {
+          "name": "Enlace_ficha",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "uso_esp_lynd",
+          "type": "xsd:string"
+        },
+        {
+          "name": "plu_ze_37_mun_uso_suelo",
+          "type": "SIT_USU_PLA_URB_CARM:plu_ze_37_mun_uso_sueloType"
+        }
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:sg_plu_ze_37mun": {
+      "fields": [
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Ambito",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Uso_global",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Edificabilidad",
+          "type": "xsd:double"
+        },
+        {
+          "name": "Area_m2",
+          "type": "xsd:decimal"
+        },
+        {
+          "name": "Tipo",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Area_suspendida",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Fecha_acuerdo_suspension",
+          "type": "xsd:date"
+        },
+        {
+          "name": "Area_con_deficiencias",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Fecha_acuerdo_deficiencias",
+          "type": "xsd:date"
+        },
+        {
+          "name": "Enlace_ficha",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "sg_plu_ze_37mun",
+          "type": "SIT_USU_PLA_URB_CARM:sg_plu_ze_37munType"
+        }
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:sg_tipos_plu_ze_37mun": {
+      "fields": [
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Ambito",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Uso_global",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Clasificacion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Area_m2",
+          "type": "xsd:decimal"
+        },
+        {
+          "name": "Tipo",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Area_suspendida",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Fecha_acuerdo_suspension",
+          "type": "xsd:date"
+        },
+        {
+          "name": "Area_con_deficiencias",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Fecha_acuerdo_deficiencias",
+          "type": "xsd:date"
+        },
+        {
+          "name": "Enlace_ficha",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "sg_tipos_plu_ze_37mun",
+          "type": "SIT_USU_PLA_URB_CARM:sg_tipos_plu_ze_37munType"
+        }
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_lin": {
+      "fields": [
+        {
+          "name": "Identificador",
+          "type": "xsd:double"
+        },
+        {
+          "name": "Tipo",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Ámbito",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Enlace a ficha",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiCurvePropertyType"
+        },
+        {
+          "name": "vw_plu_prot_lin",
+          "type": "SIT_USU_PLA_URB_CARM:vw_plu_prot_linType"
+        }
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_pol": {
+      "fields": [
+        {
+          "name": "Identificador",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Tipo",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Ámbito",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Enlace a ficha",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "vw_plu_prot_pol",
+          "type": "SIT_USU_PLA_URB_CARM:vw_plu_prot_polType"
+        }
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_pto": {
+      "fields": [
+        {
+          "name": "Identificador",
+          "type": "xsd:double"
+        },
+        {
+          "name": "Tipo",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Ámbito",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Enlace a ficha",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiPointPropertyType"
+        },
+        {
+          "name": "vw_plu_prot_pto",
+          "type": "SIT_USU_PLA_URB_CARM:vw_plu_prot_ptoType"
+        }
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_vp": {
+      "fields": [
+        {
+          "name": "Identificador",
+          "type": "xsd:double"
+        },
+        {
+          "name": "Tipo",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Ámbito",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Denominación",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Enlace a ficha",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiCurvePropertyType"
+        },
+        {
+          "name": "vw_plu_prot_vp",
+          "type": "SIT_USU_PLA_URB_CARM:vw_plu_prot_vpType"
+        }
+      ]
+    }
+  },
+  "filterProofs": [
+    {
+      "typeName": "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbano",
+      "field": "Municipio",
+      "total": 3620,
+      "impossible": 0,
+      "filterApplied": true
+    },
+    {
+      "typeName": "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbanizable",
+      "field": "Municipio",
+      "total": 2521,
+      "impossible": 0,
+      "filterApplied": true
+    },
+    {
+      "typeName": "SIT_USU_PLA_URB_CARM:plu_ze_37_mun_uso_suelo",
+      "field": "Municipio",
+      "total": 9469,
+      "impossible": 0,
+      "filterApplied": true
+    }
+  ],
+  "enumeration": {
+    "SIT_USU_PLA_URB_CARM:clases_plu_ze_37mun": {
+      "keyField": "Municipio",
+      "featureCount": 9469,
+      "numberMatched": 9469,
+      "numberReturned": 9469,
+      "distinctMunicipalities": 33,
+      "truncationSuspect": false,
+      "municipalities": [
+        "Abanilla",
+        "Abarán",
+        "Alcantarilla",
+        "Alhama de Murcia",
+        "Archena",
+        "Blanca",
+        "Bullas",
+        "Calasparra",
+        "Campos del Río",
+        "Caravaca de la Cruz",
+        "Cartagena",
+        "Ceutí",
+        "Cieza",
+        "Fortuna",
+        "Fuente Álamo",
+        "Jumilla",
+        "La Unión",
+        "Lorca",
+        "Lorquí",
+        "Los Alcázares",
+        "Mazarrón",
+        "Molina de Segura",
+        "Moratalla",
+        "Mula",
+        "Murcia",
+        "Pliego",
+        "Ricote",
+        "San Javier",
+        "San Pedro del Pinatar",
+        "Santomera",
+        "Torre Pacheco",
+        "Ulea",
+        "Yecla"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_no_urbanizable": {
+      "keyField": "Municipio",
+      "featureCount": 895,
+      "numberMatched": 895,
+      "numberReturned": 895,
+      "distinctMunicipalities": 33,
+      "truncationSuspect": false,
+      "municipalities": [
+        "Abanilla",
+        "Abarán",
+        "Alcantarilla",
+        "Alhama de Murcia",
+        "Archena",
+        "Blanca",
+        "Bullas",
+        "Calasparra",
+        "Campos del Río",
+        "Caravaca de la Cruz",
+        "Cartagena",
+        "Ceutí",
+        "Cieza",
+        "Fortuna",
+        "Fuente Álamo",
+        "Jumilla",
+        "La Unión",
+        "Lorca",
+        "Lorquí",
+        "Los Alcázares",
+        "Mazarrón",
+        "Molina de Segura",
+        "Moratalla",
+        "Mula",
+        "Murcia",
+        "Pliego",
+        "Ricote",
+        "San Javier",
+        "San Pedro del Pinatar",
+        "Santomera",
+        "Torre Pacheco",
+        "Ulea",
+        "Yecla"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_sin_clasificar": {
+      "keyField": "Municipio",
+      "featureCount": 1517,
+      "numberMatched": 1517,
+      "numberReturned": 1517,
+      "distinctMunicipalities": 17,
+      "truncationSuspect": false,
+      "municipalities": [
+        "Abanilla",
+        "Alhama de Murcia",
+        "Archena",
+        "Caravaca de la Cruz",
+        "Cieza",
+        "Fortuna",
+        "Jumilla",
+        "La Unión",
+        "Lorca",
+        "Molina de Segura",
+        "Moratalla",
+        "Murcia",
+        "Pliego",
+        "Ricote",
+        "San Javier",
+        "San Pedro del Pinatar",
+        "Santomera"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbanizable": {
+      "keyField": "Municipio",
+      "featureCount": 2521,
+      "numberMatched": 2521,
+      "numberReturned": 2521,
+      "distinctMunicipalities": 33,
+      "truncationSuspect": false,
+      "municipalities": [
+        "Abanilla",
+        "Abarán",
+        "Alcantarilla",
+        "Alhama de Murcia",
+        "Archena",
+        "Blanca",
+        "Bullas",
+        "Calasparra",
+        "Campos del Río",
+        "Caravaca de la Cruz",
+        "Cartagena",
+        "Ceutí",
+        "Cieza",
+        "Fortuna",
+        "Fuente Álamo",
+        "Jumilla",
+        "La Unión",
+        "Lorca",
+        "Lorquí",
+        "Los Alcázares",
+        "Mazarrón",
+        "Molina de Segura",
+        "Moratalla",
+        "Mula",
+        "Murcia",
+        "Pliego",
+        "Ricote",
+        "San Javier",
+        "San Pedro del Pinatar",
+        "Santomera",
+        "Torre Pacheco",
+        "Ulea",
+        "Yecla"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbano": {
+      "keyField": "Municipio",
+      "featureCount": 3620,
+      "numberMatched": 3620,
+      "numberReturned": 3620,
+      "distinctMunicipalities": 33,
+      "truncationSuspect": false,
+      "municipalities": [
+        "Abanilla",
+        "Abarán",
+        "Alcantarilla",
+        "Alhama de Murcia",
+        "Archena",
+        "Blanca",
+        "Bullas",
+        "Calasparra",
+        "Campos del Río",
+        "Caravaca de la Cruz",
+        "Cartagena",
+        "Ceutí",
+        "Cieza",
+        "Fortuna",
+        "Fuente Álamo",
+        "Jumilla",
+        "La Unión",
+        "Lorca",
+        "Lorquí",
+        "Los Alcázares",
+        "Mazarrón",
+        "Molina de Segura",
+        "Moratalla",
+        "Mula",
+        "Murcia",
+        "Pliego",
+        "Ricote",
+        "San Javier",
+        "San Pedro del Pinatar",
+        "Santomera",
+        "Torre Pacheco",
+        "Ulea",
+        "Yecla"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_sgl_37mun": {
+      "keyField": "Municipio",
+      "featureCount": 320,
+      "numberMatched": 320,
+      "numberReturned": 320,
+      "distinctMunicipalities": 18,
+      "truncationSuspect": false,
+      "municipalities": [
+        "Abanilla",
+        "Abarán",
+        "Alhama de Murcia",
+        "Archena",
+        "Blanca",
+        "Caravaca de la Cruz",
+        "Fortuna",
+        "Lorca",
+        "Lorquí",
+        "Molina de Segura",
+        "Moratalla",
+        "Mula",
+        "Murcia",
+        "Pliego",
+        "Ricote",
+        "Santomera",
+        "Ulea",
+        "Yecla"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_ze_37_mun_uso_suelo": {
+      "keyField": "Municipio",
+      "featureCount": 9469,
+      "numberMatched": 9469,
+      "numberReturned": 9469,
+      "distinctMunicipalities": 33,
+      "truncationSuspect": false,
+      "municipalities": [
+        "Abanilla",
+        "Abarán",
+        "Alcantarilla",
+        "Alhama de Murcia",
+        "Archena",
+        "Blanca",
+        "Bullas",
+        "Calasparra",
+        "Campos del Río",
+        "Caravaca de la Cruz",
+        "Cartagena",
+        "Ceutí",
+        "Cieza",
+        "Fortuna",
+        "Fuente Álamo",
+        "Jumilla",
+        "La Unión",
+        "Lorca",
+        "Lorquí",
+        "Los Alcázares",
+        "Mazarrón",
+        "Molina de Segura",
+        "Moratalla",
+        "Mula",
+        "Murcia",
+        "Pliego",
+        "Ricote",
+        "San Javier",
+        "San Pedro del Pinatar",
+        "Santomera",
+        "Torre Pacheco",
+        "Ulea",
+        "Yecla"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:sg_plu_ze_37mun": {
+      "keyField": "Municipio",
+      "featureCount": 4949,
+      "numberMatched": 4949,
+      "numberReturned": 4949,
+      "distinctMunicipalities": 33,
+      "truncationSuspect": false,
+      "municipalities": [
+        "Abanilla",
+        "Abarán",
+        "Alcantarilla",
+        "Alhama de Murcia",
+        "Archena",
+        "Blanca",
+        "Bullas",
+        "Calasparra",
+        "Campos del Río",
+        "Caravaca de la Cruz",
+        "Cartagena",
+        "Ceutí",
+        "Cieza",
+        "Fortuna",
+        "Fuente Álamo",
+        "Jumilla",
+        "La Unión",
+        "Lorca",
+        "Lorquí",
+        "Los Alcázares",
+        "Mazarrón",
+        "Molina de Segura",
+        "Moratalla",
+        "Mula",
+        "Murcia",
+        "Pliego",
+        "Ricote",
+        "San Javier",
+        "San Pedro del Pinatar",
+        "Santomera",
+        "Torre Pacheco",
+        "Ulea",
+        "Yecla"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:sg_tipos_plu_ze_37mun": {
+      "keyField": "Municipio",
+      "featureCount": 4949,
+      "numberMatched": 4949,
+      "numberReturned": 4949,
+      "distinctMunicipalities": 33,
+      "truncationSuspect": false,
+      "municipalities": [
+        "Abanilla",
+        "Abarán",
+        "Alcantarilla",
+        "Alhama de Murcia",
+        "Archena",
+        "Blanca",
+        "Bullas",
+        "Calasparra",
+        "Campos del Río",
+        "Caravaca de la Cruz",
+        "Cartagena",
+        "Ceutí",
+        "Cieza",
+        "Fortuna",
+        "Fuente Álamo",
+        "Jumilla",
+        "La Unión",
+        "Lorca",
+        "Lorquí",
+        "Los Alcázares",
+        "Mazarrón",
+        "Molina de Segura",
+        "Moratalla",
+        "Mula",
+        "Murcia",
+        "Pliego",
+        "Ricote",
+        "San Javier",
+        "San Pedro del Pinatar",
+        "Santomera",
+        "Torre Pacheco",
+        "Ulea",
+        "Yecla"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_lin": {
+      "keyField": "Municipio",
+      "error": "WFS EXCEPTION on SIT_USU_PLA_URB_CARM:vw_plu_prot_lin: <?xml version=\"1.0\" encoding=\"UTF-8\"?><ows:ExceptionReport xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"2.0.0\" xsi:schemaLocation=\"http://www.opengis.net/ows/1.1 https://mapas-gis-inter.carm.es/geoserver/schemas/ows/1.1.0/owsAll.xsd\">\n  <ows:Exception exceptionCode=\"NoApplicableCode\">\n    <ows:ExceptionText>java.lang.RuntimeExceptionCannot do natural order without a primary key, please add it or specify a manual sort over existing attributes</ows:ExceptionText>\n  </ows:Exception>\n</ows:ExceptionReport>\n"
+    },
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_pol": {
+      "keyField": "Municipio",
+      "error": "WFS EXCEPTION on SIT_USU_PLA_URB_CARM:vw_plu_prot_pol: <?xml version=\"1.0\" encoding=\"UTF-8\"?><ows:ExceptionReport xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"2.0.0\" xsi:schemaLocation=\"http://www.opengis.net/ows/1.1 https://mapas-gis-inter.carm.es/geoserver/schemas/ows/1.1.0/owsAll.xsd\">\n  <ows:Exception exceptionCode=\"NoApplicableCode\">\n    <ows:ExceptionText>java.lang.RuntimeExceptionCannot do natural order without a primary key, please add it or specify a manual sort over existing attributes</ows:ExceptionText>\n  </ows:Exception>\n</ows:ExceptionReport>\n"
+    },
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_pto": {
+      "keyField": "Municipio",
+      "error": "WFS EXCEPTION on SIT_USU_PLA_URB_CARM:vw_plu_prot_pto: <?xml version=\"1.0\" encoding=\"UTF-8\"?><ows:ExceptionReport xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"2.0.0\" xsi:schemaLocation=\"http://www.opengis.net/ows/1.1 https://mapas-gis-inter.carm.es/geoserver/schemas/ows/1.1.0/owsAll.xsd\">\n  <ows:Exception exceptionCode=\"NoApplicableCode\">\n    <ows:ExceptionText>java.lang.RuntimeExceptionCannot do natural order without a primary key, please add it or specify a manual sort over existing attributes</ows:ExceptionText>\n  </ows:Exception>\n</ows:ExceptionReport>\n"
+    },
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_vp": {
+      "keyField": "Municipio",
+      "error": "WFS EXCEPTION on SIT_USU_PLA_URB_CARM:vw_plu_prot_vp: <?xml version=\"1.0\" encoding=\"UTF-8\"?><ows:ExceptionReport xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"2.0.0\" xsi:schemaLocation=\"http://www.opengis.net/ows/1.1 https://mapas-gis-inter.carm.es/geoserver/schemas/ows/1.1.0/owsAll.xsd\">\n  <ows:Exception exceptionCode=\"NoApplicableCode\">\n    <ows:ExceptionText>java.lang.RuntimeExceptionCannot do natural order without a primary key, please add it or specify a manual sort over existing attributes</ows:ExceptionText>\n  </ows:Exception>\n</ows:ExceptionReport>\n"
+    }
+  },
+  "validity": {
+    "SIT_USU_PLA_URB_CARM:clases_plu_ze_37mun": {
+      "fields": [
+        "Area_suspendida",
+        "Fecha_acuerdo_suspension",
+        "Fecha_acuerdo_deficiencias"
+      ],
+      "rows": 9469,
+      "per": {
+        "Area_suspendida": {
+          "rows": 9469,
+          "nonNull": 111,
+          "nonNullPct": 1.17,
+          "distinctCount": 1,
+          "sampleDistinct": [
+            "S"
+          ],
+          "informationBearing": false
+        },
+        "Fecha_acuerdo_suspension": {
+          "rows": 9469,
+          "nonNull": 105,
+          "nonNullPct": 1.11,
+          "distinctCount": 6,
+          "sampleDistinct": [
+            "2007-12-21",
+            "2008-08-07",
+            "2008-12-23",
+            "2008-07-30",
+            "2009-06-08",
+            "2009-08-27"
+          ],
+          "informationBearing": true
+        },
+        "Fecha_acuerdo_deficiencias": {
+          "rows": 9469,
+          "nonNull": 178,
+          "nonNullPct": 1.88,
+          "distinctCount": 6,
+          "sampleDistinct": [
+            "2008-08-07",
+            "2007-12-21",
+            "2006-02-08",
+            "2008-07-30",
+            "2008-07-08",
+            "2009-08-27"
+          ],
+          "informationBearing": true
+        }
+      }
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_no_urbanizable": {
+      "fields": [
+        "Area_suspendida",
+        "Fecha_acuerdo_suspension",
+        "Fecha_acuerdo_deficiencias"
+      ],
+      "rows": 895,
+      "per": {
+        "Area_suspendida": {
+          "rows": 895,
+          "nonNull": 4,
+          "nonNullPct": 0.45,
+          "distinctCount": 1,
+          "sampleDistinct": [
+            "S"
+          ],
+          "informationBearing": false
+        },
+        "Fecha_acuerdo_suspension": {
+          "rows": 895,
+          "nonNull": 4,
+          "nonNullPct": 0.45,
+          "distinctCount": 3,
+          "sampleDistinct": [
+            "2008-12-23",
+            "2008-07-30",
+            "2009-06-08"
+          ],
+          "informationBearing": true
+        },
+        "Fecha_acuerdo_deficiencias": {
+          "rows": 895,
+          "nonNull": 12,
+          "nonNullPct": 1.34,
+          "distinctCount": 3,
+          "sampleDistinct": [
+            "2008-08-07",
+            "2007-12-21",
+            "2009-08-27"
+          ],
+          "informationBearing": true
+        }
+      }
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbanizable": {
+      "fields": [
+        "Area_suspendida",
+        "Fecha_acuerdo_suspension",
+        "Fecha_acuerdo_deficiencias"
+      ],
+      "rows": 2521,
+      "per": {
+        "Area_suspendida": {
+          "rows": 2521,
+          "nonNull": 77,
+          "nonNullPct": 3.05,
+          "distinctCount": 1,
+          "sampleDistinct": [
+            "S"
+          ],
+          "informationBearing": false
+        },
+        "Fecha_acuerdo_suspension": {
+          "rows": 2521,
+          "nonNull": 71,
+          "nonNullPct": 2.82,
+          "distinctCount": 5,
+          "sampleDistinct": [
+            "2007-12-21",
+            "2008-08-07",
+            "2008-07-30",
+            "2009-06-08",
+            "2009-08-27"
+          ],
+          "informationBearing": true
+        },
+        "Fecha_acuerdo_deficiencias": {
+          "rows": 2521,
+          "nonNull": 94,
+          "nonNullPct": 3.73,
+          "distinctCount": 6,
+          "sampleDistinct": [
+            "2007-12-21",
+            "2006-02-08",
+            "2008-07-30",
+            "2008-08-07",
+            "2008-07-08",
+            "2009-08-27"
+          ],
+          "informationBearing": true
+        }
+      }
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbano": {
+      "fields": [
+        "Area_suspendida",
+        "Fecha_acuerdo_suspension",
+        "Fecha_acuerdo_deficiencias"
+      ],
+      "rows": 3620,
+      "per": {
+        "Area_suspendida": {
+          "rows": 3620,
+          "nonNull": 21,
+          "nonNullPct": 0.58,
+          "distinctCount": 1,
+          "sampleDistinct": [
+            "S"
+          ],
+          "informationBearing": false
+        },
+        "Fecha_acuerdo_suspension": {
+          "rows": 3620,
+          "nonNull": 21,
+          "nonNullPct": 0.58,
+          "distinctCount": 3,
+          "sampleDistinct": [
+            "2007-12-21",
+            "2008-12-23",
+            "2008-08-07"
+          ],
+          "informationBearing": true
+        },
+        "Fecha_acuerdo_deficiencias": {
+          "rows": 3620,
+          "nonNull": 64,
+          "nonNullPct": 1.77,
+          "distinctCount": 3,
+          "sampleDistinct": [
+            "2008-08-07",
+            "2007-12-21",
+            "2009-08-27"
+          ],
+          "informationBearing": true
+        }
+      }
+    },
+    "SIT_USU_PLA_URB_CARM:plu_ze_37_mun_uso_suelo": {
+      "fields": [
+        "Area_suspendida",
+        "Fecha_acuerdo-suspension",
+        "Fecha_acuerdo_deficiencias"
+      ],
+      "rows": 9469,
+      "per": {
+        "Area_suspendida": {
+          "rows": 9469,
+          "nonNull": 111,
+          "nonNullPct": 1.17,
+          "distinctCount": 1,
+          "sampleDistinct": [
+            "S"
+          ],
+          "informationBearing": false
+        },
+        "Fecha_acuerdo-suspension": {
+          "rows": 9469,
+          "nonNull": 105,
+          "nonNullPct": 1.11,
+          "distinctCount": 6,
+          "sampleDistinct": [
+            "2007-12-21",
+            "2008-08-07",
+            "2008-12-23",
+            "2008-07-30",
+            "2009-06-08",
+            "2009-08-27"
+          ],
+          "informationBearing": true
+        },
+        "Fecha_acuerdo_deficiencias": {
+          "rows": 9469,
+          "nonNull": 178,
+          "nonNullPct": 1.88,
+          "distinctCount": 6,
+          "sampleDistinct": [
+            "2008-08-07",
+            "2007-12-21",
+            "2006-02-08",
+            "2008-07-30",
+            "2008-07-08",
+            "2009-08-27"
+          ],
+          "informationBearing": true
+        }
+      }
+    },
+    "SIT_USU_PLA_URB_CARM:sg_plu_ze_37mun": {
+      "fields": [
+        "Area_suspendida",
+        "Fecha_acuerdo_suspension",
+        "Fecha_acuerdo_deficiencias"
+      ],
+      "rows": 4949,
+      "per": {
+        "Area_suspendida": {
+          "rows": 4949,
+          "nonNull": 42,
+          "nonNullPct": 0.85,
+          "distinctCount": 1,
+          "sampleDistinct": [
+            "S"
+          ],
+          "informationBearing": false
+        },
+        "Fecha_acuerdo_suspension": {
+          "rows": 4949,
+          "nonNull": 39,
+          "nonNullPct": 0.79,
+          "distinctCount": 2,
+          "sampleDistinct": [
+            "2008-07-30",
+            "2007-12-21"
+          ],
+          "informationBearing": true
+        },
+        "Fecha_acuerdo_deficiencias": {
+          "rows": 4949,
+          "nonNull": 102,
+          "nonNullPct": 2.06,
+          "distinctCount": 4,
+          "sampleDistinct": [
+            "2007-12-21",
+            "2008-08-07",
+            "2008-07-30",
+            "2009-08-27"
+          ],
+          "informationBearing": true
+        }
+      }
+    },
+    "SIT_USU_PLA_URB_CARM:sg_tipos_plu_ze_37mun": {
+      "fields": [
+        "Area_suspendida",
+        "Fecha_acuerdo_suspension",
+        "Fecha_acuerdo_deficiencias"
+      ],
+      "rows": 4949,
+      "per": {
+        "Area_suspendida": {
+          "rows": 4949,
+          "nonNull": 42,
+          "nonNullPct": 0.85,
+          "distinctCount": 1,
+          "sampleDistinct": [
+            "S"
+          ],
+          "informationBearing": false
+        },
+        "Fecha_acuerdo_suspension": {
+          "rows": 4949,
+          "nonNull": 39,
+          "nonNullPct": 0.79,
+          "distinctCount": 2,
+          "sampleDistinct": [
+            "2008-07-30",
+            "2007-12-21"
+          ],
+          "informationBearing": true
+        },
+        "Fecha_acuerdo_deficiencias": {
+          "rows": 4949,
+          "nonNull": 102,
+          "nonNullPct": 2.06,
+          "distinctCount": 4,
+          "sampleDistinct": [
+            "2007-12-21",
+            "2008-08-07",
+            "2008-07-30",
+            "2009-08-27"
+          ],
+          "informationBearing": true
+        }
+      }
+    }
+  }
+}

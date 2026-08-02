@@ -1,0 +1,728 @@
+{
+  "step": 2,
+  "measuredAt": "2026-08-02T14:59:57.867Z",
+  "notes": [],
+  "rivalSchemas": {
+    "SIT_USU_PLU_CARM:sitmurcia_plu_ze": {
+      "fields": [
+        {
+          "name": "inspireId",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "hilucsLandUse",
+          "type": "xsd:string"
+        },
+        {
+          "name": "SpecificLandUse",
+          "type": "xsd:string"
+        },
+        {
+          "name": "regulationNature",
+          "type": "xsd:string"
+        },
+        {
+          "name": "ValidFrom",
+          "type": "xsd:string"
+        },
+        {
+          "name": "ValidTo",
+          "type": "xsd:string"
+        },
+        {
+          "name": "BeginLifespanVersion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "hilucsprol",
+          "type": "xsd:string"
+        },
+        {
+          "name": "hilucsprva",
+          "type": "xsd:string"
+        },
+        {
+          "name": "hilucsprpe",
+          "type": "xsd:string"
+        },
+        {
+          "name": "specifprol",
+          "type": "xsd:string"
+        },
+        {
+          "name": "specifprva",
+          "type": "xsd:string"
+        },
+        {
+          "name": "specifprpe",
+          "type": "xsd:string"
+        },
+        {
+          "name": "endLifespanVersion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "ProcessStepGeneral",
+          "type": "xsd:string"
+        },
+        {
+          "name": "backgroundMapDate",
+          "type": "xsd:string"
+        },
+        {
+          "name": "backgroundMapReference",
+          "type": "xsd:string"
+        },
+        {
+          "name": "dimensioningIndication",
+          "type": "xsd:string"
+        },
+        {
+          "name": "plan",
+          "type": "xsd:string"
+        },
+        {
+          "name": "officialDocument",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Area_m2",
+          "type": "xsd:decimal"
+        },
+        {
+          "name": "Enlace_a_ficha",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "sitmurcia_plu_ze",
+          "type": "SIT_USU_PLU_CARM:sitmurcia_plu_zeType"
+        }
+      ]
+    },
+    "SIT_USU_PLU_CARM:sitmurcia_plu_sp": {
+      "fields": [
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "inspireId",
+          "type": "xsd:string"
+        },
+        {
+          "name": "OfficialTitle",
+          "type": "xsd:string"
+        },
+        {
+          "name": "BeginLifespanVersion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "LevelOfSpatialPlan",
+          "type": "xsd:string"
+        },
+        {
+          "name": "endLifespanVersion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "validFrom",
+          "type": "xsd:string"
+        },
+        {
+          "name": "validTo",
+          "type": "xsd:string"
+        },
+        {
+          "name": "alternativeTitle",
+          "type": "xsd:string"
+        },
+        {
+          "name": "PlanTypeNameValue",
+          "type": "xsd:string"
+        },
+        {
+          "name": "ProcessStepGeneral",
+          "type": "xsd:string"
+        },
+        {
+          "name": "backgroundMapDate",
+          "type": "xsd:string"
+        },
+        {
+          "name": "backgroundMapReference",
+          "type": "xsd:string"
+        },
+        {
+          "name": "OrdinanceDate",
+          "type": "xsd:string"
+        },
+        {
+          "name": "OrdinanceReference",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Acuerdo",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Ley_aplicada",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Fecha_publicacion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Enlace_BORM",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "sitmurcia_plu_sp",
+          "type": "SIT_USU_PLU_CARM:sitmurcia_plu_spType"
+        }
+      ]
+    },
+    "SIT_USU_PLU_CARM:sitmurcia_plu_sr": {
+      "fields": [
+        {
+          "name": "inspireId",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "grsupreg",
+          "type": "xsd:string"
+        },
+        {
+          "name": "supplementaryRegulation",
+          "type": "xsd:string"
+        },
+        {
+          "name": "regulationNature",
+          "type": "xsd:string"
+        },
+        {
+          "name": "ValidFrom",
+          "type": "xsd:string"
+        },
+        {
+          "name": "ValidTo",
+          "type": "xsd:string"
+        },
+        {
+          "name": "specificSupplementaryRegulation",
+          "type": "xsd:string"
+        },
+        {
+          "name": "ProcessStepGeneral",
+          "type": "xsd:string"
+        },
+        {
+          "name": "backgroundMapDate",
+          "type": "xsd:string"
+        },
+        {
+          "name": "backgroundMapReference",
+          "type": "xsd:string"
+        },
+        {
+          "name": "dimensioningIndication",
+          "type": "xsd:string"
+        },
+        {
+          "name": "inheritedFromOtherPlans",
+          "type": "xsd:int"
+        },
+        {
+          "name": "specificRegulationNature",
+          "type": "xsd:string"
+        },
+        {
+          "name": "BeginLifespanVersion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "endLifespanVersion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "plan",
+          "type": "xsd:string"
+        },
+        {
+          "name": "officialDocument",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Area_m2",
+          "type": "xsd:decimal"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "sitmurcia_plu_sr",
+          "type": "SIT_USU_PLU_CARM:sitmurcia_plu_srType"
+        }
+      ]
+    },
+    "SIT_USU_PLU_CARM:plu_sp_vigente": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "xsd:int"
+        },
+        {
+          "name": "inspireid",
+          "type": "xsd:string"
+        },
+        {
+          "name": "municipio",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Tipo",
+          "type": "xsd:string"
+        },
+        {
+          "name": "Denominación",
+          "type": "xsd:string"
+        },
+        {
+          "name": "fecha_acuerdo",
+          "type": "xsd:date"
+        },
+        {
+          "name": "ley_aplicacion",
+          "type": "xsd:string"
+        },
+        {
+          "name": "fecha_borm",
+          "type": "xsd:date"
+        },
+        {
+          "name": "ordinaref",
+          "type": "xsd:string"
+        },
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "plu_sp_vigente",
+          "type": "SIT_USU_PLU_CARM:plu_sp_vigenteType"
+        }
+      ]
+    },
+    "URB_PLU_ITUPL1_CARM:nnss_usos": {
+      "fields": [
+        {
+          "name": "geom",
+          "type": "gml:MultiSurfacePropertyType"
+        },
+        {
+          "name": "fid",
+          "type": "xsd:long"
+        },
+        {
+          "name": "etiqueta",
+          "type": "xsd:string"
+        },
+        {
+          "name": "auxiliary_storage_labeling_positionx",
+          "type": "xsd:double"
+        },
+        {
+          "name": "auxiliary_storage_labeling_positiony",
+          "type": "xsd:double"
+        },
+        {
+          "name": "auxiliary_storage_labeling_show",
+          "type": "xsd:int"
+        },
+        {
+          "name": "nnss_usos",
+          "type": "URB_PLU_ITUPL1_CARM:nnss_usosType"
+        }
+      ]
+    }
+  },
+  "layerMetadata": {
+    "SIT_USU_PLA_URB_CARM:plu_ze_37_mun_uso_suelo": {
+      "title": "Calificación del suelo",
+      "abstract": "Esta capa muestra la calificación del suelo según el planeamiento general vigente a la fecha de actualización que indica el campo ultima_act. Se ofrece con dos estilos de simbología: “plu_calific_suelo” con simbología de relleno de polígonos con líneas o gráficos, y “plu_calific_suelo_solido” con simbología de polígonos sólidos.",
+      "keywords": [
+        "features",
+        "calificacion_plu_ze_37mun_vw"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:clases_plu_ze_37mun": {
+      "title": "Clases de suelo",
+      "abstract": null,
+      "keywords": [
+        "features",
+        "plu_ze_37mun_clases_vw"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_no_urbanizable": {
+      "title": "Clasificación de suelo_ suelos no urbanizables",
+      "abstract": null,
+      "keywords": [
+        "features",
+        "plu_ze_37mun_no_urbanizable_vw"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbanizable": {
+      "title": "Clasificación de suelo_ suelos urbanizables",
+      "abstract": null,
+      "keywords": [
+        "features",
+        "plu_ze_37mun_urbanizables_vw"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_sin_clasificar": {
+      "title": "Clasificación de suelo_suelos sin clasificar",
+      "abstract": "Esta capa muestra los suelos sin clasificación asignada por el planeamiento general vigente en la fecha de actualización que indica el campo \"Última actualización\". Tanto los suelos clasificados como los suelos sin clasificar pueden ser o no sistemas generales, por lo que los sistemas generales se muestran en capas independientes.",
+      "keywords": [
+        "Urbanismo",
+        "Planeamiento Urbanístico",
+        "Plan General Municipal de Ordenación",
+        "Plan General de Ordenación Urbana",
+        "Normas subsidiarias",
+        "Región de Murcia",
+        "PG",
+        "PGOU",
+        "NNSS",
+        "Suelo sin clasificar",
+        "PGMO"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbano": {
+      "title": "Clasificación del suelo_Suelos urbanos",
+      "abstract": null,
+      "keywords": [
+        "features",
+        "plu_ze_37mun_urbanos_vw"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_lin": {
+      "title": "Protecciones (Lineales)",
+      "abstract": null,
+      "keywords": [
+        "features",
+        "vw_plu_prot_lin"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_pol": {
+      "title": "Protecciones (Poligonales)",
+      "abstract": null,
+      "keywords": [
+        "features",
+        "vw_plu_prot_pol"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_pto": {
+      "title": "Protecciones (Puntuales)",
+      "abstract": null,
+      "keywords": [
+        "features",
+        "vw_plu_prot_pto"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_prot_vp": {
+      "title": "Protección Vías Pecuarias",
+      "abstract": null,
+      "keywords": [
+        "features",
+        "plu_prot_vp_vw"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:vw_plu_prot_vp": {
+      "title": "Protección vías pecuarias (Líneas)",
+      "abstract": null,
+      "keywords": [
+        "features",
+        "vw_plu_prot_vp"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:sg_plu_ze_37mun": {
+      "title": "Sistemas Generales Polígonos",
+      "abstract": null,
+      "keywords": [
+        "features",
+        "sg_pol_plu_ze_37mun_vw"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:plu_sgl_37mun": {
+      "title": "Sistemas generales lineales",
+      "abstract": null,
+      "keywords": [
+        "features",
+        "plu_sgl_37mun_vw"
+      ]
+    },
+    "SIT_USU_PLA_URB_CARM:sg_tipos_plu_ze_37mun": {
+      "title": "Sistemas generales polígono - Tipos",
+      "abstract": null,
+      "keywords": [
+        "features",
+        "sg_tipos_plu_ze_37mun_vw"
+      ]
+    },
+    "SIT_USU_PLU_CARM:plu_sp_vigente": {
+      "title": "Planeamiento vigente",
+      "abstract": "Representa los municipios de la región, indicando con diferentes tramas los distintos tipos de planeamiento y legislación a la que se adapta en cada caso: Ley del Suelo de 1975, Ley del Suelo de 1992, Ley del Suelo de 1998, Texto Refundido de la Ley del Suelo de la Región de Murcia (TRLSRM) y Ley de Ordenación Territorial y Urbanística de la Región de Murcia (LOTURM).",
+      "keywords": [
+        "features",
+        "sp_vigente"
+      ]
+    },
+    "SIT_USU_PLU_CARM:sitmurcia_plu_sp": {
+      "title": "Spatial Plan",
+      "abstract": "Esta capa muestra el ámbito municipal en el que se desarrollan los distintos planeamientos urbanísticos.",
+      "keywords": [
+        "Normas subsidiarias",
+        "Plan General Ordenación Urbana",
+        "Plan General Municipal Ordenación",
+        "Región de Murcia",
+        "Planned Land Use"
+      ]
+    },
+    "SIT_USU_PLU_CARM:sitmurcia_plu_sr": {
+      "title": "Supplementary Regulation",
+      "abstract": "Esta capa recoge las características geográficas que aportan información respecto a la protección y/o limitación de la utilización del suelo. Estas normas complementarias pueden obedecer al planeamiento territorial o a regulaciones externas.",
+      "keywords": [
+        "Supplementary Regulation",
+        "Normas subsidiarias",
+        "Plan General Ordenación Urbana",
+        "Plan General Municipal Ordenación",
+        "Región de Murcia",
+        "Planned Land Use"
+      ]
+    },
+    "SIT_USU_PLU_CARM:sitmurcia_plu_ze": {
+      "title": "Zoning Elements",
+      "abstract": "Esta capa recoge la adaptación de los usos de suelo, detallados por los distintos&#13;\ninstrumentos de planeamiento urbanístico y recogidos en la capa inicial “Planeamiento”, a los usos especificados para los valores HILUCS en el 1anexo C de la guía.",
+      "keywords": [
+        "Zoning Elementes",
+        "Región de Murcia",
+        "Normas subsidiarias",
+        "Plan General de Ordenación Urbana",
+        "Plan General Municipal Ordenación",
+        "Urbanismo",
+        "HILUCS",
+        "Planned Land Use"
+      ]
+    },
+    "URB_PLU_ITUPL1_CARM:Cartografia basica regional (00)": {
+      "title": "(00) CARTOGRAFÍA BÁSICA REGIONAL",
+      "abstract": null,
+      "keywords": [
+        "00",
+        "features"
+      ]
+    },
+    "URB_PLU_ITUPL1_CARM:nnss_caminos": {
+      "title": "NNSS. de Beniel (Caminos)",
+      "abstract": null,
+      "keywords": [
+        "features",
+        "nnss_caminos"
+      ]
+    },
+    "URB_PLU_ITUPL1_CARM:nnss_usos": {
+      "title": "NNSS. de Beniel (Usos)",
+      "abstract": null,
+      "keywords": [
+        "features",
+        "nnss_usos"
+      ]
+    }
+  },
+  "rivalExtent": {
+    "SIT_USU_PLU_CARM:sitmurcia_plu_ze": {
+      "keyField": "Municipio",
+      "features": 9470,
+      "numberMatched": 9470,
+      "distinctMunicipalities": 33,
+      "municipalities": [
+        "Abanilla",
+        "Abarán",
+        "Alcantarilla",
+        "Alhama de Murcia",
+        "Archena",
+        "Blanca",
+        "Bullas",
+        "Calasparra",
+        "Campos del Río",
+        "Caravaca de la Cruz",
+        "Cartagena",
+        "Ceutí",
+        "Cieza",
+        "Fortuna",
+        "Fuente Álamo",
+        "Jumilla",
+        "La Unión",
+        "Lorca",
+        "Lorquí",
+        "Los Alcázares",
+        "Mazarrón",
+        "Molina de Segura",
+        "Moratalla",
+        "Mula",
+        "Murcia",
+        "Pliego",
+        "Ricote",
+        "San Javier",
+        "San Pedro del Pinatar",
+        "Santomera",
+        "Torre Pacheco",
+        "Ulea",
+        "Yecla"
+      ],
+      "truncationSuspect": false
+    },
+    "SIT_USU_PLU_CARM:sitmurcia_plu_sp": {
+      "keyField": "Municipio",
+      "features": 45,
+      "numberMatched": 45,
+      "distinctMunicipalities": 45,
+      "municipalities": [
+        "Abanilla",
+        "Abarán",
+        "Albudeite",
+        "Alcantarilla",
+        "Aledo",
+        "Alguazas",
+        "Alhama de Murcia",
+        "Archena",
+        "Beniel",
+        "Blanca",
+        "Bullas",
+        "Calasparra",
+        "Campos del Río",
+        "Caravaca de la Cruz",
+        "Cartagena",
+        "Cehegín",
+        "Ceutí",
+        "Cieza",
+        "Fortuna",
+        "Fuente Álamo",
+        "Jumilla",
+        "La Unión",
+        "Las Torres de Cotillas",
+        "Librilla",
+        "Lorca",
+        "Lorquí",
+        "Los Alcázares",
+        "Mazarrón",
+        "Molina de Segura",
+        "Moratalla",
+        "Mula",
+        "Murcia",
+        "Ojós",
+        "Pliego",
+        "Puerto Lumbreras",
+        "Ricote",
+        "San Javier",
+        "San Pedro del Pinatar",
+        "Santomera",
+        "Torre Pacheco",
+        "Totana",
+        "Ulea",
+        "Villanueva del Río Segura",
+        "Yecla",
+        "Águilas"
+      ],
+      "truncationSuspect": false
+    },
+    "SIT_USU_PLU_CARM:sitmurcia_plu_sr": {
+      "keyField": "Municipio",
+      "features": 642,
+      "numberMatched": 642,
+      "distinctMunicipalities": 31,
+      "municipalities": [
+        "Abanilla",
+        "Abarán",
+        "Alcantarilla",
+        "Alhama de Murcia",
+        "Archena",
+        "Blanca",
+        "Bullas",
+        "Calasparra",
+        "Campos del Río",
+        "Caravaca de la Cruz",
+        "Cartagena",
+        "Cieza",
+        "Fortuna",
+        "Fuente Álamo",
+        "Jumilla",
+        "La Unión",
+        "Lorca",
+        "Lorquí",
+        "Los Alcázares",
+        "Mazarrón",
+        "Molina de Segura",
+        "Moratalla",
+        "Mula",
+        "Murcia",
+        "Pliego",
+        "San Javier",
+        "San Pedro del Pinatar",
+        "Santomera",
+        "Torre Pacheco",
+        "Ulea",
+        "Yecla"
+      ],
+      "truncationSuspect": false
+    },
+    "SIT_USU_PLU_CARM:plu_sp_vigente": {
+      "keyField": "municipio",
+      "error": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><ows:ExceptionReport xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"2.0.0\" xsi:schemaLocation=\"http://www.opengis.net/ows/1.1 https://mapas-gis-inter.carm.es/geoserver/schemas/ows/1.1.0/owsAll.xsd\">\n  <ows:Exception exceptionCode=\"NoApplicableCode\">\n    <ows:ExceptionText>java.lang.RuntimeExceptionCannot do natural order without a primary key, please add it or specify a manual sort over existing attributes</ows:ExceptionText>\n  </ows:Exception>\n</ows:ExceptionReport>\n"
+    },
+    "URB_PLU_ITUPL1_CARM:nnss_usos": {
+      "keyField": null,
+      "features": 39,
+      "numberMatched": 39,
+      "distinctMunicipalities": 0,
+      "municipalities": [],
+      "truncationSuspect": false
+    }
+  },
+  "fichaChannel": {
+    "rows": 9469,
+    "withLink": 9469,
+    "withLinkPct": 100,
+    "distinctLinks": 9250,
+    "samples": [
+      "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=9537&widi=es&x=0&y=0",
+      "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=10691&widi=es&x=0&y=0",
+      "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=10687&widi=es&x=0&y=0",
+      "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=10938&widi=es&x=0&y=0",
+      "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=10984&widi=es&x=0&y=0",
+      "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12644&widi=es&x=0&y=0",
+      "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12693&widi=es&x=0&y=0",
+      "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12725&widi=es&x=0&y=0"
+    ],
+    "hosts": [
+      "opweb.carm.es"
+    ]
+  }
+}

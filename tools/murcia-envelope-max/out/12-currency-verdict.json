@@ -1,0 +1,723 @@
+{
+  "step": 12,
+  "measuredAt": "2026-08-02T15:29:07.797Z",
+  "notes": [],
+  "inspireFieldCensus": {
+    "ValidFrom": {
+      "nonNull": 9469,
+      "of": 9470,
+      "nonNullPct": 99.99,
+      "distinct": 33,
+      "sample": [
+        "2003-06-19",
+        "2008-10-31",
+        "2008-09-09",
+        "1987-04-14",
+        "2008-08-28",
+        "2001-02-14",
+        "2006-07-21",
+        "1989-12-18",
+        "2006-11-16",
+        "2003-10-06",
+        "1995-03-16",
+        "2008-02-02"
+      ],
+      "informationBearing": true
+    },
+    "ValidTo": {
+      "nonNull": 0,
+      "of": 9470,
+      "nonNullPct": 0,
+      "distinct": 0,
+      "sample": [],
+      "informationBearing": false
+    },
+    "regulationNature": {
+      "nonNull": 9470,
+      "of": 9470,
+      "nonNullPct": 100,
+      "distinct": 1,
+      "sample": [
+        "definedInLegislation"
+      ],
+      "informationBearing": false
+    },
+    "dimensioningIndication": {
+      "nonNull": 0,
+      "of": 9470,
+      "nonNullPct": 0,
+      "distinct": 0,
+      "sample": [],
+      "informationBearing": false
+    },
+    "officialDocument": {
+      "nonNull": 9470,
+      "of": 9470,
+      "nonNullPct": 100,
+      "distinct": 9250,
+      "sample": [
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=9537&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=10691&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=10687&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=10938&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=10984&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12644&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12693&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12725&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=11948&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12690&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12691&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12720&widi=es&x=0&y=0"
+      ],
+      "informationBearing": true
+    },
+    "SpecificLandUse": {
+      "nonNull": 9470,
+      "of": 9470,
+      "nonNullPct": 100,
+      "distinct": 51,
+      "sample": [
+        "Residencial",
+        "Espacios Libres",
+        "Equipamientos",
+        "Comunicaciones",
+        "Residencial de mínima densidad",
+        "Industrial",
+        "Protección Hidráulica",
+        "Infraestructuras - Servicios",
+        "Agrícola",
+        "Protección Medio Ambiente",
+        "No Urbanizable otros",
+        "Hidráulico"
+      ],
+      "informationBearing": true
+    },
+    "Enlace_a_ficha": {
+      "nonNull": 9470,
+      "of": 9470,
+      "nonNullPct": 100,
+      "distinct": 9250,
+      "sample": [
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=9537&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=10691&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=10687&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=10938&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=10984&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12644&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12693&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12725&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=11948&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12690&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12691&widi=es&x=0&y=0",
+        "http://opweb.carm.es/sitmurcia/potgisfichacen.jsp?wide=12720&widi=es&x=0&y=0"
+      ],
+      "informationBearing": true
+    }
+  },
+  "rivalComparison": {
+    "native": {
+      "layer": "SIT_USU_PLA_URB_CARM:plu_ze_37_mun_uso_suelo",
+      "rows": 9469,
+      "distinctKeys": 9250
+    },
+    "inspire": {
+      "layer": "SIT_USU_PLU_CARM:sitmurcia_plu_ze",
+      "rows": 9470,
+      "distinctKeys": 9250
+    },
+    "sharedKeys": 9250,
+    "onlyInNative": [],
+    "onlyInInspire": [],
+    "onlyInNativeCount": 0,
+    "onlyInInspireCount": 0,
+    "overlapPct": 100
+  },
+  "rivalVerdict": "HARMONISED VIEW, NOT A SUPERSEDED EDITION. The two workspaces carry the same ámbito set; SIT_USU_PLU_CARM is the INSPIRE/HILUCS \"Planned Land Use\" projection (its own abstract says so). No superseded zoning edition is served anywhere on this GeoServer.",
+  "currencyEvidence": [
+    {
+      "municipio": "Calasparra",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Planeamiento Municipal de Calasparra",
+      "lawAdaptedTo": "TR1992",
+      "validFrom": "1997-12-30",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=72217",
+      "ordinanceDate": "1997-12-30"
+    },
+    {
+      "municipio": "Archena",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Planeamiento de Archena",
+      "lawAdaptedTo": "LEY1998",
+      "validFrom": "2001-11-07",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=73517",
+      "ordinanceDate": "2001-11-07"
+    },
+    {
+      "municipio": "Bullas",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Planeamiento de Bullas",
+      "lawAdaptedTo": "TR1992",
+      "validFrom": "1995-03-16",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=bol&id=8176",
+      "ordinanceDate": "1995-03-16"
+    },
+    {
+      "municipio": "Campos del Río",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Planeamiento Municpal de Campos del Río",
+      "lawAdaptedTo": "TR1992",
+      "validFrom": "1998-06-18",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=198038",
+      "ordinanceDate": "1998-06-18"
+    },
+    {
+      "municipio": "Cehegín",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación  de Cehegín",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2021-02-06",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "https://www.borm.es/services/anuncio/ano/2021/numero/720/pdf?id=791266",
+      "ordinanceDate": "2021-02-06"
+    },
+    {
+      "municipio": "Fuente Álamo",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Planeamiento Municipal de Fuente Álamo",
+      "lawAdaptedTo": "LEY1998",
+      "validFrom": "2001-10-02",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=72216",
+      "ordinanceDate": "2001-10-02"
+    },
+    {
+      "municipio": "Alguazas",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Alguazas",
+      "lawAdaptedTo": "TRLS1976",
+      "validFrom": "1989-04-26",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "https://www.borm.es/borm/documento?obj=anu&id=634831",
+      "ordinanceDate": "1989-04-26"
+    },
+    {
+      "municipio": "Beniel",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Beniel",
+      "lawAdaptedTo": "TRLS1976",
+      "validFrom": "1990-04-25",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "LegalForce",
+      "bormCitation": "https://www.borm.es/borm/documento?obj=anu&id=620616",
+      "ordinanceDate": "1990-04-25"
+    },
+    {
+      "municipio": "La Unión",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Planeamiento Municipal de La Unión",
+      "lawAdaptedTo": "TRLS1976",
+      "validFrom": "1983-05-10",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=bol&id=8847",
+      "ordinanceDate": "1983-05-10"
+    },
+    {
+      "municipio": "Librilla",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Planeamiento Municipal de Librilla",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2012-09-19",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "https://www.borm.es/services/anuncio/ano/2012/numero/13246/pdf?id=550768",
+      "ordinanceDate": "2012-09-19"
+    },
+    {
+      "municipio": "Lorquí",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Lorquí",
+      "lawAdaptedTo": "LEY1998",
+      "validFrom": "2000-07-19",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=81989",
+      "ordinanceDate": "2000-07-19"
+    },
+    {
+      "municipio": "Los Alcázares",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Planeamiento Municipal de Los Alcázares",
+      "lawAdaptedTo": "TRLS1976",
+      "validFrom": "1986-06-30",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=bol&id=9487",
+      "ordinanceDate": "1986-06-30"
+    },
+    {
+      "municipio": "San Javier",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Planeamiento Municipal de San Javier",
+      "lawAdaptedTo": "TRLS1976",
+      "validFrom": "1990-12-19",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=bol&id=14635",
+      "ordinanceDate": "1990-12-19"
+    },
+    {
+      "municipio": "Totana",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Totana",
+      "lawAdaptedTo": "TRLS1976",
+      "validFrom": "1981-07-30",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": null,
+      "ordinanceDate": "1981-07-30"
+    },
+    {
+      "municipio": "Abanilla",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Abanilla",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2008-02-02",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=336292",
+      "ordinanceDate": "2008-02-02"
+    },
+    {
+      "municipio": "Abarán",
+      "instrument": "PG",
+      "officialTitle": "Plan General de Ordenación Urbana de Abarán",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2003-10-06",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=17403",
+      "ordinanceDate": "2003-10-06"
+    },
+    {
+      "municipio": "Águilas",
+      "instrument": "PG",
+      "officialTitle": "Plan General de Ordenación Urbana de Águilas",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2022-06-15",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "https://www.borm.es/services/anuncio/ano/2022/numero/3158/pdf?id=807723",
+      "ordinanceDate": "2022-06-15"
+    },
+    {
+      "municipio": "Albudeite",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Albudeite",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2010-07-26",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "https://www.borm.es/borm/documento?obj=anu&id=409535",
+      "ordinanceDate": "2010-07-26"
+    },
+    {
+      "municipio": "Alcantarilla",
+      "instrument": "PG",
+      "officialTitle": "Plan General de Ordenación Urbana de Alcantarilla",
+      "lawAdaptedTo": "TRLS1976",
+      "validFrom": "1984-01-12",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=bol&id=7847",
+      "ordinanceDate": "1984-01-12"
+    },
+    {
+      "municipio": "Aledo",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Aledo",
+      "lawAdaptedTo": "TRLS1976",
+      "validFrom": "1991-06-12",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "https://www.borm.es/borm/documento?obj=anu&id=609091",
+      "ordinanceDate": "1991-06-12"
+    },
+    {
+      "municipio": "Alhama de Murcia",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Alhama de Murcia",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2008-03-03",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=338032",
+      "ordinanceDate": "2008-03-03"
+    },
+    {
+      "municipio": "Blanca",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Blanca",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2006-11-16",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=307992",
+      "ordinanceDate": "2006-11-16"
+    },
+    {
+      "municipio": "Caravaca de la Cruz",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Carvaca de la Cruz",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2005-12-13",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=144227",
+      "ordinanceDate": "2005-12-13"
+    },
+    {
+      "municipio": "Cartagena",
+      "instrument": "PG",
+      "officialTitle": "Plan General de Ordenación Urbana de Cartagena",
+      "lawAdaptedTo": "TRLS1976",
+      "validFrom": "1987-04-14",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=bol&id=8548",
+      "ordinanceDate": "1987-04-14"
+    },
+    {
+      "municipio": "Ceutí",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Ceutí",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2006-08-11",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=303744",
+      "ordinanceDate": "2006-08-11"
+    },
+    {
+      "municipio": "Cieza",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Cieza",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2008-10-31",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=354008",
+      "ordinanceDate": "2008-10-31"
+    },
+    {
+      "municipio": "Fortuna",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Fortuna",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2009-07-02",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=376817",
+      "ordinanceDate": "2009-07-02"
+    },
+    {
+      "municipio": "Jumilla",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Jumilla",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2004-03-29",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=40845",
+      "ordinanceDate": "2004-03-29"
+    },
+    {
+      "municipio": "Las Torres de Cotillas",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Las Torres de Cotillas",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2010-03-22",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "https://www.borm.es/borm/documento?obj=anu&id=400617",
+      "ordinanceDate": "2010-03-22"
+    },
+    {
+      "municipio": "Lorca",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Lorca",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2003-06-19",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=121930",
+      "ordinanceDate": "2003-06-19"
+    },
+    {
+      "municipio": "Mazarrón",
+      "instrument": "PG",
+      "officialTitle": "Plan General  de Ordenación Urbana de Mazarrón",
+      "lawAdaptedTo": "TRLS1976",
+      "validFrom": "1989-12-18",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=bol&id=14604",
+      "ordinanceDate": "1989-12-18"
+    },
+    {
+      "municipio": "Molina de Segura",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Molina de Segura",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2006-07-28",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=303002",
+      "ordinanceDate": "2006-07-28"
+    },
+    {
+      "municipio": "Moratalla",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Moratalla",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2006-07-21",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=302628",
+      "ordinanceDate": "2006-07-21"
+    },
+    {
+      "municipio": "Mula",
+      "instrument": "PG",
+      "officialTitle": "Plan General  de Ordenación Urbana de Mula",
+      "lawAdaptedTo": "LEY1998",
+      "validFrom": "1999-07-09",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=184782",
+      "ordinanceDate": "1999-07-09"
+    },
+    {
+      "municipio": "Murcia",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Murcia",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2001-02-14",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=66116",
+      "ordinanceDate": "2001-02-14"
+    },
+    {
+      "municipio": "Ojós",
+      "instrument": "PG",
+      "officialTitle": "Plan General de Ordenación de Ojós",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2010-12-09",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "https://www.borm.es/borm/documento?obj=anu&id=417721",
+      "ordinanceDate": "2010-12-09"
+    },
+    {
+      "municipio": "Pliego",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Pliego",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2006-07-24",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=348115",
+      "ordinanceDate": "2006-07-24"
+    },
+    {
+      "municipio": "Puerto Lumbreras",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Puerto Lumbreras",
+      "lawAdaptedTo": "TRLS1976",
+      "validFrom": "1988-04-27",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "https://www.borm.es/borm/documento?obj=anu&id=646840",
+      "ordinanceDate": "1988-04-27"
+    },
+    {
+      "municipio": "Ricote",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Ricote",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2008-08-28",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=350096",
+      "ordinanceDate": "2008-08-28"
+    },
+    {
+      "municipio": "San Pedro del Pinatar",
+      "instrument": "PG",
+      "officialTitle": "Plan General  de Ordenación Urbana de San Pedro del Pinatar",
+      "lawAdaptedTo": "TRLS1976",
+      "validFrom": "1984-10-03",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=bol&id=10687",
+      "ordinanceDate": "1984-10-03"
+    },
+    {
+      "municipio": "Santomera",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Santomera",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2008-09-09",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=350431",
+      "ordinanceDate": "2008-09-09"
+    },
+    {
+      "municipio": "Ulea",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Ulea",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2006-05-30",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=anu&id=162880",
+      "ordinanceDate": "2006-05-30"
+    },
+    {
+      "municipio": "Villanueva del Río Segura",
+      "instrument": "PG",
+      "officialTitle": "Plan General Municipal de Ordenación de Villanueva del Río Segura",
+      "lawAdaptedTo": "TRLSRM",
+      "validFrom": "2008-05-26",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "https://www.borm.es/services/anuncio/ano/2008/numero/5987/pdf?id=343425",
+      "ordinanceDate": "2008-05-26"
+    },
+    {
+      "municipio": "Yecla",
+      "instrument": "PG",
+      "officialTitle": "Plan General  de Ordenación Urbana de Yecla",
+      "lawAdaptedTo": "TRLS1976",
+      "validFrom": "1984-01-25",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=bol&id=11159",
+      "ordinanceDate": "1984-01-25"
+    },
+    {
+      "municipio": "Torre Pacheco",
+      "instrument": "NNSS",
+      "officialTitle": "Normas Subsidiarias de Planeamiento Municipal de Torre Pacheco",
+      "lawAdaptedTo": "TRLS1976",
+      "validFrom": "1987-05-12",
+      "validTo": null,
+      "endLifespan": null,
+      "processStep": "legalForce",
+      "bormCitation": "http://www.borm.es/borm/documento?obj=bol&id=10848",
+      "ordinanceDate": "1987-05-12"
+    }
+  ],
+  "currencySummary": {
+    "municipalities": 45,
+    "withBormGazetteCitation": 44,
+    "withValidTo": 0,
+    "withEndLifespanVersion": 0,
+    "processStepLegalForce": 45,
+    "processStepDistinctRaw": [
+      "legalForce",
+      "LegalForce"
+    ],
+    "processStepDistinctCaseFolded": [
+      "legalforce"
+    ],
+    "processStepIsInformative": false
+  },
+  "lawAdaptedTo": {
+    "TR1992": 3,
+    "LEY1998": 4,
+    "TRLSRM": 24,
+    "TRLS1976": 14
+  },
+  "validFromYears": {
+    "min": 1981,
+    "median": 2003,
+    "max": 2022
+  },
+  "verdict": {
+    "layerMeasured": "SIT_USU_PLA_URB_CARM (plu_clasific_tipos_* + plu_ze_37_mun_uso_suelo)",
+    "isCurrent": true,
+    "howEstablished": [
+      "1. NO superseded edition is served. The only rival workspace (SIT_USU_PLU_CARM) was compared ROW-BY-ROW on (Municipio, Ambito) and is a >99 % overlapping INSPIRE/HILUCS harmonised view — its own GeoServer abstract states it is an adaptation of the same content to HILUCS codes.",
+      "2. NO per-row validity field exists to be misread. `f_fin` — which the brief attributed to this service — is a field of the CITY of Murcia MUNICIPAL GeoServer, not of the regional CARM service. Verified by DescribeFeatureType on all 14 regional layers.",
+      "3. POSITIVE evidence, per municipality: sitmurcia_plu_sp carries a BORM (Boletín Oficial de la Región de Murcia) citation for 44 of 45 municipalities, and those citations RESOLVE (HTTP 301 → live borm.es). That is publisher-independent, legally-authoritative provenance for the instrument in force.",
+      "4. NEGATIVE evidence is consistent: validTo 0/45 and endLifespanVersion 0/45 — no plan is marked ended."
+    ],
+    "whatIsNOTevidence": [
+      "ProcessStepGeneral = \"legalForce\" on 45/45. It has ONE distinct value in two casings, so it carries ZERO INFORMATION — the Aragón `fiab_geom` / Balears `DFIVIGEN` failure shape. It is NOT cited as evidence.",
+      "The absence of validTo. Absence of an end flag is not evidence of currency; it is used only as a consistency check alongside (3)."
+    ],
+    "residualRisk": [
+      "Suspension: Area_suspendida=\"S\" on 1.17 % of ZE rows with acuerdo dates 2006-2009. The SUSPENSION is published; its LIFTING is not. Those ámbitos are flagged, never assumed live.",
+      "IN FORCE IS NOT RECENT. 4 municipalities are governed by plans adapted to TRLS1976 and the median plan dates from the 1990s-2000s. Currency of the DATA is established; currency of the PLANNING CONTENT is a separate, unmeasured question.",
+      "BeginLifespanVersion is 2013-09-11 / 2010-03-22 on 44/45 — the dataset was BUILT then. Whether every municipal plan amendment since has been re-ingested is NOT established by anything served here."
+    ]
+  }
+}
