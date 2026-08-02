@@ -620,6 +620,37 @@ but only worth spending once the regional-aggregator gap above is closed, since 
 
 ---
 
+## §11d — THE ATTRIBUTE AUDITS — the one table
+
+> ⛔ **Every "no ordinance data" filing in this corpus was produced by municipal URL guessing — a method
+> measured at 0/20 with 88 % DNS failure (§11b). Treat all such filings as UNTESTED, not refuted.** They
+> carry no weight in either direction until an attribute table has been opened.
+>
+> ⚠ **Level is asserted from POPULATED, never PRESENT. A field NAME proves nothing.**
+
+**The maturity ladder** — L0 classification only (draws nothing) · L1 ordinance polygons, no code ·
+L2 polygons + code (ordinance text must be parsed) · L3 polygons + **structured parameters** ·
+L4 regional delivery standard (one parser, N municipalities).
+
+| region | level | evidence | what was MEASURED | what remains UNKNOWN, and why |
+|---|---|---|---|---|
+| **Madrid** | ⭐ **L3** | `idem.comunidad.madrid/geoserver3/wfs` · `sitcm:VPLA_V_ORDENANZA` · **93 839** features | Full ordinance schema — `NM_ALTURA` `NM_N_PLTA` `NM_OCP_MX` `NM_RTR_{FRNT,LATL,POST}` `NM_FDO_MX_ED` `NM_C_ED_ORD` `NM_TA_MIN_P`. **Populated**: altura **70.2 %**, plantas **72.9 %**, both **66.9 %** (n=4 000, 17 municipalities) | Paging unsupported (*"Cannot do natural order without a primary key"*) ⇒ the draw is the natural-order **head**, not random; 17 of ~179 municipalities. Rates **indicative**. ⚠⚠ **Madrid capital is the WORST: `NM_ALTURA` 3.6 %** — do not average away. `NM_APRV_BC` non-null **0.0 %** everywhere |
+| **Andalucía** | **L4 framework / L3-partial scope / corpus UNKNOWN** | Orden 18-02-2026, BOJA 37 · `2026.07.31_Plantilla_NNDD.zip`, 188 973 B, SHA-256 `5b8cd386…` · GeoPackage, 21 feature classes | **In scope**: `EDIF_*` (FAR), `DENS*`, `USO_G`→`USO_P`, classification, delegation, heritage. **NOT in scope**: altura, plantas, profundidad, ocupación, retranqueos. Template = **0 rows** in all 21 classes | ⛔ **Corpus since 2026-04-24 NOT MEASURED** — the Registro was not queried. Mandate is forward-only and ~14 weeks old. ⚠ *"Esencial para la interoperabilidad"* ≠ *"sufficient to compute an envelope"* — the Orden says it *"no pretende incorporar la totalidad de las determinaciones posibles"* |
+| **Aragón** | **L1** | `icearagon.aragon.es/SIUa_WMS` · GetFeatureInfo · **n=78 rows, 16 municipalities** | `edificab` non-zero **1.3 %** · `aprove` **0.0 %** · `densidad` **1.3 %**. Classification **is** populated: `clase` 100 %, `notepa` 97.4 %, `uso_glob` 85.9 % | ⚠⚠ **0 is the NULL SUBSTITUTE, proven by internal contradiction**: 70/78 rows have `shape_area > 0` **and** `perimeter == 0`. "100 % non-null" would be true and misleading. Whether parameters live in the *fichas* (→L2) is **UNKNOWN** — not opened. Point-sampled ⇒ rural-skewed |
+| **Extremadura** | **L1** | `mapas.ideex.es/CICTEX/urbanismo` · WFS 200, 36 layers | `DescribeFeatureType` on `CALIFICACION_SUELO_USO_RESIDENCIAL` returns **exactly two elements**: the feature type and `msGeometry`. `GetFeature` → polygons with **no scalar payload**. Same for `..._INDUSTRIAL`, `..._UNIDADES_ACTUACION` | **Use category is encoded ONLY in the layer name.** Feature **counts UNKNOWN** — server reports `numberMatched="unknown"` and *"No featureid defined"*. Geometry coverage not measured |
+| **Catalunya** | **L4 framework / L2 governing text** | Refós / MUC, already in corpus | `PD*` covers **70.69 %** of Barcelona buildable land | ⚠ Our own register says the clau we read *"is a translation, not the governing text"*. **Regional semantics with the governing determination delegated to an instrument we do not hold is L2 wearing L4 clothes.** Same caution applies to **Murcia L3** |
+
+⚠ **Currency is a field, and Aragón publishes one:** `fiab_geom` is present on 100 % of sampled rows and
+only **21.8 %** read *"Aprobada"* — 40 are *"No disponible"*, 21 *"No aprobada/Denegada/Obsoleta"*.
+**Absence of a validity flag is not evidence of currency; presence of one can be evidence against it.**
+
+⚠ **What could not be distinguished, stated rather than chosen:** Aragón's *fichas* route. The
+per-municipality vector download was never reached (`fichaDescarga/` is a JS application; the endpoints
+guessed around it 404'd), so *"parameters are only in the fichas"* (L2) and *"there are no parameters"*
+cannot be told apart from this evidence. The **vectors** are settled; the **fichas** are not.
+
+---
+
 ## §11c — The three SUPERSEDED filings, resolved by query
 
 Probe C filed three regions as absent or dead. **The premise of all three was false** — founder research
