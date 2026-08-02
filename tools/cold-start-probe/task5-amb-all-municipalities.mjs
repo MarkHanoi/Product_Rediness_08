@@ -45,6 +45,17 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(HERE, 'out');
 if (!existsSync(OUT)) mkdirSync(OUT, { recursive: true });
 
+/**
+ * ⚠ A PARTIAL RUN MUST NEVER OVERWRITE THE FULL ARTEFACT. Measured the hard way: a `--only 08019`
+ * smoke test replaced the 36-municipality artefact and its tracker rows with a ONE-row file, and
+ * every downstream count would silently have read `total: 1` as the answer. The 36-row artefact was
+ * only recoverable because it had already been committed.
+ * ⇒ `--only` writes to its OWN filenames. The canonical artefact is written by a FULL run alone.
+ */
+const partial = process.argv.includes('--only');
+const ARTEFACT = join(OUT, partial ? 'task5-amb-PARTIAL-run.json' : 'task5-amb-all-municipalities.json');
+const ROWS_TSV = join(OUT, partial ? 'amb-tracker-rows.PARTIAL.tsv' : 'amb-tracker-rows.tsv');
+
 // The seeded draw. IDENTICAL to task2 so Barcelona's 34.03 % is reproducible to the parcel.
 const SAMPLE_ABOVE = 6000, SAMPLE_N = 3000, SEED = 20260802;
 
@@ -633,8 +644,39 @@ function trackerRow(r, measuredAt) {
     };
 }
 
+// The alternation on both sides is REQUIRED: a status can be preceded by a tab (it is the highest
+// earned, column 4) or by a pipe (it is a non-highest member of column 5, as `proven` is for
+// Barcelona's `published|proven`). Anchoring on the tab alone undercounts Barcelona out of `proven`.
+// ⚠ And the recipe comment must not itself be countable. Listing the vocabulary pipe-separated made
+//   THIS LINE match the pattern it documents. The alternatives are spelled with commas for that
+//   reason — the documentation must never be counted as data.
+const RECIPE = "grep -cP '(\\t|\\|)proven(\\||\\t)' out/amb-tracker-rows.tsv   # same shape for: published, reachable, blocked, untested";
+function emitTrackerTsv(rows, ctl) {
+    const tsv = ['# INE\tname\tCCAA\tstatus\tstatuses\tenvelope%\tdetermination%\tblocking item\tclass\tlast measured',
+        `# emitted by tools/cold-start-probe/task5-amb-all-municipalities.mjs · seed ${SEED} · control=${ctl?.pass ? 'PASS' : 'FAIL/NOT-RUN'} · NEVER hand-edit`,
+        '# col 4 = the HIGHEST status earned; col 5 = ALL statuses earned, pipe-joined. They are not mutually exclusive.',
+        '# a row with no computed coverage carries NEITHER percentage — a zero would read as "measured, and it is nothing".',
+        `# COUNT RECIPE: ${RECIPE}`,
+        ...rows.map((r) => [r.ine, r.name, r.ccaa, r.status, r.statuses.join('|'), r.envelopePct ?? '', r.determinationPct ?? '', r.blockingItem, r.class, r.lastMeasured].join('\t'))].join('\n');
+    writeFileSync(ROWS_TSV, tsv + '\n');
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
+
+// `--rows-only` re-emits the tracker TSV from the artefact of the last measurement WITHOUT
+// re-measuring. Deterministic (the rows are stored, not recomputed) and it exists so that a change
+// to the ROW FORMAT never has to be paid for with a fresh 36-municipality run against live services.
+// ⛔ It cannot change any figure — if out/task5-amb-all-municipalities.json is absent it refuses.
+if (process.argv.includes('--rows-only')) {
+    const prior = join(OUT, 'task5-amb-all-municipalities.json');
+    if (!existsSync(prior)) { console.error('⛔ --rows-only needs a prior measurement artefact; run the probe first.'); process.exit(2); }
+    const a = JSON.parse(readFileSync(prior, 'utf8'));
+    emitTrackerTsv(a.trackerRows, a.knownAnswerControl);
+    console.log(`→ out/amb-tracker-rows.tsv (re-emitted from ${a.ranAt}, ${a.trackerRows.length} rows — NOT re-measured)`);
+    process.exit(0);
+}
+
 const universe = await enumerateAmb();
 if (!universe.ok) { console.error('⛔ ENUMERATION FAILED: ' + universe.reason); process.exit(1); }
 console.log(`ENUMERATION · AMB layer 16 carries ${universe.distinctCount} distinct CODI_INE · PGM='S' ${universe.pgmS} · PGM≠'S' ${universe.pgmNotS}`);
@@ -723,7 +765,7 @@ const statusCounts = {
     note: 'exclusive partitions the 36; membership counts every status a municipality earns. `proven` is EVIDENCE, `published` is AUTHORISATION, `reachable` is CODE — collapsing any two yields a count that cannot be reproduced from the repo.',
 };
 
-writeFileSync(join(OUT, 'task5-amb-all-municipalities.json'), JSON.stringify({
+writeFileSync(ARTEFACT, JSON.stringify({
     probe: 'TASK-5 · every AMB municipality, measured — "up to 26" turned into a number',
     ranAt: new Date().toISOString(),
     seed: SEED, sampleAbove: SAMPLE_ABOVE, sampleN: SAMPLE_N,
@@ -758,17 +800,22 @@ writeFileSync(join(OUT, 'task5-amb-all-municipalities.json'), JSON.stringify({
 }, null, 1));
 
 // The tracker row set, one line each, greppable.
-// ⭐ THE HEADLINE COUNT MUST BE A `grep -c`, NEVER A TYPED CLAIM (tracker §7). `statuses` is a
-//    pipe-joined membership column precisely so that `grep -c 'proven' out/amb-tracker-rows.tsv`
-//    and `grep -c 'published' …` both answer without anyone re-deriving anything.
-const tsv = ['# INE\tname\tCCAA\tstatus\tstatuses\tenvelope%\tdetermination%\tblocking item\tclass\tlast measured',
-    `# emitted by tools/cold-start-probe/task5-amb-all-municipalities.mjs · seed ${SEED} · control=${control.pass ? 'PASS' : 'FAIL/NOT-RUN'} · NEVER hand-edit`,
-    '# status = the HIGHEST earned (published>proven>reachable>blocked>untested); statuses = ALL earned. They are not mutually exclusive.',
-    '# a blocked row carries NEITHER percentage — a zero would read as "measured, and it is nothing".',
-    ...trackerRows.map((r) => [r.ine, r.name, r.ccaa, r.status, r.statuses.join('|'), r.envelopePct ?? '', r.determinationPct ?? '', r.blockingItem, r.class, r.lastMeasured].join('\t'))].join('\n');
-writeFileSync(join(OUT, 'amb-tracker-rows.tsv'), tsv + '\n');
+// ⭐ THE HEADLINE COUNT MUST BE A `grep -c`, NEVER A TYPED CLAIM (tracker §7).
+//
+// ⚠ AND THE FIRST VERSION OF THIS FILE BROKE THAT PROPERTY IMMEDIATELY. The header comments
+//   explained the vocabulary in prose, so `grep -c 'proven'` returned 37 for 36 municipalities and
+//   `grep -c 'published'` returned 2 for one — the documentation was being counted as data. A
+//   headline count that a comment can move is exactly the failure this file exists to end.
+// ⇒ Statuses are emitted ONLY as tab-delimited fields, the comment lines carry NO bare status
+//   token, and the exact recipe is printed in the file so nobody has to invent one.
+// The alternation on both sides is REQUIRED: a status can be preceded by a tab (it is the highest
+// earned, column 4) or by a pipe (it is a non-highest member of column 5, as `proven` is for
+// Barcelona's `published|proven`). Anchoring on the tab alone undercounts Barcelona out of `proven`.
+emitTrackerTsv(trackerRows, control);
 
 console.log(`\nCONTROL 08019 Barcelona · expected ${JSON.stringify(EXPECT)} · observed ${JSON.stringify(control.observed ?? null)} · ${control.pass ? 'PASS' : '⛔ FAIL'}`);
 console.log(`STATUS COUNTS (grep -c on out/amb-tracker-rows.tsv): ${JSON.stringify(statusCounts)}`);
-console.log('→ out/task5-amb-all-municipalities.json');
-console.log('→ out/amb-tracker-rows.tsv');
+// The ACTUAL paths, not the canonical ones — a partial run that printed the canonical filenames is
+// how the clobbering went unnoticed in the first place.
+console.log(`→ ${ARTEFACT.replace(HERE, '.')}${partial ? '   ⚠ PARTIAL RUN — the canonical artefact was NOT touched' : ''}`);
+console.log(`→ ${ROWS_TSV.replace(HERE, '.')}`);
