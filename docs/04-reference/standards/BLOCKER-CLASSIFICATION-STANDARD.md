@@ -76,11 +76,54 @@ because it reached one of these, with evidence:
 | **Unavailable** | The thing does not exist, or cannot be obtained, and the search is closed. | Córdoba's calificación vectors **if** the one-shot sweep concludes *"no discoverable machine-readable source exists"* |
 | **Superseded** | The premise changed; the blocker was answering the wrong question. | València's *profundidad edificable* — never unpublished, it is **drawn** in the Layer 212 movement geometry (Art. 6.18.1) |
 
-⚠ **`Superseded` is not a synonym for `Closed`.** It records that the blocker's *premise* was wrong, which
-is the single most valuable thing to write down — it is what stops the next agent re-deriving the same dead
-end. Córdoba's three-block dissolve "ceiling" and the inherited "C63 tier vocabulary does not exist" P0 were
-both `Superseded`, and neither would have propagated had the first person to refute them said so in these
-terms.
+### CLOSED vs SUPERSEDED — the formal distinction
+
+The founder's definitions (2026-08-02), and they are not interchangeable:
+
+- **Closed** — *"The investigation reached the expected conclusion."* e.g. *"No GIS source exists."* The
+  question was well-formed; we asked it; we got an answer.
+- **Superseded** — *"The investigation demonstrated that the original assumption was false."* e.g. *"The
+  presumed blocker never actually existed."* The question itself was wrong.
+
+> **"Superseded generates institutional learning. Closed does not."**
+
+⚠ **Every post-mortem MUST identify its `Superseded` items explicitly.** They are the only entries that
+teach anything: a `Closed` row records work completed, a `Superseded` row records a belief corrected.
+Córdoba's three-block dissolve "ceiling", the inherited "C63 tier vocabulary does not exist in code" P0, and
+Murcia's "HTTP 403" (measured on a directory index while the PDF returned 200) were all `Superseded` — and
+none of them would have propagated across other cities had the first person to refute them recorded it in
+these terms.
+
+## A release candidate never moves backwards
+
+Founder rule, 2026-08-02:
+
+> **"Once Murcia ships, it stays shipped. Madrid RC-1 cannot delay Murcia. NZ-3 cannot delay Madrid RC-1.
+> València cannot delay Córdoba."**
+
+A shipped city is not reopened because a later city discovered something. New findings become **new work on
+the next release**, never a rollback of a delivered one — unless the finding is a *correctness* defect in
+what shipped, which is a different event and is handled as a defect, not as a scope change.
+
+*"That sounds obvious, but projects often violate it by reopening completed work."* This repo has: a stale
+P0 inherited from another city froze work on three cities that were not actually blocked.
+
+## The five gates — progress is measured in gates closed
+
+> *"From this point on, I'd judge progress by **gates closed**, not by lines of code, datasets found, or
+> percentages. Every week should permanently eliminate one decision from the board. When the board reaches
+> zero open gates, the four-city programme is complete."*
+
+| # | Gate | Closes when | Owner |
+|---|---|---|---|
+| **1** | **Murcia** — engineering completion | Production coverage **measured**, not estimated | Murcia agent |
+| **2** | **Madrid** — SIG-M1 | The review artifact passes its four residual-risk classes and the transcription is certified | the founder |
+| **3** | **Madrid** — Article memorandum | A **binary** legal outcome: 8.3.1 or 8.3.5 | planning review |
+| **4** | **Córdoba** — GIS sweep | A **one-page** conclusion: consume official GIS, or vectorise | Córdoba agent |
+| **5** | **València** — authority response | The semantic decision on `altura`. **No intermediate reviews.** | Ajuntament de València |
+
+⚠ **No gate has a percentage in its exit criterion**, deliberately. A coverage number is an output, not a
+decision; the programme completes when the decisions are gone.
 
 ## Release order (founder, 2026-08-02)
 
