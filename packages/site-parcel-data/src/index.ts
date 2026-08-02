@@ -932,8 +932,13 @@ export {
     VALENCIA_ALTURA_LEAD_MEASURED_AT,
     VALENCIA_ALTURA_FIELD_MEASURE,
     VALENCIA_ALTURA_ON_BUILDABLE_LAND,
+    VALENCIA_ALTURA_SEMANTICS_2026_08_02,
+    VALENCIA_R5_ASK,
+    valenciaAlturaRouteBlockers,
+    valenciaAlturaRouteIsPublishable,
     valenciaNoRulePackRefusal,
 } from './rulepacks/esValenciaEnvelope.js';
+export type { ValenciaAlturaBlocker } from './rulepacks/esValenciaEnvelope.js';
 export {
     ES_VALENCIA_PGOU_PACK,
     VALENCIA_PGOU_ZONE_CODES,

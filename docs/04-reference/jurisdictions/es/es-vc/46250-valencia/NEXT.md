@@ -67,6 +67,39 @@ height probe the same day. And València was **absent from `ZONE_GIS_SOURCES`**,
   **mechanical** reason — no `measurements/valencia.measurements.json` record has been written yet —
   **not** because the framework is missing.
 
+## 2b — ⭐⭐ 2026-08-02: THE ENVELOPE ROUTE WAS ATTACKED, AND VALÈNCIA IS **ONE PHONE CALL AWAY**
+
+Founder directive: *"get the ENVELOPE number as high as it will honestly go."* **It goes to 0 %** —
+and that answer is now worth something, because **three of the four blockers were REFUTED, not
+repeated.** Evidence:
+[`sources/R5-ALTURA-SEMANTICS-ATTEMPT-2026-08-02.md`](./sources/R5-ALTURA-SEMANTICS-ATTEMPT-2026-08-02.md).
+
+| blocker | status | what settled it |
+|---|---|---|
+| field might be **metres** | ✅ **RETIRED** | `altura`/OSM `building:levels` median **0,78** (n=105, 0 failures); metres predicts ≈3,0 — **refuted 4×** |
+| **`profundidad` published nowhere** | ✅ **RETIRED** | It is **DRAWN, not tabulated**: the alineación polygon is a **15,6 m median band**, **never larger than its zone polygon (0/54)**, with patio holes |
+| Art. 6.19.3 (Hc not a ceiling) | 🟢 **MITIGATED** | Its exceptions push upward ⇒ omitting them UNDER-states (safe, C58 §1.14.4) |
+| ⛔ **Np or graphed count?** | ⛔ **BLOCKING** | `altura` is BELOW the built storey count on **81 %** of buildings, **modally by two**; 33 % within ±1; spread −13…+7 |
+
+⚠⚠ **Why we did not ship the "conservative" reading.** On a typical Ensanche block (`altura` 5,
+built 7 storeys) it yields `Hc = 16,4 m` for a building already standing at ~21 m — **an envelope
+lower than the building on the plot**. And on the ~10 % where `altura` exceeds the built count it
+**over-states**. Wrong in both directions ⇒ no safe branch (C58 §1.4 / §1.14.4).
+
+⭐ **WHAT CHANGED IS THE ASK.** It is no longer *"obtain Plano C"* — a 1991 drawing set, an
+institution, a fee, unknown timeline. **It is ONE WRITTEN ANSWER about a field the city already
+publishes** (`VALENCIA_R5_ASK` → `datosabiertos@valencia.es`, the contact in layer 212's own ISO
+metadata). ⚠ The answer must also reconcile the −2 gap; without that it is necessary, not sufficient.
+Prize if clean: **≤ 52,6 %** of private buildable land, ENS alone 77,0 %.
+
+⚠ Before any of it ships, **#8 becomes blocking** — `Patrimonio_Historico` is token-gated and heritage
+constrains envelopes DOWNWARD (L-616: a SOLID must intersect ALL derived constraints).
+
+⚠ Two portal findings worth carrying: the open-data portal named in the city's OWN metadata
+(`valencia.opendatasoft.com`) is **dead and parked — 404 behind a 188 KB HTML page**, and the
+`PGOU_AL.dwg` / `.gml` / `.shz` distributions the national catalogue advertises are **all 404**.
+The live documentation route is `datos.gob.es` publisher `L01462508`.
+
 ## 3 — SMALLEST NEXT STEP
 
 **Wire `resolveValenciaZoning` (CLOSURE-REGISTER #4).** Point-intersect `MapServer/231` through a

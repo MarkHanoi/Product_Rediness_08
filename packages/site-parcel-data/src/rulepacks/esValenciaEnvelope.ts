@@ -268,6 +268,233 @@ export const VALENCIA_ALTURA_ON_BUILDABLE_LAND = {
 } as const;
 
 /**
+ * §ALTURA-SEMANTICS-SETTLED (2026-08-02) — **the four blockers were attacked one by one. Three fell.
+ * The fourth held, and it is the one that decides the city.**
+ *
+ * The founder directive was *"get the ENVELOPE number as high as it will honestly go"*. This is the
+ * work that answers it, and the answer is **0 %** — reached by refuting three of the four objections
+ * rather than by repeating them, which is why it can now be trusted.
+ *
+ * ── WHAT WAS RETIRED ─────────────────────────────────────────────────────────────────────────────
+ *
+ * **(1) "The field is undocumented and might be METRES" — RETIRED, two independent ways.**
+ *
+ * *Documentary.* The publisher's OWN data dictionary was located — not in the ArcGIS catalogue (which
+ * documents nothing) but in the **national federated catalogue `datos.gob.es`**, publisher
+ * `L01462508` (Ajuntament de València), dataset *PGOU - Alineaciones*:
+ *   «Alineacions del Pla General d'Ordenació Urbana · **Altura: Altura del PGOU** · Protec: Nivel de
+ *   protección.»
+ * ⚠ It is a **tautological** definition — *the PGOU's altura* — so it does NOT give units. But it is
+ * decisive on one thing, and the proof is a SIBLING dataset: *Textos de los portales de las calles*
+ * documents its own `Altura` field as **«Altura de representació en plans»** — a CARTOGRAPHIC TEXT
+ * HEIGHT. So this municipality's vocabulary does use `altura` for a rendering artefact, and it
+ * **documents that case differently.** `PGOU_AL.altura` is attributed to *the PGOU*, not to the map.
+ *
+ * *Empirical, and stronger.* `altura` was paired against OSM `building:levels` for the SAME building
+ * (n = 105 in the Ensanche core, 0 transport failures). **Median ratio `altura / levels` = 0.78, mean
+ * 0.91, p90 = 1.00.** The METRES hypothesis predicts ≈3.0. **It is refuted by a factor of four.**
+ * `altura` is a storey-scale count.
+ *
+ * **(3) "`profundidad edificable` is published nowhere, so even a proven height yields no envelope"
+ * — RETIRED: THE DEPTH IS IN THE GEOMETRY, NOT IN AN ATTRIBUTE.**
+ *
+ * This was the objection that looked decisive, and measuring it inverted it. Art. 6.18.1 reads
+ * «La ocupación de la parcela edificable se ajustará a las **alineaciones definidas en el Plano C**»
+ * — so the *ocupación* is defined by the ALIGNMENTS, and layer 212 IS the digitised alignments. If
+ * its polygon is the *área de movimiento*, the depth is already drawn and needs no field.
+ * Measured on ENS/EDA suelo urbano carrying a bare storey count (n = 54, EPSG:25830, metres):
+ *   • mean width (2A/P) **median 15,6 m** (p10 10,2 · p90 27,1) — squarely a *profundidad edificable*,
+ *     against Art. 6.18.2's 20 m default cap;
+ *   • **NEVER larger than its own calificación polygon — 0 of 54** — median area ratio 0,75;
+ *   • 10 of 54 carry interior HOLES, the *patio de manzana*.
+ * ⚠ 31 % exceed 20 m, which does **not** refute it: Art. 6.18.2's 20 m applies only *«Caso de no
+ * indicarse ésta»*, so a graphed 27 m is lawful. ⚠ n = 54, and this is EVIDENCE, not proof.
+ *
+ * **(4) "Art. 6.19.3 means a computed Hc is not even a ceiling" — MITIGATED, not fatal.** The
+ * *enrase de cornisas* and the ENS-2 infill storey both push a building ABOVE the computed Hc. Under
+ * the never-overstates invariant (C58 §1.14.4) an omitted upward exception UNDER-states, which is the
+ * safe direction. It is a caveat on the number, not a bar to publishing one.
+ *
+ * ── ⛔ WHAT HELD, AND WHY IT IS DECISIVE ─────────────────────────────────────────────────────────
+ *
+ * **(2) The offset convention is unknown — and the measurement made it WORSE, not better.**
+ *
+ * Art. 6.19.1 defines `Hc = 4,80 + 2,90·Np` with Np = *«el señalado en los planos menos uno»*. Whether
+ * `altura` stores the graphed count or Np already is undocumented. The empirical test was expected to
+ * settle it. **It refuted the simplest reading instead:**
+ *
+ * | `altura − building:levels` | −3 or less | −2 | −1 | 0 | +1 | +2 or more |
+ * |---|---:|---:|---:|---:|---:|---:|
+ * | buildings | 20 | **34** | 21 | 10 | 4 | 6 |
+ *
+ * **`altura` is BELOW the built storey count in 85 of 105 buildings (81 %), modally by TWO.** A plan
+ * MAXIMUM should sit at or above what was built almost everywhere. Only 33 % of pairs fall within ±1
+ * of each other, and the spread runs −13 … +7.
+ *
+ * ⚠⚠ **THIS IS NOT A CONSERVATIVE AMBIGUITY THAT never-overstates CAN ABSORB.** Reading `altura` as
+ * the graphed count on a typical Ensanche block — `altura` 5 against a 7-storey building — yields
+ * `Hc = 4,80 + 2,90·4 = 16,4 m` for a building that already stands at roughly 21 m. **PRYZM would
+ * publish a buildable envelope LOWER THAN THE BUILDING ALREADY ON THE PLOT.** For a feasibility tool
+ * that is not caution, it is a wrong answer — and in the 10 of 105 where `altura` EXCEEDS the built
+ * count, the same parser over-states instead. **A rule that is wrong in both directions has no safe
+ * branch to choose.**
+ *
+ * Three readings survive the data and PRYZM cannot distinguish them: `altura` is Np and OSM counts
+ * planta baja plus ático; or `altura` is a different quantity altogether (a height BAND, say); or the
+ * point-in-polygon pairing is noisier than it looks. **Each implies a different envelope.** C58 §1.4
+ * forbids presenting any of them as the fact.
+ *
+ * ⇒ **València stays at 0 %.** ⭐ **But the ask has changed shape entirely: it is no longer "obtain
+ * Plano C", a data-acquisition project. It is ONE WRITTEN ANSWER — see `VALENCIA_R5_ASK`.**
+ */
+export const VALENCIA_ALTURA_SEMANTICS_2026_08_02 = {
+    measuredAt: '2026-08-02',
+    /** Publisher's own dictionary, `datos.gob.es` publisher `L01462508`, *PGOU - Alineaciones*. */
+    publishedFieldDefinition: 'Altura: Altura del PGOU',
+    /** ⚠ Tautological — it attributes the field to the PGOU but states NO unit and NO convention. */
+    publishedDefinitionGivesUnits: false,
+    /** The sibling dataset that proves the contrast is deliberate. */
+    contrastingSiblingDefinition:
+        'Textos de los portales de las calles → «Altura: Altura de representació en plans» '
+        + '(a CARTOGRAPHIC text height — documented differently, so PGOU_AL.altura is not that)',
+    /** TEST A — paired against OSM `building:levels` on the same building. */
+    pairedSampleN: 105,
+    /** ⭐ METRES would predict ≈3.0. Measured 0.78 ⇒ REFUTED by ~4×. `altura` is storey-scale. */
+    medianAlturaOverOsmLevels: 0.778,
+    /** ⛔ THE BLOCKER: `altura` sits BELOW the built storey count on 81 % of buildings, modally by 2. */
+    pctAlturaBelowBuiltLevels: 81,
+    /** Modal `altura − levels`. A plan MAXIMUM should not be systematically two storeys short. */
+    modalAlturaMinusLevels: -2,
+    /** Only a third of pairs agree to within one storey. The spread runs −13 … +7. */
+    pctWithinOneStorey: 33,
+    /** TEST B — ENS/EDA suelo urbano carrying a bare storey count, EPSG:25830. */
+    geometrySampleN: 54,
+    /** ⭐ Median mean-width of the alineación polygon, metres — a *profundidad edificable* scale. */
+    medianAlineacionWidthM: 15.6,
+    /** ⭐ 0 of 54. The alignment polygon is always inside its zone polygon ⇒ it is a FOOTPRINT. */
+    alineacionLargerThanCalificacionCount: 0,
+    /** Median area(alineación)/area(calificación). */
+    medianAreaRatio: 0.75,
+} as const;
+
+/** One reason the `altura` route cannot yet publish an envelope, and what became of it. */
+export interface ValenciaAlturaBlocker {
+    readonly id:
+        | 'field-units-undocumented'
+        | 'offset-convention-unknown'
+        | 'profundidad-not-published'
+        | 'hc-not-a-ceiling';
+    /** `blocking` alone forbids publication. `retired`/`mitigated` are kept so nobody re-litigates. */
+    readonly status: 'retired' | 'mitigated' | 'blocking';
+    readonly evidence: string;
+}
+
+/**
+ * The four objections to the layer-212 `altura` route, with what the 2026-08-02 measurements did to
+ * each. **Exported so the refusal is machine-readable and a test can pin it** — the row is closed
+ * with its evidence rather than by a comment a future author can skim past.
+ *
+ * ⚠ A future author who wants to pack ENS must flip `offset-convention-unknown` to `retired`, and
+ * that requires the municipal answer (`VALENCIA_R5_ASK`) — not a better parser.
+ *
+ * PURE; never throws. OTel span `pryzm.zoning.valenciaAlturaRouteBlockers` (P8 / C58 §1.10).
+ */
+export function valenciaAlturaRouteBlockers(): readonly ValenciaAlturaBlocker[] {
+    const span = tracer.startSpan('pryzm.zoning.valenciaAlturaRouteBlockers');
+    try {
+        const blockers: readonly ValenciaAlturaBlocker[] = [
+            {
+                id: 'field-units-undocumented',
+                status: 'retired',
+                evidence:
+                    'datos.gob.es publisher L01462508 documents «Altura: Altura del PGOU» (a PGOU '
+                    + 'attribute, not the cartographic «Altura de representació en plans» its sibling '
+                    + 'Portales dataset declares); and altura/OSM building:levels = 0.78 median over '
+                    + 'n=105, refuting the METRES reading (which predicts ≈3.0) by ~4×.',
+            },
+            {
+                id: 'profundidad-not-published',
+                status: 'retired',
+                evidence:
+                    'Art. 6.18.1 sets the ocupación by the ALINEACIONES, and layer 212 is those '
+                    + 'alineaciones: on ENS/EDA (n=54) its polygon has median mean-width 15.6 m, is '
+                    + 'NEVER larger than its calificación polygon (0/54, median area ratio 0.75), and '
+                    + 'carries patio-de-manzana holes. The depth is drawn, not tabulated.',
+            },
+            {
+                id: 'hc-not-a-ceiling',
+                status: 'mitigated',
+                evidence:
+                    'Art. 6.19.3 enrase de cornisas and 6.19.3.c ENS-2 infill both push ABOVE the '
+                    + 'computed Hc, so omitting them UNDER-states — the safe direction under the '
+                    + 'never-overstates invariant (C58 §1.14.4). A caveat, not a bar.',
+            },
+            {
+                id: 'offset-convention-unknown',
+                status: 'blocking',
+                evidence:
+                    '⛔ DECISIVE. Art. 6.19.1 sets Np = graphed plantas − 1; whether `altura` stores '
+                    + 'the graphed count or Np is undocumented. Measured, altura sits BELOW the built '
+                    + 'storey count on 81 % of buildings (n=105), modally by TWO, with only 33 % '
+                    + 'within ±1 and a spread of −13…+7. Reading it as the graphed count would publish '
+                    + 'an envelope LOWER than the building already standing; the 10/105 where it '
+                    + 'exceeds would OVER-state. Wrong in both directions ⇒ no safe branch, and C58 '
+                    + '§1.4 forbids presenting one reading as the fact. Needs VALENCIA_R5_ASK.',
+            },
+        ];
+        span.setAttribute('blockingCount', blockers.filter((b) => b.status === 'blocking').length);
+        span.setAttribute('resultFields', 'blockers');
+        span.setStatus({ code: SpanStatusCode.OK });
+        return blockers;
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * May PRYZM publish a València envelope from the layer-212 `altura` route today? **`false`.**
+ *
+ * The single guard a future author must pass. It is derived from `valenciaAlturaRouteBlockers()` and
+ * is never a hand-set boolean, so it cannot drift from the evidence that justifies it.
+ *
+ * PURE; never throws. OTel span `pryzm.zoning.valenciaAlturaRouteIsPublishable` (P8 / C58 §1.10).
+ */
+export function valenciaAlturaRouteIsPublishable(): boolean {
+    const span = tracer.startSpan('pryzm.zoning.valenciaAlturaRouteIsPublishable');
+    try {
+        const publishable = !valenciaAlturaRouteBlockers().some((b) => b.status === 'blocking');
+        span.setAttribute('publishable', publishable);
+        span.setAttribute('resultFields', 'publishable');
+        span.setStatus({ code: SpanStatusCode.OK });
+        return publishable;
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * ⭐ **THE ONE ASK — and it is now a question, not a dataset.**
+ *
+ * Before 2026-08-02 the register said València needed **Plano C as data**: a 1991 drawing set, an
+ * institution, possibly a fee, timeline unknown. That framing is **superseded**. The alignments are
+ * already published (layer 212), the depth is already in their geometry, and the storey field is
+ * already there. What is missing is **one written definition** of a field the city already publishes.
+ *
+ * Contact: `datosabiertos@valencia.es` — the address in the layer's OWN ISO metadata
+ * (`…/MapServer/212/metadata`, HTTP 200) — and/or the Servicio de Planeamiento.
+ */
+export const VALENCIA_R5_ASK =
+    'In the published dataset «PGOU - Alineaciones» (PGOU_AL, geoportal.valencia.es MapServer/212), '
+    + 'the field `altura` is documented only as «Altura del PGOU». (1) Does it record the *número de '
+    + 'plantas grafiado en el Plano C* of Art. 6.19.1 — and if so, does it store the graphed count, '
+    + 'or Np (the graphed count minus one)? (2) What are the units of the non-integer values (`13m`, '
+    + '`0.8m2t/m2s`, `10235m2t`, `<=5`)? (3) Does the polygon delimit the *área de movimiento* — the '
+    + 'ocupación bounded by the alineación exterior and the profundidad edificable of Art. 6.18 — or '
+    + 'something else? ⚠ Please also reconcile one measurement: `altura` is LOWER than the built '
+    + 'storey count on 81 % of sampled Ensanche buildings, modally by two. An answer that does not '
+    + 'explain that gap does not unblock publication.';
+
+/**
  * The roadmap line, stated once. Same role as `MURCIA_ROADMAP_LINE`: the refusal card must say
  * what would change the answer, or the user cannot tell a coverage gap from a crash.
  */

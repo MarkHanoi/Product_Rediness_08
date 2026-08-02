@@ -30,11 +30,16 @@ import { composeIneCode } from '../src/providers/murciaBbox.js';
 import {
     VALENCIA_ALTURA_FIELD_MEASURE,
     VALENCIA_ALTURA_ON_BUILDABLE_LAND,
+    VALENCIA_ALTURA_SEMANTICS_2026_08_02,
+    VALENCIA_R5_ASK,
+    valenciaAlturaRouteBlockers,
+    valenciaAlturaRouteIsPublishable,
     VALENCIA_ENVELOPE_VERIFIED,
     VALENCIA_JURISDICTION_ID,
     VALENCIA_ROADMAP_LINE,
     valenciaNoRulePackRefusal,
 } from '../src/rulepacks/esValenciaEnvelope.js';
+import type { ValenciaAlturaBlocker } from '../src/rulepacks/esValenciaEnvelope.js';
 import {
     ES_VALENCIA_PGOU_PACK,
     VALENCIA_CALIFICACION_CLASSIFICATION,
@@ -510,5 +515,76 @@ describe('València — `altura` on the L-656 denominator: the lead is BIGGER, a
             + J.boundedStoreyPctOfBuildableLand + J.notAStoreyCountPctOfBuildableLand;
         expect(sum).toBeGreaterThan(98);
         expect(sum).toBeLessThanOrEqual(100.5);
+    });
+});
+
+// ── §ALTURA-SEMANTICS-SETTLED (2026-08-02) ─────────────────────────────────────────────────────
+describe('València — three of four blockers RETIRED, the fourth holds, and it decides the city', () => {
+    const S = VALENCIA_ALTURA_SEMANTICS_2026_08_02;
+    /** Lookup that FAILS on a missing id rather than reading `undefined.status` as a pass. */
+    const statusOf = (id: ValenciaAlturaBlocker['id']): ValenciaAlturaBlocker['status'] => {
+        const b = valenciaAlturaRouteBlockers().find((x) => x.id === id);
+        if (!b) throw new Error(`blocker '${id}' is not declared — the row was silently dropped`);
+        return b.status;
+    };
+
+    it('⭐ the METRES hypothesis is REFUTED — `altura` is storey-scale, not metres', () => {
+        // METRES predicts altura/levels ≈ 3.0 (a ~3 m storey). Measured 0.78 over n=105.
+        expect(S.medianAlturaOverOsmLevels).toBeLessThan(1.5);
+        expect(S.pairedSampleN).toBeGreaterThan(100);
+        expect(statusOf('field-units-undocumented')).toBe('retired');
+    });
+
+    it('⭐ the DEPTH objection is RETIRED — it is drawn in the polygon, not tabulated in a field', () => {
+        // Art. 6.18.1 sets the ocupación by the alineaciones, and the alineación polygon behaves like
+        // an área de movimiento: a ~15.6 m band, never larger than the zone polygon it sits in.
+        expect(S.medianAlineacionWidthM).toBeLessThan(20); // Art. 6.18.2's default cap
+        expect(S.alineacionLargerThanCalificacionCount).toBe(0);
+        expect(S.medianAreaRatio).toBeLessThan(1);
+        expect(statusOf('profundidad-not-published')).toBe('retired');
+        // ⚠ And `profundidadEdificablePublished` stays FALSE — no ATTRIBUTE publishes it. The two
+        // facts are different and both true; collapsing them is how a caveat gets lost.
+        expect(VALENCIA_ALTURA_ON_BUILDABLE_LAND.profundidadEdificablePublished).toBe(false);
+    });
+
+    it('Art. 6.19.3 is MITIGATED, not blocking — an omitted upward exception UNDER-states', () => {
+        expect(statusOf('hc-not-a-ceiling')).toBe('mitigated');
+    });
+
+    it('⛔ THE OFFSET CONVENTION HOLDS, and the measurement made it WORSE — no safe branch exists', () => {
+        // A plan MAXIMUM should sit at or above what was built. `altura` is BELOW it on 81 % of
+        // buildings, modally by two, with only a third of pairs within ±1. Reading it as the graphed
+        // count publishes an envelope lower than the standing building; the minority where it exceeds
+        // over-states. Wrong in BOTH directions ⇒ never-overstates cannot rescue it (C58 §1.4).
+        expect(S.pctAlturaBelowBuiltLevels).toBeGreaterThan(75);
+        expect(S.modalAlturaMinusLevels).toBeLessThan(0);
+        expect(S.pctWithinOneStorey).toBeLessThan(50);
+        expect(statusOf('offset-convention-unknown')).toBe('blocking');
+    });
+
+    it('⛔ THEREFORE the route is NOT publishable, and the pack still publishes nothing', () => {
+        // The load-bearing assertion of this whole pass. Three retirements did NOT open the route.
+        expect(valenciaAlturaRouteIsPublishable()).toBe(false);
+        expect(ES_VALENCIA_PGOU_PACK.zones).toHaveLength(0);
+        expect(VALENCIA_ENVELOPE_VERIFIED).toBe(false);
+    });
+
+    it('publishability is DERIVED from the blockers, never hand-set', () => {
+        const blocking = valenciaAlturaRouteBlockers().filter((b) => b.status === 'blocking');
+        expect(valenciaAlturaRouteIsPublishable()).toBe(blocking.length === 0);
+        // Every blocker carries its evidence — a status with no evidence is an assertion (C63 §1.1).
+        for (const b of valenciaAlturaRouteBlockers()) expect(b.evidence.length).toBeGreaterThan(80);
+    });
+
+    it('the published field definition is recorded AND flagged as not giving units', () => {
+        expect(S.publishedFieldDefinition).toMatch(/Altura del PGOU/);
+        expect(S.publishedDefinitionGivesUnits).toBe(false);
+        // The sibling that proves the contrast is deliberate, not an oversight.
+        expect(S.contrastingSiblingDefinition).toMatch(/representació en plans/);
+    });
+
+    it('the R5 ask names the anomaly an answer must explain — not just the question', () => {
+        expect(VALENCIA_R5_ASK).toMatch(/menos uno|minus one/i);
+        expect(VALENCIA_R5_ASK).toMatch(/81 %/);
     });
 });
