@@ -319,6 +319,24 @@ resolver is authored and never called).
 
 **4 before any UAD-3 land can bind** — it is the one open row whose sign is **OVER-states**.
 
+> ### ⛔ DO NOT FLIP THE GATE TO RAISE THE ENVELOPE NUMBER — the measurement says it would ship a defect
+>
+> The pack self-labels `pipeline-extracted-unverified`, a tier that exists in the C63 ladder (weight
+> 0.1) precisely to let machine-extracted work ship with a loud badge. So "flip `CORDOBA_ENVELOPE_
+> VERIFIED` and take the 0.1" looks like a legitimate way to move the axis off 0.0 %. **It is not, on
+> three independent grounds, and the third is new this pass:**
+>
+> 1. It is a **legal act** (L-449), not a code change. No agent may perform it; Madrid's `ea084461`
+>    guard now dereferences every gate against its `VERIFICATION.md` and fails the build otherwise.
+> 2. A signature alone **renders nothing** — the resolver is authored and never called (blocker 3).
+> 3. ⭐ **It would put blocker 4 LIVE on real land.** The register believed D1 was harmless because
+>    "UAD-3 binds 0.00 %". Measured: **UAD-3 binds 31 505.01 m²**, and its only other shield —
+>    every one of those polygons sitting inside a delegating ámbito — is **inert until blocker 3
+>    calls `derivedPlanningOverride`**. Flipping the gate today therefore ships the **L-616
+>    whole-parcel overstatement** on land a user can click. **4 and 3 must both land before 2.**
+>
+> **0.0 % is the honest number today, and raising it is a sequencing problem, not a scoring one.**
+
 > ### ⚠ THE TWO LESSONS THIS REGISTER ADDS TO BARCELONA'S
 >
 > **1 — A CEILING AND A BLOCKER ARE DIFFERENT THINGS.** The dossier's headline for months was

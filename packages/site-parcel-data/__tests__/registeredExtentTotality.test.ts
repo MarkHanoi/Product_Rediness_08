@@ -42,7 +42,10 @@ import { describe, it, expect } from 'vitest';
 import {
     listJurisdictionCoverage,
     resolveRegisteredJurisdictionAt,
+    resolveZoneDisposition,
 } from '../src/rulepacks/registry.js';
+import { isEnvelopePublicationAuthorised } from '../src/rulepacks/envelopeAuthorisation.js';
+import { classifyAnswerability } from '../src/rulepacks/answerabilityClass.js';
 import {
     CORDOBA_BBOX,
     CORDOBA_MUNICIPAL_BBOX,
@@ -199,6 +202,34 @@ describe('§CORDOBA-MUNICIPAL-CLOSURE — the fabrication is dead across the WHO
         // for land COACo maps no ordenanza onto.
         expect(muni!.packZoneCodes).toEqual([]);
         expect(muni!.extentResolution).toBe('municipal');
+    });
+
+    it('the refusal-only registration CANNOT fail open on the authorisation gate', () => {
+        // ⚠ THE FOUNDER'S WARNING, CHECKED RATHER THAN ASSUMED. `ENVELOPE_PUBLICATION_GATES` is
+        // FAIL-OPEN BY ABSENCE (an unlisted jurisdiction is authorised), and
+        // `es-14021-cordoba-municipal` is NOT listed — so `isEnvelopePublicationAuthorised` returns
+        // `true` for it. That looks exactly like the València hole. It is NOT one, and the reason is
+        // structural rather than lucky: the gate is consulted ONLY in `classifyDisposition`'s
+        // `'pack'` branch, and this registration's `packsByZone` is empty BY CONSTRUCTION, so no
+        // zone code can ever reach that branch. Pinned here so that if either half changes — a pack
+        // is added, or the gate starts being read on a non-pack branch — this goes red instead of
+        // silently authorising an envelope on the 95.1 % of Córdoba that has no published rules.
+        expect(isEnvelopePublicationAuthorised('es-14021-cordoba-municipal')).toBe(true);
+        for (const zone of [
+            'MC-2', 'CTP-1', 'OA-1', 'PAS-2', 'UAD-3', // real packed codes from the PILOT
+            'cordoba-pgou-2001-pilot', 'Uso Comercial', 'anything-at-all', '',
+        ]) {
+            const d = resolveZoneDisposition('es-14021-cordoba-municipal', zone);
+            expect(d.kind, `${zone} must never resolve to a PACK on the municipal registration`)
+                .not.toBe('pack');
+            expect(
+                classifyAnswerability('es-14021-cordoba-municipal', zone),
+                `${zone} must never be classified as a full envelope outside the pilot`,
+            ).not.toBe('full-envelope');
+        }
+        // …while the PILOT, which does hold packs, is correctly held shut by its own gate.
+        expect(isEnvelopePublicationAuthorised('es-14021-cordoba')).toBe(false);
+        expect(classifyAnswerability('es-14021-cordoba', 'MC-2')).toBe('pack-unverified');
     });
 
     it('the two Córdoba boxes are nested the way the specificity rule requires', () => {
