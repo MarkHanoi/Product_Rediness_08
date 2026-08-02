@@ -174,3 +174,50 @@ Reading what each signature's **text** asserts splits three ways: **SIG-2** is m
 4. **No estimates without an interval, and no interval without a stated frame.**
 5. **Everything traces to a re-runnable seeded run.**
 6. ⚠ **No measured figure is transcribed into a contract, spec or ADR** (C64 §2.13) — this tracker is the artefact those documents cite.
+
+---
+
+## 6 · THE EXECUTION PLAN — phased, and every phase expressed as a count delta
+
+**The pipeline, split by where the cost actually sits:**
+
+| Per CCAA — **expensive, once** | Per municipality — **cheap, automated** |
+|---|---|
+| discover service → read ordinance corpus → encode ladder → identify municipal deviations → **one signature over the corpus** | INE code → parcels → ordinance polygons → variables → constraints → **envelope or cited refusal** → control check → publish |
+
+⭐ **Catalunya's top half is DONE.** The PGM ladder is encoded, the AMB layer covers all 36 municipalities,
+and SIG-3 certifies a **dataset vintage**, not a city. **That is why 26 are one unbinding away.**
+
+| Phase | Work | Count effect |
+|---|---|---|
+| **0 · fail-closed** ⛔ *blocking, in flight* | `?? true` → `?? false`, 5 missing gates. **Measure coverage before/after — any loss was ungated and is a FINDING, not a regression.** | 0 direct; **precondition for all of it** |
+| **1 · unbind Catalunya** | 3 hardcodes: `bcnRefosOVProvider` `08019` · the clau-18 guard · `registry.ts` packs. Parameterise on INE. **Control: Barcelona byte-identical.** | **2 proven → up to 26 reachable** |
+| **2 · the onboarding runner** ⭐ | **The piece that does not exist and decides everything.** In: INE code. Out: coverage · deviation report · control pass/fail. | **reachable → proven, in batches** |
+| **3 · run the AMB** | 26 through the runner. **Barcelona + Badalona flagged as deviations** (Arts. 327/328/320 rewritten); the other 25 on the base metropolitan ladder. | **up to 26 proven** |
+| **4 · street width** | Arts. 320.3a / 327.2a / 328.2a on *amplada de vial*; base tables **already in the repo**. Gates the cold cities, Madrid, Córdoba, València. | **raises coverage INSIDE every municipality already onboarded** |
+| **5 · Madrid as CCAA #2** | **The first real test of the per-CCAA cost, because the top half is NOT done.** 93,839 features, altura 70.2 % / plantas 72.9 %. ⚠ **Target the periphery — capital 3.6 %, Alcalá 69.4 %.** | **proves the CCAA model repeats, or shows what it costs when it doesn't** |
+
+### ⭐ THE TWO DECISION POINTS — the plan turns on these, not on the phases
+
+**After Phase 2 — does onboarding need code?**
+> **Yes → you have 26 PROJECTS and the model is wrong. No → the model holds and Phases 3–5 are execution.**
+
+⇒ **The runner's primary output is the ANSWER to that question**, not the coverage figures. **Success test: onboard a municipality with ZERO code changes.** *If it needs a branch, the branch is the finding — log it, don't fix it.*
+
+**After Phase 5 — what did CCAA #2 actually cost, end to end?**
+> ⚠ **That number, NOT Catalunya's, is what multiplies across the remaining regions.**
+
+Catalunya's cost is **unrepresentative by construction**: its expensive half was already paid before the
+count was being tracked. **Quoting Catalunya's cost as the per-CCAA cost would be the tenth
+confident-and-wrong signal.**
+
+### Deferred ON PURPOSE — not forgotten
+
+- **Delegated instruments (*plans parcials*)** — a real per-municipality **sourcing** cost. ⭐ **Refuse
+  cleanly and ship the rest.** `PD*` is **8.29 % in Sant Climent** against **59.53 % in Barcelona**, so it
+  costs **far less outside the reference city.**
+- **Galicia's `EnlaceGIS`** (the candidate bridge to the *expediente*), **the unverified 17-CCAA gazette
+  sweep**, and **CyL's «sin validez jurídica» question** — all **after Phase 5**.
+
+> ⛔ **PHASE 2 IS THE ONE TO GET RIGHT. Everything before it is three strings; everything after it depends on
+> whether onboarding is a COMMAND or a PROJECT.**
