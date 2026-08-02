@@ -1,0 +1,88 @@
+=== (a) PAGING CAPABILITY TEST ===
+  sitcm:VPLA_V_ORDENANZA       count only           -> 5 features
+  sitcm:VPLA_V_ORDENANZA       count+startIndex=0   -> FAIL 400 java.lang.RuntimeException: java.io.IOException
+java.io.IOExceptionCannot do natural order without a primary key, please add it or specify a manual sort over existing attributes
+  sitcm:VPLA_V_ORDENANZA       count+startIndex=100 -> FAIL 400 java.lang.RuntimeException: java.io.IOException
+java.io.IOExceptionCannot do natural order without a primary key, please add it or specify a manual sort over existing attributes
+  sitcm:VPLA_V_ORDENANZA       count+sortBy=CDID    -> 5 features
+  sitcm:VPLA_V_AMBITO_MODIF    count only           -> 5 features
+  sitcm:VPLA_V_AMBITO_MODIF    count+startIndex=0   -> FAIL 400 java.lang.NullPointerException
+  sitcm:VPLA_V_AMBITO_MODIF    count+startIndex=100 -> FAIL 400 java.lang.NullPointerException
+  sitcm:VPLA_V_AMBITO_MODIF    count+sortBy=CDID    -> 5 features
+
+=== (a2) IS numberMatched CAPPED BY maxRecordCount? ===
+  advertised CountDefault / maxFeatures = 5000
+  numberMatched(VPLA_V_ORDENANZA, no filter) = 93839
+  => numberMatched EXCEEDS any page cap, therefore NOT capped: it is an exact server-side count.
+
+=== (b) MUNICIPALITY CENSUS (from the same server, Callejero:SIGI_V_MUNICIPIOS) ===
+  fields: CDID, CDMUNICIPIO, DSMUNICIPIO_ORI, DSMUNICIPIO
+  sample: {"CDID":48,"CDMUNICIPIO":"048","DSMUNICIPIO_ORI":"Corpa","DSMUNICIPIO":"CORPA"}
+  municipality features returned: 179
+
+=== (b2) JOIN-KEY IDENTITY: is CD_MUNICIPIO an INE code? ===
+  CD_MUNICIPIO='28079' -> 0
+  CD_MUNICIPIO='28900' -> 0
+  CD_MUNICIPIO='28005' -> 0
+  28079 resolves to DS_MUNICIPIO = null
+
+=== (c) DOMAINS — DS_FIG_DES (figura de desarrollo) on VPLA_V_AMBITO ===
+  (enumerated by pulling a large propertyName-reduced draw; AMBITO is small enough to take whole)
+  drew 5000 of 5937 AMBITO features  => PARTIAL
+
+  DS_FIG_DES — 9 distinct
+       2669  (null)
+       1331  Plan Parcial
+        507  Estudio Detalle
+        220  Plan Especial
+        167  Plan Especial Reforma Interior
+         90  Programa Actuación Urbanística
+          8  Plan Parcial Reforma Interior
+          6  Plan Sectorización
+          2  PERI
+
+  DS_CLAS_SUE — 38 distinct
+       2126  Suelo Urbano
+        485  Suelo Urbano No Consolidado
+        406  Suelo Apto Para Urbanizar
+        350  Suelo Urbano (INCORPORADO)
+        290  Suelo Urbano Consolidado
+        283  Suelo Urbanizable Sectorizado
+        207  Suelo Urbanizable Programado
+        118  Suelo Urbano (APLAZADO)
+        102  Suelo No Urbanizable Protegido
+         87  Suelo Urbanizable Programado (APLAZADO)
+         83  Suelo Urbanizable
+         75  Sistemas Generales
+         48  Suelo Urbanizable No Programado
+         47  Suelo Urbanizable No Programado (APLAZADO)
+         41  Suelo Apto Para Urbanizar (APLAZADO)
+         35  Suelo de Reserva Urbana
+         26  Suelo Urbanizable Sectorizado (INCORPORADO)
+         24  Suelo Urbanizable Programado (INCORPORADO)
+         23  Suelo Urbano No Consolidado (INCORPORADO)
+         21  Suelo No Urbanizable Protegido (APLAZADO)
+         19  Suelo Urbanizable Sectorizado (APLAZADO)
+         18  Suelo Urbanizable (INCORPORADO)
+         13  Suelo Urbano Consolidado (INCORPORADO)
+         11  Suelo Urbanizable (APLAZADO)
+         10  Suelo Urbanizable (INCORPORADO) (APLAZADO)
+          7  Suelo No Urbanizable Común
+          7  Suelo Urbanizable Apto para Urbanizar (APLAZADO)
+          6  Suelo Urbanizable No Sectorizado
+          6  Suelo Urbanizable No Sectorizado (APLAZADO)
+          5  Suelo Urbano Consolidado (APLAZADO)
+
+  DS_PROMOC — 4 distinct
+       2838  Privada
+       1630  (null)
+        467  Pública
+         65  Mixta
+
+  DS_SIST_ACT — 6 distinct
+       3090  Compensación
+       1227  (null)
+        246  Cooperación
+        214  Actuación Aislada
+        205  Expropiación
+         18  Ejecución Forzosa

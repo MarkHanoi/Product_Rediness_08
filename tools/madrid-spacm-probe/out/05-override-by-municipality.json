@@ -1,0 +1,1076 @@
+[
+  {
+    "cd": "150",
+    "ds": "TORREJÓN DE VELASCO",
+    "ratio": 90.98339114449502,
+    "denomKm2": 8.254721923599217
+  },
+  {
+    "cd": "135",
+    "ds": "SANTA MARÍA DE LA ALAMEDA",
+    "ratio": 85.00729388771178,
+    "denomKm2": 2.0406563600252077
+  },
+  {
+    "cd": "017",
+    "ds": "BATRES",
+    "ratio": 82.16396319648118,
+    "denomKm2": 1.9849744957663809
+  },
+  {
+    "cd": "060",
+    "ds": "FUENTIDUEÑA DE TAJO",
+    "ratio": 78.5272946604039,
+    "denomKm2": 2.494855088257883
+  },
+  {
+    "cd": "147",
+    "ds": "TITULCIA",
+    "ratio": 77.72133162199609,
+    "denomKm2": 0.37286525740867166
+  },
+  {
+    "cd": "177",
+    "ds": "VILLANUEVA DEL PARDILLO",
+    "ratio": 74.69022091836077,
+    "denomKm2": 3.791975739160496
+  },
+  {
+    "cd": "108",
+    "ds": "PEDREZUELA",
+    "ratio": 71.86389691002385,
+    "denomKm2": 2.0264426064027434
+  },
+  {
+    "cd": "086",
+    "ds": "EL MOLAR",
+    "ratio": 69.51275890001453,
+    "denomKm2": 6.653106560006212
+  },
+  {
+    "cd": "015",
+    "ds": "ARROYOMOLINOS",
+    "ratio": 68.70038222265781,
+    "denomKm2": 8.623195378724134
+  },
+  {
+    "cd": "009",
+    "ds": "ALGETE",
+    "ratio": 68.51857665892449,
+    "denomKm2": 11.749705478291787
+  },
+  {
+    "cd": "014",
+    "ds": "ARGANDA DEL REY",
+    "ratio": 68.13250933710485,
+    "denomKm2": 13.827412015571364
+  },
+  {
+    "cd": "121",
+    "ds": "REDUEÑA",
+    "ratio": 67.99925751126432,
+    "denomKm2": 0.5781703439336844
+  },
+  {
+    "cd": "137",
+    "ds": "LOS SANTOS DE LA HUMOSA",
+    "ratio": 67.58783987826469,
+    "denomKm2": 1.300561005571425
+  },
+  {
+    "cd": "063",
+    "ds": "GARGANTILLA DEL LOZOYA Y PINILLA DE BUITRAGO",
+    "ratio": 66.34354128387827,
+    "denomKm2": 0.3732767106519017
+  },
+  {
+    "cd": "113",
+    "ds": "PINTO",
+    "ratio": 66.29699114580137,
+    "denomKm2": 16.005228419791525
+  },
+  {
+    "cd": "140",
+    "ds": "SERRANILLOS DEL VALLE",
+    "ratio": 65.82426806000677,
+    "denomKm2": 3.5639802890673353
+  },
+  {
+    "cd": "040",
+    "ds": "CIEMPOZUELOS",
+    "ratio": 65.1228866169742,
+    "denomKm2": 13.228580573512838
+  },
+  {
+    "cd": "075",
+    "ds": "LOECHES",
+    "ratio": 63.060835093997404,
+    "denomKm2": 3.636258657343715
+  },
+  {
+    "cd": "149",
+    "ds": "TORREJÓN DE LA CALZADA",
+    "ratio": 61.735756139325105,
+    "denomKm2": 3.3062580455925588
+  },
+  {
+    "cd": "051",
+    "ds": "CHAPINERÍA",
+    "ratio": 59.77276105730475,
+    "denomKm2": 2.1975252952244233
+  },
+  {
+    "cd": "007",
+    "ds": "ALCORCÓN",
+    "ratio": 59.146226197438864,
+    "denomKm2": 19.333929533415
+  },
+  {
+    "cd": "005",
+    "ds": "ALCALÁ DE HENARES",
+    "ratio": 58.414553642542025,
+    "denomKm2": 30.455786641975283
+  },
+  {
+    "cd": "059",
+    "ds": "FUENTE EL SAZ DE JARAMA",
+    "ratio": 56.79049258841498,
+    "denomKm2": 7.218168943081486
+  },
+  {
+    "cd": "180",
+    "ds": "VILLAREJO DE SALVANÉS",
+    "ratio": 55.7053369368805,
+    "denomKm2": 3.9079334156122982
+  },
+  {
+    "cd": "013",
+    "ds": "ARANJUEZ",
+    "ratio": 55.518748649445456,
+    "denomKm2": 17.513666966100367
+  },
+  {
+    "cd": "172",
+    "ds": "VILLALBILLA",
+    "ratio": 52.72533005032747,
+    "denomKm2": 8.066574808543686
+  },
+  {
+    "cd": "073",
+    "ds": "HUMANES DE MADRID",
+    "ratio": 52.183050850910604,
+    "denomKm2": 5.2431082413427355
+  },
+  {
+    "cd": "058",
+    "ds": "FUENLABRADA",
+    "ratio": 51.742503810491,
+    "denomKm2": 18.77800191310142
+  },
+  {
+    "cd": "067",
+    "ds": "GUADALIX DE LA SIERRA",
+    "ratio": 50.2856087209334,
+    "denomKm2": 4.094868598558349
+  },
+  {
+    "cd": "110",
+    "ds": "PERALES DE TAJUÑA",
+    "ratio": 49.51950681086609,
+    "denomKm2": 1.2992433294792813
+  },
+  {
+    "cd": "082",
+    "ds": "MANZANARES EL REAL",
+    "ratio": 49.462911084173065,
+    "denomKm2": 6.29386075361321
+  },
+  {
+    "cd": "079",
+    "ds": "MADRID",
+    "ratio": 48.42676856080463,
+    "denomKm2": 290.07898481595646
+  },
+  {
+    "cd": "106",
+    "ds": "PARLA",
+    "ratio": 48.395703343389926,
+    "denomKm2": 7.1983482898643265
+  },
+  {
+    "cd": "134",
+    "ds": "SAN SEBASTIÁN DE LOS REYES",
+    "ratio": 48.081978968670164,
+    "denomKm2": 29.195295270251602
+  },
+  {
+    "cd": "130",
+    "ds": "SAN FERNANDO DE HENARES",
+    "ratio": 47.97457836210043,
+    "denomKm2": 11.221224242663835
+  },
+  {
+    "cd": "028",
+    "ds": "BUSTARVIEJO",
+    "ratio": 47.59952877909052,
+    "denomKm2": 7.6663165299031375
+  },
+  {
+    "cd": "175",
+    "ds": "VILLAMANTILLA",
+    "ratio": 47.244844851380066,
+    "denomKm2": 0.8180633713998431
+  },
+  {
+    "cd": "093",
+    "ds": "NAVACERRADA",
+    "ratio": 46.068220917127334,
+    "denomKm2": 2.9746917648131594
+  },
+  {
+    "cd": "096",
+    "ds": "NAVALCARNERO",
+    "ratio": 45.79037580026587,
+    "denomKm2": 35.01972859213674
+  },
+  {
+    "cd": "104",
+    "ds": "PARACUELLOS DE JARAMA",
+    "ratio": 45.066214616081275,
+    "denomKm2": 10.81491797154014
+  },
+  {
+    "cd": "083",
+    "ds": "MECO",
+    "ratio": 43.15214872837268,
+    "denomKm2": 15.986551865294295
+  },
+  {
+    "cd": "045",
+    "ds": "COLMENAR VIEJO",
+    "ratio": 42.223529585119664,
+    "denomKm2": 11.846327251575483
+  },
+  {
+    "cd": "158",
+    "ds": "VALDEMANCO",
+    "ratio": 42.164435847843095,
+    "denomKm2": 1.1108973031980363
+  },
+  {
+    "cd": "044",
+    "ds": "COLMENAREJO",
+    "ratio": 41.70924020355237,
+    "denomKm2": 3.7429823513180733
+  },
+  {
+    "cd": "095",
+    "ds": "NAVALAGAMELLA",
+    "ratio": 41.65737774157432,
+    "denomKm2": 1.9480343221223797
+  },
+  {
+    "cd": "902",
+    "ds": "PUENTES VIEJAS",
+    "ratio": 39.916308284243065,
+    "denomKm2": 0.8079401554548299
+  },
+  {
+    "cd": "023",
+    "ds": "EL BOALO",
+    "ratio": 39.56020815051484,
+    "denomKm2": 5.4197751140551205
+  },
+  {
+    "cd": "074",
+    "ds": "LEGANÉS",
+    "ratio": 39.46450753517773,
+    "denomKm2": 29.173041436733993
+  },
+  {
+    "cd": "154",
+    "ds": "TORRES DE LA ALAMEDA",
+    "ratio": 38.12015501026282,
+    "denomKm2": 2.8657064582857217
+  },
+  {
+    "cd": "080",
+    "ds": "MAJADAHONDA",
+    "ratio": 37.51180472302027,
+    "denomKm2": 15.88378361126462
+  },
+  {
+    "cd": "903",
+    "ds": "TRES CANTOS",
+    "ratio": 37.14750115040814,
+    "denomKm2": 15.897574025552663
+  },
+  {
+    "cd": "050",
+    "ds": "CUBAS DE LA SAGRA",
+    "ratio": 36.98358239489889,
+    "denomKm2": 4.684393843957061
+  },
+  {
+    "cd": "174",
+    "ds": "VILLAMANTA",
+    "ratio": 36.74585402805892,
+    "denomKm2": 1.3919469803692808
+  },
+  {
+    "cd": "041",
+    "ds": "COBEÑA",
+    "ratio": 36.307587639554605,
+    "denomKm2": 1.7539586364171307
+  },
+  {
+    "cd": "116",
+    "ds": "POZUELO DEL REY",
+    "ratio": 36.2236855172247,
+    "denomKm2": 0.314131152303558
+  },
+  {
+    "cd": "123",
+    "ds": "RIVAS-VACIAMADRID",
+    "ratio": 35.99938188381665,
+    "denomKm2": 19.64271279948804
+  },
+  {
+    "cd": "120",
+    "ds": "RASCAFRÍA",
+    "ratio": 34.87526062173448,
+    "denomKm2": 1.1761731756231275
+  },
+  {
+    "cd": "163",
+    "ds": "VALDEPIÉLAGOS",
+    "ratio": 34.6863929257564,
+    "denomKm2": 0.33560972305642683
+  },
+  {
+    "cd": "133",
+    "ds": "SAN MARTÍN DE VALDEIGLESIAS",
+    "ratio": 34.618398861173006,
+    "denomKm2": 8.169178472265733
+  },
+  {
+    "cd": "092",
+    "ds": "MÓSTOLES",
+    "ratio": 34.146879264557,
+    "denomKm2": 31.81127907810603
+  },
+  {
+    "cd": "055",
+    "ds": "ESTREMERA",
+    "ratio": 33.37954668284734,
+    "denomKm2": 8.945620920001769
+  },
+  {
+    "cd": "141",
+    "ds": "SEVILLA LA NUEVA",
+    "ratio": 33.000570451958936,
+    "denomKm2": 3.8879519158251297
+  },
+  {
+    "cd": "181",
+    "ds": "VILLAVICIOSA DE ODÓN",
+    "ratio": 32.88457403537371,
+    "denomKm2": 15.688712044934165
+  },
+  {
+    "cd": "145",
+    "ds": "TALAMANCA DE JARAMA",
+    "ratio": 32.734390003229876,
+    "denomKm2": 1.9116548402730502
+  },
+  {
+    "cd": "054",
+    "ds": "EL ESCORIAL",
+    "ratio": 32.53063889321685,
+    "denomKm2": 9.546202702144068
+  },
+  {
+    "cd": "131",
+    "ds": "SAN LORENZO DE EL ESCORIAL",
+    "ratio": 30.46645674292413,
+    "denomKm2": 5.427852884223769
+  },
+  {
+    "cd": "006",
+    "ds": "ALCOBENDAS",
+    "ratio": 30.32333638495742,
+    "denomKm2": 26.20051148826675
+  },
+  {
+    "cd": "053",
+    "ds": "DAGANZO DE ARRIBA",
+    "ratio": 29.88489757154665,
+    "denomKm2": 2.185443572669159
+  },
+  {
+    "cd": "030",
+    "ds": "LA CABRERA",
+    "ratio": 29.572236087738883,
+    "denomKm2": 2.527515296852976
+  },
+  {
+    "cd": "166",
+    "ds": "VALVERDE DE ALCALÁ",
+    "ratio": 29.457836753017137,
+    "denomKm2": 0.2548758476143522
+  },
+  {
+    "cd": "089",
+    "ds": "MORALEJA DE ENMEDIO",
+    "ratio": 27.54349912392453,
+    "denomKm2": 1.919773260510191
+  },
+  {
+    "cd": "115",
+    "ds": "POZUELO DE ALARCÓN",
+    "ratio": 27.278122493855918,
+    "denomKm2": 39.39070558009584
+  },
+  {
+    "cd": "167",
+    "ds": "VELILLA DE SAN ANTONIO",
+    "ratio": 27.10224178928607,
+    "denomKm2": 2.834293363563927
+  },
+  {
+    "cd": "157",
+    "ds": "VALDELAGUNA",
+    "ratio": 26.972526185724334,
+    "denomKm2": 0.6121798572383093
+  },
+  {
+    "cd": "032",
+    "ds": "CAMARMA DE ESTERUELAS",
+    "ratio": 26.649793018388422,
+    "denomKm2": 3.6166795875782105
+  },
+  {
+    "cd": "101",
+    "ds": "OLMEDA DE LAS FUENTES",
+    "ratio": 26.580885094972906,
+    "denomKm2": 0.2777985352888665
+  },
+  {
+    "cd": "002",
+    "ds": "AJALVIR",
+    "ratio": 26.47673997776388,
+    "denomKm2": 1.9389960337270606
+  },
+  {
+    "cd": "152",
+    "ds": "TORRELODONES",
+    "ratio": 26.43230079508731,
+    "denomKm2": 10.169109343097626
+  },
+  {
+    "cd": "176",
+    "ds": "VILLANUEVA DE LA CAÑADA",
+    "ratio": 26.32677365875041,
+    "denomKm2": 15.8619781800928
+  },
+  {
+    "cd": "046",
+    "ds": "COLLADO MEDIANO",
+    "ratio": 25.02465211249193,
+    "denomKm2": 3.8874898868843406
+  },
+  {
+    "cd": "010",
+    "ds": "ALPEDRETE",
+    "ratio": 23.783776220749285,
+    "denomKm2": 5.545818567841102
+  },
+  {
+    "cd": "019",
+    "ds": "BELMONTE DE TAJO",
+    "ratio": 23.759185729990808,
+    "denomKm2": 0.6878137083895237
+  },
+  {
+    "cd": "161",
+    "ds": "VALDEMORO",
+    "ratio": 23.292261838371356,
+    "denomKm2": 39.31887977190068
+  },
+  {
+    "cd": "102",
+    "ds": "ORUSCO DE TAJUÑA",
+    "ratio": 22.324621250499952,
+    "denomKm2": 0.6641582494238543
+  },
+  {
+    "cd": "148",
+    "ds": "TORREJÓN DE ARDOZ",
+    "ratio": 22.283929725769717,
+    "denomKm2": 28.843642937768745
+  },
+  {
+    "cd": "127",
+    "ds": "LAS ROZAS DE MADRID",
+    "ratio": 21.893008765853555,
+    "denomKm2": 32.914803039484156
+  },
+  {
+    "cd": "065",
+    "ds": "GETAFE",
+    "ratio": 21.764230398423933,
+    "denomKm2": 44.69687093295969
+  },
+  {
+    "cd": "136",
+    "ds": "SANTORCAZ",
+    "ratio": 21.352682065041336,
+    "denomKm2": 0.6963885076030465
+  },
+  {
+    "cd": "129",
+    "ds": "SAN AGUSTÍN DEL GUADALIX",
+    "ratio": 20.952238408873413,
+    "denomKm2": 7.655312575674674
+  },
+  {
+    "cd": "068",
+    "ds": "GUADARRAMA",
+    "ratio": 20.687890954386297,
+    "denomKm2": 7.064078778106571
+  },
+  {
+    "cd": "084",
+    "ds": "MEJORADA DEL CAMPO",
+    "ratio": 20.32544695549498,
+    "denomKm2": 7.290948549191319
+  },
+  {
+    "cd": "173",
+    "ds": "VILLAMANRIQUE DE TAJO",
+    "ratio": 20.073960242525647,
+    "denomKm2": 1.6251653227351757
+  },
+  {
+    "cd": "901",
+    "ds": "LOZOYUELA-NAVAS-SIETEIGLESIAS",
+    "ratio": 20.072116139151785,
+    "denomKm2": 1.5902408670480694
+  },
+  {
+    "cd": "155",
+    "ds": "VALDARACETE",
+    "ratio": 19.460012445732396,
+    "denomKm2": 0.3262782319692646
+  },
+  {
+    "cd": "066",
+    "ds": "GRIÑÓN",
+    "ratio": 19.287050445371833,
+    "denomKm2": 4.429291469652567
+  },
+  {
+    "cd": "029",
+    "ds": "CABANILLAS DE LA SIERRA",
+    "ratio": 17.913111073338854,
+    "denomKm2": 2.451954592048137
+  },
+  {
+    "cd": "144",
+    "ds": "SOTO DEL REAL",
+    "ratio": 17.672196632569754,
+    "denomKm2": 4.756150348852651
+  },
+  {
+    "cd": "042",
+    "ds": "COLMENAR DEL ARROYO",
+    "ratio": 16.37982636781419,
+    "denomKm2": 1.5693378213855487
+  },
+  {
+    "cd": "072",
+    "ds": "HOYO DE MANZANARES",
+    "ratio": 16.294035450980527,
+    "denomKm2": 5.378430444749342
+  },
+  {
+    "cd": "165",
+    "ds": "VALDILECHA",
+    "ratio": 15.228767529691675,
+    "denomKm2": 5.111991258970387
+  },
+  {
+    "cd": "057",
+    "ds": "FRESNO DE TOROTE",
+    "ratio": 15.05800255021614,
+    "denomKm2": 4.748644485874441
+  },
+  {
+    "cd": "047",
+    "ds": "COLLADO VILLALBA",
+    "ratio": 14.649530305670497,
+    "denomKm2": 9.559674262427054
+  },
+  {
+    "cd": "004",
+    "ds": "EL ÁLAMO",
+    "ratio": 12.687393957905565,
+    "denomKm2": 5.801885044163443
+  },
+  {
+    "cd": "033",
+    "ds": "CAMPO REAL",
+    "ratio": 12.347930097503381,
+    "denomKm2": 2.576940732372218
+  },
+  {
+    "cd": "034",
+    "ds": "CANENCIA",
+    "ratio": 12.121287266879667,
+    "denomKm2": 0.4428132196312541
+  },
+  {
+    "cd": "049",
+    "ds": "COSLADA",
+    "ratio": 12.089592570758773,
+    "denomKm2": 11.32714008854333
+  },
+  {
+    "cd": "132",
+    "ds": "SAN MARTÍN DE LA VEGA",
+    "ratio": 12.009258376914833,
+    "denomKm2": 3.6899810280715157
+  },
+  {
+    "cd": "171",
+    "ds": "VILLA DEL PRADO",
+    "ratio": 11.309763578822334,
+    "denomKm2": 5.598328840958617
+  },
+  {
+    "cd": "048",
+    "ds": "CORPA",
+    "ratio": 10.159059218455386,
+    "denomKm2": 0.2866014857159715
+  },
+  {
+    "cd": "169",
+    "ds": "VENTURADA",
+    "ratio": 9.821271885467166,
+    "denomKm2": 2.6060398865657355
+  },
+  {
+    "cd": "056",
+    "ds": "FRESNEDILLAS DE LA OLIVA",
+    "ratio": 9.321497227379409,
+    "denomKm2": 1.0153417954991901
+  },
+  {
+    "cd": "022",
+    "ds": "BOADILLA DEL MONTE",
+    "ratio": 9.044613196648719,
+    "denomKm2": 26.735034937606503
+  },
+  {
+    "cd": "008",
+    "ds": "ALDEA DEL FRESNO",
+    "ratio": 8.50923321472118,
+    "denomKm2": 1.9966868443710648
+  },
+  {
+    "cd": "091",
+    "ds": "MORATA DE TAJUÑA",
+    "ratio": 8.013643847704454,
+    "denomKm2": 1.8564970632445779
+  },
+  {
+    "cd": "164",
+    "ds": "VALDETORRES DE JARAMA",
+    "ratio": 7.967021463308208,
+    "denomKm2": 3.457798117110355
+  },
+  {
+    "cd": "094",
+    "ds": "NAVALAFUENTE",
+    "ratio": 7.90191014373859,
+    "denomKm2": 0.8295635750713424
+  },
+  {
+    "cd": "159",
+    "ds": "VALDEMAQUEDA",
+    "ratio": 7.8261057158092795,
+    "denomKm2": 0.873871814774446
+  },
+  {
+    "cd": "038",
+    "ds": "CERCEDILLA",
+    "ratio": 7.0701949637203425,
+    "denomKm2": 3.14774510558904
+  },
+  {
+    "cd": "125",
+    "ds": "ROBLEDO DE CHAVELA",
+    "ratio": 6.3665121925872095,
+    "denomKm2": 5.677150182075408
+  },
+  {
+    "cd": "026",
+    "ds": "BRUNETE",
+    "ratio": 6.008326549672216,
+    "denomKm2": 14.83957225768459
+  },
+  {
+    "cd": "109",
+    "ds": "PELAYOS DE LA PRESA",
+    "ratio": 5.922277618758311,
+    "denomKm2": 2.6946179081094566
+  },
+  {
+    "cd": "011",
+    "ds": "AMBITE",
+    "ratio": 5.333751398519557,
+    "denomKm2": 1.421240892130401
+  },
+  {
+    "cd": "061",
+    "ds": "GALAPAGAR",
+    "ratio": 5.038920294254518,
+    "denomKm2": 12.261364194190989
+  },
+  {
+    "cd": "099",
+    "ds": "NAVAS DEL REY",
+    "ratio": 4.077793308997888,
+    "denomKm2": 1.2128128206970878
+  },
+  {
+    "cd": "156",
+    "ds": "VALDEAVERO",
+    "ratio": 3.492738983825384,
+    "denomKm2": 0.4304486889367663
+  },
+  {
+    "cd": "162",
+    "ds": "VALDEOLMOS-ALALPARDO",
+    "ratio": 3.3190742295175353,
+    "denomKm2": 1.5555720056925417
+  },
+  {
+    "cd": "021",
+    "ds": "EL BERRUECO",
+    "ratio": 3.233295931676093,
+    "denomKm2": 0.9448931385474453
+  },
+  {
+    "cd": "031",
+    "ds": "CADALSO DE LOS VIDRIOS",
+    "ratio": 2.946704527055938,
+    "denomKm2": 2.901396282823857
+  },
+  {
+    "cd": "018",
+    "ds": "BECERRIL DE LA SIERRA",
+    "ratio": 2.3547013513650046,
+    "denomKm2": 3.6225662703662196
+  },
+  {
+    "cd": "160",
+    "ds": "VALDEMORILLO",
+    "ratio": 2.328333537384051,
+    "denomKm2": 9.926157950449724
+  },
+  {
+    "cd": "090",
+    "ds": "MORALZARZAL",
+    "ratio": 1.1599517295158224,
+    "denomKm2": 4.4805481715726465
+  },
+  {
+    "cd": "128",
+    "ds": "ROZAS DE PUERTO REAL",
+    "ratio": 1.1021624201976636,
+    "denomKm2": 0.6689004060186725
+  },
+  {
+    "cd": "117",
+    "ds": "PRÁDENA DEL RINCÓN",
+    "ratio": 0,
+    "denomKm2": 0.1054826274464128
+  },
+  {
+    "cd": "107",
+    "ds": "PATONES",
+    "ratio": 0,
+    "denomKm2": 0.38825771909176615
+  },
+  {
+    "cd": "179",
+    "ds": "VILLAR DEL OLMO",
+    "ratio": 0,
+    "denomKm2": 2.263885586653675
+  },
+  {
+    "cd": "178",
+    "ds": "VILLANUEVA DE PERALES",
+    "ratio": 0,
+    "denomKm2": 1.073864272184398
+  },
+  {
+    "cd": "138",
+    "ds": "LA SERNA DEL MONTE",
+    "ratio": 0,
+    "denomKm2": 0.1179473628249716
+  },
+  {
+    "cd": "126",
+    "ds": "ROBREGORDO",
+    "ratio": 0,
+    "denomKm2": 0.22252585101006045
+  },
+  {
+    "cd": "024",
+    "ds": "BRAOJOS",
+    "ratio": 0,
+    "denomKm2": 0.2064005257913233
+  },
+  {
+    "cd": "088",
+    "ds": "MONTEJO DE LA SIERRA",
+    "ratio": 0,
+    "denomKm2": 0.23302214446131952
+  },
+  {
+    "cd": "016",
+    "ds": "EL ATAZAR",
+    "ratio": 0,
+    "denomKm2": 0.0593752608898654
+  },
+  {
+    "cd": "124",
+    "ds": "ROBLEDILLO DE LA JARA",
+    "ratio": 0,
+    "denomKm2": 0.109618667038656
+  },
+  {
+    "cd": "039",
+    "ds": "CERVERA DE BUITRAGO",
+    "ratio": 0,
+    "denomKm2": 0.100785731650912
+  },
+  {
+    "cd": "043",
+    "ds": "COLMENAR DE OREJA",
+    "ratio": 0,
+    "denomKm2": 1.050905472422596
+  },
+  {
+    "cd": "100",
+    "ds": "NUEVO BAZTÁN",
+    "ratio": 0,
+    "denomKm2": 5.221134231274762
+  },
+  {
+    "cd": "146",
+    "ds": "TIELMES",
+    "ratio": 0,
+    "denomKm2": 0.430038316707715
+  },
+  {
+    "cd": "143",
+    "ds": "SOMOSIERRA",
+    "ratio": 0,
+    "denomKm2": 0.105007546678814
+  },
+  {
+    "cd": "071",
+    "ds": "HORCAJUELO DE LA SIERRA",
+    "ratio": 0,
+    "denomKm2": 0.09168853890442591
+  },
+  {
+    "cd": "064",
+    "ds": "GASCONES",
+    "ratio": 0,
+    "denomKm2": 0.3550853621135891
+  },
+  {
+    "cd": "076",
+    "ds": "LOZOYA",
+    "ratio": 0,
+    "denomKm2": 0.9105390730502231
+  },
+  {
+    "cd": "112",
+    "ds": "PINILLA DEL VALLE",
+    "ratio": 0,
+    "denomKm2": 0.196247861080977
+  },
+  {
+    "cd": "035",
+    "ds": "CARABAÑA",
+    "ratio": 0,
+    "denomKm2": 0.8803265029882155
+  },
+  {
+    "cd": "003",
+    "ds": "ALAMEDA DEL VALLE",
+    "ratio": 0,
+    "denomKm2": 0.377250307959054
+  },
+  {
+    "cd": "151",
+    "ds": "TORRELAGUNA",
+    "ratio": 0,
+    "denomKm2": 1.8546871383272303
+  },
+  {
+    "cd": "114",
+    "ds": "PIÑUÉCAR-GANDULLAS",
+    "ratio": 0,
+    "denomKm2": 0.17217120532538419
+  },
+  {
+    "cd": "070",
+    "ds": "HORCAJO DE LA SIERRA-AOSLOS",
+    "ratio": 0,
+    "denomKm2": 0.15340400967625342
+  },
+  {
+    "cd": "036",
+    "ds": "CASARRUBUELOS",
+    "ratio": 0,
+    "denomKm2": 2.280023138958869
+  },
+  {
+    "cd": "037",
+    "ds": "CENICIENTOS",
+    "ratio": 0,
+    "denomKm2": 0.910580742561418
+  },
+  {
+    "cd": "062",
+    "ds": "GARGANTA DE LOS MONTES",
+    "ratio": 0,
+    "denomKm2": 0.08780991680660939
+  },
+  {
+    "cd": "078",
+    "ds": "MADARCOS",
+    "ratio": 0,
+    "denomKm2": 0.06576806520406822
+  },
+  {
+    "cd": "087",
+    "ds": "LOS MOLINOS",
+    "ratio": 0,
+    "denomKm2": 3.2201618351078283
+  },
+  {
+    "cd": "122",
+    "ds": "RIBATEJADA",
+    "ratio": 0,
+    "denomKm2": 0.8085163392213119
+  },
+  {
+    "cd": "069",
+    "ds": "LA HIRUELA",
+    "ratio": 0,
+    "denomKm2": 0.0244519429830467
+  },
+  {
+    "cd": "118",
+    "ds": "PUEBLA DE LA SIERRA",
+    "ratio": 0,
+    "denomKm2": 0.1570523885260679
+  },
+  {
+    "cd": "025",
+    "ds": "BREA DE TAJO",
+    "ratio": 0,
+    "denomKm2": 0.3861470884835323
+  },
+  {
+    "cd": "085",
+    "ds": "MIRAFLORES DE LA SIERRA",
+    "ratio": 0,
+    "denomKm2": 4.569179911575021
+  },
+  {
+    "cd": "111",
+    "ds": "PEZUELA DE LAS TORRES",
+    "ratio": 0,
+    "denomKm2": 0.5914009890857912
+  },
+  {
+    "cd": "020",
+    "ds": "BERZOSA DEL LOZOYA",
+    "ratio": 0,
+    "denomKm2": 0.123456472282314
+  },
+  {
+    "cd": "168",
+    "ds": "EL VELLÓN",
+    "ratio": 0,
+    "denomKm2": 1.0471873135217982
+  },
+  {
+    "cd": "183",
+    "ds": "ZARZALEJO",
+    "ratio": 0,
+    "denomKm2": 0.8150578338203158
+  },
+  {
+    "cd": "182",
+    "ds": "VILLAVIEJA DEL LOZOYA",
+    "ratio": 0,
+    "denomKm2": 0.09419513510588001
+  },
+  {
+    "cd": "097",
+    "ds": "NAVARREDONDA Y SAN MAMÉS",
+    "ratio": 0,
+    "denomKm2": 0.17007719148503903
+  },
+  {
+    "cd": "153",
+    "ds": "TORREMOCHA DE JARAMA",
+    "ratio": 0,
+    "denomKm2": 0.7738092513885698
+  },
+  {
+    "cd": "027",
+    "ds": "BUITRAGO DEL LOZOYA",
+    "ratio": 0,
+    "denomKm2": 1.0739781200916423
+  },
+  {
+    "cd": "012",
+    "ds": "ANCHUELO",
+    "ratio": 0,
+    "denomKm2": 0.38496349363187593
+  },
+  {
+    "cd": "119",
+    "ds": "QUIJORNA",
+    "ratio": 0,
+    "denomKm2": 2.0162647781655605
+  },
+  {
+    "cd": "170",
+    "ds": "VILLACONEJOS",
+    "ratio": 0,
+    "denomKm2": 0.781331732562044
+  },
+  {
+    "cd": "052",
+    "ds": "CHINCHÓN",
+    "ratio": 0,
+    "denomKm2": 1.7672914917922322
+  },
+  {
+    "cd": "001",
+    "ds": "LA ACEBEDA",
+    "ratio": 0,
+    "denomKm2": 0.167610757233619
+  }
+]

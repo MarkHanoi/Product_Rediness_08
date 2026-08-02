@@ -1,0 +1,4 @@
+# Re-downloadable census caches (~180 MB). 04-census.mjs regenerates and re-reconciles them.
+out/census-*.json
+out/02-ambito-census.json
+out/geoserver3-caps.xml

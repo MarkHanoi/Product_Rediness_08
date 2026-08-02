@@ -1,0 +1,4726 @@
+[
+  {
+    "alias": "spacm_ambitos",
+    "typeName": "sitcm:VPLA_V_AMBITO",
+    "describe": {
+      "ok": true,
+      "status": 200,
+      "bytes": 10516,
+      "err": null
+    },
+    "fieldCount": 94,
+    "fields": [
+      {
+        "name": "CDID",
+        "type": "xsd:decimal",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_AMB",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLAS_SUE",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_PROMOC",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_FIG_DES",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_SIST_ACT",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_UNI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ORD_ASOC",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_CA_MIX",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_EST",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MAX_ED",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_APRO_TIPO",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_TOT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_R",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_R_RM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_R_RU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_DEP",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_IND",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_TER",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_COM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_DEP",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SG_EXT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SG_INT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_VIV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_VIV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_VIV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_R",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_IND",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_TER",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_COM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_DEP",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SG_EX",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SG_IN",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RS",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_VCAM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_LIBR",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_PROT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_PO",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_PT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_TOT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_VCAM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ADJUNTO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_LONGITUD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_AREA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "GEOMETRY1",
+        "type": "gml:GeometryPropertyType",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_AC",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_BOCM",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_BOE",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_DOCU",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_PLANEAM_GRAL",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_LEY",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "VPLA_V_AMBITO",
+        "type": "sitcm:VPLA_V_AMBITOType",
+        "nillable": false,
+        "minOccurs": "1"
+      }
+    ],
+    "featureCount": 5937,
+    "featureCountErr": null,
+    "truncationSuspect": false
+  },
+  {
+    "alias": "spacm_ambitosmodif",
+    "typeName": "sitcm:VPLA_V_AMBITO_MODIF",
+    "describe": {
+      "ok": true,
+      "status": 200,
+      "bytes": 10534,
+      "err": null
+    },
+    "fieldCount": 94,
+    "fields": [
+      {
+        "name": "CDID",
+        "type": "xsd:decimal",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_AMB",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLAS_SUE",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_PROMOC",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_FIG_DES",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_SIST_ACT",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_UNI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ORD_ASOC",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_CA_MIX",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_EST",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MAX_ED",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_APRO_TIPO",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_TOT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_R",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_R_RM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_R_RU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_DEP",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_IND",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_TER",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_COM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_DEP",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SG_EXT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SG_INT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_VIV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_VIV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_VIV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_R",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_IND",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_TER",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_COM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_DEP",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SG_EX",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SG_IN",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RS",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_VCAM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_LIBR",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_PROT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_PO",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_PT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_TOT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_VCAM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ADJUNTO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_LONGITUD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_AREA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "GEOMETRY1",
+        "type": "gml:GeometryPropertyType",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_AC",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_BOCM",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_BOE",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_DOCU",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_PLANEAM_GRAL",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_LEY",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "VPLA_V_AMBITO_MODIF",
+        "type": "sitcm:VPLA_V_AMBITO_MODIFType",
+        "nillable": false,
+        "minOccurs": "1"
+      }
+    ],
+    "featureCount": 3724,
+    "featureCountErr": null,
+    "truncationSuspect": false
+  },
+  {
+    "alias": "spacm_ordenanzas",
+    "typeName": "sitcm:VPLA_V_ORDENANZA",
+    "describe": {
+      "ok": true,
+      "status": 200,
+      "bytes": 6869,
+      "err": null
+    },
+    "fieldCount": 59,
+    "fields": [
+      {
+        "name": "CDID",
+        "type": "xsd:decimal",
+        "nillable": false,
+        "minOccurs": "1"
+      },
+      {
+        "name": "CD_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_REUR",
+        "type": "xsd:string",
+        "nillable": false,
+        "minOccurs": "1"
+      },
+      {
+        "name": "DS_NOM_AMB",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLAS_SUE",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_GRA_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MAZ_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_UNI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_CA_MIX",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ORD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MAZ",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_ORD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_ES_O",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MX_ED_O",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_MAZ",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MX_ED_M",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_TIPOLOG",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_T_TIPOLOG",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_ALTURA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_N_PLTA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_TA_MIN_P",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_OCP_MX",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_RTR_FRNT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_RTR_LATL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_RTR_POST",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_FDO_MX_ED",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_FRTE_MIN",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_APRV_BC",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_PTE_MX",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "IT_ATICO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "IT_EDIFC_AUX",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_DIST_MIN_B",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_DIM_MX_B",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_OCP_PB",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_TIPO_VIV",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_N_VIV_M",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_N_VIV_O",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ADJUNTO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_LONGITUD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_AREA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ETI_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "GEOMETRY1",
+        "type": "gml:GeometryPropertyType",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_AC",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_BOCM",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_BOE",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_DOCU",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_PLANEAM_GRAL",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_LEY",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "VPLA_V_ORDENANZA",
+        "type": "sitcm:VPLA_V_ORDENANZAType",
+        "nillable": false,
+        "minOccurs": "1"
+      }
+    ],
+    "featureCount": 93839,
+    "featureCountErr": null,
+    "truncationSuspect": false
+  },
+  {
+    "alias": "spacm_ordenanzasref2023",
+    "typeName": "sitcm:VPLA_V_ORDENANZA_REF_23",
+    "describe": {
+      "ok": true,
+      "status": 200,
+      "bytes": 6486,
+      "err": null
+    },
+    "fieldCount": 55,
+    "fields": [
+      {
+        "name": "CDID",
+        "type": "xsd:decimal",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_REF",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOM_AMB",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLAS_SUE",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_GRA_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MAZ_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_UNI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_CA_MIX",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ORD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MAZ",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_ORD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_ES_O",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MX_ED_O",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_MAZ",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MX_ED_M",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_TIPOLOG",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_T_TIPOLOG",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_ALTURA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_N_PLTA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_TA_MIN_P",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_OCP_MX",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_RTR_FRNT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_RTR_LATL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_RTR_POST",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_FDO_MX_ED",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_FRTE_MIN",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_APRV_BC",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_PTE_MX",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "IT_ATICO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "IT_EDIFC_AUX",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_DIST_MIN_B",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_DIM_MX_B",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_OCP_PB",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_TIPO_VIV",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_N_VIV_M",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_N_VIV_O",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ADJUNTO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_LONGITUD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_AREA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "GEOMETRY1",
+        "type": "gml:GeometryPropertyType",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ETI_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_ORD_NOR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS_REF",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "VPLA_V_ORDENANZA_REF_23",
+        "type": "sitcm:VPLA_V_ORDENANZA_REF_23Type",
+        "nillable": false,
+        "minOccurs": "1"
+      }
+    ],
+    "featureCount": 70344,
+    "featureCountErr": null,
+    "truncationSuspect": false
+  },
+  {
+    "alias": "(discovered) ordenanza modif",
+    "typeName": "sitcm:VPLA_V_ORDENANZA_MODIF",
+    "describe": {
+      "ok": true,
+      "status": 200,
+      "bytes": 6887,
+      "err": null
+    },
+    "fieldCount": 59,
+    "fields": [
+      {
+        "name": "CDID",
+        "type": "xsd:decimal",
+        "nillable": false,
+        "minOccurs": "1"
+      },
+      {
+        "name": "CD_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_REUR",
+        "type": "xsd:string",
+        "nillable": false,
+        "minOccurs": "1"
+      },
+      {
+        "name": "DS_NOM_AMB",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLAS_SUE",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_GRA_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MAZ_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_UNI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_CA_MIX",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ORD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MAZ",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_ORD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_ES_O",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MX_ED_O",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_MAZ",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MX_ED_M",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_TIPOLOG",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_T_TIPOLOG",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_ALTURA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_N_PLTA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_TA_MIN_P",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_OCP_MX",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_RTR_FRNT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_RTR_LATL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_RTR_POST",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_FDO_MX_ED",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_FRTE_MIN",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_APRV_BC",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_PTE_MX",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "IT_ATICO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "IT_EDIFC_AUX",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_DIST_MIN_B",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_DIM_MX_B",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_OCP_PB",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_TIPO_VIV",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_N_VIV_M",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_N_VIV_O",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ADJUNTO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_LONGITUD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_AREA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "GEOMETRY1",
+        "type": "gml:GeometryPropertyType",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ETI_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_AC",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_BOCM",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_BOE",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_DOCU",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_PLANEAM_GRAL",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_LEY",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "VPLA_V_ORDENANZA_MODIF",
+        "type": "sitcm:VPLA_V_ORDENANZA_MODIFType",
+        "nillable": false,
+        "minOccurs": "1"
+      }
+    ],
+    "featureCount": 70748,
+    "featureCountErr": null,
+    "truncationSuspect": false
+  },
+  {
+    "alias": "(discovered) ordenanza ref19",
+    "typeName": "sitcm:VPLA_V_ORDENANZA_REF_19",
+    "describe": {
+      "ok": true,
+      "status": 200,
+      "bytes": 6487,
+      "err": null
+    },
+    "fieldCount": 55,
+    "fields": [
+      {
+        "name": "CDID",
+        "type": "xsd:decimal",
+        "nillable": false,
+        "minOccurs": "1"
+      },
+      {
+        "name": "CD_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_REF",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOM_AMB",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLAS_SUE",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_GRA_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MAZ_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_UNI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_CA_MIX",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ORD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MAZ",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_ORD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_ES_O",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MX_ED_O",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_MAZ",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MX_ED_M",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_TIPOLOG",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_T_TIPOLOG",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_ALTURA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_N_PLTA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_TA_MIN_P",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_OCP_MX",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_RTR_FRNT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_RTR_LATL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_RTR_POST",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_FDO_MX_ED",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_FRTE_MIN",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_APRV_BC",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_PTE_MX",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "IT_ATICO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "IT_EDIFC_AUX",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_DIST_MIN_B",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_DIM_MX_B",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_OCP_PB",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_TIPO_VIV",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_N_VIV_M",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_N_VIV_O",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ADJUNTO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_LONGITUD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_AREA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "GEOMETRY1",
+        "type": "gml:GeometryPropertyType",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ETI_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS_REF",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_ORD_NOR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "VPLA_V_ORDENANZA_REF_19",
+        "type": "sitcm:VPLA_V_ORDENANZA_REF_19Type",
+        "nillable": false,
+        "minOccurs": "1"
+      }
+    ],
+    "featureCount": 70304,
+    "featureCountErr": null,
+    "truncationSuspect": false
+  },
+  {
+    "alias": "(discovered) ordenanza ref25",
+    "typeName": "sitcm:VPLA_V_ORDENANZA_REF_25",
+    "describe": {
+      "ok": true,
+      "status": 200,
+      "bytes": 6486,
+      "err": null
+    },
+    "fieldCount": 55,
+    "fields": [
+      {
+        "name": "CDID",
+        "type": "xsd:decimal",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_REF",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOM_AMB",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLAS_SUE",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_GRA_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MAZ_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_UNI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_CA_MIX",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ORD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MAZ",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_ORD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_ES_O",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MX_ED_O",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_MAZ",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MX_ED_M",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_TIPOLOG",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_T_TIPOLOG",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_ALTURA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_N_PLTA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_TA_MIN_P",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_OCP_MX",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_RTR_FRNT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_RTR_LATL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_RTR_POST",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_FDO_MX_ED",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_FRTE_MIN",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_APRV_BC",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_PTE_MX",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "IT_ATICO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "IT_EDIFC_AUX",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_DIST_MIN_B",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_DIM_MX_B",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_OCP_PB",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_TIPO_VIV",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_N_VIV_M",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_N_VIV_O",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ADJUNTO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_LONGITUD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_AREA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "GEOMETRY1",
+        "type": "gml:GeometryPropertyType",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ETI_ORD",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_ORD_NOR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS_REF",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "VPLA_V_ORDENANZA_REF_25",
+        "type": "sitcm:VPLA_V_ORDENANZA_REF_25Type",
+        "nillable": false,
+        "minOccurs": "1"
+      }
+    ],
+    "featureCount": 4017,
+    "featureCountErr": null,
+    "truncationSuspect": false
+  },
+  {
+    "alias": "(discovered) ambito ref23",
+    "typeName": "sitcm:VPLA_V_AMBITO_REF_23",
+    "describe": {
+      "ok": true,
+      "status": 200,
+      "bytes": 10135,
+      "err": null
+    },
+    "fieldCount": 90,
+    "fields": [
+      {
+        "name": "CDID",
+        "type": "xsd:decimal",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_REF",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_AMB",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLAS_SUE",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_PROMOC",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_FIG_DES",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_SIST_ACT",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_UNI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ORD_ASOC",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_CA_MIX",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_EST",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MAX_ED",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_APRO_TIPO",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_TOT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_R",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_R_RM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_R_RU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_DEP",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_IND",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_TER",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_COM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_DEP",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SG_EXT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SG_INT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_VIV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_VIV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_VIV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_R",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_IND",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_TER",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_COM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_DEP",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SG_EX",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SG_IN",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RS",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_VCAM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_LIBR",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_PROT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_PO",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_PT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_TOT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_VCAM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ADJUNTO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_LONGITUD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_AREA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_AMB_NOR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "GEOMETRY1",
+        "type": "gml:GeometryPropertyType",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS_REF",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "VPLA_V_AMBITO_REF_23",
+        "type": "sitcm:VPLA_V_AMBITO_REF_23Type",
+        "nillable": false,
+        "minOccurs": "1"
+      }
+    ],
+    "featureCount": 4602,
+    "featureCountErr": null,
+    "truncationSuspect": false
+  },
+  {
+    "alias": "(discovered) ambito ref25",
+    "typeName": "sitcm:VPLA_V_AMBITO_REF_25",
+    "describe": {
+      "ok": true,
+      "status": 200,
+      "bytes": 10244,
+      "err": null
+    },
+    "fieldCount": 91,
+    "fields": [
+      {
+        "name": "CDID",
+        "type": "xsd:decimal",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_REF",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_AMB",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLAS_SUE",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_PROMOC",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_FIG_DES",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_SIST_ACT",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_UNI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ORD_ASOC",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PRED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_CA_MIX",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_COMPA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_US_PROHI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_C_ED_EST",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_MAX_ED",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_APRO_TIPO",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_TOT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_R",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_R_RM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_R_RU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_DEP",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_IND",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_TER",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_COM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_DEP",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SG_EXT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_SG_INT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RL_VIV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RG_VIV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_INF",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_RV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_RS_VIV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_R",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_IND",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_TER",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_COM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_ZV",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_DEP",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_EQU",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SG_EX",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_SG_IN",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RL",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RG",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_RS",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_ED_VCAM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_LIBR",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_PROT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_PO",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_PT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_TOT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_VIV_VCAM",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ADJUNTO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_LONGITUD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_AREA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_AMB_NOR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_FILTROS_ESP",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "GEOMETRY1",
+        "type": "gml:GeometryPropertyType",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS_REF",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "VPLA_V_AMBITO_REF_25",
+        "type": "sitcm:VPLA_V_AMBITO_REF_25Type",
+        "nillable": false,
+        "minOccurs": "1"
+      }
+    ],
+    "featureCount": 152,
+    "featureCountErr": null,
+    "truncationSuspect": false
+  },
+  {
+    "alias": "(discovered) clasificacion",
+    "typeName": "sitcm:VPLA_V_CLASIFICACION",
+    "describe": {
+      "ok": true,
+      "status": 200,
+      "bytes": 2772,
+      "err": null
+    },
+    "fieldCount": 20,
+    "fields": [
+      {
+        "name": "CDID",
+        "type": "xsd:decimal",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLASIF_DET",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLASIF_GEN",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_SIGLAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ADJUNTO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_LONGITUD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_AREA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "GEOMETRY1",
+        "type": "gml:GeometryPropertyType",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_AC",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_BOCM",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_BOE",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_DOCU",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_PLANEAM_GRAL",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_LEY",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "VPLA_V_CLASIFICACION",
+        "type": "sitcm:VPLA_V_CLASIFICACIONType",
+        "nillable": false,
+        "minOccurs": "1"
+      }
+    ],
+    "featureCount": 13920,
+    "featureCountErr": null,
+    "truncationSuspect": false
+  },
+  {
+    "alias": "(discovered) clasif modif",
+    "typeName": "sitcm:VPLA_V_CLASIFICACION_MODIF",
+    "describe": {
+      "ok": true,
+      "status": 200,
+      "bytes": 2792,
+      "err": null
+    },
+    "fieldCount": 20,
+    "fields": [
+      {
+        "name": "CDID",
+        "type": "xsd:decimal",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLASIF_DET",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLASIF_GEN",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_SIGLAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ADJUNTO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_LONGITUD",
+        "type": "xsd:decimal",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_AREA",
+        "type": "xsd:decimal",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "GEOMETRY1",
+        "type": "gml:GeometryPropertyType",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_AC",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_BOCM",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_BOE",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_DOCU",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_PLANEAM_GRAL",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_LEY",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "VPLA_V_CLASIFICACION_MODIF",
+        "type": "sitcm:VPLA_V_CLASIFICACION_MODIFType",
+        "nillable": false,
+        "minOccurs": "1"
+      }
+    ],
+    "featureCount": 2507,
+    "featureCountErr": null,
+    "truncationSuspect": false
+  },
+  {
+    "alias": "(discovered) clasif ref23",
+    "typeName": "sitcm:VPLA_V_CLASIFICACION_REF_23",
+    "describe": {
+      "ok": true,
+      "status": 200,
+      "bytes": 2382,
+      "err": null
+    },
+    "fieldCount": 16,
+    "fields": [
+      {
+        "name": "CDID",
+        "type": "xsd:decimal",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_UNI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_REF",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLASIF_DET",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLASIF_GEN",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_SIGLAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ADJUNTO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_LONGITUD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_AREA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "GEOMETRY1",
+        "type": "gml:GeometryPropertyType",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS_REF",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "VPLA_V_CLASIFICACION_REF_23",
+        "type": "sitcm:VPLA_V_CLASIFICACION_REF_23Type",
+        "nillable": false,
+        "minOccurs": "1"
+      }
+    ],
+    "featureCount": 10743,
+    "featureCountErr": null,
+    "truncationSuspect": false
+  },
+  {
+    "alias": "(discovered) clasif ref25",
+    "typeName": "sitcm:VPLA_V_CLASIFICACION_REF_25",
+    "describe": {
+      "ok": true,
+      "status": 200,
+      "bytes": 2382,
+      "err": null
+    },
+    "fieldCount": 16,
+    "fields": [
+      {
+        "name": "CDID",
+        "type": "xsd:decimal",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_UNI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_REF",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLASIF_DET",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLASIF_GEN",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_SIGLAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ADJUNTO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_LONGITUD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_AREA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "GEOMETRY1",
+        "type": "gml:GeometryPropertyType",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS_REF",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "VPLA_V_CLASIFICACION_REF_25",
+        "type": "sitcm:VPLA_V_CLASIFICACION_REF_25Type",
+        "nillable": false,
+        "minOccurs": "1"
+      }
+    ],
+    "featureCount": 601,
+    "featureCountErr": null,
+    "truncationSuspect": false
+  },
+  {
+    "alias": "(discovered) red",
+    "typeName": "sitcm:VPLA_V_RED",
+    "describe": {
+      "ok": true,
+      "status": 200,
+      "bytes": 3366,
+      "err": null
+    },
+    "fieldCount": 26,
+    "fields": [
+      {
+        "name": "CDID",
+        "type": "xsd:decimal",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_MUNICIPIO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_TIPO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_USO_GENE",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_USO_GLOBAL",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_CLAS_SUE",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "CD_UNI",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_S_TOT",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_USO_DETA",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_RED",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOMB_AMB",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_ADJUNTO",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_LONGITUD",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "NM_AREA",
+        "type": "xsd:double",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "GEOMETRY1",
+        "type": "gml:GeometryPropertyType",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_AC",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_BOCM",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "FC_BOE",
+        "type": "xsd:date",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_DOCU",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_PLANEAM_GRAL",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_NOTAS_REUR",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "DS_LEY",
+        "type": "xsd:string",
+        "nillable": true,
+        "minOccurs": "0"
+      },
+      {
+        "name": "VPLA_V_RED",
+        "type": "sitcm:VPLA_V_REDType",
+        "nillable": false,
+        "minOccurs": "1"
+      }
+    ],
+    "featureCount": 42161,
+    "featureCountErr": null,
+    "truncationSuspect": false
+  }
+]

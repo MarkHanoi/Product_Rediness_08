@@ -1,0 +1,199 @@
+census loaded — ORDENANZA 93839, AMBITO 5937, AMBITO_MODIF 3724, CLASIFICACION 13920, ORDENANZA_REF_23 70344
+
+==============================================================================
+0 · SENTINEL DETECTION on VPLA_V_ORDENANZA numeric fields
+   A value can be non-null and still be an absence. Zero is the prime suspect.
+==============================================================================
+field           nonNull    zero   negative  |  min      p50      max    distinct
+NM_ALTURA        52266       1         0  |    2.4        7       85      114
+NM_N_PLTA        53350       0         0  |      1        2       14       17
+NM_OCP_MX        44472      42         0  |   0.03       40      300       66
+NM_RTR_FRNT      41564    7225         0  |   0.75        4       50       32
+NM_RTR_LATL      41710    3256         0  |   0.75        3       50       29
+NM_RTR_POST      41088    1518         0  |   0.75        3       50       31
+NM_FDO_MX_ED     12448    1182         0  |    2.5       12      216       37
+NM_FRTE_MIN      34319       0         0  |      4        8      700       47
+NM_APRV_BC         706      16         0  |      1      100      100        6
+NM_C_ED_ORD      35996     238         0  |  0.001      0.6 58601.75      252
+NM_S_MX_ED_O      4583     259         0  | 0.545736      100 966699.83      342
+NM_C_ED_MAZ       7023       4         0  |  0.002 0.659666936033     2000      957
+NM_OCP_PB         2005       0         0  |      5       75      100       12
+
+0b · INTERNAL CONTRADICTION CHECK — NM_ALTURA against NM_N_PLTA
+     A height and a storey count that disagree cannot both be trusted.
+     rows with BOTH > 0                : 45179
+     metres-per-storey within [2.2,5.0]: 43955 (97.29 %)
+     contradictory rows                : 1224
+     worst 8 by name (R4 — never let an aggregate stand alone):
+        MAJADAHONDA              VIVIENDA UNIFAMILIAR AISLADA  altura=85 plantas=2 -> 42.5 m/storey
+        MAJADAHONDA              VIVIENDA UNIFAMILIAR AISLADA  altura=85 plantas=2 -> 42.5 m/storey
+        MAJADAHONDA              VIVIENDA UNIFAMILIAR AISLADA  altura=85 plantas=2 -> 42.5 m/storey
+        MAJADAHONDA              VIVIENDA UNIFAMILIAR AISLADA  altura=85 plantas=2 -> 42.5 m/storey
+        MAJADAHONDA              VIVIENDA UNIFAMILIAR AISLADA  altura=85 plantas=2 -> 42.5 m/storey
+        MAJADAHONDA              VIVIENDA UNIFAMILIAR AISLADA  altura=85 plantas=2 -> 42.5 m/storey
+        MAJADAHONDA              VIVIENDA UNIFAMILIAR AISLADA  altura=85 plantas=2 -> 42.5 m/storey
+        MAJADAHONDA              VIVIENDA UNIFAMILIAR AISLADA  altura=85 plantas=2 -> 42.5 m/storey
+
+==============================================================================
+1 · PER-MUNICIPALITY VALID RATE on VPLA_V_ORDENANZA — FULL CENSUS, n = N = 93,839
+    valid := non-null AND > 0.  ⛔ NO REGIONAL MEAN IS REPORTED — the spread is the finding.
+==============================================================================
+municipalities present in ORDENANZA: 179 of 179
+
+muni                     n     ALTURA  PLANTAS  OCP_MX  FDO_MX  RTR_FRNT  C_ED_ORD  APRV_BC  fpAny  H+FP
+MADRID                  22181     8.9    17.9    20.1    12.9    11.4    17.9     0.0    38.8     7.9
+GETAFE                   2143    64.0    87.2    47.4    22.8    41.0    52.0     0.0    85.6    54.7
+MÓSTOLES                 2062    12.1    17.7    15.2     5.4    20.3    10.7     0.0    26.5    12.0
+BOADILLA DEL MONTE       1958    79.4    78.5    48.0     1.5    55.4    12.8     0.0    58.1    48.0
+ARGANDA DEL REY          1677    67.6    55.9    67.7    17.6    36.7    38.0    19.3    68.3    67.6
+LEGANÉS                  1445    76.9    34.0    64.8    12.0     7.3    36.7     0.0    91.8    64.8
+POZUELO DE ALARCÓN       1435    79.5    64.1    80.1     5.4    61.8    62.4     0.0    86.4    77.3
+LAS ROZAS DE MADRID      1369    83.0    71.1    80.8     6.9    59.2    88.4     0.0    95.3    87.5
+ALCORCÓN                 1317    56.9    48.6    39.9    43.7    49.9    46.3     0.0    92.3    65.9
+FUENLABRADA              1296    50.5    55.6    35.2     6.1    37.7    40.0     0.0    50.9    39.8
+ALCALÁ DE HENARES        1203    75.7    39.2    93.6     6.4    41.1    79.9     0.0    93.8    83.1
+PARLA                    1145    45.1    68.1    45.1    10.8    12.1    51.6     3.0    48.8    48.8
+TORRELODONES             1129    53.5    46.9    46.1     4.6    56.0    38.4     0.0    58.0    44.7
+SAN SEBASTIÁN DE LOS R   1121    53.3    66.6    34.1     0.3    15.9    51.6     0.0    35.0    34.3
+CIEMPOZUELOS             1111    74.8    73.4    61.7    17.9    41.0    30.0     0.0    80.0    72.0
+ALCOBENDAS               1101    77.7    70.8    23.3    25.2    24.9    26.5     0.0    52.2    46.4
+COLLADO VILLALBA         1090    77.0    97.1    93.6     3.6    15.4    70.4     0.0    97.0    95.6
+COLMENAR VIEJO           1070    97.4    99.5    74.0     9.1    56.0    44.1     0.0    82.2    75.0
+EL BOALO                 1010    88.1    48.5    18.0     0.0    33.6    22.0     0.0    34.3    18.0
+NAVALCARNERO              957    48.6    52.6    37.6    14.1    32.6    23.9     0.0    53.9    45.2
+RIVAS-VACIAMADRID         944    50.6    90.4    53.0     2.0    88.9    49.9     0.0    89.5    49.3
+VALDEMORO                 941    71.0    73.8    27.2    22.6    31.2    34.5     0.0    78.6    49.0
+PINTO                     911    67.5    59.5    34.8    23.4    25.0    24.1     0.0    58.2    47.4
+BRUNETE                   866    74.2    73.9    57.9    18.7    48.4    22.6     0.0    63.4    63.4
+TORREJÓN DE ARDOZ         864    45.5    52.7    38.3    11.7    29.9    49.9     7.5    50.0    50.0
+
+  DISTRIBUTION of NM_ALTURA valid-rate across the 179 municipalities:
+     min 0.0 | p10 27.5 | p25 53.0 | median 79.4 | p75 93.3 | p90 100.0 | max 100.0
+     municipalities at 0.0 %  : 10
+     municipalities at 100.0 %: 21
+     MADRID CAPITAL (cd=079, n=22181): ALTURA 8.86 % | PLANTAS 17.86 % | footprint-any 38.83 %
+
+  (feature-weighted regional NM_ALTURA valid rate = 55.70 % — quoted ONLY to show
+   that it conceals a 0.0–100.0 spread. It is not a description of any municipality.)
+
+==============================================================================
+2 · THE DEVELOPMENT OVERRIDE RATIO
+    "Parcels controlled by Plan Parcial / Especial / modificación over all urban parcels."
+    ⚠ This corpus contains NO PARCELS. It is measured over ordinance polygons and over
+      area. Each denominator is named. A parcel-weighted figure would need a Catastro join
+      and is reported below as UNKNOWN.
+==============================================================================
+
+2a · DS_FIG_DES domain — EXACT, full census of VPLA_V_AMBITO (n=5937)
+    3137      236.0 km²  (null)
+    1504      356.0 km²  Plan Parcial
+     649       26.5 km²  Estudio Detalle
+     287       61.8 km²  Plan Especial
+     235       26.4 km²  Plan Especial Reforma Interior
+     106       75.1 km²  Programa Actuación Urbanística
+      11        0.6 km²  Plan Parcial Reforma Interior
+       6        1.3 km²  Plan Sectorización
+       2        0.0 km²  PERI
+
+2b · Does ORDENANZA join to AMBITO?  (ORDENANZA.DS_NOM_AMB -> AMBITO.DS_NOMB_AMB, same municipality)
+   ORDENANZA rows carrying DS_NOM_AMB : 37450 / 93839 (39.91 %)
+   of those, resolving to an AMBITO   : 35867 (95.77 % of named)
+   ⇒ NAME JOIN IS usable
+
+2c · MEASURE 1 — by AREA, denominator = VPLA_V_CLASIFICACION urban+urbanizable land
+   DS_CLASIF_GEN area breakdown (full census, n=13920):
+          4359.4 km²  Suelo No Urbanizable Protegido
+          1183.1 km²  Suelo No Urbanizable Común
+           498.6 km²  Suelo Urbano
+           428.8 km²  Suelo Rústico
+           302.3 km²  Suelo No Urbanizable Protegido (APLAZADO)
+           174.8 km²  Suelo Urbano Consolidado
+           148.3 km²  Suelo No Urbanizable Común (APLAZADO)
+           133.2 km²  Suelo de Reserva Metropolitana
+           122.3 km²  Sistemas Generales
+           112.5 km²  Suelo Urbanizable Programado
+            78.9 km²  Suelo Urbano (INCORPORADO)
+            73.2 km²  Suelo Urbanizable Sectorizado
+            63.7 km²  Suelo Urbanizable No Programado
+            53.5 km²  Suelo Urbanizable No Sectorizado
+            47.1 km²  Suelo Apto Para Urbanizar
+            36.1 km²  Suelo Urbanizable No Sectorizado (APLAZADO)
+            30.4 km²  Suelo Urbanizable Programado (APLAZADO)
+            29.4 km²  Suelo Urbanizable No Programado (APLAZADO)
+            19.6 km²  Suelo Urbano No Consolidado
+            19.4 km²  Suelo Urbanizable (INCORPORADO)
+            17.7 km²  Suelo Urbanizable Programado (INCORPORADO)
+            16.4 km²  Suelo Urbano Consolidado (APLAZADO)
+            12.7 km²  Suelo de Reserva Urbana
+            12.7 km²  Suelo Urbanizable Sectorizado (APLAZADO)
+            10.7 km²  Suelo Apto Para Urbanizar (APLAZADO)
+             7.3 km²  Suelo Urbanizable
+             6.5 km²  Suelo Urbano Consolidado (INCORPORADO)
+             6.5 km²  Suelo Urbano No Consolidado (INCORPORADO)
+             5.5 km²  Suelo Urbanizable (INCORPORADO) (APLAZADO)
+             4.7 km²  Sin datos
+             4.6 km²  Suelo Urbano (APLAZADO)
+             3.3 km²  Suelo Urbanizable Sectorizado (INCORPORADO)
+             1.3 km²  Suelo Urbanizable (APLAZADO)
+             0.7 km²  Suelo Urbano No Consolidado (APLAZADO)
+             0.7 km²  Sistemas Generales (APLAZADO)
+             0.6 km²  Suelo Apto para Urbanizar (APLAZADO)
+             0.6 km²  Suelo Urbanizable No Programado (INCORPORADO)
+             0.4 km²  Suelo Apto Para Urbanizar (INCORPORADO)
+             0.2 km²  Suelo Apto Para Urbanizar (INCORPORADO) (APLAZADO)
+             0.0 km²  Suelo Urbanizable Apto para Urbanizar (APLAZADO)
+   numerator  : 2626 development ámbitos on urban/urbanizable soil = 499.1 km²
+   denominator: urban+urbanizable classified land               = 1345.1 km²
+   ⇒ DEVELOPMENT OVERRIDE RATIO (area, region-wide) = 37.11 %
+
+2d · MEASURE 2 — by ORDINANCE POLYGON, denominator = urban-classed ORDENANZA polygons
+   urban-classed ORDENANZA polygons              : 92580
+   of those, inside a named development ámbito   : 17535
+   ⇒ ratio (ordinance-polygon, region-wide) = 18.94 %
+   ⚠ LOWER BOUND ONLY — depends on the name join measured in 2b.
+
+2e · MEASURE 3 — the MODIF layers: how much of the corpus is a modification at all?
+   VPLA_V_AMBITO       5937   VPLA_V_AMBITO_MODIF       3724  ratio 62.73 %
+   VPLA_V_ORDENANZA 93839   VPLA_V_ORDENANZA_MODIF 70748  ratio 75.39 %
+   AMBITO_MODIF DS_FIG_DES:
+       1468  (null)
+       1363  Plan Parcial
+        320  Plan Especial
+        232  Estudio Detalle
+        127  Plan Especial Reforma Interior
+         87  Programa Actuación Urbanística
+         87  Plan Parcial Reforma Interior
+         38  Plan Sectorización
+          2  PERI
+
+2f · PER-MUNICIPALITY override ratio (area basis) — the spread, not the mean
+   municipalities with a non-zero urban denominator: 179
+   spread: min 0.0 | p25 0.0 | median 20.7 | p75 39.9 | p90 61.7 | max 91.0
+   MADRID CAPITAL: 48.43 %
+   highest 10:
+      TORREJÓN DE VELASCO         91.0 %   (urban denom 8.3 km²)
+      SANTA MARÍA DE LA ALAMED    85.0 %   (urban denom 2.0 km²)
+      BATRES                      82.2 %   (urban denom 2.0 km²)
+      FUENTIDUEÑA DE TAJO         78.5 %   (urban denom 2.5 km²)
+      TITULCIA                    77.7 %   (urban denom 0.4 km²)
+      VILLANUEVA DEL PARDILLO     74.7 %   (urban denom 3.8 km²)
+      PEDREZUELA                  71.9 %   (urban denom 2.0 km²)
+      EL MOLAR                    69.5 %   (urban denom 6.7 km²)
+      ARROYOMOLINOS               68.7 %   (urban denom 8.6 km²)
+      ALGETE                      68.5 %   (urban denom 11.7 km²)
+   at exactly 0 %: 47 municipalities
+
+==============================================================================
+3 · PROVENANCE FIELDS — inventory items 3 (ordinance text) and 9 (validity lineage)
+==============================================================================
+   ORDENANZA.DS_LEY           non-empty  82751 (88.18 %)  distinct 15
+   ORDENANZA.DS_PLANEAM_GRAL  non-empty  93571 (99.71 %)  distinct 5
+   ORDENANZA.DS_DOCU          non-empty  93839 (100.00 %)  distinct 21
+   ORDENANZA.FC_BOCM          non-empty  93340 (99.47 %)  distinct 300
+   DS_DOCU sample values: PLAN GENERAL | NORMAS SUBSIDIARIAS | PROYECTO DE DELIMITACIÓN SUELO URBANO
+   DS_LEY distinct values (15): CM Ley 9/1995, E Ley 6/1998 | CM Ley 9/2001, E Ley 6/1998 | CM Ley 4/1984, E RD 1346/1976 | CM Ley 9/1995, E RDL 1/1992 | CM Ley 4/1984, E RDL 1/1992 | CM Ley 4/1984, CM Ley 9/1995, CM Ley 20/1997
+
+4 · REFUNDIDO REF_23 vs the live ORDENANZA layer
+   live ORDENANZA 93839 vs REF_23 70344 — refundido covers 74.96 % as many polygons
+   REF_23 NM_ALTURA valid rate (feature-weighted) = 71.50 % vs live 55.70 %
+   municipalities: live 179, REF_23 165, in live but NOT in REF_23 14

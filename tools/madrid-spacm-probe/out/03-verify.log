@@ -1,0 +1,25 @@
+=== CLAIM B: what is CD_MUNICIPIO? ===
+  CD_MUNICIPIO='079'  count= 22181  DS_MUNICIPIO=MADRID
+  CD_MUNICIPIO='28079'  count=     0  DS_MUNICIPIO=null
+  CD_MUNICIPIO='28900'  count=     0  DS_MUNICIPIO=null
+  CD_MUNICIPIO='900'  count=     0  DS_MUNICIPIO=null
+  CD_MUNICIPIO='5'  count=     0  DS_MUNICIPIO=null
+  CD_MUNICIPIO='048'  count=    80  DS_MUNICIPIO=CORPA
+
+=== CLAIM A: does sortBy make startIndex advance (or is it the same head each time)? ===
+  independent total (resultType=hits) = 5937
+  page(start=0 ,n=10) ids = 1,2,3,4,5,6,7,8,9,10
+  page(start=10,n=10) ids = 11,12,13,14,15,16,17,18,19,20
+  DISJOINT? YES — startIndex genuinely advances
+
+  Full walk of sitcm:VPLA_V_AMBITO …
+  pages fetched  : 3
+  unique CDIDs   : 5937
+  duplicates     : 0
+  hits total     : 5937
+  failure        : none
+  ⇒ PAGING WORKS AND IS COMPLETE — the "paging unsupported" blocker is FALSE; it needs sortBy=CDID.
+
+=== KNOWN-ANSWER CONTROL: do per-municipality hits sum to the layer total? ===
+  (this is the internal-contradiction check — if the parts do not sum to the whole,
+   either the key has nulls or the counts are filtered, and no rate may be quoted)

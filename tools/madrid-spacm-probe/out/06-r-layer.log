@@ -1,0 +1,86 @@
+==============================================================================
+6 · THE R LAYER — instrument selector capability
+==============================================================================
+
+The four things a selector must answer, measured on the FULL CENSUS of both ámbito layers:
+
+                                  VPLA_V_AMBITO (n=5937)   VPLA_V_AMBITO_MODIF (n=3724)
+  WHICH instrument (name)  DS_NOMB_AMB       100.00 %             100.00 %
+  WHAT class  (figura)     DS_FIG_DES         47.16 %              60.58 %
+  WHEN approved (FC_AC)    FC_AC             100.00 %              99.97 %
+  WHEN published (BOCM)    FC_BOCM            97.83 %              92.13 %
+  UNDER WHICH statute      DS_LEY             89.14 %               3.20 %
+  general plan doc type    DS_DOCU           100.00 %              99.97 %
+  general plan name        DS_PLANEAM_GRAL    99.97 %              99.97 %
+  soil class               DS_CLAS_SUE       100.00 %              99.97 %
+  linked ordinance         DS_ORD_ASOC        55.13 %              38.24 %
+
+6b · BULK — Ley 9/2001 requires sectors to define uso and coeficiente de edificabilidad.
+     MANDATED ≠ SERVED. This is served:
+  NM_C_ED      coef. edificabilidad    33.27 %              34.37 %
+  NM_C_ED_EST  coef. estimado           0.00 %               0.00 %
+  NM_S_MAX_ED  sup. máx. edificable    38.81 %              58.54 %
+  NM_APRO_TIPO aprovechamiento tipo    26.70 %              32.65 %
+  NM_S_TOT     superficie total        90.01 %              86.04 %
+  DS_US_PRED   uso predominante         0.00 %               0.00 %
+  (numeric fields counted as > 0, i.e. zero treated as absence — see step 5 §0)
+
+6c · CAN THE COEFFICIENT BE USED? A coef. needs a denominator area on the same row.
+  AMBITO         coef>0  1975  + superficie total  1812 (91.75 %)  + sup.máx.edif  1086 (54.99 %)
+     internal-contradiction check: NM_C_ED × NM_S_TOT ≈ NM_S_MAX_ED (±10 %) on 787 / 1077 testable rows = 73.07 %
+  AMBITO_MODIF   coef>0  1280  + superficie total  1234 (96.41 %)  + sup.máx.edif   921 (71.95 %)
+     internal-contradiction check: NM_C_ED × NM_S_TOT ≈ NM_S_MAX_ED (±10 %) on 561 / 914 testable rows = 61.38 %
+
+6d · UNIQUENESS — is the ámbito name unique inside a municipality?
+  AMBITO         distinct (muni,name) keys  5155  keys with >1 row   454 (8.81 %)
+  AMBITO_MODIF   distinct (muni,name) keys  2019  keys with >1 row   619 (30.66 %)
+
+6e · IS AMBITO_MODIF A SUPERSET, A SUBSET, OR A DIFFERENT POPULATION than AMBITO?
+  keys in AMBITO 5155 | in AMBITO_MODIF 2019 | in both 912
+  AMBITO_MODIF keys NOT in AMBITO: 1107 (54.83 %)
+  ⇒ MODIF is a substantially DIFFERENT population — it adds ámbitos AMBITO does not carry
+  municipalities: AMBITO 163, AMBITO_MODIF 148
+
+6f · STATUTE LINEAGE — DS_LEY on ORDENANZA (full census)
+    27476   29.28 %  CM Ley 9/1995, E Ley 6/1998
+    11954   12.74 %  CM Ley 9/2001, E Ley 6/1998
+    11642   12.41 %  CM Ley 9/1995, E RDL 1/1992
+    11088   11.82 %  (null)
+    10145   10.81 %  CM Ley 4/1984, E RD 1346/1976
+     6833    7.28 %  CM Ley 4/1984, E RDL 1/1992
+     5936    6.33 %  CM Ley 9/1995, E Ley 6/1998, E RDL 1/1992, E RD 1346/1976
+     2561    2.73 %  E RD 1346/1976
+     1771    1.89 %  CM Ley 9/1995, E RDL 1/1992, E RD 1346/1976
+     1435    1.53 %  CM Ley 9/1995, CM Ley 20/1997, E Ley 6/1998
+     1145    1.22 %  CM Ley 9/1995, CM  Ley 20/1997, E RDL 1/1992, E RD 1346/1976
+     1128    1.20 %  CM Ley 4/1984, E Ley 8/1990
+      380    0.40 %  CM Ley 9/1995, E RD 1346/1976
+      216    0.23 %  CM Ley 4/1984, CM Ley 9/1995, CM Ley 20/1997
+       98    0.10 %  E Ley 12/05/1956
+       31    0.03 %  E Ley 19/1975
+
+6g · GENERAL-PLAN DOCUMENT TYPE — DS_DOCU (full census, ORDENANZA)
+    58789   62.65 %  PLAN GENERAL
+    31376   33.44 %  NORMAS SUBSIDIARIAS
+     2588    2.76 %  PLAN PARCIAL
+      192    0.20 %  MODIFICACIÓN PLAN ESPECIAL
+      138    0.15 %  MODIFICACIÓN PLAN PARCIAL
+      133    0.14 %  PLAN ESPECIAL TEMÁTICO
+      119    0.13 %  PLAN ESPECIAL DE REF INTERIOR
+       96    0.10 %  PLAN DE ORDENACION NUCLEO DE POBLACIÓN
+       91    0.10 %  ESTUDIO DE DETALLE
+       81    0.09 %  PLAN REFORMA INTERIOR
+       79    0.08 %  PROYECTO DE DELIMITACIÓN SUELO URBANO
+       45    0.05 %  PLAN DE ORDENACION DE NUCLEO DE POBLACION
+       22    0.02 %  PLAN ESPECIAL TEMATICO
+       18    0.02 %  MODIFICACION PLAN ESPECIAL DE REFORMA INTERIOR
+       17    0.02 %  PLAN DE ORDENACIÓN NUCLEO DE POBLACIÓN
+       17    0.02 %  PROY DELIMIT SUELO URBANO
+       14    0.01 %  MODIFICACION NORMAS SUBSIDIARIAS
+        8    0.01 %  CUMPLIMIENTO DE CONDICIONES
+        7    0.01 %  MODIF PLAN GENERAL
+        6    0.01 %  NORMAS COMPLEMENTARIAS
+        3    0.00 %  MODIFICACION PLAN PARCIAL
+
+   DISTINCT (municipality, planeamiento general, doc type) corpora = 235
+   municipalities carrying MORE THAN ONE general-plan corpus = 34 of 179
