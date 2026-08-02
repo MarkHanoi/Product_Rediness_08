@@ -319,6 +319,39 @@ discharged:
    even a correct resolver moves **0 pp** on this axis until a founder signs SIG-MU2. Building it
    first and signing after is the right order — but the ENVELOPE number does not move on build.
 
+#### 3.3.2 — ⭐ BUILT 2026-08-02: the TABLE half of the unlock is done, cited and tested
+
+`packages/site-parcel-data/src/rulepacks/esMurciaAnchoDeCalle.ts` — **9 bands across 4 tables**
+(Arts. **5.3.3** `RC` · **5.5.3** base `RM` · **5.7.3** `RN` · **5.9.3** `RD1`+1), each carrying its
+article and a **verbatim quote read from the filed PDF**, all four articles byte-identical across
+both consolidations. 20 tests. Exported from the package index; **not wired, not authorised.**
+
+This is deliberately Murcia's **"(b) height table keyed on street width"** and nothing more —
+`geometry/streetWidth.ts` states that regional-scope contract in its own header, and the measurement
+half is already region-agnostic and shipped (ADR-0275). **No Murcia branch was added to
+`ZoningRulesEngine`**; per-city special-casing in the engine is the parallel wiring P1 forbids.
+`effectiveBandEdgeGuard_m` is **reused, not re-declared** — that constant prices GIS-measured vs
+legally-declared width, a property of the technique, not of Barcelona.
+
+Three findings the transcription produced, none of which a paraphrased table would have kept:
+
+1. **The 4 m boundary flips inclusivity between articles.** Art. 5.3.3 says *«calles **menores de**
+   4 metros»*; Art. 5.7.3 says *«calles **menores o iguales a** 4 metros»*. **At exactly 4.00 m an
+   `RC` street gives 3 plantas and an `RN` street gives 2.** Normalising the comparison would
+   publish a storey too many on every 4 m street in the pedanías.
+2. **The ordinance OVERLAPS at exactly 8.00 m.** *«de 4 a 8 metros»* and *«de 8 metros o mayor
+   ancho»* both claim it. We do not invent a tie-break — **Art. 1.1.4 supplies one**
+   (*«la interpretación más favorable a la menor edificabilidad»*), so 8.00 m resolves **down** to
+   3 plantas and the resolution says it did.
+3. **Two of the nine bands grant a RECESSED top storey**, not a full floor (`RN`'s third, set back
+   3 m; `RD1`'s third, set back 3 m). Reported as `topStoreySetback_m` so a consumer cannot extrude
+   `floors × footprint` and overstate the GFA.
+
+**What is still missing, precisely:** a **bbox** fetch of neighbouring `Murcia:pgou_alineaciones`
+polygons (today's `/api/es/murcia-pgou` resolves a **point**), plus ADR-0275's snap-gate probe re-run
+for Murcia's own quantum set, plus **SIG-MU2**. See [`sources/VERIFICATION.md`](./sources/VERIFICATION.md) §SIG-MU2
+for the arithmetic — and for why **32.32 % is an upper bound, not a forecast**.
+
 ---
 
 ## 4 — WHAT SHIPS TODAY

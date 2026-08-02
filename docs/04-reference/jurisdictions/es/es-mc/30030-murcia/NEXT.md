@@ -149,7 +149,22 @@ that can select a **0.5 m sliver**, and a 15 m band measured off a sliver retain
 polygon — which would produce a near-whole-plot footprint under a binding cap. It is **cross-city**
 shared code, so it needs an owner and an ADR, not a unilateral edit from a city agent.
 
-After that: the street-width construction (§3.3.1) — engineering, then **SIG-MU2**.
+**The street-width unlock is now HALF BUILT (2026-08-02).** `esMurciaAnchoDeCalle.ts` holds the four
+ordinance tables (9 bands, verbatim, 20 tests) — Murcia's *"(b) height table keyed on street width"*
+in `geometry/streetWidth.ts`'s own regional contract. **Three things stand between it and 8.81 pp:**
+
+1. **A BBOX fetch** of neighbouring `Murcia:pgou_alineaciones` polygons. `/api/es/murcia-pgou`
+   resolves a **point**; `measureStreetWidths` needs the rings **across the street**. This is the
+   only genuinely new I/O in the whole unlock, and Murcia is unusually well placed for it — the
+   municipality publishes the **alineación polygons directly**, so this path does **not** depend on
+   `dissolveParcelsToBlockRing`, the Spain-wide failure that blocks Madrid (2/4) and Córdoba (0/3).
+2. **ADR-0275's snap gate, re-run for Murcia.** The quantum set is city-specific; Murcia is not in
+   the five-city probe. *Cluster ⇒ snap; no cluster ⇒ raw measured width, and say so.*
+3. **SIG-MU2** — drafted and unsigned in [`sources/VERIFICATION.md`](./sources/VERIFICATION.md).
+
+⚠ And the ceiling is **32.32 % of buildable land as an UPPER BOUND**, not a forecast: the resolver
+refuses on `band-edge`, and `measureStreetWidths` refuses on `inconsistent` / `no-opposing-frontage`.
+The realised share is UNMEASURED until the fetch exists. Re-run the crosstab before quoting it.
 
 ## 5 — THE REGISTRY SNIPPET (apply by hand; deliberately NOT applied by this work)
 

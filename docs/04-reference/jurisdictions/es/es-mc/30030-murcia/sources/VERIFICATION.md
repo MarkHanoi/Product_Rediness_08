@@ -1,5 +1,64 @@
 # VERIFICATION — Murcia (es-mc, 30030) — the human sign-off ledger
 
+## ⛔ SIG-MU2 · **UNSIGNED — AWAITING THE FOUNDER** · the ANCHO-DE-CALLE tables (`RC` · base `RM` · `RN` · `RD1`+1)
+
+| | |
+|---|---|
+| **Verifier** | — (**awaiting the founder**) |
+| **Axis** | ENVELOPE (and, downstream, LEGISLATION) |
+| **Artefact** | `packages/site-parcel-data/src/rulepacks/esMurciaAnchoDeCalle.ts` — 4 tables, 9 bands, each with its article and a verbatim quote |
+| **Source** | the **filed** [`../corpus/pdf/PGOU-MURCIA_TR-2012-12_vol11_normas-urbanisticas.pdf`](../corpus/pdf/PGOU-MURCIA_TR-2012-12_vol11_normas-urbanisticas.pdf) (SHA-256 `ab71c651…`), Arts. **5.3.3 · 5.5.3 · 5.7.3 · 5.9.3** — all four **byte-identical** in both published consolidations ([`../corpus/INDEX.md`](../corpus/INDEX.md) §2) |
+| **Tests** | `packages/site-parcel-data/__tests__/murciaAnchoDeCalle.test.ts` — 20, green |
+
+**The question to be signed:** *may PRYZM publish a computed envelope for `RC`, base `RM`, `RN` and
+`RD1`'s third storey, where the storey band is chosen by a **CONSTRUCTED** street width, at
+`estimated-ruleset`, cited to these articles?*
+
+**WHAT IT WOULD AUTHORISE — the arithmetic, and it is the largest single envelope win on the board:**
+`RC` (1.650 km²) + base `RM` (4.790) + `RN` (0.180) = **6.620 km² = 8.81 pp of the 75.145 M m²
+buildable denominator** — exactly the slice `ENVELOPE.md` §3.3 names. Added to today's 23.51 %:
+
+| | share of buildable land | ENVELOPE axis (× 0.4 `estimated-ruleset`) |
+|---|---:|---:|
+| today (SIG-MU1 only) | 23.51 % | **9.40 %** |
+| SIG-MU2 signed **and wired**, best case | **32.32 %** | **12.93 %** |
+| the arithmetic ceiling (33.00 % PGOU-direct) | 33.00 % | 13.20 % |
+
+⚠⚠ **32.32 % IS AN UPPER BOUND, NOT A FORECAST, AND IT WILL NOT ALL BE REALISED.** The resolver
+REFUSES on `band-edge` (a measured width within the effective guard of a boundary) and
+`measureStreetWidths` refuses on `inconsistent` / `no-opposing-frontage`. **The refusal rate on
+Murcia geometry is UNMEASURED** — it has not been run live, because the fetch does not exist yet.
+Quoting 32.32 % as achieved would be the §SIZE-IS-NOT-PROVENANCE error one field over. Measure the
+realised share with the crosstab before publishing any figure.
+
+**WHAT IT WOULD NOT AUTHORISE:**
+- the **67 % delegated** land. No signature reaches it; Arts. 5.25.3.3 / 5.26.3.3 are terminal.
+- `MZ` and `MX`. `MZ`'s footprint is **expressly delegated** to an Estudio de Detalle (Art. 5.6.3)
+  and a height with no footprint is not an envelope; `MX` needs a *frontage class*, not a width.
+- **`RM1` / `RM2`**, which the ordinance EXEMPTS from the table («Se exceptúan de esta regla las
+  manzanas calificadas RM1 y RM2…») and which are already packed at stated values. Routing them
+  through a constructed width would re-derive a STATED number from an ESTIMATED one.
+- promotion above **`estimated-ruleset`**. The table is `ordinance-pdf`; **the width is not.**
+
+**⚠ THE TWO PRECONDITIONS, NEITHER DISCHARGED — do not sign until both are:**
+1. **THE FETCH DOES NOT EXIST.** `measureStreetWidths` needs our alineación ring *and the
+   neighbouring rings across the street*. `/api/es/murcia-pgou` resolves a **point**; this needs a
+   **bbox** query of `Murcia:pgou_alineaciones`. Until then the resolver has no input and signing
+   would authorise something that cannot run. (Base `RM` above 12 m additionally needs
+   `Murcia:pgou_eje_comercial`, which IS published — see [`../corpus/RETRIEVAL-LOG.md`](../corpus/RETRIEVAL-LOG.md) §3.)
+2. **ADR-0275's SNAP GATE IS UNRUN FOR MURCIA.** *Cluster ⇒ ship the snap; no cluster ⇒ ship the raw
+   measured width and say so.* The quantum set is **city-specific** and Murcia is not among the five
+   cities probed in [`../../SPAIN-STREET-WIDTH-DISTRIBUTION-PROBE.md`](../../SPAIN-STREET-WIDTH-DISTRIBUTION-PROBE.md).
+   Assuming Barcelona's quanta would be the L-529 failure repeated.
+
+**⚠ THE PROVENANCE SPLIT IS THE POINT OF THIS SIGNATURE.** The BANDS are `ordinance-pdf`; the WIDTH
+is `estimated` (`measured-geometry`). `MurciaAnchoResolution` carries both separately and the card
+must render both — a constructed input shown as a stated one is L-459, and ADR-0271 exists to keep
+exactly this line. **Signing the TABLE does not certify the WIDTH.**
+
+---
+
+
 ## ✍ SIG-MU1 · **SIGNED 2026-08-01** · PGOU TR dic-2012 envelope — `MURCIA_ENVELOPE_VERIFIED`
 
 | | |

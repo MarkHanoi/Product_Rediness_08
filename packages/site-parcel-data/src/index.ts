@@ -874,6 +874,29 @@ export {
     type MurciaCalificacionClassification,
     type MurciaPgouResolution,
 } from './rulepacks/esMurciaPgou2012.js';
+// §MURCIA-ANCHO-DE-CALLE (L-676) — the street-width height tables, i.e. Murcia's "(b) height table
+// keyed on street width" in `geometry/streetWidth.ts`'s own regional-scope contract. Exported so the
+// unlock is REACHABLE and signable in one act rather than a code change.
+// ⚠⚠ REACHABLE IS NOT WIRED, AND NOT AUTHORISED. Nothing consumes this yet: the missing half is a
+// BBOX fetch of neighbouring `Murcia:pgou_alineaciones` polygons to feed `measureStreetWidths`
+// (today's proxy resolves a POINT). And SIG-MU1 does not authorise publishing for `RC` / base `RM` /
+// `RN` / `RD1`'s third storey — that needs SIG-MU2. Recorded here so this is not mistaken for live
+// coverage (§AUTHORED-BUT-UNWIRED: audit reachability, and then audit consumption).
+export {
+    resolveMurciaAnchoDeCalle,
+    MURCIA_ANCHO_TABLES,
+    MURCIA_ANCHO_FIELD_PROVENANCE,
+    MURCIA_RC_ANCHO_TABLE,
+    MURCIA_RM_ANCHO_TABLE,
+    MURCIA_RN_ANCHO_TABLE,
+    MURCIA_RD1_ANCHO_TABLE,
+    MURCIA_RM_EJE_COMERCIAL_BAND,
+    MURCIA_ART_1_1_4_MENOR_EDIFICABILIDAD,
+    type MurciaAnchoZone,
+    type MurciaAnchoBand,
+    type MurciaAnchoResolution,
+    type MurciaWidthProvenance,
+} from './rulepacks/esMurciaAnchoDeCalle.js';
 // ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
 // ║ ⚠ VALÈNCIA (INE 46250), Comunitat Valenciana — the CITED-REFUSAL jurisdiction whose gate a   ║
 // ║   SIGNATURE CANNOT LIFT. Confine València edits to this block.                               ║
