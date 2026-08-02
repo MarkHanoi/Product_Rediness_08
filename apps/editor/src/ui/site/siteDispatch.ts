@@ -122,7 +122,10 @@ import {
     // §L-574 — the third refusal: an ENCODED clau whose construction could not complete.
     barcelonaConstructionIncompleteRefusal,
     type ConstructionFailureReason,
-    BCN_JURISDICTION_ID,
+    // §AMB-UNBIND (2026-08-02) — `BCN_JURISDICTION_ID` is deliberately NO LONGER IMPORTED here.
+    // `applyBcnZoningThenFallback` reads the jurisdiction from its `AmbRegisteredMunicipality`
+    // parameter instead, so there is no module-level Barcelona constant left in this file for a
+    // future edit to reach for as a "sensible default" on another municipality's land.
     dissolveParcelsToBlockRing,
     classifyBlockFrontages,
     type RoadPolyline,
@@ -217,9 +220,16 @@ import {
     resolveBcnRefosOV,
     BCN_REFOS_OV_RING_REF,
     BCN_REFOS_OV_CERTIFIED,
-    ES_BARCELONA_VOLUMETRIA_18_PACK,
     BCN_VOLUMETRIA_18_ZONE_CODE,
     BCN_VOLUMETRIA_18_ORDINANCE_REF,
+    // §AMB-REFOS-MUNICIPALITIES / §AMB-VOLUMETRIA-18 (2026-08-02) — the clau-18 path is now
+    // parameterised on the AMB municipality (a branded INE code) instead of hardcoding Barcelona in
+    // three places. `AMB_BARCELONA` is what this dispatcher passes; the pack is RESOLVED from the
+    // municipality and returns `null` for the other 35, so the cited refusal stands rather than
+    // another town's land being answered under Barcelona's Art. 306 citation.
+    AMB_BARCELONA,
+    ambVolumetria18PackFor,
+    type AmbRegisteredMunicipality,
     heightFromFloorsAboveGround,
     // SWITZERLAND — Outcome-B zone-ID path. `resolveChZone` (never throws) identifies the zone from
     // the national Nutzungsplanung WFS; the buildable envelope REFUSES (density/height are model+PDF-
@@ -1262,8 +1272,13 @@ function applyZoning(
         // ensanche envelope (clau 13a/13E, block-derived profunditat edificable per PGM
         // Art. 242.2). Async + best-effort: ANY problem (or a non-Eixample clau) falls back
         // to the precomputed estimated envelope, exactly like the DK path.
+        // ⚠ 2026-08-02 — `AMB_BARCELONA` is passed EXPLICITLY. The four municipal branches above
+        // still route to their own functions; this is the only site that reaches the AMB clau-18
+        // machinery today, and naming the municipality here (rather than defaulting to it inside
+        // the resolver) is what makes registering a 6th AMB city a call-site change instead of a
+        // silent Barcelona query against someone else's land.
         if (qLat != null && qLon != null && isInBarcelona(qLat, qLon)) {
-            void applyBcnZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+            void applyBcnZoningThenFallback(ctx, boundary, qLat, qLon, estimated, AMB_BARCELONA);
             return;
         }
         // L-606 §SA-RIYADH-DEMO — a Riyadh plot resolves the MOMRAH national residential FOOTPRINT
@@ -3885,6 +3900,7 @@ async function tryBcnClau18Volumetria(
     lat: number,
     lon: number,
     clauLabel: string | null,
+    municipality: AmbRegisteredMunicipality,
 ): Promise<boolean> {
     const TAG = '[gis][c58] §BCN-CLAU18-OV';
     try {
@@ -3892,9 +3908,26 @@ async function tryBcnClau18Volumetria(
         if (!site) return false;
         if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) return false;
 
+        // (0) §AMB-VOLUMETRIA-18 — WHICH PACK CITES THIS MUNICIPALITY'S clau 18? `null` for 35 of
+        // the AMB's 36: the OV footprint is metropolitan DATA, but the citation is PGM Art. 306,
+        // whose metropolitan force is a per-municipality question (Cerdanyola and Sant Cugat
+        // demonstrably REWROTE it; for the rest `ambArticleScopeFor` answers `'unknown'`). Refusing
+        // here keeps the cited clau-18 refusal — the alternative is publishing a real footprint
+        // under an article that may not govern it, which is a fabricated legal claim.
+        const rulePack = ambVolumetria18PackFor(municipality.ineCode);
+        if (!rulePack) {
+            console.log(
+                `${TAG} no authorised clau-18 volumetric pack for INE ${municipality.ineCode} ` +
+                    `(${municipality.nameInSource}) — the OV footprint may be readable, but PGM Art. 306's ` +
+                    `force there is not recorded. Cited refusal stands.`,
+            );
+            return false;
+        }
+
         // (1) Resolve the published volumetric footprint + PLANTES at the parcel point (WGS84).
         // Never throws; a typed refusal → we return false and the caller keeps the clau-18 refusal.
-        const resolution = await resolveBcnRefosOV(BCN_REFOS_OV_RING_REF, { lat, lon });
+        // ⚠ `municipality` is the `CODI_INE` filter — the resolver has no Barcelona default.
+        const resolution = await resolveBcnRefosOV(BCN_REFOS_OV_RING_REF, { lat, lon }, { municipality });
         if (!resolution.ok || resolution.ringLatLon.length < 3) {
             console.log(
                 `${TAG} OV not resolved (${resolution.ok ? 'degenerate-ring' : resolution.reason}) — refusal stands.`,
@@ -3930,7 +3963,10 @@ async function tryBcnClau18Volumetria(
         const record: ZoningRecord = {
             zoneCode: BCN_VOLUMETRIA_18_ZONE_CODE,
             zoneLabel: clauLabel ?? 'Ordenació en volumetria específica (clau 18)',
-            jurisdictionId: BCN_JURISDICTION_ID,
+            // ⚠ THE MUNICIPALITY'S OWN id, never a Barcelona constant — this record carries the
+            // citation shown to the user, and stamping `es-08019-barcelona` on another town's
+            // parcel is the §LH-ENVELOPE / L-652 mis-citation. The type guarantees it is non-null.
+            jurisdictionId: municipality.jurisdictionId,
             structuredFields: {},
             overlays: [],
             ordinanceRef: null, // the pack zone supplies the citation.
@@ -3946,7 +3982,7 @@ async function tryBcnClau18Volumetria(
             parcelRing: boundary.polygon,
             edgeClassifications: boundary.edgeClassifications,
             zoning: record,
-            rulePack: ES_BARCELONA_VOLUMETRIA_18_PACK,
+            rulePack,
             explicitAreaFootprint: footprintRing,
         });
         if (envelope.status !== 'ok' || envelope.insetPolygon.length < 3) {
@@ -4044,8 +4080,14 @@ async function applyBcnZoningThenFallback(
     lat: number,
     lon: number,
     estimated: BuildableEnvelope | null,
+    municipality: AmbRegisteredMunicipality,
 ): Promise<void> {
     const TAG = '[gis][c58] §BCN-REAL-ENVELOPE';
+    // §AMB-UNBIND (2026-08-02) — the jurisdiction is the MUNICIPALITY'S, read from the parameter,
+    // not the module-level `BCN_JURISDICTION_ID` constant. `AmbRegisteredMunicipality` guarantees a
+    // non-null id at compile time, so there is no `?? BCN_JURISDICTION_ID` fallback that could
+    // silently answer another town's land with Barcelona's packs and Barcelona's citations.
+    const jurisdictionId = municipality.jurisdictionId;
     try {
         if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
             applyEstimatedZoning(ctx, estimated);
@@ -4128,7 +4170,7 @@ async function applyBcnZoningThenFallback(
             parcelAreaM2 !== null ? `Parcel area: ${Math.round(parcelAreaM2).toLocaleString()} m²` : null,
             'Planning source: Generalitat de Catalunya MUC + Catastro',
         ].filter((s): s is string => typeof s === 'string');
-        const disposition = resolveZoneDisposition(BCN_JURISDICTION_ID, clau, {
+        const disposition = resolveZoneDisposition(jurisdictionId, clau, {
             harmonisedCode: qual.mucCode ?? null,
             zoneLabel: qual.clauLabel ?? null,
             knownFacts,
@@ -4143,8 +4185,24 @@ async function applyBcnZoningThenFallback(
             //    on any failure we fall through to the SAME refusal (an absent number costs nothing).
             //    ⚠ Guarded to clau EXACTLY '18': other `derived-plan` claus (14a/15/16/17…) have no
             //    OV footprint and must keep refusing.
-            if (BCN_REFOS_OV_CERTIFIED && clau === BCN_VOLUMETRIA_18_ZONE_CODE) {
-                const rendered = await tryBcnClau18Volumetria(ctx, boundary, lat, lon, qual.clauLabel ?? null);
+            //    ⚠ 2026-08-02 — the THIRD condition is the unbinding. The branch no longer assumes
+            //    Barcelona: it asks whether THIS municipality has an authorised clau-18 volumetric
+            //    pack (`ambVolumetria18PackFor`, `null` for 35 of the AMB's 36). The OV DATA is
+            //    metropolitan under SIG-3; the Art. 306 CITATION is not, so reachability and
+            //    authorisation are tested separately and the second one fails closed.
+            if (
+                BCN_REFOS_OV_CERTIFIED &&
+                clau === BCN_VOLUMETRIA_18_ZONE_CODE &&
+                ambVolumetria18PackFor(municipality.ineCode) !== null
+            ) {
+                const rendered = await tryBcnClau18Volumetria(
+                    ctx,
+                    boundary,
+                    lat,
+                    lon,
+                    qual.clauLabel ?? null,
+                    municipality,
+                );
                 if (rendered) {
                     console.log(`${TAG} §BCN-CLAU18-OV constructed envelope from the AMB Refós OV — certified gate ON.`);
                     return;
@@ -4227,7 +4285,8 @@ async function applyBcnZoningThenFallback(
             const parcelOnlyRecord: ZoningRecord = {
                 zoneCode: clau,
                 zoneLabel: qual.clauLabel,
-                jurisdictionId: BCN_JURISDICTION_ID,
+                // §AMB-UNBIND — the municipality's own id; see the note at the top of this function.
+                jurisdictionId,
                 structuredFields: {},
                 overlays: [],
                 ordinanceRef: null,

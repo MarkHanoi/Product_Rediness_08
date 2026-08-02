@@ -279,6 +279,8 @@ import { NETHERLANDS_BBOX, isInNetherlands } from '../parcelProviders/countryBbo
 //    at the very END of `REGISTRATIONS` — it is deliberately last in every sense.
 import { CATALUNYA_JURISDICTION_ID, catalunyaRegistryRefusal } from './esCatalunya.js';
 import { CATALUNYA_BBOX, isInCatalunya } from '../providers/catalunyaBbox.js';
+// §JURISDICTION-ID-CARRIES-THE-INE — the branded INE vocabulary. See the section near the bottom.
+import { parseIneCode, type IneCode } from '../providers/esMunicipalCode.js';
 
 /** The jurisdiction id Barcelona packs and records use. One constant, not a scattered literal. */
 export const BCN_JURISDICTION_ID = 'es-08019-barcelona';
@@ -1474,11 +1476,86 @@ export function listJurisdictionCoverage(): readonly JurisdictionCoverage[] {
     }));
 }
 
+const _tracer = trace.getTracer('pryzm.zoning');
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §JURISDICTION-ID-CARRIES-THE-INE (2026-08-02) — RESOLVING A JURISDICTION BY MUNICIPAL CODE.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+//
+// WHY THERE IS NO LOOKUP TABLE HERE. PRYZM's Spanish jurisdiction ids are already `<cc>-<INE>-
+// <slug>` by convention (`saRiyadhDemo.ts` states it): `es-08019-barcelona`, `es-08101-hospitalet`,
+// `es-46250-valencia`. The INE code is therefore ALREADY IN THE ID, and a second table mapping one
+// to the other would be a restatement that can drift from the ids it describes — the L-422/457/
+// 467/469 family, and the exact reason `ENVELOPE_PUBLICATION_GATES` reads gate CONSTANTS instead of
+// restating their values. So this DERIVES the code from the id, and `ambMunicipalities.test.ts`
+// asserts the derivation agrees with the AMB scope table for all five registered AMB ids.
+//
+// ⚠ THE MIDDLE SEGMENT IS **INE**, NEVER DGC. Every planning service in this corpus keys on INE
+// (the AMB publishes `CODI_INE`; SIU's field is `ProvINE`); Catastro's DGC code is the odd one out
+// and is NOT what these ids carry. The return type is a branded `IneCode` so that distinction
+// survives the function boundary instead of decaying to a five-character string — DGC 08196 and
+// INE 08196 are different municipalities, and one of them is inside the AMB extent.
+
+/**
+ * The INE municipal code carried by a `<cc>-<INE>-<slug>` jurisdiction id, or `null` when the id
+ * does not carry one (`ch`, `dk`, `nl-bestemmingsplan`, `es-catalunya`, a malformed id).
+ *
+ * ⚠ `null` means "this id encodes no municipality", which is TRUE and common — regional and
+ * national jurisdictions have no INE code. It is never an error state, and callers must not
+ * substitute a default for it.
+ *
+ * PURE, total, never throws. P8 — emits `pryzm.zoning.ineCodeForJurisdiction`.
+ */
+export function ineCodeForJurisdiction(jurisdictionId: string): IneCode | null {
+    const span = _tracer.startSpan('pryzm.zoning.ineCodeForJurisdiction');
+    try {
+        const parts = String(jurisdictionId ?? '').split('-');
+        // `<cc>-<INE>-<slug…>` — at least three segments, and the SECOND must be five digits.
+        const code = parts.length >= 3 ? parseIneCode(parts[1]) : null;
+        span.setAttribute('jurisdictionId', String(jurisdictionId ?? ''));
+        span.setAttribute('carriesIne', code !== null);
+        return code;
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * The REGISTERED jurisdiction whose id carries this INE municipal code, or `null` when PRYZM
+ * registers none.
+ *
+ * ⚠⚠ **A NON-NULL ANSWER IS ROUTING, NOT AUTHORISATION.** It says a registration exists and which
+ * packs/refusals/extent apply. Whether PRYZM may PUBLISH a numeric envelope there is
+ * `isEnvelopePublicationAuthorised()`, which fails closed and which four of the five AMB
+ * municipalities currently fail. Reading this function as permission is the L-665 defect.
+ *
+ * ⚠ Derived from `REGISTRATIONS` on every call rather than indexed at load: the set is ~16 rows,
+ * and a derived answer cannot lag the registrations the way a cached index can.
+ *
+ * PURE, total, never throws. P8 — emits `pryzm.zoning.registeredJurisdictionForIne`.
+ */
+export function registeredJurisdictionIdForIne(ine: IneCode): string | null {
+    const span = _tracer.startSpan('pryzm.zoning.registeredJurisdictionForIne');
+    try {
+        for (const r of REGISTRATIONS) {
+            if (ineCodeForJurisdiction(r.jurisdictionId) === ine) {
+                span.setAttribute('ineCode', ine as string);
+                span.setAttribute('jurisdictionId', r.jurisdictionId);
+                span.setAttribute('registered', true);
+                return r.jurisdictionId;
+            }
+        }
+        span.setAttribute('ineCode', ine as string);
+        span.setAttribute('registered', false);
+        return null;
+    } finally {
+        span.end();
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // §JURISDICTION-SPECIFICITY — THE ONE RESOLUTION RULE. Read the header for what was rejected.
 // ─────────────────────────────────────────────────────────────────────────────────────────────
-
-const _tracer = trace.getTracer('pryzm.zoning');
 
 /**
  * The minimum a value must declare to take part in the resolution rule.

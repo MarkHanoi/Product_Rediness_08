@@ -43,6 +43,7 @@ import {
     BCN_VOLUMETRIA_18_ZONE_CODE,
     computeBuildableEnvelope,
     heightFromFloorsAboveGround,
+    AMB_BARCELONA,
 } from '../src/index.js';
 // These three are L0 SCHEMA types, not this package's. `../src/index.js` re-exports values, not the
 // schema type surface, so importing them from there was a TS2305 on every typecheck run. Every other
@@ -136,7 +137,10 @@ afterAll(() => new Promise<void>((r) => server.close(() => r())));
 /** Drive the SHIPPED resolver over the real socket at the real path. No fetch injection. */
 function resolveViaRoute(pt: { lat: number; lon: number }) {
     __resetBcnRefosCache();
-    return resolveBcnRefosOV(BCN_REFOS_OV_RING_REF, pt, { pathBase: `${origin}${BCN_REFOS_OV_PATH}` });
+    return resolveBcnRefosOV(BCN_REFOS_OV_RING_REF, pt, {
+        municipality: AMB_BARCELONA,
+        pathBase: `${origin}${BCN_REFOS_OV_PATH}`,
+    });
 }
 
 describe('§BCN-CLAU18-OV — the route is what makes the clau-18 path resolve at all', () => {
@@ -294,6 +298,7 @@ describe('§BCN-CLAU18-OV §CONTEXT-DATA-HONESTY — an outage and an absence ar
     it('a drifted ringRef refuses rather than resolving against the wrong plane', async () => {
         upstream = 'ok';
         const r = await resolveBcnRefosOV('bcn-refos-ov:plantes/amb-v1999', CLAU18_WITH_OV, {
+            municipality: AMB_BARCELONA,
             pathBase: `${origin}${BCN_REFOS_OV_PATH}`,
         });
         expect(r.ok).toBe(false);

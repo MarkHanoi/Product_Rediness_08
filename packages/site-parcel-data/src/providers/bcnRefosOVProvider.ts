@@ -17,6 +17,13 @@
 // in production through a C57 same-origin proxy) wrapping a deterministic parse, turning a parcel
 // POINT into { the closed buildable ring (WGS84), the floor count }.
 //
+// ⚠ 2026-08-02 — THIS RESOLVER IS METROPOLITAN, NOT MUNICIPAL. It used to interpolate
+// `CODI_INE='08019'` directly, pinning a 36-municipality dataset to one city. The municipality is
+// now a REQUIRED dependency (`deps.municipality`, from `ambRefosMunicipalities.ts`), carried as a
+// branded `IneCode` so a Catastro DGC code cannot be passed in its place — INE 08196 = Sant Andreu
+// de la Barca (in this service, with polygons) vs DGC 08196 = Sant Andreu de Llavaneres (not in
+// it) is a LIVE collision inside this very extent. Barcelona's query is byte-identical.
+//
 // SOURCE (verified live 2026-07-24, `findings/BARCELONA-GIS-AUDIT-SPIKE.md` §1/§5):
 //   geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer
 //     layer 17 "OV_Trames" (polygon) — carries PLANTES (String, e.g. "B+7"), CLAU ("18hs"), EXP.
@@ -58,6 +65,11 @@
 // measurement this GIS finding corrects).
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
+import { ineCodeLiteral, type IneCode } from './esMunicipalCode.js';
+import {
+    ambMunicipalityByIne,
+    type AmbMunicipality,
+} from './ambRefosMunicipalities.js';
 
 const tracer = trace.getTracer('pryzm.zoning');
 
@@ -107,8 +119,22 @@ export const BCN_REFOS_OV_PATH = '/api/bcn-refos/ov';
 /** The AMB Refós ArcGIS layer id carrying the volumetric footprint + PLANTES (audit §1). */
 export const BCN_REFOS_OV_LAYER = 17;
 
-/** Barcelona's INE code — the `CODI_INE` filter keeps the metro-wide service to the city. */
-export const BCN_INE_CODE = '08019';
+/**
+ * Barcelona's INE code.
+ *
+ * ⚠⚠ **THIS IS NO LONGER THE FILTER — IT IS BARCELONA'S VALUE OF THE FILTER.** Until 2026-08-02
+ * this constant was interpolated directly into every query, so the metro-wide service was pinned
+ * to one of its 36 municipalities and the other 35 were unreachable. The `CODI_INE` value now
+ * comes from the REQUIRED `deps.municipality` (`ambRefosMunicipalities.ts`); this constant remains
+ * as Barcelona's identity, cited by `AMB_BARCELONA` and by the byte-identity control.
+ *
+ * ⚠ Branded `IneCode`, not `string` — the AMB column is the INE vocabulary, and a Catastro
+ * `DgcCode` must not be assignable here. INE 08196 = Sant Andreu de la Barca (in the AMB, with
+ * polygons) while DGC 08196 = Sant Andreu de Llavaneres (not in the AMB): the collision is live
+ * inside this very service, so the vocabulary has to be carried in the TYPE. See
+ * `esMunicipalCode.ts` §ES-CODE-COLLISIONS.
+ */
+export const BCN_INE_CODE: IneCode = ineCodeLiteral('08019');
 
 /** A WGS84 point — the frame the resolver returns the ring in (property 2). */
 export interface BcnLngLat {
@@ -116,8 +142,21 @@ export interface BcnLngLat {
     readonly lon: number;
 }
 
-/** Injectable dependencies so the adapter is unit-testable without the network. */
+/**
+ * Injectable dependencies so the adapter is unit-testable without the network.
+ *
+ * ⚠ `municipality` is REQUIRED AND HAS NO DEFAULT, deliberately. A `municipality ?? AMB_BARCELONA`
+ * default would read as harmless and would mean that any future caller who forgot the parameter
+ * silently queried Barcelona's polygons for someone else's land — the same fail-OPEN-by-absence
+ * shape `envelopeAuthorisation.ts` just inverted, and the only failure direction in this subsystem
+ * that OVER-grants. Omitting it is a `tsc` error instead.
+ */
 export interface BcnRefosOVDeps {
+    /**
+     * WHICH of the AMB Refós's 36 municipalities to query — the `CODI_INE` filter value.
+     * REQUIRED; see above. Use `AMB_BARCELONA` for Barcelona.
+     */
+    readonly municipality: AmbMunicipality;
     /** Override `globalThis.fetch` (tests inject a fake; production uses the same-origin proxy). */
     readonly fetchImpl?: typeof fetch;
     /** Same-origin proxy path base (default `BCN_REFOS_OV_PATH`). */
@@ -134,6 +173,15 @@ export type BcnRefosOVRefusalReason =
     | 'endpoint-unreachable'
     /** The query returned no OV feature at this point (no published volumetric footprint here). */
     | 'no-feature'
+    /**
+     * ⚠ THE SERVICE DOES NOT COVER THAT MUNICIPALITY AT ALL — distinct from `no-feature`, and the
+     * distinction is the point. `no-feature` says *"this parcel has no published volumetric
+     * ordering"*, a statement about the LAND. `unknown-municipality` says *"PRYZM asked the AMB
+     * about somewhere the AMB does not publish"*, a statement about the QUERY. Collapsing them
+     * would report a coverage hole as a legal fact, which is the §CONTEXT-DATA-HONESTY failure
+     * family (L-422/457/467/469). It is also the refusal a leaked DGC code lands on.
+     */
+    | 'unknown-municipality'
     /** The returned geometry has < 3 distinct vertices — not a usable ring. */
     | 'degenerate-geometry'
     /** PLANTES was PRESENT but not a parseable floor count — refuse, never default to a storey. */
@@ -238,11 +286,25 @@ function ringFromArcgis(rings: unknown): BcnLngLat[] | null {
 export async function resolveBcnRefosOV(
     ruleRingRef: string,
     point: BcnLngLat | null | undefined,
-    deps: BcnRefosOVDeps = {},
+    deps: BcnRefosOVDeps,
 ): Promise<BcnRefosOVResolution> {
     const span = tracer.startSpan('pryzm.zoning.resolveBcnRefosOV');
     span.setAttribute('provider', 'amb-refos-ov');
     try {
+        // §AMB-MUNICIPALITY-GUARD — the query is scoped to a municipality the SERVICE publishes,
+        // verified against the scope table rather than trusted from the caller. `tsc` already
+        // guarantees an `IneCode` rather than a bare string (so a Catastro DGC code cannot arrive
+        // here at all); this is the runtime half, for a code that crossed a JSON boundary. A miss
+        // refuses `unknown-municipality` — NEVER `no-feature`, which would report a coverage hole
+        // as a fact about the land.
+        const municipality = deps.municipality;
+        if (!municipality || ambMunicipalityByIne(municipality.ineCode) === null) {
+            span.setAttribute('resultFields', 'unknown-municipality');
+            span.setAttribute('ineCode', String(municipality?.ineCode ?? ''));
+            span.setStatus({ code: SpanStatusCode.OK });
+            return { ok: false, reason: 'unknown-municipality' };
+        }
+        span.setAttribute('ineCode', municipality.ineCode as string);
         if (ruleRingRef !== BCN_REFOS_OV_RING_REF) {
             span.setAttribute('resultFields', 'ringref-mismatch');
             span.setStatus({ code: SpanStatusCode.OK });
@@ -272,11 +334,11 @@ export async function resolveBcnRefosOV(
         // ArcGIS point-in-polygon query: the OV polygon intersecting this point, its PLANTES + CLAU +
         // EXP, geometry back in WGS84 (property 2) so L5 needs no EPSG:3857 reprojection. The point
         // is sent in WGS84 (`inSR=4326`); the service reprojects. `CODI_INE` scopes the metro-wide
-        // service to Barcelona.
+        // service to the REQUESTED municipality — Barcelona is one of 36, no longer the only one.
         const geometry = encodeURIComponent(
             JSON.stringify({ x: point.lon, y: point.lat, spatialReference: { wkid: 4326 } }),
         );
-        const where = encodeURIComponent(`CODI_INE='${BCN_INE_CODE}'`);
+        const where = encodeURIComponent(`CODI_INE='${municipality.ineCode}'`);
         const url =
             `${base}?layer=${encodeURIComponent(String(layer))}` +
             `&geometry=${geometry}&geometryType=esriGeometryPoint&inSR=4326` +

@@ -39,12 +39,16 @@
 // PURE + deterministic (C58 §1.1). Strategic context: C58 §1.2/§1.4/§1.11/§2.2, ADR-0270,
 // `findings/BARCELONA-GIS-AUDIT-SPIKE.md`, L-449, L-590h.
 
+import { trace } from '@opentelemetry/api';
 import {
     JurisdictionZoningContractSchema,
     type JurisdictionZoningContract,
     type GeometricRule,
 } from '@pryzm/schemas';
 import { BCN_REFOS_OV_RING_REF } from '../providers/bcnRefosOVProvider.js';
+import type { IneCode } from '../providers/esMunicipalCode.js';
+
+const volumetriaTracer = trace.getTracer('pryzm.zoning.es.amb');
 
 /** The jurisdiction id — the SAME Barcelona id the registry and other BCN packs use. */
 export const BCN_JURISDICTION_ID = 'es-08019-barcelona';
@@ -120,3 +124,71 @@ export const ES_BARCELONA_VOLUMETRIA_18_PACK: JurisdictionZoningContract =
 
 /** The zone code(s) this pack answers for. */
 export const BCN_VOLUMETRIA_18_ZONE_CODES = [BCN_VOLUMETRIA_18_ZONE_CODE] as const;
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §AMB-VOLUMETRIA-18-PACK-RESOLUTION (2026-08-02) — THE THIRD UNBINDING.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// `siteDispatch.ts` used to name `ES_BARCELONA_VOLUMETRIA_18_PACK` as a CONSTANT on the clau-18
+// path. Once the OV resolver became metropolitan, that constant was the remaining Barcelona bind:
+// a Sant Boi parcel routed down the same branch would have been handed a pack whose
+// `jurisdictionId` is `es-08019-barcelona` and whose `ordinanceRef` cites Barcelona — another
+// municipality's land answered under Barcelona's citation, which is precisely the §LH-ENVELOPE /
+// L-652 mis-citation the registry's specificity rule exists to prevent.
+//
+// ⇒ The pack is now RESOLVED FROM THE MUNICIPALITY, and the resolution FAILS CLOSED.
+//
+// ⚠⚠ WHY THIS RETURNS `null` FOR 35 OF 36 MUNICIPALITIES, AND WHY THAT IS NOT A GAP TO FILL.
+// The blocker is NOT wiring, and it is NOT the dataset. SIG-3 certifies the Refós DATASET VINTAGE
+// across the whole service, so READING Gavà's OV footprint needs no new signature. What is missing
+// is the ORDINANCE half:
+//
+//   • The footprint + PLANTES are metropolitan DATA — transferable.
+//   • The CITATION is `PGM-1976 Art. 306`, and Art. 306's metropolitan force is a per-municipality
+//     question this repo answers elsewhere: `esAmbPgmScope.ts` records footnote 37 on Art. 306
+//     naming **Cerdanyola del Vallès** and **Sant Cugat del Vallès** as having REWRITTEN it. On
+//     those two the metropolitan text demonstrably does not govern, so the citation would be false.
+//   • And for the other 33, `ambArticleScopeFor` answers `'unknown'` — PRYZM holds no PGM scope
+//     record for them at all, and the compendium is expressly non-exhaustive and consolidated only
+//     to 31-12-2009. `'unknown'` is not `'unmodified'`.
+//   • The floors→metres conversion is PGM Art. 327.2, whose footnote 49 names Badalona AND
+//     Barcelona as modifiers — so even the height convention is not uniformly metropolitan.
+//
+// ⇒ Extending this map is a RESEARCH act (read Art. 306 + Art. 327 scope for that municipality,
+//   record it, have a human sign it), never a wiring convenience. An absent envelope costs nothing;
+//   a footprint published under the wrong municipality's article costs a fabricated legal claim.
+
+/**
+ * The AMB municipalities whose clau-18 volumetric pack PRYZM is authorised to CITE, keyed on INE.
+ *
+ * Exactly one entry today. See §AMB-VOLUMETRIA-18-PACK-RESOLUTION above before adding a second —
+ * the bar is a recorded Art. 306 + Art. 327 scope finding, not a working fetch.
+ */
+const VOLUMETRIA_18_PACK_BY_INE: ReadonlyMap<string, JurisdictionZoningContract> = new Map([
+    ['08019', ES_BARCELONA_VOLUMETRIA_18_PACK],
+]);
+
+/**
+ * §AMB-VOLUMETRIA-18 — the clau-18 `explicit-area` pack for this municipality, or `null` when PRYZM
+ * holds no authorised transcription for it.
+ *
+ * ⛔ FAILS CLOSED. `null` for every municipality except Barcelona, and the caller must then keep
+ * the cited clau-18 refusal — never substitute Barcelona's pack, and never publish a footprint with
+ * no citation behind it.
+ *
+ * ⚠ The argument is the branded `IneCode`, not a string, so a Catastro DGC code cannot select a
+ * pack: DGC 08196 (Sant Andreu de Llavaneres) and INE 08196 (Sant Andreu de la Barca) are different
+ * municipalities and this map must never be reachable by the wrong vocabulary.
+ *
+ * P8 — emits `pryzm.zoning.es.amb.volumetria18PackFor`.
+ */
+export function ambVolumetria18PackFor(ineCode: IneCode): JurisdictionZoningContract | null {
+    const span = volumetriaTracer.startSpan('pryzm.zoning.es.amb.volumetria18PackFor');
+    try {
+        const pack = VOLUMETRIA_18_PACK_BY_INE.get(ineCode as string) ?? null;
+        span.setAttribute('ineCode', ineCode as string);
+        span.setAttribute('authorised', pack !== null);
+        return pack;
+    } finally {
+        span.end();
+    }
+}

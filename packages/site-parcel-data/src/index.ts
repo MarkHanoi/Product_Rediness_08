@@ -273,6 +273,11 @@ export {
     type JurisdictionExtentResolution,
     type JurisdictionClaim,
     type JurisdictionClaimResolution,
+    // §JURISDICTION-ID-CARRIES-THE-INE (2026-08-02) — resolve a registration by INE municipal code,
+    // DERIVED from the `<cc>-<INE>-<slug>` id rather than restated in a second table.
+    // ⚠ Routing only. Publication is `isEnvelopePublicationAuthorised()`, which fails closed.
+    ineCodeForJurisdiction,
+    registeredJurisdictionIdForIne,
 } from './rulepacks/registry.js';
 
 // ── L-550 Phase 0.3 / 1b — THE REFUSAL VOCABULARY. ──
@@ -1164,11 +1169,41 @@ export {
 } from './providers/bcnRefosOVProvider.js';
 export {
     ES_BARCELONA_VOLUMETRIA_18_PACK,
+    ambVolumetria18PackFor,
     BCN_VOLUMETRIA_18_RULE,
     BCN_VOLUMETRIA_18_ZONE_CODE,
     BCN_VOLUMETRIA_18_ZONE_CODES,
     BCN_VOLUMETRIA_18_ORDINANCE_REF,
 } from './rulepacks/esBarcelonaVolumetria18.js';
+// ── §ES-MUNICIPAL-CODE-VOCABULARY + §AMB-REFOS-MUNICIPALITIES (2026-08-02) — the unbinding. ──
+// The INE/DGC vocabulary boundary (branded codes + a crosswalk that refuses rather than guesses)
+// and the AMB Refós's own 36-municipality scope, read from the service. Together these are what
+// the clau-18 path parameterises on instead of a hardcoded `CODI_INE='08019'`.
+// ⚠ Reachability is NOT authorisation — `isEnvelopePublicationAuthorised()` still fails closed.
+export {
+    type IneCode,
+    type DgcCode,
+    type EsMunicipalCodeVocabulary,
+    type EsMunicipalCodeCollision,
+    type MunicipalCodeCrosswalk,
+    type MunicipalCodeCrosswalkRefusal,
+    parseIneCode,
+    parseDgcCode,
+    ineCodeLiteral,
+    dgcCodeLiteral,
+    isKnownCollidingMunicipalCode,
+    crosswalkMunicipalCode,
+    ES_MUNICIPAL_CODE_COLLISIONS,
+} from './providers/esMunicipalCode.js';
+export {
+    type AmbMunicipality,
+    type AmbRegisteredMunicipality,
+    AMB_REFOS_MUNICIPALITIES,
+    AMB_REFOS_SOURCE_DEFECTS,
+    AMB_BARCELONA,
+    ambMunicipalityByIne,
+    isAmbRegisteredMunicipality,
+} from './providers/ambRefosMunicipalities.js';
 // ── ADR-0271 P4 — block (manzana) ring dissolve + street-frontage classification. ──
 // The pure producers the block-derived-alignment envelope needs; the L5 editor injects
 // their results into `computeBuildableEnvelope` (roads/parcels are fetched at the edge).
