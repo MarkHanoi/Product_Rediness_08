@@ -100,6 +100,53 @@ constrains envelopes DOWNWARD (L-616: a SOLID must intersect ALL derived constra
 `PGOU_AL.dwg` / `.gml` / `.shz` distributions the national catalogue advertises are **all 404**.
 The live documentation route is `datos.gob.es` publisher `L01462508`.
 
+## 2c — ⭐⭐ THE REVISED ROADMAP (founder, 2026-08-02) — recorded verbatim
+
+- ✅ **Buildable depth: resolved through published geometry**
+- ⛔ **`altura` semantics: single remaining technical/legal blocker**
+- ⛔ **Heritage overlays: deployment blocker, not an envelope-model blocker**
+
+**Engineering status: `essentially_complete`.**
+`continue_now: [parser, testing, refusal logic, geometry validation, heritage integration hooks]` —
+**all five shipped 2026-08-02.** `wait_only_for: [authoritative definition of altura, heritage
+access]`.
+
+⚠ **The distinction the whole position turns on:** engineering *around* a missing authority is
+forbidden; engineering *ahead of* it is expected. So València is **not frozen** — it is **waiting**,
+with everything downstream of the answer already built and tested.
+
+| shipped this pass | what it does | why it needed no answer |
+|---|---|---|
+| `parseValenciaAltura()` | 12 typed value kinds from the live field | ⭐ **there is deliberately NO `storeys` kind** — it parses, it does not interpret |
+| `validateValenciaMovementPolygon()` | containment · holes · degenerate rings · CRS | turns the n=54 finding into a **standing invariant** |
+| `valenciaHeritageDisposition()` / `Refusal()` | refuse-where-heritage-may-apply | ⚠ **no `absent` member** — a gated source is never a clearance |
+| `applyValenciaHeritageConstraint()` | the downward-only overlay seam | makes "heritage access" a **data** change, not a project |
+| `valenciaNoRulePackRefusal()` | the card every parcel gets **today** | the shipping feature, not a placeholder |
+
+⛔ **THE LINE.** No heuristic for `altura`, no inferred semantics, no calibration model, no
+"conservative" branch — the error is **two-sided**, and
+[ADR-0287](../../../../../02-decisions/adrs/ADR-0287-resolvers-refuse-when-uncertainty-changes-the-legal-outcome.md)
+(**València is its worked example**) removes that escape explicitly, resting on
+[ADR-0283](../../../../../02-decisions/adrs/ADR-0283-authoritative-publication-bounds-knowledge-unknown-is-valid.md).
+*"Do not substitute engineering for legal interpretation."*
+
+**Release order: Murcia → Madrid RC-1 → Córdoba → Madrid NZ3 → València.** Last — a scheduling fact,
+not a judgement. **Definition of done: official `altura` interpretation · heritage decision ·
+release.**
+
+⭐ **HOW TO SEND THE ASK — three routes, each verified HTTP 200 on 2026-08-02** (`VALENCIA_R5_ROUTES`):
+
+1. **`datosabiertos@valencia.es`** — the contact in layer 212's own ISO metadata. First ask.
+2. **`https://www.valencia.es/cas/urbanismo/inicio`** — Urbanismo, publishing a *Planeamiento → PGOU*
+   section. The technical office that authors the graphics.
+3. ⭐ **`https://www.valencia.es/cas/transparencia/solicitud-de-acceso-a-la-informacion`** — a **live
+   submit form**, the statutory *solicitud de acceso a la información* under **Ley 19/2013**, which
+   obliges an answer within **one month**. **One action, with a legal clock on it.**
+
+⚠ **Measured dead, listed so nobody re-finds them:** `valencia.opendatasoft.com` (the portal named in
+the city's OWN metadata) → **404** behind a parked-domain page; `PGOU_AL.dwg`/`.gml`/`.shz` → **404**;
+`valencia.es/portal-transparencia` → **404** (the working path is `/cas/transparencia`).
+
 ## 3 — SMALLEST NEXT STEP
 
 **Wire `resolveValenciaZoning` (CLOSURE-REGISTER #4).** Point-intersect `MapServer/231` through a
@@ -111,6 +158,12 @@ Catastro path. It cannot make a published number wrong, because there are none.
 ⇒ **~36 % of the buildable city upgrades from *"PRYZM does not cover this"* to *"the law delegates
 this to instrument `PE2020`"*, and the other ~64 % gains its zone name.** That is what takes València
 from *terminal-but-weak* to *terminal-and-cited*.
+
+⭐ **It is now the ONLY `Engineering` item left on València's board** (category **Engineering**, owner
+the València agent). It needs no external answer, it cannot make a published number wrong — there are
+none — and it moves the REFUSAL from a coverage excuse to a cited legal delegation. ⚠ It raises the
+ENVELOPE axis by **0 pp**: a `derived-plan` refusal and a `no-rule-pack` refusal both weigh 0.0
+(C63 §3.2). It buys correctness, not coverage.
 
 ## 4 — ALREADY BUILT (do not redo)
 
@@ -124,7 +177,14 @@ from *terminal-but-weak* to *terminal-and-cited*.
   `valenciaNoRulePackRefusal`, `VALENCIA_ALTURA_FIELD_MEASURE`.
 - `rulepacks/registry.ts` — the delimited València block; `envelopeAuthorisation.ts` gate row
   (it was **failing open** before this pass).
-- `__tests__/valenciaRouting.test.ts` — 51 tests.
+- ⭐ `rulepacks/esValenciaAlineaciones.ts` — **NEW 2026-08-02, the layer-212 read path.**
+  `parseValenciaAltura` (12 kinds, **no `storeys` kind**), `valenciaAlturaIsCandidateInput`,
+  `validateValenciaMovementPolygon` (containment · holes · degenerate rings · **CRS-in-degrees**),
+  `applyValenciaHeritageConstraint` (downward-only overlay seam).
+- ⭐ `esValenciaEnvelope.ts` additions — `VALENCIA_MOVEMENT_GEOMETRY_DECISION` (founder R1),
+  `valenciaAlturaRouteBlockers` / `…IsPublishable` (derived, never hand-set),
+  `valenciaHeritageDisposition` / `valenciaHeritageRefusal`, `VALENCIA_R5_ASK`, `VALENCIA_R5_ROUTES`.
+- `__tests__/valenciaRouting.test.ts` + `__tests__/valenciaAlineaciones.test.ts` — **96 tests.**
 - Terrain bake row `terrain.mjs` TERRAIN_CITY `valencia` (PNOA MDT); national parcel routing
   (`isInSpain`→Catastro); baked OSM context via `bake.mjs` REGIONS `spain`.
 

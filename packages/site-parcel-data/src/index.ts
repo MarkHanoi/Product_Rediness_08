@@ -948,12 +948,38 @@ export {
     VALENCIA_ALTURA_FIELD_MEASURE,
     VALENCIA_ALTURA_ON_BUILDABLE_LAND,
     VALENCIA_ALTURA_SEMANTICS_2026_08_02,
+    VALENCIA_MOVEMENT_GEOMETRY_DECISION,
+    VALENCIA_HERITAGE_DATA_AVAILABLE,
     VALENCIA_R5_ASK,
+    VALENCIA_R5_ROUTES,
     valenciaAlturaRouteBlockers,
     valenciaAlturaRouteIsPublishable,
+    valenciaHeritageDisposition,
+    valenciaHeritageRefusal,
     valenciaNoRulePackRefusal,
 } from './rulepacks/esValenciaEnvelope.js';
-export type { ValenciaAlturaBlocker } from './rulepacks/esValenciaEnvelope.js';
+export type {
+    ValenciaAlturaBlocker,
+    ValenciaHeritageDisposition,
+    ValenciaHeritageSignals,
+} from './rulepacks/esValenciaEnvelope.js';
+export {
+    VALENCIA_ALTURA_KINDS,
+    VALENCIA_ALTURA_PLAUSIBLE_MAX,
+    VALENCIA_MIN_PLAUSIBLE_POLYGON_M2,
+    parseValenciaAltura,
+    valenciaAlturaIsCandidateInput,
+    validateValenciaMovementPolygon,
+    applyValenciaHeritageConstraint,
+} from './rulepacks/esValenciaAlineaciones.js';
+export type {
+    ValenciaAlturaValue,
+    ValenciaRing,
+    ValenciaGeometryFinding,
+    ValenciaMovementPolygonReport,
+    ValenciaHeritageConstraintInput,
+    ValenciaHeritageConstraintOutcome,
+} from './rulepacks/esValenciaAlineaciones.js';
 export {
     ES_VALENCIA_PGOU_PACK,
     VALENCIA_PGOU_ZONE_CODES,

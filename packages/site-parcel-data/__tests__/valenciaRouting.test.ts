@@ -31,9 +31,14 @@ import {
     VALENCIA_ALTURA_FIELD_MEASURE,
     VALENCIA_ALTURA_ON_BUILDABLE_LAND,
     VALENCIA_ALTURA_SEMANTICS_2026_08_02,
+    VALENCIA_MOVEMENT_GEOMETRY_DECISION,
+    VALENCIA_HERITAGE_DATA_AVAILABLE,
     VALENCIA_R5_ASK,
+    VALENCIA_R5_ROUTES,
     valenciaAlturaRouteBlockers,
     valenciaAlturaRouteIsPublishable,
+    valenciaHeritageDisposition,
+    valenciaHeritageRefusal,
     VALENCIA_ENVELOPE_VERIFIED,
     VALENCIA_JURISDICTION_ID,
     VALENCIA_ROADMAP_LINE,
@@ -352,10 +357,31 @@ describe('València — the terminal refusal every parcel receives', () => {
         expect(prose).not.toContain('2,90');
     });
 
-    it('names Plano C, so the reader can tell a coverage gap from a crash', () => {
-        expect(refusal.detail).toMatch(/PLANO C/i);
+    it('names the ONE missing definition — and no longer blames Plano C (founder R1)', () => {
+        // ⚠ THIS TEST USED TO ASSERT THE CARD NAMED "PLANO C". That premise is SUPERSEDED: founder
+        // decision R1 (2026-08-02) closed the depth question — the city publishes the alignment
+        // polygons and Art. 6.18 sets the buildable area by them. A card still saying "PRYZM does not
+        // hold the drawing" would now be telling the user something untrue about their own city.
+        expect(refusal.detail).not.toMatch(/PLANO C/i);
+        expect(VALENCIA_ROADMAP_LINE).not.toMatch(/Plano C/i);
+        // What it MUST say instead: the depth is settled, one definition is outstanding.
+        expect(refusal.detail).toMatch(/depth is (settled|drawn)/i);
+        expect(refusal.detail).toMatch(/one thing only|one definition/i);
         expect(refusal.detail).toContain(VALENCIA_ROADMAP_LINE);
-        expect(VALENCIA_ROADMAP_LINE).toMatch(/Plano C/);
+    });
+
+    it('⭐ a user can tell a KNOWN BOUNDARY from a CRASH — and knows a retry will not help', () => {
+        // The coordinator's item 3. An unexplained empty panel reads as a bug; this one states which
+        // halves are live, which is blocked, and that waiting — not retrying — is the resolution.
+        expect(VALENCIA_ROADMAP_LINE).toMatch(/KNOWN BOUNDARY, NOT A FAULT/);
+        expect(VALENCIA_ROADMAP_LINE).toMatch(/retrying will not change it/i);
+        expect(VALENCIA_ROADMAP_LINE).toMatch(/PARCEL half is live/);
+        expect(VALENCIA_ROADMAP_LINE).toMatch(/ZONING half is live/);
+        expect(refusal.detail).toMatch(/asked the municipality in writing/i);
+        // ⚠ And it stays a COVERAGE statement, never a legal one: the PGOU does grant an envelope
+        // on this land, so a legally-grounded "no" would be a false negative about the user's plot.
+        expect(refusal.legallyGrounded).toBe(false);
+        expect(refusal.code).toBe('no-rule-pack');
     });
 
     it('preserves the caller\'s known facts — never a blank panel (L-553)', () => {
@@ -521,6 +547,7 @@ describe('València — `altura` on the L-656 denominator: the lead is BIGGER, a
 // ── §ALTURA-SEMANTICS-SETTLED (2026-08-02) ─────────────────────────────────────────────────────
 describe('València — three of four blockers RETIRED, the fourth holds, and it decides the city', () => {
     const S = VALENCIA_ALTURA_SEMANTICS_2026_08_02;
+    const D = VALENCIA_MOVEMENT_GEOMETRY_DECISION;
     /** Lookup that FAILS on a missing id rather than reading `undefined.status` as a pass. */
     const statusOf = (id: ValenciaAlturaBlocker['id']): ValenciaAlturaBlocker['status'] => {
         const b = valenciaAlturaRouteBlockers().find((x) => x.id === id);
@@ -535,16 +562,34 @@ describe('València — three of four blockers RETIRED, the fourth holds, and it
         expect(statusOf('field-units-undocumented')).toBe('retired');
     });
 
-    it('⭐ the DEPTH objection is RETIRED — it is drawn in the polygon, not tabulated in a field', () => {
+    it('⭐ R1 CLOSED BY FOUNDER DECISION — the depth is DRAWN, and the row is GONE from the list', () => {
         // Art. 6.18.1 sets the ocupación by the alineaciones, and the alineación polygon behaves like
         // an área de movimiento: a ~15.6 m band, never larger than the zone polygon it sits in.
         expect(S.medianAlineacionWidthM).toBeLessThan(20); // Art. 6.18.2's default cap
         expect(S.alineacionLargerThanCalificacionCount).toBe(0);
         expect(S.medianAreaRatio).toBeLessThan(1);
-        expect(statusOf('profundidad-not-published')).toBe('retired');
+        // ⚠ REMOVED, not merely marked retired — the founder closed it 2026-08-02, so the list must
+        // read as "one thing left", never "four things, three done".
+        const ids: string[] = valenciaAlturaRouteBlockers().map((b) => b.id);
+        expect(ids).not.toContain('profundidad-not-published');
+        expect(D.supersedesBlocker).toBe('profundidad-not-published');
+        expect(D.decidedBy).toBe('founder');
+        expect(D.layer212IsAuthoritativeMovementGeometry).toBe(true);
         // ⚠ And `profundidadEdificablePublished` stays FALSE — no ATTRIBUTE publishes it. The two
         // facts are different and both true; collapsing them is how a caveat gets lost.
         expect(VALENCIA_ALTURA_ON_BUILDABLE_LAND.profundidadEdificablePublished).toBe(false);
+    });
+
+    it('⚠ closing R1 raises the ENVELOPE axis by ZERO — it clears the path, not the score', () => {
+        // The exact drift to guard against: a closed blocker is not coverage (C63 §1.1).
+        expect(D.raisesEnvelopeAxis).toBe(false);
+        expect(ES_VALENCIA_PGOU_PACK.zones).toHaveLength(0);
+    });
+
+    it('the Plano C search is closed BY DECISION, and re-opening needs CONTRARY EVIDENCE', () => {
+        expect(D.plano_C_searchClosedByDecision).toBe(true);
+        expect(D.reopenOnlyIf).toMatch(/contrary evidence/i);
+        expect(D.doctrine).toMatch(/Doctrine B/);
     });
 
     it('Art. 6.19.3 is MITIGATED, not blocking — an omitted upward exception UNDER-states', () => {
@@ -586,5 +631,63 @@ describe('València — three of four blockers RETIRED, the fourth holds, and it
     it('the R5 ask names the anomaly an answer must explain — not just the question', () => {
         expect(VALENCIA_R5_ASK).toMatch(/menos uno|minus one/i);
         expect(VALENCIA_R5_ASK).toMatch(/81 %/);
+        // ⚠ Founder R2: Q4 is the RELEASE GATE, Q1–3 are metadata. The ask must say so, or an
+        // answerer will treat the discrepancy as optional.
+        expect(VALENCIA_R5_ASK).toMatch(/does not unblock publication/i);
+    });
+
+    it('the escalation routes are real — every recommended route was verified', () => {
+        expect(VALENCIA_R5_ROUTES.length).toBeGreaterThanOrEqual(3);
+        for (const r of VALENCIA_R5_ROUTES) expect(r.verified.length).toBeGreaterThan(10);
+        // The statutory route matters: it converts a courtesy email into a deadline.
+        expect(VALENCIA_R5_ROUTES.some((r) => r.kind === 'statutory-foi')).toBe(true);
+    });
+});
+
+// ── §VALENCIA-HERITAGE — founder ruling R3, 2026-08-02 ─────────────────────────────────────────
+describe('València — heritage: a DEPLOYMENT blocker that is never ignorable', () => {
+    it('⚠ THERE IS NO `absent` DISPOSITION — an access-gated source can never read as a clearance', () => {
+        // 17 ArcGIS folders answer 499 "Token Required". Absence of a public record is NOT absence of
+        // a protection (L-422/457/467/469). The floor is `may-apply-unknown`, never "no heritage".
+        expect(VALENCIA_HERITAGE_DATA_AVAILABLE).toBe(false);
+        expect(valenciaHeritageDisposition({})).toBe('may-apply-unknown');
+        expect(valenciaHeritageDisposition({ protec: '   ' })).toBe('may-apply-unknown');
+        expect(valenciaHeritageDisposition({ intersectsCatalogueFeature: false })).toBe('may-apply-unknown');
+    });
+
+    it('public signals can prove heritage APPLIES — each one on its own', () => {
+        expect(valenciaHeritageDisposition({ protec: 'BRL' })).toBe('applies');
+        expect(valenciaHeritageDisposition({ intersectsCatalogueFeature: true })).toBe('applies');
+        expect(valenciaHeritageDisposition({ alturaIsProtectionDerived: true })).toBe('applies');
+    });
+
+    it('the refusal uses the CONTRACT\'S OWN overlay code — not a new one, not a transient one', () => {
+        for (const d of ['applies', 'may-apply-unknown'] as const) {
+            const r = valenciaHeritageRefusal(d);
+            // C58 defines `overlay-uncertain` for exactly this: a heritage catalogue MAY bind and our
+            // data path cannot see it. Reusing it keeps València inside the shared engine (P1).
+            expect(r.code).toBe('overlay-uncertain');
+            // ⚠ NOT `source-data-unavailable`: that code is TRANSIENT and earns a RETRY affordance.
+            // A 499 token-gate never clears on a retry — the user would loop for ever.
+            expect(r.code).not.toBe('source-data-unavailable');
+            // The uncertainty is about PRYZM's ACCESS, never about the law.
+            expect(r.legallyGrounded).toBe(false);
+            expect(r.headline.length).toBeGreaterThan(20);
+            expect(r.detail).toMatch(/overstate|reduce/i);
+        }
+    });
+
+    it('the unknown branch says WHY it cannot clear the parcel — an unexplained refusal reads as a bug', () => {
+        const r = valenciaHeritageRefusal('may-apply-unknown');
+        expect(r.detail).toMatch(/Token Required/i);
+        expect(r.detail).toMatch(/never an all-clear/i);
+    });
+
+    it('§DEC-1 prose-leak — the heritage refusal publishes NO figure', () => {
+        // Same guard the no-rule-pack refusal carries: a refusal that quotes a number is an envelope.
+        for (const d of ['applies', 'may-apply-unknown'] as const) {
+            const r = valenciaHeritageRefusal(d);
+            expect(`${r.headline} ${r.detail}`).not.toMatch(/\d+[,.]\d+\s*m\b/);
+        }
     });
 });
