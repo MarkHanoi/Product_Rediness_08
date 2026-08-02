@@ -160,3 +160,98 @@ citations. Then test generalisation on a **second, STRATIFIED municipality — n
 ⭐ **The critical question is no longer whether Aragón HAS a planning information system — it clearly
 does — but whether that system PUBLISHES the normative buildability parameters needed to move from
 planning polygons to parcel-level envelopes.**
+
+---
+
+# MEASURED 2026-08-02 - A1/A2/A3 RESULTS. Three answers, and two of them are ceilings.
+
+## A3 - `fiab_geom` = **LEGAL APPROVAL STATUS**. RESOLVED, NOT GUESSED. THE CEILING IS REAL.
+
+Found in the SIUa GeoServer SLD for `SIUa:figuradeplaneamiento_fiabgeom` (`GetLegendGraphic`,
+`format=application/json`). **Legend rule titles and filters, verbatim:**
+
+| Legend title | Filter |
+|---|---|
+| **"Municipios con fiabilidad JURIDICA por geometria"** (layer-level) | `fiab_geom IN ('0','1','2','101','102','200','201')` |
+| **"Aprobada"** | `fiab_geom = '1'` |
+| **"Aprobada con prescripciones"** | `fiab_geom IN ('101','102')` |
+| **"Dudosa"** | `fiab_geom IN ('2','200','201')` |
+| **"No aprobada/Denegada"** | `fiab_geom = '0'` |
+
+> **It is the FIRST of the three candidate meanings. *fiabilidad JURIDICA* - the LEGAL STANDING of
+> the planning figure, carried by the geometry. NOT geometry quality. NOT digitisation confidence.**
+
+=> **ARAGON CAPS AT 21.8 % REGARDLESS OF EVERYTHING ELSE IN THIS DOCUMENT.** The consequence was
+stated in advance and the condition has now been met.
+
+**AND THE CODES ARE NOT A LINEAR QUALITY SCALE - a range filter is WRONG.** `0` = **denied**,
+`1` = approved, `101/102` = approved with prescriptions, `2/200/201` = **doubtful**. A naive
+`fiab_geom > 0` filter **admits DOUBTFUL plans.** Treat `0` **and the entire `2xx` family** as
+non-authoritative. Schema: `xsd:int`, single attribute plus `shape`.
+
+## A1 - The ficha RESOLVES - and carries **PROVEN ZERO** buildability
+
+**The published pattern WORKS AND GENERALISES: HTTP 200 CONTENT on 6/6** municipalities (Fraga
+22112, Zaragoza 50297, Huesca 22125, Teruel 44216, Ejea 50095, Sabinanigo 22199). **Not a shell** -
+Fraga renders **139,246** visible text chars. **The earlier 404s are CONFIRMED as the path-shape
+error.**
+
+**But it is a GEODATA DOWNLOAD CATALOGUE, not a planning ficha.** VALID rate across all six, for
+every term: `altura 0 - plantas 0 - edificabilidad 0 - aprovechamiento 0 - retranqueo 0 - fondo
+edificable 0 - alineacion 0 - PGOU 0 - normas urbanisticas 0`.
+
+**Stronger than a keyword miss:** the ficha **ENUMERATES** everything IDEAragon publishes per
+municipality (~80 catalogue sections). **Exactly two are planning**, and they self-describe as
+*Clasificacion de suelo, Uso global* at **1:15,000** and *Regimen Urbanistico* at **1:300,000**.
+
+> **NEW FINDING - SCALE IS ITSELF A CEILING.** 1:15,000 geometry **is not parcel-precise,
+> independent of attributes.** A layer can carry perfect fields and still be unusable for a parcel.
+
+**AND THE `populated-is-not-present` RULE RE-FIRED ON ITS OWN ORIGIN REGION.** A naive probe reports
+**`densidad` present with numbers on 100 % of fichas - 336 hits on Fraga alone.** Every one is
+**`"LAS con densidad 0,5 ptos/m2"` = LiDAR POINT DENSITY.** `ocupacion` is **`"Sistema de ocupacion
+del suelo"` = LAND COVER.** **Both carry numbers. Both are fabrications.** Probes must report
+`label_hits` and `hits_with_number_nearby` **separately.**
+
+**The known-answer control earned its keep:** it failed on `50095`, which returned *Ejea de los
+Caballeros*. **The site was right; the expected name was wrong** (Calatayud is 50067). **Without the
+control that reads as a pattern break.**
+
+## A2 - Fraga is **`blocked`** - the record itself has no document
+
+**Fraga's PGOU Normas Urbanisticas are NOT REACHABLE.** Its row in the official SIUa inventory
+(`icearagon.aragon.es/inventarioSIUa/`) has **BOTH publication link cells EMPTY** - *Publicacion del
+acuerdo AD* and ***Publicacion de las Normas Urbanisticas*** - while **neighbouring municipalities
+(Abiego, Gistain, Granen, Graus) carry live BOPH/BOA links in the same columns.**
+
+**FIGURA: PGOU - AD: 20/05/1983 - NUM.MODIF: 55.** **A 1983 pre-digital plan with 55 isolated
+modifications, never retro-published. NOT A FETCH FAILURE - the record has no document.**
+
+*Third-party search snippets hint at parameters (parcela minima 250 m2, altura 12 m) and a Plan
+Director del Casco Historico. **Those are search-engine summaries of documents never opened and are
+NOT findings.***
+
+### Fallback substitute - **HUESCA capital**, clearly labelled NOT Fraga
+
+**Read:** *Texto Refundido, Normas Urbanisticas, PGOU 2008* (2.1 MB PDF, `pdftotext -layout`).
+
+| Cap. | Norma Zonal | Model |
+|---|---|---|
+| 8.1 | Edificacion Tradicional | **alignment** |
+| 8.2 | Transformacion en Barrios | **alignment** |
+| 8.3 | Vivienda Unifamiliar | **setback** |
+| 8.4 | **Manzana Cerrada** | **alignment + depth** |
+| 8.5 | Bloque Abierto | **setback** |
+| 8.7 | Actividades Economicas | non-residential |
+
+> **VERDICT: BOTH - AND CLOSED-BLOCK DOMINATES THE CONSOLIDATED RESIDENTIAL FABRIC.**
+> **THE "ARAGON NEEDS LESS THAN CATALUNYA" HYPOTHESIS IS NOT SUPPORTED HERE.** Art. 8.4.8 uses
+> ***alineacion oficial* + *linea de fondo edificable*** - **the same machinery as Barcelona's
+> Art. 242.** Grado 2 fixes *el fondo maximo* at **20 m**.
+
+**AND THE SAME STRUCTURAL TRAP AS BARCELONA:** the 20 m is **a DEFAULT**; the operative value is
+*"definido graficamente en el **plano no5**"*. **THE NUMBER LIVES IN THE PLAN SHEET, NOT THE
+PROSE** - unreadable from the normas text alone.
+
+**One municipality is not a region.** Huesca is the capital and was chosen for downloadability, not
+by stratified draw. **The typology question remains UNKNOWN for Aragon as a whole.**
