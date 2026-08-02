@@ -211,6 +211,45 @@ Catalunya's cost is **unrepresentative by construction**: its expensive half was
 count was being tracked. **Quoting Catalunya's cost as the per-CCAA cost would be the tenth
 confident-and-wrong signal.**
 
+### 6.1 · ⭐ THE FAN-OUT SEQUENCING RULE — serialise the shared code, parallelise everything downstream
+
+⛔ **Region-per-agent is WRONG at Phase 0–2 and RIGHT after Phase 2.** The distinction is not stylistic; it
+was **measured**.
+
+**The evidence:** the five-agent city fan-out had **two agents independently and CORRECTLY fix the same
+scorecard config bug** in one session. Shipping both would have been parallel wiring in a shared tool.
+That produced the standing rule — ⭐ **"in a five-agent fan-out the reconciliation for shared code is
+ADOPT, never ADD"** ([multi-agent-shared-tree-collisions]).
+
+**Applied forward instead of after the fact:** every region needs **the same three unbindings**. Four region
+agents would each hit `bcnRefosOVProvider.ts`, `siteDispatch.ts:4146` and `registry.ts` and produce **four
+incompatible parameterisations** of one interface.
+
+| Stage | Agents | Why |
+|---|---|---|
+| **Phase 0 → 1 → 2** | ⛔ **ONE, ALONE** | the shared spine. **Nobody else touches those three files.** The parameterisation is *the contract every future region uses*, not a Barcelona fix. |
+| **After Phase 2** | **TWO — not four** | once onboarding is `INE code → run`, regions **stop colliding**. |
+
+**The two, and why only two:**
+
+- **Catalunya-batch** — the 26 through the runner. **Mostly execution.**
+- ⭐ **Madrid** — the expensive half: corpus, ladder, signature. **This is the CCAA-cost measurement, and
+  therefore the most valuable agent on the board.**
+
+⚠ **Balears and Galicia wait for Madrid, deliberately.** Verbatim: *"Madrid is the measurement that prices
+every remaining region — until it reports, Balears and Galicia are GUESSES about cost."* When they do run:
+**Balears** is the same shape (`CODIAJ` + normativa URLs) but ⚠ **must read `OBS` — Eivissa's rows
+self-declare NOT IN FORCE**; **Galicia is a different problem entirely** — not an adapter but *mandated ≠
+served*, one question, **does `EnlaceGIS` bridge to the expediente?** *Yes → Galicia opens. No → it is
+classification and it closes.*
+
+**Four preconditions before any fan-out:**
+
+1. **One agent owns each file.** Region agents write **rulepacks only** — never shared dispatch, never the runner.
+2. **Every agent runs the same known-answer control.** Barcelona after unbinding must be **byte-identical**. ⭐ *That is what caught `maxRecordCount`.*
+3. ⭐ **One shared corrections channel.** The week's best findings were **NATIONAL corrections discovered incidentally by CITY agents** — the stale dissolve figure, the empty-parse defect, three DGC/INE collisions. **Those must reach everyone, not sit in one worktree.**
+4. ⛔ **`main` must move first.** Five consecutive agents built on a stale base because `origin/main` is still `ed5d3a0e`. **Fanning out onto that yields four divergent trees.** Founder-owned, and *"now the actual blocker."*
+
 ### Deferred ON PURPOSE — not forgotten
 
 - **Delegated instruments (*plans parcials*)** — a real per-municipality **sourcing** cost. ⭐ **Refuse
