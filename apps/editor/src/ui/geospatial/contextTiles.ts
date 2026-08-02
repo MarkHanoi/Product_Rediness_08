@@ -271,7 +271,24 @@ export function contextTilesOrigin(): string | null {
 // tileset in R2 is the one whose height joins had already failed: probed live at 41.3888,2.1590 it
 // returns 5,146 footprints, 0 measured, 62.5 % fabricated 9 m default. Without this bump every
 // browser that has already read `buildings.pmtiles?v=L658a` keeps that tileset for a YEAR.
-export const CONTEXT_TILESET_VERSION = 'L659a';
+//
+// ⛔ L660a (2026-08-02) — **L659a WAS BUMPED FOR A BAKE THAT THEN FAILED TO PUBLISH, AND THAT IS THE
+// BUG THIS FIXES.** The stamp shipped to `main` in `c4a1c7d3` on 2026-08-01 for run **30715958488**,
+// which tiled 2.3 GB successfully and then **published nothing** — it died on the verification step's
+// npm pin, so R2 kept serving the OLD (0-measured) archive. Any browser that loaded the app in the
+// window between that deploy and 2026-08-02 therefore fetched `buildings.pmtiles?v=L659a` and got the
+// **stale bytes**, which it now holds **for a year** under a stamp we would otherwise consider current.
+//
+// Run **30736279532** (2026-08-02) is the one that actually published: all 14 steps green, the
+// measured-height gate passed for the FIRST TIME in its existence, R2 publish verified publicly
+// readable AND range-servable. Spain's measured share is in that run's `── measured-height gate ──`
+// block — not transcribed here (C64 §2.13); re-derive with `tools/context-height-probe/probe.mjs`.
+//
+// ⚠ **THE GENERALISABLE RULE, and it is why this cost a day: BUMP THE STAMP WHEN THE BAKE PUBLISHES,
+// NEVER WHEN IT IS DISPATCHED.** A version stamp is a claim about what is IN R2. Bumping it in the
+// same commit that fixes the bake asserts the fix succeeded before it has run — and a failed publish
+// then poisons the new stamp with the old bytes, which is strictly worse than not bumping at all.
+export const CONTEXT_TILESET_VERSION = 'L660a';
 
 /**
  * The full URL of one layer's PMTiles archive, cache-bust stamp included.
