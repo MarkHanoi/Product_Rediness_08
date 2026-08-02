@@ -95,11 +95,16 @@ describe('FR_PARIS_PLU_PACK — the curated pack shape', () => {
         expect(ug!.ordinanceRef).toBe(PARIS_PLU_ORDINANCE_REF);
     });
 
-    it('THE GATE IS ON (the ECM engine draws real published geometry — no fabricated emprise)', () => {
-        // Flipped ON 2026-07-26: `computeParisEnvelope` replaced the emprise=parcel assumption with the
-        // published `plub_ecm` footprint, and the L5 dispatcher (siteDispatch.ts) now draws that ECM
-        // volume + refuses honestly where no ECM covers the point. The flag no longer gates a fabrication.
-        expect(FR_PARIS_PLU_CERTIFIED).toBe(true);
+    it('⛔ THE GATE IS SHUT — open-and-UNSIGNED is not a state this repo tolerates', () => {
+        // SHUT 2026-08-02 (§UNSIGNED-GATE-DEFAULTS-SHUT). It had been ON since 2026-07-26 with
+        // `signature: null` — publishing numeric envelopes with no human signature behind them, in a
+        // corpus nobody on this project has read.
+        //
+        // ⚠ NOT because the numbers are fabricated. They are not: the dispatcher draws the PUBLISHED
+        // `plub_ecm` footprint at the PUBLISHED `plub_hauteur`, and the emprise=parcel assumption is
+        // gone. The defect is the MISSING SIGNATURE. Recorded here so a future reader does not
+        // "re-fix" a data problem that was never the problem.
+        expect(FR_PARIS_PLU_CERTIFIED).toBe(false);
     });
 
     it('parisUgHeightMassingSupported: UG only (UV / N / secteur-sauvegardé keep the refusal)', () => {

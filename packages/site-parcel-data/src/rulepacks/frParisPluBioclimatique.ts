@@ -64,10 +64,34 @@ export const PARIS_JURISDICTION_ID = 'fr-75056-paris';
  * ON ships REAL geometry, not the emprise=parcel assumption. Same discipline as `MADRID_NZ1_CERTIFIED`
  * / `NL_BESTEMMINGSPLAN_CERTIFIED` (both ON: the ordinance publishes the footprint as geometry).
  *
- * (Typed `boolean`, not the literal `true`, so a consumer's `if (!FR_PARIS_PLU_CERTIFIED)` refusal
- * branch is not narrowed away as dead code while the gate is open.)
+ * ⛔ SHUT 2026-08-02 — UNSIGNED, AND SPAIN IS THE FOCUS. §UNSIGNED-GATE-DEFAULTS-SHUT.
+ *
+ * This gate was ON with `signature: null` — it published numeric envelopes with NO human signature
+ * behind them, in an ordinance corpus NOBODY ON THIS PROJECT HAS READ. That is the L-616 defect in
+ * its purest form: a number carrying legal weight and no legal basis. Barcelona was withheld for
+ * less, and Barcelona's corpus HAS been read.
+ *
+ * ⚠ THE HONEST FINDING, so reopening is not blocked by a false record: the numbers here are NOT
+ * fabricated. The dispatcher draws the PUBLISHED ECM footprint extruded to the PUBLISHED hauteur
+ * (`plub_hauteur`), and the emprise=parcel assumption this flag once gated is GONE. The defect is
+ * the MISSING SIGNATURE, not the data.
+ *
+ * COVERAGE EFFECT — bounded, and it is not a coverage loss in the determination sense: while shut,
+ * `parisPluEnvelopeRefusal` still carries the REAL zone + REAL hauteur as a CITED refusal. The
+ * DETERMINATION survives; only the drawn ENVELOPE stops. Per ADR-0283 a cited refusal is a valid
+ * output, so what is lost is envelope coverage over Ville de Paris (INSEE 75056, zone UG, which the
+ * PLU-b covers over almost the whole commune) — coverage that was never legitimately publishable.
+ *
+ * TO REOPEN, a signature must assert THREE things, none of which is currently established:
+ *   1. that zone UG's `ordre continu` reading is correct for the parcels we draw on;
+ *   2. that the published ECM ring is the governing emprise and not an indicative one; and
+ *   3. that `plub_hauteur` (UG.3.2.1) is the operative ceiling, unmodified by the HMC (UG.3.2.2),
+ *      the `filet`, or a servitude the pack does not read.
+ *
+ * (Typed `boolean`, not the literal `false`, so a consumer's `if (FR_PARIS_PLU_CERTIFIED)` draw
+ * branch is not narrowed away as dead code while the gate is shut.)
  */
-export const FR_PARIS_PLU_CERTIFIED: boolean = true;
+export const FR_PARIS_PLU_CERTIFIED: boolean = false;
 
 /**
  * The govern­ing citation carried on the refusal — cites the DATA sources and the règlement DOCUMENT,

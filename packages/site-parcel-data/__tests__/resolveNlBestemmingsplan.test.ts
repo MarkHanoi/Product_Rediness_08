@@ -168,8 +168,15 @@ describe('ringFromGeoJson — closes the ring, drops the closing vertex', () => 
 });
 
 describe('resolveNlBestemmingsplan — the resolver', () => {
-    it('the certification gate is ON (§NL-NATIONWIDE — keyless PDOK, bouwhoogte verified live)', () => {
-        expect(NL_BESTEMMINGSPLAN_CERTIFIED).toBe(true);
+    it('⛔ THE GATE IS SHUT — an UNRECORDED default is not a decision', () => {
+        // SHUT 2026-08-02 (§UNSIGNED-GATE-DEFAULTS-SHUT). This is the WEAKEST case of the two and is
+        // recorded that way so reopening is cheap: `maximum bouwhoogte (m)` is published-structured
+        // with a STATED unit and PRYZM transcribes no ordinance — the same ADR-0283 Doctrine B
+        // argument under which DENMARK is authorised ungated.
+        //
+        // It is shut anyway because NOBODY MADE THAT CALL. Denmark's ungated entry is a RECORDED
+        // decision; this was an unrecorded default. That difference is the whole of Step 0.
+        expect(NL_BESTEMMINGSPLAN_CERTIFIED).toBe(false);
     });
 
     it('the ringRef constant equals the pack rule handle (no vintage drift)', () => {

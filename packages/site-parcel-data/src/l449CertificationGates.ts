@@ -128,7 +128,9 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         },
     },
 
-    // ── OPEN (`true`) and UNSIGNED — the Madrid defect, found twice more. See UNSIGNED_OPEN_GATES. ──
+    // ── ⛔ SHUT 2026-08-02 — these two WERE `true` with `signature: null`. §UNSIGNED-GATE-DEFAULTS-SHUT.
+    //    They were the Madrid defect found twice more, and unlike Madrid they had already SHIPPED.
+    //    Both now refuse with a CITED determination; neither draws. Reasoning is at each declaration.
     {
         gate: 'NL_BESTEMMINGSPLAN_CERTIFIED',
         file: 'packages/site-parcel-data/src/providers/resolveNlBestemmingsplan.ts',
@@ -233,10 +235,18 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
  *     discipline as `MADRID_NZ1_CERTIFIED` / `NL_BESTEMMINGSPLAN_CERTIFIED` (both ON…)"* — i.e.
  *     Madrid's unattributed flip was ALREADY being cited as precedent by a third jurisdiction.
  */
-export const UNSIGNED_OPEN_GATES: readonly string[] = Object.freeze([
-    'FR_PARIS_PLU_CERTIFIED',
-    'NL_BESTEMMINGSPLAN_CERTIFIED',
-]);
+/**
+ * ⭐ EMPTY SINCE 2026-08-02 — and keeping it empty is now the invariant.
+ *
+ * Both former entries were SHUT rather than signed (§UNSIGNED-GATE-DEFAULTS-SHUT). The quarantine
+ * existed to make an unsigned-open gate *visible* rather than tolerated; with it empty, the guard
+ * below states the stronger property directly: NO GATE IS OPEN WITHOUT A RECORDED SIGNATURE.
+ *
+ * ⛔ An empty list is the CORRECT steady state. If a future gate lands here, that is a governance
+ * defect being declared out loud — which is the point — but the fix is a signature or a shut, never
+ * a longer list.
+ */
+export const UNSIGNED_OPEN_GATES: readonly string[] = Object.freeze([]);
 
 /**
  * Whether this gate is OPEN on the strength of a RECORDED human signature.

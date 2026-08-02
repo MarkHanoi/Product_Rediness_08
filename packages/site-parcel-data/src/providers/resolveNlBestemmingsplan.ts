@@ -90,10 +90,33 @@ const tracer = trace.getTracer('pryzm.zoning');
  * STATED unit, so the dispatcher may render `structured` when a real maatvoering resolves — and
  * `estimated-ruleset` when only the bouwvlak (no numbers) is available. See the dispatcher.
  *
- * (Typed `boolean`, not the literal `true`, so a consumer's `if (!NL_BESTEMMINGSPLAN_CERTIFIED)`
- * refusal branch is not narrowed away as dead code while the gate is open.)
+ * ⛔ SHUT 2026-08-02 — UNSIGNED, AND SPAIN IS THE FOCUS. §UNSIGNED-GATE-DEFAULTS-SHUT.
+ *
+ * This gate was ON with `signature: null` — publishing numeric envelopes NATIONWIDE with no human
+ * signature behind them. Same reasoning as `FR_PARIS_PLU_CERTIFIED`: an envelope published under no
+ * signature is a number with legal weight and no legal basis.
+ *
+ * ⚠ THE HONEST FINDING: this is the WEAKEST case for shutting of the two, and it is recorded that
+ * way so reopening is cheap. `maximum bouwhoogte (m)` is an authoritative `published-structured`
+ * number with a STATED UNIT, read live from the keyless PDOK proxy — PRYZM TRANSCRIBES NO ORDINANCE.
+ * That is the same argument (ADR-0283 Doctrine B) under which DENMARK is authorised UNGATED. On the
+ * merits NL probably belongs in `UNGATED_AUTHORISED_JURISDICTIONS` beside Plandata.dk.
+ *
+ * It is shut anyway, for one reason: NOBODY HAS MADE THAT CALL. Denmark's ungated entry is a
+ * RECORDED DECISION; the Netherlands' open gate was an unrecorded default. The difference between
+ * those two is the entire point of Step 0.
+ *
+ * COVERAGE EFFECT: bounded the same way. Every NL parcel refuses HONESTLY AND CITED, carrying the
+ * resolved bouwvlak; the determination survives, the drawn envelope stops.
+ *
+ * TO REOPEN, a signature need assert only that Doctrine B applies — that `maatvoering` is the
+ * authority's own published determination and not PRYZM's reading of one. If that holds, the correct
+ * fix is not to reopen this gate but to DELETE it and move NL to `UNGATED_AUTHORISED_JURISDICTIONS`.
+ *
+ * (Typed `boolean`, not the literal `false`, so a consumer's `if (NL_BESTEMMINGSPLAN_CERTIFIED)`
+ * draw branch is not narrowed away as dead code while the gate is shut.)
  */
-export const NL_BESTEMMINGSPLAN_CERTIFIED: boolean = true;
+export const NL_BESTEMMINGSPLAN_CERTIFIED: boolean = false;
 
 /**
  * The `ringRef` handle this resolver answers for. MUST equal the pack's rule `ringRef` — asserted
