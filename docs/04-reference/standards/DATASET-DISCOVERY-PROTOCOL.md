@@ -225,6 +225,22 @@ that mapping can never be added, because the substitution changes the criterion 
 (ADR-0284). The caveat prints on every hit, forever. Institutional memory lives in the dictionary, not in the
 reviewer's head.
 
+### Trap 6 · Temporal validity — the unsafe direction
+Murcia's planning layers carry `f_inicial` / `f_fin`, with **`f_fin = 2999-12-30Z` as the "still in force"
+sentinel**. If a publisher serves superseded geometry *alongside* current geometry in one layer and the
+compiler does not filter the end date, **it computes an envelope from a repealed alignment — which
+over-grants (the L-616 direction, the unsafe one).**
+**Guard**: `detectTemporalValidity()` classifies attributes into validity **end** fields (the ones that can
+over-grant), **start** fields, and ambiguous date-like fields, and emits a per-layer
+**`temporalFilteringRequired`** flag — hoisted to the record's top level so a consumer cannot miss it. ⚠ It
+is a **tristate**: `null` when the schema was not retrieved, because *not probed ≠ not present*. Stage 0
+flags that a filter is **required**; it never decides what the filter should be, because which edition is in
+force is a legal question (ADR-0284).
+**Measured on Murcia, 2026-08-02** — `f_fin > today` returns **23 066 / 23 066** alineaciones, **3 611 /
+3 611** sectores, **69 / 69** ejes comerciales; `f_fin < today` returns **0** for all three. Murcia publishes
+superseded editions as *separate layers* (`_2001`/`_2007`/`_2012`), not as expired rows. **So the risk is
+latent here, not live** — see the operational note in §12.
+
 ### Trap 5 · The superseded edition
 Murcia publishes `pgou_alineaciones` beside `_2001`, `_2007` and `_2012`. Binding the wrong one publishes
 **repealed law**.
@@ -236,6 +252,16 @@ not the score, carries the warning.
 
 ## §6 — How a negative is PROVEN
 
+> ## ⚠⚠ A ZERO-RESULT PROBE IS NOT A NEGATIVE
+>
+> *"**This is the single biggest threat to Probe C, because Probe C's output is a count of cities with
+> nothing.** A missed service and an absent service produce identical records, and nothing downstream
+> will flag it."*
+>
+> **A negative resting on an untested axis order, an unverified CRS, or an unexercised alternate
+> parameterisation is not a negative.** Any zero-result probe **must** retry across the axis/CRS matrix
+> before it may emit one.
+
 ADR-0290 requires that a negative be **measured**, not assumed. A Stage 0 pass may conclude *"no
 machine-readable source exists"* only when **all** hold:
 
@@ -243,9 +269,20 @@ machine-readable source exists"* only when **all** hold:
 2. Every failure is classified as `UNKNOWN`, and the conclusion **does not rest on any of them**. A negative
    built on a 403 is not a negative.
 3. Every enumerated layer has been classified — including the boring ones.
-4. Every zero feature-count survived the full axis-order ladder.
-5. Every extent-based quarantine survived §5 trap 2 (mislabelled/degenerate bbox).
-6. The remaining `UNKNOWN`s are **named**, with the concrete next action and its owner.
+4. ⚠ **Every zero feature-count survived the full axis/CRS matrix** — *both* axis orders **and** both CRS
+   families must have **answered**, not merely been sent. `countFeatures()` returns
+   `unknown-matrix-incomplete` when they did not, and the count stays `null`. **A whole-layer query
+   returning 0 is no longer sufficient on its own** — that single-query shortcut was the defect, and it is
+   removed.
+5. ⚠ **Every extent-based quarantine survived §5 trap 2** — a mislabelled or degenerate published bbox
+   resolves to `unknown`, never `far`.
+6. ⚠ **Every layer carrying a validity end-date was either filtered or flagged** (§5 trap 6). Coverage
+   measured over unfiltered temporal data is unproven in *both* directions.
+7. The remaining `UNKNOWN`s are **named**, with the concrete next action and its owner.
+
+**Conditions 4–6 are the ones the tool found in itself.** Each was a case where an *absent* result and a
+*missed* result were indistinguishable — which is precisely the class that cannot be caught downstream,
+because both produce the same record.
 
 **The stopping rule.** A Stage 0 pass is **one-shot and time-boxed**. Córdoba's six-avenue sweep is the
 reference shape — exhaustive, evidenced, concluded once. If the exit criteria above are met, the negative is
@@ -327,6 +364,17 @@ Two real cities, live, **2026-08-02**. The reviewable output is committed at
 (`node discover.mjs --city <c> --deep 30 --out reports`) and is deliberately not committed.
 
 ### ⭐ The acid test — the three datasets humans missed
+
+> ## ⚠⚠ WHAT THIS TEST DOES AND DOES NOT SHOW — read before quoting any number below
+>
+> All three targets were **already-known discoveries**, found by hand and **held in context by the agent
+> that wrote the vocabulary**. The test therefore demonstrates exactly one thing: **the tool does not miss
+> known-good datasets.**
+>
+> It is **NOT evidence of recall on datasets nobody has found yet.** That number is unmeasured, and without
+> a ground-truth inventory of what every city publishes it is **unmeasurable**. **A top-20 rank is not
+> recall.** The tool prints this warning in the body of every report that runs an acid test, for the same
+> reason it is here and not in a footnote.
 
 | dataset | rank | of | percentile | kind | MR | LA | reusable | verdict |
 |---|---:|---:|---:|---|---:|---:|:---:|---|

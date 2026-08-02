@@ -42,7 +42,10 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseWfsCapabilities, parseWmsCapabilities, parseArcgisService, parseDescribeFeatureType, parseHits } from './capabilities.mjs';
-import { classifyLayer, bboxToWgs84, verifyLocality, sanitiseWgs84Bbox, toEvidenceRegisterRows, CLASSIFIER_VERSION } from './classify.mjs';
+import {
+    classifyLayer, bboxToWgs84, verifyLocality, sanitiseWgs84Bbox, toEvidenceRegisterRows,
+    epsgCodeOf, wgs84ToUtmEtrs89, CLASSIFIER_VERSION,
+} from './classify.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const PROTOCOL_VERSION = '1.0';
@@ -120,6 +123,73 @@ export const SWEEP_PATHS = [
     { service: 'OGCAPI', path: '/ogcapi/collections?f=json' },
 ];
 
+/**
+ * §HOST-SWEEP — candidate hosts for a municipality with NO declared endpoints.
+ *
+ * ⚠ THIS IS THE COLD-START PATH, and it is where the residual false-negative surface lives. A
+ * municipality whose service uses a naming convention absent from this list reads as `Unknown` —
+ * NEVER as `No`. That asymmetry is the whole point: guessing wrong about a host name must not
+ * become a claim about a city's data (ADR-0290).
+ *
+ * Conventions are drawn from the Spanish municipal web estate: `{slug}.es` for the corporation,
+ * and the `ide`/`sig`/`geoportal`/`cartografia` prefixes for its spatial-data infrastructure.
+ */
+export function candidateHostsFor(name, extra = []) {
+    const slug = String(name)
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .replace(/\([^)]*\)/g, '')
+        .split('/')[0]
+        .replace(/[^a-z0-9]+/g, '');
+    if (!slug) return [...extra];
+    const hosts = [
+        `www.${slug}.es`, `${slug}.es`,
+        `www.ayto${slug}.es`, `www.ayuntamiento${slug}.es`, `www.ayt2${slug}.es`,
+        `ide.${slug}.es`, `sig.${slug}.es`, `geoportal.${slug}.es`,
+        `cartografia.${slug}.es`, `mapas.${slug}.es`, `geoserver.${slug}.es`, `visor.${slug}.es`,
+    ];
+    return [...new Set([...extra, ...hosts])];
+}
+
+/**
+ * Sweep candidate hosts for OGC/ArcGIS service directories.
+ *
+ * Two phases, because a naive 12 hosts × 7 paths is 84 requests of which most hit hosts that do not
+ * resolve: (1) probe each host root once; (2) probe the service paths ONLY on hosts that answered.
+ * Every non-answer is recorded with its outcome — a DNS failure is a fact about DNS, not about the
+ * municipality's data.
+ */
+export async function sweepEndpoints(hosts, { probes, timeoutMs = 12000, probeImpl = probe } = {}) {
+    const found = [];
+    const hostOutcomes = [];
+    for (const h of hosts) {
+        const p = await probeImpl(`https://${h}/`, { timeoutMs });
+        probes?.push(record(p, `sweep host root: ${h}`));
+        hostOutcomes.push({ host: h, outcome: p.outcome, httpStatus: p.httpStatus });
+        // A 4xx/5xx still proves the host EXISTS and may serve a service path; only a transport
+        // failure removes it from consideration.
+        if (p.outcome === 'network-error' || p.outcome === 'timeout') continue;
+        for (const sp of SWEEP_PATHS) {
+            const url = `https://${h}${sp.path}`;
+            const q = await probeImpl(url, { timeoutMs });
+            probes?.push(record(q, `sweep ${sp.service}: ${h}`));
+            if (q.outcome !== 'ok') continue;
+            const looksRight = sp.service === 'WFS' ? /WFS_Capabilities/i.test(q.body || '')
+                : sp.service === 'WMS' ? /WMS_Capabilities|WMT_MS_Capabilities/i.test(q.body || '')
+                    : /"(currentVersion|folders|services)"/.test(q.body || '');
+            if (!looksRight) continue;
+            found.push({
+                id: `sweep-${h.replace(/\W+/g, '-')}-${sp.service.toLowerCase()}`,
+                service: sp.service,
+                publisher: null, // ⚠ UNDECLARED — competence is Unknown, never inferred from the host
+                url: `https://${h}${sp.path.split('?')[0]}`,
+                discoveredBy: 'sweep',
+            });
+        }
+    }
+    return { endpoints: found, hostOutcomes };
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // §PROBE — the one place this tool touches the network.
 // ═════════════════════════════════════════════════════════════════════════════
@@ -178,7 +248,24 @@ export function bboxForms(centroid, halfDeg, nativeCrs) {
         { id: 'bare-lonlat', bbox: `${w},${s},${e},${n}`, note: 'no CRS — server default' },
         { id: 'bare-latlon', bbox: `${s},${w},${n},${e}`, note: 'no CRS, swapped — the form that rescued Córdoba manzana' },
     ];
-    if (nativeCrs) forms.push({ id: 'native-crs', bbox: `${w},${s},${e},${n},${nativeCrs}`, note: 'layer default CRS, WGS84 ordinates (usually invalid — proves nothing on its own)' });
+    // ── THE CRS HALF OF THE MATRIX (correction 1). ───────────────────────────────────────────────
+    // ⚠ Sending WGS84 DEGREES labelled with a projected CRS is a malformed request, and a 0 from it
+    // proves nothing. So the native rung FORWARD-PROJECTS the bbox into the layer's own coordinates.
+    // Both native orders are tried, because projected CRSs disagree about easting/northing order in
+    // exactly the way geographic ones disagree about lat/lon.
+    const code = epsgCodeOf(nativeCrs);
+    const utmZone = (code >= 25828 && code <= 25838) ? code - 25800
+        : (code >= 23028 && code <= 23038) ? code - 23000
+            : (code >= 32601 && code <= 32660) ? code - 32600 : null;
+    if (utmZone) {
+        const a = wgs84ToUtmEtrs89(s, w, utmZone);
+        const b = wgs84ToUtmEtrs89(n, e, utmZone);
+        const [x0, y0, x1, y1] = [a.easting, a.northing, b.easting, b.northing].map((v) => Math.round(v));
+        forms.push({ id: 'native-projected-en', bbox: `${x0},${y0},${x1},${y1},${nativeCrs}`, note: `forward-projected to ${nativeCrs} (easting,northing)` });
+        forms.push({ id: 'native-projected-ne', bbox: `${y0},${x0},${y1},${x1},${nativeCrs}`, note: `forward-projected to ${nativeCrs}, swapped (northing,easting)` });
+    } else if (nativeCrs) {
+        forms.push({ id: 'native-crs-degrees', bbox: `${w},${s},${e},${n},${nativeCrs}`, note: 'layer default CRS with WGS84 ordinates — kept only to document that it was tried; a 0 here proves nothing' });
+    }
     return forms;
 }
 
@@ -195,14 +282,28 @@ export async function countFeatures(endpoint, layerName, { centroid, halfDeg = 0
     //     trust when it arrives, and it is why the ladder is a fallback and not the primary.
     const whole = await probeImpl(base, { timeoutMs });
     probes?.push(record(whole, `hits, whole layer: ${layerName}`));
+    let wholeLayerZero = false;
     if (whole.outcome === 'ok') {
         const h = parseHits(whole.body);
-        if (h.ok) return { status: h.count > 0 ? 'measured' : 'zero-all-forms', count: h.count, via: 'whole-layer', ladder: [] };
+        // A POSITIVE whole-layer count is decisive and needs no matrix — there is no axis ambiguity
+        // in a query with no bbox.
+        if (h.ok && h.count > 0) return { status: 'measured', count: h.count, via: 'whole-layer', ladder: [] };
+        // ⚠⚠ A ZERO IS NOT DECISIVE, AND THIS IS CORRECTION 1.
+        // *"Any zero-result probe must retry across the axis/CRS matrix before it may emit one."*
+        // The previous version returned `zero-all-forms` right here, off a SINGLE query — which is
+        // exactly the defect that makes a missed service and an absent service indistinguishable.
+        if (h.ok && h.count === 0) wholeLayerZero = true;
     }
 
-    // 2 — the ladder, at the municipality centroid.
+    // 2 — the axis/CRS matrix, at the municipality centroid.
     if (!centroid) {
-        return { status: whole.outcome === 'ok' ? 'unparseable' : whole.outcome, count: null, via: null, ladder: [] };
+        // ⚠ Without a centroid the matrix CANNOT be exercised, so a zero here is UNPROVEN by
+        // construction and must not be emitted as a negative.
+        return {
+            status: wholeLayerZero ? 'unknown-matrix-unexercised' : whole.outcome === 'ok' ? 'unparseable' : whole.outcome,
+            count: null, via: null, ladder: [],
+            reason: wholeLayerZero ? 'whole-layer returned 0 but no centroid was supplied, so the axis/CRS matrix could not be run — a zero that has not survived the matrix is not a negative' : undefined,
+        };
     }
     const ladder = [];
     let sawA200 = false;
@@ -214,13 +315,30 @@ export async function countFeatures(endpoint, layerName, { centroid, halfDeg = 0
         if (p.outcome === 'ok') sawA200 = true;
         if (h.ok && h.count > 0) return { status: 'measured', count: h.count, via: f.id, ladder };
     }
+    // ⚠ THE LOAD-BEARING BRANCH. A zero may be emitted ONLY when the whole axis/CRS matrix was
+    // exercised and EVERY rung answered HTTP 200 with 0. Anything else is UNKNOWN with a null count.
     const allZero = ladder.length > 0 && ladder.every((l) => l.ok && l.count === 0);
+    const axisOrdersTried = new Set(ladder.filter((l) => l.ok).map((l) => (/latlon|-ne$/.test(l.form) ? 'swapped' : 'standard')));
+    const crsVariantsTried = new Set(ladder.filter((l) => l.ok).map((l) => (/native/.test(l.form) ? 'native' : 'wgs84')));
+    // Both axis orders AND both CRS families must have actually ANSWERED for the matrix to count as
+    // exercised. A matrix whose native rungs all errored has not tested the CRS hypothesis.
+    const matrixExercised = axisOrdersTried.size >= 2 && crsVariantsTried.size >= 2;
     return {
-        // ⚠ THE LOAD-BEARING BRANCH. Only an all-forms, all-200, all-zero result may be called zero.
-        status: allZero ? 'zero-all-forms' : sawA200 ? 'unknown-mixed-ladder' : 'unknown-no-response',
-        count: allZero ? 0 : null,
+        status: allZero
+            ? (matrixExercised ? 'zero-all-forms' : 'unknown-matrix-incomplete')
+            : sawA200 ? 'unknown-mixed-ladder' : 'unknown-no-response',
+        count: allZero && matrixExercised ? 0 : null,
         via: null,
         ladder,
+        matrix: {
+            exercised: matrixExercised,
+            axisOrdersAnswered: [...axisOrdersTried],
+            crsVariantsAnswered: [...crsVariantsTried],
+            wholeLayerZero,
+            note: matrixExercised
+                ? 'both axis orders and both CRS families answered; a zero here is a PROVEN negative'
+                : '⚠ the axis/CRS matrix was NOT fully exercised — this zero is UNKNOWN, not a negative (correction 1)',
+        },
     };
 }
 
@@ -315,8 +433,19 @@ export async function runDiscovery(muni, opts = {}) {
     const timeoutMs = opts.timeoutMs ?? 45000;
 
     // ── 0.1 / 0.2 / 0.3 ──────────────────────────────────────────────────────────────────────────
+    // §HOST-SWEEP — for a cold-start municipality with no declared endpoints. Live mode only.
+    let sweep = null;
+    let declared = muni.endpoints ?? [];
+    if (opts.sweep && !opts.offline) {
+        sweep = await sweepEndpoints(candidateHostsFor(muni.name, muni.candidateHosts ?? []), {
+            probes, timeoutMs: opts.sweepTimeoutMs ?? 12000,
+        });
+        const known = new Set(declared.map((e) => e.url));
+        declared = [...declared, ...sweep.endpoints.filter((e) => !known.has(e.url))];
+    }
+
     const endpoints = [];
-    for (const ep of muni.endpoints) {
+    for (const ep of declared) {
         endpoints.push(await enumerateEndpoint(ep, muni, { probes, offline: opts.offline, fixtureDir, timeoutMs }));
     }
 
@@ -407,6 +536,7 @@ export async function runDiscovery(muni, opts = {}) {
     return {
         protocolVersion: PROTOCOL_VERSION,
         classifierVersion: CLASSIFIER_VERSION,
+        sweep: sweep ? { hostsProbed: sweep.hostOutcomes.length, hostOutcomes: sweep.hostOutcomes, endpointsFound: sweep.endpoints.length } : null,
         municipality: { name: muni.name, cc: muni.cc, ineCode: muni.ineCode, jurisdictionId: muni.jurisdictionId, centroid: muni.centroid },
         mode: opts.offline ? 'offline-fixture-replay' : 'live',
         runAt: opts.now ?? new Date().toISOString(),
@@ -491,6 +621,8 @@ export const UNDECIDED_REASONS = [
     'crs-unreprojectable',         // an extent we cannot verify — UNKNOWN locality, never `far`
     'count-ladder-inconclusive',   // the axis-order ladder gave a mixed answer
     'ambiguous-classification',    // planning terms hit, but nothing decisive
+    'temporal-filter-required',    // validity end-date present; coverage unknown until filtered
+    'undeclared-publisher',        // the planning publisher is not in PUBLISHERS — Unknown, not competent
 ];
 
 function tristate(value, evidence, basis) { return { value, evidence, basis }; }
@@ -518,6 +650,11 @@ export function coldStartRecord(report, extra = {}) {
         }
         if (String(rec.featureCountStatus).startsWith('unknown')) {
             push('count-ladder-inconclusive', `${rec.layer}: ${rec.featureCountStatus}`);
+        }
+        // CORRECTION 2 — a layer needing a temporal filter is an UNDECIDED for the aggregator: we
+        // cannot say what it covers today without knowing which rows are in force.
+        if (rec.temporalFilteringRequired) {
+            push('temporal-filter-required', `${rec.layer}: ${rec.temporalValidity.endFields.join(', ')}`);
         }
     }
 
@@ -562,6 +699,32 @@ export function coldStartRecord(report, extra = {}) {
             : classes.length === 0 ? 'Unknown'
                 : classes.every((c) => c === 'non-authority') ? 'non-authority'
                     : 'Unknown';
+
+    // ── §PUBLISHER-IS-PLANNING-AUTHORITY — CORRECTION 3, a FIRST-CLASS TRISTATE. ─────────────────
+    // ⚠ Across 8,132 municipalities we will hit colegios, universities, consultancies and regional
+    // aggregators publishing planning-SHAPED data with no normative authority. Córdoba is already
+    // one: its only zoning vector is COACo's — a Colegio de Arquitectos — against a measured 0.0 %
+    // envelope. That must be a queryable FIELD, not a caveat that happens to fire on one city.
+    //
+    // ⚠ It is asked of the publisher(s) of THE PLANNING EVIDENCE, not of the endpoints in general.
+    // A city whose basemap comes from the Ayuntamiento and whose only zoning comes from a colegio
+    // must answer `no` here, not `yes`.
+    const evidencePubs = [...new Set(
+        (normativeVector.length ? normativeVector : normativeAny).map((r) => r.publisher).filter(Boolean),
+    )];
+    const evidenceCompetence = evidencePubs.map((p) => PUBLISHERS[p]?.competentForPlanning ?? null);
+    const publisherIsPlanningAuthority = publishedGisService.value !== 'Yes'
+        ? tristate('unknown', 'no service answered — no planning evidence to attribute', 'probe-failed')
+        : evidencePubs.length === 0
+            ? tristate('unknown', 'no normative layer found, so there is no planning publisher to classify', 'no-evidence')
+            : evidenceCompetence.some((c) => c === true)
+                ? tristate('yes', `planning evidence published by ${evidencePubs.filter((p) => PUBLISHERS[p]?.competentForPlanning === true).join(', ')} — declared competent`, 'declared')
+                : evidenceCompetence.every((c) => c === false)
+                    ? tristate('no', `ALL planning evidence comes from ${evidencePubs.join(', ')} — declared NOT competent for planning (colegio / university / consultancy / aggregator class)`, 'declared')
+                    : tristate('unknown', `competence of ${evidencePubs.filter((p) => PUBLISHERS[p]?.competentForPlanning == null).join(', ')} is UNDECLARED — add to PUBLISHERS before aggregating; an unlisted publisher is Unknown, never competent`, 'undeclared-publisher');
+    if (publisherIsPlanningAuthority.value === 'unknown' && publisherIsPlanningAuthority.basis === 'undeclared-publisher') {
+        push('undeclared-publisher', publisherIsPlanningAuthority.evidence);
+    }
 
     // ── §TIER-SIGNAL — an UPPER BOUND, explicitly not a determination. ───────────────────────────
     // Stage 0 cannot read the ordinance, so it cannot know whether the instrument GRANTS the
@@ -620,6 +783,10 @@ export function coldStartRecord(report, extra = {}) {
         digitalPgou,
         vectorOrScanned,
         publisher,
+        // CORRECTION 3 — a first-class tristate (`yes` | `no` | `unknown`), never a boolean and
+        // never a caveat. Across 8,132 municipalities the colegio/university/consultancy/aggregator
+        // class is common enough that an aggregator must be able to filter on it.
+        publisherIsPlanningAuthority,
         counts: {
             endpointsDeclared: eps.length,
             endpointsAnswered: reachable.length,
@@ -663,6 +830,18 @@ export function coldStartRecord(report, extra = {}) {
 // honestly rather than tuning until it passes."* The expectations live in `ACID_TEST_TARGETS` next
 // to the reason each one matters, so a future reader can see what was being tested for.
 // ═════════════════════════════════════════════════════════════════════════════
+/**
+ * ⚠⚠ CORRECTION 4 — THE LIMIT OF THE ACID TEST, printed in the REPORT BODY, not a footnote.
+ * *"Someone will quote the top-20 result as recall otherwise."*
+ */
+export const ACID_TEST_LIMIT =
+    '> ⚠⚠ **WHAT THIS TEST DOES AND DOES NOT SHOW.** All targets below were **already-known**\n'
+    + '> discoveries, found by hand and **held in context by the agent that wrote the vocabulary**.\n'
+    + '> The test therefore demonstrates exactly one thing: **the tool does not miss known-good\n'
+    + '> datasets.** It is **NOT evidence of recall on datasets nobody has found yet** — that number\n'
+    + '> is unmeasured and, without a ground-truth inventory of what every city publishes,\n'
+    + '> unmeasurable. **Do not quote a top-20 rank as recall.**';
+
 export const ACID_TEST_TARGETS = {
     murcia: [
         { layer: 'Murcia:pgou_alineaciones', why: 'published block-level alignment polygons; a street-width capability was nearly built on a dissolve instead' },
@@ -893,6 +1072,7 @@ async function main() {
         report.acidTest = acidTest(report, targets);
         report.falseNegative = falseNegativeRate(report, targets);
         md += '\n## Acid test — the datasets humans missed\n\n'
+            + `${ACID_TEST_LIMIT}\n\n`
             + '| layer | rank | of | percentile | kind | MR | LA | reusable | verdict |\n|---|---:|---:|---:|---|---:|---:|:---:|---|\n'
             + report.acidTest.map((t) => `| \`${t.layer}\` | ${t.rank ?? '—'} | ${t.of} | ${t.percentile ?? '—'} | ${t.kind ?? '—'} | ${t.machineReadability ?? '—'} | ${t.legalAuthority ?? '—'} | ${t.reusableGeometry ? '✅' : ''} | ${t.verdict} |`).join('\n')
             + '\n';

@@ -28,13 +28,14 @@ import {
     classifyLayer, scoreMachineReadability, scoreLegalAuthority, assertScoresNotMerged,
     verifyLocality, bboxToWgs84, webMercatorToWgs84, utmEtrs89ToWgs84, haversineKm, epsgCodeOf,
     sanitiseWgs84Bbox, geometryKindOf, PUBLISHABLE_NOT_ASSESSED, MR_BITS, LA_BITS,
+    detectTemporalValidity,
 } from './classify.mjs';
 import {
     parseWfsCapabilities, parseWmsCapabilities, parseArcgisService, parseDescribeFeatureType, parseHits,
 } from './capabilities.mjs';
 import {
     runDiscovery, MUNICIPALITIES, ACID_TEST_TARGETS, acidTest, falseNegativeRate, countFeatures,
-    bboxForms, coldStartRecord, foralExclusion, PUBLISHERS,
+    bboxForms, coldStartRecord, foralExclusion, PUBLISHERS, ACID_TEST_LIMIT, renderMarkdown,
 } from './discover.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -235,11 +236,23 @@ describe('§AXIS-ORDER — "0 features" must survive the ladder (the Córdoba ma
     const hits = (n: number) => `<wfs:FeatureCollection numberMatched="${n}" numberReturned="0"/>`;
     const ok = (body: string) => ({ url: 'u', httpStatus: 200, contentType: 'text/xml', bytes: body.length, ms: 1, outcome: 'ok', body });
 
-    test('the ladder offers both axis orders and a bare form', () => {
-        const forms = bboxForms(CORDOBA, 0.02, 'EPSG:25830');
+    test('the matrix offers both axis orders AND both CRS families', () => {
+        const forms = bboxForms(CORDOBA, 0.02, 'urn:ogc:def:crs:EPSG::25830');
         const ids = forms.map((f) => f.id);
         assert.ok(ids.includes('urn-4326-latlon') && ids.includes('epsg-4326-lonlat') && ids.includes('bare-latlon'));
-        assert.equal(forms.length, 6);
+        // CORRECTION 1 — the CRS half. Native rungs are FORWARD-PROJECTED, not WGS84 degrees wearing
+        // a projected label (which is malformed, and a 0 from it proves nothing).
+        assert.ok(ids.includes('native-projected-en') && ids.includes('native-projected-ne'));
+        assert.equal(forms.length, 7);
+        const en = forms.find((f) => f.id === 'native-projected-en')!;
+        const [x, y] = en.bbox.split(',').map(Number);
+        assert.ok(x > 300000 && x < 400000, `easting should be UTM30 metres near Córdoba, got ${x}`);
+        assert.ok(y > 4100000 && y < 4300000, `northing should be UTM30 metres near Córdoba, got ${y}`);
+    });
+
+    test('a projected CRS with no known UTM zone still records that native was TRIED', () => {
+        const ids = bboxForms(CORDOBA, 0.02, 'EPSG:99999').map((f) => f.id);
+        assert.ok(ids.includes('native-crs-degrees'));
     });
 
     test('a layer that answers 0 in the first form but 20730 in a later one is reported as MEASURED', async () => {
@@ -256,11 +269,50 @@ describe('§AXIS-ORDER — "0 features" must survive the ladder (the Córdoba ma
         assert.ok(r.ladder.length >= 3, 'the whole ladder trace must ship in the report');
     });
 
-    test('⚠ zero is reported ONLY when every form returned 200 with 0', async () => {
+    test('⚠ zero is reported ONLY when the WHOLE axis/CRS matrix answered 200 with 0', async () => {
         const probeImpl = async () => ok(hits(0));
-        const r = await countFeatures('http://e/wfs', 'x', { centroid: CORDOBA, probes: [], probeImpl: probeImpl as never });
+        const r = await countFeatures('http://e/wfs', 'x', {
+            centroid: CORDOBA, probes: [], nativeCrs: 'urn:ogc:def:crs:EPSG::25830', probeImpl: probeImpl as never,
+        });
         assert.equal(r.status, 'zero-all-forms');
         assert.equal(r.count, 0);
+        assert.equal(r.matrix.exercised, true);
+    });
+
+    test('⚠⚠ CORRECTION 1 — a whole-layer 0 no longer short-circuits; it must survive the matrix', async () => {
+        let call = 0;
+        const probeImpl = async () => {
+            call += 1;
+            if (call === 1) return ok(hits(0));      // whole layer says zero…
+            return ok(hits(3));                       // …but a bbox rung finds features
+        };
+        const r = await countFeatures('http://e/wfs', 'x', {
+            centroid: CORDOBA, probes: [], nativeCrs: 'urn:ogc:def:crs:EPSG::25830', probeImpl: probeImpl as never,
+        });
+        assert.equal(r.status, 'measured');
+        assert.equal(r.count, 3);
+        assert.ok(call > 1, 'the matrix must have been run despite the whole-layer zero');
+    });
+
+    test('⚠⚠ CORRECTION 1 — a zero whose CRS half never answered is UNKNOWN, not a negative', async () => {
+        // Every WGS84 rung answers 0; every NATIVE rung errors. The CRS hypothesis is untested, so
+        // this zero has not been proven and must not be emitted as one.
+        const probeImpl = async (url: string) => (/25830/.test(decodeURIComponent(url))
+            ? { url, httpStatus: null, contentType: null, bytes: 0, ms: 1, outcome: 'network-error', error: 'reset' }
+            : ok(hits(0)));
+        const r = await countFeatures('http://e/wfs', 'x', {
+            centroid: CORDOBA, probes: [], nativeCrs: 'urn:ogc:def:crs:EPSG::25830', probeImpl: probeImpl as never,
+        });
+        assert.equal(r.status, 'unknown-mixed-ladder');
+        assert.equal(r.count, null);
+        assert.equal(r.matrix.exercised, false);
+    });
+
+    test('⚠⚠ CORRECTION 1 — a zero with no centroid cannot run the matrix and is UNKNOWN', async () => {
+        const probeImpl = async () => ok(hits(0));
+        const r = await countFeatures('http://e/wfs', 'x', { probes: [], probeImpl: probeImpl as never });
+        assert.equal(r.status, 'unknown-matrix-unexercised');
+        assert.equal(r.count, null);
     });
 
     test('⚠ a mixed ladder is UNKNOWN with a null count — never zero', async () => {
@@ -473,6 +525,111 @@ describe('§COLD-START — the Probe C record (founder Addendum 1)', () => {
         }
         assert.equal(foralExclusion({ cc: 'es', ineCode: '14021' }).excluded, false);
         assert.equal(foralExclusion({ cc: 'es', ineCode: '30030' }).excluded, false);
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe('§TEMPORAL-VALIDITY — correction 2, the over-grant direction', () => {
+    const attrs = (...names: string[]) => names.map((n) => ({ name: n, type: 'xsd:string' }));
+
+    test('Murcia f_inicial/f_fin raise temporalFilteringRequired', () => {
+        const t = detectTemporalValidity(attrs('calificacion', 'f_inicial', 'f_fin', 'the_geom'));
+        assert.equal(t.detected, true);
+        assert.deepEqual(t.endFields, ['f_fin']);
+        assert.deepEqual(t.startFields, ['f_inicial']);
+        assert.equal(t.temporalFilteringRequired, true);
+        assert.match(t.note, /OVER-GRANTS|REPEALED/);
+    });
+
+    test('a START date alone cannot over-grant and does not raise the flag', () => {
+        const t = detectTemporalValidity(attrs('f_inicial', 'uso'));
+        assert.equal(t.temporalFilteringRequired, false);
+    });
+
+    test('⚠ an unprobed schema is UNKNOWN (null), never false — not probed ≠ not present', () => {
+        const t = detectTemporalValidity(null);
+        assert.equal(t.temporalFilteringRequired, null);
+        assert.equal(t.probed, false);
+        assert.match(t.note, /UNKNOWN, not absent/);
+    });
+
+    test('English and alternate Spanish validity idioms are detected too', () => {
+        assert.equal(detectTemporalValidity(attrs('valid_to')).temporalFilteringRequired, true);
+        assert.equal(detectTemporalValidity(attrs('fecha_baja')).temporalFilteringRequired, true);
+        assert.equal(detectTemporalValidity(attrs('end_date')).temporalFilteringRequired, true);
+        assert.equal(detectTemporalValidity(attrs('hasta')).temporalFilteringRequired, true);
+    });
+
+    test('an ambiguous date field is recorded but does NOT force the flag', () => {
+        const t = detectTemporalValidity(attrs('fecha_aprobacion', 'clave'));
+        assert.equal(t.temporalFilteringRequired, false);
+        assert.ok(t.ambiguousFields!.includes('fecha_aprobacion'));
+    });
+
+    test('classifyLayer hoists the flag to the top level and raises a flag entry', () => {
+        const r = classifyLayer(
+            {
+                name: 'Murcia:pgou_alineaciones', service: 'WFS', endpoint: 'e', publisher: 'ayto-murcia',
+                bboxWgs84: [-1.38, 37.71, -0.86, 38.12],
+                attributes: attrs('calificacion', 'f_inicial', 'f_fin'),
+            },
+            { centroid: { lat: 37.9838, lon: -1.128 }, publisherRegistry: PUBLISHERS },
+        );
+        assert.equal(r.temporalFilteringRequired, true);
+        assert.ok(r.flags.some((f) => f.id === 'temporal-filtering-required'));
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe('§PUBLISHER-IS-PLANNING-AUTHORITY — correction 3, a tristate not a caveat', () => {
+    test('Córdoba answers `no` — its only zoning vector is a Colegio de Arquitectos', async () => {
+        const r = await runDiscovery(MUNICIPALITIES.cordoba, { offline: true, now: 'T' });
+        const cs = coldStartRecord(r);
+        assert.equal(cs.publisherIsPlanningAuthority.value, 'no');
+        assert.match(cs.publisherIsPlanningAuthority.evidence, /coaco/);
+        assert.equal(cs.publisherIsPlanningAuthority.basis, 'declared');
+    });
+
+    test('Murcia answers `yes` — the Ayuntamiento publishes its own planning layers', async () => {
+        const r = await runDiscovery(MUNICIPALITIES.murcia, { offline: true, now: 'T' });
+        const cs = coldStartRecord(r);
+        assert.equal(cs.publisherIsPlanningAuthority.value, 'yes');
+    });
+
+    test('⚠ it is a TRISTATE — yes | no | unknown, never a boolean', async () => {
+        for (const city of ['cordoba', 'murcia'] as const) {
+            const cs = coldStartRecord(await runDiscovery(MUNICIPALITIES[city], { offline: true, now: 'T' }));
+            assert.ok(['yes', 'no', 'unknown'].includes(cs.publisherIsPlanningAuthority.value));
+            assert.notEqual(typeof cs.publisherIsPlanningAuthority.value, 'boolean');
+            assert.ok(cs.publisherIsPlanningAuthority.evidence.length > 0);
+        }
+    });
+
+    test('an unreachable city answers `unknown`, never `no`', async () => {
+        const dead = {
+            name: 'Nowhere', cc: 'es', ineCode: '99999', jurisdictionId: null,
+            centroid: { lat: 40, lon: -3 },
+            endpoints: [{ id: 'dead-wfs', service: 'WFS', publisher: null, url: 'https://x.invalid/wfs' }],
+        };
+        const cs = coldStartRecord(await runDiscovery(dead, { offline: true, now: 'T' }));
+        assert.equal(cs.publisherIsPlanningAuthority.value, 'unknown');
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe('§ACID-TEST-LIMIT — correction 4, stated in the report BODY', () => {
+    test('the limit text says plainly that a top-20 rank is not recall', () => {
+        assert.match(ACID_TEST_LIMIT, /NOT evidence of recall/);
+        assert.match(ACID_TEST_LIMIT, /already-known/);
+        assert.match(ACID_TEST_LIMIT, /Do not quote a top-20 rank as recall/);
+    });
+
+    test('it is rendered into the report body whenever an acid test runs', async () => {
+        const r = await runDiscovery(MUNICIPALITIES.murcia, { offline: true, now: 'T' });
+        (r as { acidTest?: unknown }).acidTest = acidTest(r, ACID_TEST_TARGETS.murcia);
+        // Mirrors what the CLI emits.
+        const body = `${renderMarkdown(r, 5)}\n## Acid test\n\n${ACID_TEST_LIMIT}\n`;
+        assert.ok(body.includes('NOT evidence of recall'));
     });
 });
 

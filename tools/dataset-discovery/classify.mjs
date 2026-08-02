@@ -180,6 +180,102 @@ export function sanitiseWgs84Bbox(bbox, nativeCrs) {
     return { bbox, repaired: false, reason: null };
 }
 
+/**
+ * WGS84 → ETRS89/UTM forward projection, so the axis/CRS matrix can issue a bbox in the layer's
+ * NATIVE coordinates rather than WGS84 degrees wearing a native CRS label (which is a malformed
+ * request and proves nothing when it returns 0).
+ *
+ * ⚠ THIS EXISTS BECAUSE OF CORRECTION 1: *"a negative resting on an untested axis order, unverified
+ * CRS, or unexercised alternate parameterisation is not a negative."* Without a forward projection
+ * the CRS half of that matrix could not be exercised at all.
+ */
+export function wgs84ToUtmEtrs89(lat, lon, zone) {
+    const a = 6378137.0, f = 1 / 298.257222101;
+    const k0 = 0.9996, e2 = f * (2 - f), ep2 = e2 / (1 - e2);
+    const toRad = Math.PI / 180;
+    const phi = lat * toRad;
+    const lon0 = ((zone - 1) * 6 - 180 + 3) * toRad;
+    const dl = lon * toRad - lon0;
+    const n = a / Math.sqrt(1 - e2 * Math.sin(phi) ** 2);
+    const t = Math.tan(phi) ** 2;
+    const c = ep2 * Math.cos(phi) ** 2;
+    const A = Math.cos(phi) * dl;
+    const M = a * ((1 - e2 / 4 - (3 * e2 * e2) / 64 - (5 * e2 ** 3) / 256) * phi
+        - ((3 * e2) / 8 + (3 * e2 * e2) / 32 + (45 * e2 ** 3) / 1024) * Math.sin(2 * phi)
+        + ((15 * e2 * e2) / 256 + (45 * e2 ** 3) / 1024) * Math.sin(4 * phi)
+        - ((35 * e2 ** 3) / 3072) * Math.sin(6 * phi));
+    const easting = k0 * n * (A + ((1 - t + c) * A ** 3) / 6
+        + ((5 - 18 * t + t * t + 72 * c - 58 * ep2) * A ** 5) / 120) + 500000;
+    const northing = k0 * (M + n * Math.tan(phi) * ((A * A) / 2
+        + ((5 - t + 9 * c + 4 * c * c) * A ** 4) / 24
+        + ((61 - 58 * t + t * t + 600 * c - 330 * ep2) * A ** 6) / 720));
+    return { easting, northing };
+}
+
+/** The UTM zone for a longitude, used to build a native-CRS bbox. */
+export function utmZoneFor(lon) { return Math.floor((lon + 180) / 6) + 1; }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §TEMPORAL-VALIDITY — CORRECTION 2.
+//
+// Murcia's planning layers carry `f_inicial` / `f_fin`, with `f_fin = 2999-12-30Z` as the
+// "still in force" SENTINEL. If a publisher ever serves superseded geometry ALONGSIDE current
+// geometry in one layer, and the compiler does not filter on the end date, it computes an envelope
+// from a REPEALED alignment. That OVER-GRANTS — the L-616 direction, the unsafe one.
+//
+// ⚠ Detection is the deliverable here, not the filter. Stage 0 flags that a temporal filter is
+// REQUIRED; it never decides what the filter should be, because which edition is in force is a
+// legal question (ADR-0284: derived law is forbidden).
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** Attribute-name patterns that indicate a validity END date — the one that can over-grant. */
+export const VALIDITY_END_PATTERNS = [
+    /^f_?fin(al)?$/i, /^fecha_?fin/i, /^fin_?vigen/i, /^valid_?(to|until|end)$/i,
+    /^date_?end$/i, /^end_?date$/i, /^hasta$/i, /^baja$/i, /^fecha_?baja$/i, /^t_?end$/i,
+];
+/** Attribute-name patterns that indicate a validity START date. */
+export const VALIDITY_START_PATTERNS = [
+    /^f_?ini(cial)?$/i, /^fecha_?ini/i, /^ini_?vigen/i, /^valid_?(from|start)$/i,
+    /^date_?start$/i, /^start_?date$/i, /^desde$/i, /^alta$/i, /^fecha_?alta$/i, /^t_?start$/i,
+];
+/** Weaker signals — a date field whose role is unstated. Recorded, but does not force the flag. */
+export const VALIDITY_AMBIGUOUS_PATTERNS = [/fecha/i, /vigen/i, /^f_\w+$/i, /date/i];
+
+export function detectTemporalValidity(attributes) {
+    if (!attributes) {
+        return {
+            probed: false, detected: null, endFields: null, startFields: null, ambiguousFields: null,
+            // ⚠ NOT PROBED ≠ NOT PRESENT. Without a schema this is UNKNOWN, and the flag says so.
+            temporalFilteringRequired: null,
+            note: 'schema not retrieved — temporal validity UNKNOWN, not absent',
+        };
+    }
+    const names = attributes.map((a) => String(a.name));
+    const endFields = names.filter((n) => VALIDITY_END_PATTERNS.some((re) => re.test(n)));
+    const startFields = names.filter((n) => VALIDITY_START_PATTERNS.some((re) => re.test(n)));
+    const ambiguousFields = names.filter((n) => !endFields.includes(n) && !startFields.includes(n)
+        && VALIDITY_AMBIGUOUS_PATTERNS.some((re) => re.test(n)));
+    const detected = endFields.length > 0 || startFields.length > 0;
+    return {
+        probed: true,
+        detected,
+        endFields, startFields, ambiguousFields,
+        // The flag turns on for an END date specifically: a start date alone cannot over-grant.
+        temporalFilteringRequired: endFields.length > 0,
+        note: endFields.length > 0
+            ? `⚠ TEMPORAL FILTER REQUIRED. Validity end field(s) ${endFields.join(', ')} present. Querying this `
+                + 'layer WITHOUT filtering them risks computing from REPEALED geometry, which OVER-GRANTS '
+                + '(L-616 direction). Sentinel end-dates such as 2999-12-30 mean "in force" — a naive '
+                + 'date comparison must handle them. MEASURE whether expired rows are actually served '
+                + 'before sizing the risk: Murcia serves none (all 23,066 alineaciones are in force).'
+            : startFields.length > 0
+                ? `validity START field(s) ${startFields.join(', ')} present but no end field — cannot over-grant on its own`
+                : ambiguousFields.length > 0
+                    ? `no explicit validity fields; date-like field(s) ${ambiguousFields.join(', ')} recorded as ambiguous`
+                    : 'no validity fields detected in the retrieved schema',
+    };
+}
+
 export const LOCALITY_NEAR_KM = 60;
 export const LOCALITY_REGION_KM = 300;
 /** A bbox wider than this in either axis contains the city without being ABOUT the city. */
@@ -406,6 +502,8 @@ export function classifyLayer(layer, ctx = {}) {
         ? semanticAttrs.filter((a) => CITATION_ATTRIBUTE_MARKERS.some((re) => re.test(String(a.name).toLowerCase()))).map((a) => a.name)
         : null;
 
+    const temporalValidity = detectTemporalValidity(attrs);
+
     const geometryKind = geometryKindOf(layer.geometryType)
         ?? (attrs ? geometryKindOf(attrs.find((a) => /geom/i.test(a.type || '') || /geom/i.test(a.name))?.type) : null);
 
@@ -500,6 +598,9 @@ export function classifyLayer(layer, ctx = {}) {
     if (layer.featureCountStatus && layer.featureCountStatus !== 'measured' && layer.featureCountStatus !== 'zero-all-forms') {
         flags.push({ id: 'feature-count-unknown', detail: `count probe outcome: ${layer.featureCountStatus} — UNKNOWN, not zero (L-422/457/467/469)` });
     }
+    if (temporalValidity.temporalFilteringRequired) {
+        flags.push({ id: 'temporal-filtering-required', detail: temporalValidity.note });
+    }
     for (const h of termHits) if (h.caveat) flags.push({ id: `caveat:${h.term}`, detail: h.caveat });
 
     const record = {
@@ -514,6 +615,10 @@ export function classifyLayer(layer, ctx = {}) {
         attributeCount: attrs ? attrs.length : null,
         semanticAttributeCount: semanticAttrs ? semanticAttrs.length : null,
         citationAttributes: citationAttrs,
+        temporalValidity,
+        // ⚠ Hoisted to the top level so a consumer cannot miss it. `null` = schema not probed =
+        // UNKNOWN, which is NOT the same as `false`.
+        temporalFilteringRequired: temporalValidity.temporalFilteringRequired,
         featureCount: layer.featureCount ?? null,
         featureCountStatus: layer.featureCountStatus ?? 'not-probed',
         instruments,
