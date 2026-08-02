@@ -64,6 +64,32 @@ Exactly one applies. If two seem to, the blocker is really two blockers — spli
    solving a problem the ordinance may prohibit (ADR-0283: *"where evidence is incomplete or legally
    insufficient, PRYZM returns Unknown rather than inferring entitlement"*).
 
+## Every blocker terminates in exactly one of four states
+
+Founder hard rule, 2026-08-02. A blocker is not closed because it stopped being discussed; it is closed
+because it reached one of these, with evidence:
+
+| State | Means | Example |
+|---|---|---|
+| **Authorised** | A human with standing said yes, in writing, with scope. | Murcia SIG-MU2 — the ancho-de-calle methodology, four conditions attached |
+| **Rejected** | The answer is no, and the no is itself the product's answer. | Madrid NZ 3 **if Art. 8.3.1 governs** — *"NZ-3 intentionally has no computable municipal envelope"*, a successful legal conclusion over 60.46 % of the city |
+| **Unavailable** | The thing does not exist, or cannot be obtained, and the search is closed. | Córdoba's calificación vectors **if** the one-shot sweep concludes *"no discoverable machine-readable source exists"* |
+| **Superseded** | The premise changed; the blocker was answering the wrong question. | València's *profundidad edificable* — never unpublished, it is **drawn** in the Layer 212 movement geometry (Art. 6.18.1) |
+
+⚠ **`Superseded` is not a synonym for `Closed`.** It records that the blocker's *premise* was wrong, which
+is the single most valuable thing to write down — it is what stops the next agent re-deriving the same dead
+end. Córdoba's three-block dissolve "ceiling" and the inherited "C63 tier vocabulary does not exist" P0 were
+both `Superseded`, and neither would have propagated had the first person to refute them said so in these
+terms.
+
+## Release order (founder, 2026-08-02)
+
+`Murcia` → `Madrid RC-1 (SIG-M1)` → `Córdoba` → `Madrid NZ-3 (if legally authorised)` → `València`
+
+Ordered by *dependency*, not by size: Murcia depends on nobody outside the repo; Madrid RC-1 on one
+signature; Córdoba on one search; Madrid NZ-3 on one legal reading; València on a third party who has not
+replied. A city's position here is a scheduling fact, not a judgement on its work.
+
 ## Worked example — the five Spanish cities, 2026-08-02
 
 | City | Blocker | Category | Owner | Exit criterion |
