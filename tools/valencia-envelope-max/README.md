@@ -37,6 +37,20 @@ visual artefact — which sits *upstream of OCR*. For a document whose entire va
 and setbacks in metres that is a correctness defect, not a confidence score. València capital's
 own PGOU 1988 (376 pp) is one of the 11.
 
+### Both error directions were tested, and both came back clean
+
+| direction | test | result |
+|---|---|---|
+| **FALSE TEXT** — head says text, document is a scan | all 49 downloaded WHOLE, poppler run on each | **49/49 CONFIRMED**, 18–839 pp, 4k–968k chars |
+| **FALSE SCAN** — head says scan, text starts past 512 KB | seeded n=80 of 447 scans, second 512 KB window read at 40% of file length | **0/80** — 0 errors, no flips |
+
+The false-SCAN direction is the one that matters, because it is the direction the classifier
+demonstrably failed in (see the calibration below). At 0/80 the 89.81% scan share is not
+detectably inflated by the head window.
+
+⚠ **One window at 40% BOUNDS that error, it does not eliminate it.** A document that turns to
+text only in its final third would still be missed.
+
 ### What the 49 are, and why it matters
 
 They are not amendments. The located paths are overwhelmingly
@@ -231,7 +245,8 @@ node 01-urlabs.mjs        # 542 register roots; filter gate both halves; hits-re
 node 02-locate.mjs        # targeted register walk → ranked ordenanza candidates
 node 02-locate.mjs 46250 12135 03130   # LOCATOR CALIBRATION against the prior exhaustive walks
 node 03-sniff.mjs         # ⭐ THE CENSUS — two-pass calibration, then 542 × 512 KB Range sniff
-node 04-verify.mjs        # opens documents in BOTH directions: false-TEXT and false-SCAN
+node 04-verify.mjs        # 4a: opens all 49 TEXT documents in full (49/49 confirmed)
+node 04b-false-scan.mjs   # ⛔ the FALSE-SCAN direction, standalone — 0/80
 node 05-denominator.mjs   # public/systems vs private developable, 542-municipality area census
 node 05b-street-holes.mjs # ⛔ is the dotacion split the public share, or only the named part?
 node 07-far-tier.mjs      # ⚠ WRITTEN, NOT RUN — see below
@@ -263,11 +278,14 @@ Stated, not estimated. The run was parked; these are open, not answered.
   parked.
 - **No OCR was attempted**, so the achievable accuracy of the OCR route over the 476 scans is
   untested. "Expensive" still means "needs OCR plus a digit-integrity gate", not "proven to fail".
-- **The head sniff has a known FALSE-SCAN direction** — text starting after 512 KB. Step 4b
-  probes a seeded deep window at 40% of file length across 80 scans to size that error; that arm
-  had not completed when the run was parked, so **the 89.81% scan share is an upper bound whose
-  error term is not yet quantified**. The false-TEXT direction *was* verified: every text
-  classification opened in full was confirmed by poppler.
+- **The false-SCAN bound is ONE window at 40% of file length**, n=80 of 447. It came back 0/80,
+  but a document that turns to text only in its final third would still be missed. The bound is
+  real; it is not a proof.
+- ⛔ **That arm exited 0 and wrote nothing when it ran inside `04-verify.mjs`** — it printed its
+  header and stopped. An exit code of 0 with no output is a tool failure wearing the costume of a
+  result. It was split into [`04b-false-scan.mjs`](04b-false-scan.mjs) and re-run standalone,
+  where it produced 80 clean probes and 0 errors. The 0% is from the standalone run. **The cause
+  of the in-place silent exit was not diagnosed** — the run was parked first.
 - **The 542 sniffs each read one document** — the top-ranked ordenanza candidate. A municipality
   whose normativa is filed somewhere the locator's vocabulary does not reach would be scored on
   the wrong file. The locator scored 3/3 on the only three cases with independent ground truth.

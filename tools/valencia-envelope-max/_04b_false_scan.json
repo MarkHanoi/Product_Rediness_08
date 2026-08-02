@@ -1,0 +1,814 @@
+{
+ "seed": 20260802,
+ "textMin": 3328,
+ "offsetPct": 40,
+ "headBytes": 524288,
+ "scanPopulation": 447,
+ "sampled": 80,
+ "probedOk": 80,
+ "errors": 0,
+ "flips": 0,
+ "falseScanRatePct": 0,
+ "rows": [
+  {
+   "ine": "46144",
+   "name": "Jarafuel",
+   "st": "OK",
+   "mb": 9.19,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 722,
+   "flips": false
+  },
+  {
+   "ine": "46061",
+   "name": "Beniflá",
+   "st": "OK",
+   "mb": 3.57,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46062",
+   "name": "Benigànim",
+   "st": "OK",
+   "mb": 20.93,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 987,
+   "flips": false
+  },
+  {
+   "ine": "03105",
+   "name": "Pinós, el/Pinoso",
+   "st": "OK",
+   "mb": 153.54,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 691,
+   "flips": false
+  },
+  {
+   "ine": "46142",
+   "name": "Jalance",
+   "st": "OK",
+   "mb": 2.8,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 1054,
+   "flips": false
+  },
+  {
+   "ine": "46131",
+   "name": "Gandia",
+   "st": "OK",
+   "mb": 6.05,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 901,
+   "flips": false
+  },
+  {
+   "ine": "12083",
+   "name": "Olocau del Rey",
+   "st": "OK",
+   "mb": 1.69,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46244",
+   "name": "Torrent",
+   "st": "OK",
+   "mb": 24.13,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "03072",
+   "name": "Gaianes",
+   "st": "OK",
+   "mb": 64.43,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 409,
+   "flips": false
+  },
+  {
+   "ine": "46067",
+   "name": "Benissanó",
+   "st": "OK",
+   "mb": 76.96,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 901,
+   "flips": false
+  },
+  {
+   "ine": "46214",
+   "name": "Riba-roja de Túria",
+   "st": "OK",
+   "mb": 68,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 353,
+   "flips": false
+  },
+  {
+   "ine": "03091",
+   "name": "Murla",
+   "st": "OK",
+   "mb": 33.42,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 380,
+   "flips": false
+  },
+  {
+   "ine": "03041",
+   "name": "Benissa",
+   "st": "OK",
+   "mb": 4.9,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 859,
+   "flips": false
+  },
+  {
+   "ine": "46027",
+   "name": "Alfarrasí",
+   "st": "OK",
+   "mb": 72.41,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46222",
+   "name": "Sant Joanet",
+   "st": "OK",
+   "mb": 7.01,
+   "codec": "JPX",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46258",
+   "name": "Villar del Arzobispo",
+   "st": "OK",
+   "mb": 18.26,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 849,
+   "flips": false
+  },
+  {
+   "ine": "46903",
+   "name": "San Antonio de Benagéber",
+   "st": "OK",
+   "mb": 27.75,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 520,
+   "flips": false
+  },
+  {
+   "ine": "03117",
+   "name": "Sanet y Negrals",
+   "st": "OK",
+   "mb": 9.59,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 604,
+   "flips": false
+  },
+  {
+   "ine": "46205",
+   "name": "Puçol",
+   "st": "OK",
+   "mb": 26.13,
+   "codec": "JPX",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46228",
+   "name": "Serra",
+   "st": "OK",
+   "mb": 20.51,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 228,
+   "flips": false
+  },
+  {
+   "ine": "46008",
+   "name": "Albalat de la Ribera",
+   "st": "OK",
+   "mb": 33.4,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 1093,
+   "flips": false
+  },
+  {
+   "ine": "12037",
+   "name": "Castell de Cabres",
+   "st": "OK",
+   "mb": 1.11,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 1769,
+   "flips": false
+  },
+  {
+   "ine": "03031",
+   "name": "Benidorm",
+   "st": "OK",
+   "mb": 5.35,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 454,
+   "flips": false
+  },
+  {
+   "ine": "46085",
+   "name": "Carlet",
+   "st": "OK",
+   "mb": 59.94,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46246",
+   "name": "Tous",
+   "st": "OK",
+   "mb": 9.83,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 185,
+   "flips": false
+  },
+  {
+   "ine": "46240",
+   "name": "Terrateig",
+   "st": "OK",
+   "mb": 41.1,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 701,
+   "flips": false
+  },
+  {
+   "ine": "03047",
+   "name": "Calp",
+   "st": "OK",
+   "mb": 8.16,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46149",
+   "name": "Losa del Obispo",
+   "st": "OK",
+   "mb": 21.46,
+   "codec": "JPX",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46211",
+   "name": "el Real de Gandia",
+   "st": "OK",
+   "mb": 7.01,
+   "codec": "JPX",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "03073",
+   "name": "Gorga",
+   "st": "OK",
+   "mb": 58.66,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46249",
+   "name": "Utiel",
+   "st": "OK",
+   "mb": 64.21,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 656,
+   "flips": false
+  },
+  {
+   "ine": "46068",
+   "name": "Benissoda",
+   "st": "OK",
+   "mb": 20.48,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "03029",
+   "name": "Benigembla",
+   "st": "OK",
+   "mb": 2.42,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 425,
+   "flips": false
+  },
+  {
+   "ine": "46150",
+   "name": "Llutxent",
+   "st": "OK",
+   "mb": 82.29,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 720,
+   "flips": false
+  },
+  {
+   "ine": "46080",
+   "name": "Camporrobles",
+   "st": "OK",
+   "mb": 14.98,
+   "codec": "JPX",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "12136",
+   "name": "la Vilavella",
+   "st": "OK",
+   "mb": 2.76,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "03028",
+   "name": "Beniarrés",
+   "st": "OK",
+   "mb": 1.83,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 1204,
+   "flips": false
+  },
+  {
+   "ine": "46260",
+   "name": "Vinalesa",
+   "st": "OK",
+   "mb": 5.44,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 453,
+   "flips": false
+  },
+  {
+   "ine": "03085",
+   "name": "Llíber",
+   "st": "OK",
+   "mb": 44.96,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46169",
+   "name": "Mislata",
+   "st": "OK",
+   "mb": 73.12,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 1230,
+   "flips": false
+  },
+  {
+   "ine": "12096",
+   "name": "Rossell",
+   "st": "OK",
+   "mb": 2.04,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "03074",
+   "name": "Granja de Rocamora",
+   "st": "OK",
+   "mb": 127.16,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 906,
+   "flips": false
+  },
+  {
+   "ine": "46005",
+   "name": "Alaquàs",
+   "st": "OK",
+   "mb": 77.14,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 694,
+   "flips": false
+  },
+  {
+   "ine": "46018",
+   "name": "Alcublas",
+   "st": "OK",
+   "mb": 1.43,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 1071,
+   "flips": false
+  },
+  {
+   "ine": "46079",
+   "name": "Calles",
+   "st": "OK",
+   "mb": 80.43,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 262,
+   "flips": false
+  },
+  {
+   "ine": "03136",
+   "name": "la Vall de Gallinera",
+   "st": "OK",
+   "mb": 20.65,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46045",
+   "name": "Barxeta",
+   "st": "OK",
+   "mb": 7.33,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 102,
+   "flips": false
+  },
+  {
+   "ine": "12011",
+   "name": "Almenara",
+   "st": "OK",
+   "mb": 5.25,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46245",
+   "name": "Torres Torres",
+   "st": "OK",
+   "mb": 32.98,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 55,
+   "flips": false
+  },
+  {
+   "ine": "46241",
+   "name": "Titaguas",
+   "st": "OK",
+   "mb": 11.6,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "12061",
+   "name": "Forcall",
+   "st": "OK",
+   "mb": 21.41,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46152",
+   "name": "Llocnou de la Corona",
+   "st": "OK",
+   "mb": 10.33,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 928,
+   "flips": false
+  },
+  {
+   "ine": "12022",
+   "name": "Bejís",
+   "st": "OK",
+   "mb": 4.94,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46074",
+   "name": "Bonrepòs i Mirambell",
+   "st": "OK",
+   "mb": 53.33,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 791,
+   "flips": false
+  },
+  {
+   "ine": "46006",
+   "name": "Albaida",
+   "st": "OK",
+   "mb": 110.22,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 627,
+   "flips": false
+  },
+  {
+   "ine": "46122",
+   "name": "Faura",
+   "st": "OK",
+   "mb": 22.9,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 675,
+   "flips": false
+  },
+  {
+   "ine": "46028",
+   "name": "Algar de Palància",
+   "st": "OK",
+   "mb": 3.54,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 58,
+   "flips": false
+  },
+  {
+   "ine": "12055",
+   "name": "Xodos/Chodos",
+   "st": "OK",
+   "mb": 4,
+   "codec": "JPX",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "03062",
+   "name": "Daya Vieja",
+   "st": "OK",
+   "mb": 16.26,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 43,
+   "flips": false
+  },
+  {
+   "ine": "03103",
+   "name": "Penàguila",
+   "st": "OK",
+   "mb": 66.11,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46093",
+   "name": "Catadau",
+   "st": "OK",
+   "mb": 11.36,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 94,
+   "flips": false
+  },
+  {
+   "ine": "46206",
+   "name": "Quesa",
+   "st": "OK",
+   "mb": 13.48,
+   "codec": "JPX",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "03018",
+   "name": "Altea",
+   "st": "OK",
+   "mb": 74.29,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 869,
+   "flips": false
+  },
+  {
+   "ine": "12079",
+   "name": "Montanejos",
+   "st": "OK",
+   "mb": 1.4,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "03082",
+   "name": "Xàbia/Jávea",
+   "st": "OK",
+   "mb": 6.88,
+   "codec": "JBIG2",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "03017",
+   "name": "l&#39;Alqueria d&#39;Asnar",
+   "st": "OK",
+   "mb": 4.95,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 2262,
+   "flips": false
+  },
+  {
+   "ine": "46173",
+   "name": "Montaverner",
+   "st": "OK",
+   "mb": 55.66,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 764,
+   "flips": false
+  },
+  {
+   "ine": "12068",
+   "name": "Herbers",
+   "st": "OK",
+   "mb": 1.05,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "12139",
+   "name": "Vistabella del Maestrat",
+   "st": "OK",
+   "mb": 2.59,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46230",
+   "name": "Silla",
+   "st": "OK",
+   "mb": 70.55,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 2639,
+   "flips": false
+  },
+  {
+   "ine": "03022",
+   "name": "Benasau",
+   "st": "OK",
+   "mb": 2.52,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 567,
+   "flips": false
+  },
+  {
+   "ine": "46098",
+   "name": "Corbera",
+   "st": "OK",
+   "mb": 24.48,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 156,
+   "flips": false
+  },
+  {
+   "ine": "03137",
+   "name": "la Vall de Laguar",
+   "st": "OK",
+   "mb": 65.74,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46100",
+   "name": "Cotes",
+   "st": "OK",
+   "mb": 38.23,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "03904",
+   "name": "San Isidro",
+   "st": "OK",
+   "mb": 45.45,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 816,
+   "flips": false
+  },
+  {
+   "ine": "12082",
+   "name": "Nules",
+   "st": "OK",
+   "mb": 7.21,
+   "codec": "CCITT",
+   "offsetPct": 40,
+   "deepTextChars": 1153,
+   "flips": false
+  },
+  {
+   "ine": "03125",
+   "name": "Senija",
+   "st": "OK",
+   "mb": 45.36,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46120",
+   "name": "Estivella",
+   "st": "OK",
+   "mb": 5.34,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  },
+  {
+   "ine": "46227",
+   "name": "Senyera",
+   "st": "OK",
+   "mb": 23.46,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 302,
+   "flips": false
+  },
+  {
+   "ine": "03135",
+   "name": "la Vall d&#39;Ebo",
+   "st": "OK",
+   "mb": 102,
+   "codec": "JPEG",
+   "offsetPct": 40,
+   "deepTextChars": 0,
+   "flips": false
+  }
+ ]
+}
