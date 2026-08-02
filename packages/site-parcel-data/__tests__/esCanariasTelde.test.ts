@@ -18,9 +18,11 @@ import { describe, expect, it } from 'vitest';
 import {
     CANARIAS_ENVELOPE_VERIFIED,
     CANARIAS_ROUTABLE_MUNICIPALITIES,
+    SIPU_HEIGHT_DATUM,
     canariasGraphedRefusal,
     canariasNoRulePackRefusal,
     detectSipuGrammar,
+    fonMaxEdRoutingHint,
 } from '../src/rulepacks/esCanariasSipu.js';
 import {
     ES_TELDE_PGO2003_PACK,
@@ -336,6 +338,67 @@ describe('KNOWN ANSWER — the rows that must REFUSE', () => {
         const r = readSipuZone(contradictory);
         expect(r.coverage).toBeNull();
         expect(r.rejections.PMaxOcup).toBe('out-of-range');
+    });
+});
+
+describe('THE FOUR DATUMS — cornice ≠ crown ≠ street ≠ parcel', () => {
+    // ⛔ Merging these is the NM_ALTURA ambiguity that makes Madrid legally uninterpretable.
+    // Canarias disambiguates BY SCHEMA, so the information exists and must survive the read.
+    it('names each datum distinctly and never as a synonym', () => {
+        expect(SIPU_HEIGHT_DATUM.AltMaxMV).toBe('street');
+        expect(SIPU_HEIGHT_DATUM.AltMaxMP).toBe('parcel');
+        expect(SIPU_HEIGHT_DATUM.AltMaxCornis).toBe('cornice');
+        expect(SIPU_HEIGHT_DATUM.AltMaxCoron).toBe('crown');
+        // ⚠ `AltMaxMt` states metres but NOT the datum. 'unspecified' ≠ 'unknown': the column
+        // spoke, the schema simply does not say from where.
+        expect(SIPU_HEIGHT_DATUM.AltMaxMt).toBe('unspecified');
+        expect(new Set(Object.values(SIPU_HEIGHT_DATUM)).size).toBe(6);
+    });
+
+    it('reads a CORNICE height and reports it as cornice, not as a generic height', () => {
+        const r = readSipuZone({ ...TELDE_E, AltMaxMP: 'I', AltMaxCornis: '9,5' });
+        expect(r.height).toEqual({ value: 9.5, datum: 'cornice' });
+    });
+
+    it('reads AltMaxMt but refuses to pretend it knows the datum', () => {
+        const r = readSipuZone({ ...TELDE_E, AltMaxMP: 'I', AltMaxMt: '7' });
+        expect(r.height).toEqual({ value: 7, datum: 'unspecified' });
+    });
+
+    it('takes the LOWEST when several datums speak — never the most generous', () => {
+        const r = readSipuZone({
+            ...TELDE_E,
+            AltMaxMP: '12',
+            AltMaxMV: '10',
+            AltMaxCoron: '14',
+        });
+        // An envelope may not exceed ANY published datum.
+        expect(r.height).toEqual({ value: 10, datum: 'street' });
+    });
+});
+
+describe('Depth is near-absent in Canarias — so FonMaxEd is a ROUTING HINT, not a value', () => {
+    it('surfaces an ordinance cross-reference as a hint, never as a depth', () => {
+        const r = readSipuZone({ ...TELDE_E, FonMaxEd: 'Remitido a Plan Especial' });
+        expect(r.depthRoutingHint).toBe('Remitido a Plan Especial');
+        expect(r.buildableDepth_m).toBeNull(); // ⛔ a pointer is not a number
+    });
+
+    it('never mistakes a sentinel or a number for a hint', () => {
+        expect(fonMaxEdRoutingHint('I')).toBeNull();
+        expect(fonMaxEdRoutingHint('21')).toBeNull();
+        expect(fonMaxEdRoutingHint('')).toBeNull();
+    });
+
+    it('never surfaces access_parser garbage to a user as an ordinance reference', () => {
+        // ⚠ La Laguna's cells come back as variable-length parser garbage. That archive is
+        // BLOCKED BY A PARSER DEFECT, not empty — and garbage must never reach a citation.
+        // Built by code point so the fixture cannot smuggle raw control bytes into this
+        // source file - the exact accident that produced these cells in the first place.
+        const cjkGarbage = 'a' + String.fromCharCode(0x4000) + String.fromCharCode(0x1841);
+        const ctrlGarbage = 'V@' + String.fromCharCode(0x01) + 'w';
+        expect(fonMaxEdRoutingHint(cjkGarbage)).toBeNull();
+        expect(fonMaxEdRoutingHint(ctrlGarbage)).toBeNull();
     });
 });
 

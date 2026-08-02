@@ -36,16 +36,26 @@
 // separately, because in this corpus the top 1 % of rule rows govern a double-digit share of the
 // polygon land (the Balears lesson: land-weighting is not decorative).
 //
-//   columns only                              13.3 % any-drawable  (23.9 % land-weighted)
-//   + the memo channel (`otrasDet`/`detUso`)  15.7 %               (31.0 % land-weighted)
-//   + private-developable denominator         15.3 %               (24.2 % land-weighted)
-//   + routable municipalities only            13.5 %               (30.3 % land-weighted)
+// Corpus: 73 archives with a readable EDIF table, 10 052 zone rows, 636.1 km² of polygon land.
+//
+//   columns only                              15.6 % any-drawable  (24.2 % land-weighted)
+//   + the memo channel (`otrasDet`/`detUso`)  17.8 %               (30.8 % land-weighted)
+//   + private-developable denominator         17.8 %               (25.5 % land-weighted)
+//   + routable municipalities only            18.1 %               (31.4 % land-weighted)
+//
+// Of that, COMPLETE rule (setbacks AND coverage AND height AND FAR) is only 3.2 %; the rest is
+// PARTIAL — a footprint rule plus a height, which DRAWS. ⭐ Requiring completeness would have
+// discarded ~15 of the ~18 points. 12.9 % of the routable rows are Obs*-CONDITIONED.
 //
 // ⚠⚠ **THE BALEARS DENOMINATOR LEVER DOES NOT REPRODUCE HERE, AND THAT IS A FINDING, NOT A
 // FAILURE TO APPLY IT.** In Balears, excluding road / public open space / infrastructure moved
 // complete-rule 41.6 % → 61.4 %, because that land carried no parameters. In Canarias the
-// excluded classes are *MORE* drawable than the corpus average (15.8 % vs 13.3 %), so excluding
-// them LOWERS the rate. The reason is structural: `EDIF.mdb` is already the ARCHIVE OF BUILDING
+// excluded classes are as drawable as the corpus average or more so (EQUIPMENT 21.4 %,
+// PROTECTED_RUSTIC 22.2 %, PUBLIC_SYSTEM 13.1 %, against a 15.6 % corpus average), so excluding
+// them moves the zone-weighted rate by +0.1 pt and the LAND-weighted rate DOWN by 5.3 pts. The
+// non-circularity audit in `04_maximum.py` is what surfaced this: classification is made purely
+// on the LAND CLASS NAMED IN THE RECORD, never on whether the row carries parameters, so the
+// rate cannot be true by construction. The reason is structural: `EDIF.mdb` is already the ARCHIVE OF BUILDING
 // ZONES — roads and open space mostly live in other SIPU families (`RUS`, `USOS`, `ZUSO`) and
 // were never in this denominator to begin with. Reporting a rise here would have meant
 // inventing one.
@@ -148,13 +158,101 @@ export const SIPU_SENTINELS: Readonly<Record<string, string>> = Object.freeze({
  *   memo metres, datum NOT NAMED         2.0 %   ⚠ UNKNOWN datum — never silently street
  *   both, datum explicit                 0.2 %
  */
-export type SipuHeightDatum = 'street' | 'parcel' | 'floors-only' | 'unknown';
+export type SipuHeightDatum =
+    | 'street' //      AltMaxMV      — from the rasante of the street
+    | 'parcel' //      AltMaxMP      — from the parcel
+    | 'cornice' //     AltMaxCornis  — altura de CORNISA (eaves)
+    | 'crown' //       AltMaxCoron   — altura de CORONACIÓN (top of the built mass)
+    | 'unspecified' // AltMaxMt      — metres, datum NOT stated by the schema
+    | 'floors-only' // AltMaxPl      — a storey count, not a metric height
+    | 'unknown';
 
+/**
+ * ⛔ THESE ARE NOT SYNONYMS — THEY ARE DIFFERENT HEIGHTS ON THE SAME BUILDING. Cornice and crown
+ * differ by the whole roof/parapet zone; street and parcel differ by the ground fall. Merging
+ * them into one "height" coverage rate is precisely the `NM_ALTURA` ambiguity that makes Madrid
+ * legally uninterpretable, and Canarias is the region that DISAMBIGUATES BY SCHEMA. So every
+ * column keeps its own datum and every envelope records which one it used.
+ */
 export const SIPU_HEIGHT_DATUM: Readonly<Record<string, SipuHeightDatum>> = Object.freeze({
     AltMaxMV: 'street',
     AltMaxMP: 'parcel',
+    AltMaxCornis: 'cornice',
+    AltMaxCoron: 'crown',
+    AltMaxMt: 'unspecified',
     AltMaxPl: 'floors-only',
 });
+
+/**
+ * ⭐ MEASURED 2026-08-02, AFTER a national sweep reported `AltMaxMt` in 70 tables — second only
+ * to `AltMaxPl` — and flagged that no Canarias probe had ever had it in its dictionary. That was
+ * correct, and the resolution is a REALLOCATION rather than a correction:
+ *
+ *   `AltMaxMt` DOES NOT EXIST IN `EDIF.mdb` AT ALL — **0 of 73** readable EDIF tables.
+ *   It lives in **`RUS.mdb`, table `SRAR`** (*Suelo Rústico de Asentamiento Rural*), i.e. a
+ *   DIFFERENT POPULATION: rural settlements, not the urban building zones EDIF governs. 69 of
+ *   87 packages ship a `RUS.mdb`, which is where the "70 tables" comes from.
+ *
+ * ⇒ The EDIF-based coverage figures above were NOT computed without a column that belonged in
+ *   them. But this DOES name a whole archive PRYZM had not opened, so it was opened:
+ *
+ *   `AltMaxMt` in RUS/SRAR — 14 archives, 82 tables, 8 719 rows:
+ *      VALID **45 / 8 719 = 0.5 %**, 11 distinct values,
+ *      ladder {2,3 · 2,4 · 2,5 · 4,0 · 4,5 · 5,0 · 6,5 · 7,0 · 7,5 · 8,0 · 9,0} m
+ *   ⭐ A PLAUSIBLE METRE LADDER, so it is a REAL height column and NOT a `DFIVIGEN` null
+ *   substitute — and it is EMPTY 99.5 % of the time. Its companions in SRAR are no better
+ *   (`SepMinFr` 0.5 %, `SupMin` 0.3 %, `PMaxOcup` 0.1 %, `EdifMax` 0.0 %).
+ *   ⇒ Adding it moves the region's drawability by ~45 rows. It changes no conclusion.
+ *
+ *   `AltMaxCornis` / `AltMaxCoron` — NAMED by the sweep, now RATED: present in exactly **1 of
+ *   73** EDIF archives (San Cristóbal de La Laguna, a bespoke schema extension carrying two
+ *   further columns nobody has named either, `AltMaxBRas` and `AltMinSRas`). In that archive
+ *   **both are 0.0 % VALID**. ⚠ `AltMaxCornis` is `'I'` in all 112 rows — 100 % populated, ONE
+ *   distinct value, carrying nothing: THE `DFIVIGEN` SIGNATURE EXACTLY.
+ *   ⚠⚠ And most of La Laguna's remaining cells are NOT text — they are `access_parser`
+ *   variable-length GARBAGE (`'ã䀀᠁'`, `'V@ w'`). That archive is **BLOCKED BY A PARSER DEFECT,
+ *   NOT EMPTY**, and is counted UNKNOWN.
+ *
+ * ⚠ SAMPLING LIMIT, STATED NOT HIDDEN: the RUS measurement capped archives at 6 MB to protect a
+ * nearly-full disk. **22 archives were over the cap and were NOT sampled**, and Teguise's
+ * `RUS.mdb` failed to parse. Those are `blocked` WITH A NAMED CAUSE — never counted as zero.
+ */
+export const SIPU_RUSTIC_HEIGHT_NOTE =
+    'AltMaxMt is a RUS.mdb/SRAR column (rural settlements), not an EDIF one: 0/73 EDIF tables, ' +
+    'and 45/8719 = 0.5% VALID in RUS with a plausible 11-value metre ladder (2,3–9,0 m).';
+
+/**
+ * ⭐ `FonMaxEd` IS A ROUTING HINT, NOT A VALUE — and recording that is worth more than the
+ * column's ~0 % numeric rate suggests.
+ *
+ * Depth in Canarias is genuinely near-absent, confirmed by a WIDER method than the original
+ * `fondo`-lexeme search (`FonMaxEdm` ~3 %, `FondoMax` one non-sentinel cell in 8 415 rows, and
+ * the memo's *fondo de parcela* is PLOT depth carrying no number). Canarias is the only Spanish
+ * region measured where this is so: Madrid serves depth at 12 % with a real ladder, Balears at
+ * 6,5 %, Barcelona CONSTRUCTS it and ships on 43 %.
+ *
+ * ⇒ **NO DEPTH ROUTE IS BUILT.** Setback and occupation are built; depth refuses.
+ *
+ * But `FonMaxEd`'s non-numeric content is not noise — it is a POINTER INTO THE ORDINANCE, e.g.
+ * *"Remitido a Plan Especial"*. That names the document a user needs for exactly the parcels
+ * where depth is missing. ⛔ It is surfaced as a citation on the refusal and NEVER as a value.
+ *
+ * ⚠ Also observed in this column: `"Edificabilidad Total: 7922,45 m²"` — a FLOOR AREA sitting in
+ * a DEPTH column. One more quantity confusion, and one more reason the numeric gates matter.
+ */
+export function fonMaxEdRoutingHint(raw: string | null | undefined): string | null {
+    const s = (raw ?? '').trim();
+    if (s === '') return null;
+    if (/^[-+]?[\d.,]+$/.test(s)) return null; // a number is a value, not a hint
+    if (SIPU_SENTINELS[s.toUpperCase()] !== undefined) return null;
+    // ⚠ access_parser garbage must never be surfaced to a user as an ordinance reference.
+    const garbled = [...s].some((ch) => {
+        const c = ch.codePointAt(0) ?? 0;
+        return c < 0x09 || (c >= 0x0b && c <= 0x1f) || (c >= 0x2e80 && c <= 0xfffd);
+    });
+    if (garbled) return null;
+    return s;
+}
 
 /**
  * The three geometric grammars SIPU names, mapped to the engine PRYZM ALREADY HAS.

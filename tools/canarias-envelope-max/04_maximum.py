@@ -40,7 +40,7 @@ OBS = {"SupMin": "ObsSMP", "LongMin": "ObsLM", "FonMin": "ObsFM",
        "AltMaxPl": "ObsAMPl", "AltMaxMV": "ObsAMV", "AltMaxMP": "ObsAMP",
        "DispOblm": "ObsDispOm"}
 SET = ("SepMinFr", "SepMinPs", "SepMinLt")
-HGT = ("AltMaxMP", "AltMaxMV", "AltMaxPl")
+HGT = ("AltMaxMP", "AltMaxMV", "AltMaxMt", "AltMaxCornis", "AltMaxCoron", "AltMaxPl")
 DEP = ("FonMaxEd", "FonMaxEdm")
 
 

@@ -30,6 +30,7 @@ import {
     type SipuGrammar,
     type SipuHeightDatum,
     detectSipuGrammar,
+    fonMaxEdRoutingHint,
 } from '../rulepacks/esCanariasSipu.js';
 
 const tracer = trace.getTracer('pryzm.zoning.canarias.provider');
@@ -51,6 +52,15 @@ export interface SipuEdifRecord {
     readonly AltMaxPl?: string | null;
     readonly AltMaxMV?: string | null;
     readonly AltMaxMP?: string | null;
+    // ⭐ THE THREE DATUMS NO CANARIAS PROBE HAD IN ITS DICTIONARY UNTIL 2026-08-02. They are NOT
+    // synonyms for the two above — cornice and crown are structurally different heights on the
+    // same building, and `AltMaxMt` states no datum at all. See SIPU_HEIGHT_DATUM.
+    /** RUS.mdb/SRAR (rural settlements). 0/73 EDIF tables; accepted here so it is never ignored. */
+    readonly AltMaxMt?: string | null;
+    /** Altura de CORNISA (eaves). */
+    readonly AltMaxCornis?: string | null;
+    /** Altura de CORONACIÓN (top of the built mass). */
+    readonly AltMaxCoron?: string | null;
     /** Per-parameter observation columns. Keys are the publisher's own (`ObsPMO`, `ObsAMPl`, …). */
     readonly [obs: string]: string | null | undefined;
 }
@@ -117,6 +127,9 @@ const RANGES: Readonly<
     AltMaxPl: { lo: 1, hi: 60, zeroOk: false }, // ⛔ 0 storeys is NOT a rule.
     AltMaxMV: { lo: 1, hi: 300, zeroOk: false },
     AltMaxMP: { lo: 1, hi: 300, zeroOk: false },
+    AltMaxMt: { lo: 1, hi: 300, zeroOk: false },
+    AltMaxCornis: { lo: 1, hi: 300, zeroOk: false },
+    AltMaxCoron: { lo: 1, hi: 300, zeroOk: false },
 });
 
 /**
@@ -198,6 +211,13 @@ export interface SipuZoneReading {
     readonly rejections: Readonly<Record<string, SipuRejectReason>>;
     /** `true` only when a footprint rule AND a height are both present — i.e. it DRAWS. */
     readonly drawable: boolean;
+    /**
+     * ⭐ A POINTER INTO THE ORDINANCE, never a value. `FonMaxEd` holds cross-references such as
+     * *"Remitido a Plan Especial"* rather than depths — Canarias is the only Spanish region
+     * measured where buildable depth is genuinely near-absent, so this names the document a user
+     * needs for exactly the parcels PRYZM cannot solve. Surfaced on the refusal, never drawn.
+     */
+    readonly depthRoutingHint: string | null;
 }
 
 /**
@@ -238,20 +258,31 @@ export function readSipuZone(rec: SipuEdifRecord): SipuZoneReading {
                 coverage = null;
             }
 
-            // ⚠ THE DATUM IS PART OF THE HEIGHT. Never collapse the two columns into "height".
+            // ⚠⚠ THE DATUM IS PART OF THE HEIGHT. Never collapse these columns into "height".
+            // ⛔ Cornice and crown are DIFFERENT HEIGHTS ON THE SAME BUILDING, and `AltMaxMt`
+            // states no datum at all. Merging them is the `NM_ALTURA` ambiguity that makes
+            // Madrid legally uninterpretable — and Canarias disambiguates BY SCHEMA, so the
+            // information is there to be kept.
+            const hCornice = get('AltMaxCornis');
+            const hCrown = get('AltMaxCoron');
+            const hUnspec = get('AltMaxMt');
+
+            // Preference order = MOST BINDING FIRST, then most specific datum. Where several
+            // speak, the LOWEST wins: an envelope may not exceed any published datum, and taking
+            // the higher would over-grant on whichever face binds.
+            const candidates: readonly (readonly [number, SipuHeightDatum])[] = [
+                ...(hStreet !== null ? ([[hStreet, 'street']] as const) : []),
+                ...(hParcel !== null ? ([[hParcel, 'parcel']] as const) : []),
+                ...(hCornice !== null ? ([[hCornice, 'cornice']] as const) : []),
+                ...(hCrown !== null ? ([[hCrown, 'crown']] as const) : []),
+                ...(hUnspec !== null ? ([[hUnspec, 'unspecified']] as const) : []),
+            ];
             let height: number | null = null;
             let datum: SipuHeightDatum = 'unknown';
-            if (hParcel !== null && hStreet !== null) {
-                // Both published: take the LOWER. An envelope may not exceed either datum, and
-                // choosing the higher would over-grant on whichever face is binding.
-                height = Math.min(hParcel, hStreet);
-                datum = hParcel <= hStreet ? 'parcel' : 'street';
-            } else if (hStreet !== null) {
-                height = hStreet;
-                datum = 'street';
-            } else if (hParcel !== null) {
-                height = hParcel;
-                datum = 'parcel';
+            if (candidates.length > 0) {
+                const best = candidates.reduce((a, b) => (b[0] < a[0] ? b : a));
+                height = best[0];
+                datum = best[1];
             } else if (floors !== null) {
                 datum = 'floors-only'; // ⚠ a storey count is NOT a metric height.
             }
@@ -321,6 +352,9 @@ export function readSipuZone(rec: SipuEdifRecord): SipuZoneReading {
                 conditional,
                 rejections,
                 drawable,
+                depthRoutingHint: fonMaxEdRoutingHint(
+                    rec.FonMaxEd as string | null | undefined,
+                ),
             };
         } finally {
             span.end();

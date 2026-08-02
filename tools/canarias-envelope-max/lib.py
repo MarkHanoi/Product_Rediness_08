@@ -115,6 +115,22 @@ PARAMS = {
     "AltMaxPl":  (1, 60, False),
     "AltMaxMV":  (1, 300, False),
     "AltMaxMP":  (1, 300, False),
+    # ⭐ ADDED 2026-08-02 after a national sweep found height columns no Canarias probe had
+    # ever had in its dictionary. ⛔ THEY ARE NOT SYNONYMS - each is a DIFFERENT DATUM, and
+    # merging them is the NM_ALTURA ambiguity that makes Madrid legally uninterpretable.
+    # MEASURED RESULT: none of them moves the EDIF tiers.
+    #   AltMaxMt      0 of 73 EDIF tables. It is a RUS.mdb/SRAR column (rural settlements):
+    #                 45/8719 = 0.5% VALID there, 11 distinct values, ladder 2,3-9,0 m - a
+    #                 REAL column with a plausible metre ladder, and empty 99.5% of the time.
+    #   AltMaxCornis  1 of 73, and 0.0% VALID: 'I' in all 112 rows -> 100% populated, ONE
+    #                 distinct value, carrying nothing. THE DFIVIGEN SIGNATURE.
+    #   AltMaxCoron   1 of 73, 0.0% VALID.
+    #   AltMaxBRas / AltMinSRas  1 of 73 - two MORE datums nobody has named. Also ~0%.
+    # ⚠ That one archive (San Cristobal de La Laguna) is BLOCKED BY THE access_parser
+    # variable-length DEFECT, not empty: its cells come back as binary garbage.
+    "AltMaxMt":     (1, 300, False),   # metres, datum UNSPECIFIED by the schema
+    "AltMaxCornis": (1, 300, False),   # altura de CORNISA (eaves)
+    "AltMaxCoron":  (1, 300, False),   # altura de CORONACION (top of the built mass)
 }
 SENTINELS = {"I", "COM", "NP", "T", "GRF", "AV", "AV+GRF", "S", "N", "SI",
              "NO", "-", "--", "*", "ND", "NC", "X", ""}
