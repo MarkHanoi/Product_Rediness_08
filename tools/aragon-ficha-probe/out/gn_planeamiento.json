@@ -1,0 +1,86 @@
+{
+  "@from": "1",
+  "@to": "2",
+  "@selected": "0",
+  "@maxPageSize": "100",
+  "summary":   {
+    "@count": "2",
+    "@type": "local",
+    "types": [],
+    "topicCats": [    {
+      "@count": "2",
+      "@name": "imageryBaseMapsEarthCover",
+      "@label": "Cobertura de la tierra con mapas básicos e imágenes"
+    }],
+    "inspireThemes": [],
+    "inspireThemesWithAc": [],
+    "inspireThemesURI": [],
+    "keywords": [],
+    "orgNames": [],
+    "createDateYears": [],
+    "formats":     [
+            {
+        "@count": "2",
+        "@name": "ArcGis",
+        "@label": "ArcGis"
+      },
+            {
+        "@count": "2",
+        "@name": "Geomedia",
+        "@label": "Geomedia"
+      },
+            {
+        "@count": "2",
+        "@name": "MDB - Microsoft Data Base",
+        "@label": "MDB - Microsoft Data Base"
+      },
+            {
+        "@count": "2",
+        "@name": "SHP",
+        "@label": "SHP"
+      }
+    ],
+    "spatialRepresentationTypes": [],
+    "maintenanceAndUpdateFrequencies": [    {
+      "@count": "2",
+      "@name": "asNeeded",
+      "@label": "A discreción"
+    }],
+    "status": [    {
+      "@count": "2",
+      "@name": "completed",
+      "@label": "Terminado"
+    }],
+    "serviceTypes": [],
+    "denominators": [    {
+      "@count": "2",
+      "@name": "25000",
+      "@label": "25000"
+    }],
+    "resolutions": []
+  },
+  "metadata":   [
+        {
+      "@xmlns:geonet": "http://www.fao.org/geonetwork",
+      "id": "204",
+      "uuid": "SPAIGNSIOSE2009_02",
+      "schema": "iso19139",
+      "createDate": "2018-01-12T14:21:04",
+      "changeDate": "2018-01-12T14:22:26",
+      "source": "d7446602-72e3-41a0-aa90-40b6ae5e1ba1",
+      "category": "rca",
+      "selected": "false"
+    },
+    [    {
+      "@xmlns:geonet": "http://www.fao.org/geonetwork",
+      "id": "188",
+      "uuid": "SPAIGNSIOSE2006_02",
+      "schema": "iso19139",
+      "createDate": "2018-01-12T14:14:34",
+      "changeDate": "2018-01-12T14:20:23",
+      "source": "d7446602-72e3-41a0-aa90-40b6ae5e1ba1",
+      "category": "rca",
+      "selected": "false"
+    }]
+  ]
+}

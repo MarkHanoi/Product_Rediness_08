@@ -1,0 +1,613 @@
+[
+  {
+    "cmuniine": "22112",
+    "expected_municipality": "Fraga",
+    "sample_reason": "PUBLISHED existence proof (Aragon Open Data RDF), Huesca, mid-size",
+    "url": "https://idearagon.aragon.es/fichaDescarga/fichaDescarga_22112.html",
+    "http_status": 200,
+    "error": null,
+    "control_municipality_named": true,
+    "raw_bytes": 973159,
+    "visible_text_chars": 139246,
+    "text_ratio": 0.1431,
+    "is_shell": false,
+    "verdict": "CONTENT",
+    "title": "ICEARAGON > Geodatos del municipio Fraga (Huesca)",
+    "terms": {
+      "altura": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "plantas": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "edificabilidad": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "ocupacion": {
+        "label_hits": 8,
+        "hits_with_number_nearby": 7,
+        "examples": [
+          "l suelo de España. Sistema de ocupación del suelo de España de alta resolución. Huesca (Año 2017) (",
+          "8. Escala: 25000): Sistema de ocupación del suelo de España de alta resolución. Teruel (Año 2017) (",
+          "8. Escala: 25000): Sistema de ocupación del suelo de España de alta resolución. Zaragoza (Año 2017)"
+        ]
+      },
+      "aprovechamiento": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "densidad": {
+        "label_hits": 336,
+        "hits_with_number_nearby": 336,
+        "examples": [
+          "Hoja 7484586 - IGN - LAS con densidad 0,5 ptos/m2. ( Fecha: 2016. Escala: 10000): Hoja 7484588 -",
+          "Hoja 7484588 - IGN - LAS con densidad 0,5 ptos/m2. ( Fecha: 2016. Escala: 10000): Hoja 7504582 -",
+          "Hoja 7504582 - IGN - LAS con densidad 0,5 ptos/m2. ( Fecha: 2016. Escala: 10000): Hoja 7504584 -"
+        ]
+      },
+      "retranqueo": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "fondo_edificable": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "alineacion": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "planeamiento": {
+        "label_hits": 4,
+        "hits_with_number_nearby": 1,
+        "examples": [
+          ". Escala: 300000): Figuras de Planeamiento ( Fecha: 2013-05. Escala: 300000): Superficie segun tipo de"
+        ]
+      },
+      "pgou": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "normas_urb": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "fiab_geom": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "notepa": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      }
+    },
+    "downloadable_ext_counts": {
+      "pdf": 1
+    },
+    "total_links": 18,
+    "truncation_suspect": false
+  },
+  {
+    "cmuniine": "50297",
+    "expected_municipality": "Zaragoza",
+    "sample_reason": "provincial capital + regional capital, Zaragoza",
+    "url": "https://idearagon.aragon.es/fichaDescarga/fichaDescarga_50297.html",
+    "http_status": 200,
+    "error": null,
+    "control_municipality_named": true,
+    "raw_bytes": 284708,
+    "visible_text_chars": 48331,
+    "text_ratio": 0.1698,
+    "is_shell": false,
+    "verdict": "CONTENT",
+    "title": "ICEARAGON > Geodatos del municipio Zaragoza (Zaragoza)",
+    "terms": {
+      "altura": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "plantas": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "edificabilidad": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "ocupacion": {
+        "label_hits": 8,
+        "hits_with_number_nearby": 7,
+        "examples": [
+          "l suelo de España. Sistema de ocupación del suelo de España de alta resolución. Huesca (Año 2017) (",
+          "8. Escala: 25000): Sistema de ocupación del suelo de España de alta resolución. Teruel (Año 2017) (",
+          "8. Escala: 25000): Sistema de ocupación del suelo de España de alta resolución. Zaragoza (Año 2017)"
+        ]
+      },
+      "aprovechamiento": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "densidad": {
+        "label_hits": 2,
+        "hits_with_number_nearby": 2,
+        "examples": [
+          "ha: 2013-05. Escala: 300000): Densidad de población. Año 2012 ( Fecha: 2013-05. Escala: 300000): E",
+          "Escala: 300000): Variación de densidad de población 2001 - 2011 ( Fecha: 2013-05. Escala: 300000):"
+        ]
+      },
+      "retranqueo": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "fondo_edificable": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "alineacion": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "planeamiento": {
+        "label_hits": 1,
+        "hits_with_number_nearby": 1,
+        "examples": [
+          ". Escala: 300000): Figuras de Planeamiento ( Fecha: 2013-05. Escala: 300000): Superficie segun tipo de"
+        ]
+      },
+      "pgou": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "normas_urb": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "fiab_geom": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "notepa": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      }
+    },
+    "downloadable_ext_counts": {
+      "pdf": 1
+    },
+    "total_links": 18,
+    "truncation_suspect": false
+  },
+  {
+    "cmuniine": "22125",
+    "expected_municipality": "Huesca",
+    "sample_reason": "provincial capital, Huesca",
+    "url": "https://idearagon.aragon.es/fichaDescarga/fichaDescarga_22125.html",
+    "http_status": 200,
+    "error": null,
+    "control_municipality_named": true,
+    "raw_bytes": 648365,
+    "visible_text_chars": 95253,
+    "text_ratio": 0.1469,
+    "is_shell": false,
+    "verdict": "CONTENT",
+    "title": "ICEARAGON > Geodatos del municipio Huesca (Huesca)",
+    "terms": {
+      "altura": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "plantas": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "edificabilidad": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "ocupacion": {
+        "label_hits": 8,
+        "hits_with_number_nearby": 7,
+        "examples": [
+          "l suelo de España. Sistema de ocupación del suelo de España de alta resolución. Huesca (Año 2017) (",
+          "8. Escala: 25000): Sistema de ocupación del suelo de España de alta resolución. Teruel (Año 2017) (",
+          "8. Escala: 25000): Sistema de ocupación del suelo de España de alta resolución. Zaragoza (Año 2017)"
+        ]
+      },
+      "aprovechamiento": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "densidad": {
+        "label_hits": 163,
+        "hits_with_number_nearby": 163,
+        "examples": [
+          "oja 7044658 - IGEAR - LAS con densidad 0,5 ptos/m2. ( Fecha: 2016. Escala: 10000): Hoja 7044660 -",
+          "oja 7044660 - IGEAR - LAS con densidad 0,5 ptos/m2. ( Fecha: 2016. Escala: 10000): Hoja 7064656 -",
+          "oja 7064656 - IGEAR - LAS con densidad 0,5 ptos/m2. ( Fecha: 2016. Escala: 10000): Hoja 7064658 -"
+        ]
+      },
+      "retranqueo": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "fondo_edificable": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "alineacion": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "planeamiento": {
+        "label_hits": 4,
+        "hits_with_number_nearby": 1,
+        "examples": [
+          ". Escala: 300000): Figuras de Planeamiento ( Fecha: 2013-05. Escala: 300000): Superficie segun tipo de"
+        ]
+      },
+      "pgou": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "normas_urb": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "fiab_geom": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "notepa": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      }
+    },
+    "downloadable_ext_counts": {
+      "pdf": 1
+    },
+    "total_links": 18,
+    "truncation_suspect": false
+  },
+  {
+    "cmuniine": "44216",
+    "expected_municipality": "Teruel",
+    "sample_reason": "provincial capital, Teruel",
+    "url": "https://idearagon.aragon.es/fichaDescarga/fichaDescarga_44216.html",
+    "http_status": 200,
+    "error": null,
+    "control_municipality_named": true,
+    "raw_bytes": 975362,
+    "visible_text_chars": 134159,
+    "text_ratio": 0.1375,
+    "is_shell": false,
+    "verdict": "CONTENT",
+    "title": "ICEARAGON > Geodatos del municipio Teruel (Teruel)",
+    "terms": {
+      "altura": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "plantas": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "edificabilidad": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "ocupacion": {
+        "label_hits": 8,
+        "hits_with_number_nearby": 7,
+        "examples": [
+          "l suelo de España. Sistema de ocupación del suelo de España de alta resolución. Huesca (Año 2017) (",
+          "8. Escala: 25000): Sistema de ocupación del suelo de España de alta resolución. Teruel (Año 2017) (",
+          "8. Escala: 25000): Sistema de ocupación del suelo de España de alta resolución. Zaragoza (Año 2017)"
+        ]
+      },
+      "aprovechamiento": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "densidad": {
+        "label_hits": 280,
+        "hits_with_number_nearby": 280,
+        "examples": [
+          "-2021) Hoja 6484468 - LAZ con densidad 1 ptos/m2. ( Fecha: 2020. Escala: 10000): Hoja 6484470 - LA",
+          "0000): Hoja 6484470 - LAZ con densidad 1 ptos/m2. ( Fecha: 2020. Escala: 10000): Hoja 6484472 - LA",
+          "0000): Hoja 6484472 - LAZ con densidad 1 ptos/m2. ( Fecha: 2020. Escala: 10000): Hoja 6484474 - LA"
+        ]
+      },
+      "retranqueo": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "fondo_edificable": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "alineacion": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "planeamiento": {
+        "label_hits": 4,
+        "hits_with_number_nearby": 1,
+        "examples": [
+          ". Escala: 300000): Figuras de Planeamiento ( Fecha: 2013-05. Escala: 300000): Superficie segun tipo de"
+        ]
+      },
+      "pgou": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "normas_urb": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "fiab_geom": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "notepa": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      }
+    },
+    "downloadable_ext_counts": {
+      "pdf": 1
+    },
+    "total_links": 18,
+    "truncation_suspect": false
+  },
+  {
+    "cmuniine": "50095",
+    "expected_municipality": "Calatayud",
+    "sample_reason": "non-capital mid-size, Zaragoza",
+    "url": "https://idearagon.aragon.es/fichaDescarga/fichaDescarga_50095.html",
+    "http_status": 200,
+    "error": null,
+    "control_municipality_named": false,
+    "raw_bytes": 1124285,
+    "visible_text_chars": 156671,
+    "text_ratio": 0.1394,
+    "is_shell": false,
+    "verdict": "CONTENT",
+    "title": "ICEARAGON > Geodatos del municipio Ejea de los Caballeros (Zaragoza)",
+    "terms": {
+      "altura": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "plantas": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "edificabilidad": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "ocupacion": {
+        "label_hits": 8,
+        "hits_with_number_nearby": 7,
+        "examples": [
+          "l suelo de España. Sistema de ocupación del suelo de España de alta resolución. Huesca (Año 2017) (",
+          "8. Escala: 25000): Sistema de ocupación del suelo de España de alta resolución. Teruel (Año 2017) (",
+          "8. Escala: 25000): Sistema de ocupación del suelo de España de alta resolución. Zaragoza (Año 2017)"
+        ]
+      },
+      "aprovechamiento": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "densidad": {
+        "label_hits": 455,
+        "hits_with_number_nearby": 455,
+        "examples": [
+          "oja 6344660 - IGEAR - LAS con densidad 0,5 ptos/m2. ( Fecha: 2016. Escala: 10000): Hoja 6364660 -",
+          "oja 6364660 - IGEAR - LAS con densidad 0,5 ptos/m2. ( Fecha: 2016. Escala: 10000): Hoja 6384656 -",
+          "oja 6384656 - IGEAR - LAS con densidad 0,5 ptos/m2. ( Fecha: 2016. Escala: 10000): Hoja 6384658 -"
+        ]
+      },
+      "retranqueo": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "fondo_edificable": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "alineacion": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "planeamiento": {
+        "label_hits": 4,
+        "hits_with_number_nearby": 1,
+        "examples": [
+          ". Escala: 300000): Figuras de Planeamiento ( Fecha: 2013-05. Escala: 300000): Superficie segun tipo de"
+        ]
+      },
+      "pgou": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "normas_urb": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "fiab_geom": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "notepa": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      }
+    },
+    "downloadable_ext_counts": {
+      "pdf": 1
+    },
+    "total_links": 18,
+    "truncation_suspect": false
+  },
+  {
+    "cmuniine": "22199",
+    "expected_municipality": "Sabinanigo",
+    "sample_reason": "small mountain municipality, Huesca",
+    "url": "https://idearagon.aragon.es/fichaDescarga/fichaDescarga_22199.html",
+    "http_status": 200,
+    "error": null,
+    "control_municipality_named": true,
+    "raw_bytes": 1196176,
+    "visible_text_chars": 165202,
+    "text_ratio": 0.1381,
+    "is_shell": false,
+    "verdict": "CONTENT",
+    "title": "ICEARAGON > Geodatos del municipio Sabiñánigo (Huesca)",
+    "terms": {
+      "altura": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "plantas": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "edificabilidad": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "ocupacion": {
+        "label_hits": 8,
+        "hits_with_number_nearby": 7,
+        "examples": [
+          "l suelo de España. Sistema de ocupación del suelo de España de alta resolución. Huesca (Año 2017) (",
+          "8. Escala: 25000): Sistema de ocupación del suelo de España de alta resolución. Teruel (Año 2017) (",
+          "8. Escala: 25000): Sistema de ocupación del suelo de España de alta resolución. Zaragoza (Año 2017)"
+        ]
+      },
+      "aprovechamiento": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "densidad": {
+        "label_hits": 457,
+        "hits_with_number_nearby": 457,
+        "examples": [
+          "-2021) Hoja 7044704 - LAZ con densidad 1 ptos/m2. ( Fecha: 2021. Escala: 10000): Hoja 7044706 - LA",
+          "0000): Hoja 7044706 - LAZ con densidad 1 ptos/m2. ( Fecha: 2021. Escala: 10000): Hoja 7064704 - LA",
+          "0000): Hoja 7064704 - LAZ con densidad 1 ptos/m2. ( Fecha: 2021. Escala: 10000): Hoja 7064706 - LA"
+        ]
+      },
+      "retranqueo": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "fondo_edificable": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "alineacion": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "planeamiento": {
+        "label_hits": 4,
+        "hits_with_number_nearby": 1,
+        "examples": [
+          ". Escala: 300000): Figuras de Planeamiento ( Fecha: 2013-05. Escala: 300000): Superficie segun tipo de"
+        ]
+      },
+      "pgou": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "normas_urb": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "fiab_geom": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      },
+      "notepa": {
+        "label_hits": 0,
+        "hits_with_number_nearby": 0,
+        "examples": []
+      }
+    },
+    "downloadable_ext_counts": {
+      "pdf": 1
+    },
+    "total_links": 18,
+    "truncation_suspect": false
+  }
+]

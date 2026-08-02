@@ -1,0 +1,66 @@
+[
+  {
+    "source": "SIUa WMS GetCapabilities",
+    "url": "https://idearagon.aragon.es/SIUOrdenacionWMS/wms?service=WMS&request=GetCapabilities&version=1.3.0",
+    "http_status": 404,
+    "error": "HTTPError 404 Not Found",
+    "bytes": 0,
+    "hits": {}
+  },
+  {
+    "source": "SIU urbanismo WMS GetCapabilities",
+    "url": "https://idearagon.aragon.es/urbanismoWMS/wms?service=WMS&request=GetCapabilities&version=1.3.0",
+    "http_status": 404,
+    "error": "HTTPError 404 Not Found",
+    "bytes": 0,
+    "hits": {}
+  },
+  {
+    "source": "IDEAragon generic WMS GetCapabilities",
+    "url": "https://idearagon.aragon.es/servicios/wms?service=WMS&request=GetCapabilities&version=1.3.0",
+    "http_status": 404,
+    "error": "HTTPError 404 ",
+    "bytes": 0,
+    "hits": {}
+  },
+  {
+    "source": "SITAR planeamiento WMS",
+    "url": "https://idearagon.aragon.es/PlaneamientoWMS/wms?service=WMS&request=GetCapabilities&version=1.3.0",
+    "http_status": 404,
+    "error": "HTTPError 404 Not Found",
+    "bytes": 0,
+    "hits": {}
+  },
+  {
+    "source": "CSW metadata search (fiabilidad)",
+    "url": "https://idearagon.aragon.es/geonetwork/srv/spa/q?_content_type=json&any=fiabilidad",
+    "http_status": 200,
+    "error": null,
+    "bytes": 517,
+    "hits": {}
+  },
+  {
+    "source": "CSW metadata search (planeamiento)",
+    "url": "https://idearagon.aragon.es/geonetwork/srv/spa/q?_content_type=json&any=planeamiento+urbanistico",
+    "http_status": 200,
+    "error": null,
+    "bytes": 517,
+    "hits": {}
+  },
+  {
+    "source": "Aragon Open Data dataset search",
+    "url": "https://opendata.aragon.es/datos/api/action/package_search?q=fiab_geom",
+    "http_status": 404,
+    "error": "HTTPError 404 Not Found",
+    "bytes": 0,
+    "hits": {}
+  },
+  {
+    "source": "Aragon Open Data search planeamiento",
+    "url": "https://opendata.aragon.es/datos/api/action/package_search?q=planeamiento+urbanistico",
+    "http_status": 404,
+    "error": "HTTPError 404 Not Found",
+    "bytes": 0,
+    "hits": {}
+  }
+]
