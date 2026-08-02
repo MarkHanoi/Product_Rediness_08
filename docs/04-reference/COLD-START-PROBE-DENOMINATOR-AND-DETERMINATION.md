@@ -210,6 +210,18 @@ the `not-determined` slices, resolved through the live municipal services.
 ### §4.1 — The two findings that move coverage
 
 **(a) Barcelona: 17.15 pp of "refusal" is PRYZM's own gap, and the shipped code already says so.**
+
+> ⚠⚠ **17.15 pp IS AN AREA-BASE FIGURE, AND THIS DOCUMENT IS THE ONE THAT SWITCHED THE DENOMINATOR TO
+> THE PARCEL.** On the parcel base the same `legallyGrounded:false` correction moves **3.12 pp — 11 of
+> 353 non-envelope parcels**, not 17.15. Measured, seeded, re-runnable:
+> `tools/cold-start-probe/out/task3-bcn-taxonomy.json` (seed 20260803).
+>
+> ⭐ **AND IT CANNOT MOVE THE ENVELOPE FIGURE AT ALL.** `auditCorrected.mjs:36` reclassifies only rows
+> whose category already starts with `refusal` — never `envelope`. **Both baselines report the
+> identical 269 envelope / 353 non-envelope.** Barcelona's non-envelope share is **23.80 % on the
+> uncorrected AND on the audit-corrected baseline.** The caution *"compute against the audit-corrected
+> baseline"* was satisfied **by construction**; reading it as *"23.8 % is suspect"* would be misleading.
+> Do not re-litigate this denominator.
 `esBarcelonaZoneClassification.ts:798` (clau 22a, 15.60 pp) and `:1047` (bare 20a, 1.55 pp) both ship
 `legallyGrounded: false`, with docstrings stating *"The LAW is fully known"* — i.e. the ordinance is
 read and it is the **data** that is missing. `barcelona.measurements.json` nevertheless tiers both
@@ -269,7 +281,8 @@ refusal share is **≈ 22.2 %, not 39.4 %**, giving **≈ 81.1 %, not 98.3 %**.
 Not because refusals are being invented wholesale (78 % of samples terminate on the right ground), but:
 
 1. **Inflated at source** — 17.15 pp of Barcelona and 6.38 pp of València are `no-pack` scored as
-   `not-determined`, **against the shipped code's own flag**.
+   `not-determined`, **against the shipped code's own flag**. ⚠ **Area base; on the parcel base
+   Barcelona's figure is 3.12 pp** — see the boxed correction at §4.1(a).
 2. **The citation is not load-bearing** — 39 of 143 sampled refusals cite an article that does not
    reach the parcel, including a mis-attribution in a user-visible card over Barcelona's largest slice.
 3. **Refusals are ratcheted by declaration** — Madrid's NZ 3 was written *"ANSWERED, permanently …
@@ -281,6 +294,8 @@ Not because refusals are being invented wholesale (78 % of samples terminate on 
 `not-determined` unless the shipped refusal for that zone carries `legallyGrounded: true` **and** a
 non-null `ordinanceRef`. That removes 17.15 pp of Barcelona and 6.38 pp of València automatically and
 would have caught every mislabel in this audit **without a human reading a word of Catalan.**
+⚠ **Area base — on the parcel base Barcelona's removal is 3.12 pp, and it moves the ENVELOPE figure by
+zero.** See the boxed correction at §4.1(a) before quoting either number.
 
 ---
 

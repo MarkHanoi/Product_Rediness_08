@@ -63,28 +63,30 @@
  "sampleOf100": {
   "seed": 20260803,
   "n": 100,
+  "_primaryReadingIs": "evidence-led: legallyGrounded:false routed by what the shipped docstring says is missing (an input), not to awaiting-legal-interpretation",
   "bucketCounts": {
-   "legally-terminal": 32,
-   "delegated-to-instrument-not-held": 54,
-   "missing-authoritative-data": 0,
-   "missing-engineering-capability": 5,
-   "awaiting-legal-interpretation": 9
-  },
-  "bucketPct": {
-   "legally-terminal": 0.32,
-   "delegated-to-instrument-not-held": 0.54,
-   "missing-authoritative-data": 0,
-   "missing-engineering-capability": 0.05,
-   "awaiting-legal-interpretation": 0.09
-  },
-  "sumCheck": 100,
-  "bucketCountsAlternateReading": {
    "legally-terminal": 43,
    "delegated-to-instrument-not-held": 48,
    "missing-authoritative-data": 4,
    "missing-engineering-capability": 5,
    "awaiting-legal-interpretation": 0
   },
+  "bucketPct": {
+   "legally-terminal": 0.43,
+   "delegated-to-instrument-not-held": 0.48,
+   "missing-authoritative-data": 0.04,
+   "missing-engineering-capability": 0.05,
+   "awaiting-legal-interpretation": 0
+  },
+  "sumCheck": 100,
+  "bucketCountsInstructedMapping": {
+   "legally-terminal": 32,
+   "delegated-to-instrument-not-held": 54,
+   "missing-authoritative-data": 0,
+   "missing-engineering-capability": 5,
+   "awaiting-legal-interpretation": 9
+  },
+  "_whyInstructedMappingIsNotPrimary": "The commission bound `legallyGrounded:false` to awaiting-legal-interpretation. Measured against the shipped code, that is wrong: clau 22a (:798/:983) and bare 20a (:1047/:1038) are the two slices whose docstrings describe a missing DATUM, not a contested meaning. Under the instructed mapping missing-authoritative-data reads 0, which is an artefact of the mapping and not a property of the city.",
   "strata": {
    "fromD1_privateBuildable": 68,
    "fromNonBuildable": 32,
@@ -1996,26 +1998,27 @@
  "fullCensus": {
   "_what": "ALL 131 non-envelope parcels in the 400-parcel frame, classified by the same rules. Published because the 100-draw is a 76 % subsample of it and the census is strictly more informative.",
   "n": 131,
+  "_primaryReadingIs": "evidence-led (see sampleOf100._primaryReadingIs)",
   "bucketCounts": {
-   "legally-terminal": 47,
-   "delegated-to-instrument-not-held": 66,
-   "missing-authoritative-data": 0,
-   "missing-engineering-capability": 7,
-   "awaiting-legal-interpretation": 11
-  },
-  "bucketPct": {
-   "legally-terminal": 0.35877862595419846,
-   "delegated-to-instrument-not-held": 0.5038167938931297,
-   "missing-authoritative-data": 0,
-   "missing-engineering-capability": 0.05343511450381679,
-   "awaiting-legal-interpretation": 0.08396946564885496
-  },
-  "bucketCountsAlternateReading": {
    "legally-terminal": 63,
    "delegated-to-instrument-not-held": 56,
    "missing-authoritative-data": 5,
    "missing-engineering-capability": 7,
    "awaiting-legal-interpretation": 0
+  },
+  "bucketPct": {
+   "legally-terminal": 0.48091603053435117,
+   "delegated-to-instrument-not-held": 0.42748091603053434,
+   "missing-authoritative-data": 0.03816793893129771,
+   "missing-engineering-capability": 0.05343511450381679,
+   "awaiting-legal-interpretation": 0
+  },
+  "bucketCountsInstructedMapping": {
+   "legally-terminal": 47,
+   "delegated-to-instrument-not-held": 66,
+   "missing-authoritative-data": 0,
+   "missing-engineering-capability": 7,
+   "awaiting-legal-interpretation": 11
   },
   "byClau": {
    "delegated-to-instrument-not-held | clau 18": 28,

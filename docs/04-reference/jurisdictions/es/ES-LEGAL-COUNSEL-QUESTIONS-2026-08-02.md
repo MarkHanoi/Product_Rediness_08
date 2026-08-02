@@ -90,6 +90,10 @@ displacement is **unmeasured**.
 143 sampled refusals found **39 incorrect**, of which **33 are wrong-citation / right-outcome** — precisely
 the case Q2 asks about. Separately, **17.15 pp of Barcelona's and 6.38 pp of València's refusals carry
 `legallyGrounded: false` in shipped code** while the measurement record counts them as determinations.
+> ⚠ **17.15 pp is an AREA-base figure and must not be quoted in a parcel-denominated context.** On the
+> PARCEL base — the denominator this programme switched to on 2026-08-02 — the same `legallyGrounded:
+> false` correction moves **3.12 pp (11 of 353 non-envelope parcels)**. Measured, seeded, re-runnable:
+> `tools/cold-start-probe/out/task3-bcn-taxonomy.json`.
 ⚠ **If Tier 2 (determination-only) is the national product, then the citation *is* the product** — which is
 what makes the exposure question load-bearing rather than academic.
 

@@ -511,10 +511,20 @@ const out = {
 
     sampleOf100: {
         seed: SEED, n: sample.length,
-        bucketCounts: sampleTally,
-        bucketPct: Object.fromEntries(BUCKETS.map((b) => [b, sampleTally[b] / sample.length])),
-        sumCheck: BUCKETS.reduce((s, b) => s + sampleTally[b], 0),
-        bucketCountsAlternateReading: sampleAlt,
+        // ⭐⭐ PRIMARY = THE EVIDENCE-LED READING. The commission's instructed mapping was WRONG and
+        // the founder has since said so: binding `legallyGrounded:false` → awaiting-legal-interpretation
+        // contradicts the shipped docstrings at esBarcelonaZoneClassification.ts:983 and :1038, which
+        // state plainly that what is missing is a SELECTOR — an INPUT — not a legal meaning
+        // (:983 "The LAW is fully known and transcribed… a statement about PRYZM's INPUTS";
+        //  :1038 "what is missing is that selector, not a rule").
+        // The instructed mapping is retained in full below as `bucketCountsInstructedMapping` so the
+        // two are diffable and neither is lost.
+        _primaryReadingIs: 'evidence-led: legallyGrounded:false routed by what the shipped docstring says is missing (an input), not to awaiting-legal-interpretation',
+        bucketCounts: sampleAlt,
+        bucketPct: Object.fromEntries(BUCKETS.map((b) => [b, sampleAlt[b] / sample.length])),
+        sumCheck: BUCKETS.reduce((s, b) => s + sampleAlt[b], 0),
+        bucketCountsInstructedMapping: sampleTally,
+        _whyInstructedMappingIsNotPrimary: 'The commission bound `legallyGrounded:false` to awaiting-legal-interpretation. Measured against the shipped code, that is wrong: clau 22a (:798/:983) and bare 20a (:1047/:1038) are the two slices whose docstrings describe a missing DATUM, not a contested meaning. Under the instructed mapping missing-authoritative-data reads 0, which is an artefact of the mapping and not a property of the city.',
         strata: {
             fromD1_privateBuildable: sample.filter((r) => r.joinCategory !== 'nonBuildable').length,
             fromNonBuildable: sample.filter((r) => r.joinCategory === 'nonBuildable').length,
@@ -526,9 +536,10 @@ const out = {
     fullCensus: {
         _what: 'ALL ' + census.length + ' non-envelope parcels in the 400-parcel frame, classified by the same rules. Published because the 100-draw is a 76 % subsample of it and the census is strictly more informative.',
         n: census.length,
-        bucketCounts: censusTally,
-        bucketPct: Object.fromEntries(BUCKETS.map((b) => [b, censusTally[b] / census.length])),
-        bucketCountsAlternateReading: censusAlt,
+        _primaryReadingIs: 'evidence-led (see sampleOf100._primaryReadingIs)',
+        bucketCounts: censusAlt,
+        bucketPct: Object.fromEntries(BUCKETS.map((b) => [b, censusAlt[b] / census.length])),
+        bucketCountsInstructedMapping: censusTally,
         byClau: (() => {
             const m = {};
             for (const r of census) {

@@ -251,6 +251,10 @@ on the minority of cities that publish vector planning data carrying envelope va
 > **17.15 pp of Barcelona and 6.38 pp of València are refusals that should not exist at all**, and the
 > **shipped code already flags them `legallyGrounded: false`** while the measurement record scores them
 > as determinations.
+> ⚠ **17.15 pp is an AREA-base figure.** On the PARCEL base — the denominator this programme switched
+> to on 2026-08-02 — the same correction moves **3.12 pp (11 of 353 non-envelope parcels)**. Measured:
+> `tools/cold-start-probe/out/task3-bcn-taxonomy.json`. Do not carry the area number into a
+> parcel-denominated claim.
 
 If Tier 2 *is* the product, then **the citation is the product** — and a Tier-2 product whose citation
 does not survive being read is worth less than no product, because an architect will act on it.

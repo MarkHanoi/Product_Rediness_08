@@ -35,7 +35,28 @@
 import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { buildFrame } from './catastroParcelFrame.mjs';
+import { buildFrame, drawUniform } from './catastroParcelFrame.mjs';
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// ⚠⚠ CODE SPACE — STATED BEFORE THE RUN, AND VERIFIED DURING IT.
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// EVERY code in the selection rule and in CITIES below is an **INE** code. It is the `CODI_INE`
+// field of AMB layer 16 — the same code space SIU keys on (`ProvINE`) and the same one the rest of
+// this repo uses. It is NOT the Catastro DGC code.
+//
+// The two collide, and 08204 is the THIRD measured collision:
+//     DGC 08204 = SANT CUGAT DEL VALLES   ·   INE 08204 = SANT CLIMENT DE LLOBREGAT
+// and — worse than Valencia/Turis — the colliding municipality is ITSELF in the AMB 36, so a naive
+// "is the frame inside the AMB extent?" check PASSES on the wrong city.
+//
+// ⇒ TWO INDEPENDENT GUARDS, both of which must hold before any figure from this run is reported:
+//   G1 NAME-AUTHORITATIVE ATOM MATCH. `catastroParcelFrame.mjs` matches the Catastro enclosure by
+//      NAME and refuses a bare code match. It reports the DGC code it actually used.
+//   G2 EXTENT NESTING, per city. The parcel frame's bbox must nest inside the bbox of THAT
+//      municipality's layer-16 polygons (selected by the municipality ATTRIBUTE filter
+//      `CODI_INE='<ine>'`, never a bbox). A frame for the colliding municipality fails this: Sant
+//      Cugat is ~14 km north of Sant Climent and the two are disjoint.
+// A failure of either guard ABORTS the city rather than producing a plausible wrong number.
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(HERE, 'out');
@@ -92,6 +113,33 @@ async function read(url, label) {
         return null;
     }
 }
+/**
+ * ⚠⚠ PAGINATED READ — ADDED AFTER THE BARCELONA CONTROL CAUGHT MY OWN DEFECT.
+ *
+ * `qualificacio_refos_3857` declares `maxRecordCount: 2000`. A layer-16 query for Barcelona returned
+ * EXACTLY 2000 polygons and 3 distinct claus (the real figure is 89) behind a clean HTTP 200 — no
+ * error, no warning, just a silently truncated answer that scored 87.77 % of the city
+ * `no-determination`. The two small cold cities sit under the cap (292 and 999) so they were never
+ * affected, and WITHOUT THE CONTROL THE DEFECT WOULD HAVE SHIPPED AS A FINDING ABOUT BARCELONA.
+ *
+ * This pages with `resultOffset` until the server stops setting `exceededTransferLimit`, and ASSERTS
+ * termination rather than trusting a single page. A page that comes back short AND flagged aborts.
+ */
+async function readAllPaged(base, params, label) {
+    const feats = [];
+    let offset = 0, page = 0;
+    for (;;) {
+        const j = await read(`${base}?${new URLSearchParams({ ...params, resultOffset: String(offset), resultRecordCount: '2000' })}`, `${label}#${page}`);
+        if (!j) return { ok: false, features: feats, reason: 'page-unreadable', pages: page };
+        const f = j.features ?? [];
+        feats.push(...f);
+        page++;
+        if (!j.exceededTransferLimit || f.length === 0) return { ok: true, features: feats, pages: page, terminatedBy: j.exceededTransferLimit ? 'empty-page' : 'server-cleared-exceededTransferLimit' };
+        offset += f.length;
+        if (page > 200) return { ok: false, features: feats, reason: 'pagination-runaway', pages: page };
+    }
+}
+
 function inRing(x, y, ring) {
     let s = false;
     for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -100,6 +148,33 @@ function inRing(x, y, ring) {
     }
     return s;
 }
+
+/**
+ * Bbox pre-filter. The join is O(parcels x polygons x vertices); Barcelona is ~78k x ~11k and does
+ * not finish without this. Purely an index — it changes no verdict, only the number of ring tests.
+ * `bboxOf` is computed once per feature; `hit()` rejects on four comparisons before any ring walk.
+ */
+function indexFeatures(feats) {
+    for (const f of feats) {
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const rg of f.rings) for (const [x, y] of rg) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        f.bb = [x0, y0, x1, y1];
+    }
+    return feats;
+}
+/** Point-in-any-ring with the bbox gate. Even-odd across rings (so holes subtract). */
+function locate(feats, lon, lat) {
+    for (const f of feats) {
+        const b = f.bb;
+        if (!b || lon < b[0] || lon > b[2] || lat < b[1] || lat > b[3]) continue;
+        let ins = false;
+        for (const rg of f.rings) if (inRing(lon, lat, rg)) ins = !ins;
+        if (ins) return f;
+    }
+    return null;
+}
+const bboxOfParcels = (ps) => ps.reduce((a, p) => [Math.min(a[0], p.lon), Math.min(a[1], p.lat), Math.max(a[2], p.lon), Math.max(a[3], p.lat)], [Infinity, Infinity, -Infinity, -Infinity]);
+const bboxOfFeats = (fs) => fs.reduce((a, f) => [Math.min(a[0], f.bb[0]), Math.min(a[1], f.bb[1]), Math.max(a[2], f.bb[2]), Math.max(a[3], f.bb[3])], [Infinity, Infinity, -Infinity, -Infinity]);
 const parsePlantes = (v) => {
     const m = /^(B|PX)\+(\d{1,2})(\+A)?$/.exec(String(v ?? '').trim().toUpperCase());
     return m ? { storeys: 1 + Number(m[2]) + (m[3] ? 1 : 0), raw: String(v).trim() } : null;
@@ -125,18 +200,51 @@ async function runCity(ine, name, role) {
     const frame = await buildFrame(ine, name);
     e('L0_parcelContext');
     if (!frame.ok) return { ine, name, role, failed: 'L0', reason: frame.reason, message: frame.message, clocks };
+    // G1 — the ATOM match must be NAME-authoritative. A bare corroborated-code match is the Turis bug.
+    // ⚠ HONESTY ON G1: `buildFrame` short-circuits the ATOM hop on a cache hit, so on a cached frame
+    // it returns no `matchedBy`. That is NOT a passed guard — it is a guard NOT RE-EXERCISED. Said so
+    // explicitly rather than rendering a null as a tick.
+    const g1 = frame.cached === false && frame.matchedBy
+        ? { exercised: true, dgcCodeUsed: frame.dgcCode ?? null, matchedBy: frame.matchedBy, collisionWarning: frame.warning ?? null }
+        : { exercised: false, note: 'frame served from disk cache; the name-authoritative ATOM match ran when the frame was FIRST built, not on this run. G2 is the guard actually exercised here.' };
+    // Seeded uniform draw for populations too large to join exhaustively. DECLARED, never silent.
+    const SAMPLE_ABOVE = 6000, SAMPLE_N = 3000, SEED = 20260802;
+    const sampled = frame.parcelCount > SAMPLE_ABOVE;
+    const parcels = sampled ? drawUniform(frame.parcels, SAMPLE_N, SEED) : frame.parcels;
+    const sampling = sampled
+        ? { sampled: true, population: frame.parcelCount, drawn: parcels.length, seed: SEED, method: 'uniform without replacement over the full Catastro INSPIRE CP parcel population; every parcel weighs 1' }
+        : { sampled: false, population: frame.parcelCount, drawn: parcels.length };
 
     // ── L1 — LegalStack: which instrument governs, per zone, with its article ───────────────────
     t('L1_legalStack');
-    const z = await read(`${SVC}/16/query?${new URLSearchParams({ f: 'json', where: `CODI_INE='${ine}'`, outFields: 'CLAU_URB,PLAN,NORMATIV,EQUI_PGM,PGM,DESCRIP', returnGeometry: 'true', outSR: '4326' })}`, `${ine}:layer16-geometry`);
+    const z = await readAllPaged(`${SVC}/16/query`, { f: 'json', where: `CODI_INE='${ine}'`, outFields: 'CLAU_URB,PLAN,NORMATIV,EQUI_PGM,PGM,DESCRIP', returnGeometry: 'true', outSR: '4326' }, `${ine}:layer16-geometry`);
     e('L1_legalStack');
-    if (!z || !z.features) return { ine, name, role, failed: 'L1', reason: 'layer-16 unreadable (UNKNOWN, not empty)', clocks };
+    if (!z.ok) return { ine, name, role, failed: 'L1', reason: `layer-16 read incomplete (${z.reason}) — UNKNOWN, not empty`, clocks };
     // ⚠ NEGATIVE PROOF: a zero here must never be reported as "no zoning".
     if (z.features.length === 0) {
         const alt = await read(`${SVC}/16/query?${new URLSearchParams({ f: 'json', where: '1=1', outFields: 'CODI_INE', returnDistinctValues: 'true', returnGeometry: 'false' })}`, `${ine}:negative-proof-distinct-ine`);
         return { ine, name, role, failed: 'L1', reason: 'ZERO zoning features for the municipality ATTRIBUTE filter — negative proof attached, NOT reported as absence', distinctIneCount: alt?.features?.length ?? null, clocks };
     }
-    const zoneFeats = z.features.map((f) => ({ a: f.attributes, rings: f.geometry?.rings ?? [] }));
+    const zoneFeats = indexFeatures(z.features.map((f) => ({ a: f.attributes, rings: f.geometry?.rings ?? [] })));
+    // G2 — EXTENT NESTING. The parcel frame must sit inside THIS municipality's zoning extent.
+    // Guards the DGC/INE collision: the colliding municipality is disjoint, so a wrong frame fails.
+    // ⚠ THE TEST IS OVERLAP, NOT CONTAINMENT — and the first version of this guard was WRONG.
+    // Strict containment rejected BARCELONA by 0.0002 deg (~17 m): its parcels reach marginally west
+    // of the zoning clip at the Zona Franca. Loosening the pad until it passes would have destroyed
+    // the guard. The COLLISION SIGNATURE IS DISJOINTNESS — the colliding municipality is 14+ km away
+    // — so the discriminating statistic is the fraction of the parcel bbox covered by the zoning
+    // bbox. Marginal overflow scores ~0.99; a wrong municipality scores 0.
+    const pbb = bboxOfParcels(parcels), zbb = bboxOfFeats(zoneFeats);
+    const ix = Math.max(0, Math.min(pbb[2], zbb[2]) - Math.max(pbb[0], zbb[0]));
+    const iy = Math.max(0, Math.min(pbb[3], zbb[3]) - Math.max(pbb[1], zbb[1]));
+    const parcelArea = Math.max(1e-12, (pbb[2] - pbb[0]) * (pbb[3] - pbb[1]));
+    const overlapFraction = +((ix * iy) / parcelArea).toFixed(4);
+    const OVERLAP_MIN = 0.5;
+    const nested = overlapFraction >= OVERLAP_MIN;
+    const g2 = { test: 'bbox overlap fraction of the parcel frame covered by this municipality\'s zoning', overlapFraction, threshold: OVERLAP_MIN, parcelBbox: pbb.map((v) => +v.toFixed(4)), zoningBbox: zbb.map((v) => +v.toFixed(4)), nested };
+    if (!nested) {
+        return { ine, name, role, failed: 'G2-extent-nesting', reason: 'The parcel frame does NOT nest inside this municipality\'s layer-16 zoning extent. This is the DGC/INE collision signature. ABORTING rather than reporting a plausible wrong number.', guards: { g1, g2 }, clocks };
+    }
     const pgmGoverned = zoneFeats.some((f) => String(f.a.PGM) === 'S');
     const instrumentRoots = [...new Set(zoneFeats.map((f) => String(f.a.NORMATIV ?? '').split('.')[0]))];
 
@@ -145,8 +253,10 @@ async function runCity(ine, name, role) {
     const qmj = await read(`${SVC}/18/query?${new URLSearchParams({ f: 'json', where: `CODI_MUN LIKE '${ine}%'`, outFields: '*', returnGeometry: 'false' })}`, `${ine}:table18-QUAL_MUNI`);
     const qmRows = qmj?.features?.map((f) => f.attributes) ?? [];
     const qmByClau = new Map(qmRows.map((r) => [String(r.CODI_MUN).slice(ine.length + 1), r]));
-    const ovj = await read(`${SVC}/17/query?${new URLSearchParams({ f: 'json', where: `CODI_INE='${ine}'`, outFields: 'CLAU,CLAU_URB,PLANTES,PLAN', returnGeometry: 'true', outSR: '4326' })}`, `${ine}:layer17-OV_Trames`);
-    const ovFeats = ovj?.features?.map((f) => ({ a: f.attributes, rings: f.geometry?.rings ?? [] })) ?? [];
+    const ovj = await readAllPaged(`${SVC}/17/query`, { f: 'json', where: `CODI_INE='${ine}'`, outFields: 'CLAU,CLAU_URB,PLANTES,PLAN', returnGeometry: 'true', outSR: '4326' }, `${ine}:layer17-OV_Trames`);
+    if (!ovj.ok) return { ine, name, role, failed: 'L23', reason: `layer-17 read incomplete (${ovj.reason}) — UNKNOWN, not empty`, clocks };
+    const ovFeats = indexFeatures(ovj.features.map((f) => ({ a: f.attributes, rings: f.geometry?.rings ?? [] })));
+    const paging = { layer16Pages: z.pages, layer16TerminatedBy: z.terminatedBy, layer17Pages: ovj.pages, layer17TerminatedBy: ovj.terminatedBy };
     e('L23_variableResolution');
 
     // ── L6/L7 — constraint composition + envelope synthesis, per parcel ─────────────────────────
@@ -159,13 +269,11 @@ async function runCity(ine, name, role) {
     //  6 otherwise                              -> refuse
     t('L67_envelopeSynthesis');
     const rows = [];
-    for (const p of frame.parcels) {
-        let zf = null;
-        for (const g of zoneFeats) { let ins = false; for (const rg of g.rings) if (inRing(p.lon, p.lat, rg)) ins = !ins; if (ins) { zf = g; break; } }
+    for (const p of parcels) {
+        const zf = locate(zoneFeats, p.lon, p.lat);
         if (!zf) { rows.push({ ref: p.ref, final: 'no-determination', reason: 'centroid outside every layer-16 polygon' }); continue; }
         const clau = String(zf.a.CLAU_URB ?? ''), norm = String(zf.a.NORMATIV ?? ''), plan = String(zf.a.PLAN ?? '');
-        let ov = null;
-        for (const g of ovFeats) { let ins = false; for (const rg of g.rings) if (inRing(p.lon, p.lat, rg)) ins = !ins; if (ins) { ov = g; break; } }
+        const ov = locate(ovFeats, p.lon, p.lat);
         const pl = ov ? parsePlantes(ov.a.PLANTES) : null;
         const q = qmByClau.get(clau) ?? null;
         const base = { ref: p.ref, clau, plan, normativ: norm, equiPgm: String(zf.a.EQUI_PGM ?? '') };
@@ -196,7 +304,7 @@ async function runCity(ine, name, role) {
         }
     }
 
-    const N = frame.parcelCount;
+    const N = parcels.length; // the JOINED denominator; equals the population unless sampled (declared)
     const pc = (x) => +((100 * x) / N).toFixed(2);
     const cnt = (f) => rows.filter(f).length;
     const env = cnt((r) => r.final === 'envelope');
@@ -210,6 +318,8 @@ async function runCity(ine, name, role) {
     };
     return {
         ine, name, role, N,
+        codeSpace: 'INE (AMB layer-16 CODI_INE) — NOT the Catastro DGC code',
+        guards: { g1, g2 }, sampling, paging,
         instrument: { pgmGoverned, instrumentRoots, equiPgmPublished: zoneFeats.some((f) => has(f.a.EQUI_PGM)) },
         counts: { zonePolygons: zoneFeats.length, distinctClaus: new Set(zoneFeats.map((f) => f.a.CLAU_URB)).size, qualMuniRows: qmRows.length, qualMuniWithArm: qmRows.filter((r) => has(r.ARM)).length, ovPolygons: ovFeats.length },
         tally, pct: Object.fromEntries(Object.entries(tally).filter(([k]) => !k.endsWith('Pct')).map(([k, v]) => [k, pc(v)])),
@@ -233,8 +343,11 @@ for (const [ine, name, role] of CITIES) {
     r.wallClockTotalMs = Date.now() - t0;
     results.push(r);
     console.log(`\n══ ${ine} ${name} ══  [${role}]`);
-    if (r.failed) { console.log(`  ⛔ BLOCKED AT ${r.failed}: ${r.reason}`); continue; }
-    console.log(`  N = ${r.N.toLocaleString()} cadastral parcels · PGM-governed=${r.instrument.pgmGoverned} · instrument roots ${r.instrument.instrumentRoots.join('|')}`);
+    if (r.failed) { console.log(`  ⛔ BLOCKED AT ${r.failed}: ${r.reason}`); if (r.guards) console.log(`     guards: ${JSON.stringify(r.guards)}`); continue; }
+    console.log(`  G1 ATOM name-match: ${r.guards.g1.exercised ? `EXERCISED — DGC ${r.guards.g1.dgcCodeUsed} by "${r.guards.g1.matchedBy}"${r.guards.g1.collisionWarning ? ' ⚠ ' + r.guards.g1.collisionWarning : ''}` : 'NOT RE-EXERCISED (cached frame) — see note'}`);
+    console.log(`  G2 extent overlap: ${r.guards.g2.nested ? 'PASS' : 'FAIL'} fraction=${r.guards.g2.overlapFraction} (threshold ${r.guards.g2.threshold})`);
+    console.log(`  N = ${r.N.toLocaleString()} parcels joined${r.sampling.sampled ? ` (SEEDED SAMPLE of ${r.sampling.population.toLocaleString()}, seed ${r.sampling.seed})` : ' (full population)'} · PGM-governed=${r.instrument.pgmGoverned} · instrument roots ${r.instrument.instrumentRoots.join('|')}`);
+    console.log(`  paging: layer16 ${r.paging.layer16Pages} page(s) [${r.paging.layer16TerminatedBy}] · layer17 ${r.paging.layer17Pages} page(s) [${r.paging.layer17TerminatedBy}]`);
     console.log(`  zoning polys ${r.counts.zonePolygons} · distinct claus ${r.counts.distinctClaus} · QUAL_MUNI rows ${r.counts.qualMuniRows} (ARM populated ${r.counts.qualMuniWithArm}) · OV polys ${r.counts.ovPolygons}`);
     console.log(`  ENVELOPE ${r.tally.envelopePct} %  =  OV ${r.pct.envelope_OV} % + QUAL_MUNI ${r.pct.envelope_QUAL_MUNI} % + PGM-pack ${r.pct.envelope_PGM_PACK} %`);
     console.log(`  refuse: delegated ${r.pct.refuse_delegated} % · terminal ${r.pct.refuse_terminal} % · missing-data ${r.pct.refuse_missingData} % · no-determination ${r.pct.noDetermination} %`);
