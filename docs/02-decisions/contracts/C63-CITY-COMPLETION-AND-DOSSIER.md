@@ -185,6 +185,32 @@ the input has not been probed. **No axis number is ever authored by hand** (§1.
 - **Score.** `tagged_count / total_count`. `derived-levels` may contribute a partial (0.5) sub-credit
   **only if** explicitly declared in the SPEC weighting; v1 counts `tagged` only.
 - **Unknown default.** `not-assessed` / `not-queried`.
+- ⭐ **AXIS-6 SUPPLY IS NOW LIVE AND VERIFIED — 2026-08-02, bake run `30736279532`.** The national
+  buildings bake **completed, passed the measured-height gate, published to R2, and verified as publicly
+  readable AND range-servable** — all 14 steps green. **Spain, Denmark and Köln all cleared the gate.**
+  ⚠ **Per C64 §2.13 the measured shares are NOT transcribed here**: read them from the run's
+  `── measured-height gate ──` block, or re-derive per city with `tools/context-height-probe/probe.mjs`
+  against the shipped R2 tiles. **Always quote the `--half-deg`** — the same city reads materially
+  different fractions at different rings, and a heights figure without its bbox is not a number.
+- ⚠ **THIS CHANGES THE SUPPLY, NOT YET ANY CITY'S SCORE.** Every city's `heightsLod` block in
+  `tools/city-completion/measurements/*.measurements.json` is an explicitly-labelled **PRE-BAKE
+  BASELINE** and is now **stale in the favourable direction**. **A city's Axis 6 remains `not-assessed`
+  until it is re-probed against the published bytes** — do not edit the counts to predict the outcome
+  (§SIZE-IS-NOT-PROVENANCE: a green bake is precisely what the previous attempt produced while shipping
+  nothing).
+- ⚠ **AXIS 6 GATES NO ENVELOPE AND NO DETERMINATION.** It is context-massing fidelity. It must never
+  appear on an envelope critical path, and a rise here is **infrastructure progress, not product
+  progress** (C64 §1.1).
+- **WHY IT HAD NEVER PASSED BEFORE — three defects, all closed in `e8254bfa`, recorded because each was
+  a *silent* failure and the class recurs (ADR-0292):**
+  ① `httpGetBuffer` was **documented** *"never throws at the caller boundary"* and had `try/finally`
+  with **no `catch`** — all four national sweeps are written against that contract, so a single network
+  throw bypassed per-tile handling and **ended an entire country** mid-sweep.
+  ② the verification step pinned an npm version **that has never existed**, so the gate **had never once
+  executed in its life** and publish was skipped after a full tiling pass.
+  ③ **seven of nine** Spanish stamp bboxes were smaller than the region actually baked, making those
+  strips **permanently unstampable** — now pinned by
+  `tools/context-bake/__tests__/mdsBboxCoversTerrainRegion.spec.ts`.
 
 ### Axis 7 — CONTEXT (feature-layer checklist)
 - **Definition.** The fraction of the context-layer checklist **present + non-empty** for the city bbox:
