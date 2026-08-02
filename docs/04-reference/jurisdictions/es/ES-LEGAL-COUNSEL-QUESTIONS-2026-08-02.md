@@ -38,6 +38,34 @@ governing article**. Our certification is currently **scoped to one municipality
 > **carry any normative status**, or is it **dissemination of a document that remains authoritative only in
 > its written form**?
 
+### 4 · ⛔ Does «sin validez jurídica» disqualify regional vector data for a legally defensible envelope?
+
+> Several regional planning viewers publish **vectorised urbanistic determinations** — Castilla y León's
+> SIUCyL georeferences the plan PDFs, vectorises the *recintos* that define each determination, and
+> attaches the alphanumeric data — while the accompanying metadata states **«sin validez jurídica,
+> carácter informativo»**: no legal validity, informative character only. The same disclaimer appears
+> across regional urbanistic viewers generally.
+>
+> **Does that disclaimer disqualify the data as a basis for a professional determination — or does it mean
+> the vector is a routing hint to an instrument that remains authoritative only in its written form?**
+>
+> If the latter: **is a determination computed from the vector, but cited to the written instrument,
+> relied-upon-able?**
+
+---
+
+## Why Q4 was added (2026-08-02, second research pass)
+
+⚠ **This question can reclassify several regions in either direction at once**, which is why it belongs to
+counsel rather than to a probe. Castilla y León is the sharpest case: **the region is already doing the
+vectorisation work we would otherwise face** — PDF plans converted to polygons with determinations
+attached — **and disclaims legal force over the result.** Under our own doctrine that is the L-616 problem
+at regional scale: data that exists, is structured, and may not be publishable.
+
+**The answer decides whether Castilla y León is Level 3 or Level 0 for our purposes** — and, because the
+disclaimer is near-universal across regional viewers, it likely decides the same for most of the regional
+layer. See [ES-REGIONAL-PLANNING-DATA-STANDARDS §6.3](./ES-REGIONAL-PLANNING-DATA-STANDARDS.md).
+
 ---
 
 ## Internal context — what we already measured, and what it constrains

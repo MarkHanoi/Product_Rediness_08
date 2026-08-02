@@ -149,3 +149,91 @@ did not produce*) — these are the limits the founder stated, carried verbatim:
    service"*) was false, which is institutional learning and must be recorded as such.
 4. A single-source survey of seventeen CCAAs is not this document. **This is four data points and a
    pattern.**
+
+---
+
+# 6 · SECOND FOUNDER PASS, 2026-08-02 — FOUR MORE FILINGS CONTRADICTED, AND A META-FINDING
+
+⚠ Same evidentiary status as §0.1: **documents read, services not reached.** Nothing below has been
+verified by query. **Untested is not refuted, and this pass makes more filings untested — it does not
+open them.**
+
+## 6.1 · ⭐⭐ THE META-FINDING — a national minimum data model already exists
+
+The **SIU Working Group**, created in **2008** with representatives from **every autonomous community**,
+**agreed common minimum thematic contents for the SIU data model**. Collaboration agreements are signed
+with **Aragón, Asturias, Cantabria, Castilla y León, Castilla-La Mancha, Extremadura, Galicia, Madrid,
+Murcia and País Vasco** — **ten regions, one agreed minimum model, already operating.**
+
+> **If that model reaches ordinance level, it is a NATIONAL adapter rather than seventeen. If it stops at
+> classification — likely, given what SIU serves — it explains precisely why so many regions look
+> identical and thin.**
+
+⭐ **This is the single highest-value document left to read**, and it outranks the entire endpoint
+inventory.
+
+## 6.2 · Galicia — a mandatory standard in force since 2019 (filed "classification only" — wrong)
+
+- **Normas Técnicas de Planeamiento Urbanístico** — Orden **10 Oct 2019**, amended **April 2022**.
+- **Technical annex 4 updated by Resolution of 18 December 2025** to regulate the `11.ORDET` folder in the
+  PXOM structure and add subfolders holding ⭐ **the PRECEPTIVE VECTOR FILES defined in technical annex 3.**
+- Purpose, explicit: municipalities send planning documents **homogeneously and comparably**, compatible
+  with **SIOTUGA**, single format/symbols/abbreviations for all municipalities, with the norms **defining
+  the concepts used in the urban norms and building ordinances**.
+
+⇒ **A fourth region with a delivery standard, and the most mature after Catalunya** — six years in force,
+updated eight months ago. `ORDET` is almost certainly *ordenación detallada*, **which is where ordinance
+parameters live**. ⭐ **Annex 3 is the document to read.**
+
+## 6.3 · ⚠⚠ Castilla y León — the region is doing the vectorisation, AND DISCLAIMS LEGAL FORCE
+
+**SIUCyL's stated method:** collect and extract information distributed across the normative documents of
+the general plan, **georeference the PDFs, vectorise the *recintos* that define each urbanistic
+determination, and associate the corresponding alphanumeric data** — producing **vector recintos with the
+urbanistic determinations attached.** WMS at `idecyl.jcyl.es/geoserver/lu/wms` and `/urbanismo/wms`, with
+vector download alongside.
+
+> **The Junta is turning PDF plans into vector polygons with determinations attached. That is exactly the
+> work we would otherwise face.**
+
+⛔ **AND HERE IS THE CATCH THAT MATTERS MORE THAN THE FINDING.** IDECyL's metadata states plainly:
+**«sin validez jurídica, carácter informativo»** — **no legal validity, informative character only.**
+
+> **That is the L-616 problem at REGIONAL SCALE. Data that exists, is vectorised, carries determinations —
+> and disclaims legal force.** For a *legally defensible* envelope that may be **disqualifying**, or it may
+> mean the vector is a **routing hint** while the PDF remains authoritative. ⭐ **That question decides
+> whether CyL is Level 3 or Level 0 for our purposes, and it is a LEGAL question, not a technical one.**
+
+⚠ **The same disclaimer appears across regional viewers generally** — data offered in the various regional
+urbanistic viewers is *merely informative, with no legally binding effects derivable from it.* **So this is
+not a Castilla y León question. It is a question about most of the regional layer.**
+
+## 6.4 · Castilla-La Mancha — a submission instruction exists
+
+Publishes a **shapefile layer** from the cartographic viewer, plus *«Instrucciones para generar el archivo
+de planeamiento urbanístico en formato shapefile (shp)»* — **an instruction to municipalities on how to
+generate their planning file. A delivery standard in substance if not in name.** Viewer:
+`castillalamancha.maps.arcgis.com`.
+
+## 6.5 · Cantabria · Asturias · La Rioja — systems exist, all unprobed
+
+- **Cantabria** — SIUCan + AUCan (planning archive). **42 services** in the national IDE registry.
+- **Asturias** — *Visor del registro de planeamiento y gestión urbanística*. **52 services.**
+- **La Rioja** — **15 regional + 173 local** services.
+
+**None probed. None can be called absent.**
+
+## 6.6 · Where this leaves the map
+
+> **Not one of the six regions is confirmed absent. Four are contradicted.** **SEVEN regions now have a
+> delivery standard or submission instruction** — Catalunya, Aragón, Andalucía, Galicia, Castilla-La Mancha,
+> plus whatever the SIU *convenios* impose on ten.
+
+**Two questions now outrank everything in the endpoint inventory:**
+1. ⭐ **Does the SIU common data model include ordinance parameters, or stop at classification?**
+2. ⛔ **Does «sin validez jurídica» disqualify regional vector data for a legally defensible envelope, or is
+   it a routing hint pointing at an authoritative PDF?**
+
+⚠ **Question 2 is for COUNSEL, not for an agent** — see
+[ES-LEGAL-COUNSEL-QUESTIONS-2026-08-02.md](./ES-LEGAL-COUNSEL-QUESTIONS-2026-08-02.md) **Q4**. *"It could
+reclassify several regions in either direction at once."*
