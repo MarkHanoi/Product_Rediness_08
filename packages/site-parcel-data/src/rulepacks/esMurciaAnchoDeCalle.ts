@@ -55,7 +55,12 @@
 // Contracts: C58 §1.1/§1.4/§1.9/§1.12 · C63 · ADR-0270 · ADR-0271 · ADR-0275 · L-526 · L-586.
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
+import {
+    JurisdictionZoningContractSchema,
+    type JurisdictionZoningContract,
+} from '@pryzm/schemas';
 import { effectiveBandEdgeGuard_m } from './bcnAlcadaReguladora.js';
+import { MURCIA_JURISDICTION_ID } from './esMurciaEnvelope.js';
 
 const tracer = trace.getTracer('pryzm.zoning');
 
@@ -215,6 +220,20 @@ export const MURCIA_ANCHO_TABLES: ReadonlyMap<
     ['RN', { article: 'Art. 5.7.3', bands: MURCIA_RN_ANCHO_TABLE }],
     ['RD1', { article: 'Art. 5.9.3', bands: MURCIA_RD1_ANCHO_TABLE }],
 ] as const);
+
+/**
+ * The calificaciones the L5 dispatch routes through the constructed-width path.
+ *
+ * ⚠⚠ `RD1` IS DELIBERATELY ABSENT, AND IT IS NOT AN OVERSIGHT. SIG-MU2 covers "RD1 third-storey
+ * eligibility", and `MURCIA_RD1_ANCHO_TABLE` implements it. But `RD1` is ALREADY PACKED in
+ * `esMurciaPgou2012.ts` and already renders 2 plantas / 7 m today, so its disposition is
+ * `kind: 'envelope'` and it never reaches the refusal branch this list gates. Adding it here would
+ * mean INTERCEPTING a zone that currently publishes correctly in order to raise it — a change to
+ * working output, which needs its own pass and its own regression evidence rather than riding along
+ * with the three zones that publish nothing today. Until then `RD1` keeps its unconditional,
+ * conservative 2/7 and the allowance is simply not granted. Under-granting is the safe direction.
+ */
+export const MURCIA_ANCHO_ZONE_CODES: readonly MurciaAnchoZone[] = Object.freeze(['RC', 'RM', 'RN']);
 
 /** What resolving a width against a Murcia table yields. */
 export type MurciaAnchoResolution =
@@ -389,4 +408,77 @@ export function resolveMurciaAnchoDeCalle(
     } finally {
         span.end();
     }
+}
+
+/**
+ * §MURCIA-ANCHO-RESOLVED-PACK — turn ONE resolved band into a one-zone rule pack.
+ *
+ * ⚠ WHY A PER-PARCEL PACK RATHER THAN A STATIC ONE, AND WHY THAT IS NOT A HACK. `RC` / `RM` / `RN`
+ * have no single height: the ordinance keys it on the street the parcel fronts, so the zone's
+ * numbers are only knowable once a width has been measured for THIS parcel. That is exactly the
+ * shape `saRiyadhResolvedPack` already established for MOMRAH's width-dependent setbacks, and it
+ * keeps the resolved values inside a SCHEMA-VALIDATED contract rather than a hand-built object
+ * handed to the engine. `computeBuildableEnvelope` is unchanged and knows nothing about Murcia.
+ *
+ * The geometry is the one every alignment zone in these articles shares, and it is STATED, not
+ * derived: *«La edificación coincidirá con la alineación y no se permitirán retranqueos, ni
+ * frontales, ni laterales»* and *«El fondo máximo edificable será de 15 metros»* (Arts. 5.3.3 /
+ * 5.5.3 / 5.7.3). So ONLY the height comes from the measured width.
+ *
+ * ⚠ A recessed top storey is NOT modelled as a full floor's worth of area. Where the band grants
+ * one, the pack reports the band's cornice height and the recess travels in `ordinanceRef`, because
+ * extruding `floors × footprint` would overstate the GFA.
+ *
+ * @param widthProvenanceNote  the constructed-width authority string from the street-width
+ *   provider. SIG-MU2 condition 2: it must REACH THE USER, so it is folded into `ordinanceRef`
+ *   rather than left in a log line.
+ */
+export function murciaAnchoResolvedPack(
+    zone: MurciaAnchoZone,
+    resolved: Extract<MurciaAnchoResolution, { ok: true }>,
+    widthProvenanceNote: string,
+): JurisdictionZoningContract {
+    const setbackCaveat = resolved.topStoreySetback_m !== null
+        ? ` ⚠ The top storey must be set back ${resolved.topStoreySetback_m} m from the alineación — ` +
+          'it is NOT a full floor, so gross floor area must not be computed as storeys × footprint.'
+        : '';
+    const ambiguityNote = resolved.ambiguityRef !== null
+        ? ` ⚠ The width sits where two bands of the article overlap; ${resolved.ambiguityRef}`
+        : '';
+    return JurisdictionZoningContractSchema.parse({
+        jurisdictionId: MURCIA_JURISDICTION_ID,
+        displayName: `Murcia — PGOU ${resolved.article} (ancho de calle, resolved per parcel)`,
+        source: 'manual',
+        crs: 'EPSG:25830',
+        lastReviewed: '2026-08-02',
+        // SIG-MU2 signed publication AT THIS TIER and no higher; `authoritative` stays unreachable.
+        defaultConfidence: 'estimated-ruleset',
+        zones: [{
+            code: zone,
+            label: `${zone} — PGOU ${resolved.article} (altura por ancho de calle)`,
+            permittedUse: ['residential', 'mixed'],
+            maxHeight_m: resolved.height_m,
+            maxFloors: resolved.floors,
+            // NOT-THE-RULE-KIND: alignment zones — the envelope IS alineación + fondo.
+            plotRatioFAR: null,
+            maxCoverage: null,
+            setbacks: { front_m: 0, side_m: 0, rear_m: null },
+            geometricRule: {
+                kind: 'alignment', alignTo: 'street', alignmentOffset_m: 0,
+                sideTreatment: 'party-wall', buildableDepth_m: 15,
+            },
+            fieldProvenance: {
+                maxHeight: MURCIA_ANCHO_FIELD_PROVENANCE,
+                maxFloors: MURCIA_ANCHO_FIELD_PROVENANCE,
+                permittedUse: MURCIA_ANCHO_FIELD_PROVENANCE,
+                'geometricRule.buildableDepth': MURCIA_ANCHO_FIELD_PROVENANCE,
+            },
+            ordinanceRef:
+                'PGOU de Murcia — Normas Urbanísticas, Texto Refundido diciembre 2012, Volumen 11, ' +
+                `${resolved.article}: «${resolved.band.quote}» · «El fondo máximo edificable será de ` +
+                '15 metros.» · «La edificación coincidirá con la alineación y no se permitirán ' +
+                `retranqueos, ni frontales, ni laterales.»${setbackCaveat}${ambiguityNote} ` +
+                `⚠ STREET WIDTH: ${widthProvenanceNote}`,
+        }],
+    });
 }

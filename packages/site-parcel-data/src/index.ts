@@ -879,16 +879,26 @@ export {
     type MurciaCalificacionClassification,
     type MurciaPgouResolution,
 } from './rulepacks/esMurciaPgou2012.js';
-// §MURCIA-ANCHO-DE-CALLE (L-676) — the street-width height tables, i.e. Murcia's "(b) height table
-// keyed on street width" in `geometry/streetWidth.ts`'s own regional-scope contract. Exported so the
-// unlock is REACHABLE and signable in one act rather than a code change.
-// ⚠⚠ REACHABLE IS NOT WIRED, AND NOT AUTHORISED. Nothing consumes this yet: the missing half is a
-// BBOX fetch of neighbouring `Murcia:pgou_alineaciones` polygons to feed `measureStreetWidths`
-// (today's proxy resolves a POINT). And SIG-MU1 does not authorise publishing for `RC` / base `RM` /
-// `RN` / `RD1`'s third storey — that needs SIG-MU2. Recorded here so this is not mistaken for live
-// coverage (§AUTHORED-BUT-UNWIRED: audit reachability, and then audit consumption).
+// §MURCIA-ANCHO-DE-CALLE — the street-width height path, i.e. Murcia's "(b) height table keyed on
+// street width" in `geometry/streetWidth.ts`'s own regional-scope contract, plus the provider that
+// CONSTRUCTS the width from the municipality's published alineaciones and the per-parcel pack the
+// engine consumes.
+// ✅ SIGNED AND WIRED: SIG-MU2 (founder, 2026-08-02) authorises publication for RC / RM / RN at
+// `estimated-ruleset`, and `applyMurciaZoningThenFallback` consumes it. The four binding conditions
+// are pinned by `__tests__/murciaStreetWidth.test.ts`, one describe block each.
+// ⚠ MEASURED, NOT ASSUMED: 51.3 % of RC/RM/RN land resolves; the rest refuses (44.6 % on band-edge).
+// See `tools/murcia-street-width-probe/`. Do not quote the 8.81 pp gross as delivered coverage.
+export {
+    resolveMurciaStreetWidth,
+    MURCIA_STREET_WIDTH_AUTHORITY,
+    type MurciaStreetWidthResolution,
+    type MurciaStreetWidthRefusal,
+    type MurciaStreetWidthDeps,
+} from './providers/resolveMurciaStreetWidth.js';
 export {
     resolveMurciaAnchoDeCalle,
+    murciaAnchoResolvedPack,
+    MURCIA_ANCHO_ZONE_CODES,
     MURCIA_ANCHO_TABLES,
     MURCIA_ANCHO_FIELD_PROVENANCE,
     MURCIA_RC_ANCHO_TABLE,

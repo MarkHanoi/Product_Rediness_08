@@ -347,10 +347,77 @@ Three findings the transcription produced, none of which a paraphrased table wou
    3 m; `RD1`'s third, set back 3 m). Reported as `topStoreySetback_m` so a consumer cannot extrude
    `floors × footprint` and overstate the GFA.
 
-**What is still missing, precisely:** a **bbox** fetch of neighbouring `Murcia:pgou_alineaciones`
-polygons (today's `/api/es/murcia-pgou` resolves a **point**), plus ADR-0275's snap-gate probe re-run
-for Murcia's own quantum set, plus **SIG-MU2**. See [`sources/VERIFICATION.md`](./sources/VERIFICATION.md) §SIG-MU2
-for the arithmetic — and for why **32.32 % is an upper bound, not a forecast**.
+#### 3.3.3 — ⭐⭐ SHIPPED 2026-08-02: SIG-MU2 SIGNED, WIRED, AND **MEASURED**
+
+All three blockers named in §3.3.2 are discharged.
+
+**1 · The bbox fetch LANDED.** `/api/es/murcia-pgou?extent=neighbourhood` returns the surrounding
+`Murcia:pgou_alineaciones` polygons (half-extent 0.002° ≈ 222 m, the same figure Barcelona's
+`BLOCK_BBOX_HALF_DEG` uses for the identical job). `resolveMurciaStreetWidth` projects them to a
+local metric frame and feeds the **unmodified, region-agnostic** `measureStreetWidths` /
+`blockEdgesFacingParcel` / `governingStreetWidth`. **No dissolve is involved** — Murcia publishes
+block-level alineación polygons directly, which is exactly why this works here and not in Madrid
+(2/4 blocks) or Córdoba (0/3).
+
+**2 · 🔴 THE SNAP GATE RAN, AND IT REFUSES. Murcia gets NO snap.**
+`tools/murcia-street-width-probe/snapGate.mts` — **18 854 measurements across 3 693 blocks in 20
+tiles**, ADR-0275 §3's exact test (hits within ±0.6 m of a quantum ÷ the count expected from the
+local ±5 m density; **×1.0 = no clustering**):
+
+| quantum | 4 | 5 | 6 | 8 | 10 | 12 | 15 | 16 | 20 | 25 | 30 | 40 | 48 | 50 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Murcia** | ×0.33 | ×0.58 | ×0.43 | ×0.45 | ×0.36 | ×0.34 | ×0.36 | ×0.28 | ×0.29 | ×0.23 | ×0.46 | ×0.38 | ×0.20 | ×0.41 |
+| *Barcelona (ADR-0275)* | — | — | ×4.10 | ×2.31 | ×0.63 | — | ×0.24 | — | **×7.55** | ×0.00 | **×7.51** | — | **×6.23** | ×0.90 |
+
+**Not one candidate reaches ×1.0. The highest is ×0.58.** Where Barcelona shows ×7.55 spikes at
+real Cerdà quanta, Murcia's widths *avoid* round values — the signature of an organically grown
+historic street network rather than a designed grid. ADR-0275's rule is explicit: *"No cluster ⇒ do
+not ship it, fall back to the raw measured width and say so."* **So we ship the raw measured width,
+and this is where we say so.** Nothing snaps; the band-edge guard is the only tolerance in the path.
+
+⚠ Consequence, stated plainly: **the 44.6 % band-edge refusal rate below cannot be recovered by
+snapping.** That was the one available upside and the data has removed it.
+
+**3 · ✅ SIG-MU2 SIGNED (founder, 2026-08-02)** — text, rationale, scope and the four binding
+conditions are recorded verbatim in [`sources/VERIFICATION.md`](./sources/VERIFICATION.md), each
+condition pinned by a named `describe` block in
+`packages/site-parcel-data/__tests__/murciaStreetWidth.test.ts`.
+
+##### THE MEASURED RESULT — this is the number to quote
+
+Founder, same day: *"Publish measured coverage only. Never publish theoretical maximums. Upper
+bounds remain internal planning numbers."*
+
+`tools/murcia-street-width-probe/probe.mts`, area-weighted sample of the live layer (n = 150 rings,
+0.590 km² of the 7.845 km² in-force RC/RM/RN population, seed 20260802), run end-to-end through the
+**production** resolvers:
+
+| outcome | share of sampled RC/RM/RN land |
+|---|---:|
+| **RESOLVES — an envelope publishes** | **51.3 %** |
+| refused `band-edge` — condition 4 / **ADR-0287** working | 44.6 % |
+| refused `no-opposing-frontage` | 3.4 % |
+| refused `needs-eje-comercial` | 0.7 % |
+
+⇒ **8.81 pp × 0.513 = 4.52 pp of new buildable-land coverage**, taking Murcia from **23.51 % →
+28.03 %** and the ENVELOPE axis from **9.40 % → 11.21 %**.
+*(Assumption stated rather than buried: the resolve rate is measured over ALL in-force RC/RM/RN
+geometry, and applied to the PGOU-direct subset the dispatch actually reaches. The rate is a
+property of street geometry, not of delegation status, so this is reasonable — but it is an
+inference, and re-measuring on the direct subset alone would tighten it.)*
+
+⭐ **Why 44.6 % refuses is a fact about MURCIA, not about the code.** Art. 5.3.3's decisive
+threshold is **8 m**, and the median *governing* street section on RC/RM/RN land measures
+**8.78 m** — the ordinance's band edge sits in the middle of the city's own street-width
+distribution, the worst possible place for it. A city whose streets cluster away from its
+thresholds would lose far less to the same guard.
+
+⚠ **AND THIS IS THE LAST LARGE MOVE MURCIA HAS UNDER THE CURRENT SIGNATURE BASIS.** SIG-MU1 records
+`authoritative` as UNREACHABLE for this ruleset, so every Murcia envelope publishes at
+`estimated-ruleset` (weight **0.4**) and **ADR-0285** confirms a signature on methodology does not
+promote the tier. Even at the full 33.00 % of buildable land the PGOU orders directly, the axis
+caps at **13.2 %**. 11.21 % is 85 % of that ceiling. Raising it further needs a different
+*signature basis*, not more engineering.
 
 ---
 

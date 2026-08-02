@@ -149,22 +149,32 @@ that can select a **0.5 m sliver**, and a 15 m band measured off a sliver retain
 polygon — which would produce a near-whole-plot footprint under a binding cap. It is **cross-city**
 shared code, so it needs an owner and an ADR, not a unilateral edit from a city agent.
 
-**The street-width unlock is now HALF BUILT (2026-08-02).** `esMurciaAnchoDeCalle.ts` holds the four
-ordinance tables (9 bands, verbatim, 20 tests) — Murcia's *"(b) height table keyed on street width"*
-in `geometry/streetWidth.ts`'s own regional contract. **Three things stand between it and 8.81 pp:**
+**✅ THE STREET-WIDTH UNLOCK SHIPPED 2026-08-02.** All three blockers named here are discharged:
+the **bbox fetch landed** (`?extent=neighbourhood`), the **snap gate ran and REFUSED** (no clustering
+at any quantum — max ×0.58 against Barcelona's ×7.55), and **SIG-MU2 is SIGNED**. Murcia now
+publishes on **28.03 %** of its buildable land, axis **11.21 %**. Detail: `ENVELOPE.md` §3.3.3.
 
-1. **A BBOX fetch** of neighbouring `Murcia:pgou_alineaciones` polygons. `/api/es/murcia-pgou`
-   resolves a **point**; `measureStreetWidths` needs the rings **across the street**. This is the
-   only genuinely new I/O in the whole unlock, and Murcia is unusually well placed for it — the
-   municipality publishes the **alineación polygons directly**, so this path does **not** depend on
-   `dissolveParcelsToBlockRing`, the Spain-wide failure that blocks Madrid (2/4) and Córdoba (0/3).
-2. **ADR-0275's snap gate, re-run for Murcia.** The quantum set is city-specific; Murcia is not in
-   the five-city probe. *Cluster ⇒ snap; no cluster ⇒ raw measured width, and say so.*
-3. **SIG-MU2** — drafted and unsigned in [`sources/VERIFICATION.md`](./sources/VERIFICATION.md).
+## 4.1 — REMAINING BLOCKERS (BLOCKER-CLASSIFICATION-STANDARD: one class, one owner, one exit)
 
-⚠ And the ceiling is **32.32 % of buildable land as an UPPER BOUND**, not a forecast: the resolver
-refuses on `band-edge`, and `measureStreetWidths` refuses on `inconsistent` / `no-opposing-frontage`.
-The realised share is UNMEASURED until the fetch exists. Re-run the crosstab before quoting it.
+| # | Blocker | Class | Owner | Exit criterion |
+|---|---|---|---|---|
+| 1 | `classifyEdges` picks the `front` edge by ORIENTATION, not street adjacency — on an irregular plot it can select a 0.5 m sliver, and a 15 m band off a sliver retains most of the polygon | **Engineering** | UNASSIGNED (cross-city — needs an ADR, not a city-agent edit) | a parcel's alineación edge is chosen by adjacency to the street, pinned by a test on an 8-edge irregular ring |
+| 2 | `RD1`'s third-storey allowance is signed and built but NOT dispatch-wired — wiring it means intercepting a zone that already publishes 2/7 | **Engineering** | UNASSIGNED | `RD1` routed through the ancho path with regression evidence that the sub-8 m case still renders exactly 2 plantas / 7 m |
+| 3 | Base `RM` above 12 m refuses `needs-eje-comercial` (0.7 pp) — the graphed *Eje Comercial* classification is published as `Murcia:pgou_eje_comercial` but not consumed | **Engineering** | UNASSIGNED | the eje layer is queried at the parcel and passed as `ejeComercial`, and the refusal rate for that reason falls to ~0 |
+| 4 | BORM approval instrument `not-located-in-source` — we hold the normative text, not the gazette act | **Data acquisition** | UNASSIGNED | the BORM edition publishing the PGOU revision's *aprobación definitiva* is filed in `corpus/pdf/` |
+| 5 | PECHA override on `MC` (Arts. 5.2.1 / 5.2.3) — the Plan Especial prevails where it regulates height specifically, and PRYZM does not hold it | **Data acquisition** | UNASSIGNED | the PECHA scope is held, and `MC` inside a PECHA ámbito either applies it or refuses |
+| 6 | HEIGHTS 3 % — 96.1 % of context buildings render a fabricated 9 m default | **Engineering** | the national bake (IN FLIGHT — do not touch `tools/context-bake/`) | `probe.mjs` reports a non-zero `measured-lidar` count for the Murcia bbox |
+
+⚠ **Blockers 1–3 and 6 are Engineering; 4–5 are Data acquisition. NONE is Legal or External
+authority** — the founder's reading that Murcia has "no remaining legal or doctrinal blockers" is
+confirmed against the register, not merely repeated.
+
+⚠ **AND THE AXIS IS NEAR ITS CEILING.** SIG-MU1 records `authoritative` as UNREACHABLE for this
+ruleset, so Murcia publishes at `estimated-ruleset` (weight 0.4) and **ADR-0285** confirms a
+methodology signature does not promote the tier. Even at the full 33.00 % the PGOU orders directly
+the axis caps at **13.2 %**; today's 11.21 % is **85 % of that**. Blockers 2 and 3 together are worth
+well under 1 pp of axis. **Further ENVELOPE gains need a different signature basis, not more
+engineering** — that is the honest state of this city.
 
 ## 5 — THE REGISTRY SNIPPET (apply by hand; deliberately NOT applied by this work)
 

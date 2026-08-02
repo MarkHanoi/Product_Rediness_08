@@ -1,10 +1,114 @@
 # VERIFICATION — Murcia (es-mc, 30030) — the human sign-off ledger
 
-## ⛔ SIG-MU2 · **UNSIGNED — AWAITING THE FOUNDER** · the ANCHO-DE-CALLE tables (`RC` · base `RM` · `RN` · `RD1`+1)
+## ✍ SIG-MU2 · **SIGNED 2026-08-02** · the ANCHO-DE-CALLE constructed street width (`RC` · base `RM` · `RN` · `RD1`+1)
 
 | | |
 |---|---|
-| **Verifier** | — (**awaiting the founder**) |
+| **Verifier** | **Founder (repo owner)** |
+| **Date** | **2026-08-02** |
+
+**THE DECISION, VERBATIM:**
+
+> **Decision: Approve.** PRYZM may publish a computed envelope for RC, RM, RN and RD1 third-storey
+> eligibility using a constructed street width, provided the output is classified as
+> `estimated-ruleset` and cites Arts. 5.3.3, 5.5.3, 5.7.3 and 5.9.3.
+
+**THE RATIONALE, VERBATIM — this is the reusable part, and it became ADR-0285:**
+
+> *"The ordinance makes street width the legal criterion. It does not prescribe a measurement
+> methodology. Computing that width from authoritative geometry is an implementation of the
+> ordinance, not a modification of it. The legal rule remains unchanged; only the measurement is
+> derived."*
+
+**THE SCOPE, VERBATIM:**
+
+> *"This signature approves the methodology, not every individual parcel outcome. Individual results
+> remain contingent on the quality of the underlying geometry and the resolver's conservative
+> refusal policy."*
+
+### THE FOUR BINDING CONDITIONS — each pinned by a named test
+
+These are acceptance criteria, not advice. **If a block below goes red the signature's premise no
+longer holds and the envelope must stop publishing.** Tests live in
+`packages/site-parcel-data/__tests__/murciaStreetWidth.test.ts`, one `describe` per condition.
+
+| # | Condition (founder's wording) | How it is met | Pinned by |
+|---|---|---|---|
+| **1** | *computed reproducibly from authoritative geometry* | pure arithmetic on `Murcia:pgou_alineaciones`; the fetch is injected so a captured fixture reproduces a live answer | `describe('SIG-MU2 CONDITION 1 …')` — 4 tests, incl. 8 identical runs and a feature-order-independence check |
+| **2** | *explicitly labelled constructed, not an official municipal measurement* | `provenance: 'measured-geometry'` + `MURCIA_STREET_WIDTH_AUTHORITY` carried as **data**, folded into the pack's `ordinanceRef` so it reaches the card (**ADR-0286**) | `describe('SIG-MU2 CONDITION 2 …')` — 3 tests |
+| **3** | *the applicable article(s) accompany every result* | every band carries its article + verbatim quote; **refusals name their article too** | `describe('SIG-MU2 CONDITION 3 …')` — 2 tests |
+| **4** | *refuse where measurement uncertainty could change the applicable band* | `effectiveBandEdgeGuard_m` (**ADR-0287**), widened by the measurement's own `spread_m`, never narrowed | `describe('SIG-MU2 CONDITION 4 …')` — 8 tests, incl. **both** ordinance quirks below |
+
+⚠ **Condition 4 is tested across the two quirks the transcription found**, because those are exactly
+where a lazy guard would leak: the **4 m boundary flips inclusivity** between Art. 5.3.3
+(*«menores de 4»*) and Art. 5.7.3 (*«menores o iguales a 4»*), and the bands **overlap at 8.00 m**
+with Art. 1.1.4 resolving *down*. A MEASURED 8.00 m must refuse; only an *ancho oficial* — which
+Murcia does not publish — may take the resolve-down path.
+
+### AUTHORISES
+
+Publication for **`RC`, base `RM`, `RN`** at **`estimated-ruleset`**, cited to Arts. 5.3.3 / 5.5.3 /
+5.7.3, where the calificación sits on **non-delegated** soil. Wired in
+`applyMurciaZoningThenFallback` behind `refusal.legallyGrounded === false` — the flag that is
+`true` on every delegation refusal, so the branch is **structurally incapable** of publishing on the
+67 % the PGOU delegates.
+
+### DOES NOT AUTHORISE — equally binding
+
+- **`RD1`.** In scope of the signature, and the table + tests exist — but it is **NOT dispatch-wired**
+  and `MURCIA_ANCHO_ZONE_CODES` excludes it. `RD1` already publishes 2 plantas / 7 m today, so
+  wiring it means *intercepting working output* to raise it; that deserves its own pass and its own
+  regression evidence. Until then the allowance is simply not granted. **Under-granting is the safe
+  direction.**
+- **the 67 % delegated land.** Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.3 are terminal; no signature reaches them.
+- **`MZ` / `MX`.** `MZ`'s footprint is expressly delegated to an Estudio de Detalle (Art. 5.6.3) — a
+  height with no footprint is not an envelope. `MX` needs a *frontage class*, not a width.
+- **`RM1` / `RM2`**, which Art. 5.5.3 EXEMPTS from the table and which are packed at stated values.
+- **any tier above `estimated-ruleset`.** **ADR-0285: a signature on METHODOLOGY does not promote the
+  tier.** `authoritative` stays UNREACHABLE per SIG-MU1.
+- **snapping a measured width to a quantum** — see the snap gate below.
+
+### ⚠ WHAT ACTUALLY SHIPPED — MEASURED, and it is roughly half the gross
+
+**Do not quote the 8.81 pp gross or the 32.32 % upper bound as delivered coverage.** Founder,
+same day: *"Publish measured coverage only. Never publish theoretical maximums."*
+
+Measured by `tools/murcia-street-width-probe/probe.mts` (area-weighted sample, n = 150 rings,
+0.590 km² of the 7.845 km² RC/RM/RN population, seed 20260802, run against the live GeoServer
+through the production resolvers):
+
+| outcome | area share of sampled RC/RM/RN land |
+|---|---:|
+| **RESOLVES — an envelope publishes** | **51.3 %** |
+| refused `band-edge` (condition 4 working) | 44.6 % |
+| refused `no-opposing-frontage` | 3.4 % |
+| refused `needs-eje-comercial` | 0.7 % |
+
+⭐ **The 44.6 % is the headline finding, and it is a property of MURCIA, not of the code.** Art.
+5.3.3's decisive threshold is **8 m**, and the median measured Casco street section is **8.78 m** —
+the ordinance's band edge sits in the *middle* of the city's actual street-width distribution, the
+worst possible place for it. Condition 4 therefore bites hard here and would bite far less in a city
+whose streets cluster away from its thresholds.
+
+### THE SNAP GATE (ADR-0275) — run for Murcia, verdict recorded below
+
+*Cluster ⇒ ship the snap. No cluster ⇒ do not ship it, fall back to the raw measured width and say
+so.* The quantum set is **city-specific** (Barcelona has no 10/15/25 m quantum; its nominal 50 m
+arteries measure 48 m), so Barcelona's set may not be assumed. Result:
+`tools/murcia-street-width-probe/snapGate.mts` — **see `../ENVELOPE.md` §3.3.3.**
+
+### Reversal
+
+Flipping this back withdraws a published determination; route it through the founder exactly as the
+signature came.
+
+---
+
+## ⛔ ~~SIG-MU2 (draft)~~ — superseded by the signed block above
+
+| | |
+|---|---|
+| **Verifier** | — (~~awaiting the founder~~ — **SIGNED, see above**) |
 | **Axis** | ENVELOPE (and, downstream, LEGISLATION) |
 | **Artefact** | `packages/site-parcel-data/src/rulepacks/esMurciaAnchoDeCalle.ts` — 4 tables, 9 bands, each with its article and a verbatim quote |
 | **Source** | the **filed** [`../corpus/pdf/PGOU-MURCIA_TR-2012-12_vol11_normas-urbanisticas.pdf`](../corpus/pdf/PGOU-MURCIA_TR-2012-12_vol11_normas-urbanisticas.pdf) (SHA-256 `ab71c651…`), Arts. **5.3.3 · 5.5.3 · 5.7.3 · 5.9.3** — all four **byte-identical** in both published consolidations ([`../corpus/INDEX.md`](../corpus/INDEX.md) §2) |

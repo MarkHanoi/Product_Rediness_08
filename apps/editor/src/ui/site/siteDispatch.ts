@@ -199,6 +199,14 @@ import {
     ES_MURCIA_PGOU2012_PACK,
     murciaEnvelopeDisposition,
     murciaNoRulePackRefusal,
+    // §MURCIA-ANCHO-DE-CALLE (SIG-MU2) — the street-width height path for RC / RM / RN. The
+    // MEASUREMENT is the region-agnostic `measureStreetWidths` (ADR-0275); these three are Murcia's
+    // own tables, its constructed-width provider, and the per-parcel pack the engine consumes.
+    resolveMurciaStreetWidth,
+    resolveMurciaAnchoDeCalle,
+    murciaAnchoResolvedPack,
+    MURCIA_ANCHO_ZONE_CODES,
+    type MurciaAnchoZone,
     detectDerivedPlanMarkers,
     resolveMurciaZoning,
     type DerivedPlanMarker,
@@ -3688,6 +3696,94 @@ async function applyMurciaZoningThenFallback(
                     resolution.records.calificacion?.calificacion ??
                     resolution.records.sector?.sector ??
                     MURCIA_FALLBACK_ZONE_CODE;
+
+                // ── §MURCIA-ANCHO-DE-CALLE (SIG-MU2, founder 2026-08-02) ────────────────────
+                //
+                // RC / RM / RN are refused by the pack because their height is keyed on the STREET
+                // WIDTH, which no Murcia layer publishes. SIG-MU2 authorises constructing that
+                // width from the municipality's own alineación geometry:
+                //   "Computing that width from authoritative geometry is an implementation of the
+                //    ordinance, not a modification of it."
+                //
+                // ⚠⚠ THE GATE IS `legallyGrounded === false`, AND THAT IS THE WHOLE SAFETY ARGUMENT.
+                // A `derived-plan` refusal (delegated soil — Arts. 5.25.3.3 / 5.26.3.3 / 6.2.2.3)
+                // carries `legallyGrounded: true`, and NO signature can lift it. Only the
+                // `no-rule-pack` refusal — "the general plan DOES order this parcel, PRYZM lacks the
+                // rule" — is `false`. Testing it here means this branch is structurally incapable of
+                // publishing on the 67 % the PGOU delegates, without re-deriving the delegation
+                // tests (which would be a second, free-to-drift copy of them).
+                //
+                // ⚠ MEASURED, NOT ASSUMED: only 51.3 % of RC/RM/RN land actually resolves
+                // (`tools/murcia-street-width-probe/`, area-weighted, seed 20260802). The rest
+                // REFUSES — 44.6 % because the measured width sits too near a band edge. That is
+                // condition 4 working; do not "fix" it by relaxing the guard.
+                const anchoZone = MURCIA_ANCHO_ZONE_CODES.includes(zoneCode as MurciaAnchoZone)
+                    ? (zoneCode as MurciaAnchoZone)
+                    : null;
+                if (anchoZone !== null && disposition.refusal.legallyGrounded === false) {
+                    const measured = await resolveMurciaStreetWidth({ lat, lon }, {
+                        parcelRingLonLat: undefined,
+                    });
+                    if (measured.ok) {
+                        const band = resolveMurciaAnchoDeCalle(anchoZone, measured.width_m, {
+                            widthProvenance: measured.provenance,
+                            measurementSpread_m: measured.spread_m,
+                        });
+                        if (band.ok) {
+                            const pack = murciaAnchoResolvedPack(anchoZone, band, measured.authority);
+                            const record: ZoningRecord = {
+                                zoneCode: anchoZone,
+                                zoneLabel: pack.zones[0]?.label ?? null,
+                                jurisdictionId: MURCIA_JURISDICTION_ID,
+                                structuredFields: {},
+                                overlays: [],
+                                ordinanceRef: pack.zones[0]?.ordinanceRef ?? null,
+                                provenance: {
+                                    source: 'murcia-pgou-tr-2012-ancho-de-calle',
+                                    label:
+                                        `PGOU de Murcia ${band.article} — height resolved from a ` +
+                                        'CONSTRUCTED street width (SIG-MU2, human-signed 2026-08-02)',
+                                    version: '2012-12',
+                                    license: null,
+                                    crs: 'EPSG:4326',
+                                },
+                            };
+                            const env = computeBuildableEnvelope({
+                                parcelRing: boundary.polygon,
+                                edgeClassifications: boundary.edgeClassifications,
+                                zoning: record,
+                                rulePack: pack,
+                            });
+                            if (env.status === 'ok') {
+                                dispatchEnvelope(ctx, site.id, env, JURISDICTION_REF);
+                                console.log(
+                                    `${TAG} §ANCHO-DE-CALLE ${anchoZone} — width ` +
+                                        `${measured.width_m.toFixed(2)} m (±${measured.spread_m.toFixed(2)}, ` +
+                                        `CONSTRUCTED from pgou_alineaciones) → ${band.floors} plantas / ` +
+                                        `${band.height_m} m per ${band.article}. RENDERED at ` +
+                                        `${env.confidence ?? 'n/a'}.`,
+                                );
+                                return;
+                            }
+                            console.log(
+                                `${TAG} §ANCHO-DE-CALLE ${anchoZone} resolved ${band.floors} plantas but the ` +
+                                    `envelope came back status=${env.status} — falling through to the cited refusal.`,
+                            );
+                        } else {
+                            // Condition 4, or the Eje-Comercial classification we do not hold.
+                            console.log(
+                                `${TAG} §ANCHO-DE-CALLE ${anchoZone} — width ${measured.width_m.toFixed(2)} m ` +
+                                    `(±${measured.spread_m.toFixed(2)}) REFUSED by ${band.article}: ` +
+                                    `${band.reason}. No number rendered (SIG-MU2 condition 4).`,
+                            );
+                        }
+                    } else {
+                        console.log(
+                            `${TAG} §ANCHO-DE-CALLE ${anchoZone} — no constructed width: ` +
+                                `${measured.reason}. No number rendered.`,
+                        );
+                    }
+                }
                 const refusal = {
                     ...disposition.refusal,
                     // The parcel facts PRYZM established independently, ahead of the zoning facts

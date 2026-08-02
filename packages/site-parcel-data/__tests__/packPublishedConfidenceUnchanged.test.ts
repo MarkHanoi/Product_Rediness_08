@@ -144,7 +144,11 @@ describe('L-664 — no pack\'s PUBLISHED confidence changed when the vocabulary 
         // The file-count denominator. `dkPlandataEnvelope.ts` builds its pack in a FUNCTION
         // (`dkPlandataResolvedPack`) rather than a module constant, so it is pinned by its own
         // suite (`dkPlandataEnvelope.test.ts` — `structured`) and named here as a known exception.
-        const FUNCTION_BUILT = new Set(['dkPlandataEnvelope.ts']);
+        // `esMurciaAnchoDeCalle.ts` is the same shape: its pack is built per-parcel by
+        // `murciaAnchoResolvedPack` once a street width has been measured, so there is no module
+        // constant to pin. It is pinned by `murciaAnchoDeCalle.test.ts` (`estimated-ruleset` — the
+        // tier SIG-MU2 signed, and ADR-0285: a signature on METHODOLOGY does not promote the tier).
+        const FUNCTION_BUILT = new Set(['dkPlandataEnvelope.ts', 'esMurciaAnchoDeCalle.ts']);
         const declaring = filesDeclaringDefaultConfidence().filter((f) => !FUNCTION_BUILT.has(f));
         expect(declaring.length).toBeGreaterThan(0);
         expect(declaring.length).toBe(PUBLISHED.length);

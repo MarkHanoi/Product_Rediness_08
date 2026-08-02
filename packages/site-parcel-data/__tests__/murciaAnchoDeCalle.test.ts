@@ -9,6 +9,8 @@
 import { describe, it, expect } from 'vitest';
 import {
     resolveMurciaAnchoDeCalle,
+    murciaAnchoResolvedPack,
+    MURCIA_ANCHO_ZONE_CODES,
     MURCIA_RC_ANCHO_TABLE,
     MURCIA_RN_ANCHO_TABLE,
     MURCIA_RD1_ANCHO_TABLE,
@@ -131,6 +133,53 @@ describe('§MURCIA-ANCHO-DE-CALLE — the guard, and the refusals that protect 8
             .toMatchObject({ ok: true, widthProvenance: 'measured-geometry' });
         // ADR-0271: the TABLE's tier and the WIDTH's tier are different claims.
         expect(MURCIA_ANCHO_FIELD_PROVENANCE).toBe('ordinance-pdf');
+    });
+});
+
+describe('§MURCIA-ANCHO-RESOLVED-PACK — the per-parcel pack, and the tier it may NOT exceed', () => {
+    const resolved = resolveMurciaAnchoDeCalle('RC', 12, official);
+
+    it('ADR-0285 — a signature on METHODOLOGY does not promote the tier: `estimated-ruleset`', () => {
+        // This is the pin `packPublishedConfidenceUnchanged.test.ts` delegates here, because the
+        // pack is built per-parcel by a function and has no module constant to freeze.
+        expect(resolved.ok).toBe(true);
+        if (!resolved.ok) return;
+        const pack = murciaAnchoResolvedPack('RC', resolved, 'test-authority');
+        expect(pack.defaultConfidence).toBe('estimated-ruleset');
+        // `authoritative` is UNREACHABLE for this ruleset (SIG-MU1) and is not pack-declarable.
+        expect(pack.defaultConfidence).not.toBe('authoritative');
+    });
+
+    it('ADR-0286 — the pack carries LEGAL source, COMPUTATIONAL source and the article', () => {
+        if (!resolved.ok) return;
+        const ref = murciaAnchoResolvedPack('RC', resolved, 'AUTHORITY-MARKER-XYZ').zones[0]!.ordinanceRef!;
+        expect(ref).toContain('Art. 5.3.3');                       // legal source
+        expect(ref).toContain('Texto Refundido diciembre 2012');   // the instrument
+        expect(ref).toContain('AUTHORITY-MARKER-XYZ');             // computational source, to the UI
+        expect(ref).toContain('STREET WIDTH');
+    });
+
+    it('the geometry is the STATED alignment rule — 15 m fondo, no retranqueos', () => {
+        if (!resolved.ok) return;
+        const zone = murciaAnchoResolvedPack('RC', resolved, 'x').zones[0]!;
+        expect(zone.geometricRule).toMatchObject({ kind: 'alignment', buildableDepth_m: 15 });
+        expect(zone.setbacks).toMatchObject({ front_m: 0, side_m: 0 });
+        expect(zone.maxHeight_m).toBe(13);
+        expect(zone.maxFloors).toBe(4);
+    });
+
+    it('a RECESSED top storey is declared in the citation, so GFA is not over-extruded', () => {
+        const rn = resolveMurciaAnchoDeCalle('RN', 6, official);
+        expect(rn.ok).toBe(true);
+        if (!rn.ok) return;
+        const ref = murciaAnchoResolvedPack('RN', rn, 'x').zones[0]!.ordinanceRef!;
+        expect(ref).toMatch(/set back 3 m/);
+        expect(ref).toMatch(/NOT a full floor/);
+    });
+
+    it('⚠ RD1 is NOT dispatch-wired — it already publishes 2/7 and must not be intercepted', () => {
+        expect([...MURCIA_ANCHO_ZONE_CODES].sort()).toEqual(['RC', 'RM', 'RN']);
+        expect(MURCIA_ANCHO_ZONE_CODES).not.toContain('RD1');
     });
 });
 
