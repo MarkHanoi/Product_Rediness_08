@@ -1,6 +1,15 @@
-# ADR-0289 — The Urban Geometry Engine: one library of derived urban measurements, many ordinances
+# ADR-0289 — The Geometry-derived Ordinance Variable Engine: resolving ordinance variables from authoritative geometry
 
 **Status:** **PROPOSED — NOT BUILT.** Needs a single owner and a founder decision before any code.
+**Renamed 2026-08-02**, at the founder's direction, from *"The Urban Geometry Engine"* — the original
+framing was too narrow:
+
+> *"The capability is **resolving ordinance variables from authoritative geometry**. Street width is
+> merely one example. Tomorrow it becomes frontage, plaza, corner, opposite frontage, block depth.
+> Therefore I'd rename ADR-0289. Not 'Street Width Engine' but **'Geometry-derived Ordinance
+> Variable Engine'**."*
+
+**Street width is the REFERENCE IMPLEMENTATION of this ADR, not its subject.**
 **Date:** 2026-08-02 · **Proposed by:** the Murcia city agent, at the founder's request
 **Builds on:** **ADR-0275** (the *amplada de vial* is a construction with a provenance ladder) ·
 **ADR-0285** (computing an observable criterion is implementation, not modification) ·
@@ -40,10 +49,66 @@ before that happens, not because the geometry is hard.**
 
 ---
 
+## 1.5 · ⭐ THE CORE CONTRACT — the RESOLUTION LADDER
+
+The engine's subject is **an ordinance variable**, not a street. Every variable an instrument
+depends on resolves at exactly one rung, and **the rung is part of the answer**:
+
+| # | rung | meaning | example (Murcia) | tier |
+|---|---|---|---|---|
+| 1 | **published value** | the instrument or a service states the number | *fondo máximo edificable* = **15 m** (Art. 5.5.3) | as published |
+| 2 | **published geometry → DERIVE** | the criterion is stated; the input is authoritative geometry we hold | **street width** from `pgou_alineaciones`; corner condition; plaza width | `estimated-ruleset` (constructed) |
+| 3 | **published annotation → INTERPRET** | a designation exists as data but is categorical, not measurable | **`pgou_eje_comercial`** — query it, do not compute it | as published |
+| 4 | **referenced plan → RESOLVE** | the instrument hands the question to another instrument | `MZ` footprint → *Estudio de Detalle*; the delegated 67 % | terminal refusal, cited |
+| 5 | **legally computable → CONSTRUCT** | an algorithm is stated over inputs we can assemble | Barcelona PGM Art. 242.2 *profunditat edificable* | `block-constructed` |
+| 6 | **UNKNOWN → EXPLAIN WHY** | none of the above holds | MC's 6-planta exception (a cartographic annotation nobody publishes) | refusal naming the missing input |
+
+**Two rules follow, and they are the ADR's real content:**
+
+- **Never resolve at a lower rung than the variable supports.** Deriving a value that is *published*
+  (rung 1) is strictly worse than reading it. **Rung 3 is the one PRYZM systematically missed**:
+  `pgou_eje_comercial` was published the whole time and treated as absent — the concrete case that
+  motivated the founder's *"That is not a Murcia bug. It is a platform bug."*
+- **The rung must reach the user, with the value.** Rungs 2 and 5 are CONSTRUCTED and must say so
+  (ADR-0286); rung 6 must name what is missing, never render as an absence of constraint
+  (L-422/457/467/469).
+
+### 1.6 · ⚠ A CORRECTION THIS ADR CARRIES FOR ADR-0285
+
+ADR-0285's four-part test includes **test 2: *"the ordinance states the criterion but not the
+method."*** **That is not universally true, and Murcia proves it.**
+
+**PGOU de Murcia Art. 4.5.3 «Alturas en función del ancho de la calle» PRESCRIBES the method** —
+*«el ancho … será el que conste en los planos de ordenación (ancho entre alineaciones de parcela)»*,
+then an **arithmetic mean over the whole *tramo*, hasta completar la manzana**, weighted **×1.50**
+toward the wider part where the width varies 25–50 %.
+
+⇒ **Test 2 must be CHECKED PER CITY AND PER VARIABLE, never assumed.** And failing it is **not**
+disqualifying: where a method IS prescribed, the correct response is to implement *that* method, or
+to implement a different one and **declare the deviation with its direction of error**. Murcia's
+SIG-MU2 was re-worded on exactly this basis (founder, 2026-08-02: *"The better signature is
+stronger"*) and now reads:
+
+> *"The ordinance prescribes the governing measurement … PRYZM implements the same legal datum using
+> published alignment geometry. Where implementation differs …, PRYZM **intentionally under-grants**
+> and records the deviation."*
+
+⚠ **A prescribed method makes the claim STRONGER, not weaker** — we then assert fidelity to the
+instrument's own datum rather than filling a silence. But it imposes a duty: **every divergence must
+be named and its direction of error stated.** An undeclared divergence from a prescribed method is a
+correctness defect regardless of which way it errs.
+
+`action: flag to the ADR owner whether ADR-0285 needs a superseding note. ADR-0285 is sealed, so the
+correction lives here; it should not be left to be rediscovered per city.`
+
 ## 2 · Decision (proposed)
 
-Create **`packages/urban-geometry`** (L1, pure) — one library of **derived urban measurements**,
-consumed by every jurisdiction's rule pack and by no jurisdiction's rule pack privately.
+Create **`packages/ordinance-variables`** (L1, pure) — one library that **resolves ordinance
+variables from authoritative geometry**, consumed by every jurisdiction's rule pack and owned
+privately by none.
+
+⚠ **The package name matters.** `urban-geometry` invites geometry helpers to accumulate; the subject
+is the **variable and its resolution rung** (§1.5), and the geometry is only how rung 2 is served.
 
 ### 2.1 · The strict boundary — what belongs and what never does
 
@@ -72,6 +137,12 @@ is not).
 | `continuousAlignment()` | ❌ new | is the alineación continuous along this frontage, or broken | MUR · BCN nucli antic |
 | `buildableDepth()` | ⚠ **EXISTS as a CLIP** — `depthBandClip` | apply a depth band from a frontage | all (the depth itself is usually stated) |
 | `enclosedSpaceWidth()` | ❌ new | narrowest width of a plaza / open-space polygon | MUR Art. 4.5.5 |
+| `designationAt()` | ⚠ **the rung-3 gap** — Murcia now does it privately for `pgou_eje_comercial` | "is this frontage inside / along a published designation layer?" | **all** — every city has designation layers, and this is the rung PRYZM systematically missed |
+
+⚠ **`designationAt()` is not geometry-derivation and belongs here anyway.** It is rung 3 of §1.5,
+and giving it a home is what stops the next city re-discovering the `eje_comercial` bug. Its
+contract is the same three-valued one Murcia now ships: **`true` earned · `false` confident ·
+`null` = the layer did not answer**, never collapsed (L-422/457/467/469).
 
 ⚠ **Note how much already exists.** This is mostly a **consolidation and generalisation** ADR, not a
 green-field one — which is the argument for doing it now, while it is cheap.
@@ -153,7 +224,14 @@ band-edge refusal rate is only defensible *because* `spread_m` reaches the decis
 - **It does not raise Murcia's score.** Every derivable variable left in Murcia is worth
   **≤ +0.15 pp of ENVELOPE axis** (inventory §3). This ADR is justified by **portability and
   correctness**, not by Murcia's number, and anyone planning against it should read that section
-  first.
+  first. ⚠ Murcia is no longer a coverage target at all — the founder's position is that it is
+  **"PRYZM's reference implementation for street-dependent urban planning rules"**, which is exactly
+  what makes it the right place to have discovered rungs 2 and 3.
+- **It does not solve dataset DISCOVERY.** §1.5 rung 3 tells you what to do *once you know a
+  designation layer exists*. Finding out that it exists is a separate capability — the founder's
+  *"PRYZM currently discovers datasets manually. That does not scale."* A Stage-0
+  alignment-discovery protocol and an automated dataset-scoring engine are being assessed
+  separately; **this ADR must not be read as covering them.**
 - **It does not fix Córdoba or half of Madrid.** Those are blocked on the block ring (§3.2), which
   is data acquisition.
 - **It does not touch any ordinance table.** No band, threshold or article moves into this package.

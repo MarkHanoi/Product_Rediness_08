@@ -392,15 +392,26 @@ bounds remain internal planning numbers."*
 0.590 km² of the 7.845 km² in-force RC/RM/RN population, seed 20260802), run end-to-end through the
 **production** resolvers:
 
-| outcome | share of sampled RC/RM/RN land |
-|---|---:|
-| **RESOLVES — an envelope publishes** | **51.3 %** |
-| refused `band-edge` — condition 4 / **ADR-0287** working | 44.6 % |
-| refused `no-opposing-frontage` | 3.4 % |
-| refused `needs-eje-comercial` | 0.7 % |
+| outcome | first run (2026-08-02) | **after `eje_comercial` was queried** |
+|---|---:|---:|
+| **RESOLVES — an envelope publishes** | 51.3 % | **52.0 %** |
+| refused `band-edge` — condition 4 / **ADR-0287** working | 44.6 % | 44.6 % |
+| refused `no-opposing-frontage` | 3.4 % | 3.4 % |
+| refused `needs-eje-comercial` | 0.7 % | **0 %** ✅ |
 
-⇒ **8.81 pp × 0.513 = 4.52 pp of new buildable-land coverage**, taking Murcia from **23.51 % →
-28.03 %** and the ENVELOPE axis from **9.40 % → 11.21 %**.
+⇒ **8.81 pp × 0.520 = 4.58 pp of new buildable-land coverage**, taking Murcia from **23.51 % →
+28.09 %** and the ENVELOPE axis from **9.40 % → 11.24 %**.
+
+⭐ **The second column is the whole lesson of `eje_comercial`, and it is worth more than its
+0.06 pp.** `Murcia:pgou_eje_comercial` — 69 in-force LineStrings on the same GeoServer as the
+alineaciones — was **published the whole time and PRYZM never asked for it**. It was recorded as a
+DATA gap until the derived-variable inventory checked. Founder: *"That is not a Murcia bug. It is a
+platform bug. PRYZM currently discovers datasets manually. That does not scale."*
+⚠ The wiring is deliberately **asymmetric**, because the two errors do not cost the same: a false
+NO costs one storey (under-grant, safe); a false YES publishes 16 m where the plan allows 13 m
+(over-grant, L-616). So a confident NO is cheap and a YES must be **earned** — the eje axis has to
+run along the governing frontage at ≈ half the measured street width. Anything ambiguous stays
+`null` and REFUSES. A layer that does not answer is `null`, never a confident NO.
 *(Assumption stated rather than buried: the resolve rate is measured over ALL in-force RC/RM/RN
 geometry, and applied to the PGOU-direct subset the dispatch actually reaches. The rate is a
 property of street geometry, not of delegation status, so this is reasonable — but it is an

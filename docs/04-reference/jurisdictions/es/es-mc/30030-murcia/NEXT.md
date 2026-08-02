@@ -170,8 +170,10 @@ measurement methodology"*. **For Murcia that is false.**
 
 Full analysis, with the 13-row derivability inventory and the 100 % coverage-loss matrix:
 [`findings/MURCIA-DERIVED-VARIABLE-INVENTORY.md`](./findings/MURCIA-DERIVED-VARIABLE-INVENTORY.md).
-Cross-city architecture proposal: [`ADR-0289`](../../../../../02-decisions/adrs/ADR-0289-urban-geometry-engine.md)
-(**PROPOSED, not built — needs an owner**).
+Cross-city architecture proposal: [`ADR-0289 — Geometry-derived Ordinance Variable Engine`](../../../../../02-decisions/adrs/ADR-0289-geometry-derived-ordinance-variable-engine.md)
+(**PROPOSED, not built — needs an owner**). ✅ **SIG-MU2 was RE-WORDED on this finding, not
+withdrawn** — the corrected rationale claims fidelity to Art. 4.5.3's own datum with both deviations
+declared as under-grants (`sources/VERIFICATION.md`).
 
 ⚠ **And read inventory §3 before planning against it:** all remaining derivable work in Murcia is
 worth **≤ +0.15 pp of ENVELOPE axis**. It is a CORRECTNESS programme, not a coverage one.
@@ -182,7 +184,7 @@ worth **≤ +0.15 pp of ENVELOPE axis**. It is a CORRECTNESS programme, not a co
 |---|---|---|---|---|
 | 1 | `classifyEdges` picks the `front` edge by ORIENTATION, not street adjacency — on an irregular plot it can select a 0.5 m sliver, and a 15 m band off a sliver retains most of the polygon | **Engineering** | UNASSIGNED (cross-city — needs an ADR, not a city-agent edit) | a parcel's alineación edge is chosen by adjacency to the street, pinned by a test on an 8-edge irregular ring |
 | 2 | `RD1`'s third-storey allowance is signed and built but NOT dispatch-wired — wiring it means intercepting a zone that already publishes 2/7 | **Engineering** | UNASSIGNED | `RD1` routed through the ancho path with regression evidence that the sub-8 m case still renders exactly 2 plantas / 7 m |
-| 3 | Base `RM` above 12 m refuses `needs-eje-comercial` (0.7 pp) — the graphed *Eje Comercial* classification is published as `Murcia:pgou_eje_comercial` but not consumed | **Engineering** | UNASSIGNED | the eje layer is queried at the parcel and passed as `ejeComercial`, and the refusal rate for that reason falls to ~0 |
+| 3 | ~~Base `RM` above 12 m refuses `needs-eje-comercial`~~ | ~~Engineering~~ | — | ✅ **CLOSED 2026-08-02.** `Murcia:pgou_eje_comercial` is queried; that refusal reason is now **0 %** (re-measured). Resolve rate 51.3 % → **52.0 %** |
 | 4 | BORM approval instrument `not-located-in-source` — we hold the normative text, not the gazette act | **Data acquisition** | UNASSIGNED | the BORM edition publishing the PGOU revision's *aprobación definitiva* is filed in `corpus/pdf/` |
 | 5 | PECHA override on `MC` (Arts. 5.2.1 / 5.2.3) — the Plan Especial prevails where it regulates height specifically, and PRYZM does not hold it | **Data acquisition** | UNASSIGNED | the PECHA scope is held, and `MC` inside a PECHA ámbito either applies it or refuses |
 | 6 | HEIGHTS 3 % — 96.1 % of context buildings render a fabricated 9 m default | **Engineering** | the national bake (IN FLIGHT — do not touch `tools/context-bake/`) | `probe.mjs` reports a non-zero `measured-lidar` count for the Murcia bbox |

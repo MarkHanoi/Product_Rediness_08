@@ -107,6 +107,17 @@ function hoodUrl(lat: number, lon: number): string {
     return `${WFS}?${qs}`;
 }
 
+/** The Ejes Comerciales axes over the same neighbourhood window (Art. 5.5.3). */
+function ejeUrl(lat: number, lon: number): string {
+    const r = (n: number) => Number(n.toFixed(7));
+    return `${WFS}?` + new URLSearchParams({
+        service: 'WFS', version: '2.0.0', request: 'GetFeature',
+        typeNames: 'Murcia:pgou_eje_comercial',
+        outputFormat: 'application/json', srsName: 'EPSG:4326', count: '200',
+        bbox: `${r(lat - HOOD_HALF_DEG)},${r(lon - HOOD_HALF_DEG)},${r(lat + HOOD_HALF_DEG)},${r(lon + HOOD_HALF_DEG)},urn:ogc:def:crs:EPSG::4326`,
+    });
+}
+
 async function main() {
     const today = new Date().toISOString().slice(0, 10);
     const popUrl = `${WFS}?` + new URLSearchParams({
@@ -169,14 +180,19 @@ async function main() {
         catch { bump('endpoint-unreachable', u.area); continue; }
         const features = Array.isArray(hood?.features) ? hood.features : null;
         const truncated = Array.isArray(features) && features.length >= HOOD_MAX_FEATURES;
+        // §MURCIA-EJE-COMERCIAL — the probe must fetch what PRODUCTION fetches, or it measures a
+        // path that does not exist. The proxy issues both layers together.
+        let ejes: unknown[] | null = null;
+        try { ejes = (await getJson(ejeUrl(lat, lon)))?.features ?? null; } catch { ejes = null; }
         const fetchImpl = (async () => ({
-            ok: true, json: async () => ({ alineaciones: features, truncated }),
+            ok: true, json: async () => ({ alineaciones: features, ejesComerciales: ejes, truncated }),
         })) as unknown as typeof fetch;
 
         const w = await resolveMurciaStreetWidth({ lat, lon }, { fetchImpl });
         if (!w.ok) { bump(w.reason, u.area); continue; }
         const band = resolveMurciaAnchoDeCalle(u.zone, w.width_m, {
             widthProvenance: 'measured-geometry', measurementSpread_m: w.spread_m,
+            ejeComercial: w.ejeComercial,
         });
         if (!band.ok) { bump(`band:${band.reason}`, u.area); continue; }
         okN++; okArea += u.area; widths.push(w.width_m);

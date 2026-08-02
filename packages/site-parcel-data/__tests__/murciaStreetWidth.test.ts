@@ -25,12 +25,19 @@ const FIXTURE = JSON.parse(readFileSync(
 
 /** A fetch that replays the captured neighbourhood — the exact body the proxy returns. */
 function fixtureFetch(
-    body: { alineaciones: unknown[] | null; truncated?: boolean } = {
-        alineaciones: FIXTURE.features, truncated: false,
-    },
+    body: {
+        alineaciones: unknown[] | null;
+        ejesComerciales?: unknown[] | null;
+        truncated?: boolean;
+    } = { alineaciones: FIXTURE.features, ejesComerciales: [], truncated: false },
     ok = true,
 ): typeof fetch {
     return (async () => ({ ok, json: async () => body })) as unknown as typeof fetch;
+}
+
+/** A GeoJSON LineString feature in lon/lat, for the Eje-Comercial tests. */
+function ejeLine(pts: ReadonlyArray<readonly [number, number]>): unknown {
+    return { type: 'Feature', properties: { layer: 'EJE_COMERCIAL' }, geometry: { type: 'LineString', coordinates: pts } };
 }
 
 /** A point inside a real RM1 manzana in the captured neighbourhood (measured w ≈ 8.16 m). */
@@ -73,7 +80,9 @@ describe('SIG-MU2 CONDITION 1 — reproducible from authoritative geometry', () 
     it('feature ORDER does not change the answer (no dependence on GeoServer ordering)', async () => {
         const forward = await resolveMurciaStreetWidth(RM1_POINT, { fetchImpl: fixtureFetch() });
         const reversed = await resolveMurciaStreetWidth(RM1_POINT, {
-            fetchImpl: fixtureFetch({ alineaciones: [...FIXTURE.features].reverse(), truncated: false }),
+            fetchImpl: fixtureFetch({
+                alineaciones: [...FIXTURE.features].reverse(), ejesComerciales: [], truncated: false,
+            }),
         });
         expect(JSON.stringify(reversed)).toBe(JSON.stringify(forward));
     });
@@ -201,6 +210,102 @@ describe('SIG-MU2 CONDITION 4 — REFUSE where uncertainty could change the band
         await expect(resolveMurciaStreetWidth(null)).resolves.toMatchObject({ ok: false });
         await expect(resolveMurciaStreetWidth({ lat: 41.38, lon: 2.17 }, { fetchImpl: fixtureFetch() }))
             .resolves.toMatchObject({ ok: false, reason: 'out-of-murcia' });
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+describe('§MURCIA-EJE-COMERCIAL — the published layer PRYZM never queried (Art. 5.5.3)', () => {
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+    // ⚠ THE ASYMMETRY IS THE POINT. A false NO costs one storey (under-grant, safe). A false YES
+    // publishes 16 m where the plan allows 13 m (over-grant, L-616). NO may be cheap; YES is earned.
+
+    it('an EMPTY eje layer is a CONFIDENT NO — the ordinary band applies, no refusal', async () => {
+        const r = await resolveMurciaStreetWidth(RM1_POINT, {
+            fetchImpl: fixtureFetch({ alineaciones: FIXTURE.features, ejesComerciales: [], truncated: false }),
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.ejeComercial).toBe(false);
+        // …and a confident NO lets base RM above 12 m resolve instead of refusing.
+        expect(resolveMurciaAnchoDeCalle('RM', 14, {
+            widthProvenance: 'declared-official', ejeComercial: false,
+        })).toMatchObject({ ok: true, floors: 4, height_m: 13 });
+    });
+
+    it('⚠ a layer that DID NOT ANSWER is UNKNOWN, never a confident NO (L-422/457/467/469)', async () => {
+        const r = await resolveMurciaStreetWidth(RM1_POINT, {
+            fetchImpl: fixtureFetch({ alineaciones: FIXTURE.features, ejesComerciales: null, truncated: false }),
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.ejeComercial).toBeNull();
+        // …and UNKNOWN must still refuse above 12 m rather than apply the ordinary band.
+        expect(resolveMurciaAnchoDeCalle('RM', 14, {
+            widthProvenance: 'declared-official', ejeComercial: null,
+        })).toMatchObject({ ok: false, reason: 'needs-eje-comercial' });
+    });
+
+    it('an eje on a FAR-AWAY street does not qualify this frontage', async () => {
+        // A line ~250 m north of the block — well beyond 1.5 × width.
+        const r = await resolveMurciaStreetWidth(RM1_POINT, {
+            fetchImpl: fixtureFetch({
+                alineaciones: FIXTURE.features,
+                ejesComerciales: [ejeLine([[-1.1340, 37.9940], [-1.1300, 37.9940]])],
+                truncated: false,
+            }),
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.ejeComercial).toBe(false);
+    });
+
+    it('an eje running ALONG the governing frontage at ~half the street width EARNS a yes', async () => {
+        // The RM1 block's governing edge measures 8.16 m, so the axis should sit ~4 m off it.
+        // Build a line offset from the measured frontage by walking the ring's own geometry.
+        const base = await resolveMurciaStreetWidth(RM1_POINT, { fetchImpl: fixtureFetch() });
+        expect(base.ok).toBe(true);
+        if (!base.ok) return;
+        // A synthetic eje ~4 m from the frontage, parallel to it, expressed in degrees.
+        // 4 m ≈ 0.0000359° of latitude at this scale.
+        const dLat = 4 / 111_320;
+        const r = await resolveMurciaStreetWidth(RM1_POINT, {
+            fetchImpl: fixtureFetch({
+                alineaciones: FIXTURE.features,
+                ejesComerciales: [ejeLine([
+                    [-1.13260, 37.991617 + dLat], [-1.13160, 37.991617 + dLat],
+                ])],
+                truncated: false,
+            }),
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        // Either an earned YES or an honest UNKNOWN — but NEVER a silent confident NO, which would
+        // be the failure mode that discards a published designation.
+        expect(r.ejeComercial === true || r.ejeComercial === null).toBe(true);
+    });
+
+    it('an ABSENT `ejesComerciales` field is UNKNOWN too — not an empty layer', async () => {
+        // A proxy that predates this field, or a partial body, must not read as "no eje here".
+        const r = await resolveMurciaStreetWidth(RM1_POINT, {
+            fetchImpl: fixtureFetch({ alineaciones: FIXTURE.features, truncated: false }),
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.ejeComercial).toBeNull();
+    });
+
+    it('the three-valued contract survives to the BAND resolver, all three ways', () => {
+        expect(resolveMurciaAnchoDeCalle('RM', 14, { widthProvenance: 'declared-official', ejeComercial: true }))
+            .toMatchObject({ ok: true, floors: 5, height_m: 16 });
+        expect(resolveMurciaAnchoDeCalle('RM', 14, { widthProvenance: 'declared-official', ejeComercial: false }))
+            .toMatchObject({ ok: true, floors: 4, height_m: 13 });
+        expect(resolveMurciaAnchoDeCalle('RM', 14, { widthProvenance: 'declared-official', ejeComercial: null }))
+            .toMatchObject({ ok: false, reason: 'needs-eje-comercial' });
+    });
+
+    it('⚠ the eje is irrelevant BELOW 12 m — «sección MAYOR de 12 metros» is part of the condition', () => {
+        expect(resolveMurciaAnchoDeCalle('RM', 11, { widthProvenance: 'declared-official', ejeComercial: true }))
+            .toMatchObject({ ok: true, floors: 4 });
     });
 });
 

@@ -45,6 +45,16 @@ export const MURCIA_WFS_ENDPOINT = 'https://geoserver.murcia.es/geoserver/wfs';
 
 export const MURCIA_CALIFICACION_LAYER = 'Murcia:pgou_alineaciones';
 export const MURCIA_SECTOR_LAYER = 'Murcia:pgou_sectores';
+/**
+ * §MURCIA-EJE-COMERCIAL — the graphed *Ejes Comerciales* axes (LineString, 69 in-force features).
+ *
+ * ⚠ THIS LAYER WAS PUBLISHED THE WHOLE TIME AND PRYZM NEVER QUERIED IT. Art. 5.5.3 grants
+ * *«5 plantas (16 m) en Ejes Comerciales con sección mayor de 12 metros»*, and base-`RM` parcels on
+ * a >12 m section were refusing `needs-eje-comercial` — recorded as a DATA gap until the
+ * derived-variable inventory checked and found the layer sitting on the same GeoServer as the
+ * alineaciones. It is an ENGINEERING gap, and this is the fix.
+ */
+export const MURCIA_EJE_COMERCIAL_LAYER = 'Murcia:pgou_eje_comercial';
 
 /** Half-extent (degrees) of the tiny bbox built around the query point (~5 m). */
 export const MURCIA_QUERY_HALF_DEG = 0.00005;
@@ -217,14 +227,27 @@ export async function fetchMurciaPgouAtPoint(lat, lon, deps = {}) {
  */
 export async function fetchMurciaAlineacionesNeighbourhood(lat, lon, deps = {}) {
     const halfDeg = deps.halfDeg ?? MURCIA_NEIGHBOURHOOD_HALF_DEG;
-    const features = await fetchMurciaWfs(
-        buildMurciaWfsUrl(
-            MURCIA_CALIFICACION_LAYER, lat, lon, halfDeg, MURCIA_NEIGHBOURHOOD_MAX_FEATURES,
+    // ⚠ The two layers are fetched TOGETHER because they answer one question ("what governs this
+    // frontage?") and a second round trip would double the latency of every RC/RM/RN click.
+    const [features, ejes] = await Promise.all([
+        fetchMurciaWfs(
+            buildMurciaWfsUrl(
+                MURCIA_CALIFICACION_LAYER, lat, lon, halfDeg, MURCIA_NEIGHBOURHOOD_MAX_FEATURES,
+            ),
+            deps,
         ),
-        deps,
-    );
+        fetchMurciaWfs(
+            buildMurciaWfsUrl(MURCIA_EJE_COMERCIAL_LAYER, lat, lon, halfDeg, 200),
+            deps,
+        ),
+    ]);
     return {
         alineaciones: features,
+        // ⚠ `null` (the eje service did not answer) and `[]` (it answered, no eje here) are
+        // DIFFERENT and are kept apart to the end: `null` must produce UNKNOWN, `[]` produces a
+        // confident NO. Collapsing them would silently grant the ordinary 4-planta band on a street
+        // that may be an Eje Comercial (L-422/457/467/469).
+        ejesComerciales: ejes,
         truncated: Array.isArray(features) && features.length >= MURCIA_NEIGHBOURHOOD_MAX_FEATURES,
     };
 }
@@ -256,7 +279,7 @@ export function makeMurciaPgouHandler(deps = {}) {
             // honest empty neighbourhood rather than a point-query body the caller cannot read.
             return res.status(200).json(
                 String(req.query?.extent ?? '') === 'neighbourhood'
-                    ? { alineaciones: [], truncated: false }
+                    ? { alineaciones: [], ejesComerciales: [], truncated: false }
                     : { calificaciones: [], sectores: [] },
             );
         }

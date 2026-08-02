@@ -21,15 +21,19 @@
       "⭐ UPDATED 2026-08-02 — SIG-MU2 SIGNED, WIRED AND MEASURED. The street-width slice moved from",
       "`no-pack` to `estimated-ruleset`, but only for the part that ACTUALLY RESOLVES.",
       "  23.51 pp  packed + PGOU-direct (SIG-MU1)                       → renders",
-      "+  4.52 pp  RC/RM/RN via constructed street width (SIG-MU2)      → renders",
-      "= 28.03 pp of buildable land rendering; axis = 0.2803 × 0.4 = 11.21 %.",
+      "+  4.58 pp  RC/RM/RN via constructed street width (SIG-MU2)      → renders",
+      "= 28.09 pp of buildable land rendering; axis = 0.2809 × 0.4 = 11.24 %.",
       "",
-      "⚠⚠ THE 4.52 pp IS MEASURED, NOT THE 8.81 pp GROSS. `tools/murcia-street-width-probe/probe.mts`",
+      "⚠⚠ THE 4.58 pp IS MEASURED, NOT THE 8.81 pp GROSS. `tools/murcia-street-width-probe/probe.mts`",
       "(area-weighted, n=150 rings / 0.590 km² of the 7.845 km² in-force RC/RM/RN population, seed",
       "20260802, run end-to-end through the PRODUCTION resolvers against the live GeoServer) measures",
-      "51.3 % resolving. The remainder REFUSES: 44.6 % `band-edge`, 3.4 % `no-opposing-frontage`,",
-      "0.7 % `needs-eje-comercial`. Founder 2026-08-02: 'Publish measured coverage only. Never publish",
-      "theoretical maximums.' 8.81 pp and 32.32 % are UPPER BOUNDS and are not scored here.",
+      "52.0 % resolving. The remainder REFUSES: 44.6 % `band-edge`, 3.4 % `no-opposing-frontage`.",
+      "Founder 2026-08-02: 'Publish measured coverage only. Never publish theoretical maximums.'",
+      "8.81 pp and 32.32 % are UPPER BOUNDS and are not scored here.",
+      "↳ 2026-08-02 (later): 51.3 % → 52.0 % because `Murcia:pgou_eje_comercial` is now QUERIED.",
+      "  `needs-eje-comercial` refusals went 0.68 pp → ZERO. The layer was published the whole time",
+      "  and PRYZM never asked for it — recorded because the fix is worth 0.06 pp and the LESSON is",
+      "  worth much more (founder: 'That is not a Murcia bug. It is a platform bug.').",
       "⚠ The 44.6 % is a fact about MURCIA: Art. 5.3.3's decisive threshold is 8 m and the median",
       "governing section on RC/RM/RN land is 8.78 m — the band edge sits mid-distribution. ADR-0287",
       "requires the refusal; it is the doctrine working, not a defect.",
@@ -62,14 +66,14 @@
         "buildableLandShare": 0.2351
       },
       {
-        "zoneCode": "RC/RM/RN via CONSTRUCTED street width (SIG-MU2, signed+wired 2026-08-02) — MEASURED 51.3% of the 8.81 pp resolves",
+        "zoneCode": "RC/RM/RN via CONSTRUCTED street width (SIG-MU2, signed+wired 2026-08-02; eje_comercial queried) — MEASURED 52.0% of the 8.81 pp resolves",
         "tier": "estimated-ruleset",
-        "buildableLandShare": 0.0452
+        "buildableLandShare": 0.0458
       },
       {
-        "zoneCode": "RC/RM/RN that REFUSE (band-edge 44.6% / no-opposing-frontage 3.4% / needs-eje-comercial 0.7%) + 0.68 pp residual",
+        "zoneCode": "RC/RM/RN that REFUSE (band-edge 44.6% / no-opposing-frontage 3.4%; needs-eje-comercial now 0%) + 0.68 pp residual",
         "tier": "no-pack",
-        "buildableLandShare": 0.0497
+        "buildableLandShare": 0.0491
       },
       {
         "zoneCode": "legally delegated to a derived instrument (cited refusal — terminal, never an envelope)",

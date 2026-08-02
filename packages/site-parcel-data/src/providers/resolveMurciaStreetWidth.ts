@@ -59,6 +59,7 @@ import {
     blockEdgesFacingParcel,
     governingStreetWidth,
 } from '../geometry/streetWidth.js';
+import { pointSegmentDistance } from '@pryzm/site-validators';
 import { isInMurcia } from './murciaBbox.js';
 import { featureCoversPoint, MURCIA_PGOU_PATH } from './resolveMurciaZoning.js';
 
@@ -123,6 +124,13 @@ export type MurciaStreetWidthResolution =
           readonly authority: string;
           /** How many neighbouring polygons the measurement had to shoot at. Audit aid. */
           readonly neighbourCount: number;
+          /**
+           * §MURCIA-EJE-COMERCIAL — is the GOVERNING frontage a graphed *Eje Comercial*
+           * (Art. 5.5.3)? THREE-VALUED and it must stay that way: `true` earned, `false` confident,
+           * **`null` = cannot tell**, which the band resolver turns into a refusal rather than
+           * silently applying the ordinary 4-planta row.
+           */
+          readonly ejeComercial: boolean | null;
       }
     | { readonly ok: false; readonly reason: MurciaStreetWidthRefusal };
 
@@ -177,7 +185,97 @@ function featureOuterRings(feature: unknown, originLat: number, originLon: numbe
 /** The proxy's `?extent=neighbourhood` body. */
 interface NeighbourhoodBody {
     readonly alineaciones?: unknown[] | null;
+    readonly ejesComerciales?: unknown[] | null;
     readonly truncated?: boolean;
+}
+
+/** Every LineString of a GeoJSON LineString / MultiLineString feature, projected. */
+function featureLines(feature: unknown, originLat: number, originLon: number): Pt[][] {
+    const geom = (feature as { geometry?: { type?: unknown; coordinates?: unknown } } | null)?.geometry;
+    if (!geom || typeof geom !== 'object') return [];
+    const coords = geom.coordinates;
+    if (!Array.isArray(coords) || coords.length === 0) return [];
+    const project = (line: LonLatRing): Pt[] =>
+        line
+            .filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]))
+            .map((p) => toLocalXZ(p[0]!, p[1]!, originLat, originLon));
+    if (geom.type === 'LineString') {
+        const l = project(coords as unknown as LonLatRing);
+        return l.length >= 2 ? [l] : [];
+    }
+    if (geom.type === 'MultiLineString') {
+        const out: Pt[][] = [];
+        for (const line of coords as unknown as readonly LonLatRing[]) {
+            const l = project(line);
+            if (l.length >= 2) out.push(l);
+        }
+        return out;
+    }
+    return [];
+}
+
+/** Shortest distance from a point to a polyline, metres. */
+function pointPolylineDistance(p: Pt, line: ReadonlyArray<Pt>): number {
+    let best = Number.POSITIVE_INFINITY;
+    for (let i = 0; i + 1 < line.length; i++) {
+        const d = pointSegmentDistance(p, line[i]!, line[i + 1]!);
+        if (d < best) best = d;
+    }
+    return best;
+}
+
+/**
+ * §MURCIA-EJE-COMERCIAL — is the GOVERNING frontage a graphed *Eje Comercial*?
+ *
+ * Art. 5.5.3 grants base `RM` *«5 plantas (16 m) en Ejes Comerciales con sección mayor de 12
+ * metros»*. `Murcia:pgou_eje_comercial` publishes those axes as LineStrings, so the condition is
+ * decidable — but only if we are honest about which way an error costs.
+ *
+ * ⚠⚠ THE ASYMMETRY IS THE WHOLE DESIGN, AND IT IS DELIBERATE.
+ *   • A false **NO** costs one storey (4 plantas instead of 5) — an UNDER-grant, the safe direction.
+ *   • A false **YES** publishes 16 m where the plan allows 13 m — an OVER-grant, and exactly the
+ *     L-616 failure mode. So YES must be EARNED and NO may be cheap.
+ *
+ * THE TEST. The eje is the street's AXIS; the frontage is the building line. On a street of measured
+ * width `w` the axis therefore runs roughly `w/2` away from, and roughly PARALLEL to, the frontage.
+ * We sample along the governing edge and require the median distance to the nearest eje polyline to
+ * sit in `[0.25·w, 0.85·w]` — a band centred on the geometric expectation, wide enough for a
+ * non-central axis and narrow enough that an eje on the NEXT street over (≥ 1.5·w away) cannot
+ * qualify. Anything else is UNKNOWN, never a guess.
+ *
+ * @returns `true` (earned) · `false` (no eje anywhere near — confident) · `null` (cannot tell, or
+ *   the eje service did not answer; the caller must refuse rather than apply the ordinary band).
+ */
+function ejeComercialOnFrontage(
+    edge: readonly [Pt, Pt],
+    width_m: number,
+    ejeLines: ReadonlyArray<ReadonlyArray<Pt>>,
+    serviceAnswered: boolean,
+): boolean | null {
+    // A layer that did not answer is UNKNOWN — never a confident "no eje here".
+    if (!serviceAnswered) return null;
+    if (ejeLines.length === 0) return false;
+    if (!Number.isFinite(width_m) || width_m <= 0) return null;
+
+    const [a, b] = edge;
+    const samples: Pt[] = [];
+    for (let s = 1; s <= 9; s++) {
+        const f = s / 10;
+        samples.push({ x: a.x + (b.x - a.x) * f, z: a.z + (b.z - a.z) * f });
+    }
+    const perSample = samples.map((p) =>
+        ejeLines.reduce((best, l) => Math.min(best, pointPolylineDistance(p, l)), Number.POSITIVE_INFINITY));
+    const finite = perSample.filter((d) => Number.isFinite(d)).sort((x, y) => x - y);
+    if (finite.length === 0) return false;
+    const median = finite[finite.length >> 1]!;
+
+    // Far from every eje in the neighbourhood ⇒ confidently NOT an Eje Comercial.
+    if (median > 1.5 * width_m) return false;
+    // Sitting where the axis of THIS street should be ⇒ earned YES.
+    if (median >= 0.25 * width_m && median <= 0.85 * width_m) return true;
+    // Near, but not where this street's axis belongs — an eje on an adjacent frontage, a corner, or
+    // a non-central axis. We cannot tell, so we say so.
+    return null;
 }
 
 /**
@@ -300,9 +398,24 @@ export async function resolveMurciaStreetWidth(
             return { ok: false, reason: 'no-opposing-frontage' };
         }
 
+        // §MURCIA-EJE-COMERCIAL — decide it against the edge that actually governs, not the parcel
+        // centroid: Art. 5.5.3's condition is about the FRONTAGE, and a corner parcel can front an
+        // eje on one side and an ordinary street on the other.
+        const ejeRaw = body?.ejesComerciales;
+        const ejeAnswered = Array.isArray(ejeRaw);
+        const ejeLines: Pt[][] = ejeAnswered
+            ? (ejeRaw as unknown[]).flatMap((f) => featureLines(f, point.lat, point.lon))
+            : [];
+        const gA = ourRing[governing.edgeIndex % ourRing.length]!;
+        const gB = ourRing[(governing.edgeIndex + 1) % ourRing.length]!;
+        const ejeComercial = ejeComercialOnFrontage(
+            [gA, gB], governing.width_m, ejeLines, ejeAnswered,
+        );
+
         span.setAttribute('resultFields', 'width');
         span.setAttribute('width_m', governing.width_m);
         span.setAttribute('spread_m', governing.spread_m);
+        span.setAttribute('ejeComercial', String(ejeComercial));
         span.setStatus({ code: SpanStatusCode.OK });
         return {
             ok: true,
@@ -313,6 +426,7 @@ export async function resolveMurciaStreetWidth(
             provenance: 'measured-geometry',
             authority: MURCIA_STREET_WIDTH_AUTHORITY,
             neighbourCount: theirs.length,
+            ejeComercial,
         };
     } finally {
         span.end();

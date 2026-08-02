@@ -13,12 +13,44 @@
 > eligibility using a constructed street width, provided the output is classified as
 > `estimated-ruleset` and cites Arts. 5.3.3, 5.5.3, 5.7.3 and 5.9.3.
 
-**THE RATIONALE, VERBATIM — this is the reusable part, and it became ADR-0285:**
+**⭐ THE RATIONALE — CORRECTED 2026-08-02 (founder), AND THE CORRECTION IS THE RECORD.**
 
-> *"The ordinance makes street width the legal criterion. It does not prescribe a measurement
-> methodology. Computing that width from authoritative geometry is an implementation of the
+The original wording rested on a claim about the ordinance that turned out to be false. It is kept
+visible below, struck through, because **a signature ledger that quietly edits its own reasoning is
+not a ledger.**
+
+> ~~*"The ordinance makes street width the legal criterion. **It does not prescribe a measurement
+> methodology.** Computing that width from authoritative geometry is an implementation of the
 > ordinance, not a modification of it. The legal rule remains unchanged; only the measurement is
-> derived."*
+> derived."*~~
+> **← SUPERSEDED.** Art. 4.5.3 *does* prescribe a methodology (see below). Founder, on being shown
+> the finding: *"The report changes SIG-MU2. Originally the reasoning was 'the ordinance does not
+> prescribe a methodology.' **That is now false.** The better signature is stronger."*
+
+**THE OPERATIVE RATIONALE, VERBATIM (founder, 2026-08-02):**
+
+> *"The ordinance prescribes the governing measurement (mean width between parcel alignments over
+> the block segment). PRYZM implements the same legal datum using published alignment geometry.
+> Where implementation differs (median vs arithmetic mean, corner selection policy), PRYZM
+> **intentionally under-grants** and records the deviation."*
+
+**Why the corrected wording is STRONGER, not weaker:** the original claimed a gap in the ordinance
+and filled it. The corrected one claims **we implement the ordinance's own stated datum** —
+*«ancho entre alineaciones de parcela»*, Art. 4.5.3 — with every divergence named and provably
+conservative. That is a claim about fidelity to the instrument, not about its silence.
+
+#### The two recorded deviations — both UNDER-grant, neither over-states
+
+| # | Art. 4.5.3 / 4.5.4 require | PRYZM computes | direction | where |
+|---|---|---|---|---|
+| **D1** | **arithmetic mean** of the width over the whole *tramo*, *«hasta completar la manzana»*, weighted **×1.50** toward the wider part where the width varies 25–50 % | **median of 5 rays across one block edge** | **UNDER-grant** — the ×1.50 weighting can only raise the governing width, and a per-edge median ignores wider parts of the same tramo | `geometry/streetWidth.ts` |
+| **D2** | Art. 4.5.4: on a corner solar, *«se tomará la altura correspondiente a la calle de **mayor ancho**»* | `governingStreetWidth` takes the **narrowest** facing street | **UNDER-grant** — we apply the lower of the two heights the ordinance offers | `governingStreetWidth` |
+
+⚠ **Neither deviation may be "fixed" by editing `governingStreetWidth` in place.** It is shared with
+Barcelona, whose PGM Art. 327 resolves corners the *other* way. The founder's own architecture answer
+is that **corner policy must be a PARAMETER, not embedded** — carried as `governingFrontage(…,
+policy)` in [ADR-0289](../../../../../02-decisions/adrs/ADR-0289-geometry-derived-ordinance-variable-engine.md) §3.1.
+Until that lands, D1 and D2 stand as declared, conservative deviations.
 
 **THE SCOPE, VERBATIM:**
 
