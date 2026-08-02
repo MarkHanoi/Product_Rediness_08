@@ -1,0 +1,646 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Govern de les Illes Balears</title>
+<link href="css/estils_aplicacio.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+<div id="capsal" onclick="location.href='index.jsp';"> 
+</div>
+<div id="contenedor">    
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+   "http://www.w3.org/TR/html4/loose.dtd">
+
+
+<script type="text/javascript">
+    
+var identitat = 292441;
+  
+function cridaLlistat(idpla,idtramit,mun)
+{
+window.open("normativa_llistat.jsp?idPla="+idpla+"&idTramit="+idtramit+"&mun="+escape(mun), "_self","");
+}
+     
+function anarPlanejament() {
+    var mun = escape("Manacor");
+    var elPla = escape("2021 PG i CAT Manacor.");
+    var url = "normativa_pla_info.jsp?mun="+mun+"&elPla="+elPla;
+    location.href = url;
+}
+
+function anarMunicipi() {
+    var mun = escape("Manacor");
+    var url = "normativa_triar_pla.jsp?municipi="+mun;
+    location.href = url;
+}
+
+function historiaEntitat() {
+    var w = window.open("historiaEntitat.jsp?identitat=292441","Història","menubar=0,resizable=1,status=0,location=0,scrollbars=1,width=700,height=500");
+    w.focus();
+}
+</script>
+  
+        <p><h1>Municipi de: <a href="#" onclick="anarMunicipi();">Manacor</a></h1></p>
+
+        <p>           
+        <form action="" method="post" id="fitxa">
+                <fieldset>
+                    <legend>DADES DE L'ENTITAT</legend>
+            <br />
+  
+            <div class="grid-12-12" align="right" >
+                <INPUT class="centro" title="Darrer planejament " TYPE="BUTTON" VALUE="Planejament de l'entitat" onclick="historiaEntitat();">
+            </div>
+
+            <div class="grid-12-12">
+                <span style="font:normal 125% Arial, Helvetica, sans-serif; ">
+                    <b>RE_IP: Intensiva plurifamiliar</b> 
+                </span>
+            </div>             
+            <br/>
+            <div class="grid-12-12">
+                <span style="font:normal 125% Arial, Helvetica, sans-serif; ">
+                    Codi MUIB: <b>RE_IP_1</b>
+                    <br/>
+                    Codi Ajuntament: <b>RE-IP-1</b>
+                    <br/>
+                    Nom Ajuntament:  <b>Intensiva Manacor RE-IP-1</b>
+                </span>
+            </div>
+
+            <div class="grid-12-12 clear" align="left" style="border-left:.1em solid #ccc; margin:0 0 1em 0; padding:1em;height:auto;">
+                <table class="Taula_ContornSimple">
+                <tbody>
+                    <tr>
+                        <th width="100px">&nbsp;</th>
+                        <th width="300px">Denominació MUIB</th>
+                        <!--<th>Denominació municipal</th>-->
+                        <th width="250px">Valor</th>
+                        <th width="100px">Unitats</th>
+                        <th width="*">Règim específic</th>
+                    </tr>
+                
+                                <tr>
+                
+                                    <td rowspan="2"><strong>PARAMETRE DE PARCEL·LA</strong></td>
+                
+                                    <td>PM: Parcel·la mínima </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                400
+                                    </td>
+                                    <td>m2 </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>AM: Amplada mínima de façana de parcel·la </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                12
+                                    </td>
+                                    <td>m </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td rowspan="4"><strong>PARAMETRE D'EDIFICACIÓ</strong></td>
+                
+                                    <td>NP: Nombre de plantes </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                
+                                    </td>
+                                    <td>plantes </td>
+                                    <td>
+Un règim específic:
+<br/>&nbsp;<br/>
+&nbsp;- PB+2, PB+3, segons plànols d’ordenació (veure Article 66 per relacionar nombre de plantes, alçada reguladora màxima i alçada total)
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>IRP: Índex d'intensitat d'ús </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                90
+                                    </td>
+                                    <td>m2/habitatge </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>E: Coeficient d'edificabilitat neta </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                2
+                                    </td>
+                                    <td>m2 superf. edificable/m2 superf. del solar </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>T: Tipus d’ordenació </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                EM: Alineada o retranquejada a a espai, entre mitgeres
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td rowspan="3"><strong>ÚS RESIDENCIAL</strong></td>
+                
+                                    <td>RE-UN: Residencial Unifamiliar </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>RE-PL: Residencial Plurifamiliar </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Predominant
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>RE-CO: Residencial comunitari </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td rowspan="3"><strong>ÚS TURÍSTIC</strong></td>
+                
+                                    <td>TU-AT: Allotjament turístic </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Un règim específic:
+<br/>&nbsp;<br/>
+&nbsp;- Hotels de ciutat
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>TU-ET: Establiment turístic </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>TU-CT: Compatible i secundari al turístic </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Un règim específic:
+<br/>&nbsp;<br/>
+&nbsp;- Màx. 30%, segons l’Article 74 c)
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td rowspan="5"><strong>ÚS TERCIARI</strong></td>
+                
+                                    <td>TE-CO: Comercial </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Un règim específic:
+<br/>&nbsp;<br/>
+&nbsp;- Superfície útil màxima 500 m²
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>TE-AP: Administratiu privat </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Un règim específic:
+<br/>&nbsp;<br/>
+&nbsp;- Superfície útil màxima 500 m²
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>TE-RE: Recreatiu </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Un règim específic:
+<br/>&nbsp;<br/>
+&nbsp;- Superfície útil màxima 500 m²
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>TE-TM: Taller mecànic </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Un règim específic:
+<br/>&nbsp;<br/>
+&nbsp;- Superfície útil màxima 500 m²
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>TE-TA: Taller artesanal </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Un règim específic:
+<br/>&nbsp;<br/>
+&nbsp;- Superfície útil màxima 500 m²
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td rowspan="2"><strong>ÚS INDUSTRIAL</strong></td>
+                
+                                    <td>IN-IG: Productiu </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Prohibit
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>IN-MA: Emmagatzematge </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Prohibit
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td rowspan="1"><strong>ÚS DOTACIONAL COMUNICACIONS</strong></td>
+                
+                                    <td>CO-TR: Transports </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Prohibit
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td rowspan="4"><strong>ÚS DOTACIONAL INFRAESTRUCTURES O SERVEIS URBANS</strong></td>
+                
+                                    <td>IS-IN: Instal·lacions i serveis </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Prohibit
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>IS-CT: Comunicacions i telecomunicacions </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>IS-ET: Estació de serveis </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Prohibit
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>IS-CE: Cementeri </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Prohibit
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td rowspan="1"><strong>ÚS ESPAI LLIURE</strong></td>
+                
+                                    <td>EL-EL: Espai lliure </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td rowspan="7"><strong>ÚS EQUIPAMENTS</strong></td>
+                
+                                    <td>EQ-DO: Docent </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>EQ-CU: Cultural </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>EQ-ES: Esportiu </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>EQ-RL: Religiós </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>EQ-AI: Administratiu-institucional </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>EQ-SA: Sanitari </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                                <tr>
+                
+                                    <td>EQ-AS: Assistencial </td>
+                                    <!--<td> </td>-->
+                                    <td>
+                                Compatible
+
+                                    </td>
+                                    <td> </td>
+                                    <td>
+Sense règims específics
+                                    
+                                    </td>
+                                </tr>  
+                
+                </tbody>
+                </table>
+           
+            </div>
+
+
+        <!-- altres parametres no normalitzats -->
+        <div class="grid-12-12 clear" align="left" style="border-left:.1em solid #ccc; margin:0 0 1em 0; padding:1em;">
+                    <strong>ALTRES PARÀMETRES NO NORMALITZATS</strong>
+                    <table class="Taula_ContornSimple" id="parametres_no_normalitzats">
+                    <tbody>
+                        <tr>
+                            <th width="400">Denominació municipal</th>
+                            <th width="250">Valor</th>
+                            <th width="*">Règim específic</th>
+                        </tr>
+                        <tr><td colspan='3'>Sense paràmetres definits</td></tr>
+
+                     </tbody>
+                    </table>
+                </div>
+                 <!--altres parametres no normalitzats-->
+               
+            
+            <div class="grid-12-12">
+                <strong>Observacions: </strong>
+Sense observacions
+
+            </div>
+
+
+            
+            
+    
+            </fieldset>
+            <font size="1" color="gray">id entitat:292441</font>
+  
+
+            </form>
+         </p>
+
+
+ 
+</div>
+<div id="peu"> &copy; Govern de les Illes Balears</div>
+</body>
+</html>

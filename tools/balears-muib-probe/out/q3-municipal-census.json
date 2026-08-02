@@ -1,0 +1,2307 @@
+{
+  "probe": "q3-municipal-census",
+  "runAt": "2026-08-02T13:07:24.774Z",
+  "municipalities": {
+    "901": {
+      "codiMuni": "901",
+      "municipi": "ARIANY",
+      "extent4326": {
+        "xmin": 3.081860585091808,
+        "ymin": 39.62981008663923,
+        "xmax": 3.188475018702672,
+        "ymax": 39.69587759674189
+      },
+      "centroid4326": {
+        "lon": 3.13517,
+        "lat": 39.66284
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "DELIM_DE_SOL_URBA_DEL_TM_DE_PETRA"
+      ],
+      "qualFeatureCount": 82,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 62,
+      "rusticObsCount": 62,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 82,
+      "rusticDfivigenNonNull": 62,
+      "gestioFeatureCount": 0
+    },
+    "902": {
+      "codiMuni": "902",
+      "municipi": "ES MIGJORN GRAN",
+      "extent4326": {
+        "xmin": 3.9874665289573517,
+        "ymin": 39.90637050030997,
+        "xmax": 4.078645959621884,
+        "ymax": 39.976289852859495
+      },
+      "centroid4326": {
+        "lon": 4.03306,
+        "lat": 39.94133
+      },
+      "island": "Menorca",
+      "qualInstrumentCount": 7,
+      "qualInstruments": [
+        "ED_PP_Sant_Tomas_S3_7902_2020",
+        "2021_NNSS_MD4_902",
+        "2021_NNSS_MD_UA6_902",
+        "MP_PP_Sant_Tomas_SC_7902_2015",
+        "NNSS_TEXT_REFOS",
+        "DEROGACIO_NTT_MENORCA_2017",
+        "MOD_NUM_2_NNSS_ADPT_PTI_POLIGON_C_SANT_TOMAS"
+      ],
+      "qualFeatureCount": 141,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 223,
+      "rusticObsCount": 223,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 141,
+      "rusticDfivigenNonNull": 223,
+      "gestioFeatureCount": 7
+    },
+    "013": {
+      "codiMuni": "013",
+      "municipi": "CAMPOS",
+      "extent4326": {
+        "xmin": 2.930988657912058,
+        "ymin": 39.325340287484856,
+        "xmax": 3.101038072046647,
+        "ymax": 39.47643730111723
+      },
+      "centroid4326": {
+        "lon": 3.01601,
+        "lat": 39.40089
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 3,
+      "qualInstruments": [
+        "2021_ED_AliVol_013",
+        "IT_PTIM_01_2017",
+        "NNSS_Refos2014_7013"
+      ],
+      "qualFeatureCount": 937,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 567,
+      "rusticObsCount": 567,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 937,
+      "rusticDfivigenNonNull": 567,
+      "gestioFeatureCount": 32
+    },
+    "021": {
+      "codiMuni": "021",
+      "municipi": "ESTELLENCS",
+      "extent4326": {
+        "xmin": 2.4347920422359244,
+        "ymin": 39.6224313948607,
+        "xmax": 2.5478454459339313,
+        "ymax": 39.67417324691187
+      },
+      "centroid4326": {
+        "lon": 2.49132,
+        "lat": 39.6483
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "PTI_MALLORCA"
+      ],
+      "qualFeatureCount": 3,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 44,
+      "rusticObsCount": 44,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 3,
+      "rusticDfivigenNonNull": 44,
+      "gestioFeatureCount": 0
+    },
+    "032": {
+      "codiMuni": "032",
+      "municipi": "MAÓ / MAHÓN",
+      "extent4326": {
+        "xmin": 4.155989866630721,
+        "ymin": 39.82956279076203,
+        "xmax": 4.3307976302073925,
+        "ymax": 40.02299936218153
+      },
+      "centroid4326": {
+        "lon": 4.24339,
+        "lat": 39.92628
+      },
+      "island": "Menorca",
+      "qualInstrumentCount": 3,
+      "qualInstruments": [
+        "MD_PGOU_SANTIAGO_7032_2018",
+        "DEROGACIO_NTT_MENORCA_2017",
+        "PGOU_2012_07032"
+      ],
+      "qualFeatureCount": 1231,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 857,
+      "rusticObsCount": 857,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 1231,
+      "rusticDfivigenNonNull": 857,
+      "gestioFeatureCount": 84
+    },
+    "018": {
+      "codiMuni": "018",
+      "municipi": "DEIÀ",
+      "extent4326": {
+        "xmin": 2.614797664908497,
+        "ymin": 39.72322701071685,
+        "xmax": 2.6777814839141207,
+        "ymax": 39.77256246015365
+      },
+      "centroid4326": {
+        "lon": 2.64629,
+        "lat": 39.74789
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "MD_1_2012_7018_2014",
+        "TR_DE_LESNORMES_SUBSIDIARIES_2005"
+      ],
+      "qualFeatureCount": 198,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 71,
+      "rusticObsCount": 71,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 198,
+      "rusticDfivigenNonNull": 71,
+      "gestioFeatureCount": 8
+    },
+    "039": {
+      "codiMuni": "039",
+      "municipi": "MURO",
+      "extent4326": {
+        "xmin": 3.0195851385035266,
+        "ymin": 39.69680178639632,
+        "xmax": 3.1453547337040715,
+        "ymax": 39.815424776822155
+      },
+      "centroid4326": {
+        "lon": 3.08247,
+        "lat": 39.75611
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "ED_VOLUMS_7039_2015",
+        "REV_PGOU_2003"
+      ],
+      "qualFeatureCount": 1163,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 122,
+      "rusticObsCount": 122,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 1163,
+      "rusticDfivigenNonNull": 122,
+      "gestioFeatureCount": 4
+    },
+    "004": {
+      "codiMuni": "004",
+      "municipi": "ALGAIDA",
+      "extent4326": {
+        "xmin": 2.8282402638873316,
+        "ymin": 39.516687573194204,
+        "xmax": 2.9689619279603106,
+        "ymax": 39.6140953671918
+      },
+      "centroid4326": {
+        "lon": 2.8986,
+        "lat": 39.56539
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 3,
+      "qualInstruments": [
+        "NNSS_2005",
+        "2009_PP_SectorEsPorrassar_004",
+        "2018_ED_004"
+      ],
+      "qualFeatureCount": 258,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 149,
+      "rusticObsCount": 149,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 258,
+      "rusticDfivigenNonNull": 149,
+      "gestioFeatureCount": 21
+    },
+    "034": {
+      "codiMuni": "034",
+      "municipi": "MANCOR DE LA VALL",
+      "extent4326": {
+        "xmin": 2.8341584173973566,
+        "ymin": 39.733696124610354,
+        "xmax": 2.8934017866699606,
+        "ymax": 39.79226442297793
+      },
+      "centroid4326": {
+        "lon": 2.86378,
+        "lat": 39.76298
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "NNSS_1992_7034",
+        "MD_7034_2017"
+      ],
+      "qualFeatureCount": 76,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 34,
+      "rusticObsCount": 34,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 76,
+      "rusticDfivigenNonNull": 34,
+      "gestioFeatureCount": 0
+    },
+    "064": {
+      "codiMuni": "064",
+      "municipi": "ES CASTELL",
+      "extent4326": {
+        "xmin": 4.263886030575457,
+        "ymin": 39.84239095279171,
+        "xmax": 4.3094559890502815,
+        "ymax": 39.886869876524635
+      },
+      "centroid4326": {
+        "lon": 4.28667,
+        "lat": 39.86463
+      },
+      "island": "Menorca",
+      "qualInstrumentCount": 11,
+      "qualInstruments": [
+        "MOD_PUNTUAL_NUM-6",
+        "MOD_PUNTUAL_NUM-10_CEMENTIRI_MUNICIPAL_EDAR",
+        "MOD_PUNTUAL_NUM-5",
+        "PPO_2_FASE_DEL_POLIGON_INDUSTRIAL",
+        "2013_PG_MD19_064",
+        "MOD_PUNTUAL_NUM-9",
+        "MOD_PUNTUAL_NUM-8_REPOS_DEL_REI",
+        "TR_PGOU_2000",
+        "MOD_PUNTUAL_NUM-3_UB_3-5_UA_3-11_UA_3-3_UA_3-9_UB_3-2_UB_3-4_PU-66_UA_3-4-2UA_3-4-3",
+        "MOD_PUNTUAL_NUM-1_DIVERSOS_ARTICLESNORMES_URBANISTIQUES",
+        "MOD_PUNTUAL_NUM-4"
+      ],
+      "qualFeatureCount": 327,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 62,
+      "rusticObsCount": 62,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 327,
+      "rusticDfivigenNonNull": 62,
+      "gestioFeatureCount": 85
+    },
+    "016": {
+      "codiMuni": "016",
+      "municipi": "CONSELL",
+      "extent4326": {
+        "xmin": 2.7850177241573952,
+        "ymin": 39.643058107730646,
+        "xmax": 2.85050228028467,
+        "ymax": 39.68805021613466
+      },
+      "centroid4326": {
+        "lon": 2.81776,
+        "lat": 39.66555
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 5,
+      "qualInstruments": [
+        "MD_RELATIVA_A_DIVERSOS_ASPECTES_PUNTUALS",
+        "MD_NNSS_102_104_7016_2015",
+        "2009_NNSS_MD_Reclassificacio_EQ_DO_016",
+        "2019_NNSS_MD_Classificacio_EQ_SA_016",
+        "REV_NNSS_1999_7016"
+      ],
+      "qualFeatureCount": 392,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 31,
+      "rusticObsCount": 31,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 392,
+      "rusticDfivigenNonNull": 31,
+      "gestioFeatureCount": 12
+    },
+    "020": {
+      "codiMuni": "020",
+      "municipi": "ESPORLES",
+      "extent4326": {
+        "xmin": 2.5284742196814993,
+        "ymin": 39.62872535125302,
+        "xmax": 2.649556281679435,
+        "ymax": 39.69529358818241
+      },
+      "centroid4326": {
+        "lon": 2.58902,
+        "lat": 39.66201
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "ED_CARRERLLUM5_7020_2018",
+        "NNSS_2001"
+      ],
+      "qualFeatureCount": 236,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 65,
+      "rusticObsCount": 65,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 236,
+      "rusticDfivigenNonNull": 65,
+      "gestioFeatureCount": 9
+    },
+    "019": {
+      "codiMuni": "019",
+      "municipi": "ESCORCA",
+      "extent4326": {
+        "xmin": 2.7324094984709704,
+        "ymin": 39.747154211022234,
+        "xmax": 2.9528805577100505,
+        "ymax": 39.90193660037937
+      },
+      "centroid4326": {
+        "lon": 2.84265,
+        "lat": 39.82455
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "PEPRI-PE_PROTECCIo_I_CATaLEG_DEL_NUCLI_URB",
+        "NNSS_1993"
+      ],
+      "qualFeatureCount": 67,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 315,
+      "rusticObsCount": 315,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 67,
+      "rusticDfivigenNonNull": 315,
+      "gestioFeatureCount": 1
+    },
+    "052": {
+      "codiMuni": "052",
+      "municipi": "SANT LLUÍS",
+      "extent4326": {
+        "xmin": 4.201931660278926,
+        "ymin": 39.79901747760903,
+        "xmax": 4.304543978081202,
+        "ymax": 39.865364646723805
+      },
+      "centroid4326": {
+        "lon": 4.25324,
+        "lat": 39.83219
+      },
+      "island": "Menorca",
+      "qualInstrumentCount": 4,
+      "qualInstruments": [
+        "MD_NNSS_ADPT_PTI_NTSR_7052_2017",
+        "NNSS0752",
+        "NNSS_ZT_2012_7052",
+        "MD_NNSS_ZT_2012_7052"
+      ],
+      "qualFeatureCount": 1005,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 143,
+      "rusticObsCount": 143,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 1005,
+      "rusticDfivigenNonNull": 143,
+      "gestioFeatureCount": 49
+    },
+    "063": {
+      "codiMuni": "063",
+      "municipi": "VALLDEMOSSA",
+      "extent4326": {
+        "xmin": 2.5554981312931284,
+        "ymin": 39.645580760212376,
+        "xmax": 2.6626061768802636,
+        "ymax": 39.74376142464751
+      },
+      "centroid4326": {
+        "lon": 2.60905,
+        "lat": 39.69467
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "MD_NNSS_1_2010_7063_2012",
+        "REV_NNSS_1995"
+      ],
+      "qualFeatureCount": 275,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 224,
+      "rusticObsCount": 224,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 275,
+      "rusticDfivigenNonNull": 224,
+      "gestioFeatureCount": 6
+    },
+    "043": {
+      "codiMuni": "043",
+      "municipi": "PORRERES",
+      "extent4326": {
+        "xmin": 2.956897293534197,
+        "ymin": 39.460247130367044,
+        "xmax": 3.1116860712374272,
+        "ymax": 39.55473785496099
+      },
+      "centroid4326": {
+        "lon": 3.03429,
+        "lat": 39.50749
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 4,
+      "qualInstruments": [
+        "MD_ART_106-116_7043_2003",
+        "PP_POLIGON_IND_SACREU_NNSS_7043_2014",
+        "MD_NNSS_URB_IND_7043_2013",
+        "REV_NNSS_1998"
+      ],
+      "qualFeatureCount": 238,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 341,
+      "rusticObsCount": 341,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 238,
+      "rusticDfivigenNonNull": 341,
+      "gestioFeatureCount": 14
+    },
+    "035": {
+      "codiMuni": "035",
+      "municipi": "MARIA DE LA SALUT",
+      "extent4326": {
+        "xmin": 3.036569885522796,
+        "ymin": 39.65413285795962,
+        "xmax": 3.1661669547473736,
+        "ymax": 39.70294006572426
+      },
+      "centroid4326": {
+        "lon": 3.10137,
+        "lat": 39.67854
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "REV_NNSS_1997"
+      ],
+      "qualFeatureCount": 470,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 52,
+      "rusticObsCount": 52,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 470,
+      "rusticDfivigenNonNull": 52,
+      "gestioFeatureCount": 15
+    },
+    "009": {
+      "codiMuni": "009",
+      "municipi": "BÚGER",
+      "extent4326": {
+        "xmin": 2.959707868303967,
+        "ymin": 39.73812031081695,
+        "xmax": 3.013402322759934,
+        "ymax": 39.783376144003306
+      },
+      "centroid4326": {
+        "lon": 2.98656,
+        "lat": 39.76075
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "PROYECTO_DE_DELIMN_SUELO_URBANO_1981"
+      ],
+      "qualFeatureCount": 39,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 47,
+      "rusticObsCount": 47,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 39,
+      "rusticDfivigenNonNull": 47,
+      "gestioFeatureCount": 0
+    },
+    "053": {
+      "codiMuni": "053",
+      "municipi": "SANTA EUGÈNIA",
+      "extent4326": {
+        "xmin": 2.8061923931950266,
+        "ymin": 39.58825876290688,
+        "xmax": 2.8650301760616466,
+        "ymax": 39.65182797244066
+      },
+      "centroid4326": {
+        "lon": 2.83561,
+        "lat": 39.62004
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "NC_ADPT_AL_DECRET_2_1996_DE_CAPACITATS_DE_POBLACIO",
+        "NNSS_1989"
+      ],
+      "qualFeatureCount": 86,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 42,
+      "rusticObsCount": 42,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 86,
+      "rusticDfivigenNonNull": 42,
+      "gestioFeatureCount": 1
+    },
+    "001": {
+      "codiMuni": "001",
+      "municipi": "ALARÓ",
+      "extent4326": {
+        "xmin": 2.752460436035053,
+        "ymin": 39.67219696351407,
+        "xmax": 2.8505938417714596,
+        "ymax": 39.77560080609655
+      },
+      "centroid4326": {
+        "lon": 2.80153,
+        "lat": 39.7239
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "REV_NNSS_2003_7001"
+      ],
+      "qualFeatureCount": 166,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 279,
+      "rusticObsCount": 279,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 166,
+      "rusticDfivigenNonNull": 279,
+      "gestioFeatureCount": 9
+    },
+    "025": {
+      "codiMuni": "025",
+      "municipi": "FORNALUTX",
+      "extent4326": {
+        "xmin": 2.72327049569035,
+        "ymin": 39.76738589789897,
+        "xmax": 2.785239817920002,
+        "ymax": 39.82703733759867
+      },
+      "centroid4326": {
+        "lon": 2.75426,
+        "lat": 39.79721
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "NNSS_2006",
+        "PE_APARCAMENTS_PUBLICS_ZONA_DESBARJO"
+      ],
+      "qualFeatureCount": 149,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 135,
+      "rusticObsCount": 135,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 149,
+      "rusticDfivigenNonNull": 135,
+      "gestioFeatureCount": 1
+    },
+    "062": {
+      "codiMuni": "062",
+      "municipi": "SON SERVERA",
+      "extent4326": {
+        "xmin": 3.3190199225082826,
+        "ymin": 39.599800403494434,
+        "xmax": 3.436777221551273,
+        "ymax": 39.685320367907025
+      },
+      "centroid4326": {
+        "lon": 3.3779,
+        "lat": 39.64256
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "REV_NNSS_7062_2014"
+      ],
+      "qualFeatureCount": 714,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 113,
+      "rusticObsCount": 113,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 714,
+      "rusticDfivigenNonNull": 113,
+      "gestioFeatureCount": 16
+    },
+    "056": {
+      "codiMuni": "056",
+      "municipi": "SANTA MARIA DEL CAMÍ",
+      "extent4326": {
+        "xmin": 2.7313928905207687,
+        "ymin": 39.60282563808622,
+        "xmax": 2.8245344178005256,
+        "ymax": 39.7186202407146
+      },
+      "centroid4326": {
+        "lon": 2.77796,
+        "lat": 39.66072
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "TR_NORMES_SUBSIDIARIES_1996"
+      ],
+      "qualFeatureCount": 224,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 56,
+      "rusticObsCount": 56,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 224,
+      "rusticDfivigenNonNull": 56,
+      "gestioFeatureCount": 8
+    },
+    "002": {
+      "codiMuni": "002",
+      "municipi": "ALAIOR",
+      "extent4326": {
+        "xmin": 4.053143087757833,
+        "ymin": 39.85443674312212,
+        "xmax": 4.211008469145931,
+        "ymax": 39.97716393148432
+      },
+      "centroid4326": {
+        "lon": 4.13208,
+        "lat": 39.9158
+      },
+      "island": "Menorca",
+      "qualInstrumentCount": 3,
+      "qualInstruments": [
+        "PGOU_ALAIOR_7002_1994",
+        "PTI_MENORCA",
+        "PP_TORRE_SOLI_NOU_S2_2009"
+      ],
+      "qualFeatureCount": 665,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 607,
+      "rusticObsCount": 607,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 665,
+      "rusticDfivigenNonNull": 607,
+      "gestioFeatureCount": 41
+    },
+    "007": {
+      "codiMuni": "007",
+      "municipi": "BANYALBUFAR",
+      "extent4326": {
+        "xmin": 2.4870366200632157,
+        "ymin": 39.65474968893727,
+        "xmax": 2.5664503240137018,
+        "ymax": 39.702141116143
+      },
+      "centroid4326": {
+        "lon": 2.52674,
+        "lat": 39.67845
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "NNSS_1986_7007",
+        "ED_C_SA_LLOSETA_5_PORT_DES_CANONGE"
+      ],
+      "qualFeatureCount": 49,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 285,
+      "rusticObsCount": 285,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 49,
+      "rusticDfivigenNonNull": 285,
+      "gestioFeatureCount": 0
+    },
+    "031": {
+      "codiMuni": "031",
+      "municipi": "LLUCMAJOR",
+      "extent4326": {
+        "xmin": 2.7215136480302076,
+        "ymin": 39.351889482794505,
+        "xmax": 2.9765207634751105,
+        "ymax": 39.57011007463185
+      },
+      "centroid4326": {
+        "lon": 2.84902,
+        "lat": 39.461
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 11,
+      "qualInstruments": [
+        "MD_PGO_EN_EL_SECTOR_VII_AUXIMASA",
+        "PP_ES_PAS_DE_VALLGORNERA",
+        "PP_DE_SA_TORRE",
+        "PLA_REC_PLATJA_PALMA_7040_2015",
+        "PPPAU_SECTOR_INDUSTRIAL_SERVEIS_SON_FOSQUET",
+        "MP_PP_SEC_III-C_CAP_REGANA",
+        "MD_RED_VIARIA_DEL_PLAN_PARCIAL_DE_LOS_POL14_POL15_Y_POL16_SON_GRANADA",
+        "MDP_PGO_REFERENTE_AL_SECTOR_INDUSTRIAL_SON_NOGUERA",
+        "MD_PGOU_NOUS_EQ_EN_ESPORTIU_PRIVAT_SECTOR_III_B_PUIG_DE_ROS",
+        "MD_PP_DEL_POL29_Y_POL30_MAIORIS_DECIMA",
+        "REV_ADPT_DEL_PLAN_GENERAL_MUNICIPAL_DE_ORDENACION_1984"
+      ],
+      "qualFeatureCount": 1570,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 1263,
+      "rusticObsCount": 1263,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 1570,
+      "rusticDfivigenNonNull": 1263,
+      "gestioFeatureCount": 22
+    },
+    "026": {
+      "codiMuni": "026",
+      "municipi": "EIVISSA",
+      "extent4326": {
+        "xmin": 1.3845940050628334,
+        "ymin": 38.87408294097907,
+        "xmax": 1.4642794531394427,
+        "ymax": 38.93097940683254
+      },
+      "centroid4326": {
+        "lon": 1.42444,
+        "lat": 38.90253
+      },
+      "island": "Eivissa",
+      "qualInstrumentCount": 20,
+      "qualInstruments": [
+        "MD_PP_POLIGON16_7026_2017",
+        "MP_SECTOR_28_MP_DEL_PPO_POLIGON_28_DE_CAS_SERRESCARRER_ANTONI_MARIA_ALCOVER",
+        "MD _EIVISSA_CENTRE_7026_2007",
+        "MD_P_BOUS_7026_2003",
+        "MD_ES_RASPALLAR_7026_1997",
+        "S5_ENSANCHE_NORTE",
+        "P10_CAN_MISSES",
+        "S3_DESALINIZADORA",
+        "P32_EIVISSA_NOVA",
+        "P16_POLIGONO_16",
+        "ED_PABLOPICASSO2_7026_2017",
+        "MD_IGNASI_WALLIS_7026_2007",
+        "P7_8_PARTE_SUR",
+        "MP_PLA_PARCIAL_POLIGON_28_CAN_CASALS",
+        "MP_PP_S4_7026_2017",
+        "MD_DOMINGUETS_FIRAL_7026_2004",
+        "PTI_DEIVISSA_FORMENTERA",
+        "MD_PPS3_7026_2016",
+        "DECRET_LLEI_2_2009",
+        "P28_CAS_SERRES"
+      ],
+      "qualFeatureCount": 265,
+      "qualObsCount": 265,
+      "qualObsPct": 100,
+      "qualObsValues": [
+        "Del municipi d'Eivissa el MUIB NO mostra l'actual normativa vigent. Consultau la informació proporcionada per l'Ajuntament"
+      ],
+      "selfDeclaredNotCurrent": true,
+      "rusticFeatureCount": 80,
+      "rusticObsCount": 80,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 265,
+      "rusticDfivigenNonNull": 80,
+      "gestioFeatureCount": 1
+    },
+    "037": {
+      "codiMuni": "037",
+      "municipi": "ES MERCADAL",
+      "extent4326": {
+        "xmin": 4.006574111243685,
+        "ymin": 39.954168022153645,
+        "xmax": 4.215306319576924,
+        "ymax": 40.09518056631502
+      },
+      "centroid4326": {
+        "lon": 4.11094,
+        "lat": 40.02467
+      },
+      "island": "Menorca",
+      "qualInstrumentCount": 12,
+      "qualInstruments": [
+        "MOD_NUM_10_ADPT_SECTOR_12_B_COVESNOVES_II",
+        "MP_NNSS_MOD_19_7037_2010",
+        "PPO_URBANA_CITN_DE_SON_PARC",
+        "MP_NNSS_MOD_18_7037_2011",
+        "PTI_MENORCA",
+        "DEROGACIO_NTT_MENORCA_2017",
+        "MP_NNSS_MOD_23_7037_2014",
+        "PPO_DEL_SOLAPTE_PER_URBANITZAR_DE_BINIUMAIA_SECT_12A_",
+        "MP_NNSS_MOD_21_7037_2012",
+        "PPO_POLIGON_INDUSTRIAL_LLINARITX",
+        "MOD_DEL_PPO_DE_SON_PARC_PER_A_LA_SEVA_ADPT_AL_PTI",
+        "ADPT_A_LES_DOT_A_LA_LLEI_DEL_SOL_RUSTIC"
+      ],
+      "qualFeatureCount": 757,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 752,
+      "rusticObsCount": 752,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 757,
+      "rusticDfivigenNonNull": 752,
+      "gestioFeatureCount": 51
+    },
+    "023": {
+      "codiMuni": "023",
+      "municipi": "FERRERIES",
+      "extent4326": {
+        "xmin": 3.957395008644903,
+        "ymin": 39.92805438793636,
+        "xmax": 4.064775348355879,
+        "ymax": 40.05995224735538
+      },
+      "centroid4326": {
+        "lon": 4.01109,
+        "lat": 39.994
+      },
+      "island": "Menorca",
+      "qualInstrumentCount": 4,
+      "qualInstruments": [
+        "DEROGACIO_NTT_MENORCA_2017",
+        "MOD_NUM-3_NU_NU_CALA_GALDANA_POIFE",
+        "PGOU_7023",
+        "NNCC_REGULADORA_CAPACITAT_DE_POBLACIO_DEL_PGOU"
+      ],
+      "qualFeatureCount": 178,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 408,
+      "rusticObsCount": 408,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 178,
+      "rusticDfivigenNonNull": 408,
+      "gestioFeatureCount": 7
+    },
+    "014": {
+      "codiMuni": "014",
+      "municipi": "CAPDEPERA",
+      "extent4326": {
+        "xmin": 3.38083331531111,
+        "ymin": 39.6342876278111,
+        "xmax": 3.478932754411133,
+        "ymax": 39.75199814813635
+      },
+      "centroid4326": {
+        "lon": 3.42988,
+        "lat": 39.69314
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 13,
+      "qualInstruments": [
+        "MD_NNSS_CANVI_QUALIFICACIO_2_PARCELLES_A_CALA_RAJADA_CONFRARIA_DE_PESCADORS",
+        "MDP_NNSS_ZONAS_JUNTO_CAMPO_DE_DEPORTES_ES_FIGUERAL_Y_C_ROSAS",
+        "PP_SEC7_DE_LASNNSS_CANYAMEL_",
+        "MD_PP_SEC4_DE_LASNNSS_POLIGONO_INDUSTRIAL",
+        "MD1_7014_2016",
+        "PP_SECTOR_1_ES_VINYET",
+        "NC_ADAPTACION_AL_DECRET_2_96",
+        "CEM_ZONIFICACIO_DE_4_SOLARS_PER_A_EQUIP_MUNICIPALS",
+        "NNSS_DE_PLANEAMIENTO_1986_7014",
+        "MD_PUNTUAL_ZONIFICACIO_DE_3_SOLARS_A_CALA_RAJADA",
+        "PP_SEC4_DE_LASNNSS",
+        "MD_PUNTUAL_ZONIFICACIO_DE_4_SOLARS_PER_A_EQUIP_MUNICIPALS",
+        "MD_1_2013_7014_2016"
+      ],
+      "qualFeatureCount": 821,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 603,
+      "rusticObsCount": 603,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 821,
+      "rusticDfivigenNonNull": 603,
+      "gestioFeatureCount": 10
+    },
+    "054": {
+      "codiMuni": "054",
+      "municipi": "SANTA EULÀRIA DES RIU",
+      "extent4326": {
+        "xmin": 1.3808142167084752,
+        "ymin": 38.91148704345108,
+        "xmax": 1.652767321727407,
+        "ymax": 39.06993062992442
+      },
+      "centroid4326": {
+        "lon": 1.51679,
+        "lat": 38.99071
+      },
+      "island": "Eivissa",
+      "qualInstrumentCount": 12,
+      "qualInstruments": [
+        "ED_ALI_PARC_EVE_SGF_7054_2018",
+        "NNSS_2011_STAEUL",
+        "ED_VOL_QCN30_PDV_7054_2018",
+        "MD_8_NNSS_Adaptacio_cartografia_7054_2015",
+        "ED_VOL_C_733_SER_7054_2020",
+        "ED_ALI_QC2_PDV_7054_2021",
+        "MD_4_NNSS_7054_2015",
+        "MD_10_NNSS_Adaptacio_cartografia_7054_2020",
+        "ED_VOL_EVE_SGR_7054_2020",
+        "MOD6_7054_2017",
+        "MD_2_NNSS_Argamassa_7054_2015",
+        "MD_3_NNSS_7054_2017"
+      ],
+      "qualFeatureCount": 1453,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 1646,
+      "rusticObsCount": 1646,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 1453,
+      "rusticDfivigenNonNull": 1646,
+      "gestioFeatureCount": 65
+    },
+    "030": {
+      "codiMuni": "030",
+      "municipi": "LLUBÍ",
+      "extent4326": {
+        "xmin": 2.98221437922411,
+        "ymin": 39.6542209467996,
+        "xmax": 3.0749415165457057,
+        "ymax": 39.74035247140398
+      },
+      "centroid4326": {
+        "lon": 3.02858,
+        "lat": 39.69729
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "MD_7030_2017",
+        "REV_NNSS_2002"
+      ],
+      "qualFeatureCount": 98,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 252,
+      "rusticObsCount": 252,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 98,
+      "rusticDfivigenNonNull": 252,
+      "gestioFeatureCount": 6
+    },
+    "017": {
+      "codiMuni": "017",
+      "municipi": "COSTITX",
+      "extent4326": {
+        "xmin": 2.918642624195242,
+        "ymin": 39.62774146212448,
+        "xmax": 2.9778852299675074,
+        "ymax": 39.67932981537839
+      },
+      "centroid4326": {
+        "lon": 2.94826,
+        "lat": 39.65354
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "REVPTI_7017_2017"
+      ],
+      "qualFeatureCount": 70,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 296,
+      "rusticObsCount": 296,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 70,
+      "rusticDfivigenNonNull": 296,
+      "gestioFeatureCount": 5
+    },
+    "058": {
+      "codiMuni": "058",
+      "municipi": "SELVA",
+      "extent4326": {
+        "xmin": 2.84333687736372,
+        "ymin": 39.72400162910994,
+        "xmax": 2.962446911211339,
+        "ymax": 39.816494642223496
+      },
+      "centroid4326": {
+        "lon": 2.90289,
+        "lat": 39.77025
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "2020_PDSU_SELVA_058"
+      ],
+      "qualFeatureCount": 154,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 119,
+      "rusticObsCount": 119,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 154,
+      "rusticDfivigenNonNull": 119,
+      "gestioFeatureCount": 2
+    },
+    "024": {
+      "codiMuni": "024",
+      "municipi": "FORMENTERA",
+      "extent4326": {
+        "xmin": 1.3780292974675379,
+        "ymin": 38.64029405851175,
+        "xmax": 1.5851801838160684,
+        "ymax": 38.8064039876773
+      },
+      "centroid4326": {
+        "lon": 1.4816,
+        "lat": 38.72335
+      },
+      "island": "Formentera",
+      "qualInstrumentCount": 12,
+      "qualInstruments": [
+        "ED_UA_EPJ04_7024_2014",
+        "ED_UAEPJ-05_7024_2016",
+        "ED_UAEPJ19_7024_2017",
+        "UAEPJ01_7024_2015",
+        "MOD1_NNSS2010_2013_7024",
+        "ED_AV_MEDITAERRANEA53_7024_2016",
+        "ED_EPJ01_7024_2015",
+        "MD_4_PTI_NNSS_7024_2020",
+        "ED_UA_SFR10_7024_2019",
+        "ED_UA_LSV-SFR_7024_2015",
+        "ED_VOLUMENS_PUJOLS_7024_2017",
+        "ED_197_2013_LASAVINA_7024_2015"
+      ],
+      "qualFeatureCount": 503,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 768,
+      "rusticObsCount": 768,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 503,
+      "rusticDfivigenNonNull": 768,
+      "gestioFeatureCount": 121
+    },
+    "055": {
+      "codiMuni": "055",
+      "municipi": "SANTA MARGALIDA",
+      "extent4326": {
+        "xmin": 3.070218119898439,
+        "ymin": 39.67589469868317,
+        "xmax": 3.2373025644852884,
+        "ymax": 39.77391356063137
+      },
+      "centroid4326": {
+        "lon": 3.15376,
+        "lat": 39.7249
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 11,
+      "qualInstruments": [
+        "MD_NNSS_ZONAESPORTIVA_7055_2014",
+        "SECTOR_14_CA_N_PICAFORT",
+        "NNSS_DE_PLANEAMIENTO_1986_7055",
+        "MD_NNSS_bombers_7055_2011",
+        "MD_NNSS_PP7_7055_2012",
+        "MD_NNSS_Eq_esportiu_7055_2012",
+        "SECTOR_9_DEL_NUCLEO_DE_CAN_PICAFORT",
+        "SECTOR_7_DEL_NUCLEO_DE_CAN_PICAFORT",
+        "SECTOR_5_DE_CAN_PICAFORT",
+        "SECTOR_11_POLIGON_1",
+        "POLIGON_INDUSTRIAL_SECTOR_11_A_EXTENSIVA_G"
+      ],
+      "qualFeatureCount": 747,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 693,
+      "rusticObsCount": 693,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 747,
+      "rusticDfivigenNonNull": 693,
+      "gestioFeatureCount": 6
+    },
+    "048": {
+      "codiMuni": "048",
+      "municipi": "SANT JOSEP DE SA TALAIA",
+      "extent4326": {
+        "xmin": 1.1565799004042052,
+        "ymin": 38.810118359482345,
+        "xmax": 1.4125047699531224,
+        "ymax": 38.998127973383745
+      },
+      "centroid4326": {
+        "lon": 1.28454,
+        "lat": 38.90412
+      },
+      "island": "Eivissa",
+      "qualInstrumentCount": 24,
+      "qualInstruments": [
+        "PP_CALA_CORAL",
+        "MP_4_NNSS_Implantacio_urb_ordenat_7048_2016",
+        "ED_AA_5_2_EPT_7048_2020",
+        "CAN_RASPALLS_SECTOR_114",
+        "PP_VISTA_ALEGRE",
+        "PP_433_Rocas_Malas_7048_1995",
+        "ES_RASOS_SECTOR_416",
+        "CALA_TARIDA_SECTOR_420",
+        "PUNTA_GROSSA_SECTOR_422",
+        "CAN_BURGOS_SECTOR_14",
+        "ED_AA_1_4_CBG_I21_7048_2017",
+        "MP_3_NNSS_requalificacio_Sector_16_7048_2014",
+        "PORT_DES_TORRENT_SECTOR_56",
+        "PUNTA_DE_SA_PEDRERA_SECTOR_54",
+        "CAN_NEBOT_SECTOR_16",
+        "TR_DE_LES_NNSS",
+        "CALA_CORRAL_SECTORS_423_424",
+        "ED_AA_5_14_PTR_7048_2017",
+        "SA_PLANA_DE_MAR_SECTOR_414",
+        "MP_7_NNSS_nou_urba_7048_2020",
+        "ED_AA_1_4_CBG_I22_7048_2017",
+        "PP_CALA_VADELLA",
+        "PP_CALA_MOLI",
+        "CALA_MOLI_SECTOR_413"
+      ],
+      "qualFeatureCount": 940,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 2440,
+      "rusticObsCount": 2440,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 940,
+      "rusticDfivigenNonNull": 2440,
+      "gestioFeatureCount": 144
+    },
+    "006": {
+      "codiMuni": "006",
+      "municipi": "ARTÀ",
+      "extent4326": {
+        "xmin": 3.224892327040045,
+        "ymin": 39.63888847084953,
+        "xmax": 3.4581255699538698,
+        "ymax": 39.78967999848894
+      },
+      "centroid4326": {
+        "lon": 3.34151,
+        "lat": 39.71428
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 6,
+      "qualInstruments": [
+        "2019_NNSS_R_Moli_Regalat_006",
+        "REV_NNSS_2010",
+        "PE_sEstanyol_Dotacioserveis_2014_7006",
+        "MD_NUM1_POLIESPORTIU_7005_2013",
+        "REV_NNSS_CP_7006_2015",
+        "2021_NNSS_MD4_006"
+      ],
+      "qualFeatureCount": 1395,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 364,
+      "rusticObsCount": 364,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 1395,
+      "rusticDfivigenNonNull": 364,
+      "gestioFeatureCount": 17
+    },
+    "036": {
+      "codiMuni": "036",
+      "municipi": "MARRATXÍ",
+      "extent4326": {
+        "xmin": 2.667292174751017,
+        "ymin": 39.58209691441409,
+        "xmax": 2.7977106718036717,
+        "ymax": 39.66066902886638
+      },
+      "centroid4326": {
+        "lon": 2.7325,
+        "lat": 39.62138
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 13,
+      "qualInstruments": [
+        "MD_NNSS_CANVI_A_S_GRAL_EQUIP_SANITARI_ASSISTENCIAL_C_OLEZA_33",
+        "MD_NNSS_7036_2012",
+        "MD_ED_CARRER_SA_GARRIGA_DE_PORTOL",
+        "MD_ED_ZONA_TERCIARIA_DEL_PP_S-42_ES_MIRALL_FESTIVAL_PARK",
+        "REV_NNSS_1999_7036",
+        "PP_SECTOR_5-1",
+        "MD_NNSS_EQ_ASSISTENCIALS_A_CAN_CARBONELL_SON_LLEBRE_PLA_DE_NA_TESA",
+        "MD_NNSS_CANVI_QUALIFICACIO_EQ2-DP-6036_P_QUEDANT_SENSE_US",
+        "MP_NNSS_SGELL8_2014",
+        "PP_SAU52_7036_2015",
+        "CEM_PLANOL_D-CL-8",
+        "MD_PERESUREDA2_7036_2016",
+        "MD_EQUIPAMENT_ESCAULLS_7036_2015"
+      ],
+      "qualFeatureCount": 1478,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 161,
+      "rusticObsCount": 161,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 1478,
+      "rusticDfivigenNonNull": 161,
+      "gestioFeatureCount": 93
+    },
+    "008": {
+      "codiMuni": "008",
+      "municipi": "BINISSALEM",
+      "extent4326": {
+        "xmin": 2.811685385189797,
+        "ymin": 39.65445849542033,
+        "xmax": 2.905290309158004,
+        "ymax": 39.715338060769156
+      },
+      "centroid4326": {
+        "lon": 2.85849,
+        "lat": 39.6849
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "PP_SAU_III_POLIGON_INDUSTRIAL",
+        "REV_NNSS_2008"
+      ],
+      "qualFeatureCount": 276,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 195,
+      "rusticObsCount": 195,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 276,
+      "rusticDfivigenNonNull": 195,
+      "gestioFeatureCount": 19
+    },
+    "057": {
+      "codiMuni": "057",
+      "municipi": "SANTANYÍ",
+      "extent4326": {
+        "xmin": 3.0275051705155693,
+        "ymin": 39.26419506377198,
+        "xmax": 3.2406613099922024,
+        "ymax": 39.4117469405854
+      },
+      "centroid4326": {
+        "lon": 3.13408,
+        "lat": 39.33797
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 12,
+      "qualInstruments": [
+        "PP_POL_ESPECIAL_SERVICIOS_Y_RESTOS_POL20_Y_POL22_DE_CALA_DOR",
+        "NNSS_1985",
+        "MD_PP_CALA_BARCA_POL1_POL2_Y_POL3",
+        "MD_N_52_53_54_55_DOC_7_DE_NNSS",
+        "PP_DEL_SECTOR_15_PUERTO_DE_CALA_LLONGA",
+        "MD_90_4_2013_7057_2014",
+        "MP_NNSS_CALADOR_7057_2015",
+        "MD_N_71_DOC_12_DE_NNSS_ALTURA_Y_N_PLANTASNUCLEOS_DE_LLOMBARDS_ALQUERIA_B_CALONGE",
+        "MD_PP_POL15_CALA_DOR",
+        "1_MD_PP_POL_27_CALA_DOR_CALA_LLAMP_PUNTA_DES_PORT",
+        "PP_SECTOR_PORTO_PETRO-D",
+        "MD_N_16_A_51_DOC_6_DE_NNSS_DOC_6_DENEGADA_LA_N_38"
+      ],
+      "qualFeatureCount": 1207,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 817,
+      "rusticObsCount": 817,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 1207,
+      "rusticDfivigenNonNull": 817,
+      "gestioFeatureCount": 31
+    },
+    "038": {
+      "codiMuni": "038",
+      "municipi": "MONTUÏRI",
+      "extent4326": {
+        "xmin": 2.942386569442399,
+        "ymin": 39.51789212484405,
+        "xmax": 3.0446964747578598,
+        "ymax": 39.606457169365115
+      },
+      "centroid4326": {
+        "lon": 2.99354,
+        "lat": 39.56217
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "NS_MOD_ORDENANCESIMPLANT_SECTURBLESERVEIS",
+        "NNSS_1986_7038"
+      ],
+      "qualFeatureCount": 153,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 182,
+      "rusticObsCount": 182,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 153,
+      "rusticDfivigenNonNull": 182,
+      "gestioFeatureCount": 2
+    },
+    "050": {
+      "codiMuni": "050",
+      "municipi": "SANT JOAN DE LABRITJA",
+      "extent4326": {
+        "xmin": 1.3881954486190335,
+        "ymin": 38.99167466899797,
+        "xmax": 1.6130811274741506,
+        "ymax": 39.11936992392547
+      },
+      "centroid4326": {
+        "lon": 1.50064,
+        "lat": 39.05552
+      },
+      "island": "Eivissa",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "NNSS_2011",
+        "CP_NNSS_7050_2013"
+      ],
+      "qualFeatureCount": 301,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 962,
+      "rusticObsCount": 962,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 301,
+      "rusticDfivigenNonNull": 962,
+      "gestioFeatureCount": 27
+    },
+    "033": {
+      "codiMuni": "033",
+      "municipi": "MANACOR",
+      "extent4326": {
+        "xmin": 3.122492960420054,
+        "ymin": 39.43856472208341,
+        "xmax": 3.376536582680453,
+        "ymax": 39.67901979016923
+      },
+      "centroid4326": {
+        "lon": 3.24951,
+        "lat": 39.55879
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "2021_PG_MANACOR_033"
+      ],
+      "qualFeatureCount": 1736,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 276,
+      "rusticObsCount": 276,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 1736,
+      "rusticDfivigenNonNull": 276,
+      "gestioFeatureCount": 66
+    },
+    "044": {
+      "codiMuni": "044",
+      "municipi": "SA POBLA",
+      "extent4326": {
+        "xmin": 2.985136994586806,
+        "ymin": 39.7305666667235,
+        "xmax": 3.0925050814211255,
+        "ymax": 39.8257957264301
+      },
+      "centroid4326": {
+        "lon": 3.03882,
+        "lat": 39.77818
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "REV_NNSS_2003_7044"
+      ],
+      "qualFeatureCount": 387,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 106,
+      "rusticObsCount": 106,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 387,
+      "rusticDfivigenNonNull": 106,
+      "gestioFeatureCount": 11
+    },
+    "010": {
+      "codiMuni": "010",
+      "municipi": "BUNYOLA",
+      "extent4326": {
+        "xmin": 2.6472872743833693,
+        "ymin": 39.64862573006365,
+        "xmax": 2.802747951831924,
+        "ymax": 39.777498066041126
+      },
+      "centroid4326": {
+        "lon": 2.72502,
+        "lat": 39.71306
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 6,
+      "qualInstruments": [
+        "PGOU_URBANA_1978",
+        "MD_PGOU_7010_2018",
+        "ES_PUIG_VERD_SA_COMA",
+        "ORD_VOL_SA_COMA_PUIG_VERD",
+        "POLIGON_1_SA_FONT_SECA1",
+        "PALMANYOLA"
+      ],
+      "qualFeatureCount": 290,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 327,
+      "rusticObsCount": 327,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 290,
+      "rusticDfivigenNonNull": 327,
+      "gestioFeatureCount": 4
+    },
+    "005": {
+      "codiMuni": "005",
+      "municipi": "ANDRATX",
+      "extent4326": {
+        "xmin": 2.3023515359355717,
+        "ymin": 39.52005189361966,
+        "xmax": 2.4609172279151768,
+        "ymax": 39.64374939097373
+      },
+      "centroid4326": {
+        "lon": 2.38163,
+        "lat": 39.5819
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 7,
+      "qualInstruments": [
+        "2019_NNSS_MD_UA2CM_005",
+        "MD_1_2012_NNSS_7005_P5PA_P7PA",
+        "MD_3_2012_NNSS_7005",
+        "NNSS_2007",
+        "CEM_REVNNSS2007_7005",
+        "2021_ED_Alineacions_CorbMari_005",
+        "MD_2_2014_NNSS_7005_2014"
+      ],
+      "qualFeatureCount": 971,
+      "qualObsCount": 971,
+      "qualObsPct": 100,
+      "qualObsValues": [
+        "Andratx NO està actualitzat al MUIB segons els darrer planejament aprovat. Consultau la informació proporcionada per l'Ajuntament"
+      ],
+      "selfDeclaredNotCurrent": true,
+      "rusticFeatureCount": 272,
+      "rusticObsCount": 272,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 971,
+      "rusticDfivigenNonNull": 272,
+      "gestioFeatureCount": 93
+    },
+    "029": {
+      "codiMuni": "029",
+      "municipi": "LLOSETA",
+      "extent4326": {
+        "xmin": 2.8247083602142062,
+        "ymin": 39.69353658428433,
+        "xmax": 2.8886869395206642,
+        "ymax": 39.746623915616674
+      },
+      "centroid4326": {
+        "lon": 2.8567,
+        "lat": 39.72008
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 9,
+      "qualInstruments": [
+        "MD_NNSSN_3_02_UBICACIO_ESPAI_LLIURE_ZONA_LL_SES_COMES",
+        "MD_NNSSN_1_03_AMPLIAR_CENTRE_SANITARI",
+        "MD_NNSSN_2_01_UE_U-1_U-2",
+        "MD_NNSSN_2_03_UE_U-3_MODIFICAR-AMPLIAR_ESPAI_LLIURE_PUBLIC",
+        "MD_UA15_7029_2013",
+        "NNCC_CAPACITAT_POBLACIO_DECRET_2_1996",
+        "NNSS_1988",
+        "MD_NNSSN_1_02_UE_U-11_ES_PUJANTS-SON_BATLLE",
+        "1_MD_PP_SECTOR_P-3_INDUSTRIAL"
+      ],
+      "qualFeatureCount": 270,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 34,
+      "rusticObsCount": 34,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 270,
+      "rusticDfivigenNonNull": 34,
+      "gestioFeatureCount": 20
+    },
+    "047": {
+      "codiMuni": "047",
+      "municipi": "SENCELLES",
+      "extent4326": {
+        "xmin": 2.837235115644951,
+        "ymin": 39.604317903849896,
+        "xmax": 2.9568207277270973,
+        "ymax": 39.69064381556676
+      },
+      "centroid4326": {
+        "lon": 2.89703,
+        "lat": 39.64748
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "NNSS_1995_7047"
+      ],
+      "qualFeatureCount": 103,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 128,
+      "rusticObsCount": 128,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 103,
+      "rusticDfivigenNonNull": 128,
+      "gestioFeatureCount": 5
+    },
+    "059": {
+      "codiMuni": "059",
+      "municipi": "SES SALINES",
+      "extent4326": {
+        "xmin": 2.9814920936997753,
+        "ymin": 39.28772668837232,
+        "xmax": 3.087112111571738,
+        "ymax": 39.37918326891622
+      },
+      "centroid4326": {
+        "lon": 3.0343,
+        "lat": 39.33345
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "ADPT_DE_LESNORMES_URBANISTIQUES_AL_POOTLDOT_LSR_CAPACITAT_DE_POBLACIO_2002_",
+        "2019_NNSS_MD_delimitacio_hoteler_CSJ_059"
+      ],
+      "qualFeatureCount": 588,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 95,
+      "rusticObsCount": 95,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 588,
+      "rusticDfivigenNonNull": 95,
+      "gestioFeatureCount": 4
+    },
+    "003": {
+      "codiMuni": "003",
+      "municipi": "ALCÚDIA",
+      "extent4326": {
+        "xmin": 3.035640898884768,
+        "ymin": 39.798772121453034,
+        "xmax": 3.204456318629972,
+        "ymax": 39.89351451741844
+      },
+      "centroid4326": {
+        "lon": 3.12005,
+        "lat": 39.84614
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 9,
+      "qualInstruments": [
+        "2021_IIA_FPHoteleria_003",
+        "2021_IIA_FPNautica_003",
+        "CORRECCIO_2_2015_7003_2015",
+        "MOD5_NNSS_7003_2016",
+        "MP_N3_NNSS_CASC_ANTIC_7003_2014",
+        "MD4_NNSS_7003_2018",
+        "MOD_NUM_1",
+        "MD_2_NNSS_7003_2012",
+        "CORRECCIO_1_2015_7003_2015"
+      ],
+      "qualFeatureCount": 1763,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 242,
+      "rusticObsCount": 242,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 1763,
+      "rusticDfivigenNonNull": 242,
+      "gestioFeatureCount": 39
+    },
+    "022": {
+      "codiMuni": "022",
+      "municipi": "FELANITX",
+      "extent4326": {
+        "xmin": 3.0595417558335454,
+        "ymin": 39.37513706231609,
+        "xmax": 3.2775869563578253,
+        "ymax": 39.535333193594006
+      },
+      "centroid4326": {
+        "lon": 3.16856,
+        "lat": 39.45524
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 9,
+      "qualInstruments": [
+        "PGOU_URBANA_1969",
+        "MP_PGOU_Cavallets_Pelat_2013_7022",
+        "POLIGON_14_CALA_MARSAL",
+        "UA_1-96_POLIGONO_3_PORTOCOLOM",
+        "POLIGON_INDUSTRIA_PART_POL_N_6_UNITAT_REPARCELLABLE",
+        "POLIGON_31_DEL_PGO",
+        "POLIGON29_CALA_FERRERA_POLIGON25_SAU-3_SA_PUNTA_",
+        "REGULACIO_CAPACITAT_DE_POBLACIO",
+        "MP_PGOU_PP_S6a_2012_7022"
+      ],
+      "qualFeatureCount": 666,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 466,
+      "rusticObsCount": 466,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 666,
+      "rusticDfivigenNonNull": 466,
+      "gestioFeatureCount": 14
+    },
+    "028": {
+      "codiMuni": "028",
+      "municipi": "LLORET DE VISTALEGRE",
+      "extent4326": {
+        "xmin": 2.9434627556151027,
+        "ymin": 39.59122759356306,
+        "xmax": 3.024047133454378,
+        "ymax": 39.649920340305336
+      },
+      "centroid4326": {
+        "lon": 2.98375,
+        "lat": 39.62057
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "PROJECTE_DE_DELIM_DEL_SOL_URBA_1981_"
+      ],
+      "qualFeatureCount": 50,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 65,
+      "rusticObsCount": 65,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 50,
+      "rusticDfivigenNonNull": 65,
+      "gestioFeatureCount": 0
+    },
+    "051": {
+      "codiMuni": "051",
+      "municipi": "SANT LLORENÇ DES CARDASSAR",
+      "extent4326": {
+        "xmin": 3.2412908422112974,
+        "ymin": 39.56566683109033,
+        "xmax": 3.40485048200982,
+        "ymax": 39.683992958327245
+      },
+      "centroid4326": {
+        "lon": 3.32307,
+        "lat": 39.62483
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 12,
+      "qualInstruments": [
+        "MP_NNSS_SACOMA_7051_2014",
+        "MD_NNSS_VERDES_SC_7051_2013",
+        "DELIM_UABALADRESXIPRELL_7051_2014",
+        "NNSS_1994",
+        "PP_POL_36-A_DEL_PGO_CALA_MILLOR",
+        "PP_POL_45_DEL_PGP_ZONA_COSTERA_CENTRO_CIVICO_SON_MORRO",
+        "MD_NNSS_ELP_S3_42A_7051_2014",
+        "1_MD_NC_CAPA_POB_ST_LLORENC_SON_CARRIO",
+        "PP_POL_37-A_DEL_PGO",
+        "MD_21_7051_2017",
+        "PP_POL_48_DEL_PGP_ZONA_COSTERA",
+        "DELIMITACIO_UA_BALADRES_7056_2015"
+      ],
+      "qualFeatureCount": 629,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 381,
+      "rusticObsCount": 381,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 629,
+      "rusticDfivigenNonNull": 381,
+      "gestioFeatureCount": 10
+    },
+    "012": {
+      "codiMuni": "012",
+      "municipi": "CAMPANET",
+      "extent4326": {
+        "xmin": 2.926846750993286,
+        "ymin": 39.75602254731313,
+        "xmax": 3.0088129549296925,
+        "ymax": 39.833957970319176
+      },
+      "centroid4326": {
+        "lon": 2.96783,
+        "lat": 39.79499
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "REV_NNSS_2003_7012"
+      ],
+      "qualFeatureCount": 127,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 187,
+      "rusticObsCount": 187,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 127,
+      "rusticDfivigenNonNull": 187,
+      "gestioFeatureCount": 0
+    },
+    "015": {
+      "codiMuni": "015",
+      "municipi": "CIUTADELLA DE MENORCA",
+      "extent4326": {
+        "xmin": 3.789693082043885,
+        "ymin": 39.92032866206638,
+        "xmax": 3.987548810673951,
+        "ymax": 40.06406756816856
+      },
+      "centroid4326": {
+        "lon": 3.88862,
+        "lat": 39.9922
+      },
+      "island": "Menorca",
+      "qualInstrumentCount": 9,
+      "qualInstruments": [
+        "MOD_PGOU_CREACIO_NOU_VIAL_ACCES_UA-34_VORERA_ESQUERRA_SANTANDRIA",
+        "PE_DE_SANTA_RITA_RELATIVA_A_AMPLIACIO_DUSOS_DEL_SG_DEQUIPAMENT_PUBLIC_DE_SA",
+        "NC_REGULACIO_CAPACITAT_DE_POBLACIO",
+        "MOD_PE_DE_SANTA_RITA_RELATIVA_A_AMPLIACIO_DUSOS_DEL_SISTEMA_GENERAL_DEQUIPAMENT_PUBLIC_D",
+        "PP_DE_ORDENACION_DEL_SECTOR_B-7",
+        "PTI_MENORCA",
+        "DEROGACIO_NTT_MENORCA_2017",
+        "TR_PGOU",
+        "PP_DORDENA_DEL_POLIGON_INDUSTRIAL_SECTOR_B-9"
+      ],
+      "qualFeatureCount": 1320,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 424,
+      "rusticObsCount": 424,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 1320,
+      "rusticDfivigenNonNull": 424,
+      "gestioFeatureCount": 54
+    },
+    "011": {
+      "codiMuni": "011",
+      "municipi": "CALVIÀ",
+      "extent4326": {
+        "xmin": 2.418740888907302,
+        "ymin": 39.456223856850926,
+        "xmax": 2.601007987602645,
+        "ymax": 39.64192841085429
+      },
+      "centroid4326": {
+        "lon": 2.50987,
+        "lat": 39.54908
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 11,
+      "qualInstruments": [
+        "MD_PGOU_05_2011_7011_2014",
+        "MD_PGOU_2012_UA07",
+        "MD_PGOU_MP06_7010_2011_2014",
+        "MD_PGOU_2012_UAPT02",
+        "PGOU_ADPT_AL_PTM_ANY_2012",
+        "MD_PGOU_Vianants_mareselva_7011_2013",
+        "MD_PGOU_2012_pasos148149150",
+        "MD_PGOU_MP5_12_7011_2014",
+        "2019_PG_MD1de2018_011",
+        "MP_PGOU_REQUALIFICACIO_7011_2015",
+        "ED_1-2015_UASP07_COUNTRYCLUB_7011_2016"
+      ],
+      "qualFeatureCount": 1809,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 1069,
+      "rusticObsCount": 1069,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 1809,
+      "rusticDfivigenNonNull": 1069,
+      "gestioFeatureCount": 129
+    },
+    "045": {
+      "codiMuni": "045",
+      "municipi": "PUIGPUNYENT",
+      "extent4326": {
+        "xmin": 2.4823139776241168,
+        "ymin": 39.59088239982368,
+        "xmax": 2.59174677480684,
+        "ymax": 39.672371017571365
+      },
+      "centroid4326": {
+        "lon": 2.53703,
+        "lat": 39.63163
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "NNSS_1992_7045",
+        "MD_1-2000_7045_2004"
+      ],
+      "qualFeatureCount": 160,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 599,
+      "rusticObsCount": 599,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 160,
+      "rusticDfivigenNonNull": 599,
+      "gestioFeatureCount": 9
+    },
+    "027": {
+      "codiMuni": "027",
+      "municipi": "INCA",
+      "extent4326": {
+        "xmin": 2.8779962490536675,
+        "ymin": 39.670639127899044,
+        "xmax": 3.0015541181624945,
+        "ymax": 39.75081858914077
+      },
+      "centroid4326": {
+        "lon": 2.93978,
+        "lat": 39.71073
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 10,
+      "qualInstruments": [
+        "2017_PG_MD_us_EQ_027",
+        "PP_Sector1_2012_7027",
+        "MD_PGOU_7027_2018",
+        "MD_PGOU2012_CORRECIOD2_7027_2014",
+        "2022_PG_MD3_027",
+        "2019_ED_027",
+        "MD1_7027_2015",
+        "2019_PG_MD9_027",
+        "2017_PG_MD7_027",
+        "REV_PGOUINGA_PTI_2012"
+      ],
+      "qualFeatureCount": 1357,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 164,
+      "rusticObsCount": 164,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 1357,
+      "rusticDfivigenNonNull": 164,
+      "gestioFeatureCount": 23
+    },
+    "046": {
+      "codiMuni": "046",
+      "municipi": "SANT ANTONI DE PORTMANY",
+      "extent4326": {
+        "xmin": 1.2816918722385438,
+        "ymin": 38.925584223249075,
+        "xmax": 1.430328441362797,
+        "ymax": 39.07951043861067
+      },
+      "centroid4326": {
+        "lon": 1.35601,
+        "lat": 39.00255
+      },
+      "island": "Eivissa",
+      "qualInstrumentCount": 8,
+      "qualInstruments": [
+        "PP_SES_PAISSES_SANT_ANTONI",
+        "LOMA_PINAR_CAN_GERMA",
+        "COREC_DERROR_MATERIAL_A_LESNORMES_DEL_PGOU",
+        "PUNTA_DES_MOLI_BOSC_DFRIT",
+        "LAMBIT_DEL_NUCLI_URBA_DE_CAN_GUILLEMO",
+        "PGOU_1992",
+        "MP_PGOU_ASU35_02_CBN_7046_1999",
+        "PPO_INDUSTRIAL_SES_PAISSES_SECTOR_23"
+      ],
+      "qualFeatureCount": 804,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 903,
+      "rusticObsCount": 903,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 804,
+      "rusticDfivigenNonNull": 903,
+      "gestioFeatureCount": 40
+    },
+    "042": {
+      "codiMuni": "042",
+      "municipi": "POLLENÇA",
+      "extent4326": {
+        "xmin": 2.9209906847410125,
+        "ymin": 39.816431048818295,
+        "xmax": 3.214422607672784,
+        "ymax": 39.96282995071052
+      },
+      "centroid4326": {
+        "lon": 3.06771,
+        "lat": 39.88963
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 4,
+      "qualInstruments": [
+        "PGOU_1991",
+        "MD_PGOU_CANVI_USOS_SECTOR_UP4_POLIGON_INDUSTRIAL",
+        "PE_CENTRE_HISTORIC_POLLENCA",
+        "MD_PGOU_POOT_7042_2012"
+      ],
+      "qualFeatureCount": 1119,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 1374,
+      "rusticObsCount": 1374,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 1119,
+      "rusticDfivigenNonNull": 1374,
+      "gestioFeatureCount": 88
+    },
+    "060": {
+      "codiMuni": "060",
+      "municipi": "SINEU",
+      "extent4326": {
+        "xmin": 2.9648424427217646,
+        "ymin": 39.60895057646188,
+        "xmax": 3.0856394408911565,
+        "ymax": 39.68943547829578
+      },
+      "centroid4326": {
+        "lon": 3.02524,
+        "lat": 39.64919
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 2,
+      "qualInstruments": [
+        "ADPT_A_LES_DOT_DIVERSES_MODNS_PUNTUALS_EN_SOL_URBA",
+        "MD_NNSS_TEXT_REFOS_1991"
+      ],
+      "qualFeatureCount": 245,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 424,
+      "rusticObsCount": 424,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 245,
+      "rusticDfivigenNonNull": 424,
+      "gestioFeatureCount": 16
+    },
+    "041": {
+      "codiMuni": "041",
+      "municipi": "PETRA",
+      "extent4326": {
+        "xmin": 3.063129532444382,
+        "ymin": 39.57239949930414,
+        "xmax": 3.251380363201427,
+        "ymax": 39.70367223809526
+      },
+      "centroid4326": {
+        "lon": 3.15725,
+        "lat": 39.63804
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "NNSS_DEL_TERMINO_MUNICIPAL_1995"
+      ],
+      "qualFeatureCount": 209,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 116,
+      "rusticObsCount": 116,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 209,
+      "rusticDfivigenNonNull": 116,
+      "gestioFeatureCount": 2
+    },
+    "049": {
+      "codiMuni": "049",
+      "municipi": "SANT JOAN",
+      "extent4326": {
+        "xmin": 2.980646894682776,
+        "ymin": 39.550141654123976,
+        "xmax": 3.095067254345837,
+        "ymax": 39.624867489636394
+      },
+      "centroid4326": {
+        "lon": 3.03786,
+        "lat": 39.5875
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "REV_NNSS_SANTJOAN_7049_2016"
+      ],
+      "qualFeatureCount": 141,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 313,
+      "rusticObsCount": 313,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 141,
+      "rusticDfivigenNonNull": 313,
+      "gestioFeatureCount": 11
+    },
+    "040": {
+      "codiMuni": "040",
+      "municipi": "PALMA",
+      "extent4326": {
+        "xmin": 2.5634467238248835,
+        "ymin": 39.11996649644668,
+        "xmax": 2.9798865993300354,
+        "ymax": 39.65889731427513
+      },
+      "centroid4326": {
+        "lon": 2.77167,
+        "lat": 39.38943
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 66,
+      "qualInstruments": [
+        "MOD_vial_Puig_Pollenca_7040_2018",
+        "PERI_CAMI_DE_CAN_MAYOL",
+        "MD_PERISONDAMETO_7040_2017",
+        "ED_BENZINERA_TER_GUADIANA_7040_2016",
+        "MD_PGOU_CS_SFERRIOL_2012_7040",
+        "MD_PGOU_SECTOR_LEVANT_FACANA_MARITIMA_7040_2021",
+        "MD_SUP77-01_7040_2017",
+        "MD_PGOU_SECTOR_LLEVANT-FACANA_MARITIMA",
+        "MD_PP_SON_MARTORELL",
+        "TR_PP_LA_TEULERA",
+        "PP_SUP_30-01_SON_PUIG",
+        "ED_ES_CARDENALROSELL_UE7708_7040_2016",
+        "MD_PGOU98_ART10_18_2_7040_2013",
+        "MOD_PERI_TERRENO_Nazaret_7040_2018",
+        "MD_PGOU98_USTURISTIC_BASTIO3_7040_2013",
+        "SUP_76-02_SON_PARERA",
+        "SUP_76-01_LA_PETROLERA",
+        "PP_SUNP_83-01_ES_PILLARI",
+        "SUP_29-01_SON_SEBA_NOU",
+        "PP_SUP_51-02_LA_FEMU",
+        "SUP_51-01_SON_FERRAGUT",
+        "SUP_33-01_MONTESION",
+        "PLA_REC_PLATJA_PALMA_7040_2015",
+        "MD_PERISOLEDAT_EQ4ADO7202E_7040_2012",
+        "MD_PGOU98_EQ0C_SCP_10-03E_7040_2013",
+        "SUP_45-01_CAS_CAPISCOL",
+        "SUP_32-01_SON_VALENTI",
+        "MD_UE52_03_7040_2016",
+        "MD_PGOU_EQUIPAMENT_7040_2018",
+        "MD_PERICALATRAVA_UA15A_7040_2013"
+      ],
+      "qualFeatureCount": 9442,
+      "qualObsCount": 9442,
+      "qualObsPct": 100,
+      "qualObsValues": [
+        "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament"
+      ],
+      "selfDeclaredNotCurrent": true,
+      "rusticFeatureCount": 637,
+      "rusticObsCount": 637,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 9442,
+      "rusticDfivigenNonNull": 637,
+      "gestioFeatureCount": 493
+    },
+    "061": {
+      "codiMuni": "061",
+      "municipi": "SÓLLER",
+      "extent4326": {
+        "xmin": 2.6618512481983903,
+        "ymin": 39.733481773604645,
+        "xmax": 2.760333996907359,
+        "ymax": 39.82342226118531
+      },
+      "centroid4326": {
+        "lon": 2.71109,
+        "lat": 39.77845
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 8,
+      "qualInstruments": [
+        "MP_PGOU_CAMI_CINGLE_7061_2014",
+        "MD_PGOU_EQ37_7061_2013",
+        "MD_PGOU_REAJUSTZONESSISTEMES_7061_2014",
+        "MD_PGOU_Fitxes_7061_2013",
+        "REV_PGOU_2000",
+        "MD_PGOU_CANJOY_7061_2014",
+        "MD_PGOU_ART29_7061_2015",
+        "PE_HORTA_7061_2011"
+      ],
+      "qualFeatureCount": 754,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 462,
+      "rusticObsCount": 462,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 754,
+      "rusticDfivigenNonNull": 462,
+      "gestioFeatureCount": 26
+    },
+    "065": {
+      "codiMuni": "065",
+      "municipi": "VILAFRANCA DE BONANY",
+      "extent4326": {
+        "xmin": 3.078766017343567,
+        "ymin": 39.52984388349558,
+        "xmax": 3.1583406752528655,
+        "ymax": 39.580941983792115
+      },
+      "centroid4326": {
+        "lon": 3.11855,
+        "lat": 39.55539
+      },
+      "island": "Mallorca",
+      "qualInstrumentCount": 1,
+      "qualInstruments": [
+        "MD_NNSS_VARIES_TEXT_REFOS_DE_LESNU"
+      ],
+      "qualFeatureCount": 110,
+      "qualObsCount": 0,
+      "qualObsPct": 0,
+      "selfDeclaredNotCurrent": false,
+      "rusticFeatureCount": 122,
+      "rusticObsCount": 122,
+      "rusticObsPct": 100,
+      "qualDfivigenNonNull": 110,
+      "rusticDfivigenNonNull": 122,
+      "gestioFeatureCount": 1
+    }
+  },
+  "errors": [],
+  "controls": {
+    "municipalityCount": 67,
+    "municipalityCountExpected": 67,
+    "municipalityCountMatches": true,
+    "islandSplit": {
+      "Mallorca": 53,
+      "Menorca": 8,
+      "Eivissa": 5,
+      "Formentera": 1
+    },
+    "islandSplitExpected": {
+      "Mallorca": 53,
+      "Menorca": 8,
+      "Eivissa": 5,
+      "Formentera": 1
+    },
+    "islandSplitMatches": true
+  },
+  "rollup": {
+    "total": 67,
+    "selfDeclaredNotCurrent": 3,
+    "selfDeclaredNotCurrentNames": [
+      "EIVISSA",
+      "ANDRATX",
+      "PALMA"
+    ],
+    "withNoGestioPolygons": 7,
+    "withNoGestioNames": [
+      "ARIANY",
+      "ESTELLENCS",
+      "MANCOR DE LA VALL",
+      "BÚGER",
+      "BANYALBUFAR",
+      "LLORET DE VISTALEGRE",
+      "CAMPANET"
+    ],
+    "withRusticObs100": 67,
+    "withAnyDfivigen": 67,
+    "multiInstrumentMunicipalities": 50,
+    "maxInstrumentCount": 66
+  }
+}

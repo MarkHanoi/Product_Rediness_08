@@ -1,0 +1,593 @@
+{
+  "probe": "p-dictionary-scan",
+  "runAt": "2026-08-02T13:38:41.811Z",
+  "seed": 20260802,
+  "read": 60,
+  "errors": [],
+  "dictionary": [
+    {
+      "code": "CO",
+      "seen": 48,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Residencial comunitari",
+        "Comercial",
+        "Residencial comunitari Colectiu",
+        "Comercial Comercial"
+      ]
+    },
+    {
+      "code": "AP",
+      "seen": 46,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Administratiu privat Administrativo",
+        "Administratiu privat",
+        "Administratiu privat Administratiu",
+        "Aparcament de vehicles Aparcament de vehicles"
+      ]
+    },
+    {
+      "code": "NP",
+      "seen": 43,
+      "numericValues": 41,
+      "emptyValues": 0,
+      "labels": [
+        "Nombre de plantes Altura (número de plantes)",
+        "Nombre de plantes Altura total(pl)",
+        "Nombre de plantes",
+        "Nombre de plantes Altura en núm. de plantes"
+      ]
+    },
+    {
+      "code": "HR",
+      "seen": 36,
+      "numericValues": 35,
+      "emptyValues": 0,
+      "labels": [
+        "Altura reguladora Altura (Reguladora)",
+        "Altura reguladora Altura total máxima(m)",
+        "Altura reguladora Altura màxima en metres",
+        "Altura reguladora"
+      ]
+    },
+    {
+      "code": "UN",
+      "seen": 36,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Residencial Unifamiliar",
+        "Residencial Unifamiliar Residencial Unifamiliar",
+        "Residencial Unifamiliar Unifamiliar",
+        "Residencial Unifamiliar Habitatge Unifamiliar"
+      ]
+    },
+    {
+      "code": "PM",
+      "seen": 33,
+      "numericValues": 31,
+      "emptyValues": 0,
+      "labels": [
+        "Parcel·la mínima",
+        "Parcel·la mínima Superfície mínima de parcel·la",
+        "Parcel·la mínima Parcel.la mínima",
+        "Parcel·la mínima Parcela mínima"
+      ]
+    },
+    {
+      "code": "O",
+      "seen": 32,
+      "numericValues": 30,
+      "emptyValues": 0,
+      "labels": [
+        "Ocupació màxima Superfície màxima d'ocupació",
+        "Ocupació màxima Ocupación",
+        "Ocupació màxima",
+        "Ocupació màxima Ocupació màxima"
+      ]
+    },
+    {
+      "code": "ES",
+      "seen": 32,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Esportiu Esportiu",
+        "Esportiu Deportivo",
+        "Esportiu",
+        "Esportiu Usos esportius"
+      ]
+    },
+    {
+      "code": "T",
+      "seen": 30,
+      "numericValues": 0,
+      "emptyValues": 1,
+      "labels": [
+        "Tipus d’ordenació",
+        "Tipus d’ordenació Tipologia",
+        "Tipus d’ordenació Tipologia Edificatoria",
+        "Tipus d’ordenació Tipus d'ordenació"
+      ]
+    },
+    {
+      "code": "AT",
+      "seen": 29,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Allotjament turístic",
+        "Allotjament turístic Turístic",
+        "Allotjament turístic Allotjament turístic",
+        "Allotjament turístic Turístico"
+      ]
+    },
+    {
+      "code": "PL",
+      "seen": 28,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Residencial Plurifamiliar Residencial",
+        "Residencial Plurifamiliar",
+        "Residencial Plurifamiliar Residencial Plurifamiliar",
+        "Residencial Plurifamiliar Residencial plurifamiliar"
+      ]
+    },
+    {
+      "code": "AM",
+      "seen": 27,
+      "numericValues": 25,
+      "emptyValues": 0,
+      "labels": [
+        "Amplada mínima de façana de parcel·la",
+        "Amplada mínima de façana de parcel·la Façana mínima",
+        "Amplada mínima de façana de parcel·la Fachada mínima",
+        "Amplada mínima de façana de parcel·la Longitud de fachada"
+      ]
+    },
+    {
+      "code": "RE",
+      "seen": 26,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Recreatiu Espectáculos",
+        "Recreatiu",
+        "Recreatiu Recreatiu i espectacles",
+        "Recreatiu Recreatiu"
+      ]
+    },
+    {
+      "code": "E",
+      "seen": 26,
+      "numericValues": 24,
+      "emptyValues": 0,
+      "labels": [
+        "Coeficient d'edificabilitat neta",
+        "Coeficient d'edificabilitat neta Edificabilitat màxima",
+        "Coeficient d'edificabilitat neta Edificabilidad máxima",
+        "Coeficient d'edificabilitat neta Edificabilidad"
+      ]
+    },
+    {
+      "code": "IG",
+      "seen": 26,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Productiu"
+      ]
+    },
+    {
+      "code": "SA",
+      "seen": 24,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Sanitari Asistencia Social",
+        "Sanitari",
+        "Sanitari Assistència Social",
+        "Sanitari Assistencial"
+      ]
+    },
+    {
+      "code": "DO",
+      "seen": 23,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Docent Docente",
+        "Docent",
+        "Docent Docent",
+        "Docent Usos docents"
+      ]
+    },
+    {
+      "code": "IRP",
+      "seen": 22,
+      "numericValues": 21,
+      "emptyValues": 0,
+      "labels": [
+        "Índex d'intensitat d'ús",
+        "Índex d'intensitat d'ús irp",
+        "Índex d'intensitat d'ús Índex d'intensitat d'ús",
+        "Índex d'intensitat d'ús Índex d'intensitat màxima"
+      ]
+    },
+    {
+      "code": "CU",
+      "seen": 21,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Cultural Sociocultural",
+        "Cultural Socio/Cultural",
+        "Cultural",
+        "Cultural Soci/Cultural"
+      ]
+    },
+    {
+      "code": "RL",
+      "seen": 21,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Religiós Práctica Religiosa",
+        "Religiós",
+        "Religiós Religiós",
+        "Religiós Religioso"
+      ]
+    },
+    {
+      "code": "RA",
+      "seen": 21,
+      "numericValues": 17,
+      "emptyValues": 0,
+      "labels": [
+        "Reculada a alineació oficial",
+        "Reculada a alineació oficial Separación mínima a fachada",
+        "Reculada a alineació oficial Separació mínima a vies",
+        "Reculada a alineació oficial Retranqueo a alineación a calle"
+      ]
+    },
+    {
+      "code": "MA",
+      "seen": 19,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Emmagatzematge",
+        "Emmagatzematge Magatzem",
+        "Emmagatzematge Almacenes",
+        "Emmagatzematge Fàbricas i magatzems d'explosius"
+      ]
+    },
+    {
+      "code": "RF",
+      "seen": 18,
+      "numericValues": 17,
+      "emptyValues": 0,
+      "labels": [
+        "Reculada a interior d'illa Distància mínima al fons",
+        "Reculada a interior d'illa",
+        "Reculada a interior d'illa Retranqueo a lindero del fondo",
+        "Reculada a interior d'illa Retanqueos mínimos al fondo"
+      ]
+    },
+    {
+      "code": "HT",
+      "seen": 17,
+      "numericValues": 17,
+      "emptyValues": 0,
+      "labels": [
+        "Altura total Altura total en metres",
+        "Altura total Altura total",
+        "Altura total Altura total(m)",
+        "Altura total Alçada maxima total"
+      ]
+    },
+    {
+      "code": "RM",
+      "seen": 17,
+      "numericValues": 15,
+      "emptyValues": 0,
+      "labels": [
+        "Reculada a mitgera",
+        "Reculada a mitgera Reculada entre mitgeres",
+        "Reculada a mitgera Separació mínima a partions",
+        "Reculada a mitgera Retranqueo a medianería"
+      ]
+    },
+    {
+      "code": "VI",
+      "seen": 16,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Xarxa viària Xarxa viària",
+        "Xarxa viària Xarxa Viària",
+        "Xarxa viària Red Viario",
+        "Xarxa viària Viario"
+      ]
+    },
+    {
+      "code": "EL",
+      "seen": 15,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Espai lliure Espai lliure públic",
+        "Espai lliure",
+        "Espai lliure Espais Lliures privats",
+        "Espai lliure Espais lliures d'ús i domini públics"
+      ]
+    },
+    {
+      "code": "IN",
+      "seen": 15,
+      "numericValues": 0,
+      "emptyValues": 1,
+      "labels": [
+        "Instal·lacions i serveis",
+        "Instal·lacions i serveis Infraestructures",
+        "Instal·lacions i serveis Proveïment",
+        "Instal·lacions i serveis Abastiment"
+      ]
+    },
+    {
+      "code": "ET",
+      "seen": 12,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Establiment turístic",
+        "Estació de serveis Estacions de servei",
+        "Estació de serveis",
+        "Estació de serveis Servicios de carretera"
+      ]
+    },
+    {
+      "code": "CT",
+      "seen": 11,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Compatible i secundari al turístic",
+        "Comunicacions i telecomunicacions",
+        "Comunicacions i telecomunicacions Telecomunicacions",
+        "Comunicacions i telecomunicacions Telecomunicaciones"
+      ]
+    },
+    {
+      "code": "CE",
+      "seen": 9,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Cementeri Funerari",
+        "Cementeri",
+        "Cementeri Cementiri",
+        "Cementeri Cementeri"
+      ]
+    },
+    {
+      "code": "TR",
+      "seen": 7,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Transports",
+        "Transports Ferroviario",
+        "Transports Transports"
+      ]
+    },
+    {
+      "code": "PE",
+      "seen": 7,
+      "numericValues": 5,
+      "emptyValues": 0,
+      "labels": [
+        "Profunditat edificable Profunditat màxima edificable",
+        "Profunditat edificable",
+        "Profunditat edificable Profundidad edificable",
+        "Profunditat edificable Fondo máximo edificable"
+      ]
+    },
+    {
+      "code": "RT",
+      "seen": 5,
+      "numericValues": 5,
+      "emptyValues": 0,
+      "labels": [
+        "Ràtio turística",
+        "Ràtio turística Índex d'intensitat d'ús turístic",
+        "Ràtio turística Intensitat d’ús turístic"
+      ]
+    },
+    {
+      "code": "TA",
+      "seen": 4,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Taller artesanal"
+      ]
+    },
+    {
+      "code": "TM",
+      "seen": 3,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Taller mecànic"
+      ]
+    },
+    {
+      "code": "AS",
+      "seen": 2,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Assistencial"
+      ]
+    },
+    {
+      "code": "PKH",
+      "seen": 2,
+      "numericValues": 1,
+      "emptyValues": 0,
+      "labels": [
+        "Reserva de dotacions d'aparcaments per habitatge"
+      ]
+    },
+    {
+      "code": "PP",
+      "seen": 1,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Residencial habitatge de protecció pública"
+      ]
+    },
+    {
+      "code": "CAR",
+      "seen": 1,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Carácter"
+      ]
+    },
+    {
+      "code": "DOM",
+      "seen": 1,
+      "numericValues": 0,
+      "emptyValues": 0,
+      "labels": [
+        "Domini"
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "section": "PARÀMETRES NO NORMALITZATS D",
+      "seen": 60
+    },
+    {
+      "section": "PARAMETRE DE PARCEL·LA PM",
+      "seen": 33
+    },
+    {
+      "section": "PARAMETRE D'EDIFICACIÓ RA",
+      "seen": 22
+    },
+    {
+      "section": "PARAMETRE D'EDIFICACIÓ NP",
+      "seen": 11
+    },
+    {
+      "section": "PARAMETRE D'EDIFICACIÓ RF",
+      "seen": 5
+    },
+    {
+      "section": "PARAMETRE D'EDIFICACIÓ RM",
+      "seen": 3
+    },
+    {
+      "section": "PARAMETRE DE PARCEL·LA AM",
+      "seen": 3
+    },
+    {
+      "section": "PARAMETRE D'EDIFICACIÓ O",
+      "seen": 2
+    },
+    {
+      "section": "PARAMETRE D'EDIFICACIÓ PE",
+      "seen": 2
+    },
+    {
+      "section": "PARAMETRE D'EDIFICACIÓ E",
+      "seen": 2
+    }
+  ],
+  "setbackLike": [
+    {
+      "code": "RA",
+      "seen": 21,
+      "numericValues": 17,
+      "emptyValues": 0,
+      "labels": [
+        "Reculada a alineació oficial",
+        "Reculada a alineació oficial Separación mínima a fachada",
+        "Reculada a alineació oficial Separació mínima a vies",
+        "Reculada a alineació oficial Retranqueo a alineación a calle"
+      ]
+    },
+    {
+      "code": "RF",
+      "seen": 18,
+      "numericValues": 17,
+      "emptyValues": 0,
+      "labels": [
+        "Reculada a interior d'illa Distància mínima al fons",
+        "Reculada a interior d'illa",
+        "Reculada a interior d'illa Retranqueo a lindero del fondo",
+        "Reculada a interior d'illa Retanqueos mínimos al fondo"
+      ]
+    },
+    {
+      "code": "RM",
+      "seen": 17,
+      "numericValues": 15,
+      "emptyValues": 0,
+      "labels": [
+        "Reculada a mitgera",
+        "Reculada a mitgera Reculada entre mitgeres",
+        "Reculada a mitgera Separació mínima a partions",
+        "Reculada a mitgera Retranqueo a medianería"
+      ]
+    }
+  ],
+  "heightLike": [
+    {
+      "code": "NP",
+      "seen": 43,
+      "numericValues": 41,
+      "emptyValues": 0,
+      "labels": [
+        "Nombre de plantes Altura (número de plantes)",
+        "Nombre de plantes Altura total(pl)",
+        "Nombre de plantes",
+        "Nombre de plantes Altura en núm. de plantes"
+      ]
+    },
+    {
+      "code": "HR",
+      "seen": 36,
+      "numericValues": 35,
+      "emptyValues": 0,
+      "labels": [
+        "Altura reguladora Altura (Reguladora)",
+        "Altura reguladora Altura total máxima(m)",
+        "Altura reguladora Altura màxima en metres",
+        "Altura reguladora"
+      ]
+    },
+    {
+      "code": "HT",
+      "seen": 17,
+      "numericValues": 17,
+      "emptyValues": 0,
+      "labels": [
+        "Altura total Altura total en metres",
+        "Altura total Altura total",
+        "Altura total Altura total(m)",
+        "Altura total Alçada maxima total"
+      ]
+    }
+  ]
+}

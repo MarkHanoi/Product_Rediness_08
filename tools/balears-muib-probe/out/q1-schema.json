@@ -1,0 +1,1659 @@
+{
+  "probe": "q1-schema",
+  "runAt": "2026-08-02T13:02:05.803Z",
+  "service": "GOIB_MUIB/MapServer",
+  "currentVersion": 10.91,
+  "serviceMaxRecordCount": 60000,
+  "capabilities": "Map,Query,Data",
+  "spatialReference": {
+    "wkid": 25831,
+    "latestWkid": 25831,
+    "xyTolerance": 0.001,
+    "zTolerance": 2,
+    "mTolerance": 0.001,
+    "falseX": -5120900,
+    "falseY": -9998100,
+    "xyUnits": 450445547.3910538,
+    "falseZ": 0,
+    "zUnits": 1,
+    "falseM": -100000,
+    "mUnits": 10000
+  },
+  "fullExtent": {
+    "xmin": 307408.49650000036,
+    "ymin": 4177109.159,
+    "xmax": 653203.8156000003,
+    "ymax": 4522904.4781,
+    "spatialReference": {
+      "wkid": 25831,
+      "latestWkid": 25831,
+      "xyTolerance": 0.001,
+      "zTolerance": 2,
+      "mTolerance": 0.001,
+      "falseX": -5120900,
+      "falseY": -9998100,
+      "xyUnits": 450445547.3910538,
+      "falseZ": 0,
+      "zUnits": 1,
+      "falseM": -100000,
+      "mUnits": 10000
+    }
+  },
+  "serviceDescriptionRaw": "<div style='text-align:Left; font-size:12pt;'><div><div><div><p><span style='font-weight:bold; font-size:16pt;'>Descripció</span></p><p><span></span></p><p><span style='font-size:14pt;'>El MUIB consisteix en la recopilació, harmonització, digitalització i difusió telemàtica del planejament urbanístic de tots els municipis de les Illes Balears.</span></p><p><span></span></p><p><span style='font-size:14pt;'>El MUIB TÉ NOMÉS CARÀCTER INFORMATIU. No supleix la necessitat de consultar la normativa aprovada i publicada per l'organisme competent.</span></p><p><span></span></p><p><span style='font-size:14pt;'>El projecte suposa una sistematització i harmonització dels plans i instruments urbanístics, la creació d'una àmplia base de dades dels seus paràmetres (amb un diccionari únic de conceptes urbanístics), la recopilació i georreferenciació dels plànols d'ordenació, la digitalització d'aquests, així com la creació de tot el sistema d'informació geogràfica i del visualitzador web de mapes per proporcionar l'accés als plànols i documentació en vigor o la creació de fitxes urbanístiques informatives.</span></p><p>Del <b>municipi d'Eivissa</b>, a causa de l’anul·lació del \nPGOU de 2009 i pendent d'incorporar al MUIB l'aprovació definitiva de la\n nova Revisió del Pla General Municipal, el MUIB només mostra alguns \nplanejaments, plans parcials i modificacions.</p>\n<p>D'alguns municipis, com <b>Palma o Andratx,</b> encara no s'ha incorporat al MUIB el planejament més recent aprovat.</p>\n<p>Cal advertir que, tot i que el visualitzador mostra una cartografia que és una fusió del planejament municipal i territorial, <b>les\n categories del sòl rústic (incloses les àrees de transició, AT) i \nfitxes d'informació urbanística generades pel MUIB poden no tenir en \ncompte el planejament territorial (especialment els plans territorials \ninsulars i les seves darreres modificacions</b>), per la qual cosa \nla informació pot estar parcial o totalment \nderogada per aquests planejaments superiors, especialment en rústic.</p>\n<p>La capa de CATEGORIES en certs casos només mostra les categories \ndefinides pel planejament municipal i, per conèixer exactament el tipus \nde sòl rústic, cal superposar la resta de capes d'ordenació i protecció \ndel sòl rústic dels Plans Territorials, Espais Naturals Protegits, etc. \nPer exemple, un sòl pot tenir la categoria &quot;SR_proteg&quot; al MUIB, ja que \nés la categoria que li assigna el planejament municipal, però també \nésser &quot;AANP&quot; al Pla Territorial.</p><p></p><p><a href='https://ideib.caib.es/cataleg/srv/cat/catalog.search#/metadata/0F87425A-0796-4D5D-A42E-5E00F33E323B' target='_blank'><font size='5'>METADADA COMPLETA I URL DEL SERVEI WMS</font></a></p><p></p><p><a href='http://www.caib.es:80/sites/muib/ca/aplicacions_de_consulta-69600/?campa=yes' style='text-decoration:underline;'><span style='font-size:16pt;'>PÀGINA WEB amb tota la informació sobre el MUIB i VISOR ESPECÍFIC</span></a></p><p></p><p><span>(ES):El MUIB consiste en la recopilación, armonización, digitalización y difusión telemática del planeamiento urbanístico de todos los municipios de las Islas Baleares.</span></p><p><span></span></p><p><span>El MUIB TIENE SOLO CARÁCTER INFORMATIVO. No suple la necesidad de consultar la normativa aprobada y publicada por el organismo competente.</span></p><p><span></span></p><p><span>El proyecto supone una sistematización y armonización de los planes e instrumentos urbanísticos, la creación de una amplia base de datos de sus parámetros (con un diccionario único de conceptos urbanísticos), la recopilación y georreferenciación de los planos de ordenación, la digitalización de estos , así como la creación de todo el sistema de información geográfica y del visor web de mapas para proporcionar el acceso a los planos y documentación en vigor o la creación de fichas urbanísticas informativas.</span></p><p>Del <b>municipio de Eivissa</b>, debido a la anulación del \nPGOU de 2009 y pendiente de incorporar en el MUIB la aprobación \ndefinitiva de la nueva Revisión del Plan General Municipal, el MUIB sólo\n muestra algunos planeamientos, planes parciales y modificaciones.</p>\n<p>De algunos municipios, como <b>Palma o Andratx</b>, todavía no se ha incorporado en el MUIB el planeamiento más reciente aprobado.</p>\n<p>Hay que advertir que, aunque el visualizador muestra una cartografía \nque es una fusión del planeamiento municipal y territorial, las<b> \ncategorías del suelo rústico (incluidas las áreas de transición, AT) y \nfichas de información urbanística generadas por el MUIB pueden no tener \nen cuenta el planeamiento territorial (especialmente los planes \nterritoriales insulares y sus últimas modificaciones)</b> por lo que la información puede estar derogada por estos planeamientos superiores, especialmente en rústico.</p>\n<p style='text-align:justify;'>La capa de CATEGORIES en ciertos casos \nsólo muestra las categorías definidas por el planeamiento municipal, \nsiendo necesario superponer el resto de capas de ordenación y protección\n del suelo rústico de los Planes Territoriales, Espacios Naturales \nProtegidos, etc. para conocer exactamente el tipo de suelo rústico. Por \nejemplo, un suelo puede tener la categoría &quot;SR_proteg&quot; en el MUIB, ya \nque es la categoría que le asigna el planeamiento municipal, peró ser \ntambién &quot;AANP&quot; en el Plan Territorial.</p><p></p><p><span></span></p><p><span>(EN): MUIB consists of the compilation, harmonization, digitization and telematic dissemination of the urban planning of all the municipalities of the Balearic Islands.</span></p><p><span></span></p><p><span>MUIB IS FOR INFORMATION ONLY. It does not replace the need to consult the regulations approved and published by the competent Administration.</span></p><p><span></span></p><p><span>The project involves a systematization and harmonization of urban planning plans and instruments, the creation of a wide database of its parameters (with a single dictionary of urban concepts), the compilation and georeferencing of the planning plans, the digitization of these, as well as the creation of the entire geographic information system and the web map viewer to provide access to the plans and documentation in force or the creation of urban information sheets.</span></p><p><span>In the municipality of Ibiza, due to the annulment of the 2009 General Urban Development Plan (PGOU) and pending the final approval of the new Revision of the Municipal General Plan (MUIB), the MUIB only displays some planning projects, partial plans, and modifications.<br /><br />In some municipalities, such as Palma and Andratx, the most recently approved planning projects have not yet been incorporated into the MUIB.</span></p><p><span>It should be noted that, although the viewer shows a map that is a fusion of municipal and territorial planning, the categories of rural land (including transition areas, AT) and urban information sheets generated by the MUIB may not take into account territorial planning (especially island territorial plans and their latest modifications) so the information may be repealed by these higher planning, especially in rural areas.</span></p><p><span>In some cases, the CATEGORIES layer only displays the categories defined by municipal planning. It is necessary to overlay the remaining rural land management and protection layers from Territorial Plans, Protected Natural Areas, etc. to determine the exact type of rural land. For example, a piece of land may have the category &quot;SR_proteg&quot; in the MUIB, since that is the category assigned by municipal planning, but it may also be &quot;AANP&quot; in the Territorial Plan.</span></p></div></div></div></div>",
+  "layerTree": [
+    {
+      "id": 0,
+      "name": "APR Inundació",
+      "parentLayerId": -1,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 1,
+      "name": "APR Esllevissaments",
+      "parentLayerId": -1,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 2,
+      "name": "APR Incendis (ZAR)",
+      "parentLayerId": -1,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 3,
+      "name": "APR Erosió",
+      "parentLayerId": -1,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 4,
+      "name": "APR Despreniments (mateixa que esllevissaments)",
+      "parentLayerId": -1,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 5,
+      "name": "Proteció Aqüífers municipal",
+      "parentLayerId": -1,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 6,
+      "name": "SISTEMES",
+      "parentLayerId": -1,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 7,
+      "name": "APT",
+      "parentLayerId": -1,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 8,
+      "name": "GESTIO",
+      "parentLayerId": -1,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 9,
+      "name": "CATALEG",
+      "parentLayerId": -1,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 10,
+      "name": "QUALIFICACIONS",
+      "parentLayerId": -1,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 11,
+      "name": "CATEGORIES DEL SÒL RÚSTIC",
+      "parentLayerId": -1,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 12,
+      "name": "CLASSIFICACIO",
+      "parentLayerId": -1,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    }
+  ],
+  "tables": [],
+  "layers": {
+    "0": {
+      "id": 0,
+      "name": "APR Inundació",
+      "isGroup": false,
+      "parentLayerId": -1,
+      "geometryType": "esriGeometryPolygon",
+      "type": "Feature Layer",
+      "maxRecordCount": 60000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "description": "Capa que delimita les àrees de prevenció de riscs d'inundació d'acord amb les determinacions de la normativa territorial i urbanística.",
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "esriFieldTypeOID",
+          "alias": "OBJECTID",
+          "domain": null
+        },
+        {
+          "name": "CODIPLA",
+          "type": "esriFieldTypeString",
+          "alias": "CODIPLA",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CLASSE",
+          "type": "esriFieldTypeString",
+          "alias": "CLASSE",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CODIAJ",
+          "type": "esriFieldTypeString",
+          "alias": "CODIAJ",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "NOM",
+          "type": "esriFieldTypeString",
+          "alias": "NOM",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CODIMUNI",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUNI",
+          "length": 3,
+          "domain": null
+        },
+        {
+          "name": "MUNICIPI",
+          "type": "esriFieldTypeString",
+          "alias": "MUNICIPI",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "DINIVIGEN",
+          "type": "esriFieldTypeString",
+          "alias": "DINIVIGEN",
+          "length": 10,
+          "domain": null
+        },
+        {
+          "name": "DFIVIGEN",
+          "type": "esriFieldTypeInteger",
+          "alias": "DFIVIGEN",
+          "domain": null
+        },
+        {
+          "name": "Shape_Length",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Length",
+          "domain": null
+        },
+        {
+          "name": "Shape_Area",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Area",
+          "domain": null
+        },
+        {
+          "name": "Shape",
+          "type": "esriFieldTypeGeometry",
+          "alias": "SHAPE",
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "IDENTITAT",
+          "type": "esriFieldTypeString",
+          "alias": "IDENTITAT",
+          "length": 255,
+          "domain": null
+        }
+      ],
+      "featureCount": 1,
+      "truncationSuspect": false
+    },
+    "1": {
+      "id": 1,
+      "name": "APR Esllevissaments",
+      "isGroup": false,
+      "parentLayerId": -1,
+      "geometryType": "esriGeometryPolygon",
+      "type": "Feature Layer",
+      "maxRecordCount": 60000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "description": "Capa que delimita les àrees de prevenció de riscs d'esllavissaments d'acord amb les determinacions de la normativa territorial i urbanística.",
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "esriFieldTypeOID",
+          "alias": "OBJECTID",
+          "domain": null
+        },
+        {
+          "name": "CODIPLA",
+          "type": "esriFieldTypeString",
+          "alias": "CODIPLA",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CLASSE",
+          "type": "esriFieldTypeString",
+          "alias": "CLASSE",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CODIAJ",
+          "type": "esriFieldTypeString",
+          "alias": "CODIAJ",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CODIMUNI",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUNI",
+          "length": 3,
+          "domain": null
+        },
+        {
+          "name": "MUNICIPI",
+          "type": "esriFieldTypeString",
+          "alias": "MUNICIPI",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "DINIVIGEN",
+          "type": "esriFieldTypeString",
+          "alias": "DINIVIGEN",
+          "length": 10,
+          "domain": null
+        },
+        {
+          "name": "DFIVIGEN",
+          "type": "esriFieldTypeInteger",
+          "alias": "DFIVIGEN",
+          "domain": null
+        },
+        {
+          "name": "Shape_Length",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Length",
+          "domain": null
+        },
+        {
+          "name": "Shape_Area",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Area",
+          "domain": null
+        },
+        {
+          "name": "Shape",
+          "type": "esriFieldTypeGeometry",
+          "alias": "SHAPE",
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "IDENTITAT",
+          "type": "esriFieldTypeString",
+          "alias": "IDENTITAT",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "NOM",
+          "type": "esriFieldTypeString",
+          "alias": "NOM",
+          "length": 255,
+          "domain": null
+        }
+      ],
+      "featureCount": 1,
+      "truncationSuspect": false
+    },
+    "2": {
+      "id": 2,
+      "name": "APR Incendis (ZAR)",
+      "isGroup": false,
+      "parentLayerId": -1,
+      "geometryType": "esriGeometryPolygon",
+      "type": "Feature Layer",
+      "maxRecordCount": 60000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "description": "Capa que delimita les àrees de prevenció de riscs d'incendis d'acord amb les determinacions de la normativa territorial i urbanística.",
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "esriFieldTypeOID",
+          "alias": "OBJECTID",
+          "domain": null
+        },
+        {
+          "name": "CODIPLA",
+          "type": "esriFieldTypeString",
+          "alias": "CODIPLA",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CLASSE",
+          "type": "esriFieldTypeString",
+          "alias": "CLASSE",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CODIAJ",
+          "type": "esriFieldTypeString",
+          "alias": "CODIAJ",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "NOM",
+          "type": "esriFieldTypeString",
+          "alias": "NOM",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CODIMUNI",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUNI",
+          "length": 3,
+          "domain": null
+        },
+        {
+          "name": "MUNICIPI",
+          "type": "esriFieldTypeString",
+          "alias": "MUNICIPI",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "DINIVIGEN",
+          "type": "esriFieldTypeString",
+          "alias": "DINIVIGEN",
+          "length": 10,
+          "domain": null
+        },
+        {
+          "name": "DFIVIGEN",
+          "type": "esriFieldTypeDouble",
+          "alias": "DFIVIGEN",
+          "domain": null
+        },
+        {
+          "name": "Shape_Length",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Length",
+          "domain": null
+        },
+        {
+          "name": "Shape_Area",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Area",
+          "domain": null
+        },
+        {
+          "name": "Shape",
+          "type": "esriFieldTypeGeometry",
+          "alias": "SHAPE",
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "IDENTITAT",
+          "type": "esriFieldTypeString",
+          "alias": "IDENTITAT",
+          "length": 255,
+          "domain": null
+        }
+      ],
+      "featureCount": 67,
+      "truncationSuspect": false
+    },
+    "3": {
+      "id": 3,
+      "name": "APR Erosió",
+      "isGroup": false,
+      "parentLayerId": -1,
+      "geometryType": "esriGeometryPolygon",
+      "type": "Feature Layer",
+      "maxRecordCount": 60000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "description": "Capa que delimita les àrees de prevenció de riscs d'erosió d'acord amb les determinacions de la normativa territorial i urbanística.",
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "esriFieldTypeOID",
+          "alias": "OBJECTID",
+          "domain": null
+        },
+        {
+          "name": "CODIPLA",
+          "type": "esriFieldTypeString",
+          "alias": "CODIPLA",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CLASSE",
+          "type": "esriFieldTypeString",
+          "alias": "CLASSE",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CODIAJ",
+          "type": "esriFieldTypeString",
+          "alias": "CODIAJ",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "NOM",
+          "type": "esriFieldTypeString",
+          "alias": "NOM",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CODIMUNI",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUNI",
+          "length": 3,
+          "domain": null
+        },
+        {
+          "name": "MUNICIPI",
+          "type": "esriFieldTypeString",
+          "alias": "MUNICIPI",
+          "length": 80,
+          "domain": null
+        },
+        {
+          "name": "DINIVIGEN",
+          "type": "esriFieldTypeString",
+          "alias": "DINIVIGEN",
+          "length": 10,
+          "domain": null
+        },
+        {
+          "name": "DFIVIGEN",
+          "type": "esriFieldTypeInteger",
+          "alias": "DFIVIGEN",
+          "domain": null
+        },
+        {
+          "name": "Shape_Length",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Length",
+          "domain": null
+        },
+        {
+          "name": "Shape_Area",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Area",
+          "domain": null
+        },
+        {
+          "name": "Shape",
+          "type": "esriFieldTypeGeometry",
+          "alias": "SHAPE",
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "IDENTITAT",
+          "type": "esriFieldTypeString",
+          "alias": "IDENTITAT",
+          "length": 255,
+          "domain": null
+        }
+      ],
+      "featureCount": 1,
+      "truncationSuspect": false
+    },
+    "4": {
+      "id": 4,
+      "name": "APR Despreniments (mateixa que esllevissaments)",
+      "isGroup": false,
+      "parentLayerId": -1,
+      "geometryType": "esriGeometryPolygon",
+      "type": "Feature Layer",
+      "maxRecordCount": 60000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "description": "Capa que delimita les àrees de prevenció de riscs de despreniments d'acord amb les determinacions de la normativa territorial i urbanística.",
+      "fields": [
+        {
+          "name": "CODIMUIB",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "IDENTITAT",
+          "type": "esriFieldTypeString",
+          "alias": "IDENTITAT",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "OBJECTID",
+          "type": "esriFieldTypeOID",
+          "alias": "OBJECTID",
+          "domain": null
+        },
+        {
+          "name": "CODIPLA",
+          "type": "esriFieldTypeString",
+          "alias": "CODIPLA",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CLASSE",
+          "type": "esriFieldTypeString",
+          "alias": "CLASSE",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CODIAJ",
+          "type": "esriFieldTypeString",
+          "alias": "CODIAJ",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CODIMUNI",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUNI",
+          "length": 3,
+          "domain": null
+        },
+        {
+          "name": "MUNICIPI",
+          "type": "esriFieldTypeString",
+          "alias": "MUNICIPI",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "DINIVIGEN",
+          "type": "esriFieldTypeString",
+          "alias": "DINIVIGEN",
+          "length": 10,
+          "domain": null
+        },
+        {
+          "name": "DFIVIGEN",
+          "type": "esriFieldTypeInteger",
+          "alias": "DFIVIGEN",
+          "domain": null
+        },
+        {
+          "name": "Shape_Length",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Length",
+          "domain": null
+        },
+        {
+          "name": "Shape_Area",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Area",
+          "domain": null
+        },
+        {
+          "name": "Shape",
+          "type": "esriFieldTypeGeometry",
+          "alias": "SHAPE",
+          "domain": null
+        },
+        {
+          "name": "NOM",
+          "type": "esriFieldTypeString",
+          "alias": "NOM",
+          "length": 255,
+          "domain": null
+        }
+      ],
+      "featureCount": 1,
+      "truncationSuspect": false
+    },
+    "5": {
+      "id": 5,
+      "name": "Proteció Aqüífers municipal",
+      "isGroup": false,
+      "parentLayerId": -1,
+      "geometryType": "esriGeometryPolygon",
+      "type": "Feature Layer",
+      "maxRecordCount": 60000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "description": "Capa que delimita les àrees de prevenció de riscs d'aqüífers d'acord amb les determinacions de la normativa territorial i urbanística",
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "esriFieldTypeOID",
+          "alias": "OBJECTID",
+          "domain": null
+        },
+        {
+          "name": "CODIPLA",
+          "type": "esriFieldTypeString",
+          "alias": "CODIPLA",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CLASSE",
+          "type": "esriFieldTypeString",
+          "alias": "CLASSE",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIAJ",
+          "type": "esriFieldTypeString",
+          "alias": "CODIAJ",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "NOM",
+          "type": "esriFieldTypeString",
+          "alias": "NOM",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIMUNI",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUNI",
+          "length": 3,
+          "domain": null
+        },
+        {
+          "name": "MUNICIPI",
+          "type": "esriFieldTypeString",
+          "alias": "MUNICIPI",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "DINIVIGEN",
+          "type": "esriFieldTypeString",
+          "alias": "DINIVIGEN",
+          "length": 10,
+          "domain": null
+        },
+        {
+          "name": "DFIVIGEN",
+          "type": "esriFieldTypeInteger",
+          "alias": "DFIVIGEN",
+          "domain": null
+        },
+        {
+          "name": "IDENTITAT",
+          "type": "esriFieldTypeInteger",
+          "alias": "IDENTITAT",
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB_G",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB_G",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "SHAPE_Length",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Length",
+          "domain": null
+        },
+        {
+          "name": "SHAPE_Area",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Area",
+          "domain": null
+        },
+        {
+          "name": "OBJECTID_1",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Area",
+          "domain": null
+        },
+        {
+          "name": "SHAPE",
+          "type": "esriFieldTypeGeometry",
+          "alias": "SHAPE",
+          "domain": null
+        }
+      ],
+      "featureCount": 1751,
+      "truncationSuspect": false
+    },
+    "6": {
+      "id": 6,
+      "name": "SISTEMES",
+      "isGroup": false,
+      "parentLayerId": -1,
+      "geometryType": "esriGeometryPolygon",
+      "type": "Feature Layer",
+      "maxRecordCount": 60000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "description": "Capa que conté les infraestructures i els equipaments destinats a cobrir la demanda urbana de la població.",
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "esriFieldTypeOID",
+          "alias": "OBJECTID",
+          "domain": null
+        },
+        {
+          "name": "CODIPLA",
+          "type": "esriFieldTypeString",
+          "alias": "CODIPLA",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "NOM",
+          "type": "esriFieldTypeString",
+          "alias": "NOM",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIAJ",
+          "type": "esriFieldTypeString",
+          "alias": "CODIAJ",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIMUNI",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUNI",
+          "length": 3,
+          "domain": null
+        },
+        {
+          "name": "DINIVIGEN",
+          "type": "esriFieldTypeString",
+          "alias": "DINIVIGEN",
+          "length": 10,
+          "domain": null
+        },
+        {
+          "name": "DFIVIGEN",
+          "type": "esriFieldTypeInteger",
+          "alias": "DFIVIGEN",
+          "domain": null
+        },
+        {
+          "name": "SHAPE_Length",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Length",
+          "domain": null
+        },
+        {
+          "name": "SHAPE_Area",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Area",
+          "domain": null
+        },
+        {
+          "name": "IDENTITAT",
+          "type": "esriFieldTypeInteger",
+          "alias": "IDENTITAT",
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB_G",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB_G",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "URL",
+          "type": "esriFieldTypeString",
+          "alias": "URL",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "MUNICIPI",
+          "type": "esriFieldTypeString",
+          "alias": "MUNICIPI",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CARACTER",
+          "type": "esriFieldTypeString",
+          "alias": "CARACTER",
+          "length": 25,
+          "domain": null
+        },
+        {
+          "name": "OBJECTID_1",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Area",
+          "domain": null
+        },
+        {
+          "name": "SHAPE",
+          "type": "esriFieldTypeGeometry",
+          "alias": "SHAPE",
+          "domain": null
+        }
+      ],
+      "featureCount": 2576,
+      "truncationSuspect": false
+    },
+    "7": {
+      "id": 7,
+      "name": "APT",
+      "isGroup": false,
+      "parentLayerId": -1,
+      "geometryType": "esriGeometryPolygon",
+      "type": "Feature Layer",
+      "maxRecordCount": 60000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "description": "Capa que delimita les àrees de protecció territorial d'acord amb les determinacions de la normativa territorial i urbanística",
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "esriFieldTypeOID",
+          "alias": "OBJECTID",
+          "domain": null
+        },
+        {
+          "name": "CODIPLA",
+          "type": "esriFieldTypeString",
+          "alias": "CODIPLA",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CODIMUNI",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUNI",
+          "length": 3,
+          "domain": null
+        },
+        {
+          "name": "MUNICIPI",
+          "type": "esriFieldTypeString",
+          "alias": "MUNICIPI",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "DINIVIGEN",
+          "type": "esriFieldTypeString",
+          "alias": "DINIVIGEN",
+          "length": 10,
+          "domain": null
+        },
+        {
+          "name": "DFIVIGEN",
+          "type": "esriFieldTypeInteger",
+          "alias": "DFIVIGEN",
+          "domain": null
+        },
+        {
+          "name": "Shape_Length",
+          "type": "esriFieldTypeDouble",
+          "alias": "Shape_Length",
+          "domain": null
+        },
+        {
+          "name": "Shape_Area",
+          "type": "esriFieldTypeDouble",
+          "alias": "Shape_Area",
+          "domain": null
+        },
+        {
+          "name": "Shape",
+          "type": "esriFieldTypeGeometry",
+          "alias": "SHAPE",
+          "domain": null
+        },
+        {
+          "name": "OBS",
+          "type": "esriFieldTypeString",
+          "alias": "OBS",
+          "length": 254,
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "IDENTITAT",
+          "type": "esriFieldTypeString",
+          "alias": "IDENTITAT",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "NOM",
+          "type": "esriFieldTypeString",
+          "alias": "NOM",
+          "length": 255,
+          "domain": null
+        }
+      ],
+      "featureCount": 1,
+      "truncationSuspect": false
+    },
+    "8": {
+      "id": 8,
+      "name": "GESTIO",
+      "isGroup": false,
+      "parentLayerId": -1,
+      "geometryType": "esriGeometryPolygon",
+      "type": "Feature Layer",
+      "maxRecordCount": 60000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "description": "Capa que determina els àmbits i paràmetres de la gestió urbanística a la que estan sotmesos els polígons d'actuació, segons el que determina el planejament",
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "esriFieldTypeOID",
+          "alias": "OBJECTID",
+          "domain": null
+        },
+        {
+          "name": "CODIPLA",
+          "type": "esriFieldTypeString",
+          "alias": "CODIPLA",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "NOM",
+          "type": "esriFieldTypeString",
+          "alias": "NOM",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIAJ",
+          "type": "esriFieldTypeString",
+          "alias": "CODIAJ",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIMUNI",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUNI",
+          "length": 3,
+          "domain": null
+        },
+        {
+          "name": "DINIVIGEN",
+          "type": "esriFieldTypeString",
+          "alias": "DINIVIGEN",
+          "length": 10,
+          "domain": null
+        },
+        {
+          "name": "DFIVIGEN",
+          "type": "esriFieldTypeInteger",
+          "alias": "DFIVIGEN",
+          "domain": null
+        },
+        {
+          "name": "SHAPE_Length",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Length",
+          "domain": null
+        },
+        {
+          "name": "SHAPE_Area",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Area",
+          "domain": null
+        },
+        {
+          "name": "IDENTITAT",
+          "type": "esriFieldTypeInteger",
+          "alias": "IDENTITAT",
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB_G",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB_G",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "URL",
+          "type": "esriFieldTypeString",
+          "alias": "URL",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "MUNICIPI",
+          "type": "esriFieldTypeString",
+          "alias": "MUNICIPI",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "OBJECTID_1",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Area",
+          "domain": null
+        },
+        {
+          "name": "SHAPE",
+          "type": "esriFieldTypeGeometry",
+          "alias": "SHAPE",
+          "domain": null
+        }
+      ],
+      "featureCount": 2210,
+      "truncationSuspect": false
+    },
+    "9": {
+      "id": 9,
+      "name": "CATALEG",
+      "isGroup": false,
+      "parentLayerId": -1,
+      "geometryType": "esriGeometryPolygon",
+      "type": "Feature Layer",
+      "maxRecordCount": 60000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "description": null,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "esriFieldTypeOID",
+          "alias": "OBJECTID",
+          "domain": null
+        },
+        {
+          "name": "CODIPLA",
+          "type": "esriFieldTypeString",
+          "alias": "CODIPLA",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIAJ",
+          "type": "esriFieldTypeString",
+          "alias": "CODIAJ",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "NOM",
+          "type": "esriFieldTypeString",
+          "alias": "NOM",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIMUNI",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUNI",
+          "length": 3,
+          "domain": null
+        },
+        {
+          "name": "MUNICIPI",
+          "type": "esriFieldTypeString",
+          "alias": "MUNICIPI",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "DINIVIGEN",
+          "type": "esriFieldTypeString",
+          "alias": "DINIVIGEN",
+          "length": 10,
+          "domain": null
+        },
+        {
+          "name": "DFIVIGEN",
+          "type": "esriFieldTypeInteger",
+          "alias": "DFIVIGEN",
+          "domain": null
+        },
+        {
+          "name": "IDENTITAT",
+          "type": "esriFieldTypeInteger",
+          "alias": "IDENTITAT",
+          "domain": null
+        },
+        {
+          "name": "ENTORN",
+          "type": "esriFieldTypeString",
+          "alias": "ENTORN",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "REF_CADAS",
+          "type": "esriFieldTypeString",
+          "alias": "REF_CADAS",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "NIVELL",
+          "type": "esriFieldTypeString",
+          "alias": "NIVELL",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CAT",
+          "type": "esriFieldTypeString",
+          "alias": "CAT",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "TIPUS",
+          "type": "esriFieldTypeString",
+          "alias": "TIPUS",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "RUTES",
+          "type": "esriFieldTypeString",
+          "alias": "RUTES",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB_G",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB_G",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "SHAPE_Length",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Length",
+          "domain": null
+        },
+        {
+          "name": "SHAPE_Area",
+          "type": "esriFieldTypeDouble",
+          "alias": "SHAPE_Area",
+          "domain": null
+        },
+        {
+          "name": "SHAPE",
+          "type": "esriFieldTypeGeometry",
+          "alias": "SHAPE",
+          "domain": null
+        },
+        {
+          "name": "URL",
+          "type": "esriFieldTypeString",
+          "alias": "URL",
+          "length": 512,
+          "domain": null
+        }
+      ],
+      "featureCount": 15645,
+      "truncationSuspect": false
+    },
+    "10": {
+      "id": 10,
+      "name": "QUALIFICACIONS",
+      "isGroup": false,
+      "parentLayerId": -1,
+      "geometryType": "esriGeometryPolygon",
+      "type": "Feature Layer",
+      "maxRecordCount": 60000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "description": null,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "esriFieldTypeOID",
+          "alias": "OBJECTID",
+          "domain": null
+        },
+        {
+          "name": "Shape",
+          "type": "esriFieldTypeGeometry",
+          "alias": "Shape",
+          "domain": null
+        },
+        {
+          "name": "CODIPLA",
+          "type": "esriFieldTypeString",
+          "alias": "CODIPLA",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODICLAS",
+          "type": "esriFieldTypeString",
+          "alias": "CODICLAS",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "NOM",
+          "type": "esriFieldTypeString",
+          "alias": "NOM",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIAJ",
+          "type": "esriFieldTypeString",
+          "alias": "CODIAJ",
+          "length": 50,
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB_G",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB_G",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIMUNI",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUNI",
+          "length": 3,
+          "domain": null
+        },
+        {
+          "name": "MUNICIPI",
+          "type": "esriFieldTypeString",
+          "alias": "MUNICIPI",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "OBS",
+          "type": "esriFieldTypeString",
+          "alias": "OBS",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "DINIVIGEN",
+          "type": "esriFieldTypeString",
+          "alias": "DINIVIGEN",
+          "length": 10,
+          "domain": null
+        },
+        {
+          "name": "DFIVIGEN",
+          "type": "esriFieldTypeInteger",
+          "alias": "DFIVIGEN",
+          "domain": null
+        },
+        {
+          "name": "IDENTITAT",
+          "type": "esriFieldTypeInteger",
+          "alias": "IDENTITAT",
+          "domain": null
+        },
+        {
+          "name": "URL",
+          "type": "esriFieldTypeString",
+          "alias": "URL",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "Shape_Length",
+          "type": "esriFieldTypeDouble",
+          "alias": "Shape_Length",
+          "domain": null
+        },
+        {
+          "name": "Shape_Area",
+          "type": "esriFieldTypeDouble",
+          "alias": "Shape_Area",
+          "domain": null
+        }
+      ],
+      "featureCount": 46607,
+      "truncationSuspect": false
+    },
+    "11": {
+      "id": 11,
+      "name": "CATEGORIES DEL SÒL RÚSTIC",
+      "isGroup": false,
+      "parentLayerId": -1,
+      "geometryType": "esriGeometryPolygon",
+      "type": "Feature Layer",
+      "maxRecordCount": 60000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "description": null,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "esriFieldTypeOID",
+          "alias": "OBJECTID",
+          "domain": null
+        },
+        {
+          "name": "Shape",
+          "type": "esriFieldTypeGeometry",
+          "alias": "Shape",
+          "domain": null
+        },
+        {
+          "name": "CODIPLA",
+          "type": "esriFieldTypeString",
+          "alias": "CODIPLA",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "NOM",
+          "type": "esriFieldTypeString",
+          "alias": "NOM",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIMUIB_G",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUIB_G",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIMUNI",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUNI",
+          "length": 3,
+          "domain": null
+        },
+        {
+          "name": "MUNICIPI",
+          "type": "esriFieldTypeString",
+          "alias": "MUNICIPI",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "OBS",
+          "type": "esriFieldTypeString",
+          "alias": "OBS",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "DINIVIGEN",
+          "type": "esriFieldTypeString",
+          "alias": "DINIVIGEN",
+          "length": 10,
+          "domain": null
+        },
+        {
+          "name": "DFIVIGEN",
+          "type": "esriFieldTypeInteger",
+          "alias": "DFIVIGEN",
+          "domain": null
+        },
+        {
+          "name": "CODICLAS",
+          "type": "esriFieldTypeString",
+          "alias": "CODICLAS",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODIAJ",
+          "type": "esriFieldTypeString",
+          "alias": "CODIAJ",
+          "length": 50,
+          "domain": null
+        },
+        {
+          "name": "IDENTITAT",
+          "type": "esriFieldTypeInteger",
+          "alias": "IDENTITAT",
+          "domain": null
+        },
+        {
+          "name": "URL",
+          "type": "esriFieldTypeString",
+          "alias": "URL",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "Shape_Length",
+          "type": "esriFieldTypeDouble",
+          "alias": "Shape_Length",
+          "domain": null
+        },
+        {
+          "name": "Shape_Area",
+          "type": "esriFieldTypeDouble",
+          "alias": "Shape_Area",
+          "domain": null
+        }
+      ],
+      "featureCount": 26113,
+      "truncationSuspect": false
+    },
+    "12": {
+      "id": 12,
+      "name": "CLASSIFICACIO",
+      "isGroup": false,
+      "parentLayerId": -1,
+      "geometryType": "esriGeometryPolygon",
+      "type": "Feature Layer",
+      "maxRecordCount": 60000,
+      "supportsPagination": true,
+      "supportsDistinct": true,
+      "description": null,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "esriFieldTypeOID",
+          "alias": "OBJECTID",
+          "domain": null
+        },
+        {
+          "name": "Shape",
+          "type": "esriFieldTypeGeometry",
+          "alias": "Shape",
+          "domain": null
+        },
+        {
+          "name": "CODIMUNI",
+          "type": "esriFieldTypeString",
+          "alias": "CODIMUNI",
+          "length": 3,
+          "domain": null
+        },
+        {
+          "name": "MUNICIPI",
+          "type": "esriFieldTypeString",
+          "alias": "MUNICIPI",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "CODICLAS",
+          "type": "esriFieldTypeString",
+          "alias": "CODICLAS",
+          "length": 255,
+          "domain": null
+        },
+        {
+          "name": "DINIVIGEN",
+          "type": "esriFieldTypeString",
+          "alias": "DINIVIGEN",
+          "length": 512,
+          "domain": null
+        },
+        {
+          "name": "DFIVIGEN",
+          "type": "esriFieldTypeInteger",
+          "alias": "DFIVIGEN",
+          "domain": null
+        },
+        {
+          "name": "Shape_Length",
+          "type": "esriFieldTypeDouble",
+          "alias": "Shape_Length",
+          "domain": null
+        },
+        {
+          "name": "Shape_Area",
+          "type": "esriFieldTypeDouble",
+          "alias": "Shape_Area",
+          "domain": null
+        }
+      ],
+      "featureCount": 916,
+      "truncationSuspect": false
+    }
+  },
+  "errors": []
+}

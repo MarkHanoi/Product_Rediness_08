@@ -1,0 +1,5033 @@
+{
+  "probe": "p-fitxa-sample",
+  "runAt": "2026-08-02T13:41:32.080Z",
+  "seed": 20260802,
+  "perIsland": {
+    "Mallorca": 40,
+    "Menorca": 15,
+    "Eivissa": 15,
+    "Formentera": 10
+  },
+  "note": "urban (SU/SB) zones only - rustic categories are governed by a different regime",
+  "fitxes": [
+    {
+      "island": "Mallorca",
+      "muni": "ARTÀ",
+      "codiPla": "PE_sEstanyol_Dotacioserveis_2014_7006",
+      "codiAj": "ELP",
+      "codiMuib": "EL_PB_P",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=282199",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1,
+          "raw": "1 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 4,
+          "raw": "4 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 %"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 961,
+      "paramRegionLen": 517,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "PORRERES",
+      "codiPla": "REV_NNSS_1998",
+      "codiAj": "C.A.I",
+      "codiMuib": "RE_NA_CAI",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=42288",
+      "params": {
+        "NP": {
+          "status": "PRESENT_EMPTY",
+          "raw": "plantes"
+        },
+        "HR": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_EMPTY",
+          "raw": "%"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6,
+          "raw": "6 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2016,
+      "paramRegionLen": 1035,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "MANACOR",
+      "codiPla": "2021_PG_MANACOR_033",
+      "codiAj": "RE-NA",
+      "codiMuib": "RE_NA",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292430",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 80,
+          "raw": "80 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2.4,
+          "raw": "2.4 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 200,
+          "raw": "200 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 120,
+          "raw": "120 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [
+        "Article 66",
+        "Article 56.3.j"
+      ],
+      "rawLen": 3447,
+      "paramRegionLen": 1179,
+      "deferredToPlanols": true
+    },
+    {
+      "island": "Mallorca",
+      "muni": "PALMA",
+      "codiPla": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+      "codiAj": "C6a",
+      "codiMuib": "RE_IP_C6a",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48484",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6,
+          "raw": "6 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 19.5,
+          "raw": "19.5 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 21.5,
+          "raw": "21.5 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 100,
+          "raw": "100 %"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 320,
+          "raw": "320 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 14,
+          "raw": "14 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 18,
+          "raw": "18 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2748,
+      "paramRegionLen": 1015,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "ESPORLES",
+      "codiPla": "NNSS_2001",
+      "codiAj": "A2",
+      "codiMuib": "RE_IP_A2",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=43116",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 9,
+          "raw": "9 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10.5,
+          "raw": "10.50 m"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3.2,
+          "raw": "3.20 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 840,
+      "paramRegionLen": 840,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "ARTÀ",
+      "codiPla": "REV_NNSS_2010",
+      "codiAj": "AR-CA",
+      "codiMuib": "RE_NA_AR_CA",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=35181",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 12,
+          "raw": "12 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 70,
+          "raw": "70 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 200,
+          "raw": "200 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 130,
+          "raw": "130 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 4245,
+      "paramRegionLen": 1953,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "MANACOR",
+      "codiPla": "2021_PG_MANACOR_033",
+      "codiAj": "TE-CO",
+      "codiMuib": "TE_CO",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292467",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 60,
+          "raw": "60 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1,
+          "raw": "1 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1000,
+          "raw": "1000 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 15,
+          "raw": "15 m"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 4,
+          "raw": "4 m"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 4,
+          "raw": "4 m"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 4,
+          "raw": "4 m"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [
+        "Article 66",
+        "Article 56.3.j"
+      ],
+      "rawLen": 3706,
+      "paramRegionLen": 1149,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "PALMA",
+      "codiPla": "PLA_REC_PLATJA_PALMA_7040_2015",
+      "codiAj": "D(3+a)p",
+      "codiMuib": "RE_IP_D3ap_fp",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=289034",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 13.2,
+          "raw": "13.2 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 320,
+          "raw": "320 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6,
+          "raw": "6 m"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 90,
+          "raw": "90 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2778,
+      "paramRegionLen": 1104,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "ESPORLES",
+      "codiPla": "NNSS_2001",
+      "codiAj": "B",
+      "codiMuib": "RE_EU_B",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=43117",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6.5,
+          "raw": "6.50 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 8,
+          "raw": "8 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 45,
+          "raw": "45 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0.8,
+          "raw": "0.80 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 300,
+          "raw": "300 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 12,
+          "raw": "12 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 200,
+          "raw": "200 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 3232,
+      "paramRegionLen": 1198,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "ARTÀ",
+      "codiPla": "REV_NNSS_2010",
+      "codiAj": "AR-CA-C",
+      "codiMuib": "RE_NA_AR_CA_C",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=74070",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 12,
+          "raw": "12 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 80,
+          "raw": "80 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 200,
+          "raw": "200 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 130,
+          "raw": "130 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 4194,
+      "paramRegionLen": 1902,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "MARIA DE LA SALUT",
+      "codiPla": "REV_NNSS_1997",
+      "codiAj": "CA_C",
+      "codiMuib": "RE_NA_CA_C",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=87926",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 80,
+          "raw": "80 %"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 529,
+      "paramRegionLen": 529,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "SELVA",
+      "codiPla": "2020_PDSU_SELVA_058",
+      "codiAj": "NA-I",
+      "codiMuib": "RE_NA_I",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292573",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 150,
+          "raw": "150 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0,
+          "raw": "0 m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 100,
+          "raw": "100 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 983,
+      "paramRegionLen": 983,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "CALVIÀ",
+      "codiPla": "PGOU_ADPT_AL_PTM_ANY_2012",
+      "codiAj": "RP-2",
+      "codiMuib": "RE_EP_RP2",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=280225",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 4,
+          "raw": "4 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 13,
+          "raw": "13 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 15,
+          "raw": "15 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 35,
+          "raw": "35 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0.6,
+          "raw": "0.60 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3600,
+          "raw": "3600 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 30,
+          "raw": "30 m"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 300,
+          "raw": "300 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 10291,
+      "paramRegionLen": 1311,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "POLLENÇA",
+      "codiPla": "PE_CENTRE_HISTORIC_POLLENCA",
+      "codiAj": "CH 1_PB+1 / 12",
+      "codiMuib": "RE_NA_CH_1_PBi1_12",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=283011",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6.5,
+          "raw": "6.5 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 100,
+          "raw": "100 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6,
+          "raw": "6 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2250,
+      "paramRegionLen": 963,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "MONTUÏRI",
+      "codiPla": "NNSS_1986_7038",
+      "codiAj": "CA",
+      "codiMuib": "RE_NA_CA",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=89268",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 8,
+          "raw": "8 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 60,
+          "raw": "60 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1,
+          "raw": "1 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 200,
+          "raw": "200 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "VE: Volumetria específica"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 1753,
+      "paramRegionLen": 1132,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "CONSELL",
+      "codiPla": "MD_RELATIVA_A_DIVERSOS_ASPECTES_PUNTUALS",
+      "codiAj": "IA",
+      "codiMuib": "RE_IP_IA",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=78523",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 8,
+          "raw": "8 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 80,
+          "raw": "80 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "VE: Volumetria específica"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 4473,
+      "paramRegionLen": 1833,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "INCA",
+      "codiPla": "PP_Sector1_2012_7027",
+      "codiAj": "ES",
+      "codiMuib": "EQ_ES_ES",
+      "soil": "SB",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=281950",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 493,
+      "paramRegionLen": 224,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "ALCÚDIA",
+      "codiPla": "MD_2_NNSS_7003_2012",
+      "codiAj": "E5d-3",
+      "codiMuib": "TU_E5d_3",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=281118",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 11.6,
+          "raw": "11.6 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 20,
+          "raw": "20 %"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 15000,
+          "raw": "15000 m2"
+        },
+        "AM": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 60,
+          "raw": "60 m2/habitatge"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 3277,
+      "paramRegionLen": 2106,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "MANACOR",
+      "codiPla": "2021_PG_MANACOR_033",
+      "codiAj": "EQ-PB-L-ES",
+      "codiMuib": "EQ_ES_EQ_PB_L_ES",
+      "soil": "SB",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292491",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 60,
+          "raw": "60 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1,
+          "raw": "1 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [
+        "Article 66"
+      ],
+      "rawLen": 4106,
+      "paramRegionLen": 1350,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "ANDRATX",
+      "codiPla": "NNSS_2007",
+      "codiAj": "U.AI",
+      "codiMuib": "RE_EU_UAI",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=40681",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 30,
+          "raw": "30 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0.8,
+          "raw": "0.8 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 600,
+          "raw": "600 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 15,
+          "raw": "15 m"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 600,
+          "raw": "600 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 3521,
+      "paramRegionLen": 1222,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "MURO",
+      "codiPla": "REV_PGOU_2003",
+      "codiAj": "R-IB_C",
+      "codiMuib": "RE_IP_R_IB_C",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=73966",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 80,
+          "raw": "80 %"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 150,
+          "raw": "150 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6,
+          "raw": "6 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 4,
+          "raw": "4 m"
+        },
+        "RM": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 75,
+          "raw": "75 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 4872,
+      "paramRegionLen": 2417,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "MARRATXÍ",
+      "codiPla": "REV_NNSS_1999_7036",
+      "codiAj": "EL",
+      "codiMuib": "EL_PB",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=45221",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 554,
+      "paramRegionLen": 254,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "ALARÓ",
+      "codiPla": "REV_NNSS_2003_7001",
+      "codiAj": "EMA_CA",
+      "codiMuib": "RE_NA_EMA_CA",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=138075",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 100,
+          "raw": "100 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 200,
+          "raw": "200 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 8,
+          "raw": "8 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 3113,
+      "paramRegionLen": 1430,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "POLLENÇA",
+      "codiPla": "MD_PGOU_POOT_7042_2012",
+      "codiAj": "AT11.6 ed",
+      "codiMuib": "TU_AT116_ed",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=282854",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 4,
+          "raw": "4 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 12.5,
+          "raw": "12.5 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 50,
+          "raw": "50 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1.33,
+          "raw": "1.33 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m2"
+        },
+        "AM": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m"
+        },
+        "RA": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 1345,
+      "paramRegionLen": 1068,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "SANTA MARGALIDA",
+      "codiPla": "MD_NNSS_PP7_7055_2012",
+      "codiAj": "I",
+      "codiMuib": "IN_I",
+      "soil": "SB",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=283025",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 60,
+          "raw": "60 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1.5,
+          "raw": "1.5 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2396,
+      "paramRegionLen": 1284,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "PALMA",
+      "codiPla": "PLA_REC_PLATJA_PALMA_7040_2015",
+      "codiAj": "V",
+      "codiMuib": "CI_VI_V",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=289130",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 517,
+      "paramRegionLen": 240,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "SA POBLA",
+      "codiPla": "REV_NNSS_2003_7044",
+      "codiAj": "CA",
+      "codiMuib": "RE_NA_CA",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=169391",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10.5,
+          "raw": "10.50 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 100,
+          "raw": "100 %"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 200,
+          "raw": "200 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "RA": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m"
+        },
+        "RF": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m"
+        },
+        "RM": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 3449,
+      "paramRegionLen": 1996,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "CALVIÀ",
+      "codiPla": "PGOU_ADPT_AL_PTM_ANY_2012",
+      "codiAj": "T",
+      "codiMuib": "TU_T",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=280169",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 4,
+          "raw": "4 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 16,
+          "raw": "16 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 18,
+          "raw": "18 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 25,
+          "raw": "25 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0.5,
+          "raw": "0.50 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 14000,
+          "raw": "14000 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 100,
+          "raw": "100 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 8772,
+      "paramRegionLen": 1344,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "POLLENÇA",
+      "codiPla": "MD_PGOU_POOT_7042_2012",
+      "codiAj": "I2 / III",
+      "codiMuib": "RE_IP_I2_III",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=282912",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 9.5,
+          "raw": "9.5 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 150,
+          "raw": "150 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 9,
+          "raw": "9 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2324,
+      "paramRegionLen": 778,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "SA POBLA",
+      "codiPla": "REV_NNSS_2003_7044",
+      "codiAj": "EL_P",
+      "codiMuib": "EL_PB_P",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=169397",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 1631,
+      "paramRegionLen": 411,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "LLUCMAJOR",
+      "codiPla": "REV_ADPT_DEL_PLAN_GENERAL_MUNICIPAL_DE_ORDENACION_1984",
+      "codiAj": "PGOU85_IB_2N",
+      "codiMuib": "RE_IP_PGOU85_IB_2N",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=260996",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10.5,
+          "raw": "10.5 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1.6,
+          "raw": "1.6 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 250,
+          "raw": "250 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7.5,
+          "raw": "7.5 m"
+        },
+        "RA": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 1553,
+      "paramRegionLen": 1180,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "INCA",
+      "codiPla": "REV_PGOUINGA_PTI_2012",
+      "codiAj": "Ei_Pati",
+      "codiMuib": "EL_PR_Ei",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=279219",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 528,
+      "paramRegionLen": 243,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "SANT LLORENÇ DES CARDASSAR",
+      "codiPla": "NNSS_1994",
+      "codiAj": "LP C",
+      "codiMuib": "EL_PB_LP_C",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=43451",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1,
+          "raw": "1 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 %"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 803,
+      "paramRegionLen": 539,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "POLLENÇA",
+      "codiPla": "MD_PGOU_POOT_7042_2012",
+      "codiAj": "I2 / 12 / III",
+      "codiMuib": "RE_IP_I2_12_III",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=282917",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 9.5,
+          "raw": "9.5 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 150,
+          "raw": "150 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 9,
+          "raw": "9 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2358,
+      "paramRegionLen": 812,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "MARRATXÍ",
+      "codiPla": "REV_NNSS_1999_7036",
+      "codiAj": "EQ1-SN",
+      "codiMuib": "EQ_AI1_SN",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=45246",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 500,
+      "paramRegionLen": 500,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "ARTÀ",
+      "codiPla": "REV_NNSS_2010",
+      "codiAj": "AR-INT-C",
+      "codiMuib": "RE_IP_AR_INT_C",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=74582",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 12,
+          "raw": "12 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 80,
+          "raw": "80 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 200,
+          "raw": "200 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 80,
+          "raw": "80 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 4158,
+      "paramRegionLen": 1932,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "ALGAIDA",
+      "codiPla": "NNSS_2005",
+      "codiAj": "B2",
+      "codiMuib": "RE_IP_B2",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=33454",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 8.5,
+          "raw": "8.5 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 20,
+          "raw": "20 %"
+        },
+        "E": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 200,
+          "raw": "200 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 70,
+          "raw": "70 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "VE: Volumetria específica"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 13174,
+      "paramRegionLen": 2147,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "ESPORLES",
+      "codiPla": "NNSS_2001",
+      "codiAj": "EL",
+      "codiMuib": "EL_PB",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=43124",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1,
+          "raw": "1 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3.5,
+          "raw": "3.50 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0.05,
+          "raw": "0.05 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2795,
+      "paramRegionLen": 782,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "SINEU",
+      "codiPla": "ADPT_A_LES_DOT_DIVERSES_MODNS_PUNTUALS_EN_SOL_URBA",
+      "codiAj": "CA",
+      "codiMuib": "RE_NA_CA",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=261312",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 9,
+          "raw": "9 m"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m2"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 80,
+          "raw": "80 m2/habitatge"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2593,
+      "paramRegionLen": 1783,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Mallorca",
+      "muni": "ANDRATX",
+      "codiPla": "NNSS_2007",
+      "codiAj": "U",
+      "codiMuib": "RE_EU_U",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=40724",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 30,
+          "raw": "30 %"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1000,
+          "raw": "1000 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 20,
+          "raw": "20 m"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 4,
+          "raw": "4 m"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1000,
+          "raw": "1000 m2/habitatge"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 1579,
+      "paramRegionLen": 1579,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Menorca",
+      "muni": "SANT LLUÍS",
+      "codiPla": "MD_NNSS_ADPT_PTI_NTSR_7052_2017",
+      "codiAj": "REB",
+      "codiMuib": "RE_EP_REB",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=291834",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 40,
+          "raw": "40 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0.7,
+          "raw": "0.7 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 200,
+          "raw": "200 m2/habitatge"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2155,
+      "paramRegionLen": 736,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Menorca",
+      "muni": "MAÓ / MAHÓN",
+      "codiPla": "PGOU_2012_07032",
+      "codiAj": "aA",
+      "codiMuib": "CI_AP_aA",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=279723",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 562,
+      "paramRegionLen": 263,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Menorca",
+      "muni": "ES MERCADAL",
+      "codiPla": "ADPT_A_LES_DOT_A_LA_LLEI_DEL_SOL_RUSTIC",
+      "codiAj": "3",
+      "codiMuib": "RE_IP_3",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=10311",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 9.5,
+          "raw": "9.5 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 210,
+          "raw": "210 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "RA": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2080,
+      "paramRegionLen": 1037,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Menorca",
+      "muni": "SANT LLUÍS",
+      "codiPla": "NNSS_ZT_2012_7052",
+      "codiAj": "REU-2",
+      "codiMuib": "RE_EU_REU_2",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=280031",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6.2,
+          "raw": "6.2 m"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0.25,
+          "raw": "0.25 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1000,
+          "raw": "1000 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 15,
+          "raw": "15 m"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 15,
+          "raw": "15 m"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1000,
+          "raw": "1000 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2258,
+      "paramRegionLen": 1760,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Menorca",
+      "muni": "ALAIOR",
+      "codiPla": "PGOU_ALAIOR_7002_1994",
+      "codiAj": "A",
+      "codiMuib": "CI_AP_A",
+      "soil": "SB",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=6116",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 9.5,
+          "raw": "9.5 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1,
+          "raw": "1 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 1251,
+      "paramRegionLen": 632,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Menorca",
+      "muni": "SANT LLUÍS",
+      "codiPla": "MD_NNSS_ADPT_PTI_NTSR_7052_2017",
+      "codiAj": "RIB1-PEm",
+      "codiMuib": "RE_IP_RIB1_PEm",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=291811",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6.5,
+          "raw": "6.5 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 9.5,
+          "raw": "9.5 m"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "RM": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 45,
+          "raw": "45 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2343,
+      "paramRegionLen": 1142,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Menorca",
+      "muni": "FERRERIES",
+      "codiPla": "PGOU_7023",
+      "codiAj": "3b",
+      "codiMuib": "EQ_AI_3b",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=9882",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 608,
+      "paramRegionLen": 253,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Menorca",
+      "muni": "MAÓ / MAHÓN",
+      "codiPla": "PGOU_2012_07032",
+      "codiAj": "2",
+      "codiMuib": "RE_IP_2",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=279780",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5.5,
+          "raw": "5.5 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 1813,
+      "paramRegionLen": 653,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Menorca",
+      "muni": "MAÓ / MAHÓN",
+      "codiPla": "PGOU_2012_07032",
+      "codiAj": "9",
+      "codiMuib": "IN_9",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=279756",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 13,
+          "raw": "13 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 70,
+          "raw": "70 %"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1200,
+          "raw": "1200 m2"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_EMPTY",
+          "raw": ""
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 1709,
+      "paramRegionLen": 897,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Menorca",
+      "muni": "ES CASTELL",
+      "codiPla": "TR_PGOU_2000",
+      "codiAj": "2.1.2",
+      "codiMuib": "RE_EU_212",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=3401",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7.5,
+          "raw": "7.5 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 30,
+          "raw": "30 %"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 400,
+          "raw": "400 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 15,
+          "raw": "15 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2186,
+      "paramRegionLen": 1216,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Menorca",
+      "muni": "CIUTADELLA DE MENORCA",
+      "codiPla": "NC_REGULACIO_CAPACITAT_DE_POBLACIO",
+      "codiAj": "17n",
+      "codiMuib": "RE_EU_17n",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=3968",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6.25,
+          "raw": "6.25 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 22,
+          "raw": "22 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0.32,
+          "raw": "0.32 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 400,
+          "raw": "400 m2"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 377,
+          "raw": "377 m2/habitatge"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 3071,
+      "paramRegionLen": 2050,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Menorca",
+      "muni": "ALAIOR",
+      "codiPla": "PGOU_ALAIOR_7002_1994",
+      "codiAj": "a.1.3_PB+2",
+      "codiMuib": "RE_IP_a_1_3_PB_2",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=291077",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m2"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [
+        "article 172"
+      ],
+      "rawLen": 3698,
+      "paramRegionLen": 1836,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Menorca",
+      "muni": "CIUTADELLA DE MENORCA",
+      "codiPla": "NC_REGULACIO_CAPACITAT_DE_POBLACIO",
+      "codiAj": "18g",
+      "codiMuib": "TU_18g",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=4002",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 50,
+          "raw": "50 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0.7,
+          "raw": "0.7 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3000,
+          "raw": "3000 m2"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6,
+          "raw": "6 m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 147,
+          "raw": "147 m2/habitatge"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 1495,
+      "paramRegionLen": 1024,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Menorca",
+      "muni": "SANT LLUÍS",
+      "codiPla": "NNSS_ZT_2012_7052",
+      "codiAj": "RUTE",
+      "codiMuib": "RE_EU_RUTE",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=280033",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 9.5,
+          "raw": "9.5 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10.7,
+          "raw": "10.7 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 50,
+          "raw": "50 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0.35,
+          "raw": "0.35 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 600,
+          "raw": "600 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 15,
+          "raw": "15 m"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1.5,
+          "raw": "1.5 m"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1.5,
+          "raw": "1.5 m"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2283,
+      "paramRegionLen": 1674,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Menorca",
+      "muni": "CIUTADELLA DE MENORCA",
+      "codiPla": "TR_PGOU",
+      "codiAj": "21",
+      "codiMuib": "IN_21",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=217",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 65,
+          "raw": "65 %"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1000,
+          "raw": "1000 m2"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "VE: Volumetria específica"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2428,
+      "paramRegionLen": 1298,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Eivissa",
+      "muni": "SANTA EULÀRIA DES RIU",
+      "codiPla": "NNSS_2011_STAEUL",
+      "codiAj": "E-T3",
+      "codiMuib": "TU_E_T3",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=263089",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 18,
+          "raw": "18 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 21,
+          "raw": "21 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 30,
+          "raw": "30 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1,
+          "raw": "1 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1200,
+          "raw": "1200 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 30,
+          "raw": "30 m"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6,
+          "raw": "6 m"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 9,
+          "raw": "9 m"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 9,
+          "raw": "9 m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 60,
+          "raw": "60 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 4120,
+      "paramRegionLen": 1326,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Eivissa",
+      "muni": "SANT JOSEP DE SA TALAIA",
+      "codiPla": "TR_DE_LES_NNSS",
+      "codiAj": "UA3",
+      "codiMuib": "RE_EU_UA3",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=40367",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 1133,
+      "paramRegionLen": 1133,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Eivissa",
+      "muni": "SANT JOSEP DE SA TALAIA",
+      "codiPla": "TR_DE_LES_NNSS",
+      "codiAj": "UAA3",
+      "codiMuib": "RE_EU_UAA3",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=40372",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0.35,
+          "raw": "0.35 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 500,
+          "raw": "500 m2"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_EMPTY",
+          "raw": ""
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2835,
+      "paramRegionLen": 736,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Eivissa",
+      "muni": "SANTA EULÀRIA DES RIU",
+      "codiPla": "NNSS_2011_STAEUL",
+      "codiAj": "IS",
+      "codiMuib": "SE_IS_IS",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=263107",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 482,
+      "paramRegionLen": 482,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Eivissa",
+      "muni": "SANT ANTONI DE PORTMANY",
+      "codiPla": "PGOU_1992",
+      "codiAj": "EL",
+      "codiMuib": "EL_PB",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=28906",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 491,
+      "paramRegionLen": 491,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Eivissa",
+      "muni": "EIVISSA",
+      "codiPla": "P28_CAS_SERRES",
+      "codiAj": "EL",
+      "codiMuib": "EL_PB",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=271294",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1,
+          "raw": "1 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3.5,
+          "raw": "3.50 m"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0.05,
+          "raw": "0.05 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "VE: Volumetria específica"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 3068,
+      "paramRegionLen": 1050,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Eivissa",
+      "muni": "SANTA EULÀRIA DES RIU",
+      "codiPla": "NNSS_2011_STAEUL",
+      "codiAj": "E-U2",
+      "codiMuib": "RE_EU_E_U2",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=263093",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 40,
+          "raw": "40 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0.6,
+          "raw": "0.6 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 400,
+          "raw": "400 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 15,
+          "raw": "15 m"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 400,
+          "raw": "400 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 3748,
+      "paramRegionLen": 1348,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Eivissa",
+      "muni": "SANTA EULÀRIA DES RIU",
+      "codiPla": "NNSS_2011_STAEUL",
+      "codiAj": "CARRER",
+      "codiMuib": "CI_VI_CARRER",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=263057",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 478,
+      "paramRegionLen": 478,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Eivissa",
+      "muni": "SANTA EULÀRIA DES RIU",
+      "codiPla": "NNSS_2011_STAEUL",
+      "codiAj": "EL-P",
+      "codiMuib": "EL_PB_P",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=263076",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2418,
+      "paramRegionLen": 271,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Eivissa",
+      "muni": "EIVISSA",
+      "codiPla": "PTI_DEIVISSA_FORMENTERA",
+      "codiAj": "Urba",
+      "codiMuib": "RE_NA",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=288289",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 436,
+      "paramRegionLen": 436,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Eivissa",
+      "muni": "SANT JOSEP DE SA TALAIA",
+      "codiPla": "CAN_RASPALLS_SECTOR_114",
+      "codiAj": "R.",
+      "codiMuib": "EL_PB_R",
+      "soil": "SB",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=40764",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 508,
+      "paramRegionLen": 508,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Eivissa",
+      "muni": "SANTA EULÀRIA DES RIU",
+      "codiPla": "NNSS_2011_STAEUL",
+      "codiAj": "E-P4",
+      "codiMuib": "RE_EP_E_P4",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=263083",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 13,
+          "raw": "13 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 40,
+          "raw": "40 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1,
+          "raw": "1 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 400,
+          "raw": "400 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 15,
+          "raw": "15 m"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 120,
+          "raw": "120 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 4067,
+      "paramRegionLen": 1351,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Eivissa",
+      "muni": "SANT ANTONI DE PORTMANY",
+      "codiPla": "PGOU_1992",
+      "codiAj": "CA 1",
+      "codiMuib": "RE_NA_CA_1",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=28855",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 4,
+          "raw": "4 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 13.3,
+          "raw": "13.30 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 14.8,
+          "raw": "14.80 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 70,
+          "raw": "70 %"
+        },
+        "E": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 200,
+          "raw": "200 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2898,
+      "paramRegionLen": 1427,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Eivissa",
+      "muni": "SANTA EULÀRIA DES RIU",
+      "codiPla": "NNSS_2011_STAEUL",
+      "codiAj": "E-T2",
+      "codiMuib": "TU_E_T2",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=263088",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 8,
+          "raw": "8 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 11,
+          "raw": "11 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 30,
+          "raw": "30 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0.6,
+          "raw": "0.6 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 800,
+          "raw": "800 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 20,
+          "raw": "20 m"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6,
+          "raw": "6 m"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6,
+          "raw": "6 m"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 60,
+          "raw": "60 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 4120,
+      "paramRegionLen": 1326,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Eivissa",
+      "muni": "SANTA EULÀRIA DES RIU",
+      "codiPla": "NNSS_2011_STAEUL",
+      "codiAj": "EQ-SC",
+      "codiMuib": "EQ_CU_EQ_SC",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=263073",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 13,
+          "raw": "13 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 50,
+          "raw": "50 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1,
+          "raw": "1 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6,
+          "raw": "6 m"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6,
+          "raw": "6 m"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6,
+          "raw": "6 m"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 3175,
+      "paramRegionLen": 1055,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Formentera",
+      "muni": "FORMENTERA",
+      "codiPla": "MOD1_NNSS2010_2013_7024",
+      "codiAj": "CAT",
+      "codiMuib": "RE_NA",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=277564",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 442,
+      "paramRegionLen": 442,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Formentera",
+      "muni": "FORMENTERA",
+      "codiPla": "MOD1_NNSS2010_2013_7024",
+      "codiAj": "SGEQ-AI",
+      "codiMuib": "EQ_AI_SGEQ_AI",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=277551",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 569,
+      "paramRegionLen": 569,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Formentera",
+      "muni": "FORMENTERA",
+      "codiPla": "MOD1_NNSS2010_2013_7024",
+      "codiAj": "CA-SFC",
+      "codiMuib": "RE_NA_CA_SFC",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=277565",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 6,
+          "raw": "6 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 7,
+          "raw": "7 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 60,
+          "raw": "60 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1.2,
+          "raw": "1.2 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 200,
+          "raw": "200 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 75,
+          "raw": "75 m2/habitatge"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "EM: Alineada o retranquejada a a espai, entre mitgeres"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 1750,
+      "paramRegionLen": 1308,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Formentera",
+      "muni": "FORMENTERA",
+      "codiPla": "MOD1_NNSS2010_2013_7024",
+      "codiAj": "IN-POL",
+      "codiMuib": "IN_POL",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=277562",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 2,
+          "raw": "2 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 8,
+          "raw": "8 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1,
+          "raw": "1.00 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1500,
+          "raw": "1500 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 30,
+          "raw": "30 m"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 1936,
+      "paramRegionLen": 1316,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Formentera",
+      "muni": "FORMENTERA",
+      "codiPla": "MOD1_NNSS2010_2013_7024",
+      "codiAj": "EL-PR",
+      "codiMuib": "EL_PR",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=277550",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 1752,
+      "paramRegionLen": 1752,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Formentera",
+      "muni": "FORMENTERA",
+      "codiPla": "MOD1_NNSS2010_2013_7024",
+      "codiAj": "I-LSV",
+      "codiMuib": "RE_IP_I_LSV",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=277580",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 472,
+      "paramRegionLen": 472,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Formentera",
+      "muni": "FORMENTERA",
+      "codiPla": "MOD1_NNSS2010_2013_7024",
+      "codiAj": "ET 02-PPM",
+      "codiMuib": "TU_ET1_02_PPM",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=277604",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 1,
+          "raw": "1 plantes"
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 4,
+          "raw": "4 m"
+        },
+        "O": {
+          "status": "PRESENT_NUMERIC",
+          "value": 20,
+          "raw": "20 %"
+        },
+        "E": {
+          "status": "PRESENT_NUMERIC",
+          "value": 0.2,
+          "raw": "0.20 m2 superf. edificable/m2 superf. del solar"
+        },
+        "PM": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m2"
+        },
+        "AM": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "IRP": {
+          "status": "PRESENT_EMPTY",
+          "raw": "m2/habitatge"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 1935,
+      "paramRegionLen": 1463,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Formentera",
+      "muni": "FORMENTERA",
+      "codiPla": "MOD1_NNSS2010_2013_7024",
+      "codiAj": "SGEQ-D",
+      "codiMuib": "EQ_DO_SGEQ_D",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=277553",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 556,
+      "paramRegionLen": 556,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Formentera",
+      "muni": "FORMENTERA",
+      "codiPla": "MOD1_NNSS2010_2013_7024",
+      "codiAj": "ET 01-EPJ",
+      "codiMuib": "TU_ET_01_EPJ",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=277608",
+      "params": {
+        "NP": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 plantes 2 règims específics: - Regulació: PB+P1+P2 - - VE "
+        },
+        "HR": {
+          "status": "PRESENT_NUMERIC",
+          "value": 9,
+          "raw": "9 m"
+        },
+        "HT": {
+          "status": "PRESENT_NUMERIC",
+          "value": 10,
+          "raw": "10 m"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 600,
+          "raw": "600 m2"
+        },
+        "AM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 20,
+          "raw": "20 m"
+        },
+        "RA": {
+          "status": "PRESENT_NUMERIC",
+          "value": 5,
+          "raw": "5 m"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "PRESENT_NUMERIC",
+          "value": 3,
+          "raw": "3 m"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "PRESENT_TEXT",
+          "raw": "A: Aïllada"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 2358,
+      "paramRegionLen": 2006,
+      "deferredToPlanols": false
+    },
+    {
+      "island": "Formentera",
+      "muni": "FORMENTERA",
+      "codiPla": "MOD1_NNSS2010_2013_7024",
+      "codiAj": "EL_PB",
+      "codiMuib": "EL_PB",
+      "soil": "SU",
+      "url": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=277548",
+      "params": {
+        "NP": {
+          "status": "ABSENT"
+        },
+        "HR": {
+          "status": "ABSENT"
+        },
+        "HT": {
+          "status": "ABSENT"
+        },
+        "O": {
+          "status": "ABSENT"
+        },
+        "E": {
+          "status": "ABSENT"
+        },
+        "PM": {
+          "status": "ABSENT"
+        },
+        "AM": {
+          "status": "ABSENT"
+        },
+        "RA": {
+          "status": "ABSENT"
+        },
+        "RF": {
+          "status": "ABSENT"
+        },
+        "RM": {
+          "status": "ABSENT"
+        },
+        "IRP": {
+          "status": "ABSENT"
+        },
+        "T": {
+          "status": "ABSENT"
+        }
+      },
+      "articleRefs": [],
+      "rawLen": 474,
+      "paramRegionLen": 474,
+      "deferredToPlanols": false
+    }
+  ],
+  "errors": [],
+  "summary": {
+    "fitxesRead": 80,
+    "byIsland": {
+      "Mallorca": 40,
+      "Menorca": 15,
+      "Eivissa": 15,
+      "Formentera": 10
+    },
+    "parameters": {
+      "NP": {
+        "label": "Nombre de plantes (storeys)",
+        "PRESENT_NUMERIC": 54,
+        "PRESENT_TEXT": 0,
+        "PRESENT_EMPTY": 1,
+        "ABSENT": 25,
+        "usablePct": 67.5
+      },
+      "HR": {
+        "label": "Altura reguladora (regulated height, m)",
+        "PRESENT_NUMERIC": 49,
+        "PRESENT_TEXT": 0,
+        "PRESENT_EMPTY": 2,
+        "ABSENT": 29,
+        "usablePct": 61.25
+      },
+      "HT": {
+        "label": "Altura total (total height, m)",
+        "PRESENT_NUMERIC": 23,
+        "PRESENT_TEXT": 0,
+        "PRESENT_EMPTY": 0,
+        "ABSENT": 57,
+        "usablePct": 28.75
+      },
+      "O": {
+        "label": "Ocupacio maxima (%)",
+        "PRESENT_NUMERIC": 39,
+        "PRESENT_TEXT": 0,
+        "PRESENT_EMPTY": 1,
+        "ABSENT": 40,
+        "usablePct": 48.75
+      },
+      "E": {
+        "label": "Coeficient edificabilitat neta (FAR)",
+        "PRESENT_NUMERIC": 33,
+        "PRESENT_TEXT": 0,
+        "PRESENT_EMPTY": 5,
+        "ABSENT": 42,
+        "usablePct": 41.25
+      },
+      "PM": {
+        "label": "Parcel*la minima (m2)",
+        "PRESENT_NUMERIC": 40,
+        "PRESENT_TEXT": 0,
+        "PRESENT_EMPTY": 5,
+        "ABSENT": 35,
+        "usablePct": 50
+      },
+      "AM": {
+        "label": "Amplada minima de facana (m)",
+        "PRESENT_NUMERIC": 37,
+        "PRESENT_TEXT": 0,
+        "PRESENT_EMPTY": 4,
+        "ABSENT": 39,
+        "usablePct": 46.25
+      },
+      "RA": {
+        "label": "Reculada a alineacio oficial (front setback)",
+        "PRESENT_NUMERIC": 21,
+        "PRESENT_TEXT": 0,
+        "PRESENT_EMPTY": 5,
+        "ABSENT": 54,
+        "usablePct": 26.25
+      },
+      "RF": {
+        "label": "Reculada a interior d'illa (rear setback)",
+        "PRESENT_NUMERIC": 22,
+        "PRESENT_TEXT": 0,
+        "PRESENT_EMPTY": 1,
+        "ABSENT": 57,
+        "usablePct": 27.5
+      },
+      "RM": {
+        "label": "Reculada a mitgera (party-wall setback)",
+        "PRESENT_NUMERIC": 27,
+        "PRESENT_TEXT": 0,
+        "PRESENT_EMPTY": 3,
+        "ABSENT": 50,
+        "usablePct": 33.75
+      },
+      "IRP": {
+        "label": "Index intensitat us",
+        "PRESENT_NUMERIC": 26,
+        "PRESENT_TEXT": 0,
+        "PRESENT_EMPTY": 1,
+        "ABSENT": 53,
+        "usablePct": 32.5
+      },
+      "T": {
+        "label": "Tipus ordenacio",
+        "PRESENT_NUMERIC": 0,
+        "PRESENT_TEXT": 40,
+        "PRESENT_EMPTY": 2,
+        "ABSENT": 38,
+        "usablePct": 50
+      }
+    },
+    "withAnyArticleRef": 4,
+    "withAnyArticleRefPct": 5,
+    "deferredToPlanols": 1,
+    "deferredToPlanolsPct": 1.25,
+    "withHeightSignal": 55,
+    "withOccupation": 39,
+    "withFar": 33,
+    "withHeightAndOccAndFar": 25,
+    "errors": 0
+  }
+}
