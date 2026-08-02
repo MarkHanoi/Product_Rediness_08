@@ -1,0 +1,589 @@
+{
+  "denominators": {
+    "mdbFilesInCache": 4,
+    "mdbFilesOpened": 4,
+    "decodeFailures": 0,
+    "rowsRead": 93,
+    "memoCellsRead": 3,
+    "distinctTables": 4,
+    "distinctColumns": 95
+  },
+  "POSITIVE_CONTROL": {
+    "FonMaxEdm_columnSeen": true,
+    "FonMaxEd_columnSeen": true
+  },
+  "tableUnion": [
+    [
+      "EDIF",
+      2
+    ],
+    [
+      "DES",
+      1
+    ],
+    [
+      "RUS",
+      1
+    ],
+    [
+      "SRPP-1",
+      1
+    ]
+  ],
+  "columnUnion": [
+    [
+      "Nombre",
+      4
+    ],
+    [
+      "Etiqueta",
+      3
+    ],
+    [
+      "SupMin",
+      3
+    ],
+    [
+      "ObsSMP",
+      3
+    ],
+    [
+      "LongMin",
+      3
+    ],
+    [
+      "CircInsc",
+      3
+    ],
+    [
+      "ObsCirc",
+      3
+    ],
+    [
+      "SepMinFr",
+      3
+    ],
+    [
+      "SepMinPs",
+      3
+    ],
+    [
+      "SepMinLt",
+      3
+    ],
+    [
+      "ObsFonMx",
+      3
+    ],
+    [
+      "PMaxOcup",
+      3
+    ],
+    [
+      "EdifMax",
+      3
+    ],
+    [
+      "ObsEdfMx",
+      3
+    ],
+    [
+      "AltMaxPl",
+      3
+    ],
+    [
+      "ObsAMP",
+      3
+    ],
+    [
+      "detUso",
+      3
+    ],
+    [
+      "iden",
+      2
+    ],
+    [
+      "ParcVInc",
+      2
+    ],
+    [
+      "ObsParV",
+      2
+    ],
+    [
+      "ObsLM",
+      2
+    ],
+    [
+      "FonMin",
+      2
+    ],
+    [
+      "ObsFM",
+      2
+    ],
+    [
+      "DispObl",
+      2
+    ],
+    [
+      "ObsLDO",
+      2
+    ],
+    [
+      "ObsSMFr",
+      2
+    ],
+    [
+      "ObsSMPs",
+      2
+    ],
+    [
+      "ObsSMLt",
+      2
+    ],
+    [
+      "FonMaxEd",
+      2
+    ],
+    [
+      "SepMnEdf",
+      2
+    ],
+    [
+      "ObsSME",
+      2
+    ],
+    [
+      "ObsPMO",
+      2
+    ],
+    [
+      "ObsAMPl",
+      2
+    ],
+    [
+      "AltMaxMV",
+      2
+    ],
+    [
+      "ObsAMV",
+      2
+    ],
+    [
+      "AltMaxMP",
+      2
+    ],
+    [
+      "otrasDet",
+      2
+    ],
+    [
+      "FonMaxEdm",
+      2
+    ],
+    [
+      "ObsFonMxm",
+      2
+    ],
+    [
+      "DispOblm",
+      2
+    ],
+    [
+      "ObsDispOm",
+      2
+    ],
+    [
+      "Codigo",
+      2
+    ],
+    [
+      "OtrasCon",
+      2
+    ],
+    [
+      "InstPlan",
+      1
+    ],
+    [
+      "Plazo",
+      1
+    ],
+    [
+      "ObsInstP",
+      1
+    ],
+    [
+      "ObsPlazo",
+      1
+    ],
+    [
+      "UsoGlobal",
+      1
+    ],
+    [
+      "OBSUsoG",
+      1
+    ],
+    [
+      "AprMedio",
+      1
+    ],
+    [
+      "EdifBruta",
+      1
+    ],
+    [
+      "ObsEdifB",
+      1
+    ],
+    [
+      "SupEdRes",
+      1
+    ],
+    [
+      "ObsSEMR",
+      1
+    ],
+    [
+      "CapMaxRes",
+      1
+    ],
+    [
+      "ObsCMR",
+      1
+    ],
+    [
+      "PVivPub",
+      1
+    ],
+    [
+      "ObsPVP",
+      1
+    ],
+    [
+      "SupEdTur",
+      1
+    ],
+    [
+      "ObsSEMT",
+      1
+    ],
+    [
+      "CapMaxTur",
+      1
+    ],
+    [
+      "ObsCMT",
+      1
+    ],
+    [
+      "SupEdOtr",
+      1
+    ],
+    [
+      "ObsSEMO",
+      1
+    ],
+    [
+      "ElemEstr",
+      1
+    ],
+    [
+      "DotacLoc",
+      1
+    ],
+    [
+      "TramaUrb",
+      1
+    ],
+    [
+      "CondEdif",
+      1
+    ],
+    [
+      "CondUsos",
+      1
+    ],
+    [
+      "SupTotAD",
+      1
+    ],
+    [
+      "ObsSpTot",
+      1
+    ],
+    [
+      "Descrip",
+      1
+    ],
+    [
+      "POSICION",
+      1
+    ],
+    [
+      "Caracter",
+      1
+    ],
+    [
+      "ObsCarac",
+      1
+    ],
+    [
+      "ObsSup",
+      1
+    ],
+    [
+      "ObsLong",
+      1
+    ],
+    [
+      "OCFinca",
+      1
+    ],
+    [
+      "ObsSMF",
+      1
+    ],
+    [
+      "ObsSML",
+      1
+    ],
+    [
+      "FondoMax",
+      1
+    ],
+    [
+      "SepMnVol",
+      1
+    ],
+    [
+      "ObsSMV",
+      1
+    ],
+    [
+      "OCDispos",
+      1
+    ],
+    [
+      "ObsPOcup",
+      1
+    ],
+    [
+      "SupOcMax",
+      1
+    ],
+    [
+      "ObsOcMx",
+      1
+    ],
+    [
+      "SupEdMax",
+      1
+    ],
+    [
+      "ObsSEM",
+      1
+    ],
+    [
+      "AltMaxMt",
+      1
+    ],
+    [
+      "ObsAMM",
+      1
+    ],
+    [
+      "OCIntens",
+      1
+    ],
+    [
+      "Relacion",
+      1
+    ],
+    [
+      "Regimen",
+      1
+    ],
+    [
+      "detEntidad",
+      1
+    ]
+  ],
+  "columnClassified": {
+    "depth": [
+      "FonMaxEd",
+      "FonMaxEdm",
+      "FondoMax"
+    ],
+    "height": [
+      "AltMaxMP",
+      "AltMaxMV",
+      "AltMaxMt",
+      "AltMaxPl"
+    ],
+    "setback": [
+      "SepMinFr",
+      "SepMinLt",
+      "SepMinPs"
+    ]
+  },
+  "memoLabelUnion": [
+    [
+      "Porcentaje de la superficie total",
+      6
+    ],
+    [
+      "Nº de aparcamientos",
+      3
+    ],
+    [
+      "Coeficiente de ponderación relativa",
+      3
+    ],
+    [
+      "Aprovechamiento medio",
+      2
+    ],
+    [
+      "Superficie total",
+      2
+    ],
+    [
+      "Saneamiento",
+      2
+    ],
+    [
+      "Suministro de agua",
+      2
+    ],
+    [
+      "Energía eléctrica",
+      2
+    ],
+    [
+      "Accesos",
+      2
+    ],
+    [
+      "Ocupación total",
+      2
+    ],
+    [
+      "Otras determinaciones",
+      1
+    ],
+    [
+      "Aprovechamiento lucrativo homogeneizado",
+      1
+    ],
+    [
+      "Aprovechamiento total",
+      1
+    ],
+    [
+      "Suelo neto para uso edificatorio",
+      1
+    ],
+    [
+      "Densidad mínima",
+      1
+    ],
+    [
+      "Densidad máxima",
+      1
+    ],
+    [
+      "Aprovechamiento otros usos",
+      1
+    ],
+    [
+      "Aprovechamiento uso turístico",
+      1
+    ],
+    [
+      "Aprovechamiento bruto",
+      1
+    ]
+  ],
+  "memoLabelsWithANumber": [
+    [
+      "Porcentaje de la superficie total",
+      6
+    ],
+    [
+      "Nº de aparcamientos",
+      3
+    ],
+    [
+      "Coeficiente de ponderación relativa",
+      3
+    ],
+    [
+      "Aprovechamiento medio",
+      2
+    ],
+    [
+      "Superficie total",
+      2
+    ],
+    [
+      "Ocupación total",
+      2
+    ],
+    [
+      "Aprovechamiento lucrativo homogeneizado",
+      1
+    ],
+    [
+      "Aprovechamiento total",
+      1
+    ],
+    [
+      "Suelo neto para uso edificatorio",
+      1
+    ],
+    [
+      "Densidad mínima",
+      1
+    ],
+    [
+      "Densidad máxima",
+      1
+    ],
+    [
+      "Aprovechamiento otros usos",
+      1
+    ],
+    [
+      "Aprovechamiento uso turístico",
+      1
+    ],
+    [
+      "Aprovechamiento bruto",
+      1
+    ]
+  ],
+  "memoLabelClassified": {
+    "depth": [],
+    "height": [],
+    "setback": []
+  },
+  "depthColumnLadders": {
+    "FonMaxEdm": [
+      [
+        "20",
+        1
+      ],
+      [
+        "30",
+        1
+      ]
+    ]
+  },
+  "depthMemoLadders": {},
+  "depthMemoLabels_CAUGHT_by_prior_fondo_regex": [],
+  "depthMemoLabels_MISSED_by_prior_fondo_regex": []
+}

@@ -1,0 +1,259 @@
+{
+  "source": "C:\\Users\\LENOVO\\OneDrive\\Desktop\\PRYZM\\Product_Rediness_08\\tools\\madrid-spacm-probe\\out\\05-coverage-by-municipality.csv",
+  "totalPolygons": 93839,
+  "nMunicipalities": 179,
+  "table": [
+    {
+      "column": "NM_ALTURA",
+      "capitalPct": 8.86,
+      "medianMunicipalityPct": 79.38,
+      "meanMunicipalityPct": 70.91,
+      "polygonWeightedRegionalPct": 55.7,
+      "municipalitiesOver50": 141,
+      "municipalitiesOver80": 87,
+      "municipalitiesAtZero": 10,
+      "nMunicipalities": 179
+    },
+    {
+      "column": "NM_N_PLTA",
+      "capitalPct": 17.86,
+      "medianMunicipalityPct": 77.85,
+      "meanMunicipalityPct": 74.56,
+      "polygonWeightedRegionalPct": 56.85,
+      "municipalitiesOver50": 153,
+      "municipalitiesOver80": 81,
+      "municipalitiesAtZero": 0,
+      "nMunicipalities": 179
+    },
+    {
+      "column": "NM_OCP_MX",
+      "capitalPct": 20.12,
+      "medianMunicipalityPct": 59.93,
+      "meanMunicipalityPct": 58.72,
+      "polygonWeightedRegionalPct": 47.35,
+      "municipalitiesOver50": 115,
+      "municipalitiesOver80": 41,
+      "municipalitiesAtZero": 5,
+      "nMunicipalities": 179
+    },
+    {
+      "column": "NM_FDO_MX_ED",
+      "capitalPct": 12.94,
+      "medianMunicipalityPct": 6.92,
+      "meanMunicipalityPct": 12.53,
+      "polygonWeightedRegionalPct": 12.01,
+      "municipalitiesOver50": 7,
+      "municipalitiesOver80": 1,
+      "municipalitiesAtZero": 63,
+      "nMunicipalities": 179
+    },
+    {
+      "column": "NM_RTR_FRNT",
+      "capitalPct": 11.36,
+      "medianMunicipalityPct": 42.01,
+      "meanMunicipalityPct": 42.02,
+      "polygonWeightedRegionalPct": 36.59,
+      "municipalitiesOver50": 73,
+      "municipalitiesOver80": 8,
+      "municipalitiesAtZero": 13,
+      "nMunicipalities": 179
+    },
+    {
+      "column": "NM_RTR_LATL",
+      "capitalPct": 23.5,
+      "medianMunicipalityPct": 45.05,
+      "meanMunicipalityPct": 44.55,
+      "polygonWeightedRegionalPct": 40.98,
+      "municipalitiesOver50": 80,
+      "municipalitiesOver80": 13,
+      "municipalitiesAtZero": 16,
+      "nMunicipalities": 179
+    },
+    {
+      "column": "NM_RTR_POST",
+      "capitalPct": 22.15,
+      "medianMunicipalityPct": 49.54,
+      "meanMunicipalityPct": 46.64,
+      "polygonWeightedRegionalPct": 42.17,
+      "municipalitiesOver50": 89,
+      "municipalitiesOver80": 29,
+      "municipalitiesAtZero": 19,
+      "nMunicipalities": 179
+    },
+    {
+      "column": "NM_C_ED_ORD",
+      "capitalPct": 17.95,
+      "medianMunicipalityPct": 45.87,
+      "meanMunicipalityPct": 44.97,
+      "polygonWeightedRegionalPct": 38.11,
+      "municipalitiesOver50": 82,
+      "municipalitiesOver80": 19,
+      "municipalitiesAtZero": 20,
+      "nMunicipalities": 179
+    },
+    {
+      "column": "NM_APRV_BC",
+      "capitalPct": 0,
+      "medianMunicipalityPct": 0,
+      "meanMunicipalityPct": 0.48,
+      "polygonWeightedRegionalPct": 0.74,
+      "municipalitiesOver50": 0,
+      "municipalitiesOver80": 0,
+      "municipalitiesAtZero": 171,
+      "nMunicipalities": 179
+    },
+    {
+      "column": "footprintAny",
+      "capitalPct": 38.83,
+      "medianMunicipalityPct": 81.73,
+      "meanMunicipalityPct": 75.02,
+      "polygonWeightedRegionalPct": 64.61,
+      "municipalitiesOver50": 154,
+      "municipalitiesOver80": 94,
+      "municipalitiesAtZero": 1,
+      "nMunicipalities": 179
+    },
+    {
+      "column": "heightAndFootprint",
+      "capitalPct": 7.86,
+      "medianMunicipalityPct": 67.9,
+      "meanMunicipalityPct": 64.43,
+      "polygonWeightedRegionalPct": 48.32,
+      "municipalitiesOver50": 132,
+      "municipalitiesOver80": 52,
+      "municipalitiesAtZero": 4,
+      "nMunicipalities": 179
+    }
+  ],
+  "verdict": {
+    "claimUnderTest": "Madrid buildable depth NM_FDO_MX_ED = 12.9% (quoted from the CAPITAL row)",
+    "capitalPct": 12.94,
+    "medianMunicipalityPct": 6.92,
+    "polygonWeightedRegionalPct": 12.01,
+    "municipalitiesOver50": 7,
+    "nMunicipalities": 179,
+    "ratioMedianToCapital": 0.53
+  },
+  "topDepthMunicipalities": [
+    {
+      "cd": "170",
+      "municipio": "VILLACONEJOS",
+      "n": 150,
+      "depthPct": 93.33
+    },
+    {
+      "cd": "095",
+      "municipio": "NAVALAGAMELLA",
+      "n": 103,
+      "depthPct": 78.64
+    },
+    {
+      "cd": "179",
+      "municipio": "VILLAR DEL OLMO",
+      "n": 126,
+      "depthPct": 73.02
+    },
+    {
+      "cd": "070",
+      "municipio": "HORCAJO DE LA SIERRA-AOSLOS",
+      "n": 101,
+      "depthPct": 65.35
+    },
+    {
+      "cd": "027",
+      "municipio": "BUITRAGO DEL LOZOYA",
+      "n": 165,
+      "depthPct": 59.39
+    },
+    {
+      "cd": "099",
+      "municipio": "NAVAS DEL REY",
+      "n": 173,
+      "depthPct": 50.87
+    },
+    {
+      "cd": "132",
+      "municipio": "SAN MARTÍN DE LA VEGA",
+      "n": 307,
+      "depthPct": 50.49
+    },
+    {
+      "cd": "137",
+      "municipio": "LOS SANTOS DE LA HUMOSA",
+      "n": 162,
+      "depthPct": 48.77
+    },
+    {
+      "cd": "165",
+      "municipio": "VALDILECHA",
+      "n": 188,
+      "depthPct": 48.4
+    },
+    {
+      "cd": "035",
+      "municipio": "CARABAÑA",
+      "n": 162,
+      "depthPct": 46.91
+    },
+    {
+      "cd": "055",
+      "municipio": "ESTREMERA",
+      "n": 139,
+      "depthPct": 44.6
+    },
+    {
+      "cd": "007",
+      "municipio": "ALCORCÓN",
+      "n": 1317,
+      "depthPct": 43.66
+    },
+    {
+      "cd": "175",
+      "municipio": "VILLAMANTILLA",
+      "n": 103,
+      "depthPct": 36.89
+    },
+    {
+      "cd": "091",
+      "municipio": "MORATA DE TAJUÑA",
+      "n": 288,
+      "depthPct": 36.46
+    },
+    {
+      "cd": "173",
+      "municipio": "VILLAMANRIQUE DE TAJO",
+      "n": 109,
+      "depthPct": 35.78
+    },
+    {
+      "cd": "075",
+      "municipio": "LOECHES",
+      "n": 188,
+      "depthPct": 35.11
+    },
+    {
+      "cd": "048",
+      "municipio": "CORPA",
+      "n": 80,
+      "depthPct": 35
+    },
+    {
+      "cd": "067",
+      "municipio": "GUADALIX DE LA SIERRA",
+      "n": 351,
+      "depthPct": 34.19
+    },
+    {
+      "cd": "158",
+      "municipio": "VALDEMANCO",
+      "n": 158,
+      "depthPct": 32.91
+    },
+    {
+      "cd": "111",
+      "municipio": "PEZUELA DE LAS TORRES",
+      "n": 126,
+      "depthPct": 31.75
+    }
+  ]
+}

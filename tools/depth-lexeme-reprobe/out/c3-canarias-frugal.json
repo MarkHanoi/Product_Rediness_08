@@ -1,0 +1,3853 @@
+{
+  "denominators": {
+    "downloaded": 45,
+    "skippedTooBig": 22,
+    "notZip": 0,
+    "decodeFail": 1,
+    "mdbOpened": 135,
+    "rowsRead": 103125,
+    "memoCells": 752,
+    "httpErr": 0
+  },
+  "POSITIVE_CONTROL": {
+    "FonMaxEdm_seen": true,
+    "FonMaxEd_seen": true
+  },
+  "tableUnion": [
+    [
+      "USOS",
+      33
+    ],
+    [
+      "EDIF",
+      32
+    ],
+    [
+      "ZUSO",
+      29
+    ],
+    [
+      "CO-EL-1",
+      10
+    ],
+    [
+      "IE-TRRV",
+      10
+    ],
+    [
+      "RUS",
+      9
+    ],
+    [
+      "IE-TRRV-1",
+      9
+    ],
+    [
+      "TE-CO",
+      8
+    ],
+    [
+      "GES",
+      8
+    ],
+    [
+      "CO-DP",
+      7
+    ],
+    [
+      "CO-EL-2",
+      7
+    ],
+    [
+      "CO-DO",
+      7
+    ],
+    [
+      "DES",
+      6
+    ],
+    [
+      "IE-TRRV-2",
+      6
+    ],
+    [
+      "CO",
+      6
+    ],
+    [
+      "CO-EL",
+      6
+    ],
+    [
+      "CO-1",
+      6
+    ],
+    [
+      "SRPP",
+      6
+    ],
+    [
+      "RE-1",
+      5
+    ],
+    [
+      "REG",
+      5
+    ],
+    [
+      "RG",
+      5
+    ],
+    [
+      "SRPN",
+      5
+    ],
+    [
+      "CO-SORL",
+      5
+    ],
+    [
+      "IE-TRRVURPT",
+      5
+    ],
+    [
+      "CO-AD",
+      5
+    ],
+    [
+      "RE-VI-1",
+      5
+    ],
+    [
+      "SRPL",
+      5
+    ],
+    [
+      "RE-VICO-1",
+      4
+    ],
+    [
+      "ZON",
+      4
+    ],
+    [
+      "ZUM",
+      4
+    ],
+    [
+      "CAT",
+      4
+    ],
+    [
+      "CO-SA",
+      4
+    ],
+    [
+      "CO-AD-1",
+      4
+    ],
+    [
+      "IE-TRRV-3",
+      4
+    ],
+    [
+      "RE-2",
+      4
+    ],
+    [
+      "CO-DP-1",
+      4
+    ],
+    [
+      "CO-2",
+      4
+    ],
+    [
+      "RE-VI-2",
+      4
+    ],
+    [
+      "RE-VIUF",
+      4
+    ],
+    [
+      "IN-IN",
+      4
+    ],
+    [
+      "CO-CU-1",
+      3
+    ],
+    [
+      "ZUR",
+      3
+    ],
+    [
+      "ZUG",
+      3
+    ],
+    [
+      "CO-EL-3",
+      3
+    ],
+    [
+      "CO-CU",
+      3
+    ],
+    [
+      "RE-VI",
+      3
+    ],
+    [
+      "CO-DO-1",
+      3
+    ],
+    [
+      "RE-3",
+      3
+    ],
+    [
+      "RE-4",
+      3
+    ],
+    [
+      "RE-5",
+      3
+    ],
+    [
+      "SRAR",
+      3
+    ],
+    [
+      "SRPI-1",
+      3
+    ],
+    [
+      "SRPI-2",
+      3
+    ],
+    [
+      "RE-VICO",
+      3
+    ],
+    [
+      "CO-SO",
+      3
+    ],
+    [
+      "CO-3",
+      3
+    ],
+    [
+      "SRPP-1",
+      2
+    ],
+    [
+      "SRPA",
+      2
+    ],
+    [
+      "SRPI",
+      2
+    ],
+    [
+      "IE",
+      2
+    ],
+    [
+      "TE-RE",
+      2
+    ],
+    [
+      "IN-IN-1",
+      2
+    ],
+    [
+      "IN-IN-2",
+      2
+    ],
+    [
+      "RE-VIUFRU",
+      2
+    ],
+    [
+      "CO-CU-2",
+      2
+    ],
+    [
+      "CO-SA-1",
+      2
+    ],
+    [
+      "CO-SO-1",
+      2
+    ],
+    [
+      "CO-SO-2",
+      2
+    ],
+    [
+      "IE-TRRV-4",
+      2
+    ],
+    [
+      "RE-10",
+      2
+    ],
+    [
+      "RE-11",
+      2
+    ],
+    [
+      "RE-12",
+      2
+    ],
+    [
+      "RE-13",
+      2
+    ],
+    [
+      "RE-14",
+      2
+    ],
+    [
+      "RE-15",
+      2
+    ],
+    [
+      "RE-6",
+      2
+    ],
+    [
+      "RE-7",
+      2
+    ],
+    [
+      "RE-8",
+      2
+    ],
+    [
+      "RE-9",
+      2
+    ],
+    [
+      "~TMPCLP551371",
+      2
+    ],
+    [
+      "~TMPCLP486221",
+      2
+    ],
+    [
+      "SRPA-1",
+      2
+    ],
+    [
+      "SRPA-2",
+      2
+    ],
+    [
+      "SRPC",
+      2
+    ],
+    [
+      "SRPT",
+      2
+    ],
+    [
+      "CO-ELPJPI",
+      2
+    ],
+    [
+      "CO-EL-4",
+      2
+    ],
+    [
+      "CO-SOAS",
+      2
+    ],
+    [
+      "RE-VIUF-1",
+      2
+    ],
+    [
+      "ZUE",
+      2
+    ],
+    [
+      "TU-1",
+      2
+    ],
+    [
+      "TU-2",
+      2
+    ],
+    [
+      "SRPC-1",
+      1
+    ],
+    [
+      "SRPP-2",
+      1
+    ],
+    [
+      "SRPC-2",
+      1
+    ],
+    [
+      "SRPC-3",
+      1
+    ],
+    [
+      "SRPP-3",
+      1
+    ],
+    [
+      "IE-HICD",
+      1
+    ],
+    [
+      "IE-TRRVUR-1",
+      1
+    ],
+    [
+      "TU-XH",
+      1
+    ],
+    [
+      "TU-HT-1",
+      1
+    ],
+    [
+      "TU-HT-2",
+      1
+    ],
+    [
+      "CO-SGEMBO",
+      1
+    ],
+    [
+      "IE-TRAEHP",
+      1
+    ],
+    [
+      "PR-AG",
+      1
+    ],
+    [
+      "RE-VIUFUR",
+      1
+    ],
+    [
+      "TE-HS",
+      1
+    ],
+    [
+      "CO-CU-3",
+      1
+    ],
+    [
+      "RE-16",
+      1
+    ],
+    [
+      "RE-17",
+      1
+    ],
+    [
+      "RE-18",
+      1
+    ],
+    [
+      "RE-19",
+      1
+    ],
+    [
+      "RE-20",
+      1
+    ],
+    [
+      "RE-21",
+      1
+    ],
+    [
+      "RE-22",
+      1
+    ],
+    [
+      "RE-23",
+      1
+    ],
+    [
+      "RE-24",
+      1
+    ],
+    [
+      "RE-25",
+      1
+    ],
+    [
+      "RE-26",
+      1
+    ],
+    [
+      "RE-27",
+      1
+    ],
+    [
+      "RE-28",
+      1
+    ],
+    [
+      "RE-29",
+      1
+    ],
+    [
+      "RE-30",
+      1
+    ],
+    [
+      "RE-31",
+      1
+    ],
+    [
+      "RE-32",
+      1
+    ],
+    [
+      "RE-33",
+      1
+    ],
+    [
+      "RE-34",
+      1
+    ],
+    [
+      "RE-35",
+      1
+    ],
+    [
+      "RE-36",
+      1
+    ],
+    [
+      "RE-37",
+      1
+    ],
+    [
+      "RE-38",
+      1
+    ],
+    [
+      "RE-39",
+      1
+    ],
+    [
+      "RE-40",
+      1
+    ],
+    [
+      "RE-41",
+      1
+    ],
+    [
+      "RE-42",
+      1
+    ],
+    [
+      "RE-43",
+      1
+    ],
+    [
+      "RE-44",
+      1
+    ],
+    [
+      "RE-45",
+      1
+    ],
+    [
+      "RE-46",
+      1
+    ],
+    [
+      "RE-47",
+      1
+    ],
+    [
+      "RE-48",
+      1
+    ],
+    [
+      "RE-49",
+      1
+    ],
+    [
+      "RE-50",
+      1
+    ],
+    [
+      "RE-51",
+      1
+    ],
+    [
+      "RE-52",
+      1
+    ],
+    [
+      "RE-53",
+      1
+    ],
+    [
+      "RE-54",
+      1
+    ],
+    [
+      "RE-55",
+      1
+    ],
+    [
+      "RE-56",
+      1
+    ],
+    [
+      "RE-57",
+      1
+    ],
+    [
+      "RE-58",
+      1
+    ],
+    [
+      "TE-OF",
+      1
+    ],
+    [
+      "CO-AD-2",
+      1
+    ],
+    [
+      "AM-AM-1",
+      1
+    ],
+    [
+      "~TMPCLP167401",
+      1
+    ],
+    [
+      "~TMPCLP410991",
+      1
+    ],
+    [
+      "~TMPCLP587091",
+      1
+    ],
+    [
+      "~TMPCLP109541",
+      1
+    ],
+    [
+      "~TMPCLP115931",
+      1
+    ],
+    [
+      "IE-HI-1",
+      1
+    ],
+    [
+      "~TMPCLP520481",
+      1
+    ],
+    [
+      "~TMPCLP392441",
+      1
+    ],
+    [
+      "IE-HI-2",
+      1
+    ],
+    [
+      "IE-TRMR-1",
+      1
+    ],
+    [
+      "~TMPCLP243961",
+      1
+    ],
+    [
+      "IE-TRMRAS-1",
+      1
+    ],
+    [
+      "IE-TRMRPC-1",
+      1
+    ],
+    [
+      "IE-TRMRPC-2",
+      1
+    ],
+    [
+      "IE-TRMRPC-3",
+      1
+    ],
+    [
+      "~TMPCLP387731",
+      1
+    ],
+    [
+      "~TMPCLP492571",
+      1
+    ],
+    [
+      "~TMPCLP613511",
+      1
+    ],
+    [
+      "IN-IN-5",
+      1
+    ],
+    [
+      "TE-OF-1",
+      1
+    ],
+    [
+      "IN-IN-3",
+      1
+    ],
+    [
+      "IN-IN-4",
+      1
+    ],
+    [
+      "~TMPCLP391821",
+      1
+    ],
+    [
+      "IE-TRMRPC-4",
+      1
+    ],
+    [
+      "IE-TRMR-2",
+      1
+    ],
+    [
+      "IE-TRRVGEEG",
+      1
+    ],
+    [
+      "~TMPCLP276421",
+      1
+    ],
+    [
+      "~TMPCLP10301",
+      1
+    ],
+    [
+      "~TMPCLP126061",
+      1
+    ],
+    [
+      "SRPM",
+      1
+    ],
+    [
+      "CO-SG",
+      1
+    ],
+    [
+      "CO-ELAJ-1",
+      1
+    ],
+    [
+      "CO-ELAJ-2",
+      1
+    ],
+    [
+      "CO-DO-2",
+      1
+    ],
+    [
+      "IE-TR",
+      1
+    ],
+    [
+      "IE-TC",
+      1
+    ],
+    [
+      "IN-AL",
+      1
+    ],
+    [
+      "TU-HT",
+      1
+    ],
+    [
+      "RE-VIUF-2",
+      1
+    ],
+    [
+      "RE-VIUF-3",
+      1
+    ],
+    [
+      "CO-DP-2",
+      1
+    ],
+    [
+      "RE-VIUF-4",
+      1
+    ],
+    [
+      "CO-ELAJ",
+      1
+    ],
+    [
+      "CO-ELPJJA",
+      1
+    ],
+    [
+      "CO-ELPQUR",
+      1
+    ],
+    [
+      "IE-1",
+      1
+    ],
+    [
+      "RE-VICO-2",
+      1
+    ],
+    [
+      "SRPF",
+      1
+    ],
+    [
+      "SRPN-1",
+      1
+    ],
+    [
+      "SRPN-2",
+      1
+    ],
+    [
+      "SRPT-1",
+      1
+    ],
+    [
+      "SRPT-2",
+      1
+    ],
+    [
+      "SRPT-3",
+      1
+    ],
+    [
+      "SRPH-1",
+      1
+    ],
+    [
+      "SRPH-2",
+      1
+    ],
+    [
+      "TU",
+      1
+    ],
+    [
+      "CO-ELPJ",
+      1
+    ],
+    [
+      "CO-SA-12",
+      1
+    ],
+    [
+      "CO-SA-2",
+      1
+    ],
+    [
+      "CO-4",
+      1
+    ],
+    [
+      "CO-5",
+      1
+    ],
+    [
+      "CO-EL-10",
+      1
+    ],
+    [
+      "CO-EL-11",
+      1
+    ],
+    [
+      "CO-EL-12",
+      1
+    ],
+    [
+      "CO-EL-13",
+      1
+    ],
+    [
+      "CO-EL-14",
+      1
+    ],
+    [
+      "CO-EL-15",
+      1
+    ],
+    [
+      "CO-EL-5",
+      1
+    ],
+    [
+      "CO-EL-6",
+      1
+    ],
+    [
+      "CO-EL-7",
+      1
+    ],
+    [
+      "CO-EL-8",
+      1
+    ],
+    [
+      "CO-EL-9",
+      1
+    ],
+    [
+      "TE-CO-1",
+      1
+    ],
+    [
+      "TE-CO-2",
+      1
+    ],
+    [
+      "TE-CO-3",
+      1
+    ],
+    [
+      "TE-CO-4",
+      1
+    ],
+    [
+      "TE-CO-5",
+      1
+    ],
+    [
+      "TE-CO-6",
+      1
+    ],
+    [
+      "~TMPCLP232816",
+      1
+    ],
+    [
+      "~TMPCLP252351",
+      1
+    ],
+    [
+      "~TMPCLP232501",
+      1
+    ],
+    [
+      "~TMPCLP232978",
+      1
+    ],
+    [
+      "~TMPCLP232977",
+      1
+    ],
+    [
+      "~TMPCLP232976",
+      1
+    ],
+    [
+      "~TMPCLP232975",
+      1
+    ],
+    [
+      "~TMPCLP232974",
+      1
+    ],
+    [
+      "~TMPCLP232973",
+      1
+    ],
+    [
+      "~TMPCLP232972",
+      1
+    ],
+    [
+      "~TMPCLP232971",
+      1
+    ],
+    [
+      "~TMPCLP232818",
+      1
+    ],
+    [
+      "~TMPCLP232817",
+      1
+    ],
+    [
+      "~TMPCLP232815",
+      1
+    ],
+    [
+      "~TMPCLP232814",
+      1
+    ],
+    [
+      "~TMPCLP232813",
+      1
+    ],
+    [
+      "~TMPCLP232812",
+      1
+    ],
+    [
+      "~TMPCLP232811",
+      1
+    ],
+    [
+      "~TMPCLP232659",
+      1
+    ],
+    [
+      "~TMPCLP232658",
+      1
+    ],
+    [
+      "~TMPCLP232657",
+      1
+    ],
+    [
+      "~TMPCLP232656",
+      1
+    ],
+    [
+      "~TMPCLP232655",
+      1
+    ],
+    [
+      "~TMPCLP232654",
+      1
+    ],
+    [
+      "~TMPCLP232653",
+      1
+    ],
+    [
+      "~TMPCLP232652",
+      1
+    ],
+    [
+      "~TMPCLP232651",
+      1
+    ],
+    [
+      "~TMPCLP232505",
+      1
+    ],
+    [
+      "~TMPCLP232504",
+      1
+    ],
+    [
+      "~TMPCLP232503",
+      1
+    ],
+    [
+      "~TMPCLP232502",
+      1
+    ],
+    [
+      "~TMPCLP232979",
+      1
+    ],
+    [
+      "~TMPCLP576311",
+      1
+    ],
+    [
+      "~TMPCLP576312",
+      1
+    ],
+    [
+      "CO-SORLCU-1",
+      1
+    ],
+    [
+      "CO-SORLCU-2",
+      1
+    ],
+    [
+      "CO-SORLCU-3",
+      1
+    ],
+    [
+      "CO-SORLCU-4",
+      1
+    ],
+    [
+      "CO-SORLCU-5",
+      1
+    ],
+    [
+      "NI",
+      1
+    ],
+    [
+      "RE-VI-4",
+      1
+    ],
+    [
+      "RE-VI-9",
+      1
+    ],
+    [
+      "RE-VI-3",
+      1
+    ],
+    [
+      "RE-VI-5",
+      1
+    ],
+    [
+      "RE-VI-6",
+      1
+    ],
+    [
+      "RE-VI-7",
+      1
+    ],
+    [
+      "RE-VI-8",
+      1
+    ],
+    [
+      "TU-3",
+      1
+    ],
+    [
+      "TU-4",
+      1
+    ],
+    [
+      "TU-5",
+      1
+    ],
+    [
+      "TU-6",
+      1
+    ],
+    [
+      "CO-SO-10",
+      1
+    ],
+    [
+      "CO-SO-11",
+      1
+    ],
+    [
+      "CO-SO-3",
+      1
+    ],
+    [
+      "CO-SO-4",
+      1
+    ],
+    [
+      "CO-SO-5",
+      1
+    ],
+    [
+      "CO-SO-6",
+      1
+    ],
+    [
+      "CO-SO-7",
+      1
+    ],
+    [
+      "CO-SO-8",
+      1
+    ],
+    [
+      "CO-SO-9",
+      1
+    ],
+    [
+      "RE-VI-13",
+      1
+    ],
+    [
+      "RE-VIUF-10",
+      1
+    ],
+    [
+      "RE",
+      1
+    ]
+  ],
+  "columnUnion": [
+    [
+      "Nombre",
+      577
+    ],
+    [
+      "iden",
+      552
+    ],
+    [
+      "Codigo",
+      542
+    ],
+    [
+      "detUso",
+      535
+    ],
+    [
+      "Caracter",
+      495
+    ],
+    [
+      "ObsCarac",
+      495
+    ],
+    [
+      "Regimen",
+      495
+    ],
+    [
+      "detEntidad",
+      491
+    ],
+    [
+      "Disposic",
+      425
+    ],
+    [
+      "Intens",
+      425
+    ],
+    [
+      "Relac",
+      425
+    ],
+    [
+      "VivProt",
+      339
+    ],
+    [
+      "ObsVProt",
+      339
+    ],
+    [
+      "Etiqueta",
+      285
+    ],
+    [
+      "SupMin",
+      102
+    ],
+    [
+      "ObsSMP",
+      102
+    ],
+    [
+      "LongMin",
+      102
+    ],
+    [
+      "CircInsc",
+      102
+    ],
+    [
+      "ObsCirc",
+      102
+    ],
+    [
+      "SepMinFr",
+      102
+    ],
+    [
+      "SepMinPs",
+      102
+    ],
+    [
+      "SepMinLt",
+      102
+    ],
+    [
+      "ObsFonMx",
+      102
+    ],
+    [
+      "PMaxOcup",
+      102
+    ],
+    [
+      "EdifMax",
+      102
+    ],
+    [
+      "ObsEdfMx",
+      102
+    ],
+    [
+      "AltMaxPl",
+      102
+    ],
+    [
+      "ObsAMP",
+      102
+    ],
+    [
+      "OtrasCon",
+      76
+    ],
+    [
+      "POSICION",
+      76
+    ],
+    [
+      "ObsSup",
+      70
+    ],
+    [
+      "ObsLong",
+      70
+    ],
+    [
+      "OCFinca",
+      70
+    ],
+    [
+      "ObsSMF",
+      70
+    ],
+    [
+      "ObsSML",
+      70
+    ],
+    [
+      "FondoMax",
+      70
+    ],
+    [
+      "SepMnVol",
+      70
+    ],
+    [
+      "ObsSMV",
+      70
+    ],
+    [
+      "OCDispos",
+      70
+    ],
+    [
+      "ObsPOcup",
+      70
+    ],
+    [
+      "SupOcMax",
+      70
+    ],
+    [
+      "ObsOcMx",
+      70
+    ],
+    [
+      "ObsSEM",
+      70
+    ],
+    [
+      "AltMaxMt",
+      70
+    ],
+    [
+      "ObsAMM",
+      70
+    ],
+    [
+      "OCIntens",
+      70
+    ],
+    [
+      "Relacion",
+      70
+    ],
+    [
+      "SupEdMax",
+      66
+    ],
+    [
+      "Descrip",
+      47
+    ],
+    [
+      "otrasDet",
+      44
+    ],
+    [
+      "ParcVInc",
+      32
+    ],
+    [
+      "ObsParV",
+      32
+    ],
+    [
+      "ObsLM",
+      32
+    ],
+    [
+      "FonMin",
+      32
+    ],
+    [
+      "ObsFM",
+      32
+    ],
+    [
+      "DispObl",
+      32
+    ],
+    [
+      "ObsLDO",
+      32
+    ],
+    [
+      "ObsSMFr",
+      32
+    ],
+    [
+      "ObsSMPs",
+      32
+    ],
+    [
+      "ObsSMLt",
+      32
+    ],
+    [
+      "FonMaxEd",
+      32
+    ],
+    [
+      "SepMnEdf",
+      32
+    ],
+    [
+      "ObsSME",
+      32
+    ],
+    [
+      "ObsPMO",
+      32
+    ],
+    [
+      "ObsAMPl",
+      32
+    ],
+    [
+      "AltMaxMV",
+      32
+    ],
+    [
+      "ObsAMV",
+      32
+    ],
+    [
+      "AltMaxMP",
+      32
+    ],
+    [
+      "FonMaxEdm",
+      32
+    ],
+    [
+      "ObsFonMxm",
+      32
+    ],
+    [
+      "DispOblm",
+      32
+    ],
+    [
+      "ObsDispOm",
+      32
+    ],
+    [
+      "Definic",
+      32
+    ],
+    [
+      "GradPorm",
+      32
+    ],
+    [
+      "ObsDefin",
+      19
+    ],
+    [
+      "AprMedio",
+      13
+    ],
+    [
+      "Obsdefin",
+      13
+    ],
+    [
+      "DetGral",
+      10
+    ],
+    [
+      "FormaGestion",
+      8
+    ],
+    [
+      "ObsFGes",
+      8
+    ],
+    [
+      "ObsPGes",
+      8
+    ],
+    [
+      "PlazoGes",
+      8
+    ],
+    [
+      "TipoAmbito",
+      8
+    ],
+    [
+      "InstPlan",
+      6
+    ],
+    [
+      "Plazo",
+      6
+    ],
+    [
+      "ObsInstP",
+      6
+    ],
+    [
+      "ObsPlazo",
+      6
+    ],
+    [
+      "UsoGlobal",
+      6
+    ],
+    [
+      "EdifBruta",
+      6
+    ],
+    [
+      "ObsEdifB",
+      6
+    ],
+    [
+      "SupEdRes",
+      6
+    ],
+    [
+      "ObsSEMR",
+      6
+    ],
+    [
+      "CapMaxRes",
+      6
+    ],
+    [
+      "ObsCMR",
+      6
+    ],
+    [
+      "SupEdTur",
+      6
+    ],
+    [
+      "ObsSEMT",
+      6
+    ],
+    [
+      "CapMaxTur",
+      6
+    ],
+    [
+      "ObsCMT",
+      6
+    ],
+    [
+      "SupEdOtr",
+      6
+    ],
+    [
+      "ObsSEMO",
+      6
+    ],
+    [
+      "ElemEstr",
+      6
+    ],
+    [
+      "DotacLoc",
+      6
+    ],
+    [
+      "TramaUrb",
+      6
+    ],
+    [
+      "CondEdif",
+      6
+    ],
+    [
+      "CondUsos",
+      6
+    ],
+    [
+      "PVivPub",
+      5
+    ],
+    [
+      "ObsPVP",
+      5
+    ],
+    [
+      "SupTotAD",
+      5
+    ],
+    [
+      "ObsSpTot",
+      5
+    ],
+    [
+      "RG",
+      5
+    ],
+    [
+      "anterior",
+      4
+    ],
+    [
+      "Conserv",
+      4
+    ],
+    [
+      "ObsConse",
+      4
+    ],
+    [
+      "Restaur",
+      4
+    ],
+    [
+      "ObsRest",
+      4
+    ],
+    [
+      "Consolid",
+      4
+    ],
+    [
+      "ObsConso",
+      4
+    ],
+    [
+      "Rehabili",
+      4
+    ],
+    [
+      "ObsRehab",
+      4
+    ],
+    [
+      "Remodela",
+      4
+    ],
+    [
+      "ObsRemod",
+      4
+    ],
+    [
+      "OBSUsoG",
+      3
+    ],
+    [
+      "ObsUsoG",
+      3
+    ],
+    [
+      "Dirección",
+      2
+    ],
+    [
+      "RefCatast",
+      2
+    ],
+    [
+      "Titularidad",
+      2
+    ],
+    [
+      "TipoEdif",
+      2
+    ],
+    [
+      "TipoFach",
+      2
+    ],
+    [
+      "SistConstr",
+      2
+    ],
+    [
+      "UsoActual",
+      2
+    ],
+    [
+      "EstConserv",
+      2
+    ],
+    [
+      "Entorno",
+      2
+    ],
+    [
+      "RefHistóric",
+      2
+    ],
+    [
+      "Interés",
+      2
+    ],
+    [
+      "Observ",
+      2
+    ],
+    [
+      "Ordenación y Protección",
+      1
+    ],
+    [
+      "MovTierr",
+      1
+    ],
+    [
+      "Obras",
+      1
+    ],
+    [
+      "VivPub",
+      1
+    ],
+    [
+      "ObsVP",
+      1
+    ],
+    [
+      "PlazoPur",
+      1
+    ],
+    [
+      "ObsPPur",
+      1
+    ],
+    [
+      "PlazoFinEJ",
+      1
+    ],
+    [
+      "ObsPFEJ",
+      1
+    ],
+    [
+      "PlazoFinUr",
+      1
+    ],
+    [
+      "ObsPFUr",
+      1
+    ],
+    [
+      "PlazoPed",
+      1
+    ],
+    [
+      "ObsPPed",
+      1
+    ],
+    [
+      "PlazoFinEd",
+      1
+    ],
+    [
+      "DispMax",
+      1
+    ],
+    [
+      "ObsLDM",
+      1
+    ],
+    [
+      "AltMaxCoron",
+      1
+    ],
+    [
+      "ObsAMC",
+      1
+    ],
+    [
+      "LongHMax",
+      1
+    ],
+    [
+      "ObsLHM",
+      1
+    ],
+    [
+      "AltMinSRas",
+      1
+    ],
+    [
+      "ObsAMSR",
+      1
+    ],
+    [
+      "AltMaxCornis",
+      1
+    ],
+    [
+      "ObsAMCs",
+      1
+    ],
+    [
+      "AltMaxBRas",
+      1
+    ],
+    [
+      "ObsAMBRas",
+      1
+    ],
+    [
+      "CODIGO",
+      1
+    ],
+    [
+      "ObsInterv",
+      1
+    ],
+    [
+      "Dirección Catastral",
+      1
+    ],
+    [
+      "Situación Patrimonial",
+      1
+    ],
+    [
+      "Fuentes Documentales",
+      1
+    ]
+  ],
+  "columnClassified": {
+    "depth": [
+      "FonMaxEd",
+      "FonMaxEdm",
+      "FondoMax"
+    ],
+    "height": [
+      "AltMaxBRas",
+      "AltMaxCornis",
+      "AltMaxCoron",
+      "AltMaxMP",
+      "AltMaxMV",
+      "AltMaxMt",
+      "AltMaxPl"
+    ],
+    "setback": [
+      "SepMinFr",
+      "SepMinLt",
+      "SepMinPs"
+    ]
+  },
+  "depthColumnValidity": {
+    "FonMaxEd": {
+      "rows": 774,
+      "nonSentinel": 29,
+      "pct": 3.75,
+      "distinct": 12,
+      "ladder": [
+        [
+          "!- Según Art. 27.3 Plan Parcial",
+          11
+        ],
+        [
+          "IDEM",
+          4
+        ],
+        [
+          "Según Art. 27.3 Plan Parcial",
+          3
+        ],
+        [
+          "- 20 metro",
+          3
+        ],
+        [
+          "X䀀〖",
+          1
+        ],
+        [
+          "X䀀〗",
+          1
+        ],
+        [
+          "X䀀〘",
+          1
+        ],
+        [
+          "X䀀〙",
+          1
+        ],
+        [
+          "Ȍ䀀〚",
+          1
+        ],
+        [
+          "X@(w",
+          1
+        ],
+        [
+          "X@*w",
+          1
+        ],
+        [
+          "X@ 0",
+          1
+        ]
+      ]
+    },
+    "FonMaxEdm": {
+      "rows": 774,
+      "nonSentinel": 26,
+      "pct": 3.36,
+      "distinct": 13,
+      "ladder": [
+        [
+          "IDEM",
+          8
+        ],
+        [
+          "20",
+          4
+        ],
+        [
+          "ӌ䀀",
+          2
+        ],
+        [
+          "6",
+          2
+        ],
+        [
+          "֚䀀",
+          2
+        ],
+        [
+          "30",
+          1
+        ],
+        [
+          "15",
+          1
+        ],
+        [
+          "֚䀀ᜀ",
+          1
+        ],
+        [
+          "֚䀀ᰀ",
+          1
+        ],
+        [
+          "Ð䀀㰈",
+          1
+        ],
+        [
+          "֚䀀ᴀ",
+          1
+        ],
+        [
+          "֚䀀㰓",
+          1
+        ],
+        [
+          "X䀀ᜁ",
+          1
+        ]
+      ]
+    },
+    "FondoMax": {
+      "rows": 8415,
+      "nonSentinel": 1,
+      "pct": 0.01,
+      "distinct": 1,
+      "ladder": [
+        [
+          "IDEM",
+          1
+        ]
+      ]
+    }
+  },
+  "memoLabelUnion": [
+    [
+      "Situación",
+      264
+    ],
+    [
+      "Elemento protegido",
+      168
+    ],
+    [
+      "Grados de protección de los elementos catalogados",
+      160
+    ],
+    [
+      "Valoración",
+      159
+    ],
+    [
+      "ORDENANZAS MUNICIPALES DE EDIFICACIÓN",
+      137
+    ],
+    [
+      "Tipología edificatoria -estilo",
+      136
+    ],
+    [
+      "Fachada - estado de conservación",
+      120
+    ],
+    [
+      "PLAN GENERAL DE ORDENACIÓN DE ICOD DE LOS VINOS",
+      116
+    ],
+    [
+      "Superficie de la parcela",
+      115
+    ],
+    [
+      "Superficie construida",
+      104
+    ],
+    [
+      "Volado máximo",
+      88
+    ],
+    [
+      "Superficie del suelo",
+      87
+    ],
+    [
+      "Superficie total",
+      85
+    ],
+    [
+      "Altura en metros",
+      83
+    ],
+    [
+      "Tipología edificatoria",
+      81
+    ],
+    [
+      "Superficie edificable máxima",
+      77
+    ],
+    [
+      "Coeficiente",
+      72
+    ],
+    [
+      "Aprovechamiento lucrativo",
+      72
+    ],
+    [
+      "Tipologías edificatorias",
+      67
+    ],
+    [
+      "Superficie suelo",
+      66
+    ],
+    [
+      "Fachadas",
+      59
+    ],
+    [
+      "Altura en plantas",
+      57
+    ],
+    [
+      "Código Plano / Polígono",
+      56
+    ],
+    [
+      "Solicitud",
+      56
+    ],
+    [
+      "Inscripción/Infracción",
+      56
+    ],
+    [
+      "Sistema estructural - constructivo",
+      56
+    ],
+    [
+      "Estilo",
+      56
+    ],
+    [
+      "Estado de conservación",
+      56
+    ],
+    [
+      "Afección a E.N.P. ó A.S.E",
+      53
+    ],
+    [
+      "Diagnóstico ambiental",
+      49
+    ],
+    [
+      "Superficie edificable residencial",
+      48
+    ],
+    [
+      "Retranqueos a vía",
+      45
+    ],
+    [
+      "Ocupación actual",
+      43
+    ],
+    [
+      "Superficie mínima de reserva de suelo",
+      41
+    ],
+    [
+      "Gestión/titularidad",
+      39
+    ],
+    [
+      "Uso comercial",
+      36
+    ],
+    [
+      "Densidad",
+      36
+    ],
+    [
+      "Condicionantes",
+      36
+    ],
+    [
+      "Superficie",
+      33
+    ],
+    [
+      "Obras de Reestructuración",
+      32
+    ],
+    [
+      "Uso global",
+      31
+    ],
+    [
+      "bodegas y similares",
+      27
+    ],
+    [
+      "Permitido",
+      26
+    ],
+    [
+      "Coeficiente de edificabilidad",
+      25
+    ],
+    [
+      "Nº indicativo de viviendas",
+      24
+    ],
+    [
+      "Otras condiciones",
+      24
+    ],
+    [
+      "Retranqueos a linderos",
+      24
+    ],
+    [
+      "Superficie edificable comercial",
+      23
+    ],
+    [
+      "Cubiertas",
+      23
+    ],
+    [
+      "Superficie edificable",
+      22
+    ],
+    [
+      "Aprovechamiento patrimonializable",
+      20
+    ],
+    [
+      "Condiciones particulares",
+      19
+    ],
+    [
+      "Pendiente máxima del terreno para edificar",
+      18
+    ],
+    [
+      "Altura máxima para cierres de parcelas",
+      18
+    ],
+    [
+      "Cierres de parcela",
+      18
+    ],
+    [
+      "Muros de contención",
+      18
+    ],
+    [
+      "Condiciones para la transformación a este uso",
+      18
+    ],
+    [
+      "Estado",
+      17
+    ],
+    [
+      "Superficie máxima construida",
+      17
+    ],
+    [
+      "HERACLIO DÍAS MESA Y LAS GRANADERAS",
+      16
+    ],
+    [
+      "Nombre científico",
+      16
+    ],
+    [
+      "Nº máximo de viviendas",
+      16
+    ],
+    [
+      "BOC Nº",
+      15
+    ],
+    [
+      "BOC fecha",
+      15
+    ],
+    [
+      "Superficie de zona",
+      15
+    ],
+    [
+      "Mantenimiento de la edificación",
+      15
+    ],
+    [
+      "Coeficientes de homogeneización",
+      14
+    ],
+    [
+      "Coeficientes de tipología",
+      14
+    ],
+    [
+      "Coeficientes de uso",
+      14
+    ],
+    [
+      "Otras alturas máximas",
+      14
+    ],
+    [
+      "Categorías de B.I.C",
+      13
+    ],
+    [
+      "Altura máxima en metros",
+      13
+    ],
+    [
+      "Obras de reforma y modificación",
+      13
+    ],
+    [
+      "Porcentaje de la superficie total",
+      12
+    ],
+    [
+      "Aprovechamiento urbanístico",
+      12
+    ],
+    [
+      "Porcentaje mínimo para viviendas de régimen público",
+      12
+    ],
+    [
+      "Retranqueo",
+      12
+    ],
+    [
+      "Condiciones Ambientales",
+      12
+    ],
+    [
+      "Altura piso",
+      12
+    ],
+    [
+      "Fachada-materiales",
+      11
+    ],
+    [
+      "Condiciones de uso",
+      11
+    ],
+    [
+      "Sección transversal característica",
+      11
+    ],
+    [
+      "Tipo de vía",
+      11
+    ],
+    [
+      "Otras condiciones de la parcela",
+      10
+    ],
+    [
+      "Ámbito y superficie",
+      9
+    ],
+    [
+      "Alineaciones y condiciones de parcelación",
+      9
+    ],
+    [
+      "Longitud aproximada",
+      9
+    ],
+    [
+      "Origen",
+      9
+    ],
+    [
+      "También figura en los siguientes anexos",
+      9
+    ],
+    [
+      "Superficie de techo edificable",
+      9
+    ],
+    [
+      "Condiciones",
+      9
+    ],
+    [
+      "Determinaciones específicas",
+      8
+    ],
+    [
+      "Altura libre de piso",
+      8
+    ],
+    [
+      "Dimensión de los chaflanes",
+      8
+    ],
+    [
+      "Condiciones estéticas",
+      7
+    ],
+    [
+      "Alineaciones y rasantes exteriores",
+      7
+    ],
+    [
+      "Altura máxima de cumbrera",
+      7
+    ],
+    [
+      "Sótanos",
+      7
+    ],
+    [
+      "Nº de aparcamientos",
+      6
+    ],
+    [
+      "Coeficiente de ponderación relativa",
+      6
+    ],
+    [
+      "Superficie del ámbito",
+      6
+    ],
+    [
+      "Altura máxima de la edificación",
+      6
+    ],
+    [
+      "Altura máxima",
+      6
+    ],
+    [
+      "Aparcamientos",
+      6
+    ],
+    [
+      "Número de viviendas",
+      6
+    ],
+    [
+      "Número de camas",
+      6
+    ],
+    [
+      "Aprovechamiento medio",
+      5
+    ],
+    [
+      "Condiciones de la edificación",
+      5
+    ],
+    [
+      "Podrá superarse la altura máxima establecida",
+      5
+    ],
+    [
+      "Condiciones de acceso y aparcamiento",
+      5
+    ],
+    [
+      "Condiciones de edificación",
+      5
+    ],
+    [
+      "CCIÓN DE ERRORES DE PLANIMETRÍA DEL PGO DE ICOD DE LOS VINOS",
+      5
+    ],
+    [
+      "Prohibido",
+      5
+    ],
+    [
+      "Condiciones y criterios para las fachadas",
+      5
+    ],
+    [
+      "ión habrán de cumplir las siguientes condiciones y criterios",
+      5
+    ],
+    [
+      "Tipos edificatorios",
+      5
+    ],
+    [
+      "Sótanos y semisótanos",
+      5
+    ],
+    [
+      "del Anexo",
+      5
+    ],
+    [
+      "Materiales exteriores",
+      5
+    ],
+    [
+      "Jardines",
+      5
+    ],
+    [
+      "Cerramiento de parcelas",
+      5
+    ],
+    [
+      "Saneamiento",
+      4
+    ],
+    [
+      "Suministro de agua",
+      4
+    ],
+    [
+      "Energía eléctrica",
+      4
+    ],
+    [
+      "Accesos",
+      4
+    ],
+    [
+      "Ocupación total",
+      4
+    ],
+    [
+      "Cubierta",
+      4
+    ],
+    [
+      "Calidad de la edificación",
+      4
+    ],
+    [
+      "mediante un coeficiente reductor",
+      4
+    ],
+    [
+      "Condiciones de tramitación y desarrollo",
+      4
+    ],
+    [
+      "Aprobación",
+      4
+    ],
+    [
+      "Descripción del límite del BIC",
+      4
+    ],
+    [
+      "de Patrimonio Histórico",
+      4
+    ],
+    [
+      "Tratamiento de los espacios libres",
+      4
+    ],
+    [
+      "Altura máxima de cerramientos",
+      4
+    ],
+    [
+      "Acto permitido",
+      4
+    ],
+    [
+      "Construcciones por encima de la altura",
+      4
+    ],
+    [
+      "Basuras",
+      4
+    ],
+    [
+      "Reposición",
+      3
+    ],
+    [
+      "Observaciones",
+      3
+    ],
+    [
+      "Alineaciones y rasantes",
+      3
+    ],
+    [
+      "Patios",
+      3
+    ],
+    [
+      "Superficies por uso",
+      3
+    ],
+    [
+      "Sótano",
+      3
+    ],
+    [
+      "Subáreas",
+      3
+    ],
+    [
+      "con las siguientes denominaciones y superficies",
+      3
+    ],
+    [
+      "Subárea B",
+      3
+    ],
+    [
+      "Subárea C",
+      3
+    ],
+    [
+      "Parcela mínima",
+      3
+    ],
+    [
+      "Ocupación máxima de la parcela",
+      3
+    ],
+    [
+      "Edificabilidad máxima sobre parcela",
+      3
+    ],
+    [
+      "las sub-áreas",
+      3
+    ],
+    [
+      "Usos permitidos en la subárea C",
+      3
+    ],
+    [
+      "Condiciones de accesos y aparcamiento",
+      3
+    ],
+    [
+      "odrán desarrollarse mediante dos procedimientos",
+      3
+    ],
+    [
+      "Tipo de intervención",
+      3
+    ],
+    [
+      "Anexo II",
+      3
+    ],
+    [
+      "Reparcelación",
+      3
+    ],
+    [
+      "Posición de la edificación",
+      3
+    ],
+    [
+      "Cuerpos volados",
+      3
+    ],
+    [
+      "Parámetros reguladores de la edificabilidad",
+      3
+    ],
+    [
+      "cumpliendo las siguientes condiciones",
+      3
+    ],
+    [
+      "Otras condiciones de implantación en la parcela. Muros",
+      3
+    ],
+    [
+      "Construcciones auxiliares",
+      3
+    ],
+    [
+      "Fondo de parcela",
+      3
+    ],
+    [
+      "Anchura máxima para acceso a parcela",
+      3
+    ],
+    [
+      "Intercolumnio del pórtico",
+      3
+    ],
+    [
+      "Densidad media permitida",
+      3
+    ],
+    [
+      "Uso v ocupación del jardín delantero",
+      3
+    ],
+    [
+      "Características de los jardines delanteros",
+      3
+    ],
+    [
+      "Vuelos",
+      3
+    ],
+    [
+      "Medianera",
+      3
+    ],
+    [
+      "Otras determinaciones",
+      2
+    ],
+    [
+      "Aprovechamiento lucrativo homogeneizado",
+      2
+    ],
+    [
+      "Aprovechamiento total",
+      2
+    ],
+    [
+      "Suelo neto para uso edificatorio",
+      2
+    ],
+    [
+      "Densidad mínima",
+      2
+    ],
+    [
+      "Densidad máxima",
+      2
+    ],
+    [
+      "Aprovechamiento otros usos",
+      2
+    ],
+    [
+      "Aprovechamiento uso turístico",
+      2
+    ],
+    [
+      "Aprovechamiento bruto",
+      2
+    ],
+    [
+      "Estructura",
+      2
+    ],
+    [
+      "Criterios de valoración",
+      2
+    ],
+    [
+      "Ordenanza de protección",
+      2
+    ],
+    [
+      "GºUtilización",
+      2
+    ],
+    [
+      "Edad",
+      2
+    ],
+    [
+      "Restauración",
+      2
+    ],
+    [
+      "Altura libre de plantas",
+      2
+    ],
+    [
+      "Dotación de Aparcamientos",
+      2
+    ],
+    [
+      "a oficinas aplicando los siguientes coeficientes reductores",
+      2
+    ],
+    [
+      "Condiciones de desarrollo y proyecto",
+      2
+    ],
+    [
+      "ificación",
+      2
+    ],
+    [
+      "Edificabilidad máxima",
+      2
+    ],
+    [
+      "Anexo IV",
+      2
+    ],
+    [
+      "O como Suelo Rústico en la categoría de Protección Ambiental",
+      2
+    ],
+    [
+      "Altura máxima en plantas",
+      2
+    ],
+    [
+      "ación",
+      2
+    ],
+    [
+      "Obras de ampliación",
+      2
+    ],
+    [
+      "Agrupación de parcelas",
+      2
+    ],
+    [
+      "Tratamiento en terrenos con pendiente",
+      2
+    ],
+    [
+      "Entreplanta",
+      2
+    ],
+    [
+      "Preparación de la parcela",
+      2
+    ],
+    [
+      "de las Normas Urbanísticas de las NN.SS. vigentes",
+      2
+    ],
+    [
+      "Rasantes",
+      2
+    ],
+    [
+      "Determinaciones compositivas",
+      2
+    ],
+    [
+      "Porcentaje de superficie libre destinada a aparcamientos",
+      2
+    ],
+    [
+      "Cerramiento de parcela o finca",
+      2
+    ],
+    [
+      "industrias vendrá regulada por las siguientes disposiciones",
+      2
+    ],
+    [
+      "ter directamente o indirectamente a la red de alcantarillado",
+      2
+    ],
+    [
+      "tales como",
+      2
+    ],
+    [
+      "criterios mínimos que deben de cumplirse son los siguientes",
+      2
+    ],
+    [
+      "eación de referencia de los linderos de frente en la parcela",
+      2
+    ],
+    [
+      "Modificación de una alineación",
+      2
+    ],
+    [
+      "Tratamiento de edificios colindantes con alturas diferentes",
+      2
+    ],
+    [
+      "Plazo máximo para presentar el planeamiento",
+      2
+    ],
+    [
+      "Superficie máxima",
+      2
+    ],
+    [
+      "Frente de solar",
+      2
+    ],
+    [
+      "Ocupación",
+      2
+    ],
+    [
+      "Vertido de aguas pluviales",
+      2
+    ],
+    [
+      "Capacidad alojativa",
+      2
+    ],
+    [
+      "Elementos salientes",
+      2
+    ],
+    [
+      "Plazas de aparcamientos",
+      2
+    ],
+    [
+      "Línea de máxima pendiente",
+      2
+    ],
+    [
+      "Cota media en línea de máxima pendiente",
+      2
+    ],
+    [
+      "Superficie mínima del cuarto de aperos",
+      1
+    ],
+    [
+      "Demolición",
+      1
+    ],
+    [
+      "Cambios de tabiquería sin afectar a la estructura portante",
+      1
+    ],
+    [
+      "Mantenimiento",
+      1
+    ],
+    [
+      "Modernización y actualización",
+      1
+    ],
+    [
+      "entiéndase por áreas de servicio piezas destinadas a",
+      1
+    ],
+    [
+      "Materiales de fachada",
+      1
+    ],
+    [
+      "Acceso al garaje",
+      1
+    ],
+    [
+      "y las condiciones siguientes",
+      1
+    ],
+    [
+      "se ajustarán además a",
+      1
+    ],
+    [
+      "Áticos",
+      1
+    ],
+    [
+      "Edificio dominante",
+      1
+    ],
+    [
+      "Objetivo",
+      1
+    ],
+    [
+      "Condiciones edificación",
+      1
+    ],
+    [
+      "cación",
+      1
+    ],
+    [
+      "Ocupación máxima del conjunto del área por la edificación",
+      1
+    ],
+    [
+      "Edificabilidad máxima del área",
+      1
+    ],
+    [
+      "peciales del sub-área polivalente del Muelle de Gran Canaria",
+      1
+    ],
+    [
+      "Ocupación máxima del suelo por la edificación",
+      1
+    ],
+    [
+      "Condiciones de Aprobación Provisional",
+      1
+    ],
+    [
+      "Protección paisajística",
+      1
+    ],
+    [
+      "con los siguientes objetivos básicos",
+      1
+    ],
+    [
+      "Ámbito",
+      1
+    ],
+    [
+      "tales. En conjunto se califican de equipamientos o servicios",
+      1
+    ],
+    [
+      "Carácter",
+      1
+    ],
+    [
+      "No se consideran vinculantes",
+      1
+    ],
+    [
+      "ocupación y edificación",
+      1
+    ],
+    [
+      "que podrán ser de gestión pública o dados en concesión",
+      1
+    ],
+    [
+      "Ámbito y carácter",
+      1
+    ],
+    [
+      "podrán ser modificados a voluntad de la Autoridad Portuaria",
+      1
+    ],
+    [
+      "Condiciones técnicas",
+      1
+    ],
+    [
+      "las dimensiones de cada elemento",
+      1
+    ],
+    [
+      "Banda de aparcamiento en batería",
+      1
+    ],
+    [
+      "Acera",
+      1
+    ],
+    [
+      "Anchura total de la sección",
+      1
+    ],
+    [
+      "con los siguientes objetivos",
+      1
+    ],
+    [
+      "ares de previsión de plazas aparcamiento asociado a parcelas",
+      1
+    ],
+    [
+      "Obras de Ampliación",
+      1
+    ],
+    [
+      "colocadas enrasadas con el plano de fachada",
+      1
+    ],
+    [
+      "de Mayo",
+      1
+    ],
+    [
+      "uerpos",
+      1
+    ],
+    [
+      "o de una planta",
+      1
+    ],
+    [
+      "en la línea de forjado de la cubierta. Cuerpo de dos plantas",
+      1
+    ],
+    [
+      "siendo su denominación",
+      1
+    ],
+    [
+      "Uso de Oficinas y Despachos Profesionales",
+      1
+    ],
+    [
+      "Uso de Industria artesanal y de reparación",
+      1
+    ],
+    [
+      "Trasvases de aprovechamiento",
+      1
+    ],
+    [
+      "re que se acredite que se cumplan las siguientes condiciones",
+      1
+    ],
+    [
+      "Cálculo del aprovechamiento",
+      1
+    ],
+    [
+      "Apertura de nuevos caminos",
+      1
+    ],
+    [
+      "Correcciones al trazado del viario propuesto",
+      1
+    ],
+    [
+      "Parcelación",
+      1
+    ],
+    [
+      "Obras de acondicionamiento",
+      1
+    ],
+    [
+      "Segregación de parcelas",
+      1
+    ],
+    [
+      "Aplicación a la zonificación del suelo urbanizable",
+      1
+    ],
+    [
+      "sin sobrepasar la altura de una planta",
+      1
+    ],
+    [
+      "Remodelación del volumen",
+      1
+    ],
+    [
+      "Condiciones para las viviendas agrupadas",
+      1
+    ],
+    [
+      "Tipologías admitidas",
+      1
+    ],
+    [
+      "Se exceptúan de esta norma los siguientes casos",
+      1
+    ],
+    [
+      "Unidad apta para la edificación",
+      1
+    ],
+    [
+      "entamiento Rural deberán respetar las siguientes condiciones",
+      1
+    ],
+    [
+      "Superficie de ampliación",
+      1
+    ],
+    [
+      "salvo",
+      1
+    ],
+    [
+      "cuando",
+      1
+    ],
+    [
+      "Nº máximo de camas",
+      1
+    ],
+    [
+      "Categoría mínima",
+      1
+    ],
+    [
+      "ido por cualquier motivo. Se distinguen los siguientes tipos",
+      1
+    ],
+    [
+      "aración a linderos de acuerdo con las siguientes condiciones",
+      1
+    ],
+    [
+      "podrá adoptarse cualquiera de las siguientes soluciones",
+      1
+    ],
+    [
+      "s edificaciones respetará los siguientes criterios generales",
+      1
+    ],
+    [
+      "Edificación parcial de las parcelas industriales",
+      1
+    ],
+    [
+      "se distinguen y admiten los siguientes",
+      1
+    ],
+    [
+      "edificaciones atenderá a los siguientes criterios generales",
+      1
+    ],
+    [
+      "Alineaciones interiores de los patios de manzana",
+      1
+    ],
+    [
+      "Cerramientos de parcela",
+      1
+    ]
+  ],
+  "memoLabelsWithANumber": [
+    [
+      "Superficie de la parcela",
+      113
+    ],
+    [
+      "Superficie construida",
+      104
+    ],
+    [
+      "Volado máximo",
+      88
+    ],
+    [
+      "Superficie del suelo",
+      87
+    ],
+    [
+      "Superficie total",
+      85
+    ],
+    [
+      "Altura en metros",
+      83
+    ],
+    [
+      "Superficie edificable máxima",
+      76
+    ],
+    [
+      "Coeficiente",
+      72
+    ],
+    [
+      "Aprovechamiento lucrativo",
+      72
+    ],
+    [
+      "Superficie suelo",
+      64
+    ],
+    [
+      "Situación",
+      59
+    ],
+    [
+      "Altura en plantas",
+      57
+    ],
+    [
+      "Código Plano / Polígono",
+      56
+    ],
+    [
+      "Solicitud",
+      56
+    ],
+    [
+      "Inscripción/Infracción",
+      56
+    ],
+    [
+      "Superficie edificable residencial",
+      48
+    ],
+    [
+      "Retranqueos a vía",
+      45
+    ],
+    [
+      "Ocupación actual",
+      43
+    ],
+    [
+      "Superficie mínima de reserva de suelo",
+      41
+    ],
+    [
+      "Densidad",
+      36
+    ],
+    [
+      "Superficie",
+      33
+    ],
+    [
+      "Coeficiente de edificabilidad",
+      25
+    ],
+    [
+      "Nº indicativo de viviendas",
+      24
+    ],
+    [
+      "Retranqueos a linderos",
+      24
+    ],
+    [
+      "Superficie edificable comercial",
+      23
+    ],
+    [
+      "Superficie edificable",
+      22
+    ],
+    [
+      "Aprovechamiento patrimonializable",
+      20
+    ],
+    [
+      "Pendiente máxima del terreno para edificar",
+      18
+    ],
+    [
+      "Altura máxima para cierres de parcelas",
+      18
+    ],
+    [
+      "Muros de contención",
+      18
+    ],
+    [
+      "Cubiertas",
+      18
+    ],
+    [
+      "BOC Nº",
+      15
+    ],
+    [
+      "BOC fecha",
+      15
+    ],
+    [
+      "Superficie de zona",
+      15
+    ],
+    [
+      "Coeficientes de homogeneización",
+      14
+    ],
+    [
+      "Coeficientes de tipología",
+      14
+    ],
+    [
+      "Coeficientes de uso",
+      14
+    ],
+    [
+      "Otras alturas máximas",
+      14
+    ],
+    [
+      "Superficie máxima construida",
+      13
+    ],
+    [
+      "Porcentaje de la superficie total",
+      12
+    ],
+    [
+      "Nº máximo de viviendas",
+      12
+    ],
+    [
+      "Aprovechamiento urbanístico",
+      12
+    ],
+    [
+      "Porcentaje mínimo para viviendas de régimen público",
+      12
+    ],
+    [
+      "bodegas y similares",
+      12
+    ],
+    [
+      "Altura piso",
+      12
+    ],
+    [
+      "Sección transversal característica",
+      11
+    ],
+    [
+      "Tipo de vía",
+      11
+    ],
+    [
+      "Longitud aproximada",
+      9
+    ],
+    [
+      "Altura máxima en metros",
+      9
+    ],
+    [
+      "Superficie de techo edificable",
+      9
+    ],
+    [
+      "Elemento protegido",
+      8
+    ],
+    [
+      "Tipología edificatoria -estilo",
+      8
+    ],
+    [
+      "Altura libre de piso",
+      8
+    ],
+    [
+      "Determinaciones específicas",
+      7
+    ],
+    [
+      "Altura máxima de cumbrera",
+      7
+    ],
+    [
+      "Nº de aparcamientos",
+      6
+    ],
+    [
+      "Coeficiente de ponderación relativa",
+      6
+    ],
+    [
+      "Superficie del ámbito",
+      6
+    ],
+    [
+      "Altura máxima de la edificación",
+      6
+    ],
+    [
+      "Dimensión de los chaflanes",
+      6
+    ],
+    [
+      "Número de viviendas",
+      6
+    ],
+    [
+      "Número de camas",
+      6
+    ],
+    [
+      "Aprovechamiento medio",
+      5
+    ],
+    [
+      "Condiciones y criterios para las fachadas",
+      5
+    ],
+    [
+      "Ocupación total",
+      4
+    ],
+    [
+      "mediante un coeficiente reductor",
+      4
+    ],
+    [
+      "Aprobación",
+      4
+    ],
+    [
+      "Altura máxima de cerramientos",
+      4
+    ],
+    [
+      "Superficies por uso",
+      3
+    ],
+    [
+      "Subárea B",
+      3
+    ],
+    [
+      "Subárea C",
+      3
+    ],
+    [
+      "Parcela mínima",
+      3
+    ],
+    [
+      "Ocupación máxima de la parcela",
+      3
+    ],
+    [
+      "Edificabilidad máxima sobre parcela",
+      3
+    ],
+    [
+      "Valoración",
+      3
+    ],
+    [
+      "Anexo II",
+      3
+    ],
+    [
+      "Fachada - estado de conservación",
+      3
+    ],
+    [
+      "Retranqueo",
+      3
+    ],
+    [
+      "Parámetros reguladores de la edificabilidad",
+      3
+    ],
+    [
+      "Otras condiciones de implantación en la parcela. Muros",
+      3
+    ],
+    [
+      "Fondo de parcela",
+      3
+    ],
+    [
+      "Anchura máxima para acceso a parcela",
+      3
+    ],
+    [
+      "Intercolumnio del pórtico",
+      3
+    ],
+    [
+      "Densidad media permitida",
+      3
+    ],
+    [
+      "Aprovechamiento lucrativo homogeneizado",
+      2
+    ],
+    [
+      "Aprovechamiento total",
+      2
+    ],
+    [
+      "Suelo neto para uso edificatorio",
+      2
+    ],
+    [
+      "Densidad mínima",
+      2
+    ],
+    [
+      "Densidad máxima",
+      2
+    ],
+    [
+      "Aprovechamiento otros usos",
+      2
+    ],
+    [
+      "Aprovechamiento uso turístico",
+      2
+    ],
+    [
+      "Aprovechamiento bruto",
+      2
+    ],
+    [
+      "Altura libre de plantas",
+      2
+    ],
+    [
+      "Dotación de Aparcamientos",
+      2
+    ],
+    [
+      "a oficinas aplicando los siguientes coeficientes reductores",
+      2
+    ],
+    [
+      "ificación",
+      2
+    ],
+    [
+      "Edificabilidad máxima",
+      2
+    ],
+    [
+      "Anexo IV",
+      2
+    ],
+    [
+      "Altura máxima en plantas",
+      2
+    ],
+    [
+      "Preparación de la parcela",
+      2
+    ],
+    [
+      "industrias vendrá regulada por las siguientes disposiciones",
+      2
+    ],
+    [
+      "criterios mínimos que deben de cumplirse son los siguientes",
+      2
+    ],
+    [
+      "Plazo máximo para presentar el planeamiento",
+      2
+    ],
+    [
+      "Superficie máxima",
+      2
+    ],
+    [
+      "Frente de solar",
+      2
+    ],
+    [
+      "Sótanos",
+      2
+    ],
+    [
+      "Capacidad alojativa",
+      2
+    ],
+    [
+      "Plazas de aparcamientos",
+      2
+    ],
+    [
+      "Superficie mínima del cuarto de aperos",
+      1
+    ],
+    [
+      "Observaciones",
+      1
+    ],
+    [
+      "Acceso al garaje",
+      1
+    ],
+    [
+      "Fachadas",
+      1
+    ],
+    [
+      "cación",
+      1
+    ],
+    [
+      "Ocupación máxima del conjunto del área por la edificación",
+      1
+    ],
+    [
+      "Edificabilidad máxima del área",
+      1
+    ],
+    [
+      "Ocupación máxima del suelo por la edificación",
+      1
+    ],
+    [
+      "Condiciones de edificación",
+      1
+    ],
+    [
+      "Banda de aparcamiento en batería",
+      1
+    ],
+    [
+      "Acera",
+      1
+    ],
+    [
+      "Anchura total de la sección",
+      1
+    ],
+    [
+      "Descripción del límite del BIC",
+      1
+    ],
+    [
+      "re que se acredite que se cumplan las siguientes condiciones",
+      1
+    ],
+    [
+      "Tratamiento de los espacios libres",
+      1
+    ],
+    [
+      "Superficie de ampliación",
+      1
+    ],
+    [
+      "Nº máximo de camas",
+      1
+    ],
+    [
+      "Categoría mínima",
+      1
+    ],
+    [
+      "Porcentaje de superficie libre destinada a aparcamientos",
+      1
+    ],
+    [
+      "edificaciones atenderá a los siguientes criterios generales",
+      1
+    ],
+    [
+      "Tratamiento de edificios colindantes con alturas diferentes",
+      1
+    ],
+    [
+      "Tratamiento en terrenos con pendiente",
+      1
+    ],
+    [
+      "Condiciones estéticas",
+      1
+    ],
+    [
+      "Cerramientos de parcela",
+      1
+    ],
+    [
+      "Superficie máxima del almacén",
+      1
+    ],
+    [
+      "Superficie máxima del almacén de empaquetado",
+      1
+    ],
+    [
+      "Aparcamientos",
+      1
+    ],
+    [
+      "Longitud máxima de fachada",
+      1
+    ],
+    [
+      "Retranqueos",
+      1
+    ],
+    [
+      "Dimensionado de la superficie de vuelo",
+      1
+    ],
+    [
+      "Medianera",
+      1
+    ],
+    [
+      "Retranqueos mínimos",
+      1
+    ],
+    [
+      "Ocupación",
+      1
+    ],
+    [
+      "Número máxima de plantas",
+      1
+    ],
+    [
+      "Habitantes camas",
+      1
+    ],
+    [
+      "Superficie de dotaciones y espacios libres públicos",
+      1
+    ],
+    [
+      "Ocupación de la parcela",
+      1
+    ]
+  ],
+  "memoLabelClassified": {
+    "depth": [
+      "Fondo de parcela"
+    ],
+    "height": [
+      "Altura en metros",
+      "Altura en plantas",
+      "Altura libre de piso",
+      "Altura libre de plantas",
+      "Altura máxima",
+      "Altura máxima de cerramientos",
+      "Altura máxima de cumbrera",
+      "Altura máxima de la edificación",
+      "Altura máxima en metros",
+      "Altura máxima en plantas",
+      "Altura máxima para cierres de parcelas",
+      "Altura piso",
+      "Construcciones por encima de la altura",
+      "Número máxima de plantas",
+      "Otras alturas máximas",
+      "Podrá superarse la altura máxima establecida",
+      "Tratamiento de edificios colindantes con alturas diferentes",
+      "en la línea de forjado de la cubierta. Cuerpo de dos plantas",
+      "sin sobrepasar la altura de una planta"
+    ],
+    "setback": [
+      "Retranqueo",
+      "Retranqueos",
+      "Retranqueos a linderos",
+      "Retranqueos a vía",
+      "Retranqueos mínimos",
+      "aración a linderos de acuerdo con las siguientes condiciones",
+      "eación de referencia de los linderos de frente en la parcela"
+    ]
+  },
+  "depthMemoLadders": {
+    "Fondo de parcela": [
+      [
+        "10",
+        2
+      ],
+      [
+        "15",
+        1
+      ]
+    ]
+  },
+  "depthMemoLabels_MISSED_by_prior_fondo_regex": [
+    [
+      "Fondo de parcela",
+      3
+    ]
+  ],
+  "depthMemoLabels_CAUGHT_by_prior_fondo_regex": []
+}

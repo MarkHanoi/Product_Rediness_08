@@ -1,0 +1,357 @@
+Descripción de los campos de la tabla de atributos 
+ 
+https://idev.gva.es/  
+1 
+ 
+https://icv.gva.es/ 
+                                                     
+CAPA:    Planeamiento 
+ 
+NOMBRE  
+ALIAS 
+DEFINICIÓN 
+VALORES 
+DESCRIPCIÓN 
+MUNICIPIO 
+Municipio 
+Nombre del municipio 
+al que pertenece la 
+zona 
+ 
+ 
+CPM 
+Código INE 
+Código INE del 
+municipio al que 
+pertenece la zona 
+ 
+ 
+EXPEDIENTE 
+Expediente 
+Número de expte. del 
+registro general de 
+planeamiento (año y 
+número de 
+documento) 
+ 
+ 
+DENOMINACION 
+Denominación 
+Denominación del 
+documento de 
+planeamiento (p.e.: 
+Modificación puntual 
+nº5 del PG) 
+ 
+ 
+CLAS_SUELO 
+Clasificación 
+Código de la clase de 
+suelo según la tabla 1 
+del anexo IV 
+SU 
+Suelo urbano 
+ 
+SUZ 
+Suelo urbanizable 
+SNU-C 
+Suelo no 
+urbanizable Común 
+SNU-P 
+Suelo no 
+urbanizable 
+Protegido 
+ZON_SUELO 
+Zonificación 
+Código de la 
+zonificación del suelo 
+según la tabla 2 del 
+anexo IV 
+ZUR-RE 
+Zona urbanizada 
+residencial 
+ 
+ 
+ZUR-IN 
+Zona urbanizada 
+industrial 
+ 
+ZUR-TR 
+Zona urbanizada 
+terciaria 
+ 
+ZUR-NHT 
+Zona urbanizada 
+núcleo histórico 
+tradicional 
+ 
+ZND-RE 
+Zona de nuevo 
+desarrollo 
+residencial 
+
+Descripción de los campos de la tabla de atributos 
+ 
+https://idev.gva.es/  
+2 
+ 
+https://icv.gva.es/ 
+ 
+ZND-IN 
+Zona de nuevo 
+desarrollo industrial 
+ 
+ZND-TR 
+Zona de nuevo 
+desarrollo terciaria 
+ 
+ZRC-AG 
+ 
+Zona rural común 
+agropecuaria 
+ZRC-EX 
+ 
+Zona rural común de 
+explotación de 
+recursos naturales 
+ZRC-FO 
+Zona rural común 
+forestal 
+ 
+ZRP-AG 
+Zona rural protegida 
+agrícola 
+ 
+ZRP-NA-LG 
+Zona rural protegida 
+legislación 
+medioambiental 
+(Espacios Naturales, 
+PATs ...) 
+ 
+ZRP-NA-MU 
+Zona rural protegida 
+municipal (forestal, 
+paisajística o 
+ambiental) 
+ 
+ZRP-CA 
+Zona rural protegida 
+cauces (dominio 
+público) 
+ 
+ZRP-CT 
+Zona rural protegida 
+costas (dominio 
+público) 
+ 
+ZRP-CR 
+Zona rural protegida 
+carreteras (dominio 
+público) 
+ 
+ZRP-CF 
+Zona rural protegida 
+ferrocarriles 
+(dominio público) 
+ 
+ZRP-PC 
+ 
+Zona rural protegida 
+patrimonio cultural, 
+arqueológico, 
+
+Descripción de los campos de la tabla de atributos 
+ 
+https://idev.gva.es/  
+3 
+ 
+https://icv.gva.es/ 
+paisajístico o 
+etnológico 
+ 
+ZRP-DP 
+Zona rural protegida 
+vías pecuarias 
+(dominio público) 
+ZRP-OT 
+ 
+Zona rural protegida 
+otras afecciones 
+ZRP-RI 
+ 
+Zona rural protegida 
+riesgos 
+DESCRIPCION 
+Descripción 
+Descripción del código 
+de zonificación según 
+la tabla 2 del anexo IV 
+ 
+ 
+DOTACION 
+Dotación 
+Código de la dotación 
+o equipamiento. Se 
+antepondrá la inicial P 
+o S según se trate de 
+una dotación de red 
+primaria o de red 
+secundaria. 
+ 
+CV 
+Comunicaciones, 
+red viaria 
+ 
+CVT 
+Comunicaciones, 
+red viaria tránsito 
+CVP 
+Comunicaciones, 
+red viaria peatonal 
+CF 
+Comunicaciones, 
+red ferroviaria 
+CA 
+Comunicaciones, 
+aparcamientos 
+VP 
+Zonas verdes, 
+parques 
+VJ 
+Zonas verdes, 
+jardines 
+VA 
+Zonas verdes, áreas 
+de juegos 
+EL 
+Zonas verdes, 
+espacios libres 
+QE-DOC 
+Equipamiento 
+educativo cultural, 
+centros docentes 
+QE-CUL 
+Equipamiento 
+educativo-cultural, 
+centros culturales 
+QD-DEP 
+Equipamiento 
+deportivo-recreativo, 
+centros deportivos 
+QD-GLF 
+Equipamiento 
+deportivo-recreativo, 
+campos de golf 
+
+Descripción de los campos de la tabla de atributos 
+ 
+https://idev.gva.es/  
+4 
+ 
+https://icv.gva.es/ 
+QD-RCR 
+Equipamiento 
+deportivo-recreativo, 
+centros recreativos 
+QS-SAN 
+Equipamiento 
+sanitario- 
+asistencial, centros 
+sanitarios 
+QS-ASI 
+Equipamiento 
+sanitario- 
+asistencial, centros 
+asistenciales 
+QA 
+Equipamiento 
+administrativo-
+institucional 
+QR 
+Equipamiento 
+residencial 
+dotacional 
+QM 
+Equipamiento 
+dotacional múltiple 
+QI 
+Infraestructuras y 
+servicios urbanos 
+genérico 
+QI-HID 
+Infraestructuras 
+hidráulicas: 
+depuradoras, 
+depósitos agua, 
+plantas 
+potabilizadoras, 
+desaladoras, etc. 
+QI-TRA 
+ 
+Infraestructuras de 
+transportes: 
+estaciones 
+ferroviarias, de 
+metro o tranvía, 
+estaciones de 
+autobús, 
+intercambiadores de 
+transporte, áreas 
+servicio carreteras, 
+nodos tráfico, 
+aeroportuarias, 
+marítimas, etc 
+QI-SUR 
+Infraestructuras de 
+servicios urbanos: 
+mataderos, 
+mercados, abastos, 
+etc 
+QI-RES 
+Infraestructuras de 
+tratamientos de 
+residuos: 
+vertederos, 
+incineradoras, 
+
+Descripción de los campos de la tabla de atributos 
+ 
+https://idev.gva.es/  
+5 
+ 
+https://icv.gva.es/ 
+tratamientos 
+residuos, etc 
+QI-SEG 
+Infraestructuras de 
+seguridad: 
+bomberos, 
+cuarteles, protección 
+civil, extinción de 
+incendio 
+DOT_DESCRI 
+Dotación 
+descripción 
+Descripción del código 
+de la dotación 
+ 
+ 
+INFO_ADICI 
+Información 
+adicional 
+Descripción libre del 
+recinto (p.e.Centro 
+Escolar Cervantes, 
+Sector R-1, Zona de 
+protección LIC) 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 

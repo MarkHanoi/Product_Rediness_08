@@ -1,0 +1,62 @@
+{
+  "pdf": "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/tools/valencia-grammar-probe/_m3_datamodel.pdf",
+  "pages": 5,
+  "readability": {
+    "extractedChars": 4653,
+    "wordCharTokens": 453,
+    "drawingOps": 786,
+    "embeddedImages": 10,
+    "priorProbeTxtBytes": 5731,
+    "priorProbeCapturedFraction": 1.2317,
+    "class": "TEXT"
+  },
+  "fieldTokenUnion": [
+    "ALIAS",
+    "ASI",
+    "CAPA",
+    "CLAS_SUELO",
+    "CPM",
+    "CUL",
+    "CVP",
+    "CVT",
+    "DENOMINACION",
+    "DEP",
+    "DESCRIPCION",
+    "DOC",
+    "DOTACION",
+    "DOT_DESCRI",
+    "EXPEDIENTE",
+    "GLF",
+    "HID",
+    "INE",
+    "INFO_ADICI",
+    "LIC",
+    "MUNICIPIO",
+    "NHT",
+    "NOMBRE",
+    "RCR",
+    "RES",
+    "SAN",
+    "SEG",
+    "SNU",
+    "SUR",
+    "SUZ",
+    "TRA",
+    "VALORES",
+    "ZND",
+    "ZON_SUELO",
+    "ZRC",
+    "ZRP",
+    "ZUR"
+  ],
+  "depth": {},
+  "height": {
+    "plantas": {
+      "count": 1,
+      "contexts": [
+        "infraestructuras y servicios urbanos generico qi-hid infraestructuras hidraulicas: depuradoras, depositos agua, plantas potabilizadoras, desaladoras, etc. qi-tra infraestructuras de transportes: estaciones ferroviarias, de metro o tranvia, estaciones de autobus, int"
+      ]
+    }
+  },
+  "setback": {}
+}
