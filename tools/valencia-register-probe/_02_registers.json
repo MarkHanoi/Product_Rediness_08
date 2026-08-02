@@ -1,0 +1,58 @@
+{
+ "registers": [
+  {
+   "ine": "46250",
+   "name": "València",
+   "klass": "large-urban",
+   "prov": "València",
+   "url": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/4%20VALENCIA/46250%20VALENCIA",
+   "http": 200,
+   "finalUrl": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/4%20VALENCIA/46250%20VALENCIA/",
+   "bytes": 2891,
+   "ctype": "text/html;charset=UTF-8",
+   "server": "unstated",
+   "linkCount": 0,
+   "childCount": 0,
+   "isAutoindex": true,
+   "children": [],
+   "childrenByExt": {},
+   "snippet": "Index of /auto/urbanismo/reg-planeamiento/4 VALENCIA/46250 VALENCIA Index of /auto/urbanismo/reg-planeamiento/4 VALENCIA/46250 VALENCIA Name 1 P. GENERAL/ 2 P. DIFERIDO/"
+  },
+  {
+   "ine": "12135",
+   "name": "Vila-real",
+   "klass": "mid-sized",
+   "prov": "Castelló",
+   "url": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/3%20CASTELL%d3N/12135%20VILA-REAL",
+   "http": 200,
+   "finalUrl": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/3%20CASTELL%d3N/12135%20VILA-REAL/",
+   "bytes": 2895,
+   "ctype": "text/html;charset=UTF-8",
+   "server": "unstated",
+   "linkCount": 0,
+   "childCount": 0,
+   "isAutoindex": true,
+   "children": [],
+   "childrenByExt": {},
+   "snippet": "Index of /auto/urbanismo/reg-planeamiento/3 CASTELL�N/12135 VILA-REAL Index of /auto/urbanismo/reg-planeamiento/3 CASTELL�N/12135 VILA-REAL Name 1 P. GENERAL/ 2 P. DIFERIDO/"
+  },
+  {
+   "ine": "03130",
+   "name": "Tollos",
+   "klass": "small-rural",
+   "prov": "Alacant",
+   "url": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/2%20ALICANTE/03130%20TOLLOS",
+   "http": 200,
+   "finalUrl": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/2%20ALICANTE/03130%20TOLLOS/",
+   "bytes": 2637,
+   "ctype": "text/html;charset=UTF-8",
+   "server": "unstated",
+   "linkCount": 0,
+   "childCount": 0,
+   "isAutoindex": true,
+   "children": [],
+   "childrenByExt": {},
+   "snippet": "Index of /auto/urbanismo/reg-planeamiento/2 ALICANTE/03130 TOLLOS Index of /auto/urbanismo/reg-planeamiento/2 ALICANTE/03130 TOLLOS Name 1 P. GENERAL/"
+  }
+ ]
+}

@@ -1,0 +1,120 @@
+{
+ "targets": [
+  {
+   "ine": "46250",
+   "name": "València",
+   "klass": "large-urban",
+   "instrument": "PGOU 1988, Texto Refundido — expediente 46250-1001 / 1991-0010",
+   "files": [
+    {
+     "tag": "NORMAS-URB",
+     "url": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/4%20VALENCIA/46250%20VALENCIA/1%20P.%20GENERAL/46250-1001%201991-0010%20PG%20TEXTO%20REFUNDIDO/3%20NORMATIVA/46250-1001%201991-0010%20%20NORMAS%20URB.pdf",
+     "st": "OK",
+     "bytes": 11796297,
+     "pages": 376,
+     "chars": 0,
+     "charsPerPage": 0,
+     "isScan": true,
+     "txt": "46250_NORMAS-URB.txt"
+    }
+   ],
+   "measure": {
+    "articleMentions": 0,
+    "distinctArticles": 0,
+    "sampleArticles": [],
+    "params": {
+     "height": 0,
+     "setback": 0,
+     "occupation": 0,
+     "depth": 0,
+     "far": 0,
+     "parcelMin": 0
+    },
+    "coreParamsPresent": [],
+    "coreParamCount": 0
+   },
+   "outcome": "(c) IMAGE-ONLY SCAN"
+  },
+  {
+   "ine": "12135",
+   "name": "Vila-real",
+   "klass": "mid-sized",
+   "instrument": "PG Villarreal — expediente 12135-1000 / 1992-0322",
+   "files": [
+    {
+     "tag": "NNUU-1",
+     "url": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/3%20CASTELL%d3N/12135%20VILA-REAL/1%20P.%20GENERAL/12135-1000%20%201992-0322%20%20PG%20VILLARREAL/2%20Memoria/12135-1000%20%201992-0322%20%20NNUU-1.pdf",
+     "st": "OK",
+     "bytes": 10545382,
+     "pages": 147,
+     "chars": 0,
+     "charsPerPage": 0,
+     "isScan": true,
+     "txt": "12135_NNUU-1.txt"
+    },
+    {
+     "tag": "NNUU-2",
+     "url": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/3%20CASTELL%d3N/12135%20VILA-REAL/1%20P.%20GENERAL/12135-1000%20%201992-0322%20%20PG%20VILLARREAL/2%20Memoria/12135-1000%20%201992-0322%20%20NNUU-2.pdf",
+     "st": "OK",
+     "bytes": 50878868,
+     "pages": 164,
+     "chars": 0,
+     "charsPerPage": 0,
+     "isScan": true,
+     "txt": "12135_NNUU-2.txt"
+    }
+   ],
+   "measure": {
+    "articleMentions": 0,
+    "distinctArticles": 0,
+    "sampleArticles": [],
+    "params": {
+     "height": 0,
+     "setback": 0,
+     "occupation": 0,
+     "depth": 0,
+     "far": 0,
+     "parcelMin": 0
+    },
+    "coreParamsPresent": [],
+    "coreParamCount": 0
+   },
+   "outcome": "(c) IMAGE-ONLY SCAN"
+  },
+  {
+   "ine": "03130",
+   "name": "Tollos",
+   "klass": "small-rural",
+   "instrument": "Delimitación de Suelo Urbano 1989 — expediente 03130-1000 / 1989-0701",
+   "files": [
+    {
+     "tag": "NORMAS-URBANISTICAS",
+     "url": "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/2%20ALICANTE/03130%20TOLLOS/1%20P.%20GENERAL/03130-1000%20DELIMITACION%20DE%20SUELO%20URBANO/3%20NORMAS%20URBANISTICAS/03130-1000%201989%200701%20NORMAS%20URBANISTICAS.pdf",
+     "st": "OK",
+     "bytes": 32893154,
+     "pages": 41,
+     "chars": 0,
+     "charsPerPage": 0,
+     "isScan": true,
+     "txt": "03130_NORMAS-URBANISTICAS.txt"
+    }
+   ],
+   "measure": {
+    "articleMentions": 0,
+    "distinctArticles": 0,
+    "sampleArticles": [],
+    "params": {
+     "height": 0,
+     "setback": 0,
+     "occupation": 0,
+     "depth": 0,
+     "far": 0,
+     "parcelMin": 0
+    },
+    "coreParamsPresent": [],
+    "coreParamCount": 0
+   },
+   "outcome": "(c) IMAGE-ONLY SCAN"
+  }
+ ]
+}

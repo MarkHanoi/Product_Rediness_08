@@ -1,0 +1,880 @@
+{
+ "calibration": {
+  "rows": [
+   {
+    "file": "46250_NORMAS-URB.pdf",
+    "headKlass": "SCAN",
+    "fullTruth": "SCAN",
+    "agree": true,
+    "ranged": true
+   },
+   {
+    "file": "12135_NNUU-1.pdf",
+    "headKlass": "SCAN",
+    "fullTruth": "SCAN",
+    "agree": true,
+    "ranged": true
+   },
+   {
+    "file": "12135_NNUU-2.pdf",
+    "headKlass": "SCAN",
+    "fullTruth": "SCAN",
+    "agree": true,
+    "ranged": true
+   },
+   {
+    "file": "03130_NORMAS-URBANISTICAS.pdf",
+    "headKlass": "SCAN",
+    "fullTruth": "SCAN",
+    "agree": true,
+    "ranged": true
+   }
+  ],
+  "passed": true
+ },
+ "headBytes": 524288,
+ "seed": 20260802,
+ "municipalities": [
+  {
+   "ine": "46250",
+   "name": "València",
+   "pdfsInTree": 479,
+   "treeTruncated": true,
+   "sniffed": 20,
+   "tally": {
+    "SCAN": 13,
+    "BORN-DIGITAL": 7
+   },
+   "byDecade": {
+    "1990s": {
+     "SCAN": 4
+    },
+    "2000s": {
+     "SCAN": 4
+    },
+    "2010s": {
+     "BORN-DIGITAL": 2,
+     "SCAN": 2
+    },
+    "2020s": {
+     "SCAN": 1,
+     "BORN-DIGITAL": 3
+    },
+    "undated": {
+     "BORN-DIGITAL": 2,
+     "SCAN": 2
+    }
+   },
+   "rows": [
+    {
+     "decade": "1990s",
+     "path": "1 P. GENERAL / 46250-1001 1991-0010 PG TEXTO REFUNDIDO / 4 PLANOS / 46250-1001 1991-0010 C.62 ESTRUCTURA URBANA.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 19769556,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "1990s",
+     "path": "1 P. GENERAL / 46250-1041 1999-0732 PG MOD c.ANGEL LACALLE / 4 PLANOS / 46250-1041 1999-0732 P4 SITUACION.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 8902076,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "1990s",
+     "path": "1 P. GENERAL / 46250-1001 1991-0010 PG TEXTO REFUNDIDO / 4 PLANOS / 46250-1001 1991-0010 C.28 ESTRUCTURA URBANA.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 23056726,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "1990s",
+     "path": "1 P. GENERAL / 46250-1001 1991-0010 PG TEXTO REFUNDIDO / 4 PLANOS / 46250-1001 1991-0010 C.45 ESTRUCTURA URBANA.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 11829456,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "2000s",
+     "path": "1 P. GENERAL / 46250-1058 MODPG AMBITO LEVANTE U.D. 2005-0009 / 1 APROBACIÓN / 46250-1058 2005-0009 RESOLUCIÓN.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 1036565,
+     "fontProgram": 0,
+     "scanCodecImages": 4,
+     "imageXObj": 4,
+     "codecs": {
+      "dct": 0,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 4
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "2000s",
+     "path": "1 P. GENERAL / 46250-1058 MODPG AMBITO LEVANTE U.D. 2005-0009 / 2 MEMORIA / 46250-1058 2005-0009 MEM INFORMATIVA.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 2667849,
+     "fontProgram": 0,
+     "scanCodecImages": 5,
+     "imageXObj": 5,
+     "codecs": {
+      "dct": 0,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 5
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "2000s",
+     "path": "1 P. GENERAL / 46250-1059 MOD. PG AMBITO FICHAR R-1 2005-0147 / 1 APROBACION / 46250-1059 2005-0147 ACUERDO.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 709303,
+     "fontProgram": 0,
+     "scanCodecImages": 5,
+     "imageXObj": 5,
+     "codecs": {
+      "dct": 0,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 5
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "2000s",
+     "path": "1 P. GENERAL / 46250-1054 2003-1051 PG MOD - PARQUE DE CABECERA / 4 PLANOS / 46250-1054 2003-1051 PI1 SITUACION.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 1259325,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "2010s",
+     "path": "2 P. DIFERIDO / 46250-4120 PRI Pedro Cabanes 2015-0240 / 46250-4120 2015-0240 INSCRIPCIÓN REGISTRO.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 237750,
+     "totalBytes": 237750,
+     "fontProgram": 1,
+     "scanCodecImages": 2,
+     "imageXObj": 2,
+     "codecs": {
+      "dct": 2,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "BORN-DIGITAL"
+    },
+    {
+     "decade": "2010s",
+     "path": "2 P. DIFERIDO / 46250-4100 PE BIC botánico 2018-0158 / 46250-4100 2018-0158 INSCRIPCIÓN REGISTRO.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 238342,
+     "totalBytes": 238342,
+     "fontProgram": 1,
+     "scanCodecImages": 2,
+     "imageXObj": 2,
+     "codecs": {
+      "dct": 2,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "BORN-DIGITAL"
+    },
+    {
+     "decade": "2010s",
+     "path": "2 P. DIFERIDO / 46250-2011 PEMOD RUZAFA-SUR GRAN VIA PEP-2 / 46250-2011 CERTIFICADO REGISTRO.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 321976,
+     "totalBytes": 321976,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "2010s",
+     "path": "2 P. DIFERIDO / 46250-4130 PEP Ciutat Vella 2019-0291 / 46250-4130 2019-0291 Sent. TSJCV nulo art. 6.4.3.c) cond 1,2 4 de Tvt-v1.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 16799630,
+     "fontProgram": 0,
+     "scanCodecImages": 2,
+     "imageXObj": 2,
+     "codecs": {
+      "dct": 2,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "2020s",
+     "path": "2 P. DIFERIDO / 46250-0842 2021-0066 MOD.PP FUENTE SAN LUIS / ComunicacionOtroOrganismo_csv.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 98995,
+     "totalBytes": 98995,
+     "fontProgram": 0,
+     "scanCodecImages": 2,
+     "imageXObj": 4,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 1,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "2020s",
+     "path": "1 P. GENERAL / 46250-1099 2022-0337 MODCAT BRL HORNO CAL / 46250-1099 2022-0337 Inscripción Registro.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 217939,
+     "totalBytes": 217939,
+     "fontProgram": 2,
+     "scanCodecImages": 1,
+     "imageXObj": 3,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "BORN-DIGITAL"
+    },
+    {
+     "decade": "2020s",
+     "path": "2 P. DIFERIDO / 46250-1040 2022-0056 PE INFRAESTR.SANITARIAS CAMPANAR / 46250-1040 2022-0056 Inscripción registro.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 236540,
+     "totalBytes": 236540,
+     "fontProgram": 1,
+     "scanCodecImages": 2,
+     "imageXObj": 2,
+     "codecs": {
+      "dct": 2,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "BORN-DIGITAL"
+    },
+    {
+     "decade": "2020s",
+     "path": "2 P. DIFERIDO / 46250-4181 2025-0006 PEMOD Cabanyal_C. Error / 46250-4181 INSCRIPCIÓN REGISTRO.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 220721,
+     "totalBytes": 220721,
+     "fontProgram": 2,
+     "scanCodecImages": 1,
+     "imageXObj": 3,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "BORN-DIGITAL"
+    },
+    {
+     "decade": "undated",
+     "path": "2 P. DIFERIDO / 46250-4210 ED MANZANA 13.1 SUP PRR-9 PRIM PATRAIX / 46250-4210 Inscripción Registro.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 216663,
+     "totalBytes": 216663,
+     "fontProgram": 2,
+     "scanCodecImages": 1,
+     "imageXObj": 3,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "BORN-DIGITAL"
+    },
+    {
+     "decade": "undated",
+     "path": "2 P. DIFERIDO / 46250-0821 PRIMOD parque central UE A.4-1 / 46250-0821 INSCRIP RGTRO V_firmado.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 247754,
+     "totalBytes": 247754,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 3,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "undated",
+     "path": "2 P. DIFERIDO / 46250-4160 PE EDAR PINEDO / 221118_Solicitud Registro.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 228289,
+     "totalBytes": 228289,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 2,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "undated",
+     "path": "1 P. GENERAL / 46250-1116 MPPG Piezas habitables bajo rasante / 46250-1116 Inscripción Registro.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 236090,
+     "totalBytes": 236090,
+     "fontProgram": 1,
+     "scanCodecImages": 2,
+     "imageXObj": 2,
+     "codecs": {
+      "dct": 2,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "BORN-DIGITAL"
+    }
+   ]
+  },
+  {
+   "ine": "12135",
+   "name": "Vila-real",
+   "pdfsInTree": 694,
+   "treeTruncated": false,
+   "sniffed": 16,
+   "tally": {
+    "SCAN": 12,
+    "UNDECIDED-IN-HEAD": 1,
+    "BORN-DIGITAL": 3
+   },
+   "byDecade": {
+    "1990s": {
+     "SCAN": 4
+    },
+    "2000s": {
+     "SCAN": 4
+    },
+    "2010s": {
+     "UNDECIDED-IN-HEAD": 1,
+     "BORN-DIGITAL": 1,
+     "SCAN": 2
+    },
+    "undated": {
+     "SCAN": 2,
+     "BORN-DIGITAL": 2
+    }
+   },
+   "rows": [
+    {
+     "decade": "1990s",
+     "path": "2 P. DIFERIDO / 12135-0020 1997-0794 PE RESERVA DOT / 4 Planos / 12135-0020 1997-0794 PI 2 ELECTRICIDAD Y AGUA.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 1611633,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "1990s",
+     "path": "1 P. GENERAL / 12135-1002 1997-0034 HOMO AREAS 3.4.7 / 4 Planos / 12135-1002 1997-0034 PO 3.1 CALIFICACION SU.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 2309220,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "1990s",
+     "path": "1 P. GENERAL / 12135-1003 1997-0778 PG MOD 4 / 4 Planos / 12135-1003 1997-0778 PI 3 CALIFICACION SUELO.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 3727268,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "1990s",
+     "path": "2 P. DIFERIDO / 12135-0020 1997-0794 PE RESERVA DOT / 4 Planos / 12135-0020 1997-0794 PO 1 c5 CLASIFICACION.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 4293723,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "2000s",
+     "path": "1 P. GENERAL / 12135-1040 2007-0421 PG MOD RONDA SUDOESTE y CIUDAD DEPORTIVA / 4 Planos / 12135-1040 2007-0421 EIA 1 SITUACION.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 441273,
+     "totalBytes": 441273,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "2000s",
+     "path": "1 P. GENERAL / 12135-1027 2004-0408 PG MOD MANZANA 380 / 4 Planos / 12135-1027 2004-0408 PO3 CALIFICACION MODIFICACION.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 6452942,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "2000s",
+     "path": "1 P. GENERAL / 12135-1016 2001-0853 HOMO y PRI UE 25 / 4 Planos / 12135-1016 2001-0853 HO 4 c14 RED VIARIA.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 6226712,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "2000s",
+     "path": "1 P. GENERAL / 12135-1032 2005-0352 PG MOD ENLACE NORTE / 4 Planos / 12135-1032 2005-0352 A SITUACION.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 1774106,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "2010s",
+     "path": "1 P. GENERAL / 12135-1018 2017-0170 PGMOD ART. 260.4 / 1 APROBACIÓN / 12135-1018 PUBLICACIÓN BOP.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 96081,
+     "totalBytes": 96081,
+     "fontProgram": 0,
+     "scanCodecImages": 0,
+     "imageXObj": 0,
+     "codecs": {
+      "dct": 0,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "UNDECIDED-IN-HEAD"
+    },
+    {
+     "decade": "2010s",
+     "path": "1 P. GENERAL / 12135-1018 2017-0170 PGMOD ART. 260.4 / 2 MEMORIA / 12135-1018 2017-0170 MEMORIA.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 433583,
+     "totalBytes": 433583,
+     "fontProgram": 9,
+     "scanCodecImages": 0,
+     "imageXObj": 3,
+     "codecs": {
+      "dct": 0,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "BORN-DIGITAL"
+    },
+    {
+     "decade": "2010s",
+     "path": "1 P. GENERAL / 12135-1018 2017-0170 PGMOD ART. 260.4 / 12135-1018 INSCRIPCIÓN REGISTRO.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 249589,
+     "totalBytes": 249589,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 3,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "2010s",
+     "path": "1 P. GENERAL / 12135-1018 2017-0170 PGMOD ART. 260.4 / 1 APROBACIÓN / 12135-1018 2017-0170 ACUERDO CTU.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 217724,
+     "totalBytes": 217724,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 2,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "undated",
+     "path": "1 P. GENERAL / 12135-1100 PGMOD MANZANAS 537 Y 538 / 3 PLANOS / 12135-1100 PG 02-2 CALIFICACIÓN DEL SUELO.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 6051008,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 0,
+      "ccitt": 1,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "undated",
+     "path": "1 P. GENERAL / 12135-1104 PGMOD ART. 264.2 / 2 MEMORIA / 12135-1104 Memoria.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 735443,
+     "fontProgram": 7,
+     "scanCodecImages": 0,
+     "imageXObj": 3,
+     "codecs": {
+      "dct": 0,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "BORN-DIGITAL"
+    },
+    {
+     "decade": "undated",
+     "path": "1 P. GENERAL / 12135-1103 PGMOD ART. 153.2 / 12135-1103 Inscripción Registro.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 254666,
+     "totalBytes": 254666,
+     "fontProgram": 1,
+     "scanCodecImages": 2,
+     "imageXObj": 2,
+     "codecs": {
+      "dct": 2,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "BORN-DIGITAL"
+    },
+    {
+     "decade": "undated",
+     "path": "1 P. GENERAL / 12135-1100 PGMOD MANZANAS 537 Y 538 / 3 PLANOS / 12135-1100 PG I3-13 CALIFICACIÓN DEL SUELO.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 4428499,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 0,
+      "ccitt": 1,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    }
+   ]
+  },
+  {
+   "ine": "03130",
+   "name": "Tollos",
+   "pdfsInTree": 5,
+   "treeTruncated": false,
+   "sniffed": 4,
+   "tally": {
+    "SCAN": 4
+   },
+   "byDecade": {
+    "1980s": {
+     "SCAN": 4
+    }
+   },
+   "rows": [
+    {
+     "decade": "1980s",
+     "path": "1 P. GENERAL / 03130-1000 DELIMITACION DE SUELO URBANO / 3 NORMAS URBANISTICAS / 03130-1000 1989 0701 NORMAS URBANISTICAS.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 32893154,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "1980s",
+     "path": "1 P. GENERAL / 03130-1000 DELIMITACION DE SUELO URBANO / 1 APROBACIÓN / 03130-1000 1989 0701 BOP.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 2215755,
+     "fontProgram": 0,
+     "scanCodecImages": 2,
+     "imageXObj": 2,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 1,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "1980s",
+     "path": "1 P. GENERAL / 03130-1000 DELIMITACION DE SUELO URBANO / 2 MEMORIA JUSTIFICATIVA / 03130-1000 1989 0701 MEMORIA JUSTIFICATIVA.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 5603849,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    },
+    {
+     "decade": "1980s",
+     "path": "1 P. GENERAL / 03130-1000 DELIMITACION DE SUELO URBANO / 4 PLANOS DE ORDENACIÓN / 03130-1000 1989 0701 PLANO 9.pdf",
+     "st": "OK",
+     "http": 206,
+     "ranged": true,
+     "bytesSeen": 524288,
+     "totalBytes": 1152902,
+     "fontProgram": 0,
+     "scanCodecImages": 1,
+     "imageXObj": 1,
+     "codecs": {
+      "dct": 1,
+      "ccitt": 0,
+      "jbig2": 0,
+      "jpx": 0
+     },
+     "klass": "SCAN"
+    }
+   ]
+  }
+ ]
+}

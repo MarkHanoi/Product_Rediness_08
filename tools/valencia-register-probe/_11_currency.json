@@ -1,0 +1,71 @@
+{
+ "ineAreaSource": "INE Nomenclátor — término municipal area, external to this service",
+ "municipalities": [
+  {
+   "ine": "46250",
+   "ineAreaKm2": 134.65,
+   "srs": "EPSG:25830",
+   "clasificacion": {
+    "n": 3589,
+    "km2": 137.282,
+    "extRings": 3589,
+    "intRings": 1983
+   },
+   "zonificacion": {
+    "n": 3589,
+    "km2": 137.282,
+    "extRings": 3589,
+    "intRings": 1983
+   },
+   "clasVsIne": 1.0195,
+   "zonVsIne": 1.0195,
+   "zonVsClas": 1,
+   "controlPassed": true,
+   "verdict": "CONSOLIDATED MOSAIC — zonificación is a partition, no double coverage detected (necessary-condition test only)"
+  },
+  {
+   "ine": "12135",
+   "ineAreaKm2": 55.12,
+   "srs": "EPSG:25830",
+   "clasificacion": {
+    "n": 600,
+    "km2": 55.064,
+    "extRings": 602,
+    "intRings": 111
+   },
+   "zonificacion": {
+    "n": 600,
+    "km2": 55.064,
+    "extRings": 602,
+    "intRings": 111
+   },
+   "clasVsIne": 0.999,
+   "zonVsIne": 0.999,
+   "zonVsClas": 1,
+   "controlPassed": true,
+   "verdict": "CONSOLIDATED MOSAIC — zonificación is a partition, no double coverage detected (necessary-condition test only)"
+  },
+  {
+   "ine": "03130",
+   "ineAreaKm2": 15.97,
+   "srs": "EPSG:25830",
+   "clasificacion": {
+    "n": 13,
+    "km2": 14.459,
+    "extRings": 13,
+    "intRings": 5
+   },
+   "zonificacion": {
+    "n": 13,
+    "km2": 14.459,
+    "extRings": 13,
+    "intRings": 5
+   },
+   "clasVsIne": 0.9054,
+   "zonVsIne": 0.9054,
+   "zonVsClas": 1,
+   "controlPassed": true,
+   "verdict": "CONSOLIDATED MOSAIC — zonificación is a partition, no double coverage detected (necessary-condition test only)"
+  }
+ ]
+}

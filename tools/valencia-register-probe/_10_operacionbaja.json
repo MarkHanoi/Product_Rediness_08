@@ -1,0 +1,1196 @@
+{
+ "A_services": [
+  {
+   "service": "0702_Planeamiento",
+   "http": 200,
+   "err": null,
+   "isWfs": true,
+   "layers": [
+    "MinimizacionViviendasSNU",
+    "InventarioSuSuz",
+    "DeclaracionInteresComunitario",
+    "Planeamiento.Dotaciones",
+    "Planeamiento.Zonificacion",
+    "Planeamiento.Clasificacion"
+   ],
+   "exception": null
+  },
+  {
+   "service": "0701_Planeamiento",
+   "http": 404,
+   "err": null,
+   "isWfs": false,
+   "layers": [],
+   "exception": null
+  },
+  {
+   "service": "0703_Planeamiento",
+   "http": 404,
+   "err": null,
+   "isWfs": false,
+   "layers": [],
+   "exception": null
+  },
+  {
+   "service": "0704_Planeamiento",
+   "http": 404,
+   "err": null,
+   "isWfs": false,
+   "layers": [],
+   "exception": null
+  },
+  {
+   "service": "0700_Planeamiento",
+   "http": 404,
+   "err": null,
+   "isWfs": false,
+   "layers": [],
+   "exception": null
+  },
+  {
+   "service": "0702_Planeamiento_Historico",
+   "http": 404,
+   "err": null,
+   "isWfs": false,
+   "layers": [],
+   "exception": null
+  },
+  {
+   "service": "0705_Planeamiento",
+   "http": 404,
+   "err": null,
+   "isWfs": false,
+   "layers": [],
+   "exception": null
+  },
+  {
+   "service": "07_Planeamiento",
+   "http": 404,
+   "err": null,
+   "isWfs": false,
+   "layers": [],
+   "exception": null
+  },
+  {
+   "service": "Planeamiento",
+   "http": 404,
+   "err": null,
+   "isWfs": false,
+   "layers": [],
+   "exception": null
+  },
+  {
+   "service": "0201_Catastro",
+   "http": 404,
+   "err": null,
+   "isWfs": false,
+   "layers": [],
+   "exception": null
+  },
+  {
+   "service": "0801_Urbanismo",
+   "http": 404,
+   "err": null,
+   "isWfs": false,
+   "layers": [],
+   "exception": null
+  }
+ ],
+ "B_fieldUnion": {
+  "distinctFields": 78,
+  "fields": [
+   "DeclaracionInteresComunitario",
+   "InventarioSuSuz",
+   "MinimizacionViviendasSNU",
+   "Planeamiento.Clasificacion",
+   "Planeamiento.Dotaciones",
+   "Planeamiento.Zonificacion",
+   "anyos_diferentes",
+   "anyos_lista",
+   "area_construccion_m2",
+   "area_total_m2",
+   "clas_suelo",
+   "clasificacion",
+   "cod_catastro",
+   "cod_ine_mun",
+   "comarca",
+   "cons_edif",
+   "denominaci",
+   "denominaci_val",
+   "descripcio",
+   "descripcio_val",
+   "dot_descri",
+   "dot_descri_val",
+   "dotacion",
+   "edif_m2",
+   "emplazamie",
+   "emplazamie_val",
+   "exp",
+   "expediente",
+   "f1acceso_r",
+   "f2aceras",
+   "f3alumbrad",
+   "f4agua_pot",
+   "f5electric",
+   "f6alcantar",
+   "f7pluviale",
+   "f8colector",
+   "f_aprob",
+   "f_autoriza",
+   "f_inicio",
+   "f_public",
+   "f_recep",
+   "gestion",
+   "gestion_val",
+   "id",
+   "info_adici",
+   "info_adici_val",
+   "legislacion_pg",
+   "legislacion_pp",
+   "msGeometry",
+   "noms_mun",
+   "numero_viviendas",
+   "observacio",
+   "observacio_val",
+   "ord_porm",
+   "org_res",
+   "org_res_val",
+   "p_urbaniz",
+   "pai",
+   "pai_val",
+   "porc_ocup",
+   "pp",
+   "pr_repc",
+   "pr_repc_val",
+   "promotor",
+   "refcat",
+   "situacion",
+   "situacion_val",
+   "sup_m2",
+   "tipo",
+   "ue",
+   "ue_val",
+   "url_abs",
+   "url_download_muni_gpkg",
+   "url_parcela_catastro",
+   "uso",
+   "uso_val",
+   "viviendas_anyo",
+   "zon_suelo"
+  ],
+  "byField": {
+   "MinimizacionViviendasSNU": [
+    "0702_Planeamiento/MinimizacionViviendasSNU"
+   ],
+   "msGeometry": [
+    "0702_Planeamiento/MinimizacionViviendasSNU",
+    "0702_Planeamiento/InventarioSuSuz",
+    "0702_Planeamiento/DeclaracionInteresComunitario",
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "id": [
+    "0702_Planeamiento/MinimizacionViviendasSNU",
+    "0702_Planeamiento/InventarioSuSuz",
+    "0702_Planeamiento/DeclaracionInteresComunitario",
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "cod_ine_mun": [
+    "0702_Planeamiento/MinimizacionViviendasSNU",
+    "0702_Planeamiento/InventarioSuSuz",
+    "0702_Planeamiento/DeclaracionInteresComunitario",
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "cod_catastro": [
+    "0702_Planeamiento/MinimizacionViviendasSNU"
+   ],
+   "noms_mun": [
+    "0702_Planeamiento/MinimizacionViviendasSNU",
+    "0702_Planeamiento/InventarioSuSuz",
+    "0702_Planeamiento/DeclaracionInteresComunitario",
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "refcat": [
+    "0702_Planeamiento/MinimizacionViviendasSNU"
+   ],
+   "tipo": [
+    "0702_Planeamiento/MinimizacionViviendasSNU"
+   ],
+   "clas_suelo": [
+    "0702_Planeamiento/MinimizacionViviendasSNU",
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "porc_ocup": [
+    "0702_Planeamiento/MinimizacionViviendasSNU"
+   ],
+   "area_construccion_m2": [
+    "0702_Planeamiento/MinimizacionViviendasSNU"
+   ],
+   "area_total_m2": [
+    "0702_Planeamiento/MinimizacionViviendasSNU"
+   ],
+   "numero_viviendas": [
+    "0702_Planeamiento/MinimizacionViviendasSNU"
+   ],
+   "viviendas_anyo": [
+    "0702_Planeamiento/MinimizacionViviendasSNU"
+   ],
+   "anyos_diferentes": [
+    "0702_Planeamiento/MinimizacionViviendasSNU"
+   ],
+   "anyos_lista": [
+    "0702_Planeamiento/MinimizacionViviendasSNU"
+   ],
+   "url_parcela_catastro": [
+    "0702_Planeamiento/MinimizacionViviendasSNU"
+   ],
+   "url_download_muni_gpkg": [
+    "0702_Planeamiento/MinimizacionViviendasSNU"
+   ],
+   "InventarioSuSuz": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "clasificacion": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "pp": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "ue": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "ue_val": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "uso": [
+    "0702_Planeamiento/InventarioSuSuz",
+    "0702_Planeamiento/DeclaracionInteresComunitario"
+   ],
+   "uso_val": [
+    "0702_Planeamiento/InventarioSuSuz",
+    "0702_Planeamiento/DeclaracionInteresComunitario"
+   ],
+   "ord_porm": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "f_aprob": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "f_public": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "org_res": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "org_res_val": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "legislacion_pp": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "legislacion_pg": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "sup_m2": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "edif_m2": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "gestion": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "gestion_val": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "pai": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "pai_val": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "pr_repc": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "pr_repc_val": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "p_urbaniz": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "f_inicio": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "f_recep": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "f1acceso_r": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "f2aceras": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "f3alumbrad": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "f4agua_pot": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "f5electric": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "f6alcantar": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "f7pluviale": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "f8colector": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "cons_edif": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "observacio": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "observacio_val": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "situacion": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "situacion_val": [
+    "0702_Planeamiento/InventarioSuSuz"
+   ],
+   "DeclaracionInteresComunitario": [
+    "0702_Planeamiento/DeclaracionInteresComunitario"
+   ],
+   "comarca": [
+    "0702_Planeamiento/DeclaracionInteresComunitario"
+   ],
+   "exp": [
+    "0702_Planeamiento/DeclaracionInteresComunitario"
+   ],
+   "descripcio": [
+    "0702_Planeamiento/DeclaracionInteresComunitario",
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "descripcio_val": [
+    "0702_Planeamiento/DeclaracionInteresComunitario",
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "emplazamie": [
+    "0702_Planeamiento/DeclaracionInteresComunitario"
+   ],
+   "emplazamie_val": [
+    "0702_Planeamiento/DeclaracionInteresComunitario"
+   ],
+   "promotor": [
+    "0702_Planeamiento/DeclaracionInteresComunitario"
+   ],
+   "f_autoriza": [
+    "0702_Planeamiento/DeclaracionInteresComunitario"
+   ],
+   "Planeamiento.Dotaciones": [
+    "0702_Planeamiento/Planeamiento.Dotaciones"
+   ],
+   "expediente": [
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "denominaci": [
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "denominaci_val": [
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "zon_suelo": [
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "dotacion": [
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "dot_descri": [
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "dot_descri_val": [
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "info_adici": [
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "info_adici_val": [
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "url_abs": [
+    "0702_Planeamiento/Planeamiento.Dotaciones",
+    "0702_Planeamiento/Planeamiento.Zonificacion",
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ],
+   "Planeamiento.Zonificacion": [
+    "0702_Planeamiento/Planeamiento.Zonificacion"
+   ],
+   "Planeamiento.Clasificacion": [
+    "0702_Planeamiento/Planeamiento.Clasificacion"
+   ]
+  },
+  "stemHits": {
+   "baja": [],
+   "alta": [],
+   "operacion": [],
+   "vigen": [],
+   "derog": [],
+   "sustit": [],
+   "fecha": [
+    "f_aprob",
+    "f_autoriza",
+    "f_inicio",
+    "f_public",
+    "f_recep"
+   ],
+   "estado": [
+    "situacion",
+    "situacion_val"
+   ]
+  },
+  "exactMatches": []
+ },
+ "C_currency": {
+  "municipalities": [
+   {
+    "ine": "46250",
+    "st": "OK",
+    "polygons": 3589,
+    "wrongMuni": 0,
+    "distinctExpedientes": 139,
+    "expedienteHistogram": [
+     [
+      "19880578",
+      2025
+     ],
+     [
+      "20020329",
+      126
+     ],
+     [
+      "20230078",
+      111
+     ],
+     [
+      "20180274",
+      68
+     ],
+     [
+      "20060598",
+      63
+     ],
+     [
+      "19980302",
+      56
+     ],
+     [
+      "20100156",
+      53
+     ],
+     [
+      "19910040",
+      42
+     ],
+     [
+      "20130180",
+      41
+     ],
+     [
+      "19950017",
+      39
+     ],
+     [
+      "20010563",
+      36
+     ],
+     [
+      "19920254",
+      36
+     ],
+     [
+      "20050495",
+      35
+     ],
+     [
+      "20031018",
+      34
+     ],
+     [
+      "19980971",
+      30
+     ],
+     [
+      "19920040",
+      30
+     ],
+     [
+      "19971041",
+      29
+     ],
+     [
+      "19970539",
+      28
+     ],
+     [
+      "19990708",
+      24
+     ],
+     [
+      "20040195",
+      24
+     ],
+     [
+      "19910111",
+      21
+     ],
+     [
+      "20130241",
+      20
+     ],
+     [
+      "19980972",
+      19
+     ],
+     [
+      "19981253",
+      18
+     ],
+     [
+      "19981205",
+      18
+     ],
+     [
+      "20090236",
+      17
+     ],
+     [
+      "20060783",
+      17
+     ],
+     [
+      "19990327",
+      16
+     ],
+     [
+      "20040561",
+      16
+     ],
+     [
+      "19991383",
+      15
+     ],
+     [
+      "19970816",
+      15
+     ],
+     [
+      "19990349",
+      15
+     ],
+     [
+      "19990594",
+      15
+     ],
+     [
+      "20040723",
+      14
+     ],
+     [
+      "20050203",
+      13
+     ],
+     [
+      "19990063",
+      12
+     ],
+     [
+      "19920039",
+      11
+     ],
+     [
+      "19950364",
+      11
+     ],
+     [
+      "20060372",
+      11
+     ],
+     [
+      "19991152",
+      11
+     ],
+     [
+      "20070427",
+      10
+     ],
+     [
+      "19990706",
+      10
+     ],
+     [
+      "19981072",
+      10
+     ],
+     [
+      "20020056",
+      9
+     ],
+     [
+      "20050448",
+      9
+     ],
+     [
+      "20060092",
+      9
+     ],
+     [
+      "20000822",
+      9
+     ],
+     [
+      "19950218",
+      9
+     ],
+     [
+      "20130280",
+      9
+     ],
+     [
+      "20060191",
+      9
+     ],
+     [
+      "20050009",
+      8
+     ],
+     [
+      "19980080",
+      8
+     ],
+     [
+      "19980858",
+      8
+     ],
+     [
+      "20140028",
+      8
+     ],
+     [
+      "20010936",
+      8
+     ],
+     [
+      "20071150",
+      7
+     ],
+     [
+      "19980303",
+      7
+     ],
+     [
+      "19960032",
+      7
+     ],
+     [
+      "20060756",
+      6
+     ],
+     [
+      "20000096",
+      6
+     ],
+     [
+      "19980457",
+      6
+     ],
+     [
+      "19990704",
+      6
+     ],
+     [
+      "20031004",
+      6
+     ],
+     [
+      "19950037",
+      6
+     ],
+     [
+      "20070867",
+      6
+     ],
+     [
+      "20000612",
+      6
+     ],
+     [
+      "19971094",
+      5
+     ],
+     [
+      "20010920",
+      5
+     ],
+     [
+      "19970815",
+      5
+     ],
+     [
+      "20061118",
+      4
+     ],
+     [
+      "20130010",
+      4
+     ],
+     [
+      "20050147",
+      4
+     ],
+     [
+      "20011223",
+      4
+     ],
+     [
+      "20051082",
+      4
+     ],
+     [
+      "20030508",
+      4
+     ],
+     [
+      "20080406",
+      3
+     ],
+     [
+      "20010935",
+      3
+     ],
+     [
+      "20040880",
+      3
+     ],
+     [
+      "20070341",
+      3
+     ],
+     [
+      "20150217",
+      3
+     ],
+     [
+      "20050005",
+      3
+     ],
+     [
+      "19940512",
+      3
+     ],
+     [
+      "20080563",
+      3
+     ],
+     [
+      "19960696",
+      3
+     ],
+     [
+      "19930268",
+      3
+     ],
+     [
+      "20060131",
+      3
+     ],
+     [
+      "20040210",
+      3
+     ],
+     [
+      "20010567",
+      3
+     ],
+     [
+      "20040628",
+      2
+     ],
+     [
+      "20060398",
+      2
+     ],
+     [
+      "20120004",
+      2
+     ],
+     [
+      "19960727",
+      2
+     ],
+     [
+      "20040086",
+      2
+     ],
+     [
+      "20071063",
+      2
+     ],
+     [
+      "19930255",
+      2
+     ],
+     [
+      "20060327",
+      2
+     ],
+     [
+      "20020310",
+      2
+     ],
+     [
+      "19940666",
+      2
+     ],
+     [
+      "20040287",
+      2
+     ],
+     [
+      "20070347",
+      2
+     ],
+     [
+      "20030338",
+      2
+     ],
+     [
+      "20150247",
+      2
+     ],
+     [
+      "20070457",
+      2
+     ],
+     [
+      "20070679",
+      2
+     ],
+     [
+      "20020644",
+      2
+     ],
+     [
+      "20040424",
+      2
+     ],
+     [
+      "20150314",
+      2
+     ],
+     [
+      "19980101",
+      2
+     ],
+     [
+      "20021118",
+      2
+     ],
+     [
+      "19991293",
+      2
+     ],
+     [
+      "19940692",
+      2
+     ],
+     [
+      "20140053",
+      1
+     ],
+     [
+      "19980230",
+      1
+     ],
+     [
+      "20050647",
+      1
+     ],
+     [
+      "20030890",
+      1
+     ],
+     [
+      "20041334",
+      1
+     ],
+     [
+      "20060483",
+      1
+     ],
+     [
+      "19981529",
+      1
+     ],
+     [
+      "19989720",
+      1
+     ],
+     [
+      "20050791",
+      1
+     ],
+     [
+      "20061045",
+      1
+     ],
+     [
+      "20150014",
+      1
+     ],
+     [
+      "20070530",
+      1
+     ],
+     [
+      "20011160",
+      1
+     ],
+     [
+      "20080101",
+      1
+     ],
+     [
+      "20070663",
+      1
+     ],
+     [
+      "00000000",
+      1
+     ],
+     [
+      "20030773",
+      1
+     ],
+     [
+      "20080650",
+      1
+     ],
+     [
+      "19970204",
+      1
+     ],
+     [
+      "20040774",
+      1
+     ],
+     [
+      "20040013",
+      1
+     ],
+     [
+      "20031051",
+      1
+     ],
+     [
+      "20020428",
+      1
+     ],
+     [
+      "19970931",
+      1
+     ],
+     [
+      "19920310",
+      1
+     ],
+     [
+      "20020764",
+      1
+     ],
+     [
+      "19950233",
+      1
+     ],
+     [
+      "19990946",
+      1
+     ]
+    ]
+   },
+   {
+    "ine": "12135",
+    "st": "OK",
+    "polygons": 600,
+    "wrongMuni": 0,
+    "distinctExpedientes": 29,
+    "expedienteHistogram": [
+     [
+      "19920322",
+      400
+     ],
+     [
+      "20050352",
+      48
+     ],
+     [
+      "20070421",
+      25
+     ],
+     [
+      "19950521",
+      16
+     ],
+     [
+      "",
+      15
+     ],
+     [
+      "20060301",
+      10
+     ],
+     [
+      "20030588",
+      9
+     ],
+     [
+      "20070339",
+      8
+     ],
+     [
+      "19970034",
+      7
+     ],
+     [
+      "20050173",
+      7
+     ],
+     [
+      "20010238",
+      6
+     ],
+     [
+      "20010787",
+      6
+     ],
+     [
+      "20001025",
+      5
+     ],
+     [
+      "20010815",
+      5
+     ],
+     [
+      "20000635",
+      5
+     ],
+     [
+      "20000954",
+      4
+     ],
+     [
+      "20060127",
+      4
+     ],
+     [
+      "19970794",
+      4
+     ],
+     [
+      "19990670",
+      3
+     ],
+     [
+      "20010853",
+      2
+     ],
+     [
+      "20040408",
+      2
+     ],
+     [
+      "19990490",
+      2
+     ],
+     [
+      "20000892",
+      1
+     ],
+     [
+      "19970778",
+      1
+     ],
+     [
+      "20010214",
+      1
+     ],
+     [
+      "20070058",
+      1
+     ],
+     [
+      "20080050",
+      1
+     ],
+     [
+      "20040708",
+      1
+     ],
+     [
+      "20020166",
+      1
+     ]
+    ]
+   },
+   {
+    "ine": "03130",
+    "st": "OK",
+    "polygons": 13,
+    "wrongMuni": 0,
+    "distinctExpedientes": 1,
+    "expedienteHistogram": [
+     [
+      "00000000",
+      13
+     ]
+    ]
+   }
+  ]
+ }
+}

@@ -1,0 +1,119 @@
+{
+ "transport": "OGC PropertyIsLike on cod_ine_mun",
+ "typename": "ms:Planeamiento.Zonificacion",
+ "sample": [
+  {
+   "ine": "46250",
+   "name": "València",
+   "prov": "València",
+   "klass": "large-urban",
+   "why": "regional capital; the polygon set the grammar hypothesis was refuted on",
+   "st": "OK",
+   "nReturned": 50,
+   "wrongMuniFeatures": 0,
+   "urlAbs": [
+    "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/4%20VALENCIA/46250%20VALENCIA"
+   ],
+   "expedientes": [
+    "19980302",
+    "19880578",
+    "20031018",
+    "19971041",
+    "19990327",
+    "19981253",
+    "19991383",
+    "19920039",
+    "19980971",
+    "20230078",
+    "20070427"
+   ],
+   "noms_mun": [
+    "València"
+   ],
+   "zonSuelo": [
+    "ZND-IN",
+    "ZUR-RE",
+    "ZRP-AG",
+    "ZND-RE",
+    "ZRP-CR",
+    "ZUR-NHT",
+    "ZND-TR",
+    "ZUR-TR"
+   ]
+  },
+  {
+   "ine": "12135",
+   "name": "Vila-real",
+   "prov": "Castelló",
+   "klass": "mid-sized",
+   "why": "~51k inhabitants; different provincial filing tree",
+   "st": "OK",
+   "nReturned": 50,
+   "wrongMuniFeatures": 0,
+   "urlAbs": [
+    "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/3%20CASTELL%d3N/12135%20VILA-REAL"
+   ],
+   "expedientes": [
+    "19970034",
+    "19950521",
+    "20000954",
+    "20001025",
+    "20070339",
+    "20010815",
+    "20050173",
+    "19920322",
+    "20000892",
+    "20000635",
+    "20030588",
+    "20070421",
+    "20010238",
+    "20050352"
+   ],
+   "noms_mun": [
+    "Vila-real"
+   ],
+   "zonSuelo": [
+    "ZND-IN",
+    "ZND-RE",
+    "ZND-TR",
+    "ZRC-AG"
+   ]
+  },
+  {
+   "ine": "03130",
+   "name": "Tollos",
+   "prov": "Alacant",
+   "klass": "small-rural",
+   "why": "smallest tail (~50 inh); grammar probe independent known-positive (13 polygons)",
+   "st": "OK",
+   "nReturned": 13,
+   "wrongMuniFeatures": 0,
+   "urlAbs": [
+    "https://mediambient.gva.es/auto/urbanismo/reg-planeamiento/2%20ALICANTE/03130%20TOLLOS"
+   ],
+   "expedientes": [
+    "00000000"
+   ],
+   "noms_mun": [
+    "Tollos"
+   ],
+   "zonSuelo": [
+    "ZRP-NA-MU",
+    "ZRP-OT",
+    "ZUR-RE"
+   ]
+  }
+ ],
+ "negativeControl": {
+  "ine": "28079",
+  "name": "Madrid (OUT OF REGION)",
+  "st": "OK",
+  "n": 0,
+  "why": null
+ },
+ "filterGate": {
+  "positiveVerified": true,
+  "negativeClean": true,
+  "verdict": "FILTER APPLIED — both halves hold"
+ }
+}

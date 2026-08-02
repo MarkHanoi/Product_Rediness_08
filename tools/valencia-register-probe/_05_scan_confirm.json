@@ -1,0 +1,92 @@
+{
+ "files": [
+  {
+   "file": "03130_NORMAS-URBANISTICAS.pdf",
+   "mb": 31.37,
+   "popplerPages": 41,
+   "popplerChars": 0,
+   "structure": {
+    "fontProgram": 0,
+    "fontRef": 0,
+    "dct": 41,
+    "ccitt": 0,
+    "jbig2": 0,
+    "jpx": 0,
+    "imageXObj": 41,
+    "page": 41,
+    "objStm": 0,
+    "scanCodecImages": 41,
+    "dictsVisible": true,
+    "streamSignalsAuthoritative": "ISO 32000-1 §7.5.7 — stream objects cannot live in /ObjStm",
+    "verdict": "SCAN — zero embedded font programs, N scan-codec images"
+   },
+   "sourcesAgree": true
+  },
+  {
+   "file": "12135_NNUU-1.pdf",
+   "mb": 10.06,
+   "popplerPages": 147,
+   "popplerChars": 0,
+   "structure": {
+    "fontProgram": 0,
+    "fontRef": 0,
+    "dct": 0,
+    "ccitt": 147,
+    "jbig2": 0,
+    "jpx": 0,
+    "imageXObj": 147,
+    "page": 0,
+    "objStm": 6,
+    "scanCodecImages": 147,
+    "dictsVisible": true,
+    "streamSignalsAuthoritative": "ISO 32000-1 §7.5.7 — stream objects cannot live in /ObjStm",
+    "verdict": "SCAN — zero embedded font programs, N scan-codec images"
+   },
+   "sourcesAgree": true
+  },
+  {
+   "file": "12135_NNUU-2.pdf",
+   "mb": 48.52,
+   "popplerPages": 164,
+   "popplerChars": 0,
+   "structure": {
+    "fontProgram": 0,
+    "fontRef": 0,
+    "dct": 164,
+    "ccitt": 0,
+    "jbig2": 0,
+    "jpx": 0,
+    "imageXObj": 164,
+    "page": 0,
+    "objStm": 5,
+    "scanCodecImages": 164,
+    "dictsVisible": true,
+    "streamSignalsAuthoritative": "ISO 32000-1 §7.5.7 — stream objects cannot live in /ObjStm",
+    "verdict": "SCAN — zero embedded font programs, N scan-codec images"
+   },
+   "sourcesAgree": true
+  },
+  {
+   "file": "46250_NORMAS-URB.pdf",
+   "mb": 11.25,
+   "popplerPages": 376,
+   "popplerChars": 0,
+   "structure": {
+    "fontProgram": 0,
+    "fontRef": 0,
+    "dct": 0,
+    "ccitt": 0,
+    "jbig2": 376,
+    "jpx": 0,
+    "imageXObj": 376,
+    "page": 376,
+    "objStm": 380,
+    "scanCodecImages": 376,
+    "dictsVisible": true,
+    "streamSignalsAuthoritative": "ISO 32000-1 §7.5.7 — stream objects cannot live in /ObjStm",
+    "verdict": "SCAN — zero embedded font programs, N scan-codec images"
+   },
+   "sourcesAgree": true
+  }
+ ]
+}

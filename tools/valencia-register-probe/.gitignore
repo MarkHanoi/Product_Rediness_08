@@ -1,0 +1,7 @@
+# Downloaded register documents (~110 MB of scanned PDFs + their extractions).
+# Regenerate with 04-open-ordenanza.mjs and 07-regex-control.mjs — every URL is recorded in
+# _03_tree.json and in the TARGETS/CONTROLS tables of those two scripts.
+_docs/
+
+# Kept deliberately:
+#   _*.json  — the measured results, the re-runnable record
