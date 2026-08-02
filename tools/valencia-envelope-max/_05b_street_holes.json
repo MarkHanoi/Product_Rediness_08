@@ -1,0 +1,157 @@
+{
+ "boxes": [
+  {
+   "ine": "46250",
+   "name": "València capital",
+   "st": "OK",
+   "box": [
+    725000,
+    4372000,
+    726000,
+    4373000
+   ],
+   "stepM": 2,
+   "polygonsInBox": 106,
+   "points": 251001,
+   "covered": 251001,
+   "coverage": 1,
+   "verdict": "PARTITION — streets are INSIDE the zone polygons",
+   "coveredPublicPct": 15.03,
+   "coveredPrivatePct": 84.97,
+   "byCodePct": {
+    "ZUR-RE": 12.15,
+    "ZUR-NHT": 85.12,
+    "ZUR-TR": 2.73
+   }
+  },
+  {
+   "ine": "12135",
+   "name": "Vila-real",
+   "st": "OK",
+   "box": [
+    747000,
+    4425000,
+    748000,
+    4426000
+   ],
+   "stepM": 2,
+   "polygonsInBox": 59,
+   "points": 251001,
+   "covered": 251001,
+   "coverage": 1,
+   "verdict": "PARTITION — streets are INSIDE the zone polygons",
+   "coveredPublicPct": 21.97,
+   "coveredPrivatePct": 78.03,
+   "byCodePct": {
+    "ZUR-IN": 3.16,
+    "ZUR-RE": 96.74,
+    "ZUR-NHT": 0.1
+   }
+  },
+  {
+   "ine": "03014",
+   "name": "Alacant",
+   "st": "OK",
+   "box": [
+    719000,
+    4247000,
+    720000,
+    4248000
+   ],
+   "stepM": 2,
+   "polygonsInBox": 56,
+   "points": 251001,
+   "covered": 251001,
+   "coverage": 1,
+   "verdict": "PARTITION — streets are INSIDE the zone polygons",
+   "coveredPublicPct": 18.18,
+   "coveredPrivatePct": 81.82,
+   "byCodePct": {
+    "ZUR-RE": 93.11,
+    "ZUR-TR": 0.35,
+    "ZUR-NHT": 6.54
+   }
+  },
+  {
+   "ine": "12040",
+   "name": "Castelló de la Plana",
+   "st": "OK",
+   "box": [
+    751000,
+    4429000,
+    752000,
+    4430000
+   ],
+   "stepM": 2,
+   "polygonsInBox": 94,
+   "points": 251001,
+   "covered": 251001,
+   "coverage": 1,
+   "verdict": "PARTITION — streets are INSIDE the zone polygons",
+   "coveredPublicPct": 25.41,
+   "coveredPrivatePct": 74.59,
+   "byCodePct": {
+    "ZUR-TR": 7.87,
+    "ZUR-RE": 79.97,
+    "ZUR-IN": 2.88,
+    "ZRP-CF": 0.34,
+    "ZND-RE": 8.94
+   }
+  },
+  {
+   "ine": "46131",
+   "name": "Gandia",
+   "st": "OK",
+   "box": [
+    737000,
+    4318000,
+    738000,
+    4319000
+   ],
+   "stepM": 2,
+   "polygonsInBox": 24,
+   "points": 251001,
+   "covered": 251001,
+   "coverage": 1,
+   "verdict": "PARTITION — streets are INSIDE the zone polygons",
+   "coveredPublicPct": 7.91,
+   "coveredPrivatePct": 92.09,
+   "byCodePct": {
+    "ZUR-RE": 28.28,
+    "ZRP-NA-MU": 69.46,
+    "ZRP-CR": 0.89,
+    "ZRC-FO": 0.02,
+    "ZRP-CA": 1.35
+   }
+  },
+  {
+   "ine": "03130",
+   "name": "Tollos (small rural — the tail)",
+   "st": "OK",
+   "box": [
+    736000,
+    4293000,
+    737000,
+    4294000
+   ],
+   "stepM": 2,
+   "polygonsInBox": 11,
+   "points": 251001,
+   "covered": 250935,
+   "coverage": 0.9997,
+   "verdict": "PARTITION — streets are INSIDE the zone polygons",
+   "coveredPublicPct": 1.08,
+   "coveredPrivatePct": 98.92,
+   "byCodePct": {
+    "ZRP-NA-MU": 90.92,
+    "ZRP-OT": 7.65,
+    "ZUR-RE": 1.43
+   }
+  }
+ ],
+ "meanCoverage": 0.99995,
+ "allPartition": true,
+ "allHoles": false,
+ "stepM": 2,
+ "crs": "EPSG:25830"
+}
