@@ -34,12 +34,22 @@ signature** so the number could not be flattered by it.
 and its verification gate now **reach the user**. Signing before that landed would have made the screen
 **less honest than refusing**.
 
-⚠ **KNOWN LIMIT ACCEPTED AT SIGNING — L-674, and it is real.** The cited document is **NOT yet in the
-repo**. `urbanismo.murcia.es/infourb/documentos/` returns **HTTP 403** to automated requests (measured
-2026-08-01 — the BCNROC pattern; a human browser reaches it). The per-parameter verbatim quotes
-therefore **cannot be re-read from `corpus/pdf/`** the way Barcelona's DOGC 4893 can. The quotes may be
-perfect; nothing in the repo can currently prove it. **Founder is fetching Volumen 11 by hand.** Until
-it lands, this signature rests on a transcription that cannot be independently re-verified here.
+✅ **THE L-674 LIMIT IS DISCHARGED (2026-08-01, later the same day).** The cited document **is now in
+the repo**: [`../corpus/pdf/PGOU-MURCIA_TR-2012-12_vol11_normas-urbanisticas.pdf`](../corpus/pdf/PGOU-MURCIA_TR-2012-12_vol11_normas-urbanisticas.pdf)
+(205 pp, 2 352 553 bytes, SHA-256 `ab71c651…`, embedded title `TR PG vol_11   NN UU.signed.pdf`).
+Every per-parameter verbatim quote can now be re-read from `corpus/` exactly the way Barcelona's
+DOGC 4893 can.
+
+⚠⚠ **AND THE REASON IT WAS "UNREACHABLE" WAS WRONG, WHICH MATTERS MORE THAN THE FIX.** This block
+previously read: *"`urbanismo.murcia.es/infourb/documentos/` returns **HTTP 403** to automated
+requests (the BCNROC pattern; a human browser reaches it)"*, and that sentence propagated verbatim
+into `PRIMARY-SOURCE-VERIFICATION-2026-08-01.md`, `murcia.measurements.json` and the L-674 audit row.
+**The 403 is on the DIRECTORY INDEX. The PDF itself returns HTTP 200 to `curl`.** No new route, no
+human browser, no founder hand-fetch was ever required — one correctly-formed request. The
+contradiction was already sitting in the repo: `esMurciaPgou2012.ts:12` records *"(2026-08-01, HTTP
+200, 2 352 553 bytes)"*, the exact byte count now filed. **Probe the ARTEFACT, not its container** —
+*"the directory 403s"* ≠ *"the file 403s"*, the sibling of L-661's *"not found" ≠ "does not exist"*.
+Full route table: [`../corpus/RETRIEVAL-LOG.md`](../corpus/RETRIEVAL-LOG.md) §0.
 
 ⚠ **Misattribution guard (the Badalona lesson, which recurred three times):** *always verify the
 MUNICIPALITY, never the numbers.* When Volumen 11 arrives, confirm the title page says **Murcia** before
@@ -189,7 +199,13 @@ Also **NOT** authorised:
   verbatim. That is engineering, not a signature.
 - **A BORM approval reference.** `MURCIA_PGOU_BORM_REFERENCE = 'not-located-in-source'`. ⚠ *Not
   located* is **not** *does not exist*.
-- **Concordance of the 2017 re-edition with the 2012 TR** — unverified.
+- ~~**Concordance of the 2017 re-edition with the 2012 TR** — unverified.~~ ✅ **CHECKED 2026-08-01
+  (L-676): all 22 cited zone articles are BYTE-IDENTICAL across both published consolidations**, and
+  the four cited articles that do differ (1.1.1, 5.1.5, 5.26.3, 6.2.2) move no published value. The
+  evidence also runs the OPPOSITE way to the worry: the murcia.es *"2017"* file is an **earlier**
+  consolidation the municipality still hosts — its «act. 28_02_2017» is a file-upload label, not an
+  edition date. PRYZM cites the LATER of the two. Method + article table:
+  [`../corpus/INDEX.md`](../corpus/INDEX.md) §2–§3.
 - **Promotion above `estimated-ruleset`.** A verbatim quote from a consolidation is not an official
   determination.
 

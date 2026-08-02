@@ -19,9 +19,11 @@ is either CONFIRMED against a delivered document or marked as still open.
 | 4 | `orden_cumplimiento_orden_5-3-2002.pdf` | BORM 127, 4-jun-2009 — Orden 15-may-2009, subsanación deficiencia nº 2 | provenance |
 | 5 | (duplicate of #4) | — | — |
 
-⚠ **The PDF binaries are not yet in `corpus/pdf/`.** They were delivered as conversation
-attachments and read there. Filing the binaries remains open; the *content* verification
-below was performed against the delivered text and is recorded here so it is not lost.
+✅ **UPDATE 2026-08-01 (L-676) — the binaries ARE now in `corpus/pdf/`.** Both the cited **2012 TR**
+(retrieved from `urbanismo.murcia.es`, HTTP 200) and this delivered *"adaptado al DL 1/2005"* file
+(retrieved from `www.murcia.es`, HTTP 200) are filed with their SHA-256s. See
+[`../corpus/INDEX.md`](../corpus/INDEX.md) and [`../corpus/RETRIEVAL-LOG.md`](../corpus/RETRIEVAL-LOG.md).
+Docs #2–#4 (the BORM órdenes) are still conversation-only and remain unfiled.
 
 ---
 
@@ -59,20 +61,33 @@ Further, the delivered consolidation is **not purely the 2005 adaptation**: it c
 General aprobadas definitivamente* (MPG 10031, 10055, 10068, 10078). It therefore
 post-dates 2006 by an **unstated** margin.
 
-### Status of the discrepancy
+### Status of the discrepancy — ✅ **RESOLVED 2026-08-01 (later the same day), L-676**
 
-`status: unverified · finding: version_mismatch_unresolved`
+~~`status: unverified · finding: version_mismatch_unresolved`~~
+→ **`status: verified · finding: reading (a) CONFIRMED — the articles are unchanged`**
 
-Two readings are open and **neither is assumed**:
+Two readings were open:
 
 - **(a)** The 2012 TR reproduces these articles unchanged, and the pack's citation is
   merely imprecise about which printing it quotes. → fix the citation string.
 - **(b)** The 2012 TR altered one or more of these articles. → every affected quote must
   be re-verified and SIG-MU1's scope re-examined.
 
-**Nothing in the delivered set decides between (a) and (b).** The 2012 TR itself is still
-required. What the delivered set *does* prove is that the transcribed text is a genuine,
-official Murcia PGOU Normas Urbanísticas — which is a large step up from nothing.
+**The 2012 TR was retrieved (HTTP 200 — the "403" was the directory index, never the file),
+filed at `../corpus/pdf/PGOU-MURCIA_TR-2012-12_vol11_normas-urbanisticas.pdf`, and diffed
+article-by-article against the delivered document. Reading (a) is CONFIRMED: all 22 cited
+zone articles are BYTE-IDENTICAL.** Full table and method: [`../corpus/INDEX.md`](../corpus/INDEX.md) §2.
+
+⭐ **And the direction was backwards.** This section reasoned that the delivered file is the 2012 TR's
+*"legal antecedent, not the TR itself"* — **that is correct**, and four independent signals now
+confirm it (the 2012 TR carries `Art. 2.1.10` and `Art. 6.2.7`/zone `ZE` which the delivered file
+lacks; the delivered file's Art. 5.1.5 cross-references *"Capítulo 22"* while its own body heading
+reads `CAPÍTULO 24`, a stale reference the 2012 TR corrects; the 2012 TR uses the post-2008
+*aprovechamiento de referencia* vocabulary and cites TRLSRM; and its Art. 6.2.2 is the broader
+*"planes parciales **o especiales**"*). The elsewhere-recorded worry that a *"2017 re-edition"*
+might **supersede** the pack's source is therefore **refuted**: «act. 28_02_2017» is a file-upload
+label on an EARLIER consolidation that `www.murcia.es` still links. **PRYZM cites the later of the
+two published texts.** No citation string needs fixing.
 
 ---
 
