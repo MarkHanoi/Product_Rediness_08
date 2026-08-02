@@ -1,0 +1,2611 @@
+{
+  "summary": {
+    "packRecordsTotal": 282,
+    "shippedZoneRecords": 231,
+    "shippedZones": 23,
+    "sampled": 121,
+    "coverageOfShippedPct": 52.4,
+    "byRisk": {
+      "R1": 47,
+      "R2": 56,
+      "R3": 29,
+      "R4": 106
+    },
+    "notOnCitedPage": 47,
+    "articlesWithAmendments": 19,
+    "articlesCited": 33
+  },
+  "sample": [
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "maxFloors",
+      "value": 3,
+      "unit": "plantas",
+      "articulo": "8.4.10",
+      "apartado": "cuadro de relación",
+      "pdfPage": 415,
+      "printedPage": 413,
+      "verbatim": "Menos de 12 | 3 | 11,50",
+      "extractedFrom": "table",
+      "measurement": "número de plantas",
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "maxFloors",
+      "value": 4,
+      "unit": "plantas",
+      "articulo": "8.4.10",
+      "apartado": "cuadro de relación",
+      "pdfPage": 415,
+      "printedPage": 413,
+      "verbatim": "De 12 a menos de 18 | 4 | 15,00",
+      "extractedFrom": "table",
+      "measurement": "número de plantas",
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "maxFloors",
+      "value": 5,
+      "unit": "plantas",
+      "articulo": "8.4.10",
+      "apartado": "cuadro de relación",
+      "pdfPage": 415,
+      "printedPage": 413,
+      "verbatim": "De 18 a menos de 24 | 5 | 18,50",
+      "extractedFrom": "table",
+      "measurement": "número de plantas",
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "maxFloors",
+      "value": 6,
+      "unit": "plantas",
+      "articulo": "8.4.10",
+      "apartado": "cuadro de relación",
+      "pdfPage": 415,
+      "printedPage": 413,
+      "verbatim": "De 24 en adelante | 6 | 21,50",
+      "extractedFrom": "table",
+      "measurement": "número de plantas",
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "maxHeight_m",
+      "value": 11.5,
+      "unit": "m",
+      "articulo": "8.4.10",
+      "apartado": "cuadro de relación",
+      "pdfPage": 415,
+      "printedPage": 413,
+      "verbatim": "Menos de 12 | 3 | 11,50",
+      "extractedFrom": "table",
+      "measurement": "cornisa",
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "maxHeight_m",
+      "value": 15.0,
+      "unit": "m",
+      "articulo": "8.4.10",
+      "apartado": "cuadro de relación",
+      "pdfPage": 415,
+      "printedPage": 413,
+      "verbatim": "De 12 a menos de 18 | 4 | 15,00",
+      "extractedFrom": "table",
+      "measurement": "cornisa",
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "maxHeight_m",
+      "value": 18.5,
+      "unit": "m",
+      "articulo": "8.4.10",
+      "apartado": "cuadro de relación",
+      "pdfPage": 415,
+      "printedPage": 413,
+      "verbatim": "De 18 a menos de 24 | 5 | 18,50",
+      "extractedFrom": "table",
+      "measurement": "cornisa",
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "maxHeight_m",
+      "value": 21.5,
+      "unit": "m",
+      "articulo": "8.4.10",
+      "apartado": "cuadro de relación",
+      "pdfPage": 415,
+      "printedPage": 413,
+      "verbatim": "De 24 en adelante | 6 | 21,50",
+      "extractedFrom": "table",
+      "measurement": "cornisa",
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "farRatio",
+      "value": 2.4,
+      "unit": "m²/m²",
+      "articulo": "8.4.2",
+      "apartado": "2.e)",
+      "pdfPage": 410,
+      "printedPage": 408,
+      "verbatim": "En ningún caso, la edificabilidad total resultante podrá rebasar los dos con cuatro (2,4) metros cuadrados por cada metro cuadrado de parcela edificable.",
+      "extractedFrom": "prose",
+      "measurement": "edificabilidad total resultante — CEILING, applies ONLY to the enlargement of EXISTING exclusively-industrial buildings, not to new-build",
+      "denominatorScope": "parcela edificable",
+      "risks": [
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "setbackRear_m",
+      "value": 3,
+      "unit": "m",
+      "articulo": "8.4.5",
+      "apartado": "2",
+      "pdfPage": 411,
+      "printedPage": 409,
+      "verbatim": "La edificación se separará del lindero testero una distancia igual o superior a un tercio (1/3) de la altura de coronación de cada uno de los cuerpos de edificación enfrentados al mismo, efectuándose dicha medición de la misma forma que para patios determina el artículo 6.7.14, con un mínimo de tres (3) metros.",
+      "extractedFrom": "prose",
+      "measurement": "FLOOR of a height-proportional rule. The governing rule is a formula: separation ≥ 1/3 of the altura de coronación of each facing building body, with an absolute minimum of 3 m. 3 binds only when (1/3)·H ≤ 3, i.e. H ≤ 9 m. Above that the formula governs and the value is parcel-specific. Do NOT use 3 as a fixed rear setback.",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "setbackSide_m",
+      "value": 0,
+      "unit": "m",
+      "articulo": "8.4.5",
+      "apartado": "1",
+      "pdfPage": 411,
+      "printedPage": 409,
+      "verbatim": "La edificación se adosará a los linderos laterales, salvo:",
+      "extractedFrom": "prose",
+      "measurement": "party-wall abutment mandatory (adosamiento a linderos laterales)",
+      "denominatorScope": null,
+      "risks": [
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "setbackSide_m",
+      "value": 3,
+      "unit": "m",
+      "articulo": "8.4.5",
+      "apartado": "5",
+      "pdfPage": 411,
+      "printedPage": 409,
+      "verbatim": "Cuando la parcela colinde con una parcela correspondiente a tipología edificatoria distinta a edificación en manzana cerrada, deberá separarse un mínimo de tres (3) metros de dicho lindero común o adosarse a él según las condiciones de los apartados 2, 3 y 4 del artículo 6.3.13.",
+      "extractedFrom": "prose",
+      "measurement": "MINIMUM separation where the parcel adjoins a parcel of a DIFFERENT tipología edificatoria (not manzana cerrada)",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "setbackFront_m",
+      "value": 0,
+      "unit": "m",
+      "articulo": "8.4.6",
+      "apartado": "1",
+      "pdfPage": 412,
+      "printedPage": 410,
+      "verbatim": "El edificio situará una de sus fachadas exteriores sobre y a lo largo de la alineación oficial en toda su altura, salvo lo dispuesto en los puntos siguientes en los que se podrá separar paralelamente:",
+      "extractedFrom": "prose",
+      "measurement": "alineación obligatoria — the façade must SIT ON the alineación oficial for its full height; this is a mandatory build-to line, not a permissive zero setback",
+      "denominatorScope": null,
+      "risks": [
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "buildableDepth_m",
+      "value": 12,
+      "unit": "m",
+      "articulo": "8.4.7",
+      "apartado": "1",
+      "pdfPage": 412,
+      "printedPage": 410,
+      "verbatim": "Se establece un fondo máximo edificable de doce (12) metros.",
+      "extractedFrom": "prose",
+      "measurement": "fondo máximo edificable, medido perpendicularmente desde la alineación oficial",
+      "denominatorScope": null,
+      "risks": [
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "maxCoverage",
+      "value": 100,
+      "unit": "%",
+      "articulo": "8.4.8",
+      "apartado": "2",
+      "pdfPage": 413,
+      "printedPage": 411,
+      "verbatim": "Las plantas bajo rasante podrán ocupar la totalidad de la parcela.",
+      "extractedFrom": "prose",
+      "measurement": "ocupación en plantas bajo rasante",
+      "denominatorScope": "parcela",
+      "risks": [
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz4.json",
+      "zone": "4",
+      "param": "farRatio",
+      "value": null,
+      "unit": null,
+      "articulo": "8.4.9",
+      "apartado": "1",
+      "pdfPage": 414,
+      "printedPage": 412,
+      "verbatim": "La superficie edificable de la parcela viene definida por el resultado de multiplicar la altura en número de plantas que le corresponda en función del ancho de calle, según el art. 8.4.10., por la superficie de parcela edificable comprendida dentro del polígono definido por la alineación oficial, los linderos laterales y una línea paralela a dicha alineación trazada a doce (12) metros de distancia, medidos perpendicularmente en todos sus puntos.",
+      "extractedFrom": "prose",
+      "measurement": "superficie edificable (construida), computed",
+      "denominatorScope": "parcela (specifically: only the sub-area of the parcel inside the 12 m fondo polygon — NOT the whole parcel, NOT the manzana)",
+      "risks": [
+        "R1"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz5.json",
+      "zone": "5.1",
+      "param": "setbackFront_m",
+      "value": null,
+      "unit": "m",
+      "articulo": "8.5.6",
+      "apartado": "3",
+      "pdfPage": 420,
+      "printedPage": 418,
+      "verbatim": "La edificación guardará una separación igual a H/2 de su altura de coronación respecto al eje de la calle o del espacio libre público al que hace frente la parcela. En el caso de la existencia de una zona verde de acompañamiento de viario interpuesta entre la parcela edificable y la correspondiente vía, la separación se medirá al eje del conjunto de ambas.",
+      "extractedFrom": "prose",
+      "measurement": "separación al EJE de la calle o espacio libre público (street centreline), NOT to the alineación oficial",
+      "denominatorScope": null,
+      "risks": [
+        "R1"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz5.json",
+      "zone": "5.1",
+      "param": "farRatio",
+      "value": 2.0,
+      "unit": "m²/m²",
+      "articulo": "8.5.8",
+      "apartado": "1)",
+      "pdfPage": 421,
+      "printedPage": 419,
+      "verbatim": "Dos (2) metros cuadrados por cada metro cuadrado.",
+      "extractedFrom": "prose",
+      "measurement": "coeficiente máximo de edificabilidad neta",
+      "denominatorScope": "parcela edificable (neta)",
+      "risks": [
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz5.json",
+      "zone": "5.2",
+      "param": "setbackFront_m",
+      "value": null,
+      "unit": "m",
+      "articulo": "8.5.6",
+      "apartado": "3",
+      "pdfPage": 420,
+      "printedPage": 418,
+      "verbatim": "La edificación guardará una separación igual a H/2 de su altura de coronación respecto al eje de la calle o del espacio libre público al que hace frente la parcela. En el caso de la existencia de una zona verde de acompañamiento de viario interpuesta entre la parcela edificable y la correspondiente vía, la separación se medirá al eje del conjunto de ambas.",
+      "extractedFrom": "prose",
+      "measurement": "separación al EJE de la calle o espacio libre público (street centreline), NOT to the alineación oficial",
+      "denominatorScope": null,
+      "risks": [
+        "R1"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz5.json",
+      "zone": "5.2",
+      "param": "farRatio",
+      "value": 1.6,
+      "unit": "m²/m²",
+      "articulo": "8.5.8",
+      "apartado": "2)",
+      "pdfPage": 421,
+      "printedPage": 419,
+      "verbatim": "Uno con seis (1,6) metros cuadrados por cada metro cuadrado.",
+      "extractedFrom": "prose",
+      "measurement": "coeficiente máximo de edificabilidad neta",
+      "denominatorScope": "parcela edificable (neta)",
+      "risks": [
+        "R3",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz5.json",
+      "zone": "5.2",
+      "param": "maxFloors",
+      "value": 8,
+      "unit": "plantas",
+      "articulo": "8.5.9",
+      "apartado": "1.2)",
+      "pdfPage": 421,
+      "printedPage": 419,
+      "verbatim": "En grado 2º: Ocho (8) plantas y treinta (30) metros.",
+      "extractedFrom": "prose",
+      "measurement": "número de plantas",
+      "denominatorScope": null,
+      "risks": [
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz5.json",
+      "zone": "5.3",
+      "param": "setbackFront_m",
+      "value": null,
+      "unit": "m",
+      "articulo": "8.5.6",
+      "apartado": "3",
+      "pdfPage": 420,
+      "printedPage": 418,
+      "verbatim": "La edificación guardará una separación igual a H/2 de su altura de coronación respecto al eje de la calle o del espacio libre público al que hace frente la parcela. En el caso de la existencia de una zona verde de acompañamiento de viario interpuesta entre la parcela edificable y la correspondiente vía, la separación se medirá al eje del conjunto de ambas.",
+      "extractedFrom": "prose",
+      "measurement": "separación al EJE de la calle o espacio libre público (street centreline), NOT to the alineación oficial",
+      "denominatorScope": null,
+      "risks": [
+        "R1"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz5.json",
+      "zone": "5.3",
+      "param": "farRatio",
+      "value": 1.4,
+      "unit": "m²/m²",
+      "articulo": "8.5.8",
+      "apartado": "3)",
+      "pdfPage": 421,
+      "printedPage": 419,
+      "verbatim": "Uno con cuatro (1,4) metros cuadrados por cada metro cuadrado.",
+      "extractedFrom": "prose",
+      "measurement": "coeficiente máximo de edificabilidad neta",
+      "denominatorScope": "parcela edificable (neta)",
+      "risks": [
+        "R3",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz5.json",
+      "zone": "5.3",
+      "param": "maxFloors",
+      "value": 4,
+      "unit": "plantas",
+      "articulo": "8.5.9",
+      "apartado": "1.3)",
+      "pdfPage": 421,
+      "printedPage": 419,
+      "verbatim": "En grado 3º: Cuatro (4) plantas y quince (15) metros.",
+      "extractedFrom": "prose",
+      "measurement": "número de plantas",
+      "denominatorScope": null,
+      "risks": [
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.1.a",
+      "param": "permittedUse",
+      "value": "residencial",
+      "unit": null,
+      "articulo": "8.7.1",
+      "apartado": "3",
+      "pdfPage": 432,
+      "printedPage": 430,
+      "verbatim": "Su uso cualificado es el residencial. Excepto en el grado 2º nivel \"e\", en el que el uso cualificado es el Terciario en sus clases de Oficina y Hospedaje.",
+      "extractedFrom": "prose",
+      "measurement": "uso cualificado",
+      "denominatorScope": null,
+      "risks": [
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.1.a",
+      "param": "maxFloors",
+      "value": 4,
+      "unit": "plantas",
+      "articulo": "8.7.11",
+      "apartado": "1",
+      "pdfPage": 435,
+      "printedPage": 433,
+      "verbatim": "En el grado 1º, la edificación no podrá superar una altura de cuatro (4) plantas, ni una altura de cornisa superior a mil cuatrocientos cincuenta (1.450) centímetros, medida desde la rasante de la acera en el punto medio de la línea de fachada.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.1.a",
+      "param": "maxHeight_m",
+      "value": 14.5,
+      "unit": "m",
+      "articulo": "8.7.11",
+      "apartado": "1",
+      "pdfPage": 435,
+      "printedPage": 433,
+      "verbatim": "no podrá superar una altura de cuatro (4) plantas, ni una altura de cornisa superior a mil cuatrocientos cincuenta (1.450) centímetros, medida desde la rasante de la acera en el punto medio de la línea de fachada",
+      "extractedFrom": "prose",
+      "measurement": "cornisa",
+      "denominatorScope": null,
+      "risks": [
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.1.a",
+      "param": "maxCoverage",
+      "value": 35,
+      "unit": "%",
+      "articulo": "8.7.8",
+      "apartado": "1",
+      "pdfPage": 434,
+      "printedPage": 432,
+      "verbatim": "En el grado 1º, la ocupación sobre rasante será inferior o igual al treinta y cinco por ciento (35%) de la superficie de la parcela edificable y la ocupación bajo rasante podrá alcanzar el sesenta por ciento (60%)",
+      "extractedFrom": "prose",
+      "measurement": "ocupación sobre rasante",
+      "denominatorScope": "parcela edificable",
+      "risks": [
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.1.a",
+      "param": "maxCoverage",
+      "value": 60,
+      "unit": "%",
+      "articulo": "8.7.8",
+      "apartado": "1",
+      "pdfPage": 434,
+      "printedPage": 432,
+      "verbatim": "la ocupación bajo rasante podrá alcanzar el sesenta por ciento (60%), pudiendo en plantas enteramente subterráneas, en parcelas con superficie hasta mil seiscientos (1.600) metros cuadrados, ocuparse la totalidad de la parcela edificable y en parcelas con superficie superior a mil seiscientos (1.600) metros cuadrados, dicha ocupación será el resultado de aplicar el cien por cien (100%) a los mil seiscientos (1.600) metros cuadrados primeros, incrementados con el sesenta por ciento (60%) sobre el resto de la superficie.",
+      "extractedFrom": "prose",
+      "measurement": "ocupación bajo rasante — base value; a tiered override applies to plantas enteramente subterráneas",
+      "denominatorScope": "parcela edificable",
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.1.a",
+      "param": "farRatio",
+      "value": 0.8,
+      "unit": "m²/m²",
+      "articulo": "8.7.9",
+      "apartado": "1.a)",
+      "pdfPage": 434,
+      "printedPage": 432,
+      "verbatim": "Grado 1º: Ocho (8) metros cuadrados por cada diez (10) metros cuadrados.",
+      "extractedFrom": "prose",
+      "measurement": "coeficiente de edificabilidad neta",
+      "denominatorScope": "parcela edificable (neta)",
+      "risks": [
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.1.b",
+      "param": "permittedUse",
+      "value": "residencial",
+      "unit": null,
+      "articulo": "8.7.1",
+      "apartado": "3",
+      "pdfPage": 432,
+      "printedPage": 430,
+      "verbatim": "Su uso cualificado es el residencial. Excepto en el grado 2º nivel \"e\", en el que el uso cualificado es el Terciario en sus clases de Oficina y Hospedaje.",
+      "extractedFrom": "prose",
+      "measurement": "uso cualificado",
+      "denominatorScope": null,
+      "risks": [
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.1.b",
+      "param": "maxFloors",
+      "value": 4,
+      "unit": "plantas",
+      "articulo": "8.7.11",
+      "apartado": "1",
+      "pdfPage": 435,
+      "printedPage": 433,
+      "verbatim": "En el grado 1º, la edificación no podrá superar una altura de cuatro (4) plantas, ni una altura de cornisa superior a mil cuatrocientos cincuenta (1.450) centímetros, medida desde la rasante de la acera en el punto medio de la línea de fachada.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.1.b",
+      "param": "maxHeight_m",
+      "value": 14.5,
+      "unit": "m",
+      "articulo": "8.7.11",
+      "apartado": "1",
+      "pdfPage": 435,
+      "printedPage": 433,
+      "verbatim": "no podrá superar una altura de cuatro (4) plantas, ni una altura de cornisa superior a mil cuatrocientos cincuenta (1.450) centímetros, medida desde la rasante de la acera en el punto medio de la línea de fachada",
+      "extractedFrom": "prose",
+      "measurement": "cornisa",
+      "denominatorScope": null,
+      "risks": [
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.1.b",
+      "param": "farRatio",
+      "value": 1.2,
+      "unit": "m²/m²",
+      "articulo": "8.7.18",
+      "apartado": "2.b)i)",
+      "pdfPage": 437,
+      "printedPage": 435,
+      "verbatim": "Terciario Oficinas, Hospedaje, Recreativo, Otros Servicios Terciarios y Comercial en las categorías de pequeño y mediano comercio, en edificio exclusivo, con una edificabilidad máxima de doce (12) metros cuadrados por cada diez (10) metros cuadrados de parcela edificable.",
+      "extractedFrom": "prose",
+      "measurement": "ALTERNATIVE-USE ceiling — applies only to the listed terciario uses in edificio exclusivo, NOT to the residential uso cualificado (which stays at 0,8 per Art. 8.7.9)",
+      "denominatorScope": "parcela edificable",
+      "risks": [
+        "R1"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.1.b",
+      "param": "maxCoverage",
+      "value": 35,
+      "unit": "%",
+      "articulo": "8.7.8",
+      "apartado": "1",
+      "pdfPage": 434,
+      "printedPage": 432,
+      "verbatim": "En el grado 1º, la ocupación sobre rasante será inferior o igual al treinta y cinco por ciento (35%) de la superficie de la parcela edificable y la ocupación bajo rasante podrá alcanzar el sesenta por ciento (60%)",
+      "extractedFrom": "prose",
+      "measurement": "ocupación sobre rasante",
+      "denominatorScope": "parcela edificable",
+      "risks": [
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.1.b",
+      "param": "maxCoverage",
+      "value": 60,
+      "unit": "%",
+      "articulo": "8.7.8",
+      "apartado": "1",
+      "pdfPage": 434,
+      "printedPage": 432,
+      "verbatim": "la ocupación bajo rasante podrá alcanzar el sesenta por ciento (60%), pudiendo en plantas enteramente subterráneas, en parcelas con superficie hasta mil seiscientos (1.600) metros cuadrados, ocuparse la totalidad de la parcela edificable y en parcelas con superficie superior a mil seiscientos (1.600) metros cuadrados, dicha ocupación será el resultado de aplicar el cien por cien (100%) a los mil seiscientos (1.600) metros cuadrados primeros, incrementados con el sesenta por ciento (60%) sobre el resto de la superficie.",
+      "extractedFrom": "prose",
+      "measurement": "ocupación bajo rasante — base value; a tiered override applies to plantas enteramente subterráneas",
+      "denominatorScope": "parcela edificable",
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.1.b",
+      "param": "farRatio",
+      "value": 0.8,
+      "unit": "m²/m²",
+      "articulo": "8.7.9",
+      "apartado": "1.a)",
+      "pdfPage": 434,
+      "printedPage": 432,
+      "verbatim": "Grado 1º: Ocho (8) metros cuadrados por cada diez (10) metros cuadrados.",
+      "extractedFrom": "prose",
+      "measurement": "coeficiente de edificabilidad neta",
+      "denominatorScope": "parcela edificable (neta)",
+      "risks": [
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.2.e",
+      "param": "maxFloors",
+      "value": 3,
+      "unit": "plantas",
+      "articulo": "8.7.11",
+      "apartado": "2",
+      "pdfPage": 435,
+      "printedPage": 433,
+      "verbatim": "En los grados 2º y 3º, la edificación no podrá superar un altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros, midiendo ambos valores desde la cota de nivelación de planta baja.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.2.e",
+      "param": "maxHeight_m",
+      "value": 10.5,
+      "unit": "m",
+      "articulo": "8.7.11",
+      "apartado": "2",
+      "pdfPage": 435,
+      "printedPage": 433,
+      "verbatim": "no podrá superar un altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros, midiendo ambos valores desde la cota de nivelación de planta baja",
+      "extractedFrom": "prose",
+      "measurement": "cornisa",
+      "denominatorScope": null,
+      "risks": [
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.2.e",
+      "param": "farRatio",
+      "value": 1.0,
+      "unit": "m²/m²",
+      "articulo": "8.7.20",
+      "apartado": "párrafo único (el artículo no tiene apartados numerados)",
+      "pdfPage": 438,
+      "printedPage": 436,
+      "verbatim": "En el grado 2º nivel \"e\" especial, el uso cualificado es, el terciario en sus clases de oficinas y hospedaje. La edificabilidad máxima es de un (1) metro cuadrado por metro cuadrado de parcela edificable, pudiendo implantarse en planta baja el resto de usos terciarios, excepto el mediano comercio y grandes superficies comerciales. Queda prohibido expresamente el uso residencial.",
+      "extractedFrom": "prose",
+      "measurement": "edificabilidad máxima — GOVERNING value for grado 2º nivel 'e'",
+      "denominatorScope": "parcela edificable",
+      "risks": [
+        "R1",
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.2.e",
+      "param": "permittedUse",
+      "value": "terciario (oficinas y hospedaje); uso residencial expresamente prohibido",
+      "unit": null,
+      "articulo": "8.7.20",
+      "apartado": "párrafo único (el artículo no tiene apartados numerados)",
+      "pdfPage": 438,
+      "printedPage": 436,
+      "verbatim": "En el grado 2º nivel \"e\" especial, el uso cualificado es, el terciario en sus clases de oficinas y hospedaje. […] Queda prohibido expresamente el uso residencial.",
+      "extractedFrom": "prose",
+      "measurement": "uso cualificado",
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.2.e",
+      "param": "maxCoverage",
+      "value": 30,
+      "unit": "%",
+      "articulo": "8.7.8",
+      "apartado": "2",
+      "pdfPage": 434,
+      "printedPage": 432,
+      "verbatim": "En el grado 2º, la ocupación de la parcela por el conjunto de edificaciones situadas sobre y bajo rasante, no podrá ser superior al treinta por ciento (30%) de la superficie de parcela edificable.",
+      "extractedFrom": "prose",
+      "measurement": "ocupación del CONJUNTO sobre y bajo rasante (a single combined budget, not two separate ones)",
+      "denominatorScope": "parcela edificable",
+      "risks": [
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz7.json",
+      "zone": "7.2.e",
+      "param": "farRatio",
+      "value": 0.5,
+      "unit": "m²/m²",
+      "articulo": "8.7.9",
+      "apartado": "1.b)",
+      "pdfPage": 434,
+      "printedPage": 432,
+      "verbatim": "Grado 2º: Cinco (5) metros cuadrados por cada diez (10) metros cuadrados.",
+      "extractedFrom": "prose",
+      "measurement": "coeficiente de edificabilidad neta — the general grado 2º value; DISPLACED inside nivel 'e' by art. 8.7.20",
+      "denominatorScope": "parcela edificable (neta)",
+      "risks": [
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.1.a",
+      "param": "maxFloors",
+      "value": 3,
+      "unit": "plantas",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.1.a",
+      "param": "maxHeight_m",
+      "value": 10.5,
+      "unit": "m",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": "cornisa, on the ACCESS façade",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.1.a",
+      "param": "setbackRear_m",
+      "value": 4,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "2",
+      "pdfPage": 441,
+      "printedPage": 439,
+      "verbatim": "Respecto al lindero testero, la separación será igual o superior a 2H:3 con un mínimo de cuatro (4) metros. Siendo el valor de (H), la altura de cornisa de los citados cuerpos, salvo en el grado 6º, en el que se tomará como valor de (H) la mayor de las alturas de cornisa de la construcción.",
+      "extractedFrom": "prose",
+      "measurement": "FLOOR of a height-proportional rule: ≥ 2H/3 with a 4 m minimum. 4 m binds only while H ≤ 6 m; above that the formula governs. Do NOT use 4 as a fixed rear setback.",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.1.a",
+      "param": "setbackSide_m",
+      "value": 7,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "1.a)",
+      "pdfPage": 440,
+      "printedPage": 438,
+      "verbatim": "Grado 1º: Siete (7) metros.",
+      "extractedFrom": "prose",
+      "measurement": "separación mínima de las fachadas a los linderos laterales",
+      "denominatorScope": null,
+      "risks": [
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.1.c",
+      "param": "maxFloors",
+      "value": 3,
+      "unit": "plantas",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.1.c",
+      "param": "maxHeight_m",
+      "value": 10.5,
+      "unit": "m",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": "cornisa, on the ACCESS façade",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.1.c",
+      "param": "setbackRear_m",
+      "value": 4,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "2",
+      "pdfPage": 441,
+      "printedPage": 439,
+      "verbatim": "Respecto al lindero testero, la separación será igual o superior a 2H:3 con un mínimo de cuatro (4) metros. Siendo el valor de (H), la altura de cornisa de los citados cuerpos, salvo en el grado 6º, en el que se tomará como valor de (H) la mayor de las alturas de cornisa de la construcción.",
+      "extractedFrom": "prose",
+      "measurement": "FLOOR of a height-proportional rule: ≥ 2H/3 with a 4 m minimum. 4 m binds only while H ≤ 6 m; above that the formula governs. Do NOT use 4 as a fixed rear setback.",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.1.c",
+      "param": "setbackSide_m",
+      "value": 7,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "1.a)",
+      "pdfPage": 440,
+      "printedPage": 438,
+      "verbatim": "Grado 1º: Siete (7) metros.",
+      "extractedFrom": "prose",
+      "measurement": "separación mínima de las fachadas a los linderos laterales",
+      "denominatorScope": null,
+      "risks": [
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.2.a",
+      "param": "maxFloors",
+      "value": 3,
+      "unit": "plantas",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.2.a",
+      "param": "maxHeight_m",
+      "value": 10.5,
+      "unit": "m",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": "cornisa, on the ACCESS façade",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.2.a",
+      "param": "setbackRear_m",
+      "value": 4,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "2",
+      "pdfPage": 441,
+      "printedPage": 439,
+      "verbatim": "Respecto al lindero testero, la separación será igual o superior a 2H:3 con un mínimo de cuatro (4) metros. Siendo el valor de (H), la altura de cornisa de los citados cuerpos, salvo en el grado 6º, en el que se tomará como valor de (H) la mayor de las alturas de cornisa de la construcción.",
+      "extractedFrom": "prose",
+      "measurement": "FLOOR of a height-proportional rule: ≥ 2H/3 with a 4 m minimum. 4 m binds only while H ≤ 6 m; above that the formula governs. Do NOT use 4 as a fixed rear setback.",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.2.a",
+      "param": "setbackSide_m",
+      "value": 5,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "1.b)",
+      "pdfPage": 440,
+      "printedPage": 438,
+      "verbatim": "Grado 2º: Cinco (5) metros.",
+      "extractedFrom": "prose",
+      "measurement": "separación mínima de las fachadas a los linderos laterales",
+      "denominatorScope": null,
+      "risks": [
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.2.b",
+      "param": "maxFloors",
+      "value": 3,
+      "unit": "plantas",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.2.b",
+      "param": "maxHeight_m",
+      "value": 10.5,
+      "unit": "m",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": "cornisa, on the ACCESS façade",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.2.b",
+      "param": "setbackRear_m",
+      "value": 4,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "2",
+      "pdfPage": 441,
+      "printedPage": 439,
+      "verbatim": "Respecto al lindero testero, la separación será igual o superior a 2H:3 con un mínimo de cuatro (4) metros. Siendo el valor de (H), la altura de cornisa de los citados cuerpos, salvo en el grado 6º, en el que se tomará como valor de (H) la mayor de las alturas de cornisa de la construcción.",
+      "extractedFrom": "prose",
+      "measurement": "FLOOR of a height-proportional rule: ≥ 2H/3 with a 4 m minimum. 4 m binds only while H ≤ 6 m; above that the formula governs. Do NOT use 4 as a fixed rear setback.",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.2.b",
+      "param": "setbackSide_m",
+      "value": 5,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "1.b)",
+      "pdfPage": 440,
+      "printedPage": 438,
+      "verbatim": "Grado 2º: Cinco (5) metros.",
+      "extractedFrom": "prose",
+      "measurement": "separación mínima de las fachadas a los linderos laterales",
+      "denominatorScope": null,
+      "risks": [
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.2.c",
+      "param": "maxFloors",
+      "value": 3,
+      "unit": "plantas",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.2.c",
+      "param": "maxHeight_m",
+      "value": 10.5,
+      "unit": "m",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": "cornisa, on the ACCESS façade",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.2.c",
+      "param": "setbackRear_m",
+      "value": 4,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "2",
+      "pdfPage": 441,
+      "printedPage": 439,
+      "verbatim": "Respecto al lindero testero, la separación será igual o superior a 2H:3 con un mínimo de cuatro (4) metros. Siendo el valor de (H), la altura de cornisa de los citados cuerpos, salvo en el grado 6º, en el que se tomará como valor de (H) la mayor de las alturas de cornisa de la construcción.",
+      "extractedFrom": "prose",
+      "measurement": "FLOOR of a height-proportional rule: ≥ 2H/3 with a 4 m minimum. 4 m binds only while H ≤ 6 m; above that the formula governs. Do NOT use 4 as a fixed rear setback.",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.2.c",
+      "param": "setbackSide_m",
+      "value": 5,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "1.b)",
+      "pdfPage": 440,
+      "printedPage": 438,
+      "verbatim": "Grado 2º: Cinco (5) metros.",
+      "extractedFrom": "prose",
+      "measurement": "separación mínima de las fachadas a los linderos laterales",
+      "denominatorScope": null,
+      "risks": [
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.3.a",
+      "param": "maxFloors",
+      "value": 3,
+      "unit": "plantas",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.3.a",
+      "param": "maxHeight_m",
+      "value": 10.5,
+      "unit": "m",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": "cornisa, on the ACCESS façade",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.3.a",
+      "param": "setbackRear_m",
+      "value": 4,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "2",
+      "pdfPage": 441,
+      "printedPage": 439,
+      "verbatim": "Respecto al lindero testero, la separación será igual o superior a 2H:3 con un mínimo de cuatro (4) metros. Siendo el valor de (H), la altura de cornisa de los citados cuerpos, salvo en el grado 6º, en el que se tomará como valor de (H) la mayor de las alturas de cornisa de la construcción.",
+      "extractedFrom": "prose",
+      "measurement": "FLOOR of a height-proportional rule: ≥ 2H/3 with a 4 m minimum. 4 m binds only while H ≤ 6 m; above that the formula governs. Do NOT use 4 as a fixed rear setback.",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.3.a",
+      "param": "setbackSide_m",
+      "value": 3,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "1.c)",
+      "pdfPage": 441,
+      "printedPage": 439,
+      "verbatim": "Grado 3º: Tres (3) metros.",
+      "extractedFrom": "prose",
+      "measurement": "separación mínima de las fachadas a los linderos laterales",
+      "denominatorScope": null,
+      "risks": [],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.3.c",
+      "param": "maxFloors",
+      "value": 3,
+      "unit": "plantas",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.3.c",
+      "param": "maxHeight_m",
+      "value": 10.5,
+      "unit": "m",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": "cornisa, on the ACCESS façade",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.3.c",
+      "param": "setbackRear_m",
+      "value": 4,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "2",
+      "pdfPage": 441,
+      "printedPage": 439,
+      "verbatim": "Respecto al lindero testero, la separación será igual o superior a 2H:3 con un mínimo de cuatro (4) metros. Siendo el valor de (H), la altura de cornisa de los citados cuerpos, salvo en el grado 6º, en el que se tomará como valor de (H) la mayor de las alturas de cornisa de la construcción.",
+      "extractedFrom": "prose",
+      "measurement": "FLOOR of a height-proportional rule: ≥ 2H/3 with a 4 m minimum. 4 m binds only while H ≤ 6 m; above that the formula governs. Do NOT use 4 as a fixed rear setback.",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.3.c",
+      "param": "setbackSide_m",
+      "value": 3,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "1.c)",
+      "pdfPage": 441,
+      "printedPage": 439,
+      "verbatim": "Grado 3º: Tres (3) metros.",
+      "extractedFrom": "prose",
+      "measurement": "separación mínima de las fachadas a los linderos laterales",
+      "denominatorScope": null,
+      "risks": [],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.4",
+      "param": "maxFloors",
+      "value": 3,
+      "unit": "plantas",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.4",
+      "param": "maxHeight_m",
+      "value": 10.5,
+      "unit": "m",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": "cornisa, on the ACCESS façade",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.4",
+      "param": "setbackRear_m",
+      "value": 4,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "2",
+      "pdfPage": 441,
+      "printedPage": 439,
+      "verbatim": "Respecto al lindero testero, la separación será igual o superior a 2H:3 con un mínimo de cuatro (4) metros. Siendo el valor de (H), la altura de cornisa de los citados cuerpos, salvo en el grado 6º, en el que se tomará como valor de (H) la mayor de las alturas de cornisa de la construcción.",
+      "extractedFrom": "prose",
+      "measurement": "FLOOR of a height-proportional rule: ≥ 2H/3 with a 4 m minimum. 4 m binds only while H ≤ 6 m; above that the formula governs. Do NOT use 4 as a fixed rear setback.",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.4",
+      "param": "setbackSide_m",
+      "value": 3,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "1.d)",
+      "pdfPage": 441,
+      "printedPage": 439,
+      "verbatim": "Grado 4º: Tres (3) metros.",
+      "extractedFrom": "prose",
+      "measurement": "separación mínima de las fachadas a los linderos laterales",
+      "denominatorScope": null,
+      "risks": [],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.5",
+      "param": "maxFloors",
+      "value": 2,
+      "unit": "plantas",
+      "articulo": "8.8.10",
+      "apartado": "2",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En el grado 5º, la altura de la edificación no podrá exceder de dos (2) plantas ni de siete (7) metros a cornisa, medidos desde la cota de nivelación de la planta baja.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.5",
+      "param": "maxHeight_m",
+      "value": 7,
+      "unit": "m",
+      "articulo": "8.8.10",
+      "apartado": "2",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En el grado 5º, la altura de la edificación no podrá exceder de dos (2) plantas ni de siete (7) metros a cornisa, medidos desde la cota de nivelación de la planta baja.",
+      "extractedFrom": "prose",
+      "measurement": "cornisa",
+      "denominatorScope": null,
+      "risks": [
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.5",
+      "param": "setbackRear_m",
+      "value": 4,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "2",
+      "pdfPage": 441,
+      "printedPage": 439,
+      "verbatim": "Respecto al lindero testero, la separación será igual o superior a 2H:3 con un mínimo de cuatro (4) metros. Siendo el valor de (H), la altura de cornisa de los citados cuerpos, salvo en el grado 6º, en el que se tomará como valor de (H) la mayor de las alturas de cornisa de la construcción.",
+      "extractedFrom": "prose",
+      "measurement": "FLOOR of a height-proportional rule: ≥ 2H/3 with a 4 m minimum. 4 m binds only while H ≤ 6 m; above that the formula governs. Do NOT use 4 as a fixed rear setback.",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.5",
+      "param": "setbackSide_m",
+      "value": 3,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "1.e)",
+      "pdfPage": 441,
+      "printedPage": 439,
+      "verbatim": "Grado 5º: Tres (3) metros.",
+      "extractedFrom": "prose",
+      "measurement": "separación mínima de las fachadas a los linderos laterales",
+      "denominatorScope": null,
+      "risks": [],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.6",
+      "param": "maxFloors",
+      "value": 3,
+      "unit": "plantas",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.6",
+      "param": "maxHeight_m",
+      "value": 10.5,
+      "unit": "m",
+      "articulo": "8.8.10",
+      "apartado": "1",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "En los grados 1º, 2º, 3º, 4º y 6º, la cota del origen y referencia será la del contacto de la edificación con el terreno en el punto medio de la fachada en que se sitúa el acceso al edificio, respecto de la cual la edificación no podrá superar una altura de tres (3) plantas, ni una altura de cornisa de mil cincuenta (1.050) centímetros. En el resto de las fachadas no se podrá superar una altura de cornisa de mil doscientos (1.200) centímetros, medidos desde la cota del terreno en los puntos medios de cada fachada.",
+      "extractedFrom": "prose",
+      "measurement": "cornisa, on the ACCESS façade",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.6",
+      "param": "setbackRear_m",
+      "value": 4,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "2",
+      "pdfPage": 441,
+      "printedPage": 439,
+      "verbatim": "Respecto al lindero testero, la separación será igual o superior a 2H:3 con un mínimo de cuatro (4) metros. Siendo el valor de (H), la altura de cornisa de los citados cuerpos, salvo en el grado 6º, en el que se tomará como valor de (H) la mayor de las alturas de cornisa de la construcción.",
+      "extractedFrom": "prose",
+      "measurement": "FLOOR of a height-proportional rule: ≥ 2H/3 with a 4 m minimum. 4 m binds only while H ≤ 6 m; above that the formula governs. Do NOT use 4 as a fixed rear setback.",
+      "denominatorScope": null,
+      "risks": [
+        "R1",
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.6",
+      "param": "setbackSide_m",
+      "value": 3,
+      "unit": "m",
+      "articulo": "8.8.6",
+      "apartado": "1.f)",
+      "pdfPage": 441,
+      "printedPage": 439,
+      "verbatim": "Grado 6º: La separación de la línea de edificación a los linderos laterales será igual o superior a la mitad de su altura (H/2) con un mínimo de tres (3) metros, tomando como valor de H la altura de cornisa correspondiente al lindero.",
+      "extractedFrom": "prose",
+      "measurement": "FLOOR of a height-proportional rule: ≥ H/2 with a 3 m minimum, H = altura de cornisa corresponding to that lindero. 3 m binds only while H ≤ 6 m.",
+      "denominatorScope": null,
+      "risks": [],
+      "onPage": true
+    },
+    {
+      "file": "nz8.json",
+      "zone": "8.6",
+      "param": "farRatio",
+      "value": 0.7,
+      "unit": "m²/m²",
+      "articulo": "8.8.9",
+      "apartado": "1.f)",
+      "pdfPage": 443,
+      "printedPage": 441,
+      "verbatim": "Grado 6º: Para parcelas de superficie menor o igual a quinientos (500) metros, siete (7) metros cuadrados por cada diez (10) metros cuadrados. Para parcelas de superficie mayor de quinientos (500) metros cuadrados, siete (7) metros cuadrados por cada diez (10) metros cuadrados sobre los primeros quinientos (500) metros cuadrados de superficie, y de cinco (5) metros cuadrados por cada diez (10) metros cuadrados sobre la superficie que exceda de quinientos (500) metros cuadrados.",
+      "extractedFrom": "prose",
+      "measurement": "coeficiente de edificabilidad neta — TIERED in grado 6º: 0,7 on the first 500 m² of parcel, 0,5 on the excess. A single scalar is only correct for parcels ≤500 m².",
+      "denominatorScope": "parcela edificable (neta)",
+      "risks": [
+        "R1",
+        "R4"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.1",
+      "param": "permittedUse",
+      "value": "industrial",
+      "unit": null,
+      "articulo": "8.9.1",
+      "apartado": "3",
+      "pdfPage": 451,
+      "printedPage": 449,
+      "verbatim": "Su uso cualificado es el industrial, en los grados 1º, 2º, 4º y 5º, y en grado 3º industrial en coexistencia con terciario de oficinas, entendiendo como coexistencia la posibilidad de implantación de uno u otro uso, o de ambos en edificios diferenciados o en un mismo edificio en proporción libre.",
+      "extractedFrom": "prose",
+      "measurement": "uso cualificado",
+      "denominatorScope": null,
+      "risks": [
+        "R1"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.1",
+      "param": "maxFloors",
+      "value": 3,
+      "unit": "plantas",
+      "articulo": "8.9.10",
+      "apartado": "1",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "Menos de 12 | 3 | 11,50",
+      "extractedFrom": "table",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.1",
+      "param": "maxFloors",
+      "value": 4,
+      "unit": "plantas",
+      "articulo": "8.9.10",
+      "apartado": "1",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "De 12 a menos de 18 | 4 | 15,00",
+      "extractedFrom": "table",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.1",
+      "param": "maxFloors",
+      "value": 5,
+      "unit": "plantas",
+      "articulo": "8.9.10",
+      "apartado": "1",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "A partir de 18 | 5 | 18,50",
+      "extractedFrom": "table",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.1",
+      "param": "maxHeight_m",
+      "value": 11.5,
+      "unit": "m",
+      "articulo": "8.9.10",
+      "apartado": "1",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "Menos de 12 | 3 | 11,50",
+      "extractedFrom": "table",
+      "measurement": "cornisa",
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.1",
+      "param": "maxHeight_m",
+      "value": 15.0,
+      "unit": "m",
+      "articulo": "8.9.10",
+      "apartado": "1",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "De 12 a menos de 18 | 4 | 15,00",
+      "extractedFrom": "table",
+      "measurement": "cornisa",
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.1",
+      "param": "maxHeight_m",
+      "value": 18.5,
+      "unit": "m",
+      "articulo": "8.9.10",
+      "apartado": "1",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "A partir de 18 | 5 | 18,50",
+      "extractedFrom": "table",
+      "measurement": "cornisa",
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.1",
+      "param": "setbackSide_m",
+      "value": 0,
+      "unit": "m",
+      "articulo": "8.9.6",
+      "apartado": "1",
+      "pdfPage": 452,
+      "printedPage": 450,
+      "verbatim": "En los grados 1º y 2º: La edificación deberá construirse entre medianeras en los doce (12) primeros metros de fondo, debiendo separarse en el resto, un mínimo de tres (3) metros, de cada uno de los linderos laterales.",
+      "extractedFrom": "prose",
+      "measurement": "mandatory party-wall abutment for the FIRST 12 m of depth; beyond 12 m a 3 m minimum separation applies",
+      "denominatorScope": null,
+      "risks": [],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.1",
+      "param": "setbackFront_m",
+      "value": 0,
+      "unit": "m",
+      "articulo": "8.9.7",
+      "apartado": "1",
+      "pdfPage": 453,
+      "printedPage": 451,
+      "verbatim": "En los grados 1º y 2º: El edificio situará una de sus fachadas exteriores sobre y a lo largo de la alineación oficial en toda su altura, salvo lo dispuesto en los puntos siguientes en los que se podrá separar paralelamente:",
+      "extractedFrom": "prose",
+      "measurement": "alineación obligatoria — build-to line, not a permissive zero",
+      "denominatorScope": null,
+      "risks": [
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.1",
+      "param": "farRatio",
+      "value": 2.4,
+      "unit": "m²/m²",
+      "articulo": "8.9.9",
+      "apartado": "a)",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "Grados 1º, 2º y 4º: Dos con cuatro (2,4) metros cuadrados por metro cuadrado.",
+      "extractedFrom": "prose",
+      "measurement": "coeficiente de edificabilidad neta por parcela edificable",
+      "denominatorScope": "parcela edificable (neta)",
+      "risks": [
+        "R3"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.2",
+      "param": "permittedUse",
+      "value": "industrial",
+      "unit": null,
+      "articulo": "8.9.1",
+      "apartado": "3",
+      "pdfPage": 451,
+      "printedPage": 449,
+      "verbatim": "Su uso cualificado es el industrial, en los grados 1º, 2º, 4º y 5º, y en grado 3º industrial en coexistencia con terciario de oficinas, entendiendo como coexistencia la posibilidad de implantación de uno u otro uso, o de ambos en edificios diferenciados o en un mismo edificio en proporción libre.",
+      "extractedFrom": "prose",
+      "measurement": "uso cualificado",
+      "denominatorScope": null,
+      "risks": [
+        "R1"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.2",
+      "param": "maxFloors",
+      "value": 3,
+      "unit": "plantas",
+      "articulo": "8.9.10",
+      "apartado": "1",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "Menos de 12 | 3 | 11,50",
+      "extractedFrom": "table",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.2",
+      "param": "maxFloors",
+      "value": 4,
+      "unit": "plantas",
+      "articulo": "8.9.10",
+      "apartado": "1",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "De 12 a menos de 18 | 4 | 15,00",
+      "extractedFrom": "table",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.2",
+      "param": "maxFloors",
+      "value": 5,
+      "unit": "plantas",
+      "articulo": "8.9.10",
+      "apartado": "1",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "A partir de 18 | 5 | 18,50",
+      "extractedFrom": "table",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.2",
+      "param": "maxHeight_m",
+      "value": 11.5,
+      "unit": "m",
+      "articulo": "8.9.10",
+      "apartado": "1",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "Menos de 12 | 3 | 11,50",
+      "extractedFrom": "table",
+      "measurement": "cornisa",
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.2",
+      "param": "maxHeight_m",
+      "value": 15.0,
+      "unit": "m",
+      "articulo": "8.9.10",
+      "apartado": "1",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "De 12 a menos de 18 | 4 | 15,00",
+      "extractedFrom": "table",
+      "measurement": "cornisa",
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.2",
+      "param": "maxHeight_m",
+      "value": 18.5,
+      "unit": "m",
+      "articulo": "8.9.10",
+      "apartado": "1",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "A partir de 18 | 5 | 18,50",
+      "extractedFrom": "table",
+      "measurement": "cornisa",
+      "denominatorScope": null,
+      "risks": [
+        "R3"
+      ],
+      "onPage": false
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.2",
+      "param": "setbackSide_m",
+      "value": 0,
+      "unit": "m",
+      "articulo": "8.9.6",
+      "apartado": "1",
+      "pdfPage": 452,
+      "printedPage": 450,
+      "verbatim": "En los grados 1º y 2º: La edificación deberá construirse entre medianeras en los doce (12) primeros metros de fondo, debiendo separarse en el resto, un mínimo de tres (3) metros, de cada uno de los linderos laterales.",
+      "extractedFrom": "prose",
+      "measurement": "mandatory party-wall abutment for the FIRST 12 m of depth; beyond 12 m a 3 m minimum separation applies",
+      "denominatorScope": null,
+      "risks": [],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.2",
+      "param": "setbackFront_m",
+      "value": 0,
+      "unit": "m",
+      "articulo": "8.9.7",
+      "apartado": "1",
+      "pdfPage": 453,
+      "printedPage": 451,
+      "verbatim": "En los grados 1º y 2º: El edificio situará una de sus fachadas exteriores sobre y a lo largo de la alineación oficial en toda su altura, salvo lo dispuesto en los puntos siguientes en los que se podrá separar paralelamente:",
+      "extractedFrom": "prose",
+      "measurement": "alineación obligatoria — build-to line, not a permissive zero",
+      "denominatorScope": null,
+      "risks": [
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.2",
+      "param": "farRatio",
+      "value": 2.4,
+      "unit": "m²/m²",
+      "articulo": "8.9.9",
+      "apartado": "a)",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "Grados 1º, 2º y 4º: Dos con cuatro (2,4) metros cuadrados por metro cuadrado.",
+      "extractedFrom": "prose",
+      "measurement": "coeficiente de edificabilidad neta por parcela edificable",
+      "denominatorScope": "parcela edificable (neta)",
+      "risks": [
+        "R3"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.3",
+      "param": "permittedUse",
+      "value": "industrial en coexistencia con terciario de oficinas",
+      "unit": null,
+      "articulo": "8.9.1",
+      "apartado": "3",
+      "pdfPage": 451,
+      "printedPage": 449,
+      "verbatim": "Su uso cualificado es el industrial, en los grados 1º, 2º, 4º y 5º, y en grado 3º industrial en coexistencia con terciario de oficinas, entendiendo como coexistencia la posibilidad de implantación de uno u otro uso, o de ambos en edificios diferenciados o en un mismo edificio en proporción libre.",
+      "extractedFrom": "prose",
+      "measurement": "uso cualificado",
+      "denominatorScope": null,
+      "risks": [
+        "R1"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.3",
+      "param": "maxFloors",
+      "value": 7,
+      "unit": "plantas",
+      "articulo": "8.9.10",
+      "apartado": "2",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "En grados 3º y 4º nivel b: La altura máxima de la edificación será de siete (7) plantas y veintiocho (28) metros al nivel de cornisa.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.3",
+      "param": "setbackRear_m",
+      "value": 3,
+      "unit": "m",
+      "articulo": "8.9.6",
+      "apartado": "2",
+      "pdfPage": 452,
+      "printedPage": 450,
+      "verbatim": "En el grado 3º y 4º nivel a: La separación entre el plano de fachada considerado y el lindero correspondiente no podrá ser inferior a tres (3) metros.",
+      "extractedFrom": "prose",
+      "measurement": "separación entre el plano de fachada considerado y el lindero correspondiente — the article does not distinguish lateral from testero in these grados",
+      "denominatorScope": null,
+      "risks": [
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.3",
+      "param": "setbackSide_m",
+      "value": 3,
+      "unit": "m",
+      "articulo": "8.9.6",
+      "apartado": "2",
+      "pdfPage": 452,
+      "printedPage": 450,
+      "verbatim": "En el grado 3º y 4º nivel a: La separación entre el plano de fachada considerado y el lindero correspondiente no podrá ser inferior a tres (3) metros.",
+      "extractedFrom": "prose",
+      "measurement": "separación entre el plano de fachada considerado y el lindero correspondiente — the article does not distinguish lateral from testero in these grados",
+      "denominatorScope": null,
+      "risks": [
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.3",
+      "param": "setbackFront_m",
+      "value": null,
+      "unit": "m",
+      "articulo": "8.9.7",
+      "apartado": "2",
+      "pdfPage": 453,
+      "printedPage": 451,
+      "verbatim": "En los grados 3º y 4º nivel a: La nueva edificación podrá separarse de la alineación oficial en función de sus necesidades.",
+      "extractedFrom": "prose",
+      "measurement": "free — no minimum retranqueo",
+      "denominatorScope": null,
+      "risks": [
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.3",
+      "param": "farRatio",
+      "value": 1.6,
+      "unit": "m²/m²",
+      "articulo": "8.9.9",
+      "apartado": "b)",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "Grado 3º: Uno con seis (1,6) metros cuadrados por metro cuadrado.",
+      "extractedFrom": "prose",
+      "measurement": "coeficiente de edificabilidad neta por parcela edificable",
+      "denominatorScope": "parcela edificable (neta)",
+      "risks": [
+        "R3"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.4.a",
+      "param": "permittedUse",
+      "value": "industrial",
+      "unit": null,
+      "articulo": "8.9.1",
+      "apartado": "3",
+      "pdfPage": 451,
+      "printedPage": 449,
+      "verbatim": "Su uso cualificado es el industrial, en los grados 1º, 2º, 4º y 5º, y en grado 3º industrial en coexistencia con terciario de oficinas, entendiendo como coexistencia la posibilidad de implantación de uno u otro uso, o de ambos en edificios diferenciados o en un mismo edificio en proporción libre.",
+      "extractedFrom": "prose",
+      "measurement": "uso cualificado",
+      "denominatorScope": null,
+      "risks": [
+        "R1"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.4.a",
+      "param": "maxFloors",
+      "value": 5,
+      "unit": "plantas",
+      "articulo": "8.9.10",
+      "apartado": "3",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "En grados 4º nivel a y 5º: La altura máxima de la edificación será de cinco (5) plantas y veinte (20) metros al nivel de cornisa.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.4.a",
+      "param": "setbackRear_m",
+      "value": 3,
+      "unit": "m",
+      "articulo": "8.9.6",
+      "apartado": "2",
+      "pdfPage": 452,
+      "printedPage": 450,
+      "verbatim": "En el grado 3º y 4º nivel a: La separación entre el plano de fachada considerado y el lindero correspondiente no podrá ser inferior a tres (3) metros.",
+      "extractedFrom": "prose",
+      "measurement": "separación entre el plano de fachada considerado y el lindero correspondiente — the article does not distinguish lateral from testero in these grados",
+      "denominatorScope": null,
+      "risks": [
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.4.a",
+      "param": "setbackSide_m",
+      "value": 3,
+      "unit": "m",
+      "articulo": "8.9.6",
+      "apartado": "2",
+      "pdfPage": 452,
+      "printedPage": 450,
+      "verbatim": "En el grado 3º y 4º nivel a: La separación entre el plano de fachada considerado y el lindero correspondiente no podrá ser inferior a tres (3) metros.",
+      "extractedFrom": "prose",
+      "measurement": "separación entre el plano de fachada considerado y el lindero correspondiente — the article does not distinguish lateral from testero in these grados",
+      "denominatorScope": null,
+      "risks": [
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.4.a",
+      "param": "setbackFront_m",
+      "value": null,
+      "unit": "m",
+      "articulo": "8.9.7",
+      "apartado": "2",
+      "pdfPage": 453,
+      "printedPage": 451,
+      "verbatim": "En los grados 3º y 4º nivel a: La nueva edificación podrá separarse de la alineación oficial en función de sus necesidades.",
+      "extractedFrom": "prose",
+      "measurement": "free — no minimum retranqueo",
+      "denominatorScope": null,
+      "risks": [
+        "R2"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.4.a",
+      "param": "farRatio",
+      "value": 2.4,
+      "unit": "m²/m²",
+      "articulo": "8.9.9",
+      "apartado": "a)",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "Grados 1º, 2º y 4º: Dos con cuatro (2,4) metros cuadrados por metro cuadrado.",
+      "extractedFrom": "prose",
+      "measurement": "coeficiente de edificabilidad neta por parcela edificable",
+      "denominatorScope": "parcela edificable (neta)",
+      "risks": [
+        "R3"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.4.b",
+      "param": "permittedUse",
+      "value": "industrial",
+      "unit": null,
+      "articulo": "8.9.1",
+      "apartado": "3",
+      "pdfPage": 451,
+      "printedPage": 449,
+      "verbatim": "Su uso cualificado es el industrial, en los grados 1º, 2º, 4º y 5º, y en grado 3º industrial en coexistencia con terciario de oficinas, entendiendo como coexistencia la posibilidad de implantación de uno u otro uso, o de ambos en edificios diferenciados o en un mismo edificio en proporción libre.",
+      "extractedFrom": "prose",
+      "measurement": "uso cualificado",
+      "denominatorScope": null,
+      "risks": [
+        "R1"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.4.b",
+      "param": "maxFloors",
+      "value": 7,
+      "unit": "plantas",
+      "articulo": "8.9.10",
+      "apartado": "2",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "En grados 3º y 4º nivel b: La altura máxima de la edificación será de siete (7) plantas y veintiocho (28) metros al nivel de cornisa.",
+      "extractedFrom": "prose",
+      "measurement": null,
+      "denominatorScope": null,
+      "risks": [],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.4.b",
+      "param": "farRatio",
+      "value": 2.4,
+      "unit": "m²/m²",
+      "articulo": "8.9.9",
+      "apartado": "a)",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "Grados 1º, 2º y 4º: Dos con cuatro (2,4) metros cuadrados por metro cuadrado.",
+      "extractedFrom": "prose",
+      "measurement": "coeficiente de edificabilidad neta por parcela edificable",
+      "denominatorScope": "parcela edificable (neta)",
+      "risks": [
+        "R3"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.5",
+      "param": "permittedUse",
+      "value": "industrial",
+      "unit": null,
+      "articulo": "8.9.1",
+      "apartado": "3",
+      "pdfPage": 451,
+      "printedPage": 449,
+      "verbatim": "Su uso cualificado es el industrial, en los grados 1º, 2º, 4º y 5º, y en grado 3º industrial en coexistencia con terciario de oficinas, entendiendo como coexistencia la posibilidad de implantación de uno u otro uso, o de ambos en edificios diferenciados o en un mismo edificio en proporción libre.",
+      "extractedFrom": "prose",
+      "measurement": "uso cualificado",
+      "denominatorScope": null,
+      "risks": [
+        "R1"
+      ],
+      "onPage": true
+    },
+    {
+      "file": "nz9.json",
+      "zone": "9.5",
+      "param": "farRatio",
+      "value": 2.0,
+      "unit": "m²/m²",
+      "articulo": "8.9.9",
+      "apartado": "c)",
+      "pdfPage": 454,
+      "printedPage": 452,
+      "verbatim": "Grado 5º: Dos (2) metros cuadrados por metro cuadrado.",
+      "extractedFrom": "prose",
+      "measurement": "coeficiente de edificabilidad neta por parcela edificable",
+      "denominatorScope": "parcela edificable (neta)",
+      "risks": [],
+      "onPage": true
+    }
+  ],
+  "supersessionTrigger": {
+    "corpusSha256": "1A3AA172B7ABE092F03E58FB2AFC26C87020B907887F919CEE20002E5FC4D0B5",
+    "corpusPages": 626,
+    "corpusTitleMeta": "COMPENDIO MPG NNUU (24-09-2025)",
+    "articles": {
+      "8.4.1": {
+        "pages": [
+          410
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.4.10": {
+        "pages": [
+          415
+        ],
+        "amendments": []
+      },
+      "8.4.2": {
+        "pages": [
+          410
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.4.5": {
+        "pages": [
+          411
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.4.6": {
+        "pages": [
+          412
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.4.7": {
+        "pages": [
+          412
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.4.8": {
+        "pages": [
+          413
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.4.9": {
+        "pages": [
+          414
+        ],
+        "amendments": []
+      },
+      "8.5.1": {
+        "pages": [
+          419
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.5.6": {
+        "pages": [
+          420
+        ],
+        "amendments": []
+      },
+      "8.5.7": {
+        "pages": [
+          421
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.5.8": {
+        "pages": [
+          421
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.5.9": {
+        "pages": [
+          421
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.7.1": {
+        "pages": [
+          432
+        ],
+        "amendments": []
+      },
+      "8.7.11": {
+        "pages": [
+          435
+        ],
+        "amendments": []
+      },
+      "8.7.18": {
+        "pages": [
+          437
+        ],
+        "amendments": [
+          "PE 00/308 (aprobación definitiva 27.01.2005 BOCM 11.03.2005)"
+        ]
+      },
+      "8.7.20": {
+        "pages": [
+          438
+        ],
+        "amendments": []
+      },
+      "8.7.6": {
+        "pages": [
+          433
+        ],
+        "amendments": []
+      },
+      "8.7.7": {
+        "pages": [
+          433,
+          434
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.7.8": {
+        "pages": [
+          434
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.7.9": {
+        "pages": [
+          434
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.8.1": {
+        "pages": [
+          439
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.8.10": {
+        "pages": [
+          443
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.8.17": {
+        "pages": [
+          446
+        ],
+        "amendments": []
+      },
+      "8.8.6": {
+        "pages": [
+          440,
+          441
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.8.7": {
+        "pages": [
+          441
+        ],
+        "amendments": []
+      },
+      "8.8.8": {
+        "pages": [
+          442
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.8.9": {
+        "pages": [
+          442,
+          443
+        ],
+        "amendments": [
+          "MPG 00/343 (aprobación definitiva 08.11.2023 BOCM 27.11.2023)"
+        ]
+      },
+      "8.9.1": {
+        "pages": [
+          451
+        ],
+        "amendments": []
+      },
+      "8.9.10": {
+        "pages": [
+          454
+        ],
+        "amendments": []
+      },
+      "8.9.6": {
+        "pages": [
+          452
+        ],
+        "amendments": []
+      },
+      "8.9.7": {
+        "pages": [
+          453
+        ],
+        "amendments": []
+      },
+      "8.9.9": {
+        "pages": [
+          454
+        ],
+        "amendments": []
+      }
+    }
+  }
+}

@@ -150,7 +150,78 @@ modified-articles annex is the index for this. It is **not** the consolidation d
 
 ---
 
-## SIG-M1 · ⏳ **NOT SIGNED** — the signature `MADRID_ENVELOPE_VERIFIED` is waiting for
+## SIG-M1 · 🟡 **CONDITIONALLY APPROVED 2026-08-02 — three named preconditions, then SIGN**
+
+> ⭐ **THE FOUNDER HAS MOVED THIS FROM "AWAITING AN OPEN-ENDED HUMAN READ" TO A CLOSED CHECKLIST.**
+> It is no longer *"wait for someone to read 282 records"*; it is three preconditions, and clearing
+> them is the whole job. **It is still NOT a signature — `MADRID_ENVELOPE_VERIFIED` is `false`.**
+
+**The founder's conditional approval, verbatim:**
+
+> *"The extraction methodology is now sufficiently evidenced. Before publication: complete the
+> targeted human review; verify the four residual-risk classes; confirm end-to-end rendering under
+> the **pipeline-extracted-unverified** confidence tier. If those pass: **Sign.** No further legal
+> review required."*
+
+And, raising the ceiling of what would be signed:
+
+> *"If the oversampled review confirms the four residual-risk classes behave correctly, I would
+> expect to sign **the transcription itself, not merely the extraction process**."*
+> *"Proceed with the targeted review. If the four residual-risk classes pass: **SIGN THE
+> TRANSCRIPTION. Not merely the process.** That becomes the human certification."*
+
+**The narrower text they had already said they would sign** (kept, because it is the floor if the
+review only supports the process claim):
+
+> *The extraction methodology, provenance, and quality-control process provide sufficient evidence
+> that `esMadridPgoum97.ts` is an accurate machine transcription suitable for publication as
+> **pipeline-extracted-unverified**, provided it remains explicitly identified as a machine-generated
+> derivative of the Compendio 2025 and not as a manually certified legal transcription.*
+
+They assessed the evidence as **"unusually strong for a machine transcription"**.
+
+### The three preconditions — status
+
+| # | Precondition | Status |
+|---|---|---|
+| **1** | Complete the targeted human review | 🟡 **ARTEFACT READY, UNREAD** — [`../extracted/SIG-M1-REVIEW-SAMPLE.md`](../extracted/SIG-M1-REVIEW-SAMPLE.md): **121 records** across all **23** shipped zones = **52.4 %** of the 231 records they carry, and **100 % of every record bearing a sampleable residual risk** |
+| **2** | Verify the four residual-risk classes | 🟡 **R1/R2/R3 enumerated exhaustively and tabulated; R4 has a MECHANISM** (see below) |
+| **3** | End-to-end rendering at `pipeline-extracted-unverified` | ✅ **VERIFIED IN CODE** — `madridPgoum97Wiring.test.ts` §RED-CHIP-NZ7-NZ8 solves **every** NZ-7/NZ-8 grado and asserts the tier; `GISAreaLayout.ts:2596` badges it as the **first** arm (weakest-wins). **This is ADR-0286 in code form for Madrid.** |
+
+⚠ **Precondition 3 was believed to BLOCK the signature until 2026-08-02.** Two code comments
+(`siteDispatch.ts`, `esMadridPgoum97.ts`) asserted `ZoningRulesEngine` hard-codes `estimated-ruleset`
+and never reads `defaultConfidence`. **Both were stale** — fixed in L-665 (§PACK-CONFIDENCE-CEILING)
+— and were still being quoted as live blockers the day this approval was given. Corrected in place.
+
+### The four residual risks — the founder's own words, recorded as OPEN and NAMED
+
+They classified these as **structural rather than statistical**, i.e. invisible to aggregate QC:
+
+| id | risk | how it is addressed |
+|---|---|---|
+| **R1** | *segmentation errors where legal meaning spans multiple paragraphs* | **47** records; **100 % tabulated** in the review, §3.1 — the highest-value class, because the digits are usually right and the *governing clause* is what goes missing |
+| **R2** | *omission of text not represented in the structured model* | **56** records; 100 % tabulated, §3.2 — each carries a conditional (*salvo · siempre que · podrá · excepcional*) that `GeometricRule` has no field to hold |
+| **R3** | *normalization of punctuation or formatting affecting interpretation* | **29** records; 100 % tabulated, §3.3 — includes 25 pipe-joined table reconstructions stored in a field named `verbatim`, which is a provenance mislabel |
+| **R4** | *future divergence if the Compendio is updated* | ⚠ **NOT SAMPLEABLE — a TRIGGER, not a spot-check.** The corpus is pinned by sha256; **19 of the 33 cited articles already carry an amendment footnote** in this edition, recorded per article and pinned by `madridCorpusSupersession.test.ts`. Any change invalidates the signature **for that article only** |
+
+### ⚠ What a signature would still NOT cover
+
+- **The six zones excluded as unsignable IN PRINCIPLE** — `4`, `9.1`, `9.2` (the *ancho de calle*
+  height table is unresolved, so the pack carries the ordinance FLOOR and **over-states** above
+  9,00 m) and `5.1`, `5.2`, `5.3` (Art. 8.5.6.3 measures to the street **centreline**, which
+  `GeometricRule` cannot express, so no front inset is applied and it **over-states** on a narrow
+  street). **These are defects in the NUMBERS; no confidence label cures them.**
+- The **BOCM** text. This is a signature on a consolidation (V3).
+- **NZ 3** — Art. 8.3.1 governs; the refusal survives any signature (L-678).
+- **NZ 1** — separately signed as SIG-M2.
+- **Promotion above `pipeline-extracted-unverified`.** ⚠ That is a **separate, later** decision:
+  it changes `MADRID_PGOUM97_DEFAULT_CONFIDENCE` in the pack itself, and
+  `capEnvelopeConfidenceToPackDefault` is **demote-only** by design (ADR-0286), so a promotion is a
+  deliberate, signed, reviewable edit — never a side effect of opening the gate.
+
+---
+
+## SIG-M1 (original request) — the signature `MADRID_ENVELOPE_VERIFIED` is waiting for
 
 > Recorded 2026-08-01 in the shape of the signed `es-ct/08019-barcelona` SIG-2/SIG-3 exemplar, so the
 > founder is asked one bounded question rather than an open-ended one. **This block is a REQUEST, not
@@ -243,7 +314,7 @@ proven end to end by `apps/editor/__tests__/madridSiteDispatch.test.ts`.
 | **Axis** | ENVELOPE |
 | **Artefact** | `packages/site-parcel-data/src/providers/resolveMadridNZ1Ring.ts` → `MADRID_NZ1_CERTIFIED` |
 | **Value** | **`true`** — flipped 2026-08-02 **on this signature** |
-| **Doctrine** | **B — "Evidence-bounded publication"**, ratified corpus-wide as **[ADR-0283](../../../../../02-decisions/adrs/ADR-0283-evidence-bounded-publication.md)** |
+| **Doctrine** | **B — "Evidence-bounded publication"**, ratified corpus-wide as **[ADR-0283](../../../../../02-decisions/adrs/ADR-0283-authoritative-publication-bounds-knowledge-unknown-is-valid.md)** |
 
 ### The signature, verbatim
 

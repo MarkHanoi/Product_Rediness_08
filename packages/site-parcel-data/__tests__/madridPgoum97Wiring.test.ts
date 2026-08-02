@@ -344,7 +344,7 @@ describe('§MADRID-PGOUM97 — THE HONESTY GATE: registration is not authorisati
                     { x: 40, z: 25 },
                     { x: 0, z: 25 },
                 ],
-                edgeClassifications: ['street', 'unclassified', 'unclassified', 'unclassified'],
+                edgeClassifications: ['front', 'unclassified', 'unclassified', 'unclassified'],
                 zoning: {
                     jurisdictionId: ES_MADRID_PGOUM97_PACK.jurisdictionId,
                     zoneCode: zone.code,
