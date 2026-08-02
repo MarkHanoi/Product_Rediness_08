@@ -38,13 +38,41 @@ governing article**. Our certification is currently **scoped to one municipality
 > **carry any normative status**, or is it **dissemination of a document that remains authoritative only in
 > its written form**?
 
-### 4 · ⛔ Does «sin validez jurídica» disqualify regional vector data for a legally defensible envelope?
+### 4 · ⛔ REFRAMED 2026-08-02 — what liability attaches to a clearly-labelled INDICATIVE envelope?
+
+> ⭐ **THIS IS NOW THE HIGHEST-VALUE QUESTION ON THE BOARD.** It was *"can we cite this?"*; it is now a
+> liability question, because [ADR-0293](../../../02-decisions/adrs/ADR-0293-envelope-tier-is-per-dimension-and-keyed-on-error-direction.md)
+> established that **a caveat can discharge uncertain PROVENANCE but cannot discharge a missing
+> downward CONSTRAINT** — the first is symmetric, the second can only ever over-grant.
+>
+> ⛔ **What liability attaches to a CLEARLY-LABELLED INDICATIVE envelope, and does labelling actually
+> DISCHARGE it — particularly where a KNOWN CONSTRAINT CATEGORY IS UNMODELLED?**
+>
+> Concretely: we propose to render Madrid as **a footprint with an OPEN TOP** — footprint and height
+> shown as *indicative*, cited to a regional layer that disclaims binding force, with an **explicit
+> unbounded marker** wherever airport (AESA Barajas), heritage or flood constraints are **unchecked**.
+> Rather than a closed box that looks complete.
+>
+> **(a)** Does per-dimension labelling of that kind discharge the duty, or does publishing ANY figure
+> for a parcel whose binding ceiling is unmodelled attract the same exposure as publishing a
+> confident one? **(b)** Does it matter that every Spanish planning viewer already ships this
+> disclaimer — i.e. is «indicativo, sin validez jurídica» a recognised product category with settled
+> expectations, or does that norm not transfer to a private party?
+
+### 4b · The original question, retained — does «sin validez jurídica» disqualify regional vector data?
 
 > Several regional planning viewers publish **vectorised urbanistic determinations** — Castilla y León's
 > SIUCyL georeferences the plan PDFs, vectorises the *recintos* that define each determination, and
 > attaches the alphanumeric data — while the accompanying metadata states **«sin validez jurídica,
 > carácter informativo»**: no legal validity, informative character only. The same disclaimer appears
 > across regional urbanistic viewers generally.
+>
+> ⭐ **UPDATED 2026-08-02 — this is FOUR REGIONS, not one, and therefore ONE QUESTION, NOT FOUR:**
+> **Madrid SIT** (*"no binding legal value"*; the *refundido* is *"a technical work without legal
+> validity"*, confirmed across four independent research passes) · **Castilla y León SIUCyL**
+> (*«sin validez jurídica»*) · **Balears** (`OBS` — rows self-declare **not in force**) · **Aragón**
+> (`fiab_geom` present on 100 % of rows but reading *"Aprobada"* on only **21.8 %**).
+> ⛔ **Four of Spain's richest regional datasets disclaim their own authority.**
 >
 > **Does that disclaimer disqualify the data as a basis for a professional determination — or does it mean
 > the vector is a routing hint to an instrument that remains authoritative only in its written form?**
