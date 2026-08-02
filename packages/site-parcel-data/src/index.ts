@@ -971,6 +971,9 @@ export {
     valenciaAlturaIsCandidateInput,
     validateValenciaMovementPolygon,
     applyValenciaHeritageConstraint,
+    VALENCIA_ENVELOPE_INPUT_STATUS,
+    VALENCIA_COVERAGE_LOSS,
+    valenciaInputsStillMissingIfAlturaAnswered,
 } from './rulepacks/esValenciaAlineaciones.js';
 export type {
     ValenciaAlturaValue,
@@ -979,6 +982,8 @@ export type {
     ValenciaMovementPolygonReport,
     ValenciaHeritageConstraintInput,
     ValenciaHeritageConstraintOutcome,
+    ValenciaInputStatus,
+    ValenciaEnvelopeInput,
 } from './rulepacks/esValenciaAlineaciones.js';
 export {
     ES_VALENCIA_PGOU_PACK,

@@ -381,7 +381,221 @@ export function validateValenciaMovementPolygon(
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
-// 3 — THE HERITAGE INTEGRATION SEAM
+// 3 — THE INPUT STATUS MATRIX  (§VALENCIA-INPUT-MATRIX, founder check 2026-08-02)
+//
+// > "Don't let `altura` become a catch-all explanation. List every input needed by the envelope
+// >  engine… You may discover that only one or two variables truly block envelope generation."
+//
+// The check was right to run, and the answer is: **`altura` is NOT a catch-all — it is the single
+// gate for 85,5 % of the reachable land, and the residue has a DIFFERENT and cheaper owner (us).**
+// Every row below is the status of a real `ComputeBuildableEnvelopeInput` field, cited.
+// ══════════════════════════════════════════════════════════════════════════════════════════════════
+
+/** How an envelope input stands today. */
+export type ValenciaInputStatus =
+    /** Held, cited, and usable now. */
+    | 'resolved'
+    /** ⭐ The ordinance regulates by another mechanism, so the field has NO value BY DESIGN. */
+    | 'not-the-rule-kind'
+    /** Ours to build; no external dependency. */
+    | 'engineering'
+    /** Ours to read; a chapter of the ordinance nobody has transcribed. */
+    | 'unread-ordinance'
+    /** ⛔ Only a third party can resolve it. */
+    | 'external-authority';
+
+export interface ValenciaEnvelopeInput {
+    /** The `ComputeBuildableEnvelopeInput` field, or the engine concept it feeds. */
+    readonly input: string;
+    readonly status: ValenciaInputStatus;
+    /** Which zones this row's status applies to. */
+    readonly zones: readonly string[];
+    readonly evidence: string;
+}
+
+/**
+ * ⭐ **EVERY INPUT `computeBuildableEnvelope` NEEDS FOR AN ENS/EDA VALÈNCIA ENVELOPE.**
+ *
+ * ⚠⚠ **THE FINDING THAT MATTERS: the engine already has València's rule kind.** `explicit-area`
+ * (ADR-0270) clips the parcel to a PUBLISHED buildable footprint, supports interior holes (the
+ * *patio de manzana*) and multi-part footprints, and **hard-fails rather than falling through to a
+ * whole-parcel inset** when the footprint is absent. That is exactly the shape decision **D-005**
+ * gave València: layer 212's movement polygon IS the published footprint. **No new solver is
+ * needed** — the remaining engineering is declaring the rule on the pack and injecting the ring.
+ *
+ * ⇒ **If `altura` were answered tomorrow, an ENS/EDA envelope WOULD emit**, after two steps that
+ * need no external answer and are ours: declare `geometricRule: explicit-area` on the packed zones,
+ * and wire the layer-212 footprint alongside the CLOSURE-REGISTER #4 `origen` resolver.
+ *
+ * ⚠ **ONE HONEST RESIDUAL RISK, not a blocker.** `solveExplicitArea` refuses `non-convex-both` —
+ * where NEITHER the parcel nor the footprint is convex, the intersection is not computed exactly and
+ * the engine refuses rather than approximate (C58 §1.4). València's movement polygons carry holes on
+ * ~19 % of sampled ENS/EDA land, so a non-zero share of parcels will take that refusal. It is a
+ * REFUSAL, never a wrong number — and its size is unmeasured, so it is named, not estimated.
+ */
+export const VALENCIA_ENVELOPE_INPUT_STATUS: readonly ValenciaEnvelopeInput[] = [
+    {
+        input: 'parcelRing', status: 'resolved', zones: ['*'],
+        evidence: 'Catastro INSPIRE CP, by identifier — and València publishes `refcat` on its own '
+            + 'parcel layer too, so there are TWO routes and neither needs a licence. PARCEL axis '
+            + 'measured 99.2 % (N=120, 0 transport failures).',
+    },
+    {
+        input: 'edgeClassifications', status: 'resolved', zones: ['*'],
+        evidence: 'Derived from the parcel ring against the street network, as every other city does. '
+            + 'No València-specific input.',
+    },
+    {
+        input: 'zoning.zoneCode (califi/tipoca)', status: 'engineering', zones: ['*'],
+        evidence: 'Live and KEYLESS on MapServer/231 — califi + tipoca + origen sit on ONE row, so no '
+            + 'second spatial join. What is missing is the proxy + resolver (CLOSURE-REGISTER #4). '
+            + 'Ours, ~1 day, needs no external answer.',
+    },
+    {
+        input: 'geometricRule = explicit-area', status: 'engineering', zones: ['ENS', 'EDA'],
+        evidence: '⭐ The kind ALREADY EXISTS in ZoningRulesEngine (ADR-0270): it clips the parcel to a '
+            + 'published footprint, supports patio-de-manzana holes and multi-part footprints, and '
+            + 'HARD-FAILS instead of falling through to a whole-parcel inset. Declaring it on the pack '
+            + 'is a data change, not a new solver.',
+    },
+    {
+        input: 'explicitAreaFootprint (the buildable depth)', status: 'resolved', zones: ['ENS', 'EDA'],
+        evidence: '⭐ D-005 / founder decision R1 — layer 212 IS the published movement polygon and the '
+            + 'geometry IS the legal datum. Art. 6.18.1: «La ocupación de la parcela edificable se '
+            + 'ajustará a las alineaciones definidas en el Plano C». Measured n=54: median mean-width '
+            + '15.6 m, NEVER larger than its calificación polygon (0/54). Validated on every read by '
+            + 'validateValenciaMovementPolygon().',
+    },
+    {
+        input: 'setbacks.front/side/rear', status: 'not-the-rule-kind', zones: ['ENS'],
+        evidence: '⭐ SETTLED BY ARTICLE, not merely absent. Art. 6.18.2: «La edificación no podrá '
+            + 'retranquearse de la alineación exterior» — retranqueos are FORBIDDEN, so the envelope '
+            + 'is alignment-bound and a front/side/rear triple is the wrong SHAPE (ADR-0270), not a '
+            + 'missing number. For an explicit-area rule the published footprint IS the setback.',
+    },
+    {
+        input: 'setbacks.front/side/rear', status: 'unread-ordinance', zones: ['UFA'],
+        evidence: '⛔ THE GENUINE SECOND BLOCKER, and it is OURS, not `altura`. UFA-2 (hilera) and '
+            + 'UFA-3 (aislada) are SETBACK typologies whose parcel and volume conditions live in '
+            + 'Arts. 6.36/6.37 and 6.39/6.40 — NOT READ. Art. 6.29.1 remits them to Secciones 3–5. '
+            + 'Category Legal/ours, ~1 day of reading. 5.87 pp of buildable land.',
+    },
+    {
+        input: 'maxFAR (edificabilidad)', status: 'not-the-rule-kind', zones: ['ENS', 'EDA'],
+        evidence: '⭐ NOT A GAP — a FINDING. The ENS and EDA chapters contain NO edificabilidad figure '
+            + 'at all (searched). The envelope is alineación + profundidad + altura de cornisa by '
+            + 'design, so a null FAR is the ordinance working as written.',
+    },
+    {
+        input: 'maxCoverage (ocupación)', status: 'not-the-rule-kind', zones: ['ENS', 'EDA'],
+        evidence: '⭐ Art. 6.18.1 sets the ocupación BY THE ALIGNMENTS — so it is the same geometry as '
+            + 'the explicit-area footprint, not a separate ratio. Publishing a coverage percentage '
+            + 'here would be a second, weaker statement of a constraint we already hold exactly.',
+    },
+    {
+        input: 'permittedUse (usos)', status: 'resolved', zones: ['*'],
+        evidence: 'Published live on MapServer/231 as `uso` / `tipouso` / `uso_califi`. ⚠ It is not an '
+            + 'envelope-GEOMETRY input — it never shapes the solid — so it cannot block emission; it '
+            + 'rides the derivation trace.',
+    },
+    {
+        input: 'maxHeight_m / maxFloors', status: 'external-authority', zones: ['ENS', 'EDA', 'UFA'],
+        evidence: '⛔ THE GATE. Art. 6.19.1 Hc = 4,80 + 2,90·Np (EDA 5,30) with Np = graphed plantas − 1. '
+            + '`altura` is storey-scale (metres refuted 4×) but its offset is undocumented and sits '
+            + 'BELOW the built storey count on 81 % of sampled buildings, modally by two — a TWO-SIDED '
+            + 'error, so ADR-0287 forbids a conservative branch. Owner: the founder (R5). '
+            + '⚠ This is ONE blocker, not two: "storeys vs metres" is settled, only the offset is open.',
+    },
+    {
+        input: 'heritage overlay', status: 'external-authority', zones: ['*'],
+        evidence: '⚠ SECONDARY / DEPLOYMENT ONLY (founder R3). It constrains DOWNWARD after the base '
+            + 'ordinance is known, so it blocks shipping, not modelling. The seam is built '
+            + '(applyValenciaHeritageConstraint) and refuses where heritage may apply.',
+    },
+    {
+        input: 'every other zone (CHP · TER · IND)', status: 'unread-ordinance', zones: ['CHP', 'TER', 'IND'],
+        evidence: '⚠ Chapters NOT READ — and `altura` is IRRELEVANT to them, which is exactly why this '
+            + 'matrix was worth building. 3.35 pp of buildable land, ours to read.',
+    },
+] as const;
+
+/**
+ * ⭐ **THE COVERAGE-LOSS MATRIX — 100 % of València's buildable land in four buckets.**
+ *
+ * The standing rule, applied. Percentages are of the L-656 private-buildable denominator
+ * (1 869,6 ha server-side / 1 874,9 ha client-side — the two methods agree to 0,28 %).
+ *
+ * ⚠⚠ **THE 63,60 % `no-pack` DOES DECOMPOSE, AND THE ROADMAP CHANGES BECAUSE OF IT.** Reported as
+ * one undifferentiated block it read as *"63,60 % waiting on `altura`"*. Measured:
+ *
+ * | bucket | share | owner |
+ * |---|---:|---|
+ * | **Legally impossible** — delegated to a derived instrument; terminal, cited, CORRECT | **36,40 %** | nobody: it is the right answer |
+ * | **Awaiting authoritative interpretation** — ENS 32,97 + EDA 21,40, gated ONLY by `altura` | **54,37 %** | the founder (R5) |
+ * | **Awaiting interpretation AND our own reading** — UFA: `altura` **plus** unread Arts. 6.36/6.37/6.39/6.40 | **5,87 %** | founder + us |
+ * | **Awaiting our own reading alone** — CHP + TER + IND chapters; `altura` is irrelevant here | **3,35 %** | us |
+ * | **Data unavailable** | **0,00 %** | — |
+ *
+ * ⭐ **`Data unavailable` IS EMPTY, AND THAT IS THE HEADLINE.** Before D-005 the whole 63,60 % was
+ * filed as data acquisition — *"Plano C is unpublished; an institution, a fee, an unknown timeline"*.
+ * After it, **no València land is blocked by missing data at all.**
+ *
+ * ⭐ **`altura` gates 54,37 of the 63,60 pp — 85,5 % of the reachable land — and 9,22 pp is ours.**
+ * So it is genuinely close to a single-blocker city, but *not* a pure one: **9,22 pp would not emit
+ * even with a perfect answer tomorrow**, and saying otherwise would have been the reporting error
+ * this exercise was run to catch.
+ */
+export const VALENCIA_COVERAGE_LOSS = {
+    denominatorHa: 1869.6,
+    /** Delegated to a derived instrument (PE/RI/MP/ED/PRI/PP/…). Terminal and correct. */
+    legallyImpossiblePct: 36.4,
+    /** ENS 32.97 + EDA 21.40 — gated by `altura` ALONE. */
+    awaitingInterpretationOnlyPct: 54.37,
+    /** UFA — `altura` AND its unread setback chapters. */
+    awaitingInterpretationAndOurReadingPct: 5.87,
+    /** CHP + TER + IND — unread chapters; independent of `altura`. */
+    awaitingOurReadingOnlyPct: 3.35,
+    /** ⭐ Nothing. After D-005 no València land is blocked by absent data. */
+    dataUnavailablePct: 0,
+    /**
+     * ⚠ Not a bucket — an ORTHOGONAL deployment gate over all of the above. Counting it as a land
+     * share would double-count every parcel (founder R3).
+     */
+    heritageIsOrthogonalDeploymentGate: true,
+} as const;
+
+/**
+ * Would an ENS/EDA envelope emit if `altura` were answered tomorrow? Returns the inputs that would
+ * STILL be missing — empty means yes.
+ *
+ * ⚠ It answers for ENS/EDA only, and deliberately: UFA and CHP/TER/IND have their own unread
+ * chapters, and folding them in would reproduce the very catch-all this matrix exists to break.
+ *
+ * PURE; never throws. OTel span `pryzm.zoning.valenciaInputsStillMissingIfAlturaAnswered` (P8).
+ */
+export function valenciaInputsStillMissingIfAlturaAnswered(): readonly ValenciaEnvelopeInput[] {
+    const span = tracer.startSpan('pryzm.zoning.valenciaInputsStillMissingIfAlturaAnswered');
+    try {
+        const still = VALENCIA_ENVELOPE_INPUT_STATUS.filter(
+            (r) =>
+                (r.zones.includes('ENS') || r.zones.includes('EDA') || r.zones.includes('*'))
+                // `engineering` is OURS and needs no external answer, so it does not gate the
+                // question "is `altura` the only thing we are WAITING on?" — but it is reported
+                // separately by the caller, never silently dropped.
+                && (r.status === 'external-authority' || r.status === 'unread-ordinance')
+                && r.input !== 'maxHeight_m / maxFloors',
+        );
+        span.setAttribute('stillMissingCount', still.length);
+        span.setAttribute('resultFields', 'inputs');
+        span.setStatus({ code: SpanStatusCode.OK });
+        return still;
+    } finally {
+        span.end();
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════
+// 4 — THE HERITAGE INTEGRATION SEAM
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
 
 /** Inputs to the heritage constraint. Both height fields are nullable and both may be unknown. */

@@ -59,7 +59,8 @@ No migration between categories without explicit, dated evidence.
 | **8** | heritage folders, error 499 | **External authority** | the founder | credentials obtained, **or** the refuse-where-heritage-may-apply path ships | ⏳ **path SHIPPED 2026-08-02** — see below |
 | **1** | *profundidad edificable* / Plano C | ~~Data acquisition~~ | — | — | ✅ **SUPERSEDED** — the premise changed |
 | **4** | live `origen` read at the parcel | **Engineering** | the València agent | `resolveValenciaZoning` ships; the delegated share upgrades to a cited `derived-plan` refusal | ⏳ open |
-| **7** | CHP / TER / IND chapters unread | **Legal** | a planning-literate reader | the three chapters read and classified | ⏳ open, P3 |
+| **7** | CHP / TER / IND chapters unread | **Legal** | the València agent | the three chapters read and classified | ⏳ open — ⭐ **PROMOTED P3 → P2**: measured at **3,35 pp** that `altura` can never unblock |
+| **11** | ⭐ **NEW** — UFA setback conditions unread (Arts. 6.36/6.37/6.39/6.40) | **Legal** | the València agent | the four articles read; UFA-2/UFA-3 setbacks classified | ⏳ open — **5,87 pp, dual-blocked with `altura`**. Surfaced by the input matrix; was invisible under "`altura` blocks everything" |
 | **5** | the text is a *(Transcripción)* | **Data acquisition** | the València agent | GVA deposit `46250-1001 1991-0010` OCR'd + a quote-by-quote concordance | ⏳ open |
 | **6** | modification census | **Data acquisition** | the València agent | the **26** `MP` instruments carrying 80 % of MP buildable land checked against Título VI Caps. 3–5 | ⏳ open |
 | **3 · 9 · 10** | — | — | — | — | ✅ closed |
@@ -200,6 +201,31 @@ the instrument.
 | nothing further | **0 %** |
 | **Plano C as data** (#1) | **63,60 %** — the PGOU-ordered share; the delegated 36,40 % stays a cited delegation forever |
 | a validated layer-212 `altura` parse only (#2) | ⭐ **≤ 52,6 %** of private buildable land [95 % CI 44,8–60,2] — ⚠ **MEASURED 2026-08-01; the join is now DONE** and the figure is ~2× the 27,13 % this row used to quote |
+
+## ⭐ THE COVERAGE-LOSS MATRIX — 100 % of buildable land, four buckets
+
+The standing rule, applied. Denominator: **1 869,6 ha** (server-side; the client-side method agrees to
+0,28 %). Full derivation:
+[`findings/VALENCIA-INPUT-STATUS-MATRIX-2026-08-02.md`](./findings/VALENCIA-INPUT-STATUS-MATRIX-2026-08-02.md).
+
+| Bucket | Share | Owner |
+|---|---:|---|
+| **Legally impossible** — delegated to a derived instrument; terminal, cited, **CORRECT** | **36,40 %** | nobody — it is the right answer |
+| **Awaiting authoritative interpretation** — ENS 32,97 + EDA 21,40, gated by **`altura` alone** | **54,37 %** | the founder (R5) |
+| **Awaiting interpretation AND our own reading** — UFA: `altura` **+** unread Arts. 6.36/6.37/6.39/6.40 | **5,87 %** | founder **+** us |
+| **Awaiting our own reading alone** — CHP + TER + IND; ⚠ **`altura` is irrelevant here** | **3,35 %** | us |
+| **Data unavailable** | **0,00 %** | — |
+| **Engineering not yet implemented** | **0,00 pp of land** | us — #4 and the `explicit-area` declaration gate *emission*, not entitlement |
+
+⭐ **`Data unavailable` IS EMPTY.** Before D-005 the whole 63,60 % sat in that bucket. **No València
+land is blocked by missing data any more** — the largest change of the last two days, and invisible in
+the still-0 % ENVELOPE score.
+
+⚠⚠ **THE 63,60 % `no-pack` DECOMPOSES, AND WE HAD BEEN OVER-SIMPLIFYING.** Our own NEXT.md said
+*"`altura`: single remaining blocker"*. Measured, that is true of **85,5 %** of reachable land and
+**false of 9,22 pp** — whose owner is **us**, not the founder, and whose cost is ~2 days of reading.
+⚠ The exercise did **not** turn up a hidden second gate on ENS/EDA: setbacks, FAR and ocupación are
+all **settled by article** there. Manufacturing one would have been the same error inverted.
 
 ## ⭐ 2026-08-02, LATE — THE POSITION, IN FIVE LINES
 

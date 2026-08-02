@@ -100,6 +100,44 @@ constrains envelopes DOWNWARD (L-616: a SOLID must intersect ALL derived constra
 `PGOU_AL.dwg` / `.gml` / `.shz` distributions the national catalogue advertises are **all 404**.
 The live documentation route is `datos.gob.es` publisher `L01462508`.
 
+## 2d — ⭐⭐ THE INPUT MATRIX: `altura` is NOT a catch-all, and we were over-simplifying
+
+Full evidence:
+[`findings/VALENCIA-INPUT-STATUS-MATRIX-2026-08-02.md`](./findings/VALENCIA-INPUT-STATUS-MATRIX-2026-08-02.md).
+Pinned as `VALENCIA_ENVELOPE_INPUT_STATUS` / `VALENCIA_COVERAGE_LOSS`.
+
+⭐ **If `altura` were answered tomorrow, an ENS/EDA envelope WOULD emit.** Nothing else is waited on
+for those zones — **54,37 pp of buildable land, 85,5 % of everything reachable.** One email really is
+the whole gate for that share.
+
+⭐ **And the engine already has València's rule kind.** `explicit-area` (ADR-0270) clips a parcel to a
+**published buildable footprint**, supports *patio de manzana* holes and multi-part footprints, and
+hard-fails rather than falling through to a whole-parcel inset. **No new solver is needed.**
+
+⚠ **But 9,22 pp would NOT emit, and that blocker is OURS, not the founder's** — it was invisible while
+`altura` carried the whole explanation:
+
+| bucket | share | owner |
+|---|---:|---|
+| **Legally impossible** — delegated; terminal, cited, **correct** | **36,40 %** | nobody — it is the right answer |
+| **Awaiting authoritative interpretation** — ENS + EDA, `altura` alone | **54,37 %** | the founder (R5) |
+| **Awaiting interpretation AND our reading** — UFA: `altura` **+** Arts. 6.36/6.37/6.39/6.40 unread | **5,87 %** | founder **+** us |
+| **Awaiting our reading alone** — CHP + TER + IND chapters; **`altura` is irrelevant** | **3,35 %** | us |
+| **Data unavailable** | **0,00 %** | — |
+
+⭐ **`Data unavailable` is EMPTY.** Before D-005 the whole 63,60 % sat there (*"Plano C is unpublished:
+an institution, a fee, an unknown timeline"*). **No València land is blocked by missing data at all**
+— the largest change of the last two days, and invisible in the still-0 % ENVELOPE score.
+
+⚠ **Settled by article, NOT manufactured as blockers:** ENS setbacks — Art. 6.18.2 «La edificación no
+podrá retranquearse de la alineación exterior» (retranqueos *forbidden*); FAR — no edificabilidad
+figure exists in the chapter; ocupación — Art. 6.18.1 sets it **by the alignments**, i.e. the same
+polygon. And **"storeys vs metres" is not a second blocker**: metres is refuted 4× (median ratio 0,78
+vs ≈3,0 predicted). Only the **offset** is open.
+
+⇒ **NEW WORK ITEM, ours, ~2 days, parallel to the wait:** read UFA Arts. 6.36/6.37/6.39/6.40 and the
+CHP/TER/IND chapters. It needs no external answer and it is the only way those 9,22 pp ever emit.
+
 ## 2c — ⭐⭐ THE REVISED ROADMAP (founder, 2026-08-02) — recorded verbatim
 
 - ✅ **Buildable depth: resolved through published geometry**
