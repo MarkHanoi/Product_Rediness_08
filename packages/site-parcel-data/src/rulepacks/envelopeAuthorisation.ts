@@ -24,18 +24,42 @@
 // in Córdoba — with an honest, cited refusal, which is an answer). The gate has to become
 // something the ontology can READ.
 //
-// FAIL-OPEN BY ABSENCE, MADE SAFE BY A TOTALITY TEST
-// --------------------------------------------------
-// A jurisdiction absent from this table is AUTHORISED. That is the right default — Barcelona,
-// Denmark, Paris and the Netherlands declare no gate because none is owed; making absence mean
-// "refused" would silence every jurisdiction that has actually shipped.
+// ⛔⛔ FAIL-CLOSED BY ABSENCE — CHANGED 2026-08-02. READ THIS BEFORE TOUCHING THE DEFAULT.
+// ------------------------------------------------------------------------------------------
+// THIS MODULE USED TO FAIL **OPEN**: `ENVELOPE_PUBLICATION_GATES.get(id) ?? true`. The reasoning
+// was sound for the world it was written in — Barcelona, Denmark, Paris and the Netherlands owe no
+// gate, and making absence mean "refused" would have silenced every jurisdiction that had shipped.
+// The §TOTALITY test closed the obvious hole (a gate that exists but was never listed here).
 //
-// The danger of a fail-open default is a gate that exists but was never listed here. That is
-// closed NOT by a convention but by `envelopeAuthorisation.test.ts` §TOTALITY, which scans
-// `src/rulepacks/*.ts` for every exported `*_ENVELOPE_VERIFIED` constant and fails if one is
-// missing from `ENVELOPE_PUBLICATION_GATES`. A future gated city therefore CANNOT re-open this
-// hole: adding the gate without registering it here is a red test, not a silent over-claim. Same
-// technique as `packPublishedConfidenceUnchanged.test.ts`'s frozen manifest.
+// ⚠ WHAT THE TOTALITY TEST NEVER COVERED, AND WHY THE DEFAULT HAD TO INVERT. Totality scans for
+// `*_ENVELOPE_VERIFIED` CONSTANTS. It therefore protects against *an unlisted gate*. It says
+// nothing about *an unlisted JURISDICTION* — an id that reaches this function having never been
+// considered by anyone. Under `?? true` such an id PUBLISHED.
+//
+// That was harmless only while the set of reachable jurisdiction ids was closed and hand-written.
+// The moment the Barcelona hardcodes are parameterised on the INE code, the AMB layer's **36
+// municipalities** become reachable, and 26 of them have no entry anywhere in this package. Under
+// the old default they would not have been "unlocked" — they would have **PUBLISHED WITHOUT A
+// GATE**. Of the nine confident-and-wrong patterns measured this week this is the ONLY one whose
+// failure direction is OVER-GRANTING; every other has been safe-side.
+//
+// ⇒ THE DEFAULT IS NOW `false`. Authorisation requires the jurisdiction to be EXPLICITLY KNOWN,
+//   in exactly one of two ways:
+//     1. `ENVELOPE_PUBLICATION_GATES` — it declares a human-verification gate; the gate's own
+//        constant decides. (Unchanged.)
+//     2. `UNGATED_AUTHORISED_JURISDICTIONS` — it owes no gate, and the REASON is written down.
+//   Anything else refuses with a named reason (`unknown-jurisdiction`), which is the honest answer
+//   to "we have never assessed this place".
+//
+// ⚠ MEASURED BEFORE AND AFTER: **no shipped jurisdiction loses coverage.** All 16 registered
+// jurisdictions are in one of the two tables, so every id that could reach this function before
+// the change returns exactly what it returned before. The only behaviour that changes is for ids
+// nobody had assessed — which never had authorisation to lose.
+//
+// ⚠ ADDING A JURISDICTION TO `UNGATED_AUTHORISED_JURISDICTIONS` IS A PUBLICATION DECISION. It is
+// not a wiring convenience. The reason string is not decoration: it is the record of why no human
+// signature is owed, and `envelopeAuthorisation.test.ts` asserts the set is exactly this list, so
+// adding one is a stated act rather than an absorbed one.
 //
 // PURITY: L2-pure (C58 §1.1/§1.9) — no I/O, no clock, no RNG. It reads compile-time constants.
 //
@@ -54,6 +78,14 @@ import { MURCIA_ENVELOPE_VERIFIED, MURCIA_JURISDICTION_ID } from './esMurciaEnve
 import { SANT_BOI_ENVELOPE_VERIFIED, SANT_BOI_JURISDICTION_ID } from './esSantBoi.js';
 // ⚠ VALÈNCIA — a gate of a THIRD kind. See the third group in the table below.
 import { VALENCIA_ENVELOPE_VERIFIED, VALENCIA_JURISDICTION_ID } from './esValenciaEnvelope.js';
+// ── The UNGATED-BY-RECORD allowlist. Ids only; these packs declare no `*_ENVELOPE_VERIFIED`. ──
+import { BCN_JURISDICTION_ID } from './esBarcelonaVolumetria18.js';
+import { CH_JURISDICTION_ID } from './chZoning.js';
+import { CORDOBA_MUNICIPAL_JURISDICTION_ID } from './esCordobaZoneClassification.js';
+import { DK_PLANDATA_JURISDICTION_ID } from './dkPlandataEnvelope.js';
+import { NL_JURISDICTION_ID } from './nlBestemmingsplan.js';
+import { PARIS_JURISDICTION_ID } from './frParisPluBioclimatique.js';
+import { SA_RIYADH_JURISDICTION_ID } from './saRiyadhDemo.js';
 
 const tracer = trace.getTracer('pryzm.zoning.authorisation');
 
@@ -95,26 +127,126 @@ export const ENVELOPE_PUBLICATION_GATES: ReadonlyMap<string, boolean> = new Map<
 ]);
 
 /**
- * Whether PRYZM is authorised to PUBLISH A NUMERIC ENVELOPE for this jurisdiction.
+ * Jurisdictions that publish WITHOUT a human-verification gate, each with the reason none is owed.
  *
- * `true` for any jurisdiction that declares no gate — see the fail-open argument in the header,
- * and the §TOTALITY test that makes an unlisted gate impossible.
+ * ⚠ THIS IS THE OTHER HALF OF THE FAIL-CLOSED DEFAULT. Before 2026-08-02 these were authorised by
+ * ABSENCE, which is indistinguishable from "nobody has looked at this place". Making the reason
+ * explicit is what lets the default invert without silencing anything that had shipped.
+ *
+ * ⚠ A jurisdiction belongs here ONLY when the authority publishes the governing determination as
+ * DATA, so PRYZM transcribes no ordinance and there is nothing for a human to sign (the SIG-M2 /
+ * ADR-0283 argument). If PRYZM transcribes a number, it owes a gate — put it in
+ * `ENVELOPE_PUBLICATION_GATES` instead.
+ */
+export const UNGATED_AUTHORISED_JURISDICTIONS: ReadonlyMap<string, string> = new Map<string, string>([
+    [
+        BCN_JURISDICTION_ID,
+        'Barcelona is the reference city. Its packs ship at `estimated-ruleset` under SIG-1/SIG-2/SIG-3/SIG-4 ' +
+            '(docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/sources/VERIFICATION.md); the route-level ' +
+            'gates it does owe are enforced at their own dispatch sites (e.g. BCN_REFOS_OV_CERTIFIED for clau 18), ' +
+            'not at jurisdiction granularity.',
+    ],
+    [
+        DK_PLANDATA_JURISDICTION_ID,
+        'Denmark publishes the envelope determination itself through Plandata.dk as machine-readable data ' +
+            '(maksbebyggelsesprocent / maks. bygningshoejde per plan). PRYZM transcribes no ordinance, so no ' +
+            'signature is owed (L-449 SIGNED vs BR18).',
+    ],
+    [
+        PARIS_JURISDICTION_ID,
+        'Paris PLU bioclimatique: the route gate is FR_PARIS_PLU_CERTIFIED, enforced at its own dispatch site. ' +
+            '⚠ That gate is currently OPEN AND UNSIGNED and is quarantined in `UNSIGNED_OPEN_GATES` ' +
+            '(l449CertificationGates.ts). This entry authorises the JURISDICTION; it does not resolve that quarantine.',
+    ],
+    [
+        NL_JURISDICTION_ID,
+        'Netherlands bestemmingsplan: the route gate is NL_BESTEMMINGSPLAN_CERTIFIED, enforced at its own ' +
+            'dispatch site. ⚠ Also OPEN AND UNSIGNED and quarantined in `UNSIGNED_OPEN_GATES`.',
+    ],
+    [
+        CH_JURISDICTION_ID,
+        'Switzerland national Grundnutzung: the route gate is CH_FAR_CERTIFIED, SIGNED 2026-07-26 by the repo ' +
+            'owner (docs/04-reference/jurisdictions/ch/sources/VERIFICATION.md) and enforced at its own dispatch site.',
+    ],
+    [
+        CORDOBA_MUNICIPAL_JURISDICTION_ID,
+        'The Cordoba MUNICIPAL classification jurisdiction publishes refusals only — it carries no numeric ' +
+            'envelope to authorise. The numeric pack is `es-14021-cordoba`, which IS gated and is `false`.',
+    ],
+    [
+        SA_RIYADH_JURISDICTION_ID,
+        'Riyadh is an explicit DEMO jurisdiction (saRiyadhDemo.ts), not a determination surface. It is listed ' +
+            'so it cannot reach the unknown-jurisdiction refusal by accident, and it must never be cited as coverage.',
+    ],
+]);
+
+/** Why `isEnvelopePublicationAuthorised` answered as it did — for refusal copy and for the span. */
+export type EnvelopeAuthorisationReason =
+    /** The jurisdiction declares a gate and it is OPEN. */
+    | 'gate-open'
+    /** The jurisdiction declares a gate and it is SHUT — a human signature is outstanding. */
+    | 'gate-shut'
+    /** The jurisdiction owes no gate, and the reason is recorded in `UNGATED_AUTHORISED_JURISDICTIONS`. */
+    | 'ungated-by-record'
+    /**
+     * ⛔ THE FAIL-CLOSED PATH. This jurisdiction id appears in NEITHER table — nobody has assessed
+     * it. It refuses. This is the honest answer, and before 2026-08-02 it silently PUBLISHED.
+     */
+    | 'unknown-jurisdiction';
+
+/**
+ * Whether PRYZM is authorised to PUBLISH A NUMERIC ENVELOPE for this jurisdiction, with the reason.
+ *
+ * ⛔ FAILS CLOSED. An id in neither table returns `authorised: false` / `unknown-jurisdiction`.
  *
  * ⚠ THIS IS NOT "DO WE COVER IT" AND NOT "IS THIS ZONE BUILDABLE". It is exclusively the
  * signature question. A `false` here says PRYZM's own verification is unfinished; it says nothing
  * whatsoever about the land or the ordinance, and a caller that renders it as a legal statement
  * has committed the §CONTEXT-DATA-HONESTY collapse this package keeps hitting (L-553).
  *
+ * P8 — emits `pryzm.zoning.envelopePublicationAuthorisation`.
+ */
+export function envelopePublicationAuthorisation(jurisdictionId: string): {
+    readonly authorised: boolean;
+    readonly reason: EnvelopeAuthorisationReason;
+} {
+    const span = tracer.startSpan('pryzm.zoning.envelopePublicationAuthorisation');
+    try {
+        let result: { authorised: boolean; reason: EnvelopeAuthorisationReason };
+        if (ENVELOPE_PUBLICATION_GATES.has(jurisdictionId)) {
+            const open = ENVELOPE_PUBLICATION_GATES.get(jurisdictionId) === true;
+            result = { authorised: open, reason: open ? 'gate-open' : 'gate-shut' };
+        } else if (UNGATED_AUTHORISED_JURISDICTIONS.has(jurisdictionId)) {
+            result = { authorised: true, reason: 'ungated-by-record' };
+        } else {
+            // ⛔ The inverted default. Never `true`.
+            result = { authorised: false, reason: 'unknown-jurisdiction' };
+        }
+        span.setAttribute('jurisdictionId', jurisdictionId);
+        span.setAttribute('authorised', result.authorised);
+        span.setAttribute('reason', result.reason);
+        return result;
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * Whether PRYZM is authorised to PUBLISH A NUMERIC ENVELOPE for this jurisdiction.
+ *
+ * ⛔ FAILS CLOSED as of 2026-08-02 — see the header. An unrecognised jurisdiction id REFUSES.
+ * Use `envelopePublicationAuthorisation()` when you need the reason (e.g. for refusal copy).
+ *
  * P8 — emits `pryzm.zoning.isEnvelopePublicationAuthorised`.
  */
 export function isEnvelopePublicationAuthorised(jurisdictionId: string): boolean {
     const span = tracer.startSpan('pryzm.zoning.isEnvelopePublicationAuthorised');
     try {
-        const gated = ENVELOPE_PUBLICATION_GATES.has(jurisdictionId);
-        const authorised = ENVELOPE_PUBLICATION_GATES.get(jurisdictionId) ?? true;
+        const { authorised, reason } = envelopePublicationAuthorisation(jurisdictionId);
         span.setAttribute('jurisdictionId', jurisdictionId);
-        span.setAttribute('gated', gated);
+        span.setAttribute('gated', ENVELOPE_PUBLICATION_GATES.has(jurisdictionId));
         span.setAttribute('authorised', authorised);
+        span.setAttribute('reason', reason);
         return authorised;
     } finally {
         span.end();

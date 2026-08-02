@@ -28,6 +28,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
     ENVELOPE_PUBLICATION_GATES,
+    UNGATED_AUTHORISED_JURISDICTIONS,
+    envelopePublicationAuthorisation,
     isEnvelopePublicationAuthorised,
 } from '../src/rulepacks/envelopeAuthorisation.js';
 import {
@@ -35,7 +37,11 @@ import {
     classifyAnswerability,
     classifyDisposition,
 } from '../src/rulepacks/answerabilityClass.js';
-import { resolveZoneDisposition, BCN_JURISDICTION_ID } from '../src/rulepacks/registry.js';
+import {
+    resolveZoneDisposition,
+    BCN_JURISDICTION_ID,
+    listJurisdictionCoverage,
+} from '../src/rulepacks/registry.js';
 import { MADRID_JURISDICTION_ID } from '../src/rulepacks/esMadridNZ1.js';
 import { MADRID_PGOUM97_ZONE_CODES } from '../src/rulepacks/esMadridPgoum97.js';
 import { CORDOBA_JURISDICTION_ID, CORDOBA_PGOU2001_ZONE_CODES } from '../src/rulepacks/esCordobaPGOU2001.js';
@@ -87,11 +93,77 @@ describe('§TOTALITY — a future gated city CANNOT re-open this hole', () => {
         }
     });
 
-    it('an UNGATED jurisdiction is authorised — absence is not a refusal', () => {
-        expect(isEnvelopePublicationAuthorised(BCN_JURISDICTION_ID)).toBe(true);
-        expect(isEnvelopePublicationAuthorised('dk')).toBe(true);
-        expect(isEnvelopePublicationAuthorised('nl-bestemmingsplan')).toBe(true);
+    // ⚠ REWRITTEN 2026-08-02 — this test previously asserted the FAIL-OPEN contract
+    // ("absence is not a refusal"). Absence is now a refusal; what keeps these three authorised is
+    // that they are RECORDED in `UNGATED_AUTHORISED_JURISDICTIONS`, not that they are missing.
+    it('an ungated-BY-RECORD jurisdiction is authorised, and it is the RECORD that authorises it', () => {
+        for (const id of [BCN_JURISDICTION_ID, 'dk', 'nl-bestemmingsplan']) {
+            expect(isEnvelopePublicationAuthorised(id)).toBe(true);
+            expect(envelopePublicationAuthorisation(id).reason).toBe('ungated-by-record');
+            expect(UNGATED_AUTHORISED_JURISDICTIONS.has(id)).toBe(true);
+            // and the reason is written down, not empty
+            expect((UNGATED_AUTHORISED_JURISDICTIONS.get(id) ?? '').length).toBeGreaterThan(40);
+        }
         expect(ENVELOPE_PUBLICATION_GATES.has(BCN_JURISDICTION_ID)).toBe(false);
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    // ⛔ THE FAIL-CLOSED CONTRACT. These four tests exercise the NEW path — none of them would have
+    //    passed before 2026-08-02, and the first one is the whole reason the default inverted.
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    it('⛔ an UNRECOGNISED jurisdiction id REFUSES — it does not publish', () => {
+        for (const unknown of [
+            'es-08204-sant-climent',        // a real AMB municipality, never assessed
+            'es-08245-santa-coloma',        // ditto
+            'es-99999-nowhere',
+            '',
+            'undefined',
+        ]) {
+            expect(
+                isEnvelopePublicationAuthorised(unknown),
+                `"${unknown}" must REFUSE. Under the old \`?? true\` default it PUBLISHED, ungated.`,
+            ).toBe(false);
+            expect(envelopePublicationAuthorisation(unknown).reason).toBe('unknown-jurisdiction');
+        }
+    });
+
+    it('⛔ parameterising the Barcelona hardcodes cannot silently publish the other 35 AMB municipalities', () => {
+        // The AMB Refos layer covers 36 municipalities by CODI_INE. Barcelona is the only one
+        // assessed. Every other id built the same way must refuse until it is explicitly recorded.
+        const ambIne = ['08015', '08020', '08056', '08123', '08196', '08204', '08245', '08301'];
+        for (const ine of ambIne) {
+            const id = `es-${ine}-amb`;
+            expect(isEnvelopePublicationAuthorised(id), `${id} must refuse`).toBe(false);
+        }
+    });
+
+    it('a SHUT gate refuses with `gate-shut`, distinct from `unknown-jurisdiction`', () => {
+        // The distinction is load-bearing: "a human has not signed yet" is a different product
+        // state from "nobody has ever assessed this place", and refusal copy must not conflate them.
+        expect(envelopePublicationAuthorisation(CORDOBA_JURISDICTION_ID)).toEqual({
+            authorised: false,
+            reason: 'gate-shut',
+        });
+        expect(envelopePublicationAuthorisation('es-00000-unassessed').reason).toBe('unknown-jurisdiction');
+    });
+
+    it('§NO-COVERAGE-LOST — every REGISTERED jurisdiction is in exactly one of the two tables', () => {
+        // This is the before/after measurement made permanent. If a registered jurisdiction is in
+        // neither table it just LOST coverage to the fail-closed flip, and that must be a red test
+        // rather than a silent regression discovered in production.
+        const orphans: string[] = [];
+        for (const j of listJurisdictionCoverage()) {
+            const known =
+                ENVELOPE_PUBLICATION_GATES.has(j.jurisdictionId) ||
+                UNGATED_AUTHORISED_JURISDICTIONS.has(j.jurisdictionId);
+            if (!known) orphans.push(j.jurisdictionId);
+        }
+        expect(
+            orphans,
+            `These REGISTERED jurisdictions are in neither ENVELOPE_PUBLICATION_GATES nor ` +
+                `UNGATED_AUTHORISED_JURISDICTIONS, so the fail-closed default now REFUSES them: ` +
+                `${orphans.join(', ')}. Either record the reason they owe no gate, or give them a gate.`,
+        ).toEqual([]);
     });
 
     it('authorisation tracks the SIGNATURE, per city — Murcia signed, Madrid + Córdoba not', () => {
