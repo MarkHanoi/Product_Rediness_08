@@ -1,6 +1,6 @@
 {
   "probeCVersion": "1.0",
-  "runAt": "2026-08-02T09:38:33.154Z",
+  "runAt": "2026-08-02T09:50:09.553Z",
   "sampling": {
     "frameSource": "INE table 29005 «Cifras oficiales del padrón por municipio»",
     "frameSourceNote": "⚠ NOT Wikidata P1082 — unevenly maintained, and a bad band assignment biases the tier estimate directly.",
@@ -50,7 +50,7 @@
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:35:21.936Z",
+      "runAt": "2026-08-02T09:42:48.830Z",
       "mode": "live",
       "municipality": {
         "name": "Lobras",
@@ -95,13 +95,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 26,
-        "wallClockMinutes": 0.136,
-        "bytes": 772813,
-        "failedProbes": 24,
-        "unknownProbes": 10,
+        "requests": 27,
+        "wallClockMinutes": 0.129,
+        "bytes": 772808,
+        "failedProbes": 25,
+        "unknownProbes": 11,
         "geocodeRequests": 1,
-        "totalWallClockMs": 8163
+        "totalWallClockMs": 7755
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -119,7 +119,7 @@
       "population": 139,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 13,
         "hostOutcomes": [
           {
             "host": "www.lobras.es",
@@ -132,17 +132,17 @@
             "httpStatus": 200
           },
           {
+            "host": "www.lobras.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
             "host": "www.aytolobras.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientolobras.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2lobras.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -180,20 +180,25 @@
             "host": "visor.lobras.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.lobras.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
         "attribution": "city",
-        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+        "reason": "2/13 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:35:23.103Z",
+      "runAt": "2026-08-02T09:42:49.219Z",
       "mode": "live",
       "municipality": {
         "name": "Velamazán",
@@ -238,13 +243,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 12,
-        "wallClockMinutes": 0.008,
+        "requests": 13,
+        "wallClockMinutes": 0.005,
         "bytes": 0,
-        "failedProbes": 12,
-        "unknownProbes": 12,
+        "failedProbes": 13,
+        "unknownProbes": 13,
         "geocodeRequests": 1,
-        "totalWallClockMs": 496
+        "totalWallClockMs": 328
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -262,7 +267,7 @@
       "population": 66,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 13,
         "hostOutcomes": [
           {
             "host": "www.velamazan.es",
@@ -275,17 +280,17 @@
             "httpStatus": null
           },
           {
+            "host": "www.velamazan.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
             "host": "www.aytovelamazan.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientovelamazan.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2velamazan.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -323,20 +328,25 @@
             "host": "visor.velamazan.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.velamazan.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
         "attribution": "tool",
-        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+        "reason": "every candidate host failed at the transport layer (13/13) — this is UNKNOWN, and asserts nothing about the municipality"
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:35:24.284Z",
+      "runAt": "2026-08-02T09:42:50.380Z",
       "mode": "live",
       "municipality": {
         "name": "Benissuera",
@@ -381,13 +391,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 12,
-        "wallClockMinutes": 0.016,
+        "requests": 13,
+        "wallClockMinutes": 0.019,
         "bytes": 0,
-        "failedProbes": 12,
-        "unknownProbes": 12,
+        "failedProbes": 13,
+        "unknownProbes": 13,
         "geocodeRequests": 1,
-        "totalWallClockMs": 974
+        "totalWallClockMs": 1144
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -405,7 +415,7 @@
       "population": 196,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 13,
         "hostOutcomes": [
           {
             "host": "www.benissuera.es",
@@ -418,17 +428,17 @@
             "httpStatus": null
           },
           {
+            "host": "www.benissuera.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
             "host": "www.aytobenissuera.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientobenissuera.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2benissuera.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -466,20 +476,25 @@
             "host": "visor.benissuera.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.benissuera.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
         "attribution": "tool",
-        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+        "reason": "every candidate host failed at the transport layer (13/13) — this is UNKNOWN, and asserts nothing about the municipality"
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:35:24.663Z",
+      "runAt": "2026-08-02T09:42:55.808Z",
       "mode": "live",
       "municipality": {
         "name": "Paradinas de San Juan",
@@ -524,13 +539,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 12,
-        "wallClockMinutes": 0.004,
-        "bytes": 0,
-        "failedProbes": 12,
-        "unknownProbes": 12,
+        "requests": 96,
+        "wallClockMinutes": 0.09,
+        "bytes": 261240,
+        "failedProbes": 86,
+        "unknownProbes": 16,
         "geocodeRequests": 1,
-        "totalWallClockMs": 256
+        "totalWallClockMs": 5412
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -548,7 +563,7 @@
       "population": 380,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 26,
         "hostOutcomes": [
           {
             "host": "www.paradinasdesanjuan.es",
@@ -561,17 +576,17 @@
             "httpStatus": null
           },
           {
+            "host": "www.paradinasdesanjuan.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
             "host": "www.aytoparadinasdesanjuan.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientoparadinasdesanjuan.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2paradinasdesanjuan.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -609,20 +624,90 @@
             "host": "visor.paradinasdesanjuan.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.paradinasdesanjuan.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.paradinas.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "paradinas.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "www.paradinas.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytoparadinas.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientoparadinas.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.paradinas.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "sig.paradinas.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "geoportal.paradinas.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "cartografia.paradinas.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "mapas.paradinas.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "geoserver.paradinas.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "visor.paradinas.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "gis.paradinas.es",
+            "outcome": "ok",
+            "httpStatus": 200
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
-        "attribution": "tool",
-        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+        "attribution": "city",
+        "reason": "10/26 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:35:45.864Z",
+      "runAt": "2026-08-02T09:43:17.649Z",
       "mode": "live",
       "municipality": {
         "name": "Paderne de Allariz",
@@ -667,13 +752,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 12,
-        "wallClockMinutes": 0.35,
+        "requests": 26,
+        "wallClockMinutes": 0.363,
         "bytes": 0,
-        "failedProbes": 12,
-        "unknownProbes": 12,
+        "failedProbes": 26,
+        "unknownProbes": 26,
         "geocodeRequests": 1,
-        "totalWallClockMs": 20973
+        "totalWallClockMs": 21798
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -691,7 +776,7 @@
       "population": 1346,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 26,
         "hostOutcomes": [
           {
             "host": "www.padernedeallariz.es",
@@ -704,17 +789,17 @@
             "httpStatus": null
           },
           {
+            "host": "www.padernedeallariz.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
             "host": "www.aytopadernedeallariz.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientopadernedeallariz.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2padernedeallariz.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -752,20 +837,90 @@
             "host": "visor.padernedeallariz.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.padernedeallariz.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.paderne.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "paderne.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.paderne.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytopaderne.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientopaderne.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.paderne.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.paderne.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.paderne.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.paderne.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.paderne.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.paderne.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.paderne.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "gis.paderne.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
         "attribution": "tool",
-        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+        "reason": "every candidate host failed at the transport layer (26/26) — this is UNKNOWN, and asserts nothing about the municipality"
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:35:52.515Z",
+      "runAt": "2026-08-02T09:43:22.555Z",
       "mode": "live",
       "municipality": {
         "name": "Batres",
@@ -810,13 +965,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 26,
-        "wallClockMinutes": 0.107,
+        "requests": 27,
+        "wallClockMinutes": 0.081,
         "bytes": 1574642,
-        "failedProbes": 24,
-        "unknownProbes": 10,
+        "failedProbes": 25,
+        "unknownProbes": 11,
         "geocodeRequests": 1,
-        "totalWallClockMs": 6407
+        "totalWallClockMs": 4859
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -834,7 +989,7 @@
       "population": 1976,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 13,
         "hostOutcomes": [
           {
             "host": "www.batres.es",
@@ -847,17 +1002,17 @@
             "httpStatus": 200
           },
           {
+            "host": "www.batres.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
             "host": "www.aytobatres.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientobatres.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2batres.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -895,20 +1050,25 @@
             "host": "visor.batres.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.batres.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
         "attribution": "city",
-        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+        "reason": "2/13 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:35:59.593Z",
+      "runAt": "2026-08-02T09:43:32.632Z",
       "mode": "live",
       "municipality": {
         "name": "Fuenmayor",
@@ -953,13 +1113,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 26,
-        "wallClockMinutes": 0.113,
-        "bytes": 444490,
-        "failedProbes": 24,
+        "requests": 34,
+        "wallClockMinutes": 0.167,
+        "bytes": 666743,
+        "failedProbes": 31,
         "unknownProbes": 10,
         "geocodeRequests": 1,
-        "totalWallClockMs": 6801
+        "totalWallClockMs": 10026
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -977,7 +1137,7 @@
       "population": 3281,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 13,
         "hostOutcomes": [
           {
             "host": "www.fuenmayor.es",
@@ -990,17 +1150,17 @@
             "httpStatus": 200
           },
           {
+            "host": "www.fuenmayor.org",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
             "host": "www.aytofuenmayor.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientofuenmayor.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2fuenmayor.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -1038,20 +1198,25 @@
             "host": "visor.fuenmayor.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.fuenmayor.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
         "attribution": "city",
-        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+        "reason": "3/13 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:36:01.273Z",
+      "runAt": "2026-08-02T09:43:33.647Z",
       "mode": "live",
       "municipality": {
         "name": "Bonrepòs i Mirambell",
@@ -1096,13 +1261,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 12,
-        "wallClockMinutes": 0.024,
+        "requests": 13,
+        "wallClockMinutes": 0.016,
         "bytes": 0,
-        "failedProbes": 12,
-        "unknownProbes": 12,
+        "failedProbes": 13,
+        "unknownProbes": 13,
         "geocodeRequests": 1,
-        "totalWallClockMs": 1413
+        "totalWallClockMs": 962
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -1120,7 +1285,7 @@
       "population": 4115,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 13,
         "hostOutcomes": [
           {
             "host": "www.bonreposimirambell.es",
@@ -1133,17 +1298,17 @@
             "httpStatus": null
           },
           {
+            "host": "www.bonreposimirambell.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
             "host": "www.aytobonreposimirambell.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientobonreposimirambell.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2bonreposimirambell.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -1181,20 +1346,25 @@
             "host": "visor.bonreposimirambell.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.bonreposimirambell.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
         "attribution": "tool",
-        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+        "reason": "every candidate host failed at the transport layer (13/13) — this is UNKNOWN, and asserts nothing about the municipality"
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:36:04.114Z",
+      "runAt": "2026-08-02T09:43:35.394Z",
       "mode": "live",
       "municipality": {
         "name": "Benahavís",
@@ -1239,13 +1409,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 26,
-        "wallClockMinutes": 0.043,
-        "bytes": 14704,
-        "failedProbes": 26,
+        "requests": 34,
+        "wallClockMinutes": 0.029,
+        "bytes": 22940,
+        "failedProbes": 33,
         "unknownProbes": 10,
         "geocodeRequests": 1,
-        "totalWallClockMs": 2594
+        "totalWallClockMs": 1733
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -1263,7 +1433,7 @@
       "population": 9472,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 13,
         "hostOutcomes": [
           {
             "host": "www.benahavis.es",
@@ -1276,17 +1446,17 @@
             "httpStatus": 403
           },
           {
+            "host": "www.benahavis.org",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
             "host": "www.aytobenahavis.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientobenahavis.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2benahavis.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -1324,20 +1494,25 @@
             "host": "visor.benahavis.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.benahavis.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
         "attribution": "city",
-        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+        "reason": "3/13 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:36:04.758Z",
+      "runAt": "2026-08-02T09:43:47.568Z",
       "mode": "live",
       "municipality": {
         "name": "Casar, El",
@@ -1382,13 +1557,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 12,
-        "wallClockMinutes": 0.007,
-        "bytes": 0,
-        "failedProbes": 12,
-        "unknownProbes": 12,
+        "requests": 40,
+        "wallClockMinutes": 0.203,
+        "bytes": 781832,
+        "failedProbes": 38,
+        "unknownProbes": 24,
         "geocodeRequests": 1,
-        "totalWallClockMs": 421
+        "totalWallClockMs": 12159
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -1406,7 +1581,7 @@
       "population": 13962,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 26,
         "hostOutcomes": [
           {
             "host": "www.casarel.es",
@@ -1419,17 +1594,17 @@
             "httpStatus": null
           },
           {
+            "host": "www.casarel.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
             "host": "www.aytocasarel.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientocasarel.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2casarel.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -1467,20 +1642,90 @@
             "host": "visor.casarel.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.casarel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.elcasar.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "elcasar.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "www.elcasar.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytoelcasar.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientoelcasar.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.elcasar.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.elcasar.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.elcasar.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.elcasar.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.elcasar.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.elcasar.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.elcasar.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "gis.elcasar.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
-        "attribution": "tool",
-        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+        "attribution": "city",
+        "reason": "2/26 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:36:05.692Z",
+      "runAt": "2026-08-02T09:43:51.658Z",
       "mode": "live",
       "municipality": {
         "name": "Campana, La",
@@ -1525,13 +1770,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 12,
-        "wallClockMinutes": 0.005,
-        "bytes": 0,
-        "failedProbes": 12,
-        "unknownProbes": 12,
+        "requests": 40,
+        "wallClockMinutes": 0.067,
+        "bytes": 165711,
+        "failedProbes": 38,
+        "unknownProbes": 24,
         "geocodeRequests": 1,
-        "totalWallClockMs": 295
+        "totalWallClockMs": 4029
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -1549,7 +1794,7 @@
       "population": 5122,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 26,
         "hostOutcomes": [
           {
             "host": "www.campanala.es",
@@ -1562,17 +1807,17 @@
             "httpStatus": null
           },
           {
+            "host": "www.campanala.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
             "host": "www.aytocampanala.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientocampanala.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2campanala.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -1610,20 +1855,90 @@
             "host": "visor.campanala.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.campanala.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.lacampana.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "lacampana.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "www.lacampana.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytolacampana.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientolacampana.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.lacampana.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.lacampana.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.lacampana.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.lacampana.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.lacampana.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.lacampana.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.lacampana.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "gis.lacampana.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
-        "attribution": "tool",
-        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+        "attribution": "city",
+        "reason": "2/26 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:36:26.159Z",
+      "runAt": "2026-08-02T09:44:38.012Z",
       "mode": "live",
       "municipality": {
         "name": "Venta de Baños",
@@ -1668,13 +1983,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 26,
-        "wallClockMinutes": 0.337,
-        "bytes": 1724338,
-        "failedProbes": 24,
-        "unknownProbes": 10,
+        "requests": 54,
+        "wallClockMinutes": 0.772,
+        "bytes": 1812068,
+        "failedProbes": 43,
+        "unknownProbes": 22,
         "geocodeRequests": 1,
-        "totalWallClockMs": 20238
+        "totalWallClockMs": 46311
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -1692,7 +2007,7 @@
       "population": 6372,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 26,
         "hostOutcomes": [
           {
             "host": "www.ventadebanos.es",
@@ -1705,17 +2020,17 @@
             "httpStatus": 200
           },
           {
+            "host": "www.ventadebanos.org",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
             "host": "www.aytoventadebanos.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientoventadebanos.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2ventadebanos.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -1753,20 +2068,90 @@
             "host": "visor.ventadebanos.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.ventadebanos.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.venta.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "venta.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.venta.org",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "www.aytoventa.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientoventa.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.venta.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.venta.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.venta.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.venta.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.venta.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.venta.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.venta.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "gis.venta.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
         "attribution": "city",
-        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+        "reason": "4/26 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:36:37.471Z",
+      "runAt": "2026-08-02T09:44:53.994Z",
       "mode": "live",
       "municipality": {
         "name": "Mieres",
@@ -1811,13 +2196,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 26,
-        "wallClockMinutes": 0.184,
-        "bytes": 4037747,
-        "failedProbes": 24,
+        "requests": 34,
+        "wallClockMinutes": 0.265,
+        "bytes": 4086759,
+        "failedProbes": 32,
         "unknownProbes": 10,
         "geocodeRequests": 1,
-        "totalWallClockMs": 11058
+        "totalWallClockMs": 15927
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -1835,7 +2220,7 @@
       "population": 36373,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 13,
         "hostOutcomes": [
           {
             "host": "www.mieres.es",
@@ -1848,17 +2233,17 @@
             "httpStatus": 200
           },
           {
+            "host": "www.mieres.org",
+            "outcome": "http-error",
+            "httpStatus": 403
+          },
+          {
             "host": "www.aytomieres.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientomieres.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2mieres.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -1896,20 +2281,25 @@
             "host": "visor.mieres.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.mieres.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
         "attribution": "city",
-        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+        "reason": "3/13 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:36:38.043Z",
+      "runAt": "2026-08-02T09:44:57.389Z",
       "mode": "live",
       "municipality": {
         "name": "Castelldefels",
@@ -1954,13 +2344,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 12,
-        "wallClockMinutes": 0.007,
-        "bytes": 0,
-        "failedProbes": 12,
+        "requests": 20,
+        "wallClockMinutes": 0.056,
+        "bytes": 216554,
+        "failedProbes": 19,
         "unknownProbes": 12,
         "geocodeRequests": 1,
-        "totalWallClockMs": 407
+        "totalWallClockMs": 3344
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -1978,7 +2368,7 @@
       "population": 70057,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 13,
         "hostOutcomes": [
           {
             "host": "www.castelldefels.es",
@@ -1991,17 +2381,17 @@
             "httpStatus": null
           },
           {
+            "host": "www.castelldefels.org",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
             "host": "www.aytocastelldefels.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientocastelldefels.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2castelldefels.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -2039,20 +2429,25 @@
             "host": "visor.castelldefels.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.castelldefels.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
-        "attribution": "tool",
-        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+        "attribution": "city",
+        "reason": "1/13 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:36:38.489Z",
+      "runAt": "2026-08-02T09:44:57.935Z",
       "mode": "live",
       "municipality": {
         "name": "Vendrell, El",
@@ -2097,13 +2492,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 12,
-        "wallClockMinutes": 0.004,
+        "requests": 26,
+        "wallClockMinutes": 0.009,
         "bytes": 0,
-        "failedProbes": 12,
-        "unknownProbes": 12,
+        "failedProbes": 26,
+        "unknownProbes": 26,
         "geocodeRequests": 1,
-        "totalWallClockMs": 216
+        "totalWallClockMs": 531
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -2121,7 +2516,7 @@
       "population": 41133,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 26,
         "hostOutcomes": [
           {
             "host": "www.vendrellel.es",
@@ -2134,17 +2529,17 @@
             "httpStatus": null
           },
           {
+            "host": "www.vendrellel.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
             "host": "www.aytovendrellel.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientovendrellel.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2vendrellel.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -2182,20 +2577,90 @@
             "host": "visor.vendrellel.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.vendrellel.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.elvendrell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "elvendrell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.elvendrell.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytoelvendrell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientoelvendrell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.elvendrell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.elvendrell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.elvendrell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.elvendrell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.elvendrell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.elvendrell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.elvendrell.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "gis.elvendrell.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
         "attribution": "tool",
-        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+        "reason": "every candidate host failed at the transport layer (26/26) — this is UNKNOWN, and asserts nothing about the municipality"
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:36:39.218Z",
+      "runAt": "2026-08-02T09:46:48.372Z",
       "mode": "live",
       "municipality": {
         "name": "Puerto del Rosario",
@@ -2240,13 +2705,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 12,
-        "wallClockMinutes": 0.006,
-        "bytes": 0,
-        "failedProbes": 12,
-        "unknownProbes": 12,
+        "requests": 33,
+        "wallClockMinutes": 1.84,
+        "bytes": 416,
+        "failedProbes": 33,
+        "unknownProbes": 25,
         "geocodeRequests": 1,
-        "totalWallClockMs": 346
+        "totalWallClockMs": 110423
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -2264,7 +2729,7 @@
       "population": 46150,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 26,
         "hostOutcomes": [
           {
             "host": "www.puertodelrosario.es",
@@ -2277,17 +2742,17 @@
             "httpStatus": null
           },
           {
+            "host": "www.puertodelrosario.org",
+            "outcome": "http-error",
+            "httpStatus": 403
+          },
+          {
             "host": "www.aytopuertodelrosario.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientopuertodelrosario.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2puertodelrosario.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -2325,20 +2790,90 @@
             "host": "visor.puertodelrosario.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.puertodelrosario.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.puerto.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "puerto.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.puerto.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytopuerto.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientopuerto.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.puerto.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.puerto.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.puerto.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.puerto.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.puerto.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.puerto.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.puerto.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "gis.puerto.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
-        "attribution": "tool",
-        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+        "attribution": "city",
+        "reason": "1/26 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:37:42.142Z",
+      "runAt": "2026-08-02T09:48:31.550Z",
       "mode": "live",
       "municipality": {
         "name": "León",
@@ -2383,13 +2918,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 26,
-        "wallClockMinutes": 1.044,
-        "bytes": 3579955,
-        "failedProbes": 22,
-        "unknownProbes": 10,
+        "requests": 41,
+        "wallClockMinutes": 1.686,
+        "bytes": 7033786,
+        "failedProbes": 33,
+        "unknownProbes": 9,
         "geocodeRequests": 1,
-        "totalWallClockMs": 62646
+        "totalWallClockMs": 101149
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -2407,7 +2942,7 @@
       "population": 123446,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 13,
         "hostOutcomes": [
           {
             "host": "www.leon.es",
@@ -2416,8 +2951,13 @@
           },
           {
             "host": "leon.es",
-            "outcome": "timeout",
-            "httpStatus": null
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "www.leon.org",
+            "outcome": "ok",
+            "httpStatus": 200
           },
           {
             "host": "www.aytoleon.es",
@@ -2426,11 +2966,6 @@
           },
           {
             "host": "www.ayuntamientoleon.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2leon.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -2468,20 +3003,25 @@
             "host": "visor.leon.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.leon.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
         "attribution": "city",
-        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+        "reason": "4/13 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:38:07.832Z",
+      "runAt": "2026-08-02T09:49:06.173Z",
       "mode": "live",
       "municipality": {
         "name": "Huelva",
@@ -2526,13 +3066,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 19,
-        "wallClockMinutes": 0.423,
+        "requests": 20,
+        "wallClockMinutes": 0.576,
         "bytes": 1205785,
-        "failedProbes": 18,
-        "unknownProbes": 11,
+        "failedProbes": 19,
+        "unknownProbes": 12,
         "geocodeRequests": 1,
-        "totalWallClockMs": 25382
+        "totalWallClockMs": 34561
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -2550,7 +3090,7 @@
       "population": 143215,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 13,
         "hostOutcomes": [
           {
             "host": "www.huelva.es",
@@ -2563,6 +3103,11 @@
             "httpStatus": null
           },
           {
+            "host": "www.huelva.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
             "host": "www.aytohuelva.es",
             "outcome": "network-error",
             "httpStatus": null
@@ -2571,11 +3116,6 @@
             "host": "www.ayuntamientohuelva.es",
             "outcome": "ok",
             "httpStatus": 200
-          },
-          {
-            "host": "www.ayt2huelva.es",
-            "outcome": "network-error",
-            "httpStatus": null
           },
           {
             "host": "ide.huelva.es",
@@ -2611,20 +3151,25 @@
             "host": "visor.huelva.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.huelva.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
         "attribution": "city",
-        "reason": "1/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+        "reason": "1/13 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:38:32.173Z",
+      "runAt": "2026-08-02T09:49:47.718Z",
       "mode": "live",
       "municipality": {
         "name": "Telde",
@@ -2669,13 +3214,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 26,
-        "wallClockMinutes": 0.402,
-        "bytes": 2189774,
-        "failedProbes": 24,
-        "unknownProbes": 10,
+        "requests": 34,
+        "wallClockMinutes": 0.691,
+        "bytes": 2104070,
+        "failedProbes": 31,
+        "unknownProbes": 11,
         "geocodeRequests": 1,
-        "totalWallClockMs": 24106
+        "totalWallClockMs": 41482
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -2693,7 +3238,7 @@
       "population": 104168,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 13,
         "hostOutcomes": [
           {
             "host": "www.telde.es",
@@ -2706,17 +3251,17 @@
             "httpStatus": 200
           },
           {
+            "host": "www.telde.org",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
             "host": "www.aytotelde.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientotelde.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2telde.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -2754,20 +3299,25 @@
             "host": "visor.telde.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.telde.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
         "attribution": "city",
-        "reason": "2/12 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
+        "reason": "3/13 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
       }
     },
     {
       "schema": "pryzm.stage0.cold-start-record/1.0",
       "protocolVersion": "1.0",
       "classifierVersion": "1.0",
-      "runAt": "2026-08-02T09:38:33.151Z",
+      "runAt": "2026-08-02T09:50:09.547Z",
       "mode": "live",
       "municipality": {
         "name": "Jerez de la Frontera",
@@ -2812,13 +3362,13 @@
         "localityUnknown": 0
       },
       "cost": {
-        "requests": 12,
-        "wallClockMinutes": 0.005,
-        "bytes": 0,
-        "failedProbes": 12,
-        "unknownProbes": 12,
+        "requests": 40,
+        "wallClockMinutes": 0.362,
+        "bytes": 881498,
+        "failedProbes": 38,
+        "unknownProbes": 24,
         "geocodeRequests": 1,
-        "totalWallClockMs": 272
+        "totalWallClockMs": 21692
       },
       "undecided": [],
       "undecidedTotal": 0,
@@ -2836,7 +3386,7 @@
       "population": 213634,
       "centroidSource": "nominatim",
       "sweep": {
-        "hostsProbed": 12,
+        "hostsProbed": 26,
         "hostOutcomes": [
           {
             "host": "www.jerezdelafrontera.es",
@@ -2849,17 +3399,17 @@
             "httpStatus": null
           },
           {
+            "host": "www.jerezdelafrontera.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
             "host": "www.aytojerezdelafrontera.es",
             "outcome": "network-error",
             "httpStatus": null
           },
           {
             "host": "www.ayuntamientojerezdelafrontera.es",
-            "outcome": "network-error",
-            "httpStatus": null
-          },
-          {
-            "host": "www.ayt2jerezdelafrontera.es",
             "outcome": "network-error",
             "httpStatus": null
           },
@@ -2897,13 +3447,83 @@
             "host": "visor.jerezdelafrontera.es",
             "outcome": "network-error",
             "httpStatus": null
+          },
+          {
+            "host": "gis.jerezdelafrontera.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.jerez.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "jerez.es",
+            "outcome": "ok",
+            "httpStatus": 200
+          },
+          {
+            "host": "www.jerez.org",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.aytojerez.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "www.ayuntamientojerez.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "ide.jerez.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "sig.jerez.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoportal.jerez.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "cartografia.jerez.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "mapas.jerez.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "geoserver.jerez.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "visor.jerez.es",
+            "outcome": "network-error",
+            "httpStatus": null
+          },
+          {
+            "host": "gis.jerez.es",
+            "outcome": "network-error",
+            "httpStatus": null
           }
         ],
         "endpointsFound": 0
       },
       "failureAttribution": {
-        "attribution": "tool",
-        "reason": "every candidate host failed at the transport layer (12/12) — this is UNKNOWN, and asserts nothing about the municipality"
+        "attribution": "city",
+        "reason": "2/26 candidate hosts ANSWERED and none served an OGC/ArcGIS directory at a conventional path. ⚠ Still bounded by our host conventions — a service at an unconventional address would read the same way (the residual false-negative surface)."
       }
     }
   ]

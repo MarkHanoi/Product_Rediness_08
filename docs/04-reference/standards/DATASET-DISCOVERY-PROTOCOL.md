@@ -5,7 +5,7 @@ should discover datasets before engineers invent geometry. This should become **
 municipality**."*
 **Scope**: every municipality entering the onboarding pipeline, and every derived capability proposed for one.
 **Tool**: [`tools/dataset-discovery/`](../../../tools/dataset-discovery/) — `discover.mjs` · `classify.mjs` ·
-`capabilities.mjs` · `taxonomy.mjs` · `discover.test.ts` (51 tests, offline over captured fixtures).
+`capabilities.mjs` · `taxonomy.mjs` · `probeC.mjs` · `discover.test.ts` (72 tests, offline over captured fixtures).
 
 **Related**: [ADR-0290](../../02-decisions/adrs/ADR-0290-exhaust-authoritative-sources-before-engineering-a-derived-solution.md)
 (**the invariant this protocol discharges**) · [ADR-0288](../../02-decisions/adrs/ADR-0288-machine-readable-is-not-publishable.md)
@@ -508,6 +508,89 @@ candidate hosts) and, if its publisher is new, one entry in `PUBLISHERS` stating
 planning. ⚠ **Leave `competentForPlanning` unset rather than guessing**: `null` scores as `Unknown` and marks
 the legal-authority axis a lower bound, which is honest. Guessing `true` from a municipal-looking hostname is
 the reasoning that produced George Mason University.
+
+---
+
+## §11b — Probe C: what Stage 0 does on cities nobody prepared
+
+Run 2026-08-02 · `probeC.mjs` · 20 municipalities · seed `20260802` · reproducible with
+`node probeC.mjs --ine <29005.csv> --n 20 --seed 20260802`.
+
+**Sampling.** Frame = INE table **29005** «Cifras oficiales del padrón por municipio» (8 136 municipalities,
+latest period **2025**). ⚠ **Not Wikidata P1082** — unevenly maintained, and a bad band assignment biases the
+tier estimate directly. **524 foral municipalities (INE 01/20/48/31) excluded *before* sampling.** Frame
+**7 612**; seeded Fisher–Yates within five population bands, 4 per band.
+
+### ⛔ The headline, and it is about the INSTRUMENT, not the country
+
+> **0 of 20 municipalities were found to self-host an OGC service** at any conventional address.
+> Wilson 95 % CI on the "Yes" rate: **0.0 % [0.0, 16.1]**.
+>
+> ⚠⚠ **THIS IS NOT "0/20 HAVE NO PLANNING DATA", AND IT MUST NEVER BE QUOTED AS ONE.** It measures one
+> narrow thing: *does this municipality run its own OGC service on a host we guessed?* Every one of the 20 is
+> recorded `publishedGisService: Unknown` — **not `No`** — because the Stage-0 negative-proof conditions
+> (§6) are not met for any of them.
+
+**The result survived a positive control**, which is why it is reported at all. Run against Córdoba and
+Murcia with **no declared endpoints**, the sweep rediscovered `ide.cordoba.es/geoserver/{wfs,wms}` and
+`geoserver.murcia.es/geoserver/{wfs,wms}` **from the municipality name alone — 2/2**. The mechanism works;
+these 20 cities simply do not have one at a guessable address.
+
+**And it survived a hand spot-check of named individuals** (PROBE-DISCIPLINE R4). The four largest in the
+sample were probed by hand at addresses the sweep does *not* try: `www.jerez.es` **404**, `sig.jerez.es` and
+`gis.jerez.es` **DNS failure**, `www.aytoleon.es` **404**, `sig.huelva.es` **DNS failure**,
+`www.castelldefels.org` **404**. No municipal WFS was hiding behind a naming convention.
+
+### ⭐ The finding that matters — the wrong unit of analysis
+
+**Córdoba and Murcia are not typical.** Municipal self-hosted OGC services appear to be **rare** in Spain,
+and the planning data almost certainly lives one level up. Measured in the same pass:
+
+| candidate | result |
+|---|---|
+| `ideandalucia.es/services/DERA_g6_usos_suelo/wfs` | ✅ **HTTP 200, a real WFS capabilities document, 102 088 B** |
+| `mitma.gob.es/siu/wfs` (the national urbanism aggregator) | ⚠ **HTTP 403 — `auth-gated`, therefore UNKNOWN, not absent** |
+| `geoserveis.icgc.cat` · `terramapas.icv.gva.es` (paths guessed) | 404 — the *path* is wrong, the host is real |
+
+⇒ **Stage 0's municipal-only scope is the binding constraint on any national estimate**, and closing it is
+the single highest-value extension to this tool: a **regional/national aggregator registry**, probed
+*before* the municipal sweep.
+
+### ⚠ No Tier 1/2/3 population is stated, and that is deliberate
+
+This probe measures *"does the municipality self-host a GIS"*. A tier measures *"is a planning determination
+computable"* — a different question, gated on the ordinance, which Stage 0 never opens (ADR-0288). Deriving
+tier populations from 0/20 would be the same unfounded extrapolation this corpus has retracted three times
+(the n=1 sheet ceiling, the n=3 dissolve ceiling, the 636×-spread per-sheet mean). **What can be stated with
+a CI is the self-hosting rate above. Nothing else from this run.**
+
+### Whose failure was it — TOOL vs CITY
+
+`attributeFailure()` defaults to **TOOL** and only attributes to the **CITY** when every candidate host
+*answered* and none served a directory — i.e. the negative is proven. Of 20: **15 city · 5 tool**, **and
+every one still carries `Unknown`**, because *"no service at a conventional host"* is weaker than *"no
+service"*.
+
+⚠ **The host-outcome tally is the honest frame for that split**: of **364 host probes**, **321 were DNS
+failures**, 39 answered and 4 returned an HTTP error. **88 % of the addresses we guessed do not exist.** So
+even the 15 "city" attributions rest on a thin base of resolving hosts — which is exactly why none of them
+was promoted from `Unknown` to `No`.
+
+### Cost — and it is much worse than the n = 2 baseline
+
+| | Córdoba/Murcia (declared endpoints) | Probe C (cold start) |
+|---|---:|---:|
+| requests / city | 50–63 | **13–96** (median **33.5**) |
+| wall-clock / city | 3–6 s | **0.3–110.4 s** (median **8.9 s**) |
+| services found | 2–3 | **0** |
+| **whole run (20 cities)** | — | **665 requests · 445.6 s ≈ 7.4 min** |
+
+⚠ **Dead addresses dominate the cold-start cost and are pure waste.** 321 of 364 host probes were DNS
+failures. **A timeout is data** — it is recorded and counted separately, never folded into an outcome — but
+it buys nothing, and a national sweep needs **DNS pre-resolution** rather than HTTP timeouts. Extrapolating
+7.4 min / 20 cities to all 7 612 non-foral municipalities gives ≈ **47 hours single-threaded** — tractable,
+but only worth spending once the regional-aggregator gap above is closed, since today it would return 
+`Unknown` for nearly all of them.
 
 ---
 
