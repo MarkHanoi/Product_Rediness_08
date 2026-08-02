@@ -42,6 +42,43 @@ human-signed, so the dispatcher returns **no envelope**: a cited refusal, never 
 | **S5 — registration** | `rulepacks/registry.ts` | ✅ **REGISTERED** — `packsByZone: packMap([ES_CORDOBA_PGOU2001_PACK, CORDOBA_PGOU2001_ZONE_CODES])` |
 | **S6 — the honesty gate** | `CORDOBA_ENVELOPE_VERIFIED` + [`sources/VERIFICATION.md`](./sources/VERIFICATION.md) | ⛔ **`false` / UNSIGNED** — this, and only this, is why the axis measures 0 % |
 
+## ⛔ "RAISE THE ENVELOPE BY PACKING MORE FAMILIES" — MEASURED, AND IT IS WORTH ≤ 0.09 pp
+
+The standing instruction to every city is *raise the envelope by packing law, never by relaxing
+anything*. For Córdoba that lever was measured on 2026-08-01 and **it is essentially empty, for a
+reason that is a credit to the city rather than a gap**. All five unpacked COACo families were run
+down to their governing article, and **not one of them grants a zone envelope that could be packed**:
+
+| Unpacked family | Land (of ordenanzas) | Governing article | Why it can never be an envelope | Tier |
+|---|---:|---|---|---|
+| Uso Comercial | **2.278 %** | **Art. 13.12.2** | a USE overlay — commercial buildings *follow the underlying zone* (MC/CTP/UAD/UAS/IND), a specific set in PAS/OA, or a Plan Parcial. There is no single commercial envelope to encode. | `not-determined` |
+| CTP1-Campo de la Verdad | **1.307 %** | **Art. 13.4.1** | the envelope is *"en la Memoria y Normativa correspondiente al Conjunto Histórico (**Tomo VI**)"* — a volume the publisher does not serve at all. | `not-determined` |
+| Elemento protegido | **0.666 %** | **Art. 13.3** | a preservation regime: *"La sustitución no supondrá aumento de la superficie total ni del volumen construidos"* — the envelope **is** the existing building. | `not-determined` |
+| Unifamiliar Aislada | **0.165 %** | — *(no article obtainable)* | `O_UAS1.pdf` is a **69-byte** "Server under construction" page (md5 `75a5f31…`, re-verified 2026-08-01) and no held document carries the UAS chapter. | `no-pack` |
+| Uso Industrial | **0.118 %** | **Art. 13.11** | TWO independent stoppers: the map never names the IND-1/2/3/G/C/SC-C subzone (parcela 200–2 000 m², FAR 0,35–1,5), **and** ocupación is *"la resultante de la aplicación de los parámetros de edificación del presente artículo"* — an algorithm, not a number (ADR-0271). | `regime-undetermined` |
+| **Total** | **4.534 %** of ordenanzas land = **0.221 %** of SUELO URBANO | | | |
+
+⇒ **Even if all five could be packed at `estimated-ruleset` (0.4), the ENVELOPE axis would move by
+0.221 % × 0.4 ≈ 0.09 pp.** They cannot be, and packing any of them would be fabrication of exactly
+the kind this city spent the week removing. **All five are already closed as typed, article-citing,
+land-identifying refusals** — which is the correct answer and scores correctly as ~0.
+
+**The lever that actually exists is nothing to do with families:**
+
+| Lever | Axis after | Nature |
+|---|---:|---|
+| today | **0.0 %** | gate shut **and** resolver never called |
+| blockers 2 + 3 — the signature + calling the authored resolver | **≈ 0.68 %** | one legal act + ~2–3 eng-days |
+| \+ blocker 8 — a Córdoba street-width resolver (MC height table) | **≈ 1.03 %** | ~1 week + a width source |
+| \+ blocker 22 — vectorise the 69 remaining GMU CUS raster sheets | **the only order-of-magnitude move** | weeks; size deliberately **NOT predicted** |
+
+⚠ **And one ceiling that was on this page is GONE.** Blocker 20 held that the cadastral dissolve
+(`0/3` in Córdoba) might make the whole thing unrealisable, because CTP-1 + MC are alignment zones
+needing a block ring. **`0/3` was a three-block sample.** Measured at scale in both lineages
+(`tools/cordoba-dissolve-probe/`): **Catastro INSPIRE 20/26 = 76.9 %**, **COACo 354/400 = 88.5 %**
+(MC 88.5 %, CTP 83.7 %). The dissolve costs about one block in four to an honest refusal. **It does
+not cap Córdoba.**
+
 ## Why the answer is a refusal, not a number
 
 Three cited facts hold Córdoba's shippable envelope at effectively 0 % municipality-wide — **all

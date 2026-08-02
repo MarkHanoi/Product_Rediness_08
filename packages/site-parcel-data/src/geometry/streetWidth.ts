@@ -23,8 +23,22 @@
 //
 // WHY WE SHOOT AT RAW PARCEL RINGS AND NOT AT DISSOLVED OPPOSING BLOCKS
 // ---------------------------------------------------------------------
-// `dissolveParcelsToBlockRing` needs a conforming tiling and fails on most non-Barcelona blocks
-// (`open-or-disjoint`; success BCN 2/2, Madrid 2/4, Córdoba 0/3 — SPAIN-CADASTRAL-DISSOLVE-PROBE).
+// `dissolveParcelsToBlockRing` needs a conforming tiling, and its failure mode is `open-or-disjoint`.
+//
+// ⚠⚠ THE RATES QUOTED HERE WERE A THREE-BLOCK SAMPLE AND ONE OF THEM WAS WRONG BY 77 POINTS.
+// This line read "success BCN 2/2, Madrid 2/4, **Córdoba 0/3** — SPAIN-CADASTRAL-DISSOLVE-PROBE",
+// and that 0/3 was carried into `CLOSURE-REGISTER.md` blocker 20 as a ceiling that "can make the
+// ≈31 % envelope unrealisable". **Re-measured 2026-08-01 at scale, in BOTH lineages
+// (`tools/cordoba-dissolve-probe/`), Córdoba dissolves:**
+//     CATASTRO INSPIRE (the lineage the production parcel path fetches) — **20/26 = 76.9 %**,
+//         0 transport failures, all 6 failures `open-or-disjoint`.
+//     COACo `vcatastro_urbanismo` (the publisher's own copy) — **354/400 = 88.5 %**
+//         (Manzana Cerrada 88.5 % · Colonia Tradicional Popular 83.7 % · Ordenación Abierta 96.9 %).
+// Two independent digitisation lineages agree that Córdoba's fabric dissolves for roughly three
+// blocks in four. **The 0/3 was a three-sample accident, not a property of the city**, and no
+// Córdoba envelope ceiling may be justified by it. ⚠ n=3 is not a rate; if a number like this is
+// load-bearing anywhere, re-measure it before you build a ceiling on it.
+//
 // Requiring the OPPOSITE block to dissolve too would square that failure probability for no gain:
 // the first thing a perpendicular ray meets across the street is a parcel boundary, and that
 // boundary IS the opposing frontage whether or not its block dissolves. So we intersect against
