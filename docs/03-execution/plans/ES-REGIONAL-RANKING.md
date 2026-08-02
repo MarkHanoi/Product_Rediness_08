@@ -42,10 +42,15 @@ just classification. **Its result decides whether the pattern holds nationally.*
 | **Huesca** | same — *"definido gráficamente en el plano nº5"* |
 | **València** | **no regional dataset carrying depth identified across 696 swept layers** |
 | **Madrid** | `NM_FDO_MX_ED` exists but is **12.9 % in the capital** |
-| ⭐ **Canarias** | **possibly `FonMaxEd` AS A SERVED COLUMN** |
+| ⛔ **Canarias** | **`FonMaxEd` IS SCHEMA-ONLY AND EMPTY — 0.0 % valid, 7,870 sentinel rows.** Its metric twin `FonMaxEdm` carries **2.3 %** (182 rows). *Canarias serves depth where nobody else does — on 1 row in 44.* |
 
-⛔ **If it is populated with valid values, it is the one parameter no other Spanish region serves
-properly — and it is what unlocks closed-block fabric everywhere.**
+⛔ **MEASURED 2026-08-02: IT IS NOT POPULATED.** The prediction that `FonMaxEd` might be the most
+important field in Spain was **WRONG, and wrong in the OPTIMISTIC direction.** The column exists in the
+SIPU 2.6.A schema and carries **7,870 sentinel values and zero valid ones.**
+
+⭐ **SO THE CONCLUSION INVERTS: NO SPANISH REGION SERVES CLOSED-BLOCK DEPTH AS A POPULATED COLUMN.**
+Barcelona and Huesca put it on a plan sheet, València has none across 696 layers, Madrid has 12.9 % in
+the capital, and Canarias specifies it and leaves it empty. **Depth is a national gap, not a regional one.**
 
 ## The ceilings, and none of them are data problems
 
