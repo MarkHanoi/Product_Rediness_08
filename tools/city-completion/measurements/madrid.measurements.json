@@ -24,7 +24,6 @@
   "city": "madrid",
   "measuredAt": "2026-08-01",
   "generatedBy": "madrid city agent, cited-audit (L-677 §MADRID-NZ1-DECERTIFIED / §MADRID-QUOTE-CONCORDANCE)",
-
   "envelope": {
     "status": "measured",
     "denominator": "Norma-Zonal-GOVERNED land = 149,577,170 m² (server-side SHAPE.STArea() over all 34 AMB_TX_ETIQ codes, VERIFICATION.md V14). ⚠ SUBSTITUTED — this is NOT the ratified L-656 private-buildable set; PG_ORDENACION/4 Ámbitos de Ordenación is polyline-with-OBJECTID-only (V18), so the private-buildable census cannot be derived. Every figure here is an UPPER BOUND on the L-656 measure (CLOSURE-REGISTER row 9, OPEN).",
@@ -54,7 +53,25 @@
       "⚠ The de-certification is not a claim that NZ 1's footprint is wrong. The footprint is real",
       "published municipal geometry and SIG-M2 may well be answered «reading geometry is not a",
       "transcription, no L-449 signature is owed» — which would restore this slice legitimately. What was",
-      "unacceptable was an open gate resting on an authority that did not exist."
+      "unacceptable was an open gate resting on an authority that did not exist.",
+      "",
+      "§NZ3-IS-DATA-GATED-NOT-LAW-GATED (2026-08-02, read from the in-repo primary source). The register",
+      "called NZ 3 «the only structurally impossible category». That is WRONG, and it is 60.458 % of the",
+      "city. Art. 8.3.5.3.a).i) verbatim: «La nueva edificación deberá inscribirse dentro de la ENVOLVENTE",
+      "EXTERIOR DEL EDIFICIO EXISTENTE, constituida por sus cubiertas, fachadas exteriores y, en su caso,",
+      "medianeras, y respetará la SUPERFICIE TOTAL EDIFICADA DEL MISMO.» ⇒ NZ 3 states a computable",
+      "envelope for its only new-construction pathway; PRYZM lacks the DATUM, not the rule.",
+      "⚠ PROBE P3 RUN 2026-08-02 — MEASURED NEGATIVE. PG_ANALISIS_EDIFICACION is live (HTTP 200, 13",
+      "layers) and carries NO ATTRIBUTES: layer 4 `Edificaciones` polyline/OBJECTID-only, layer 2 `Fondo",
+      "máximo…` polyline/OBJECTID-only, layer 12 `Fondo` POLYGON/OBJECTID-only. A drawing, not a table.",
+      "⇒ the existing-GFA datum is not obtainable municipally. Catastro built-area is the next candidate.",
+      "⚠⚠ DO NOT PACK NZ 3 FROM NZ 5 / NZ 8. Art. 8.3.5.3.a).i) does let the substituted volume borrow NZ",
+      "5 (edificación aislada) and NZ 8 grado 4º (vivienda unifamiliar) ocupación+altura — but ONLY under",
+      "the condition stated immediately above it: «No sobrepasar la edificabilidad permitida, entendida",
+      "ésta como la superficie edificada total del edificio existente». Borrowing the parameters WITHOUT",
+      "that ceiling is the L-616 mechanism-A over-statement across 60.458 % of Madrid. A SOLID must",
+      "intersect ALL derived constraints; an envelope that ignores one ceiling is worse than none.",
+      "⇒ `not-determined` is the CORRECT score for this slice, not a failure to be engineered away."
     ],
     "coverage": [
       {
@@ -74,7 +91,6 @@
       }
     ]
   },
-
   "legislation": {
     "status": "measured",
     "citedVerifiedClaus": 0,
@@ -120,14 +136,18 @@
       "not done. CLOSURE-REGISTER row 14."
     ]
   },
-
   "heightsLod": {
     "status": "measured",
     "tagged": 269,
     "derivedLevels": 28281,
     "assumed": 92608,
     "total": 121158,
-    "bbox": [-3.7826, 40.3568, -3.625, 40.4768],
+    "bbox": [
+      -3.7826,
+      40.3568,
+      -3.625,
+      40.4768
+    ],
     "source": "tools/context-height-probe/probe.mjs against the SHIPPED R2 tiles (https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/buildings.pmtiles?v=L659a — the same bytes the browser reads, the same provenance ladder), run 2026-08-01, verdict `unmeasured`",
     "note": [
       "⚠ measured-lidar = 0 across 121,158 footprints. Tiles: 900 covering, 832 read, 68 absent, 0",
