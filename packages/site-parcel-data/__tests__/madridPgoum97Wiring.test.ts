@@ -318,6 +318,48 @@ describe('§MADRID-PGOUM97 — THE HONESTY GATE: registration is not authorisati
         expect(env.confidence).not.toBe('authoritative');
     });
 
+    // §RED-CHIP-NZ7-NZ8 — the SIG-M1 proviso, checked on the zones the founder named.
+    //
+    // The founder would sign publication "as **pipeline-extracted-unverified**, provided it remains
+    // explicitly identified as a machine-generated derivative". That proviso is only satisfiable if a
+    // REAL solve of a REAL zone actually carries that tier to the renderer. §THE-ORDERING-PIN proves
+    // it for `zones[0]`; this proves it for every fully-parameterised NZ-7 and NZ-8 grado — the ones
+    // carrying setbacks, occupation and height, i.e. those most likely to resolve enough fields for
+    // the field-provenance rules to promote them and so escape the pack ceiling.
+    //
+    // ⚠ IF THIS EVER GOES RED, SIG-M1 CANNOT TAKE EFFECT: publishing these numbers under the violet
+    // "Estimated" chip would breach the signature's own proviso, not merely look wrong.
+    it('§RED-CHIP-NZ7-NZ8 — every NZ-7 and NZ-8 grado solves to the RED machine-extracted tier', () => {
+        const targets = ES_MADRID_PGOUM97_PACK.zones.filter(
+            (z) => z.code.startsWith('7.') || z.code.startsWith('8.'),
+        );
+        // Sanity: the filter must actually select something (a renamed code must not pass vacuously).
+        expect(targets.length, 'no NZ-7/NZ-8 zones found in the pack').toBeGreaterThanOrEqual(10);
+
+        for (const zone of targets) {
+            const env = computeBuildableEnvelope({
+                parcelRing: [
+                    { x: 0, z: 0 },
+                    { x: 40, z: 0 },
+                    { x: 40, z: 25 },
+                    { x: 0, z: 25 },
+                ],
+                edgeClassifications: ['street', 'unclassified', 'unclassified', 'unclassified'],
+                zoning: {
+                    jurisdictionId: ES_MADRID_PGOUM97_PACK.jurisdictionId,
+                    zoneCode: zone.code,
+                    structuredFields: null,
+                    provenance: { source: 'madrid-compendio-2025', fetchedAt: '2026-08-02T00:00:00.000Z' },
+                } as never,
+                rulePack: ES_MADRID_PGOUM97_PACK,
+            });
+            // The tier the signature's proviso requires — and NOT the violet one it must not wear.
+            expect(env.confidence, zone.code).toBe('pipeline-extracted-unverified');
+            expect(env.confidence, zone.code).not.toBe('estimated-ruleset');
+            expect(env.confidence, zone.code).not.toBe('structured');
+        }
+    });
+
     it('§THE-ORDERING-PIN — the answerability precondition is DISCHARGED: registered ≠ answerable', () => {
         // The second half of the same root cause (L-665): `classifyAnswerability` read the registry
         // without reading the gate, so every one of Madrid's 23 packed codes claimed

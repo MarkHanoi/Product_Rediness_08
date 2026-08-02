@@ -135,13 +135,18 @@ describe('§NO-UNSIGNED-OPEN-GATE — the reintroduction guard', () => {
         ).toEqual([...UNSIGNED_OPEN_GATES].sort());
     });
 
-    it('MADRID_NZ1_CERTIFIED is SHUT and is not in the quarantine', () => {
-        // The regression pin for §MADRID-NZ1-DECERTIFIED. Re-opening this gate must be accompanied
-        // by a real SIG-M2 signature row — which makes the §DEREFERENCE test above the thing that
-        // has to pass, not this one.
-        expect(MADRID_NZ1_CERTIFIED).toBe(false);
+    it('MADRID_NZ1_CERTIFIED is OPEN on a DEREFERENCEABLE signature, not on a commit', () => {
+        // §MADRID-NZ1-DECERTIFIED's regression pin, now pointing at the SIGNED state (SIG-M2,
+        // 2026-08-02, Doctrine B / ADR-0280).
+        //
+        // ⚠ THE VALUE IS THE SAME `true` THE MACHINE SET, AND THAT IS EXACTLY WHY THIS TEST CANNOT
+        // BE THE ONE THAT MATTERS. A boolean cannot tell a signature from a self-attribution. What
+        // distinguishes them is that `§DEREFERENCE-THE-CITATION` above OPENS
+        // `sources/VERIFICATION.md` and fails if the SIG-M2 anchor is not in it — so deleting the
+        // signature turns this gate red, which is precisely what did NOT happen in July.
+        expect(MADRID_NZ1_CERTIFIED).toBe(true);
         expect(UNSIGNED_OPEN_GATES).not.toContain('MADRID_NZ1_CERTIFIED');
-        expect(isGateSignatureRecorded('MADRID_NZ1_CERTIFIED')).toBe(false);
+        expect(isGateSignatureRecorded('MADRID_NZ1_CERTIFIED')).toBe(true);
     });
 
     it('`isGateSignatureRecorded` distinguishes signed-open from open-unsigned from shut', () => {

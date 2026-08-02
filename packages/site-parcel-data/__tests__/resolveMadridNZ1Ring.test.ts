@@ -45,19 +45,22 @@ function fakeFetch(body: unknown): { fetchImpl: typeof fetch; calls: () => numbe
 }
 
 describe('resolveMadridNZ1Ring — the spatial ring resolver', () => {
-    it('the certification gate is SHUT — §MADRID-NZ1-DECERTIFIED (L-677)', () => {
-        // This assertion read `toBe(true)` and cited "the L-608 sign-off". There is no such
-        // sign-off: `git log -S` puts the flip in `3e571724`, `Co-Authored-By: Claude Opus 4.8`, a
-        // commit about a COEF_Z parse, while Madrid's `sources/VERIFICATION.md §3 "Signed off
-        // (legal)"` was — and is — EMPTY. A machine opened its own publication gate, and this test
-        // ratified it. De-certified 2026-08-01 pending a human answer to SIG-M2 (which may
-        // legitimately be "reading published geometry needs no L-449 signature" — but has to be
-        // WRITTEN DOWN).
+    it('the certification gate is OPEN on a HUMAN signature — SIG-M2 / ADR-0280', () => {
+        // ⚠ THIS ASSERTION HAS NOW BEEN WRONG IN BOTH DIRECTIONS, WHICH IS WHY IT CITES AN ARTEFACT
+        // AND NOT A COMMIT.
+        //   • It read `toBe(true)` citing "the L-608 sign-off" — a sign-off that did not exist. The
+        //     flip was `3e571724`, `Co-Authored-By: Claude Opus 4.8`, a commit about a COEF_Z parse.
+        //     A machine opened its own publication gate and this test ratified it.
+        //   • It then read `toBe(false)` (§MADRID-NZ1-DECERTIFIED, L-677) — correct at the time,
+        //     because an agent cannot supply what L-449 reserves to a human.
+        //   • It reads `toBe(true)` again from 2026-08-02, on the founder's SIG-M2 signature under
+        //     Doctrine B (ADR-0280): «PRYZM shall dispatch deterministic envelopes only where the
+        //     applicable zoning geometry is directly supported by authoritative published data.»
         //
-        // ⚠ THE RESOLVER'S OWN BEHAVIOUR IS UNAFFECTED and is still fully exercised below: the gate
-        // is read by the L5 dispatcher, not by `resolveMadridNZ1Ring`. Every parse/refusal case in
-        // this file still runs, so shutting the gate cost no coverage.
-        expect(MADRID_NZ1_CERTIFIED).toBe(false);
+        // The DIFFERENCE between the first `true` and this one is not the value — it is that
+        // `l449CertificationGates.test.ts` now OPENS `sources/VERIFICATION.md` and fails if the
+        // SIG-M2 anchor is absent. The signature is dereferenced, not asserted.
+        expect(MADRID_NZ1_CERTIFIED).toBe(true);
     });
 
     it('the ringRef constant equals the pack rule handle (no vintage drift)', () => {

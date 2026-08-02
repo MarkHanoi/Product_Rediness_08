@@ -231,7 +231,77 @@ proven end to end by `apps/editor/__tests__/madridSiteDispatch.test.ts`.
 
 ---
 
-## SIG-M2 · ⛔ **GATE CLOSED 2026-08-01 — DE-CERTIFIED, still awaiting a human yes/no**
+## SIG-M2 · ✍ SIGNED 2026-08-02 — `MADRID_NZ1_CERTIFIED`, on **Doctrine B**
+
+> ⭐ **THE FIRST L-449 SIGNATURE IN THE MADRID DOSSIER.** The founder answered as an **auditor**, not
+> a reviewer — they were asked to choose between two doctrines and they chose, with reasons.
+
+| | |
+|---|---|
+| **Verifier** | **the founder (repo owner)** |
+| **Date** | **2026-08-02** |
+| **Axis** | ENVELOPE |
+| **Artefact** | `packages/site-parcel-data/src/providers/resolveMadridNZ1Ring.ts` → `MADRID_NZ1_CERTIFIED` |
+| **Value** | **`true`** — flipped 2026-08-02 **on this signature** |
+| **Doctrine** | **B — "Evidence-bounded publication"**, ratified corpus-wide as **[ADR-0280](../../../../../02-decisions/adrs/ADR-0280-evidence-bounded-publication.md)** |
+
+### The signature, verbatim
+
+> **PRYZM shall dispatch deterministic envelopes only where the applicable zoning geometry is
+> directly supported by authoritative published data. Partial publication does not authorize
+> inference beyond its demonstrated spatial extent.**
+
+**Operative rule as stated:** *inside published geometry → deterministic envelope permitted; outside
+published geometry → status **unknown** unless another authoritative layer resolves it.*
+
+### The reasoning — recorded because the verdict alone would be useless
+
+The founder was offered two doctrines and rejected **Doctrine A ("completion by implication")** on
+the ground that **a planning system must never infer zoning geometry merely because ADJACENT
+geometry is published**, and that **"Unknown is a valid answer"** — producing an unknown result is
+preferable to manufacturing certainty. Sharpened in the follow-up:
+
+> **Authoritative publication defines the boundary of knowledge, not necessarily the boundary of
+> reality. Unknown is a valid product state.**
+
+> ⚠ **THAT SENTENCE IS THE WHOLE DOCTRINE, AND IT IS NOT MADRID'S.** It is why València's empty
+> `zones`, Córdoba's gated pack and Murcia's delegated 67 % are all *correct outputs* rather than
+> coverage failures — and why C63 scores a cited refusal as a terminal state (§1.5 / L-656). The
+> founder: *"That principle should govern every city."*
+
+### Why this mechanism qualifies — verified, not assumed
+
+`resolveMadridNZ1Ring` point-intersects the **published** `PG_CONDICIONES_EDIFICACION/6` footprint
+and dispatches an envelope **only** when a ring comes back. Everywhere else it returns a TYPED
+refusal — `no-feature` / `degenerate-geometry` for a genuine absence, `endpoint-unreachable` for an
+outage, held apart by STRUCTURAL-SEAM-4 — and the dispatcher serves `madridUnknownZoneRefusal`,
+which names PRYZM's coverage gap rather than mis-citing NZ 1 on land that is not NZ 1. Nothing
+infers beyond the demonstrated extent. **The architecture was already built to the doctrine; only
+the signature was missing.**
+
+### Scope — what this authorises, and what it does NOT
+
+**AUTHORISES:** NZ 1 grados `1.1`…`1.6` publishing the **clipped published footprint** at
+`estimated-ruleset`, inside the published geometry, and nothing else.
+
+**DOES NOT AUTHORISE** (unchanged by this signature):
+- Any use of `COEF_Z` as an *edificabilidad* / FAR. V16 measured it: 100 % integers 0–8, **47.56 %
+  compound** — not a ratio, and its positive meaning is still unread.
+- Any NZ-1 height, from `madridAnchoDeCalle.ts` or anywhere else.
+- Promotion above `estimated-ruleset`.
+- Any inference onto land where no NZ-1 footprint is published — that is the doctrine itself.
+
+### ⚠ One defect is re-armed by this signature
+
+`CLOSURE-REGISTER.md` row **3**: the resolver does not read `PG_CONDICIONES_EDIFICACION/1 Ficha
+Específica` (**131 points**, V17), so a parcel governed by an individual *ficha* receives the
+GENERAL manzana footprint. **Sign of the error is UNKNOWN** (a ficha may be more or less permissive)
+and it is bounded to 131 points city-wide — but "directly supported by authoritative published data"
+is exactly what it violates. **It should be closed next.**
+
+---
+
+## SIG-M2 (superseded header) · the request, and the machine flip that made it necessary
 
 > ⚠⚠ **This block is STILL a REQUEST, not a signature. Nothing below has been agreed by anyone.**
 > What changed on 2026-08-01 is that the gate it concerns is no longer OPEN while unanswered:
@@ -330,10 +400,17 @@ precedent by a third jurisdiction.** Neither is Madrid's to answer, and each may
 
 | Who | When | Which document version (`readFrom`) | Fields signed | What they could NOT confirm |
 |---|---|---|---|---|
-| — | — | — | — | *(nothing signed yet)* |
+| **the founder (repo owner)** | **2026-08-02** | *n/a — no ordinance text was transcribed* | **SIG-M2 — the DOCTRINE governing `MADRID_NZ1_CERTIFIED`** (Doctrine B, ADR-0280): dispatch only inside authoritative published geometry; no inference beyond its demonstrated extent | ⚠ **No ordinance PARAMETER was signed.** `COEF_Z`'s meaning, any NZ-1 height, and every Título 8 value remain unverified. This is a signature on a PUBLICATION RULE, not on a reading of the law |
 
-**Axis-2 consequence:** `verified_cited_claus = 0` over `total_claus_present = 34` ⇒ the C63
-LEGISLATION axis is a **measured 0 %**, not `not-assessed`. See [`../RATE.md`](../RATE.md).
+⚠ **READ THAT ROW PRECISELY.** It does **not** move the C63 LEGISLATION axis, and nobody should
+report that it does. LEGISLATION counts `verified_cited_claus / total_claus_present` — **claus whose
+NUMBERS a human has checked against the ordinance**. SIG-M2 signed a doctrine about *when geometry
+may be published*; it verified **zero** claus.
+
+**Axis-2 consequence, unchanged:** `verified_cited_claus = 0` over `total_claus_present = 34` ⇒ the
+C63 LEGISLATION axis is a **measured 0 %**, not `not-assessed`. See [`../RATE.md`](../RATE.md).
+The axis moves when **SIG-M1** is signed after its targeted review
+([`../extracted/SIG-M1-REVIEW-SAMPLE.md`](../extracted/SIG-M1-REVIEW-SAMPLE.md)).
 
 ---
 

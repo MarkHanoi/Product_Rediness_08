@@ -1992,10 +1992,18 @@ async function applyDkZoningThenFallback(
  *              the unresolved path — the zone resolver may ADD precision, never subtract an answer.
  *
  * ⚠ WHAT WOULD STILL BLOCK A NUMBER THE DAY THE HUMAN GATE OPENS, and is NOT fixed here:
- *   (a) `ZoningRulesEngine` hard-codes `let confidence = 'estimated-ruleset'` and never reads a
- *       pack's `defaultConfidence`, so `pipeline-extracted-unverified` would surface as the violet
- *       "Estimated" chip instead of the red machine-extracted one the renderer already implements.
- *       A C58 engine defect, out of this path's scope, and a precondition of sign-off.
+ *   (a) ✅ **DISCHARGED — DO NOT RE-STATE THIS AS OPEN.** It read: *"`ZoningRulesEngine` hard-codes
+ *       `let confidence = 'estimated-ruleset'` and never reads a pack's `defaultConfidence`, so
+ *       `pipeline-extracted-unverified` would surface as the violet Estimated chip"*. **Fixed in
+ *       L-665** — `§PACK-CONFIDENCE-CEILING` (`ZoningRulesEngine.ts`) clamps the solve to the pack's
+ *       declared tier (weaker-of-two on `ENVELOPE_CONFIDENCE_ORDER`, demote-only, so a pack can never
+ *       certify itself upward). Madrid's pack declares `MADRID_PGOUM97_DEFAULT_CONFIDENCE =
+ *       'pipeline-extracted-unverified'`, and `GISAreaLayout.ts` badges that tier as the FIRST arm
+ *       (weakest-wins), so the RED "⚠ Unverified · machine-extracted" chip cannot be shadowed by the
+ *       violet one. Verified end-to-end on a real NZ-7 and NZ-8 solve by
+ *       `madridPgoum97Wiring.test.ts` §THE-ORDERING-PIN and §RED-CHIP-NZ7-NZ8.
+ *       ⚠ This note sat stale for a week and was still being quoted as a live blocker on the day
+ *       SIG-M1 was under consideration — the stale-claim propagation this dossier keeps paying for.
  *   (b) No Madrid street-width source exists, so NZ 4 / 9.1 / 9.2 publish no height and carry
  *       FLOOR-ONLY testero separations (`MADRID_FLOOR_ONLY_SEPARATIONS`) — an under-inset.
  *   (c) NZ 5's front edge is `null` because Art. 8.5.6.3 measures to the STREET CENTRELINE, a rule

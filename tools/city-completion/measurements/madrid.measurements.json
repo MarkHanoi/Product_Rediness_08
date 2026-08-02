@@ -29,6 +29,12 @@
     "denominator": "Norma-Zonal-GOVERNED land = 149,577,170 m² (server-side SHAPE.STArea() over all 34 AMB_TX_ETIQ codes, VERIFICATION.md V14). ⚠ SUBSTITUTED — this is NOT the ratified L-656 private-buildable set; PG_ORDENACION/4 Ámbitos de Ordenación is polyline-with-OBJECTID-only (V18), so the private-buildable census cannot be derived. Every figure here is an UPPER BOUND on the L-656 measure (CLOSURE-REGISTER row 9, OPEN).",
     "source": "docs/04-reference/jurisdictions/es/es-md/28079-madrid/extracted/nz-land-share-and-coefz-probe.json (L-676, 2026-08-01) + sources/VERIFICATION.md V14",
     "note": [
+      "⭐ SIG-M2 SIGNED 2026-08-02 by the founder (Doctrine B, ADR-0280). `MADRID_NZ1_CERTIFIED` is `true`",
+      "again — this time on a signature `l449CertificationGates.test.ts` OPENS AND READS from",
+      "sources/VERIFICATION.md, not on a commit that cited itself. NZ 1 returns to `estimated-ruleset`.",
+      "⚠ The value is the same 0.4 the machine flip produced; what differs is that deleting the signature",
+      "now turns the build red. That distinction is the entire content of L-449.",
+      "",
       "Three NON-OVERLAPPING slices covering 100 % of the stated denominator, so measuredShare = 1.0.",
       "  60.458 %  Norma Zonal 3, Volumetría Específica → `not-determined`. THE PLAN DECLINES TO STATE",
       "            AN ENVELOPE: Art. 8.3.1 «se ha agotado el aprovechamiento urbanístico» and «sin",
@@ -42,7 +48,6 @@
       "            authored-but-unwired fabrication (L-651). Under SIG-M1 as currently scoped this slice",
       "            becomes 17.248 % at `pipeline-extracted-unverified` (0.1) ⇒ the axis would read 1.7 %.",
       "",
-      "⚠⚠ THE NZ-1 SLICE WENT 0.4 → 0.0 TODAY, AND THAT IS THE WHOLE POINT OF THIS TURN.",
       "`MADRID_NZ1_CERTIFIED` shipped `= true` and published a clipped published-footprint envelope over",
       "11.695 % of this denominator. Its docstring credited «the L-608 sign-off, 2026-07-25». `git log -S`",
       "puts the flip in ONE commit — `3e571724`, «fix(madrid): ship the parcel ring on compound COEF_Z +",
@@ -80,8 +85,8 @@
         "buildableLandShare": 0.60458
       },
       {
-        "zoneCode": "NZ 1 — published footprint, gate DE-CERTIFIED 2026-08-01 (was estimated-ruleset on an unsigned gate)",
-        "tier": "not-determined",
+        "zoneCode": "NZ 1 — published footprint clipped to parcel; gate SIGNED 2026-08-02 (SIG-M2, Doctrine B / ADR-0280)",
+        "tier": "estimated-ruleset",
         "buildableLandShare": 0.11695
       },
       {

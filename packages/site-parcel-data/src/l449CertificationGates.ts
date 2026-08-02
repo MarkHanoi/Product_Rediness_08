@@ -38,7 +38,13 @@
 // fails if the anchor is not in it. A citation nobody dereferences is how Madrid got here.
 //
 // PURITY: L2-pure (C58 §1.1/§1.9) — no I/O, no clock, no RNG. It reads compile-time constants.
-// Strategic context — C58 §1.4/§1.13, C63 §1.6, L-449, L-665, L-677.
+// ⚠ THE DOCTRINE THESE GATES ENFORCE is ADR-0280 ("Evidence-bounded publication", founder-signed
+// 2026-08-02): dispatch a deterministic envelope ONLY where the applicable zoning geometry is
+// directly supported by authoritative published data; partial publication authorises no inference
+// beyond its demonstrated spatial extent, and outside it the answer is UNKNOWN. A gate is the
+// mechanism by which that doctrine is enforced per jurisdiction.
+//
+// Strategic context — ADR-0280, C58 §1.4/§1.13, C63 §1.6, L-449, L-665, L-677.
 
 import { trace } from '@opentelemetry/api';
 import { BCN_REFOS_OV_CERTIFIED } from './providers/bcnRefosOVProvider.js';
@@ -139,16 +145,26 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
     // ── SHUT (`false`) — a shut gate publishes nothing and owes no signature. Several name the
     //    signature they are WAITING for; that is a request, not a signature, so it stays `null`. ──
     {
+        // ⭐ SIGNED 2026-08-02 (the founder), on Doctrine B — ADR-0280. This row is the whole point
+        // of the module: the gate was OPEN for a week on a machine's self-attribution, is now open
+        // on a signature the test below OPENS AND READS, and the difference is checkable in CI.
         gate: 'MADRID_NZ1_CERTIFIED',
         file: 'packages/site-parcel-data/src/providers/resolveMadridNZ1Ring.ts',
         value: MADRID_NZ1_CERTIFIED,
-        signature: null, // SIG-M2 is a REQUEST awaiting a yes/no — never cite it as a signature.
+        signature: {
+            doc: 'docs/04-reference/jurisdictions/es/es-md/28079-madrid/sources/VERIFICATION.md',
+            anchor: 'SIG-M2 · ✍ SIGNED 2026-08-02',
+        },
     },
     {
+        // SIG-M1: the founder has stated the NARROWER text they would sign and asked for a targeted
+        // review of the transcription FIRST (`extracted/SIG-M1-REVIEW-SAMPLE.md`). A stated
+        // willingness to sign is NOT a signature, so this stays `null` and the gate stays shut —
+        // the exact distinction this module exists to keep.
         gate: 'MADRID_ENVELOPE_VERIFIED',
         file: 'packages/site-parcel-data/src/rulepacks/esMadridPgoum97.ts',
         value: MADRID_ENVELOPE_VERIFIED,
-        signature: null, // SIG-M1 — likewise prepared, unsigned.
+        signature: null,
     },
     {
         gate: 'CORDOBA_ENVELOPE_VERIFIED',

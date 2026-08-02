@@ -1168,11 +1168,17 @@ export function madridUnknownZoneRefusal(
 //    `3.*` → `madridNZ3Refusal`, the 23 codes here → gated on `MADRID_ENVELOPE_VERIFIED`, which is
 //    FALSE, so they receive `madridPgoum97UnverifiedRefusal` and NO number — the
 //    `applyCordobaZoningThenFallback` shape.
-//    ⚠ A SECOND GATE NOW BLOCKS THE COMPUTE BRANCH, INDEPENDENT OF THE HUMAN SIGNATURE:
-//    `ZoningRulesEngine` hard-codes `let confidence = 'estimated-ruleset'` and NEVER reads a pack's
-//    `defaultConfidence`, so the day gate 1 opens this pack's numbers would surface wearing the
-//    violet "Estimated" chip instead of the red machine-extracted-unverified one the renderer
-//    already implements. Signing gate 1 alone is therefore NOT sufficient to ship a Madrid number.
+//    ✅ THE SECOND GATE IS DISCHARGED — DO NOT RE-STATE IT AS OPEN. It read: *"`ZoningRulesEngine`
+//    hard-codes `let confidence = 'estimated-ruleset'` and NEVER reads a pack's `defaultConfidence`,
+//    so the day gate 1 opens this pack's numbers would surface wearing the violet Estimated chip
+//    … signing gate 1 alone is NOT sufficient"*. **Fixed in L-665** (§PACK-CONFIDENCE-CEILING): the
+//    engine clamps every solve to the pack's declared tier, demote-only, so this pack's
+//    `pipeline-extracted-unverified` reaches the envelope and `GISAreaLayout` badges it RED as its
+//    FIRST arm (weakest-wins — the violet chip cannot shadow it). Verified end-to-end on real NZ-7
+//    and NZ-8 solves by `madridPgoum97Wiring.test.ts` §RED-CHIP-NZ7-NZ8.
+//    ⇒ signing `MADRID_ENVELOPE_VERIFIED` IS now sufficient to ship a Madrid number at the red tier.
+//    ⚠ This stale note and its twin in `siteDispatch.ts` were still being quoted as live blockers a
+//    week after the fix landed, on the day SIG-M1 was under consideration.
 // 5. ⛔ THE STREET-WIDTH RESOLVER. `madridAnchoDeCalle.ts` holds the three cuadros and refuses at a
 //    band edge; nothing feeds it a width yet. Madrid's measured quantum set is {15, 30} (L-537
 //    probe) — a Madrid `StreetWidthQuantisation` is the analogue of `BCN_STREET_WIDTH_QUANTISATION`

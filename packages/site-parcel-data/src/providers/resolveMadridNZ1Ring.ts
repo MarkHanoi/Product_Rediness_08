@@ -65,13 +65,14 @@ import { trace, SpanStatusCode } from '@opentelemetry/api';
 const tracer = trace.getTracer('pryzm.zoning');
 
 /**
- * ⚠⚠ THE L-449 CERTIFICATION GATE — **DE-CERTIFIED 2026-08-01 (§MADRID-NZ1-DECERTIFIED, L-677).**
+ * ⚠⚠ THE L-449 CERTIFICATION GATE — de-certified 2026-08-01 (§MADRID-NZ1-DECERTIFIED, L-677),
+ * **RE-OPENED 2026-08-02 on the founder's SIG-M2 signature (Doctrine B / ADR-0280).**
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * WHY THIS IS `false`, AND WHY RE-FLIPPING IT IS A LEGAL ACT AND NOT A CODE CHANGE
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * This constant read `= true` from 2026-07-25 to 2026-08-01, and while it did it authorised **the
- * only Madrid envelope that rendered at all** — a published NZ-1 footprint clipped to the parcel over
+ * THE HISTORY, KEPT ON PURPOSE. This constant read `= true` from 2026-07-25 to 2026-08-01 on NO
+ * SIGNATURE AT ALL, and while it did it authorised **the only Madrid envelope that rendered at all** — a published NZ-1 footprint clipped to the parcel over
  * 11.695 % of Madrid's Norma-Zonal-governed land (measured, `VERIFICATION.md` V14).
  *
  * The docstring it carried attributed that to *"the L-608 sign-off, 2026-07-25"*. **There is no such
@@ -84,25 +85,51 @@ const tracer = trace.getTracer('pryzm.zoning');
  * was a machine**. L-449 exists to say that a pack cannot sign its own transcription; a model
  * flipping its own publication gate is that rule's limiting case.
  *
- * ⚠ THE SUBSTANCE MAY WELL BE DEFENSIBLE, AND THAT IS NOT THE SAME THING. NZ 1 transcribes nothing:
- * PRYZM fetches a polygon the municipality drew, clips the parcel to it, and asserts no height, no
- * FAR, no setback (`structuredFields` is literally `{}`). A reasoned decision that *reading published
- * geometry is not a transcription, so no L-449 signature is owed* would re-open this gate legitimately
- * — and `sources/VERIFICATION.md` SIG-M2 states that case in full, for a human to answer yes or no.
- * Until someone does, the honest state is the one the ordinance-free path was always designed to have:
- * refuse, citedly. **Do not re-flip this without recording a signatory, a date and a scope in
- * `VERIFICATION.md §3`** — `l449CertificationGates.ts` + its totality test now make a `true` with no
- * signature reference a RED TEST rather than a silent claim.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⭐ RE-OPENED 2026-08-02 ON A HUMAN SIGNATURE — SIG-M2, and this time there is an artefact.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * The founder answered the doctrine question, as an AUDITOR rather than a reviewer, choosing
+ * **Doctrine B — "Evidence-bounded publication"** over Doctrine A ("completion by implication"),
+ * on the reasoning that a planning system must never infer zoning geometry merely because ADJACENT
+ * geometry is published, and that **"Unknown is a valid answer"** — an unknown result is preferable
+ * to manufactured certainty. The signature, verbatim:
  *
- * ⚠ ONE DEFECT MUST BE CLOSED BEFORE ANY SIGNATURE, NOT AFTER (`CLOSURE-REGISTER.md` row 3): this
- * resolver never reads `PG_CONDICIONES_EDIFICACION/1 Ficha Específica` (131 points, V17), so a parcel
- * whose conditions are individually defined receives the GENERAL manzana footprint. Signing while that
- * is true would certify a footprint applied to parcels it was not drawn for.
+ *   «PRYZM shall dispatch deterministic envelopes only where the applicable zoning geometry is
+ *    directly supported by authoritative published data. Partial publication does not authorize
+ *    inference beyond its demonstrated spatial extent.»
  *
- * (Typed `boolean`, not the literal `false`, so the consumer's resolved-ring branch is not narrowed
- * away as dead code while the gate is shut.)
+ * Operative rule: **inside published geometry → deterministic envelope permitted; outside published
+ * geometry → status UNKNOWN unless another authoritative layer resolves it.**
+ *
+ * ⚠ WHY THIS MECHANISM QUALIFIES, checked rather than assumed. This resolver dispatches ONLY inside
+ * the published NZ-1 footprint (a point-intersect against `PG_CONDICIONES_EDIFICACION/6`) and
+ * returns a TYPED REFUSAL everywhere else — `no-feature` / `degenerate-geometry` for a genuine
+ * absence, `endpoint-unreachable` for an outage, kept distinct by STRUCTURAL-SEAM-4. It infers
+ * nothing beyond the demonstrated extent. That is precisely what Doctrine B authorises, and it is
+ * why the flip is a one-line change to this constant and to nothing else.
+ *
+ * ⚠ THE HISTORY BELOW IS DELIBERATELY KEPT. The machine flip is the reason the doctrine exists, and
+ * deleting the record would delete the argument. What changed on 2026-08-02 is not that the gate is
+ * open again — it is that a PERSON opened it, in writing, with a date and a scope.
+ *
+ * Doctrine ratified platform-wide as **ADR-0280**; it governs València's, Córdoba's and Murcia's
+ * refusals too, and is cited from `l449CertificationGates.ts`.
+ *
+ * ⚠ STILL NOT AUTHORISED, and unchanged by SIG-M2: any use of `COEF_Z` as an edificabilidad/FAR
+ * (V16 measured it as 100 % integers 0–8, 47.56 % compound — not a ratio); any NZ-1 height; any
+ * promotion above `estimated-ruleset`.
+ *
+ * ⚠ ROW 3 REMAINS OPEN AND IS NOW A LIVE DEFECT AGAIN: this resolver never reads
+ * `PG_CONDICIONES_EDIFICACION/1 Ficha Específica` (131 points, V17), so a parcel whose conditions
+ * are individually defined receives the GENERAL manzana footprint. ⚠ Note this is a WRONG-AUTHORITY
+ * defect of UNKNOWN SIGN, not an over-statement, and it is bounded to 131 points city-wide — but it
+ * is exactly the kind of thing Doctrine B's "directly supported by authoritative published data"
+ * is about, so it should be closed next (`CLOSURE-REGISTER.md` row 3).
+ *
+ * (Typed `boolean`, not the literal `true`, so a consumer's `if (!MADRID_NZ1_CERTIFIED)` refusal
+ * branch is not narrowed away as dead code while the gate is open.)
  */
-export const MADRID_NZ1_CERTIFIED: boolean = false;
+export const MADRID_NZ1_CERTIFIED: boolean = true;
 
 /**
  * The `ringRef` handle this resolver answers for. MUST equal the pack's
