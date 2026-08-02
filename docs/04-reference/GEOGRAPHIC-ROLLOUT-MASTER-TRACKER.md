@@ -13,6 +13,11 @@ beyond?"* Created 2026-07-22.
 > | **How the system works + how it scales** | [SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md](./geospatial/SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md) |
 > | **How to REPLICATE a city end-to-end (all 8 layers, the golden recipe)** | [CITY-REPLICATION-STANDARD.md](./standards/CITY-REPLICATION-STANDARD.md) |
 > | **How to REPLICATE a city's buildable ENVELOPE (the 5-slot recipe, ADR-0279)** | [ENVELOPE-REPLICATION-STANDARD.md](./standards/ENVELOPE-REPLICATION-STANDARD.md) |
+> | **⭐ The LIVE, computed Spanish programme state (the only place figures live)** | [PEC-EXECUTION-DASHBOARD.md](../03-execution/plans/PEC-EXECUTION-DASHBOARD.md) + `tools/city-completion/measurements/*.measurements.json` |
+> | **What the compiler owes a user; the determination taxonomy; what we may assert** | [C64 — The Envelope Compiler](../02-decisions/contracts/C64-ENVELOPE-COMPILER.md) |
+> | **How the programme is run — intake, priority, effort, reporting, validation** | [SPEC-ENVELOPE-COMPILER-PROGRAMME.md](../03-execution/specs/SPEC-ENVELOPE-COMPILER-PROGRAMME.md) |
+> | **What has already been DECIDED (check before re-opening anything)** | [DECISION-REGISTER.md](./standards/DECISION-REGISTER.md) + [MACHINE-READABLE-EVIDENCE-REGISTER.md](./standards/MACHINE-READABLE-EVIDENCE-REGISTER.md) |
+> | **How a blocker is classified, and the five release gates** | [BLOCKER-CLASSIFICATION-STANDARD.md](./standards/BLOCKER-CLASSIFICATION-STANDARD.md) |
 > | **Product phases A–D (all features)** | [master-execution-tracker.md](../03-execution/plans/master-execution-tracker.md) |
 > | **Sources: what exists, what we're missing** | [spain/SPAIN-GEODATA-SOURCE-COVERAGE.md](./spain/SPAIN-GEODATA-SOURCE-COVERAGE.md) |
 > | **⚠ Read before assuming a dataset exists** | [jurisdictions/es/es-ct/08019-barcelona/BARCELONA-DATA-PIPELINE.md](./jurisdictions/es/es-ct/08019-barcelona/BARCELONA-DATA-PIPELINE.md) |
@@ -46,6 +51,18 @@ beyond?"* Created 2026-07-22.
 ---
 
 ## §1 — THE HEADLINE
+
+> ⛔⛔ **EVERY FIGURE IN THIS SECTION IS A 2026-07-22 TRANSCRIPTION AND IS SUPERSEDED. DO NOT QUOTE IT.**
+> The live, computed state of the Spanish programme is the
+> **[PEC EXECUTION DASHBOARD](../03-execution/plans/PEC-EXECUTION-DASHBOARD.md)**, backed by the per-city
+> measurement records in `tools/city-completion/measurements/*.measurements.json`. Under
+> **[C64 §2.13](../02-decisions/contracts/C64-ENVELOPE-COMPILER.md)** (founder, 2026-08-02, Addendum 1) a
+> measured figure is **referenced, never transcribed** — *"transcribed measurements rot; computed
+> references do not."* ⚠ The **denominator itself is being restated** to the cadastral parcel, replacing
+> three incompatible area bases (audit **L-687**), so every area percentage below is stale by definition.
+> ⚠ **Determination is never reported as a single number** — it splits into envelope + refusal by cause
+> (C64 §2.12). The rows below are retained as the **historical record of what was believed on
+> 2026-07-22**, per §8's edit-in-place rule; they are not the current answer.
 
 | | Value | Source |
 |---|---|---|
@@ -404,16 +421,50 @@ shortens it.** Ground elevation was never the hard part. It is a reading task: f
 
 ## §4 — SPAIN — beyond Barcelona
 
-**Scaling is currently blocked by the BLOCK DISSOLVE, not by the rules.**
+> ⭐ **UPDATED 2026-08-02 — the table below was rewritten. The three-gate framing it used (router →
+> source → pack) is CLOSED for all five cities: every one of them now has a router branch, a zoning
+> source and a pack or a cited refusal. The binding blockers moved from *engineering* to *legal, data and
+> external authority*, which is a different programme.** That programme is governed by
+> **[C64 — The Envelope Compiler](../02-decisions/contracts/C64-ENVELOPE-COMPILER.md)**, run by
+> **[SPEC-ENVELOPE-COMPILER-PROGRAMME](../03-execution/specs/SPEC-ENVELOPE-COMPILER-PROGRAMME.md)**, and
+> reported **live** on the **[PEC EXECUTION DASHBOARD](../03-execution/plans/PEC-EXECUTION-DASHBOARD.md)**.
+>
+> ⛔ **NO MEASURED FIGURE APPEARS IN THIS TABLE, DELIBERATELY** (C64 §2.13). Per-city coverage,
+> determination and tier live in `tools/city-completion/measurements/<city>.measurements.json` and are
+> rendered by the dashboard. **Reference the run, never the value** — the last document that transcribed
+> these numbers was correct when written and wrong in **both directions** within weeks, rating one city
+> *"PDF-only, no build"* while it drew envelopes and another *"verified computable"* while it drew none.
+>
+> **Blocker class** is the [BLOCKER-CLASSIFICATION-STANDARD](./standards/BLOCKER-CLASSIFICATION-STANDARD.md)
+> vocabulary: exactly one of `Legal · Engineering · Data acquisition · External authority`, one owner, one
+> exit criterion. ⚠ **Only `Engineering` enters sprints** — everything else is a tracked dependency that
+> no amount of engineering accelerates.
 
-| City | Dissolve (n=956 sample) | Zoning source | Rule pack | Status | Binding blocker |
-|---|---|---|---|---|---|
-| **Barcelona** | Eixample 96.3% · Ciutat Vella 93.5% | ✅ MUC | 13a ✅ · 13b 🔵 · 12b ⏸ | 🟢 LIVE-PARTIAL | layer 6 |
-| **Madrid** | **92.6% / 99.0%** ✅ | ❌ none | ❌ none | 🔴 BLOCKED | **G1 router** → G2 source → G3 pack |
-| **Córdoba** | **90.8%** ✅ | ❌ none | ❌ none | 🔴 BLOCKED | **G1 router** → G2 source → G3 pack |
-| Valencia | 92.7% ✅ | ❌ | ❌ | 🔵 not started | same three gates |
-| Sevilla | 82.3% | ❌ | ❌ | 🔵 not started | same three gates |
-| **ALL SPAIN** | **91.4%** (874/956) | — | — | — | — |
+| City | Parcel | Zoning source | Envelope disposition | **Binding blocker** | Class | Release gate |
+|---|---|---|---|---|---|---|
+| **Barcelona** | ✅ Catastro live | ✅ AMB Refós | ✅ **CONSTRUCTED + cited refusals**; corpus boundary **signed** (D-006) — ~2,600 derived plans explicitly out of verified scope | delegated derived plans; the Refós `PLAN`/`*` marker is unread (**P-002**) | Legal | — (shipped) |
+| **Murcia** | ✅ Catastro live | ✅ municipal GeoServer | ✅ **published**, `estimated-ruleset`; street width **constructed** from published *alineaciones* (**SIG-MU2** → [ADR-0285](../02-decisions/adrs/ADR-0285-computing-an-observable-criterion-is-implementation.md)) | the PGOU **expressly delegates** most of its land to derived instruments — terminal, cited, and **not** an envelope | Legal (terminal) | **Gate 1** ✅ measured |
+| **Madrid** | ✅ Catastro live | ✅ `NORMAS_ZONALES` routing | 🟡 **RC-1** — the NZ-1 ring publishes under **SIG-M2**; the rest awaits certification. ⚠ NZ-3 is **resolved BY LAW** (**D-001**): no municipal zone envelope is computable under the current ordinance — *a determination, not a gap* | **SIG-M1** — certify the transcription itself; and the existing-building GFA datum is **measured not obtainable** municipally | External authority | **Gates 2 + 3** |
+| **Córdoba** | ✅ Catastro live | 🟡 published block rings (`idecordoba:manzana`) + PGOU text | ⛔ **refusing** — the municipal jurisdiction is registered **refusal-only** since 2026-08-01, closing the fabricated-envelope defect (**L-684**) | most urban *calificación* sheets are **not published as usable geometry**; the search is **CLOSED one-shot** and **vectorisation is DE-AUTHORISED** (**D-002**) | Data acquisition | **Gate 4** ✅ concluded |
+| **València** | ✅ Catastro live | ✅ MapServer layer 212 | ⛔ **refusing, and engineering is COMPLETE ahead of the answer** — parser, validator, refusal path and heritage seam all ship. Buildable depth is **RESOLVED through published geometry** (**D-005**): it is *drawn*, not tabulated, so R1 was **Superseded**, not closed | the published `altura` annotation's **semantics are unbound** — proven not to be metres, error two-sided, so **no conservative branch exists** (**D-004**, [ADR-0287](../02-decisions/adrs/ADR-0287-resolvers-refuse-when-uncertainty-changes-the-legal-outcome.md)); heritage folders return `499 Token Required` = **UNKNOWN, not absent** | External authority | **Gate 5** |
+| Sevilla · and the rest | ✅ Catastro national | ❌ | 🔵 not started | — | — | — |
+
+**Read this table with three cautions.**
+1. **A cited refusal is a CORRECT ANSWER and is not an envelope.** Two of these cities draw nothing today
+   and are behaving correctly; conflating *"the law grants nothing here"* with *"PRYZM failed"* is the
+   honesty failure the whole programme exists to prevent (C64 §5).
+2. **Only one of the five binding blockers is engineering-shaped, and it is not on the critical path of
+   any city.** Three are external-authority. That is the central scheduling fact, and it is why the
+   release order below is dependency-ordered rather than size-ordered.
+3. **The old "three gates" claim is retired, not refuted** — it was true in 2026-07-22 and the gates were
+   subsequently closed. §4.0 below is retained as the record of the *earlier* retraction; do not read it
+   as current.
+
+**Release order** (founder, 2026-08-02 — ordered by **dependency**, not size; a city's position is a
+scheduling fact, not a judgement on its work):
+`Murcia` → `Madrid RC-1 (SIG-M1)` → `Córdoba` → `Madrid NZ-3 (if legally authorised)` → `València`.
+**A release candidate never moves backwards** — a later city's findings become new work on the next
+release, never a rollback, unless the finding is a *correctness* defect in what shipped.
 
 ### §4.0 — ⚠⚠ RETRACTED: "the dissolve is the blocker". IT IS NOT, AND IT HAS NOT BEEN FOR A WHILE.
 
@@ -528,6 +579,11 @@ dropdown. Full analysis: `saudi-arabia/SAUDI-ARABIA-ENTRY-ASSESSMENT.md`,
 
 ## §8 — How this tracker updates
 
+- ⛔ **NEVER TRANSCRIBE A MEASURED FIGURE INTO THIS FILE (C64 §2.13, founder Addendum 1).** Point at the
+  [dashboard](../03-execution/plans/PEC-EXECUTION-DASHBOARD.md) or the measurement record that computes
+  it. *"Transcribed measurements rot; computed references do not."* Figures already here from before
+  2026-08-02 are retained as historical record and are banner-marked superseded — do not refresh them in
+  place, and do not quote them.
 - A phase moves status **only when a number moves**, and the number is cited to the file that
   produced it.
 - New defects go to the **audit** issue log (L-NN) first; this tracker links, never restates.

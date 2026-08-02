@@ -5112,3 +5112,120 @@ axis the moment a breakdown is supplied and stays honestly `not-assessed` withou
 synthesise a coverage table (C63 §1.1). **Routed to C58 (not fixed here):** `ZoningRulesEngine` never
 reads a pack's `defaultConfidence`, so the two OCR-seeded packs would badge machine-extracted numbers as
 "Estimated" rather than ⚠ unverified — a silent promotion.
+
+---
+
+# §PEC — The PRYZM Envelope Compiler programme (C64, ADR-0291)
+
+> **Stamp**: 2026-08-02 · **Authority**: [C64 — The Envelope Compiler](../../02-decisions/contracts/C64-ENVELOPE-COMPILER.md)
+> + [ADR-0291](../../02-decisions/adrs/ADR-0291-pryzm-envelope-compiler-variable-first-architecture.md)
+> over the doctrine set [ADR-0283](../../02-decisions/adrs/ADR-0283-authoritative-publication-bounds-knowledge-unknown-is-valid.md)–[ADR-0290](../../02-decisions/adrs/ADR-0290-exhaust-authoritative-sources-before-engineering-a-derived-solution.md).
+> **Method**: [SPEC-ENVELOPE-COMPILER-PROGRAMME](../specs/SPEC-ENVELOPE-COMPILER-PROGRAMME.md).
+> **Live state**: [PEC-EXECUTION-DASHBOARD](./PEC-EXECUTION-DASHBOARD.md) — **the single reporting surface.**
+> **Evidence**: [NATIONAL-CAPABILITY-REGISTER](../../04-reference/standards/NATIONAL-CAPABILITY-REGISTER.md)
+> (capability inventory · variable model · ranked dependencies · KPI baselines · roadmap) ·
+> [BLOCKER-CLASSIFICATION-STANDARD](../../04-reference/standards/BLOCKER-CLASSIFICATION-STANDARD.md) ·
+> [DECISION-REGISTER](../../04-reference/standards/DECISION-REGISTER.md) ·
+> [MACHINE-READABLE-EVIDENCE-REGISTER](../../04-reference/standards/MACHINE-READABLE-EVIDENCE-REGISTER.md).
+> Issues: audit **L-681 … L-687**.
+>
+> ⛔ **NO MEASURED FIGURE APPEARS IN THIS SECTION, DELIBERATELY (C64 §2.13).** Coverage, determination and
+> completion numbers live **only** in `tools/city-completion/measurements/*.measurements.json` and in the
+> computed dashboard. **Reference the run, never the value** — a previous programme document was written
+> with correct numbers in hand and was wrong in *both directions* within weeks. ⚠ The area denominator is
+> additionally being restated to the **cadastral parcel** (founder, Addendum 1), so any transcribed area
+> percentage is stale before it is committed.
+>
+> ⚠ **This section is a WORKSTREAM, not a re-organisation.** §CITY-COMPLETION (C63) answers *"how complete
+> is city X"* — a measure of **us**. §PEC answers *"what does a user get when they click a parcel"* — a
+> measure of the **product**. They compose (C63's ENVELOPE axis reads what §PEC produces) and neither
+> replaces the other.
+
+## §PEC.0 — The one objective
+
+> *A user selects any parcel and immediately receives the maximum legally defensible, fully explainable 3D
+> buildable envelope — or a determination naming exactly what is missing, who owns it, and what closes it.*
+
+**The unit of architecture is the ORDINANCE VARIABLE, never the city** (ADR-0291). A municipality is a set
+of bindings for variables the platform already knows how to resolve; adding a city must not add a code
+path. Every parcel terminates in an envelope **or** one of five typed determinations (C64 §5) — *"cannot
+compute"* is not a valid product output.
+
+## §PEC.1 — Phases (capability-ordered; **never** city-ordered)
+
+Ranked content — which dependency, which variable, which municipalities — lives in the register (D5/D9).
+This table owns only the **shape and the ordering rule**.
+
+| Phase | Goal | Description + references | Status |
+|---|---|---|---|
+| **X.PEC.0** | **Stop and correct** | Zero engineering. Correct what is known wrong before adding coverage: the unattributed certification gates (§PEC.4 · L-681), the parser-miss-as-measured-absence class (L-683), the stale claims still live in artefacts (L-685), the denominator restatement (L-687). **A ruler is fixed before coverage is expanded** — coverage added under a broken framework is an unprovable claim. | 🟢 IN PROGRESS |
+| **X.PEC.1** | **The discovery gate** (C64 layer 4) | The Stage-0 mechanism that discharges [ADR-0290](../../02-decisions/adrs/ADR-0290-exhaust-authoritative-sources-before-engineering-a-derived-solution.md). Protocol + tool specified separately (Dataset Discovery Protocol, in authoring); C64 §3.4 fixes only its position and contract. **It already paid for itself three times before being built.** Gates the correct sizing of every derived capability. | 🟢 IN PROGRESS (separate owner) |
+| **X.PEC.2** | **The missing compiler layers** — 3, then 2 | `Variable Resolution` (layer 3) then `Variable Dependency Graph` (layer 2). Layer 3 replaces the hand-ordered per-city `if` chain in `siteDispatch.ts` that `registry.ts` already flags as a drift hazard; layer 2 is what makes *"blocked ONLY by `storeys`, which is blocked by `streetWidth`"* expressible (C64 §1.2). ⚠ **Both are absent — `git grep` returns nothing.** The gap is contiguous: layers 5, 7 and 8 are built and must not be redesigned. | ⚪ PLANNED |
+| **X.PEC.3** | **The top-ranked national rate limiter** | Selected from the register's ranked dependency matrix (D5), not from a city's backlog. **Only `Engineering` rows are eligible** (SPEC §3.2). | ⚪ PLANNED |
+| **X.PEC.4** | **The fan-out node** | The capability whose Capability-Reuse count is highest — improves the most municipalities per unit shipped. The anti-one-off gate. | ⚪ PLANNED |
+| **X.PEC.5** | **Correctness on what is already drawn** | Defects that move no coverage number and are therefore invisible to every metric: over-statement from an unmodelled downward constraint, a measurement taken from the wrong edge, terrain sampled below ordinance resolution. **These are correctness events, not scope.** | ⚪ PLANNED |
+| **X.PEC.6** | **Scale beyond the measured cities** | ⭐ **The whole national thesis.** The measured cities' remaining engineering headroom is bounded (register F1); the correct response is to measure city N+1, not to keep optimising five. Engineering-ROI is defined to force this. | ⚪ PLANNED |
+| **X.PEC.7** | **Product honesty on terminal land** | The missing `legally-delegated` confidence tier. Today a cited legal determination (terminal, correct) and PRYZM's own coverage gap weigh identically on the envelope axis and are indistinguishable in the score. ADR-0291 records the vocabulary gap; the weight is unset (C64 §6.3). | ⚪ PLANNED |
+| **X.PEC.C** | **Contract conformance gates** | C64 §8 G-C64-1…7. G-C64-3 already ships (`l449CertificationGates.test.ts`) and is adopted as-is; the rest are proposed. **Until they exist, "C64 is DRAFT" is the honest status.** | ⚪ PLANNED |
+
+**Sequencing rules (binding, SPEC §3–§4):**
+- **Only `Engineering` blockers enter sprints.** `Legal` · `Data acquisition` · `External authority`
+  become tracked dependencies with one named owner and one exit criterion, and consume zero capacity.
+  ⚠ This removes most of the remaining opportunity from the sprint board — **that is the point, not a
+  problem** (register D5: of the top national dependencies, one is engineering).
+- **A `Legal` blocker freezes the engineering it gates.** Do not build what the ordinance may prohibit.
+- **Nothing derived is scheduled before Stage 0 has run and its negative is recorded.** Without it a
+  capability is not "ready"; it is **unsized** (C64 §2.6).
+- **A release candidate never moves backwards.** A later city's findings become new work on the next
+  release — unless the finding is a *correctness* defect in what shipped, which is a defect event.
+- **Migration is behaviour-preserving or it is a correctness event** — byte-identical reproduction before
+  any city is migrated onto a new layer (C64 §1.4).
+
+## §PEC.2 — The five gates — progress is measured in GATES CLOSED
+
+> *"Every week should permanently eliminate one decision from the board. When the board reaches zero open
+> gates, the programme is complete."* Owners + exit criteria: BLOCKER-CLASSIFICATION-STANDARD.
+
+| # | Gate | Class | Closes when | Owner |
+|---:|---|---|---|---|
+| **1** | **Murcia** — engineering completion | Engineering | production coverage **measured**, not estimated | Murcia agent |
+| **2** | **Madrid** — SIG-M1 | External authority | the targeted review passes its four residual-risk classes and the transcription is certified | the founder |
+| **3** | **Madrid** — article memorandum | Legal | a **binary** legal outcome naming which article governs | planning review |
+| **4** | **Córdoba** — GIS sweep | Data acquisition | a **one-page** conclusion: consume official GIS, or the source does not exist. **One-shot; the search is closed** | Córdoba agent |
+| **5** | **València** — authority response | External authority | the semantic decision on the published annotation. **No intermediate reviews** | Ajuntament de València |
+
+⚠ **No gate has a percentage in its exit criterion, deliberately.** A coverage number is an output; a gate
+is a decision.
+
+## §PEC.3 — Release order (founder, 2026-08-02)
+
+`Murcia` → `Madrid RC-1 (SIG-M1)` → `Córdoba` → `Madrid NZ-3 (if legally authorised)` → `València`
+
+Ordered by **dependency**, not by size: Murcia depends on nobody outside the repo; Madrid RC-1 on one
+signature; Córdoba on one search; Madrid NZ-3 on one legal reading; València on a third party who has not
+replied. **A city's position here is a scheduling fact, not a judgement on its work.**
+
+## §PEC.4 — Audit-relevant findings feeding this workstream
+
+Full entries in [V1-LAUNCH-READINESS-AUDIT](../../04-reference/V1-LAUNCH-READINESS-AUDIT.md):
+**L-681** a machine opened a publication gate citing the commit that opened it (two further unattributed
+gates quarantined) · **L-682** `honestyOk` verifies a number *has* a derivation, never that it is *true*
+(**belongs in C63 §8** — flagged, not unilaterally edited) · **L-683** a parser miss published as a
+measured absence for every city · **L-684** fabricated envelope parameters shipped across most of one
+city's urban land · **L-685** stale claims propagating across cities (six propagations for one of them) ·
+**L-686** compiler layers 2/3/4 absent, so *"names the blocking dependency"* is un-satisfiable ·
+**L-687** national KPI denominators not comparable · plus **L-688** `heightSources.mjs` cannot be imported
+by any vitest spec.
+
+## §PEC.5 — Where each question is answered
+
+| Question | Read |
+|---|---|
+| What does the compiler owe a user? What may we assert? | [C64](../../02-decisions/contracts/C64-ENVELOPE-COMPILER.md) |
+| How is the programme run — intake, priority, effort, reporting, validation? | [SPEC-ENVELOPE-COMPILER-PROGRAMME](../specs/SPEC-ENVELOPE-COMPILER-PROGRAMME.md) |
+| What is the state **right now**, measured? | [PEC-EXECUTION-DASHBOARD](./PEC-EXECUTION-DASHBOARD.md) |
+| Which capability, which variable, which municipalities, ranked? | [NATIONAL-CAPABILITY-REGISTER](../../04-reference/standards/NATIONAL-CAPABILITY-REGISTER.md) |
+| What has already been **decided** (do not re-open)? | [DECISION-REGISTER](../../04-reference/standards/DECISION-REGISTER.md) |
+| What is machine-readable, and what is closed? | [MACHINE-READABLE-EVIDENCE-REGISTER](../../04-reference/standards/MACHINE-READABLE-EVIDENCE-REGISTER.md) |
+| How complete is city X across all replication layers? | [C63](../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md) + §CITY-COMPLETION above |
+| Jurisdiction coverage — how far along, per city? | [GEOGRAPHIC-ROLLOUT-MASTER-TRACKER](../../04-reference/GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md) |
