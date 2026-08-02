@@ -66,7 +66,65 @@ export const MATURITY_LADDER = {
  *   `none-found`   — searched, nothing found. ⚠ Still a bounded negative: see `searchedWhere`.
  *   `unknown`      — not yet searched. The honest default for 13 of 17 CCAAs.
  */
+/**
+ * CORRECTION (1) — THE LADDER MUST BE READ PER **OUTPUT**, NOT PER REGION.
+ *
+ * A source can sit at different levels for a DETERMINATION and for an ENVELOPE. Filing the SIU as
+ * "cannot produce envelopes, dead end" was half-right and too harsh:
+ *
+ *   > "Sector-level edificabilidad is not worthless. It is a NATIONAL buildability signal covering
+ *   > ten regions with an agreed model. For determinations - the proven national product - that is
+ *   > usable: it tells you a sector's aggregate capacity even where the parcel-level ordinance is
+ *   > unreachable. The SIU is the only thing in Spain with national coverage and an agreed schema."
+ *
+ * THE REGISTRY COULD NOT EXPRESS THIS. `level` was a single scalar per region, which silently
+ * forces one number onto two different questions. `levelByOutput` is the fix; `level` is retained
+ * only where a region has not yet been split, and MUST NOT be read as an envelope rating.
+ */
+export const OUTPUT_KINDS = ['determination', 'envelope'];
+
 export const REGIONAL_NORMS = {
+    // THE ONLY THING IN SPAIN WITH NATIONAL COVERAGE AND AN AGREED SCHEMA.
+    'es-national-siu': {
+        ccaa: 'SPAIN - SIU (Sistema de Informacion Urbana), Ministerio de Vivienda y Agenda Urbana',
+        status: 'verified',
+        norm: 'SIU Working Group (2008) - agreed common minimum thematic contents of the SIU data model',
+        legalBasis: 'DA 1a, TR Ley de Suelo y Rehabilitacion Urbana (RDL 7/2015)',
+        convenios: ['Aragon', 'Asturias', 'Cantabria', 'Castilla y Leon', 'Castilla-La Mancha',
+            'Extremadura', 'Galicia', 'Madrid', 'Murcia', 'Pais Vasco'],
+        // Per-OUTPUT, per correction (1). Never collapse these to one number.
+        levelByOutput: {
+            determination: { level: 2, basis: 'sector-level UsoSuelo + ClaseSuelo under an agreed model across ten CCAAs - a NATIONAL buildability signal usable for determinations even where the parcel ordinance is unreachable' },
+            envelope: { level: 0, basis: 'no ordinance parameter of any kind in any of the 17 published layers' },
+        },
+        serviceRetrieved: {
+            at: '2026-08-02',
+            endpoint: 'https://mapas.fomento.gob.es/arcgis/rest/services/SIU/Servicios_OGC/MapServer',
+            note: 'Browser UA required (the ministry 403s a default client) and an ArcGIS 200 can carry an Esri error in its body - both checked.',
+            layers: 17,
+        },
+        // THE #1 QUESTION, ANSWERED: the served model STOPS AT CLASSIFICATION.
+        measuredFields: {
+            '13 OGC_Sectores': 'OBJECTID / ProvINE / IdSector / FechaBaja - 4 real fields, NO parameters',
+            '14 OGC_Recintos': 'OBJECTID / ProvINE / IdSector / UsoSuelo / FechaBaja - UsoSuelo is the ONLY semantic field',
+            '15 OGC_Clases_Suelo': 'OBJECTID / ProvINE / ClaseSuelo / NuclRural / FechaBaja',
+            '0-12': 'SIOSE / CORINE land COVER - not planning',
+            '16 OGC_Areas_Urbanas': 'urban-area statistics (population, density, dwellings)',
+        },
+        envelopeParameters: {
+            absent: ['floor-area-ratio', 'building-height', 'storey-count', 'coverage-ratio', 'setback',
+                'buildable-depth', 'zoning-regime (calificacion)'],
+            caveat: 'NOT ONE ordinance parameter across all 17 layers. This confirms the second branch: '
+                + 'the common model stopping at classification EXPLAINS WHY SO MANY REGIONS LOOK IDENTICAL '
+                + 'AND THIN - they are publishing the agreed minimum, and the agreed minimum is classification.',
+        },
+        currency: 'FechaBaja is present on layers 13/14/15 - currency is a field here.',
+        unknown: 'This measures what the SIU SERVES. The convenio model SPECIFICATION document was not read '
+            + '(mivau.gob.es returned 403 to WebFetch), so whether the agreed model on paper is broader than '
+            + 'the published product is UNKNOWN - never "no". The served product is the operative artefact.',
+    },
+
+
     // ═══ MADRID — never sampled before this pass, and the highest-value result of it. ═══════════
     'es-md': {
         ccaa: 'Comunidad de Madrid', population: 6_900_000,
@@ -357,8 +415,11 @@ export function regionalNormFor(ccaaId) {
 
 /** Coverage of the registry itself — so nobody reads 4 rows as a national survey. */
 export function registryCoverage() {
-    const searched = Object.keys(REGIONAL_NORMS).length;
-    const verified = Object.values(REGIONAL_NORMS).filter((r) => r.status === 'verified').length;
+    // The national SIU row is NOT a CCAA and must not enter the CCAA arithmetic - the honesty
+    // guard caught this the moment it was added, which is what that guard exists for.
+    const ccaaRows = Object.entries(REGIONAL_NORMS).filter(([k]) => !k.startsWith('es-national'));
+    const searched = ccaaRows.length;
+    const verified = ccaaRows.filter(([, r]) => r.status === 'verified').length;
     return {
         version: REGIONAL_NORM_REGISTRY_VERSION,
         // 17 CCAAs; Ceuta + Melilla are autonomous CITIES and are accounted separately.
@@ -369,7 +430,8 @@ export function registryCoverage() {
         notYetSearched: CCAA_NOT_YET_SEARCHED.length,
         autonomousCitiesNotYetSearched: AUTONOMOUS_CITIES_NOT_YET_SEARCHED.length,
         foralExcluded: CCAA_FORAL_EXCLUDED.length,
-        populationCovered: Object.values(REGIONAL_NORMS).reduce((s, r) => s + (r.population ?? 0), 0),
+        populationCovered: ccaaRows.reduce((s, [, r]) => s + (r.population ?? 0), 0),
+        nationalRows: Object.keys(REGIONAL_NORMS).filter((k) => k.startsWith('es-national')).length,
         // ⚠⚠ THE LINE THAT STOPS THIS BEING OVERSOLD.
         warning: `⚠ ${searched} of 17 CCAAs. This is A HANDFUL OF DATA POINTS AND A PATTERN, not a `
             + `seventeen-CCAA survey. Do not present it as one. The other ${CCAA_NOT_YET_SEARCHED.length} are `
