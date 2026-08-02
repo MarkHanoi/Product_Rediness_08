@@ -38,6 +38,7 @@ import {
     bboxForms, coldStartRecord, foralExclusion, PUBLISHERS, ACID_TEST_LIMIT, renderMarkdown,
     candidateSlugsFor, candidateHostsFor,
 } from './discover.mjs';
+import { regionalNormFor, registryCoverage } from './regionalNorms.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const fx = (n: string) => readFileSync(resolve(HERE, 'fixtures', n), 'utf8');
@@ -526,6 +527,69 @@ describe('§COLD-START — the Probe C record (founder Addendum 1)', () => {
         }
         assert.equal(foralExclusion({ cc: 'es', ineCode: '14021' }).excluded, false);
         assert.equal(foralExclusion({ cc: 'es', ineCode: '30030' }).excluded, false);
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe('§S0.0 REGIONAL NORM — the legal-register step, and the limits it must carry', () => {
+    test('an unsearched CCAA is `unknown`, NEVER `none-found`', () => {
+        const r = regionalNormFor('es-cm');
+        assert.equal(r.status, 'unknown');
+        assert.notEqual(r.status, 'none-found');
+        assert.match(r.note!, /NOT SEARCHED/);
+    });
+
+    test('foral CCAAs are marked excluded, not unsearched', () => {
+        assert.equal(regionalNormFor('es-pv').status, 'foral-excluded');
+        assert.equal(regionalNormFor('es-nc').status, 'foral-excluded');
+    });
+
+    test('⚠ Andalucía: mandated ≠ populated — the template ships with zero rows', () => {
+        const an = regionalNormFor('es-an');
+        assert.equal(an.status, 'verified');
+        assert.match(an.populated!, /^No — MEASURED/);
+        assert.equal(an.schemaRetrieved!.featureClasses, 21);
+    });
+
+    test('⚠⚠ Andalucía: the ABSENT envelope parameters are carried alongside the present ones', () => {
+        const an = regionalNormFor('es-an');
+        for (const missing of ['building-height', 'setback', 'buildable-depth', 'coverage-ratio']) {
+            assert.ok(an.envelopeParameters!.absent.includes(missing), `${missing} must be listed absent`);
+        }
+        assert.ok(an.envelopeParameters!.present['floor-area-ratio']);
+        assert.match(an.envelopeParameters!.caveat, /L-616|FAR CEILING, not an envelope|not an envelope/i);
+    });
+
+    test('⚠ Aragón: the optimistic reading is NOT laundered — calificación and FAR are absent', () => {
+        const ar = regionalNormFor('es-ar');
+        assert.ok(ar.envelopeParameters!.absent.some((x: string) => /calificación/.test(x)));
+        assert.ok(ar.envelopeParameters!.absent.includes('floor-area-ratio'));
+        assert.match(ar.envelopeParameters!.caveat, /CAVEAT WAS RIGHT/);
+        // A 404 on two guessed paths is UNKNOWN, never absence.
+        assert.match(ar.serviceRetrieved!.wfs.verdict, /UNKNOWN/);
+    });
+
+    test('Extremadura: calificación layers are recorded, but "computable" is NOT claimed', () => {
+        const ex = regionalNormFor('es-ex');
+        assert.ok(ex.envelopeParameters!.present['zoning-regime'].length >= 6);
+        assert.match(ex.envelopeParameters!.caveat, /Do not read "calificación exists" as "an envelope is computable"/);
+        assert.equal(ex.populated, 'Unknown — capabilities read; no DescribeFeatureType or feature count performed.');
+    });
+
+    test('⚠⚠ registryCoverage refuses to be read as a seventeen-CCAA survey', () => {
+        const c = registryCoverage();
+        assert.equal(c.ccaaTotal, 17);
+        assert.ok(c.searched < 17);
+        assert.equal(c.notYetSearched, 13);
+        assert.match(c.warning, /FOUR DATA POINTS AND A PATTERN/);
+        assert.match(c.warning, /not "no norm"/);
+    });
+
+    test('every verified region names what SUPERSEDED filing it replaces', () => {
+        for (const id of ['es-an', 'es-ar', 'es-ex']) {
+            const r = regionalNormFor(id);
+            assert.ok(r.supersedes && r.supersedes.length > 20, `${id} must record the filing it supersedes`);
+        }
     });
 });
 

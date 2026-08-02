@@ -5,7 +5,7 @@ should discover datasets before engineers invent geometry. This should become **
 municipality**."*
 **Scope**: every municipality entering the onboarding pipeline, and every derived capability proposed for one.
 **Tool**: [`tools/dataset-discovery/`](../../../tools/dataset-discovery/) — `discover.mjs` · `classify.mjs` ·
-`capabilities.mjs` · `taxonomy.mjs` · `probeC.mjs` · `discover.test.ts` (72 tests, offline over captured fixtures).
+`capabilities.mjs` · `taxonomy.mjs` · `regionalNorms.mjs` · `probeC.mjs` · `discover.test.ts` (80 tests, offline over captured fixtures).
 
 **Related**: [ADR-0290](../../02-decisions/adrs/ADR-0290-exhaust-authoritative-sources-before-engineering-a-derived-solution.md)
 (**the invariant this protocol discharges**) · [ADR-0288](../../02-decisions/adrs/ADR-0288-machine-readable-is-not-publishable.md)
@@ -65,6 +65,32 @@ Three prohibitions, enforced in code and pinned by test:
 
 Stage 0 runs in a fixed order, cheapest and most decisive first. **Each step has an exit criterion**; a step
 without one is an open-ended search, which is *"indistinguishable from an unstarted one"*.
+
+### ⭐ S0.0 · The REGIONAL PLANNING-DATA NORM — run this first, it is the cheapest and strongest
+> ⛔ **The search target is not *"does this region publish a WFS"*. It is:**
+> **"Does this region have a *norma técnica* mandating planning-data delivery, and what schema does it
+> specify?"** — **a LEGAL-REGISTER search, not a service probe.**
+
+For the CCAA (or equivalent regional tier), find: the **norm**, its **schema**, its **enforcement date**, its
+**publication endpoint**. Record in `tools/dataset-discovery/regionalNorms.mjs`.
+
+**Why it precedes the municipal sweep.** Where a region has legislated a standard, municipalities deliver
+planning in a defined schema to a regional authority who publishes it — **one adapter · one legal
+interpretation · N municipalities**. Probe C measured 0/20 municipalities self-hosting; three of the regions
+it then filed as absent turned out to have exactly this. **A mandated schema is stronger evidence than a live
+service**: a service can be switched off, but a schema in a published *Orden* binds every instrument approved
+after its enforcement date — and it survives a 403, which is what turned Aragón's `ROBOTS_DISALLOWED` into an
+`UNKNOWN` rather than a wall.
+
+**Exit**: the norm is named with its enforcement date and its schema read, **or** the CCAA is recorded
+`unknown` (**never `none-found` unless the legal register was actually searched**).
+
+⚠ **What S0.0 does NOT establish** — three limits, carried verbatim and never laundered:
+1. **Specified and mandated ≠ POPULATED.** Andalucía's own published template ships with **0 rows** in all
+   21 feature classes.
+2. **In scope ≠ complete.** A norm that mandates FAR and density but not height has not given you an
+   envelope.
+3. **An unread endpoint is UNKNOWN.** A norm existing does not make its service readable.
 
 ### S0.1 · Enumerate services
 Probe every **declared** endpoint, plus the standard sweep paths on every candidate host
@@ -591,6 +617,66 @@ it buys nothing, and a national sweep needs **DNS pre-resolution** rather than H
 7.4 min / 20 cities to all 7 612 non-foral municipalities gives ≈ **47 hours single-threaded** — tractable,
 but only worth spending once the regional-aggregator gap above is closed, since today it would return 
 `Unknown` for nearly all of them.
+
+---
+
+## §11c — The three SUPERSEDED filings, resolved by query
+
+Probe C filed three regions as absent or dead. **The premise of all three was false** — founder research
+named the structural cause, and this pass then resolved each by query, 2026-08-02. They are re-filed
+**`Superseded`, not `Closed`**: the distinction is what stops the next agent re-deriving the dead end.
+
+| region | the filing | the resolution | verdict |
+|---|---|---|---|
+| **Extremadura** | *"dead host"* — `geoportal.ideex.es` was **guessed** | `mapas.ideex.es/CICTEX/urbanismo` → **WFS 200, 67 447 B, 36 layers**; WMS 200, 92 layers | ⭐ **REFUTED.** 12 `CALIFICACION_SUELO_*` layers — *calificación*, the Tier-1 gate, not merely *clasificación* |
+| **Andalucía** | *"no calificación WFS"* — DERA and ideandalucia were searched | the planning system is **SITUA** (LISTA Art. 11); **Orden 18 Feb 2026** mandates a schema from **24 Apr 2026** | ⭐ **REFUTED, and it did not need a service probe** — see below |
+| **Aragón** | *"clasificación only"* | **NOTEPA (Decreto 78/2017)** exists and Art. 7 normatively defines *edificabilidad* | ⚠ **PARTLY REFUTED — and the optimistic reading LOSES.** See below |
+
+### Andalucía — the Tier-1 gate answered from the schema, not from a service
+
+The mandated schema was downloaded and read: `2026.07.31_Plantilla_NNDD.zip`, **188 973 B**, SHA-256
+`5b8cd386…`, containing a **GeoPackage** with **21 feature classes + 21 controlled-vocabulary tables**.
+⚠ Note the published ZIP is now dated **2026.07.31** — it supersedes the `2026.02.18` filename in the
+founder research, though the GeoPackage inside still carries the February stamp.
+
+**Envelope parameters ARE in scope:**
+
+| variable | mandated as |
+|---|---|
+| floor-area-ratio | `ZSU.EDIF_GLOB` · `PROP_ATU.EDIF_MAX/EDIF_MIN` · `ATU.EDIF_GLOBAL/EDIF_RES/EDIF_PROT/EDIF_PROD/EDIF_SERV/EDIF_TUR` |
+| density | `ZSU.DENS` · `PROP_ATU.DENS_MAX/DENS_MIN` · `ATU.DENS` |
+| use-designation | `USO_G` (6 global) → `USO_P` (16 pormenorizado, FK'd) |
+| land-classification · plan-delegation · heritage | `C_S` · `CAT_SR/SCAT_SR` · `ATU` · `PROT_POL.CAR_PROT/TIP_BIC` |
+
+**⚠⚠ And the half that is NOT mandated — say it every time the FAR is quoted:** no `ALTURA`, no `PLANTAS`,
+no `OCUPACIÓN`, no `RETRANQUEO`, no `FONDO`, no `PARCELA MÍNIMA`. **This supplies a FAR ceiling, not an
+envelope.** Worse, `EDIF_GLOB` is edificabilidad **global over a zone**, and applying a zone aggregate
+parcel-by-parcel is exactly the **L-616 over-statement**.
+
+**⚠ And it is NOT POPULATED — measured, not assumed.** All 21 feature classes in the published template
+contain **0 rows**. The 907 rows present are the controlled vocabularies plus the 785-municipality register.
+**Specified and mandated. Not populated.** Coverage today is ~zero by construction and grows only as
+instruments pass *aprobación inicial* after 24 April 2026.
+
+### Aragón — the caveat was right and the optimistic reading was wrong
+
+`icearagon.aragon.es` answered **HTTP 200** to this tool — the founder's `ROBOTS_DISALLOWED` was a
+fetch-tool restriction, not an HTTP block — so SIUa's capabilities **were** readable this pass.
+`SIUa_WMS` → **200, 43 763 B, 51 layers**. Those layers are `clasificaciondelsuelo`, `clasificacion_SNUE`,
+`SIOSESUC`, `usoglobal`. **There is no `calificacion` layer, and no edificabilidad / aprovechamiento /
+densidad layer.**
+
+⇒ **NOTEPA is real and normatively defines *edificabilidad* (Art. 7) — and the published vector coverage does
+not expose it.** The original *"clasificación + global use only"* observation about the **vector** **HOLDS**.
+What was superseded is the claim that Aragón has **no regional standard**. Two WFS paths were guessed and
+**404'd**, so **WFS is `UNKNOWN`, not absent**.
+
+### ⚠ Four data points and a pattern — not a survey
+
+`registryCoverage()` reports it in the payload so it cannot be quoted stripped: **4 of 17 CCAAs**
+(Andalucía, Aragón, Extremadura verified; Catalunya's *Refós* already in corpus). **13 are `unknown` — which
+is not "no norm exists"**; País Vasco and Navarra are foral-excluded. A systematic seventeen-CCAA legal
+register search would replace the current map wholesale, and **this is not that.**
 
 ---
 
