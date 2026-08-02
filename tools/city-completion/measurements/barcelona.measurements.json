@@ -1,0 +1,226 @@
+{
+  "_readme": [
+    "§PER-CITY-MEASUREMENTS (L-662) — the three EXPENSIVE C63 axes (LEGISLATION 25 · ENVELOPE 20 ·",
+    "HEIGHTS 10 = 55 % of the ratified weight) are AUDITS, not config reads, so computeScorecard.mjs",
+    "will not score them without a committed, reviewable measurement record. Absent ⇒ not-assessed.",
+    "Modelled on measurements/murcia.measurements.json, the first such record in the repo.",
+    "⚠ `status: 'measured'` is the ONLY key that unlocks an axis. Never set it to make a number appear.",
+    "⚠ Every figure below is CITED to an artefact or a probe run. INV-3: cited derivation, never a guess.",
+    "⚠ THE ENVELOPE AXIS IS NOT THE COVERAGE HEADLINE. Barcelona's dossier has long quoted ENVELOPE as",
+    "'56.0 % → ~60.7 %'. That is COVERAGE — the share of buildable land that gets ANY envelope. The C63",
+    "Axis-4 SCORE is Σ(share × tierWeight), and Barcelona's coverage is NOT uniformly `block-constructed`:",
+    "the 20a/* family is a native `setback` pack and the clau-18 OV route is expressly capped at",
+    "`estimated-ruleset` by SIG-3, both weight 0.4, not 0.7. Coverage 60.6 % scores 36.5 %."
+  ],
+  "jurisdictionId": "es-ct-08019-barcelona",
+  "city": "barcelona",
+  "measuredAt": "2026-08-01",
+  "generatedBy": "Barcelona city agent, cited-audit — live AMB Refós census + tools/context-height-probe/probe.mjs (SPEC-CITY-COMPLETION-ROLLOUT Phase-1 stamp)",
+
+  "_denominator": {
+    "privateBuildableLandM2": 31794683,
+    "cityLandM2": 101781723,
+    "buildableShareOfCity": 0.3124,
+    "source": "LIVE, RE-RUNNABLE query against the AMB Refós de Planejament ArcGIS REST service, 2026-08-01: https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/16/query?where=CODI_INE%3D%2708019%27&groupByFieldsForStatistics=CLAU_URB&outStatistics=[{\"statisticType\":\"sum\",\"onStatisticField\":\"SHAPE_Area\",\"outStatisticFieldName\":\"area\"}]&f=json",
+    "definition": [
+      "PRIVATE BUILDABLE = the 24 PURE (non-composite) clau codes the layer returns for CODI_INE='08019'",
+      "that the PUBLISHER'S OWN renderer files under `Zones en sòl urbà` / `Zones en sòl urbanitzable`,",
+      "plus `22@` (a Barcelona private buildable zone the metropolitan renderer files under `Zones i",
+      "sistemes no recollits en el PGM` because it is the MPGM 22@ 2000 instrument, not the PGM).",
+      "⚠ The classification is the AMB's, read off `drawingInfo.renderer.uniqueValueGroups` — NOT a",
+      "judgement made here. Systems, Collserola and non-urbanitzable soil are EXCLUDED from the",
+      "denominator entirely (L-656: not-applicable ≠ 0 %), never scored zero.",
+      "⚠ 43 of the 89 codes are COMPOSITE overlays (`18-6a`, `7b-13a`, …). They are excluded from both",
+      "numerator and denominator as transcription overlays of an underlying qualification, not distinct",
+      "legal qualifications. Their combined area is 0.6 % of the city.",
+      "CROSS-CHECK: this reproduces MASTER-ROI-TRACKER §0.6 to the second decimal on EVERY headline clau",
+      "(13a 22.98 · 18 17.51 · 22a 15.60 · 13b 12.52 · 12 9.38 · 12b 2.44 · 22@ 2.06 · bare 20a 1.55) and",
+      "lands the denominator at 31,794,683 m² against §0.6's 31,801,618 m² — 0.02 % apart, two runs of the",
+      "same census. ⚠ It CORRECTS §0.6 on two rows: the ten-strong `20a/*` family is 11.13 %, not 10.62 %",
+      "(and Barcelona carries EIGHT of the ten subzones — `20a/6` and `20a/7` do not occur here), and the",
+      "`15/16/17*/14a/14b/8a` tail is 4.83 %, not 3.58 %. Both corrections move the numbers DOWN or",
+      "sideways; neither flatters the axis."
+    ]
+  },
+
+  "envelope": {
+    "status": "measured",
+    "denominator": "private buildable land = 31,794,683 m² (L-656 — buildable land, NOT all land, NOT clicks). See `_denominator` above.",
+    "source": "live AMB Refós `QU_Trames` per-clau area census (2026-08-01) × the shipped tier of each clau's registered pack in `packages/site-parcel-data/src/rulepacks/registry.ts`",
+    "note": [
+      "TEN NON-OVERLAPPING slices covering 100.00 % of the buildable denominator, so measuredShare = 1.0",
+      "and nothing is renormalised away. Score = Σ(share × tierWeight) = 0.36526.",
+      "",
+      "⚠⚠ THE TIER IS WHAT THE CODE SHIPS, NOT WHAT THE DOSSIER HOPED. Every Barcelona pack declares",
+      "`defaultConfidence: 'estimated-ruleset'`; `ZoningRulesEngine.ts:957-963` promotes it to",
+      "`block-constructed` IF AND ONLY IF the derivation carries an `alignment.depthBinding` row — i.e.",
+      "only for the three `block-derived-alignment` claus (13a, 13b, 12). Consequences, both measured:",
+      "  • `20a/*` registers `kind: 'setback'` (esBarcelona20aAillada.ts:535) and can never emit that row,",
+      "    so its 11.13 % scores 0.4, not 0.7. MASTER-ROI-TRACKER §0.6's `56.0 % × 0.7 = 39.2 axis pts`",
+      "    applied the block tier to this family too; that is a 3.3-point over-statement of the axis.",
+      "  • the clau-18 OV route is expressly capped by SIG-3 (`sources/VERIFICATION.md`, DOES NOT",
+      "    AUTHORISE: 'promoting the confidence tier above estimated-ruleset'), so its 4.62 % scores 0.4.",
+      "",
+      "⚠ THE BLOCK-DISSOLVE SPLIT IS AN EXTRAPOLATION AND IS LABELLED AS ONE. L-676 measured the",
+      "PRODUCTION dissolve over a census of two Barcelona bboxes — Eixample 104/108 blocks, Ciutat Vella",
+      "74/77, pooled 178/185 = 96.22 % — and a dissolve failure reaches",
+      "`refuseConstructionIncomplete('block-dissolve-refused')` (siteDispatch.ts:4307) and publishes NO",
+      "envelope at all. So 3.78 % of the block-derived families' land carries a pack that cannot solve.",
+      "That is PRYZM's own gap, not a cited legal refusal, hence `no-pack` and not `not-determined`",
+      "(EnvelopeAxisWeight.ts keeps the two words apart deliberately). ⚠ 185 blocks in two bboxes is not",
+      "a city-wide rate and 13b's fabric was never sampled; the ratio is applied to all three block-derived",
+      "claus because omitting it would score them as if the dissolve never failed. It moves the axis DOWN",
+      "by 1.19 points. Re-measure per family before quoting it as a per-clau fact.",
+      "",
+      "⚠ THE 39.4 % OF NOT-DETERMINED IS THE CORRECT SCORE, NOT A PENALTY (C63 §1.5 / L-656). Every one",
+      "of those slices reaches a TERMINAL, cited state naming the governing article: 18 → Art. 306;",
+      "22a → Art. 350.1 (~2,595 Pla Parcials); 22@ → Art. 8.1 MPGM 22@ (DEC-1, permanent); 12b → Arts.",
+      "320.3a/320.2a, the *tram de vial* is undefined and delegated to a *pla especial* (L-676, permanent);",
+      "bare 20a → Arts. 314.5/338.2, a missing SELECTOR not a missing rule (L-673); tail → derived plan /",
+      "verd privat protegit. Under the ratified definition of CLOSED they are closed. They are not envelopes.",
+      "",
+      "⚠ THE CEILING RESTATED, AND IT IS LOWER THAN THE DOSSIER SAYS. `CLOSURE-REGISTER.md` carries an",
+      "ENVELOPE ceiling of '~68 %' (coverage). That figure was built from §0.6's clau-18 RANGE of",
+      "+4.0…+7.8 axis pts (≈ 5.7–11.1 pp of coverage) — an estimate the SIG-3 audit then SUPERSEDED with a",
+      "measurement: 26.4 % of clau-18 land = 4.62 pp, corroborated over all 1,282 clau-18 polygons and 800",
+      "live points. It also still counts `12b`'s 2.44 pp, which L-676 closed as a PERMANENT cited refusal —",
+      "exactly the DEC-1 logic that removed `22@`'s 2.06 pp and lowered the ceiling once already; nobody",
+      "applied it the second time. Corrected COVERAGE ceiling = 56.01 (packed) + 4.62 (clau-18 OV) + 1.55",
+      "(bare 20a, which reopens on a subzone-granular DATA layer, not on law) ≈ 62.2 %, not ~68 %.",
+      "Corrected AXIS ceiling ≈ 37–38 %: no tier above `block-constructed` (0.7) is reachable for a",
+      "constructed Art. 242.2 depth (EnvelopeAxisWeight.ts — `authoritative` needs a determination ISSUED,",
+      "`structured` needs the authority to publish the numbers AS DATA; Barcelona does neither), and the",
+      "only headroom left is bare 20a at 0.4 plus the ~3 of 7 dissolve failures that are a fixable refcat",
+      "block-IDENTITY defect. ⇒ **Barcelona's ENVELOPE axis is measured at 36.5 % against a ~37–38 % cited",
+      "ceiling. It is AT its ceiling, and the 22 missing points are LAW.** That is a more useful statement",
+      "than '60.7 % against ~68 %', and every point removed here is a point we were never entitled to claim."
+    ],
+    "coverage": [
+      {
+        "zoneCode": "13a + 13b + 12 — block-ring dissolve SUCCEEDS (Art. 242.2 profunditat edificable constructed, ADR-0271)",
+        "tier": "block-constructed",
+        "buildableLandShare": 0.4318
+      },
+      {
+        "zoneCode": "13a + 13b + 12 — block-ring dissolve REFUSES, no envelope published (L-676: 7 of 185 blocks, all open-or-disjoint, 0 recoverable at any tolerance ≤ 1.0 m)",
+        "tier": "no-pack",
+        "buildableLandShare": 0.017
+      },
+      {
+        "zoneCode": "20a/5 /8 /9 /9b /9u /10 /11 /12 — native `setback` pack (edificació aïllada, Arts. 339-343)",
+        "tier": "estimated-ruleset",
+        "buildableLandShare": 0.1113
+      },
+      {
+        "zoneCode": "18 — the 26.4 % carrying an AMB Refós OV footprint with a parseable PLANTES storey count (SIG-3, explicit-area)",
+        "tier": "estimated-ruleset",
+        "buildableLandShare": 0.0462
+      },
+      {
+        "zoneCode": "18 — the other 73.6 %: cited Art. 306 refusal (the PGM points at a per-site approved volumetric ordering PRYZM does not hold)",
+        "tier": "not-determined",
+        "buildableLandShare": 0.1289
+      },
+      {
+        "zoneCode": "22a — cited Art. 350.1 refusal (98.9 % is PD*; delegated to ~2,595 Pla Parcials)",
+        "tier": "not-determined",
+        "buildableLandShare": 0.156
+      },
+      {
+        "zoneCode": "22@ — permanent cited derived-plan refusal, Art. 8.1 MPGM 22@ (DEC-1: the omission is INTENTIONAL in the law)",
+        "tier": "not-determined",
+        "buildableLandShare": 0.0206
+      },
+      {
+        "zoneCode": "12b — permanent cited derived-plan refusal, Arts. 320.3a/320.2a (the *tram de vial* is undefined and delegated to a *pla especial*, L-676)",
+        "tier": "not-determined",
+        "buildableLandShare": 0.0244
+      },
+      {
+        "zoneCode": "bare 20a — cited `regime-undetermined` refusal, Arts. 314.5/338.2/339 (a missing SELECTOR, not a missing rule, L-673)",
+        "tier": "not-determined",
+        "buildableLandShare": 0.0155
+      },
+      {
+        "zoneCode": "15 · 16 · 17/5 · 17/6 · 17/7 · 14a · 14b · 8a — cited derived-plan / verd-privat-protegit refusals",
+        "tier": "not-determined",
+        "buildableLandShare": 0.0483
+      }
+    ]
+  },
+
+  "legislation": {
+    "status": "measured",
+    "citedVerifiedClaus": 11,
+    "totalClausPresent": 24,
+    "signedVerification": true,
+    "documentInRepo": true,
+    "supersessionChecked": false,
+    "source": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/sources/VERIFICATION.md (SIG-1/2/3) + the live AMB Refós clau enumeration recorded in `_denominator` above",
+    "note": [
+      "DENOMINATOR = 24, the PURE private-buildable clau codes the zone-GIS actually returns for INE",
+      "08019 (live AMB Refós census 2026-08-01: 89 distinct CLAU_URB, 46 pure / 43 composite, of which 23",
+      "sit in the publisher's own `Zones en sòl urbà`/`Zones en sòl urbanitzable` groups, +`22@`). This is",
+      "the municipality's inventory, NOT the packs we authored — scoring cited/authored would report",
+      "~100 %, the 'Barcelona-borrow' trap C63 §3 Axis 2 names.",
+      "NUMERATOR = 11: the packed claus that the inventory ACTUALLY CONTAINS — 12, 13a, 13b and the eight",
+      "20a subzones. ⚠ THREE PACKED CLAUS ARE DELIBERATELY NOT COUNTED because Barcelona's zone-GIS never",
+      "returns them: `13E` (registered against 13a, returned ZERO times in 1,014 MUC resolutions and absent",
+      "from the AMB census) and `20a/6` / `20a/7` (subzones I and III, which do not occur in this",
+      "municipality). Counting a pack for land that does not exist is the same fabrication one level up.",
+      "11/24 = 45.8 %.",
+      "⚠ SENSITIVITY, STATED: including the 43 COMPOSITE codes that touch a buildable zone (`18-6a`,",
+      "`7b-13a`, …) would give 11/38 = 28.9 %. They are excluded as transcription overlays of an underlying",
+      "qualification rather than distinct legal qualifications — the choice that RAISES the score, so it is",
+      "named here rather than left implicit.",
+      "⚠ documentInRepo: TRUE, and this is PROVEN not asserted — `git ls-files` confirms all four primary",
+      "instruments are committed and tracked: `PGM-NNUU-metropolitana.pdf` (the base NNUU + the",
+      "Barcelona-exclusive Arts. 342/343 at printed pp. 177-188, which is where the 20a family's numbers",
+      "come from), `corpus/pdf/DOGC-4893_2007-05-29_…_BARCELONA.pdf` (the binding Art. 327.2a/328.2a",
+      "annex), and both `RPUC_2006-025790-B_…` documents. This is a genuine advantage over Murcia, whose",
+      "publisher returns HTTP 403 to automated requests so its quotes cannot be re-read from the repo.",
+      "⚠ WHAT `documentInRepo: true` DOES NOT MEAN: the 20a family's in-repo source is the MMAMB",
+      "RE-EDITION of the 1988 text refós — manually re-typeset, with transcription errors documented in",
+      "that same volume (Arts. 251.3a, 330, 331) — not the DOGC original and not Barcelona's own 08019",
+      "consolidation. The document is retrievable; its fidelity is a separate, open question.",
+      "⚠ supersessionChecked: FALSE, and it is the register's only P0-adjacent open row (CLOSURE-REGISTER",
+      "#9). 1,755 RPUC instruments → 773 → 147 post-2007 PGM-level; 46 must be read, 3 read and cleared,",
+      "41 unopened, and 2009/036679/B (art. 264) is an IMAGE-ONLY SCAN that failed the digit-integrity",
+      "gate. `laterModifications: none` is written nowhere and must not be. signedVerification TRUE covers",
+      "SIG-1/2/3 only; a signature is not a supersession audit."
+    ]
+  },
+
+  "heightsLod": {
+    "status": "measured",
+    "tagged": 503,
+    "derivedLevels": 62940,
+    "assumed": 38099,
+    "total": 101542,
+    "bbox": [2.0886, 41.3274, 2.2486, 41.4474],
+    "source": "tools/context-height-probe/probe.mjs --at 41.3874,2.1686 --name barcelona --half-deg 0.06 against the SHIPPED R2 tiles (buildings.pmtiles?v=L659a — the same bytes the browser reads, the same provenance ladder) — 2026-08-01, verdict `unmeasured`, 900 tiles covering / 632 read / 268 absent / 0 FAILED",
+    "note": [
+      "⚠ measured-lidar = 0 across 101,542 footprints. `measuredMarkerCount: 0`. Not one building in",
+      "Barcelona's shipped context tiles carries an MDS-sampled height. The 503 `tagged` are OSM-surveyed",
+      "`height` tags, not MDS samples — C63 §3 Axis 6 v1 counts `tagged` ONLY, so the axis scores",
+      "503/101,542 = 0.50 %. `derived-levels` (62,940 = 62.0 %) earns NO partial credit until the C63 §8",
+      "founder decision lands; giving it 0.5 here would be this record ratifying a weighting the founder",
+      "has not.",
+      "⚠ assumedFraction = 0.375 — 38,099 footprints render a FABRICATED 9 m default, city-wide. This",
+      "SUPERSEDES the 33.7 % in CLOSURE-REGISTER #17, which is not wrong but is a different, SMALLER",
+      "measurement: the register's run used the default `--half-deg 0.008` NEAR ring (6,306 footprints,",
+      "25/25 tiles) around the Sagrada Família point. Re-run today for continuity and it reproduces",
+      "EXACTLY — 6,306 footprints · 0 measured-lidar · 55 tagged · 4,124 derived-levels · 2,127 assumed ·",
+      "assumedFraction 0.337. The half-degree, not the tileset, is the whole difference. Quote the bbox",
+      "with the number or the two readings look like a contradiction.",
+      "⚠ THIS RECORD IS A PRE-BAKE BASELINE, DELIBERATELY — same posture as Murcia's. A buildings re-bake",
+      "is in flight on this SHA (heightSources.mjs / tools/context-bake/ are OWNED BY THAT RUN and were",
+      "not touched by this pass). Re-probe and update this block after it publishes. Do NOT edit these",
+      "counts to predict the outcome (§SIZE-IS-NOT-PROVENANCE — a green bake is precisely what L-658",
+      "produced while shipping nothing, and L-677's `--region` fix landed because a 4-hour green run had",
+      "published zero tiles).",
+      "⚠ 268 of 900 covering tiles are ABSENT and that is a MEASURED EMPTY, not a failure: 0 tiles failed",
+      "to read. They are sea, port water and Collserola, where the bake produced no building features."
+    ]
+  }
+}

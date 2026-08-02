@@ -4,7 +4,41 @@
 > Barcelona is the **PILOT** — unlike the Phase-2 refusal cities (L'Hospitalet / Badalona / Sant Boi),
 > it has an **authored, source-accepted pack and a LIVE constructed envelope** for part of its land.
 > This file is a status index; the deep records are the sibling docs in this folder.
-> **Last updated:** 2026-07-30. **Maintainer:** UNASSIGNED.
+> **Last updated:** 2026-08-01 (L-677). **Maintainer:** UNASSIGNED.
+
+---
+
+## ⚖ THE C63 ENVELOPE AXIS — **MEASURED 36.5 %** (2026-08-01, L-677)
+
+> **Evidence:** [`tools/city-completion/measurements/barcelona.measurements.json`](../../../../../../tools/city-completion/measurements/barcelona.measurements.json).
+> **Reproduce:** `node tools/city-completion/computeScorecard.mjs --cities barcelona`.
+
+**Denominator (L-656):** private buildable land = **31,794,683 m²** of a 101,781,723 m² city (**31.2 %**),
+re-derived live from the AMB Refós per-clau area census for `CODI_INE='08019'`, classified by the
+**publisher's own** renderer groups. Ten non-overlapping slices sum to **100.00 %** — nothing is
+renormalised away.
+
+| Tier (weight) | Share | What it is |
+|---|---:|---|
+| `block-constructed` **0.7** | **43.18 %** | `13a`+`13b`+`12` where the block-ring dissolve SUCCEEDS — Art. 242.2 depth constructed (ADR-0271) |
+| `no-pack` **0.0** | **1.70 %** | the same families where the dissolve REFUSES and publishes nothing (L-676: 178/185 = 96.22 %; ⚠ an **extrapolation**, labelled as one) |
+| `estimated-ruleset` **0.4** | **11.13 %** | `20a/*` ×8 — a **native `setback`** pack, so `ZoningRulesEngine.ts:957` never promotes it |
+| `estimated-ruleset` **0.4** | **4.62 %** | clau `18` OV footprints with a parseable `PLANTES` (SIG-3, which **expressly forbids** promoting the tier) |
+| `not-determined` **0.0** | **39.37 %** | cited legal refusals: `18`-remainder 12.89 · `22a` 15.60 · tail 4.83 · `12b` 2.44 · `22@` 2.06 · bare `20a` 1.55 |
+
+**Σ(share × tierWeight) = 0.36526.**
+
+> ### ⚠⚠ COVERAGE ≠ AXIS SCORE, and this dossier had been quoting one as the other
+> **Coverage is 60.6 %** — the share of buildable land that gets *any* envelope. **The axis is 36.5 %.**
+> `MASTER-ROI-TRACKER` §0.6's `56.0 % × 0.7 = 39.2 axis pts` applied `block-constructed` to *all* of the
+> packed land, including the `20a/*` **setback** family and the clau-18 route that SIG-3 caps at
+> `estimated-ruleset` — **a 3.3-point over-statement of the axis.**
+>
+> ### ⚠ THE CEILING IS ≈37–38 %, NOT ~68 % — see [`CLOSURE-REGISTER.md`](./CLOSURE-REGISTER.md)
+> `~68 %` was a **coverage** figure still carrying a **superseded** clau-18 estimate and still counting
+> `12b`'s 2.44 pp after L-676 closed it as a **permanent** refusal. Corrected coverage ceiling ≈ **62.2 %**.
+> No tier above `block-constructed` is reachable for a constructed Art. 242.2 depth. **⇒ Barcelona's
+> ENVELOPE axis is essentially at its ceiling and the remaining gap is LAW, not effort.**
 
 ---
 
@@ -20,7 +54,11 @@ cited envelope on part of its land and returns an honest cited refusal everywher
 | **S1 — parcel provider** | ✅ live | Catastro INSPIRE WFS (national); block-ring dissolve **2/2** in Barcelona (L-535). |
 | **S3 — zone source** | ✅ live | AMB MUC WMS (`CODI_QUAL_AJUNT`), per-parcel clau (`server/mucZoningProxy.js`). |
 | **13a** *ordenació segons alineacions de vial* | ✅ **SHIPPED** (constructed) | `block-derived-alignment`, ADR-0271 — depth from the block ring per PGM **Art. 242.2**; height from street width per **Art. 327.2** (`bcnAlcadaReguladora.ts`, L-525a). |
-| **13b / 12 / 20a / 22a** | ⚠️ partial / refusal | 13b config-only (not shipped); 22a = regime-neutral half + cited `regime-undetermined` refusal (ADR-0276); 12/12b/20a per `LEGISLATION-RATE.md`. |
+| **13b** *densificació semiintensiva* | ✅ **SHIPPED** (constructed) | ⚠ **THIS ROW WAS STALE — 13b, 12 and the ten `20a/*` all shipped on 2026-07-22.** `block-derived-alignment`, Art. 242 depth via Art. 326, its **own** Art. 328 height table (`bcnAlcadaByZone.ts`). 12.52 % of buildable land. |
+| **12** *nucli antic (annexed nuclis)* | ✅ **SHIPPED** (constructed) | `block-derived-alignment`, Art. 316. 9.38 %. ⚠ Governs the **annexed** nuclis (Gràcia, Sarrià, Sants…); **Ciutat Vella is `12b` and REFUSES**. |
+| **`20a/5 /8 /9 /9b /9u /10 /11 /12`** | ✅ **SHIPPED** (constructed) | The one **native `kind: 'setback'`** family (*edificació aïllada*, Arts. 339–343 + the Barcelona-exclusive DOGC 4277/2004 Arts. 342/343). **11.13 %.** ⚠ It can never reach `block-constructed` — it emits no `alignment.depthBinding` row — so it scores **0.4** on the axis. Bare `20a` is **not** registered (L-673). |
+| **`18`** *volumetria específica* | 🟡 **PARTIAL — 26.4 % constructed** | `explicit-area` from the AMB Refós `OV_Trames` layer, gated ON by **SIG-3** (`BCN_REFOS_OV_CERTIFIED === true`). The other **73.6 %** keeps the cited **Art. 306** refusal. |
+| **`22a` / `22@` / `12b` / bare `20a`** | ⛔ **cited refusal — PERMANENT for three of the four** | `22a` → Art. 350.1 (~2,595 Pla Parcials); `22@` → Art. 8.1 MPGM (DEC-1, intentional omission in the law); `12b` → Arts. 320.3a/320.2a, the *tram de vial* is undefined and delegated to a *pla especial* (L-676). Only **bare `20a`** can reopen, and only on a subzone **DATA layer** (L-673). |
 | **Systems (`SX*` `6*` `7*` …) + derived-planning (`18`, PD*)** | ✅ **cited refusal SHIPPED** | L-550 / L-553 — a cited "no envelope applies" or "governed by its own plan", never a fabricated setback triple. |
 
 The measured ceiling and the field-by-field breakdown are in [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md); the phased climb

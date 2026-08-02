@@ -318,3 +318,71 @@ test("L-676: València's zone-GIS is `documented`, not `none` — the service is
     assert.equal(slot.state, 'documented');
     assert.match(slot.note, /geoportal\.valencia\.es/);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// L-677 — the COMMITTED per-city measurement records (L-662 §PER-CITY-MEASUREMENTS).
+//
+// They are EVIDENCE, so they are guarded like evidence. Murcia's and València's are the two
+// exemplars; these assertions are written against the SHAPE all three share, so the guard extends to
+// the next city by adding one entry to CITY_RECORDS.
+//
+// What they pin, and why each is load-bearing:
+//   • the ENVELOPE shares must lie in (0,1] — a breakdown that quietly sums past 1 double-counts land,
+//     and a zero-share slice asserts a tier over nothing;
+//   • every tier must be one the L0 schema DECLARES — `axisEnvelope` THROWS on an unmapped tier, and
+//     this catches it in the record rather than at the CLI;
+//   • the heights block must carry per-building COUNTS that reconcile (§SIZE-IS-NOT-PROVENANCE,
+//     L-658: a green bake, a present tileset and a large file are not evidence of one measured height).
+// ─────────────────────────────────────────────────────────────────────────────
+const MEASUREMENTS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), 'measurements');
+const CITY_RECORDS = ['barcelona', 'valencia', 'murcia'] as const;
+
+for (const city of CITY_RECORDS) {
+    test(`L-677: ${city}.measurements.json — ENVELOPE shares are a partition and every tier is one the schema declares`, () => {
+        const m = JSON.parse(readFileSync(resolve(MEASUREMENTS_DIR, `${city}.measurements.json`), 'utf8'));
+        if (m.envelope?.status !== 'measured') return; // an unmeasured axis is a valid, honest record
+        const slices: { zoneCode: string; tier: string; buildableLandShare: number }[] = m.envelope.coverage;
+        for (const s of slices) {
+            assert.ok(
+                (ENVELOPE_COVERAGE_TIERS as readonly string[]).includes(s.tier),
+                `${city}: tier '${s.tier}' is not an EnvelopeCoverageTier — the tool would throw on it`,
+            );
+            assert.ok(s.buildableLandShare > 0, `${city}/${s.zoneCode}: a zero-share slice says nothing`);
+        }
+        const sum = slices.reduce((s, x) => s + x.buildableLandShare, 0);
+        assert.ok(sum > 0 && sum <= 1 + 1e-9, `${city}: shares must lie in (0,1], got ${sum}`);
+    });
+}
+
+test('L-677: barcelona.measurements.json scores ALL SEVEN axes — the first complete C63 card', () => {
+    const m = JSON.parse(readFileSync(resolve(MEASUREMENTS_DIR, 'barcelona.measurements.json'), 'utf8'));
+    const card = computeScorecard({
+        ...BCN,
+        legislationAudit: m.legislation,
+        envelopeCoverage: m.envelope.coverage,
+        heightsSample: m.heightsLod,
+        parcelSample: JSON.parse(
+            readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), 'samples/barcelona.parcel-sample.json'), 'utf8'),
+        ),
+    }, { now: NOW });
+
+    assert.equal(CityCompletionScorecardSchema.safeParse(card).success, true);
+    assert.equal(card.honestyOk, true);
+    assert.equal(card.overall.partial, false, 'no axis may be left not-assessed');
+    const w = card.overall.assessedAxes.reduce((s, a) => s + CITY_COMPLETION_WEIGHTS[a], 0);
+    assert.ok(Math.abs(w - 1) < 1e-9, 'weightAssessed must be the whole ratified vector');
+
+    // Barcelona's slices are EXHAUSTIVE (a live per-clau area census), so nothing renormalises out.
+    assert.doesNotMatch(card.axes.envelope.derivation, /PARTIAL: unmeasured buildable land/);
+
+    // The LEGISLATION numerator can never exceed its denominator — `cited/authored` would report
+    // ~100 % for one clau out of forty (the "Barcelona-borrow" trap C63 §3 Axis 2 names, caught here
+    // in the city it is named after).
+    assert.ok(m.legislation.citedVerifiedClaus <= m.legislation.totalClausPresent);
+
+    // §SIZE-IS-NOT-PROVENANCE — counts, and they must reconcile.
+    assert.equal(m.heightsLod.total, m.heightsLod.tagged + m.heightsLod.derivedLevels + m.heightsLod.assumed);
+    // Pinned as a PRE-BAKE baseline: editing these counts to predict the in-flight re-bake means
+    // removing the label first, and removing it is a visible act in review.
+    assert.match(m.heightsLod.note.join(' '), /PRE-BAKE BASELINE/i);
+});
