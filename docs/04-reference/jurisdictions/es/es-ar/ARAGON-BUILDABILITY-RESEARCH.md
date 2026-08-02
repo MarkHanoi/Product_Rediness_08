@@ -1,7 +1,25 @@
 # ARAGÓN — BUILDABILITY RESEARCH SUMMARY
 
-**Status**: ⭐ **L1 — vector layer MEASURED**, with one promising but **UNVERIFIED** route to richer
-planning parameters. **SEQUENCED, NOT PARKED** — Phase B, immediately after Catalunya's A2.
+**Status**: ⛔ **CLOSED 2026-08-02. THE ANSWER IS NO.** Every route tested and closed — this is the
+one region where the evidence supports a negative rather than an unknown.
+*(Was: L1, sequenced not parked. Phase B ran; all three tests returned.)*
+
+> ⛔ **WHY IT CLOSES, and each of these ALONE would cap it:**
+> 1. **`fiab_geom` = LEGAL APPROVAL STATUS** — resolved from the SIUa SLD, not guessed. **21.8 %
+>    ceiling on legally-approved geometry, regardless of everything else.**
+> 2. **SCALE.** Planning geometry at **1:15,000** (classification) and **1:300,000** (regional
+>    directives). ⭐ **Too coarse for a plot INDEPENDENT OF ATTRIBUTES.**
+> 3. **The ficha carries PROVEN ZERO buildability** — valid rate 0 on 6/6 municipalities for every
+>    planning term. It is a geodata download catalogue.
+> 4. **Closed-block fabric anyway.** Huesca's Art. 8.4.8 uses *alineación oficial* + *fondo
+>    edificable* — **the same machinery as Barcelona Art. 242** — so the "Aragón needs less than
+>    Catalunya" hypothesis is **not supported**. And the operative *fondo* is *"definido gráficamente
+>    en el plano nº5"*: **the number lives in the plan sheet, not the prose.**
+> 5. **731 corpora, no article provenance**, and **SIUa's planning layer has NO metadata record in the
+>    regional catalogue at all** (16,863 records, zero urban-planning entries).
+>
+> ⚠ **`UNKNOWN never NO` is a rule about EVIDENCE, not a prohibition on negative conclusions.** Aragón
+> is `proven` with the answer zero — the runs succeeded. It is **not** `blocked`.
 **Related**: [REGIONAL-INTAKE-LIST](../../../standards/REGIONAL-INTAKE-LIST.md) ·
 [ADR-0293 per-dimension tiering](../../../../02-decisions/adrs/ADR-0293-envelope-tier-is-per-dimension-and-keyed-on-error-direction.md) ·
 [ES-ALL-REGIONS-STATUS](../ES-ALL-REGIONS-STATUS.md) ·
