@@ -56,6 +56,7 @@ import {
     AMB_PGM_NNUU_ENVELOPE_VERIFIED,
 } from './rulepacks/esAmbMetropolitanCorpus.js';
 import { BADALONA_ENVELOPE_VERIFIED } from './rulepacks/esBadalona.js';
+import { CANARIAS_ENVELOPE_VERIFIED } from './rulepacks/esCanariasSipu.js';
 import { CATALUNYA_ENVELOPE_VERIFIED } from './rulepacks/esCatalunya.js';
 import { CORDOBA_ENVELOPE_VERIFIED } from './rulepacks/esCordobaZoneClassification.js';
 import { CORNELLA_ENVELOPE_VERIFIED } from './rulepacks/esCornella.js';
@@ -189,6 +190,18 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         file: 'packages/site-parcel-data/src/rulepacks/esCatalunya.ts',
         value: CATALUNYA_ENVELOPE_VERIFIED,
         signature: null, // No Catalonia-wide instrument exists — do not "fix" by flipping.
+    },
+    {
+        // ⛔ SHUT, and `signature: null` — the honest default under §UNSIGNED-GATE-DEFAULTS-SHUT.
+        // Canarias' built-form parameters are PUBLISHED STRUCTURED DATA (SIPU 2.6.A `EDIF.mdb`),
+        // so unlike Córdoba there is no OCR step to distrust — but nobody has checked those
+        // columns against the *Normas Urbanísticas* they summarise, and the schema's dominant
+        // sentinel `'I'` has an UNKNOWN meaning region-wide. A signature is the only thing
+        // missing, and a signature is not something a pack may write for itself.
+        gate: 'CANARIAS_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esCanariasSipu.ts',
+        value: CANARIAS_ENVELOPE_VERIFIED,
+        signature: null,
     },
     {
         gate: 'LHOSPITALET_ENVELOPE_VERIFIED',

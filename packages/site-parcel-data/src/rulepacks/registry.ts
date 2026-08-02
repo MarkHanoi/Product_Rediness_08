@@ -279,6 +279,12 @@ import { NETHERLANDS_BBOX, isInNetherlands } from '../parcelProviders/countryBbo
 //    at the very END of `REGISTRATIONS` — it is deliberately last in every sense.
 import { CATALUNYA_JURISDICTION_ID, catalunyaRegistryRefusal } from './esCatalunya.js';
 import { CATALUNYA_BBOX, isInCatalunya } from '../providers/catalunyaBbox.js';
+// ── TELDE / CANARIAS (municipal) — the SIPU adapter's one wired municipality. See its
+//    registration at the END of `REGISTRATIONS`, and §TELDE-BBOX-PROVENANCE in `teldeBbox.ts`
+//    for where the extent was sourced from (it was sourced, not drawn).
+import { TELDE_JURISDICTION_ID, canariasNoRulePackRefusal } from './esCanariasSipu.js';
+import { ES_TELDE_PGO2003_PACK, TELDE_PGO2003_ZONE_CODES } from './esTeldePgo2003.js';
+import { TELDE_BBOX, isInTelde } from '../providers/teldeBbox.js';
 // §JURISDICTION-ID-CARRIES-THE-INE — the branded INE vocabulary. See the section near the bottom.
 import { parseIneCode, type IneCode } from '../providers/esMunicipalCode.js';
 
@@ -1382,6 +1388,64 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
             catalunyaRegistryRefusal(zoneCode ?? null, zoneLabel ?? null, knownFacts ?? []),
     },
+    // ╔════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ START OF THE TELDE / CANARIAS BLOCK (INE 35026, Gran Canaria).                        ║
+    // ╚════════════════════════════════════════════════════════════════════════════════════════╝
+    //
+    // ⚠ REGISTERED-AND-REFUSING, like Córdoba. `packsByZone` is POPULATED (unlike València, whose
+    // zones array is empty BY CONSTRUCTION) — Canarias publishes real numbers, as named columns in
+    // SIPU `EDIF.mdb`. What is missing is a SIGNATURE, so `CANARIAS_ENVELOPE_VERIFIED` (false)
+    // keeps every parcel on a cited refusal. Registering it lights the C60 coverage globe
+    // honestly: PRESENT with zones and gated, rather than ABSENT — failure ≠ empty
+    // (§CONTEXT-DATA-HONESTY, L-422/457/467/469).
+    //
+    // ⚠⚠ THE DEFECT THIS CLOSES, MEASURED ON THIS BRANCH, NOT ASSUMED. The adapter, the pack and
+    // its 27 known-answer tests all landed in f29820db — and NOT ONE Telde parcel could reach
+    // them, because there was no registration and no bbox to register. `teldeRouting.test.ts`
+    // proved it first: at the real Catastro parcel 8969903DS5997S,
+    // `resolveRegisteredJurisdictionAt` returned `{ kind: 'none' }` against 16 registrations, none
+    // claiming the point. `'none'` is NOT a refusal — it is read downstream as genuinely-uncovered
+    // land, so the parcel fell onto `applyEstimatedZoning` and PRYZM published a FABRICATED
+    // envelope on Canarian soil (§L-663). The hole was in the REGISTRY, not the chokepoint.
+    //
+    // ⚠ SCOPE IS 41 MUNICIPALITIES, NOT 88, AND ONLY TELDE IS WIRED. The other 46 publish 2+ base
+    // instruments and Canarias publishes NO vigencia field in any SIPU family, so their governing
+    // plan is undeterminable — `CANARIAS_MULTI_INSTRUMENT_BLOCKER` in `esCanariasSipu.ts` names
+    // that blocker. Telde itself is registered on the adaptación-PLENA argument, which is
+    // ASSERTED-UNVERIFIED. Registering the rest is a pure DATA addition, one box at a time.
+    {
+        jurisdictionId: TELDE_JURISDICTION_ID, // 'es-35026-telde'
+        displayName: 'Telde',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        // ⚠ THE SAME OBJECT/FUNCTION any Telde dispatch routes on — imported, not restated.
+        extent: TELDE_BBOX,
+        contains: isInTelde,
+        // The Telde municipal term (≈ 12 × 17 km). ⚠ The box spills into Valsequillo (INE 35031) —
+        // measured, not feared; see §TELDE-BBOX-SPILL in `teldeBbox.ts` for why it is left wide and
+        // how the INE code closes the citation.
+        extentResolution: 'municipal',
+        answerSummary:
+            'The Gobierno de Canarias publishes every municipal plan as a SIPU package, and inside ' +
+            'it EDIF.mdb carries the built-form parameters as NAMED NUMERIC COLUMNS — setbacks, ' +
+            'buildable depth, coverage, FAR, storeys, and height with the DATUM disambiguated by ' +
+            'schema (street vs parcel). That is machine-readable published data, not a PDF ' +
+            'transcription, and it names BOTH geometric grammars PRYZM implements. PRYZM reads it ' +
+            'and still publishes NO number: nobody has signed the reading against the plan’s own ' +
+            'Normas Urbanísticas, so every parcel gets a cited refusal. Zones whose building line ' +
+            'the plan puts on a DRAWING (DispObl = GRF) refuse on stronger, legally-grounded terms ' +
+            'and will keep refusing after any signature.',
+        packsByZone: packMap([ES_TELDE_PGO2003_PACK, TELDE_PGO2003_ZONE_CODES]),
+        // No per-zone legal refusal TABLE: the refusal is a function of the SIPU grammar detected
+        // on the live row, not of a static enumeration.
+        refusalFor: () => null,
+        // Every Telde zone code → the cited Canarias refusal.
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            canariasNoRulePackRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
+    },
+    // ╔════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ END OF THE TELDE / CANARIAS BLOCK.                                                    ║
+    // ╚════════════════════════════════════════════════════════════════════════════════════════╝
 ];
 
 const BY_JURISDICTION: ReadonlyMap<string, JurisdictionRegistration> = new Map(

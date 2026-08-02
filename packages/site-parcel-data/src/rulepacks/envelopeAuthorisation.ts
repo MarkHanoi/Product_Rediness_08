@@ -97,6 +97,7 @@
 import { trace } from '@opentelemetry/api';
 import { BADALONA_ENVELOPE_VERIFIED, BADALONA_JURISDICTION_ID } from './esBadalona.js';
 import { CATALUNYA_ENVELOPE_VERIFIED, CATALUNYA_JURISDICTION_ID } from './esCatalunya.js';
+import { CANARIAS_ENVELOPE_VERIFIED, TELDE_JURISDICTION_ID } from './esCanariasSipu.js';
 import { CORDOBA_ENVELOPE_VERIFIED } from './esCordobaZoneClassification.js';
 import { CORDOBA_JURISDICTION_ID } from './esCordobaPGOU2001.js';
 import { CORNELLA_ENVELOPE_VERIFIED, CORNELLA_JURISDICTION_ID } from './esCornella.js';
@@ -185,6 +186,17 @@ const GATE_DECLARATIONS: readonly GateDeclaration[] = Object.freeze([
     //    exists). Listed because the gate EXISTS and totality demands it — never because a
     //    signature would open it. See `esCatalunya.ts`: do not "fix" this by flipping it.
     { gate: 'CATALUNYA_ENVELOPE_VERIFIED', value: CATALUNYA_ENVELOPE_VERIFIED, jurisdictions: [CATALUNYA_JURISDICTION_ID] },
+    // ── ⛔ SHUT, AND UNLIKE VALÈNCIA THERE IS PLENTY TO SIGN. Canarias' built-form parameters are
+    //    PUBLISHED STRUCTURED DATA (SIPU 2.6.A `EDIF.mdb`, named numeric columns), so unlike
+    //    Córdoba there is no OCR step to distrust and `ES_TELDE_PGO2003_PACK` carries 17 real
+    //    zones. What is missing is that NOBODY HAS CHECKED THOSE COLUMNS against the *Normas
+    //    Urbanísticas* they summarise, and the schema's dominant sentinel `'I'` has an UNKNOWN
+    //    meaning region-wide. A signature is the only thing absent, and a pack may not write its
+    //    own. ⚠ REGISTERED THE MOMENT TELDE WAS REGISTERED IN `registry.ts`: an unregistered
+    //    `*_ENVELOPE_VERIFIED` FAILS OPEN, so a routed-but-ungated Telde would have the classifier
+    //    promise a full envelope for a jurisdiction that refuses every parcel — strictly worse than
+    //    not routing it at all.
+    { gate: 'CANARIAS_ENVELOPE_VERIFIED', value: CANARIAS_ENVELOPE_VERIFIED, jurisdictions: [TELDE_JURISDICTION_ID] },
 
     // ══════════════════════════════════════════════════════════════════════════════════════════
     // §GATE-KEYED-ON-THE-CORPUS (L-678) — THE 31 AMB MUNICIPALITIES, ALL SHUT, ALL UNSIGNED.

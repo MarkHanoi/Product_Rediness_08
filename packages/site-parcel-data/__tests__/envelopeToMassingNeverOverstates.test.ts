@@ -58,6 +58,7 @@ import { SA_RIYADH_JURISDICTION_ID } from '../src/rulepacks/saRiyadhDemo.js';
 import { CORDOBA_JURISDICTION_ID } from '../src/rulepacks/esCordobaPGOU2001.js';
 import { MADRID_JURISDICTION_ID } from '../src/rulepacks/esMadridNZ1.js';
 import { MURCIA_JURISDICTION_ID } from '../src/rulepacks/esMurciaEnvelope.js';
+import { TELDE_JURISDICTION_ID } from '../src/rulepacks/esCanariasSipu.js';
 
 // ── Geometry + cap helpers ──────────────────────────────────────────────────────────────────────
 function rect(x0: number, z0: number, x1: number, z1: number): Pt[] {
@@ -251,12 +252,25 @@ describe('check-envelope-solid-never-overstates — PART B: the registry binds E
         // and FAR-limited cases). NO tiered and NO explicit-area rule is present, so no unacknowledged
         // class enters. ⚠ Acknowledged for completeness only: `MURCIA_ENVELOPE_VERIFIED` is false, so
         // no Murcia parcel reaches `envelopeToMassing` at all today.
+        //
+        // §TELDE-BBOX-PROVENANCE — Telde (INE 35026, Canarias) joined the set on 2026-08-02, when a
+        // SOURCED municipal bbox finally made the SIPU adapter reachable. Structural classes its 17
+        // zones emit, counted from `esTeldePgo2003.ts`: 9 × `setback` (Part A's single-prism and
+        // FAR-limited cases) and 4 × `alignment` carrying a `buildableDepth` — the SAME class
+        // Córdoba's PAS/OA and Murcia's MC/MG already bind, which is the whole reason no new
+        // geometry engine was added for Canarias. NO `tiers` and NO explicit-area rule is present,
+        // and NO zone declares `maxHeight_m: null` (grepped: 0 occurrences), so neither the tiered
+        // class nor the null-height footprint-slab case enters unacknowledged.
+        // ⚠ Acknowledged for completeness only: `CANARIAS_ENVELOPE_VERIFIED` is false, so no Telde
+        // parcel reaches `envelopeToMassing` at all today — every one gets a cited refusal. Part C
+        // proves a refused envelope (`status: 'none'`) draws NOTHING.
         const KNOWN = [
             BCN_JURISDICTION_ID,
             SA_RIYADH_JURISDICTION_ID,
             CORDOBA_JURISDICTION_ID,
             MADRID_JURISDICTION_ID,
             MURCIA_JURISDICTION_ID,
+            TELDE_JURISDICTION_ID,
         ].sort();
         expect(packJurisdictions).toEqual(KNOWN);
     });
