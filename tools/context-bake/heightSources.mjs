@@ -387,14 +387,25 @@ export const REGION_SOURCE = {
 // (§SIZE-IS-NOT-PROVENANCE — a green bake is exactly what L-658 produced while shipping nothing).
 export const MDS_CITY_BBOXES = [
   // city        refcat    [w, s, e, n] (WGS84, osmium/-b order)          baked? (probe-verified only)
-  { city: 'barcelona', refcat: '08019', bbox: [2.05, 41.32, 2.24, 41.47],   baked: false },  // probed 2026-08-01: 0 measured
-  { city: 'cordoba',   refcat: '14021', bbox: [-4.85, 37.83, -4.72, 37.93], baked: false },  // probed 2026-08-01: 0 measured
-  { city: 'madrid',    refcat: '28079', bbox: [-3.80, 40.33, -3.60, 40.52], baked: false },  // PHASE-4
-  { city: 'valencia',  refcat: '46250', bbox: [-0.42, 39.42, -0.30, 39.52], baked: false },  // PHASE-4
-  { city: 'sevilla',   refcat: '41091', bbox: [-6.03, 37.32, -5.90, 37.43], baked: false },  // PHASE-4
-  { city: 'malaga',    refcat: '29067', bbox: [-4.50, 36.66, -4.35, 36.76], baked: false },  // PHASE-4
-  { city: 'zaragoza',  refcat: '50297', bbox: [-0.95, 41.60, -0.80, 41.70], baked: false },  // PHASE-4
-  { city: 'bilbao',    refcat: '48020', bbox: [-2.98, 43.22, -2.88, 43.29], baked: false },  // PHASE-4
+  // §MDS-BBOX-MUST-COVER-THE-REGION (2026-08-02) — three rows below were STRICTLY SMALLER than the
+  // canonical `terrain.mjs` REGIONS row for the same city, so a strip of each baked region could
+  // NEVER be stamped no matter how many times the bake ran: córdoba was short 0,01° of NORTH,
+  // madrid 0,02° of EAST, valència 0,01° of WEST and 0,02° of SOUTH. Silent, because a footprint
+  // outside every stamp bbox streams through the join with its original OSM tags and is reported as
+  // an honest `assumed` 9 m — indistinguishable from "the source has no data here". That is the
+  // failure-vs-empty family (L-422/457/467/469) once more, this time in the JOIN's working set.
+  // Each row is now the UNION of its previous value and the terrain row, so no coverage is lost and
+  // every baked square metre is reachable. `mdsBboxCoversTerrainRegion.test.mjs` pins the invariant.
+  { city: 'barcelona', refcat: '08019', bbox: [2.05, 41.32, 2.24, 41.47],   baked: false },  // ⊇ terrain [2.09,41.32,2.23,41.47] — already covered
+  { city: 'cordoba',   refcat: '14021', bbox: [-4.85, 37.83, -4.72, 37.94], baked: false },  // was n=37.93 < terrain 37.94
+  { city: 'madrid',    refcat: '28079', bbox: [-3.80, 40.33, -3.58, 40.52], baked: false },  // was e=-3.60 < terrain -3.58
+  { city: 'valencia',  refcat: '46250', bbox: [-0.43, 39.40, -0.30, 39.52], baked: false },  // was w=-0.42/s=39.42 inside terrain -0.43/39.40
+  // ⚠ These four were NOT in the original report — the invariant test found them. Every one was
+  // short of its terrain region too, bilbao on ALL FOUR sides. Widened to the union, same as above.
+  { city: 'sevilla',   refcat: '41091', bbox: [-6.0545, 37.32, -5.90, 37.4491],   baked: false },  // was w=-6.03, n=37.43
+  { city: 'malaga',    refcat: '29067', bbox: [-4.52, 36.66, -4.35, 36.78],       baked: false },  // was w=-4.50, n=36.76
+  { city: 'zaragoza',  refcat: '50297', bbox: [-0.9591, 41.5888, -0.80, 41.7088], baked: false },  // was w=-0.95, s=41.60, n=41.70
+  { city: 'bilbao',    refcat: '48020', bbox: [-3.005, 43.203, -2.865, 43.323],   baked: false },  // was short on ALL FOUR sides
   // §MURCIA-HEIGHT-STAMP-GAP — Murcia was MISSING from this list while being one of the five Spanish
   // cities under active close-out, and the omission was SILENT: this list is BOTH the `priorityBboxes`
   // (stamped first) AND the `retainBboxes` working set (bake.mjs stampBboxesFor → §HEIGHT-STAMP-BUDGET,
@@ -1033,16 +1044,46 @@ function dhmCoverageUrl(coverageId, [x0, y0, x1, y1], dim, apikey) {
     `&WIDTH=${dim}&HEIGHT=${dim}&FORMAT=${DHM_WCS.format}&apikey=${encodeURIComponent(apikey)}`;
 }
 
-/** GET raw bytes with a timeout (never throws at the caller boundary; returns {ok,status,ct,ab}). */
-async function httpGetBuffer(url, { timeoutMs = 90_000 } = {}) {
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { redirect: 'follow', signal: ctl.signal, headers: { Accept: 'image/tiff' } });
-    const ct = res.headers.get('content-type') ?? '';
-    const ab = await res.arrayBuffer();
-    return { ok: res.ok, status: res.status, ct, ab };
-  } finally { clearTimeout(t); }
+/** GET raw bytes with a timeout (never throws at the caller boundary; returns {ok,status,ct,ab,reason}).
+ *
+ * §FETCH-THROW-IS-NOT-A-SWEEP-ABORT (2026-08-02). This contract — "never throws at the caller
+ * boundary" — was DOCUMENTED HERE AND NOT IMPLEMENTED: the body was `try { … } finally
+ * { clearTimeout(t) }` with **no `catch`**, so a DNS blip, a reset socket or an abort escaped as
+ * `TypeError: fetch failed` and unwound the caller.
+ *
+ * That is not cosmetic, because all FOUR national sweeps (`stampMdsHeightsOnGeojsonseq`,
+ * `stampDhm…`, `stampSwiss…`, `stampLod2Nrw…`) are written against the documented contract: they
+ * test `if (!rr.ok) { tileErrors++; continue; }` per tile, and only wrap the whole grid in a
+ * try/catch as a last resort. So a throw skipped the per-tile handler entirely and hit the outer
+ * catch, which sets `sweepAborted` and ENDS THE WHOLE COUNTRY.
+ *
+ * MEASURED in run 30715958488 (2026-08-01): Spain stamped 10 925/431 256 footprints off **12 tiles**
+ * and reported `SWEEP ABORTED after 12 tile(s) — fetch failed`, while Denmark (257 829/320 931) and
+ * Köln (118 603/141 271) — which happened not to hit a blip — stamped ~80 %. One transient failure
+ * on one tile cost every Spanish city its heights, and did so AFTER a ~2.7-hour tiling pass.
+ *
+ * The fix is to honour the documented contract, so the existing per-tile handling takes over: a bad
+ * tile becomes `tileErrors++` and the sweep moves on. `reason` is carried so a caller can say WHY a
+ * tile failed rather than only that it did (§CONTEXT-DATA-HONESTY — a failure must stay
+ * distinguishable from an empty result). One retry is attempted first: a tile is thousands of
+ * footprints, and a blip is worth exactly one cheap second chance — but never an infinite one.
+ */
+async function httpGetBuffer(url, { timeoutMs = 90_000, retries = 1 } = {}) {
+  let lastReason = 'unknown';
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { redirect: 'follow', signal: ctl.signal, headers: { Accept: 'image/tiff' } });
+      const ct = res.headers.get('content-type') ?? '';
+      const ab = await res.arrayBuffer();
+      return { ok: res.ok, status: res.status, ct, ab, reason: res.ok ? null : `HTTP ${res.status}` };
+    } catch (err) {
+      // The whole point of this catch: a network-layer throw must become a VALUE, not an unwind.
+      lastReason = String(err?.message ?? err);
+    } finally { clearTimeout(t); }
+  }
+  return { ok: false, status: 0, ct: '', ab: null, reason: lastReason };
 }
 
 /** Lazy `geotiff` import — the module stays importable/probeable without the dep (mirrors terrain.mjs's

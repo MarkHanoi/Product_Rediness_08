@@ -242,7 +242,15 @@ jobs:
           HOSTDIR="${RUNNER_TEMP:-/tmp}/probe-host"
           rm -rf "$HOSTDIR"; mkdir -p "$HOSTDIR"
           printf '{"name":"pryzm-probe-host","private":true}\n' > "$HOSTDIR/package.json"
-          ( cd "$HOSTDIR" && npm install --no-package-lock pmtiles@4.4.1 @mapbox/vector-tile@3.0.3 pbf@5.1.2 )
+          # §PROBE-HOST-PIN-MUST-EXIST — `@mapbox/vector-tile@3.0.3` was pinned here and HAS NEVER
+          # EXISTED (the package tops out at 3.0.0; apps/editor/package.json asks for "^3.0.0"). npm
+          # exited ETARGET, `set -euo pipefail` killed the step, and publish was skipped — so in run
+          # 30715958488 a bake that had ALREADY tiled 2.3 GB across 25 regions and stamped 257 829
+          # Danish + 118 603 Kölner footprints shipped NOTHING, on a typo. Worse, the gate this step
+          # exists to run had therefore never executed even once.
+          # Failing closed is right; failing closed on a version that cannot resolve is not a gate.
+          ( cd "$HOSTDIR" && npm install --no-package-lock pmtiles@4.4.1 @mapbox/vector-tile@3.0.0 pbf@5.1.2 ) \
+            || { echo "::error::Could not PROVISION the height probe (npm install failed above). This is a TOOLING failure, NOT a height verdict — do not read it as 'the heights are bad'."; exit 1; }
           DEST="$GITHUB_WORKSPACE/apps/editor/node_modules"
           mkdir -p "$DEST"
           cp -R "$HOSTDIR/node_modules/." "$DEST/"
