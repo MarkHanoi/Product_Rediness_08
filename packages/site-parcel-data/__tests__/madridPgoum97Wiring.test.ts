@@ -219,7 +219,10 @@ describe('§MADRID-PGOUM97 — S5: the registry routes all 34 live codes, three 
     it('lights the C60 coverage globe with the 23 packed codes', () => {
         const madrid = listJurisdictionCoverage().find((j) => j.jurisdictionId === MADRID_JURISDICTION_ID);
         expect(madrid).toBeDefined();
-        expect(madrid!.packZoneCodes.sort()).toEqual([...MADRID_PGOUM97_ZONE_CODES].sort());
+        // Copy before sorting: `packZoneCodes` is `readonly string[]`, and `.sort()` mutates in
+        // place — so this both failed to type-check AND would have reordered the live coverage
+        // registry as a side effect of asserting on it.
+        expect([...madrid!.packZoneCodes].sort()).toEqual([...MADRID_PGOUM97_ZONE_CODES].sort());
         // ⚠ The summary must SAY that no figure is published, or the globe over-promises.
         expect(madrid!.answerSummary).toMatch(/MACHINE-EXTRACTED/i);
         expect(madrid!.answerSummary).toMatch(/NO buildable figure/i);

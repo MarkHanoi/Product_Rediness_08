@@ -43,14 +43,18 @@ import {
     BCN_VOLUMETRIA_18_ZONE_CODE,
     computeBuildableEnvelope,
     heightFromFloorsAboveGround,
-    type Pt,
-    type ParcelEdgeClassification,
-    type ZoningRecord,
 } from '../src/index.js';
+// These three are L0 SCHEMA types, not this package's. `../src/index.js` re-exports values, not the
+// schema type surface, so importing them from there was a TS2305 on every typecheck run. Every other
+// suite in this directory already takes them from `@pryzm/schemas` — match that.
+import type { Pt, ParcelEdgeClassification, ZoningRecord } from '@pryzm/schemas';
 // The REAL server route handler — a dependency-free ESM module (it imports nothing at all),
 // deliberately imported BY PATH so this test exercises the shipped file rather than a copy of its
 // logic. This is a TEST-ONLY reach across the client/server line: `server/` is layer-neutral BFF
 // code, and the whole point of the test is that the two halves agree on one contract.
+// @ts-expect-error TS7016 — `server/` is plain BFF JavaScript with no declaration file, and giving it
+// one would mean type-owning the server from a client package. The reach is deliberate (see above);
+// the `any` is contained to this import and the assertions below still type-check the contract.
 import { makeBcnRefosOvHandler, __resetBcnRefosCache } from '../../../server/bcnRefosOvProxy.js';
 
 // ── REAL captured layer-17 fixture (outSR=4326 ⇒ [lon, lat], ArcGIS closing vertex repeated) ──
