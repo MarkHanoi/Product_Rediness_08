@@ -3,7 +3,25 @@
 > Per-municipality envelope status (ADR-0279 / `ENVELOPE-REPLICATION-STANDARD.md`; feeds C63 Axis 4).
 > **Last updated:** 2026-07-30. **Maintainer:** UNASSIGNED.
 
-## Status: PACK AUTHORED · **REGISTERED** · **GATED SHUT** · ENVELOPE axis = **0 %** (measured) — refusing
+## Status: PACK AUTHORED · **REGISTERED** · **GATED SHUT** · ENVELOPE axis = **0.0 % (MEASURED, C63)** — refusing
+
+> ⬆ **2026-08-01 — the axis is now scored through the ruler, not asserted.**
+> [`tools/city-completion/measurements/cordoba.measurements.json`](../../../../../../tools/city-completion/measurements/cordoba.measurements.json)
+> carries **seven non-overlapping slices summing to 1.000000** of the named denominator (Córdoba
+> SUELO URBANO = 33 341 928.156 m², national SIU, in force), each with an `EnvelopeConfidence` tier.
+> `computeScorecard.mjs --city cordoba` reads it and reports **ENVELOPE = 0.0 %**.
+>
+> ⚠ **THAT IS A MEASURED ZERO, NOT A MISSING MEASUREMENT, AND IT IS AN IMPROVEMENT.** Every slice
+> weighs 0 for one of two reasons that must not be conflated: **2.962 pp is `not-determined`** — the
+> PGOU delegates it or a preservation/overlay regime governs it, a *terminal, cited, correct answer*
+> (C63 §1.5 / L-656) — and **97.038 pp is `no-pack`**, PRYZM's side. Until 2026-08-01 this axis would
+> have scored **above** zero for the worst possible reason: a fabricated triple on 95.1 % of the city.
+>
+> **Arithmetic maximum, so 0.0 % is not mistaken for "one sprint from 30 %":** blockers 2 + 3 alone
+> ⇒ **≈ 0.68 %**; plus blocker 8 (MC street-width) ⇒ **≈ 1.03 %**. `authoritative` is UNREACHABLE
+> (blocker 19). Only blocker 22 changes the order of magnitude, and its size is **deliberately not
+> predicted** — extrapolating the pilot's 52.87 % PGOU-direct-and-packed ratio across the
+> un-vectorised 94.448 pp is exactly what produced the withdrawn "~19 % / ~89 %".
 
 Córdoba is the **shape-B OCR city**: a modern consolidated plan (PGOU-2001) with clean scanned
 ordinances. The extraction pipeline has run and the pack **is** registered — but nothing is
@@ -62,9 +80,19 @@ documented, none a data-quality excuse** (see [`LEGISLATION-RATE.md`](./LEGISLAT
 the same shape as Murcia's 41.4 pp `calificacion` case. **Those parcels must refuse, and the refusal
 is a correct answer.**
 
-**7 of the 13 registered subzones bind ZERO pilot land** (PAS-1 · PAS-3 · OA-2 · UAD-2 · UAD-3 · MC-1 ·
-MC-3). Only **OA-1 (14.33 %)** · **CTP-1 (14.97 %)** · **UAD-1 (1.26 %)** · **PAS-2 (0.64 %)** render;
-**MC-2 (13.88 %) and MC-4 (2.98 %) bind land but refuse structurally** on the unresolved height table.
+> ⚠⚠ **CORRECTED 2026-08-01 (second pass).** This paragraph said **"7 of the 13 registered subzones
+> bind ZERO pilot land (PAS-1 · PAS-3 · OA-2 · UAD-2 · UAD-3 · MC-1 · MC-3)"**. **It is FOUR.**
+> Measured live against `coaco:ordenanzas` through the **shipped** `subzoneCodeFromLink` parse:
+> **MC-2 38.819 % · OA-1 18.235 % · CTP-1 17.201 % · PAS-2 10.608 % · UAD-1 3.463 % · MC-4 3.386 % ·
+> UAD-3 1.934 % · MC-3 0.620 % · MC-1 0.061 %** of ordenanzas land (Σ = 94.328 %, which is exactly the
+> 94.33 % routing fraction the dossier already quoted — so the "7" was internally inconsistent with a
+> number on the same page). **Bind zero: PAS-1 · PAS-3 · OA-2 · UAD-2.**
+> ⚠ **Consequence for the D1 defect, and it is a severity change:** `CLOSURE-REGISTER.md` blocker 4
+> called D1 *latent* because *"UAD-3 binds 0.00 %"*. **False.** UAD-3 binds 31 505.01 m². D1 is latent
+> **only** because the gate is shut.
+
+**4 of the 13 registered subzones bind ZERO pilot land** (PAS-1 · PAS-3 · OA-2 · UAD-2). Nine bind
+land; **none of them renders today**, because the gate is shut *and* the resolver is never called.
 
 **OCR fidelity is no longer the blocker.** All 13 subzones were re-read 2026-08-01 from the publisher's
 own PDFs via raster render (4 of 5 documents have a **zero-character text layer**; `O_UAD3` uses subset

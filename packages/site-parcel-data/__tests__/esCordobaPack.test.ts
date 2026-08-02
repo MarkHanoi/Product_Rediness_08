@@ -151,13 +151,33 @@ describe('Córdoba — the refusal vocabulary (coverage gap + legally-grounded "
 
     // ── §CORDOBA-REFUSAL-SPLIT (L-422/457/467/469) — four absences, four cards. ──────────────────
     it('the no-pack card no longer CONFLATES "no calificación mapped" with "not transcribed"', () => {
-        // ⚠ The old copy said "Either the parcel carries no calificación in the COACo join, OR its
-        // family is one the pilot does not pack" — two different values, different owners, one card.
+        // ⚠ The ORIGINAL copy said "Either the parcel carries no calificación in the COACo join, OR
+        // its family is one the pilot does not pack" — two different values, different owners, one
+        // card. That conflation is gone, and this line still pins its absence.
         const r = cordobaNoRulePackRefusal('UAS-1', null, []);
         expect(r.detail).not.toMatch(/either/i);
-        // It must now speak only about PRYZM's transcription backlog, and name the two families.
-        expect(r.detail).toMatch(/Uso Industrial/);
+
+        // ⬆ SUPERSEDED 2026-08-01 (§CORDOBA-UNPACKED-FAMILY-SPLIT, L-677). This test used to require
+        // the card to NAME BOTH remaining families (`toMatch(/Uso Industrial/)` +
+        // `toMatch(/Unifamiliar Aislada/)`). That was the split done HALF WAY: it separated "the
+        // publisher mapped nothing" from "PRYZM packed nothing", but left the second bucket as ONE
+        // card reciting two causes that are not the same value either —
+        //   • Uso Industrial — PRYZM HAS read the chapter (Art. 13.11, born-digital text); it does
+        //     not resolve because the publisher never names the IND subzone AND the ordinance
+        //     derives ocupación by algorithm. Telling that owner "PRYZM has not transcribed this
+        //     ordenanza" is a FALSE STATEMENT ABOUT OUR OWN COVERAGE (the Barcelona 13b/22a/20a
+        //     defect, sign reversed).
+        //   • Unifamiliar Aislada — PRYZM could NOT read the chapter: `O_UAS1.pdf` is a 69-byte
+        //     "Server under construction" page and no held document carries the UAS chapter.
+        // So the requirement is now the OPPOSITE and stronger: each family gets its OWN typed,
+        // article-citing card, and neither recites the other's cause. Full property matrix in
+        // `esCordobaUnpackedFamilies.test.ts`.
+        expect(r.code).toBe('no-rule-pack'); // UAS: a DOCUMENT absence
         expect(r.detail).toMatch(/Unifamiliar Aislada/);
+        expect(r.detail).not.toMatch(/Uso Industrial/);
+        const ind = cordobaNoRulePackRefusal('INDUSTRIAL', 'Uso Industrial', []);
+        expect(ind.code).toBe('regime-undetermined'); // Industrial: a SELECTOR + algorithm absence
+        expect(ind.detail).not.toMatch(/Unifamiliar Aislada/);
     });
 
     it('the no-pack card never claims we lack a rule we HOLD (the Barcelona 20a/22a lesson)', () => {

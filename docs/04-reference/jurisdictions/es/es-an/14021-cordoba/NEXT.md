@@ -18,6 +18,19 @@
 > ⚠ **And one defect this file never recorded, now closed:** outside the pilot PRYZM was publishing a
 > **fabricated estimated envelope** (3,0/1,5/3,0 m, FAR 2,00, 50 %) on 95.1 % of the city's urban
 > land. See `CLOSURE-REGISTER.md` blocker 1.
+>
+> ## ⬆ SECOND PASS, 2026-08-01 — ALL SEVEN C63 AXES MEASURED, AND THE HEADLINE WENT DOWN
+>
+> `tools/city-completion/measurements/cordoba.measurements.json` +
+> `tools/city-completion/samples/cordoba.parcel-sample.json`:
+> **PARCEL 95 % · LEGISLATION 40 % · ENVELOPE 0.0 % · HEIGHTS 0.271 %**, overall
+> **71.5 % → 45.8 %** as the assessed weight went **30 % → 100 %**. The old 71.5 % was an average of
+> three cheap axes wearing the whole city's name. ENVELOPE **0.0 % is a measured zero** — PRYZM
+> renders no envelope anywhere in Córdoba (gate shut *and* resolver never called).
+>
+> Two further corrections landed in `CLOSURE-REGISTER.md`: **4 of 13 subzones bind zero land, not 7**
+> (UAD-3 · MC-1 · MC-3 do bind, and the register's own 94.33 % figure required it), and the
+> **"~10 districts" claim has no source** and could not be obtained.
 
 ## 1 — WHERE WE STOPPED (the one-paragraph truth)
 

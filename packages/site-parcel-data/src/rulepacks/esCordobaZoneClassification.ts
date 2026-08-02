@@ -71,10 +71,21 @@ export const CORDOBA_MUNICIPAL_JURISDICTION_ID = 'es-14021-cordoba-municipal';
  *   • `coaco:usos_globales` → **108** features, Σ **678 436 m²** (Espacios Libres 51.83 %,
  *     Residencial 30.56 %, Equipamientos 15.37 %, Industrial/Terciario 2.24 %).
  *
- * ⚠ THE PILOT BOUNDARY IS A **PUBLICATION** LIMIT, NOT A PRYZM ONE. Nothing PRYZM can build extends
- * it: the calificación geometry for the rest of Córdoba has not been vectorised by anyone who
- * publishes it. That is why the honest answer outside the pilot is a REFUSAL and why that refusal
- * is a *terminal, evidence-backed state* rather than a coverage gap waiting on engineering.
+ * ⚠⚠ THIS PARAGRAPH USED TO SAY "A **PUBLICATION** LIMIT, NOT A PRYZM ONE … nothing PRYZM can build
+ * extends it", AND THAT WAS REFUTED BY EVIDENCE THE REPO ALREADY HELD. The Gerencia Municipal de
+ * Urbanismo — the AUTHORITY, of which COACo is only a downstream vectoriser — publishes the
+ * PGOU-2001 *Calificación, Usos y Sistemas* series MUNICIPALITY-WIDE as 77 georeferenceable raster
+ * sheets (49 urban `CUS01W…CUS49W` + 28 peripheral). Re-verified live 2026-08-01:
+ * `visor.pgou.coacordoba.org/doc/planos/cus/CUS41W.jpg` → HTTP 200, `image/jpeg`, 461 957 B; and
+ * `coaco:hojas_cus` returns exactly **8** features — the sheets COACo vectorised, i.e. the pilot.
+ * So the gap is a **raster→vector acquisition**, an in-house engineering task on already-published
+ * public data (CLOSURE-REGISTER blocker 22), NOT an absence of published zoning and NOT a hole in
+ * the law. "Nobody publishes it" and "nobody has vectorised it" are as different as failure and
+ * empty (§CONTEXT-DATA-HONESTY), and the same discipline applies to our own prose.
+ *
+ * What is TRUE and unchanged: outside the pilot no MACHINE-READABLE calificación exists, so the
+ * honest answer today is a refusal — a terminal, evidence-backed state. The exported string below
+ * already says this correctly; only this comment was stale.
  */
 export const CORDOBA_MUNICIPAL_ROADMAP_LINE =
     'Córdoba (INE 14021) coverage today: PRYZM publishes NO buildable figure anywhere in Córdoba, ' +
@@ -148,9 +159,14 @@ const FAMILY_CLASSIFICATIONS: readonly FamilyClassification[] = [
                 'Histórico ordination (Tomo VI), a per-ámbito document PRYZM has not ingested. ' +
                 'There is no generic zone parameter to apply, and inventing one would manufacture ' +
                 'a number the ordinance does not contain.',
+            // ⚠ THE ARTICLE IS NAMED, not merely the family. `findings/OCR-EXTRACTION-RESULTS.md`
+            // §3 transcribes Art. 13.4.1 verbatim: the envelope is *"en la Memoria y Normativa
+            // correspondiente al Conjunto Histórico (Tomo VI)"*. A refusal that cites a family but
+            // not the article cannot be checked by the reader it is addressed to.
             ordinanceRef:
-                'PGOU-Córdoba-2001, CTP-1 (Colonia Tradicional Popular) → Conjunto Histórico, ' +
-                'Tomo VI. ' + CORDOBA_PGOU_INSTRUMENT_REF,
+                'PGOU-Córdoba-2001, Art. 13.4.1 — CTP-1 (Colonia Tradicional Popular) → Conjunto ' +
+                'Histórico, Tomo VI ("en la Memoria y Normativa correspondiente al Conjunto ' +
+                'Histórico (Tomo VI)"). ' + CORDOBA_PGOU_INSTRUMENT_REF,
             legallyGrounded: true,
         },
     },
@@ -170,9 +186,15 @@ const FAMILY_CLASSIFICATIONS: readonly FamilyClassification[] = [
                 'Parcial for the sector, a different document per site. PRYZM holds no single ' +
                 'commercial envelope to encode and refuses rather than borrow one from a ' +
                 'neighbouring zone.',
+            // Art. 13.12.2, transcribed in `findings/OCR-EXTRACTION-RESULTS.md` §3: commercial
+            // buildings in MC/CTP/UAD/UAS/IND follow the UNDERLYING zone, in PAS/OA a specific set,
+            // and standalone parcels defer to a Plan Parcial. ⚠ The suelo-urbanizable commercial set
+            // (parcela 400 m², FAR 1,5, ocupación PB 100 / PA 50, altura 12 m, separación 6 m) DOES
+            // exist and is deliberately NOT quoted as an answer here — it is wrong to apply to an
+            // urban parcel, and quoting it would read as the determination.
             ordinanceRef:
-                'PGOU-Córdoba-2001, Uso Comercial (overlay → underlying zone / Plan Parcial). ' +
-                CORDOBA_PGOU_INSTRUMENT_REF,
+                'PGOU-Córdoba-2001, Art. 13.12.2 — Uso Comercial (overlay → underlying zone / Plan ' +
+                'Parcial). ' + CORDOBA_PGOU_INSTRUMENT_REF,
             legallyGrounded: true,
         },
     },
@@ -191,9 +213,13 @@ const FAMILY_CLASSIFICATIONS: readonly FamilyClassification[] = [
                 'building form is the existing structure under the preservation ordination, not a ' +
                 'zone-parameter envelope, so there is no new buildable volume to compute. PRYZM ' +
                 'declines rather than draw a development envelope the preservation regime forbids.',
+            // Art. 13.3, transcribed in `findings/OCR-EXTRACTION-RESULTS.md` §3 (grados 1–6 of
+            // mejora / reforma / obra nueva), verbatim: *"La sustitución no supondrá aumento de la
+            // superficie total ni del volumen construidos"*.
             ordinanceRef:
-                'PGOU-Córdoba-2001, Catálogo — Elemento protegido (régimen de protección). ' +
-                CORDOBA_PGOU_INSTRUMENT_REF,
+                'PGOU-Córdoba-2001, Art. 13.3 — Catálogo, Elemento protegido (régimen de ' +
+                'protección; "La sustitución no supondrá aumento de la superficie total ni del ' +
+                'volumen construidos"). ' + CORDOBA_PGOU_INSTRUMENT_REF,
             legallyGrounded: true,
         },
     },
@@ -276,6 +302,16 @@ export function cordobaNoRulePackRefusal(
     subzoneLabel?: string | null,
     knownFacts: readonly string[] = [],
 ): EnvelopeRefusal {
+    // §CORDOBA-UNPACKED-FAMILY-SPLIT (L-677) — ROUTE TO THE FAMILY'S OWN CARD FIRST.
+    // The two families that reach here are unpacked for DIFFERENT, INDEPENDENTLY-CITED reasons, and
+    // a single card that recited both forced every reader to work out which sentence was about
+    // their land — the same "either… or…" defect §CORDOBA-REFUSAL-SPLIT closed one level up. Each
+    // now names its OWN governing article (or the measured absence of one) and its own land.
+    const industrial = cordobaIndustrialUnbindableRefusal(subzone, subzoneLabel, knownFacts);
+    if (industrial) return industrial;
+    const uas = cordobaUasChapterUnobtainableRefusal(subzone, subzoneLabel, knownFacts);
+    if (uas) return uas;
+
     const named =
         subzoneLabel && subzoneLabel.trim()
             ? `${subzoneLabel.trim()} (${subzone})`
@@ -288,15 +324,148 @@ export function cordobaNoRulePackRefusal(
         detail:
             'This is a coverage gap on PRYZM\'s side, not a limit on the land and not an error. ' +
             'The COACo calificación DOES name an ordenanza for this parcel; what PRYZM has not ' +
-            'encoded is that ordenanza\'s numeric envelope. Two families are in this state and each ' +
-            'for a stated reason: Uso Industrial, where the calificación gives the family but never ' +
-            'the IND subzone (IND-1/2/3/G/C set materially different parameters, so binding one ' +
-            'would be a guess) and whose ocupación the ordinance derives by algorithm rather than ' +
-            'stating; and Unifamiliar Aislada, whose ordinance link `O_UAS1` is dead at the ' +
-            'publisher and whose chapter is in no document PRYZM holds. A generic setback estimate ' +
-            'would be a number the ordinance does not contain, so PRYZM shows none rather than ' +
-            'something wrong. ' +
+            'encoded is that ordenanza\'s numeric envelope. A generic setback estimate would be a ' +
+            'number the ordinance does not contain, so PRYZM shows none rather than something ' +
+            'wrong. ' +
             CORDOBA_ROADMAP_LINE,
+        ordinanceRef: null,
+        legallyGrounded: false,
+        knownFacts: [...knownFacts],
+    };
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// §CORDOBA-UNPACKED-FAMILY-SPLIT (L-677) — THE TWO UNPACKED FAMILIES, EACH WITH ITS OWN ARTICLE
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// COACo publishes TEN `ordenanza` families (measured live 2026-08-01: 453 polygons, Σ `sup_m2`
+// 1 628 615.63 m², ten distinct `ordenanza` values). PRYZM holds transcribed rules for five. Of the
+// other five, THREE are legally-grounded "no"s and live in `FAMILY_CLASSIFICATIONS` above
+// (CTP1-Campo de la Verdad · Uso Comercial · Elemento protegido, now each citing its article). The
+// remaining TWO are COVERAGE statements — and they shared one card until this pass.
+//
+// ⚠ WHY THEY MUST NOT SHARE A CARD. Their causes are not the same VALUE (L-422/457/467/469):
+//   • Uso Industrial — PRYZM HAS READ the chapter (Art. 13.11, born-digital text, 23 620 chars,
+//     `findings/OCR-EXTRACTION-RESULTS.md` §2.6). It is unpackable because the publisher never says
+//     WHICH IND subzone applies AND because the ordinance derives ocupación by algorithm. Telling
+//     this owner "PRYZM has not transcribed this ordenanza" would be a FALSE STATEMENT ABOUT OUR
+//     OWN COVERAGE — the defect class that deleted Barcelona's `13b`/`22a`/`22@`/`20a` branches.
+//   • Unifamiliar Aislada — PRYZM has NOT read the chapter, and cannot: `O_UAS1.pdf` is a 69-byte
+//     "Server under construction" HTML (md5 `75a5f31…`), and no held document carries the UAS
+//     chapter. That is a PUBLISHER absence, closed by negative evidence, not a backlog item.
+// One says "we read it and it does not resolve"; the other says "we could not read it". Collapsing
+// them makes a publisher's dead link look like PRYZM's queue, which is exactly what the old copy did.
+//
+// Both return `legallyGrounded: false`: neither is a statement about what the PGOU PERMITS.
+// Measured land, live COACo 2026-08-01: Uso Industrial 1 polygon / 1 920.35 m² / 0.118 % of
+// ordenanzas land; Unifamiliar Aislada 1 polygon / 2 687.97 m² / 0.165 %.
+
+/** The COACo tokens (family name, `O_*` link basename, and its `subzoneCodeFromLink` parse). */
+const CORDOBA_INDUSTRIAL_TOKENS = ['uso industrial', 'o_industrial', 'industrial'];
+const CORDOBA_UAS_TOKENS = ['unifamiliar aislada', 'o_uas1', 'uas-1', 'uas1', 'uas'];
+
+const matchesToken = (
+    subzone: string,
+    subzoneLabel: string | null | undefined,
+    tokens: readonly string[],
+): boolean => {
+    const hay = [subzone, subzoneLabel ?? '']
+        .map((s) => (typeof s === 'string' ? s.trim().toLowerCase() : ''))
+        .filter((s) => s !== '');
+    return hay.some((s) => tokens.includes(s));
+};
+
+/**
+ * **Uso Industrial** (Art. 13.11) — the chapter IS read; the parcel cannot be bound to a subzone
+ * AND the ordinance derives its ocupación. `null` when this parcel is not Industrial.
+ *
+ * ⚠ `regime-undetermined`, NOT `no-rule-pack`, and the difference is the honesty of the sentence.
+ * `no-rule-pack` asserts PRYZM has not read the ordinance. PRYZM HAS: `O_INDUSTRIAL.pdf` is
+ * born-digital text and its values are recorded in `findings/OCR-EXTRACTION-RESULTS.md` §2.6. What
+ * is missing is which of IND-1/2/3/G/C/SC-C governs — the publisher's `ordenanza` says only
+ * `Uso Industrial` — and those subzones span parcela mínima 200–2 000 m² and edificabilidad
+ * 0,35–1,5, so picking one is a guess presented as a determination. This is the SAME SHAPE as the
+ * bare-`O_MC` key (`cordobaUnbindableSubzoneRefusal`) and Barcelona's bare-`20a`: a SELECTOR is
+ * missing. ⚠ AND A SECOND, INDEPENDENT REASON stands even if the selector arrives: Art. 13.11
+ * states IND-1/2/3 ocupación as *"la resultante de la aplicación de los parámetros de edificación
+ * del presente artículo"* — an ALGORITHM, not a number (the Barcelona Art. 242.2 lesson, ADR-0271),
+ * so a pack MUST leave it null. Naming only one of the two reasons would imply the other is closed.
+ */
+export function cordobaIndustrialUnbindableRefusal(
+    subzone: string,
+    subzoneLabel?: string | null,
+    knownFacts: readonly string[] = [],
+): EnvelopeRefusal | null {
+    if (!matchesToken(subzone, subzoneLabel, CORDOBA_INDUSTRIAL_TOKENS)) return null;
+    return {
+        code: 'regime-undetermined',
+        headline:
+            'Uso Industrial — the published map names the industrial ordenanza but not which of ' +
+            'its subzones applies, and the ordinance derives the coverage rather than stating it.',
+        detail:
+            'PRYZM has read this ordinance chapter (PGOU-2001 Art. 13.11) in full. Two separate ' +
+            'things still stop a number, and closing either one alone would not produce one. ' +
+            'First, the zoning map records only "Uso Industrial" and never the subzone: ' +
+            'IND-1/2/3/G/C/SC-C set a minimum plot anywhere from 200 to 2 000 m² and a floor-area ' +
+            'ratio from 0,35 to 1,5, so choosing one would be a guess presented as a ' +
+            'determination. Second, for IND-1/2/3 the ordinance does not state a site-coverage ' +
+            'figure at all — it says the coverage is "la resultante de la aplicación de los ' +
+            'parámetros de edificación del presente artículo" — an algorithm to be worked through ' +
+            'for the specific building, not a value that can be tabulated. PRYZM records those ' +
+            'parameters and publishes no envelope rather than manufacture one. ' +
+            CORDOBA_ROADMAP_LINE,
+        ordinanceRef:
+            'PGOU-Córdoba-2001, Art. 13.11 — Uso Industrial (IND-1/2/3/G/C/SC-C; ocupación ' +
+            '"la resultante de la aplicación de los parámetros de edificación del presente ' +
+            'artículo"). ' + CORDOBA_PGOU_INSTRUMENT_REF,
+        // The LAW is read; WHICH subzone applies is not, and one parameter is an algorithm. Neither
+        // is a claim that the PGOU forbids building here.
+        legallyGrounded: false,
+        knownFacts: [...knownFacts],
+    };
+}
+
+/**
+ * **Unifamiliar Aislada** — the ordinance document is UNOBTAINABLE, and that is a closed question,
+ * not a backlog item. `null` when this parcel is not UAS.
+ *
+ * ⚠ `no-rule-pack`, deliberately, and explicitly NOT `derived-plan` or any legally-grounded code:
+ * filing a publisher's dead link as a legal classification would assert the ordinance refuses an
+ * envelope on land that is in fact buildable — the false-negative-about-someone's-land error C58
+ * ranks worst. ⚠ AND NOT `source-data-unavailable`, which is DEFINED as transient and is the only
+ * code carrying a retry affordance: `O_UAS1.pdf` has returned the same 69-byte "Server under
+ * construction" HTML (md5 `75a5f31…`) on every fetch since the recon, so a retry badge would send
+ * the user round a loop for ever.
+ *
+ * The negative evidence is complete: all 15 `link` documents COACo references were enumerated, and
+ * unlike `O_UAD1` — whose dead link was RECOVERED because `O_UAD3` carries all three UAD subzones —
+ * no held document contains the UAS chapter (`findings/OCR-EXTRACTION-RESULTS.md` §1/§3). It reopens
+ * the day the publisher fixes the link, and on no other event.
+ */
+export function cordobaUasChapterUnobtainableRefusal(
+    subzone: string,
+    subzoneLabel?: string | null,
+    knownFacts: readonly string[] = [],
+): EnvelopeRefusal | null {
+    if (!matchesToken(subzone, subzoneLabel, CORDOBA_UAS_TOKENS)) return null;
+    return {
+        code: 'no-rule-pack',
+        headline:
+            'Unifamiliar Aislada — the ordinance document for this zone is not served by the ' +
+            'publisher, so PRYZM has never been able to read its rules.',
+        detail:
+            'The zoning map assigns this parcel to the Unifamiliar Aislada ordenanza, and nothing ' +
+            'here says the plot is unbuildable — the PGOU-2001 does give it a buildable regime. ' +
+            'PRYZM cannot state that regime because the document that contains it is not ' +
+            'available: the publisher\'s own link for this chapter returns a 69-byte "Server under ' +
+            'construction" page rather than the ordinance, and it has done so on every attempt. ' +
+            'Every one of the fifteen ordinance documents the zoning map references has been ' +
+            'checked, and none of the readable ones contains the Unifamiliar Aislada chapter — ' +
+            'unlike the Unifamiliar Adosada chapter, whose own broken link was recoverable from a ' +
+            'sibling document. This is not a queue PRYZM can work through and retrying will not ' +
+            'change it; it resolves when the publisher restores the file. ' +
+            CORDOBA_ROADMAP_LINE,
+        // A statement about a DOCUMENT we cannot retrieve, never about what the plan permits.
         ordinanceRef: null,
         legallyGrounded: false,
         knownFacts: [...knownFacts],

@@ -4,6 +4,20 @@
 > Companion to [`RATE.md`](./RATE.md) §CLOSURE (which scores axes) — **this file tracks BLOCKERS.**
 > Every row must end in a **yes/no**, never an open question.
 > Shape follows [`../../es-ct/08019-barcelona/CLOSURE-REGISTER.md`](../../es-ct/08019-barcelona/CLOSURE-REGISTER.md).
+>
+> ### ⬆ 2026-08-01 SECOND PASS — C63 SCORED, AND THREE CLAIMS IN THIS FILE WERE REFUTED BY MEASUREMENT
+>
+> | This file said | Measured live 2026-08-01 |
+> |---|---|
+> | "7 of the 13 registered subzones bind ZERO pilot land" | **4** (PAS-1 · PAS-3 · OA-2 · UAD-2). UAD-3, MC-1 and MC-3 all bind — and this file's own 94.33 % routing fraction requires them to. |
+> | blocker 4: D1 is "latent" because "UAD-3 binds 0.00 %" | **FALSE PREMISE.** UAD-3 binds 31 505.01 m² = 1.934 %. D1 is latent only because the gate is shut. |
+> | "2 of ~10 districts" | The `~10` has **no source**, and could not be obtained this pass. See §Scoping the pilot honestly. |
+>
+> **All four expensive C63 axes are now MEASURED** —
+> [`tools/city-completion/measurements/cordoba.measurements.json`](../../../../../../tools/city-completion/measurements/cordoba.measurements.json).
+> PARCEL **95 %** · LEGISLATION **40 %** · ENVELOPE **0.0 %** · HEIGHTS **0.271 %**; overall
+> **71.5 % → 45.8 %** as the assessed weight went 30 % → 100 %. The drop is the measurement, not a
+> regression.
 
 ---
 
@@ -118,7 +132,91 @@ Measured live against the publisher on 2026-08-01 (`coaco:ordenanzas`, 453 polyg
 number results. After delegation (≈ 43 % of ordenanzas land) and the MC height table it collapses to
 the ≈ 31 % / ≈ 16 % above. Quoting 94 % as coverage would be the "89 %" error a second time.
 
+### ⭐ WHICH SUBZONES ACTUALLY BIND — RE-MEASURED 2026-08-01, AND THIS FILE WAS WRONG
+
+> ⚠⚠ **This register said, in three places, "7 of the 13 registered subzones bind ZERO pilot land
+> (PAS-1 · PAS-3 · OA-2 · UAD-2 · UAD-3 · MC-1 · MC-3)". It is FOUR, and the register CONTRADICTED
+> ITSELF about it** — the 94.33 % routing fraction one paragraph above is only reachable if UAD-3,
+> MC-1 and MC-3 bind. Measured live against `coaco:ordenanzas` and run through the **shipped**
+> `subzoneCodeFromLink` parse (not a hand reading), Σ `sup_m2` grouped by parsed subzone code:
+
+| Subzone | Land bound | % of ordenanzas land | | Subzone | Land bound |
+|---|---:|---:|---|---|---:|
+| MC-2 | 632 217.07 m² | 38.819 % | | PAS-1 | **0** |
+| OA-1 | 296 976.84 m² | 18.235 % | | PAS-3 | **0** |
+| CTP-1 | 280 139.60 m² | 17.201 % | | OA-2 | **0** |
+| PAS-2 | 172 760.95 m² | 10.608 % | | UAD-2 | **0** |
+| UAD-1 | 56 406.85 m² | 3.463 % | | | |
+| MC-4 | 55 148.12 m² | 3.386 % | | | |
+| **UAD-3** | **31 505.01 m²** | **1.934 %** | | | |
+| **MC-3** | **10 092.59 m²** | **0.620 %** | | | |
+| **MC-1** | **994.50 m²** | **0.061 %** | | | |
+| **Σ bound** | **1 536 241.53 m²** | **94.328 %** ✓ | | **bind zero** | **4 of 13** |
+
+⚠ **THIS IS A SEVERITY CHANGE, NOT A TYPO — see blocker 4.** That row argues D1 (the missing UAD
+*profundidad*) is *"latent, not live"* **because "UAD-3 binds 0.00 % of published pilot land"**.
+**That premise is false.** UAD-3 binds 1.934 % of ordenanzas land. D1 is latent today for one reason
+only — the gate is shut. A second protection exists but is **not wired**: by the centroid method,
+**100 % of UAD-3's bound land sits inside a delegating ámbito**, which shields it *only if blocker
+3's `derivedPlanningOverride` branch is actually called*, and it is not. **Flipping the gate without
+blocker 3 would put the L-616 whole-parcel overstatement live on real land.**
+
+### Delegation, INDEPENDENTLY RE-MEASURED 2026-08-01 (a second method, and it does not agree exactly)
+
+Re-run as an `ordenanzas`-polygon **centroid** test against `coaco:actuaciones` (40 features):
+**178 of 453 polygons · 728 522.65 m² · 44.73 %** of ordenanza land — Plan Parcial 19.06 pp · Plan
+Especial 14.55 pp · PERI 5.57 pp · Estudio de Detalle 3.80 pp · **blank `instrumento` 1.76 pp**. The
+row-14 figure below (169 polygons · 699 772 m² · 42.98 %) came from a different method. **Both are
+recorded; neither is retracted.** A centroid test and an area intersection disagree by construction
+on a polygon that straddles an ámbito edge, and a 1.75 pp spread is the size of that effect. What is
+NOT in doubt is the order of magnitude: **≈ 43–45 % of pilot ordinance land is delegated.**
+
+### Two publisher facts re-verified this date, one of which is new
+
+- **All 15 ordinance links re-fetched**: 13 serve a real `application/pdf`; `O_UAD1.pdf` and
+  `O_UAS1.pdf` both return the same 69-byte "Server under construction" HTML
+  (md5 `75a5f3192d98343b18570f62ee57152a`). Blockers 11 and the UAD-1 recovery both stand.
+- ⭐ **NEW, and its interpretation is deliberately left OPEN**: the five Manzana Cerrada documents are
+  all **exactly 1 243 005 bytes**, and **`O_MC3.pdf` ≡ `O_MC4.pdf` byte-for-byte**
+  (md5 `8b7e5cf0a0c0820b5a581dcfca95e730`) — even though MC-3 and MC-4 differ materially (0.70 vs
+  0.90 upper-floor coverage). `O_MC.pdf`, `O_MC1.pdf` and `O_MC2.pdf` carry three further distinct
+  hashes at that same length. Equal length + differing hash is consistent with **one document
+  re-issued with differing metadata**; it is **NOT** evidence that the content differs per subzone,
+  and it is **not claimed to be**. It bears on blocker 7 (the bare-`O_MC` selector) and wants one
+  hour of a human reading the two identical files before anyone draws a conclusion.
+
 ---
+
+### Scoping the pilot honestly — and "2 of ~10 districts" has NEVER had a source
+
+⚠ **The `~` in "~10 districts" has been load-bearing for months and nobody sourced it.** This pass
+tried: `coaco:distritos` returns **2** (COACo's own pilot zones `Sur` 01 and `Noroeste` 02 —
+publisher vocabulary, not the Ayuntamiento's scheme); `coaco:actuaciones.distrito` distinguishes only
+`Noroeste` / `Sector Sur`; OSM relation 343207 `admin_level=9` returns **9** sub-municipal units, of
+which **7** are named *Distrito …* (Centro · Sur · Sureste · Levante · Noroeste · Norte Sierra ·
+Poniente Sur) plus 2 barriadas periféricas (San Rafael de la Albaida, Las Jaras); a Wikidata query
+returned 0 rows; and two attempts to stitch the district geometries via Overpass returned **HTTP 504**
+— a FAILURE, not an empty. **So: the Ayuntamiento's own district count is UNKNOWN, with that typed
+reason, and this register should stop printing "~10" as though it were measured.** ⚠ It is also the
+wrong slicing unit: COACo's pilot is 4.96 km² = **14.9 % of SUELO URBANO**, and the calificación
+covers only **32.8 %** of even that, so a per-district table is *coarser* than the land table below.
+
+| Unit (OSM `admin_level=9`, relation 343207, read 2026-08-01) | State | Basis |
+|---|---|---|
+| **Distrito Sur** | **partially PACKED** — COACo pilot zone `01`, 2 488 982.8 m² | `coaco:distritos` |
+| **Distrito Noroeste** | **partially PACKED** — COACo pilot zone `02`, 2 472 361.8 m² | `coaco:distritos` |
+| Distrito Centro · Sureste · Levante · Norte Sierra · Poniente Sur | **PGOU-direct, UNPACKED** — the PGOU-2001 governs and the GMU publishes a CUS raster sheet; no vector calificación exists (blocker 22) | `coaco:hojas_cus` = **8** sheets, all inside the two pilot districts |
+| San Rafael de la Albaida · Las Jaras (barriadas) | same | as above |
+| **Any further district the Ayuntamiento recognises** | **UNKNOWN — enumeration not obtainable** | Overpass 504 ×2; Wikidata 0 rows |
+| **Whether any of the above is DELEGATED to a derived instrument** | **UNKNOWN outside the pilot** | `coaco:actuaciones` carries `distrito ∈ {Noroeste, Sector Sur}` only |
+
+⚠ **Note the fourth state is genuinely populated, and that is the honest part.** Outside the pilot
+PRYZM cannot say whether land is delegated, because the layer that records delegation is published
+for the pilot alone. Reporting that land as "PGOU-direct" would be an unevidenced claim about ~95 %
+of the city — the same shape as the fabricated envelope, one abstraction up.
+
+**The NON-OVERLAPPING slices that actually score the ENVELOPE axis are by LAND, sum to 1.000000 of
+SUELO URBANO, and live in [`tools/city-completion/measurements/cordoba.measurements.json`](../../../../../../tools/city-completion/measurements/cordoba.measurements.json).**
 
 ## The standard every blocker must meet before it closes
 
@@ -151,10 +249,10 @@ one (a fabricated envelope on 95 % of the city) had no row at all until this pas
 
 | # | Blocker | Bucket | Sign | Sev | Status | Closes when |
 |---|---|:--:|:--:|:--:|---|---|
-| **1** | **Outside the pilot, PRYZM published a FABRICATED envelope** | **B** | **OVER-states** | **P0** | ✅ **CLOSED — §CORDOBA-MUNICIPAL-CLOSURE, 2026-08-01** | ✔ done, and it is the highest-value item in this file. **Evidence:** traced through the real dispatch. A parcel outside `CORDOBA_BBOX` (the 2-district pilot) matched no jurisdiction predicate in `applyZoning`, reached `applyEstimatedZoning`, and its §L-663 guard asked `resolveRegisteredJurisdictionAt` — which returned **`'none'`**, because Córdoba's only registration was the pilot and there is **no Andalucía or Spain-wide registration** (`grep 'jurisdictionId:' registry.ts` — 15 entries, none covering it). `'none'` is defined as *"genuinely uncovered land — the estimate is honest here"*, so PRYZM **published 3,0 / 1,5 / 3,0 m, FAR 2,00, coverage 50 %** on **95.1 % of Córdoba's SUELO URBANO**. **§L-663 was not at fault — it asks the registry, and the registry had the hole. Decision:** register the municipal term as a REFUSAL-ONLY jurisdiction (`es-14021-cordoba-municipal`, `packsByZone` empty by construction, `noRulePackRefusal → cordobaOutsidePilotRefusal`), the Catalonia pattern one rung down. `'municipal'` is coarser than the pilot's `'district'`, so §JURISDICTION-SPECIFICITY gives the pilot its own land **by rule, with no ordering edit anywhere**. **Alternatives rejected:** (a) widening `CORDOBA_BBOX` to the municipality — would claim pilot coverage over the whole city, the exact false coverage claim the tight box exists to prevent; (b) a branch in `siteDispatch.ts` — unnecessary, and C58 §1.5 promises registration alone closes it; (c) leaving it — the estimate is *worse* here than a blank card, because on street-aligned Córdoba fabric a front/side/rear triple is the wrong geometric OPERATION, not an imprecise number. Extent = **OSM relation 343207** (`admin_level=8`, `ine:municipio=14021`), read live 2026-08-01, rounded outward. Pinned by 5 tests incl. the explicit regression guard. |
+| **1** | **Outside the pilot, PRYZM published a FABRICATED envelope** | **B** | **OVER-states** | **P0** | ✅ **CLOSED — §CORDOBA-MUNICIPAL-CLOSURE, 2026-08-01** | ✔ done, and it is the highest-value item in this file. **Evidence:** traced through the real dispatch. A parcel outside `CORDOBA_BBOX` (the 2-district pilot) matched no jurisdiction predicate in `applyZoning`, reached `applyEstimatedZoning`, and its §L-663 guard asked `resolveRegisteredJurisdictionAt` — which returned **`'none'`**, because Córdoba's only registration was the pilot and there is **no Andalucía or Spain-wide registration** (`grep 'jurisdictionId:' registry.ts` — 15 entries, none covering it). `'none'` is defined as *"genuinely uncovered land — the estimate is honest here"*, so PRYZM **published 3,0 / 1,5 / 3,0 m, FAR 2,00, coverage 50 %** on **95.1 % of Córdoba's SUELO URBANO**. **§L-663 was not at fault — it asks the registry, and the registry had the hole. Decision:** register the municipal term as a REFUSAL-ONLY jurisdiction (`es-14021-cordoba-municipal`, `packsByZone` empty by construction, `noRulePackRefusal → cordobaOutsidePilotRefusal`), the Catalonia pattern one rung down. `'municipal'` is coarser than the pilot's `'district'`, so §JURISDICTION-SPECIFICITY gives the pilot its own land **by rule, with no ordering edit anywhere**. **Alternatives rejected:** (a) widening `CORDOBA_BBOX` to the municipality — would claim pilot coverage over the whole city, the exact false coverage claim the tight box exists to prevent; (b) a branch in `siteDispatch.ts` — unnecessary, and C58 §1.5 promises registration alone closes it; (c) leaving it — the estimate is *worse* here than a blank card, because on street-aligned Córdoba fabric a front/side/rear triple is the wrong geometric OPERATION, not an imprecise number. Extent = **OSM relation 343207** (`admin_level=8`, `ine:municipio=14021`), read live 2026-08-01, rounded outward. Pinned by 5 tests incl. the explicit regression guard. ⬆ **AND NOW PROVEN EXHAUSTIVELY, NOT SPOT-CHECKED (§EXTENT-CLAIM-TOTALITY, `packages/site-parcel-data/__tests__/registeredExtentTotality.test.ts`):** a **41 × 41 = 1 681-point lattice** over the whole municipal term (≈ 1 km spacing) resolves to `none` at **zero** points and to a foreign jurisdiction at **zero** points; every point inside `CORDOBA_BBOX` resolves to the pilot and every point outside it to `es-14021-cordoba-municipal`, **by rule** — asserted point-by-point, not by reading the `extentResolution` ordering. |
 | **2** | **`CORDOBA_ENVELOPE_VERIFIED` — the human signature** | **D** | UNDER-states | **P0** | 🟠 **UNSIGNED, and now genuinely SIGNABLE** | Founder signs [`sources/VERIFICATION.md`](./sources/VERIFICATION.md) §SIG-1. Everything else is prepared: OCR re-verified 13/13 clean against rendered rasters of the publisher's own PDFs (4 of 5 documents have a **zero-character text layer**, so a text pull would have been fabrication); the engine confidence ceiling and the answerability classifier both landed ahead of it (L-665). ⚠ **A signature ALONE still renders nothing — see blocker 3.** It is worth **≈ 31 % of 1.851 km²**, concentrated in **two** subzones (OA-1 14.33 % + CTP-1 14.97 %); **7 of the 13 packed subzones bind ZERO pilot land**. It authorises `estimated-ruleset` and no tier above it. Signing is a **legal act**; no agent may flip the flag. |
 | **3** | **The COACo subzone resolver is AUTHORED but NOT CALLED** | **B** | UNDER-states | **P1** | 🔴 **OPEN — and it must land in the SAME change as the signature** | `providers/resolveCordobaSubzone.ts` exists, is exported, has its server proxy (`server/cordobaZoningProxy.js`) and is tested — and `applyCordobaZoningThenFallback` **never invokes it**, using a `cordoba-pgou-2001-pilot` placeholder zone code instead (it says so in its own comment). So **no Córdoba parcel can bind a subzone today**. Its `derivedPlanningOverride` branch (non-empty `actuacion` ⇒ derived-planning refusal) is **load-bearing for the ≈ 50 % delegation refusal** and must be *exercised*, not merely present. **Closes when:** the resolver is called from the dispatcher, the delegation branch is driven by a test, and the signature lands with it. |
-| **4** | **⛔ UAD *profundidad máxima edificable* is STATED in the source and ABSENT from the pack (D1)** | **B** | **OVER-states** | **P1** | 🔴 **OPEN — BLOCKING before UAD-3 may ever bind** | **Evidence:** Art. **13.9.3.3**, verified at 380 dpi — UAD-1 **16 m** · UAD-2 **18 m** · UAD-3 **16 m**, measured from the vial alignment. The pack carries **none** of it. For **UAD-3** (`front 0` + `side 0` party-wall + `rear 5 m`, **no depth band**) this is the **L-616 mechanism-A whole-parcel overstatement verbatim** — the exact failure CTP-1's `alignment` rule and MC's unresolvable ring exist to prevent, left unguarded on the one family that also needed it. **Latent, not live:** UAD-3 binds 0.00 % of published pilot land and the gate is shut. **Reported, deliberately not silently patched** — the founder must see it before signing. **Closes when:** each UAD subzone carries a `geometricRule` with its stated depth. ~½ eng-day. |
+| **4** | **⛔ UAD *profundidad máxima edificable* is STATED in the source and ABSENT from the pack (D1)** | **B** | **OVER-states** | **P1 → P0-on-signature** | 🔴 **OPEN — and its "latent" premise was REFUTED 2026-08-01** | **Evidence:** Art. **13.9.3.3**, verified at 380 dpi — UAD-1 **16 m** · UAD-2 **18 m** · UAD-3 **16 m**, measured from the vial alignment. The pack carries **none** of it. For **UAD-3** (`front 0` + `side 0` party-wall + `rear 5 m`, **no depth band**) this is the **L-616 mechanism-A whole-parcel overstatement verbatim** — the exact failure CTP-1's `alignment` rule and MC's unresolvable ring exist to prevent, left unguarded on the one family that also needed it. ⚠⚠ **THIS ROW SAID *"Latent, not live: UAD-3 binds 0.00 % of published pilot land"*. THAT IS FALSE** — measured live 2026-08-01 through the shipped `subzoneCodeFromLink` parse, **UAD-3 binds 31 505.01 m² = 1.934 % of ordenanzas land** (8 polygons via `O_UAD3.pdf`); see the subzone-binding table above, which also shows this file contradicted itself, since its own 94.33 % routing fraction requires UAD-3 to bind. The **only** thing keeping D1 latent is the shut gate. A second shield exists — by the centroid method **100 % of UAD-3's land is inside a delegating ámbito** — but it is inert until blocker **3** calls `derivedPlanningOverride`. ⇒ **4 and 3 must both land before 2, not after.** **Reported, deliberately not silently patched** — the founder must see it before signing. **Closes when:** each UAD subzone carries a `geometricRule` with its stated depth. ~½ eng-day. |
 | **5** | **Refusal copy claimed a fallback PRYZM does not render** | **B** | **OVER-states** *(our coverage)* | **P1** | ✅ **CLOSED — 2026-08-01** | ✔ **Barcelona's lesson, found live in Córdoba.** `CORDOBA_ROADMAP_LINE` — shipped in **every** Córdoba refusal card — ended *"Outside the two districts, a click falls back to the national SIU land classification, never a borrowed pilot number."* **PRYZM does not fall back to SIU.** The proxy exists and is mounted (`server/siuClassificationProxy.js`, `server.js:509`) and **nothing in `packages/*/src` or `apps/*/src` calls it** — grep, 2026-08-01, **zero client callers**. Promising a user an answer we never render is the same defect class as refusing with *"we hold no rule"* on a zone we have packed (which deleted Barcelona's `13b`/`22a`/`22@`/`20a` branches), pointing the other way. **The claim is DELETED, not softened.** ⚠ Wiring the SIU fallback is blocker **9**; the copy may promise it **on the day it renders**. |
 | **6** | **Four different absences shared two refusal cards** | **B** | mixed | P2 | ✅ **CLOSED — §CORDOBA-REFUSAL-SPLIT, 2026-08-01** | ✔ done. L-422/457/467/469: *"the publisher maps no ordenanza onto this land"* and *"PRYZM has not packed the ordenanza the publisher DID map"* are **different values with different owners**, and one card saying *"Either… or…"* made every publisher gap look like our backlog. Now four: `cordobaOutsidePilotRefusal` (`no-plan-at-point`, durable) · `cordobaNoCalificacionAtPointRefusal` (inside the pilot, the layer answered and returned nothing) · `cordobaUnbindableSubzoneRefusal` (`regime-undetermined`) · `cordobaNoRulePackRefusal` (narrowed to the two genuinely un-transcribed families). ⚠ `source-data-unavailable` was **rejected** for the first two: it is *defined* as transient and is the only code carrying a retry affordance — nothing here clears on a retry, and a fictional retry badge sends the user round a loop for ever. |
 | **7** | **Bare `O_MC` polygons cannot bind a subzone — and the dossier said they could** | **B/A** | **EXACT** *(a refusal either way)* | P2 | 🟡 **HALF-CLOSED — the honest refusal ships; the KEY is unobtainable** | **Evidence, measured not theorised (live COACo, 2026-08-01):** **14 of 453 polygons carry a bare `O_MC.pdf`** — 18 539 m², **1.14 % of ordenanzas land**. `subzoneCodeFromLink('O_MC.pdf')` → **`'MC'`**, a code the pack deliberately does not contain. **`OCR-EXTRACTION-RESULTS.md` §1 said *"the filename suffix routes the polygon to subzone MC-1/2/3/4"* — that is FALSE for these 14** (corrected in this pass). **Decision:** ship `cordobaUnbindableSubzoneRefusal`. **Alternatives rejected:** picking a representative MC — MC-4 allows **0.90** upper-floor coverage where MC-1/2/3 allow **0.70**, and each reads a **different** street-width height band, so a pick is a guess presented as a determination. ⚠ **This is Barcelona's bare-`20a` shape exactly: a SELECTOR is missing, not a rule**, and no further reading of the ordinance can supply it. **Fully closes only if** COACo populates a subzone attribute — the `et` field is populated on 262 of 453 polygons and is publisher-undocumented (L-661); it agrees with the link key on all 262 it shares. **Not PRYZM-closable.** |
@@ -172,7 +270,9 @@ one (a fabricated envelope on 95 % of the city) had no row at all until this pas
 | **19** | **Single-source: no second publisher states these parameters** | **A** | n/a | P3 | ✅ **CLOSED AS PERMANENT — negative evidence** | ✔ Dual-source corroboration of the **numbers** was not run **and cannot be**, from what Córdoba publishes: the PGOU-2001 ordinance text exists in exactly one published form (the COACo-served scans of the Texto Refundido Oct. 2002). The 2026-08-01 pass was a **second independent METHOD against the same document**, which is why the tier can rise to `estimated-ruleset` and **no further**. `structured` requires the publisher to serve the numbers as data; COACo does not. ⚠ **`authoritative` is UNREACHABLE and must not be proposed.** |
 | **20** | **PARCEL axis unmeasured; the Spanish block dissolve is 0/3 in Córdoba** | B | unknown | **P1** | 🔴 open | `SPAIN-CADASTRAL-DISSOLVE-PROBE` reports **0/3** in Córdoba — the dissolve fails **before any rule is consulted**. Every alignment-zone answer (CTP-1, MC — **59.9 %** of ordenanzas land) needs a block ring. ⚠ **This can make the ≈ 31 % ceiling unrealisable** in exactly the way Barcelona's blocker 4 can make its 56 % unrealisable. **Closes when:** `computeParcelConfidence` is run over the pilot bbox and the dissolve failures are classified clustered-vs-random. |
 | **22** | ⭐ **69 of 77 GMU calificación raster sheets are un-vectorised — THE municipality-wide lever** | **A→B** | n/a *(no answer at all today)* | **P1** | 🔴 **OPEN — the largest single item in this register, and it is EFFORT, not law** | **Evidence, re-verified live 2026-08-01:** the GMU publishes *Calificación, Usos y Sistemas* municipality-wide as **77 georeferenceable raster JPGs** (49 urban `CUS01W…CUS49W` + 28 peripheral). `https://visor.pgou.coacordoba.org/doc/planos/cus/CUS41W.jpg` → **200 `image/jpeg`, 461 957 B**; the GMU index is captured in the Wayback Machine (`20250712`) listing all 49 + 28. `coaco:hojas_cus` indexes the **8** sheets COACo vectorised — which **is** the 2-district pilot. **Finding:** the coverage gap is a **raster→vector gap, not a data-absence gap**; the ordinance TEXT is already transcribed and is per-ordenanza, not per-district, so it needs no re-reading for any new district. **Decision:** georeference + vectorise the remaining 69 sheets into calificación polygons (the treatment COACo gave 8), then bind them through the same resolver. **Alternatives rejected:** (a) *wait for COACo to extend the pilot* — an external dependency with no date, and the register may not rest on one when in-house evidence exists; (b) *borrow a pilot ordenanza* — the fabrication this whole file exists to prevent. **Sizing:** the dominant cost; 69 sheets at production quality is weeks, not days, and needs GMU-direct raster access (blocked from the recon's vantage — re-test). **This is what moves the city ceiling from ≈ 1.7 % toward the pilot's ≈ 31 %.** |
-| **21** | **HEIGHTS axis unmeasured** | B | unknown | P2 | 🔴 open | `REGION_SOURCE.cordoba = 'mds_edificacion'` is configured with a per-city bbox, but **no per-city bake is confirmed landed and no provenance histogram probed**. Until then any context building may be a fabricated default height. **Closes when:** the bake lands and the histogram is measured. |
+| **21** | **HEIGHTS axis unmeasured** | B | unknown | P2 | 🟡 **BASELINE MEASURED 2026-08-01 (pre-bake); the bake itself is still open** | ✔ half-closed. `probe.mjs --at 37.8882,-4.7794 --half-deg 0.02` against the **SHIPPED R2 tiles** (`buildings.pmtiles?v=L659a`): **11 812 footprints · measured-lidar 0 · tagged 32 · derived-levels 5 417 · assumed 6 363**, verdict `unmeasured`. Tile read CLEAN (100 covering, 97 read, 3 absent, **0 failed**) so this is a data verdict, not a network claim (L-422/457/467/469). **53.9 % of context buildings render the fabricated 9 m default.** C63 Axis 6 v1 counts `tagged` only ⇒ **0.271 %**. ⚠⚠ **ALWAYS QUOTE THE HALF-DEGREE.** The close-out brief's *"0 of 5 409 measured, 45 % fabricated"* is **also correct** — it is the same shipped tiles at the DEFAULT `--half-deg 0.008` (tagged 17 · derived 2 944 · assumed 2 448 = 45.3 %), recorded in `heightSources.mjs`. The wider 0.02 ring reaches periphery where fewer buildings carry `building:levels`, so the assumed share rises. *(This register's first draft asserted the brief had conflated 5 409 with the derived-levels bucket. It had not — that was a guess dressed as a finding, and it is retracted here rather than quietly deleted.)* ⚠ **CHECKED, not assumed: Córdoba is NOT Murcia's §MURCIA-HEIGHT-STAMP-GAP** — it is declared in `REGION_SOURCE` and present in `MDS_CITY_BBOXES`, i.e. in both the priority and retain sets. ⭐ **But a REAL defect was found here and fixed by the orchestrator in `e8254bfa`** (this agent deliberately did not edit `heightSources.mjs`, a national bake being in flight): the MDS stamp bbox ended at **n=37.93** while the canonical terrain region reaches **37.94**, so a **~1.1 km strip across the north of Córdoba could never have been stamped**, however many bakes ran. Now pinned by `tools/context-bake/__tests__/mdsBboxCoversTerrainRegion.spec.ts`. **Closes when:** the national bake lands and the histogram is re-probed. |
+| **23** | ⭐ **A Córdoba-specific height source nobody has named** | **A→B** | n/a | P3 | 🔵 **NEW — recorded, deliberately NOT counted** | Found while probing the publisher: `coaco:vhex25_max_plantas` serves **9 202** hex features, and `coaco:vcatastro_urbanismo` carries per-parcel `max_plantas` / `max_plantasbr` / `sup_brasante_m2` populated on **5 721 of 5 725** pilot parcels. ⚠ **It cannot raise the HEIGHTS axis and must not be sold as if it could**: it is a **Catastro-derived STOREY COUNT**, so it enters the provenance ladder as `derived-levels`, which earns **no** credit under C63 Axis 6 v1 — and it covers the **pilot only**. Its real value is elsewhere: an independent cross-check on context massing inside the pilot, and a candidate input to the §CONTEXT height ladder if the §8 founder decision ever grants `derived-levels` partial credit. |
+| **24** | **C63 axes were UNMEASURED — the board could not see Córdoba at all** | B | n/a | **P1** | ✅ **CLOSED — `tools/city-completion/measurements/cordoba.measurements.json`, 2026-08-01** | ✔ All four expensive axes now carry a committed, reviewable, per-figure-cited measurement record (the Murcia/València pattern). PARCEL **95 %** (120/120 probed, 109 high · 11 medium · 0 low · 0 none · **0 failures**) · LEGISLATION **40 %** (4/10 families) · ENVELOPE **0.0 %** · HEIGHTS **0.271 %**. ⚠ **The city's headline went DOWN, 71.5 % → 45.8 %, and that is the point:** the 71.5 % was renormalised over **30 %** of the ratified weight — an average of the three cheap axes wearing the whole city's name. It is now over **100 %**. **⚠ ENVELOPE 0.0 % IS A MEASURED ZERO, NOT A MISSING MEASUREMENT.** PRYZM publishes no envelope anywhere in Córdoba: the gate is shut *and* the resolver is never called. Until 2026-08-01 this axis would have scored **above** zero for the worst possible reason — a fabricated triple on 95.1 % of SUELO URBANO. |
 
 ---
 
@@ -227,6 +327,31 @@ resolver is authored and never called).
 > envelope on 95.1 % of the city's urban land**, had **no row, no owner and no number**, because it
 > lived in the gap between a city's registration and a generic fallback where no city's dossier was
 > looking. A register that confuses the two will work on the wrong item for a year.
+>
+> **4 — `honestyOk: true` DID NOT MEAN THE NUMBERS WERE TRUE, AND CÓRDOBA IS THE PROOF.** Barcelona
+> established (2026-08-01) that the launch-blocking `honestyOk` gate checks only that every score
+> **has** a derivation string — never that the derivation is **correct**. ⚠ **A fully-cited falsehood
+> passes it.** Córdoba is the worked example nobody should need twice: the fabricated triple on 95.1 %
+> of SUELO URBANO shipped with a derivation, a confidence label and a provenance tag — it was *cited*,
+> it was *badged*, and it was *invented*. The same page's `~19 % / ~89 %` and `7 of 13 bind zero` were
+> each cited to an artefact and each wrong. **A citation proves someone wrote a reason down; only a
+> re-measurement proves the reason holds.** Every figure in this pass was therefore RE-QUERIED against
+> the publisher rather than carried forward — which is how three of this file's own claims were caught.
+>
+> **3 — THE DEFECT HAS A SPECIES, AND IT IS NOT A CÓRDOBA SPECIES.** ⚠ Strip Córdoba out and the
+> mechanism of blocker 1 is: *a lookup misses, returns an empty result, and the empty result is
+> published as a measured fact.* `resolveRegisteredJurisdictionAt` found no claimant and returned
+> `'none'`, which is **defined** as "genuinely uncovered land" — so an absence of registration was
+> published as a positive finding about the land, and then a number was drawn on it. **The very same
+> species was found in the scorecard tool on the very same day** (L-676, `531531ef`): `parseBakeRegions`
+> looked for `const REGIONS = [`, `bake.mjs` had renamed it `ALL_REGIONS`, the parser matched nothing,
+> and the tool printed *"is not a baked context region → 0 layers present (**measured**)"* with
+> `validationState: 'auto-validated'` for **every city on the board** — a parse miss wearing the word
+> "measured". Two unrelated subsystems, one bug: **a miss and a zero are the same value unless the
+> code is written to keep them apart.** The generalisation is now enforced in both places — the
+> registry by §EXTENT-CLAIM-TOTALITY (a lattice over every declared extent must never resolve to
+> `none`), the tool by throwing when its marker is absent. ⚠ **When you add a lookup, decide what a
+> MISS returns before you decide what a HIT returns.**
 >
 > **2 — AND THEN CHECK WHETHER THE CEILING IS EVEN REAL.** ⚠ **The first draft of this very file got
 > that wrong.** It filed the pilot boundary as *"a publication limit no PRYZM engineering extends"*
