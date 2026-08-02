@@ -1,0 +1,745 @@
+{
+ "probe": "independent completeness oracle (returnCountOnly) + negative proof for the QUAL_MUNI zeros",
+ "ranAt": "2026-08-02T13:21:38.801Z",
+ "reconcilesAgainst": "out/task5-amb-all-municipalities.json",
+ "summary": {
+  "serviceWideReconciled": true,
+  "perMunicipalityReconciled": 36,
+  "perMunicipalityTotal": 36,
+  "mismatches": []
+ },
+ "serviceWide": {
+  "layer16": {
+   "oracleCountOnly": 48782,
+   "sumOfPagedWalks": 48782,
+   "delta": 0,
+   "reconciled": true,
+   "advertisedMaxRecordCount": 2000,
+   "oracleIsUncapped": true
+  },
+  "layer17": {
+   "oracleCountOnly": 22525,
+   "sumOfPagedWalks": 22525,
+   "delta": 0,
+   "reconciled": true,
+   "advertisedMaxRecordCount": 2000,
+   "oracleIsUncapped": true
+  }
+ },
+ "perMunicipality": [
+  {
+   "ine": "08015",
+   "name": "Badalona",
+   "oracleCountOnly": 2619,
+   "pagedWalk": 2619,
+   "reconciled": true
+  },
+  {
+   "ine": "08019",
+   "name": "Barcelona",
+   "oracleCountOnly": 5073,
+   "pagedWalk": 5073,
+   "reconciled": true
+  },
+  {
+   "ine": "08020",
+   "name": "Begues",
+   "oracleCountOnly": 446,
+   "pagedWalk": 446,
+   "reconciled": true
+  },
+  {
+   "ine": "08054",
+   "name": "Castellbisbal",
+   "oracleCountOnly": 129,
+   "pagedWalk": 129,
+   "reconciled": true
+  },
+  {
+   "ine": "08056",
+   "name": "Castelldefels",
+   "oracleCountOnly": 279,
+   "pagedWalk": 279,
+   "reconciled": true
+  },
+  {
+   "ine": "08068",
+   "name": "Cervelló",
+   "oracleCountOnly": 128,
+   "pagedWalk": 128,
+   "reconciled": true
+  },
+  {
+   "ine": "08072",
+   "name": "Corbera de Llobregat",
+   "oracleCountOnly": 104,
+   "pagedWalk": 104,
+   "reconciled": true
+  },
+  {
+   "ine": "08073",
+   "name": "Cornellà de Llobregat",
+   "oracleCountOnly": 845,
+   "pagedWalk": 845,
+   "reconciled": true
+  },
+  {
+   "ine": "08077",
+   "name": "Esplugues de Llobregat",
+   "oracleCountOnly": 494,
+   "pagedWalk": 494,
+   "reconciled": true
+  },
+  {
+   "ine": "08089",
+   "name": "Gavà",
+   "oracleCountOnly": 559,
+   "pagedWalk": 559,
+   "reconciled": true
+  },
+  {
+   "ine": "08101",
+   "name": "L'Hospitalet de Llobregat",
+   "oracleCountOnly": 1734,
+   "pagedWalk": 1734,
+   "reconciled": true
+  },
+  {
+   "ine": "08123",
+   "name": "Molins de Rei",
+   "oracleCountOnly": 381,
+   "pagedWalk": 381,
+   "reconciled": true
+  },
+  {
+   "ine": "08125",
+   "name": "Montcada i Reixac",
+   "oracleCountOnly": 565,
+   "pagedWalk": 565,
+   "reconciled": true
+  },
+  {
+   "ine": "08126",
+   "name": "Montgat",
+   "oracleCountOnly": 186,
+   "pagedWalk": 186,
+   "reconciled": true
+  },
+  {
+   "ine": "08157",
+   "name": "Pallejà",
+   "oracleCountOnly": 147,
+   "pagedWalk": 147,
+   "reconciled": true
+  },
+  {
+   "ine": "08158",
+   "name": "El Papiol",
+   "oracleCountOnly": 153,
+   "pagedWalk": 153,
+   "reconciled": true
+  },
+  {
+   "ine": "08169",
+   "name": "El Prat de Llobregat",
+   "oracleCountOnly": 944,
+   "pagedWalk": 944,
+   "reconciled": true
+  },
+  {
+   "ine": "08180",
+   "name": "Ripollet",
+   "oracleCountOnly": 367,
+   "pagedWalk": 367,
+   "reconciled": true
+  },
+  {
+   "ine": "08194",
+   "name": "Sant Adrià de Besòs",
+   "oracleCountOnly": 435,
+   "pagedWalk": 435,
+   "reconciled": true
+  },
+  {
+   "ine": "08196",
+   "name": "Sant Andreu de la Barca",
+   "oracleCountOnly": 221,
+   "pagedWalk": 221,
+   "reconciled": true
+  },
+  {
+   "ine": "08200",
+   "name": "Sant Boi de Llobregat",
+   "oracleCountOnly": 1117,
+   "pagedWalk": 1117,
+   "reconciled": true
+  },
+  {
+   "ine": "08204",
+   "name": "Sant Climent de Llobregat",
+   "oracleCountOnly": 140,
+   "pagedWalk": 140,
+   "reconciled": true
+  },
+  {
+   "ine": "08205",
+   "name": "Sant Cugat del Vallès",
+   "oracleCountOnly": 952,
+   "pagedWalk": 952,
+   "reconciled": true
+  },
+  {
+   "ine": "08211",
+   "name": "Sant Feliu de Llobregat",
+   "oracleCountOnly": 459,
+   "pagedWalk": 459,
+   "reconciled": true
+  },
+  {
+   "ine": "08217",
+   "name": "Sant Joan Despí",
+   "oracleCountOnly": 389,
+   "pagedWalk": 389,
+   "reconciled": true
+  },
+  {
+   "ine": "08221",
+   "name": "Sant Just Desvern",
+   "oracleCountOnly": 266,
+   "pagedWalk": 266,
+   "reconciled": true
+  },
+  {
+   "ine": "08244",
+   "name": "Santa Coloma de Cervelló",
+   "oracleCountOnly": 277,
+   "pagedWalk": 277,
+   "reconciled": true
+  },
+  {
+   "ine": "08245",
+   "name": "Santa Coloma de Gramenet",
+   "oracleCountOnly": 896,
+   "pagedWalk": 896,
+   "reconciled": true
+  },
+  {
+   "ine": "08252",
+   "name": "Barberà del Vallès",
+   "oracleCountOnly": 248,
+   "pagedWalk": 248,
+   "reconciled": true
+  },
+  {
+   "ine": "08263",
+   "name": "Sant Vicenç dels Horts",
+   "oracleCountOnly": 309,
+   "pagedWalk": 309,
+   "reconciled": true
+  },
+  {
+   "ine": "08266",
+   "name": "Cerdanyola del Vallès",
+   "oracleCountOnly": 644,
+   "pagedWalk": 644,
+   "reconciled": true
+  },
+  {
+   "ine": "08282",
+   "name": "Tiana",
+   "oracleCountOnly": 108,
+   "pagedWalk": 108,
+   "reconciled": true
+  },
+  {
+   "ine": "08289",
+   "name": "Torrelles de Llobregat",
+   "oracleCountOnly": 70,
+   "pagedWalk": 70,
+   "reconciled": true
+  },
+  {
+   "ine": "08301",
+   "name": "Viladecans",
+   "oracleCountOnly": 762,
+   "pagedWalk": 762,
+   "reconciled": true
+  },
+  {
+   "ine": "08904",
+   "name": "Badia del Vallès",
+   "oracleCountOnly": 51,
+   "pagedWalk": 51,
+   "reconciled": true
+  },
+  {
+   "ine": "08905",
+   "name": "La Palma de Cervelló",
+   "oracleCountOnly": 28,
+   "pagedWalk": 28,
+   "reconciled": true
+  }
+ ],
+ "negativeProof": {
+  "municipality": "08019",
+  "table": "18 QUAL_MUNI",
+  "totalRowsInTable": 486,
+  "probes": [
+   {
+    "where": "CODI_MUN LIKE '08019%'",
+    "hypothesis": "5-digit INE prefix — what the probe keys on",
+    "count": 0
+   },
+   {
+    "where": "CODI_MUN LIKE '019%'",
+    "hypothesis": "3-DIGIT form — the Madrid CD_MUNICIPIO shape, a TRUNCATION of INE",
+    "count": 0
+   },
+   {
+    "where": "CODI_MUN LIKE '19%'",
+    "hypothesis": "unpadded within-province number",
+    "count": 0
+   },
+   {
+    "where": "CODI_MUN LIKE '08900%'",
+    "hypothesis": "the DGC code — Barcelona's Catastro code is 08900, not 08019",
+    "count": 0
+   },
+   {
+    "where": "CODI_INE='08019'",
+    "hypothesis": "the table's OWN declared CODI_INE column",
+    "count": 0
+   },
+   {
+    "where": "CODI_INE IS NOT NULL",
+    "hypothesis": "is CODI_INE populated on ANY row of the table at all?",
+    "count": 0
+   },
+   {
+    "where": "CODI_AMB LIKE '%08019%'",
+    "hypothesis": "CODI_AMB",
+    "count": 0
+   },
+   {
+    "where": "NUMAMB_KEY LIKE '%08019%'",
+    "hypothesis": "NUMAMB_KEY",
+    "count": 0
+   },
+   {
+    "where": "DESC_MUN LIKE '%arcelona%'",
+    "hypothesis": "name substring, accent-safe",
+    "count": 0
+   }
+  ],
+  "verdict": "ABSENCE CONFIRMED — nine parameterisations including the 3-digit truncation, the DGC code, the table's own declared INE column and a name substring all return zero against a table that demonstrably holds 486 rows. QUAL_MUNI genuinely carries no row for Barcelona. This is a MEASURED ABSENCE, not an unreached one.",
+  "municipalitiesWithZeroRows": [
+   "08019",
+   "08073",
+   "08089",
+   "08101",
+   "08123",
+   "08125",
+   "08126",
+   "08157",
+   "08158",
+   "08180",
+   "08194",
+   "08204",
+   "08211",
+   "08217",
+   "08221",
+   "08244",
+   "08263",
+   "08266",
+   "08282",
+   "08301"
+  ],
+  "note": "The sweep was exercised on Barcelona only. The other 19 zeros share the same key and the same table; they are recorded as zero-on-the-same-evidence, NOT independently swept."
+ },
+ "network": [
+  {
+   "label": "oracle:L16:all",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/16/query?f=json&where=1%3D1&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 15,
+   "ms": 506,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:all",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=1%3D1&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 15,
+   "ms": 177,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08015",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708015%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 14,
+   "ms": 337,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08019",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708019%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 14,
+   "ms": 384,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08020",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708020%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 320,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08054",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708054%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 314,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08056",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708056%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 308,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08068",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708068%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 327,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08072",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708072%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 318,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08073",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708073%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 321,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08077",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708077%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 330,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08089",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708089%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 322,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08101",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708101%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 14,
+   "ms": 367,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08123",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708123%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 318,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08125",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708125%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 317,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08126",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708126%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 356,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08157",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708157%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 318,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08158",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708158%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 322,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08169",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708169%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 330,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08180",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708180%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 323,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08194",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708194%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 321,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08196",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708196%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 359,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08200",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708200%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 14,
+   "ms": 327,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08204",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708204%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 320,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08205",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708205%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 326,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08211",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708211%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 317,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08217",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708217%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 361,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08221",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708221%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 335,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08244",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708244%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 322,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08245",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708245%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 309,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08252",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708252%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 318,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08263",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708263%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 334,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08266",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708266%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 324,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08282",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708282%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 318,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08289",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708289%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 12,
+   "ms": 320,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08301",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708301%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 313,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08904",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708904%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 12,
+   "ms": 316,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:L17:08905",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/17/query?f=json&where=CODI_INE%3D%2708905%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 12,
+   "ms": 325,
+   "outcome": "ok"
+  },
+  {
+   "label": "oracle:T18:all",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/18/query?f=json&where=1%3D1&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 13,
+   "ms": 172,
+   "outcome": "ok"
+  },
+  {
+   "label": "negproof:5-digit INE prefix — wha",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/18/query?f=json&where=CODI_MUN+LIKE+%2708019%25%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 11,
+   "ms": 199,
+   "outcome": "ok"
+  },
+  {
+   "label": "negproof:3-DIGIT form — the Madri",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/18/query?f=json&where=CODI_MUN+LIKE+%27019%25%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 11,
+   "ms": 178,
+   "outcome": "ok"
+  },
+  {
+   "label": "negproof:unpadded within-province",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/18/query?f=json&where=CODI_MUN+LIKE+%2719%25%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 11,
+   "ms": 175,
+   "outcome": "ok"
+  },
+  {
+   "label": "negproof:the DGC code — Barcelona",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/18/query?f=json&where=CODI_MUN+LIKE+%2708900%25%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 11,
+   "ms": 182,
+   "outcome": "ok"
+  },
+  {
+   "label": "negproof:the table's OWN declared",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/18/query?f=json&where=CODI_INE%3D%2708019%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 11,
+   "ms": 174,
+   "outcome": "ok"
+  },
+  {
+   "label": "negproof:is CODI_INE populated on",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/18/query?f=json&where=CODI_INE+IS+NOT+NULL&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 11,
+   "ms": 198,
+   "outcome": "ok"
+  },
+  {
+   "label": "negproof:CODI_AMB",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/18/query?f=json&where=CODI_AMB+LIKE+%27%2508019%25%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 11,
+   "ms": 173,
+   "outcome": "ok"
+  },
+  {
+   "label": "negproof:NUMAMB_KEY",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/18/query?f=json&where=NUMAMB_KEY+LIKE+%27%2508019%25%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 11,
+   "ms": 169,
+   "outcome": "ok"
+  },
+  {
+   "label": "negproof:name substring, accent-s",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/18/query?f=json&where=DESC_MUN+LIKE+%27%25arcelona%25%27&returnCountOnly=true",
+   "httpStatus": 200,
+   "bytes": 11,
+   "ms": 181,
+   "outcome": "ok"
+  }
+ ]
+}
