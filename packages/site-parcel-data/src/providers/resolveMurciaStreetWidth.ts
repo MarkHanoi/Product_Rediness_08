@@ -43,10 +43,22 @@
 // WHY MURCIA CAN DO THIS WHERE MADRID AND CÓRDOBA CANNOT
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 // `geometry/streetWidth.ts` needs OUR block outline plus the outlines across the street. Barcelona
-// gets its outline from `dissolveParcelsToBlockRing`, which fails on most non-Barcelona blocks
-// (BCN 2/2, Madrid 2/4, Córdoba 0/3 — SPAIN-CADASTRAL-DISSOLVE-PROBE). **Murcia's municipality
-// publishes the block-level alineación polygons directly**, so this route skips the dissolve
-// entirely. That is the whole reason the 8.81 pp is reachable here and not there.
+// gets its outline from `dissolveParcelsToBlockRing`. **Murcia's municipality publishes the
+// block-level alineación polygons directly**, so this route skips the dissolve entirely — which is
+// why the 8.81 pp was reachable here without solving dissolve first.
+//
+// ⚠ CORRECTED 2026-08-02 — the dissolve figures previously quoted here were WRONG, and this file
+// was the last live copy of them (sixth propagation of the same stale claim; `streetWidth.ts:28-40`
+// had already been corrected). It read "fails on most non-Barcelona blocks (BCN 2/2, Madrid 2/4,
+// Córdoba 0/3)". **`0/3` was a THREE-BLOCK SAMPLE that reached shipped code as a P1 ceiling.**
+// Measured at scale in both Córdoba lineages: **Catastro INSPIRE 20/26 = 76.9 % (the production
+// path), COACo 354/400 = 88.5 %**; Barcelona 96.22 %. Dissolve costs roughly one block in four — it
+// does NOT cap a city. Do not re-derive a ceiling from a handful of blocks (BLOCKER-CLASSIFICATION-
+// STANDARD: "a ceiling asserted from a sample is not a ceiling — state N").
+//
+// ⚠ And under ADR-0290 the dissolve is now the FALLBACK, not the goal: `idecordoba:manzana`
+// publishes 20 730 block polygons covering 92.9 % of Córdoba's ordenanza polygons, and published
+// geometry outranks geometry we derive ourselves (ADR-0283).
 //
 // NOT A SECOND SOLVER: the measurement is `measureStreetWidths` / `blockEdgesFacingParcel` /
 // `governingStreetWidth`, unmodified and region-agnostic (ADR-0275). This module only fetches,

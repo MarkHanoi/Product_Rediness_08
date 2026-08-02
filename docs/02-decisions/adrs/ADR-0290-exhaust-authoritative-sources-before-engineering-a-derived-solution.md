@@ -4,7 +4,7 @@
 **Date**: 2026-08-02
 **Deciders**: founder (Envelope Compiler programme) + architecture team
 **Related contracts**: [C58 — Zoning Rules & Buildable Envelope](../contracts/C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) · [C63 — City Completion & Dossier](../contracts/C63-CITY-COMPLETION-AND-DOSSIER.md)
-**Related ADRs**: [ADR-0283](./ADR-0283-authoritative-publication-bounds-knowledge-unknown-is-valid.md) (published evidence bounds what we may assert) · [ADR-0284](./ADR-0284-derived-geometry-permissible-derived-law-is-not.md) · [ADR-0285](./ADR-0285-computing-an-observable-criterion-is-implementation.md) (**this ADR is its precondition**) · [ADR-0288](./ADR-0288-machine-readable-is-not-publishable.md) · [ADR-0289](./ADR-0289-urban-geometry-engine.md) *(rename to the generic variable-engine framing in flight)*
+**Related ADRs**: [ADR-0283](./ADR-0283-authoritative-publication-bounds-knowledge-unknown-is-valid.md) (published evidence bounds what we may assert) · [ADR-0284](./ADR-0284-derived-geometry-permissible-derived-law-is-not.md) · [ADR-0285](./ADR-0285-computing-an-observable-criterion-is-implementation.md) (**this ADR is its precondition**) · [ADR-0288](./ADR-0288-machine-readable-is-not-publishable.md) · [ADR-0289](./ADR-0289-geometry-derived-ordinance-variable-engine.md)
 **Reference docs**: `docs/04-reference/standards/DATASET-DISCOVERY-PROTOCOL.md` — **Stage 0, the mechanism that discharges this invariant (in authoring; link once landed)** · [MACHINE-READABLE-EVIDENCE-REGISTER.md](../../04-reference/standards/MACHINE-READABLE-EVIDENCE-REGISTER.md) · [PROBE-DISCIPLINE.md](../../04-reference/standards/PROBE-DISCIPLINE.md)
 
 ## Context

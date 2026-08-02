@@ -1,4 +1,4 @@
-# 0290 — The PRYZM Envelope Compiler: the VARIABLE is the unit of architecture, not the city
+# 0291 — The PRYZM Envelope Compiler: the VARIABLE is the unit of architecture, not the city
 
 **Status**: **PROPOSED** (2026-08-02 — founder-commissioned national capability analysis)
 **Date**: 2026-08-02
