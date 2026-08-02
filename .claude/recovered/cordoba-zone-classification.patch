@@ -1,0 +1,717 @@
+diff --git a/docs/04-reference/jurisdictions/es/es-md/28079-madrid/CLOSURE-REGISTER.md b/docs/04-reference/jurisdictions/es/es-md/28079-madrid/CLOSURE-REGISTER.md
+index 43f44451..782d0226 100644
+--- a/docs/04-reference/jurisdictions/es/es-md/28079-madrid/CLOSURE-REGISTER.md
++++ b/docs/04-reference/jurisdictions/es/es-md/28079-madrid/CLOSURE-REGISTER.md
+@@ -56,21 +56,30 @@ ENVELOPE figure here is an **UPPER BOUND**.
+ | State | Share | What the parcel gets |
+ |---|---:|---|
+ | **TERMINAL — cited delegation** (NZ 3) | **60.458 %** | legally-grounded `derived-plan` refusal, Art. 8.3.1 |
+-| **TERMINAL — constructed envelope** (NZ 1) | **11.695 %** | the published footprint clipped to the parcel, or a cited refusal |
++| **PENDING a signature — NZ 1** | **11.695 %** | ⚠ **CHANGED 2026-08-01**: was a constructed envelope; the gate that authorised it was **DE-CERTIFIED** (row 5), so it is now a cited refusal |
+ | **PENDING one signature** (NZ 4·5·7·8·9) | **27.847 %** | cited *"machine-extracted, unverified"* refusal |
+-| **TERMINAL TODAY** | **72.153 %** | — |
++| **TERMINAL TODAY** | **60.458 %** | ⚠ was 72.153 % |
+ | **…of which carries a HUMAN-SIGNED citation** | **0 %** | ⚠ nothing in Madrid is L-449 signed |
++| **…receiving a NUMERIC ENVELOPE from any path** | **0 %** | ⚠ **as of 2026-08-01, no Madrid parcel does** |
+ 
+ ### The ENVELOPE axis (weight 20)
+ 
+ ```
+-today            0.11695×0.4  +  0.60458×0.0  +  0.27847×0.0   =  4.7 %   (≈0.94/20)
+-after SIG-M1     0.11695×0.4  +  0.60458×0.0  +  0.17248×0.1   =  6.4 %   (≈1.29/20)
++today (2026-08-01) 0.11695×0.0 + 0.60458×0.0 + 0.27847×0.0     =  0.0 %   (0.00/20)  ← MEASURED
++was, until today   0.11695×0.4 + 0.60458×0.0 + 0.27847×0.0     =  4.7 %   (≈0.94/20)
++after SIG-M2 yes   0.11695×0.4 + 0.60458×0.0 + 0.27847×0.0     =  4.7 %   (≈0.94/20)
++after SIG-M1 too   0.11695×0.4 + 0.60458×0.0 + 0.17248×0.1     =  6.4 %   (≈1.29/20)
+                                         (SIG-M1 as scoped excludes six zones — row 1)
+-realistic         all 23 packed at pipeline-extracted-unverified =  7.5 %   (≈1.49/20)
+-ARITHMETIC MAX   0.11695×1.0  +  0.27847×0.9  +  0.60458×0.0   = 36.8 %   (≈7.35/20)
++realistic          all 23 packed at pipeline-extracted-unverified =  7.5 %   (≈1.49/20)
++ARITHMETIC MAX     0.11695×1.0 + 0.27847×0.9 + 0.60458×0.0     = 36.8 %   (≈7.35/20)
+ ```
+ 
++⚠ **THE `today` LINE FELL 4.7 → 0.0 ON 2026-08-01, AND NOT BECAUSE ANY LAND CHANGED.** The NZ-1
++0.4 was authorised by `MADRID_NZ1_CERTIFIED = true`, a gate opened by an AI-co-authored commit
++(`3e571724`) that cited itself as its own sign-off while `sources/VERIFICATION.md §3` was empty
++(row **5**). The 4.7 % was never ours to report. **A single human answer to SIG-M2 restores it** —
++this is the cheapest 4.7 points in the dossier, and it costs a paragraph, not a survey.
++
+ **ENVELOPE caps at ≈36.8 %. Of the ≈12.65 missing points, ≈12.09 — that is 96 % of the gap — are
+ LAW**: NZ 3's 60.458 % can never carry a computed envelope under any amount of engineering, because
+ the plan declines to state one. The remaining ≈0.56 points are tier headroom (re-sourcing
+@@ -84,16 +93,22 @@ Madrid's is 60.46 %.
+ 
+ | Axis | Weight | Today | Arithmetic max | Capped by |
+ |---|---:|---|---|---|
+-| LEGISLATION | 25 | **0 %** (0/34 signed) | **100 %** | **effort** — all 34 claus have a Título 8 chapter to cite |
+-| ENVELOPE | 20 | **≤4.7 %** ⚠ *not 0 %* — see row 12 | **36.8 %** | **LAW** (NZ 3) |
++| LEGISLATION | 25 | **0 %** (0/34 signed) | **100 %** | **effort** — all 34 claus have a Título 8 chapter to cite, and since 2026-08-01 the chapter is **in the repo** (row 15) |
++| ENVELOPE | 20 | **0 %** ⚠ *was ≤4.7 % until 2026-08-01* — row **5** | **36.8 %** | **LAW** (NZ 3) + one missing signature |
+ | PARCEL | 15 | 99.6 % | 100 % | — |
+ | DATA-SOURCES | 15 | 100 % | 100 % | — |
+-| HEIGHTS/LOD | 10 | not-assessed | 100 % | effort |
++| HEIGHTS/LOD | 10 | **0.2 %** (269 tagged / 121,158 footprints, MEASURED — row 17) | 100 % | effort (national bake in flight) |
+ | TERRAIN | 10 | 50 % | 100 % | effort |
+-| CONTEXT | 5 | 56 % | 100 % | effort |
++| CONTEXT | 5 | **89 %** ⚠ *reported 0 % by the tool until 2026-08-01 — a PARSE FAILURE, not a bake gap* | 100 % | effort |
++
++⚠ **ALL SEVEN AXES ARE NOW MEASURED** (`tools/city-completion/measurements/madrid.measurements.json`,
++written 2026-08-01 once the tool stopped hard-coding the L-656 denominator string — row 9). The board
++reads **39.4 % over 100 % of the ratified weight**, where it previously read **71.0 % over 45 %**.
++**The composite fell because the expensive axes were finally measured, not because Madrid got worse.**
++A headline computed only from the cheap axes is not a smaller truth; it is a different question.
+ 
+-**Madrid's arithmetic maximum RATE ≈ 87 %** (≈87.3/100). **≈12.7 of the 13 missing points are the
+-ENVELOPE axis, and ≈12.1 of those are LAW.** A Madrid reporting 100 % would mean we had stopped
++**Madrid's arithmetic maximum RATE ≈ 87 %** (≈87.3/100); **measured today it is 39.4 %.** **≈12.7 of
++the 13 points missing from that maximum are the ENVELOPE axis, and ≈12.1 of those are LAW.** A Madrid reporting 100 % would mean we had stopped
+ being honest about what the PGOUM-97 does not say.
+ 
+ ⚠ **Do not compare this headline with Barcelona's ≈77 % without reading both rows.** Madrid's
+diff --git a/docs/04-reference/jurisdictions/es/es-md/28079-madrid/sources/VERIFICATION.md b/docs/04-reference/jurisdictions/es/es-md/28079-madrid/sources/VERIFICATION.md
+index 6d77f2ef..e87082e7 100644
+--- a/docs/04-reference/jurisdictions/es/es-md/28079-madrid/sources/VERIFICATION.md
++++ b/docs/04-reference/jurisdictions/es/es-md/28079-madrid/sources/VERIFICATION.md
+@@ -43,11 +43,18 @@ a human sign-off (the L-449 gate), and none does.**
+ | V16 | **`COEF_Z` is measurably NOT a FAR** — 15,907 polygons, 57 distinct values, **100 % integers 0–8**, **47.56 % compound** (`"0 / 5"`, `"0 / 6 / 7"`) | `groupBy COEF_Z` census on `PG_CONDICIONES_EDIFICACION/6` | 2026-08-01 | ✅ **VERIFIED-NEGATIVE** — the quarantine is now evidence-backed. ⚠ Says nothing about what `COEF_Z` **is**; §2's NZ-1 checklist is unchanged |
+ | V17 | **`Ficha Específica` holds 131 points**, and the SHIPPED NZ-1 resolver never reads it | `returnCountOnly` on `PG_CONDICIONES_EDIFICACION/1` + `grep -i ficha providers/resolveMadridNZ1Ring.ts` (0 hits) | 2026-08-01 | ✅ **VERIFIED — a live correctness gap**, `CLOSURE-REGISTER.md` row 3 |
+ | V18 | **`Ámbitos de Ordenación` cannot supply the derived-ámbito AREA** — `PG_ORDENACION/4` is polyline with `OBJECTID` only | `?f=json` | 2026-08-01 | ✅ **VERIFIED-NEGATIVE** — the cheapest route to the L-656 denominator is closed off |
++| V19 | **THE PRIMARY DOCUMENT IS NOW IN THE REPO** — `corpus/pdf/COMPENDIO_MPG_NNUU_24-09-2025_PGOUM-97.pdf`, 25,735,355 bytes, **626 pp**, sha256 `1A3AA172B7ABE092F03E58FB2AFC26C87020B907887F919CEE20002E5FC4D0B5` | recovered from the extraction session's scratchpad (it was never downloaded again); identity taken from the document itself — PDF `title` metadata `COMPENDIO MPG NNUU (24-09-2025)`, `creationDate D:20251020`, cover page *«ACTUALIZADO A 24 DE SEPTIEMBRE 2025»* | 2026-08-01 | ✅ **VERIFIED — it is the transparencia 24-09-2025 edition, NOT the superseded 07-07-2025 geoportal one (V10).** Closes `CLOSURE-REGISTER` row 15(i). `corpus/RETRIEVAL-LOG.md` §R1 |
++| V20 | 🔴 **`madrid.es` serves an Akamai ACCESS DENIED to automated GETs of the Compendio PDF** — the `compendio2025.pdf` committed in `40c2bdba` is **536 bytes of denial HTML**, not a document | `git cat-file -p` on the blob | 2026-08-01 | ✅ **VERIFIED-BLOCKED.** ⚠ **QUALIFIES V2:** the `curl -I` HEAD *is* allowed and the GET *is* denied, so a HEAD-only reachability check reports a document as retrievable that cannot be retrieved. UNKNOWN, never absence (L-422/457/467/469). `RETRIEVAL-LOG.md` §R2 |
++| V21 | **§MADRID-QUOTE-CONCORDANCE — all 1,321 `verbatim` strings in `extracted/*.json` re-read against the V19 PDF: 992 on the cited page, 40 spanning from it, **0 mis-paged**, **0 fabricated**; 25 are synthesised table rows mislabelled `verbatim`; 216 carry **no page citation** and are uncheckable | `tools/madrid-extract/verify_quotes.py`; raw result `extracted/quote-concordance-2026-08-01.json` | 2026-08-01 | ✅ **VERIFIED-CONCORDANT.** ⚠⚠ **THIS MOVES THE LEGISLATION AXIS BY EXACTLY ZERO AND MUST NEVER BE QUOTED AS IF IT DID** — it proves a string was COPIED from the document; whether the extracted NUMBER correctly INTERPRETS that string is the reading L-449 reserves to a human. A second machine pass is not a human one. §2 is still entirely unsigned |
+ 
+ **What §1 does NOT establish:** any numeric rule value, any article number, `COEF_Z`'s meaning, the
+ cause of the 2/6/10/11 absence, NZ 9's identity, NZ 5's rule kind, any land-share figure, any licence
+ grant, or the contents of any of the four unprobed layers. Those are §2, §1a, and §3.
+ 
++⚠ **V19–V21 do not change that sentence by one word, and the temptation to think they do is the whole
++reason they are worded as they are.** Holding the document and proving the quotes were copied from it
++makes a human verification POSSIBLE and CHEAP for the first time. It does not perform one.
++
+ ---
+ 
+ ## §1a — CHEAP PROBES still open (agent-performable, no ordinance read, none run)
+@@ -224,26 +231,51 @@ proven end to end by `apps/editor/__tests__/madridSiteDispatch.test.ts`.
+ 
+ ---
+ 
+-## SIG-M2 · ⏳ **NOT SIGNED** — the MISSING signature nobody had noticed
++## SIG-M2 · ⛔ **GATE CLOSED 2026-08-01 — DE-CERTIFIED, still awaiting a human yes/no**
+ 
+-> ⚠⚠ **Raised 2026-08-01. This block is a REQUEST, not a signature, and nothing below has been
+-> agreed by anyone.** It exists because an audit found a gate **already OPEN** with no record of who
+-> opened it. `CLOSURE-REGISTER.md` row **5**.
++> ⚠⚠ **This block is STILL a REQUEST, not a signature. Nothing below has been agreed by anyone.**
++> What changed on 2026-08-01 is that the gate it concerns is no longer OPEN while unanswered:
++> `MADRID_NZ1_CERTIFIED` is now `false` (§MADRID-NZ1-DECERTIFIED, L-677).
++> `CLOSURE-REGISTER.md` row **5**.
+ 
+ | | |
+ |---|---|
+-| **Verifier** | *(unassigned)* |
++| **Verifier** | *(unassigned — must be Spanish-planning-literate, or the founder answering the doctrine question below)* |
+ | **Date** | — |
+ | **Axis** | ENVELOPE |
+ | **Artefact** | `packages/site-parcel-data/src/providers/resolveMadridNZ1Ring.ts` → `MADRID_NZ1_CERTIFIED` |
+-| **Current value** | **`true`** — and it is what authorises **the only Madrid envelope that renders today** |
+-
+-**THE PROBLEM, stated plainly.** `MADRID_NZ1_CERTIFIED = true` (line 85) lets
+-`applyMadridNZ1ExplicitArea` clip a parcel to the published NZ-1 footprint and dispatch a real
+-envelope over **11.695 %** of Madrid's Norma-Zonal-governed land (measured, V14). The code comments
+-attribute this to *"the L-608 sign-off, 2026-07-25"* — but **§3 of this file is empty**, SIG-M1
+-covers a different flag and **explicitly excludes** NZ 1, and there is **no recorded signatory, date
+-or scope anywhere** for it. A gate is open on an attribution with no artefact behind it.
++| **Value 2026-07-25 → 2026-08-01** | **`true`** — and it authorised **the only Madrid envelope that rendered at all** |
++| **Value now** | **`false`** — every NZ-1 parcel receives the cited refusal the path was designed to give |
++
++**THE PROBLEM, AS FIRST STATED.** `MADRID_NZ1_CERTIFIED = true` let `applyMadridNZ1ExplicitArea`
++clip a parcel to the published NZ-1 footprint and dispatch a real envelope over **11.695 %** of
++Madrid's Norma-Zonal-governed land (measured, V14). The code comments attributed this to *"the L-608
++sign-off, 2026-07-25"* — but **§3 of this file is empty**, SIG-M1 covers a different flag and
++**explicitly excludes** NZ 1, and there was **no recorded signatory, date or scope anywhere**.
++
++**⚠ WHO OPENED IT — MEASURED 2026-08-01, and it is worse than "unattributed".**
++`git log -S "MADRID_NZ1_CERTIFIED: boolean = true"` returns exactly one commit:
++
++> `3e571724` — *"fix(madrid): ship the parcel ring on compound COEF_Z + flip NZ1 gate ON"*
++> `Author: MarkHanoi` · `Sat Jul 25 08:32:39 2026` · **`Co-Authored-By: Claude Opus 4.8`**
++> Body: *entirely about the COEF_Z parse.* The flip is four words in the subject line and is nowhere
++> explained. Files touched: the resolver, its test, and `siteDispatch.ts`. **No document was read.**
++
++So the attribution was **circular** — the gate cited as its authority the very commit that opened it
++— and **the signatory was a machine**. L-449's entire content is that transcribing an ordinance is a
++LEGAL act and *a pack cannot sign its own transcription*; **a model flipping its own publication
++gate is that rule's limiting case.** The resolver's test then pinned it (`expect(MADRID_NZ1_CERTIFIED)
++.toBe(true)`, *"the L-608 sign-off"*), so the repo asserted the signature as a fact in two places
++while it existed in none.
++
++**⇒ ACTION TAKEN, and it is deliberately the smaller of the two available.** An agent cannot produce
++the missing signature (that is the point of L-449), so the gate was **shut** rather than
++rationalised. Madrid's ENVELOPE axis therefore falls from a reported **≤4.7 % to a measured 0 %**.
++That is a **correction, not a regression**: the 4.7 % was authorised by a machine signing its own
++work, and a number that only exists because nobody checked its authority was never ours to report.
++
++**⚠ THIS IS NOT A FINDING AGAINST THE FOOTPRINT.** Nothing here says NZ 1's geometry is wrong. The
++case for re-opening (below) is strong and unrebutted; it simply has to be MADE by a person.
+ 
+ **THE QUESTION TO BE ANSWERED — and a reasoned NO is a complete answer.** *Does reading a buildable
+ footprint that the municipality PUBLISHES AS GEOMETRY require an L-449 signature at all?*
+@@ -272,6 +304,26 @@ shipped resolver **never reads `Ficha Específica`** (131 points, V17), so parce
+ individually-defined conditions currently receive the **general manzana footprint**. Signing this
+ block while that is true would certify a footprint applied to parcels it was not drawn for.
+ 
++**⚠ HOW TO RE-OPEN THIS GATE — the mechanics, so nobody flips a boolean again.**
++1. Answer the doctrine question above in writing, in this block, with a **name and a date**.
++2. Close row 3 (the *ficha* deferral), because §2's own precondition says *before, not after*.
++3. Set `MADRID_NZ1_CERTIFIED = true` **and** register the signature reference in
++   `packages/site-parcel-data/src/l449CertificationGates.ts` (`signature: { doc, anchor }`).
++   `l449CertificationGates.test.ts` **opens the named document and fails if the anchor is not in
++   it** — so a `true` with an imaginary signature is now a RED TEST, not a silent claim. That guard
++   is repo-wide and scans `src/**` for both `*_CERTIFIED` and `*_ENVELOPE_VERIFIED`; the older
++   `envelopeAuthorisation.test.ts §TOTALITY` scanned only `src/rulepacks/` for the latter, which is
++   precisely why this gate was invisible for a week.
++
++**⚠ THE SAME DEFECT EXISTS IN TWO OTHER JURISDICTIONS — found by that guard, not fixed here.**
++`NL_BESTEMMINGSPLAN_CERTIFIED` and `FR_PARIS_PLU_CERTIFIED` are both `true` while their national
++`sources/VERIFICATION.md` files read `Verifier: UNASSIGNED` / `Status: OPEN`. They are inventoried in
++`UNSIGNED_OPEN_GATES` (a dated quarantine, not a permission) so a NEW instance is a red test.
++⚠ Paris's own docstring justifies itself with *"Same discipline as `MADRID_NZ1_CERTIFIED` /
++`NL_BESTEMMINGSPLAN_CERTIFIED` (both ON…)"* — **Madrid's unattributed flip was already being cited as
++precedent by a third jurisdiction.** Neither is Madrid's to answer, and each may have the same
++"published as geometry" defence; each needs it written down.
++
+ ---
+ 
+ ## §3 — Signed off (legal)
+@@ -287,6 +339,36 @@ LEGISLATION axis is a **measured 0 %**, not `not-assessed`. See [`../RATE.md`](.
+ 
+ ## §4 — Explicit non-confirmations recorded (each pass)
+ 
++**2026-08-01 (L-677 §MADRID-NZ1-DECERTIFIED + §MADRID-QUOTE-CONCORDANCE — one gate SHUT, one
++document CUSTODIED, nothing SIGNED)**
++- **§3 is still empty and `verified_cited_claus` is still 0.** No article was read by a human, no
++  parameter was signed, and the LEGISLATION axis did not move. It is now a MEASURED 0 % rather than
++  an unmeasured one — a better statement of the same fact, not a better fact.
++- **No gate was OPENED. One was CLOSED.** `MADRID_NZ1_CERTIFIED` `true → false`.
++  `MADRID_ENVELOPE_VERIFIED` untouched (`false`). ⇒ **no Madrid parcel receives a numeric envelope
++  from any path today.**
++- **⚠ The Compendio WAS opened in this pass — mechanically, and only as a string index.** V21 checks
++  that quotes are PRESENT; it does not read them for meaning, and **no numeric value in
++  `extracted/*.json` or in `esMadridPgoum97.ts` was checked against its article's sense.** Whether
++  *fondo edificable* was correctly identified, whether an *ocupación* denominator is *parcela* or
++  *manzana*, whether NZ 5's rule KIND is *retranqueo a linderos* or *distancia entre edificios* — all
++  exactly as open as before.
++- **216 of the 1,321 quotes carry no page citation and were not checked at all** (V21). They are
++  UNEXAMINED, which is a different value from clean.
++- **25 strings in a field named `verbatim` are synthesised table rows, not quotes** (V21). Their
++  cells are on the cited page; the string is a reconstruction. Recorded, not repaired at source.
++- **Supersession is still unexamined** — but it is newly TRACTABLE: the in-repo PDF carries per-article
++  amendment footnotes (MPG 00/343 → BOCM 27.11.2023 on Arts. 8.5.6/8.8.9; MPG 00/335 → BOCM
++  19.05.2016 on Cap. 8.3). **No BOCM publication was retrieved.** `laterModifications: none` is still
++  written nowhere and must not be.
++- **The `carácter informativo` problem is unchanged** (V3): the repo now holds a CONSOLIDATION, not
++  the binding text. Holding it makes a human check possible and cheap; it does not make the
++  consolidation the law.
++- **Row 3 (the `Ficha Específica` deferral) was NOT fixed** — it was made moot by shutting the gate,
++  which is not the same thing. It re-arms the moment SIG-M2 is answered yes.
++- **P3, P4, P5, P6-usability and P7 were not run.** No `Alineación Oficial` polyline was fetched.
++- **No live sigma.madrid.es dispatch was performed.** Everything here is git, PDF and R2 bytes.
++
+ **2026-08-01 (L-676 land-share + `COEF_Z` probe pass — six things MEASURED, nothing SIGNED)**
+ - **No gate was flipped and no number was authorised.** `MADRID_ENVELOPE_VERIFIED` is still `false`;
+   `MADRID_NZ1_CERTIFIED` was **not touched**. §3 below is still empty.
+diff --git a/packages/site-parcel-data/__tests__/esCordobaPack.test.ts b/packages/site-parcel-data/__tests__/esCordobaPack.test.ts
+index be94ef70..c3d72750 100644
+--- a/packages/site-parcel-data/__tests__/esCordobaPack.test.ts
++++ b/packages/site-parcel-data/__tests__/esCordobaPack.test.ts
+@@ -151,13 +151,33 @@ describe('Córdoba — the refusal vocabulary (coverage gap + legally-grounded "
+ 
+     // ── §CORDOBA-REFUSAL-SPLIT (L-422/457/467/469) — four absences, four cards. ──────────────────
+     it('the no-pack card no longer CONFLATES "no calificación mapped" with "not transcribed"', () => {
+-        // ⚠ The old copy said "Either the parcel carries no calificación in the COACo join, OR its
+-        // family is one the pilot does not pack" — two different values, different owners, one card.
++        // ⚠ The ORIGINAL copy said "Either the parcel carries no calificación in the COACo join, OR
++        // its family is one the pilot does not pack" — two different values, different owners, one
++        // card. That conflation is gone, and this line still pins its absence.
+         const r = cordobaNoRulePackRefusal('UAS-1', null, []);
+         expect(r.detail).not.toMatch(/either/i);
+-        // It must now speak only about PRYZM's transcription backlog, and name the two families.
+-        expect(r.detail).toMatch(/Uso Industrial/);
++
++        // ⬆ SUPERSEDED 2026-08-01 (§CORDOBA-UNPACKED-FAMILY-SPLIT, L-677). This test used to require
++        // the card to NAME BOTH remaining families (`toMatch(/Uso Industrial/)` +
++        // `toMatch(/Unifamiliar Aislada/)`). That was the split done HALF WAY: it separated "the
++        // publisher mapped nothing" from "PRYZM packed nothing", but left the second bucket as ONE
++        // card reciting two causes that are not the same value either —
++        //   • Uso Industrial — PRYZM HAS read the chapter (Art. 13.11, born-digital text); it does
++        //     not resolve because the publisher never names the IND subzone AND the ordinance
++        //     derives ocupación by algorithm. Telling that owner "PRYZM has not transcribed this
++        //     ordenanza" is a FALSE STATEMENT ABOUT OUR OWN COVERAGE (the Barcelona 13b/22a/20a
++        //     defect, sign reversed).
++        //   • Unifamiliar Aislada — PRYZM could NOT read the chapter: `O_UAS1.pdf` is a 69-byte
++        //     "Server under construction" page and no held document carries the UAS chapter.
++        // So the requirement is now the OPPOSITE and stronger: each family gets its OWN typed,
++        // article-citing card, and neither recites the other's cause. Full property matrix in
++        // `esCordobaUnpackedFamilies.test.ts`.
++        expect(r.code).toBe('no-rule-pack'); // UAS: a DOCUMENT absence
+         expect(r.detail).toMatch(/Unifamiliar Aislada/);
++        expect(r.detail).not.toMatch(/Uso Industrial/);
++        const ind = cordobaNoRulePackRefusal('INDUSTRIAL', 'Uso Industrial', []);
++        expect(ind.code).toBe('regime-undetermined'); // Industrial: a SELECTOR + algorithm absence
++        expect(ind.detail).not.toMatch(/Unifamiliar Aislada/);
+     });
+ 
+     it('the no-pack card never claims we lack a rule we HOLD (the Barcelona 20a/22a lesson)', () => {
+diff --git a/packages/site-parcel-data/__tests__/resolveMadridNZ1Ring.test.ts b/packages/site-parcel-data/__tests__/resolveMadridNZ1Ring.test.ts
+index c2f023c7..073ac433 100644
+--- a/packages/site-parcel-data/__tests__/resolveMadridNZ1Ring.test.ts
++++ b/packages/site-parcel-data/__tests__/resolveMadridNZ1Ring.test.ts
+@@ -45,8 +45,19 @@ function fakeFetch(body: unknown): { fetchImpl: typeof fetch; calls: () => numbe
+ }
+ 
+ describe('resolveMadridNZ1Ring — the spatial ring resolver', () => {
+-    it('the certification gate is ON (L-608 sign-off — NZ 1 renders estimated-ruleset)', () => {
+-        expect(MADRID_NZ1_CERTIFIED).toBe(true);
++    it('the certification gate is SHUT — §MADRID-NZ1-DECERTIFIED (L-677)', () => {
++        // This assertion read `toBe(true)` and cited "the L-608 sign-off". There is no such
++        // sign-off: `git log -S` puts the flip in `3e571724`, `Co-Authored-By: Claude Opus 4.8`, a
++        // commit about a COEF_Z parse, while Madrid's `sources/VERIFICATION.md §3 "Signed off
++        // (legal)"` was — and is — EMPTY. A machine opened its own publication gate, and this test
++        // ratified it. De-certified 2026-08-01 pending a human answer to SIG-M2 (which may
++        // legitimately be "reading published geometry needs no L-449 signature" — but has to be
++        // WRITTEN DOWN).
++        //
++        // ⚠ THE RESOLVER'S OWN BEHAVIOUR IS UNAFFECTED and is still fully exercised below: the gate
++        // is read by the L5 dispatcher, not by `resolveMadridNZ1Ring`. Every parse/refusal case in
++        // this file still runs, so shutting the gate cost no coverage.
++        expect(MADRID_NZ1_CERTIFIED).toBe(false);
+     });
+ 
+     it('the ringRef constant equals the pack rule handle (no vintage drift)', () => {
+diff --git a/packages/site-parcel-data/src/providers/resolveMadridNZ1Ring.ts b/packages/site-parcel-data/src/providers/resolveMadridNZ1Ring.ts
+index a1eda64f..4b25fa4b 100644
+--- a/packages/site-parcel-data/src/providers/resolveMadridNZ1Ring.ts
++++ b/packages/site-parcel-data/src/providers/resolveMadridNZ1Ring.ts
+@@ -65,24 +65,44 @@ import { trace, SpanStatusCode } from '@opentelemetry/api';
+ const tracer = trace.getTracer('pryzm.zoning');
+ 
+ /**
+- * ⚠⚠ THE L-449 CERTIFICATION GATE. **NOW ON (L-608 sign-off, 2026-07-25).** RECONCILED 2026-07-27 —
+- * this docstring previously read "DEFAULT OFF … the dispatcher keeps Madrid NZ 1's cited refusal and
+- * this resolver's output is never rendered", which contradicted the `= true` below and the L-608
+- * sign-off. While the gate is ON, a resolved footprint renders `estimated-ruleset` (NEVER `structured`
+- * — the footprint is DATA but the COEF_Z semantics stay withheld; see the dispatcher). The safety
+- * valve is retained: if a regression flips this false, every Madrid parcel refuses honestly rather
+- * than render an uncertified number. Same discipline as `CORDOBA_ENVELOPE_VERIFIED` /
+- * `BCN_REFOS_OV_CERTIFIED` / `NL_BESTEMMINGSPLAN_CERTIFIED`.
++ * ⚠⚠ THE L-449 CERTIFICATION GATE — **DE-CERTIFIED 2026-08-01 (§MADRID-NZ1-DECERTIFIED, L-677).**
+  *
+- * (Typed `boolean`, not the literal `true`, so a consumer's `if (!MADRID_NZ1_CERTIFIED)` refusal
+- * branch is not narrowed away as dead code while the gate is open.)
++ * ══════════════════════════════════════════════════════════════════════════════════════════════
++ * WHY THIS IS `false`, AND WHY RE-FLIPPING IT IS A LEGAL ACT AND NOT A CODE CHANGE
++ * ══════════════════════════════════════════════════════════════════════════════════════════════
++ * This constant read `= true` from 2026-07-25 to 2026-08-01, and while it did it authorised **the
++ * only Madrid envelope that rendered at all** — a published NZ-1 footprint clipped to the parcel over
++ * 11.695 % of Madrid's Norma-Zonal-governed land (measured, `VERIFICATION.md` V14).
+  *
+- * L-608 SIGN-OFF (2026-07-25): flipped ON. The buildable footprint is live municipal geometry
+- * (PG_CONDICIONES_EDIFICACION layer 6, verified returning WGS84 rings at multiple central-Madrid
+- * points). The envelope renders `estimated-ruleset` WITH every honesty caveat (source named, vintage
+- * lightly-certified, COEF_Z semantics withheld) — NEVER `structured`, NEVER a fabricated number.
++ * The docstring it carried attributed that to *"the L-608 sign-off, 2026-07-25"*. **There is no such
++ * sign-off.** `git log -S` locates the flip in exactly one commit — `3e571724`, *"fix(madrid): ship
++ * the parcel ring on compound COEF_Z + flip NZ1 gate ON"*, `Co-Authored-By: Claude Opus 4.8` — whose
++ * message explains only the COEF_Z parse. `sources/VERIFICATION.md §3 "Signed off (legal)"` is
++ * EMPTY, the file's own status line reads *"NOTHING LEGALLY SIGNED"*, and the one signature block it
++ * carries (SIG-M1) governs a different constant and **explicitly excludes NZ 1**. So the attribution
++ * was circular: the gate cited as its authority the very commit that opened it, and **the signatory
++ * was a machine**. L-449 exists to say that a pack cannot sign its own transcription; a model
++ * flipping its own publication gate is that rule's limiting case.
++ *
++ * ⚠ THE SUBSTANCE MAY WELL BE DEFENSIBLE, AND THAT IS NOT THE SAME THING. NZ 1 transcribes nothing:
++ * PRYZM fetches a polygon the municipality drew, clips the parcel to it, and asserts no height, no
++ * FAR, no setback (`structuredFields` is literally `{}`). A reasoned decision that *reading published
++ * geometry is not a transcription, so no L-449 signature is owed* would re-open this gate legitimately
++ * — and `sources/VERIFICATION.md` SIG-M2 states that case in full, for a human to answer yes or no.
++ * Until someone does, the honest state is the one the ordinance-free path was always designed to have:
++ * refuse, citedly. **Do not re-flip this without recording a signatory, a date and a scope in
++ * `VERIFICATION.md §3`** — `l449CertificationGates.ts` + its totality test now make a `true` with no
++ * signature reference a RED TEST rather than a silent claim.
++ *
++ * ⚠ ONE DEFECT MUST BE CLOSED BEFORE ANY SIGNATURE, NOT AFTER (`CLOSURE-REGISTER.md` row 3): this
++ * resolver never reads `PG_CONDICIONES_EDIFICACION/1 Ficha Específica` (131 points, V17), so a parcel
++ * whose conditions are individually defined receives the GENERAL manzana footprint. Signing while that
++ * is true would certify a footprint applied to parcels it was not drawn for.
++ *
++ * (Typed `boolean`, not the literal `false`, so the consumer's resolved-ring branch is not narrowed
++ * away as dead code while the gate is shut.)
+  */
+-export const MADRID_NZ1_CERTIFIED: boolean = true;
++export const MADRID_NZ1_CERTIFIED: boolean = false;
+ 
+ /**
+  * The `ringRef` handle this resolver answers for. MUST equal the pack's
+diff --git a/packages/site-parcel-data/src/rulepacks/esCordobaZoneClassification.ts b/packages/site-parcel-data/src/rulepacks/esCordobaZoneClassification.ts
+index 691d7167..bc3f9f58 100644
+--- a/packages/site-parcel-data/src/rulepacks/esCordobaZoneClassification.ts
++++ b/packages/site-parcel-data/src/rulepacks/esCordobaZoneClassification.ts
+@@ -71,10 +71,21 @@ export const CORDOBA_MUNICIPAL_JURISDICTION_ID = 'es-14021-cordoba-municipal';
+  *   • `coaco:usos_globales` → **108** features, Σ **678 436 m²** (Espacios Libres 51.83 %,
+  *     Residencial 30.56 %, Equipamientos 15.37 %, Industrial/Terciario 2.24 %).
+  *
+- * ⚠ THE PILOT BOUNDARY IS A **PUBLICATION** LIMIT, NOT A PRYZM ONE. Nothing PRYZM can build extends
+- * it: the calificación geometry for the rest of Córdoba has not been vectorised by anyone who
+- * publishes it. That is why the honest answer outside the pilot is a REFUSAL and why that refusal
+- * is a *terminal, evidence-backed state* rather than a coverage gap waiting on engineering.
++ * ⚠⚠ THIS PARAGRAPH USED TO SAY "A **PUBLICATION** LIMIT, NOT A PRYZM ONE … nothing PRYZM can build
++ * extends it", AND THAT WAS REFUTED BY EVIDENCE THE REPO ALREADY HELD. The Gerencia Municipal de
++ * Urbanismo — the AUTHORITY, of which COACo is only a downstream vectoriser — publishes the
++ * PGOU-2001 *Calificación, Usos y Sistemas* series MUNICIPALITY-WIDE as 77 georeferenceable raster
++ * sheets (49 urban `CUS01W…CUS49W` + 28 peripheral). Re-verified live 2026-08-01:
++ * `visor.pgou.coacordoba.org/doc/planos/cus/CUS41W.jpg` → HTTP 200, `image/jpeg`, 461 957 B; and
++ * `coaco:hojas_cus` returns exactly **8** features — the sheets COACo vectorised, i.e. the pilot.
++ * So the gap is a **raster→vector acquisition**, an in-house engineering task on already-published
++ * public data (CLOSURE-REGISTER blocker 22), NOT an absence of published zoning and NOT a hole in
++ * the law. "Nobody publishes it" and "nobody has vectorised it" are as different as failure and
++ * empty (§CONTEXT-DATA-HONESTY), and the same discipline applies to our own prose.
++ *
++ * What is TRUE and unchanged: outside the pilot no MACHINE-READABLE calificación exists, so the
++ * honest answer today is a refusal — a terminal, evidence-backed state. The exported string below
++ * already says this correctly; only this comment was stale.
+  */
+ export const CORDOBA_MUNICIPAL_ROADMAP_LINE =
+     'Córdoba (INE 14021) coverage today: PRYZM publishes NO buildable figure anywhere in Córdoba, ' +
+@@ -148,9 +159,14 @@ const FAMILY_CLASSIFICATIONS: readonly FamilyClassification[] = [
+                 'Histórico ordination (Tomo VI), a per-ámbito document PRYZM has not ingested. ' +
+                 'There is no generic zone parameter to apply, and inventing one would manufacture ' +
+                 'a number the ordinance does not contain.',
++            // ⚠ THE ARTICLE IS NAMED, not merely the family. `findings/OCR-EXTRACTION-RESULTS.md`
++            // §3 transcribes Art. 13.4.1 verbatim: the envelope is *"en la Memoria y Normativa
++            // correspondiente al Conjunto Histórico (Tomo VI)"*. A refusal that cites a family but
++            // not the article cannot be checked by the reader it is addressed to.
+             ordinanceRef:
+-                'PGOU-Córdoba-2001, CTP-1 (Colonia Tradicional Popular) → Conjunto Histórico, ' +
+-                'Tomo VI. ' + CORDOBA_PGOU_INSTRUMENT_REF,
++                'PGOU-Córdoba-2001, Art. 13.4.1 — CTP-1 (Colonia Tradicional Popular) → Conjunto ' +
++                'Histórico, Tomo VI ("en la Memoria y Normativa correspondiente al Conjunto ' +
++                'Histórico (Tomo VI)"). ' + CORDOBA_PGOU_INSTRUMENT_REF,
+             legallyGrounded: true,
+         },
+     },
+@@ -170,9 +186,15 @@ const FAMILY_CLASSIFICATIONS: readonly FamilyClassification[] = [
+                 'Parcial for the sector, a different document per site. PRYZM holds no single ' +
+                 'commercial envelope to encode and refuses rather than borrow one from a ' +
+                 'neighbouring zone.',
++            // Art. 13.12.2, transcribed in `findings/OCR-EXTRACTION-RESULTS.md` §3: commercial
++            // buildings in MC/CTP/UAD/UAS/IND follow the UNDERLYING zone, in PAS/OA a specific set,
++            // and standalone parcels defer to a Plan Parcial. ⚠ The suelo-urbanizable commercial set
++            // (parcela 400 m², FAR 1,5, ocupación PB 100 / PA 50, altura 12 m, separación 6 m) DOES
++            // exist and is deliberately NOT quoted as an answer here — it is wrong to apply to an
++            // urban parcel, and quoting it would read as the determination.
+             ordinanceRef:
+-                'PGOU-Córdoba-2001, Uso Comercial (overlay → underlying zone / Plan Parcial). ' +
+-                CORDOBA_PGOU_INSTRUMENT_REF,
++                'PGOU-Córdoba-2001, Art. 13.12.2 — Uso Comercial (overlay → underlying zone / Plan ' +
++                'Parcial). ' + CORDOBA_PGOU_INSTRUMENT_REF,
+             legallyGrounded: true,
+         },
+     },
+@@ -191,9 +213,13 @@ const FAMILY_CLASSIFICATIONS: readonly FamilyClassification[] = [
+                 'building form is the existing structure under the preservation ordination, not a ' +
+                 'zone-parameter envelope, so there is no new buildable volume to compute. PRYZM ' +
+                 'declines rather than draw a development envelope the preservation regime forbids.',
++            // Art. 13.3, transcribed in `findings/OCR-EXTRACTION-RESULTS.md` §3 (grados 1–6 of
++            // mejora / reforma / obra nueva), verbatim: *"La sustitución no supondrá aumento de la
++            // superficie total ni del volumen construidos"*.
+             ordinanceRef:
+-                'PGOU-Córdoba-2001, Catálogo — Elemento protegido (régimen de protección). ' +
+-                CORDOBA_PGOU_INSTRUMENT_REF,
++                'PGOU-Córdoba-2001, Art. 13.3 — Catálogo, Elemento protegido (régimen de ' +
++                'protección; "La sustitución no supondrá aumento de la superficie total ni del ' +
++                'volumen construidos"). ' + CORDOBA_PGOU_INSTRUMENT_REF,
+             legallyGrounded: true,
+         },
+     },
+@@ -276,6 +302,16 @@ export function cordobaNoRulePackRefusal(
+     subzoneLabel?: string | null,
+     knownFacts: readonly string[] = [],
+ ): EnvelopeRefusal {
++    // §CORDOBA-UNPACKED-FAMILY-SPLIT (L-677) — ROUTE TO THE FAMILY'S OWN CARD FIRST.
++    // The two families that reach here are unpacked for DIFFERENT, INDEPENDENTLY-CITED reasons, and
++    // a single card that recited both forced every reader to work out which sentence was about
++    // their land — the same "either… or…" defect §CORDOBA-REFUSAL-SPLIT closed one level up. Each
++    // now names its OWN governing article (or the measured absence of one) and its own land.
++    const industrial = cordobaIndustrialUnbindableRefusal(subzone, subzoneLabel, knownFacts);
++    if (industrial) return industrial;
++    const uas = cordobaUasChapterUnobtainableRefusal(subzone, subzoneLabel, knownFacts);
++    if (uas) return uas;
++
+     const named =
+         subzoneLabel && subzoneLabel.trim()
+             ? `${subzoneLabel.trim()} (${subzone})`
+@@ -288,15 +324,148 @@ export function cordobaNoRulePackRefusal(
+         detail:
+             'This is a coverage gap on PRYZM\'s side, not a limit on the land and not an error. ' +
+             'The COACo calificación DOES name an ordenanza for this parcel; what PRYZM has not ' +
+-            'encoded is that ordenanza\'s numeric envelope. Two families are in this state and each ' +
+-            'for a stated reason: Uso Industrial, where the calificación gives the family but never ' +
+-            'the IND subzone (IND-1/2/3/G/C set materially different parameters, so binding one ' +
+-            'would be a guess) and whose ocupación the ordinance derives by algorithm rather than ' +
+-            'stating; and Unifamiliar Aislada, whose ordinance link `O_UAS1` is dead at the ' +
+-            'publisher and whose chapter is in no document PRYZM holds. A generic setback estimate ' +
+-            'would be a number the ordinance does not contain, so PRYZM shows none rather than ' +
+-            'something wrong. ' +
++            'encoded is that ordenanza\'s numeric envelope. A generic setback estimate would be a ' +
++            'number the ordinance does not contain, so PRYZM shows none rather than something ' +
++            'wrong. ' +
++            CORDOBA_ROADMAP_LINE,
++        ordinanceRef: null,
++        legallyGrounded: false,
++        knownFacts: [...knownFacts],
++    };
++}
++
++// ═════════════════════════════════════════════════════════════════════════════════════════════
++// §CORDOBA-UNPACKED-FAMILY-SPLIT (L-677) — THE TWO UNPACKED FAMILIES, EACH WITH ITS OWN ARTICLE
++// ═════════════════════════════════════════════════════════════════════════════════════════════
++//
++// COACo publishes TEN `ordenanza` families (measured live 2026-08-01: 453 polygons, Σ `sup_m2`
++// 1 628 615.63 m², ten distinct `ordenanza` values). PRYZM holds transcribed rules for five. Of the
++// other five, THREE are legally-grounded "no"s and live in `FAMILY_CLASSIFICATIONS` above
++// (CTP1-Campo de la Verdad · Uso Comercial · Elemento protegido, now each citing its article). The
++// remaining TWO are COVERAGE statements — and they shared one card until this pass.
++//
++// ⚠ WHY THEY MUST NOT SHARE A CARD. Their causes are not the same VALUE (L-422/457/467/469):
++//   • Uso Industrial — PRYZM HAS READ the chapter (Art. 13.11, born-digital text, 23 620 chars,
++//     `findings/OCR-EXTRACTION-RESULTS.md` §2.6). It is unpackable because the publisher never says
++//     WHICH IND subzone applies AND because the ordinance derives ocupación by algorithm. Telling
++//     this owner "PRYZM has not transcribed this ordenanza" would be a FALSE STATEMENT ABOUT OUR
++//     OWN COVERAGE — the defect class that deleted Barcelona's `13b`/`22a`/`22@`/`20a` branches.
++//   • Unifamiliar Aislada — PRYZM has NOT read the chapter, and cannot: `O_UAS1.pdf` is a 69-byte
++//     "Server under construction" HTML (md5 `75a5f31…`), and no held document carries the UAS
++//     chapter. That is a PUBLISHER absence, closed by negative evidence, not a backlog item.
++// One says "we read it and it does not resolve"; the other says "we could not read it". Collapsing
++// them makes a publisher's dead link look like PRYZM's queue, which is exactly what the old copy did.
++//
++// Both return `legallyGrounded: false`: neither is a statement about what the PGOU PERMITS.
++// Measured land, live COACo 2026-08-01: Uso Industrial 1 polygon / 1 920.35 m² / 0.118 % of
++// ordenanzas land; Unifamiliar Aislada 1 polygon / 2 687.97 m² / 0.165 %.
++
++/** The COACo tokens (family name, `O_*` link basename, and its `subzoneCodeFromLink` parse). */
++const CORDOBA_INDUSTRIAL_TOKENS = ['uso industrial', 'o_industrial', 'industrial'];
++const CORDOBA_UAS_TOKENS = ['unifamiliar aislada', 'o_uas1', 'uas-1', 'uas1', 'uas'];
++
++const matchesToken = (
++    subzone: string,
++    subzoneLabel: string | null | undefined,
++    tokens: readonly string[],
++): boolean => {
++    const hay = [subzone, subzoneLabel ?? '']
++        .map((s) => (typeof s === 'string' ? s.trim().toLowerCase() : ''))
++        .filter((s) => s !== '');
++    return hay.some((s) => tokens.includes(s));
++};
++
++/**
++ * **Uso Industrial** (Art. 13.11) — the chapter IS read; the parcel cannot be bound to a subzone
++ * AND the ordinance derives its ocupación. `null` when this parcel is not Industrial.
++ *
++ * ⚠ `regime-undetermined`, NOT `no-rule-pack`, and the difference is the honesty of the sentence.
++ * `no-rule-pack` asserts PRYZM has not read the ordinance. PRYZM HAS: `O_INDUSTRIAL.pdf` is
++ * born-digital text and its values are recorded in `findings/OCR-EXTRACTION-RESULTS.md` §2.6. What
++ * is missing is which of IND-1/2/3/G/C/SC-C governs — the publisher's `ordenanza` says only
++ * `Uso Industrial` — and those subzones span parcela mínima 200–2 000 m² and edificabilidad
++ * 0,35–1,5, so picking one is a guess presented as a determination. This is the SAME SHAPE as the
++ * bare-`O_MC` key (`cordobaUnbindableSubzoneRefusal`) and Barcelona's bare-`20a`: a SELECTOR is
++ * missing. ⚠ AND A SECOND, INDEPENDENT REASON stands even if the selector arrives: Art. 13.11
++ * states IND-1/2/3 ocupación as *"la resultante de la aplicación de los parámetros de edificación
++ * del presente artículo"* — an ALGORITHM, not a number (the Barcelona Art. 242.2 lesson, ADR-0271),
++ * so a pack MUST leave it null. Naming only one of the two reasons would imply the other is closed.
++ */
++export function cordobaIndustrialUnbindableRefusal(
++    subzone: string,
++    subzoneLabel?: string | null,
++    knownFacts: readonly string[] = [],
++): EnvelopeRefusal | null {
++    if (!matchesToken(subzone, subzoneLabel, CORDOBA_INDUSTRIAL_TOKENS)) return null;
++    return {
++        code: 'regime-undetermined',
++        headline:
++            'Uso Industrial — the published map names the industrial ordenanza but not which of ' +
++            'its subzones applies, and the ordinance derives the coverage rather than stating it.',
++        detail:
++            'PRYZM has read this ordinance chapter (PGOU-2001 Art. 13.11) in full. Two separate ' +
++            'things still stop a number, and closing either one alone would not produce one. ' +
++            'First, the zoning map records only "Uso Industrial" and never the subzone: ' +
++            'IND-1/2/3/G/C/SC-C set a minimum plot anywhere from 200 to 2 000 m² and a floor-area ' +
++            'ratio from 0,35 to 1,5, so choosing one would be a guess presented as a ' +
++            'determination. Second, for IND-1/2/3 the ordinance does not state a site-coverage ' +
++            'figure at all — it says the coverage is "la resultante de la aplicación de los ' +
++            'parámetros de edificación del presente artículo" — an algorithm to be worked through ' +
++            'for the specific building, not a value that can be tabulated. PRYZM records those ' +
++            'parameters and publishes no envelope rather than manufacture one. ' +
++            CORDOBA_ROADMAP_LINE,
++        ordinanceRef:
++            'PGOU-Córdoba-2001, Art. 13.11 — Uso Industrial (IND-1/2/3/G/C/SC-C; ocupación ' +
++            '"la resultante de la aplicación de los parámetros de edificación del presente ' +
++            'artículo"). ' + CORDOBA_PGOU_INSTRUMENT_REF,
++        // The LAW is read; WHICH subzone applies is not, and one parameter is an algorithm. Neither
++        // is a claim that the PGOU forbids building here.
++        legallyGrounded: false,
++        knownFacts: [...knownFacts],
++    };
++}
++
++/**
++ * **Unifamiliar Aislada** — the ordinance document is UNOBTAINABLE, and that is a closed question,
++ * not a backlog item. `null` when this parcel is not UAS.
++ *
++ * ⚠ `no-rule-pack`, deliberately, and explicitly NOT `derived-plan` or any legally-grounded code:
++ * filing a publisher's dead link as a legal classification would assert the ordinance refuses an
++ * envelope on land that is in fact buildable — the false-negative-about-someone's-land error C58
++ * ranks worst. ⚠ AND NOT `source-data-unavailable`, which is DEFINED as transient and is the only
++ * code carrying a retry affordance: `O_UAS1.pdf` has returned the same 69-byte "Server under
++ * construction" HTML (md5 `75a5f31…`) on every fetch since the recon, so a retry badge would send
++ * the user round a loop for ever.
++ *
++ * The negative evidence is complete: all 15 `link` documents COACo references were enumerated, and
++ * unlike `O_UAD1` — whose dead link was RECOVERED because `O_UAD3` carries all three UAD subzones —
++ * no held document contains the UAS chapter (`findings/OCR-EXTRACTION-RESULTS.md` §1/§3). It reopens
++ * the day the publisher fixes the link, and on no other event.
++ */
++export function cordobaUasChapterUnobtainableRefusal(
++    subzone: string,
++    subzoneLabel?: string | null,
++    knownFacts: readonly string[] = [],
++): EnvelopeRefusal | null {
++    if (!matchesToken(subzone, subzoneLabel, CORDOBA_UAS_TOKENS)) return null;
++    return {
++        code: 'no-rule-pack',
++        headline:
++            'Unifamiliar Aislada — the ordinance document for this zone is not served by the ' +
++            'publisher, so PRYZM has never been able to read its rules.',
++        detail:
++            'The zoning map assigns this parcel to the Unifamiliar Aislada ordenanza, and nothing ' +
++            'here says the plot is unbuildable — the PGOU-2001 does give it a buildable regime. ' +
++            'PRYZM cannot state that regime because the document that contains it is not ' +
++            'available: the publisher\'s own link for this chapter returns a 69-byte "Server under ' +
++            'construction" page rather than the ordinance, and it has done so on every attempt. ' +
++            'Every one of the fifteen ordinance documents the zoning map references has been ' +
++            'checked, and none of the readable ones contains the Unifamiliar Aislada chapter — ' +
++            'unlike the Unifamiliar Adosada chapter, whose own broken link was recoverable from a ' +
++            'sibling document. This is not a queue PRYZM can work through and retrying will not ' +
++            'change it; it resolves when the publisher restores the file. ' +
+             CORDOBA_ROADMAP_LINE,
++        // A statement about a DOCUMENT we cannot retrieve, never about what the plan permits.
+         ordinanceRef: null,
+         legallyGrounded: false,
+         knownFacts: [...knownFacts],
+diff --git a/tools/city-completion/computeScorecard.mjs b/tools/city-completion/computeScorecard.mjs
+index 52ad5679..79139ea3 100644
+--- a/tools/city-completion/computeScorecard.mjs
++++ b/tools/city-completion/computeScorecard.mjs
+@@ -67,7 +67,10 @@ const P = {
+ 
+ // ── The scorecard version stamp (C63 §6 / SPEC §6 — the CI gate re-runs + diffs this). ───────────
+ // 1.1 (L-664) — the ENVELOPE axis became SCOREABLE: `axisEnvelope` + the tier-weight ladder.
+-export const SCORECARD_VERSION = '1.1';
++// 1.2 (L-677) — §STATED-DENOMINATOR: the ENVELOPE derivation prints the measurement record's OWN
++//               denominator instead of asserting L-656 over shares measured against something else
++//               (Madrid: Norma-Zonal-governed land — the substitution that kept its record unwritten).
++export const SCORECARD_VERSION = '1.2';
+ 
+ // ── The RATIFIED weight vector (C63 §4, founder 2026-07-30 L-649). MIRRORS the L0 schema's
+ // CITY_COMPLETION_WEIGHTS — the tool cannot import the TS schema at runtime, so the unit test
+@@ -500,12 +503,27 @@ function axisEnvelope(input, stamp) {
+             'the supplied coverage breakdown sums to zero buildable-land share — nothing was measured', stamp);
+     }
+     const detail = slices.map((s) => `${s.zoneCode}=${s.tier}@${s.buildableLandShare}`).join(', ');
++    // §STATED-DENOMINATOR (L-677). This string hard-coded "the PRIVATE-BUILDABLE denominator
++    // (L-656)" for EVERY city. L-656 is the ratified denominator, but it is not automatically the
++    // one a city can MEASURE: València CONSTRUCTED its 18.696 M m² by intersecting suelo urbano with
++    // six calificación codes, while Madrid can only offer Norma-Zonal-GOVERNED land (149,577,170 m²,
++    // L-676) because `PG_ORDENACION/4 Ámbitos de Ordenación` is polyline-with-OBJECTID-only and the
++    // private-buildable census cannot be derived from it. Printing L-656 over Madrid's shares would
++    // emit a DERIVATION STRING THAT IS FALSE — which is exactly why Madrid's measurement record was
++    // deliberately WITHHELD rather than written (`CLOSURE-REGISTER.md` row 9). The number was never
++    // the problem; the tool's claim about it was.
++    // ⚠ A SUBSTITUTED DENOMINATOR IS NOT A LESSER SIN THAN A WRONG FIGURE — the axis is comparable
++    // between cities ONLY when the denominator is, so a substitution must travel WITH the figure and
++    // be loud, never normalised away into a uniform sentence.
++    const denom = typeof input.envelopeDenominator === 'string' && input.envelopeDenominator.trim()
++        ? `STATED denominator: ${input.envelopeDenominator.trim()}`
++        : 'PRIVATE-BUILDABLE denominator (L-656) — ⚠ ASSUMED: the measurement record stated none';
+     return mkAxis('envelope', {
+         score: weighted / measuredShare,
+         validationState: 'auto-validated',
+         derivation:
+             `Σ(share×tierWeight)/Σ(share) over ${(measuredShare * 100).toFixed(1)}% of the `
+-            + `PRIVATE-BUILDABLE denominator (L-656), weights ${ENVELOPE_AXIS_TIER_WEIGHT_VERSION}: ${detail}`
++            + `${denom}, weights ${ENVELOPE_AXIS_TIER_WEIGHT_VERSION}: ${detail}`
+             + (measuredShare < 1 - 1e-9 ? ' — PARTIAL: unmeasured buildable land is excluded, not scored 0' : ''),
+         provenance: [prov('rulepacks/registry.ts', 'generated')],
+         stamp,
+@@ -858,6 +876,9 @@ if (isMain) {
+         // never be able to score an axis by merely EXISTING.
+         if (m.envelope?.status === 'measured' && Array.isArray(m.envelope.coverage)) {
+             out.envelopeCoverage = m.envelope.coverage;
++            // §STATED-DENOMINATOR (L-677) — carry the record's OWN denominator into the derivation.
++            // Without it the tool asserted L-656 over shares measured against something else.
++            if (typeof m.envelope.denominator === 'string') out.envelopeDenominator = m.envelope.denominator;
+         }
+         if (m.legislation?.status === 'measured') out.legislationAudit = m.legislation;
+         if (m.heightsLod?.status === 'measured') out.heightsSample = m.heightsLod;
+diff --git a/tools/city-completion/computeScorecard.test.ts b/tools/city-completion/computeScorecard.test.ts
+index 1b046f6b..aca4dee6 100644
+--- a/tools/city-completion/computeScorecard.test.ts
++++ b/tools/city-completion/computeScorecard.test.ts
+@@ -40,6 +40,9 @@ import {
+     wilson95,
+     ENVELOPE_AXIS_TIER_WEIGHT as TOOL_ENVELOPE_WEIGHTS,
+     ENVELOPE_AXIS_TIER_WEIGHT_VERSION as TOOL_ENVELOPE_WEIGHTS_VERSION,
++    // ⚠ READ the version, never restate it. A hard-coded `scorecard@1.1` below meant bumping the
++    // tool's own version stamp broke a test that has nothing to do with versioning (L-677).
++    SCORECARD_VERSION,
+ } from './computeScorecard.mjs';
+ 
+ const NOW = '2026-07-30T00:00:00.000Z';
+@@ -150,7 +153,7 @@ test('every axis carries a derivation + the generatedBy stamp (non-forgeable, C6
+     const card = computeScorecard(BCN, { now: NOW });
+     for (const ax of Object.values(card.axes)) {
+         assert.ok(ax.derivation.length > 0);
+-        assert.equal(ax.generatedBy, `scorecard@1.1 ${NOW}`);
++        assert.equal(ax.generatedBy, `scorecard@${SCORECARD_VERSION} ${NOW}`);
+     }
+ });
+ 
+diff --git a/tools/madrid-extract/index_pdf.py b/tools/madrid-extract/index_pdf.py
+index 626eddb3..52489aa4 100644
+--- a/tools/madrid-extract/index_pdf.py
++++ b/tools/madrid-extract/index_pdf.py
+@@ -8,15 +8,21 @@ Usage:
+   python index_pdf.py arts PREFIX      # first page of each article matching prefix (e.g. 8.4.)
+   python index_pdf.py tables N [M]     # detect tables on page N..M
+ """
++import pathlib
+ import re
+ import sys
+ 
+ import fitz
+ 
+-PDF = (
+-    "C:/Users/LENOVO/AppData/Local/Temp/claude/"
+-    "c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08/"
+-    "85d1d1c6-e522-4ce0-88a6-0945260ed2a4/scratchpad/compendio.pdf"
++# §CORPUS-CUSTODY (L-677). This pointed at ONE session's scratchpad — an absolute path outside the
++# repo, on one machine, that a process cleanup would have deleted. The 282 cited records in
++# `extracted/*.json` were read from that file and NOTHING in the repo could re-derive them, which is
++# exactly the gap `799c3e49` / L-674 logged. The document is now committed beside the dossier, so
++# this tool is reproducible by anyone with a checkout.
++PDF = str(
++    pathlib.Path(__file__).resolve().parents[2]
++    / "docs/04-reference/jurisdictions/es/es-md/28079-madrid"
++    / "corpus/pdf/COMPENDIO_MPG_NNUU_24-09-2025_PGOUM-97.pdf"
+ )
+ 
+ ART_RE = re.compile(r"[Aa]rt(?:ículo|iculo)?\.?\s*(\d+)\.(\d+)\.(\d+)")
