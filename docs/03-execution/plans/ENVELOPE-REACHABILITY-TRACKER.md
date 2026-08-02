@@ -328,3 +328,67 @@ deviation list · validity.**
 **Catalunya scores 7/9**, blocked on **item 5 (height module)**; **item 7 (constraint layers) is
 missing in ALL FIVE cities** — ⛔ *absent, every published envelope is an upper bound with missing
 ceilings, which is the defect Madrid was withheld for.*
+
+---
+
+## 8 - THE COUNT IS COMPUTED. 2026-08-02.
+
+**The headline is now a `grep -c` against a committed artefact, not a typed claim.** This is the thing
+section 7 said had to happen.
+
+```
+grep -cP '(\t|\|)proven(\||\t)' tools/cold-start-probe/out/amb-tracker-rows.tsv
+```
+
+| Status | Count | Delta | Cause |
+|---|---:|---:|---|
+| **published** | **1** | 0 | Barcelona only - production hardcode + gate |
+| **proven** | **36** | **+33** | the full AMB census; all 36 measured, seeded, re-runnable |
+| **reachable** | **0** | **-26** | **every reachable municipality CONVERTED to proven** |
+| **blocked** | **0** | 0 | none |
+
+**Blocking-item class:** **Engineering 26** (the Phase-1 unbinding) - **Data acquisition 10**
+(Barcelona's 59.53 % delegated, plus the 9 PGM='N' with no ordinance corpus).
+
+> **"Up to 26" is now 26 PROVEN-AND-GATED on one ENGINEERING unbinding, plus 9 more measured but
+> gated on a Legal/Data item the plan did not account for.**
+
+### 8.1 - The enumeration: five numbers, five DIFFERENT questions, all consistent
+
+**The problem was never that one was wrong. It was that NONE WAS ENUMERATED.** Read from layer 16
+`returnDistinctValues` on `CODI_INE`, not from any document.
+
+| Figure | Universe | Verdict |
+|---|---|---|
+| **36** | **SCHEMA** - what the service carries | **CONFIRMED** (layer 17 carries the identical 36) |
+| **27** | **CORPUS** - `PGM='S'` | **CONFIRMED**, and the flag is **uniform within every municipality (0 mixed)** - which the docs never stated |
+| **26** | 27 - Barcelona (published) | consistent, **never enumerated until now** |
+| **25** | 27 - {Barcelona, Badalona} (deviating) | consistent, but **a DIFFERENT SUBTRACTION - Badalona is inside the 26 and outside the 25. NOT interchangeable.** |
+| **22** | 27 - 1 - 4 rulepacks | a fifth denominator |
+
+> **SCHEMA UNIVERSE != CORPUS UNIVERSE.** "36 rows on a layer" is not "36 municipalities the PGM
+> governs". Every count in the artefact names which universe it counts.
+
+### 8.2 - Control: PASS, and independently reinforced
+
+**89 distinct `CLAU_URB` - 5,073 OV polygons - envelope 34.03 %**, reproduced exactly **three times
+across three code revisions**. `returnCountOnly` (the ArcGIS analogue of `resultType=hits`,
+**uncapped - 24x the advertised 2,000**) reconciles **48,782 = 48,782** and **22,525 = 22,525**, and
+**36/36** per municipality. **Zero truncation suspects.**
+
+### 8.3 - `PLANTES`: both numbers, and Barcelona's belief CONFIRMED not repeated
+
+**100 % POPULATED** on all 22,525 OV polygons in all 36. **80.33 % PARSEABLE** (range 1.96-100 %).
+
+Barcelona's believed **100 / 92.0 / 408** measured as **91.96 %, 408 rejects, every one the single
+token `ED`.**
+
+**The 19.67 % unparseable splits into TWO DIFFERENT BLOCKER CLASSES**, which matters because they have
+different owners:
+- **0.68 % parser-gap** (`B+3+G`, `B+6+2A`, `PX+4+G`) - **Engineering, recoverable**
+- **18.99 % non-storey token** - **Legal. Refusing is CORRECT.**
+
+**`ED` appears in 33 of 36 municipalities, 18.84 % service-wide against 8.04 % in Barcelona - more
+than twice as prevalent outside the reference city, and its meaning is NOT ESTABLISHED.** The
+"delegated to the expedient" hypothesis was **TESTED AND REFUTED**: `EXP` is populated on 22,525 of
+22,525 rows and **discriminates nothing.**

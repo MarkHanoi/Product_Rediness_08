@@ -52,13 +52,34 @@ Buildable **depth** · **alignment/setbacks** · **occupation**.
 
 ## 5 · Height rule **and its inputs** — ⭐ WHERE REGIONS DIFFER MOST
 
-| Route | Coverage (measured) | Input required |
-|---|---|---|
-| **OV** (*ordenació volumètrica*) | **38–58 %** | ⭐ **storeys→metres module** |
-| **Ladder** (Arts. 320/327/328) | **3–6 %** | **street width** (*amplada de vial*) |
+> ⛔ **CORRECTED 2026-08-02 — THE OV FIGURES BELOW WERE WRONG IN THIS NORMATIVE DOCUMENT.** The
+> earlier probe counted the OV route as `via === 'OV_Trames'`, but that tag is stamped on the
+> **envelope AND on the refusal** for unparseable `PLANTES`. ⭐ **The tell was arithmetic sitting in
+> the artefact all along: the routes never summed to `envelope`.** Corrected by a full 36-municipality
+> census; the probe now **throws rather than emit an unbalanced figure.**
+>
+> | | was | **is** |
+> |---|---:|---:|
+> | Sant Climent OV | 38.08 % | **38.01 %** |
+> | Santa Coloma OV | 58.33 % | **55.93 %** |
+> | Barcelona OV | 7.57 % | **6.70 %** |
+>
+> ✅ **THE PHASE-4 REORDERING ONTO storeys→metres STANDS** — ladder figures and all envelope totals
+> are unaffected.
 
-**Both missing outside Barcelona. ⭐ OV IS ~10× THE LEVER** — measured at Sant Climent 38.08 % /
-5.87 % and Santa Coloma 58.33 % / 3.10 %.
+| Route | Coverage — **MEASURED, all 36 AMB municipalities** | Input required |
+|---|---|---|
+| **OV** (*ordenació volumètrica*) | **3.22 – 59.73 %** across the 27 PGM municipalities | ⭐ **storeys→metres module** |
+| **Ladder** (Arts. 320/327/328) | **2.93 – 64.70 %** | **street width** (*amplada de vial*) |
+| ⭐ **QUAL_MUNI** — **A THIRD ROUTE NOBODY HAD SEEN** | **0.00 % in ALL 27 PGM municipalities**, but **24.92 – 77.57 % in 8 of the 9 PGM='N'** | (municipal qualification) |
+
+⛔ **"OV IS ~10× THE LEVER" IS TOO SIMPLE, AND THE CENSUS SIZES IT PROPERLY: OV > ladder in 17 of 27,
+ladder > OV in 10.** It is **a real split, not a Barcelona quirk** — but it is **not a 10:1 rule**, and
+the earlier claim rested on **two municipalities**.
+
+⭐ **QUAL_MUNI read as dead** because it was 0 % in all three previously-measured cities. **It is the
+DOMINANT route for exactly the nine municipalities the PGM does NOT govern** — the nine with **no
+ordinance corpus behind them.**
 
 ⛔ **MEASURED BUILDING HEIGHTS DO NOT SUBSTITUTE. LiDAR tells you what EXISTS, not what is
 PERMITTED.** The 87.2 % heights bake is context and terrain — it is **not** an ordinance input.
