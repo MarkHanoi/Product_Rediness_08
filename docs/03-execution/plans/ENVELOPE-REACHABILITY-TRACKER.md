@@ -194,7 +194,7 @@ and SIG-3 certifies a **dataset vintage**, not a city. **That is why 26 are one 
 | **1 · unbind Catalunya** | 3 hardcodes: `bcnRefosOVProvider` `08019` · the clau-18 guard · `registry.ts` packs. Parameterise on INE. **Control: Barcelona byte-identical.** | **2 proven → up to 26 reachable** |
 | **2 · the onboarding runner** ⭐ | **The piece that does not exist and decides everything.** In: INE code. Out: coverage · deviation report · control pass/fail. | **reachable → proven, in batches** |
 | **3 · run the AMB** | 26 through the runner. **Barcelona + Badalona flagged as deviations** (Arts. 327/328/320 rewritten); the other 25 on the base metropolitan ladder. | **up to 26 proven** |
-| **4 · street width** | Arts. 320.3a / 327.2a / 328.2a on *amplada de vial*; base tables **already in the repo**. Gates the cold cities, Madrid, Córdoba, València. | **raises coverage INSIDE every municipality already onboarded** |
+| **4 · ⭐ storeys→metres — REORDERED 2026-08-02** | ⛔ **NOT street width.** Measured: the **OV route is 38.08 % / 58.33 %**, the **ladder route 5.87 % / 3.10 %** — street width serves the 3–6 % route, and **the storeys→metres module is worth ~10× more in both cold cities.** ⚠ **Two municipalities is a THIN base for an ordering decision — re-measure the OV/ladder split across more of the 26 before scoping.** Street width follows, for Arts. 320.3a/327.2a/328.2a. | **raises coverage INSIDE every municipality already onboarded** |
 | **5 · Madrid as CCAA #2** | **The first real test of the per-CCAA cost, because the top half is NOT done.** 93,839 features, altura 70.2 % / plantas 72.9 %. ⚠ **Target the periphery — capital 3.6 %, Alcalá 69.4 %.** | **proves the CCAA model repeats, or shows what it costs when it doesn't** |
 
 ### ⭐ THE TWO DECISION POINTS — the plan turns on these, not on the phases
@@ -260,3 +260,40 @@ classification and it closes.*
 
 > ⛔ **PHASE 2 IS THE ONE TO GET RIGHT. Everything before it is three strings; everything after it depends on
 > whether onboarding is a COMMAND or a PROJECT.**
+
+---
+
+## 7 · ⭐ THE TRACKER MUST BE EMITTED, NOT TYPED — a Phase 2 deliverable
+
+⛔ **THE HEADLINE COUNT IS THE ONE NUMBER THIS PROGRAMME DOES NOT COMPUTE FROM THE REPO.** Every other
+figure this week was **measured, seeded and re-runnable**; this one is **typed into a report by
+whoever ran last**, which means it exists only in whichever agent transcript produced it.
+
+**That is the exact shape of `ES-CITY-ENVELOPE-CERTIFIABILITY-SURVEY.md`** — written with correct
+numbers in hand, **wrong in both directions weeks later.**
+
+**What it must become — one row per municipality, emitted by the same run that computes coverage:**
+
+```
+INE · name · CCAA · status · envelope% · determination% · blocking item · class · last measured
+```
+
+`status ∈ published | proven | reachable | blocked | untested`
+
+⭐ **The headline count is then a `grep -c`, not a claim. Nobody types it. Nobody can be stale about
+it.** The onboarding runner **already computes every one of those fields to do its job**, so the
+tracker is **the runner's output aggregated — not a separate build.**
+
+⚠ **Until it exists, the standing rule is:** *re-run the count from the artefacts before quoting it,
+and treat any figure older than the last commit as INDICATIVE.*
+
+### 7.1 · The nine-item intake list
+
+Scoring a CCAA is now a **named checklist**, not a judgement — see
+**[REGIONAL-INTAKE-LIST](../../04-reference/standards/REGIONAL-INTAKE-LIST.md)**:
+**parcel · instrument selector · ordinance text · footprint · height+inputs · bulk · constraints ·
+deviation list · validity.**
+
+**Catalunya scores 7/9**, blocked on **item 5 (height module)**; **item 7 (constraint layers) is
+missing in ALL FIVE cities** — ⛔ *absent, every published envelope is an upper bound with missing
+ceilings, which is the defect Madrid was withheld for.*
