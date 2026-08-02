@@ -25,15 +25,31 @@
 | Madrid | **11.70 %** | Norma-Zonal-governed land · 149.577 M m² |
 | València | **0.00 %** | private buildable land · 18.696 M m² |
 | Córdoba | **0.00 %** | suelo urbano · 33.342 M m² |
-| **NATIONAL (area-weighted)** | **18.57 %** | **57.30 of 308.555 M m²** |
+| **NATIONAL (area-weighted)** | **18.57 %** | **57.30 of 308.555 M m²** — ⛔ **SUPERSEDED: the denominator is now the CADASTRAL PARCEL (Addendum 1). Every area-based figure on this page is being restated and must not be quoted.** |
 
-### DETERMINATION COVERAGE *(honesty metric — envelope **or** legally cited refusal)*
+### DETERMINATION COVERAGE — **ALWAYS SPLIT. A BARE NUMBER IS FORBIDDEN.**
 
-| City | Determined | | City | Determined |
-|---|---:|---|---|---:|
-| Barcelona | **98.30 %** | | València | **36.40 %** |
-| Murcia | **95.03 %** | | Córdoba | **2.96 %** |
-| Madrid | **72.15 %** | | **NATIONAL** | **70.77 %** (218.38 M m²) |
+> ⛔ **`Determination % = Envelope % + Refusal %`, refusals broken out by category.** A bare "98.3 %" must
+> **never** appear in any report, dashboard or external-facing document (founder, 2026-08-02, Addendum 1).
+> **Determination is gameable by refusing** — a refusal is a determination, refusals are cheap, envelopes are
+> expensive. Nobody has to do this dishonestly; it drifts.
+
+| City | **Envelope** | **Refusal — legally terminal** | **Refusal — delegated instrument** | **Refusal — external authority** | **= Determination** | Unknown |
+|---|---:|---:|---:|---:|---:|---:|
+| Barcelona | **58.93 %** | — | 39.37 % | — | **98.30 %** | 1.70 % |
+| Murcia | **28.09 %** | — | 67.00 % | — | **95.09 %** | 4.91 % |
+| Madrid | **11.70 %** | 48.38 % | 12.08 % | — | **72.15 %** | 27.85 % |
+| València | **0.00 %** | — | 36.40 % | — | **36.40 %** | 63.60 % |
+| Córdoba | **0.00 %** | — | 2.96 % | — | **2.96 %** | 97.04 % |
+
+⚠ **STANDING DRIFT SIGNAL — watch every sprint:** *refusal rate rising while envelope count is flat.* That
+means the metric is being satisfied instead of the product.
+
+### REFUSAL CORRECTNESS — **NOT MEASURED**
+**Refusal correctness has never been measured.** It is asserted. A refusal audit (30 random refusals per
+city; verify the cited article actually terminates that parcel; report sample · correct · incorrect ·
+unverifiable) is commissioned this sprint. ⚠ **An incorrect refusal is a defect of the same class as an
+over-granted envelope** and is reported as one.
 
 ⚠⚠ **THE NATIONAL FIGURES CARRY A METHODOLOGICAL DEFECT AND MUST NOT BE QUOTED WITHOUT IT.** The five cities
 use **three different denominators** — *private buildable land* (BCN/MUR/VLC), *suelo urbano* (COR), and
