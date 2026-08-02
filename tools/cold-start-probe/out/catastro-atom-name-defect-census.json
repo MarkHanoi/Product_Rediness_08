@@ -1,0 +1,628 @@
+{
+ "probe": "Catastro INSPIRE CP ATOM — unresolvable enclosure URLs caused by the publisher replacing ç/apostrophe with a gap",
+ "ranAt": "2026-08-02T12:56:54.384Z",
+ "reproduce": "the ATOM href for DGC 08263 has TWO spaces where 'ç' stood; the real directory has ONE. The two-space URL returns HTTP 200 text/html (15,257 bytes), not a 404.",
+ "summary": {
+  "provincesRead": 48,
+  "provincesUnread": 0,
+  "foralExcluded": [
+   "01",
+   "20",
+   "48",
+   "31"
+  ],
+  "totalEnclosures": 7597,
+  "totalUnresolvable": 30,
+  "pctOfReadEnclosures": 0.395,
+  "worstProvinces": [
+   {
+    "province": "08",
+    "unresolvable": 10,
+    "entries": 311,
+    "pct": 3.22
+   },
+   {
+    "province": "12",
+    "unresolvable": 5,
+    "entries": 135,
+    "pct": 3.7
+   },
+   {
+    "province": "03",
+    "unresolvable": 4,
+    "entries": 141,
+    "pct": 2.84
+   },
+   {
+    "province": "17",
+    "unresolvable": 3,
+    "entries": 221,
+    "pct": 1.36
+   },
+   {
+    "province": "46",
+    "unresolvable": 3,
+    "entries": 266,
+    "pct": 1.13
+   },
+   {
+    "province": "07",
+    "unresolvable": 1,
+    "entries": 67,
+    "pct": 1.49
+   },
+   {
+    "province": "21",
+    "unresolvable": 1,
+    "entries": 80,
+    "pct": 1.25
+   },
+   {
+    "province": "25",
+    "unresolvable": 1,
+    "entries": 231,
+    "pct": 0.43
+   },
+   {
+    "province": "43",
+    "unresolvable": 1,
+    "entries": 184,
+    "pct": 0.54
+   },
+   {
+    "province": "50",
+    "unresolvable": 1,
+    "entries": 293,
+    "pct": 0.34
+   }
+  ]
+ },
+ "provinces": [
+  {
+   "province": "02",
+   "read": true,
+   "entries": 87,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "03",
+   "read": true,
+   "entries": 141,
+   "damagedTitles": 4,
+   "unresolvableEnclosureUrls": 4,
+   "pctUnresolvable": 2.84,
+   "examples": [
+    {
+     "dgcCode": "03105",
+     "title": "EL PINOS   PINOSO"
+    },
+    {
+     "dgcCode": "03134",
+     "title": "LA VALL D  ALCALA"
+    },
+    {
+     "dgcCode": "03135",
+     "title": "LA VALL D  EBO"
+    },
+    {
+     "dgcCode": "03139",
+     "title": "VILLAJOYOSA   LA VILA JOIOSA"
+    }
+   ]
+  },
+  {
+   "province": "04",
+   "read": true,
+   "entries": 103,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "05",
+   "read": true,
+   "entries": 248,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "06",
+   "read": true,
+   "entries": 165,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "07",
+   "read": true,
+   "entries": 67,
+   "damagedTitles": 1,
+   "unresolvableEnclosureUrls": 1,
+   "pctUnresolvable": 1.49,
+   "examples": [
+    {
+     "dgcCode": "07051",
+     "title": "SANT LLOREN  DES CARDASSAR"
+    }
+   ]
+  },
+  {
+   "province": "08",
+   "read": true,
+   "entries": 311,
+   "damagedTitles": 10,
+   "unresolvableEnclosureUrls": 10,
+   "pctUnresolvable": 3.22,
+   "examples": [
+    {
+     "dgcCode": "08254",
+     "title": "ESQUIROL  L"
+    },
+    {
+     "dgcCode": "08005",
+     "title": "L  AMETLLA DEL VALLES"
+    },
+    {
+     "dgcCode": "08077",
+     "title": "L  ESPUNYOLA"
+    },
+    {
+     "dgcCode": "08078",
+     "title": "L  ESTANY"
+    },
+    {
+     "dgcCode": "08220",
+     "title": "SANT LLOREN  D HORTONS"
+    },
+    {
+     "dgcCode": "08221",
+     "title": "SANT LLOREN  SAVALL"
+    }
+   ]
+  },
+  {
+   "province": "09",
+   "read": true,
+   "entries": 371,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "10",
+   "read": true,
+   "entries": 223,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "11",
+   "read": true,
+   "entries": 37,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "12",
+   "read": true,
+   "entries": 135,
+   "damagedTitles": 5,
+   "unresolvableEnclosureUrls": 5,
+   "pctUnresolvable": 3.7,
+   "examples": [
+    {
+     "dgcCode": "12028",
+     "title": "BENICASIM   BENICASSIM"
+    },
+    {
+     "dgcCode": "12032",
+     "title": "BORRIANA   BURRIANA"
+    },
+    {
+     "dgcCode": "12055",
+     "title": "CHODOS   XODOS"
+    },
+    {
+     "dgcCode": "12089",
+     "title": "PENISCOLA   PE�ISCOLA"
+    },
+    {
+     "dgcCode": "12122",
+     "title": "USERAS   LES USERES"
+    }
+   ]
+  },
+  {
+   "province": "13",
+   "read": true,
+   "entries": 102,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "14",
+   "read": true,
+   "entries": 77,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "15",
+   "read": true,
+   "entries": 94,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "16",
+   "read": true,
+   "entries": 238,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "17",
+   "read": true,
+   "entries": 221,
+   "damagedTitles": 3,
+   "unresolvableEnclosureUrls": 3,
+   "pctUnresolvable": 1.36,
+   "examples": [
+    {
+     "dgcCode": "17064",
+     "title": "CRUILLES   MONELLS   ST SAD"
+    },
+    {
+     "dgcCode": "17180",
+     "title": "SANT LLOREN  DE LA MUGA"
+    },
+    {
+     "dgcCode": "17199",
+     "title": "SAUS  CAMALLERA I LLAMPAIES"
+    }
+   ]
+  },
+  {
+   "province": "18",
+   "read": true,
+   "entries": 174,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "19",
+   "read": true,
+   "entries": 288,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "21",
+   "read": true,
+   "entries": 80,
+   "damagedTitles": 1,
+   "unresolvableEnclosureUrls": 1,
+   "pctUnresolvable": 1.25,
+   "examples": [
+    {
+     "dgcCode": "21080",
+     "title": "LA ZARZA   PERRUNAL"
+    }
+   ]
+  },
+  {
+   "province": "22",
+   "read": true,
+   "entries": 202,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "23",
+   "read": true,
+   "entries": 97,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "24",
+   "read": true,
+   "entries": 211,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "25",
+   "read": true,
+   "entries": 231,
+   "damagedTitles": 1,
+   "unresolvableEnclosureUrls": 1,
+   "pctUnresolvable": 0.43,
+   "examples": [
+    {
+     "dgcCode": "25237",
+     "title": "SANT LLOREN  DE MORUNYS"
+    }
+   ]
+  },
+  {
+   "province": "26",
+   "read": true,
+   "entries": 174,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "27",
+   "read": true,
+   "entries": 67,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "28",
+   "read": true,
+   "entries": 179,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "29",
+   "read": true,
+   "entries": 103,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "30",
+   "read": true,
+   "entries": 42,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "32",
+   "read": true,
+   "entries": 92,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "33",
+   "read": true,
+   "entries": 73,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "34",
+   "read": true,
+   "entries": 191,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "35",
+   "read": true,
+   "entries": 34,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "36",
+   "read": true,
+   "entries": 58,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "37",
+   "read": true,
+   "entries": 362,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "38",
+   "read": true,
+   "entries": 54,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "39",
+   "read": true,
+   "entries": 103,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "40",
+   "read": true,
+   "entries": 209,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "41",
+   "read": true,
+   "entries": 106,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "42",
+   "read": true,
+   "entries": 183,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "43",
+   "read": true,
+   "entries": 184,
+   "damagedTitles": 1,
+   "unresolvableEnclosureUrls": 1,
+   "pctUnresolvable": 0.54,
+   "examples": [
+    {
+     "dgcCode": "43075",
+     "title": "LLOREN  DEL PENEDES"
+    }
+   ]
+  },
+  {
+   "province": "44",
+   "read": true,
+   "entries": 236,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "45",
+   "read": true,
+   "entries": 204,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "46",
+   "read": true,
+   "entries": 266,
+   "damagedTitles": 3,
+   "unresolvableEnclosureUrls": 3,
+   "pctUnresolvable": 1.13,
+   "examples": [
+    {
+     "dgcCode": "46172",
+     "title": "MOIXENT   MOGENTE"
+    },
+    {
+     "dgcCode": "46182",
+     "title": "NOVELE   NOVETLE"
+    },
+    {
+     "dgcCode": "46222",
+     "title": "SAGUNTO   SAGUNT"
+    }
+   ]
+  },
+  {
+   "province": "47",
+   "read": true,
+   "entries": 225,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "49",
+   "read": true,
+   "entries": 248,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "50",
+   "read": true,
+   "entries": 293,
+   "damagedTitles": 1,
+   "unresolvableEnclosureUrls": 1,
+   "pctUnresolvable": 0.34,
+   "examples": [
+    {
+     "dgcCode": "50220",
+     "title": "PUEBLA DE ALFINDEN  LA"
+    }
+   ]
+  },
+  {
+   "province": "51",
+   "read": true,
+   "entries": 3,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  },
+  {
+   "province": "52",
+   "read": true,
+   "entries": 5,
+   "damagedTitles": 0,
+   "unresolvableEnclosureUrls": 0,
+   "pctUnresolvable": 0,
+   "examples": []
+  }
+ ]
+}

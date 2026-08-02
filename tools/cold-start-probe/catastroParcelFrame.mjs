@@ -114,6 +114,39 @@ export function findEnclosure(xml, ine, name) {
         };
     }
     if (byName) return { ...byName, matchedBy: byName.code === ine ? 'name+code-agree' : `name (DGC ${byName.code} ≠ INE ${ine})` };
+
+    // ⚠⚠ THIRD TIER — ADDED 2026-08-02 AFTER THE AMB RUN, AND IT IS A **PUBLISHER** DEFECT, NOT OURS.
+    //
+    // MEASURED: the province ATOM is `encoding="ISO-8859-1"` and contains **ZERO non-ASCII bytes** —
+    // the publisher has already flattened the names. Accents flatten CLEANLY (`Gavà`→`GAVA`,
+    // `Pallejà`→`PALLEJA`), but **`ç` and `'` are replaced by a GAP**, one space per lost UTF-8 byte:
+    //     08263  "SANT VICEN  DELS HORTS"   ⇐ Sant Vicenç dels Horts
+    //     08221  "SANT LLOREN  SAVALL"      ⇐ Sant Llorenç Savall
+    //     08077  "L  ESPUNYOLA"             ⇐ L'Espunyola
+    // **10 of province 08's 311 entries (3.2 %)** are damaged this way. Exact-name matching therefore
+    // REFUSES on them — fail-closed, which is correct, but it BLOCKS a real municipality (08263 is in
+    // the AMB 36) on a defect in someone else's string handling.
+    //
+    // ⇒ The gap is treated as a BOUNDED WILDCARD (`.{0,3}`) — never an unbounded one — and the match
+    //   is required to be **UNIQUE**. Two candidates refuse. This keeps the guard name-authoritative:
+    //   it still cannot select a differently-NAMED municipality, which is the Turís failure mode.
+    const gapCandidates = entries.filter((e) => {
+        const t = titles.get(e.code);
+        if (!t || !/\s{2,}/.test(t)) return false;
+        // Each separator in the flattened title becomes a BOUNDED wildcard: the publisher dropped at
+        // most a couple of characters, so `.{0,3}` is generous without being open-ended.
+        const pattern = normName(t).split(' ').filter(Boolean).join('.{0,3}');
+        try { return new RegExp(`^${pattern}$`).test(want); } catch { return false; }
+    });
+    if (gapCandidates.length === 1) {
+        const g = gapCandidates[0];
+        return {
+            ...g,
+            matchedBy: `name-with-publisher-gap-wildcard (ATOM title "${titles.get(g.code)}" has a character the publisher dropped)`,
+            warning: `PUBLISHER NAME DEFECT: Catastro's ATOM title for DGC ${g.code} is "${titles.get(g.code)}" — a 'ç' or apostrophe was replaced by a gap. Matched leniently and UNIQUELY against "${name}".`,
+        };
+    }
+    if (gapCandidates.length > 1) return null; // ambiguous ⇒ refuse, never pick
     return null;
 }
 
@@ -152,10 +185,43 @@ export async function fetchMunicipalityGml(ine, name) {
     const loc = await resolveMunicipalityZipUrl(ine, name);
     if (!loc.ok) return { ok: false, ...loc };
     const zipPath = join(CACHE, `CP_${ine}.zip`);
-    if (!existsSync(zipPath)) {
-        const r = await politeFetch(loc.url, { binary: true });
-        if (r.outcome !== 'ok') return { ok: false, reason: r.outcome, message: r.message };
-        writeFileSync(zipPath, r.body);
+    if (!existsSync(zipPath) || statSync(zipPath).size === 0 || readFileSync(zipPath).slice(0, 2).toString('latin1') !== 'PK') {
+        // ⚠⚠ TWO DEFECTS MEASURED 2026-08-02 ON 08263 SANT VICENÇ DELS HORTS, AND BOTH ARE THE
+        //    PUBLISHER'S — but the first one is ours to survive.
+        //
+        // (a) FAILURE DISGUISED AS SUCCESS. A wrong enclosure path does NOT 404. Catastro answers
+        //     **HTTP 200, content-type text/html, 15,257 bytes** of its own site chrome. `res.ok` is
+        //     true, so the old code wrote an HTML page to `CP_<ine>.zip` and only noticed three
+        //     steps later as "no-gml-in-zip" — a diagnosis that blames the archive rather than the
+        //     URL. ⇒ THE `PK` MAGIC IS NOW ASSERTED. §CONTEXT-DATA-HONESTY: a 200 that is not the
+        //     thing you asked for is a FAILURE, not an empty result.
+        //
+        // (b) THE ATOM'S OWN href IS UNRESOLVABLE FOR ç/apostrophe NAMES. The feed is
+        //     `encoding="ISO-8859-1"` and holds ZERO non-ASCII bytes: the publisher has flattened
+        //     every name, and where a `ç` or `'` stood it left a GAP — but it left the gap in the
+        //     TITLE **and in the DIRECTORY SEGMENT OF THE DOWNLOAD URL**, while the real directory
+        //     on disk has a SINGLE space. Measured:
+        //         ATOM href …/08/08263-SANT VICEN{2 spaces}DELS HORTS/…  ⇒ HTML, 200
+        //         real path …/08/08263-SANT VICEN{1 space}DELS HORTS/…   ⇒ ZIP, 1,563,798 bytes
+        //     `%C7`, `%C3%87` and a literal `C` were all tried and all returned the HTML page, so
+        //     the single-space collapse is the identified fix, not a guess.
+        //     **10 of province 08's 311 entries (3.2 %) carry such a gap.** Every one of them is
+        //     unreachable through the URL the publisher printed.
+        const attempts = [];
+        let saved = null;
+        const variants = [loc.url];
+        if (/\s{2,}/.test(loc.url)) variants.push(loc.url.replace(/\s{2,}/g, ' '));
+        for (const v of variants) {
+            const r = await politeFetch(v, { binary: true });
+            if (r.outcome !== 'ok') { attempts.push({ url: v, outcome: r.outcome, message: r.message }); continue; }
+            const isZip = r.body.slice(0, 2).toString('latin1') === 'PK';
+            attempts.push({ url: v, outcome: isZip ? 'zip' : 'not-a-zip', bytes: r.body.length, firstBytes: r.body.slice(0, 4).toString('hex') });
+            if (isZip) { saved = r.body; break; }
+        }
+        if (!saved) {
+            return { ok: false, reason: 'enclosure-not-a-zip', message: `every candidate enclosure URL for INE ${ine} answered with something that is not a ZIP (HTTP 200 + text/html is Catastro's not-found page)`, attempts };
+        }
+        writeFileSync(zipPath, saved);
     }
     // Inflate with the platform unzip; the archive holds exactly one .gml.
     try {

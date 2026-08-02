@@ -1,0 +1,417 @@
+{
+ "ok": true,
+ "source": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/16 · returnDistinctValues on CODI_INE,NOMMUNI,PGM",
+ "readAt": "2026-08-02T12:19:08.739Z",
+ "distinctCount": 36,
+ "pgmS": 27,
+ "pgmNotS": 9,
+ "mixedPgm": 0,
+ "municipalities": [
+  {
+   "ine": "08015",
+   "name": "Badalona",
+   "nameVariants": [
+    "Badalona"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08019",
+   "name": "Barcelona",
+   "nameVariants": [
+    "Barcelona"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08020",
+   "name": "Begues",
+   "nameVariants": [
+    "Begues"
+   ],
+   "pgm": [
+    "N"
+   ],
+   "pgmGoverned": false
+  },
+  {
+   "ine": "08054",
+   "name": "Castellbisbal",
+   "nameVariants": [
+    "Castellbisbal"
+   ],
+   "pgm": [
+    "N"
+   ],
+   "pgmGoverned": false
+  },
+  {
+   "ine": "08056",
+   "name": "Castelldefels",
+   "nameVariants": [
+    "Castelldefels"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08068",
+   "name": "Cervelló",
+   "nameVariants": [
+    "Cervelló"
+   ],
+   "pgm": [
+    "N"
+   ],
+   "pgmGoverned": false
+  },
+  {
+   "ine": "08072",
+   "name": "Corbera de Llobregat",
+   "nameVariants": [
+    "Corbera de Llobregat"
+   ],
+   "pgm": [
+    "N"
+   ],
+   "pgmGoverned": false
+  },
+  {
+   "ine": "08073",
+   "name": "Cornellà de Llobregat",
+   "nameVariants": [
+    "Cornellà de Llobregat"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08077",
+   "name": "Esplugues de Llobregat",
+   "nameVariants": [
+    "Esplugues de Llobregat"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08089",
+   "name": "Gavà",
+   "nameVariants": [
+    "Gavà"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08101",
+   "name": "L'Hospitalet de Llobregat",
+   "nameVariants": [
+    "L'Hospitalet de Llobregat"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08123",
+   "name": "Molins de Rei",
+   "nameVariants": [
+    "Molins de Rei"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08125",
+   "name": "Montcada i Reixac",
+   "nameVariants": [
+    "Montcada i Reixac"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08126",
+   "name": "Montgat",
+   "nameVariants": [
+    "Montgat"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08157",
+   "name": "Pallejà",
+   "nameVariants": [
+    "Pallejà"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08158",
+   "name": "El Papiol",
+   "nameVariants": [
+    "El Papiol"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08169",
+   "name": "El Prat de Llobregat",
+   "nameVariants": [
+    "El Prat de Llobregat"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08180",
+   "name": "Ripollet",
+   "nameVariants": [
+    "Ripollet"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08194",
+   "name": "Sant Adrià de Besòs",
+   "nameVariants": [
+    "Sant Adrià de Besòs"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08196",
+   "name": "Sant Andreu de la Barca",
+   "nameVariants": [
+    "Sant Andreu de la Barca"
+   ],
+   "pgm": [
+    "N"
+   ],
+   "pgmGoverned": false
+  },
+  {
+   "ine": "08200",
+   "name": "Sant Boi de Llobregat",
+   "nameVariants": [
+    "Sant Boi de Llobregat"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08204",
+   "name": "Sant Climent de Llobregat",
+   "nameVariants": [
+    "Sant Climent de Llobregat"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08205",
+   "name": "Sant Cugat del Vallès",
+   "nameVariants": [
+    "Sant Cugat del Vallès"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08211",
+   "name": "Sant Feliu de Llobregat",
+   "nameVariants": [
+    "Sant Feliu de Llobregat"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08217",
+   "name": "Sant Joan Despí",
+   "nameVariants": [
+    "Sant Joan Despí"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08221",
+   "name": "Sant Just Desvern",
+   "nameVariants": [
+    "Sant Just Desvern"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08244",
+   "name": "Santa Coloma de Cervelló",
+   "nameVariants": [
+    "Santa Coloma de Cervelló"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08245",
+   "name": "Santa Coloma de Gramenet",
+   "nameVariants": [
+    "Santa Coloma de Gramenet"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08252",
+   "name": "Barberà del Vallès",
+   "nameVariants": [
+    "Barberà del Vallès"
+   ],
+   "pgm": [
+    "N"
+   ],
+   "pgmGoverned": false
+  },
+  {
+   "ine": "08263",
+   "name": "Sant Vicenç dels Horts",
+   "nameVariants": [
+    "Sant Vicenç dels Horts"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08266",
+   "name": "Cerdanyola del Vallès",
+   "nameVariants": [
+    "Cerdanyola del Vallès"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08282",
+   "name": "Tiana",
+   "nameVariants": [
+    "Tiana"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08289",
+   "name": "Torrelles de Llobregat",
+   "nameVariants": [
+    "Torrelles de Llobregat"
+   ],
+   "pgm": [
+    "N"
+   ],
+   "pgmGoverned": false
+  },
+  {
+   "ine": "08301",
+   "name": "Viladecans",
+   "nameVariants": [
+    "Viladecans"
+   ],
+   "pgm": [
+    "S"
+   ],
+   "pgmGoverned": true
+  },
+  {
+   "ine": "08904",
+   "name": "Badia del Vallès",
+   "nameVariants": [
+    "Badia del Vallès"
+   ],
+   "pgm": [
+    "N"
+   ],
+   "pgmGoverned": false
+  },
+  {
+   "ine": "08905",
+   "name": "La Palma de Cervelló",
+   "nameVariants": [
+    "La Palma de Cervelló"
+   ],
+   "pgm": [
+    "N"
+   ],
+   "pgmGoverned": false
+  }
+ ],
+ "network": [
+  {
+   "label": "enumerate:layer16-distinct-INE",
+   "url": "https://geoportal.amb.cat/geoserveis/rest/services/qualificacio_refos_3857/MapServer/16/query?f=json&where=1%3D1&outFields=CODI_INE%2CNOMMUNI%2CPGM&returnDistinctValues=true&returnGeometry=false&order",
+   "httpStatus": 200,
+   "bytes": 3051,
+   "ms": 1027,
+   "outcome": "ok"
+  }
+ ]
+}

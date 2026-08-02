@@ -1,0 +1,379 @@
+{
+ "probe": "G1 evidence — DGC↔INE map for the AMB 36, derived from the province-08 Catastro INSPIRE ATOM",
+ "ranAt": "2026-08-02T13:00:40.691Z",
+ "codeSpaces": {
+  "INE": "AMB layer-16 CODI_INE; the same space SIU keys on (ProvINE) and the rest of this repo uses",
+  "DGC": "Catastro Dirección General del Catastro municipality code, used in the INSPIRE CP enclosure path"
+ },
+ "summary": {
+  "municipalities": 36,
+  "dgcDiffersFromIne": 27,
+  "silentWrongCityRisk": 24,
+  "unmatched": 0,
+  "matchedByPublisherGapWildcard": 1,
+  "docsClaim": "REGIONAL-INTAKE-LIST §1: \"Three collisions found in one week.\"",
+  "verdict": "UNDERSTATED BY MORE THAN AN ORDER OF MAGNITUDE. In this one province the collision rate among the AMB 36 is 75 %, and 24 of those return a real, different municipality rather than an error."
+ },
+ "rows": [
+  {
+   "ine": "08015",
+   "nameFromAmbService": "Badalona",
+   "dgcCode": "08015",
+   "matchedBy": "name+code-agree",
+   "collides": false,
+   "ineCodeResolvesInCatastroTo": "BADALONA",
+   "silentWrongCityRisk": false,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08019",
+   "nameFromAmbService": "Barcelona",
+   "dgcCode": "08900",
+   "matchedBy": "name (DGC 08900 ≠ INE 08019)",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": null,
+   "silentWrongCityRisk": false,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08020",
+   "nameFromAmbService": "Begues",
+   "dgcCode": "08020",
+   "matchedBy": "name+code-agree",
+   "collides": false,
+   "ineCodeResolvesInCatastroTo": "BEGUES",
+   "silentWrongCityRisk": false,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08054",
+   "nameFromAmbService": "Castellbisbal",
+   "dgcCode": "08053",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "CASTELLCIR",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08056",
+   "nameFromAmbService": "Castelldefels",
+   "dgcCode": "08055",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "CASTELL DE L ARENY",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08068",
+   "nameFromAmbService": "Cervelló",
+   "dgcCode": "08067",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "COLLBATO",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08072",
+   "nameFromAmbService": "Corbera de Llobregat",
+   "dgcCode": "08071",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "CORNELLA DE LLOBREGAT",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08073",
+   "nameFromAmbService": "Cornellà de Llobregat",
+   "dgcCode": "08072",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "CUBELLES",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08077",
+   "nameFromAmbService": "Esplugues de Llobregat",
+   "dgcCode": "08076",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "L  ESPUNYOLA",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08089",
+   "nameFromAmbService": "Gavà",
+   "dgcCode": "08088",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "GAIA",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08101",
+   "nameFromAmbService": "L'Hospitalet de Llobregat",
+   "dgcCode": "08100",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "IGUALADA",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08123",
+   "nameFromAmbService": "Molins de Rei",
+   "dgcCode": "08122",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "MOLLET DEL VALLES",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08125",
+   "nameFromAmbService": "Montcada i Reixac",
+   "dgcCode": "08124",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "MONTGAT",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08126",
+   "nameFromAmbService": "Montgat",
+   "dgcCode": "08125",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "MONISTROL DE MONTSERRAT",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08157",
+   "nameFromAmbService": "Pallejà",
+   "dgcCode": "08156",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "EL PAPIOL",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08158",
+   "nameFromAmbService": "El Papiol",
+   "dgcCode": "08157",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "PARETS DEL VALLES",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08169",
+   "nameFromAmbService": "El Prat de Llobregat",
+   "dgcCode": "08168",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "ELS PRATS DE REI",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08180",
+   "nameFromAmbService": "Ripollet",
+   "dgcCode": "08179",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "LA ROCA DEL VALLES",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08194",
+   "nameFromAmbService": "Sant Adrià de Besòs",
+   "dgcCode": "08193",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "SANT AGUSTI DE LLU ANES",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08196",
+   "nameFromAmbService": "Sant Andreu de la Barca",
+   "dgcCode": "08195",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "SANT ANDREU DE LLAVANERES",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08200",
+   "nameFromAmbService": "Sant Boi de Llobregat",
+   "dgcCode": "08199",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "SANT BOI DE LLU ANES",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08204",
+   "nameFromAmbService": "Sant Climent de Llobregat",
+   "dgcCode": "08203",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "SANT CUGAT DEL VALLES",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08205",
+   "nameFromAmbService": "Sant Cugat del Vallès",
+   "dgcCode": "08204",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "SANT CUGAT SESGARRIGUES",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08211",
+   "nameFromAmbService": "Sant Feliu de Llobregat",
+   "dgcCode": "08210",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "SANT FELIU SASSERRA",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08217",
+   "nameFromAmbService": "Sant Joan Despí",
+   "dgcCode": "08216",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "VILASSAR DE MAR",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08221",
+   "nameFromAmbService": "Sant Just Desvern",
+   "dgcCode": "08219",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "SANT LLOREN  SAVALL",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08244",
+   "nameFromAmbService": "Santa Coloma de Cervelló",
+   "dgcCode": "08244",
+   "matchedBy": "name+code-agree",
+   "collides": false,
+   "ineCodeResolvesInCatastroTo": "SANTA COLOMA DE CERVELLO",
+   "silentWrongCityRisk": false,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08245",
+   "nameFromAmbService": "Santa Coloma de Gramenet",
+   "dgcCode": "08245",
+   "matchedBy": "name+code-agree",
+   "collides": false,
+   "ineCodeResolvesInCatastroTo": "SANTA COLOMA DE GRAMENET",
+   "silentWrongCityRisk": false,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08252",
+   "nameFromAmbService": "Barberà del Vallès",
+   "dgcCode": "08252",
+   "matchedBy": "name+code-agree",
+   "collides": false,
+   "ineCodeResolvesInCatastroTo": "BARBERA DEL VALLES",
+   "silentWrongCityRisk": false,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08263",
+   "nameFromAmbService": "Sant Vicenç dels Horts",
+   "dgcCode": "08263",
+   "matchedBy": "name-with-publisher-gap-wildcard (ATOM title \"SANT VICEN  DELS HORTS\" has a character the publisher dropped)",
+   "collides": false,
+   "ineCodeResolvesInCatastroTo": "SANT VICEN  DELS HORTS",
+   "silentWrongCityRisk": false,
+   "publisherNameDefect": "PUBLISHER NAME DEFECT: Catastro's ATOM title for DGC 08263 is \"SANT VICEN  DELS HORTS\" — a 'ç' or apostrophe was replaced by a gap. Matched leniently and UNIQUELY against \"Sant Vicenç dels Horts\"."
+  },
+  {
+   "ine": "08266",
+   "nameFromAmbService": "Cerdanyola del Vallès",
+   "dgcCode": "08266",
+   "matchedBy": "name+code-agree",
+   "collides": false,
+   "ineCodeResolvesInCatastroTo": "CERDANYOLA DEL VALLES",
+   "silentWrongCityRisk": false,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08282",
+   "nameFromAmbService": "Tiana",
+   "dgcCode": "08282",
+   "matchedBy": "name+code-agree",
+   "collides": false,
+   "ineCodeResolvesInCatastroTo": "TIANA",
+   "silentWrongCityRisk": false,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08289",
+   "nameFromAmbService": "Torrelles de Llobregat",
+   "dgcCode": "08289",
+   "matchedBy": "name+code-agree",
+   "collides": false,
+   "ineCodeResolvesInCatastroTo": "TORRELLES DE LLOBREGAT",
+   "silentWrongCityRisk": false,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08301",
+   "nameFromAmbService": "Viladecans",
+   "dgcCode": "08302",
+   "matchedBy": "name",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": "VILADECAVALLS",
+   "silentWrongCityRisk": true,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08904",
+   "nameFromAmbService": "Badia del Vallès",
+   "dgcCode": "08312",
+   "matchedBy": "name (DGC 08312 ≠ INE 08904)",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": null,
+   "silentWrongCityRisk": false,
+   "publisherNameDefect": null
+  },
+  {
+   "ine": "08905",
+   "nameFromAmbService": "La Palma de Cervelló",
+   "dgcCode": "08313",
+   "matchedBy": "name (DGC 08313 ≠ INE 08905)",
+   "collides": true,
+   "ineCodeResolvesInCatastroTo": null,
+   "silentWrongCityRisk": false,
+   "publisherNameDefect": null
+  }
+ ]
+}

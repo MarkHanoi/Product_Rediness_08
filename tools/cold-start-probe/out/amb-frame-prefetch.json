@@ -1,0 +1,365 @@
+{
+ "ranAt": "2026-08-02T12:36:58.938Z",
+ "log": [
+  {
+   "ine": "08015",
+   "name": "Badalona",
+   "ok": true,
+   "cached": true,
+   "bytes": 37489410,
+   "reason": null,
+   "message": null,
+   "ms": 7
+  },
+  {
+   "ine": "08019",
+   "name": "Barcelona",
+   "ok": true,
+   "cached": true,
+   "bytes": 175911638,
+   "reason": null,
+   "message": null,
+   "ms": 2
+  },
+  {
+   "ine": "08020",
+   "name": "Begues",
+   "ok": true,
+   "cached": true,
+   "bytes": 9609902,
+   "reason": null,
+   "message": null,
+   "ms": 1
+  },
+  {
+   "ine": "08054",
+   "name": "Castellbisbal",
+   "ok": true,
+   "cached": true,
+   "bytes": 12069975,
+   "reason": null,
+   "message": null,
+   "ms": 5
+  },
+  {
+   "ine": "08056",
+   "name": "Castelldefels",
+   "ok": true,
+   "cached": true,
+   "bytes": 15080719,
+   "reason": null,
+   "message": null,
+   "ms": 1
+  },
+  {
+   "ine": "08068",
+   "name": "Cervelló",
+   "ok": true,
+   "cached": true,
+   "bytes": 12800082,
+   "reason": null,
+   "message": null,
+   "ms": 3
+  },
+  {
+   "ine": "08072",
+   "name": "Corbera de Llobregat",
+   "ok": true,
+   "cached": true,
+   "bytes": 17626579,
+   "reason": null,
+   "message": null,
+   "ms": 1
+  },
+  {
+   "ine": "08073",
+   "name": "Cornellà de Llobregat",
+   "ok": true,
+   "cached": true,
+   "bytes": 11000170,
+   "reason": null,
+   "message": null,
+   "ms": 1
+  },
+  {
+   "ine": "08077",
+   "name": "Esplugues de Llobregat",
+   "ok": true,
+   "cached": true,
+   "bytes": 6668593,
+   "reason": null,
+   "message": null,
+   "ms": 0
+  },
+  {
+   "ine": "08089",
+   "name": "Gavà",
+   "ok": true,
+   "cached": true,
+   "bytes": 15577047,
+   "reason": null,
+   "message": null,
+   "ms": 3
+  },
+  {
+   "ine": "08101",
+   "name": "L'Hospitalet de Llobregat",
+   "ok": true,
+   "cached": true,
+   "bytes": 24930073,
+   "reason": null,
+   "message": null,
+   "ms": 1
+  },
+  {
+   "ine": "08123",
+   "name": "Molins de Rei",
+   "ok": true,
+   "cached": true,
+   "bytes": 10326078,
+   "reason": null,
+   "message": null,
+   "ms": 1
+  },
+  {
+   "ine": "08125",
+   "name": "Montcada i Reixac",
+   "ok": true,
+   "cached": true,
+   "bytes": 14678167,
+   "reason": null,
+   "message": null,
+   "ms": 5
+  },
+  {
+   "ine": "08126",
+   "name": "Montgat",
+   "ok": true,
+   "cached": true,
+   "bytes": 3207060,
+   "reason": null,
+   "message": null,
+   "ms": 1
+  },
+  {
+   "ine": "08157",
+   "name": "Pallejà",
+   "ok": true,
+   "cached": true,
+   "bytes": 5961854,
+   "reason": null,
+   "message": null,
+   "ms": 64
+  },
+  {
+   "ine": "08158",
+   "name": "El Papiol",
+   "ok": true,
+   "cached": true,
+   "bytes": 4468480,
+   "reason": null,
+   "message": null,
+   "ms": 3
+  },
+  {
+   "ine": "08169",
+   "name": "El Prat de Llobregat",
+   "ok": true,
+   "cached": true,
+   "bytes": 12137981,
+   "reason": null,
+   "message": null,
+   "ms": 1
+  },
+  {
+   "ine": "08180",
+   "name": "Ripollet",
+   "ok": true,
+   "cached": true,
+   "bytes": 5770305,
+   "reason": null,
+   "message": null,
+   "ms": 13
+  },
+  {
+   "ine": "08194",
+   "name": "Sant Adrià de Besòs",
+   "ok": true,
+   "cached": true,
+   "bytes": 4038477,
+   "reason": null,
+   "message": null,
+   "ms": 2
+  },
+  {
+   "ine": "08196",
+   "name": "Sant Andreu de la Barca",
+   "ok": true,
+   "cached": true,
+   "bytes": 5336915,
+   "reason": null,
+   "message": null,
+   "ms": 5
+  },
+  {
+   "ine": "08200",
+   "name": "Sant Boi de Llobregat",
+   "ok": true,
+   "cached": true,
+   "bytes": 17381289,
+   "reason": null,
+   "message": null,
+   "ms": 1
+  },
+  {
+   "ine": "08204",
+   "name": "Sant Climent de Llobregat",
+   "ok": true,
+   "cached": true,
+   "bytes": 3988565,
+   "reason": null,
+   "message": null,
+   "ms": 2
+  },
+  {
+   "ine": "08205",
+   "name": "Sant Cugat del Vallès",
+   "ok": true,
+   "cached": true,
+   "bytes": 35702164,
+   "reason": null,
+   "message": null,
+   "ms": 2
+  },
+  {
+   "ine": "08211",
+   "name": "Sant Feliu de Llobregat",
+   "ok": true,
+   "cached": true,
+   "bytes": 7252742,
+   "reason": null,
+   "message": null,
+   "ms": 0
+  },
+  {
+   "ine": "08217",
+   "name": "Sant Joan Despí",
+   "ok": true,
+   "cached": true,
+   "bytes": 5837453,
+   "reason": null,
+   "message": null,
+   "ms": 6
+  },
+  {
+   "ine": "08221",
+   "name": "Sant Just Desvern",
+   "ok": true,
+   "cached": true,
+   "bytes": 6653184,
+   "reason": null,
+   "message": null,
+   "ms": 1
+  },
+  {
+   "ine": "08244",
+   "name": "Santa Coloma de Cervelló",
+   "ok": true,
+   "cached": true,
+   "bytes": 5153276,
+   "reason": null,
+   "message": null,
+   "ms": 0
+  },
+  {
+   "ine": "08245",
+   "name": "Santa Coloma de Gramenet",
+   "ok": true,
+   "cached": true,
+   "bytes": 16543323,
+   "reason": null,
+   "message": null,
+   "ms": 2
+  },
+  {
+   "ine": "08252",
+   "name": "Barberà del Vallès",
+   "ok": true,
+   "cached": true,
+   "bytes": 8416826,
+   "reason": null,
+   "message": null,
+   "ms": 4
+  },
+  {
+   "ine": "08263",
+   "name": "Sant Vicenç dels Horts",
+   "ok": true,
+   "cached": false,
+   "bytes": 13983557,
+   "reason": null,
+   "message": null,
+   "ms": 5431
+  },
+  {
+   "ine": "08266",
+   "name": "Cerdanyola del Vallès",
+   "ok": true,
+   "cached": true,
+   "bytes": 15629911,
+   "reason": null,
+   "message": null,
+   "ms": 0
+  },
+  {
+   "ine": "08282",
+   "name": "Tiana",
+   "ok": true,
+   "cached": true,
+   "bytes": 5275727,
+   "reason": null,
+   "message": null,
+   "ms": 1
+  },
+  {
+   "ine": "08289",
+   "name": "Torrelles de Llobregat",
+   "ok": true,
+   "cached": true,
+   "bytes": 7774482,
+   "reason": null,
+   "message": null,
+   "ms": 1
+  },
+  {
+   "ine": "08301",
+   "name": "Viladecans",
+   "ok": true,
+   "cached": true,
+   "bytes": 17089809,
+   "reason": null,
+   "message": null,
+   "ms": 0
+  },
+  {
+   "ine": "08904",
+   "name": "Badia del Vallès",
+   "ok": true,
+   "cached": true,
+   "bytes": 582725,
+   "reason": null,
+   "message": null,
+   "ms": 0
+  },
+  {
+   "ine": "08905",
+   "name": "La Palma de Cervelló",
+   "ok": true,
+   "cached": true,
+   "bytes": 2551710,
+   "reason": null,
+   "message": null,
+   "ms": 1
+  }
+ ]
+}
