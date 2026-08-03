@@ -193,7 +193,7 @@ Neither changes what a signature is worth; both change what surrounds it.
 - **An edificabilidad for MC-1/2/4 or CTP-1.** Both are **DERIVED BY ALGORITHM** in the ordinance. The
   pipeline correctly emits `null`; signing cannot convert an algorithm into a scalar (the Barcelona
   Art. 242.2 lesson, ADR-0271).
-- **UAD-3 rendering at all** — see the blocking limit below.
+- ~~**UAD-3 rendering at all** — see the blocking limit below.~~ **CLOSED 2026-08-02, `ef0e966b`** — see item 1 below, updated.
 - **Any tier above `estimated-ruleset`.** The verification was a **second independent METHOD against
   the same document**, not a **second independent SOURCE**; it removes the "nobody has checked it"
   defect that justified the bottom rung, and nothing more. `structured` requires the publisher to serve
@@ -204,15 +204,16 @@ Neither changes what a signature is worth; both change what surrounds it.
 
 ### Known limits accepted at signing
 
-1. ⛔ **BLOCKING — UAD *profundidad máxima edificable* is stated in the source but ABSENT from the
-   pack.** Art. **13.9.3.3** states a real depth cap — **UAD-1 16 m · UAD-2 18 m · UAD-3 16 m**
-   (verified at 380 dpi) — and the pack carries none of it. For UAD-1/2 this merely over-states deep
-   parcels. For **UAD-3 it is the L-616 mechanism-A failure verbatim**: `front_m: 0` + `side_m: 0`
-   (party wall) + `rear_m: 5` with **no depth band** draws essentially the whole parcel. This is the
-   exact overstatement CTP-1's `alignment` rule and MC's unresolvable ring exist to prevent, left
-   unguarded on the one family that needed it too. **Latent, not live** — UAD-3 binds **0.00 %** of
-   pilot land today — but it must be closed **before** UAD-3 can ever bind. Reported as a finding, not
-   silently patched.
+1. ✅ **CLOSED 2026-08-02 (`ef0e966b`) — was BLOCKING.** Art. **13.9.3.3**'s real depth cap —
+   **UAD-1 16 m · UAD-2 18 m · UAD-3 16 m** (verified at 380 dpi) — was stated in the source but
+   absent from the pack. All three UAD subzones now carry an `alignment` geometricRule with the
+   stated depth. UAD-3's L-616 mechanism-A exposure (`front_m: 0` + `side_m: 0` party-wall +
+   `rear_m: 5`, no depth band ⇒ near-full-parcel draw) is closed the same way CTP-1's `alignment`
+   rule and MC's unresolvable ring already guard their own families. UAD-3 still binds **0.00 %** of
+   pilot land today, so this changed no live number — it removed a latent risk before it could ever
+   fire. Independently re-verified (git-log cross-check against the live code) 2026-08-03 by a
+   separate audit pass — see `docs/04-reference/jurisdictions/ENVELOPE-REALISM-MATRIX.md`'s
+   corrected Córdoba row for the parallel finding on CTP-1/MC.
 2. ⚠ **The CTP-1 ocupación step-function is mis-documented (the shipped number is right).** The source
    (Art. 13.8.2.5, verified at 400 dpi) reads: *«Parcelas de hasta 100 m2, el 100%. Parcela de más de
    100 m2 y menos de 125 m2, **100 m2**. Parcelas de más de 125 m2, el 80%.»* The middle band is an
