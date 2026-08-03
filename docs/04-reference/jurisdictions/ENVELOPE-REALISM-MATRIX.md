@@ -23,7 +23,7 @@
  | tiered-occupation — **NOT registered** `registry.ts:280-331` | 2.0 | 0.9 | Yes | — | — | **REFUSES** |
 | **BCN 18 volumetria** | explicit-area, gated OFF | null | null | No | — | — | **REFUSES** |
 | **Madrid NZ1** | explicit-area, empty `registry.ts:397-401` | null | null | No | — | — | **REFUSES** (ring-only) |
-| **Córdoba PGOU-2001** | mixed (PAS/OA/UAD real; CTP-1/MC **null + no geometricRule**) — gate OFF | real | real | No | latent | latent | **REFUSES** (latent BOTH) |
+| **Córdoba PGOU-2001** | mixed (PAS/OA/UAD real; CTP-1 `alignment` geometricRule 16 m depth, MC `explicit-area` unresolvable-ring refusal — both guards closed `6dbad1f2`, 2026-07-26) — gate OFF | real | real | No | No (closed) | No | **REFUSES** (gate OFF; guards in place) |
 | **Switzerland national** | zones `[]`, refusal | null | null | No | — | — | **REFUSES** |
 | **Switzerland/Zürich BZO** | zones `[]`; **compute NOT wired into dispatcher** | AZ catalogue (gate `true` but unused) | — | No | — | latent | **REFUSES** |
 | **Paris PLU-b** | gate `false` → refuses; new ECM engine ready but dispatcher not repointed | null | null | No | latent | No | **REFUSES** |
@@ -35,7 +35,7 @@
 1. **Denmark — OVERSTATES-BOTH, live.** The only jurisdiction that draws today AND stacks both mechanisms (the founder's Copenhagen defect). Fix: honest DK footprint (refuse/flag when byggelinjer absent, don't inset by 0) + FAR binds volume.
 2. **BCN 20a aïllada — OVERSTATES-FAR, live.** Real setbacks bind, but a real 30% ocupació + FAR are discarded; solid is footprint×height. Highest-traffic overstating BCN pack.
 3. **BCN 12 nucli antic — OVERSTATES-FAR, live.** The 1.40 net edificabilitat is ignored by the volume path.
-4. **Córdoba — latent OVERSTATES-BOTH behind `CORDOBA_ENVELOPE_VERIFIED`.** CTP-1/MC subzones have null setbacks + NO `geometricRule` → full parcel (mechanism A) the moment the gate opens. Add a `geometricRule` before signing.
+4. ✅ **CLOSED (2026-07-26, `6dbad1f2`).** ~~Córdoba — latent OVERSTATES-BOTH behind `CORDOBA_ENVELOPE_VERIFIED`. CTP-1/MC subzones have null setbacks + NO `geometricRule` → full parcel (mechanism A) the moment the gate opens. Add a `geometricRule` before signing.~~ **Stale as of the same day it was written**: `esCordobaPGOU2001.ts` now carries a real `alignment` geometricRule on CTP-1 (16 m *profundidad edificable*, Art. 13.8.2.4) and an `explicit-area` geometricRule with the deliberately-unresolvable `CORDOBA_MC_FONDO_UNRESOLVED_RING` handle on MC-1..4 (hard-fails to `status:'degenerate'`, never a full-parcel box). Neither can hit mechanism A once `CORDOBA_ENVELOPE_VERIFIED` flips. Gate itself is still OFF and unsigned — see `sources/VERIFICATION.md` — so nothing renders today regardless. A real, still-open, unrelated gap remained on **UAD-3** (same mechanism-A shape, no depth band) until it too was closed 2026-08-02 (`ef0e966b`).
 5. **Paris — latent OVERSTATES-SETBACK behind `FR_PARIS_PLU_CERTIFIED`.** Old `FR_PARIS_PLU_PACK` UG zone is `setbacks:{0,0,0}`. Repoint the dispatcher to the new real-ECM `computeParisEnvelope` BEFORE flipping the gate.
 6. **Switzerland/Zürich — latent OVERSTATES-FAR if wired.** `CH_FAR_CERTIFIED=true` but `computeZurichBzoEnvelope` isn't called (the flip is currently inert — Zürich still refuses). Wire the AZ/GFA cap into the solid, not just footprint×height.
 
