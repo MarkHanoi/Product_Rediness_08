@@ -31,18 +31,30 @@ import {
 import { MURCIA_ENVELOPE_VERIFIED, MURCIA_JURISDICTION_ID } from '../src/rulepacks/esMurciaEnvelope.js';
 import { isUrbanizableClase, murciaEnvelopeDisposition } from '../src/providers/murciaZoningProvider.js';
 import { resolveMurciaZoning } from '../src/providers/resolveMurciaZoning.js';
+import { projectToNative } from '../src/geometry/nativeCrs.js';
 
 const ASOF = '2026-08-01';
 
-/** A polygon that covers the query point — the §MURCIA-COVERS-POINT filter demands real geometry. */
-const coveringSquare = (lat: number, lon: number) => ({
-    type: 'Polygon',
-    coordinates: [[
-        [lon - 0.001, lat - 0.001], [lon + 0.001, lat - 0.001],
-        [lon + 0.001, lat + 0.001], [lon - 0.001, lat + 0.001],
-        [lon - 0.001, lat - 0.001],
-    ]],
-});
+/**
+ * A polygon that covers the query point — the §MURCIA-COVERS-POINT filter demands real geometry.
+ *
+ * §NATIVE-CRS-MEASUREMENT — built in the layers' NATIVE EPSG:25830, in metres, because that is what
+ * the proxy now serves. A ±110 m square about the projected point, which is the same footprint the
+ * old ±0.001° square had; only the units changed.
+ */
+const NATIVE_CRS = 'EPSG:25830';
+const coveringSquare = (lat: number, lon: number) => {
+    const c = projectToNative(NATIVE_CRS, lat, lon)!;
+    const d = 110;
+    return {
+        type: 'Polygon',
+        coordinates: [[
+            [c.e - d, c.n - d], [c.e + d, c.n - d],
+            [c.e + d, c.n + d], [c.e - d, c.n + d],
+            [c.e - d, c.n - d],
+        ]],
+    };
+};
 
 const PT = { lat: 37.9922, lon: -1.1307 } as const; // Murcia city centre
 
@@ -69,7 +81,7 @@ const fakeProxy = (calificaciones: unknown[], sectores: unknown[]) =>
     (async () =>
         ({
             ok: true,
-            json: async () => ({ calificaciones, sectores }),
+            json: async () => ({ crs: NATIVE_CRS, calificaciones, sectores }),
         }) as unknown as Response) as unknown as typeof fetch;
 
 // ══════════════════════════════════════════════════════════════════════════════════════════
@@ -477,7 +489,7 @@ describe('Murcia — the pack is reachable from the LIVE resolver chain, not jus
     it('a half-down proxy is still an unreachable-endpoint answer, not a silent "nothing here"', async () => {
         const res = await resolveMurciaZoning(PT, {
             fetchImpl: (async () =>
-                ({ ok: true, json: async () => ({ calificaciones: null, sectores: [] }) }) as unknown as Response) as unknown as typeof fetch,
+                ({ ok: true, json: async () => ({ crs: NATIVE_CRS, calificaciones: null, sectores: [] }) }) as unknown as Response) as unknown as typeof fetch,
             asOf: ASOF,
         });
         expect(res.ok).toBe(false);

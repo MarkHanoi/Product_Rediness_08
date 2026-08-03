@@ -19,11 +19,25 @@
 // Usage: npx tsx tools/murcia-street-width-probe/snapGate.mts
 
 import { measureStreetWidths } from '../../packages/site-parcel-data/src/geometry/streetWidth.js';
+import {
+    makeMeasurementFrame,
+    type MeasurementFrame,
+} from '../../packages/site-parcel-data/src/geometry/nativeCrs.js';
 import type { Pt } from '@pryzm/schemas';
 
 const WFS = 'https://geoserver.murcia.es/geoserver/wfs';
 const LAYER = 'Murcia:pgou_alineaciones';
-const M_PER_DEG_LAT = 111_320;
+/**
+ * §NATIVE-CRS-MEASUREMENT — this tool MEASURES, so it fetches the layer's native metric CRS.
+ *
+ * ⚠⚠ AND IT MATTERS MORE HERE THAN ANYWHERE. This gate asks whether Murcia's street sections
+ * CLUSTER on round quanta. Fetched in EPSG:4326 the geometry is quantised to ~8,8 m of longitude /
+ * ~11,1 m of latitude (GeoServer's numDecimals=4), so the widths would cluster on THAT lattice —
+ * and 8,77 m and 11,13 m sit right on top of the 8 m and 12 m candidates this gate tests. A run in
+ * 4326 could therefore manufacture exactly the clustering it exists to detect, and ADR-0275's rule
+ * (cluster ⇒ ship the snap) would ship a snap to a serialisation artefact.
+ */
+const NATIVE_CRS = 'EPSG:25830';
 /** Candidate quanta — ADR-0275's set, PLUS Murcia's own Art. 5.3.3 / 5.5.3 band edges (4, 8, 12). */
 const QUANTA = [4, 5, 6, 8, 10, 12, 15, 16, 20, 25, 30, 40, 48, 50];
 const HALF_WINDOW = 0.6;
@@ -49,18 +63,18 @@ function tileUrl(lat: number, lon: number): string {
     const r = (n: number) => Number(n.toFixed(7));
     return `${WFS}?` + new URLSearchParams({
         service: 'WFS', version: '2.0.0', request: 'GetFeature', typeNames: LAYER,
-        outputFormat: 'application/json', srsName: 'EPSG:4326', count: '3000',
+        outputFormat: 'application/json', srsName: NATIVE_CRS, count: '3000',
         bbox: `${r(lat - TILE_HALF_DEG)},${r(lon - TILE_HALF_DEG)},${r(lat + TILE_HALF_DEG)},${r(lon + TILE_HALF_DEG)},urn:ogc:def:crs:EPSG::4326`,
     });
 }
 
-function outerRings(f: any, oLat: number, oLon: number): Pt[][] {
+/** Native easting/northing → the tile's local metric frame. RIGID: a translation, nothing more. */
+function outerRings(f: any, frame: MeasurementFrame): Pt[][] {
     const g = f?.geometry;
     if (!g) return [];
-    const mLon = M_PER_DEG_LAT * Math.cos((oLat * Math.PI) / 180);
     const proj = (ring: any[]): Pt[] => ring
         .filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]))
-        .map((p) => ({ x: (p[0] - oLon) * mLon, z: -(p[1] - oLat) * M_PER_DEG_LAT }));
+        .map((p) => frame.fromNative(p[0], p[1]));
     const polys = g.type === 'MultiPolygon' ? g.coordinates : g.type === 'Polygon' ? [g.coordinates] : [];
     const out: Pt[][] = [];
     for (const poly of polys) {
@@ -79,8 +93,13 @@ async function main() {
         let tile: any;
         try { tile = await getJson(tileUrl(lat, lon)); }
         catch (e) { process.stderr.write(`tile ${lat},${lon} failed: ${(e as Error).message}\n`); continue; }
+        const frame = makeMeasurementFrame(NATIVE_CRS, lat, lon);
+        if (!frame) {
+            process.stderr.write(`tile ${lat},${lon}: no measurement frame — skipped\n`);
+            continue;
+        }
         const feats = Array.isArray(tile?.features) ? tile.features : [];
-        const rings = feats.flatMap((f: any) => outerRings(f, lat, lon));
+        const rings = feats.flatMap((f: any) => outerRings(f, frame));
         for (let i = 0; i < rings.length; i++) {
             const ours = rings[i]!;
             // Skip slivers: a ring under ~200 m² is not a manzana and its "frontages" are noise.

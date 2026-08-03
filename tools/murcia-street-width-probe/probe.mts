@@ -23,13 +23,21 @@ import {
     resolveMurciaAnchoDeCalle,
     type MurciaAnchoZone,
 } from '../../packages/site-parcel-data/src/rulepacks/esMurciaAnchoDeCalle.js';
+import { nativeToWgs84 } from '../../packages/site-parcel-data/src/geometry/nativeCrs.js';
 
 const WFS = 'https://geoserver.murcia.es/geoserver/wfs';
 const LAYER = 'Murcia:pgou_alineaciones';
 /** Mirrors `MURCIA_NEIGHBOURHOOD_HALF_DEG` in server/murciaPgouProxy.js. */
 const HOOD_HALF_DEG = 0.002;
 const HOOD_MAX_FEATURES = 600;
-const M_PER_DEG_LAT = 111_320;
+/**
+ * §NATIVE-CRS-MEASUREMENT — the CRS PRODUCTION now requests, and therefore the one this probe must
+ * request. A probe that fetched EPSG:4326 while the proxy fetches EPSG:25830 would be measuring a
+ * pipeline that does not exist — and would reproduce the very defect the proxy was fixed for
+ * (GeoServer serialises GeoJSON at numDecimals=4: ~8,8 m of longitude at this latitude).
+ * Mirrors `MURCIA_NATIVE_CRS` in server/murciaPgouProxy.js.
+ */
+const NATIVE_CRS = 'EPSG:25830';
 
 const argv = process.argv.slice(2);
 const arg = (k: string, d: number): number => {
@@ -49,39 +57,46 @@ function mulberry32(a: number) {
     };
 }
 
-type LonLat = readonly [number, number];
+/**
+ * A vertex in the layer's NATIVE EPSG:25830 — `[easting, northing]`, metres.
+ *
+ * ⚠ NOT lon/lat. §NATIVE-CRS-MEASUREMENT: the population is fetched natively too, so the sampling
+ * weights and the interior points are computed on the geometry the municipality actually published
+ * rather than on a ~10 m-quantised reprojection of it. Only the QUERY POINT is converted back to
+ * degrees, because that is what a browser click is and what the proxy route takes.
+ */
+type EN = readonly [number, number];
 
-function ringAreaM2(ring: readonly LonLat[]): number {
+/** Shoelace in metres. Native CRS ⇒ no earth-radius constant and no latitude correction. */
+function ringAreaM2(ring: readonly EN[]): number {
     if (ring.length < 3) return 0;
-    const lat = ring[0]![1];
-    const mLon = M_PER_DEG_LAT * Math.cos((lat * Math.PI) / 180);
     let a = 0;
     for (let i = 0; i < ring.length; i++) {
         const p = ring[i]!, q = ring[(i + 1) % ring.length]!;
-        a += (p[0] * mLon) * (q[1] * M_PER_DEG_LAT) - (q[0] * mLon) * (p[1] * M_PER_DEG_LAT);
+        a += p[0] * q[1] - q[0] * p[1];
     }
     return Math.abs(a) / 2;
 }
 
 /** A point guaranteed INSIDE the ring: the centroid, else the average of two adjacent vertices. */
-function interiorPoint(ring: readonly LonLat[]): LonLat {
+function interiorPoint(ring: readonly EN[]): EN {
     let sx = 0, sy = 0;
     for (const p of ring) { sx += p[0]; sy += p[1]; }
-    const c: LonLat = [sx / ring.length, sy / ring.length];
+    const c: EN = [sx / ring.length, sy / ring.length];
     if (pointInRing(ring, c)) return c;
     // Concave ring: walk vertex midpoints nudged toward the centroid until one lands inside.
     for (let i = 0; i < ring.length; i++) {
         const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
-        const m: LonLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        const m: EN = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
         for (const t of [0.02, 0.08, 0.2, 0.4]) {
-            const p: LonLat = [m[0] + (c[0] - m[0]) * t, m[1] + (c[1] - m[1]) * t];
+            const p: EN = [m[0] + (c[0] - m[0]) * t, m[1] + (c[1] - m[1]) * t];
             if (pointInRing(ring, p)) return p;
         }
     }
     return c;
 }
 
-function pointInRing(ring: readonly LonLat[], p: LonLat): boolean {
+function pointInRing(ring: readonly EN[], p: EN): boolean {
     let inside = false;
     for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
         const a = ring[i]!, b = ring[j]!;
@@ -101,7 +116,7 @@ function hoodUrl(lat: number, lon: number): string {
     const r = (n: number) => Number(n.toFixed(7));
     const qs = new URLSearchParams({
         service: 'WFS', version: '2.0.0', request: 'GetFeature', typeNames: LAYER,
-        outputFormat: 'application/json', srsName: 'EPSG:4326', count: String(HOOD_MAX_FEATURES),
+        outputFormat: 'application/json', srsName: NATIVE_CRS, count: String(HOOD_MAX_FEATURES),
         bbox: `${r(lat - HOOD_HALF_DEG)},${r(lon - HOOD_HALF_DEG)},${r(lat + HOOD_HALF_DEG)},${r(lon + HOOD_HALF_DEG)},urn:ogc:def:crs:EPSG::4326`,
     });
     return `${WFS}?${qs}`;
@@ -113,7 +128,7 @@ function ejeUrl(lat: number, lon: number): string {
     return `${WFS}?` + new URLSearchParams({
         service: 'WFS', version: '2.0.0', request: 'GetFeature',
         typeNames: 'Murcia:pgou_eje_comercial',
-        outputFormat: 'application/json', srsName: 'EPSG:4326', count: '200',
+        outputFormat: 'application/json', srsName: NATIVE_CRS, count: '200',
         bbox: `${r(lat - HOOD_HALF_DEG)},${r(lon - HOOD_HALF_DEG)},${r(lat + HOOD_HALF_DEG)},${r(lon + HOOD_HALF_DEG)},urn:ogc:def:crs:EPSG::4326`,
     });
 }
@@ -122,26 +137,31 @@ async function main() {
     const today = new Date().toISOString().slice(0, 10);
     const popUrl = `${WFS}?` + new URLSearchParams({
         service: 'WFS', version: '2.0.0', request: 'GetFeature', typeNames: LAYER,
-        outputFormat: 'application/json', srsName: 'EPSG:4326', count: '20000',
+        outputFormat: 'application/json', srsName: NATIVE_CRS, count: '20000',
         CQL_FILTER: `calificacion IN ('RC','RM','RN') AND f_fin > '${today}'`,
     });
     process.stderr.write('fetching RC/RM/RN population…\n');
     const pop = await getJson(popUrl);
 
-    type Unit = { zone: MurciaAnchoZone; area: number; pt: LonLat };
+    // `pt` is the interior point in NATIVE easting/northing; `ptDeg` is the same point as the
+    // WGS84 click the proxy route takes. The measurement never sees `ptDeg`.
+    type Unit = { zone: MurciaAnchoZone; area: number; pt: EN; ptDeg: readonly [number, number] };
     const units: Unit[] = [];
     for (const f of pop.features ?? []) {
         const code = String(f?.properties?.calificacion ?? '');
         if (code !== 'RC' && code !== 'RM' && code !== 'RN') continue;
         const g = f.geometry;
-        const polys: readonly (readonly (readonly LonLat[])[])[] =
+        const polys: readonly (readonly (readonly EN[])[])[] =
             g?.type === 'MultiPolygon' ? g.coordinates : g?.type === 'Polygon' ? [g.coordinates] : [];
         for (const poly of polys) {
             const outer = poly?.[0];
             if (!outer || outer.length < 4) continue;
             const area = ringAreaM2(outer);
             if (area <= 0) continue;
-            units.push({ zone: code as MurciaAnchoZone, area, pt: interiorPoint(outer) });
+            const pt = interiorPoint(outer);
+            const deg = nativeToWgs84(NATIVE_CRS, pt[0], pt[1]);
+            if (!deg) continue; // unprojectable ⇒ excluded, never placed at a fabricated coordinate
+            units.push({ zone: code as MurciaAnchoZone, area, pt, ptDeg: [deg.lon, deg.lat] });
         }
     }
     const totalArea = units.reduce((s, u) => s + u.area, 0);
@@ -174,7 +194,7 @@ async function main() {
 
     for (const [i, u] of sample.entries()) {
         sampledArea += u.area;
-        const [lon, lat] = u.pt;
+        const [lon, lat] = u.ptDeg;
         let hood: any;
         try { hood = await getJson(hoodUrl(lat, lon)); }
         catch { bump('endpoint-unreachable', u.area); continue; }
@@ -185,7 +205,10 @@ async function main() {
         let ejes: unknown[] | null = null;
         try { ejes = (await getJson(ejeUrl(lat, lon)))?.features ?? null; } catch { ejes = null; }
         const fetchImpl = (async () => ({
-            ok: true, json: async () => ({ alineaciones: features, ejesComerciales: ejes, truncated }),
+            ok: true,
+            // §NATIVE-CRS-MEASUREMENT — the proxy declares its CRS on every body, and the resolver
+            // REFUSES a body that does not. A probe that omitted it would measure nothing at all.
+            json: async () => ({ crs: NATIVE_CRS, alineaciones: features, ejesComerciales: ejes, truncated }),
         })) as unknown as typeof fetch;
 
         const w = await resolveMurciaStreetWidth({ lat, lon }, { fetchImpl });

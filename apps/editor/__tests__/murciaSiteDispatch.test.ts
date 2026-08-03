@@ -110,7 +110,15 @@ function stubProxies(log: RouteLog, murciaBody: unknown): typeof globalThis.fetc
             } as unknown as Response;
         }
         if (url.startsWith('/api/es/murcia-pgou')) {
-            return { ok: true, status: 200, json: async () => murciaBody } as unknown as Response;
+            // §NATIVE-CRS-MEASUREMENT — the real proxy DECLARES its CRS on every body (the layers
+            // are native EPSG:25830; asking GeoServer for 4326 quantised them to ~10 m, which is
+            // the size of the storey bands). The resolvers refuse a body that does not declare a
+            // metric CRS, so the stub must carry it or every case here would test the guard instead
+            // of the dispatch. The fixtures below are ATTRIBUTE-ONLY, so no coordinate changes.
+            const body = murciaBody !== null && typeof murciaBody === 'object' && !('crs' in murciaBody)
+                ? { crs: 'EPSG:25830', ...murciaBody }
+                : murciaBody;
+            return { ok: true, status: 200, json: async () => body } as unknown as Response;
         }
         // Context-building prefetch etc. — best-effort callers that swallow this.
         throw new TypeError(`unstubbed URL in unit test: ${url}`);

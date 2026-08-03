@@ -29,9 +29,35 @@
 //
 // ⚠ CRS/AXIS: the layers are native EPSG:25830 (ETRS89 / UTM 30N). A bare 4326 bbox is silently
 // EMPTY against such layers (the documented Córdoba gotcha), so the bbox is issued with the
-// EXPLICIT `urn:ogc:def:crs:EPSG::4326` authority axis order (lat/lon), which GeoServer honours,
-// and `srsName` asks for 4326 back. If a live probe shows this GeoServer wants the other order,
-// change it HERE — one place — never in the client.
+// EXPLICIT `urn:ogc:def:crs:EPSG::4326` authority axis order (lat/lon), which GeoServer honours.
+// If a live probe shows this GeoServer wants the other order, change it HERE — one place — never
+// in the client.
+//
+// ⚠⚠ §NATIVE-CRS-MEASUREMENT — AND `srsName` ASKS FOR **EPSG:25830**, NOT 4326. THIS IS LOAD-BEARING.
+// ─────────────────────────────────────────────────────────────────────────────
+// This proxy used to ask for `srsName=EPSG:4326`, and that ONE PARAMETER was a live measurement
+// defect. GeoServer serialises GeoJSON with `numDecimals=4`. Four decimals is 0,1 mm in EPSG:25830
+// METRES — which is what this server was tuned for — but in EPSG:4326 DEGREES it is roughly **8,8 m
+// of longitude and 11,1 m of latitude** at Murcia's latitude. The street width that selects the
+// storey band under Arts. 5.3.3 / 5.5.3 / 5.7.3 / 5.9.3 was being measured on that quantised
+// geometry.
+//
+// MEASURED LIVE 2026-08-02 — the same features fetched in both CRS and matched by WFS feature id
+// (707 features / 19 986 segments over 12 neighbourhoods):
+//     segment |Δlength|   median 2,96 m · p90 7,34 m · p99 10,33 m · max 13,71 m
+//     DEGENERATE (zero-length) segments — 4326: 7 499 of 19 986 (37,5 %) · native 25830: 1
+// More than a third of every ring's edges had COLLAPSED. That is not a rounding error, it is a
+// different polygon — and the error is the size of the 8 m and 12 m legal thresholds themselves.
+//
+// ⚠ `format_options=numDecimals:N` is NOT honoured by this server, so raising the precision in 4326
+// was never available. The only fix is to stop asking for 4326.
+//
+// So: **request native → measure native → reproject only to display.** The response now DECLARES its
+// CRS (`crs: 'EPSG:25830'` on every body, including the empty ones) so no consumer has to guess, and
+// `resolveMurciaStreetWidth` REFUSES outright rather than measure a body whose CRS it cannot
+// recognise as metric. Measurement and display are different responsibilities and must not share a
+// coordinate pipeline. See `packages/site-parcel-data/src/geometry/nativeCrs.ts` for the shared,
+// region-agnostic capability every other metre-CRS city plugs into.
 //
 // @see server/cordobaZoningProxy.js — the template this mirrors
 // @see packages/site-parcel-data/src/providers/resolveMurciaZoning.ts — the client consumer
@@ -42,6 +68,15 @@ export const MURCIA_PGOU_PATH = '/api/es/murcia-pgou';
 
 /** The municipal GeoServer WFS (keyless, public). */
 export const MURCIA_WFS_ENDPOINT = 'https://geoserver.murcia.es/geoserver/wfs';
+
+/**
+ * §NATIVE-CRS-MEASUREMENT — the CRS the layers are PUBLISHED in, and the one we ask for.
+ *
+ * ⚠ CHANGING THIS TO A GEOGRAPHIC CRS RE-OPENS A LIVE MEASUREMENT DEFECT (see the header). It is
+ * exported so the client-side allow-list (`nativeCrs.ts`) and the CI guard can be checked against
+ * the value the URL builder actually emits, rather than against a comment that can drift.
+ */
+export const MURCIA_NATIVE_CRS = 'EPSG:25830';
 
 export const MURCIA_CALIFICACION_LAYER = 'Murcia:pgou_alineaciones';
 export const MURCIA_SECTOR_LAYER = 'Murcia:pgou_sectores';
@@ -122,8 +157,17 @@ function cacheSet(key, value, ttlMs = MURCIA_CACHE_TTL_MS) {
 // ── upstream URL (single source of truth) ─────────────────────────────────────
 
 /**
- * Build a `GetFeature` URL for one Murcia PGOU layer at a WGS84 point. The BBOX carries the
- * EXPLICIT `urn:ogc:def:crs:EPSG::4326` authority (lat/lon) axis order — see the CRS note above.
+ * Build a `GetFeature` URL for one Murcia PGOU layer at a WGS84 point.
+ *
+ * TWO CRS APPEAR HERE AND THEY DO DIFFERENT JOBS — do not collapse them:
+ *   • the **BBOX** is expressed in `urn:ogc:def:crs:EPSG::4326` authority (lat/lon) axis order,
+ *     because that is the SELECTION window and GeoServer reprojects it internally at full
+ *     precision. A bare 4326 bbox is silently EMPTY against a native-25830 layer (the documented
+ *     Córdoba gotcha), so the authority form stays.
+ *   • the **`srsName`** is `EPSG:25830`, the layer's NATIVE metric CRS, because that is the
+ *     RESPONSE serialisation — and a 4-decimal serialisation in degrees quantises the geometry to
+ *     ~10 m. ⚠ §NATIVE-CRS-MEASUREMENT: never set this to a geographic CRS. See the file header
+ *     for the measured cost.
  *
  * @param {string} typeName  the WFS layer (`Murcia:pgou_alineaciones` | `Murcia:pgou_sectores`)
  * @param {number} lat
@@ -141,7 +185,8 @@ export function buildMurciaWfsUrl(typeName, lat, lon, halfDeg = MURCIA_QUERY_HAL
         request: 'GetFeature',
         typeNames: typeName,
         outputFormat: 'application/json',
-        srsName: 'EPSG:4326',
+        // §NATIVE-CRS-MEASUREMENT — the layer's own metric CRS, at full serialised precision.
+        srsName: MURCIA_NATIVE_CRS,
         count: String(count),
         // Authority (lat/lon) axis order — the documented gotcha against native-25830 layers.
         bbox: `${minLat},${minLon},${maxLat},${maxLon},urn:ogc:def:crs:EPSG::4326`,
@@ -206,7 +251,9 @@ export async function fetchMurciaPgouAtPoint(lat, lon, deps = {}) {
         fetchMurciaWfs(buildMurciaWfsUrl(MURCIA_CALIFICACION_LAYER, lat, lon), deps),
         fetchMurciaWfs(buildMurciaWfsUrl(MURCIA_SECTOR_LAYER, lat, lon), deps),
     ]);
-    return { calificaciones, sectores };
+    // §NATIVE-CRS-MEASUREMENT — the body DECLARES its coordinate system. A consumer that has to
+    // infer the CRS from the magnitude of a number is one refactor away from measuring degrees.
+    return { crs: MURCIA_NATIVE_CRS, calificaciones, sectores };
 }
 
 /**
@@ -242,6 +289,9 @@ export async function fetchMurciaAlineacionesNeighbourhood(lat, lon, deps = {}) 
         ),
     ]);
     return {
+        // §NATIVE-CRS-MEASUREMENT — declared, never inferred. `resolveMurciaStreetWidth` refuses a
+        // body whose CRS it cannot recognise as metric rather than measuring it anyway.
+        crs: MURCIA_NATIVE_CRS,
         alineaciones: features,
         // ⚠ `null` (the eje service did not answer) and `[]` (it answered, no eje here) are
         // DIFFERENT and are kept apart to the end: `null` must produce UNKNOWN, `[]` produces a
@@ -256,9 +306,15 @@ export async function fetchMurciaAlineacionesNeighbourhood(lat, lon, deps = {}) 
 
 /**
  * `GET /api/es/murcia-pgou?lat=&lon=` →
- *   200 `{ calificaciones: Feature[]|null, sectores: Feature[]|null }`
+ *   200 `{ crs: 'EPSG:25830', calificaciones: Feature[]|null, sectores: Feature[]|null }`
  *   502 `{ error }` when NEITHER layer answered (a failure, never a false "nothing here")
  *   400 on missing/bad coordinates
+ *
+ * ⚠ THE QUERY IS IN DEGREES AND THE ANSWER IS IN METRES, AND THAT ASYMMETRY IS DELIBERATE. `lat`
+ * and `lon` are WGS84 because that is what a browser click is; the GEOMETRY comes back in the
+ * layers' native EPSG:25830 because that is the only form it survives serialisation in
+ * (§NATIVE-CRS-MEASUREMENT — see the file header). Consumers read `crs` and project the QUERY POINT
+ * into it; they must never project the geometry back to degrees in order to measure it.
  *
  * A point outside the loose Murcia bbox short-circuits to 200 with both layers `[]` — an honest
  * empty, not a failure, and no pointless round trip to a municipal service.
@@ -277,10 +333,13 @@ export function makeMurciaPgouHandler(deps = {}) {
             res.setHeader('X-Murcia-Cache', 'OUT-OF-BOUNDS');
             // The response SHAPE follows the request, so an out-of-bounds neighbourhood answers an
             // honest empty neighbourhood rather than a point-query body the caller cannot read.
+            // ⚠ The CRS travels on the EMPTY body too. A consumer that only learns the CRS on a
+            // populated answer would have to special-case the empty one, and a special case is
+            // where a coordinate pipeline forks.
             return res.status(200).json(
                 String(req.query?.extent ?? '') === 'neighbourhood'
-                    ? { alineaciones: [], ejesComerciales: [], truncated: false }
-                    : { calificaciones: [], sectores: [] },
+                    ? { crs: MURCIA_NATIVE_CRS, alineaciones: [], ejesComerciales: [], truncated: false }
+                    : { crs: MURCIA_NATIVE_CRS, calificaciones: [], sectores: [] },
             );
         }
 
@@ -302,7 +361,7 @@ export function makeMurciaPgouHandler(deps = {}) {
                 hood = await fetchMurciaAlineacionesNeighbourhood(lat, lon, deps);
             } catch (err) {
                 console.warn('[murcia-proxy] neighbourhood error:', err?.message ?? err);
-                hood = { alineaciones: null, truncated: false };
+                hood = { crs: MURCIA_NATIVE_CRS, alineaciones: null, truncated: false };
             }
             if (hood.alineaciones === null) {
                 res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -336,7 +395,7 @@ export function makeMurciaPgouHandler(deps = {}) {
             payload = await fetchMurciaPgouAtPoint(lat, lon, deps);
         } catch (err) {
             console.warn('[murcia-proxy] unexpected error:', err?.message ?? err);
-            payload = { calificaciones: null, sectores: null };
+            payload = { crs: MURCIA_NATIVE_CRS, calificaciones: null, sectores: null };
         }
 
         if (payload.calificaciones === null && payload.sectores === null) {

@@ -6,8 +6,23 @@
 // a future author cannot quietly regress one.
 //
 // The fixture is a LIVE capture of `Murcia:pgou_alineaciones` over the Casco Antiguo
-// (bbox 37.9902,-1.1327 → 37.9942,-1.1287, 39 features, 2026-08-02). Real municipal geometry, so
-// these are not tests against a shape we invented to pass.
+// (bbox 37.9902,-1.1327 → 37.9942,-1.1287, 39 features). Real municipal geometry, so these are not
+// tests against a shape we invented to pass.
+//
+// ⚠⚠ §NATIVE-CRS-MEASUREMENT — THE FIXTURE WAS RE-CAPTURED IN EPSG:25830 AND THE PINS MOVED.
+// The 2026-08-02 capture was taken in EPSG:4326, which is how the defect got in: GeoServer
+// serialises GeoJSON at `numDecimals=4`, and four decimals of a degree is ~8,8 m of longitude /
+// ~11,1 m of latitude at Murcia's latitude. Those tests were GREEN against quantised geometry, so
+// they pinned the wrong number to three decimal places — a reminder that a fixture captured through
+// a broken seam certifies the break. The 2026-08-03 capture is the SAME bbox, the SAME 39 features,
+// requested in the layer's native metric CRS.
+//
+// What moved, and it is the whole story:
+//     RM1 governing frontage   8,162 m  →  6,582 m
+//     MZ  governing frontage  20,671 m  →  20,208 m
+// RM1's old value sat 0,16 m above the 8 m threshold of Arts. 5.3.3 / 5.5.3. The street is actually
+// 6,58 m wide — the middle band, one storey lower. The old figure was not 8,162 m of street, it was
+// ~8,8 m of longitude quantisation read as a distance.
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -17,32 +32,48 @@ import {
     MURCIA_STREET_WIDTH_AUTHORITY,
 } from '../src/providers/resolveMurciaStreetWidth.js';
 import { resolveMurciaAnchoDeCalle } from '../src/rulepacks/esMurciaAnchoDeCalle.js';
+import { nativeToWgs84, projectToNative } from '../src/geometry/nativeCrs.js';
 
 const FIXTURE = JSON.parse(readFileSync(
-    fileURLToPath(new URL('./fixtures/murcia-alineaciones-centro-2026-08-02.json', import.meta.url)),
+    fileURLToPath(new URL('./fixtures/murcia-alineaciones-centro-25830-2026-08-03.json', import.meta.url)),
     'utf8',
-)) as { features: unknown[] };
+)) as { crs: string; features: unknown[] };
 
-/** A fetch that replays the captured neighbourhood — the exact body the proxy returns. */
+/** The CRS the proxy declares on every body (`MURCIA_NATIVE_CRS` in server/murciaPgouProxy.js). */
+const NATIVE = 'EPSG:25830';
+
+/**
+ * A fetch that replays the captured neighbourhood — the exact body the proxy returns, INCLUDING the
+ * declared `crs`. ⚠ A body without `crs` is a DIFFERENT test (see the guard block); it must not be
+ * the default here, or the guard would be untested and the fixture silently unmeasurable.
+ */
 function fixtureFetch(
     body: {
+        crs?: unknown;
         alineaciones: unknown[] | null;
         ejesComerciales?: unknown[] | null;
         truncated?: boolean;
-    } = { alineaciones: FIXTURE.features, ejesComerciales: [], truncated: false },
+    } = { crs: NATIVE, alineaciones: FIXTURE.features, ejesComerciales: [], truncated: false },
     ok = true,
 ): typeof fetch {
-    return (async () => ({ ok, json: async () => body })) as unknown as typeof fetch;
+    const withCrs = 'crs' in body ? body : { crs: NATIVE, ...body };
+    return (async () => ({ ok, json: async () => withCrs })) as unknown as typeof fetch;
 }
 
-/** A GeoJSON LineString feature in lon/lat, for the Eje-Comercial tests. */
+/**
+ * A GeoJSON LineString feature in NATIVE EPSG:25830 easting/northing, for the Eje-Comercial tests.
+ * ⚠ Metres, not degrees — the proxy serves the eje layer in the same native CRS as the alineaciones,
+ * and a synthetic fixture in degrees would sit 4 million metres away and silently test nothing.
+ */
 function ejeLine(pts: ReadonlyArray<readonly [number, number]>): unknown {
     return { type: 'Feature', properties: { layer: 'EJE_COMERCIAL' }, geometry: { type: 'LineString', coordinates: pts } };
 }
 
-/** A point inside a real RM1 manzana in the captured neighbourhood (measured w ≈ 8.16 m). */
+/** A point inside a real RM1 manzana in the captured neighbourhood (measured w ≈ 6,58 m). */
 const RM1_POINT = { lat: 37.991617, lon: -1.132142 };
-/** A point inside a real MZ block on a wide artery (measured w ≈ 20.67 m). */
+/** RM1_POINT projected into EPSG:25830 — the frame the synthetic eje fixtures are built in. */
+const RM1_EN = { e: 664018.716, n: 4206530.918 };
+/** A point inside a real MZ block on a wide artery (measured w ≈ 20,21 m). */
 const MZ_POINT = { lat: 37.992073, lon: -1.133133 };
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -62,29 +93,146 @@ describe('SIG-MU2 CONDITION 1 — reproducible from authoritative geometry', () 
         const r = await resolveMurciaStreetWidth(RM1_POINT, { fetchImpl: fixtureFetch() });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        // Pinned to the value the live layer produces. A change here means the geometry, the
-        // projection or the measurement moved — all three are things a reviewer must see.
-        expect(r.width_m).toBeCloseTo(8.162, 2);
-        expect(r.spread_m).toBeCloseTo(0, 3);
+        // Pinned to the value the live layer produces IN ITS NATIVE CRS. A change here means the
+        // geometry, the projection or the measurement moved — all three are things a reviewer must
+        // see. ⚠ Was 8.162 against the EPSG:4326 capture; that number was quantisation, not street.
+        expect(r.width_m).toBeCloseTo(6.582, 2);
+        expect(r.spread_m).toBeCloseTo(0.023, 2);
         expect(r.sampleCount).toBeGreaterThanOrEqual(2);
         expect(r.neighbourCount).toBe(38);
+        expect(r.measurementCrs).toBe(NATIVE);
     });
 
     it('a WIDER artery in the same capture measures wider — the metric tracks reality', async () => {
         const r = await resolveMurciaStreetWidth(MZ_POINT, { fetchImpl: fixtureFetch() });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        expect(r.width_m).toBeCloseTo(20.671, 2);
+        expect(r.width_m).toBeCloseTo(20.208, 2);
     });
 
     it('feature ORDER does not change the answer (no dependence on GeoServer ordering)', async () => {
         const forward = await resolveMurciaStreetWidth(RM1_POINT, { fetchImpl: fixtureFetch() });
         const reversed = await resolveMurciaStreetWidth(RM1_POINT, {
             fetchImpl: fixtureFetch({
+                crs: NATIVE,
                 alineaciones: [...FIXTURE.features].reverse(), ejesComerciales: [], truncated: false,
             }),
         });
         expect(JSON.stringify(reversed)).toBe(JSON.stringify(forward));
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+describe('§NATIVE-CRS-MEASUREMENT — the width is measured in EPSG:25830, and NOTHING else measures', () => {
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+    // ⚠⚠ THIS BLOCK IS THE GUARD FOR A DEFECT THAT REACHED PRODUCTION ON A HUMAN-SIGNED PATH.
+    // The proxy asked GeoServer for `srsName=EPSG:4326`; GeoServer serialises GeoJSON at 4 decimals;
+    // 4 decimals of a degree is ~8,8 m / ~11,1 m at Murcia's latitude. Measured live over 12
+    // neighbourhoods (707 features / 19 986 segments matched by feature id): segment |Δlength|
+    // median 2,96 m, p90 7,34 m, max 13,71 m, and 7 499 of 19 986 segments COLLAPSED to zero length
+    // in 4326 against 1 natively. The legal thresholds are 4 m, 8 m and 12 m.
+    //
+    // So a body that does not declare a metric CRS is REFUSED. There is deliberately no lenient
+    // path: "assume 4326 like we used to" is the bug, spelled as a fallback.
+
+    it('a body with NO declared crs REFUSES — it does not fall back to degrees', async () => {
+        const r = await resolveMurciaStreetWidth(RM1_POINT, {
+            fetchImpl: fixtureFetch({ alineaciones: FIXTURE.features, truncated: false, crs: undefined }),
+        });
+        expect(r).toMatchObject({ ok: false, reason: 'crs-not-native' });
+    });
+
+    it('a GEOGRAPHIC crs REFUSES — 4326 is precisely the thing that must never be measured', async () => {
+        for (const crs of ['EPSG:4326', 'EPSG:4258', 'CRS:84', 'urn:ogc:def:crs:EPSG::4326']) {
+            const r = await resolveMurciaStreetWidth(RM1_POINT, {
+                fetchImpl: fixtureFetch({ crs, alineaciones: FIXTURE.features, truncated: false }),
+            });
+            expect(r, `crs=${crs} must not be measurable`)
+                .toMatchObject({ ok: false, reason: 'crs-not-native' });
+        }
+    });
+
+    it('an UNRECOGNISED crs REFUSES — the allow-list is closed, not a best guess', async () => {
+        const r = await resolveMurciaStreetWidth(RM1_POINT, {
+            fetchImpl: fixtureFetch({ crs: 'EPSG:31370', alineaciones: FIXTURE.features, truncated: false }),
+        });
+        expect(r).toMatchObject({ ok: false, reason: 'crs-not-native' });
+    });
+
+    it('`crs-not-native` is DISTINCT from every other refusal — an operator can tell them apart', async () => {
+        // A mis-configured proxy, a dead proxy and genuinely unplanned land are three different
+        // facts, and §CONTEXT-DATA-HONESTY (L-422/457/467/469) forbids collapsing them.
+        const badCrs = await resolveMurciaStreetWidth(RM1_POINT, {
+            fetchImpl: fixtureFetch({ crs: 'EPSG:4326', alineaciones: FIXTURE.features, truncated: false }),
+        });
+        const dead = await resolveMurciaStreetWidth(RM1_POINT, { fetchImpl: fixtureFetch(undefined, false) });
+        const emptyHere = await resolveMurciaStreetWidth(RM1_POINT, {
+            fetchImpl: fixtureFetch({ crs: NATIVE, alineaciones: [], truncated: false }),
+        });
+        expect(new Set([
+            (badCrs as { reason: string }).reason,
+            (dead as { reason: string }).reason,
+            (emptyHere as { reason: string }).reason,
+        ]).size).toBe(3);
+    });
+
+    it('the CRS is checked BEFORE the geometry — a bad CRS is never reported as "nothing here"', async () => {
+        // An empty neighbourhood AND a bad CRS: the CRS fault is the one that must surface, because
+        // "no alineación here" would be a claim about Murcia's plan that we have not earned.
+        const r = await resolveMurciaStreetWidth(RM1_POINT, {
+            fetchImpl: fixtureFetch({ crs: 'EPSG:4326', alineaciones: [], truncated: false }),
+        });
+        expect(r).toMatchObject({ ok: false, reason: 'crs-not-native' });
+    });
+
+    it('a success DECLARES the CRS it measured in, as data', async () => {
+        const r = await resolveMurciaStreetWidth(RM1_POINT, { fetchImpl: fixtureFetch() });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.measurementCrs).toBe(NATIVE);
+        expect(MURCIA_STREET_WIDTH_AUTHORITY).toMatch(/EPSG:25830/);
+        expect(MURCIA_STREET_WIDTH_AUTHORITY).toMatch(/NATIVE CRS/);
+    });
+
+    it('⚠ THE REGRESSION ITSELF — the 4326-quantised capture measures a MATERIALLY different street', async () => {
+        // Feed the SAME 39 features, degraded exactly as `srsName=EPSG:4326` degraded them —
+        // 25830 metres → WGS84 degrees → `numDecimals=4` → back to metres, the wire's real journey,
+        // through the same projection production uses. Then hand the result back labelled native, so
+        // the ONLY variable is the lost precision. If someone ever argues the guard is overzealous,
+        // this is the number they would be shipping.
+        const quantise = (c: unknown): void => {
+            if (!Array.isArray(c)) return;
+            if (typeof c[0] === 'number' && typeof c[1] === 'number') {
+                const deg = nativeToWgs84(NATIVE, c[0], c[1]);
+                if (!deg) return;
+                const back = projectToNative(
+                    NATIVE, Number(deg.lat.toFixed(4)), Number(deg.lon.toFixed(4)),
+                );
+                if (!back) return;
+                c[0] = back.e; c[1] = back.n;
+                return;
+            }
+            for (const x of c) quantise(x);
+        };
+        const degradedFeatures = (JSON.parse(JSON.stringify(FIXTURE.features)) as {
+            geometry?: { coordinates?: unknown };
+        }[]);
+        for (const f of degradedFeatures) quantise(f?.geometry?.coordinates);
+
+        const degraded = await resolveMurciaStreetWidth(RM1_POINT, {
+            fetchImpl: fixtureFetch({ crs: NATIVE, alineaciones: degradedFeatures, truncated: false }),
+        });
+        const honest = await resolveMurciaStreetWidth(RM1_POINT, { fetchImpl: fixtureFetch() });
+        expect(honest.ok).toBe(true);
+        if (!honest.ok) return;
+        // The harm is not a rounding wobble: it must be big enough to move a legal band. The 4 m and
+        // 8 m thresholds of Arts. 5.3.3 / 5.5.3 are 4 m apart, so a metre is a large fraction of one.
+        if (degraded.ok) {
+            expect(Math.abs(degraded.width_m - honest.width_m)).toBeGreaterThan(1.0);
+        } else {
+            // Losing the measurement entirely is also a material change from a published band.
+            expect(degraded.ok).toBe(false);
+        }
     });
 });
 
@@ -187,7 +335,7 @@ describe('SIG-MU2 CONDITION 4 — REFUSE where uncertainty could change the band
 
     it('DOCTRINE B — a TRUNCATED neighbourhood ⇒ REFUSE, not a measurement on partial data', async () => {
         const r = await resolveMurciaStreetWidth(RM1_POINT, {
-            fetchImpl: fixtureFetch({ alineaciones: FIXTURE.features, truncated: true }),
+            fetchImpl: fixtureFetch({ crs: NATIVE, alineaciones: FIXTURE.features, truncated: true }),
         });
         expect(r).toMatchObject({ ok: false, reason: 'neighbourhood-truncated' });
     });
@@ -196,12 +344,12 @@ describe('SIG-MU2 CONDITION 4 — REFUSE where uncertainty could change the band
         const down = await resolveMurciaStreetWidth(RM1_POINT, { fetchImpl: fixtureFetch(undefined, false) });
         expect(down).toMatchObject({ ok: false, reason: 'endpoint-unreachable' });
         const nullBody = await resolveMurciaStreetWidth(RM1_POINT, {
-            fetchImpl: fixtureFetch({ alineaciones: null }),
+            fetchImpl: fixtureFetch({ crs: NATIVE, alineaciones: null }),
         });
         expect(nullBody).toMatchObject({ ok: false, reason: 'endpoint-unreachable' });
         // …and an EMPTY published neighbourhood is a DIFFERENT answer from a failure.
         const empty = await resolveMurciaStreetWidth(RM1_POINT, {
-            fetchImpl: fixtureFetch({ alineaciones: [], truncated: false }),
+            fetchImpl: fixtureFetch({ crs: NATIVE, alineaciones: [], truncated: false }),
         });
         expect(empty).toMatchObject({ ok: false, reason: 'no-alineacion-here' });
     });
@@ -221,7 +369,7 @@ describe('§MURCIA-EJE-COMERCIAL — the published layer PRYZM never queried (Ar
 
     it('an EMPTY eje layer is a CONFIDENT NO — the ordinary band applies, no refusal', async () => {
         const r = await resolveMurciaStreetWidth(RM1_POINT, {
-            fetchImpl: fixtureFetch({ alineaciones: FIXTURE.features, ejesComerciales: [], truncated: false }),
+            fetchImpl: fixtureFetch({ crs: NATIVE, alineaciones: FIXTURE.features, ejesComerciales: [], truncated: false }),
         });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
@@ -234,7 +382,7 @@ describe('§MURCIA-EJE-COMERCIAL — the published layer PRYZM never queried (Ar
 
     it('⚠ a layer that DID NOT ANSWER is UNKNOWN, never a confident NO (L-422/457/467/469)', async () => {
         const r = await resolveMurciaStreetWidth(RM1_POINT, {
-            fetchImpl: fixtureFetch({ alineaciones: FIXTURE.features, ejesComerciales: null, truncated: false }),
+            fetchImpl: fixtureFetch({ crs: NATIVE, alineaciones: FIXTURE.features, ejesComerciales: null, truncated: false }),
         });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
@@ -246,11 +394,14 @@ describe('§MURCIA-EJE-COMERCIAL — the published layer PRYZM never queried (Ar
     });
 
     it('an eje on a FAR-AWAY street does not qualify this frontage', async () => {
-        // A line ~250 m north of the block — well beyond 1.5 × width.
+        // A line ~260 m north of the block, in NATIVE metres — well beyond 1.5 × width.
         const r = await resolveMurciaStreetWidth(RM1_POINT, {
             fetchImpl: fixtureFetch({
+                crs: NATIVE,
                 alineaciones: FIXTURE.features,
-                ejesComerciales: [ejeLine([[-1.1340, 37.9940], [-1.1300, 37.9940]])],
+                ejesComerciales: [ejeLine([
+                    [RM1_EN.e - 170, RM1_EN.n + 260], [RM1_EN.e + 180, RM1_EN.n + 260],
+                ])],
                 truncated: false,
             }),
         });
@@ -260,19 +411,18 @@ describe('§MURCIA-EJE-COMERCIAL — the published layer PRYZM never queried (Ar
     });
 
     it('an eje running ALONG the governing frontage at ~half the street width EARNS a yes', async () => {
-        // The RM1 block's governing edge measures 8.16 m, so the axis should sit ~4 m off it.
-        // Build a line offset from the measured frontage by walking the ring's own geometry.
+        // The RM1 block's governing edge measures 6,58 m, so the axis should sit ~3,3 m off it.
         const base = await resolveMurciaStreetWidth(RM1_POINT, { fetchImpl: fixtureFetch() });
         expect(base.ok).toBe(true);
         if (!base.ok) return;
-        // A synthetic eje ~4 m from the frontage, parallel to it, expressed in degrees.
-        // 4 m ≈ 0.0000359° of latitude at this scale.
-        const dLat = 4 / 111_320;
+        // A synthetic eje ~3 m north of the query point, parallel to the frontage, in NATIVE metres.
+        // ⚠ Metres, not degrees: the eje layer arrives in the same EPSG:25830 as the alineaciones.
         const r = await resolveMurciaStreetWidth(RM1_POINT, {
             fetchImpl: fixtureFetch({
+                crs: NATIVE,
                 alineaciones: FIXTURE.features,
                 ejesComerciales: [ejeLine([
-                    [-1.13260, 37.991617 + dLat], [-1.13160, 37.991617 + dLat],
+                    [RM1_EN.e - 45, RM1_EN.n + 3], [RM1_EN.e + 45, RM1_EN.n + 3],
                 ])],
                 truncated: false,
             }),
@@ -287,7 +437,7 @@ describe('§MURCIA-EJE-COMERCIAL — the published layer PRYZM never queried (Ar
     it('an ABSENT `ejesComerciales` field is UNKNOWN too — not an empty layer', async () => {
         // A proxy that predates this field, or a partial body, must not read as "no eje here".
         const r = await resolveMurciaStreetWidth(RM1_POINT, {
-            fetchImpl: fixtureFetch({ alineaciones: FIXTURE.features, truncated: false }),
+            fetchImpl: fixtureFetch({ crs: NATIVE, alineaciones: FIXTURE.features, truncated: false }),
         });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
@@ -312,18 +462,28 @@ describe('§MURCIA-EJE-COMERCIAL — the published layer PRYZM never queried (Ar
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 describe('SIG-MU2 END-TO-END — a real Casco manzana, width → band, on live-captured geometry', () => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════
-    it('RM1 at 8.16 m sits inside the guard of the 8 m edge and REFUSES — the signature working', async () => {
+    it('⚠ RM1 measures 6.58 m natively and resolves 3 plantas — the 8.16 m it used to report was quantisation', async () => {
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        // THIS IS THE DEFECT, END TO END, ON REAL MUNICIPAL GEOMETRY.
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        // Against the EPSG:4326 capture this frontage measured 8,162 m — 0,162 m ABOVE Art. 5.5.3's
+        // 8 m threshold, close enough that the band-edge guard refused. Measured in the layer's own
+        // EPSG:25830 the street is 6,58 m: squarely inside «calles de 4 a 8 metros», 3 plantas / 10 m.
+        // The old number was not a street; ~8,8 m is one unit of longitude quantisation at this
+        // latitude. Note which way the error ran: it pushed a 6,58 m street up onto an 8 m threshold
+        // it does not reach, and only the guard stood between that and a granted fourth storey.
         const w = await resolveMurciaStreetWidth(RM1_POINT, { fetchImpl: fixtureFetch() });
         expect(w.ok).toBe(true);
         if (!w.ok) return;
+        expect(w.width_m).toBeCloseTo(6.582, 2);
+        expect(w.measurementCrs).toBe('EPSG:25830');
         const band = resolveMurciaAnchoDeCalle('RM', w.width_m, {
             widthProvenance: w.provenance, measurementSpread_m: w.spread_m,
         });
-        // 8.162 is 0.162 m from the 8 m edge, inside the 0.5 m substitution allowance.
-        expect(band).toMatchObject({ ok: false, reason: 'band-edge' });
+        expect(band).toMatchObject({ ok: true, floors: 3, height_m: 10, article: 'Art. 5.5.3' });
     });
 
-    it('MZ at 20.67 m clears every edge and resolves to the top band, cited', async () => {
+    it('MZ at 20.21 m clears every edge and resolves to the top band, cited', async () => {
         const w = await resolveMurciaStreetWidth(MZ_POINT, { fetchImpl: fixtureFetch() });
         expect(w.ok).toBe(true);
         if (!w.ok) return;

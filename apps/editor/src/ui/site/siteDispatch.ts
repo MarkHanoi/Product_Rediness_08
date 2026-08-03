@@ -3897,7 +3897,12 @@ async function applyMurciaZoningThenFallback(
                                         'CONSTRUCTED street width (SIG-MU2, human-signed 2026-08-02)',
                                     version: '2012-12',
                                     license: null,
-                                    crs: 'EPSG:4326',
+                                    // §NATIVE-CRS-MEASUREMENT — the width was MEASURED in the
+                                    // layer's native metric CRS, and the provenance says which one.
+                                    // It read `EPSG:4326` while the proxy reprojected to degrees at
+                                    // 4 decimals (~8,8 m of longitude at this latitude) — a claim
+                                    // that was true about the wire and disastrous about the number.
+                                    crs: measured.measurementCrs,
                                 },
                             };
                             const env = computeBuildableEnvelope({

@@ -32,6 +32,7 @@ import {
     MURCIA_PGOU_PATH,
 } from '../src/providers/resolveMurciaZoning.js';
 import { murciaEnvelopeDisposition } from '../src/providers/murciaZoningProvider.js';
+import { projectToNative } from '../src/geometry/nativeCrs.js';
 
 /** The founder's parcel — refcat 3481104XH6038S, `PL U.A. 5ª DEL P.P. CR-5`, Churra/El Puntal. */
 const PARCEL = { lat: 38.0061, lon: -1.138028 } as const;
@@ -63,17 +64,40 @@ const feat = (properties: Record<string, unknown>, coordinates: unknown) => ({
     properties,
 });
 
-/** The response prod actually returns at the founder's parcel — order preserved. */
+/**
+ * §NATIVE-CRS-MEASUREMENT — project a captured lon/lat ring into the layer's native EPSG:25830.
+ *
+ * ⚠ THE RINGS ABOVE STAY AS CAPTURED, AND THAT IS DELIBERATE. They are the verbatim prod response,
+ * 4-decimal rounding and all, and they are the evidence this file's SELECTION argument rests on —
+ * rewriting them by hand would make the fixture a reconstruction. Instead they are projected here,
+ * which is a smooth bijection: it preserves every containment and adjacency relation the tests
+ * assert, while putting the body in the CRS the proxy now serves. The direct `featureCoversPoint`
+ * tests below keep the geographic rings, because that function is the geographic spelling.
+ *
+ * ⚠ It does NOT restore the precision the 4326 capture destroyed — nothing can. That is exactly why
+ * the proxy stopped asking for 4326; see `geometry/nativeCrs.ts`.
+ */
+const NATIVE = 'EPSG:25830';
+function toNative(multiPolygon: number[][][][]): number[][][][] {
+    return multiPolygon.map((poly) => poly.map((ring) => ring.map(([lon, lat]) => {
+        const p = projectToNative(NATIVE, lat!, lon!);
+        if (!p) throw new Error(`unprojectable fixture vertex ${lon},${lat}`);
+        return [p.e, p.n];
+    })));
+}
+
+/** The response prod actually returns at the founder's parcel — order preserved, CRS declared. */
 function prodBody() {
     return {
+        crs: NATIVE,
         calificaciones: [
-            feat({ calificacion: 'RR', descripcion: 'Residencial, ordenación remitida al planeamiento anterior', uso_global: 'Residencial', sector: 'TA-379', url: 'RR.pdf', ...ALIVE }, RR_RING),
-            feat({ calificacion: 'EV', descripcion: 'Zonas verdes', uso_global: 'Espacios Libres', sector: 'TA-379', url: 'EV.pdf', ...ALIVE }, EV_RING),
+            feat({ calificacion: 'RR', descripcion: 'Residencial, ordenación remitida al planeamiento anterior', uso_global: 'Residencial', sector: 'TA-379', url: 'RR.pdf', ...ALIVE }, toNative(RR_RING)),
+            feat({ calificacion: 'EV', descripcion: 'Zonas verdes', uso_global: 'Espacios Libres', sector: 'TA-379', url: 'EV.pdf', ...ALIVE }, toNative(EV_RING)),
         ],
         sectores: [
-            feat({ sector: 'PERI-UM-114', clase_suelo: 'Urbano', categoria: null, uso_global: 'Residencial', pedania: 'EL PUNTAL', superficie: 83010, f_inicial: '2024-09-24Z', f_fin: '2999-12-30Z' }, PERI_RING),
-            feat({ sector: null, clase_suelo: 'Sistemas Generles', categoria: null, uso_global: null, pedania: 'SANGONERA LA SECA', superficie: 19268054, f_inicial: '2026-05-20Z', f_fin: '2999-12-30Z' }, TA379_RING),
-            feat({ sector: 'TA-379', clase_suelo: 'Urbanizable', categoria: 'Urbanizable Transitorio', uso_global: 'Residencial', pedania: 'EL PUNTAL', superficie: 383313, f_inicial: '2024-01-17Z', f_fin: '2999-12-30Z' }, TA379_RING),
+            feat({ sector: 'PERI-UM-114', clase_suelo: 'Urbano', categoria: null, uso_global: 'Residencial', pedania: 'EL PUNTAL', superficie: 83010, f_inicial: '2024-09-24Z', f_fin: '2999-12-30Z' }, toNative(PERI_RING)),
+            feat({ sector: null, clase_suelo: 'Sistemas Generles', categoria: null, uso_global: null, pedania: 'SANGONERA LA SECA', superficie: 19268054, f_inicial: '2026-05-20Z', f_fin: '2999-12-30Z' }, toNative(TA379_RING)),
+            feat({ sector: 'TA-379', clase_suelo: 'Urbanizable', categoria: 'Urbanizable Transitorio', uso_global: 'Residencial', pedania: 'EL PUNTAL', superficie: 383313, f_inicial: '2024-01-17Z', f_fin: '2999-12-30Z' }, toNative(TA379_RING)),
         ],
     };
 }
@@ -159,9 +183,10 @@ describe("§MURCIA-COVERS-POINT — the founder's parcel resolves the LEGALLY GR
 
     it('STILL refuses when two calificaciones genuinely cover the same point (the gate survives)', async () => {
         const body = {
+            crs: NATIVE,
             calificaciones: [
-                feat({ calificacion: 'RR', sector: 'TA-379', ...ALIVE }, RR_RING),
-                feat({ calificacion: 'EE', sector: 'TA-379', ...ALIVE }, RR_RING), // same ring ⇒ real overlap
+                feat({ calificacion: 'RR', sector: 'TA-379', ...ALIVE }, toNative(RR_RING)),
+                feat({ calificacion: 'EE', sector: 'TA-379', ...ALIVE }, toNative(RR_RING)), // same ring ⇒ real overlap
             ],
             sectores: [],
         };
@@ -172,7 +197,7 @@ describe("§MURCIA-COVERS-POINT — the founder's parcel resolves the LEGALLY GR
     });
 
     it('reports `no-records-here` when the returned polygons all miss the point', async () => {
-        const body = { calificaciones: [feat({ calificacion: 'EV', sector: 'TA-379', ...ALIVE }, EV_RING)], sectores: [] };
+        const body = { crs: NATIVE, calificaciones: [feat({ calificacion: 'EV', sector: 'TA-379', ...ALIVE }, toNative(EV_RING))], sectores: [] };
         const res = await resolveMurciaZoning(PARCEL, { asOf: ASOF, fetchImpl: fetchReturning(body) });
         expect(res.ok).toBe(false);
         if (res.ok) return;
@@ -185,7 +210,7 @@ describe('§CONTEXT-DATA-HONESTY — a HALF-answer is a failure, never a clean n
         // The proxy's real half-down payload: one layer null, the other an honest empty.
         const res = await resolveMurciaZoning(PARCEL, {
             asOf: ASOF,
-            fetchImpl: fetchReturning({ calificaciones: null, sectores: [] }),
+            fetchImpl: fetchReturning({ crs: NATIVE, calificaciones: null, sectores: [] }),
         });
         expect(res.ok).toBe(false);
         if (res.ok) return;
@@ -197,7 +222,7 @@ describe('§CONTEXT-DATA-HONESTY — a HALF-answer is a failure, never a clean n
     it('does not report `no-records-here` when the sector layer never answered', async () => {
         const res = await resolveMurciaZoning(PARCEL, {
             asOf: ASOF,
-            fetchImpl: fetchReturning({ calificaciones: [], sectores: null }),
+            fetchImpl: fetchReturning({ crs: NATIVE, calificaciones: [], sectores: null }),
         });
         expect(res.ok).toBe(false);
         if (res.ok) return;
@@ -207,7 +232,7 @@ describe('§CONTEXT-DATA-HONESTY — a HALF-answer is a failure, never a clean n
     it('still reports a genuine double-empty as `no-records-here`, not a failure', async () => {
         const res = await resolveMurciaZoning(PARCEL, {
             asOf: ASOF,
-            fetchImpl: fetchReturning({ calificaciones: [], sectores: [] }),
+            fetchImpl: fetchReturning({ crs: NATIVE, calificaciones: [], sectores: [] }),
         });
         expect(res.ok).toBe(false);
         if (res.ok) return;
@@ -217,7 +242,7 @@ describe('§CONTEXT-DATA-HONESTY — a HALF-answer is a failure, never a clean n
     it('a half-answer that still carries covering records is USED, not discarded', async () => {
         const res = await resolveMurciaZoning(PARCEL, {
             asOf: ASOF,
-            fetchImpl: fetchReturning({ calificaciones: prodBody().calificaciones, sectores: null }),
+            fetchImpl: fetchReturning({ crs: NATIVE, calificaciones: prodBody().calificaciones, sectores: null }),
         });
         expect(res.ok).toBe(true);
         if (!res.ok) return;

@@ -60,9 +60,38 @@
 // publishes 20 730 block polygons covering 92.9 % of Córdoba's ordenanza polygons, and published
 // geometry outranks geometry we derive ourselves (ADR-0283).
 //
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §NATIVE-CRS-MEASUREMENT — THE WIDTH IS MEASURED IN EPSG:25830, NEVER IN REPROJECTED DEGREES
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⚠⚠ THIS FILE USED TO MEASURE THE WRONG GEOMETRY, AND IT WAS ONE URL PARAMETER.
+//
+// The proxy asked GeoServer for `srsName=EPSG:4326`. GeoServer serialises GeoJSON at
+// `numDecimals=4` — 0,1 mm in the layer's native METRES, but ~8,8 m of longitude and ~11,1 m of
+// latitude in DEGREES. So the rings this module measured were quantised to roughly ten metres, and
+// the number it produced picks a storey band at 4 m, 8 m and 12 m thresholds.
+//
+// MEASURED LIVE 2026-08-02, same features in both CRS matched by WFS feature id (707 features /
+// 19 986 segments over 12 neighbourhoods):
+//     segment |Δlength|   median 2,96 m · p90 7,34 m · p99 10,33 m · max 13,71 m
+//     DEGENERATE (zero-length) segments — 4326: 7 499 of 19 986 (37,5 %) · native 25830: 1
+// The measurement error was the same size as the legal bands, and a third of every ring's edges had
+// collapsed to nothing. `format_options=numDecimals` is not honoured by this server, so more
+// precision in 4326 was never on offer.
+//
+// **THE RULE, AND IT IS GENERAL:** request the publisher's native metric CRS → measure in it →
+// reproject ONLY at a display boundary. This resolver returns SCALARS (metres), so it has no display
+// boundary at all and nothing here is ever reprojected. The capability lives in
+// `../geometry/nativeCrs.ts`, region-agnostic, so Catalunya (25831), Galicia (25829) and every other
+// metre-CRS publisher plug in by naming their EPSG code — not by copying this file.
+//
+// **AND IT IS ENFORCED, NOT MERELY DOCUMENTED.** The body must DECLARE a CRS on the metric
+// allow-list; anything else — a missing `crs`, a geographic `crs`, an unrecognised code — is the
+// typed refusal `crs-not-native`. A future author who points the proxy back at 4326 does not get a
+// subtly wrong width, they get a loud refusal and a red test.
+//
 // NOT A SECOND SOLVER: the measurement is `measureStreetWidths` / `blockEdgesFacingParcel` /
 // `governingStreetWidth`, unmodified and region-agnostic (ADR-0275). This module only fetches,
-// projects, and picks. OTel span (P8 / C58 §1.10). Never throws — every miss is a TYPED refusal.
+// frames, and picks. OTel span (P8 / C58 §1.10). Never throws — every miss is a TYPED refusal.
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import type { Pt } from '@pryzm/schemas';
@@ -71,9 +100,13 @@ import {
     blockEdgesFacingParcel,
     governingStreetWidth,
 } from '../geometry/streetWidth.js';
+import {
+    makeMeasurementFrame,
+    type MeasurementFrame,
+} from '../geometry/nativeCrs.js';
 import { pointSegmentDistance } from '@pryzm/site-validators';
 import { isInMurcia } from './murciaBbox.js';
-import { featureCoversPoint, MURCIA_PGOU_PATH } from './resolveMurciaZoning.js';
+import { featureCoversXY, MURCIA_PGOU_PATH } from './resolveMurciaZoning.js';
 
 const tracer = trace.getTracer('pryzm.zoning');
 
@@ -84,11 +117,9 @@ const tracer = trace.getTracer('pryzm.zoning');
 export const MURCIA_STREET_WIDTH_AUTHORITY =
     'CONSTRUCTED by PRYZM from Ayuntamiento de Murcia, «Murcia:pgou_alineaciones» (municipal ' +
     'GeoServer, EPSG:25830) — a frontage-to-frontage distance measured from published alineación ' +
-    'geometry. ⚠ NOT an official municipal street-width measurement: Murcia publishes no ancho ' +
-    'oficial (corpus/RETRIEVAL-LOG.md §3).';
-
-/** Metres per degree of latitude. The same constant the IT/PT parcel providers use. */
-const M_PER_DEG_LAT = 111_320;
+    'geometry IN THAT NATIVE CRS, at the precision the municipality serialises it. ⚠ NOT an ' +
+    'official municipal street-width measurement: Murcia publishes no ancho oficial ' +
+    '(corpus/RETRIEVAL-LOG.md §3).';
 
 export interface MurciaStreetWidthDeps {
     readonly fetchImpl?: typeof fetch;
@@ -111,6 +142,16 @@ export type MurciaStreetWidthRefusal =
     | 'endpoint-unreachable'
     /** It answered, but nothing parsed into a ring — the layer may have changed shape. */
     | 'unparsable-response'
+    /**
+     * §NATIVE-CRS-MEASUREMENT — the body did not declare a CRS we are allowed to MEASURE in
+     * (missing `crs`, a geographic CRS, or a code absent from `NATIVE_METRIC_CRS`).
+     *
+     * ⚠ THIS IS THE GUARD, AND IT REFUSES ON PURPOSE. Measuring a legal street width on geometry
+     * that has been reprojected to degrees and serialised at 4 decimals costs a median 3 m — the
+     * size of the bands themselves. There is no safe fallback, so there is no fallback: a width we
+     * cannot stand behind is not published.
+     */
+    | 'crs-not-native'
     /** DOCTRINE B — no published alineación covers this point. Never substitute a nearby one. */
     | 'no-alineacion-here'
     /** DOCTRINE B — the neighbourhood hit the feature cap, so the far side may be missing. */
@@ -143,47 +184,44 @@ export type MurciaStreetWidthResolution =
            * silently applying the ordinary 4-planta row.
            */
           readonly ejeComercial: boolean | null;
+          /**
+           * §NATIVE-CRS-MEASUREMENT — the CRS the metres above were actually measured in, carried
+           * as DATA. A reviewer (or a downstream audit) can see that the number came from the
+           * publisher's own metric frame and not from a reprojection, without reading this file.
+           */
+          readonly measurementCrs: string;
       }
     | { readonly ok: false; readonly reason: MurciaStreetWidthRefusal };
 
-/** A GeoJSON linear ring of `[lon, lat]` positions. */
-type LonLatRing = readonly (readonly number[])[];
+/** A GeoJSON linear ring — `[easting, northing]` in the body's declared native metric CRS. */
+type CoordRing = readonly (readonly number[])[];
 
 /**
- * Project lon/lat to a local metric XZ frame about `originLat/originLon`.
+ * Every OUTER ring of a GeoJSON Polygon / MultiPolygon, placed in the measurement frame. Holes are
+ * not frontages.
  *
- * Equirectangular about the query point. Over the ±222 m the neighbourhood spans, its distortion is
- * far below the decimetric accuracy of the source geometry, and it is PURE — no proj4, no I/O. The
- * scale factors mirror `agenziaEntrateParcelProvider` / `dgtParcelProvider` so Spain, Italy and
- * Portugal do not each carry a different earth radius.
- *
- * `z` is NEGATED northing, matching the scene-XZ convention every geometry module here works in.
+ * ⚠ THE INPUT IS NATIVE EASTING/NORTHING, NOT DEGREES, and `frame.fromNative` is a RIGID TRANSFORM
+ * — a translation plus the scene convention's northing negation. Nothing is scaled, rotated or
+ * rounded, so a distance measured downstream IS the publisher's distance to the last serialised
+ * digit. This is the whole point of §NATIVE-CRS-MEASUREMENT; a `fromLonLat` here would undo it.
  */
-function toLocalXZ(
-    lon: number, lat: number, originLat: number, originLon: number,
-): Pt {
-    const mPerDegLon = M_PER_DEG_LAT * Math.cos((originLat * Math.PI) / 180);
-    return { x: (lon - originLon) * mPerDegLon, z: -(lat - originLat) * M_PER_DEG_LAT };
-}
-
-/** Every OUTER ring of a GeoJSON Polygon / MultiPolygon, projected. Holes are not frontages. */
-function featureOuterRings(feature: unknown, originLat: number, originLon: number): Pt[][] {
+function featureOuterRings(feature: unknown, frame: MeasurementFrame): Pt[][] {
     const geom = (feature as { geometry?: { type?: unknown; coordinates?: unknown } } | null)?.geometry;
     if (!geom || typeof geom !== 'object') return [];
     const coords = geom.coordinates;
     if (!Array.isArray(coords) || coords.length === 0) return [];
-    const project = (ring: LonLatRing): Pt[] =>
+    const project = (ring: CoordRing): Pt[] =>
         ring
             .filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]))
-            .map((p) => toLocalXZ(p[0]!, p[1]!, originLat, originLon));
+            .map((p) => frame.fromNative(p[0]!, p[1]!));
     if (geom.type === 'Polygon') {
-        const outer = (coords as unknown as readonly LonLatRing[])[0];
+        const outer = (coords as unknown as readonly CoordRing[])[0];
         const r = outer ? project(outer) : [];
         return r.length >= 3 ? [r] : [];
     }
     if (geom.type === 'MultiPolygon') {
         const out: Pt[][] = [];
-        for (const poly of coords as unknown as readonly (readonly LonLatRing[])[]) {
+        for (const poly of coords as unknown as readonly (readonly CoordRing[])[]) {
             const outer = poly?.[0];
             if (!outer) continue;
             const r = project(outer);
@@ -196,28 +234,38 @@ function featureOuterRings(feature: unknown, originLat: number, originLon: numbe
 
 /** The proxy's `?extent=neighbourhood` body. */
 interface NeighbourhoodBody {
+    /**
+     * §NATIVE-CRS-MEASUREMENT — the CRS the geometry below is serialised in, DECLARED by the proxy.
+     * ⚠ Optional in the type and REQUIRED in practice: an absent `crs` is not "assume 4326", it is
+     * `crs-not-native`. Inferring a CRS from the magnitude of a coordinate is how a measurement
+     * pipeline quietly starts measuring degrees.
+     */
+    readonly crs?: unknown;
     readonly alineaciones?: unknown[] | null;
     readonly ejesComerciales?: unknown[] | null;
     readonly truncated?: boolean;
 }
 
-/** Every LineString of a GeoJSON LineString / MultiLineString feature, projected. */
-function featureLines(feature: unknown, originLat: number, originLon: number): Pt[][] {
+/**
+ * Every LineString of a GeoJSON LineString / MultiLineString feature, in the measurement frame.
+ * Native easting/northing in, rigid transform only — see `featureOuterRings`.
+ */
+function featureLines(feature: unknown, frame: MeasurementFrame): Pt[][] {
     const geom = (feature as { geometry?: { type?: unknown; coordinates?: unknown } } | null)?.geometry;
     if (!geom || typeof geom !== 'object') return [];
     const coords = geom.coordinates;
     if (!Array.isArray(coords) || coords.length === 0) return [];
-    const project = (line: LonLatRing): Pt[] =>
+    const project = (line: CoordRing): Pt[] =>
         line
             .filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]))
-            .map((p) => toLocalXZ(p[0]!, p[1]!, originLat, originLon));
+            .map((p) => frame.fromNative(p[0]!, p[1]!));
     if (geom.type === 'LineString') {
-        const l = project(coords as unknown as LonLatRing);
+        const l = project(coords as unknown as CoordRing);
         return l.length >= 2 ? [l] : [];
     }
     if (geom.type === 'MultiLineString') {
         const out: Pt[][] = [];
-        for (const line of coords as unknown as readonly LonLatRing[]) {
+        for (const line of coords as unknown as readonly CoordRing[]) {
             const l = project(line);
             if (l.length >= 2) out.push(l);
         }
@@ -343,12 +391,44 @@ export async function resolveMurciaStreetWidth(
             return { ok: false, reason: 'endpoint-unreachable' };
         }
 
+        // ⚠ PRECEDENCE: TRANSPORT FAILURE OUTRANKS EVERYTHING BELOW IT. A service that did not
+        // answer cannot be blamed for its CRS, and reporting a configuration fault where there is
+        // an outage would send an operator to the wrong place.
         const features = body?.alineaciones;
         if (features === null || features === undefined || !Array.isArray(features)) {
             span.setAttribute('resultFields', 'endpoint-unreachable');
             span.setStatus({ code: SpanStatusCode.OK });
             return { ok: false, reason: 'endpoint-unreachable' };
         }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        // §NATIVE-CRS-MEASUREMENT — THE GUARD. Establish the measurement frame BEFORE reading a
+        // single coordinate, and refuse if we cannot have one.
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        // ⚠ THERE IS DELIBERATELY NO FALLBACK. The obvious "be lenient — if `crs` is missing, assume
+        // 4326 like we used to" is the exact defect this guard exists to close: it would silently
+        // restore a measurement with a median 3 m error against 8 m and 12 m legal thresholds.
+        // A width we cannot stand behind is not published. `crs-not-native` is a distinct refusal
+        // from `endpoint-unreachable` and from `no-alineacion-here`, so an operator can tell a
+        // mis-configured proxy from a dead one and from genuinely unplanned land.
+        //
+        // ⚠ AND IT SITS ABOVE THE EMPTY CHECK, WHICH IS THE OTHER HALF OF THE PRECEDENCE. An
+        // unreadable CRS must never surface as "Murcia publishes no alineación here" — that is a
+        // claim about the municipality's plan, made on the strength of our own mis-configuration.
+        const frame = makeMeasurementFrame(body?.crs, point.lat, point.lon);
+        if (!frame) {
+            span.setAttribute('resultFields', 'crs-not-native');
+            span.setAttribute('declaredCrs', String(body?.crs ?? '(absent)'));
+            span.setStatus({ code: SpanStatusCode.OK });
+            console.warn(
+                '[murcia-width] REFUSING to measure: the proxy declared crs=' +
+                `${String(body?.crs ?? '(absent)')}, which is not an allow-listed metric CRS. ` +
+                'Measuring reprojected degrees costs ~3 m median against 8 m/12 m legal bands.',
+            );
+            return { ok: false, reason: 'crs-not-native' };
+        }
+        span.setAttribute('measurementCrs', frame.crs);
+        span.setAttribute('measurementFidelity', frame.fidelity);
         // DOCTRINE B — a capped answer is a PARTIAL publication. The polygon across the street may
         // be exactly the one that was dropped, and a missing far side reads as a wide street.
         if (body?.truncated === true) {
@@ -363,17 +443,23 @@ export async function resolveMurciaStreetWidth(
         }
 
         // ── Split the neighbourhood into OURS (covers the click) and THEIRS. ──────────────────
-        // ⚠ `featureCoversPoint` is THREE-VALUED and only an explicit `true` claims ours. A `null`
+        // ⚠ `featureCoversXY` is THREE-VALUED and only an explicit `true` claims ours. A `null`
         // (untestable geometry) is treated as a NEIGHBOUR, never as our block: mis-assigning a
         // foreign polygon to "ours" would delete a real opposing frontage and widen the street.
+        //
+        // §NATIVE-CRS-MEASUREMENT — the COVER TEST runs in native metres too, against the click
+        // PROJECTED into the layer's CRS. It is a measurement (an inside/outside decision on a
+        // boundary), and on ~10 m quantised rings it was deciding which block you had clicked from
+        // geometry that had lost its corners. `featureCoversXY` is the CRS-neutral spelling of the
+        // same ray-cast — x is easting, y is northing, exactly as x was lon and y was lat.
         const ours: Pt[][] = [];
         const theirs: Pt[][] = [];
         let parsedAny = false;
         for (const f of features) {
-            const rings = featureOuterRings(f, point.lat, point.lon);
+            const rings = featureOuterRings(f, frame);
             if (rings.length === 0) continue;
             parsedAny = true;
-            if (featureCoversPoint(f, point.lat, point.lon) === true) ours.push(...rings);
+            if (featureCoversXY(f, frame.originE, frame.originN) === true) ours.push(...rings);
             else theirs.push(...rings);
         }
         if (!parsedAny) {
@@ -396,9 +482,14 @@ export async function resolveMurciaStreetWidth(
             b.length !== a.length ? (b.length > a.length ? b : a) : (ringArea(b) > ringArea(a) ? b : a));
 
         const result = measureStreetWidths(ourRing, theirs);
+        // The committed parcel ring is PRYZM's own geometry, held at full double precision, so
+        // projecting it here loses nothing — unlike wire geometry, which is already quantised by
+        // the time we see it. `fromLonLat` is the only degree→metre step in this file, and it
+        // touches no published coordinate.
         const parcelRing = deps.parcelRingLonLat
             ?.filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]))
-            .map((p) => toLocalXZ(p[0], p[1], point.lat, point.lon));
+            .map((p) => frame.fromLonLat(p[0], p[1]))
+            .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.z));
         const edges = parcelRing && parcelRing.length >= 3
             ? blockEdgesFacingParcel(ourRing, parcelRing)
             : undefined;
@@ -416,7 +507,7 @@ export async function resolveMurciaStreetWidth(
         const ejeRaw = body?.ejesComerciales;
         const ejeAnswered = Array.isArray(ejeRaw);
         const ejeLines: Pt[][] = ejeAnswered
-            ? (ejeRaw as unknown[]).flatMap((f) => featureLines(f, point.lat, point.lon))
+            ? (ejeRaw as unknown[]).flatMap((f) => featureLines(f, frame))
             : [];
         const gA = ourRing[governing.edgeIndex % ourRing.length]!;
         const gB = ourRing[(governing.edgeIndex + 1) % ourRing.length]!;
@@ -439,6 +530,7 @@ export async function resolveMurciaStreetWidth(
             authority: MURCIA_STREET_WIDTH_AUTHORITY,
             neighbourCount: theirs.length,
             ejeComercial,
+            measurementCrs: frame.crs,
         };
     } finally {
         span.end();

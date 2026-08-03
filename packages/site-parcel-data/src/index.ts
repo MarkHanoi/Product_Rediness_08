@@ -497,6 +497,28 @@ export {
     type RejectedEdge,
     type MeasureStreetWidthsOptions,
 } from './geometry/streetWidth.js';
+
+// §NATIVE-CRS-MEASUREMENT — the capability that decides WHICH COORDINATES `measureStreetWidths` is
+// allowed to be handed. A municipal GeoServer holding geometry in a metric CRS quantises it to ~10 m
+// when asked for EPSG:4326 GeoJSON (4 decimals of a degree), which is the size of the legal street-
+// width bands themselves. So: request the publisher's native metric CRS → measure in it → reproject
+// ONLY at a display boundary. Region-agnostic on purpose — a new city adds one line to
+// `NATIVE_METRIC_CRS`, never a second projection or a per-city branch (P1). Murcia is the first
+// consumer; `es-murcia-native-crs-guard.test.ts` fails if a measured source drifts back to 4326.
+export {
+    NATIVE_METRIC_CRS,
+    normaliseCrs,
+    isNativeMetricCrs,
+    nativeMetricCrsDef,
+    projectToNative,
+    nativeToWgs84,
+    makeMeasurementFrame,
+    degreeQuantisation_m,
+    type NativeMetricCrsDef,
+    type NativeEN,
+    type MeasurementFrame,
+    type MeasurementFidelity,
+} from './geometry/nativeCrs.js';
 export {
     resolveAmpladaDeVial,
     snapToDeclaredQuantum,

@@ -50,6 +50,7 @@
 // Strategic context — C57 (same-origin proxy seam), C58 §1.4/§1.5/§1.9/§1.10, §CONTEXT-DATA-HONESTY.
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
+import { projectToNative } from '../geometry/nativeCrs.js';
 import { isInMurcia } from './murciaBbox.js';
 import {
     isInForce,
@@ -102,7 +103,17 @@ export type MurciaZoningRefusalReason =
     /** Two DIFFERENT in-force calificaciones cover the point (a boundary) — refuse, never guess. */
     | 'ambiguous-zone'
     /** Bodies came back but nothing parseable as a Murcia planning record could be read. */
-    | 'unparsable-response';
+    | 'unparsable-response'
+    /**
+     * §NATIVE-CRS-MEASUREMENT — the proxy did not declare a CRS we can locate the click in.
+     *
+     * ⚠ WHY AN IDENTITY LOOKUP CARES ABOUT A CRS. Deciding WHICH published polygon covers a click
+     * is a spatial test, and a spatial test needs the point and the ring in the same frame. Since
+     * the proxy serves native EPSG:25830, comparing a longitude to an easting would answer "covered
+     * by nothing" for every parcel in Murcia — a total, silent false negative dressed as
+     * `no-records-here`. Refusing loudly is the only honest option.
+     */
+    | 'crs-not-native';
 
 /** The in-force records at the point. Either may be null — the layers are independent. */
 export interface MurciaZoningRecords {
@@ -265,19 +276,27 @@ function polygonCovers(poly: readonly Ring[], lon: number, lat: number): boolean
 }
 
 /**
- * Does this GeoJSON feature's geometry COVER the WGS84 query point?
+ * Does this GeoJSON feature's geometry COVER the point `(x, y)` **in the feature's own CRS**?
+ *
+ * ⚠ CRS-NEUTRAL BY CONSTRUCTION, AND THAT IS THE POINT (§NATIVE-CRS-MEASUREMENT). A ray-cast
+ * point-in-polygon is pure planar arithmetic: it does not care whether `x` is a longitude or an
+ * easting, only that the point and the ring are in the SAME frame. GeoJSON is always
+ * first-axis-then-second (`[lon, lat]` in a geographic CRS, `[easting, northing]` in a projected
+ * one), so one function serves both — and callers stop having to remember an axis order.
+ *
+ * ⚠ AND A COVER TEST IS A MEASUREMENT. Since the Murcia proxy began serving native EPSG:25830
+ * (a 4-decimal GeoJSON serialisation quantises DEGREES to ~10 m — see `geometry/nativeCrs.ts`),
+ * this test decides which published block a click falls in from geometry that still has its
+ * corners. Callers pass native easting/northing; `featureCoversPoint` remains for genuinely
+ * geographic payloads.
  *
  * ⚠ THREE-VALUED, and the `null` matters. `null` means "this feature carries no geometry we can
  * test" — which is NOT "it does not cover the point". Dropping such a record would discard the only
  * answer the municipality published on the strength of our own inability to check it, the same
  * §CONTEXT-DATA-HONESTY error `isInForce` avoids by being three-valued. `null` records ride through
  * the filter untouched; only an explicit `false` is discarded.
- *
- * Coordinates are read as GeoJSON `[lon, lat]` — verified against the live proxy payload, whose
- * geometries land in that order because the proxy asks for `srsName=EPSG:4326` and GeoServer emits
- * GeoJSON in longitude-first order regardless of the bbox authority axis it was queried with.
  */
-export function featureCoversPoint(feature: unknown, lat: number, lon: number): boolean | null {
+export function featureCoversXY(feature: unknown, x: number, y: number): boolean | null {
     if (!feature || typeof feature !== 'object') return null;
     const geom = (feature as { geometry?: unknown }).geometry as
         | { type?: unknown; coordinates?: unknown }
@@ -286,11 +305,24 @@ export function featureCoversPoint(feature: unknown, lat: number, lon: number): 
     if (!geom || typeof geom !== 'object') return null;
     const coords = geom.coordinates;
     if (!Array.isArray(coords) || coords.length === 0) return null;
-    if (geom.type === 'Polygon') return polygonCovers(coords as unknown as readonly Ring[], lon, lat);
+    if (geom.type === 'Polygon') return polygonCovers(coords as unknown as readonly Ring[], x, y);
     if (geom.type === 'MultiPolygon') {
-        return (coords as unknown as readonly (readonly Ring[])[]).some((p) => polygonCovers(p, lon, lat));
+        return (coords as unknown as readonly (readonly Ring[])[]).some((p) => polygonCovers(p, x, y));
     }
     return null; // points / lines / unknown types are not coverage claims
+}
+
+/**
+ * Does this GeoJSON feature's geometry COVER the WGS84 query point? The geographic spelling of
+ * `featureCoversXY`, for payloads that really are in degrees.
+ *
+ * ⚠ NOT FOR THE MURCIA PROXY ANY MORE. That proxy now serves native EPSG:25830
+ * (§NATIVE-CRS-MEASUREMENT), so its consumers project the query point and call `featureCoversXY`.
+ * Calling this on a metric payload would compare a longitude against an easting and answer `false`
+ * for everything — a silent, total false negative.
+ */
+export function featureCoversPoint(feature: unknown, lat: number, lon: number): boolean | null {
+    return featureCoversXY(feature, lon, lat);
 }
 
 /**
@@ -301,8 +333,8 @@ export function featureCoversPoint(feature: unknown, lat: number, lon: number): 
  * nearby, none of them here. It must not be reported as though a neighbour's zone were this
  * parcel's zone.
  */
-function coveringFeatures(features: readonly unknown[], lat: number, lon: number): readonly unknown[] {
-    return features.filter((f) => featureCoversPoint(f, lat, lon) !== false);
+function coveringFeatures(features: readonly unknown[], x: number, y: number): readonly unknown[] {
+    return features.filter((f) => featureCoversXY(f, x, y) !== false);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -311,6 +343,12 @@ function coveringFeatures(features: readonly unknown[], lat: number, lon: number
 
 /** The proxy payload. `null` = that layer's upstream did NOT answer; `[]` = it answered, empty. */
 interface MurciaProxyBody {
+    /**
+     * §NATIVE-CRS-MEASUREMENT — the CRS the geometry is serialised in, DECLARED by the proxy
+     * (`EPSG:25830`). Optional in the type and required in practice: an absent or non-metric `crs`
+     * is `crs-not-native`, never an assumption. See `geometry/nativeCrs.ts`.
+     */
+    readonly crs?: unknown;
     readonly calificaciones?: readonly unknown[] | null;
     readonly sectores?: readonly unknown[] | null;
 }
@@ -381,12 +419,28 @@ export async function resolveMurciaZoning(
             return { ok: false, reason: 'endpoint-unreachable' };
         }
 
+        // §NATIVE-CRS-MEASUREMENT — project the CLICK into the CRS the geometry arrived in, rather
+        // than dragging the geometry down to degrees. The proxy declares that CRS; we never infer
+        // it. A polygon whose corners have been rounded to ~10 m is a different polygon, and the
+        // point-in-polygon test below is what decides which published block the user is standing on.
+        const clickEN = projectToNative(body?.crs, point.lat, point.lon);
+        if (!clickEN) {
+            span.setAttribute('resultFields', 'crs-not-native');
+            span.setAttribute('declaredCrs', String(body?.crs ?? '(absent)'));
+            span.setStatus({ code: SpanStatusCode.OK });
+            console.warn(
+                '[murcia-zoning] REFUSING to locate the click: the proxy declared crs=' +
+                `${String(body?.crs ?? '(absent)')}, which is not an allow-listed metric CRS.`,
+            );
+            return { ok: false, reason: 'crs-not-native' };
+        }
+
         // §MURCIA-COVERS-POINT — narrow the bbox INTERSECTS result to the polygons that actually
         // cover the click before anything reads or counts them. See the helper's header for the
         // measured prod evidence; without this the ambiguity gate fires on a neighbour polygon and
         // the sector is read off `[0]`, which is whichever polygon GeoServer happened to list first.
-        const calCovering = coveringFeatures(Array.isArray(calRaw) ? calRaw : [], point.lat, point.lon);
-        const secCovering = coveringFeatures(Array.isArray(secRaw) ? secRaw : [], point.lat, point.lon);
+        const calCovering = coveringFeatures(Array.isArray(calRaw) ? calRaw : [], clickEN.e, clickEN.n);
+        const secCovering = coveringFeatures(Array.isArray(secRaw) ? secRaw : [], clickEN.e, clickEN.n);
 
         const calAll = calCovering
             .map(readMurciaCalificacion)

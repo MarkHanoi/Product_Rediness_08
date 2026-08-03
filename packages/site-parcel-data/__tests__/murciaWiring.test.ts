@@ -84,17 +84,29 @@ const SECTOR_FEATURE = {
     },
 };
 
-/** A fake same-origin proxy. Records the URLs it was called with, so the route is checkable. */
+/**
+ * A fake same-origin proxy. Records the URLs it was called with, so the route is checkable.
+ *
+ * §NATIVE-CRS-MEASUREMENT — every real body carries `crs: 'EPSG:25830'` (the layers' native metric
+ * CRS; see `server/murciaPgouProxy.js`), so the fake supplies it unless a case is deliberately
+ * testing its ABSENCE. The features above carry attributes and no geometry, which is exactly the
+ * point of this file — it tests the wiring, not the selection — and a geometry-free feature is
+ * three-valued `null` ("cannot test"), never a false negative.
+ */
+const NATIVE_CRS = 'EPSG:25830';
 function fakeProxy(
     body: unknown,
     init: { ok?: boolean; calls?: string[] } = {},
 ): typeof fetch {
+    const withCrs = body !== null && typeof body === 'object' && !('crs' in body)
+        ? { crs: NATIVE_CRS, ...body }
+        : body;
     return vi.fn(async (input: RequestInfo | URL) => {
         init.calls?.push(String(input));
         return {
             ok: init.ok ?? true,
             status: (init.ok ?? true) ? 200 : 502,
-            json: async () => body,
+            json: async () => withCrs,
         } as unknown as Response;
     }) as unknown as typeof fetch;
 }
