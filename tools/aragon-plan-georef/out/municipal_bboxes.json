@@ -1,0 +1,76 @@
+{
+  "probe": "aragon-plan-georef-municipal-bboxes",
+  "source": "Catastro INSPIRE CadastralParcels ATOM, per-municipality georss:polygon -- the same authority that serves the parcels",
+  "rounding": "outward to 2 dp; a loose coarse gate is the safe direction",
+  "municipalities": [
+    {
+      "municipality": "Huesca",
+      "ine_code": "22125",
+      "catastro_dgc_code": "22901",
+      "province": "22",
+      "outcome": "MEASURED",
+      "entry_title": "22901-HUESCA Cadastral Parcels",
+      "declared_crs": [
+        "http://www.opengis.net/def/crs/EPSG/0/25830"
+      ],
+      "exact": {
+        "minLat": 42.0264185303431,
+        "maxLat": 42.2477056321418,
+        "minLon": -0.520844553267615,
+        "maxLon": -0.331119057374678
+      },
+      "rounded_outward_2dp": {
+        "minLat": 42.02,
+        "maxLat": 42.25,
+        "minLon": -0.53,
+        "maxLon": -0.33
+      }
+    },
+    {
+      "municipality": "Zaragoza",
+      "ine_code": "50297",
+      "catastro_dgc_code": "50900",
+      "province": "50",
+      "outcome": "MEASURED",
+      "entry_title": "50900-ZARAGOZA Cadastral Parcels",
+      "declared_crs": [
+        "http://www.opengis.net/def/crs/EPSG/0/25830"
+      ],
+      "exact": {
+        "minLat": 41.4488982519861,
+        "maxLat": 41.9349101774082,
+        "minLon": -1.17937434254694,
+        "maxLon": -0.666380472503653
+      },
+      "rounded_outward_2dp": {
+        "minLat": 41.44,
+        "maxLat": 41.94,
+        "minLon": -1.18,
+        "maxLon": -0.66
+      }
+    },
+    {
+      "municipality": "Teruel",
+      "ine_code": "44216",
+      "catastro_dgc_code": "44900",
+      "province": "44",
+      "outcome": "MEASURED",
+      "entry_title": "44900-TERUEL Cadastral Parcels",
+      "declared_crs": [
+        "http://www.opengis.net/def/crs/EPSG/0/25830"
+      ],
+      "exact": {
+        "minLat": 40.2255716758995,
+        "maxLat": 40.5138407536535,
+        "minLon": -1.2888241984111,
+        "maxLon": -0.948712837271535
+      },
+      "rounded_outward_2dp": {
+        "minLat": 40.22,
+        "maxLat": 40.52,
+        "minLon": -1.29,
+        "maxLon": -0.94
+      }
+    }
+  ]
+}

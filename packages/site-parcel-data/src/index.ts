@@ -1132,6 +1132,44 @@ export {
 // ║ ⚠ END OF THE VALÈNCIA BLOCK.                                                                 ║
 // ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
 
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠ ARAGÓN — Huesca (INE 22125) + Zaragoza (INE 50297). Confine Aragón edits to this block.    ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+// Two REFUSAL jurisdictions. ⚠ `*_CATASTRO_DGC_CODE` is exported alongside the INE code on
+// purpose: Catastro's INSPIRE BULK feeds are keyed on the DGC number, which differs from the INE
+// number for every Spanish provincial capital (Huesca 22901 ≠ 22125). Keying a bulk download on
+// the INE code returns HTTP 200 with zero matches — indistinguishable from absent coverage.
+export {
+    ARAGON_DECLARED_CRS,
+    HUESCA_BBOX,
+    HUESCA_CATASTRO_DGC_CODE,
+    HUESCA_INE_CODE,
+    ZARAGOZA_BBOX,
+    ZARAGOZA_CATASTRO_DGC_CODE,
+    ZARAGOZA_INE_CODE,
+    isInHuesca,
+    isInZaragoza,
+} from './providers/aragonBbox.js';
+export {
+    ARAGON_ROADMAP_LINE,
+    HUESCA_ENVELOPE_VERIFIED,
+    HUESCA_GEOREFERENCE_STATUS,
+    HUESCA_INSTRUMENT_REF,
+    HUESCA_JURISDICTION_ID,
+    HUESCA_LAW_STATUS,
+    HUESCA_LEGEND_STATUS,
+    HUESCA_PLANO5_FINDING,
+    ZARAGOZA_ENVELOPE_VERIFIED,
+    ZARAGOZA_INSTRUMENT_REF,
+    ZARAGOZA_JURISDICTION_ID,
+    ZARAGOZA_SUBGRADO_FINDING,
+    huescaNoRulePackRefusal,
+    zaragozaNoRulePackRefusal,
+} from './rulepacks/esAragon.js';
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠ END OF THE ARAGÓN BLOCK.                                                                   ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+
 // ── L-608 — Madrid (INE 28079) jurisdiction gate + the NZ 1 explicit-area pack, refusal + ──
 // the `ringRef` resolver. The pack ships numeric fields null and a footprint HANDLE; the resolver
 // turns that handle into a WGS84 buildable ring per manzana (or a typed refusal — it never throws).

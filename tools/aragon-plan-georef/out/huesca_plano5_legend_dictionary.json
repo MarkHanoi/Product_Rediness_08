@@ -1,0 +1,221 @@
+{
+  "source_document": "Revision y Adaptacion del Plan General de Ordenacion Urbana de Huesca -- TEXTO REFUNDIDO -- NORMAS URBANISTICAS, TOMO I (tomo 2 de 8). Aprobado definitivamente por acuerdo del Consejo de Ordenacion del Territorio de Aragon de 9 de mayo de 2003.",
+  "source_url": "https://www.huesca.es/documents/33451/85658/normas_urbanisticas_pgou08.pdf/6846c65e-e78d-4a0b-4433-904840d671c8?t=1542714308255",
+  "plano_5_official_title": "plano n. 5 — “Clasificación, calificación y regulación del suelo y la edificación en suelo urbano. Red viaria, alineaciones y rasantes”, E: 1/1.000",
+  "sibling_sheet_for_the_barrios": "plano n. 12 — “Barrios. Clasificación, calificación y regulación del suelo y la edificación en suelo urbano. Red viaria, alineaciones y rasantes” -- NORMA ZONAL 1 and 2 live HERE, not on plano 5.",
+  "encoding": {
+    "pdftotext_default_output": "cp1252 (strict UTF-8 RAISES at byte 49; 971,642 bytes; 0 C1-control chars under cp1252)",
+    "pdftotext_with_-enc_UTF-8": "utf-8 (valid strict)",
+    "pymupdf": "returns str; no byte decoding involved",
+    "agreement": "the two extractors produce IDENTICAL lexeme counts"
+  },
+  "articles": {
+    "1.1.6": {
+      "printed_page": 2,
+      "defines": "alcance normativo / prelacion de documentos",
+      "found": true,
+      "verbatim": "Artículo 1.1.6. Alcance normativo de la documentación \n \n1. El alcance normativo del Plan deriva del contenido y jerarquía de los documentos que lo \nintegran, de acuerdo con el siguiente orden de prelación: \n \n1º. Normas urbanísticas. \n2º. Planos y fichas de ordenación y gestión. \n3º. Estudio económico. \n4º. Memoria descriptiva y justificativa. \n \n2. Los demás documentos que constituyen la documentación del Plan tendrán carácter \nmeramente informativo. \n \n3. La cartografía a escala 1/1.000 que ha servido de base para la redacción del Plan General tiene \nel carácter de cartografía municipal oficial a efectos de su utilización obligatoria para reflejar el \nemplazamiento de cualquier actuación de planeamiento o petición de licencia municipal. El \nAyuntamiento establecerá los mecanismos administrativos necesarios para su disposición por los \ninteresados. \n \nPara la correcta interpretación del documento del Plan General se han de tener en cuenta las \nsiguientes determinaciones:  \n \n1. Las Normas de este Plan General se interpretarán atendiendo a su contenido y con sujeción a \nlos objetivos finales expresados en la Memoria. \n \n2. En caso de discrepancia entre los documentos gráficos y escritos, se otorgará primacía al texto \nsobre el dibujo. \n \n\n\f\nTEXTO REFUNDIDO \nNORMAS URBANÍSTICAS \nAYUNTAMIENTO DE HUESCA \n3 \n \n \n3. En caso de discrepancias entre documentos gráficos, tendrá primacía el de mayor sobre el de \nmenor escala, salvo que del texto se desprendiera una interpretación contraria. \n \n4. Cada uno de los documentos del Plan General predomina sobre los demás en lo que respecta \na sus contenidos sustantivos específicos, detallados en la Memoria. \n \n5. En la interpretación del Plan prevalecerán como criterios aquéllos más favorables al mejor \nequilibrio entre aprovechamiento edificatorio y equipamientos urbanos, a la mejora de los \nespacios libres, a la mejor conservación del patrimonio protegido, al menor deterioro del \nambiente natural, del paisaje y de la imagen urbana, y al interés más general de la colectividad."
+    },
+    "2.1.11": {
+      "printed_page": 20,
+      "defines": "solicitud de alineacion y rasante",
+      "found": true,
+      "verbatim": "Artículo 2.1.11. Solicitud de alineación y rasante \n \nCuando se trata de obra de nueva planta, o de reconstrucción previo derribo de construcción \nanterior, será condición previa al inicio de las mismas la solicitud de alineación y rasante, solicitud \nque, por otra parte, puede presentar cualquier propietario de solar o terreno, aún cuando no sea \ninmediatamente seguida de la ejecución de la obra. \n \nCuando el solicitante sea titular de licencia y, en su caso, del permiso de inicio de obra, el \nAyuntamiento habrá de proceder al señalamiento de la alineación en el plazo de 30 días contados \na partir de la correspondiente solicitud. Transcurrido el plazo previsto, podrán comenzar las obras, \nsin perjuicio de las responsabilidades a que hubiere lugar en caso de infracción de alineaciones, \nreplanteo y retranqueos oficiales. \n \nEl señalamiento de alineaciones y rasantes no implica la concesión de licencia de construcción. La \nalineación se dará sobre el plano del solar y zona inmediata, a escala 1/500, refiriendo sus puntos \ncaracterísticos a otros fijos del terreno, de manera que quede suficientemente determinada y \nmaterializándola sobre aquél mediante clavos o estacas."
+    },
+    "2.1.12": {
+      "printed_page": 20,
+      "defines": "senalamiento de alineacion",
+      "found": true,
+      "verbatim": "Artículo 2.1.12. Señalamiento de alineación \n \nEn el acto de señalamiento de alineación, el terreno estará libre de obstáculos para facilitar el \nreplanteo de la misma. \n\n\f\nTEXTO REFUNDIDO \nNORMAS URBANÍSTICAS \nAYUNTAMIENTO DE HUESCA \n21 \n \nEl propietario o el técnico que le represente firmará el ejemplar del plano de alineación y el acta, \nen señal de conformidad, y el propietario recibirá la copia autorizada de estos documentos."
+    },
+    "3.1.3": {
+      "printed_page": 34,
+      "defines": "que plano lleva la delimitacion de zonas y usos",
+      "found": true,
+      "verbatim": "Artículo 3.1.3. Por razón de la calificación del suelo \n \n1. Mediante su calificación, el Plan General determina la asignación zonal de los usos urbanísticos y \nregula el régimen de éstos con carácter global para todas las clases de suelo y con carácter \npormenorizado para las áreas en suelo urbano de ordenación directa. \n \nLa pormenorización de los usos en las áreas de suelo urbanizable y en las de suelo urbano no \nconsolidado sujetas a planeamiento de desarrollo, es función propia del planeamiento parcial y \nespecial correspondiente. \n \n2. Por razón de su aptitud urbanística se diferencian los siguientes usos: \n \na) Usos característicos: son aquellos usos que directamente corresponden a las calificaciones \nprevistas en el Plan General para una determinada área del suelo urbano, o sector del suelo \nurbanizable, o de zonas diferenciadas de dichas áreas o sectores. \n \nb) Usos compatibles: constituyen un sistema de usos supeditados a los característicos, que, en \nunos casos cooperan para el correcto funcionamiento de aquéllos, y en otros completan el \nmarco funcional de la zona, área o sector, propiciando así el carácter diverso que el Plan \npretende desplegar sobre el suelo en él ordenado. Cuando así se establezca en el Plan \npueden tener carácter alternativo con el uso característico. \n \nEstos usos compatibles, por la caracterización de su origen no impuesto directamente por el \nPlan General, no intervienen en el cálculo de aprovechamiento medio de las unidades de \nejecución. \n \nc) Usos prohibidos: son aquellos que por su grado de incompatibilidad con los usos \ncaracterísticos quedan excluidos del ámbito de que se trate. \n \nd) Usos provisionales: son aquellos que por no estar prohibidos por el Plan General, podrán \nestablecerse de manera temporal por no dificultar la ejecución de aquél y no requerir obras \no instalaciones permanentes. \n \nEstos usos podrán autorizarse de acuerdo con las disposiciones vigentes de la LUA en su \nartículo 16.4. \n \n3. Las condiciones particulares de los usos característicos, el régimen de los usos compatibles, la \ncontemplación de los usos en función de su naturaleza y régimen de relación, aparecen \nregulados en el Título IV de las presentes Normas. \n \n4. La delimitación de las zonas y el señalamiento especial de los usos figuran, para el suelo urbano, \nen el plano nº 5 de “Clasificación, calificación y regulación del suelo y la edificación en suelo \nurbano. Red viaria, alineaciones y rasantes”, E: 1/1.000 y para el suelo urbanizable en el nº 3 de \n“Estructura General y Orgánica del territorio. Clasificación del suelo y sistemas generales. \nCalificación del suelo urbanizable\", E: 1/5.000. \n \n\n\f\nTEXTO REFUNDIDO \nNORMAS URBANÍSTICAS \nAYUNTAMIENTO DE HUESCA \n35"
+    },
+    "3.2.2": {
+      "printed_page": 36,
+      "defines": "delimitacion del suelo urbano y codigos API/APE/APR",
+      "found": true,
+      "verbatim": "Artículo 3.2.2. Delimitación \n \nLa delimitación de suelo se contiene en el plano nº 5 de “Clasificación, calificación y regulación del \nsuelo y la edificación en suelo urbano. Red viaria, alineaciones y rasantes”, E: 1/1.000, mediante la \nadscripción a dicha clase de suelo de los siguientes ámbitos: \n \nDentro del suelo urbano: \n \na) Integran el suelo urbano común aquellos terrenos delimitados en el mencionado plano nº 5, y \nafectos a las diferentes normas zonales. \n \nb) Integran las Áreas de Planeamiento Incorporado aquellos terrenos delimitados en el \nmencionado plano nº 5, señalados con el código API. \n \n\n\f\nTEXTO REFUNDIDO \nNORMAS URBANÍSTICAS \nAYUNTAMIENTO DE HUESCA \n37 \nc) Integran las Áreas de Planeamiento Específico, aquellos terrenos delimitados en el mencionado \nplano nº 5, señalados con el código APE. \n \nd) Integran las Áreas de Planeamiento Remitido, aquellos terrenos delimitados en el mencionado \nplano nº 5, señalados con el código APR."
+    },
+    "6.2.2": {
+      "printed_page": 184,
+      "defines": "linderos: frontal / laterales / testero",
+      "found": true,
+      "verbatim": "Artículo 6.2.2. Linderos. \n \nLíneas perimetrales que delimitan una parcela y la distinguen de sus colindantes. \n \nSe denomina lindero frontal al que delimita la parcela con la vía o espacio libre público al que dé \nfrente. Linderos laterales son los restantes, denominándose testero al lindero opuesto al frontal."
+    },
+    "6.2.3": {
+      "printed_page": 184,
+      "defines": "ALINEACIONES: actuales vs oficiales-o-exteriores",
+      "found": true,
+      "verbatim": "Artículo 6.2.3. Alineaciones. \n \nSon las líneas que señala el planeamiento para establecer el límite que separa las parcelas \nedificables de los suelos no edificables de dominio público. \n \nSe distinguen los siguientes tipos: \n \n1. Actuales. Son los linderos de las fincas con los viales o espacios libres públicos existentes. \n \n2. Oficiales o exteriores. Son las líneas que se fijan como tales en los documentos del Plan General o \nen los del planeamiento subordinado que lo desarrollen; estableciendo el límite de la parcela \nedificable con los espacios libres públicos, como vías, calles, plazas, etc."
+    },
+    "6.2.4": {
+      "printed_page": 184,
+      "defines": "parcela edificable",
+      "found": true,
+      "verbatim": "Artículo 6.2.4. Parcela. Clases. \n \nEs la porción de terreno, unitario bajo una sola propiedad registral, cuya aptitud para la edificación \nqueda regulada en la ordenación establecida en el planeamiento. Se distinguen: \n \n- \nParcela mínima. Es la superficie que en el Plan General o en el planeamiento de desarrollo se \ndefine como mínima para que una parcela pueda ser edificable, en las condiciones \nestablecidas por el Plan. \n \n- \nParcela edificable. Es la parte de la parcela comprendida entre la alineación oficial y los \nlinderos laterales y testero."
+    },
+    "6.3.3": {
+      "printed_page": 185,
+      "defines": "RASANTES actuales / oficiales + cota de origen",
+      "found": true,
+      "verbatim": "Artículo 6.3.3. Rasantes y cotas de referencia \n \n1. Rasantes actuales. Son los perfiles longitudinales de las vías existentes. \n \n2. Rasantes oficiales. Son los perfiles longitudinales de las vías, plazas o calles, definidos por el eje \nde los mismos en los documentos oficiales de este Plan General, instrumentos de desarrollo del \nmismo o en los que en su momento expida el Ayuntamiento. \n \nSalvo indicación expresa, en el suelo urbano consolidado, las rasantes oficiales coincidirán con \nlas actuales. \n \n3. Cota natural del terreno. Es la altitud relativa de cada punto del terreno antes de ser \nurbanizado. \n \n4. Cota de origen y referencia. Es la que define el planeamiento como referencia para la medición \nde la altura del edificio, considerándose en edificación aislada la cota de nivelación de planta \nbaja, tomada como cota cero y, en edificación en manzana cerrada, la rasante de la acera en \nel punto medio de la fachada."
+    },
+    "6.3.4": {
+      "printed_page": 185,
+      "defines": "retranqueo y separacion a linderos",
+      "found": true,
+      "verbatim": "Artículo 6.3.4. Retranqueos y separaciones a los linderos. \n \n1. Retranqueo. Es la anchura de la faja de terreno comprendida entre la línea de edificación y la \nalineación oficial. \n \nPuede darse como valor fijo, obligado, o como valor mínimo. Se medirá en la forma \ndeterminada para la separación a linderos en el apartado siguiente. \n \n2. Separación a linderos. Es la distancia entre cada punto de la fachada del edificio y el lindero de \nreferencia más próximo, medida perpendicularmente respecto a un plano vertical apoyado en \ndicho lindero. \n \nSalvo indicación en contrario de la norma zonal u ordenanzas reguladoras del planeamiento de \ndesarrollo o de las A.P.I., el espacio de separación a linderos podrá ocuparse por las plantas bajo \n\n\f\nTEXTO REFUNDIDO \nNORMAS URBANÍSTICAS \nAYUNTAMIENTO DE HUESCA \n186 \nrasante y, en la zona correspondiente a la establecida como separación mínima al lindero, dichas \nplantas serán enteramente subterráneas."
+    },
+    "6.3.6": {
+      "printed_page": 186,
+      "defines": "ALINEACION INTERIOR O PRIVADA",
+      "found": true,
+      "verbatim": "Artículo 6.3.6. Alineación interior o privada. \n \nEs la línea que señala el planeamiento, en manzana cerrada, para establecer la separación entre \nla parte de la parcela susceptible de ser ocupada por la edificación y el espacio libre de parcela."
+    },
+    "6.3.7": {
+      "printed_page": 186,
+      "defines": "FONDO EDIFICABLE",
+      "found": true,
+      "verbatim": "Artículo 6.3.7. Fondo edificable. \n \nSe denomina así a la distancia máxima, medida en la perpendicular a la alineación oficial, a la que \nse sitúa la alineación interior en plantas superiores a la baja, e incluso en planta baja cuando no \nexista determinación en contrario en las normas zonales."
+    },
+    "6.3.8": {
+      "printed_page": 186,
+      "defines": "area de movimiento",
+      "found": true,
+      "verbatim": "Artículo 6.3.8. Área de movimiento de la edificación. \n \nEs la zona dentro de la cual puede situarse la edificación, como resultado de aplicar a la parcela \nedificable las condiciones de posición definidas en este Capítulo."
+    },
+    "6.3.9": {
+      "printed_page": 186,
+      "defines": "linea de edificacion / superficie ocupada",
+      "found": true,
+      "verbatim": "Artículo 6.3.9. Línea de edificación. Superficie ocupada. \n \nLa línea de edificación es la proyección sobre el plano horizontal de la superficie que separa el \nespacio edificado del no edificado, conteniendo todos los elementos constructivos del edificio, \nsalvo los vuelos autorizados. \n \nLa superficie ocupada sobre rasante es la comprendida dentro de la línea de edificación, \ndescontándose de la misma los patios de parcela cerrados, siempre que no estén edificados sobre \nrasante. La regulación de la ocupación en cada norma zonal se considerará siempre sobre rasante. \n \nSalvo disposición en contra de cada norma zonal o planeamiento de desarrollo, la ocupación bajo \nrasante podrá ser del cien por cien (100 %) de la totalidad de la parcela."
+    },
+    "6.4.5": {
+      "printed_page": 189,
+      "defines": "ALTURA: definiciones + tabla plantas<->cornisa",
+      "found": true,
+      "verbatim": "Artículo 6.4.5. Altura. \n \n1. De la edificación  \n \nEs la dimensión vertical de la parte del edificio que sobresale de un plano horizontal situado en \nsu cota de origen y referencia. Para su medición se utilizarán unidades métricas o número de \nplantas del edificio. \n \n2. De cornisa \n \nEs la distancia vertical desde la rasante en la acera, o del terreno en su caso, en contacto con \nla edificación, hasta la intersección de la cara inferior del forjado que forma el techo de la \núltima planta, con la fachada del edificio. \n \n3. De coronación \n \nEs la distancia vertical desde la rasante en la acera, o del terreno en su caso, en contacto con \nla edificación, hasta un plano horizontal que pase: en los casos de cubierta inclinada, por la \ncumbrera, y, en los casos de cubierta plana, por la arista superior de los petos de protección de \ncubierta si existieren, o en su defecto el de la cara superior del remate del forjado de la última \nplanta. En los casos de existencia de ático, tanto la cumbrera, como los petos o el remate del \nforjado se refieren, en cada caso, a la cubierta del ático. \n \n4. De las plantas o pisos \n \na) De piso. Es la distancia vertical entre las caras superiores de dos (2) forjados consecutivos. \nb) Libre. Es la distancia vertical entre la cara superior del pavimento terminado y la inferior del \nforjado de techo de una misma planta, o del falso techo si lo hubiese. \n \n5. Medición \n \na) Para la medición de las alturas se establecen dos tipos de unidades: por número de plantas y \npor distancia vertical. Cuando las Normas señalen ambos tipos, habrán de respetarse los dos. \n \nLa relación entre número de plantas y altura máxima de cornisa, salvo indicación en \ncontrario en las normas zonales será la siguiente: \n \n2 plantas (B + 1) ............................................................................................................................... 7,50 m \n3 plantas (B + 2) ............................................................................................................................. 10,50 m \n4 plantas (B + 3) ............................................................................................................................. 13,50 m \n5 plantas (B + 4) ............................................................................................................................. 16,50 m \n6 plantas (B + 5) ............................................................................................................................. 19,50 m \n7 plantas (B + 6) ............................................................................................................................. 22,50 m \n8 plantas (B + 7) ............................................................................................................................. 25,50 m \n \n\n\f\nTEXTO REFUNDIDO \nNORMAS URBANÍSTICAS \nAYUNTAMIENTO DE HUESCA \n190 \nb) Para determinar la altura de un edificio, la cota de referencia se tomará en la vertical que \npasa por el punto medio de la línea de fachada, desde la rasante señalada para el acerado \no en su caso la del terreno, hasta el plano inferior del forjado del último piso (altura de \ncornisa). \n \nc) Si la rasante de la calle a que da fachada el edificio, originase en algún punto de la fachada \nuna diferencia de cota de más de ciento cincuenta (150) centímetros por encima o por \ndebajo del que corresponde al punto medio de la fachada, la altura del edificio se \ndeterminará dividiendo la fachada en tantas partes como sea preciso para no sobrepasar \ndicha medida. \n \nEn cualquier caso nunca se podrá superar el número de plantas máximo permitido en \ncualquier punto de la fachada. \n \nLas plantas bajas diáfanas se contabilizarán a efectos del número de plantas. \n \nd) En los edificios en esquina a calles que permitan distintas alturas de edificación, y salvo \nindicación gráfica en contra en el plano nº 5 “Clasificación, calificación y regulación del \nsuelo y la edificación en suelo urbano. Red viaria, alineaciones y rasantes”, se tomará la \naltura correspondiente a la calle de mayor ancho, pudiendo conservarse esta altura con un \nfondo no superior al definido por las alineaciones interiores del patio de manzana y sus \nprolongaciones. Cuando no exista alineación interior, se podrá continuar con la altura \ncorrespondiente a la calle de mayor ancho, como si existiera tal alineación, con un fondo \nmáximo de doce (12) metros. \n \ne) En todos los casos la altura fijada para una determinada calle sólo podrá mantenerse hasta \nel eje de la manzana, continuándose el resto de la edificación con la altura correspondiente \na las de las otras calles. En los solares con fachadas opuestas a viales que permitan diferentes \nalturas, se tomará para cada calle su altura correspondiente, no pudiendo mantenerse dicha \naltura más que en una profundidad igual a la mitad del fondo de la parcela, siempre que \nesta dimensión sea inferior al fondo máximo edificable. \n \nf) \nLa altura mínima libre en vivienda, techo - suelo, será de doscientos cincuenta centímetros \n(250 cm). En el caso de espacios abuhardillados o bajo escaleras interiores, la altura mínima \nlibre será de ciento ochenta centímetros (180 cm.). En este caso, cada pieza o habitación \ndeberá dimensionarse de modo que su volumen habitable no sea inferior al que resultaría \nde multiplicar una altura de 250 cm. por la superficie mínima que corresponda, en función \nde lo regulado en el Art. 4.2.4 (USO VIVIENDA)  \n \nEn las cocinas y pasillos, la altura libre mínima hasta el falso techo podrá ser de doscientos \ntreinta y cinco centímetros (235 cm). y en baños de doscientos veinte centímetros (220 cm.) \n \n6. Alturas en edificación de vivienda unifamiliar \n \nLa altura máxima deberá cumplirse en cualquier punto de la fachada y se medirá a partir de la \nrasante de la acera, o, en su defecto, del pavimento de la calle en su encuentro con la \nalineación. \n \n\n\f\nTEXTO REFUNDIDO \nNORMAS URBANÍSTICAS \nAYUNTAMIENTO DE HUESCA \n191"
+    },
+    "8.3.1": {
+      "printed_page": 278,
+      "defines": "NZ3 ambito: plano 5 y 12, codigo 3, cinco grados",
+      "found": true,
+      "verbatim": "Artículo 8.3.1. Ámbito y características \n \n1. Pertenecen a esta norma zonal las áreas grafiadas en los planos nº 5 de \"Clasificación, \ncalificación y regulación del suelo la edificación en suelo urbano. Red viaria, alineaciones y \nrasantes\"; y nº 12 de \"Barrios. Clasificación, calificación y regulación del suelo y la edificación en \nsuelo urbano. Red viaria, alineaciones y rasantes\", con el código 3. \n \n2. A los efectos de la aplicación de las condiciones de edificación en la norma zonal 3, se \ndistinguen cinco grados que comprenden cada uno de ellos, los suelos señalados con los \ncódigos 1, 2, 3 4 y 5 respectivamente."
+    },
+    "8.3.10": {
+      "printed_page": 281,
+      "defines": "NZ3 posicion: alineaciones del plano 5",
+      "found": true,
+      "verbatim": "Artículo 8.3.10. Posición de la edificación \n \n1. Alineaciones y retranqueos \n \nLas alineaciones serán las fijadas en el plano nº 5 de \"Clasificación, calificación y regulación del \nsuelo y la edificación en suelo urbano. Red viaria, alineaciones y rasantes\". \n \nLa separación entre el plano de fachada y la alineación oficial será superior a los siguientes \nvalores: \n \n- \nGrado 1: Tres (3) metros mínimo \n- \nGrado 2: Cinco (5) metros mínimo \n- \nGrado 3: Cinco (5) metros mínimo \n- \nGrado 4: Cinco (5) metros mínimo \n- \nGrado 5: La existente en la edificación principal en cada caso. Los Estudios de Detalle que se \nredacten podrán definir otros retranqueos para las construcciones auxiliares que determinen \ncomo edificables. \n \n \n\n\f\nTEXTO REFUNDIDO \nNORMAS URBANÍSTICAS \nAYUNTAMIENTO DE HUESCA \n282 \n2. Separación a linderos \n \nLa separación de la edificación con respecto a los linderos de las parcelas colindantes será: \n \n- \nGrado 1: Un mínimo de tres (3) metros respecto al lindero testero. \n-    Grado 2: Un mínimo de tres (3) metros respecto al lindero testero, y en el caso de disponer de \nedificación pareada, un mínimo de tres (3) metros, respecto al lindero opuesto al \nque se adosa la edificación. \n-    Grado 3: Un mínimo de tres (3) metros respecto al lindero testero. En el caso de disponer de \nedificación pareada, un mínimo de tres (3) metros, respecto al lindero opuesto al \nque se adosa la edificación y en el caso de edificación aislada un mínimo de tres \n(3) metros respecto a ambos linderos laterales. \n- \nGrado 4: Un mínimo de tres (3) metros respecto al lindero testero y a los laterales. \n-    Grado 5: La existente en la edificación principal en cada caso. Los Estudios de Detalle que se \nredacten podrán definir otros retranqueos para las construcciones auxiliares que \ndeterminen como edificables. \n \nEn los grados 1, 2, 3 y 4, la edificación aislada se autorizará siempre que se cumplan las \nseparaciones mínimas a linderos laterales, salvo cuando existan parcelas consolidadas por \nedificaciones que presenten medianeras cuya desaparición no esté contemplada en el Plan, en \ncuyo caso se deberán cubrir dichas medianeras con las nuevas edificaciones. \n \nNo se permitirá la creación de nuevas medianeras salvo cuando responda a proyecto conjunto \no medie acuerdo entre colindantes autorizándose la carga mediante inscripción registral. \n \nEn cualquier caso, el conjunto continuo de planos de fachadas, no superará una longitud \nmáxima de sesenta y cuatro (64) metros lineales."
+    },
+    "8.3.11": {
+      "printed_page": 282,
+      "defines": "NZ3 altura",
+      "found": true,
+      "verbatim": "Artículo 8.3.11. Altura de la edificación \n \nLa altura de la edificación no podrá exceder de dos (2) plantas, ni de siete (7) metros a cornisa. En \nel grado 5, salvo que el Estudio de Detalle correspondiente disponga lo contrario, será como \nmáximo de dos (2) plantas."
+    },
+    "8.4.1": {
+      "printed_page": 284,
+      "defines": "NZ4 ambito: plano 5, codigo 4, dos grados",
+      "found": true,
+      "verbatim": "Artículo 8.4.1. Ámbito y características \n \n1. Pertenecen a esta norma zonal las áreas grafiadas en el plano nº 5 de \"Clasificación, \ncalificación y regulación del suelo y la edificación en suelo urbano. Red viaria, alineaciones y \nrasantes\" con el código 4. \n \nSon áreas de edificación continua, pudiendo conformar o no patios de manzana. \n \n2. A los efectos de aplicación de las condiciones de edificación en la norma zonal 4, se distinguen \ndos grados que comprenden cada uno de ellos, los suelos señalados con los códigos 1 y 2 \nrespectivamente."
+    },
+    "8.4.7": {
+      "printed_page": 286,
+      "defines": "NZ4 edificabilidad",
+      "found": true,
+      "verbatim": "Artículo 8.4.7. Edificabilidad \n \nEs la resultante de multiplicar la altura en número de plantas, que le corresponde en función del \nancho de calle, por la ocupación definida en el artículo 8.4.8 de las presentes Normas."
+    },
+    "8.4.8": {
+      "printed_page": 286,
+      "defines": "NZ4 OCUPACION Y FONDO EDIFICABLE",
+      "found": true,
+      "verbatim": "Artículo 8.4.8. Ocupación y fondo edificable \n \n1. La ocupación viene definida por la alineación oficial, los linderos laterales y la línea de fondo \nedificable. \n \n2. El fondo máximo edificable se fija en función de los grados: \n \n- \nGrado 1: El fondo máximo se calcula en función de la separación de la edificación al lindero \ntestero, según lo establecido en el artículo 8.4.9 de las presentes Normas. \n \n- \nGrado 2: El fondo máximo se fija en veinte (20) metros, medidos perpendicularmente a la \nlínea de alineación oficial, con excepción de los casos en los que gráficamente se determine \nun fondo edificable diferente al definido en este artículo. \n \nSi el fondo máximo de la edificación existente difiere cincuenta (50) centímetros por exceso o \npor defecto del acotado gráficamente, se adaptará la nueva edificación a dicho fondo \nexistente, con objeto de evitar la aparición de medianeras. En cualquier caso, para el \ncálculo de la edificabilidad se utilizará el fondo definido gráficamente en el plano nº5 de \n\"Clasificación, calificación y regulación del suelo y la edificación en suelo urbano. Red viaria, \nalineaciones y rasantes\"."
+    },
+    "8.4.9": {
+      "printed_page": 286,
+      "defines": "NZ4 posicion: alineaciones exteriores e interiores",
+      "found": true,
+      "verbatim": "Artículo 8.4.9. Posición de la edificación \n \n1. Alineaciones y retranqueos  \n \nLas alineaciones exteriores serán las fijadas en el plano nº5 de \"Clasificación, calificación y \nregulación del suelo y la edificación en suelo urbano. Red viaria, alineaciones y rasantes\". \n \nLas alineaciones interiores serán las fijadas en el plano de \"Clasificación, calificación y regulación \ndel suelo y la edificación en suelo urbano. Red viaria, alineaciones y rasantes\", y en su defecto, \nlas definidas por el fondo máximo edificable. \n \n \n \n\n\f\nTEXTO REFUNDIDO \nNORMAS URBANÍSTICAS \nAYUNTAMIENTO DE HUESCA \n287 \n \n \n2. Separación a linderos. \n \n- \nLinderos laterales. Grados 1 y 2: \n \nEn el caso de que por las características o servidumbres de la edificación colindante, o por \ntratarse de parcelas colindantes con otras correspondientes a otra norma zonal o de uso \ndotacional, no fuera posible el adosamiento, se admite la separación a los linderos \nafectados con un ancho mínimo de tres (3) metros, debiéndose tratar las medianeras \nresultantes como fachadas por el propietario de la nueva edificación. \n \n- \nLindero testero. Grado 1: \n \nRespecto al lindero testero, la línea de edificación se separará una distancia igual o superior \na un tercio (1/3) de la altura de coronación de cada uno de los cuerpos de edificación \nenfrentados al mismo, con un mínimo de tres (3) metros. \n \nNo serán de aplicación las condiciones establecidas en el párrafo anterior, en parcelas con \nfondos menores o iguales a quince (15) metros, cuando resuelvan su organización interior sin \nque existan piezas habitables que recaigan a fachadas posteriores. \n \n3. Tratamiento de medianeras. \n \nLas medianeras que quedasen al descubierto, deberán ser tratadas según lo regulado en el \nartículo 6.8.4 de las presentes Normas."
+    },
+    "8.4.10": {
+      "printed_page": 287,
+      "defines": "NZ4 ALTURA -- grafiada en el plano 5",
+      "found": true,
+      "verbatim": "Artículo 8.4.10. Altura de la edificación \n \nLa altura de la edificación y consiguiente número de plantas, se establece según las grafiadas en el \nplano nº5 de \"Clasificación, calificación y regulación del suelo y la edificación en suelo urbano. Red \nviaria, alineaciones y rasantes\". La equivalencia entre el número de plantas grafiadas y la altura de \ncornisa es la regulada en el artículo 6.4.5 del Título VI, “Condiciones Generales de la Edificación”. \n \nEn las manzanas incluidas en los siguientes ámbitos, la equivalencia en metros para la altura de \ncornisa, respecto del número de plantas grafiado en el Plano nº 5 de “Clasificación, Calificación y \nRegulación del Suelo y la Edificación en Suelo Urbano. Red viaria, alineaciones y rasantes”, es la \nsiguiente: \n \n1. \nÁmbito delimitado por las calles Perena, Coso Bajo, Sancho Ramírez, Travesía Ballesteros y las \nHuertas, así como los números de policía 46, 48 y 50 de la calle Lanuza, el frente este de la calle \nde las Huertas, y los números de policía 7, 9 y 11 de la Travesía Ballesteros: \n \nNº DE PLANTAS \nALTURA DE CORNISA (en metros) \nB+2 \n9,80 \nB+3 \n12,95 \nB+4 \n16,10 \n \n\n\f\nTEXTO REFUNDIDO \nNORMAS URBANÍSTICAS \nAYUNTAMIENTO DE HUESCA \n288 \n \n2. \nÁmbito delimitado por las calles Hermanos Argensola, Roldán, Manuel Bescos, Padre Huesca, \nPlaza de Santa Clara y el viario de nueva apertura como prolongación de la calle Cleriguech, \nhasta la plaza de Nuestra Señora de Salas, así como el frente oeste de la calle Roldán con \naltura de B+2: \n \nNº DE PLANTAS \nALTURA DE CORNISA (en metros) \nB+2 \n9,80 \nB+3 \n11,80 \n \nEn el caso de B+3, la última planta será abuhardillada, enrasada en fachada. \n \nPara nuevas ordenaciones de planeamiento remitido o de desarrollo del presente Plan General, se \nestablece, en función del ancho del viario, el siguiente cuadro de equivalencia entre altura de \ncornisa (número de plantas) y el ancho del viario: \n \nANCHO DE VIARIO \n(en metros) \nNº DE PLANTAS \nALTURA DE CORNISA \n(en metros) \n  Menos de 10 m \nB+1 \n7,50 \n  De 10 a menos de 15 m \nB+2 \n10,50 \n  De 15 a menos de 20 m \nB+4 \n16,50 \n  De 20 a menos de 30 m \nB+5 \n19,50 \n  De 30 m en adelante \nB+6 \n22,50"
+    },
+    "8.5.1": {
+      "printed_page": 289,
+      "defines": "NZ5 ambito: plano 5, codigo 5",
+      "found": true,
+      "verbatim": "Artículo 8.5.1. Ámbito y características \n \nPertenecen a esta norma zonal las áreas grafiadas en el plano nº 5 de \"Clasificación, calificación y \nregulación del suelo y la edificación en suelo urbano. Red viaria, alineaciones y rasantes\" con el \ncódigo 5."
+    },
+    "8.5.6": {
+      "printed_page": 291,
+      "defines": "NZ5 edificabilidad -- altura indicada graficamente",
+      "found": true,
+      "verbatim": "Artículo 8.5.6. Edificabilidad \n \nEs la resultante de multiplicar la altura en número de plantas, que se indica gráficamente, por la \nsuperficie delimitada por la línea de edificación, coincidente o no con la alineación oficial. \n \nCuando todas las líneas de edificación coincidan con las alineaciones, en parcelas ya edificadas \ncuyas características resulten conformes con el Plan General, la edificabilidad se obtendrá como \nresultado de multiplicar la altura en número de plantas por la superficie delimitada por las \nalineaciones. \n \n\n\f\nTEXTO REFUNDIDO \nNORMAS URBANÍSTICAS \nAYUNTAMIENTO DE HUESCA \n291 \nPara nuevas ordenaciones u obras de nueva planta, en el caso de no definirse la línea de \nedificación, la edificabilidad será la que resulte de multiplicar el número de plantas máximo por la \nsuperficie ocupable por la edificación. \n \nSe permite, en el espacio libre privado de la parcela edificable, la construcción de elementos \nauxiliares de la edificación, no computables a efectos de edificabilidad, para el uso de \nconservación de jardines, conserjería, etc., con una altura máxima de una planta sobre rasante y \nuna superficie máxima total del veinte (20%) por ciento de la superficie libre de parcela resultante \nde la aplicación de la Norma Zonal correspondiente, sin que se supere en ningún caso los cien (100) \nmetros cuadrados construidos."
+    },
+    "8.5.7": {
+      "printed_page": 291,
+      "defines": "NZ5 ocupacion -- linea de edificacion grafiada",
+      "found": true,
+      "verbatim": "Artículo 8.5.7. Ocupación \n \nLa ocupación de la parcela, siempre que no esté grafiada la línea de edificación, no podrá ser \nsuperior al resultado de aplicar a la superficie de parcela un coeficiente de ocupación del \ncincuenta por ciento (50%). \n \nEn el caso en que se defina la línea de edificación gráficamente, la ocupación máxima será la \ndefinida por aquélla. \n \nSe podrá superar la ocupación máxima indicada, en ambos casos, mediante la redacción de un \nEstudio de Detalle, sin superar en ningún caso la edificabilidad máxima permitida, calculada según \nlo definido en el artículo 8.5.6."
+    },
+    "8.5.8": {
+      "printed_page": 291,
+      "defines": "NZ5 posicion",
+      "found": true,
+      "verbatim": "Artículo 8.5.8. Posición de la edificación  \n \nCon carácter general, cuando la línea de edificación esté indicada gráficamente, incluso \ncoincidiendo con la alineación oficial, no será obligatorio cumplir los retranqueos establecidos en el \npresente artículo. \n \n1. Alineaciones y retranqueos \n \nLas alineaciones serán las fijadas en el plano de \"Clasificación, calificación y regulación del suelo \ny la edificación en suelo urbano. Red viaria, alineaciones y rasantes\". \n \nEl retranqueo mínimo del plano más exterior de la fachada de la edificación, será el mayor de \nlos siguientes parámetros: \n \na) Altura (H) del edificio, medida desde el plano más exterior de la fachada de la edificación \nsituada en la alineación opuesta de la calle o espacio libre público. \nb) Mitad de la altura (H/2) del edificio, medida respecto al eje de la calle o espacio libre \npúblico al que de frente la parcela. \n \nCuando no esté edificada la parcela opuesta, será de aplicación el apartado b). \n \nEl retranqueo mínimo podrá reducirse, llegando incluso a coincidir la línea de edificación con la \nalineación oficial, mediante la tramitación de un Estudio de Detalle en el que quede \ndebidamente justificada la conveniencia y oportunidad de la solución adoptada, así como la \nausencia de impactos visuales negativos en relación con el entorno. \n\n\f\nTEXTO REFUNDIDO \nNORMAS URBANÍSTICAS \nAYUNTAMIENTO DE HUESCA \n292 \n \n2. Separación a linderos \n \na) A linderos laterales y posterior. Los retranqueos mínimos respecto a los linderos laterales y \nposterior para la edificación exenta o adosada (en el lado libre), será de dos quintos (2/5) de \nsu altura, no pudiendo ser inferior en ningún caso a tres (3) metros. \n \nb) La nueva edificación podrá adosarse a uno de los linderos cuando concurra alguna de las \nsiguientes circunstancias: \n \n- \nQue se trate de edificaciones adosadas de proyecto unitario. \n- \nQue la parcela esté enclavada en una estructura parcelaria en que una de las \nconstrucciones colindantes sea ya medianera, en cuyo caso se adaptará a dicha \nmedianera existente. \n- \nCuando exista acuerdo entre propietarios de parcelas colindantes, que deberá inscribirse \nen el Registro de la Propiedad, siendo preceptiva la construcción simultánea o la \nconstitución formal de realizar la construcción de acuerdo con la ordenación aprobada \nmediante un Estudio de Detalle. \n \nEn todos los casos la edificación respetará las separaciones mínimas a los restantes linderos, \nexcepto en el caso de la edificación entre dos medianeras, que deberá realizarse adosada \na ambas. \n \nc) Separación entre edificios dentro de una misma parcela: \n \n- \nLa distancia entre edificios dentro de una misma parcela no será inferior a la altura (H) del \nmás alto, cuando en los parámetros enfrentados se abran huecos de piezas habitables.  \n- \nEn el caso de presentar sólo huecos de piezas no habitables, la distancia podrá reducirse \na 1/3 de la altura, con un mínimo de cuatro (4) metros, en ambas situaciones. \n- \nCuando la proyección ortogonal de cualquiera de ellos, sobre la fachada del otro, tenga \nen planta una longitud inferior a doce (12) metros, la distancia entre los paramentos \nenfrentados podrá reducirse a la mitad de la altura (H/2) del edificio más alto. \n- \nLos espacios libres de edificación serán tratados como accesos y jardines privados, \ndebiendo ajardinarse en proporción no inferior al cuarenta por ciento (40%) de la \nsuperficie libre de edificación, pudiéndose cerrar por la alineación oficial, según lo \nestablecido en el artículo 5.8.8."
+    },
+    "8.5.9": {
+      "printed_page": 292,
+      "defines": "NZ5 altura",
+      "found": true,
+      "verbatim": "Artículo 8.5.9. Altura de la edificación \n \nLa altura de la edificación, no podrá superar las seis (6) plantas equivalentes a diecinueve con \ncincuenta (19,50) metros. \n \nCuando se indique gráficamente un número de plantas superior, o mediante la tramitación de un \nEstudio de Detalle en el que quede debidamente justificada la conveniencia y oportunidad de la \nsolución adoptada, podrá superarse el número máximo de plantas establecido en la presente \nnorma zonal. \n \n \n \n\n\f\nTEXTO REFUNDIDO \nNORMAS URBANÍSTICAS \nAYUNTAMIENTO DE HUESCA \n293"
+    },
+    "8.6.1": {
+      "printed_page": 294,
+      "defines": "NZ6 ambito: plano 5, codigo 6",
+      "found": true,
+      "verbatim": "Artículo 8.6.1. Ámbito y características \n \nEl ámbito de aplicación de esta norma zonal lo constituyen las ordenaciones o edificaciones, \nanteriores al nuevo Plan General, que no queden comprendidas en las determinaciones de \nordenación de éste, y no sea aconsejable su calificación como fuera de ordenación. \n \nAparecen en el plano nº 5 de \"Clasificación, calificación y regulación del suelo y la edificación en \nsuelo urbano. Red viaria, alineaciones y rasantes\" con el código 6."
+    },
+    "8.7.1": {
+      "printed_page": 296,
+      "defines": "NZ7 ambito: plano 5, codigo 7, cinco grados",
+      "found": true,
+      "verbatim": "Artículo 8.7.1. Ámbito y características \n \n1. Pertenecen a esta norma zonal las áreas grafiadas en el plano nº 5 de \"Clasificación, \ncalificación y regulación del suelo y la edificación en suelo urbano. Red viaria, alineaciones y \nrasantes\" con el código 7. \n \n2. A los efectos de aplicación de las condiciones de edificación en la norma zonal 7, se distinguen \ncinco grados que comprenden cada uno de ellos, los suelos señalados con los códigos 1, 2, 3, 4 \ny 5 respectivamente. \n \n- Grado 1: \nComprende el antiguo Plan Parcial de SEPES y otras áreas colindantes ya \nconsolidadas. Dentro del grado 1 encontramos los niveles a), b) y c). \n- Grado 2: \nIndustria en polígono. \n- Grado 3: \nAgrupaciones industriales. Responde a zonas de tipología industrial en todas sus \nvariantes. Su regulación como norma zonal es a los solos efectos de permitir el \nmantenimiento de las edificaciones existentes, así como las actividades que \nalbergan a la entrada en vigor del presente Plan General. \n- Grado 4: \nIndustria nido. \n- Grado 5: \nGrandes superficies comerciales."
+    }
+  },
+  "unknown": [
+    {
+      "term": "leyenda / cuadro de simbolos del plano n.5",
+      "meaning": "UNKNOWN",
+      "why": "The word 'leyenda' occurs ZERO times in the Normas Urbanisticas (measured, both extractors). The sheet's own legend box is drawn as outlined vector curves (0 painted-text ops -- see tools/aragon-municipal-probe/out/huesca_plano5_anatomy.json), so its wording cannot be extracted as characters from the PDF. The verbatim legend text is NOT RECOVERED."
+    },
+    {
+      "term": "line-style -> symbol mapping (which dash/weight draws the alineacion oficial vs the linea de fondo edificable)",
+      "meaning": "UNKNOWN",
+      "why": "The Normas never describe the graphic CONVENTION, only the planning meaning. The sheet is greyscale-only (measured: all paint colours r==g==b, huesca_plano5_line_classes.json), so zone identity is NOT colour-coded. No text in the Normas assigns a dash pattern or line weight to any term."
+    },
+    {
+      "term": "'alineacion de fachada'",
+      "meaning": "UNKNOWN -- the phrase does not occur",
+      "why": "0 hits for 'alineacion de fachada' in the Normas. Huesca's terms are 'alineacion oficial o exterior' (art. 6.2.3), 'alineacion interior o privada' (art. 6.3.6) and 'linea de edificacion' (art. 6.3.9). Do not treat them as synonyms."
+    },
+    {
+      "term": "'NZ1'..'NZ5' as a literal label on the sheet",
+      "meaning": "UNKNOWN as a graphic label",
+      "why": "0 hits for the token 'NZ<digit>' anywhere in the Normas. The Normas say the sheet carries the BARE CODE ('con el codigo 4'), and grade as a second bare code ('los suelos senalados con los codigos 1 y 2'). 'NZ4' is our shorthand, not the plan's."
+    },
+    {
+      "term": "georeference of the plano n.5 sheets",
+      "meaning": "UNKNOWN",
+      "why": "measured in huesca_plano5_geometry.json -- no georeference of any kind in the sheet PDFs; only page coordinates."
+    }
+  ]
+}

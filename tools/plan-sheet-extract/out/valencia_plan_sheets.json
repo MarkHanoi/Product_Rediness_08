@@ -1,0 +1,12 @@
+{
+  "probe": "plan-sheet-extract",
+  "city": "València",
+  "ine": "46250",
+  "catastro_dgc": "46900",
+  "status": "UNTESTED — sheet index not located; NOT a finding of absence",
+  "instrument": "PGOU València (mayo 1991) — the «Plano C» series, to which arts. 6.18.2 / 6.19.1 / 6.25.1 / 6.30.1 remit the buildable depth and the cornice height",
+  "notes": "València is registered as a refusal jurisdiction for the SAME stated reason Huesca was — «graphed on the plano C sheets, which the city does not publish as data». That premise was measured FALSE for Huesca. Run this probe on plano C before inheriting the conclusion.",
+  "sheets": [],
+  "OUTCOME": "NOT_RUN",
+  "why": "no sheet URLs are configured for this city. ⛔ This is UNTESTED, not a finding that the sheets are unusable — no request was made, so nothing was learned."
+}

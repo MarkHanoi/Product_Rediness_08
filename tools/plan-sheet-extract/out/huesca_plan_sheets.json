@@ -1,0 +1,2546 @@
+{
+  "probe": "plan-sheet-extract",
+  "city": "Huesca",
+  "ine": "22125",
+  "catastro_dgc": "22901",
+  "status": "TESTED",
+  "instrument": "PGOU Huesca, texto refundido enero 2008 — plano nº 5, «Clasificación, calificación y regulación del suelo y la edificación en suelo urbano. Red viaria, alineaciones y rasantes», 28 hojas",
+  "notes": "⚠ PLANO Nº 5 IS NOT THE WHOLE CITY. Normas zonales 1 and 2 are graphed on plano nº 12, not nº 5; NZ3 spans both. A pipeline reading only nº 5 returns 'unzoned' for the barrios — failure dressed as absence.",
+  "sheets": [
+    {
+      "sheet": "H-01",
+      "outcome": "MEASURED",
+      "transport": "CACHED",
+      "anatomy": {
+        "bytes": 521565,
+        "vector_path_ops": {
+          "m": 28095,
+          "l": 79625,
+          "c": 6789,
+          "v": 1154,
+          "y": 1195,
+          "re": 267
+        },
+        "vector_path_ops_total": 117125,
+        "painted_text_ops": 0,
+        "bt_blocks": 3,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "font_objects": 0,
+        "doc_info": {
+          "Producer": "Acrobat Distiller 7.0 \\(Windows\\)",
+          "Creator": "PScript5.dll Version 5.2.2",
+          "Title": "HOJAS-URBANA.dgn",
+          "Author": "abravo"
+        },
+        "VERDICT": "OUTLINED_TEXT_VECTOR",
+        "why": "OUTLINED_TEXT_VECTOR = heavy path load, zero painted text, no font resource: renders perfectly, extracts zero characters, and the geometry IS the data."
+      },
+      "published_georeference": {
+        "markers": {},
+        "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+      },
+      "named_layers": [],
+      "page": {
+        "rect_display": [
+          0.0,
+          0.0,
+          2384.0,
+          1684.0
+        ],
+        "mediabox": [
+          0.0,
+          0.0,
+          1684.0,
+          2384.0
+        ],
+        "rotation": 90
+      },
+      "stroke_census": {
+        "distinct_classes": 41,
+        "classes": [
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 4025
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.7539,
+              0.754,
+              0.7539
+            ],
+            "fill_rgb": [
+              0.7539,
+              0.754,
+              0.7539
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 961
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              1.0,
+              0.8392,
+              0.0
+            ],
+            "fill_rgb": [
+              1.0,
+              0.8392,
+              0.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 596
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.3176,
+              0.6588
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 260
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.9019,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": [
+              0.9019,
+              0.0,
+              0.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 221
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.6784,
+              0.9098,
+              1.0
+            ],
+            "fill_rgb": [
+              0.6784,
+              0.9098,
+              1.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 197
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.6039,
+              0.9019,
+              0.0
+            ],
+            "fill_rgb": [
+              0.6039,
+              0.9019,
+              0.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 125
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 79
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.9412,
+              0.7333,
+              0.5255
+            ],
+            "fill_rgb": [
+              0.9412,
+              0.7333,
+              0.5255
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 33
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.8784,
+              0.4588,
+              0.1137
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 32
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.7804,
+              0.7882,
+              0.3176
+            ],
+            "fill_rgb": [
+              0.7804,
+              0.7882,
+              0.3176
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 17
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 13
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.6,
+            "dashes": "[] 0",
+            "n": 12
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.5119,
+              0.512,
+              0.5119
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 5
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.25,
+              0.25,
+              0.25
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 4
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.949,
+              0.6588,
+              0.5019
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 4
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.0,
+              1.0,
+              1.0
+            ],
+            "fill_rgb": [
+              0.0,
+              1.0,
+              1.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 4
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.25,
+              0.25,
+              0.25
+            ],
+            "fill_rgb": [
+              0.25,
+              0.25,
+              0.25
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 3
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.6902,
+              0.6392,
+              0.1882
+            ],
+            "fill_rgb": null,
+            "width": 0.42,
+            "dashes": "[] 0",
+            "n": 3
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0863,
+              0.2667,
+              0.1608
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 3
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.9216,
+              1.0,
+              0.6588
+            ],
+            "fill_rgb": [
+              0.9216,
+              1.0,
+              0.6588
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.8784,
+              0.4588,
+              0.1137
+            ],
+            "fill_rgb": null,
+            "width": 0.6,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.72,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "fill_rgb": null,
+            "width": 0.9,
+            "dashes": "[ 11.88 3.96 ] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "fill_rgb": null,
+            "width": 0.9,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.9139,
+              0.914,
+              0.9139
+            ],
+            "fill_rgb": [
+              0.9139,
+              0.914,
+              0.9139
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.42,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.12,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.3176,
+              0.6588
+            ],
+            "fill_rgb": null,
+            "width": 0.12,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.8784,
+              0.4588,
+              0.1137
+            ],
+            "fill_rgb": null,
+            "width": 0.72,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              1.0,
+              0.9019,
+              0.7843
+            ],
+            "fill_rgb": [
+              1.0,
+              0.9019,
+              0.7843
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[ 11.88 3.96 ] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[ 7.92 3 1.98 3 ] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              1.0,
+              1.0
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.66,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.6,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.6,
+            "dashes": "[ 11.88 3.96 ] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              1.0,
+              0.0784,
+              0.5765
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.949,
+              0.8392,
+              0.5804
+            ],
+            "fill_rgb": [
+              0.949,
+              0.8392,
+              0.5804
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              1.0,
+              0.4117,
+              0.7059
+            ],
+            "fill_rgb": [
+              1.0,
+              0.4117,
+              0.7059
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              1.0,
+              1.0,
+              0.7843
+            ],
+            "fill_rgb": [
+              1.0,
+              1.0,
+              0.7843
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 1
+          }
+        ],
+        "is_colour": true
+      },
+      "scale": {
+        "published_denominator": 1000.0,
+        "metres_per_point": 0.35277777777777775,
+        "ground_extent_m": [
+          841.0,
+          594.1
+        ],
+        "fitted": false
+      },
+      "geometry": {
+        "closed_rings": 8958,
+        "building_scale_rings_60_4000_m2": 103
+      },
+      "legend": {
+        "rows": [
+          {
+            "row": "L1",
+            "label_es": "LÍMITE DE TÉRMINO MUNICIPAL",
+            "meaning_en": "municipal boundary",
+            "captions": 1,
+            "swatch": [
+              90,
+              1484,
+              176,
+              1494
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L2",
+            "label_es": "LÍMITE DE SUELO URBANO",
+            "meaning_en": "boundary of urban land",
+            "captions": 1,
+            "swatch": [
+              90,
+              1508,
+              176,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L3",
+            "label_es": "LÍMITE DE NORMA ZONAL Y GRADOS / LÍMITE DE ÁREA DE PLANEAMIENTO INCORPORADO (API) / ESPECÍFICO (APE) / REMITIDO (APR)",
+            "meaning_en": "four different boundary meanings sharing one symbol",
+            "captions": 4,
+            "swatch": [
+              90,
+              1560,
+              176,
+              1569
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 4 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "L4",
+            "label_es": "RASANTE",
+            "meaning_en": "official finished ground level, annotated in metres",
+            "captions": 1,
+            "swatch": [
+              112,
+              1604,
+              176,
+              1628
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.3,
+                "dashes": "[] 0"
+              },
+              {
+                "type": "fs",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "width": 0.0,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R1",
+            "label_es": "ALINEACIÓN",
+            "meaning_en": "official alignment -- the front of the buildable envelope",
+            "captions": 1,
+            "swatch": [
+              455,
+              1486,
+              540,
+              1495
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.72,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R2",
+            "label_es": "CAMBIO DE ALTURA Y USO / FONDO EDIFICABLE",
+            "meaning_en": "height/use change OR buildable depth -- the sheet does not say which",
+            "captions": 2,
+            "swatch": [
+              455,
+              1508,
+              540,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 2 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "R3",
+            "label_es": "SOPORTAL Y PASAJES",
+            "meaning_en": "arcade and passageway",
+            "captions": 1,
+            "swatch": [
+              455,
+              1529,
+              540,
+              1538
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          }
+        ],
+        "collisions": 0,
+        "counts": {
+          "BOUND": 5,
+          "CLASS_BOUND_MEANING_UNKNOWN": 2,
+          "UNKNOWN": 0
+        }
+      }
+    },
+    {
+      "sheet": "H-05",
+      "outcome": "MEASURED",
+      "transport": "CACHED",
+      "anatomy": {
+        "bytes": 678302,
+        "vector_path_ops": {
+          "m": 36483,
+          "l": 86943,
+          "c": 11241,
+          "v": 1557,
+          "y": 1578,
+          "re": 275
+        },
+        "vector_path_ops_total": 138077,
+        "painted_text_ops": 0,
+        "bt_blocks": 5,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "font_objects": 0,
+        "doc_info": {
+          "Producer": "Acrobat Distiller 7.0 \\(Windows\\)",
+          "Creator": "PScript5.dll Version 5.2.2",
+          "Title": "HOJAS-URBANA.dgn",
+          "Author": "abravo"
+        },
+        "VERDICT": "OUTLINED_TEXT_VECTOR",
+        "why": "OUTLINED_TEXT_VECTOR = heavy path load, zero painted text, no font resource: renders perfectly, extracts zero characters, and the geometry IS the data."
+      },
+      "published_georeference": {
+        "markers": {},
+        "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+      },
+      "named_layers": [],
+      "page": {
+        "rect_display": [
+          0.0,
+          0.0,
+          2384.0,
+          1684.0
+        ],
+        "mediabox": [
+          0.0,
+          0.0,
+          1684.0,
+          2384.0
+        ],
+        "rotation": 90
+      },
+      "stroke_census": {
+        "distinct_classes": 42,
+        "classes": [
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 4083
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              1.0,
+              0.8392,
+              0.0
+            ],
+            "fill_rgb": [
+              1.0,
+              0.8392,
+              0.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 596
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.7539,
+              0.754,
+              0.7539
+            ],
+            "fill_rgb": [
+              0.7539,
+              0.754,
+              0.7539
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 406
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.3176,
+              0.6588
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 260
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.9019,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": [
+              0.9019,
+              0.0,
+              0.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 221
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.6784,
+              0.9098,
+              1.0
+            ],
+            "fill_rgb": [
+              0.6784,
+              0.9098,
+              1.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 197
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.6039,
+              0.9019,
+              0.0
+            ],
+            "fill_rgb": [
+              0.6039,
+              0.9019,
+              0.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 125
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 79
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.8784,
+              0.4588,
+              0.1137
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 56
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              1.0
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 32
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 15
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              1.0,
+              0.9019,
+              0.7843
+            ],
+            "fill_rgb": [
+              1.0,
+              0.9019,
+              0.7843
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 13
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.6,
+            "dashes": "[] 0",
+            "n": 13
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              1.0,
+              1.0,
+              0.7843
+            ],
+            "fill_rgb": [
+              1.0,
+              1.0,
+              0.7843
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 7
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.949,
+              0.6588,
+              0.5019
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 5
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.72,
+            "dashes": "[] 0",
+            "n": 4
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[ 11.88 3.96 ] 0",
+            "n": 4
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.0,
+              1.0,
+              1.0
+            ],
+            "fill_rgb": [
+              0.0,
+              1.0,
+              1.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 4
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.25,
+              0.25,
+              0.25
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 3
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.9216,
+              1.0,
+              0.6588
+            ],
+            "fill_rgb": [
+              0.9216,
+              1.0,
+              0.6588
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 3
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.6,
+            "dashes": "[] 0",
+            "n": 3
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.12,
+            "dashes": "[] 0",
+            "n": 3
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.9412,
+              0.7333,
+              0.5255
+            ],
+            "fill_rgb": [
+              0.9412,
+              0.7333,
+              0.5255
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.8784,
+              0.4588,
+              0.1137
+            ],
+            "fill_rgb": null,
+            "width": 0.6,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.6902,
+              0.6392,
+              0.1882
+            ],
+            "fill_rgb": null,
+            "width": 0.42,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "fill_rgb": null,
+            "width": 0.9,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0863,
+              0.2667,
+              0.1608
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.9139,
+              0.914,
+              0.9139
+            ],
+            "fill_rgb": [
+              0.9139,
+              0.914,
+              0.9139
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.42,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.25,
+              0.25,
+              0.25
+            ],
+            "fill_rgb": [
+              0.25,
+              0.25,
+              0.25
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.3176,
+              0.6588
+            ],
+            "fill_rgb": null,
+            "width": 0.12,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.949,
+              0.6588,
+              0.5019
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.5119,
+              0.512,
+              0.5119
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              1.0,
+              1.0
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.66,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "f",
+            "stroke_rgb": null,
+            "fill_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.0,
+            "dashes": null,
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "fill_rgb": null,
+            "width": 0.9,
+            "dashes": "[ 11.88 3.96 ] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.6,
+            "dashes": "[ 11.88 3.96 ] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              1.0,
+              0.0784,
+              0.5765
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.949,
+              0.8392,
+              0.5804
+            ],
+            "fill_rgb": [
+              0.949,
+              0.8392,
+              0.5804
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.7804,
+              0.7882,
+              0.3176
+            ],
+            "fill_rgb": [
+              0.7804,
+              0.7882,
+              0.3176
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              1.0,
+              0.4117,
+              0.7059
+            ],
+            "fill_rgb": [
+              1.0,
+              0.4117,
+              0.7059
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 1
+          }
+        ],
+        "is_colour": true
+      },
+      "scale": {
+        "published_denominator": 1000.0,
+        "metres_per_point": 0.35277777777777775,
+        "ground_extent_m": [
+          841.0,
+          594.1
+        ],
+        "fitted": false
+      },
+      "geometry": {
+        "closed_rings": 8440,
+        "building_scale_rings_60_4000_m2": 110
+      },
+      "legend": {
+        "rows": [
+          {
+            "row": "L1",
+            "label_es": "LÍMITE DE TÉRMINO MUNICIPAL",
+            "meaning_en": "municipal boundary",
+            "captions": 1,
+            "swatch": [
+              90,
+              1484,
+              176,
+              1494
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L2",
+            "label_es": "LÍMITE DE SUELO URBANO",
+            "meaning_en": "boundary of urban land",
+            "captions": 1,
+            "swatch": [
+              90,
+              1508,
+              176,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L3",
+            "label_es": "LÍMITE DE NORMA ZONAL Y GRADOS / LÍMITE DE ÁREA DE PLANEAMIENTO INCORPORADO (API) / ESPECÍFICO (APE) / REMITIDO (APR)",
+            "meaning_en": "four different boundary meanings sharing one symbol",
+            "captions": 4,
+            "swatch": [
+              90,
+              1560,
+              176,
+              1569
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 4 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "L4",
+            "label_es": "RASANTE",
+            "meaning_en": "official finished ground level, annotated in metres",
+            "captions": 1,
+            "swatch": [
+              112,
+              1604,
+              176,
+              1628
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.3,
+                "dashes": "[] 0"
+              },
+              {
+                "type": "fs",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "width": 0.0,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R1",
+            "label_es": "ALINEACIÓN",
+            "meaning_en": "official alignment -- the front of the buildable envelope",
+            "captions": 1,
+            "swatch": [
+              455,
+              1486,
+              540,
+              1495
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.72,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R2",
+            "label_es": "CAMBIO DE ALTURA Y USO / FONDO EDIFICABLE",
+            "meaning_en": "height/use change OR buildable depth -- the sheet does not say which",
+            "captions": 2,
+            "swatch": [
+              455,
+              1508,
+              540,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 2 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "R3",
+            "label_es": "SOPORTAL Y PASAJES",
+            "meaning_en": "arcade and passageway",
+            "captions": 1,
+            "swatch": [
+              455,
+              1529,
+              540,
+              1538
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          }
+        ],
+        "collisions": 0,
+        "counts": {
+          "BOUND": 5,
+          "CLASS_BOUND_MEANING_UNKNOWN": 2,
+          "UNKNOWN": 0
+        }
+      }
+    },
+    {
+      "sheet": "H-13",
+      "outcome": "MEASURED",
+      "transport": "CACHED",
+      "anatomy": {
+        "bytes": 1925866,
+        "vector_path_ops": {
+          "m": 103127,
+          "l": 211440,
+          "c": 33556,
+          "v": 4475,
+          "y": 4427,
+          "re": 280
+        },
+        "vector_path_ops_total": 357305,
+        "painted_text_ops": 0,
+        "bt_blocks": 19,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "font_objects": 0,
+        "doc_info": {
+          "Producer": "Acrobat Distiller 7.0 \\(Windows\\)",
+          "Creator": "PScript5.dll Version 5.2.2",
+          "Title": "HOJAS-URBANA.dgn",
+          "Author": "abravo"
+        },
+        "VERDICT": "OUTLINED_TEXT_VECTOR",
+        "why": "OUTLINED_TEXT_VECTOR = heavy path load, zero painted text, no font resource: renders perfectly, extracts zero characters, and the geometry IS the data."
+      },
+      "published_georeference": {
+        "markers": {},
+        "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+      },
+      "named_layers": [],
+      "page": {
+        "rect_display": [
+          0.0,
+          0.0,
+          2384.0,
+          1684.0
+        ],
+        "mediabox": [
+          0.0,
+          0.0,
+          1684.0,
+          2384.0
+        ],
+        "rotation": 90
+      },
+      "stroke_census": {
+        "distinct_classes": 39,
+        "classes": [
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 6286
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              1.0,
+              0.9019,
+              0.7843
+            ],
+            "fill_rgb": [
+              1.0,
+              0.9019,
+              0.7843
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 702
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              1.0,
+              0.8392,
+              0.0
+            ],
+            "fill_rgb": [
+              1.0,
+              0.8392,
+              0.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 596
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.7539,
+              0.754,
+              0.7539
+            ],
+            "fill_rgb": [
+              0.7539,
+              0.754,
+              0.7539
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 266
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.0,
+              1.0,
+              1.0
+            ],
+            "fill_rgb": [
+              0.0,
+              1.0,
+              1.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 260
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.3176,
+              0.6588
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 260
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.9019,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": [
+              0.9019,
+              0.0,
+              0.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 221
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.6784,
+              0.9098,
+              1.0
+            ],
+            "fill_rgb": [
+              0.6784,
+              0.9098,
+              1.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 197
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.8784,
+              0.4588,
+              0.1137
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 165
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              1.0
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 149
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.6039,
+              0.9019,
+              0.0
+            ],
+            "fill_rgb": [
+              0.6039,
+              0.9019,
+              0.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 125
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.9216,
+              1.0,
+              0.6588
+            ],
+            "fill_rgb": [
+              0.9216,
+              1.0,
+              0.6588
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 98
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 79
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.6,
+            "dashes": "[] 0",
+            "n": 53
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 52
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.949,
+              0.8392,
+              0.5804
+            ],
+            "fill_rgb": [
+              0.949,
+              0.8392,
+              0.5804
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 46
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0863,
+              0.2667,
+              0.1608
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 44
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.9412,
+              0.7333,
+              0.5255
+            ],
+            "fill_rgb": [
+              0.9412,
+              0.7333,
+              0.5255
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 33
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.7804,
+              0.7882,
+              0.3176
+            ],
+            "fill_rgb": [
+              0.7804,
+              0.7882,
+              0.3176
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 17
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.12,
+            "dashes": "[] 0",
+            "n": 13
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.6,
+            "dashes": "[] 0",
+            "n": 5
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.72,
+            "dashes": "[] 0",
+            "n": 4
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.25,
+              0.25,
+              0.25
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 3
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.25,
+              0.25,
+              0.25
+            ],
+            "fill_rgb": [
+              0.25,
+              0.25,
+              0.25
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 3
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              1.0,
+              1.0,
+              0.7843
+            ],
+            "fill_rgb": [
+              1.0,
+              1.0,
+              0.7843
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.8784,
+              0.4588,
+              0.1137
+            ],
+            "fill_rgb": null,
+            "width": 0.6,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.6902,
+              0.6392,
+              0.1882
+            ],
+            "fill_rgb": null,
+            "width": 0.42,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.6,
+            "dashes": "[ 11.88 3.96 ] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "fill_rgb": null,
+            "width": 0.9,
+            "dashes": "[ 11.88 3.96 ] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.949,
+              0.6588,
+              0.5019
+            ],
+            "fill_rgb": null,
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              0.9139,
+              0.914,
+              0.9139
+            ],
+            "fill_rgb": [
+              0.9139,
+              0.914,
+              0.9139
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.42,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.3176,
+              0.6588
+            ],
+            "fill_rgb": null,
+            "width": 0.12,
+            "dashes": "[] 0",
+            "n": 2
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.949,
+              0.6588,
+              0.5019
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              1.0,
+              1.0
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.66,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "fill_rgb": null,
+            "width": 0.9,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "s",
+            "stroke_rgb": [
+              1.0,
+              0.0784,
+              0.5765
+            ],
+            "fill_rgb": null,
+            "width": 0.3,
+            "dashes": "[] 0",
+            "n": 1
+          },
+          {
+            "type": "fs",
+            "stroke_rgb": [
+              1.0,
+              0.4117,
+              0.7059
+            ],
+            "fill_rgb": [
+              1.0,
+              0.4117,
+              0.7059
+            ],
+            "width": 0.0,
+            "dashes": "[] 0",
+            "n": 1
+          }
+        ],
+        "is_colour": true
+      },
+      "scale": {
+        "published_denominator": 1000.0,
+        "metres_per_point": 0.35277777777777775,
+        "ground_extent_m": [
+          841.0,
+          594.1
+        ],
+        "fitted": false
+      },
+      "geometry": {
+        "closed_rings": 14848,
+        "building_scale_rings_60_4000_m2": 672
+      },
+      "legend": {
+        "rows": [
+          {
+            "row": "L1",
+            "label_es": "LÍMITE DE TÉRMINO MUNICIPAL",
+            "meaning_en": "municipal boundary",
+            "captions": 1,
+            "swatch": [
+              90,
+              1484,
+              176,
+              1494
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L2",
+            "label_es": "LÍMITE DE SUELO URBANO",
+            "meaning_en": "boundary of urban land",
+            "captions": 1,
+            "swatch": [
+              90,
+              1508,
+              176,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L3",
+            "label_es": "LÍMITE DE NORMA ZONAL Y GRADOS / LÍMITE DE ÁREA DE PLANEAMIENTO INCORPORADO (API) / ESPECÍFICO (APE) / REMITIDO (APR)",
+            "meaning_en": "four different boundary meanings sharing one symbol",
+            "captions": 4,
+            "swatch": [
+              90,
+              1560,
+              176,
+              1569
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 4 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "L4",
+            "label_es": "RASANTE",
+            "meaning_en": "official finished ground level, annotated in metres",
+            "captions": 1,
+            "swatch": [
+              112,
+              1604,
+              176,
+              1628
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.3,
+                "dashes": "[] 0"
+              },
+              {
+                "type": "fs",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "width": 0.0,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R1",
+            "label_es": "ALINEACIÓN",
+            "meaning_en": "official alignment -- the front of the buildable envelope",
+            "captions": 1,
+            "swatch": [
+              455,
+              1486,
+              540,
+              1495
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.72,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R2",
+            "label_es": "CAMBIO DE ALTURA Y USO / FONDO EDIFICABLE",
+            "meaning_en": "height/use change OR buildable depth -- the sheet does not say which",
+            "captions": 2,
+            "swatch": [
+              455,
+              1508,
+              540,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 2 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "R3",
+            "label_es": "SOPORTAL Y PASAJES",
+            "meaning_en": "arcade and passageway",
+            "captions": 1,
+            "swatch": [
+              455,
+              1529,
+              540,
+              1538
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          }
+        ],
+        "collisions": 0,
+        "counts": {
+          "BOUND": 5,
+          "CLASS_BOUND_MEANING_UNKNOWN": 2,
+          "UNKNOWN": 0
+        }
+      }
+    }
+  ],
+  "OUTCOME": "MEASURED",
+  "summary": {
+    "anatomy_verdicts": [
+      "OUTLINED_TEXT_VECTOR"
+    ],
+    "georeference_verdicts": [
+      "NO_EMBEDDED_GEOREFERENCE"
+    ],
+    "sheets_with_named_layers": 0,
+    "REMINDER": "vector + differentiated line work is NECESSARY, NOT SUFFICIENT. Without a georeference AND an unambiguous legend, no line here may become a metre on the ground."
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "probe": "aragon-plan-georef-step0-reachability",
+  "rule": "outcome=STATUS means the network answered and the status is evidence. outcome=UNKNOWN means no status was obtained -- that is NOT 'empty'.",
+  "counts": {
+    "STATUS": 5,
+    "UNKNOWN": 1
+  },
+  "sources": [
+    {
+      "id": "huesca-plano5-H-01",
+      "url": "https://www.huesca.es/documents/33451/300865/05+Calificacion+del+Suelo+Urbano+H-01.pdf/db40abac-6f90-7808-833f-a109f527dec0?t=1552033978540",
+      "a_200_would_prove": "the plan sheet itself is retrievable",
+      "outcome": "STATUS",
+      "http": 200,
+      "content_type": "application/pdf",
+      "content_length": null,
+      "first_bytes": "b'%PDF-1.6\\r%\\xe2\\xe3\\xcf\\xd3\\r\\n6 0 obj <</Linearized 1/L 521565'"
+    },
+    {
+      "id": "catastro-inspire-cp-getcapabilities",
+      "url": "https://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx?service=WFS&request=GetCapabilities",
+      "a_200_would_prove": "the INDEPENDENT verification source (cadastral parcels) is live",
+      "outcome": "STATUS",
+      "http": 200,
+      "content_type": "text/xml; charset=utf-8",
+      "content_length": "14510",
+      "first_bytes": "b'<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\r\\n<WFS_Cap'"
+    },
+    {
+      "id": "catastro-inspire-cp-declared-crs",
+      "url": "https://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx?service=WFS&version=2.0.0&request=DescribeFeatureType&typenames=cp:CadastralParcel",
+      "a_200_would_prove": "the parcel schema is published",
+      "outcome": "STATUS",
+      "http": 200,
+      "content_type": "text/xml; charset=utf-8",
+      "content_length": "303",
+      "first_bytes": "b'<?xml version=\"1.0\" encoding=\"utf-8\"?>\\r\\n<schema '"
+    },
+    {
+      "id": "idearagon-wfs-getcapabilities",
+      "url": "https://idearagon.aragon.es/geoserver/ows?service=WFS&version=2.0.0&request=GetCapabilities",
+      "a_200_would_prove": "the regional Aragon OGC endpoint answers",
+      "outcome": "STATUS",
+      "http": 200,
+      "content_type": "application/xml",
+      "content_length": null,
+      "first_bytes": "b'<?xml version=\"1.0\" encoding=\"UTF-8\"?><wfs:WFS_C'"
+    },
+    {
+      "id": "idezar-wfs-getcapabilities",
+      "url": "https://idezar.zaragoza.es/geoserver/urbanismo/ows?service=WFS&version=2.0.0&request=GetCapabilities",
+      "a_200_would_prove": "Zaragoza municipal zoning is live (already measured; re-confirmed here)",
+      "outcome": "STATUS",
+      "http": 404,
+      "reason": "404"
+    },
+    {
+      "id": "gis-huesca",
+      "url": "https://gis.huesca.es/",
+      "a_200_would_prove": "the Huesca municipal GIS -- previously UNREACHABLE, retested",
+      "outcome": "UNKNOWN",
+      "http": null,
+      "error_class": "URLError",
+      "error": "<urlopen error [WinError 10060] A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond>",
+      "why_not_absent": "no HTTP status was returned, so nothing was learned about whether the resource exists"
+    }
+  ]
+}

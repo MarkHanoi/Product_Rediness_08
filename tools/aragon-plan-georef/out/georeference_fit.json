@@ -1,0 +1,70 @@
+{
+  "probe": "aragon-plan-georef-step5-georeference-and-verify",
+  "sheet": "H-13",
+  "crs": {
+    "epsg": 25830,
+    "name": "ETRS89 / UTM zone 30N",
+    "how_established": "PUBLISHED DECLARATIONS ONLY -- Catastro BU WFS GetCapabilities DefaultCRS, the Catastro ATOM entry for 22901-HUESCA, the delivered GML's own srsName, and IDEAragon's WFS GetCapabilities. Not inferred from goodness of fit."
+  },
+  "scale": {
+    "published": "ESCALA 1 / 1.000 (title block, plano 5, hoja 1 de 28)",
+    "metres_per_pdf_point": 0.35277777777777775,
+    "fitted": false
+  },
+  "feature_counts": {
+    "plan_polygons": 672,
+    "cadastre_buildings": 12395,
+    "cadastre_parcels": 6923
+  },
+  "vote": {
+    "bin_metres": 4.0,
+    "fit_features": 336,
+    "holdout_features": 336,
+    "distinct_bins": 454879,
+    "peak_support": 25,
+    "top5_support": [
+      25,
+      21,
+      20,
+      20,
+      20
+    ]
+  },
+  "refine": {
+    "pairs_used": 60,
+    "dx": 713634.129,
+    "dy": 4668726.566
+  },
+  "discrimination": {
+    "tolerance_metres": 3.0,
+    "holdout_matched_at_fit": 23,
+    "holdout_matched_at_best_decoy": 12,
+    "decoy_counts": [
+      8,
+      4,
+      12,
+      6,
+      6,
+      5
+    ],
+    "signal_to_decoy": 1.917,
+    "why": "a shift that scores no better than a 45-60 m decoy has not located anything -- in a dense fabric a nearest-neighbour search matches almost everything at any offset"
+  },
+  "holdout": {
+    "matched": 23,
+    "of": 336,
+    "match_rate": 0.0685,
+    "residual_metres": {
+      "median": 2.31,
+      "mean": 2.2,
+      "p90": 2.74,
+      "max": 2.96
+    }
+  },
+  "OUTCOME": "REFUSED",
+  "acceptance": {
+    "requires": ">=25 hold-out features matched within 3 m with agreeing area, AND at least 3x more matches than the best 45-60 m decoy shift, AND a median hold-out residual <= 2 m (a 1:1.000 sheet plotted at 0.353 m/pt cannot honestly claim worse and still be called georeferenced)",
+    "met": false
+  },
+  "why": "the translation vote did not clear the acceptance bar. The sheet is NOT georeferenced by this run. ⛔ This is an UNKNOWN, not a statement that the sheet cannot be georeferenced -- and no downstream constraint may be derived from it."
+}

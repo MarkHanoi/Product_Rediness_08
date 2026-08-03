@@ -1,0 +1,248 @@
+{
+  "probe": "aragon-plan-georef-step4-legend-binding",
+  "sheet": "H-01",
+  "source_document": "Ayuntamiento de Huesca, Revision y Adaptacion del Plan General de Ordenacion Urbana, TEXTO REFUNDIDO, ENERO 2008 -- Plano 5, 'CLASIFICACION, CALIFICACION Y REGULACION DEL SUELO Y LA EDIFICACION EN SUELO URBANO. RED VIARIA, ALINEACIONES Y RASANTES', hoja 1 de 28, escala 1/1.000",
+  "citation_basis": "every label_es string is transcribed VERBATIM from the legend panel printed on the sheet itself (out/renders/H-01_legend_*.png). The sheet's own legend is the primary source for its own symbology.",
+  "counts": {
+    "BOUND": 5,
+    "CLASS_BOUND_MEANING_UNKNOWN": 2,
+    "UNKNOWN": 0
+  },
+  "verdict_meanings": {
+    "BOUND": "one measurable stroke class, one planning meaning. Usable.",
+    "CLASS_BOUND_MEANING_UNKNOWN": "the line is findable on the map but the sheet prints more than one meaning against it. Usable for DETECTION, never as a numeric constraint.",
+    "UNKNOWN": "nothing measured, or indistinguishable from another row."
+  },
+  "stroke_class_collisions": {
+    "n": 0,
+    "rows_downgraded_to_unknown": [],
+    "detail": {}
+  },
+  "rows": [
+    {
+      "row": "L1",
+      "label_es": "LÍMITE DE TÉRMINO MUNICIPAL",
+      "meaning_en": "municipal boundary",
+      "planning_role": "administrative extent -- not a buildability constraint",
+      "captions": 1,
+      "swatch_rect_pt": [
+        90,
+        1484,
+        176,
+        1494
+      ],
+      "measured_stroke_classes": [
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0"
+        }
+      ],
+      "n_drawings_in_swatch": 1,
+      "measured": true,
+      "BINDING": "BOUND",
+      "why": "unique measured stroke class, single legend caption"
+    },
+    {
+      "row": "L2",
+      "label_es": "LÍMITE DE SUELO URBANO",
+      "meaning_en": "boundary of urban land (suelo urbano)",
+      "planning_role": "land CLASS boundary; inside it the urban ordinance applies",
+      "captions": 1,
+      "swatch_rect_pt": [
+        90,
+        1508,
+        176,
+        1516
+      ],
+      "measured_stroke_classes": [
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.9,
+          "dashes": "[] 0"
+        }
+      ],
+      "n_drawings_in_swatch": 1,
+      "measured": true,
+      "BINDING": "BOUND",
+      "why": "unique measured stroke class, single legend caption"
+    },
+    {
+      "row": "L3",
+      "label_es": "LÍMITE DE NORMA ZONAL Y GRADOS / LÍMITE DE ÁREA DE PLANEAMIENTO INCORPORADO (API) / LÍMITE DE ÁREA DE PLANEAMIENTO ESPECÍFICO (APE) / LÍMITE DE ÁREA DE PLANEAMIENTO REMITIDO (APR)",
+      "meaning_en": "ONE symbol shared by FOUR different boundary meanings: zonal-norm and grade boundary, and the boundaries of the three kinds of planning area",
+      "planning_role": "boundary of SOMETHING -- which of the four is not recoverable from the line itself",
+      "captions": 4,
+      "swatch_rect_pt": [
+        90,
+        1560,
+        176,
+        1569
+      ],
+      "measured_stroke_classes": [
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.9,
+          "dashes": "[ 11.88 3.96 ] 0"
+        }
+      ],
+      "n_drawings_in_swatch": 1,
+      "measured": true,
+      "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+      "why": "the sheet prints 4 distinct planning meanings against this ONE swatch, so a line of this class cannot be attributed to a single meaning from the drawing alone"
+    },
+    {
+      "row": "L4",
+      "label_es": "RASANTE",
+      "meaning_en": "rasante -- the official finished ground level, in metres",
+      "planning_role": "the DATUM from which height is measured. Printed as a symbol plus a number (the legend's example reads 4.80)",
+      "captions": 1,
+      "swatch_rect_pt": [
+        112,
+        1604,
+        176,
+        1628
+      ],
+      "measured_stroke_classes": [
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0"
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0"
+        }
+      ],
+      "n_drawings_in_swatch": 13,
+      "measured": true,
+      "BINDING": "BOUND",
+      "why": "unique measured stroke class, single legend caption"
+    },
+    {
+      "row": "R1",
+      "label_es": "ALINEACIÓN",
+      "meaning_en": "official alignment -- the line the façade must sit on",
+      "planning_role": "the FRONT of the buildable envelope",
+      "captions": 1,
+      "swatch_rect_pt": [
+        455,
+        1486,
+        540,
+        1495
+      ],
+      "measured_stroke_classes": [
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.72,
+          "dashes": "[] 0"
+        }
+      ],
+      "n_drawings_in_swatch": 1,
+      "measured": true,
+      "BINDING": "BOUND",
+      "why": "unique measured stroke class, single legend caption"
+    },
+    {
+      "row": "R2",
+      "label_es": "CAMBIO DE ALTURA Y USO / FONDO EDIFICABLE",
+      "meaning_en": "EITHER a change-of-height-and-use line OR the buildable depth line -- the sheet prints both captions against ONE swatch",
+      "planning_role": "would be the BACK of the buildable envelope IF the line is a fondo edificable -- but the same symbol also denotes a height/use change, which is NOT a depth limit",
+      "captions": 2,
+      "swatch_rect_pt": [
+        455,
+        1508,
+        540,
+        1516
+      ],
+      "measured_stroke_classes": [
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0"
+        }
+      ],
+      "n_drawings_in_swatch": 1,
+      "measured": true,
+      "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+      "why": "the sheet prints 2 distinct planning meanings against this ONE swatch, so a line of this class cannot be attributed to a single meaning from the drawing alone"
+    },
+    {
+      "row": "R3",
+      "label_es": "SOPORTAL Y PASAJES",
+      "meaning_en": "arcade and passageway",
+      "planning_role": "ground-floor void obligation under the built volume",
+      "captions": 1,
+      "swatch_rect_pt": [
+        455,
+        1529,
+        540,
+        1538
+      ],
+      "measured_stroke_classes": [
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[ 11.88 3.96 ] 0"
+        }
+      ],
+      "n_drawings_in_swatch": 1,
+      "measured": true,
+      "BINDING": "BOUND",
+      "why": "unique measured stroke class, single legend caption"
+    }
+  ]
+}

@@ -69,6 +69,7 @@ import { MADRID_ENVELOPE_VERIFIED } from './rulepacks/esMadridPgoum97.js';
 import { MURCIA_ENVELOPE_VERIFIED } from './rulepacks/esMurciaEnvelope.js';
 import { SANT_BOI_ENVELOPE_VERIFIED } from './rulepacks/esSantBoi.js';
 import { VALENCIA_ENVELOPE_VERIFIED } from './rulepacks/esValenciaEnvelope.js';
+import { HUESCA_ENVELOPE_VERIFIED, ZARAGOZA_ENVELOPE_VERIFIED } from './rulepacks/esAragon.js';
 import { FR_PARIS_PLU_CERTIFIED } from './rulepacks/frParisPluBioclimatique.js';
 
 const tracer = trace.getTracer('pryzm.zoning.l449');
@@ -217,6 +218,31 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         gate: 'CANARIAS_ENVELOPE_VERIFIED',
         file: 'packages/site-parcel-data/src/rulepacks/esCanariasSipu.ts',
         value: CANARIAS_ENVELOPE_VERIFIED,
+        signature: null,
+    },
+    {
+        gate: 'HUESCA_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esAragon.ts',
+        value: HUESCA_ENVELOPE_VERIFIED,
+        // ⚠ NOT signable today, and NOT for want of a reader. The ordinance is fully read and
+        // article-cited (arts. 8.4.8 / 8.4.10). It remits the buildable depth and the storey
+        // count to plano nº 5, a 1:1.000 sheet PROVEN to be vector CAD whose legend has been
+        // bound — but which is NOT YET GEOREFERENCED (best candidate fix rejected: 2.31 m median
+        // hold-out error, only 1.9× better than a deliberately wrong control offset, bar 3×).
+        // A signature cannot supply a coordinate. What closes this is a georeference, not a
+        // lawyer, and until then no line on the sheet may become a metre on the ground.
+        signature: null,
+    },
+    {
+        gate: 'ZARAGOZA_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esAragon.ts',
+        value: ZARAGOZA_ENVELOPE_VERIFIED,
+        // ⚠ NOT signable today either, and again not for want of a reader. The zoning is LIVE and
+        // parcel-precise (9,031 calificación polygons, 100 % populated), and the articles are
+        // published — but the polygon carries `A1` without its subgrado, and the aprovechamiento
+        // article is selected BY the subgrado (4.1.12 / 4.1.13 / 4.1.15 / 4.1.17). A 28-name
+        // typename sweep for a subgrado-bearing layer returned HTTP 400 on all 28. What closes
+        // this is one attribute the city holds and does not serve.
         signature: null,
     },
     {

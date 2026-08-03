@@ -1,0 +1,4 @@
+# Downloaded plan sheets and renders — large binaries, re-fetchable by the probe.
+# The JSON measurements in out/ ARE committed: they are the evidence.
+out/pdf_cache/
+out/renders/

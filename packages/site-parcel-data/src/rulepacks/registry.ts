@@ -257,6 +257,23 @@ import {
 } from './esValenciaEnvelope.js';
 import { VALENCIA_BBOX, isInValencia } from '../providers/valenciaBbox.js';
 // ── ⚠ END OF THE VALÈNCIA IMPORT BLOCK. ───────────────────────────────────────────────────────
+// ── ARAGÓN (Huesca INE 22125, Zaragoza INE 50297) — ⚠ START OF THE ARAGÓN IMPORT BLOCK. ───────
+// Two REFUSAL jurisdictions. Registered because "Aragón is CLOSED" was a claim about the
+// REGIONAL SIUa layer that does not survive at the municipal level — measured on 421 Zaragoza
+// parcels, the regional tier was never reached on 412 of them. See `esAragon.ts`.
+import {
+    HUESCA_JURISDICTION_ID,
+    ZARAGOZA_JURISDICTION_ID,
+    huescaNoRulePackRefusal,
+    zaragozaNoRulePackRefusal,
+} from './esAragon.js';
+import {
+    HUESCA_BBOX,
+    ZARAGOZA_BBOX,
+    isInHuesca,
+    isInZaragoza,
+} from '../providers/aragonBbox.js';
+// ── ⚠ END OF THE ARAGÓN IMPORT BLOCK. ─────────────────────────────────────────────────────────
 // ── L-449 SIGNED — Denmark (national, Plandata.dk). The FIRST fully-automated jurisdiction: its
 //    buildable-envelope pack is resolved LIVE per parcel (`dkPlandataResolvedPack`) by the L5 DK
 //    dispatch, so it registers with an EMPTY `packsByZone` and exists here to light the C60 coverage
@@ -1150,6 +1167,80 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
     },
     // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
     // ║ ⚠ END OF THE VALÈNCIA BLOCK.                                                             ║
+    // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
+    // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ START OF THE ARAGÓN BLOCK. Confine Aragón edits to this block.                         ║
+    // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
+    // Both are REFUSAL jurisdictions with EMPTY `packsByZone`, for two DIFFERENT and specific
+    // reasons — neither of them legislative. Huesca's ordinance is fully read and article-cited
+    // but remits the depth and the storey count to a 1:1.000 plan sheet that is not yet
+    // georeferenced; Zaragoza serves live parcel-precision zoning but withholds the one attribute
+    // (the A1 subgrado) that selects the aprovechamiento article. See `esAragon.ts`.
+    {
+        jurisdictionId: HUESCA_JURISDICTION_ID,
+        displayName: 'Huesca',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        extent: HUESCA_BBOX,
+        contains: isInHuesca,
+        extentResolution: 'municipal',
+        answerSummary:
+            'The PARCEL half is complete and keyless — the national Catastro path resolves the ' +
+            'referencia catastral and the official boundary. The ORDINANCE has been read and ' +
+            'transcribed article by article: PGOU Huesca (texto refundido 2008 of the 2003 plan) ' +
+            'art. 8.4.8 defines the buildable footprint from the alineación oficial, the side ' +
+            'boundaries and the línea de fondo edificable, and art. 8.4.10 sets height by the ' +
+            'storey count drawn on plano nº 5. The buildable ENVELOPE refuses, and the reason is ' +
+            'a DATA reason, not a legal one: both numbers are graphed on a 1:1.000 plan sheet. ' +
+            'That sheet has been proven to be VECTOR CAD rather than an image, its legend has ' +
+            'been read and its line styles bound — but it is not yet positioned on the ground ' +
+            '(the best candidate fix was rejected at a 2.31 m median error, only 1.9× better ' +
+            'than a deliberately wrong control offset). And the sheet draws the buildable-depth ' +
+            'line and the height-change line in the SAME style under one legend caption, so even ' +
+            'once positioned, that particular line cannot yet be attributed to one meaning. The ' +
+            'written 20 m default is expressly overridden by the drawing and governs only one of ' +
+            'two grades, so it is not a usable substitute. No height, buildability, occupation ' +
+            'or depth is published here — never an estimate, never a proxy figure.',
+        // ⚠ EMPTY BY CONSTRUCTION, as València: there is no zone code to key a pack to while the
+        // governing figures live on an unpositioned drawing.
+        packsByZone: packMap(),
+        refusalFor: () => null,
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            huescaNoRulePackRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
+    },
+    {
+        jurisdictionId: ZARAGOZA_JURISDICTION_ID,
+        displayName: 'Zaragoza',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        extent: ZARAGOZA_BBOX,
+        contains: isInZaragoza,
+        // `municipal` — the box is drawn to the término municipal, which for Zaragoza is
+        // unusually large (973 km²) and contains 14 barrios rurales that are separate urban
+        // nuclei. The authoritative answer stays Catastro <cp>+<cm> → 50297 via composeIneCode().
+        extentResolution: 'municipal',
+        answerSummary:
+            'The PARCEL half is complete and keyless — the national Catastro plus the city’s own ' +
+            'parcel layer, two independent routes. The ZONING half is LIVE: the municipal GIS ' +
+            'serves 9,031 calificación polygons in EPSG:25830 across a 42-code vocabulary, 100% ' +
+            'populated, at parcel precision — NOT the 1:15,000 regional layer, whose 21.8% ' +
+            'legal-approval ceiling was measured NOT to bind on 97.9% of a 421-parcel sample. ' +
+            'The governing instrument is served too: 525 ámbitos with links to their own normas ' +
+            'and planos. The buildable ENVELOPE refuses, and the reason is one named attribute: ' +
+            'PGOU Título 4 splits the aprovechamiento conditions across separate articles per A1 ' +
+            'subgrado (A1/3.1, A1/3.2, A1/4.1, A1/4.2), and the published polygon carries only ' +
+            '"A1". Without the subgrado no floor-area ratio and no height ladder can be ' +
+            'selected. For A1 the plan additionally regulates the fondo edificable graphically. ' +
+            'No height, buildability, occupation or depth is published here — never an estimate, ' +
+            'never a proxy figure.',
+        packsByZone: packMap(),
+        // Refusal is a function of the live zone, not of a static enumeration.
+        refusalFor: () => null,
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            zaragozaNoRulePackRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
+    },
+    // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ END OF THE ARAGÓN BLOCK.                                                               ║
     // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
     // ── L-449 SIGNED (Denmark, national) — Plandata.dk → buildable envelope, the FIRST fully-automated
     //    (OFFLINE-legislation) jurisdiction. UNLIKE the ES refusal-jurisdictions above, Denmark

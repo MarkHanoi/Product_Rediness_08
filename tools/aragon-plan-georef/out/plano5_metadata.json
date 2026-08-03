@@ -1,0 +1,188 @@
+{
+  "probe": "aragon-plan-georef-step1-pdf-published-metadata",
+  "question": "Does plano n5 publish its own CRS (/VP /Measure /GEO) and its own legend (/OCProperties layer names)?",
+  "encoding_discipline": "every returned string records the encoding that decoded it; UTF-8 is attempted STRICTLY so that a failure is visible rather than silently producing U+FFFD",
+  "unreachable_is_unknown": [],
+  "GEOREFERENCE": [
+    "NO_EMBEDDED_GEOREFERENCE"
+  ],
+  "LEGEND": [
+    "NO_NAMED_LAYERS"
+  ],
+  "sheets": [
+    {
+      "sheet": "H-01",
+      "outcome": "MEASURED",
+      "bytes": 521565,
+      "searched_bytes_incl_inflated_streams": 2664750,
+      "georeference_markers": {},
+      "GEOREFERENCE_VERDICT": "NO_EMBEDDED_GEOREFERENCE",
+      "page_boxes": [
+        {
+          "box": "CropBox",
+          "values_pt": [
+            0.0,
+            0.0,
+            1684.0,
+            2384.0
+          ]
+        },
+        {
+          "box": "MediaBox",
+          "values_pt": [
+            0.0,
+            0.0,
+            1684.0,
+            2384.0
+          ]
+        }
+      ],
+      "optional_content_groups": [],
+      "ocg_count": 0,
+      "has_ocproperties": false,
+      "LEGEND_VERDICT": "NO_NAMED_LAYERS",
+      "doc_info": [
+        {
+          "key": "Producer",
+          "text": "Acrobat Distiller 7.0 (Windows)",
+          "encoding": "UTF-8 (strict decode succeeded)",
+          "replacement_chars": 0
+        },
+        {
+          "key": "Creator",
+          "text": "PScript5.dll Version 5.2.2",
+          "encoding": "UTF-8 (strict decode succeeded)",
+          "replacement_chars": 0
+        },
+        {
+          "key": "Title",
+          "text": "HOJAS-URBANA.dgn",
+          "encoding": "UTF-8 (strict decode succeeded)",
+          "replacement_chars": 0
+        },
+        {
+          "key": "Author",
+          "text": "abravo",
+          "encoding": "UTF-8 (strict decode succeeded)",
+          "replacement_chars": 0
+        }
+      ]
+    },
+    {
+      "sheet": "H-05",
+      "outcome": "MEASURED",
+      "bytes": 678302,
+      "searched_bytes_incl_inflated_streams": 3263825,
+      "georeference_markers": {},
+      "GEOREFERENCE_VERDICT": "NO_EMBEDDED_GEOREFERENCE",
+      "page_boxes": [
+        {
+          "box": "CropBox",
+          "values_pt": [
+            0.0,
+            0.0,
+            1684.0,
+            2384.0
+          ]
+        },
+        {
+          "box": "MediaBox",
+          "values_pt": [
+            0.0,
+            0.0,
+            1684.0,
+            2384.0
+          ]
+        }
+      ],
+      "optional_content_groups": [],
+      "ocg_count": 0,
+      "has_ocproperties": false,
+      "LEGEND_VERDICT": "NO_NAMED_LAYERS",
+      "doc_info": [
+        {
+          "key": "Producer",
+          "text": "Acrobat Distiller 7.0 (Windows)",
+          "encoding": "UTF-8 (strict decode succeeded)",
+          "replacement_chars": 0
+        },
+        {
+          "key": "Creator",
+          "text": "PScript5.dll Version 5.2.2",
+          "encoding": "UTF-8 (strict decode succeeded)",
+          "replacement_chars": 0
+        },
+        {
+          "key": "Title",
+          "text": "HOJAS-URBANA.dgn",
+          "encoding": "UTF-8 (strict decode succeeded)",
+          "replacement_chars": 0
+        },
+        {
+          "key": "Author",
+          "text": "abravo",
+          "encoding": "UTF-8 (strict decode succeeded)",
+          "replacement_chars": 0
+        }
+      ]
+    },
+    {
+      "sheet": "H-13",
+      "outcome": "MEASURED",
+      "bytes": 1925866,
+      "searched_bytes_incl_inflated_streams": 8509123,
+      "georeference_markers": {},
+      "GEOREFERENCE_VERDICT": "NO_EMBEDDED_GEOREFERENCE",
+      "page_boxes": [
+        {
+          "box": "CropBox",
+          "values_pt": [
+            0.0,
+            0.0,
+            1684.0,
+            2384.0
+          ]
+        },
+        {
+          "box": "MediaBox",
+          "values_pt": [
+            0.0,
+            0.0,
+            1684.0,
+            2384.0
+          ]
+        }
+      ],
+      "optional_content_groups": [],
+      "ocg_count": 0,
+      "has_ocproperties": false,
+      "LEGEND_VERDICT": "NO_NAMED_LAYERS",
+      "doc_info": [
+        {
+          "key": "Producer",
+          "text": "Acrobat Distiller 7.0 (Windows)",
+          "encoding": "UTF-8 (strict decode succeeded)",
+          "replacement_chars": 0
+        },
+        {
+          "key": "Creator",
+          "text": "PScript5.dll Version 5.2.2",
+          "encoding": "UTF-8 (strict decode succeeded)",
+          "replacement_chars": 0
+        },
+        {
+          "key": "Title",
+          "text": "HOJAS-URBANA.dgn",
+          "encoding": "UTF-8 (strict decode succeeded)",
+          "replacement_chars": 0
+        },
+        {
+          "key": "Author",
+          "text": "abravo",
+          "encoding": "UTF-8 (strict decode succeeded)",
+          "replacement_chars": 0
+        }
+      ]
+    }
+  ]
+}

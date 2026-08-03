@@ -1,0 +1,55 @@
+{
+  "probe": "aragon-plan-georef-step3-independent-source",
+  "municipality": {
+    "name": "Huesca",
+    "ine_code": "22125",
+    "catastro_dgc_code": "22901",
+    "province": "22",
+    "KEY_TRAP": "Catastro bulk feeds are keyed on the DGC code (22901), NOT the INE code (22125). Keying on INE returns HTTP 200 and ZERO matches -- indistinguishable from absent coverage. Generalises to every Spanish provincial capital."
+  },
+  "layers": {
+    "buildings": {
+      "outcome": "MEASURED",
+      "url": "https://www.catastro.hacienda.gob.es/INSPIRE/Buildings/22/22901-HUESCA/A.ES.SDGC.BU.22901.zip",
+      "zip_bytes": 2732592,
+      "members": [
+        "A.ES.SDGC.BU.22901.building.gml",
+        "A.ES.SDGC.BU.22901.buildingpart.gml",
+        "A.ES.SDGC.BU.22901.otherconstruction.gml",
+        "A.ES.SDGC.BU.MD.22901.xml"
+      ],
+      "srsName_declared_in_gml": {
+        "urn:ogc:def:crs:EPSG::25830": 1107
+      }
+    },
+    "parcels": {
+      "outcome": "MEASURED",
+      "url": "https://www.catastro.hacienda.gob.es/INSPIRE/CadastralParcels/22/22901-HUESCA/A.ES.SDGC.CP.22901.zip",
+      "zip_bytes": 4640584,
+      "members": [
+        "A.ES.SDGC.CP.22901.cadastralparcel.gml",
+        "A.ES.SDGC.CP.22901.cadastralzoning.gml",
+        "A.ES.SDGC.CP.MD..22901.xml"
+      ],
+      "srsName_declared_in_gml": {
+        "http://www.opengis.net/def/crs/EPSG/0/25830": 998
+      }
+    }
+  },
+  "declared_crs_per_layer": {
+    "buildings": {
+      "entry_found": true,
+      "declared": {
+        "http://www.opengis.net/def/crs/EPSG/0/25830": "ETRS89"
+      },
+      "entry_title": "22901-HUESCA buildings"
+    },
+    "parcels": {
+      "entry_found": true,
+      "declared": {
+        "http://www.opengis.net/def/crs/EPSG/0/25830": "ETRS89"
+      },
+      "entry_title": "22901-HUESCA Cadastral Parcels"
+    }
+  }
+}

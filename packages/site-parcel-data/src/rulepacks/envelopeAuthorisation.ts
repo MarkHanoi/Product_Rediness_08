@@ -113,6 +113,12 @@ import { CM_SPACM_ENVELOPE_VERIFIED } from './esMadridSpacm.js';
 import { SANT_BOI_ENVELOPE_VERIFIED, SANT_BOI_JURISDICTION_ID } from './esSantBoi.js';
 // ⚠ VALÈNCIA — a gate of a THIRD kind. See the third group in the table below.
 import { VALENCIA_ENVELOPE_VERIFIED, VALENCIA_JURISDICTION_ID } from './esValenciaEnvelope.js';
+import {
+    HUESCA_ENVELOPE_VERIFIED,
+    HUESCA_JURISDICTION_ID,
+    ZARAGOZA_ENVELOPE_VERIFIED,
+    ZARAGOZA_JURISDICTION_ID,
+} from './esAragon.js';
 // ── §GATE-KEYED-ON-THE-CORPUS — the two AMB corpus gates and the 31 ids they govern. ──
 import {
     AMB_PGM_NNUU_ENVELOPE_VERIFIED,
@@ -224,6 +230,17 @@ const GATE_DECLARATIONS: readonly GateDeclaration[] = Object.freeze([
     // is true. The genuinely productive unlock is `openTopIndicative.ts` + the renderer input it
     // names, NOT a signature here. See `BALEARS_ENVELOPE_VERIFIED`'s own docstring.
     { gate: 'BALEARS_ENVELOPE_VERIFIED', value: BALEARS_ENVELOPE_VERIFIED, jurisdictions: [BALEARS_JURISDICTION_ID] },
+    // ── ARAGÓN. Both shut, and — like València — NEITHER is waiting on a signature, because in
+    //    neither case is the missing thing a legal reading. Huesca's ordinance is fully read and
+    //    article-cited; what is missing is a GEOREFERENCE for the 1:1.000 plan sheet that carries
+    //    the depth and the storey count (rejected at 2.31 m median error, 1.9× vs a wrong-control
+    //    offset, against a 3× bar). Zaragoza's zoning is live and parcel-precise; what is missing
+    //    is the A1 subgrado attribute, which the city holds but does not serve.
+    // ⇒ Registered so the classifier cannot FAIL OPEN on either, NOT so either can be signed.
+    //   Flipping these would authorise nothing — it would only remove the interlock that stops a
+    //   later author packing a guessed depth (the L-616 mechanism). See `esAragon.ts`.
+    { gate: 'HUESCA_ENVELOPE_VERIFIED', value: HUESCA_ENVELOPE_VERIFIED, jurisdictions: [HUESCA_JURISDICTION_ID] },
+    { gate: 'ZARAGOZA_ENVELOPE_VERIFIED', value: ZARAGOZA_ENVELOPE_VERIFIED, jurisdictions: [ZARAGOZA_JURISDICTION_ID] },
     // ── NOT waiting on a signature: there is nothing to sign (no Catalonia-wide instrument
     //    exists). Listed because the gate EXISTS and totality demands it — never because a
     //    signature would open it. See `esCatalunya.ts`: do not "fix" this by flipping it.

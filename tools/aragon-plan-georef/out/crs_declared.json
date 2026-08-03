@@ -1,0 +1,94 @@
+{
+  "probe": "aragon-plan-georef-step2-crs-from-published-metadata",
+  "rule": "the EPSG code is taken from publisher DECLARATIONS (DefaultCRS/DefaultSRS in GetCapabilities), never from how good a fit looks. Two independent publishers must agree.",
+  "legal_basis": {
+    "instrument": "Real Decreto 1071/2007, de 27 de julio",
+    "what_it_establishes": "ETRS89 as the official geodetic reference system for Spain (peninsula and Baleares), projected UTM. Aragon lies in UTM zone 30N -> ETRS89 / UTM 30N.",
+    "note": "This is the LEGAL basis. It is recorded because it explains WHY the publishers agree; it is NOT used in place of their declarations."
+  },
+  "declared_default_crs_union": {
+    "urn:ogc:def:crs:EPSG::4326": 32,
+    "urn:ogc:def:crs:EPSG::25830": 5672,
+    "urn:ogc:def:crs:EPSG::4258": 6,
+    "urn:ogc:def:crs:EPSG::3042": 6,
+    "urn:ogc:def:crs:EPSG::404000": 26,
+    "urn:ogc:def:crs:EPSG::3034": 12
+  },
+  "sources": [
+    {
+      "id": "A-catastro-inspire-cp-wfs",
+      "publisher": "Direccion General del Catastro (national cadastre)",
+      "url": "https://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx?service=WFS&version=2.0.0&request=GetCapabilities",
+      "outcome": "MEASURED",
+      "bytes": 14510,
+      "declared_default_crs": {
+        "urn:ogc:def:crs:EPSG::4326": 4
+      },
+      "verbatim_declaration": "<DefaultCRS> urn:ogc:def:crs:EPSG::4326</DefaultCRS>",
+      "epsg_mention_counts_top8": {
+        "4326": 2,
+        "4258": 2,
+        "25829": 2,
+        "25830": 2,
+        "25831": 2,
+        "3785": 2,
+        "3857": 2,
+        "3035": 2
+      }
+    },
+    {
+      "id": "A2-catastro-inspire-bu-wfs",
+      "publisher": "Direccion General del Catastro (buildings)",
+      "url": "https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx?service=WFS&version=2.0.0&request=GetCapabilities",
+      "outcome": "MEASURED",
+      "bytes": 16182,
+      "declared_default_crs": {
+        "urn:ogc:def:crs:EPSG::25830": 6
+      },
+      "verbatim_declaration": "<DefaultCRS>urn:ogc:def:crs:EPSG::25830</DefaultCRS>",
+      "epsg_mention_counts_top8": {
+        "25830": 3,
+        "4326": 3,
+        "4258": 3,
+        "25829": 3,
+        "25831": 3,
+        "3785": 3,
+        "3857": 3,
+        "3035": 3
+      }
+    },
+    {
+      "id": "B-idearagon-wfs",
+      "publisher": "IDEAragon -- Gobierno de Aragon SDI",
+      "url": "https://idearagon.aragon.es/geoserver/ows?service=WFS&version=2.0.0&request=GetCapabilities",
+      "outcome": "MEASURED",
+      "bytes": 2627826,
+      "declared_default_crs": {
+        "urn:ogc:def:crs:EPSG::25830": 5666,
+        "urn:ogc:def:crs:EPSG::4258": 6,
+        "urn:ogc:def:crs:EPSG::3042": 6,
+        "urn:ogc:def:crs:EPSG::4326": 28,
+        "urn:ogc:def:crs:EPSG::404000": 26,
+        "urn:ogc:def:crs:EPSG::3034": 12
+      },
+      "verbatim_declaration": "<DefaultCRS>urn:ogc:def:crs:EPSG::25830</DefaultCRS>",
+      "epsg_mention_counts_top8": {
+        "25830": 2872,
+        "4326": 2872,
+        "25831": 2872,
+        "4258": 2872,
+        "4230": 2872,
+        "23030": 2872,
+        "23031": 2872,
+        "90091": 2872
+      }
+    },
+    {
+      "id": "B2-idearagon-wms",
+      "publisher": "IDEAragon WMS",
+      "url": "https://idearagon.aragon.es/Cartografia_Basica_wms/wms.aspx?service=WMS&version=1.3.0&request=GetCapabilities",
+      "outcome": "UNKNOWN",
+      "why": "no response; nothing learned about the declared CRS"
+    }
+  ]
+}
