@@ -23,6 +23,26 @@ gate — never on the commit that merely documents it.
 ⚠ Percentages below are directional engineering/data/legal splits, not measured resolution rates —
 for the measured area-share and determination-split figures, the dashboard is authoritative.
 
+### ⭐ Three independent milestones — VERIFICATION ≠ DISPATCH ≠ RENDERING
+
+Found the hard way on Córdoba (2026-08-03): signing `CORDOBA_ENVELOPE_VERIFIED` did **not** enable
+envelope rendering. `classifyAnswerability` correctly started returning `full-envelope` (an
+AUTHORISATION claim) the moment the gate flipped, but the actual `siteDispatch.ts` dispatcher had
+never had its compute branch written — it had two refusal branches, not a refusal-then-compute
+branch. The signature revealed that gap; it didn't close it. Track these as three separate,
+independently-landable milestones, never assume one implies the next:
+
+| Milestone | Question it answers | Where it lives |
+|---|---|---|
+| **1. VERIFICATION** | Has a human signed off that the transcribed numbers are trustworthy? | `*_ENVELOPE_VERIFIED`/`*_CERTIFIED` gate constant + `sources/VERIFICATION.md` |
+| **2. DISPATCH** | Does the click-to-envelope UI path even know this jurisdiction exists and call its rule pack? | `apps/editor/src/ui/site/siteDispatch.ts` — a real `applyXZoningThenFallback` function with a genuine compute branch, wired into the main dispatch chain |
+| **3. RENDERING** | Does a real parcel actually produce a drawn envelope end-to-end, respecting every structural refusal (unresolved geometry, delegated-planning overrides, etc.)? | Proven only by an end-to-end test or an actual click, never assumed from 1+2 |
+
+A jurisdiction can be signed (1) with no dispatcher at all (2) — that was Zaragoza's exact state
+before this session's wiring pass. A jurisdiction can have a dispatcher (2) that still can't render
+(3) because of an undiscovered structural gap. **Report all three explicitly whenever giving a
+jurisdiction's status — "signed" is not "live."**
+
 ## Matrix
 
 | Jurisdiction | Status | Capability % | Eng % | Data % | Legal % | Blocking layer | Next unlock |
