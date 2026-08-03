@@ -163,6 +163,12 @@ import {
     CORDOBA_ENVELOPE_VERIFIED,
     cordobaUnverifiedRefusal,
     cordobaNoRulePackRefusal,
+    // §COR-SUBZONE (CLOSURE-REGISTER blocker 3) — authored since 068a02ce and never called. It
+    // renders NO number (the gate stays shut); it makes the REFUSAL SPECIFIC — the same job
+    // `server/murciaPgouProxy.js` documents for Murcia: "to make that refusal SPECIFIC …, never to
+    // produce a figure". `cordobaUnverifiedRefusal` was written to take a subzone and the
+    // dispatcher was passing `null` on every parcel.
+    resolveCordobaSubzone,
     // ── Envelope Phase 2 — L'Hospitalet de Llobregat (INE 08101), the SECOND Catalan municipality. ──
     // The S2 router predicate + the S5 honesty gate. L'Hospitalet shares Barcelona's MUC + PGM-1976,
     // so it is ROUTED — but `LHOSPITALET_ENVELOPE_VERIFIED` is false until a human verifies its
@@ -3078,6 +3084,40 @@ async function applyChZoningThenFallback(
  * Fully guarded: any problem falls back to the precomputed estimated envelope; never throws into the
  * commit path. `status: 'none'` on the refusal keeps every numeric field null and clears any stale
  * `buildableRing` (dispatchEnvelope writes a ring only on `'ok'`).
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * §COR-ALIGNMENT — WHY THE MANZANA CERRADA FAMILY REFUSES, AND WHY THAT IS NOT AN ENGINEERING GAP
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * MC is the single largest packed family in the pilot — MEASURED at 212 of 453 published ordenanza
+ * polygons = 46.8 % of rows / 42.9 % of ordenanza land (`tools/cordoba-alignment-probe`, live
+ * 2026-08-02). Its height is a per-street-width TABLE (Art. 13.5.3.1), so it needs an ALINEACIÓN
+ * to measure that width from. Córdoba publishes none, and this was re-tested independently rather
+ * than inherited:
+ *
+ *   • An exhaustive lexeme sweep (alinea/retranq/rasant/fondo/fachada/frente/edificab) over BOTH
+ *     publishers' complete live inventories — ide.cordoba.es (105 layers) and the COACo GeoServer
+ *     (15 layers), all EPSG:25830 — returns ZERO alignment layers. (Two `rasant` hits at COACo are
+ *     `vhex25_sup_brasante/srasante_m2`, hexagonal floor-AREA statistics: a lexeme match, not an
+ *     alignment.)
+ *   • ⭐ The only street LINE layer, `idecordoba:ejes_red_viaria` (9 668 features), is an AXIS, not
+ *     an alignment — and it was measured, not assumed. Perpendicular distance from sampled points
+ *     to the nearest `idecordoba:manzana` frontage, n = 4 634 street cross-sections: only 16.7 %
+ *     lie within 1 m of a frontage, median offset 3.73 m (p90 9.47 m). The paired CONTROL in the
+ *     same window — `idecordoba:sup_viales`, whose boundary IS the street edge — scores 83.9 %
+ *     within 1 m, median 0 m, over n = 9 811. The method can tell an edge from an axis; the eje
+ *     layer is not an edge.
+ *   • Deriving the alignment from the axis would need a per-street WIDTH, and no Spanish source
+ *     publishes one — it must be CONSTRUCTED. `sup_viales` does coincide with the frontage, but it
+ *     is the municipal callejero (the PHYSICAL street surface), a different object from a LEGAL
+ *     alineación; substituting it is deriving law, which ADR-0284 forbids. Art. 13.5.3.1's own
+ *     measurement basis is also unreadable from the served PDF (vector paths, no text layer), so
+ *     we do not even know what the width is measured BETWEEN.
+ *
+ * ⇒ MC's share is NOT ours to build. It is category ④ *awaiting authoritative interpretation*
+ * (owner: GMU / COACo — publish alineaciones, or state the measurement basis), and PRYZM REFUSES
+ * rather than invent a width. Do not "fix" this by adopting `sup_viales` or a `w = 2A/P` proxy:
+ * MC's bands are 2 m apart, so ~45 % of streets sit within ±1 m of a band edge and ADR-0287 would
+ * void them anyway. See CLOSURE-REGISTER rows 8 / 25.
  */
 async function applyCordobaZoningThenFallback(
     ctx: SiteContext,
@@ -3087,10 +3127,11 @@ async function applyCordobaZoningThenFallback(
     estimated: BuildableEnvelope | null,
 ): Promise<void> {
     const TAG = '[gis][c58] §COR-ENVELOPE';
-    // A placeholder zone code for the refusal envelope: no COACo subzone resolver is wired yet
-    // (WIRING-TODO 5, unblocked WITH the verification sign-off), so a Córdoba parcel is not yet
-    // bound to PAS-1/MC-3/etc. `zoneCode` is required (min length 1); this names the pilot, not a
-    // subzone, and no number rides on it.
+    // The FALLBACK zone code for the refusal envelope, used only when the COACo subzone does not
+    // resolve (outside the 2-district pilot, or the endpoint did not answer). ⬆ The resolver IS
+    // now wired below (§COR-SUBZONE), so a parcel inside the pilot refuses under its real subzone
+    // (PAS-1 / MC-3 / …). `zoneCode` is required (min length 1); this names the pilot, not a
+    // subzone, and no number rides on it either way.
     const CORDOBA_PILOT_ZONE_CODE = 'cordoba-pgou-2001-pilot';
     try {
         if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
@@ -3116,9 +3157,62 @@ async function applyCordobaZoningThenFallback(
                 return Number.isFinite(a) && a > 0 ? a : null;
             } catch { return null; }
         })();
+        // ── §COR-SUBZONE — resolve the COACo subzone BEFORE the gate (blocker 3). ────────────
+        //
+        // ⚠⚠ THIS RESOLVES DATA, IT DOES NOT DECIDE TO RENDER. `CORDOBA_ENVELOPE_VERIFIED` is
+        // still false below, so a resolved subzone binds NO number — it only lets the refusal say
+        // WHICH zone refused. That distinction is the resolver's own honesty property 2.
+        //
+        // Why before the gate: `cordobaUnverifiedRefusal`'s copy is CONDITIONAL on knowing the
+        // subzone (§CORDOBA-UNVERIFIED-SCOPE), and the dispatcher was calling it with `null` for
+        // every pilot parcel — so every user got the vaguest of the two messages even on land
+        // whose ordenanza PRYZM has actually read. Resolving first is what that function was
+        // written for.
+        //
+        // ⚠ A FAILURE AND AN EMPTY ANSWER ARE NOT THE SAME VALUE (§CONTEXT-DATA-HONESTY,
+        // L-422/457/467/469). `no-subzone` means COACo answered and this point is OUTSIDE the
+        // 2-district pilot; `endpoint-unreachable` means we do not know. They are reported
+        // differently and neither is allowed to read as "there is no plan here".
+        //
+        // The resolver never throws (typed refusals only), but it is still wrapped: a network
+        // stall must never take the commit path down.
+        let subzone: string | null = null;
+        let subzoneOrdenanza: string | null = null;
+        let subzoneNote: string | null = null;
+        try {
+            const sz = await resolveCordobaSubzone({ lat, lon });
+            if (sz.ok) {
+                subzone = sz.resolution.subzone;
+                subzoneOrdenanza = sz.resolution.ordenanza;
+                // ⚠ The derived-planning override: a non-empty `actuacion` means a Plan Parcial /
+                // PERI / ED / SG governs and the BASE ordenanza does not apply at all. Surfaced as
+                // a fact so the refusal never implies the base subzone would have given a figure.
+                if (sz.resolution.derivedPlanningOverride) {
+                    subzoneNote =
+                        `⚠ Inside a derived-planning ámbito (${sz.resolution.actuacion ?? 'actuación'}) — ` +
+                        'the subordinate instrument governs, not the base ordenanza.';
+                }
+            } else if (sz.reason === 'no-subzone') {
+                subzoneNote =
+                    'Outside the published COACo calificación pilot (Sur + Noroeste) — no ordenanza ' +
+                    'polygon covers this point.';
+            } else {
+                subzoneNote =
+                    `Subzone NOT resolved (${sz.reason}) — this is an unknown, not an absence of planning.`;
+            }
+        } catch (e) {
+            console.warn(`${TAG} §COR-SUBZONE resolve failed (non-fatal):`, e);
+            subzoneNote = 'Subzone NOT resolved (resolver error) — this is an unknown, not an absence of planning.';
+        }
+
         const knownFacts = [
             `Location: Córdoba (${lat.toFixed(5)}, ${lon.toFixed(5)}) — Sur + Noroeste PGOU-2001 pilot`,
             parcelAreaM2 !== null ? `Parcel area: ${Math.round(parcelAreaM2).toLocaleString()} m²` : null,
+            subzone !== null
+                ? `Calificación: ${subzoneOrdenanza ? `${subzoneOrdenanza} — ` : ''}subzona ${subzone} ` +
+                  '(COACo «coaco:ordenanzas», EPSG:25830)'
+                : null,
+            subzoneNote,
             'Planning source: Ayuntamiento de Córdoba PGOU-2001 (COACo) — machine-extracted, unverified',
         ].filter((s): s is string => typeof s === 'string');
 
@@ -3126,37 +3220,51 @@ async function applyCordobaZoningThenFallback(
             // ⚠⚠⚠ THE HONESTY GATE. Unverified → refuse, never a number. `status: 'none'` = attempted,
             // value WITHHELD pending human verification (NOT `'not-applicable'`, which would assert the
             // ordinance grants no envelope — it does grant one, we simply have not checked our OCR of it).
-            const refusal = cordobaUnverifiedRefusal(null, null, knownFacts);
+            const refusal = cordobaUnverifiedRefusal(subzone, subzoneOrdenanza, knownFacts);
             dispatchEnvelope(
                 ctx,
                 site.id,
-                buildRefusedEnvelope(CORDOBA_PILOT_ZONE_CODE, refusal, 'none'),
+                // ⚠ The zone code is the RESOLVED subzone when we have one — so the refusal is
+                // attributable to a real ordenanza rather than the pilot placeholder. It still
+                // carries `status: 'none'`, so every numeric field stays null (no ring is written).
+                buildRefusedEnvelope(subzone ?? CORDOBA_PILOT_ZONE_CODE, refusal, 'none'),
                 'coaco-pgou',
             );
             console.log(
                 `${TAG} §HONESTY-GATE CORDOBA_ENVELOPE_VERIFIED=false — dispatched the ` +
                     `machine-extracted-unverified refusal; NO number rendered (${refusal.code}). ` +
-                    `area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m². Signs off via sources/VERIFICATION.md.`,
+                    `subzone=${subzone ?? 'unresolved'} area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m². ` +
+                    `Signs off via sources/VERIFICATION.md.`,
             );
             return;
         }
 
-        // ── VERIFICATION SIGNED (future) — resolve the subzone from COACo `ordenanza` + the `O_*`
-        // link suffix (WIRING-TODO 5), ask the registry (`resolveZoneDisposition`), and for a covered
-        // subzone compute a `pipeline-extracted-unverified` envelope with the louder affordance;
-        // otherwise dispatch the registry refusal (legal "no" family / coverage gap). That resolver +
-        // engine wiring lands together WITH the sign-off, so it is not present while the gate is
-        // closed. Until it is, refusing is the only honest output — a covered parcel with no wired
-        // resolver cannot bind a subzone, so it gets the coverage gap, never a fabricated number.
+        // ── VERIFICATION SIGNED (future). ⬆ The subzone resolver IS now wired (§COR-SUBZONE
+        // above), so on the day the gate opens `subzone` already carries the real ordenanza. What
+        // is still deliberately NOT written here is the COMPUTE branch, and a second, independent
+        // defect is why: `ZoningRulesEngine` never reads a pack's `defaultConfidence`, so solving
+        // now would publish `pipeline-extracted-unverified` numbers wearing the violet "Estimated"
+        // chip — an OVER-statement of certainty on a machine reading, exactly what the gate exists
+        // to prevent. It is the same blocker that holds Madrid's compute branch (see
+        // MADRID_ENVELOPE_VERIFIED above); landing the C58 confidence fix and both compute
+        // branches together is the correct order.
+        //
+        // ⚠ AND A THIRD CONDITION IS NOT MET FOR THE MC FAMILY, which must not be quietly skipped:
+        // MC's height is a per-street-width table (Art. 13.5.3.1) and Córdoba publishes NO
+        // alineación from which that width could be measured — see the §COR-ALIGNMENT refusal note
+        // on `applyCordobaZoningThenFallback`. MC therefore refuses on its own merits even after a
+        // signature; the signature does not unblock it.
         console.warn(
-            `${TAG} verification is signed but the COACo subzone resolver is not wired yet ` +
-                `(WIRING-TODO 5) — dispatching the coverage-gap refusal rather than an unresolved number.`,
+            `${TAG} verification is signed but the C58 confidence plumbing is not landed ` +
+                `(ZoningRulesEngine hard-codes 'estimated-ruleset' and ignores defaultConfidence) — ` +
+                `dispatching the coverage-gap refusal rather than a machine-extracted number under ` +
+                `an over-confident badge. subzone=${subzone ?? 'unresolved'}.`,
         );
-        const coverageGap = cordobaNoRulePackRefusal(CORDOBA_PILOT_ZONE_CODE, null, knownFacts);
+        const coverageGap = cordobaNoRulePackRefusal(subzone ?? CORDOBA_PILOT_ZONE_CODE, null, knownFacts);
         dispatchEnvelope(
             ctx,
             site.id,
-            buildRefusedEnvelope(CORDOBA_PILOT_ZONE_CODE, coverageGap, 'none'),
+            buildRefusedEnvelope(subzone ?? CORDOBA_PILOT_ZONE_CODE, coverageGap, 'none'),
             'coaco-pgou',
         );
     } catch (e) {

@@ -150,3 +150,80 @@ describe('Córdoba — the pack still parses and CTP-1 carries the alignment rul
         });
     });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §COR-UAD-DEPTH — D1: the STATED Art. 13.9.3.3 profundidad, which the pack used to omit.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// UAD-1 16 m · UAD-2 18 m · UAD-3 16 m, measured FROM THE VIAL ALIGNMENT (verified 380 dpi;
+// OCR-EXTRACTION-RESULTS §2.3, VERIFICATION.md §D1). Before this, all three were bounded by the
+// setback inset alone. UAD-3 (front 0 + side 0 party-wall + rear 5, no depth band) drew 1050 of the
+// 1200 m² parcel — the L-616 mechanism-A overstatement verbatim, on the 1,934 % of pilot land it
+// really binds.
+//
+// ⚠ These tests assert the depth BITES, not merely that a field exists. A rule that is present but
+// never clips would pass a shape assertion and still over-state every deep parcel.
+const UAD_STATED_DEPTH: ReadonlyArray<readonly [string, number, number]> = [
+    // [subzone, Art. 13.9.3.3 depth (m), front retranqueo (m) per Art. 13.9.3.2]
+    ['UAD-1', 16, 4],
+    ['UAD-2', 18, 5],
+    ['UAD-3', 16, 0],
+];
+
+describe('Córdoba — UAD carries the stated profundidad edificable (D1, Art. 13.9.3.3)', () => {
+    for (const [code, depth, offset] of UAD_STATED_DEPTH) {
+        it(`${code} geometricRule is a party-wall alignment with the stated ${depth} m depth`, () => {
+            const z = ES_CORDOBA_PGOU2001_PACK.zones.find((zz) => zz.code === code)!;
+            expect(z.geometricRule, code).toEqual({
+                kind: 'alignment',
+                alignTo: 'street',
+                alignmentOffset_m: offset,
+                sideTreatment: 'party-wall',
+                buildableDepth_m: depth,
+            });
+        });
+
+        it(`${code} emits the alignment.depth derivation row carrying ${depth}`, () => {
+            const env = solve(code);
+            expect(
+                env.derivation.some((d) => d.constraint === 'alignment.depth' && d.value === depth),
+                code,
+            ).toBe(true);
+        });
+
+        it(`${code} CLIPS to the band — the footprint is the frontage × the depth, not the plot`, () => {
+            const env = solve(code);
+            expect(env.status, code).toBe('ok');
+            // The band runs from the ALIGNMENT (parcel edge 0, z = 0) to `depth`; the front
+            // retranqueo eats the first `offset` m. 30 m of frontage × (depth − offset) of depth.
+            const expected = 30 * (depth - offset);
+            expect(env.insetAreaM2, code).toBeCloseTo(expected, 0);
+            expect(env.insetAreaM2, code).toBeLessThan(PARCEL_AREA);
+        });
+    }
+
+    it('⭐ UAD-3 no longer draws essentially the whole parcel (the L-616 regression guard)', () => {
+        const env = solve('UAD-3');
+        // Setback-only would be 30 × (40 − 0 − 5) = 1050 m², i.e. 87.5 % of the plot.
+        const setbackOnly = 30 * 35;
+        expect(env.insetAreaM2).toBeLessThan(setbackOnly * 0.6);
+        expect(env.insetAreaM2).toBeCloseTo(30 * 16, 0);
+    });
+
+    it('a UAD parcel with NO front edge HARD-FAILS rather than fall back to full depth', () => {
+        // Same guard CTP-1 has: with no alineación located, the depth cannot be applied, and
+        // silently skipping the clip would return the setback-only ring as if it were solved.
+        for (const [code] of UAD_STATED_DEPTH) {
+            const env = solve(code, ALL_UNCLASSIFIED);
+            expect(env.status, code).toBe('degenerate');
+            expect(env.insetAreaM2, code).toBe(0);
+        }
+    });
+
+    it('the depth is cited in the ordinanceRef so a reader can check it (C58 §1.3)', () => {
+        for (const [code, depth] of UAD_STATED_DEPTH) {
+            const z = ES_CORDOBA_PGOU2001_PACK.zones.find((zz) => zz.code === code)!;
+            expect(z.ordinanceRef, code).toContain('13.9.3.3');
+            expect(z.ordinanceRef, code).toContain(String(depth));
+        }
+    });
+});

@@ -1,0 +1,401 @@
+{
+  "probe": "§CORDOBA-ALIGNMENT-PROBE",
+  "stamp": "2026-08-02T21:10:03.985Z",
+  "crs": "EPSG:25830",
+  "A": [
+    {
+      "publisher": "ide.cordoba.es",
+      "reachable": true,
+      "layerCount": 105,
+      "advertisedCRS": [
+        "EPSG:25830"
+      ],
+      "hits": {
+        "alinea": [],
+        "retranq": [],
+        "rasant": [],
+        "fondo": [],
+        "fachada": [],
+        "frente": [],
+        "edificab": []
+      },
+      "ejeLayers": [
+        "idecordoba:ejes_red_viaria"
+      ],
+      "streetLayers": [
+        "idecordoba:ejes_red_viaria",
+        "idecordoba:elementos_red_viaria",
+        "idecordoba:red_viaria",
+        "idecordoba:sup_viales",
+        "idecordoba:tramo_vial"
+      ],
+      "layers": [
+        "idecordoba:Arbolado",
+        "idecordoba:bibliotecas",
+        "idecordoba:centros_de_mayores",
+        "idecordoba:centros_servicios_sociales",
+        "idecordoba:colegios",
+        "idecordoba:construcciones",
+        "idecordoba:codigo_postal",
+        "idecordoba:ejes_red_viaria",
+        "idecordoba:elementos_red_viaria",
+        "idecordoba:bosquejo_guia1871",
+        "idecordoba:linea_auxiliar",
+        "idecordoba:manzana",
+        "idecordoba:municipio",
+        "idecordoba:palmeras",
+        "idecordoba:parcelas_catastrales",
+        "idecordoba:patios_2015",
+        "idecordoba:realejo_15",
+        "idecordoba:santa_marina_15",
+        "idecordoba:san_lorenzo_15",
+        "idecordoba:santiago_15",
+        "idecordoba:juderia_15",
+        "idecordoba:alcazar_viejo_15",
+        "idecordoba:patios_2016",
+        "idecordoba:sql_patios_16",
+        "idecordoba:fuera_concurso_16",
+        "idecordoba:sql_fuera_concurso_16",
+        "idecordoba:regina-realejo_16",
+        "idecordoba:sql_regina-realejo_16",
+        "idecordoba:san_lorenzo_16",
+        "idecordoba:sql_slorenzo_16",
+        "idecordoba:santiago_spedro_16",
+        "idecordoba:sql_santiago_16",
+        "idecordoba:sql_juderia_16",
+        "idecordoba:sbasilio-alcazar_16",
+        "idecordoba:sql_alcazar_viejo_16",
+        "idecordoba:patios_2017",
+        "idecordoba:fuera_concurso_17",
+        "idecordoba:sql_fuera_concurso_17",
+        "idecordoba:sandres_realejo_17",
+        "idecordoba:sql_sandres_17",
+        "idecordoba:smarina_sagustin_17",
+        "idecordoba:sql_smarina_17",
+        "idecordoba:slorenzo_srafael_17",
+        "idecordoba:sql_slorenzo_17",
+        "idecordoba:spedro_santiago_17",
+        "idecordoba:sql_spedro_17",
+        "idecordoba:sql_juderia_17",
+        "idecordoba:sbasilio_17",
+        "idecordoba:sql_sbasilio_17",
+        "idecordoba:patios_18",
+        "idecordoba:sql_patios_18",
+        "idecordoba:fuera_concurso_18",
+        "idecordoba:regina_realejo_18",
+        "idecordoba:smarina_sagustin_18",
+        "idecordoba:slorenzo_18",
+        "idecordoba:santiago_spedro_18",
+        "idecordoba:juderia_sfrancisco_18",
+        "idecordoba:alcazar_viejo_18",
+        "idecordoba:patios_19",
+        "idecordoba:sql_patios_19",
+        "idecordoba:r1_regina-realejo_19",
+        "idecordoba:r2_smarina-sagustin_19",
+        "idecordoba:r3_slorenzo_19",
+        "idecordoba:r4_santiago-spedro_19",
+        "idecordoba:r5_juderia_sfranci_19",
+        "idecordoba:r6_alcazar_viejo_19",
+        "idecordoba:patios_20",
+        "idecordoba:sql_patios_20",
+        "idecordoba:r1_regina-realejo_20",
+        "idecordoba:r2_smarina-sagustin_20",
+        "idecordoba:r3_slorenzo_20",
+        "idecordoba:r4_santiago-spedro_20",
+        "idecordoba:r5_juderia_sanfrancisco_20",
+        "idecordoba:r6_alcazar_viejo_20",
+        "idecordoba:patios",
+        "idecordoba:patios_21",
+        "idecordoba:rutas_patios_21",
+        "idecordoba:sql_patios_21",
+        "idecordoba:fuera_concurso_21",
+        "idecordoba:r1_regina_realejo_21",
+        "idecordoba:regina_realejo_21",
+        "idecordoba:r2_smarina_sagustin_21",
+        "idecordoba:smarina_sagustin_21",
+        "idecordoba:r3_san_lorenzo_21",
+        "idecordoba:san_lorenzo_21",
+        "idecordoba:r4_santiago_san_pedro_21",
+        "idecordoba:santiago_spedro_21",
+        "idecordoba:juderia_san_francisco_21",
+        "idecordoba:r5_juderia_san_francisco_21",
+        "idecordoba:r6_alcazar_viejo_21",
+        "idecordoba:alcazar_viejo_21",
+        "idecordoba:r3_sandres_realejo",
+        "idecordoba:r1_smarina_sagustin",
+        "idecordoba:r2_slorenzo_srafael",
+        "idecordoba:r4_spedro_santiago",
+        "idecordoba:r5_juderia",
+        "idecordoba:r6_san_basilio",
+        "idecordoba:portal_pk",
+        "idecordoba:puntos_estrategicos",
+        "idecordoba:red_viaria",
+        "idecordoba:superficie_construcciones",
+        "idecordoba:sup_viales",
+        "idecordoba:toponimo",
+        "idecordoba:tramo_vial",
+        "idecordoba:zonas_verdes"
+      ]
+    },
+    {
+      "publisher": "geoserver.pgou.coacordoba.org",
+      "reachable": true,
+      "layerCount": 15,
+      "advertisedCRS": [
+        "EPSG:25830",
+        "EPSG:4326"
+      ],
+      "hits": {
+        "alinea": [],
+        "retranq": [],
+        "rasant": [
+          "coaco:vhex25_sup_brasante_m2",
+          "coaco:vhex25_sup_srasante_m2"
+        ],
+        "fondo": [],
+        "fachada": [],
+        "frente": [],
+        "edificab": []
+      },
+      "ejeLayers": [],
+      "streetLayers": [],
+      "layers": [
+        "coaco:actuaciones",
+        "coaco:distritos",
+        "coaco:vbuilding",
+        "coaco:hojas_cus",
+        "coaco:vhex25_anyo_antiguedad_inmueble",
+        "coaco:vhex25_max_plantas",
+        "coaco:vhex25_n_construc",
+        "coaco:vhex25_n_inmuebles",
+        "coaco:vhex25_sup_total_m2",
+        "coaco:vhex25_sup_brasante_m2",
+        "coaco:vhex25_sup_srasante_m2",
+        "coaco:ordenanzas",
+        "coaco:vcatastro_urbanismo",
+        "coaco:usos_dotacionales",
+        "coaco:usos_globales"
+      ]
+    }
+  ],
+  "B": {
+    "ok": true,
+    "method": "perpendicular ray from sampled points on each line to the nearest `idecordoba:manzana` boundary on each side; centredness = min(L,R)/(L+R); all distances in metres in EPSG:25830",
+    "studyArea": {
+      "crs": "EPSG:25830",
+      "bbox": "341578.6533305,4192499.671483,343978.6533305,4194899.671483,EPSG:25830",
+      "halfExtent_m": 1200,
+      "pilotExtent": {
+        "minX": 341186.419,
+        "minY": 4191354.839966,
+        "maxX": 344370.887661,
+        "maxY": 4196044.503
+      }
+    },
+    "blockLayer": "idecordoba:manzana",
+    "blockFeaturesInWindow": 580,
+    "controlAvailable": true,
+    "candidates": [
+      {
+        "label": "idecordoba:ejes_red_viaria (SUBJECT — street axis)",
+        "lineFeaturesInWindow": 1728,
+        "sampleSizeAll": 7324,
+        "sampleSizeStreet": 4634,
+        "excludedAsNonStreet": 2690,
+        "plausibleSpanCap_m": 40,
+        "distanceToNearestFrontage_m": {
+          "n": 4634,
+          "min": 0,
+          "p10": 0.559,
+          "median": 3.728,
+          "mean": 4.435,
+          "p90": 9.471,
+          "max": 19.022
+        },
+        "frontageToFrontageSpan_m": {
+          "n": 4634,
+          "min": 0.243,
+          "p10": 8.117,
+          "median": 22.314,
+          "mean": 21.931,
+          "p90": 35.598,
+          "max": 39.998
+        },
+        "centredness": {
+          "n": 4634,
+          "min": 0,
+          "p10": 0.035,
+          "median": 0.192,
+          "mean": 0.211,
+          "p90": 0.411,
+          "max": 0.5
+        },
+        "onFrontageFraction": 0.167,
+        "nearHalfFraction": 0.2059,
+        "verdict": "MIXED / INDETERMINATE — do not use as an alignment"
+      },
+      {
+        "label": "idecordoba:sup_viales (CONTROL — street-surface edge)",
+        "lineFeaturesInWindow": 989,
+        "sampleSizeAll": 20000,
+        "sampleSizeStreet": 9811,
+        "excludedAsNonStreet": 10189,
+        "plausibleSpanCap_m": 40,
+        "distanceToNearestFrontage_m": {
+          "n": 9811,
+          "min": 0,
+          "p10": 0,
+          "median": 0,
+          "mean": 0.599,
+          "p90": 2.067,
+          "max": 15.571
+        },
+        "frontageToFrontageSpan_m": {
+          "n": 9811,
+          "min": 1.81,
+          "p10": 15.956,
+          "median": 32.622,
+          "mean": 29.311,
+          "p90": 37.688,
+          "max": 39.994
+        },
+        "centredness": {
+          "n": 9811,
+          "min": 0,
+          "p10": 0,
+          "median": 0,
+          "mean": 0.027,
+          "p90": 0.112,
+          "max": 0.452
+        },
+        "onFrontageFraction": 0.8394,
+        "nearHalfFraction": 0.0086,
+        "verdict": "ALIGNMENT — lies ON a frontage"
+      }
+    ]
+  },
+  "C": {
+    "ok": true,
+    "denominator": "the 453 published `coaco:ordenanzas` polygons — the ONLY Córdoba land with a machine-readable calificación",
+    "attemptedRows": 453,
+    "totalArea_m2": 1628615.63,
+    "byNeed": {
+      "unpacked": {
+        "rows": 47,
+        "area_m2": 92374.1,
+        "areaPct": 5.672,
+        "rowsPct": 10.375
+      },
+      "setback-bound": {
+        "rows": 73,
+        "area_m2": 469737.79,
+        "areaPct": 28.843,
+        "rowsPct": 16.115
+      },
+      "needs-alignment": {
+        "rows": 212,
+        "area_m2": 698452.28,
+        "areaPct": 42.886,
+        "rowsPct": 46.799
+      },
+      "alignment-depth-bound": {
+        "rows": 121,
+        "area_m2": 368051.46,
+        "areaPct": 22.599,
+        "rowsPct": 26.711
+      }
+    },
+    "bySubzone": {
+      "INDUSTRIAL": {
+        "rows": 1,
+        "area_m2": 1920.35,
+        "need": "unpacked",
+        "areaPct": 0.118
+      },
+      "PAS-2": {
+        "rows": 30,
+        "area_m2": 172760.95,
+        "need": "setback-bound",
+        "areaPct": 10.608
+      },
+      "OA-1": {
+        "rows": 43,
+        "area_m2": 296976.84,
+        "need": "setback-bound",
+        "areaPct": 18.235
+      },
+      "MC-2": {
+        "rows": 201,
+        "area_m2": 632217.07,
+        "need": "needs-alignment",
+        "areaPct": 38.819
+      },
+      "EP": {
+        "rows": 7,
+        "area_m2": 10846.19,
+        "need": "unpacked",
+        "areaPct": 0.666
+      },
+      "UAD-1": {
+        "rows": 14,
+        "area_m2": 56406.85,
+        "need": "alignment-depth-bound",
+        "areaPct": 3.463
+      },
+      "CTP-1": {
+        "rows": 99,
+        "area_m2": 280139.6,
+        "need": "alignment-depth-bound",
+        "areaPct": 17.201
+      },
+      "UAS-1": {
+        "rows": 1,
+        "area_m2": 2687.97,
+        "need": "unpacked",
+        "areaPct": 0.165
+      },
+      "PTC": {
+        "rows": 16,
+        "area_m2": 21284.9,
+        "need": "unpacked",
+        "areaPct": 1.307
+      },
+      "MC-4": {
+        "rows": 6,
+        "area_m2": 55148.12,
+        "need": "needs-alignment",
+        "areaPct": 3.386
+      },
+      "MC-3": {
+        "rows": 4,
+        "area_m2": 10092.59,
+        "need": "needs-alignment",
+        "areaPct": 0.62
+      },
+      "COMERCIAL": {
+        "rows": 8,
+        "area_m2": 37095.55,
+        "need": "unpacked",
+        "areaPct": 2.278
+      },
+      "MC": {
+        "rows": 14,
+        "area_m2": 18539.14,
+        "need": "unpacked",
+        "areaPct": 1.138
+      },
+      "MC-1": {
+        "rows": 1,
+        "area_m2": 994.5,
+        "need": "needs-alignment",
+        "areaPct": 0.061
+      },
+      "UAD-3": {
+        "rows": 8,
+        "area_m2": 31505.01,
+        "need": "alignment-depth-bound",
+        "areaPct": 1.934
+      }
+    }
+  }
+}

@@ -182,26 +182,39 @@ describe('Córdoba PGOU-2001 — OCR verified against the source ordinance (VERI
         }
     });
 
-    // ── D1 — the KNOWN GAP, asserted so it cannot be quietly forgotten ────────────────────────
-    it('⛔ D1: records that the STATED UAD profundidad (Art. 13.9.3.3) is still MISSING', () => {
-        // The source states UAD-1 16 m · UAD-2 18 m · UAD-3 16 m (verified 380 dpi, 2026-08-01).
-        // The pack carries none of it. This assertion PINS the known-bad state described in
-        // VERIFICATION.md §SIG-1 "known limits" #1. When the depth is added, this test SHOULD fail
-        // — update it then, and update the ledger in the same change.
-        for (const code of ['UAD-1', 'UAD-2', 'UAD-3']) {
+    // ── D1 — ⬆ CLOSED 2026-08-02. These two assertions used to PIN THE DEFECT (geometricRule is
+    // null); they now pin the FIX, exactly as their own instruction required: "When the depth is
+    // added, this test SHOULD fail — update it then."
+    //
+    // ⚠ THE LEDGER IS NOT THIS FILE'S TO EDIT. `sources/VERIFICATION.md` §SIG-1 "known limits" #1
+    // and CLOSURE-REGISTER blocker 4 still describe D1 as OPEN and must be updated by whoever owns
+    // the dossier — flagged rather than silently left stale.
+    it('✅ D1: the STATED UAD profundidad (Art. 13.9.3.3) is now PACKED — 16 / 18 / 16 m', () => {
+        // Verified at 380 dpi, 2026-08-01 (OCR-EXTRACTION-RESULTS §2.3). Quoted, never derived.
+        const stated: ReadonlyArray<readonly [string, number]> = [
+            ['UAD-1', 16], ['UAD-2', 18], ['UAD-3', 16],
+        ];
+        for (const [code, depth] of stated) {
+            const rule = zoneByCode.get(code)!.geometricRule;
+            expect(rule?.kind, `${code} must carry an alignment rule (D1)`).toBe('alignment');
             expect(
-                zoneByCode.get(code)!.geometricRule ?? null,
-                `${code} now carries a geometricRule — D1 may be fixed; update VERIFICATION.md §SIG-1`,
-            ).toBeNull();
+                (rule as { buildableDepth_m?: number }).buildableDepth_m,
+                `${code} must carry the STATED ${depth} m, and no other number`,
+            ).toBe(depth);
         }
     });
 
-    it('⛔ D1: UAD-3 is the unguarded case — front 0 + side 0 with no depth band', () => {
+    it('✅ D1: UAD-3 — front 0 + side 0 is now GUARDED by the 16 m depth band', () => {
         const uad3 = zoneByCode.get('UAD-3')!;
         expect(uad3.setbacks?.front_m).toBe(0);
         expect(uad3.setbacks?.side_m).toBe(0);
-        // No depth band ⇒ the inset alone bounds the envelope ⇒ L-616 mechanism A. Latent only
-        // because UAD-3 binds 0.00 % of published pilot land and the whole pilot is gate-refused.
-        expect(uad3.geometricRule ?? null).toBeNull();
+        // This is the combination that made UAD-3 the L-616 mechanism-A case: with no depth band
+        // the inset alone bounded the envelope and drew essentially the whole parcel. It is NOT
+        // latent — UAD-3 binds 31 505,01 m² = 1,934 % of published pilot land (the "0,00 %" this
+        // file previously relied on was refuted by measurement on 2026-08-01).
+        const rule = uad3.geometricRule;
+        expect(rule?.kind).toBe('alignment');
+        expect((rule as { buildableDepth_m?: number }).buildableDepth_m).toBe(16);
+        expect((rule as { sideTreatment?: string }).sideTreatment).toBe('party-wall');
     });
 });

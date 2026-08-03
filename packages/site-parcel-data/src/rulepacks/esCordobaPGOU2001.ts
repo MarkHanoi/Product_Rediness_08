@@ -37,9 +37,11 @@
 // RESULT: **13 of 13 subzones verified, ZERO wrong values** — including MC-3 = 3,50 (correct; the
 // range-gate flag was a false alarm) and the whole MC per-street-width height table.
 // THREE defects were found, NONE of them a wrong shipped digit — see VERIFICATION.md §SIG-1:
-//   D1 ⛔ UAD *profundidad máxima edificable* (Art. 13.9.3.3 — 16/18/16 m) IS STATED IN THE SOURCE
-//         AND IS MISSING FROM THIS PACK (see the UAD block below). Reported, deliberately NOT
-//         silently patched — the founder must see it before signing.
+//   D1 ✅ UAD *profundidad máxima edificable* (Art. 13.9.3.3 — 16/18/16 m) was STATED IN THE SOURCE
+//         AND MISSING FROM THIS PACK. ⬆ CLOSED 2026-08-02: all three UAD subzones now carry an
+//         `alignment` geometricRule with the stated depth (see the UAD block below). It was
+//         reported first and patched second, so the founder saw it before signing. The change only
+//         ever REMOVES buildable area — it closes an L-616 overstatement, it does not add capacity.
 //   D2 ⚠  the CTP-1 ocupación step-function was mis-documented (middle band is an ABSOLUTE 100 m²
 //         cap, not 100 %); the shipped scalar 0.80 is correct and unaffected.
 //   D3 ⚠  the MC "no fondo stated" rationale is FALSE (Art. 13.5.2.4 says depth is *libre*, bounded
@@ -55,7 +57,9 @@
 // --------------------------------------------------------------------------------
 //   • PAS (Plurifamiliar Aislada) — FULL. Every field a stated scalar. `kind:'setback'`.
 //   • OA  (Ordenación Abierta)    — FULL. `kind:'setback'`.
-//   • UAD (Unifamiliar Adosada)   — FULL. `kind:'setback'`, lateral = party-wall.
+//   • UAD (Unifamiliar Adosada)   — FULL. Retranqueo setbacks PLUS an `alignment` geometricRule
+//     carrying the stated Art. 13.9.3.3 *profundidad máxima edificable* (16/18/16 m from the vial
+//     alignment), so a deep UAD parcel clips to the depth band instead of drawing the whole plot.
 //   • CTP-1 (Colonia Tradicional Popular) — PARTIAL. altura+ocupación+alignment clean; edificabilidad
 //     is DERIVED (null). Alignment zone (front on the vial line) → `setbacks:null` PLUS an
 //     `alignment` geometricRule carrying the REAL 16 m *profundidad edificable* (Art. 13.8.2.4), so
@@ -250,21 +254,42 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
             },
             // ── Unifamiliar Adosada (UAD) — Art. 13.9 (recovered from O_UAD3) ───────────────
             //
-            // ⛔⛔ D1 — A STATED SOURCE CONSTRAINT IS MISSING FROM ALL THREE UAD SUBZONES.
+            // ✅ D1 CLOSED (2026-08-02) — THE STATED DEPTH IS NOW PACKED ON ALL THREE SUBZONES.
             // Art. 13.9.3.3 states a *profundidad máxima edificable* — UAD-1 16 m · UAD-2 18 m ·
-            // UAD-3 16 m — measured from the vial alignment (verified 380 dpi, 2026-08-01;
-            // OCR-EXTRACTION-RESULTS §2.3 records it). NONE of it is carried here, so the envelope
-            // is bounded by the setback inset alone and OVER-STATES deep parcels.
+            // UAD-3 16 m — measured FROM THE VIAL ALIGNMENT (verified 380 dpi, 2026-08-01;
+            // OCR-EXTRACTION-RESULTS §2.3 and sources/VERIFICATION.md §D1 both record it). Until
+            // now NONE of it was carried, so the envelope was bounded by the setback inset alone
+            // and OVER-STATED deep parcels.
             //
-            // ⚠ For UAD-3 this is the L-616 mechanism-A failure VERBATIM: front 0 + side 0
+            // ⚠ For UAD-3 that was the L-616 mechanism-A failure VERBATIM: front 0 + side 0
             // (party-wall) + rear 5 m with NO depth band draws essentially the WHOLE PARCEL — the
             // exact outcome CTP-1's `alignment` rule and MC's unresolvable ring exist to prevent,
-            // left unguarded on the one family that also needed it.
+            // left unguarded on the one family that also needed it. And its "latent" premise was
+            // REFUTED: UAD-3 binds 31 505,01 m² = 1,934 % of published pilot land, not 0,00 %
+            // (CLOSURE-REGISTER, measured live 2026-08-01 through `subzoneCodeFromLink`).
             //
-            // LATENT, NOT LIVE: UAD-3 binds 0.00 % of published pilot land (VERIFICATION.md §SIG-1),
-            // and the whole pilot is refused while `CORDOBA_ENVELOPE_VERIFIED` is false. Recorded as
-            // a FINDING for the founder rather than silently patched; it is BLOCKING before UAD-3
-            // may ever bind. Fix = a `geometricRule` carrying the stated depth per subzone.
+            // ⚠⚠ THIS IS A CONSTRAINT ADDED, NEVER A NUMBER INVENTED. Every depth below is quoted
+            // from Art. 13.9.3.3; nothing is derived, assumed or defaulted. The effect is strictly
+            // to REDUCE buildability (an UNKNOWN constraint must never be drawn as unbounded —
+            // that overstates real land), so it cannot manufacture capacity that the pack did not
+            // already grant.
+            //
+            // WHY `kind: 'alignment'` AND NOT A DEEPER REAR SETBACK — the two are NOT
+            // interchangeable (depthBandClip.ts): a rear setback measures from the REAR boundary,
+            // so on a deep parcel it leaves the depth unconstrained and on a shallow one it
+            // over-constrains; they coincide only when parcel depth happens to equal
+            // `depth + rear_m`. The ordinance measures from the ALIGNMENT, so the alignment rule
+            // is the only faithful shape. It is the SHARED, region-agnostic capability already
+            // driving CTP-1 here and Barcelona's 13a/13b — not a Córdoba special case.
+            //
+            // ⚠ NO DOUBLE-COUNTING: the engine builds the inset from `setbacks` and then clips the
+            // band from `parcelRing[frontIdx]` — the ALIGNMENT itself, not the set-back façade
+            // (ZoningRulesEngine, ADR-0270 P2). So UAD-1's 4 m retranqueo and its 16 m depth-from-
+            // alignment compose exactly as Art. 13.9 reads; `alignmentOffset_m` is recorded as the
+            // provenance/derivation row and does NOT re-apply the inset.
+            //
+            // ⚠ STILL GATED: `CORDOBA_ENVELOPE_VERIFIED` is false, so nothing here renders a number
+            // today. This closes the OVERSTATEMENT, it does not open the gate.
             {
                 code: 'UAD-1',
                 label: 'Unifamiliar Adosada, subzona UAD-1 (PGOU Art. 13.9)',
@@ -275,14 +300,25 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 maxCoverage: 0.6,           // Art. 13.9.2.2
                 // 13.9.3.2 front 4 m; adosada lateral = party-wall (0); 13.9.3.4 rear 5 m.
                 setbacks: { front_m: 4, side_m: 0, rear_m: 5 },
+                // D1 — Art. 13.9.3.3: profundidad máxima edificable 16 m desde la alineación.
+                geometricRule: {
+                    kind: 'alignment',
+                    alignTo: 'street',
+                    alignmentOffset_m: 4,      // = the 13.9.3.2 retranqueo; recorded, not re-applied
+                    sideTreatment: 'party-wall', // adosada — medianera on both laterals
+                    buildableDepth_m: 16,      // Art. 13.9.3.3
+                },
                 fieldProvenance: {
                     maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
                     maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
                     'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
+                    // Machine-extracted (OCR, 13.9.3.3) — strictly below the human `ordinance-pdf` tier.
+                    'alignment.depth': 'pipeline-extracted',
                 },
                 ordinanceRef:
                     'PGOU Art. 13.9.2.3 (FAR 1,0), 13.9.2.2 (ocup. 60 %), 13.9.3.5 (PB+1, 7 m), ' +
-                    '13.9.3.2 (retranqueo fachada 4 m), lateral medianera (adosada, 0), 13.9.3.4 (fondo 5 m). ' + SRC,
+                    '13.9.3.2 (retranqueo fachada 4 m), lateral medianera (adosada, 0), 13.9.3.4 (fondo 5 m), ' +
+                    '13.9.3.3 (profundidad máx. edificable 16 m desde la alineación de vial). ' + SRC,
             },
             {
                 code: 'UAD-2',
@@ -293,14 +329,24 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 plotRatioFAR: 0.7,
                 maxCoverage: 0.4,
                 setbacks: { front_m: 5, side_m: 0, rear_m: 6 }, // front 5 m; party-wall; fondo 6 m
+                // D1 — Art. 13.9.3.3: profundidad máxima edificable 18 m desde la alineación.
+                geometricRule: {
+                    kind: 'alignment',
+                    alignTo: 'street',
+                    alignmentOffset_m: 5,      // = the 13.9.3.2 retranqueo; recorded, not re-applied
+                    sideTreatment: 'party-wall',
+                    buildableDepth_m: 18,      // Art. 13.9.3.3
+                },
                 fieldProvenance: {
                     maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
                     maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
                     'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
+                    'alignment.depth': 'pipeline-extracted',
                 },
                 ordinanceRef:
                     'PGOU Art. 13.9.2.3 (FAR 0,7), 13.9.2.2 (ocup. 40 %), 13.9.3.5 (PB+1, 7 m), ' +
-                    '13.9.3.2 (retranqueo fachada 5 m), lateral medianera (adosada, 0), 13.9.3.4 (fondo 6 m). ' + SRC,
+                    '13.9.3.2 (retranqueo fachada 5 m), lateral medianera (adosada, 0), 13.9.3.4 (fondo 6 m), ' +
+                    '13.9.3.3 (profundidad máx. edificable 18 m desde la alineación de vial). ' + SRC,
             },
             {
                 code: 'UAD-3',
@@ -312,14 +358,26 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 maxCoverage: 0.6,
                 // 13.9.3.2: UAD-3 disposed ON the vial alignment → front 0; party-wall; fondo 5 m.
                 setbacks: { front_m: 0, side_m: 0, rear_m: 5 },
+                // ⚠⚠ D1, AND THIS IS THE ONE THAT WAS ACTUALLY DANGEROUS. front 0 + side 0 +
+                // rear 5 with NO depth band drew essentially the WHOLE PARCEL (L-616 mechanism A)
+                // on the 1,934 % of pilot land UAD-3 really binds. Art. 13.9.3.3 states 16 m.
+                geometricRule: {
+                    kind: 'alignment',
+                    alignTo: 'street',
+                    alignmentOffset_m: 0,      // 13.9.3.2 — built ON the alineación de vial
+                    sideTreatment: 'party-wall',
+                    buildableDepth_m: 16,      // Art. 13.9.3.3
+                },
                 fieldProvenance: {
                     maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
                     maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
                     'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
+                    'alignment.depth': 'pipeline-extracted',
                 },
                 ordinanceRef:
                     'PGOU Art. 13.9.2.3 (FAR 1,0), 13.9.2.2 (ocup. 60 %), 13.9.3.5 (PB+1, 7 m), ' +
-                    '13.9.3.2 (alineación a vial, front 0), lateral medianera (adosada, 0), 13.9.3.4 (fondo 5 m). ' + SRC,
+                    '13.9.3.2 (alineación a vial, front 0), lateral medianera (adosada, 0), 13.9.3.4 (fondo 5 m), ' +
+                    '13.9.3.3 (profundidad máx. edificable 16 m desde la alineación de vial). ' + SRC,
             },
             // ── Colonia Tradicional Popular (CTP-1) — PARTIAL, Art. 13.8 ─────────────────────
             // Alignment zone (front on the vial line) → setbacks null. edificabilidad DERIVED → null.
