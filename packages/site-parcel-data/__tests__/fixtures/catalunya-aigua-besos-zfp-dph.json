@@ -1,0 +1,125 @@
+{
+    "_provenance": "LIVE-extracted 2026-08-03 from https://sig.gencat.cat/ows/AIGUA/wfs (ACA, GetCapabilities-confirmed 674 layers, this session). WFS 2.0.0 GetFeature, OUTPUTFORMAT=application/json, CQL_FILTER=OBJECTID=<n>. Verbatim server payload, not hand-edited except this _provenance key and the added queryPointWgs84 convenience block.",
+    "queryPointWgs84": {
+        "lat": 41.4213,
+        "lon": 2.2281,
+        "note": "Inside the DPH polygon below (Besòs river mouth, Sant Adrià de Besòs / Barcelona boundary). Read off the same feature reprojected to EPSG:4326 by the server itself (SRSNAME=EPSG:4326), not computed locally."
+    },
+    "zfp": {
+        "layer": "AIGUA_ZFP",
+        "requestUrl": "https://sig.gencat.cat/ows/AIGUA/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=AIGUA:AIGUA_ZFP&CQL_FILTER=OBJECTID=2025&OUTPUTFORMAT=application/json",
+        "raw25831": {
+            "type": "Feature",
+            "id": "AIGUA_ZFP.2025",
+            "geometry": {
+                "type": "MultiPolygon",
+                "coordinates": [
+                    [
+                        [
+                            [434531.29, 4586795.88],
+                            [434511.15, 4586813.63],
+                            [434507.91, 4586809.57],
+                            [434522.31, 4586794.98],
+                            [434531.29, 4586795.88]
+                        ]
+                    ]
+                ]
+            },
+            "geometry_name": "SHAPE",
+            "properties": {
+                "ID_ES": "ZH060_202004_001",
+                "ID_P": "840",
+                "DATA_MODIF": "2020-07-16T00:00:00+02:00",
+                "HISTORIA": "http://acanet.gencat.cat/sig/fitxes/espais_fluvials/metadades/aca_metadada_ef_ZH060_202004_001.pdf",
+                "CODI": "060",
+                "Q": 0,
+                "KM": 0,
+                "NOM_AA": " ",
+                "NOM_AV": " ",
+                "ARPSI": "ES100060",
+                "OBJECTID": 2025
+            }
+        },
+        "srsName25831": "EPSG:25831"
+    },
+    "dph": {
+        "layer": "AIGUA_DPH",
+        "requestUrl": "https://sig.gencat.cat/ows/AIGUA/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=AIGUA:AIGUA_DPH&CQL_FILTER=OBJECTID=460&OUTPUTFORMAT=application/json",
+        "raw25831": {
+            "type": "Feature",
+            "id": "AIGUA_DPH.460",
+            "geometry": {
+                "type": "MultiPolygon",
+                "coordinates": [
+                    [
+                        [
+                            [435495.7135, 4585823.8971],
+                            [435497.5318, 4585822.4733],
+                            [435498.2688, 4585821.8244],
+                            [435500.9099999999, 4585819.5081],
+                            [435502.3145, 4585818.5062],
+                            [435510.9761, 4585810.7288],
+                            [435519.3145, 4585803.7288],
+                            [435519.9761, 4585803.1288],
+                            [435529.7761, 4585795.1288],
+                            [435530.5761, 4585794.3288],
+                            [435539.9761, 4585785.7288],
+                            [435540.9761, 4585784.7288],
+                            [435548.5761, 4585777.1288],
+                            [435556.4899, 4585769.3288],
+                            [435556.5899, 4585769.2288],
+                            [435557.3899, 4585768.4288],
+                            [435558.1899, 4585767.6288],
+                            [435558.9899, 4585766.8288],
+                            [435566.4899, 4585759.3288],
+                            [435566.5899, 4585759.2288],
+                            [435558.9899, 4585751.6288],
+                            [435558.7899, 4585751.4288],
+                            [435549.9761, 4585760.1288],
+                            [435540.5761, 4585769.4288],
+                            [435530.9761, 4585778.9288],
+                            [435520.9761, 4585788.7288],
+                            [435510.9761, 4585798.5288],
+                            [435500.9099999999, 4585808.3081],
+                            [435491.9761, 4585817.0288],
+                            [435492.09, 4585817.1971],
+                            [435495.7135, 4585823.8971]
+                        ]
+                    ]
+                ]
+            },
+            "geometry_name": "SHAPE",
+            "properties": {
+                "CODI": "060",
+                "ID_P": "251",
+                "ID_ES": "ZH060_201908_001",
+                "HISTORIA": "https://acanet.gencat.cat/sig/fitxes/espais_fluvials/metadades/aca_metadada_ef_ZH060_201908_001.pdf",
+                "DATA_MODIF": "2020-07-16T00:00:00+02:00",
+                "Q": 444.3,
+                "KM": 9.14,
+                "NOM_AA": "Confluència amb riu Ripoll",
+                "NOM_AV": "Desembocadura a mar",
+                "ARPSI": "ES100060",
+                "OBJECTID": 460
+            }
+        },
+        "srsName25831": "EPSG:25831"
+    },
+    "describeFeatureType": {
+        "note": "Both AIGUA_ZFP and AIGUA_DPH publish the IDENTICAL attribute schema (verified via DescribeFeatureType 2026-08-03). Only the layer/typename distinguishes which legal category a hit belongs to.",
+        "fields": [
+            { "name": "SHAPE", "type": "gml:MultiSurfacePropertyType", "nillable": true },
+            { "name": "ID_ES", "type": "xsd:string", "nillable": true },
+            { "name": "ID_P", "type": "xsd:string", "nillable": true },
+            { "name": "DATA_MODIF", "type": "xsd:dateTime", "nillable": true },
+            { "name": "HISTORIA", "type": "xsd:string", "nillable": true },
+            { "name": "CODI", "type": "xsd:string", "nillable": true },
+            { "name": "Q", "type": "xsd:decimal", "nillable": true },
+            { "name": "KM", "type": "xsd:decimal", "nillable": true },
+            { "name": "NOM_AA", "type": "xsd:string", "nillable": true },
+            { "name": "NOM_AV", "type": "xsd:string", "nillable": true },
+            { "name": "ARPSI", "type": "xsd:string", "nillable": true },
+            { "name": "OBJECTID", "type": "xsd:decimal", "nillable": false }
+        ]
+    }
+}
