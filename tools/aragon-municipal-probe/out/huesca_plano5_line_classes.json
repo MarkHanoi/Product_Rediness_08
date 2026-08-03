@@ -1,1077 +1,5422 @@
 {
   "probe": "huesca-plano5-line-classes",
+  "when": "2026-08-03",
   "question": "Is the linea de fondo edificable drawn in a graphics state distinguishable from the base map?",
-  "colour_is_ruled_out": "all paint colours on all sampled sheets are greyscale (r==g==b) -- zone identity is NOT colour-coded on this plan",
+  "RETRACTION": {
+    "superseded_claim": "all paint colours on all sampled sheets are greyscale (r==g==b) -- zone identity is NOT colour-coded on this plan",
+    "status": "FALSE -- WITHDRAWN",
+    "why_it_was_wrong": "The previous extractor scanned the content stream for the colour operators `RG` and `G` only. These sheets set colour through an ICCBased colourspace (`/Cs6 CS <r> <g> <b> SCN`): measured on H-01, 52 SCN + 32 CS events and ZERO RG. Unmatched SCN left every coloured stroke holding the last DeviceGray value. Separately, the one branch that did parse RG collapsed it to gray=(r+g+b)/3, destroying colour it had already read. Both faults yield r==g==b everywhere, which is indistinguishable from a monochrome plot.",
+    "corrected_by": "PyMuPDF get_drawings() via tools/plan-sheet-extract/plansheet.py, which resolves the page resource dictionary and the colourspace alternate. Independently corroborated by tools/plan-sheet-extract/out/huesca_plan_sheets.json."
+  },
+  "method": {
+    "engine": "tools/plan-sheet-extract/plansheet.py (stroke_census + colour_census + bind_legend)",
+    "class_identity": "(stroke_rgb, width_pt, dash_pattern) -- a triple, not a grey level",
+    "unit_of_count": "one get_drawings() entry = one painted path object. This is NOT the raw `S`-operator count reported by the byte-level probe in probe_huesca_plano5.py; the two are different units and must not be compared.",
+    "grey_tolerance": 0.002,
+    "why_a_tolerance": "8-bit source values round-trip through PDF reals unevenly: 75% grey arrives as (0.7539, 0.7540, 0.7539). An exact r==g==b test would score that as COLOUR and inflate the count with quantisation noise."
+  },
+  "coordinate_space": {
+    "page_rotation_deg": 90,
+    "mediabox": "portrait 1684 x 2384 (UNROTATED)",
+    "display": "landscape 2384 x 1684",
+    "NOTE": "class identity (colour, width, dash) is rotation-invariant, and this artefact records NO geometry, so it introduces no coordinate change. The geometry committed in huesca_plano5_geometry.json remains in UNROTATED mediabox space and is unaffected. The legend swatch rectangles in cities.py are DISPLAY space, which is why bind_legend applies page.rotation_matrix before testing containment."
+  },
   "sheets": [
     {
+      "sheet": "H-01",
       "file": "huesca_plano5_H-01.pdf",
-      "distinct_stroke_classes": 26,
+      "page_rotation": 90,
+      "distinct_stroke_classes": 41,
+      "SHEET_IS_COLOUR": true,
+      "colour_census": {
+        "grey_tolerance": 0.002,
+        "non_grey_stroke_items": 1595,
+        "grey_stroke_items": 5032,
+        "fill_only_non_grey_items": 0,
+        "fill_only_grey_items": 0,
+        "unresolved_colour_items": 0,
+        "SHEET_IS_COLOUR": true
+      },
+      "distinct_non_grey_classes": 28,
+      "distinct_unresolved_colour_classes": 0,
       "distinct_line_widths": 8,
       "distinct_dash_patterns": 3,
-      "dash_patterns": [
-        {
-          "pattern": "solid",
-          "strokes": 6669
-        },
-        {
-          "pattern": "11.88,3.96",
-          "strokes": 4
-        },
-        {
-          "pattern": "7.92,3.0,1.98,3.0",
-          "strokes": 1
-        }
-      ],
       "line_widths": [
         {
           "width_pt": 0.0,
-          "strokes": 6577
+          "items": 6543
         },
         {
           "width_pt": 0.3,
-          "strokes": 60
+          "items": 51
         },
         {
           "width_pt": 0.6,
-          "strokes": 16
-        },
-        {
-          "width_pt": 0.12,
-          "strokes": 7
+          "items": 16
         },
         {
           "width_pt": 0.42,
-          "strokes": 6
+          "items": 5
         },
         {
           "width_pt": 0.9,
-          "strokes": 4
+          "items": 4
+        },
+        {
+          "width_pt": 0.12,
+          "items": 4
         },
         {
           "width_pt": 0.72,
-          "strokes": 3
+          "items": 3
         },
         {
           "width_pt": 0.66,
-          "strokes": 1
+          "items": 1
+        }
+      ],
+      "dash_patterns": [
+        {
+          "pattern": "[] 0",
+          "items": 6622
+        },
+        {
+          "pattern": "[ 11.88 3.96 ] 0",
+          "items": 4
+        },
+        {
+          "pattern": "[ 7.92 3 1.98 3 ] 0",
+          "items": 1
         }
       ],
       "top_classes": [
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 5282
+          "type": "fs",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 4025
         },
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 1276
+          "type": "fs",
+          "stroke_rgb": [
+            0.7539,
+            0.754,
+            0.7539
+          ],
+          "fill_rgb": [
+            0.7539,
+            0.754,
+            0.7539
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 961
         },
         {
-          "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 26
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 596
         },
         {
-          "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 26
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.3176,
+            0.6588
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 260
         },
         {
-          "width_pt": 0.6,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 14
+          "type": "fs",
+          "stroke_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 221
         },
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.51,
-          "strokes": 11
+          "type": "fs",
+          "stroke_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "fill_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 197
         },
         {
-          "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 8
+          "type": "fs",
+          "stroke_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "fill_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 125
         },
         {
-          "width_pt": 0.12,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 5
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 79
         },
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 4
+          "type": "fs",
+          "stroke_rgb": [
+            0.9412,
+            0.7333,
+            0.5255
+          ],
+          "fill_rgb": [
+            0.9412,
+            0.7333,
+            0.5255
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 33
         },
         {
-          "width_pt": 0.42,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 3
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 32
         },
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.91,
-          "strokes": 2
+          "type": "fs",
+          "stroke_rgb": [
+            0.7804,
+            0.7882,
+            0.3176
+          ],
+          "fill_rgb": [
+            0.7804,
+            0.7882,
+            0.3176
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 17
         },
         {
-          "width_pt": 0.42,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 2
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 13
         },
         {
-          "width_pt": 0.12,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 2
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 12
         },
         {
-          "width_pt": 0.72,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 1
+          "type": "s",
+          "stroke_rgb": [
+            0.5119,
+            0.512,
+            0.5119
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 5
         },
         {
-          "width_pt": 0.6,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 1
+          "type": "s",
+          "stroke_rgb": [
+            0.25,
+            0.25,
+            0.25
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 4
         }
       ],
-      "dashed_stroke_count": 5,
+      "non_grey_classes": [
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 596
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.3176,
+            0.6588
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 260
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 221
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "fill_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 197
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "fill_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 125
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 79
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9412,
+            0.7333,
+            0.5255
+          ],
+          "fill_rgb": [
+            0.9412,
+            0.7333,
+            0.5255
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 33
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 32
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.7804,
+            0.7882,
+            0.3176
+          ],
+          "fill_rgb": [
+            0.7804,
+            0.7882,
+            0.3176
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 17
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.949,
+            0.6588,
+            0.5019
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 4
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "fill_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 4
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.6902,
+            0.6392,
+            0.1882
+          ],
+          "fill_rgb": null,
+          "width": 0.42,
+          "dashes": "[] 0",
+          "n": 3
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0863,
+            0.2667,
+            0.1608
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 3
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9216,
+            1.0,
+            0.6588
+          ],
+          "fill_rgb": [
+            0.9216,
+            1.0,
+            0.6588
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.72,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.9,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.9,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.3176,
+            0.6588
+          ],
+          "fill_rgb": null,
+          "width": 0.12,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.72,
+          "dashes": "[] 0",
+          "n": 1
+        }
+      ],
+      "dashed_item_count": 5,
       "dashed_classes": [
         {
-          "width_pt": 0.9,
-          "dash": "11.88,3.96",
-          "gray": 0.25,
-          "strokes": 1
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.9,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 2
         },
         {
-          "width_pt": 0.0,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 1
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 1
         },
         {
-          "width_pt": 0.0,
-          "dash": "7.92,3.0,1.98,3.0",
-          "gray": 0.0,
-          "strokes": 1
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[ 7.92 3 1.98 3 ] 0",
+          "n": 1
         },
         {
-          "width_pt": 0.9,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 1
-        },
-        {
-          "width_pt": 0.6,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 1
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 1
         }
-      ]
+      ],
+      "legend": {
+        "counts": {
+          "BOUND": 5,
+          "CLASS_BOUND_MEANING_UNKNOWN": 2,
+          "UNKNOWN": 0
+        },
+        "collisions": 0,
+        "rows": [
+          {
+            "row": "L1",
+            "label_es": "LÍMITE DE TÉRMINO MUNICIPAL",
+            "meaning_en": "municipal boundary",
+            "captions": 1,
+            "swatch": [
+              90,
+              1484,
+              176,
+              1494
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L2",
+            "label_es": "LÍMITE DE SUELO URBANO",
+            "meaning_en": "boundary of urban land",
+            "captions": 1,
+            "swatch": [
+              90,
+              1508,
+              176,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L3",
+            "label_es": "LÍMITE DE NORMA ZONAL Y GRADOS / LÍMITE DE ÁREA DE PLANEAMIENTO INCORPORADO (API) / ESPECÍFICO (APE) / REMITIDO (APR)",
+            "meaning_en": "four different boundary meanings sharing one symbol",
+            "captions": 4,
+            "swatch": [
+              90,
+              1560,
+              176,
+              1569
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 4 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "L4",
+            "label_es": "RASANTE",
+            "meaning_en": "official finished ground level, annotated in metres",
+            "captions": 1,
+            "swatch": [
+              112,
+              1604,
+              176,
+              1628
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.3,
+                "dashes": "[] 0"
+              },
+              {
+                "type": "fs",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "width": 0.0,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R1",
+            "label_es": "ALINEACIÓN",
+            "meaning_en": "official alignment -- the front of the buildable envelope",
+            "captions": 1,
+            "swatch": [
+              455,
+              1486,
+              540,
+              1495
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.72,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R2",
+            "label_es": "CAMBIO DE ALTURA Y USO / FONDO EDIFICABLE",
+            "meaning_en": "height/use change OR buildable depth -- the sheet does not say which",
+            "captions": 2,
+            "swatch": [
+              455,
+              1508,
+              540,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 2 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "R3",
+            "label_es": "SOPORTAL Y PASAJES",
+            "meaning_en": "arcade and passageway",
+            "captions": 1,
+            "swatch": [
+              455,
+              1529,
+              540,
+              1538
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          }
+        ]
+      },
+      "expected_binding_check": {
+        "R1": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.72,
+            "dashes": "[] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.72,
+              "dashes": "[] 0"
+            }
+          ],
+          "REPRODUCED": true
+        },
+        "R2": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.6,
+            "dashes": "[] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.6,
+              "dashes": "[] 0"
+            }
+          ],
+          "REPRODUCED": true
+        },
+        "R3": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.6,
+            "dashes": "[ 11.88 3.96 ] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.6,
+              "dashes": "[ 11.88 3.96 ] 0"
+            }
+          ],
+          "REPRODUCED": true
+        }
+      }
     },
     {
+      "sheet": "H-05",
       "file": "huesca_plano5_H-05.pdf",
-      "distinct_stroke_classes": 22,
+      "page_rotation": 90,
+      "distinct_stroke_classes": 42,
+      "SHEET_IS_COLOUR": true,
+      "colour_census": {
+        "grey_tolerance": 0.002,
+        "non_grey_stroke_items": 1625,
+        "grey_stroke_items": 4535,
+        "fill_only_non_grey_items": 0,
+        "fill_only_grey_items": 1,
+        "unresolved_colour_items": 0,
+        "SHEET_IS_COLOUR": true
+      },
+      "distinct_non_grey_classes": 29,
+      "distinct_unresolved_colour_classes": 1,
       "distinct_line_widths": 8,
-      "distinct_dash_patterns": 2,
-      "dash_patterns": [
-        {
-          "pattern": "solid",
-          "strokes": 6230
-        },
-        {
-          "pattern": "11.88,3.96",
-          "strokes": 7
-        }
-      ],
+      "distinct_dash_patterns": 3,
       "line_widths": [
         {
           "width_pt": 0.0,
-          "strokes": 6111
+          "items": 6048
         },
         {
           "width_pt": 0.3,
-          "strokes": 87
+          "items": 77
         },
         {
           "width_pt": 0.6,
-          "strokes": 19
+          "items": 19
         },
         {
           "width_pt": 0.12,
-          "strokes": 8
-        },
-        {
-          "width_pt": 0.42,
-          "strokes": 4
+          "items": 5
         },
         {
           "width_pt": 0.72,
-          "strokes": 4
+          "items": 4
+        },
+        {
+          "width_pt": 0.42,
+          "items": 4
         },
         {
           "width_pt": 0.9,
-          "strokes": 3
+          "items": 3
         },
         {
           "width_pt": 0.66,
-          "strokes": 1
+          "items": 1
+        }
+      ],
+      "dash_patterns": [
+        {
+          "pattern": "[] 0",
+          "items": 6154
+        },
+        {
+          "pattern": "[ 11.88 3.96 ] 0",
+          "items": 6
+        },
+        {
+          "pattern": "unknown",
+          "items": 1
         }
       ],
       "top_classes": [
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 5406
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 4083
         },
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 680
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 596
         },
         {
-          "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 72
+          "type": "fs",
+          "stroke_rgb": [
+            0.7539,
+            0.754,
+            0.7539
+          ],
+          "fill_rgb": [
+            0.7539,
+            0.754,
+            0.7539
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 406
         },
         {
-          "width_pt": 0.6,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 16
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.3176,
+            0.6588
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 260
         },
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 14
+          "type": "fs",
+          "stroke_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 221
         },
         {
-          "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 8
+          "type": "fs",
+          "stroke_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "fill_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 197
         },
         {
-          "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 7
+          "type": "fs",
+          "stroke_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "fill_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 125
         },
         {
-          "width_pt": 0.12,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 6
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 79
         },
         {
-          "width_pt": 0.0,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 5
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 56
         },
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.51,
-          "strokes": 4
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 32
         },
         {
-          "width_pt": 0.42,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 3
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 15
         },
         {
-          "width_pt": 0.72,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 3
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "fill_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 13
         },
         {
-          "width_pt": 0.6,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 2
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 13
         },
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.91,
-          "strokes": 2
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            1.0,
+            0.7843
+          ],
+          "fill_rgb": [
+            1.0,
+            1.0,
+            0.7843
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 7
         },
         {
-          "width_pt": 0.12,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 2
+          "type": "s",
+          "stroke_rgb": [
+            0.949,
+            0.6588,
+            0.5019
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 5
         }
       ],
-      "dashed_stroke_count": 7,
+      "non_grey_classes": [
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 596
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.3176,
+            0.6588
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 260
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 221
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "fill_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 197
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "fill_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 125
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 79
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 56
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 32
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "fill_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 13
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            1.0,
+            0.7843
+          ],
+          "fill_rgb": [
+            1.0,
+            1.0,
+            0.7843
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 7
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.949,
+            0.6588,
+            0.5019
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 5
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.72,
+          "dashes": "[] 0",
+          "n": 4
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "fill_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 4
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9216,
+            1.0,
+            0.6588
+          ],
+          "fill_rgb": [
+            0.9216,
+            1.0,
+            0.6588
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 3
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 3
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9412,
+            0.7333,
+            0.5255
+          ],
+          "fill_rgb": [
+            0.9412,
+            0.7333,
+            0.5255
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.6902,
+            0.6392,
+            0.1882
+          ],
+          "fill_rgb": null,
+          "width": 0.42,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.9,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0863,
+            0.2667,
+            0.1608
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 2
+        }
+      ],
+      "dashed_item_count": 6,
       "dashed_classes": [
         {
-          "width_pt": 0.0,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 5
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 4
         },
         {
-          "width_pt": 0.9,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 1
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.9,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 1
         },
         {
-          "width_pt": 0.6,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 1
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 1
         }
-      ]
+      ],
+      "legend": {
+        "counts": {
+          "BOUND": 5,
+          "CLASS_BOUND_MEANING_UNKNOWN": 2,
+          "UNKNOWN": 0
+        },
+        "collisions": 0,
+        "rows": [
+          {
+            "row": "L1",
+            "label_es": "LÍMITE DE TÉRMINO MUNICIPAL",
+            "meaning_en": "municipal boundary",
+            "captions": 1,
+            "swatch": [
+              90,
+              1484,
+              176,
+              1494
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L2",
+            "label_es": "LÍMITE DE SUELO URBANO",
+            "meaning_en": "boundary of urban land",
+            "captions": 1,
+            "swatch": [
+              90,
+              1508,
+              176,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L3",
+            "label_es": "LÍMITE DE NORMA ZONAL Y GRADOS / LÍMITE DE ÁREA DE PLANEAMIENTO INCORPORADO (API) / ESPECÍFICO (APE) / REMITIDO (APR)",
+            "meaning_en": "four different boundary meanings sharing one symbol",
+            "captions": 4,
+            "swatch": [
+              90,
+              1560,
+              176,
+              1569
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 4 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "L4",
+            "label_es": "RASANTE",
+            "meaning_en": "official finished ground level, annotated in metres",
+            "captions": 1,
+            "swatch": [
+              112,
+              1604,
+              176,
+              1628
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.3,
+                "dashes": "[] 0"
+              },
+              {
+                "type": "fs",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "width": 0.0,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R1",
+            "label_es": "ALINEACIÓN",
+            "meaning_en": "official alignment -- the front of the buildable envelope",
+            "captions": 1,
+            "swatch": [
+              455,
+              1486,
+              540,
+              1495
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.72,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R2",
+            "label_es": "CAMBIO DE ALTURA Y USO / FONDO EDIFICABLE",
+            "meaning_en": "height/use change OR buildable depth -- the sheet does not say which",
+            "captions": 2,
+            "swatch": [
+              455,
+              1508,
+              540,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 2 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "R3",
+            "label_es": "SOPORTAL Y PASAJES",
+            "meaning_en": "arcade and passageway",
+            "captions": 1,
+            "swatch": [
+              455,
+              1529,
+              540,
+              1538
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          }
+        ]
+      },
+      "expected_binding_check": {
+        "R1": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.72,
+            "dashes": "[] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.72,
+              "dashes": "[] 0"
+            }
+          ],
+          "REPRODUCED": true
+        },
+        "R2": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.6,
+            "dashes": "[] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.6,
+              "dashes": "[] 0"
+            }
+          ],
+          "REPRODUCED": true
+        },
+        "R3": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.6,
+            "dashes": "[ 11.88 3.96 ] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.6,
+              "dashes": "[ 11.88 3.96 ] 0"
+            }
+          ],
+          "REPRODUCED": true
+        }
+      }
     },
     {
+      "sheet": "H-13",
       "file": "huesca_plano5_H-13.pdf",
-      "distinct_stroke_classes": 25,
-      "distinct_line_widths": 9,
-      "distinct_dash_patterns": 3,
-      "dash_patterns": [
-        {
-          "pattern": "solid",
-          "strokes": 8238
-        },
-        {
-          "pattern": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "strokes": 1658
-        },
-        {
-          "pattern": "11.88,3.96",
-          "strokes": 4
-        }
-      ],
+      "page_rotation": 90,
+      "distinct_stroke_classes": 39,
+      "SHEET_IS_COLOUR": true,
+      "colour_census": {
+        "grey_tolerance": 0.002,
+        "non_grey_stroke_items": 3020,
+        "grey_stroke_items": 6681,
+        "fill_only_non_grey_items": 0,
+        "fill_only_grey_items": 0,
+        "unresolved_colour_items": 0,
+        "SHEET_IS_COLOUR": true
+      },
+      "distinct_non_grey_classes": 29,
+      "distinct_unresolved_colour_classes": 0,
+      "distinct_line_widths": 8,
+      "distinct_dash_patterns": 2,
       "line_widths": [
         {
           "width_pt": 0.0,
-          "strokes": 8409
-        },
-        {
-          "width_pt": 1.0,
-          "strokes": 1159
+          "items": 9389
         },
         {
           "width_pt": 0.3,
-          "strokes": 232
+          "items": 223
         },
         {
           "width_pt": 0.6,
-          "strokes": 70
+          "items": 62
         },
         {
           "width_pt": 0.12,
-          "strokes": 18
-        },
-        {
-          "width_pt": 0.42,
-          "strokes": 4
+          "items": 15
         },
         {
           "width_pt": 0.72,
-          "strokes": 4
+          "items": 4
+        },
+        {
+          "width_pt": 0.42,
+          "items": 4
         },
         {
           "width_pt": 0.9,
-          "strokes": 3
+          "items": 3
         },
         {
           "width_pt": 0.66,
-          "strokes": 1
+          "items": 1
+        }
+      ],
+      "dash_patterns": [
+        {
+          "pattern": "[] 0",
+          "items": 9697
+        },
+        {
+          "pattern": "[ 11.88 3.96 ] 0",
+          "items": 4
         }
       ],
       "top_classes": [
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 7823
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 6286
         },
         {
-          "width_pt": 1.0,
-          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "gray": 0.0,
-          "strokes": 702
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "fill_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 702
         },
         {
-          "width_pt": 1.0,
-          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "gray": 0.75,
-          "strokes": 457
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 596
         },
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 264
+          "type": "fs",
+          "stroke_rgb": [
+            0.7539,
+            0.754,
+            0.7539
+          ],
+          "fill_rgb": [
+            0.7539,
+            0.754,
+            0.7539
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 266
         },
         {
-          "width_pt": 0.0,
-          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "gray": 0.25,
-          "strokes": 249
+          "type": "fs",
+          "stroke_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "fill_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 260
         },
         {
-          "width_pt": 0.3,
-          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "gray": 0.75,
-          "strokes": 158
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.3176,
+            0.6588
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 260
         },
         {
-          "width_pt": 0.0,
-          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "gray": 0.0,
-          "strokes": 69
+          "type": "fs",
+          "stroke_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 221
         },
         {
-          "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 66
+          "type": "fs",
+          "stroke_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "fill_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 197
         },
         {
-          "width_pt": 0.6,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 51
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 165
         },
         {
-          "width_pt": 0.6,
-          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "gray": 0.0,
-          "strokes": 17
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 149
         },
         {
-          "width_pt": 0.12,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 16
+          "type": "fs",
+          "stroke_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "fill_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 125
         },
         {
-          "width_pt": 0.3,
-          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "gray": 0.25,
-          "strokes": 4
+          "type": "fs",
+          "stroke_rgb": [
+            0.9216,
+            1.0,
+            0.6588
+          ],
+          "fill_rgb": [
+            0.9216,
+            1.0,
+            0.6588
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 98
         },
         {
-          "width_pt": 0.72,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 4
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 79
         },
         {
-          "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 3
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 53
         },
         {
-          "width_pt": 0.6,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 2
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 52
         }
       ],
-      "dashed_stroke_count": 1662,
+      "non_grey_classes": [
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "fill_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 702
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 596
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "fill_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 260
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.3176,
+            0.6588
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 260
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 221
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "fill_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 197
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 165
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 149
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "fill_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 125
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9216,
+            1.0,
+            0.6588
+          ],
+          "fill_rgb": [
+            0.9216,
+            1.0,
+            0.6588
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 98
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 79
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.949,
+            0.8392,
+            0.5804
+          ],
+          "fill_rgb": [
+            0.949,
+            0.8392,
+            0.5804
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 46
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0863,
+            0.2667,
+            0.1608
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 44
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9412,
+            0.7333,
+            0.5255
+          ],
+          "fill_rgb": [
+            0.9412,
+            0.7333,
+            0.5255
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 33
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.7804,
+            0.7882,
+            0.3176
+          ],
+          "fill_rgb": [
+            0.7804,
+            0.7882,
+            0.3176
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 17
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 5
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.72,
+          "dashes": "[] 0",
+          "n": 4
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            1.0,
+            0.7843
+          ],
+          "fill_rgb": [
+            1.0,
+            1.0,
+            0.7843
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.6902,
+            0.6392,
+            0.1882
+          ],
+          "fill_rgb": null,
+          "width": 0.42,
+          "dashes": "[] 0",
+          "n": 2
+        }
+      ],
+      "dashed_item_count": 4,
       "dashed_classes": [
         {
-          "width_pt": 1.0,
-          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "gray": 0.0,
-          "strokes": 702
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 2
         },
         {
-          "width_pt": 1.0,
-          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "gray": 0.75,
-          "strokes": 457
-        },
-        {
-          "width_pt": 0.0,
-          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "gray": 0.25,
-          "strokes": 249
-        },
-        {
-          "width_pt": 0.3,
-          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "gray": 0.75,
-          "strokes": 158
-        },
-        {
-          "width_pt": 0.0,
-          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "gray": 0.0,
-          "strokes": 69
-        },
-        {
-          "width_pt": 0.6,
-          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "gray": 0.0,
-          "strokes": 17
-        },
-        {
-          "width_pt": 0.3,
-          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "gray": 0.25,
-          "strokes": 4
-        },
-        {
-          "width_pt": 0.6,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 2
-        },
-        {
-          "width_pt": 0.9,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 2
-        },
-        {
-          "width_pt": 0.3,
-          "dash": "1.0,0.9,0.78,1.0,0.9,0.78,0.0,2.0,0.0,10.0",
-          "gray": 0.0,
-          "strokes": 1
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.9,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 2
         }
-      ]
+      ],
+      "legend": {
+        "counts": {
+          "BOUND": 5,
+          "CLASS_BOUND_MEANING_UNKNOWN": 2,
+          "UNKNOWN": 0
+        },
+        "collisions": 0,
+        "rows": [
+          {
+            "row": "L1",
+            "label_es": "LÍMITE DE TÉRMINO MUNICIPAL",
+            "meaning_en": "municipal boundary",
+            "captions": 1,
+            "swatch": [
+              90,
+              1484,
+              176,
+              1494
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L2",
+            "label_es": "LÍMITE DE SUELO URBANO",
+            "meaning_en": "boundary of urban land",
+            "captions": 1,
+            "swatch": [
+              90,
+              1508,
+              176,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L3",
+            "label_es": "LÍMITE DE NORMA ZONAL Y GRADOS / LÍMITE DE ÁREA DE PLANEAMIENTO INCORPORADO (API) / ESPECÍFICO (APE) / REMITIDO (APR)",
+            "meaning_en": "four different boundary meanings sharing one symbol",
+            "captions": 4,
+            "swatch": [
+              90,
+              1560,
+              176,
+              1569
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 4 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "L4",
+            "label_es": "RASANTE",
+            "meaning_en": "official finished ground level, annotated in metres",
+            "captions": 1,
+            "swatch": [
+              112,
+              1604,
+              176,
+              1628
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.3,
+                "dashes": "[] 0"
+              },
+              {
+                "type": "fs",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "width": 0.0,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R1",
+            "label_es": "ALINEACIÓN",
+            "meaning_en": "official alignment -- the front of the buildable envelope",
+            "captions": 1,
+            "swatch": [
+              455,
+              1486,
+              540,
+              1495
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.72,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R2",
+            "label_es": "CAMBIO DE ALTURA Y USO / FONDO EDIFICABLE",
+            "meaning_en": "height/use change OR buildable depth -- the sheet does not say which",
+            "captions": 2,
+            "swatch": [
+              455,
+              1508,
+              540,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 2 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "R3",
+            "label_es": "SOPORTAL Y PASAJES",
+            "meaning_en": "arcade and passageway",
+            "captions": 1,
+            "swatch": [
+              455,
+              1529,
+              540,
+              1538
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          }
+        ]
+      },
+      "expected_binding_check": {
+        "R1": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.72,
+            "dashes": "[] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.72,
+              "dashes": "[] 0"
+            }
+          ],
+          "REPRODUCED": true
+        },
+        "R2": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.6,
+            "dashes": "[] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.6,
+              "dashes": "[] 0"
+            }
+          ],
+          "REPRODUCED": true
+        },
+        "R3": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.6,
+            "dashes": "[ 11.88 3.96 ] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.6,
+              "dashes": "[ 11.88 3.96 ] 0"
+            }
+          ],
+          "REPRODUCED": true
+        }
+      }
     },
     {
+      "sheet": "H-14",
       "file": "huesca_plano5_H-14.pdf",
-      "distinct_stroke_classes": 23,
-      "distinct_line_widths": 9,
-      "distinct_dash_patterns": 2,
-      "dash_patterns": [
-        {
-          "pattern": "solid",
-          "strokes": 9889
-        },
-        {
-          "pattern": "11.88,3.96",
-          "strokes": 4
-        }
-      ],
-      "line_widths": [
-        {
-          "width_pt": 0.0,
-          "strokes": 9652
-        },
-        {
-          "width_pt": 0.3,
-          "strokes": 146
-        },
-        {
-          "width_pt": 0.6,
-          "strokes": 67
-        },
-        {
-          "width_pt": 0.12,
-          "strokes": 12
-        },
-        {
-          "width_pt": 0.42,
-          "strokes": 5
-        },
-        {
-          "width_pt": 0.72,
-          "strokes": 4
-        },
-        {
-          "width_pt": 0.9,
-          "strokes": 4
-        },
-        {
-          "width_pt": 1.0,
-          "strokes": 2
-        },
-        {
-          "width_pt": 0.66,
-          "strokes": 1
-        }
-      ],
-      "top_classes": [
-        {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 8104
-        },
-        {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 1450
-        },
-        {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 96
-        },
-        {
-          "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 70
-        },
-        {
-          "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 67
-        },
-        {
-          "width_pt": 0.6,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 62
-        },
-        {
-          "width_pt": 0.12,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 10
-        },
-        {
-          "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 9
-        },
-        {
-          "width_pt": 0.42,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 3
-        },
-        {
-          "width_pt": 0.72,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 3
-        },
-        {
-          "width_pt": 0.6,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 3
-        },
-        {
-          "width_pt": 1.0,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 2
-        },
-        {
-          "width_pt": 0.42,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 2
-        },
-        {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.91,
-          "strokes": 2
-        },
-        {
-          "width_pt": 0.12,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 2
-        }
-      ],
-      "dashed_stroke_count": 4,
-      "dashed_classes": [
-        {
-          "width_pt": 0.6,
-          "dash": "11.88,3.96",
-          "gray": 0.25,
-          "strokes": 1
-        },
-        {
-          "width_pt": 0.9,
-          "dash": "11.88,3.96",
-          "gray": 0.25,
-          "strokes": 1
-        },
-        {
-          "width_pt": 0.9,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 1
-        },
-        {
-          "width_pt": 0.6,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 1
-        }
-      ]
-    },
-    {
-      "file": "huesca_plano5_H-21.pdf",
-      "distinct_stroke_classes": 24,
+      "page_rotation": 90,
+      "distinct_stroke_classes": 42,
+      "SHEET_IS_COLOUR": true,
+      "colour_census": {
+        "grey_tolerance": 0.002,
+        "non_grey_stroke_items": 2344,
+        "grey_stroke_items": 7406,
+        "fill_only_non_grey_items": 0,
+        "fill_only_grey_items": 2,
+        "unresolved_colour_items": 0,
+        "SHEET_IS_COLOUR": true
+      },
+      "distinct_non_grey_classes": 31,
+      "distinct_unresolved_colour_classes": 1,
       "distinct_line_widths": 8,
       "distinct_dash_patterns": 3,
-      "dash_patterns": [
-        {
-          "pattern": "solid",
-          "strokes": 6411
-        },
-        {
-          "pattern": "11.88,3.96",
-          "strokes": 5
-        },
-        {
-          "pattern": "7.92,3.0,1.98,3.0",
-          "strokes": 1
-        }
-      ],
       "line_widths": [
         {
           "width_pt": 0.0,
-          "strokes": 6308
+          "items": 9525
         },
         {
           "width_pt": 0.3,
-          "strokes": 74
+          "items": 137
         },
         {
           "width_pt": 0.6,
-          "strokes": 16
+          "items": 67
         },
         {
           "width_pt": 0.12,
-          "strokes": 8
+          "items": 9
         },
         {
           "width_pt": 0.42,
-          "strokes": 4
-        },
-        {
-          "width_pt": 0.9,
-          "strokes": 4
+          "items": 5
         },
         {
           "width_pt": 0.72,
-          "strokes": 2
+          "items": 4
+        },
+        {
+          "width_pt": 0.9,
+          "items": 4
         },
         {
           "width_pt": 0.66,
-          "strokes": 1
+          "items": 1
+        }
+      ],
+      "dash_patterns": [
+        {
+          "pattern": "[] 0",
+          "items": 9746
+        },
+        {
+          "pattern": "[ 11.88 3.96 ] 0",
+          "items": 4
+        },
+        {
+          "pattern": "unknown",
+          "items": 2
         }
       ],
       "top_classes": [
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 5301
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 6331
         },
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 970
+          "type": "fs",
+          "stroke_rgb": [
+            0.7539,
+            0.754,
+            0.7539
+          ],
+          "fill_rgb": [
+            0.7539,
+            0.754,
+            0.7539
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 943
         },
         {
-          "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 40
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 596
         },
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 31
+          "type": "fs",
+          "stroke_rgb": [
+            0.7804,
+            0.7882,
+            0.3176
+          ],
+          "fill_rgb": [
+            0.7804,
+            0.7882,
+            0.3176
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 314
         },
         {
-          "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 27
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.3176,
+            0.6588
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 265
         },
         {
-          "width_pt": 0.6,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 14
+          "type": "fs",
+          "stroke_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 221
         },
         {
-          "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 7
+          "type": "fs",
+          "stroke_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "fill_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 197
         },
         {
-          "width_pt": 0.12,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 6
+          "type": "fs",
+          "stroke_rgb": [
+            0.9412,
+            1.0,
+            0.9804
+          ],
+          "fill_rgb": [
+            0.9412,
+            1.0,
+            0.9804
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 169
         },
         {
-          "width_pt": 0.42,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 2
+          "type": "fs",
+          "stroke_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "fill_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 125
         },
         {
-          "width_pt": 0.0,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 2
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "fill_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 99
         },
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.91,
-          "strokes": 2
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 93
         },
         {
-          "width_pt": 0.42,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 2
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 79
         },
         {
-          "width_pt": 0.12,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 2
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 73
         },
         {
-          "width_pt": 0.6,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 1
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 58
         },
         {
-          "width_pt": 0.72,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 1
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 57
         }
       ],
-      "dashed_stroke_count": 6,
+      "non_grey_classes": [
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 596
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.7804,
+            0.7882,
+            0.3176
+          ],
+          "fill_rgb": [
+            0.7804,
+            0.7882,
+            0.3176
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 314
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.3176,
+            0.6588
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 265
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 221
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "fill_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 197
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9412,
+            1.0,
+            0.9804
+          ],
+          "fill_rgb": [
+            0.9412,
+            1.0,
+            0.9804
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 169
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "fill_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 125
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "fill_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 99
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 93
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 79
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 73
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9216,
+            1.0,
+            0.6588
+          ],
+          "fill_rgb": [
+            0.9216,
+            1.0,
+            0.6588
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 35
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "fill_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 17
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9412,
+            0.7333,
+            0.5255
+          ],
+          "fill_rgb": [
+            0.9412,
+            0.7333,
+            0.5255
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 15
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.949,
+            0.8392,
+            0.5804
+          ],
+          "fill_rgb": [
+            0.949,
+            0.8392,
+            0.5804
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 12
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.72,
+          "dashes": "[] 0",
+          "n": 4
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 4
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0863,
+            0.2667,
+            0.1608
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 4
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.6902,
+            0.6392,
+            0.1882
+          ],
+          "fill_rgb": null,
+          "width": 0.42,
+          "dashes": "[] 0",
+          "n": 3
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 3
+        }
+      ],
+      "dashed_item_count": 4,
       "dashed_classes": [
         {
-          "width_pt": 0.0,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 2
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 2
         },
         {
-          "width_pt": 0.9,
-          "dash": "11.88,3.96",
-          "gray": 0.25,
-          "strokes": 1
-        },
-        {
-          "width_pt": 0.0,
-          "dash": "7.92,3.0,1.98,3.0",
-          "gray": 0.0,
-          "strokes": 1
-        },
-        {
-          "width_pt": 0.9,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 1
-        },
-        {
-          "width_pt": 0.6,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 1
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.9,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 2
         }
-      ]
+      ],
+      "legend": {
+        "counts": {
+          "BOUND": 5,
+          "CLASS_BOUND_MEANING_UNKNOWN": 2,
+          "UNKNOWN": 0
+        },
+        "collisions": 0,
+        "rows": [
+          {
+            "row": "L1",
+            "label_es": "LÍMITE DE TÉRMINO MUNICIPAL",
+            "meaning_en": "municipal boundary",
+            "captions": 1,
+            "swatch": [
+              90,
+              1484,
+              176,
+              1494
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L2",
+            "label_es": "LÍMITE DE SUELO URBANO",
+            "meaning_en": "boundary of urban land",
+            "captions": 1,
+            "swatch": [
+              90,
+              1508,
+              176,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L3",
+            "label_es": "LÍMITE DE NORMA ZONAL Y GRADOS / LÍMITE DE ÁREA DE PLANEAMIENTO INCORPORADO (API) / ESPECÍFICO (APE) / REMITIDO (APR)",
+            "meaning_en": "four different boundary meanings sharing one symbol",
+            "captions": 4,
+            "swatch": [
+              90,
+              1560,
+              176,
+              1569
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 4 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "L4",
+            "label_es": "RASANTE",
+            "meaning_en": "official finished ground level, annotated in metres",
+            "captions": 1,
+            "swatch": [
+              112,
+              1604,
+              176,
+              1628
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.3,
+                "dashes": "[] 0"
+              },
+              {
+                "type": "fs",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "width": 0.0,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R1",
+            "label_es": "ALINEACIÓN",
+            "meaning_en": "official alignment -- the front of the buildable envelope",
+            "captions": 1,
+            "swatch": [
+              455,
+              1486,
+              540,
+              1495
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.72,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R2",
+            "label_es": "CAMBIO DE ALTURA Y USO / FONDO EDIFICABLE",
+            "meaning_en": "height/use change OR buildable depth -- the sheet does not say which",
+            "captions": 2,
+            "swatch": [
+              455,
+              1508,
+              540,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 2 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "R3",
+            "label_es": "SOPORTAL Y PASAJES",
+            "meaning_en": "arcade and passageway",
+            "captions": 1,
+            "swatch": [
+              455,
+              1529,
+              540,
+              1538
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          }
+        ]
+      },
+      "expected_binding_check": {
+        "R1": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.72,
+            "dashes": "[] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.72,
+              "dashes": "[] 0"
+            }
+          ],
+          "REPRODUCED": true
+        },
+        "R2": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.6,
+            "dashes": "[] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.6,
+              "dashes": "[] 0"
+            }
+          ],
+          "REPRODUCED": true
+        },
+        "R3": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.6,
+            "dashes": "[ 11.88 3.96 ] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.6,
+              "dashes": "[ 11.88 3.96 ] 0"
+            }
+          ],
+          "REPRODUCED": true
+        }
+      }
     },
     {
-      "file": "huesca_plano5_H-28.pdf",
-      "distinct_stroke_classes": 20,
+      "sheet": "H-21",
+      "file": "huesca_plano5_H-21.pdf",
+      "page_rotation": 90,
+      "distinct_stroke_classes": 41,
+      "SHEET_IS_COLOUR": true,
+      "colour_census": {
+        "grey_tolerance": 0.002,
+        "non_grey_stroke_items": 1766,
+        "grey_stroke_items": 4601,
+        "fill_only_non_grey_items": 0,
+        "fill_only_grey_items": 0,
+        "unresolved_colour_items": 0,
+        "SHEET_IS_COLOUR": true
+      },
+      "distinct_non_grey_classes": 28,
+      "distinct_unresolved_colour_classes": 0,
       "distinct_line_widths": 8,
-      "distinct_dash_patterns": 2,
-      "dash_patterns": [
-        {
-          "pattern": "solid",
-          "strokes": 6783
-        },
-        {
-          "pattern": "11.88,3.96",
-          "strokes": 3
-        }
-      ],
+      "distinct_dash_patterns": 3,
       "line_widths": [
         {
           "width_pt": 0.0,
-          "strokes": 6666
+          "items": 6270
         },
         {
           "width_pt": 0.3,
-          "strokes": 76
+          "items": 65
         },
         {
           "width_pt": 0.6,
-          "strokes": 26
+          "items": 16
         },
         {
           "width_pt": 0.12,
-          "strokes": 7
+          "items": 5
         },
         {
           "width_pt": 0.42,
-          "strokes": 4
+          "items": 4
         },
         {
           "width_pt": 0.9,
-          "strokes": 4
+          "items": 4
         },
         {
           "width_pt": 0.72,
-          "strokes": 2
+          "items": 2
         },
         {
           "width_pt": 0.66,
-          "strokes": 1
+          "items": 1
+        }
+      ],
+      "dash_patterns": [
+        {
+          "pattern": "[] 0",
+          "items": 6362
+        },
+        {
+          "pattern": "[ 11.88 3.96 ] 0",
+          "items": 4
+        },
+        {
+          "pattern": "[ 7.92 3 1.98 3 ] 0",
+          "items": 1
         }
       ],
       "top_classes": [
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 5420
+          "type": "fs",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 4036
         },
         {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 596
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.7539,
+            0.754,
+            0.7539
+          ],
+          "fill_rgb": [
+            0.7539,
+            0.754,
+            0.7539
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 523
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.3176,
+            0.6588
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 261
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 221
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "fill_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 197
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.7804,
+            0.7882,
+            0.3176
+          ],
+          "fill_rgb": [
+            0.7804,
+            0.7882,
+            0.3176
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 174
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "fill_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 125
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 79
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 46
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 29
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 14
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 12
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9412,
+            0.7333,
+            0.5255
+          ],
+          "fill_rgb": [
+            0.9412,
+            0.7333,
+            0.5255
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 7
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "fill_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 4
+        }
+      ],
+      "non_grey_classes": [
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 596
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.3176,
+            0.6588
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 261
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 221
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "fill_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 197
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.7804,
+            0.7882,
+            0.3176
+          ],
+          "fill_rgb": [
+            0.7804,
+            0.7882,
+            0.3176
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 174
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "fill_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 125
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 79
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 46
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 29
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9412,
+            0.7333,
+            0.5255
+          ],
+          "fill_rgb": [
+            0.9412,
+            0.7333,
+            0.5255
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 7
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "fill_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 4
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 3
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.949,
+            0.6588,
+            0.5019
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 3
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.6902,
+            0.6392,
+            0.1882
+          ],
+          "fill_rgb": null,
+          "width": 0.42,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.72,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.9,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.9,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.3176,
+            0.6588
+          ],
+          "fill_rgb": null,
+          "width": 0.12,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0863,
+            0.2667,
+            0.1608
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 1
+        }
+      ],
+      "dashed_item_count": 5,
+      "dashed_classes": [
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.9,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 1
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[ 7.92 3 1.98 3 ] 0",
+          "n": 1
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 1
+        }
+      ],
+      "legend": {
+        "counts": {
+          "BOUND": 5,
+          "CLASS_BOUND_MEANING_UNKNOWN": 2,
+          "UNKNOWN": 0
+        },
+        "collisions": 0,
+        "rows": [
+          {
+            "row": "L1",
+            "label_es": "LÍMITE DE TÉRMINO MUNICIPAL",
+            "meaning_en": "municipal boundary",
+            "captions": 1,
+            "swatch": [
+              90,
+              1484,
+              176,
+              1494
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L2",
+            "label_es": "LÍMITE DE SUELO URBANO",
+            "meaning_en": "boundary of urban land",
+            "captions": 1,
+            "swatch": [
+              90,
+              1508,
+              176,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L3",
+            "label_es": "LÍMITE DE NORMA ZONAL Y GRADOS / LÍMITE DE ÁREA DE PLANEAMIENTO INCORPORADO (API) / ESPECÍFICO (APE) / REMITIDO (APR)",
+            "meaning_en": "four different boundary meanings sharing one symbol",
+            "captions": 4,
+            "swatch": [
+              90,
+              1560,
+              176,
+              1569
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 4 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "L4",
+            "label_es": "RASANTE",
+            "meaning_en": "official finished ground level, annotated in metres",
+            "captions": 1,
+            "swatch": [
+              112,
+              1604,
+              176,
+              1628
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.3,
+                "dashes": "[] 0"
+              },
+              {
+                "type": "fs",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "width": 0.0,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R1",
+            "label_es": "ALINEACIÓN",
+            "meaning_en": "official alignment -- the front of the buildable envelope",
+            "captions": 1,
+            "swatch": [
+              455,
+              1486,
+              540,
+              1495
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.72,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R2",
+            "label_es": "CAMBIO DE ALTURA Y USO / FONDO EDIFICABLE",
+            "meaning_en": "height/use change OR buildable depth -- the sheet does not say which",
+            "captions": 2,
+            "swatch": [
+              455,
+              1508,
+              540,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 2 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "R3",
+            "label_es": "SOPORTAL Y PASAJES",
+            "meaning_en": "arcade and passageway",
+            "captions": 1,
+            "swatch": [
+              455,
+              1529,
+              540,
+              1538
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          }
+        ]
+      },
+      "expected_binding_check": {
+        "R1": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.72,
+            "dashes": "[] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.72,
+              "dashes": "[] 0"
+            }
+          ],
+          "REPRODUCED": true
+        },
+        "R2": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.6,
+            "dashes": "[] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.6,
+              "dashes": "[] 0"
+            }
+          ],
+          "REPRODUCED": true
+        },
+        "R3": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.6,
+            "dashes": "[ 11.88 3.96 ] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.6,
+              "dashes": "[ 11.88 3.96 ] 0"
+            }
+          ],
+          "REPRODUCED": true
+        }
+      }
+    },
+    {
+      "sheet": "H-28",
+      "file": "huesca_plano5_H-28.pdf",
+      "page_rotation": 90,
+      "distinct_stroke_classes": 40,
+      "SHEET_IS_COLOUR": true,
+      "colour_census": {
+        "grey_tolerance": 0.002,
+        "non_grey_stroke_items": 1891,
+        "grey_stroke_items": 4851,
+        "fill_only_non_grey_items": 0,
+        "fill_only_grey_items": 0,
+        "unresolved_colour_items": 0,
+        "SHEET_IS_COLOUR": true
+      },
+      "distinct_non_grey_classes": 30,
+      "distinct_unresolved_colour_classes": 0,
+      "distinct_line_widths": 8,
+      "distinct_dash_patterns": 2,
+      "line_widths": [
+        {
           "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 1242
+          "items": 6633
         },
         {
           "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 69
+          "items": 68
         },
         {
           "width_pt": 0.6,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 24
-        },
-        {
-          "width_pt": 0.3,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 7
-        },
-        {
-          "width_pt": 0.12,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 5
+          "items": 26
         },
         {
           "width_pt": 0.42,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 3
+          "items": 4
         },
         {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.91,
-          "strokes": 2
-        },
-        {
-          "width_pt": 0.0,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 2
+          "width_pt": 0.9,
+          "items": 4
         },
         {
           "width_pt": 0.12,
-          "dash": "solid",
-          "gray": 0.75,
-          "strokes": 2
+          "items": 4
         },
         {
           "width_pt": 0.72,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 1
-        },
-        {
-          "width_pt": 0.6,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 1
-        },
-        {
-          "width_pt": 0.9,
-          "dash": "11.88,3.96",
-          "gray": 0.25,
-          "strokes": 1
-        },
-        {
-          "width_pt": 0.9,
-          "dash": "solid",
-          "gray": 0.25,
-          "strokes": 1
+          "items": 2
         },
         {
           "width_pt": 0.66,
-          "dash": "solid",
-          "gray": 0.0,
-          "strokes": 1
+          "items": 1
         }
       ],
-      "dashed_stroke_count": 3,
+      "dash_patterns": [
+        {
+          "pattern": "[] 0",
+          "items": 6739
+        },
+        {
+          "pattern": "[ 11.88 3.96 ] 0",
+          "items": 3
+        }
+      ],
+      "top_classes": [
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 4157
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.7539,
+            0.754,
+            0.7539
+          ],
+          "fill_rgb": [
+            0.7539,
+            0.754,
+            0.7539
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 639
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 596
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9216,
+            1.0,
+            0.6588
+          ],
+          "fill_rgb": [
+            0.9216,
+            1.0,
+            0.6588
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 329
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.3176,
+            0.6588
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 261
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 221
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "fill_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 197
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "fill_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 125
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 79
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 40
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 22
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 21
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "fill_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 8
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.949,
+            0.8392,
+            0.5804
+          ],
+          "fill_rgb": [
+            0.949,
+            0.8392,
+            0.5804
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 4
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "fill_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 4
+        }
+      ],
+      "non_grey_classes": [
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.8392,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 596
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9216,
+            1.0,
+            0.6588
+          ],
+          "fill_rgb": [
+            0.9216,
+            1.0,
+            0.6588
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 329
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.3176,
+            0.6588
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 261
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            0.9019,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 221
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "fill_rgb": [
+            0.6784,
+            0.9098,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 197
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "fill_rgb": [
+            0.6039,
+            0.9019,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 125
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 79
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 40
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "fill_rgb": [
+            1.0,
+            0.9019,
+            0.7843
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 8
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.949,
+            0.8392,
+            0.5804
+          ],
+          "fill_rgb": [
+            0.949,
+            0.8392,
+            0.5804
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 4
+        },
+        {
+          "type": "fs",
+          "stroke_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "fill_rgb": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 4
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.8784,
+            0.4588,
+            0.1137
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.6902,
+            0.6392,
+            0.1882
+          ],
+          "fill_rgb": null,
+          "width": 0.42,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.72,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.9,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.9,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0863,
+            0.2667,
+            0.1608
+          ],
+          "fill_rgb": null,
+          "width": 0.0,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.3176,
+            0.6588
+          ],
+          "fill_rgb": null,
+          "width": 0.12,
+          "dashes": "[] 0",
+          "n": 2
+        },
+        {
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.3,
+          "dashes": "[] 0",
+          "n": 1
+        }
+      ],
+      "dashed_item_count": 3,
       "dashed_classes": [
         {
-          "width_pt": 0.9,
-          "dash": "11.88,3.96",
-          "gray": 0.25,
-          "strokes": 1
+          "type": "s",
+          "stroke_rgb": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "fill_rgb": null,
+          "width": 0.9,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 2
         },
         {
-          "width_pt": 0.9,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 1
-        },
-        {
-          "width_pt": 0.6,
-          "dash": "11.88,3.96",
-          "gray": 0.0,
-          "strokes": 1
+          "type": "s",
+          "stroke_rgb": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "fill_rgb": null,
+          "width": 0.6,
+          "dashes": "[ 11.88 3.96 ] 0",
+          "n": 1
         }
-      ]
+      ],
+      "legend": {
+        "counts": {
+          "BOUND": 5,
+          "CLASS_BOUND_MEANING_UNKNOWN": 2,
+          "UNKNOWN": 0
+        },
+        "collisions": 0,
+        "rows": [
+          {
+            "row": "L1",
+            "label_es": "LÍMITE DE TÉRMINO MUNICIPAL",
+            "meaning_en": "municipal boundary",
+            "captions": 1,
+            "swatch": [
+              90,
+              1484,
+              176,
+              1494
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L2",
+            "label_es": "LÍMITE DE SUELO URBANO",
+            "meaning_en": "boundary of urban land",
+            "captions": 1,
+            "swatch": [
+              90,
+              1508,
+              176,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "L3",
+            "label_es": "LÍMITE DE NORMA ZONAL Y GRADOS / LÍMITE DE ÁREA DE PLANEAMIENTO INCORPORADO (API) / ESPECÍFICO (APE) / REMITIDO (APR)",
+            "meaning_en": "four different boundary meanings sharing one symbol",
+            "captions": 4,
+            "swatch": [
+              90,
+              1560,
+              176,
+              1569
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "fill_rgb": null,
+                "width": 0.9,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 4 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "L4",
+            "label_es": "RASANTE",
+            "meaning_en": "official finished ground level, annotated in metres",
+            "captions": 1,
+            "swatch": [
+              112,
+              1604,
+              176,
+              1628
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.3,
+                "dashes": "[] 0"
+              },
+              {
+                "type": "fs",
+                "stroke_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "width": 0.0,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R1",
+            "label_es": "ALINEACIÓN",
+            "meaning_en": "official alignment -- the front of the buildable envelope",
+            "captions": 1,
+            "swatch": [
+              455,
+              1486,
+              540,
+              1495
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.72,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          },
+          {
+            "row": "R2",
+            "label_es": "CAMBIO DE ALTURA Y USO / FONDO EDIFICABLE",
+            "meaning_en": "height/use change OR buildable depth -- the sheet does not say which",
+            "captions": 2,
+            "swatch": [
+              455,
+              1508,
+              540,
+              1516
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[] 0"
+              }
+            ],
+            "BINDING": "CLASS_BOUND_MEANING_UNKNOWN",
+            "why": "the sheet prints 2 distinct meanings against this ONE swatch"
+          },
+          {
+            "row": "R3",
+            "label_es": "SOPORTAL Y PASAJES",
+            "meaning_en": "arcade and passageway",
+            "captions": 1,
+            "swatch": [
+              455,
+              1529,
+              540,
+              1538
+            ],
+            "measured_stroke_classes": [
+              {
+                "type": "s",
+                "stroke_rgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                "fill_rgb": null,
+                "width": 0.6,
+                "dashes": "[ 11.88 3.96 ] 0"
+              }
+            ],
+            "BINDING": "BOUND",
+            "why": "unique measured stroke class, single legend caption"
+          }
+        ]
+      },
+      "expected_binding_check": {
+        "R1": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.72,
+            "dashes": "[] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.72,
+              "dashes": "[] 0"
+            }
+          ],
+          "REPRODUCED": true
+        },
+        "R2": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.6,
+            "dashes": "[] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.6,
+              "dashes": "[] 0"
+            }
+          ],
+          "REPRODUCED": true
+        },
+        "R3": {
+          "expected": {
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "width": 0.6,
+            "dashes": "[ 11.88 3.96 ] 0"
+          },
+          "measured": [
+            {
+              "type": "s",
+              "stroke_rgb": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "fill_rgb": null,
+              "width": 0.6,
+              "dashes": "[ 11.88 3.96 ] 0"
+            }
+          ],
+          "REPRODUCED": true
+        }
+      }
     }
-  ]
+  ],
+  "UNRESOLVED": {
+    "two_meanings_one_swatch": {
+      "rows": [
+        "R2"
+      ],
+      "caption": "CAMBIO DE ALTURA Y USO / FONDO EDIFICABLE",
+      "status": "REFUSED -- NOT RESOLVABLE FROM THIS SHEET",
+      "why": "R1 (ALINEACION) is red w0.72 solid and R2 is red w0.60 solid. The ONLY channel separating them is 0.12 pt of line width, and R2 itself carries TWO distinct planning meanings printed against one swatch. A layer name would separate them, but the sheets publish ZERO optional-content groups (measured, below), so no such name exists. Any assignment of a given red w0.60 line to 'fondo edificable' rather than 'cambio de altura y uso' would be a GUESS.",
+      "optional_content_groups_per_sheet": {
+        "huesca_plano5_H-01.pdf": 0,
+        "huesca_plano5_H-05.pdf": 0,
+        "huesca_plano5_H-13.pdf": 0,
+        "huesca_plano5_H-14.pdf": 0,
+        "huesca_plano5_H-21.pdf": 0,
+        "huesca_plano5_H-28.pdf": 0
+      },
+      "usable_for": "DETECTION of the line, never as a numeric constraint"
+    },
+    "georeference": {
+      "status": "REFUSED -- OUT OF SCOPE, ALREADY MEASURED ABSENT",
+      "why": "no /Measure, /VP, /GPTS, /LGIDict, /Neatline, no EPSG string, no world file, no GeoPDF. Placing these lines on the ground needs control points that this programme does not have."
+    }
+  },
+  "VERDICT": "SEPARABLE ON COLOUR. The sheets are in colour and the line work is differentiated; the alineacion and the fondo/altura line are both findable. What remains blocked is not FINDING the line but NAMING it: one swatch, two meanings, no layer names."
 }

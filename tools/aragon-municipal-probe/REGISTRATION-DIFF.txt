@@ -122,18 +122,32 @@ But plano nº5 — the sheet that carries the alineación oficial and the línea
 fondo edificable at 1:1.000 — is a PURE VECTOR PDF. Six sheets sampled, all six:
 zero fonts, zero images, zero painted-text operators, 111k–336k path operators,
 2.1–6.6 MB of inflated content stream. Geometry extraction succeeded: 27k–99k
-subpaths, 141k–483k vertices per sheet, 20–26 distinct stroke classes
-(width × dash × grey), so the line work IS differentiated and classification is
+subpaths, 141k–483k vertices per sheet, 39–42 distinct stroke classes
+(colour × width × dash), so the line work IS differentiated and classification is
 tractable.
+
+⚠ CORRECTION. This paragraph previously read "20–26 distinct stroke classes
+  (width × dash × grey)" and (b) below previously asserted the sheets were
+  GREYSCALE. BOTH WERE FALSE — an artefact of a colour-blind extractor that
+  matched only the `RG`/`G` operators while these sheets paint through an
+  ICCBased colourspace (`/Cs6 CS <r> <g> <b> SCN`). Re-measured with a resolving
+  PDF interpreter: 39–42 classes per sheet, of which 28–31 are NON-GREY, and
+  1,595–3,020 non-grey stroke items per sheet. THE SHEETS ARE IN COLOUR.
+  See out/huesca_plano5_line_classes.json.
 
 ⛔ TWO THINGS BLOCK IT, BOTH NAMEABLE:
    (a) NO GEOREFERENCE. The PDF carries no CRS. Placing the sheet in EPSG:25830
        needs control points — feasible by affine fit against Catastro parcels,
        not attempted here.
-   (b) THE LEGEND IS NOT MACHINE-READABLE. The sheets are GREYSCALE (every paint
-       colour satisfies r == g == b), so zone identity is not colour-coded, and
-       the labels are OUTLINED TEXT with no text layer. Mapping stroke-class →
-       "this is the fondo line" needs ONE human read of ONE rendered sheet
-       against the PGOU legend. Once. Then it applies to all 28.
+   (b) THE LEGEND CANNOT DISAMBIGUATE ITSELF. Colour DOES carry zone identity
+       here, and the legend binds: the alineación is red w0.72 solid, the
+       soportal red w0.60 dashed. But the sheet prints TWO meanings — «cambio de
+       altura y uso» and «fondo edificable» — against ONE red w0.60 solid swatch,
+       and it publishes ZERO optional-content groups, so no layer name can split
+       them. 0.12 pt of line width is the only channel separating the alineación
+       from that pair. The labels are also OUTLINED TEXT with no text layer, so
+       the caption read is a one-off human step. Detection of the line is
+       solved; NAMING which of the two meanings a given red w0.60 line carries
+       is REFUSED, not deferred.
 
 ⇒ Huesca is a 1–2 week extraction project with a known method, NOT a closed region.

@@ -309,6 +309,73 @@ def drawings_in_display_space(page) -> list[dict]:
     return out
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+# TRAP 5 — COLOUR-BLINDNESS. A hand-rolled content-stream regex reads `RG`/`G`
+# and calls the sheet greyscale.
+# ═════════════════════════════════════════════════════════════════════════════
+# These sheets set colour almost entirely through an ICCBased colourspace --
+# `/Cs6 CS 1 0 0 SCN` -- and only rarely through the device operator `RG`. A
+# scanner that matches `RG`/`G` alone never sees `SCN`, so every coloured stroke
+# silently keeps the last DeviceGray value and the whole sheet reads as
+# greyscale. Collapsing an `RG` triple to its mean destroys what little colour
+# does survive. Both mistakes produce the SAME artefact: r == g == b everywhere,
+# which is indistinguishable from a genuinely monochrome plot.
+#
+# ⛔ THE CURE IS NOT A BIGGER REGEX. Resolving `SCN` needs the page resource
+#    dictionary, the colourspace object and its alternate space. `get_drawings()`
+#    already does this. Colour identity comes from there and nowhere else.
+#
+# GREY_TOLERANCE exists because 8-bit source values round-trip through PDF reals
+# unevenly: pure 75% grey arrives as (0.7539, 0.7540, 0.7539). Testing r == g == b
+# exactly would score that as COLOUR, inflating the count with quantisation noise.
+GREY_TOLERANCE = 0.002
+
+
+def is_greyscale(rgb, tol: float = GREY_TOLERANCE) -> bool:
+    """True when a colour lies on the grey axis to within `tol`.
+
+    ⛔ `None` is NOT grey. An absent colour is UNRESOLVED -- a fill-only drawing
+       has no stroke colour at all -- and callers must account for it separately
+       rather than folding it into the grey bucket.
+    """
+    if not rgb:
+        return False
+    return (max(rgb) - min(rgb)) <= tol
+
+
+def colour_census(page, tol: float = GREY_TOLERANCE) -> dict:
+    """Split the sheet's drawings into COLOURED / GREY / UNRESOLVED.
+
+    Answers one question only: does colour carry information on this sheet?
+    Every drawing lands in exactly one bucket, and a drawing whose paint colour
+    could not be resolved is reported as such -- never as grey, never as zero.
+    """
+    coloured = grey = unresolved = 0
+    coloured_fill = grey_fill = 0
+    for d in page.get_drawings():
+        stroke, fill = d.get("color"), d.get("fill")
+        if stroke is None and fill is None:
+            unresolved += 1
+        elif stroke is None:
+            if is_greyscale(fill, tol):
+                grey_fill += 1
+            else:
+                coloured_fill += 1
+        elif is_greyscale(stroke, tol):
+            grey += 1
+        else:
+            coloured += 1
+    return {
+        "grey_tolerance": tol,
+        "non_grey_stroke_items": coloured,
+        "grey_stroke_items": grey,
+        "fill_only_non_grey_items": coloured_fill,
+        "fill_only_grey_items": grey_fill,
+        "unresolved_colour_items": unresolved,
+        "SHEET_IS_COLOUR": coloured > 0 or coloured_fill > 0,
+    }
+
+
 def stroke_class(d: dict) -> dict:
     """The measurable identity of a drawn line: colour, width, dash pattern."""
 
