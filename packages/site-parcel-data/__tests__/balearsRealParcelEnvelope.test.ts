@@ -304,19 +304,19 @@ describe('§BALEARS-NOT-AUTHORISED — the route exists; permission does NOT', (
         expect(BALEARS_ENVELOPE_VERIFIED).toBe(false);
     });
 
-    // ⛔ THE SECOND DOOR, PINNED SHUT TOO. `openTopIndicative.ts` can DRAW without a determination,
-    // and Balears is the jurisdiction it was built for — but listing it is a founder line AND the
-    // renderer cannot yet express an open top, so an indicative solid would render identically to a
-    // determined one (ADR-0293's exact prohibition). If someone lists Balears, this test goes red
-    // and they must confront `rendererCanExpressOpenTop` rather than discover it on a screenshot.
-    it('⛔ Balears is NOT listed as open-top indicative, so the posture is `refused`, not `draw`', () => {
-        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.has(BALEARS_JURISDICTION_ID)).toBe(false);
+    // ⛔ THE SECOND DOOR — NOW OPEN, ON PURPOSE, AND ONLY THIS FAR. `openTopIndicative.ts` can DRAW
+    // without a determination; the renderer capability closed first (`rendererCanExpressOpenTop`,
+    // measured, an indicative solid can no longer render identically to a determined one — ADR-0293's
+    // prohibition), and the founder listed Balears on 2026-08-03. The determination gate below this
+    // test is untouched: Balears DRAWS, and still asserts no buildable right.
+    it('⭐ Balears is listed as open-top indicative — posture is `draw`, never `determination`', () => {
+        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.has(BALEARS_JURISDICTION_ID)).toBe(true);
         const p = envelopePublicationPosture(BALEARS_JURISDICTION_ID);
-        expect(p.posture).toBe('refused');
+        expect(p.posture).toBe('open-top-indicative');
         // The UNDERLYING reason survives the refinement — that is the composition guarantee.
         expect(p.authorisationReason).toBe('gate-shut');
         expect(mayPublishAsDetermination(BALEARS_JURISDICTION_ID)).toBe(false);
-        expect(mayDrawEnvelope(BALEARS_JURISDICTION_ID)).toBe(false);
+        expect(mayDrawEnvelope(BALEARS_JURISDICTION_ID)).toBe(true);
     });
 
     // §BALEARS-REGISTRATION — the estimated-triple hole this registration exists to close (§L-663).

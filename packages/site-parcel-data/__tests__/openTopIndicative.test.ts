@@ -75,11 +75,18 @@ describe('§OPEN-TOP · 2 — IT STILL FAILS CLOSED FOR AN UNLISTED JURISDICTION
         expect(shut.authorisationReason).not.toBe(unknown.authorisationReason);
     });
 
-    it('the SHIPPED registry is EMPTY — enabling a jurisdiction is a founder line, not a default', () => {
-        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.size).toBe(0);
-        // ⇒ with the shipped registry, Balears draws NOTHING today.
-        expect(envelopePublicationPosture(BALEARS_JURISDICTION_ID).posture).toBe('refused');
-        expect(mayDrawEnvelope(BALEARS_JURISDICTION_ID)).toBe(false);
+    it('the SHIPPED registry holds exactly the founder-listed jurisdictions, nothing implicit', () => {
+        // ⚠ 2026-08-03: the founder listed Balears (renderer capability closed, tests green).
+        // The invariant this guards did not change — membership is still by EXPLICIT ENTRY, never a
+        // default — only the registry's contents did.
+        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.size).toBe(1);
+        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.has(BALEARS_JURISDICTION_ID)).toBe(true);
+        // ⇒ with the shipped registry, Balears now DRAWS as indicative, never a determination.
+        expect(envelopePublicationPosture(BALEARS_JURISDICTION_ID).posture).toBe('open-top-indicative');
+        expect(mayDrawEnvelope(BALEARS_JURISDICTION_ID)).toBe(true);
+        expect(mayPublishAsDetermination(BALEARS_JURISDICTION_ID)).toBe(false);
+        // An id nobody has listed still fails closed — the property this whole file protects.
+        expect(envelopePublicationPosture('es-99999-nowhere').posture).toBe('refused');
     });
 });
 
@@ -127,30 +134,32 @@ describe('§OPEN-TOP · 4 — RENDERING MUST MAKE IT UNMISTAKABLE, AND NOW IT DO
         expect(rendererCanExpressOpenTop).toBe(true);
     });
 
-    it('⛔ AND THAT CHANGED THE PICTURE, NOT THE PERMISSION — the registry is STILL EMPTY', () => {
-        // ⚠ THE TRAP THIS TEST GUARDS. "The renderer can now express it" is the kind of statement
-        // that invites someone to conclude the jurisdiction may therefore be listed. It may not:
-        // listing is a founder decision about DRAWING ON SOMEONE'S LAND, and removing its blocker
-        // does not take it. The two facts are INDEPENDENT and this asserts them independently.
+    it('⛔ THE PICTURE CHANGED FIRST, THE PERMISSION SECOND — and they stayed independent facts', () => {
+        // The renderer capability (`rendererCanExpressOpenTop`) and the listing decision were always
+        // two separate facts, proven separate while the registry was still empty. Both are now true,
+        // but nothing here collapses them into one another.
         expect(rendererCanExpressOpenTop).toBe(true);
-        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.size).toBe(0);
+        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.has(BALEARS_JURISDICTION_ID)).toBe(true);
     });
 
-    it('⛔ BALEARS IS SPECIFICALLY NOT LISTED, and its determination gate is SHUT', () => {
-        // The record is BUILT and TESTED (see §3) and deliberately NOT registered. Both halves:
-        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.has(BALEARS_JURISDICTION_ID)).toBe(false);
+    it('⛔ BALEARS IS LISTED AS INDICATIVE ONLY — its determination gate stays SHUT', () => {
+        // Listed (see §1/§4 above) — but listing NARROWS, never WIDENS: the owned determination gate
+        // is untouched and unread by this decision.
+        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.has(BALEARS_JURISDICTION_ID)).toBe(true);
         expect(isEnvelopePublicationAuthorised(BALEARS_JURISDICTION_ID)).toBe(false);
-        // ⇒ so with the SHIPPED registry, a Balears click still draws nothing at all.
-        expect(mayDrawEnvelope(BALEARS_JURISDICTION_ID)).toBe(false);
+        // ⇒ so with the SHIPPED registry, a Balears click draws an open-top indicative volume —
+        // never a determination.
+        expect(mayDrawEnvelope(BALEARS_JURISDICTION_ID)).toBe(true);
         expect(mayPublishAsDetermination(BALEARS_JURISDICTION_ID)).toBe(false);
     });
 
-    it('the one-line founder edit is all that stands between here and a drawn open top', () => {
-        // Exercised through the INJECTED registry, never the shipped one — this proves the edit
-        // would work without being the edit. `withBalears` is exactly `[[id, record]]`.
+    it('the injected registry and the shipped registry now agree on Balears', () => {
+        // `withBalears` was built to PROVE the edit would work before it was made; it still matches
+        // the shipped registry's behaviour now that the edit exists.
         expect(mayDrawEnvelope(BALEARS_JURISDICTION_ID, withBalears)).toBe(true);
         expect(mayPublishAsDetermination(BALEARS_JURISDICTION_ID, withBalears)).toBe(false);
-        // …and the shipped registry is untouched by having exercised the injected one.
-        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.size).toBe(0);
+        expect(envelopePublicationPosture(BALEARS_JURISDICTION_ID, withBalears).posture).toBe(
+            envelopePublicationPosture(BALEARS_JURISDICTION_ID).posture,
+        );
     });
 });

@@ -142,25 +142,7 @@ export function openTopIndicativeRecord(r: OpenTopIndicativeRecord): OpenTopIndi
 }
 
 /**
- * THE REGISTRY OF INDICATIVE JURISDICTIONS — ⛔ **EMPTY, AND THAT IS THE SHIPPED STATE.**
- *
- * Listing a jurisdiction here is a PUBLICATION DECISION (the `UNGATED_AUTHORISED_JURISDICTIONS`
- * discipline). It claims less than a determination, which is exactly why it is a founder line rather
- * than an implementer's — but it is still a decision to DRAW on someone's land, and an implementer
- * making it silently would be the L-449 defect wearing a smaller claim.
- *
- * ⚠ EMPTY IS NOT A TODO. Until an entry is added by a human, `envelopePublicationPosture()` returns
- * exactly what `envelopePublicationAuthorisation()` already returns, for every id in existence.
- */
-export const OPEN_TOP_INDICATIVE_JURISDICTIONS: ReadonlyMap<string, OpenTopIndicativeRecord> =
-    new Map<string, OpenTopIndicativeRecord>([]);
-
-/**
- * ⭐ THE ILLES BALEARS RECORD, BUILT AND TESTED BUT **NOT LISTED**.
- *
- * This is the one-line change: adding `[BALEARS_JURISDICTION_ID, BALEARS_OPEN_TOP_INDICATIVE]` to the
- * map above turns Balears from `refused`/`unknown-jurisdiction` into `open-top-indicative`. It is
- * exported so the entry can be REVIEWED — with its risks enumerated beside it — before it is made.
+ * ⭐ THE ILLES BALEARS RECORD — built, tested, and (2026-08-03) LISTED. See the registry below.
  *
  * ⚠ IT STILL AUTHORISES NO DETERMINATION. Even listed, `mayPublishAsDetermination()` returns false
  * and `isEnvelopePublicationAuthorised()` (the owned gate) is unchanged and still `false`.
@@ -177,6 +159,31 @@ export const BALEARS_OPEN_TOP_INDICATIVE: OpenTopIndicativeRecord = openTopIndic
     supersession: 'NOT_VERIFIED',
     articleGovernance: 'NOT_ESTABLISHED',
 });
+
+/**
+ * THE REGISTRY OF INDICATIVE JURISDICTIONS.
+ *
+ * Listing a jurisdiction here is a PUBLICATION DECISION (the `UNGATED_AUTHORISED_JURISDICTIONS`
+ * discipline). It claims less than a determination, which is exactly why it is a founder line rather
+ * than an implementer's — but it is still a decision to DRAW on someone's land, and an implementer
+ * making it silently would be the L-449 defect wearing a smaller claim.
+ *
+ * §BALEARS-LISTING (2026-08-03) — founder decision: renderer capability closed
+ * (`rendererCanExpressOpenTop === true`, measured), 2,515 tests green, `tsc` clean. Lists Balears as
+ * `open-top-indicative` ONLY — the determination gate (`BALEARS_ENVELOPE_VERIFIED`) is untouched and
+ * remains `false`. Risks are the ones enumerated in `BALEARS_OPEN_TOP_INDICATIVE` itself: six
+ * unmodelled constraint families and unverified fitxa-to-article provenance on 98% of zones — both
+ * are why this is `open-top-indicative` and not a determination, not a reason to withhold the
+ * indicative draw.
+ *
+ * ⚠ AN UNLISTED JURISDICTION IS NOT A TODO. For every id not in this map,
+ * `envelopePublicationPosture()` returns exactly what `envelopePublicationAuthorisation()` already
+ * returns.
+ */
+export const OPEN_TOP_INDICATIVE_JURISDICTIONS: ReadonlyMap<string, OpenTopIndicativeRecord> =
+    new Map<string, OpenTopIndicativeRecord>([
+        [BALEARS_JURISDICTION_ID, BALEARS_OPEN_TOP_INDICATIVE],
+    ]);
 
 /**
  * What PRYZM may do with an envelope for this jurisdiction.
