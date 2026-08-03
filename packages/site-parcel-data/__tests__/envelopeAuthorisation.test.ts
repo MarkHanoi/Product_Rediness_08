@@ -46,7 +46,7 @@ import {
 } from '../src/rulepacks/registry.js';
 import { MADRID_JURISDICTION_ID } from '../src/rulepacks/esMadridNZ1.js';
 import { MADRID_PGOUM97_ZONE_CODES } from '../src/rulepacks/esMadridPgoum97.js';
-import { CORDOBA_JURISDICTION_ID, CORDOBA_PGOU2001_ZONE_CODES } from '../src/rulepacks/esCordobaPGOU2001.js';
+import { CORDOBA_JURISDICTION_ID } from '../src/rulepacks/esCordobaPGOU2001.js';
 import { MURCIA_JURISDICTION_ID } from '../src/rulepacks/esMurciaEnvelope.js';
 import { MURCIA_PGOU2012_ZONE_CODES } from '../src/rulepacks/esMurciaPgou2012.js';
 
@@ -178,9 +178,15 @@ describe('§TOTALITY — a future gated city CANNOT re-open this hole', () => {
     it('a SHUT gate refuses with `gate-shut`, distinct from `unknown-jurisdiction`', () => {
         // The distinction is load-bearing: "a human has not signed yet" is a different product
         // state from "nobody has ever assessed this place", and refusal copy must not conflate them.
-        expect(envelopePublicationAuthorisation(CORDOBA_JURISDICTION_ID)).toEqual({
+        // ⚠ Córdoba is no longer this example — it was signed 2026-08-03 (VERIFICATION.md §SIG-1).
+        // Madrid demonstrates the SHUT case now.
+        expect(envelopePublicationAuthorisation(MADRID_JURISDICTION_ID)).toEqual({
             authorised: false,
             reason: 'gate-shut',
+        });
+        expect(envelopePublicationAuthorisation(CORDOBA_JURISDICTION_ID)).toEqual({
+            authorised: true,
+            reason: 'gate-open',
         });
         expect(envelopePublicationAuthorisation('es-00000-unassessed').reason).toBe('unknown-jurisdiction');
     });
@@ -204,31 +210,36 @@ describe('§TOTALITY — a future gated city CANNOT re-open this hole', () => {
         ).toEqual([]);
     });
 
-    it('authorisation tracks the SIGNATURE, per city — Murcia signed, Madrid + Córdoba not', () => {
-        // Was "all three signature-critical cities are UNAUTHORISED today". The founder signed
-        // MURCIA on 2026-08-01; Madrid and Córdoba are deliberately NOT flipped yet, each for a
-        // reason that would publish an OVERSTATEMENT today:
-        //   • Córdoba — D1: the UAD `profundidad máxima edificable` (Art. 13.9.3.3, 16/18/16 m) is
-        //     STATED in the source and ABSENT from the pack. On a party-wall parcel with zero
-        //     setbacks that is the L-616 mechanism-A whole-parcel overstatement. Its subzone
-        //     resolver is also authored-but-never-called, so it would render nothing regardless.
-        //   • Madrid — the six zones excluded as unsignable IN PRINCIPLE (4 · 9.1 · 9.2 · 5.1 ·
-        //     5.2 · 5.3) are still in the pack. Art. 8.5.6.3 measures to the street CENTRELINE,
-        //     which `GeometricRule` cannot express ⇒ no front inset ⇒ overstates on a narrow street.
+    it('authorisation tracks the SIGNATURE, per city — Murcia + Córdoba signed, Madrid not', () => {
+        // Was "all three signature-critical cities are UNAUTHORISED today", then "Murcia signed,
+        // Madrid + Córdoba not". The founder signed MURCIA on 2026-08-01 and CÓRDOBA on 2026-08-03
+        // (VERIFICATION.md §SIG-1) — Córdoba's D1 UAD defect this test used to cite (Art. 13.9.3.3
+        // depth cap stated in source, absent from pack) was independently re-audited 2026-08-03 and
+        // confirmed already closed (`ef0e966b`, 2026-08-02), which is what made the signature
+        // possible. Madrid is deliberately NOT flipped yet: the six zones excluded as unsignable IN
+        // PRINCIPLE (4 · 9.1 · 9.2 · 5.1 · 5.2 · 5.3) are still in the pack — Art. 8.5.6.3 measures
+        // to the street CENTRELINE, which `GeometricRule` cannot express ⇒ no front inset ⇒
+        // overstates on a narrow street.
         // ⚠ THIS TEST'S REAL JOB IS UNCHANGED: authorisation is PER-JURISDICTION and must never be
         // global. A signature for one city must not authorise another — that is the whole point of
-        // asserting all three here rather than only the signed one.
+        // asserting all three here rather than only the signed ones.
         expect(isEnvelopePublicationAuthorised(MURCIA_JURISDICTION_ID)).toBe(true);
         expect(isEnvelopePublicationAuthorised(MADRID_JURISDICTION_ID)).toBe(false);
-        expect(isEnvelopePublicationAuthorised(CORDOBA_JURISDICTION_ID)).toBe(false);
+        expect(isEnvelopePublicationAuthorised(CORDOBA_JURISDICTION_ID)).toBe(true);
     });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
 describe('§THE-CLASSIFIER-READS-IT — these assertions FAIL on 6632f0e3', () => {
-    it('Córdoba PAS-1 is `pack-unverified`, NOT `full-envelope`', () => {
-        // The exact call named in the defect report.
-        expect(classifyAnswerability(CORDOBA_JURISDICTION_ID, 'PAS-1')).toBe('pack-unverified');
+    it('Córdoba PAS-1 is now `full-envelope` — the classifier followed the SIGNATURE (2026-08-03)', () => {
+        // Was `pack-unverified` while the gate was shut, which was the defect report's own example.
+        // The founder signed Córdoba (VERIFICATION.md §SIG-1) on 2026-08-03, so the classifier must
+        // now say `full-envelope` — same proof-of-tracking as the Murcia sibling test below.
+        // ⚠ `full-envelope` is an AUTHORISATION claim, not a render guarantee: no live dispatch path
+        // calls the compute engine for Córdoba yet (`applyCordobaZoningThenFallback` never got past
+        // its two refusal branches, siteDispatch.ts) — that is a separate, still-open engineering
+        // gap the signature revealed rather than closed.
+        expect(classifyAnswerability(CORDOBA_JURISDICTION_ID, 'PAS-1')).toBe('full-envelope');
     });
 
     it('Murcia RM1 is now `full-envelope` — the classifier followed the SIGNATURE', () => {
@@ -241,14 +252,13 @@ describe('§THE-CLASSIFIER-READS-IT — these assertions FAIL on 6632f0e3', () =
     });
 
     it('EVERY packed zone in the STILL-GATED cities is `pack-unverified` — no survivors', () => {
-        // ⚠ MURCIA WAS REMOVED FROM THIS LIST ON 2026-08-01, and only because it was SIGNED —
-        // never because it was inconvenient. Its packed zones are now asserted `full-envelope` by
-        // the sibling test above, so the coverage is not lost, it MOVED with the authorisation.
-        // Madrid and Córdoba stay here: each would publish an overstatement today (Córdoba's
-        // missing UAD depth cap, D1/L-616; Madrid's six centreline/street-width zones).
+        // ⚠ MURCIA WAS REMOVED FROM THIS LIST ON 2026-08-01, CÓRDOBA ON 2026-08-03, and only because
+        // each was SIGNED — never because it was inconvenient. Their packed zones are now asserted
+        // `full-envelope` by the sibling tests above, so the coverage is not lost, it MOVED with the
+        // authorisation. Madrid stays here: it would publish an overstatement today (six
+        // centreline/street-width zones with no resolver yet).
         const cases: ReadonlyArray<readonly [string, readonly string[]]> = [
             [MADRID_JURISDICTION_ID, MADRID_PGOUM97_ZONE_CODES],
-            [CORDOBA_JURISDICTION_ID, CORDOBA_PGOU2001_ZONE_CODES],
         ];
         for (const [jurisdiction, codes] of cases) {
             expect(codes.length, jurisdiction).toBeGreaterThan(0);

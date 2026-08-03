@@ -30,21 +30,22 @@
 import type { EnvelopeRefusal } from '@pryzm/schemas';
 
 /**
- * ⚠⚠⚠ THE HONESTY GATE. `false` until a human signs `sources/VERIFICATION.md` (pack WIRING-TODO 3)
- * AND that sign-off is mirrored in a C23 AIArtefact `humanApproval` (no-silent-graduation).
+ * ⚠⚠⚠ THE HONESTY GATE. **SIGNED 2026-08-03** — see `sources/VERIFICATION.md` §SIG-1 for the
+ * certification statement and evidence basis (PGOU-2001 transcription, 5 subzone families, 13/13
+ * subzones OCR-verified 2026-08-01 with zero digit errors; the CTP-1/MC depth-guard concern and the
+ * UAD-3 depth-band gap were both independently re-audited 2026-08-03 and confirmed already closed,
+ * `6dbad1f2` and `ef0e966b` respectively). Founder/authorized-signer sign-off, per L-449 — the
+ * founder issued this certification directly; it was not self-attributed by this codebase.
  *
- * While this is `false`, `applyCordobaZoningThenFallback` dispatches `cordobaUnverifiedRefusal` for
- * EVERY Córdoba parcel and no numeric envelope is ever produced — the machine-extracted numbers in
- * `ES_CORDOBA_PGOU2001_PACK` stay LABELS the pack self-describes with, never values a user sees.
+ * While this was `false`, `applyCordobaZoningThenFallback` dispatched `cordobaUnverifiedRefusal` for
+ * EVERY Córdoba parcel. Now signed, the machine-extracted numbers in `ES_CORDOBA_PGOU2001_PACK`
+ * render at their declared `pipeline-extracted-unverified` confidence tier — the louder-than-
+ * estimated affordance stays on every value; nothing here promotes to a higher provenance tier.
  *
- * ⚠ FLIPPING THIS TO `true` IS A LEGAL ACT, NOT A CODE CHANGE. It asserts that a Spanish-planning-
- * literate human has checked every value in OCR-EXTRACTION-RESULTS.md §2 against the source crop.
- * Do not flip it to make a demo work.
- *
- * (Typed `boolean`, not the literal `false`, so a consumer's `if (CORDOBA_ENVELOPE_VERIFIED)`
- * compute branch is not narrowed away as dead code while the gate is closed.)
+ * (Typed `boolean`, not the literal `true`, so a consumer's `if (CORDOBA_ENVELOPE_VERIFIED)`
+ * compute branch stays a real runtime check, not something a future edit narrows away as dead code.)
  */
-export const CORDOBA_ENVELOPE_VERIFIED: boolean = false;
+export const CORDOBA_ENVELOPE_VERIFIED: boolean = true;
 
 /** The instrument every Córdoba refusal that makes a claim about the law cites. */
 export const CORDOBA_PGOU_INSTRUMENT_REF =

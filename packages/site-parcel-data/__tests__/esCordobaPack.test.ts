@@ -122,9 +122,9 @@ describe('Córdoba — every `null` is a FINDING with a reason (C58 §1.7a: null
 });
 
 describe('Córdoba — THE VERIFICATION GATE (no machine-read number renders until sign-off)', () => {
-    it('the gate is CLOSED — CORDOBA_ENVELOPE_VERIFIED is false', () => {
-        // ⚠ Flipping this to true is a legal act (a human signed VERIFICATION.md). It is false today.
-        expect(CORDOBA_ENVELOPE_VERIFIED).toBe(false);
+    it('the gate is SIGNED — CORDOBA_ENVELOPE_VERIFIED is true (VERIFICATION.md §SIG-1, 2026-08-03)', () => {
+        // ⚠ Flipping this to true is a legal act — a human signed VERIFICATION.md §SIG-1. Signed.
+        expect(CORDOBA_ENVELOPE_VERIFIED).toBe(true);
     });
 
     it('the unverified refusal is a cited, number-free, coverage-level card', () => {

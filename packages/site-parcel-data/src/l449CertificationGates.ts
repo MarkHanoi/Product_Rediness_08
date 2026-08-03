@@ -182,7 +182,10 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         gate: 'CORDOBA_ENVELOPE_VERIFIED',
         file: 'packages/site-parcel-data/src/rulepacks/esCordobaZoneClassification.ts',
         value: CORDOBA_ENVELOPE_VERIFIED,
-        signature: null,
+        signature: {
+            doc: 'docs/04-reference/jurisdictions/es/es-an/14021-cordoba/sources/VERIFICATION.md',
+            anchor: 'SIG-1',
+        },
     },
     {
         // §MADRID-SPACM-PORT (L-681) — the Comunidad de Madrid REGIONAL corpus, i.e. the 178

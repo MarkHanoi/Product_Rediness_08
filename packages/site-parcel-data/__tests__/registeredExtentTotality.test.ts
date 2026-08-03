@@ -227,9 +227,20 @@ describe('§CORDOBA-MUNICIPAL-CLOSURE — the fabrication is dead across the WHO
                 `${zone} must never be classified as a full envelope outside the pilot`,
             ).not.toBe('full-envelope');
         }
-        // …while the PILOT, which does hold packs, is correctly held shut by its own gate.
-        expect(isEnvelopePublicationAuthorised('es-14021-cordoba')).toBe(false);
-        expect(classifyAnswerability('es-14021-cordoba', 'MC-2')).toBe('pack-unverified');
+        // …while the PILOT, which does hold packs, reads the SAME gate constant (not a duplicate
+        // table — verified: `envelopeAuthorisation.ts` imports `CORDOBA_ENVELOPE_VERIFIED` directly
+        // rather than re-declaring it). Signed 2026-08-03 (VERIFICATION.md §SIG-1).
+        expect(isEnvelopePublicationAuthorised('es-14021-cordoba')).toBe(true);
+        // ⚠ `classifyAnswerability` returns `full-envelope` now — that is an AUTHORISATION claim
+        // ("this jurisdiction may publish a number for this zone"), not a guarantee the zone
+        // actually renders one. MC-2's own pack entry structurally refuses regardless (height is an
+        // unresolved per-street-width table, VERIFICATION.md), and no live dispatch path calls the
+        // compute engine for Córdoba yet at all (`applyCordobaZoningThenFallback` in
+        // `siteDispatch.ts` never got past its two refusal branches) — this classification is a
+        // necessary, not sufficient, condition for a rendered envelope. Worth re-checking whether
+        // `classifyAnswerability` should distinguish "authorised but structurally unresolvable" from
+        // "authorised and computable" when the compute branch is written.
+        expect(classifyAnswerability('es-14021-cordoba', 'MC-2')).toBe('full-envelope');
     });
 
     it('the two Córdoba boxes are nested the way the specificity rule requires', () => {

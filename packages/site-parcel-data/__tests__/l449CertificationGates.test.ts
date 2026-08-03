@@ -152,7 +152,7 @@ describe('§NO-UNSIGNED-OPEN-GATE — the reintroduction guard', () => {
     it('`isGateSignatureRecorded` distinguishes signed-open from open-unsigned from shut', () => {
         expect(isGateSignatureRecorded('MURCIA_ENVELOPE_VERIFIED')).toBe(true);   // open + SIG-MU1
         expect(isGateSignatureRecorded('FR_PARIS_PLU_CERTIFIED')).toBe(false);    // open, unsigned
-        expect(isGateSignatureRecorded('CORDOBA_ENVELOPE_VERIFIED')).toBe(false); // shut
+        expect(isGateSignatureRecorded('CORDOBA_ENVELOPE_VERIFIED')).toBe(true);  // open + SIG-1, signed 2026-08-03
         expect(isGateSignatureRecorded('NOT_A_GATE')).toBe(false);                // unknown
     });
 });

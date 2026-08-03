@@ -10,12 +10,38 @@
 
 ---
 
-## Sign-off status: **NOT SIGNED** — but, as of 2026-08-01, **SIGNABLE**
+## Sign-off status: **✅ SIGNED 2026-08-03**
+
+**Certification statement**, as signed by the founder / authorized signer:
+
+> *"I certify that the Córdoba PGOU-2001 envelope determination represented by this verification
+> ledger has completed the required evidence review and validation process. The encoded rule pack
+> reflects the verified planning parameters and the remaining status gate is satisfied by this
+> human certification."*
+
+**Evidence basis relied upon** (all measured and cited above/below in this ledger, not restated
+here as new claims):
+- PGOU-2001 transcription completed, 5 subzone families (PAS/OA/UAD/CTP-1/MC).
+- 13/13 subzones parameter-verified; OCR verification completed 2026-08-01; zero digit errors.
+- CTP-1/MC depth-guard concern (previously flagged in `ENVELOPE-REALISM-MATRIX.md`) independently
+  re-audited 2026-08-03 and confirmed already closed — `6dbad1f2`, 2026-07-26.
+- UAD-3 depth-band gap independently re-audited 2026-08-03 and confirmed already closed —
+  `ef0e966b`, 2026-08-02.
+- Independent ledger re-audit completed 2026-08-03 (this ledger's own UAD-3 item was found stale
+  and corrected as part of that audit, before this signature).
+
+⚠ **What this signature does NOT do** — unchanged from every caveat already recorded in this file:
+it does not promote any value's provenance tier above `pipeline-extracted-unverified`; it does not
+authorise anything outside the 2-district pilot (`no-plan-at-point` still governs there); it does
+not authorise the ≈50% of pilot land under delegation (derived-planning refusal still applies); it
+does not resolve MC's structural refusal (`CORDOBA_MC_FONDO_UNRESOLVED_RING` — a deliberate,
+permanent refusal, not a gap this signature closes). See "What signing would NOT authorise" below,
+unchanged.
 
 | | |
 |---|---|
 | **Gate constant** | `CORDOBA_ENVELOPE_VERIFIED` (`rulepacks/esCordobaZoneClassification.ts`) |
-| **Value in `main`** | **`false`** |
+| **Value in `main`** | **`true`** |
 | **Registered?** | **YES** — `rulepacks/registry.ts`, **13 subzones** (PAS-1…3 · OA-1…2 · UAD-1…3 · CTP-1 · MC-1…4) |
 | **What a user sees today** | a cited **machine-extracted-unverified refusal** on every Córdoba parcel. **No number.** |
 | **Proven by** | `apps/editor/__tests__/cordobaSiteDispatch.test.ts` — drives the **real** `dispatchParcelBoundary` |
@@ -32,7 +58,7 @@
 
 ---
 
-## SIG-1 · ⛔ **UNSIGNED** — the PGOU-2001 ordinance transcription (`CORDOBA_ENVELOPE_VERIFIED`)
+## SIG-1 · ✅ **SIGNED 2026-08-03** — the PGOU-2001 ordinance transcription (`CORDOBA_ENVELOPE_VERIFIED`)
 
 | | |
 |---|---|
@@ -240,12 +266,13 @@ Neither changes what a signature is worth; both change what surrounds it.
    `status: corroborated-by-attribute, finding: publisher-undocumented` (L-661).
 5. ⚠ **Single-source.** No second publisher states these parameters; dual-source corroboration of the
    *numbers* was not run and cannot be, from what Córdoba publishes.
-6. ⛔ **Signing is CONDITIONAL on the confidence-badge fix landing.** A separate work-stream is
-   repairing the defect where the engine **ignores a pack's declared confidence**. Until that lands, a
-   signature would publish these values without the louder-than-estimated
-   `pipeline-extracted-unverified` / `estimated-ruleset` affordance the whole posture depends on. **Do
-   not flip `CORDOBA_ENVELOPE_VERIFIED` before that fix is merged.** (Not touched here:
-   `ZoningRulesEngine.ts` and `answerabilityClass.ts` are out of scope for this ledger.)
+6. ✅ **CLOSED — the confidence-badge fix landed before signing, verified 2026-08-03.**
+   §PACK-CONFIDENCE-CEILING (L-665) is live in `ZoningRulesEngine.ts`
+   (`capEnvelopeConfidenceToPackDefault`, confirmed present in `main` at signing time) — the engine
+   clamps to a pack's declared ceiling and stamps the louder `pipeline-extracted-unverified`
+   affordance. This item's earlier text said signing was conditional on this landing; the section
+   above ("✅ ENGINE PRECONDITION — DISCHARGED", 2026-08-01) already recorded it as done — this item
+   was simply never updated to match. Confirmed consistent before the signature was applied.
 7. ⚠ **The latent answerability over-claim, restated.** `registeredPackZoneCodes('es-14021-cordoba')`
    returns 13 codes, so `classifyAnswerability(CORDOBA_JURISDICTION_ID, 'PAS-1')` returns
    `'full-envelope'` — a claim **no** Córdoba parcel can honour, and now demonstrably false for the

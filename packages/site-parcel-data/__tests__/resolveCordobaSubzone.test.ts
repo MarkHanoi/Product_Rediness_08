@@ -62,8 +62,8 @@ describe('subzoneCodeFromLink — the O_* link basename → subzone parse', () =
 });
 
 describe('resolveCordobaSubzone — the two-step COACo resolve', () => {
-    it('the verification gate stays CLOSED (this resolver is wired but never rendered today)', () => {
-        expect(CORDOBA_ENVELOPE_VERIFIED).toBe(false);
+    it('the verification gate is SIGNED (VERIFICATION.md §SIG-1, 2026-08-03) — but a number still does not render: the compute branch in applyCordobaZoningThenFallback was never written, a separate engineering gap the signature revealed rather than closed', () => {
+        expect(CORDOBA_ENVELOPE_VERIFIED).toBe(true);
     });
 
     it('STEP 1 only (no refcat) — subzone from the link basename, family echoed, no override', async () => {
