@@ -51,6 +51,33 @@ the wrapper, not hand-rolled per field.
 This contract defines schema + vocabulary only. It performs no I/O and mandates no rendering. Consumers
 (C57/C58/C55) decide how to *display* a confidence; C62 only guarantees they speak the same words.
 
+### §1.7 — ABSENCE IS A TYPED CLAIM, AND IT CARRIES A DISCOVERY PRECONDITION
+"The authority does not publish this" is **a claim about our search, not a property of the world**, and
+it is the only claim in this model whose failure mode is invisible: refusing produces no error, no
+failing test and no user complaint, so a wrong one survives indefinitely while suppressing coverage the
+authority already publishes. Measured 2026-08-03: **9 of 14** standing absence conclusions across
+Balears, Canarias, Barcelona and Huesca were overturned in one day, **none** because a publisher released
+new data — every one because the discovery method that produced the negative was incomplete.
+
+Therefore an absence recorded anywhere in the system (an `UnknownReason`, a refusal, a `packsByZone: {}`,
+a `*_UNRESOLVED` sentinel) **MUST** carry a discovery-confidence token:
+
+| Token | Meaning |
+|---|---|
+| `VALIDATED` | Every applicable discovery stage ran; positive **and** negative controls present |
+| `STRONG` | Substantial search, one or more stages unrun or unreachable — named |
+| `UNVERIFIED` | Not exhaustively searched. **Scheduled re-audit, not a closed question** |
+
+⛔ A bare "not available" is not a permitted value. ⛔ A failed guess is not an absence (HTTP 400 from a
+WFS is evidence about the guess). ⛔ An advertised inventory is not the inventory (`GetCapabilities` is a
+publication choice; only `DescribeLayer` enumerates). ⛔ Absence in one artefact class is not absence in
+the jurisdiction. ⛔ A fabricated URL that 404s **manufactures** evidence of absence and is never valid
+evidence.
+
+Normative procedure, mandatory stages per platform, the 20-entry false-negative taxonomy and the
+pre-conclusion checklist: **ADR-0296** and
+`docs/04-reference/standards/DISCOVERY-EXHAUSTION-STANDARD.md`.
+
 ---
 
 ## §2 — Schema (shipped)
