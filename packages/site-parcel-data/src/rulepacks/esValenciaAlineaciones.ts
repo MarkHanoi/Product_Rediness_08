@@ -195,6 +195,79 @@ export function valenciaAlturaIsCandidateInput(v: ValenciaAlturaValue): boolean 
     }
 }
 
+/**
+ * Does a 212 polygon denote ground that CARRIES BUILDING at all?
+ *
+ * ⚠⚠ **THIS IS A KIND-LEVEL QUESTION, NOT A VALUE-LEVEL ONE, AND THAT DISTINCTION IS THE WHOLE
+ * REASON IT IS ALLOWED TO EXIST.** It never asks what a number MEANS — `bare-integer` 5 stays
+ * uninterpreted here exactly as R2 requires. It asks only whether the polygon is building ground,
+ * which is an ADR-0270 KIND statement.
+ *
+ * ⭐ **WHY IT IS NEEDED: layer 212 TILES THE MUNICIPALITY, carriageway included.** Measured
+ * 2026-08-03 (`tools/valencia-alineaciones-probe/`, probe 3, native EPSG:25830): 40,8 % of points
+ * sampled along the publisher's own street centreline (`MapServer/223 Eixos de carrer`, n = 12 647)
+ * fall INSIDE a 212 polygon, and 94,8 % of those sit on `zero`/`blank`/`unrecognised` ground. Only
+ * **0,96 % of all centreline points sit on a building-class polygon.**
+ *
+ * ⇒ The union of ALL 212 polygons is therefore **NOT** the buildable footprint — it is the whole
+ *   city, streets included. A provider that returned "the 212 polygon at this point" without this
+ *   gate would hand a CARRIAGEWAY back as a buildable footprint, an over-grant of the L-616 kind
+ *   that a well-formed HTTP 200 would never reveal. The footprint is the BUILDING-CLASS union.
+ *
+ * ⚠ **THE ASYMMETRY IS DELIBERATE.** `zero` is reported `not-building-ground`, which EXCLUDES that
+ * land from the footprint. A false exclusion under-grants (the safe direction); a false inclusion
+ * would publish a street as buildable. `blank`/`unrecognised` are `unknown` and are NEVER folded
+ * into either side — an unknown constraint is not drawn as zero and not drawn as unbounded
+ * (L-616, ADR-0283).
+ *
+ * ⚠ This does NOT retire the `0`-is-not-unknown rule (C58 §1.7a). `zero` still never becomes
+ * "unknown" and never becomes a height; it becomes "no building on this ground".
+ *
+ * PURE; never throws. OTel span `pryzm.zoning.valenciaAlturaGroundClass` (P8 / C58 §1.10).
+ */
+export function valenciaAlturaGroundClass(v: ValenciaAlturaValue): ValenciaGroundClass {
+    const span = tracer.startSpan('pryzm.zoning.valenciaAlturaGroundClass');
+    try {
+        let out: ValenciaGroundClass;
+        switch (v.kind) {
+            // Ground that carries building — the class the footprint is built from.
+            case 'bare-integer':
+            case 'bounded':
+            case 'metres':
+            case 'far':
+            case 'floorspace-m2t':
+            case 'protection-derived':
+                out = 'building-ground';
+                break;
+            // Ground the plan records as carrying none. Excluded ⇒ under-grants, never over-grants.
+            case 'zero':
+                out = 'not-building-ground';
+                break;
+            // ⚠ Everything else is genuinely UNKNOWN and stays that way. `integer-out-of-range`
+            // (`2000`, `538650`) and `site-area-m2s` wear a storey's clothes and are not one;
+            // `delegated` means the answer lives in another instrument entirely.
+            case 'integer-out-of-range':
+            case 'site-area-m2s':
+            case 'delegated':
+            case 'blank':
+            case 'unrecognised':
+            default:
+                out = 'unknown';
+                break;
+        }
+        span.setAttribute('kind', v.kind);
+        span.setAttribute('groundClass', out);
+        span.setAttribute('resultFields', 'groundClass');
+        span.setStatus({ code: SpanStatusCode.OK });
+        return out;
+    } finally {
+        span.end();
+    }
+}
+
+/** Whether a 212 polygon is building ground. `unknown` is a first-class member, never a default. */
+export type ValenciaGroundClass = 'building-ground' | 'not-building-ground' | 'unknown';
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
 // 2 — THE MOVEMENT-POLYGON GEOMETRY VALIDATOR
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
@@ -464,7 +537,24 @@ export const VALENCIA_ENVELOPE_INPUT_STATUS: readonly ValenciaEnvelopeInput[] = 
             + 'geometry IS the legal datum. Art. 6.18.1: «La ocupación de la parcela edificable se '
             + 'ajustará a las alineaciones definidas en el Plano C». Measured n=54: median mean-width '
             + '15.6 m, NEVER larger than its calificación polygon (0/54). Validated on every read by '
-            + 'validateValenciaMovementPolygon().',
+            + 'validateValenciaMovementPolygon(). '
+            + '⭐ REACHABLE since 2026-08-03: resolveValenciaAlineaciones() is the live seam — before '
+            + 'it, this row said `resolved` while NO CODE FETCHED LAYER 212, which at runtime is '
+            + 'indistinguishable from absent. '
+            + '⭐ R1 was a DOCTRINE decision; it now has INDEPENDENT GEOMETRIC CORROBORATION by the '
+            + 'paired control that convicted Murcia/Córdoba (tools/valencia-alineaciones-probe/, '
+            + 'native EPSG:25830): parcel frontage → 212 boundary median 0.004 m, 80.1 % within 1 m '
+            + '(n=56 775), while frontage → the publisher\'s OWN street axis (MapServer/223) is '
+            + 'median 8.854 m, 1.0 % — so 212 is a frontage line, NOT a centreline. It is not a '
+            + 'cadastre copy either: 1.75× coarser than the urban parcel layer, and 68.8 % of its '
+            + 'interior edges separate DIFFERENT altura values. '
+            + '⚠⚠ ONE CAVEAT THAT CHANGES WHAT "THE FOOTPRINT" MEANS: layer 212 TILES the '
+            + 'municipality, carriageway included — 40.8 % of street-centreline points fall inside a '
+            + '212 polygon, 94.8 % of them on altura=0/blank ground. The footprint is the '
+            + 'BUILDING-CLASS union (valenciaAlturaGroundClass), never the union of all polygons; '
+            + 'the latter would publish a STREET as buildable. Measured clip: of 2 236 parcels, '
+            + '80.8 % wholly buildable, 12.2 % genuinely clipped by the alignment, 7.0 % entirely '
+            + 'non-building ground.',
     },
     {
         input: 'setbacks.front/side/rear', status: 'not-the-rule-kind', zones: ['ENS'],

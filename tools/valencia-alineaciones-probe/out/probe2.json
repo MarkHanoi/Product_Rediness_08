@@ -1,0 +1,153 @@
+{
+  "probe": "§VALENCIA-ALINEACIONES-PROBE-2",
+  "ranAt": "2026-08-03T08:03:28.474Z",
+  "crs": "EPSG:25830 native, no reprojection",
+  "D1_granularity": {
+    "alineacionesPolygons": 21975,
+    "urbanCadastralParcels": 38356,
+    "ratio": 1.75,
+    "verdict": "COARSER than the cadastre — not a 1:1 copy"
+  },
+  "D2_whySharedEdge": {
+    "question": "party-wall points lying ON a 212 boundary — do the flanking 212 polygons carry DIFFERENT altura?",
+    "flankingAlturaDiffers": 29089,
+    "flankingAlturaSame": 13161,
+    "noFlankingPolygon": 4,
+    "differsPct": 68.8,
+    "verdict": "ORDINANCE SUBDIVISION — the shared edge exists because the LEGAL VALUE changes there, not because the cadastre does"
+  },
+  "D3_streetComplement": {
+    "question": "do points on the published street CENTRELINE fall inside a 212 polygon?",
+    "axisPointsInside212": 5164,
+    "axisPointsTested": 12647,
+    "insidePct": 40.8,
+    "verdict": "street is covered — 212 is not a buildable-land layer"
+  },
+  "D4_clippingReach": {
+    "parcelsTested": 2237,
+    "fullyBuildable": 2114,
+    "partiallyClipped": 120,
+    "entirelyOutside212": 3,
+    "partiallyClippedPct": 5.4,
+    "entirelyOutsidePct": 0.1,
+    "buildableFraction": {
+      "n": 2237,
+      "median": 1,
+      "p25": 1,
+      "p75": 1,
+      "p95": 1,
+      "mean": 0.984
+    },
+    "examples": [
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5322510YJ2752A",
+        "parcelAreaM2": 103,
+        "buildableFraction": 0.907,
+        "buildableM2": 93.4,
+        "landRemovedM2": 9.6,
+        "hostAltura": "4"
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5322508YJ2752A",
+        "parcelAreaM2": 192.1,
+        "buildableFraction": 0.764,
+        "buildableM2": 146.7,
+        "landRemovedM2": 45.4,
+        "hostAltura": "9"
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5322511YJ2752A",
+        "parcelAreaM2": 101.9,
+        "buildableFraction": 0.797,
+        "buildableM2": 81.2,
+        "landRemovedM2": 20.7,
+        "hostAltura": "PROTEGIDO"
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5320902YJ2752A",
+        "parcelAreaM2": 778.5,
+        "buildableFraction": 0.963,
+        "buildableM2": 749.8,
+        "landRemovedM2": 28.7,
+        "hostAltura": "8"
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5320903YJ2752A",
+        "parcelAreaM2": 1509.3,
+        "buildableFraction": 0.694,
+        "buildableM2": 1047.5,
+        "landRemovedM2": 461.8,
+        "hostAltura": "8"
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5322507YJ2752C",
+        "parcelAreaM2": 214.9,
+        "buildableFraction": 0.485,
+        "buildableM2": 104.2,
+        "landRemovedM2": 110.7,
+        "hostAltura": null
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5521703YJ2752A",
+        "parcelAreaM2": 406.4,
+        "buildableFraction": 0.98,
+        "buildableM2": 398.3,
+        "landRemovedM2": 8.2,
+        "hostAltura": "8"
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "6019203YJ2762A",
+        "parcelAreaM2": 950.2,
+        "buildableFraction": 0.394,
+        "buildableM2": 374.5,
+        "landRemovedM2": 575.8,
+        "hostAltura": "7(B+1)"
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "6019227YJ2761G",
+        "parcelAreaM2": 906.8,
+        "buildableFraction": 0.612,
+        "buildableM2": 554.9,
+        "landRemovedM2": 351.8,
+        "hostAltura": "7"
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5417302YJ2751G",
+        "parcelAreaM2": 248.2,
+        "buildableFraction": 0.693,
+        "buildableM2": 172.1,
+        "landRemovedM2": 76.1,
+        "hostAltura": "6"
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5518501YJ2751H",
+        "parcelAreaM2": 2070.3,
+        "buildableFraction": 0.98,
+        "buildableM2": 2028.8,
+        "landRemovedM2": 41.5,
+        "hostAltura": "8"
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "6019224YJ2761G",
+        "parcelAreaM2": 243.8,
+        "buildableFraction": 0.949,
+        "buildableM2": 231.5,
+        "landRemovedM2": 12.4,
+        "hostAltura": "PROTEGIDO"
+      }
+    ],
+    "note": "A parcel entirely outside 212 is NOT drawn as zero buildable — it is an UNKNOWN/■ no-rule case for the caller to refuse on (L-616, ADR-0283). It is counted separately here for that reason."
+  }
+}

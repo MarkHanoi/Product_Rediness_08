@@ -1118,6 +1118,30 @@ export {
     VALENCIA_COVERAGE_LOSS,
     valenciaInputsStillMissingIfAlturaAnswered,
 } from './rulepacks/esValenciaAlineaciones.js';
+// ── §VALENCIA-ALINEACIONES — the LIVE layer-212 seam. ─────────────────────────────────────────
+// ⚠ Layer 212 was named in prose across five files and FETCHED BY NO CODE: `explicitAreaFootprint`
+// was marked `resolved` while no caller could obtain one. This is that seam, and ONLY that seam.
+// ⛔ It cannot open the gate. `VALENCIA_ENVELOPE_VERIFIED` stays `false`; every success returns
+// `heightStatus: 'blocked-r2'` and no code path here yields a height (founder ruling R2).
+export {
+    resolveValenciaAlineaciones,
+    VALENCIA_ARCGIS_SERVICE,
+    VALENCIA_ALINEACIONES_LAYER,
+    VALENCIA_CALIFICACION_LAYER,
+    VALENCIA_NATIVE_EPSG,
+    VALENCIA_ALINEACIONES_CATALOGUE,
+    VALENCIA_ALINEACIONES_GEOMETRY_EVIDENCE,
+} from './providers/resolveValenciaAlineaciones.js';
+export type {
+    ValenciaAlineacionesResolution,
+    ValenciaAlineacionesHit,
+    ValenciaAlineacionesMiss,
+    ValenciaAlineacionesRefusal,
+    ValenciaAlineacionesDeps,
+} from './providers/resolveValenciaAlineaciones.js';
+export { valenciaAlturaGroundClass } from './rulepacks/esValenciaAlineaciones.js';
+export type { ValenciaGroundClass } from './rulepacks/esValenciaAlineaciones.js';
+
 export type {
     ValenciaAlturaValue,
     ValenciaRing,

@@ -1,0 +1,160 @@
+{
+  "probe": "§VALENCIA-ALINEACIONES-PROBE-3",
+  "ranAt": "2026-08-03T08:13:09.407Z",
+  "crs": "EPSG:25830 native",
+  "D7a_layerCompositionByFeatureCount": {
+    "other": 1100,
+    "zero": 4477,
+    "positive-integer": 10204,
+    "protected": 4753,
+    "unknown": 914,
+    "bounded": 520,
+    "metres": 7
+  },
+  "D5_whatTheCentrelineSitsOn": {
+    "question": "street-axis points inside a 212 polygon — what altura does the HOST carry?",
+    "sampled": 12647,
+    "host": {
+      "zero": 3155,
+      "positive": 47,
+      "bounded": 65,
+      "metres": 0,
+      "protected": 10,
+      "other": 148,
+      "unknown": 1739,
+      "none": 7483
+    },
+    "insideAnyPct": 40.8,
+    "ofThoseInside_zeroPct": 61.1,
+    "ofThoseInside_buildablePct": 2.4,
+    "verdict": "⚠ the centreline sits on altura-BEARING polygons — 212 does not separate street from buildable ground, and must NOT be used as a footprint."
+  },
+  "D6_parcelClipAgainstNonZeroUnion": {
+    "note": "Probe 2 D4 intersected against ALL 212 polygons and so measured almost nothing (streets included). This is the number that means something.",
+    "parcelsTested": 2236,
+    "againstAllPolygons": {
+      "n": 2236,
+      "median": 1,
+      "p25": 1,
+      "p75": 1,
+      "mean": 0.984
+    },
+    "againstBuildableOnly": {
+      "n": 2236,
+      "median": 1,
+      "p25": 0.998,
+      "p75": 1,
+      "mean": 0.891
+    },
+    "fullyBuildable": 1807,
+    "partiallyClipped": 273,
+    "partiallyClippedPct": 12.2,
+    "entirelyNonBuildable": 156,
+    "entirelyNonBuildablePct": 7,
+    "examples": [
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5521710YJ2752B",
+        "parcelAreaM2": 481,
+        "buildableFraction": 0.901,
+        "buildableM2": 433.2,
+        "landRemovedByAlignmentM2": 47.8
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5521701YJ2752A",
+        "parcelAreaM2": 302.4,
+        "buildableFraction": 0.964,
+        "buildableM2": 291.5,
+        "landRemovedByAlignmentM2": 10.9
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5322510YJ2752A",
+        "parcelAreaM2": 103,
+        "buildableFraction": 0.912,
+        "buildableM2": 93.9,
+        "landRemovedByAlignmentM2": 9.1
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5322508YJ2752A",
+        "parcelAreaM2": 192.1,
+        "buildableFraction": 0.766,
+        "buildableM2": 147.1,
+        "landRemovedByAlignmentM2": 44.9
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5322511YJ2752A",
+        "parcelAreaM2": 101.9,
+        "buildableFraction": 0.773,
+        "buildableM2": 78.8,
+        "landRemovedByAlignmentM2": 23.1
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5520313YJ2752B",
+        "parcelAreaM2": 386.9,
+        "buildableFraction": 0.56,
+        "buildableM2": 216.7,
+        "landRemovedByAlignmentM2": 170.1
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5520317YJ2752B",
+        "parcelAreaM2": 170.9,
+        "buildableFraction": 0.824,
+        "buildableM2": 140.9,
+        "landRemovedByAlignmentM2": 30
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5320902YJ2752A",
+        "parcelAreaM2": 778.5,
+        "buildableFraction": 0.979,
+        "buildableM2": 762.3,
+        "landRemovedByAlignmentM2": 16.2
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5320903YJ2752A",
+        "parcelAreaM2": 1509.3,
+        "buildableFraction": 0.692,
+        "buildableM2": 1044.2,
+        "landRemovedByAlignmentM2": 465.1
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5322507YJ2752C",
+        "parcelAreaM2": 214.9,
+        "buildableFraction": 0.459,
+        "buildableM2": 98.8,
+        "landRemovedByAlignmentM2": 116.2
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "5519601YJ2751H",
+        "parcelAreaM2": 198.1,
+        "buildableFraction": 0.765,
+        "buildableM2": 151.6,
+        "landRemovedByAlignmentM2": 46.5
+      },
+      {
+        "window": "Eixample / Ruzafa (closed block)",
+        "refcat": "6019203YJ2762A",
+        "parcelAreaM2": 950.2,
+        "buildableFraction": 0.277,
+        "buildableM2": 263,
+        "landRemovedByAlignmentM2": 687.2
+      }
+    ]
+  },
+  "D7b_areaShare": {
+    "zeroM2": 1551634,
+    "buildableM2": 1238923,
+    "unknownM2": 214870,
+    "zeroSharePct": 51.6,
+    "note": "An UNKNOWN altura is carried as its own bucket and never folded into either side."
+  }
+}

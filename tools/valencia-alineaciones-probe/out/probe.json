@@ -1,0 +1,458 @@
+{
+  "probe": "§VALENCIA-ALINEACIONES-PROBE",
+  "ranAt": "2026-08-03T07:32:41.837Z",
+  "service": "https://geoportal.valencia.es/server/rest/services/OPENDATA/UrbanismoEInfraestructuras/MapServer",
+  "layers": {
+    "ALINEACIONES": {
+      "id": 212,
+      "name": "PGOU - Alineacions / PGOU - Alineaciones",
+      "geometryType": "esriGeometryPolygon",
+      "wkid": 25830,
+      "fields": [
+        "objectid",
+        "altura",
+        "protec",
+        "shape",
+        "gis.gis.PGOU_AL.area",
+        "ttggss",
+        "idoperacion",
+        "fecha_valor",
+        "bloqueo",
+        "usuario",
+        "operacionbaja"
+      ],
+      "maxRecordCount": 2000
+    },
+    "PARCELS": {
+      "id": 216,
+      "name": "Parcel·les cadastrals urbana / Parcelas catastrales urbana",
+      "geometryType": "esriGeometryPolygon",
+      "wkid": 25830,
+      "fields": [
+        "objectid",
+        "refpar",
+        "refpla",
+        "codvia",
+        "npol",
+        "dupli",
+        "construccion",
+        "antiguedad",
+        "reforma",
+        "tipo_reforma",
+        "coorx",
+        "coory",
+        "poblacion_total",
+        "poblacion_0_14",
+        "poblacion_15_65",
+        "poblacion_66_o_mas",
+        "linkid",
+        "refcat",
+        "globalid",
+        "shape",
+        "sedecatastro",
+        "fichavalenciano",
+        "fichacastellano"
+      ],
+      "maxRecordCount": 2000
+    },
+    "STREET_AXIS": {
+      "id": 223,
+      "name": "Eixos de carrer / Ejes de calle",
+      "geometryType": "esriGeometryPolyline",
+      "wkid": 25830,
+      "fields": [
+        "objectid",
+        "codvia",
+        "lf_add",
+        "lt_add",
+        "rf_add",
+        "rt_add",
+        "tipcalle",
+        "nomcalle",
+        "longitud",
+        "shape",
+        "co_lf_add",
+        "co_lt_add",
+        "co_rf_add",
+        "co_rt_add",
+        "tipnomcalle",
+        "tipo",
+        "motivobaja",
+        "nivelaltura"
+      ],
+      "maxRecordCount": 2000
+    },
+    "BUILDINGS": {
+      "id": 112,
+      "name": "Cartografia Base Edificis / Edificios",
+      "geometryType": "esriGeometryPolyline",
+      "wkid": 25830,
+      "fields": [
+        "objectid",
+        "elemento",
+        "texto",
+        "creacion",
+        "fechacreac",
+        "escala",
+        "shape",
+        "st_length(shape)",
+        "created_user",
+        "created_date",
+        "last_edited_user",
+        "last_edited_date",
+        "globalid"
+      ],
+      "maxRecordCount": 2000
+    }
+  },
+  "crs": {
+    "epsg": 25830,
+    "source": "published sourceSpatialReference.wkid on each layer ?f=json — READ, not inferred",
+    "reprojection": "NONE. inSR=outSR=25830 on every query; all distances are native metres."
+  },
+  "attributes": {
+    "totalFeatures": 21975,
+    "withAltura": 21975,
+    "withAlturaPct": 100,
+    "withTtggss": 21600,
+    "withTtggssPct": 98.3,
+    "note": "geometry-only would show 0 here; a legal layer carries per-polygon ordinance keys."
+  },
+  "pairedControl": {
+    "method": "point-to-SEGMENT distance (clamped, never a ray) from parcel-boundary sample points every 2 m, in native EPSG:25830 metres. Groups assigned by an INDEPENDENT criterion (shared with another cadastral parcel within 0.5 m) BEFORE any 212 distance is read.",
+    "onLineThresholdM": 1,
+    "FRONTAGE": {
+      "meaning": "parcel edge with no neighbouring parcel — faces the street",
+      "toAlineaciones212": {
+        "n": 56775,
+        "median": 0.004,
+        "p25": 0.001,
+        "p75": 0.151,
+        "mean": 6.169,
+        "onLinePct": 80.1
+      },
+      "toStreetAxis223": {
+        "n": 56775,
+        "median": 8.854,
+        "p25": 5.56,
+        "p75": 17.406,
+        "mean": 67.82,
+        "onLinePct": 1
+      }
+    },
+    "PARTY": {
+      "meaning": "edge shared with another parcel — interior to the block. THE CONTROL.",
+      "toAlineaciones212": {
+        "n": 96063,
+        "median": 0.558,
+        "p25": 0.002,
+        "p75": 4.638,
+        "mean": 2.967,
+        "onLinePct": 52
+      },
+      "toStreetAxis223": {
+        "n": 96063,
+        "median": 18.252,
+        "p25": 11.678,
+        "p75": 26.3,
+        "mean": 20.068,
+        "onLinePct": 0.2
+      }
+    }
+  },
+  "perWindow": [
+    {
+      "window": "Eixample / Ruzafa (closed block)",
+      "alin": 457,
+      "parcels": 557,
+      "axes": 144,
+      "frontage": 16872,
+      "party": 26899
+    },
+    {
+      "window": "Ciutat Vella (medieval irregular)",
+      "alin": 596,
+      "parcels": 685,
+      "axes": 211,
+      "frontage": 11020,
+      "party": 27159
+    },
+    {
+      "window": "Extramurs / Gran Via (open block)",
+      "alin": 271,
+      "parcels": 589,
+      "axes": 124,
+      "frontage": 9622,
+      "party": 27866
+    },
+    {
+      "window": "Benimaclet (peripheral grid)",
+      "alin": 161,
+      "parcels": 200,
+      "axes": 149,
+      "frontage": 9709,
+      "party": 7076
+    },
+    {
+      "window": "Camins al Grau (modern)",
+      "alin": 169,
+      "parcels": 242,
+      "axes": 147,
+      "frontage": 9552,
+      "party": 7063
+    }
+  ],
+  "nesting": {
+    "parcelCentroidsInsideAlineaciones": 2243,
+    "parcelCentroidsTested": 2273,
+    "coveragePct": 98.7,
+    "parcelsPerAlineacionPolygon": {
+      "n": 993,
+      "median": 1,
+      "p25": 1,
+      "p75": 3,
+      "mean": 2.318
+    }
+  },
+  "parcelIntersection": {
+    "method": "real Catastro-referenced parcel (layer 216, carries `refcat`) ∩ union of layer-212 polygons, area by 4000-point Monte Carlo inside the parcel, native CRS. An UNKNOWN is never drawn as 0 or as the whole parcel — a parcel with no 212 host is reported as such, not as unbounded.",
+    "sampled": 25,
+    "buildableFraction": {
+      "n": 25,
+      "median": 1,
+      "p25": 1,
+      "p75": 1,
+      "mean": 0.999
+    },
+    "fullyInside": 25,
+    "partiallyClipped": 0,
+    "noBuildableArea": 0,
+    "samples": [
+      {
+        "refcat": "5818819YJ2751H",
+        "parcelAreaM2": 331.8,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 331.8,
+        "hostAlineacionAltura": "6",
+        "hostAlineacionTtggss": "114302",
+        "hostAlineacionAreaM2": 969.1
+      },
+      {
+        "refcat": "5822405YJ2752D",
+        "parcelAreaM2": 210.8,
+        "buildableFractionOfParcel": 0.998,
+        "derivedBuildableM2": 210.3,
+        "hostAlineacionAltura": "6",
+        "hostAlineacionTtggss": "114302",
+        "hostAlineacionAreaM2": 209
+      },
+      {
+        "refcat": "5520304YJ2752B",
+        "parcelAreaM2": 173.4,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 173.4,
+        "hostAlineacionAltura": "PROTEGIDO",
+        "hostAlineacionTtggss": "114304",
+        "hostAlineacionAreaM2": 1638.1
+      },
+      {
+        "refcat": "5321515YJ2752A",
+        "parcelAreaM2": 370.3,
+        "buildableFractionOfParcel": 0.999,
+        "derivedBuildableM2": 369.9,
+        "hostAlineacionAltura": "8",
+        "hostAlineacionTtggss": "114302",
+        "hostAlineacionAreaM2": 2038
+      },
+      {
+        "refcat": "5417301YJ2751G",
+        "parcelAreaM2": 275.4,
+        "buildableFractionOfParcel": 0.991,
+        "derivedBuildableM2": 272.8,
+        "hostAlineacionAltura": "8",
+        "hostAlineacionTtggss": "114302",
+        "hostAlineacionAreaM2": 948.8
+      },
+      {
+        "refcat": "5619110YJ2751H",
+        "parcelAreaM2": 261.4,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 261.4,
+        "hostAlineacionAltura": "5",
+        "hostAlineacionTtggss": "114302",
+        "hostAlineacionAreaM2": 925.5
+      },
+      {
+        "refcat": "5619111YJ2751H",
+        "parcelAreaM2": 264.4,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 264.4,
+        "hostAlineacionAltura": "5",
+        "hostAlineacionTtggss": "114302",
+        "hostAlineacionAreaM2": 925.5
+      },
+      {
+        "refcat": "5922214YJ2752D",
+        "parcelAreaM2": 352,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 352,
+        "hostAlineacionAltura": "PROTEGIDO",
+        "hostAlineacionTtggss": "114304",
+        "hostAlineacionAreaM2": 352
+      },
+      {
+        "refcat": "5519210YJ2751H",
+        "parcelAreaM2": 231,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 231,
+        "hostAlineacionAltura": "PROTEGIDO",
+        "hostAlineacionTtggss": "114304",
+        "hostAlineacionAreaM2": 1083.8
+      },
+      {
+        "refcat": "5519214YJ2751H",
+        "parcelAreaM2": 250.5,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 250.5,
+        "hostAlineacionAltura": "PROTEGIDO",
+        "hostAlineacionTtggss": "114304",
+        "hostAlineacionAreaM2": 2163.8
+      },
+      {
+        "refcat": "5519201YJ2751H",
+        "parcelAreaM2": 155,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 155,
+        "hostAlineacionAltura": "PROTEGIDO",
+        "hostAlineacionTtggss": "114304",
+        "hostAlineacionAreaM2": 2163.8
+      },
+      {
+        "refcat": "5519202YJ2751H",
+        "parcelAreaM2": 111.4,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 111.4,
+        "hostAlineacionAltura": "PROTEGIDO",
+        "hostAlineacionTtggss": "114304",
+        "hostAlineacionAreaM2": 1083.8
+      },
+      {
+        "refcat": "5822106YJ2752D",
+        "parcelAreaM2": 287,
+        "buildableFractionOfParcel": 0.999,
+        "derivedBuildableM2": 286.8,
+        "hostAlineacionAltura": "PROTEGIDO",
+        "hostAlineacionTtggss": "114304",
+        "hostAlineacionAreaM2": 287.3
+      },
+      {
+        "refcat": "5521713YJ2752B",
+        "parcelAreaM2": 249.6,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 249.6,
+        "hostAlineacionAltura": "1",
+        "hostAlineacionTtggss": "114302",
+        "hostAlineacionAreaM2": 1257.1
+      },
+      {
+        "refcat": "5822102YJ2752D",
+        "parcelAreaM2": 490,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 490,
+        "hostAlineacionAltura": "PROTEGIDO",
+        "hostAlineacionTtggss": "114304",
+        "hostAlineacionAreaM2": 1594.6
+      },
+      {
+        "refcat": "5822111YJ2752D",
+        "parcelAreaM2": 319.8,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 319.8,
+        "hostAlineacionAltura": "PROTEGIDO(B+1)",
+        "hostAlineacionTtggss": "114302",
+        "hostAlineacionAreaM2": 197.9
+      },
+      {
+        "refcat": "5923310YJ2752D",
+        "parcelAreaM2": 241.5,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 241.4,
+        "hostAlineacionAltura": "PROTEGIDO",
+        "hostAlineacionTtggss": "114304",
+        "hostAlineacionAreaM2": 241.5
+      },
+      {
+        "refcat": "5923311YJ2752D",
+        "parcelAreaM2": 276.1,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 276.1,
+        "hostAlineacionAltura": "PROTEGIDO",
+        "hostAlineacionTtggss": "114304",
+        "hostAlineacionAreaM2": 3478.9
+      },
+      {
+        "refcat": "5924402YJ2752D",
+        "parcelAreaM2": 1290.5,
+        "buildableFractionOfParcel": 0.999,
+        "derivedBuildableM2": 1289.4,
+        "hostAlineacionAltura": "6",
+        "hostAlineacionTtggss": "114302",
+        "hostAlineacionAreaM2": 1290.9
+      },
+      {
+        "refcat": "5924404YJ2752D",
+        "parcelAreaM2": 319,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 319,
+        "hostAlineacionAltura": "PROTEGIDO",
+        "hostAlineacionTtggss": "114304",
+        "hostAlineacionAreaM2": 318.9
+      },
+      {
+        "refcat": "5924401YJ2752D",
+        "parcelAreaM2": 1586.6,
+        "buildableFractionOfParcel": 0.999,
+        "derivedBuildableM2": 1585.7,
+        "hostAlineacionAltura": "PROT_DOT",
+        "hostAlineacionTtggss": "114304",
+        "hostAlineacionAreaM2": 1585.5
+      },
+      {
+        "refcat": "6123108YJ2762C",
+        "parcelAreaM2": 472.4,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 472.4,
+        "hostAlineacionAltura": "6",
+        "hostAlineacionTtggss": "114302",
+        "hostAlineacionAreaM2": 810.5
+      },
+      {
+        "refcat": "5519208YJ2752B",
+        "parcelAreaM2": 197.2,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 197.2,
+        "hostAlineacionAltura": "PROTEGIDO",
+        "hostAlineacionTtggss": "114304",
+        "hostAlineacionAreaM2": 2163.8
+      },
+      {
+        "refcat": "5519212YJ2751H",
+        "parcelAreaM2": 184.4,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 184.4,
+        "hostAlineacionAltura": "PROTEGIDO",
+        "hostAlineacionTtggss": "114304",
+        "hostAlineacionAreaM2": 1083.8
+      },
+      {
+        "refcat": "5519204YJ2751H",
+        "parcelAreaM2": 293.4,
+        "buildableFractionOfParcel": 1,
+        "derivedBuildableM2": 293.4,
+        "hostAlineacionAltura": "PROTEGIDO",
+        "hostAlineacionTtggss": "114304",
+        "hostAlineacionAreaM2": 1083.8
+      }
+    ]
+  }
+}
