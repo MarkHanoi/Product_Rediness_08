@@ -1,0 +1,4397 @@
+{
+  "probe": "madrid-capital-field-sweep",
+  "ranAt": "2026-08-02",
+  "root": "https://sigma.madrid.es/hosted/rest/services",
+  "denominator": {
+    "foldersListed": 41,
+    "servicesVisited": 447,
+    "layersVisited": 3591,
+    "fieldsVisited": 24718
+  },
+  "transportFailures": 10,
+  "failures": [
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/CONCENTRACION_PERSONAS?f=json",
+      "kind": "arcgis-error",
+      "code": 499,
+      "message": "Token Required"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/CULTURA/SERVICIOS_CULTURALES_DATOS/FeatureServer?f=json",
+      "kind": "arcgis-error",
+      "code": 500,
+      "message": "Error handling service request :0x80004005 - No Layer or Table was initialized. in '\"esriCarto.GraphicFeatureServer\"'"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/CULTURA/SERVICIOS_CULTURALES_DATOS/MapServer?f=json",
+      "kind": "arcgis-error",
+      "code": 500,
+      "message": "Error handling service request :0x80004005 - No Layer or Table was initialized. in '\"esriCarto.GraphicFeatureServer\"'"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/CURSO_ArcGisPro?f=json",
+      "kind": "arcgis-error",
+      "code": 499,
+      "message": "Token Required"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/ELEVACIONES?f=json",
+      "kind": "arcgis-error",
+      "code": 499,
+      "message": "Token Required"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/GEOPORTAL/ESTACIONES_PUBLICAS_RECARGA_RAPIDA_VEHICULOS_ELECTRICOS/FeatureServer?f=json",
+      "kind": "arcgis-error",
+      "code": 499,
+      "message": "Token Required"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/GEOPORTAL/ESTACIONES_PUBLICAS_RECARGA_RAPIDA_VEHICULOS_ELECTRICOS/MapServer?f=json",
+      "kind": "arcgis-error",
+      "code": 499,
+      "message": "Token Required"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/LIMPIEZAS/ABSORBEDEROS_REJILLAS/FeatureServer?f=json",
+      "kind": "arcgis-error",
+      "code": 499,
+      "message": "Token Required"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/LIMPIEZAS/ABSORBEDEROS_REJILLAS/MapServer?f=json",
+      "kind": "arcgis-error",
+      "code": 499,
+      "message": "Token Required"
+    },
+    {
+      "url": "https://sigma.madrid.es/hosted/rest/services/SIGRA?f=json",
+      "kind": "arcgis-error",
+      "code": 499,
+      "message": "Token Required"
+    }
+  ],
+  "lexemes": {
+    "height": [
+      "altura",
+      "alt_",
+      "hmax",
+      "h_max",
+      "cornisa",
+      "rasante"
+    ],
+    "storeys": [
+      "planta",
+      "plta",
+      "nplant",
+      "num_plt",
+      "niveles"
+    ],
+    "depth": [
+      "fondo",
+      "fdo",
+      "profundidad",
+      "prof_",
+      "profund"
+    ],
+    "setback": [
+      "retranqueo",
+      "retiro",
+      "rtr",
+      "separacion",
+      "separación",
+      "linderos"
+    ],
+    "occupation": [
+      "ocupacion",
+      "ocupación",
+      "ocup",
+      "ocp"
+    ],
+    "buildability": [
+      "edificabilidad",
+      "edificab",
+      "aprovechamiento",
+      "aprov",
+      "coef_ed",
+      "c_ed",
+      "s_max_ed"
+    ],
+    "frontage": [
+      "frente",
+      "frte",
+      "parcela_min",
+      "parcelamin"
+    ]
+  },
+  "hitCount": 115,
+  "byDimension": {
+    "height": 17,
+    "storeys": 77,
+    "depth": 0,
+    "setback": 0,
+    "occupation": 3,
+    "buildability": 14,
+    "frontage": 4
+  },
+  "hits": [
+    {
+      "service": "Madridcrece_TLA",
+      "type": "MapServer",
+      "layerId": 53,
+      "layerName": "SIG_SIGGU.Planeamiento_web_v3",
+      "geometryType": "esriGeometryPolygon",
+      "field": "FRENTE_FA",
+      "alias": "FRENTE_FA",
+      "fieldType": "esriFieldTypeBigInteger",
+      "dimensions": [
+        "frontage"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "Madridcrece_TLA",
+      "type": "MapServer",
+      "layerId": 52,
+      "layerName": "SIG_SIGGU.MCPG_OLD",
+      "geometryType": "esriGeometryPolygon",
+      "field": "FRENTE_FA",
+      "alias": "FRENTE_FA",
+      "fieldType": "esriFieldTypeBigInteger",
+      "dimensions": [
+        "frontage"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "ANALISIS_URBANO/Visor_2025",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "Parcelas Catastrales 2025",
+      "geometryType": "esriGeometryPolygon",
+      "field": "edificabil",
+      "alias": "edificabil",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "buildability"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "ANALISIS_URBANO/Visor_Edificabilidad_enero_2026",
+      "type": "FeatureServer",
+      "layerId": 10,
+      "layerName": "Parcelas Catastrales",
+      "geometryType": "esriGeometryPolygon",
+      "field": "edificabil",
+      "alias": "edificabil",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "buildability"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "ANALISIS_URBANO/Visor_Edificabilidad_enero_2026",
+      "type": "MapServer",
+      "layerId": 10,
+      "layerName": "Parcelas Catastrales",
+      "geometryType": "esriGeometryPolygon",
+      "field": "edificabil",
+      "alias": "edificabil",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "buildability"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "ANALISIS_URBANO/Visor_Edificabilidad_julio2025",
+      "type": "MapServer",
+      "layerId": 10,
+      "layerName": "Parcelas Catastrales",
+      "geometryType": "esriGeometryPolygon",
+      "field": "edificabil",
+      "alias": "edificabil",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "buildability"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "ANALISIS_URBANO/VisorEdificabilidadenero2026",
+      "type": "MapServer",
+      "layerId": 10,
+      "layerName": "Parcelas Catastrales",
+      "geometryType": "esriGeometryPolygon",
+      "field": "edificabil",
+      "alias": "edificabil",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "buildability"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/CAD",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "Localización de los CAD",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/CENTROS_DE_SERVICIOS_SOCIALES_MUNICIPALES_analisis_DATOS_ABIERTOS",
+      "type": "MapServer",
+      "layerId": 6,
+      "layerName": "Puntos de Interés Centros Sociales DATOS ABIERTOS",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/OFICINAS_ATENCION_CIUDADANIA",
+      "type": "FeatureServer",
+      "layerId": 1,
+      "layerName": "Oficinas de Atención a la Ciudadanía",
+      "geometryType": "esriGeometryPoint",
+      "field": "planta",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/OFICINAS_ATENCION_CIUDADANIA",
+      "type": "MapServer",
+      "layerId": 1,
+      "layerName": "Oficinas de Atención a la Ciudadanía",
+      "geometryType": "esriGeometryPoint",
+      "field": "planta",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/RECURSOS_ATENCION_SOCIAL",
+      "type": "MapServer",
+      "layerId": 1,
+      "layerName": "POIs CENTROS DE SERVICIOS SOCIALES",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "CALLEJERO/CALLEJERO_ROTULACION_GEOMETRIAS",
+      "type": "MapServer",
+      "layerId": 4,
+      "layerName": "TOPONIMOS_ESTATICA_1000",
+      "geometryType": "esriGeometryPolyline",
+      "field": "ALTURA",
+      "alias": "ALTURA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "CALLEJERO/CALLEJERO_ROTULACION_GEOMETRIAS",
+      "type": "MapServer",
+      "layerId": 5,
+      "layerName": "TOPONIMOS_ESTATICA_5000",
+      "geometryType": "esriGeometryPolyline",
+      "field": "ALTURA",
+      "alias": "ALTURA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "CALLEJERO/CALLEJERO_ROTULACION_GEOMETRIAS",
+      "type": "MapServer",
+      "layerId": 6,
+      "layerName": "TOPONIMOS_ESTATICA_20000",
+      "geometryType": "esriGeometryPolyline",
+      "field": "ALTURA",
+      "alias": "ALTURA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "CARTOGRAFIA/EDIFICIOS_ALTURAS",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "Altura de edificios (metros):",
+      "geometryType": "esriGeometryPolygon",
+      "field": "ALTURA",
+      "alias": "Altura:",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "CARTOGRAFIA/EDIFICIOS_ALTURAS",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "Altura de edificios (metros):",
+      "geometryType": "esriGeometryPolygon",
+      "field": "Z_EDIFICIO_CAMBIO_ALTURA",
+      "alias": "Cota de Cambio de Altura Edificio:",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "CULTURA/PAISAJE_DE_LA_LUZ_PRECIOS",
+      "type": "MapServer",
+      "layerId": 54,
+      "layerName": "Árbolado según estado de conservación",
+      "geometryType": "esriGeometryPoint",
+      "field": "ALTURA_TOT",
+      "alias": "Altura total",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/ALBERGUES_EMERGENCIA_ABIERTO",
+      "type": "MapServer",
+      "layerId": 6,
+      "layerName": "Albergues de emergencia (refugios climáticos)",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/ALBERGUES_EMERGENCIA_ABIERTO",
+      "type": "MapServer",
+      "layerId": 5,
+      "layerName": "Albergues de emergencia (refugios climáticos) - Gran Capacidad",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/APARCAMIENTOS_PUBLICOS_DISUASORIOS",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "Aparcamientos",
+      "geometryType": "esriGeometryPoint",
+      "field": "NUMERO_PLANTAS",
+      "alias": "Número de plantas",
+      "fieldType": "esriFieldTypeInteger",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/APARCAMIENTOS_PUBLICOS_MIXTOS",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "Aparcamientos",
+      "geometryType": "esriGeometryPoint",
+      "field": "NUMERO_PLANTAS",
+      "alias": "Número de plantas",
+      "fieldType": "esriFieldTypeInteger",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/APARCAMIENTOS_PUBLICOS_RESIDENTES",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "Aparcamientos",
+      "geometryType": "esriGeometryPoint",
+      "field": "NUMERO_PLANTAS",
+      "alias": "Número de plantas",
+      "fieldType": "esriFieldTypeInteger",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/APARCAMIENTOS_PUBLICOS_ROTACION",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "Aparcamientos",
+      "geometryType": "esriGeometryPoint",
+      "field": "NUMERO_PLANTAS",
+      "alias": "Número de plantas",
+      "fieldType": "esriFieldTypeInteger",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/APARCAMIENTOS_PUBLICOS",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "Tipo de aparcamiento",
+      "geometryType": "esriGeometryPoint",
+      "field": "NUMERO_PLANTAS",
+      "alias": "Número de plantas",
+      "fieldType": "esriFieldTypeInteger",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/CIRCUITO_F1_MADRING",
+      "type": "MapServer",
+      "layerId": 34,
+      "layerName": "Hidrantes",
+      "geometryType": "esriGeometryPoint",
+      "field": "DocUpdate",
+      "alias": "DocUpdate",
+      "fieldType": "esriFieldTypeDate",
+      "dimensions": [
+        "occupation"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/CIRCUITO_F1_MADRING",
+      "type": "MapServer",
+      "layerId": 33,
+      "layerName": "Red de protección contra incendios (PCI)",
+      "geometryType": "esriGeometryPolyline",
+      "field": "DocPath",
+      "alias": "DocPath",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "occupation"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/CIRCUITO_F1_MADRING",
+      "type": "MapServer",
+      "layerId": 33,
+      "layerName": "Red de protección contra incendios (PCI)",
+      "geometryType": "esriGeometryPolyline",
+      "field": "DocUpdate",
+      "alias": "DocUpdate",
+      "fieldType": "esriFieldTypeDate",
+      "dimensions": [
+        "occupation"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/Locales_abiertos_new",
+      "type": "MapServer",
+      "layerId": 2,
+      "layerName": "Locales puerta calle",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA_TXT",
+      "alias": "Planta :",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/LOCALES_ABIERTOS",
+      "type": "MapServer",
+      "layerId": 2,
+      "layerName": "Locales puerta calle",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA_TXT",
+      "alias": "Planta :",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/LOCALES",
+      "type": "MapServer",
+      "layerId": 1,
+      "layerName": "Locales",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/MADRID_COMPENSA",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "MADRID COMPENSA",
+      "geometryType": "esriGeometryPoint",
+      "field": "NOMBRE_PLANTACION",
+      "alias": "Nombre de la Plantación",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/MADRID_COMPENSA",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "MADRID COMPENSA",
+      "geometryType": "esriGeometryPoint",
+      "field": "CAMPAÑA_PLANTACION",
+      "alias": "Campaña de plantación",
+      "fieldType": "esriFieldTypeDate",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/MADRID_COMPENSA",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "MADRID COMPENSA",
+      "geometryType": "esriGeometryPoint",
+      "field": "N_ARBOLES",
+      "alias": "Plantación. Número de árboles totales",
+      "fieldType": "esriFieldTypeInteger",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/MADRID_COMPENSA",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "MADRID COMPENSA",
+      "geometryType": "esriGeometryPoint",
+      "field": "N_ARBUSTOS",
+      "alias": "Plantación. Número de árbustos totales",
+      "fieldType": "esriFieldTypeInteger",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/MADRID_COMPENSA",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "MADRID COMPENSA",
+      "geometryType": "esriGeometryPoint",
+      "field": "N_ARBOLES_ESPECIE",
+      "alias": "Plantación. Número de árboles por especie",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/MADRID_COMPENSA",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "MADRID COMPENSA",
+      "geometryType": "esriGeometryPoint",
+      "field": "N_ARBUSTOS_ESPECIE",
+      "alias": "Plantación. Número de árbustos por especie",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/MADRID_COMPENSA",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "MADRID COMPENSA",
+      "geometryType": "esriGeometryPoint",
+      "field": "SUP_INTERVENCION",
+      "alias": "Plantación. Superficie de intervención (Ha)",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/OFICINAS_DE_REGISTRO",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "OFICINAS DE REGISTRO",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/PAR_NDP",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "Aparcamientos",
+      "geometryType": "esriGeometryPoint",
+      "field": "NUMERO_PLANTAS",
+      "alias": "Número de plantas",
+      "fieldType": "esriFieldTypeInteger",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/PAR_ZONAS_INFLUENCIA",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "Aparcamientos",
+      "geometryType": "esriGeometryPoint",
+      "field": "NUMERO_PLANTAS",
+      "alias": "NUMERO_PLANTAS",
+      "fieldType": "esriFieldTypeInteger",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/PAR_ZONAS_INFLUENCIA",
+      "type": "MapServer",
+      "layerId": 1,
+      "layerName": "Zona de influencia 400m",
+      "geometryType": "esriGeometryPolygon",
+      "field": "NUMERO_PLANTAS",
+      "alias": "NUMERO_PLANTAS",
+      "fieldType": "esriFieldTypeInteger",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 2,
+      "layerName": "Oficinas de atención a la ciudadanía",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 3,
+      "layerName": "Organismos nacionales e internacionales",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 4,
+      "layerName": "Servicios esenciales",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 11,
+      "layerName": "Instalaciones deportivas (todas)",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 12,
+      "layerName": "Instalaciones culturales",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 13,
+      "layerName": "Bibliotecas, centros culturales y salas de estudio",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 14,
+      "layerName": "Museos, galerías de arte, salas de subastas y exposiciones",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 15,
+      "layerName": "Centros educativos",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 16,
+      "layerName": "Comercios singulares, mercados y mercadillos",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 18,
+      "layerName": "Cementerios, tanatorios y funerarias",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 19,
+      "layerName": "Templos y lugares de culto",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 21,
+      "layerName": "Edificios monumentales",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 22,
+      "layerName": "Parques y jardines",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 23,
+      "layerName": "Centros sanitarios",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 25,
+      "layerName": "Mayores",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 26,
+      "layerName": "Mujeres",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 27,
+      "layerName": "Menores, familia y  juventud",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 28,
+      "layerName": "Discapacidad",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 29,
+      "layerName": "Centros de servicios sociales y urgencia social",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 31,
+      "layerName": "Aparcamientos públicos",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 32,
+      "layerName": "Aparcamientos residentes",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 33,
+      "layerName": "Aeropuertos, aeródromos, intercambiadores y estaciones de tren",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 36,
+      "layerName": "Oficinas de atención a la ciudadanía",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 37,
+      "layerName": "Organismos nacionales e internacionales",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 38,
+      "layerName": "Servicios esenciales",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 45,
+      "layerName": "Instalaciones deportivas (todas)",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 46,
+      "layerName": "Instalaciones culturales",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 47,
+      "layerName": "Bibliotecas, centros culturales y salas de estudio",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 48,
+      "layerName": "Museos, galerías de arte, salas de subastas y exposiciones",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 49,
+      "layerName": "Centros educativos",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 50,
+      "layerName": "Comercios singulares, mercados y mercadillos",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 52,
+      "layerName": "Cementerios, tanatorios y funerarias",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 53,
+      "layerName": "Templos y lugares de culto",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 55,
+      "layerName": "Edificios monumentales",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 56,
+      "layerName": "Parques y jardines",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 57,
+      "layerName": "Centros sanitarios",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 59,
+      "layerName": "Mayores",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 60,
+      "layerName": "Mujeres",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 61,
+      "layerName": "Menores, familia y  juventud",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 62,
+      "layerName": "Discapacidad",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 63,
+      "layerName": "Centros de servicios sociales y urgencia social",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 65,
+      "layerName": "Aparcamientos públicos",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 66,
+      "layerName": "Aparcamientos residentes",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 67,
+      "layerName": "Aeropuertos, aeródromos, intercambiadores y estaciones de tren",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 68,
+      "layerName": "POIs accesibles para personas con movilidad reducida",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layerId": 5,
+      "layerName": "PUNTOS_INTERES",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GESTION_URBANA/MCPG_Madrid_Crece",
+      "type": "MapServer",
+      "layerId": 55,
+      "layerName": "SIG_SIGGU.MCPG",
+      "geometryType": "esriGeometryPolygon",
+      "field": "FRENTE_FA",
+      "alias": "FRENTE_FA",
+      "fieldType": "esriFieldTypeBigInteger",
+      "dimensions": [
+        "frontage"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "GESTION_URBANA/SIG_SIGGU_Planeamiento_WEB_v1",
+      "type": "MapServer",
+      "layerId": 57,
+      "layerName": "SIG_SIGGU.Planeamiento_WEB_v1",
+      "geometryType": "esriGeometryPolygon",
+      "field": "FRENTE_FA",
+      "alias": "FRENTE_FA",
+      "fieldType": "esriFieldTypeBigInteger",
+      "dimensions": [
+        "frontage"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "Hosted/20220407_MAPABASE_MTMOV7",
+      "type": "MapServer",
+      "layerId": 23,
+      "layerName": "Rotulacion estatica 1000",
+      "geometryType": "esriGeometryPolyline",
+      "field": "ALTURA",
+      "alias": "ALTURA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "Hosted/20220407_MAPABASE_MTMOV7",
+      "type": "MapServer",
+      "layerId": 25,
+      "layerName": "Rotulacion estatica 5000",
+      "geometryType": "esriGeometryPolyline",
+      "field": "ALTURA",
+      "alias": "ALTURA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "Hosted/20220407_MAPABASE_MTMOV7",
+      "type": "MapServer",
+      "layerId": 27,
+      "layerName": "Rotulacion estatica 20000",
+      "geometryType": "esriGeometryPolyline",
+      "field": "ALTURA",
+      "alias": "ALTURA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "Hosted/20250616_viviendas_colaborativas_PUNTOS",
+      "type": "FeatureServer",
+      "layerId": 0,
+      "layerName": "20250616_viviendas_colaborativas_PUNTOS",
+      "geometryType": "esriGeometryPoint",
+      "field": "edificabil",
+      "alias": "EDIFICABIL",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "buildability"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "Hosted/20250616_viviendas_colaborativas",
+      "type": "FeatureServer",
+      "layerId": 0,
+      "layerName": "20250616_viviendas_colaborativas",
+      "geometryType": "esriGeometryPolygon",
+      "field": "edificabil",
+      "alias": "EDIFICABIL",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "buildability"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "Hosted/20250623_mamma_mia_puntos",
+      "type": "FeatureServer",
+      "layerId": 0,
+      "layerName": "20250623_mamma_mia_puntos",
+      "geometryType": "esriGeometryPoint",
+      "field": "edificabil",
+      "alias": "EDIFICABIL",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "buildability"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "Hosted/20250623_mamma_mia",
+      "type": "FeatureServer",
+      "layerId": 0,
+      "layerName": "20250623_mamma_mia",
+      "geometryType": "esriGeometryPolygon",
+      "field": "edificabil",
+      "alias": "EDIFICABIL",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "buildability"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "Hosted/20250910_Finalista_y_Dominio_público",
+      "type": "FeatureServer",
+      "layerId": 0,
+      "layerName": "20250910_Finalista_y_Dominio_público",
+      "geometryType": "esriGeometryPolygon",
+      "field": "edificabil",
+      "alias": "EDIFICABIL",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "buildability"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "Hosted/20250918_loc_CT_vallecas",
+      "type": "FeatureServer",
+      "layerId": 0,
+      "layerName": "20250918_loc_CT_vallecas",
+      "geometryType": "esriGeometryPoint",
+      "field": "edificabil",
+      "alias": "EDIFICABIL",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "buildability"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "Hosted/20260225_comprobacion_PUNTOS",
+      "type": "FeatureServer",
+      "layerId": 0,
+      "layerName": "20260225_comprobacion_PUNTOS",
+      "geometryType": "esriGeometryPoint",
+      "field": "edificabil",
+      "alias": "EDIFICABIL",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "buildability"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "Hosted/20260225_comprobacion",
+      "type": "FeatureServer",
+      "layerId": 0,
+      "layerName": "20260225_comprobacion",
+      "geometryType": "esriGeometryPolygon",
+      "field": "edificabil",
+      "alias": "EDIFICABIL",
+      "fieldType": "esriFieldTypeDouble",
+      "dimensions": [
+        "buildability"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "Hosted/Oficinas_linea_Madrid_ETRS89",
+      "type": "FeatureServer",
+      "layerId": 0,
+      "layerName": "Oficinas_linea_Madrid",
+      "geometryType": "esriGeometryPoint",
+      "field": "planta",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "MEDIO_AMBIENTE/ARBOLADO",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "Arbolado interbloques",
+      "geometryType": "esriGeometryPoint",
+      "field": "ALTURA",
+      "alias": "Altura",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "MEDIO_AMBIENTE/ARBOLADO",
+      "type": "MapServer",
+      "layerId": 12,
+      "layerName": "Arbolado Singular según su conservación (Bosquetes)",
+      "geometryType": "esriGeometryPolygon",
+      "field": "ALTURA",
+      "alias": "Altura",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "MEDIO_AMBIENTE/ARBOLADO",
+      "type": "MapServer",
+      "layerId": 11,
+      "layerName": "Arbolado de alineación y Zonas Verdes (ZV21)",
+      "geometryType": "esriGeometryPoint",
+      "field": "ALTURA",
+      "alias": "Altura",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "MEDIO_AMBIENTE/ARBOLADO",
+      "type": "MapServer",
+      "layerId": 8,
+      "layerName": "Arbolado Parques Históricos (PV24)",
+      "geometryType": "esriGeometryPoint",
+      "field": "ALTURA",
+      "alias": "Altura",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "MEDIO_AMBIENTE/CONSERVACION_ZZVV",
+      "type": "MapServer",
+      "layerId": 1,
+      "layerName": "Arbolado de alineación y Zonas Verdes (ZV21)",
+      "geometryType": "esriGeometryPoint",
+      "field": "ALTURA",
+      "alias": "Altura",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "MEDIO_AMBIENTE/CONSERVACION_ZZVV",
+      "type": "MapServer",
+      "layerId": 1,
+      "layerName": "Arbolado de alineación y Zonas Verdes (ZV21)",
+      "geometryType": "esriGeometryPoint",
+      "field": "ALTURA_TOTAL",
+      "alias": "Altura Total",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "MEDIO_AMBIENTE/CONSERVACION_ZZVV",
+      "type": "MapServer",
+      "layerId": 2,
+      "layerName": "Arbolado Parques Históricos (PV24)",
+      "geometryType": "esriGeometryPoint",
+      "field": "ALTURA",
+      "alias": "Altura",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "OBRAS/GALIBO_TUNELES",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "Altura máxima (metros) en túneles según sentido",
+      "geometryType": "esriGeometryPoint",
+      "field": "alt_lim",
+      "alias": "Altura limitante",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "height"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "ORDENANZAS/AMPLIACION_ZONA_SER",
+      "type": "MapServer",
+      "layerId": 117,
+      "layerName": "Ampliación del Servicio de Estacionamiento Regulado",
+      "geometryType": "esriGeometryPolygon",
+      "field": "FECHA_IMPLANTACION",
+      "alias": "Fecha máxima posible implantación:",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "PGOUM97/PG_EDIFICIOS_PROTEGIDOS",
+      "type": "MapServer",
+      "layerId": 6,
+      "layerName": "Catálogo Edificios Protegidos",
+      "geometryType": "esriGeometryPolygon",
+      "field": "AP_TIPO",
+      "alias": "Aprovechamiento Tipo :",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "buildability"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "PROTECCION_CIVIL/RECURSOS_PROTECCION_CIVIL_PUBLICO",
+      "type": "MapServer",
+      "layerId": 6,
+      "layerName": "Albergues de emergencia (refugios climáticos)",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "PROTECCION_CIVIL/RECURSOS_PROTECCION_CIVIL_PUBLICO",
+      "type": "MapServer",
+      "layerId": 5,
+      "layerName": "Albergues de emergencia (refugios climáticos) - Gran Capacidad",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "PLANTA",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    },
+    {
+      "service": "VIVIENDA/VIVIENDAS_TURISTICAS",
+      "type": "MapServer",
+      "layerId": 0,
+      "layerName": "Viviendas uso turístico",
+      "geometryType": "esriGeometryPoint",
+      "field": "PLANTA",
+      "alias": "Planta",
+      "fieldType": "esriFieldTypeString",
+      "dimensions": [
+        "storeys"
+      ],
+      "hasDomain": false
+    }
+  ],
+  "serviceIndex": [
+    {
+      "service": "CAMBIO_LÍMITE_LOTE_3",
+      "type": "MapServer",
+      "layers": 6,
+      "description": ""
+    },
+    {
+      "service": "Madridcrece_TLA",
+      "type": "MapServer",
+      "layers": 5,
+      "description": ""
+    },
+    {
+      "service": "AGENCIA_TRIBUTARIA/IFC_categoría_fiscal",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Servicio de mapas que incluye los recintos que delimitan las categorías fiscales de Madrid.  Entre otros usos, "
+    },
+    {
+      "service": "ALTERACION_TERMINO/ALTERACION_RIVAS_MADRID",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "ALUMBRADO/ILUMINACION",
+      "type": "MapServer",
+      "layers": 10,
+      "description": ""
+    },
+    {
+      "service": "ALUMBRADO/Luces_Navidad_2025_ab",
+      "type": "FeatureServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "ALUMBRADO/Luces_Navidad_2025_ab",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "ALUMBRADO/Luces_Navidad_2025_prueba",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "ALUMBRADO/LUCES_NAVIDAD_DISTRITO_VILLAVERDE_2025",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "ALUMBRADO/LUCES_NAVIDAD_DISTRITO_VILLAVERDE_2025",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "ALUMBRADO/LUCES_NAVIDAD",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "ANALISIS_URBANO/Cuadro_Mando",
+      "type": "MapServer",
+      "layers": 0,
+      "description": ""
+    },
+    {
+      "service": "ANALISIS_URBANO/Visor_2025",
+      "type": "MapServer",
+      "layers": 5,
+      "description": ""
+    },
+    {
+      "service": "ANALISIS_URBANO/Visor_Edificabilidad_enero_2026",
+      "type": "FeatureServer",
+      "layers": 6,
+      "description": "Visualizar la situación de los ámbitos vigentes del PGOUM y la edificabilidad disponible.\n "
+    },
+    {
+      "service": "ANALISIS_URBANO/Visor_Edificabilidad_enero_2026",
+      "type": "MapServer",
+      "layers": 6,
+      "description": "Visualizar la situación de los ámbitos vigentes del PGOUM y la edificabilidad disponible.\n "
+    },
+    {
+      "service": "ANALISIS_URBANO/Visor_Edificabilidad_julio2025",
+      "type": "MapServer",
+      "layers": 6,
+      "description": ""
+    },
+    {
+      "service": "ANALISIS_URBANO/Visor_Edificabilidad_prueba",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "ANALISIS_URBANO/Visor_Edificabilidad",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "Datos de los ámbitos vigentes y solares vacantes en fase de edificación. enero 2024"
+    },
+    {
+      "service": "ANALISIS_URBANO/Visor_Mayores",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "ANALISIS_URBANO/Visor_Mayores",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "ANALISIS_URBANO/VisorEdificabilidadenero2026",
+      "type": "MapServer",
+      "layers": 6,
+      "description": ""
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/CAD",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/CAMINAR_MIRANDO_MADRID",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "<span style='font-size:11.0pt; font-family:&quot;Calibri&quot;,sans-serif;'>Caminar Mirando Madrid - Ruta septiembre 2024</span>"
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/CENSO_ASOCIACIONES",
+      "type": "MapServer",
+      "layers": 4,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Servicio de mapas que muestra la localización del registro de asociaciones de la Ciudad de Madrid que cumplen l"
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/CENTROS_DE_DIA_PARA_PERSONAS_MAYORES",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Servicio de mapas que representa la ubicación de los Centros de día para personas mayores diferenciando entre c"
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/CENTROS_DE_SALUD_DE_ATENCIÓN_PRIMARIA",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P STYLE=\"margin:0 0 1067 0;\"><SPAN>Centros de salud de Atención Primaria que corresponde por domicilio de residencia se"
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/CENTROS_DE_SERVICIOS_SOCIALES_MUNICIPALES_analisis_DATOS_ABIERTOS",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "<div style='text-align:Left;'><div><div><p><span><span>Servicio de mapas que representa la ubicación de los Centros de de Servicios Sociales y su área de servic"
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/CENTROS_DE_SERVICIOS_SOCIALES_MUNICIPALES",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN><SPAN>Servicio de mapas que representa la ubicación de los Centros de de Servicios Sociales y su área de servic"
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/CENTROS_MUNICIPALES_DE_MAYORES",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Centros Municipales de Mayores que corresponden por domicilio de Residencia de acuerdo a la asignación de CMM p"
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/CENTROS_MUNICIPALES_DE_SALUD_COMUNITARIA",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/ESPACIOS_COMUNITARIOS",
+      "type": "MapServer",
+      "layers": 4,
+      "description": ""
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/ESPACIOS_IGUALDAD",
+      "type": "MapServer",
+      "layers": 10,
+      "description": ""
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/LGTBI_GUIA",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/OFICINAS_AEAT",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Relación de las Oficinas de la Agencia Tributaria Estatal</SPAN></P></DIV></DIV></DIV>"
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/OFICINAS_ATENCION_CIUDADANIA",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Servicio de mapas que incluye la ubicación de las Oficinas de Atención a la Ciudadanía con indicación de tiempo"
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/OFICINAS_ATENCION_CIUDADANIA",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Servicio de mapas que incluye la ubicación de las Oficinas de Atención a la Ciudadanía con indicación de tiempo"
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/PASEOS_SALUDABLES",
+      "type": "MapServer",
+      "layers": 4,
+      "description": ""
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/RECURSOS_ATENCION_SOCIAL",
+      "type": "MapServer",
+      "layers": 6,
+      "description": ""
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/RUTAS_WAP",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P STYLE=\"margin:0 0 1067 0;\"><SPAN>Servicio de mapas muestra el el Proyecto WAP, coordinado por Subdirección General de"
+    },
+    {
+      "service": "BIENESTAR_SOCIAL/TARJETA_FAMILIA",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "BosqueAbrazos/RouteNA",
+      "type": "MapServer",
+      "layers": 10,
+      "description": ""
+    },
+    {
+      "service": "CALLEJERO/CALLEJERO_NDPS_VIGENTES_HISTORICOS",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "Callejero Municipal. Sistema de Gestión de Callejero (CADMA). Numeración vigente e histórica con control deslizante del tiempo. Incluye toda la numeración regis"
+    },
+    {
+      "service": "CALLEJERO/CALLEJERO_NDPS_VIGENTES",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "Callejero Municipal. Sistema de Gestión de Callejero (CADMA). Numeración vigente e histórica con control deslizante del tiempo. Incluye toda la numeración regis"
+    },
+    {
+      "service": "CALLEJERO/CALLEJERO_ROTULACION_GEOMETRIAS",
+      "type": "MapServer",
+      "layers": 12,
+      "description": "Servicio de mapas que incluye las geometrías utilizadas para la rotulación de callejero: viales y toponimia. La rotulación de callejero se obtiene por rotulació"
+    },
+    {
+      "service": "CALLEJERO/CALLEJERO_SUBVIALES",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "Servicio de mapas que incluye la de recintos de subvial vigentes. La información se actualiza diariamente a partir de los datos del sistema de actualización del"
+    },
+    {
+      "service": "CALLEJERO/CALLEJERO_VIALES",
+      "type": "FeatureServer",
+      "layers": 2,
+      "description": "Viales vigentes del callejero municipal de Madrid. Callejero oficial."
+    },
+    {
+      "service": "CALLEJERO/CALLEJERO_VIALES",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "Viales vigentes del callejero municipal de Madrid. Callejero oficial."
+    },
+    {
+      "service": "CARTOGRAFIA/AMBITOS_VUELO",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<DIV STYLE=\"text-align:Left;font-size:12pt\"><DIV><DIV><P><SPAN>Servicio de mapas que muestra </SPAN><SPAN>los ámbitos de vuelo de la ciudad de Madrid desde 1927"
+    },
+    {
+      "service": "CARTOGRAFIA/ANCHO_MEDIO_ACERA",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<div style='text-align:Left;'><div><div><p><span>Cálculo del ancho medio de acera a partir de las geometrías de acera y calzada obtenidas de la cartografía actu"
+    },
+    {
+      "service": "CARTOGRAFIA/ANCHO_MEDIO_VIARIO",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "CARTOGRAFIA/CAMBIOS_URBANOS_PR_OT2020",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "Clasificación de los cambios urbanos semestrales obtenidos mediante el uso de algoritmos Deep Learning entre imágenes de satélite de muy alta resolución."
+    },
+    {
+      "service": "CARTOGRAFIA/CARTO_AMBITO_PLAZA_ESPANA",
+      "type": "MapServer",
+      "layers": 77,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN><SPAN>Servicio de mapas que representa la cartografía en 3D a escala 1:1.000 y 1:500, generada a partir de la r"
+    },
+    {
+      "service": "CARTOGRAFIA/CARTO_MAPAS_BASE",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "Servicio de mapas que muestra las capas base genéricas de la cartografía municipal."
+    },
+    {
+      "service": "CARTOGRAFIA/CUADRICULA_UTM_1KM",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "Servicio de mapas que muestra las cuadrículas del parcelario a escala 1:1.000, la cartografía 1:1.000 y el PG97 1:2.000 que son referencia para las series carto"
+    },
+    {
+      "service": "CARTOGRAFIA/EDIFICIOS_ALTURAS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<div style='text-align:Left;'><div><div><p style='margin:0 0 0 0;'><span><span>Servicio de mapas que representa los cambios de altura de cada edificio.</span></"
+    },
+    {
+      "service": "CARTOGRAFIA/GRANDES_AREAS_INFRAESTRUCTURAS",
+      "type": "MapServer",
+      "layers": 8,
+      "description": "<div style='text-align:Left;'><div><div><p><span>Servicio de mapas que muestra las agrupaciones superficiales de entidades cartográficas propias de escalas medi"
+    },
+    {
+      "service": "CARTOGRAFIA/INVENTARIO_URBANO_AMBITO_PLAZA_ESPANA",
+      "type": "MapServer",
+      "layers": 60,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P STYLE=\"margin:0 0 0 0;\"><SPAN><SPAN>Servicio de mapas que representa el inventario urbano cartográfico en 2D (mobilia"
+    },
+    {
+      "service": "CARTOGRAFIA/LEVANTAMIENTOS_TOPOGRAFICOS",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "Servicio de mapas que incluye los ámbitos sobre los que se ha realizado un levantamiento topográfico."
+    },
+    {
+      "service": "CARTOGRAFIA/LIMITES_ADMINISTRATIVOS_GENERICOS",
+      "type": "FeatureServer",
+      "layers": 3,
+      "description": ""
+    },
+    {
+      "service": "CARTOGRAFIA/LIMITES_ADMINISTRATIVOS_GENERICOS",
+      "type": "MapServer",
+      "layers": 3,
+      "description": ""
+    },
+    {
+      "service": "CARTOGRAFIA/LIMITES_ADMINISTRATIVOS_HISTORICOS",
+      "type": "MapServer",
+      "layers": 115,
+      "description": ""
+    },
+    {
+      "service": "CARTOGRAFIA/LIMITES_ADMINISTRATIVOS",
+      "type": "MapServer",
+      "layers": 25,
+      "description": "Servicio de mapas que incluye el límite del término municipal de Madrid y la delimitación y nomenclatura de sus distritos y barrios."
+    },
+    {
+      "service": "CARTOGRAFIA/Límites_administrativos_históricos_de_Madrid",
+      "type": "MapServer",
+      "layers": 115,
+      "description": ""
+    },
+    {
+      "service": "CARTOGRAFIA/MALLAS_CARTOGRAFICAS_COMPLETAS",
+      "type": "MapServer",
+      "layers": 14,
+      "description": "Servicio de mapas que muestra las cuadrículas del parcelario a escala 1:1.000, la cartografía 1:1.000 y el PG97 1:2.000 que son referencia para las series carto"
+    },
+    {
+      "service": "CARTOGRAFIA/MALLAS_CARTOGRAFICAS",
+      "type": "MapServer",
+      "layers": 8,
+      "description": "Servicio de mapas que muestra las cuadrículas del parcelario a escala 1:1.000, la cartografía 1:1.000 y el PG97 1:2.000 que son referencia para las series carto"
+    },
+    {
+      "service": "CARTOGRAFIA/NDPS_THIESSEN",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "CARTOGRAFIA/NDPS_THIESSEN",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "CARTOGRAFIA/PARCELARIO_1000",
+      "type": "MapServer",
+      "layers": 4,
+      "description": "Servicio de mapas que muestra las cuadrículas del parcelario a escala 1:1.000, la cartografía 1:1.000 y el PG97 1:2.000 que son referencia para las series carto"
+    },
+    {
+      "service": "CARTOGRAFIA/PARCELARIO_2000",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "<DIV STYLE=\"text-align:Left;font-size:12pt\"><DIV><DIV><P><SPAN>Servicio de mapas que muestra las cuadrícula del parcelario a escala 1:</SPAN><SPAN>2</SPAN><SPAN"
+    },
+    {
+      "service": "CARTOGRAFIA/RED_GEOTECNICA",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "Red geotécnica del municipio de Madrid. Estudio realizado en los años 80"
+    },
+    {
+      "service": "CARTOGRAFIA/RED_TOPOGRAFICA",
+      "type": "MapServer",
+      "layers": 9,
+      "description": "Servicio de mapas que muestra los vértices de la Red Topográfica de Madrid."
+    },
+    {
+      "service": "CARTOGRAFIA/SICOAC",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "CARTOGRAFIA/SICOAC",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "CARTOGRAFIA/TUNELES",
+      "type": "MapServer",
+      "layers": 4,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN><SPAN>Túneles del municipio de Madrid, dibujados a partir de la captura de datos con mobile mapping. La primera"
+    },
+    {
+      "service": "CARTOGRAFIA/VUELOS_FECHA",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "CATALOGO2021/AI_ANALISIS_OTRAS_UBICACIONES",
+      "type": "MapServer",
+      "layers": 9,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "CATALOGO2021/AI_ANALISIS_PLANTA_BAJA_ETIQUETADO",
+      "type": "MapServer",
+      "layers": 9,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "CATALOGO2021/AI_ANALISIS_PLANTA_BAJA",
+      "type": "MapServer",
+      "layers": 9,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "CATALOGO2021/AI_ANALISIS_PLANTA_TIPO_ETIQUETADO",
+      "type": "MapServer",
+      "layers": 8,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "CATALOGO2021/AI_ANALISIS_PLANTA_TIPO",
+      "type": "MapServer",
+      "layers": 8,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "CATALOGO2021/ANALISIS_EDIFICACION_OTRAS_UBICACIONES_RPGCA_AI",
+      "type": "MapServer",
+      "layers": 10,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "CATALOGO2021/ANALISIS_EDIFICACION_OTRAS_UBICACIONES_RPGCA",
+      "type": "MapServer",
+      "layers": 10,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "CATALOGO2021/ANALISIS_EDIFICACION_PLANTA_BAJA_ETIQ_RPGCA_AI",
+      "type": "MapServer",
+      "layers": 9,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "CATALOGO2021/ANALISIS_EDIFICACION_PLANTA_BAJA_ETIQ_RPGCA",
+      "type": "MapServer",
+      "layers": 9,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "CATALOGO2021/ANALISIS_EDIFICACION_PLANTA_BAJA_RPGCA_AI",
+      "type": "MapServer",
+      "layers": 9,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "CATALOGO2021/ANALISIS_EDIFICACION_PLANTA_BAJA_RPGCA",
+      "type": "MapServer",
+      "layers": 9,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "CATALOGO2021/ANALISIS_EDIFICACION_PLANTA_TIPO_ETIQ_RPGCA_AI",
+      "type": "MapServer",
+      "layers": 8,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "CATALOGO2021/ANALISIS_EDIFICACION_PLANTA_TIPO_ETIQ_RPGCA",
+      "type": "MapServer",
+      "layers": 8,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "CATALOGO2021/ANALISIS_EDIFICACION_PLANTA_TIPO_RPGCA_AI",
+      "type": "MapServer",
+      "layers": 8,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "CATALOGO2021/ANALISIS_EDIFICACION_PLANTA_TIPO_RPGCA",
+      "type": "MapServer",
+      "layers": 8,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "CATALOGO2021/CATALOGO2021_VALORADOS",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "CATALOGO2021/EDIFICIOS_PROTEGIDOS_RPGCA_AI",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "CATALOGO2021/EDIFICIOS_PROTEGIDOS_RPGCA",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "CULTURA/ARTE_URBANO",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "CULTURA/CENTROS_CULTURALES",
+      "type": "MapServer",
+      "layers": 7,
+      "description": "Servicio de mapas en el que se visualiza la ubicación de los centros culturales municipales de Madrid."
+    },
+    {
+      "service": "CULTURA/LISTA_PATRIMONIO_MUNDIAL_UNESCO",
+      "type": "MapServer",
+      "layers": 54,
+      "description": "Servicio de mapas que representa el ámbito de El Paseo del Prado y El Buen Retiro, paisaje de las Artes y las Ciencias y su zona de amortiguamiento. El sitio fu"
+    },
+    {
+      "service": "CULTURA/MEMORIA_MADRID",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "CULTURA/PAISAJE_DE_LA_LUZ_LIMITES",
+      "type": "MapServer",
+      "layers": 4,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><P><SPAN>Paisaje de la Luz. Servicio de mapas que identifica los ámbitos utilizados para la delimitación de la zona de amorti"
+    },
+    {
+      "service": "CULTURA/PAISAJE_DE_LA_LUZ_PRECIOS",
+      "type": "MapServer",
+      "layers": 6,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Paisaje de la Luz. Servicio de mapas que identifica y simboliza los precios medios de venta y alquiler de algun"
+    },
+    {
+      "service": "CULTURA/PASEA_MADRID_EDICION",
+      "type": "FeatureServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "CULTURA/PASEA_MADRID_EDICION",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "CULTURA/PASEA_MADRID_UN_SIGLO_PLANEANDO_MADRID",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "CULTURA/RUTAS_SOROLLA",
+      "type": "MapServer",
+      "layers": 3,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/AMBITOS_PLANEAMIENTO_URBANISTICO",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "Servicio de mapas para visualizar todos los Planeamientos de Ordenación aprobados, en desarrollo, en ejecución o desarrollados desde el PG97"
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/ANALISIS_EDIFICACION_OTRAS_UBICACIONES_CATPG_EDIT",
+      "type": "MapServer",
+      "layers": 33,
+      "description": "<div style='text-align:Left;'><div><div><p><span>Servicio de mapas que muestra el plano de análisis del catálogo de Edificios Protegidos con el nuevo modelo de "
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/ANALISIS_EDIFICACION_OTRAS_UBICACIONES_CATPG",
+      "type": "MapServer",
+      "layers": 10,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/ANALISIS_EDIFICACION_OTRAS_UBICACIONES_ETIQ_RPGCA_TR",
+      "type": "MapServer",
+      "layers": 10,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/ANALISIS_EDIFICACION_OTRAS_UBICACIONES_RPGCA_TR",
+      "type": "MapServer",
+      "layers": 10,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/ANALISIS_EDIFICACION_PLANTA_BAJA_CATPG_EDIT",
+      "type": "MapServer",
+      "layers": 30,
+      "description": "<div style='text-align:Left;'><div><div><p><span>Servicio de mapas que muestra el plano de análisis del catálogo de Edificios Protegidos con el nuevo modelo de "
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/ANALISIS_EDIFICACION_PLANTA_BAJA_CATPG",
+      "type": "MapServer",
+      "layers": 9,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/ANALISIS_EDIFICACION_PLANTA_BAJA_ETIQ_CATPG",
+      "type": "MapServer",
+      "layers": 10,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/ANALISIS_EDIFICACION_PLANTA_BAJA_ETIQ_RPGCA_TR",
+      "type": "MapServer",
+      "layers": 10,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/ANALISIS_EDIFICACION_PLANTA_BAJA_RPGCA_TR",
+      "type": "MapServer",
+      "layers": 9,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/ANALISIS_EDIFICACION_PLANTA_TIPO_CATPG_EDIT",
+      "type": "MapServer",
+      "layers": 27,
+      "description": "<div style='text-align:Left;'><div><div><p><span><span>Servicio de mapas que muestra el plano de análisis del catálogo de Edificios Protegidos con el nuevo mode"
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/ANALISIS_EDIFICACION_PLANTA_TIPO_CATPG",
+      "type": "MapServer",
+      "layers": 8,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/ANALISIS_EDIFICACION_PLANTA_TIPO_ETIQ_CATPG",
+      "type": "MapServer",
+      "layers": 9,
+      "description": "Sobre las geometrías se han hecholas  uniones temporales necesarias para que puedan visualizarse los atributos en cada una de ellas"
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/ANALISIS_EDIFICACION_PLANTA_TIPO_ETIQ_RPGCA_TR",
+      "type": "MapServer",
+      "layers": 9,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/ANALISIS_EDIFICACION_PLANTA_TIPO_RPGCA_TR",
+      "type": "MapServer",
+      "layers": 8,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/BIC",
+      "type": "MapServer",
+      "layers": 6,
+      "description": "Servicio de mapas para visualizar el Catálogo de Bienes de Interés Cultural y Patrimonial según recoge la ley de Patrimonio Histórico Español de 1985 entre los "
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/EDIFICIOS_PROTEGIDOS_CATPG_EDIT",
+      "type": "MapServer",
+      "layers": 7,
+      "description": "<div style='text-align:Left;'><div><div><p><span><span>Servicio de mapas que muestra el plano del catálogo de Edificios Protegidos con el nuevo modelo de datos "
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/EDIFICIOS_PROTEGIDOS_CATPG",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/EDIFICIOS_PROTEGIDOS_RPGCA_TR",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/EDIFICIOS_PROTEGIDOS_VIGENTE_SINGULARES",
+      "type": "MapServer",
+      "layers": 3,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/EDIFICIOS_PROTEGIDOS_VIGENTE",
+      "type": "MapServer",
+      "layers": 11,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/EDIFICIOS_PROTEGIDOS",
+      "type": "MapServer",
+      "layers": 6,
+      "description": "Servicio de Mapas que muestra los edificios catalogados, nivel ,grado de protección y números de catálogo."
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/ELEMENTOS_PROTEGIDOS",
+      "type": "MapServer",
+      "layers": 4,
+      "description": "Servicio de mapas para visualizar el Catálogo de elementos Singulares que engloba los Catálogos de Parques y Jardines, de Establecimientos Comerciales y de Monu"
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/EXPEDIENTES_INFORMACION_PUBLICA",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "Servicio de mapas para visualizar la capa de Expedientes de Planeamiento, Gestión y Urbanización que se encuentran en ese momento en Información Pública"
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/EXPEDIENTES_PLANEAMIENTO_AD",
+      "type": "FeatureServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/EXPEDIENTES_PLANEAMIENTO_AD",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/FASES_RECEPCION_URBANIZACION",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/NO_URBANIZABLE_COMUN",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/NORMAS_ZONALES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;font-size:12pt\"><P><SPAN>Normas Zonales de  PGOUM 1997</SPAN></P></DIV>"
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/PLANEAMIENTO_URBANISTICO",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "Servicio de mapas para visualizar todos los Planeamientos de Ordenación aprobados, en desarrollo, en ejecución o desarrollados desde el PG97"
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/RTAU",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/SEGUIMIENTO_EXPEDIENTES_CUADROS_DE_MANDO",
+      "type": "FeatureServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/SEGUIMIENTO_EXPEDIENTES_CUADROS_DE_MANDO",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/SEGUIMIENTO_EXPEDIENTES",
+      "type": "MapServer",
+      "layers": 6,
+      "description": "Servicio de mapas para visualizar todos los expedientes de Gestión, Urbanización y Planeamiento, en desarrollo del PGOUM97"
+    },
+    {
+      "service": "DESARROLLO_URBANO_ACTUALIZADO/USOS_SUELO",
+      "type": "MapServer",
+      "layers": 4,
+      "description": "Servicio de mapas para visualizar todos los Planeamientos de Ordenación aprobados, en desarrollo, en ejecución o desarrollados desde el PG97"
+    },
+    {
+      "service": "ESTADISTICA/COLEGIOS_ELECTORALES",
+      "type": "MapServer",
+      "layers": 21,
+      "description": "Servicio de mapas con los ámbitos electorales para las elecciones de noviembre 2019. Se  incluyen las secciones censales, los colegios lectorales y las mesas de"
+    },
+    {
+      "service": "ESTADISTICA/ELECCIONES_ASAMBLEA_2019",
+      "type": "MapServer",
+      "layers": 23,
+      "description": "Eleccioes municipales Ayto 2019"
+    },
+    {
+      "service": "ESTADISTICA/ELECCIONES_ASAMBLEA_2021",
+      "type": "MapServer",
+      "layers": 19,
+      "description": "Eleccioes municipales Ayto 2019"
+    },
+    {
+      "service": "ESTADISTICA/ELECCIONES_AYUNTAMIENTO_2019",
+      "type": "MapServer",
+      "layers": 23,
+      "description": "Eleccioes municipales Ayto 2019"
+    },
+    {
+      "service": "ESTADISTICA/INDICADORES_COMPOSICION_HOGARES",
+      "type": "MapServer",
+      "layers": 81,
+      "description": "Servicio de mapas que representa 15 tipos de variables sociodemográficas por barrio en la ciudad de Madrid. Los distintos indicadores proceden del banco de dato"
+    },
+    {
+      "service": "ESTADISTICA/INDICADORES_DEFUNCIONES",
+      "type": "MapServer",
+      "layers": 24,
+      "description": "Servicio de mapas que representa 15 tipos de variables sociodemográficas por barrio en la ciudad de Madrid. Los distintos indicadores proceden del banco de dato"
+    },
+    {
+      "service": "ESTADISTICA/INDICADORES_EDAD_POBLACION",
+      "type": "MapServer",
+      "layers": 219,
+      "description": "Servicio de mapas que representa 15 tipos de variables sociodemográficas por barrio en la ciudad de Madrid. Los distintos indicadores proceden del banco de dato"
+    },
+    {
+      "service": "ESTADISTICA/INDICADORES_ESTRUCTURA_DEMOGRAFICA",
+      "type": "FeatureServer",
+      "layers": 7,
+      "description": "Servicio de mapas que representa 15 tipos de variables sociodemográficas por barrio en la ciudad de Madrid. Los distintos indicadores proceden del banco de dato"
+    },
+    {
+      "service": "ESTADISTICA/INDICADORES_ESTRUCTURA_DEMOGRAFICA",
+      "type": "MapServer",
+      "layers": 56,
+      "description": "Servicio de mapas que representa 15 tipos de variables sociodemográficas por barrio en la ciudad de Madrid. Los distintos indicadores proceden del banco de dato"
+    },
+    {
+      "service": "ESTADISTICA/INDICADORES_NACIMIENTOS",
+      "type": "MapServer",
+      "layers": 24,
+      "description": "Servicio de mapas que representa 15 tipos de variables sociodemográficas por barrio en la ciudad de Madrid. Los distintos indicadores proceden del banco de dato"
+    },
+    {
+      "service": "ESTADISTICA/INDICADORES_NACIONALIDAD_HOGARES",
+      "type": "MapServer",
+      "layers": 24,
+      "description": "Servicio de mapas que representa 15 tipos de variables sociodemográficas por barrio en la ciudad de Madrid. Los distintos indicadores proceden del banco de dato"
+    },
+    {
+      "service": "ESTADISTICA/INDICADORES_NIVEL_ESTUDIOS",
+      "type": "MapServer",
+      "layers": 156,
+      "description": "Servicio de mapas que representa 15 tipos de variables sociodemográficas por barrio en la ciudad de Madrid. Los distintos indicadores proceden del banco de dato"
+    },
+    {
+      "service": "ESTADISTICA/INDICADORES_TAMAÑO_HOGARES",
+      "type": "MapServer",
+      "layers": 172,
+      "description": "Servicio de mapas que representa 15 tipos de variables sociodemográficas por barrio en la ciudad de Madrid. Los distintos indicadores proceden del banco de dato"
+    },
+    {
+      "service": "ESTADISTICA/PANEL_DE_HOGARES",
+      "type": "MapServer",
+      "layers": 25,
+      "description": ""
+    },
+    {
+      "service": "ESTADISTICA/PANEL_HOGARES_EQUIPAMIENTOS_SERVICIOS",
+      "type": "MapServer",
+      "layers": 9,
+      "description": ""
+    },
+    {
+      "service": "ESTADISTICA/PANEL_HOGARES_ESTADO_SALUD",
+      "type": "MapServer",
+      "layers": 0,
+      "description": ""
+    },
+    {
+      "service": "ESTADISTICA/PARO_BARRIOS",
+      "type": "MapServer",
+      "layers": 4,
+      "description": "Servicio de mapas que representa distintos tipos de variables sobre la tasa de paro por sexo y separados por grupos de edad en cada barrio de la ciudad de Madri"
+    },
+    {
+      "service": "ESTADISTICA/PARO_DISTRITOS",
+      "type": "MapServer",
+      "layers": 4,
+      "description": "Servicio de mapas que representa distintos tipos de variables sobre la tasa de paro por sexo y separados por grupos de edad en cada distrito de la ciudad de Mad"
+    },
+    {
+      "service": "ESTRATEGIA_URBANA/ACTUACIONES_PLANIFICACION_ESTRATEGICA",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "<div style='text-align:Left;font-size:12pt'><p><span>Conjunto de capas de información geográfica de las actuaciones impulsadas desde la D.G. Planificación Estra"
+    },
+    {
+      "service": "ESTRATEGIA_URBANA/Bosque_Metropolitano_Hoy",
+      "type": "MapServer",
+      "layers": 6,
+      "description": "<DIV STYLE=\"text-align:Left;font-size:12pt\"><P><SPAN>Visor de los puntos de interés e Itinerarios del Bosque Metropolitano a día de hoy.</SPAN></P></DIV>"
+    },
+    {
+      "service": "ESTRATEGIA_URBANA/Bosque_Metropolitano_Mañana",
+      "type": "MapServer",
+      "layers": 4,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><DIV STYLE=\"font-size:12pt\"><P><SPAN>Visor de los proyectos y conectores del futuro.</SPAN></P></DIV></DIV></DIV></DIV>"
+    },
+    {
+      "service": "ESTRATEGIA_URBANA/Edificios_Azul",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "ESTRATEGIA_URBANA/Estrategia_Urbana",
+      "type": "MapServer",
+      "layers": 0,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Contiene los ámbitos propuestos y en ejecución de estrategia municipal para la regeneración de ámbitos vulnerab"
+    },
+    {
+      "service": "ESTRATEGIA_URBANA/Planes_Especiales_Bosque_Metropolitano",
+      "type": "MapServer",
+      "layers": 15,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><P><SPAN>Información gráfica y alfanumérica que se ha generado para los 5 planes especiales del Bosque Metropolitano, así com"
+    },
+    {
+      "service": "ESTRATEGIA_URBANA/VIVEROS_EMPRENDIMIENTO",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Servicio de mapas que identifica en los barrios productores las parcelas con viveros de emprendimiento de agric"
+    },
+    {
+      "service": "GEOPORTAL/ACCESIBILIDAD_VIARIA",
+      "type": "MapServer",
+      "layers": 14,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/ACTIVIDADES_DEPORTIVAS",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/ACTUACIONES_PREVISTAS",
+      "type": "MapServer",
+      "layers": 3,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/ALBERGUES_EMERGENCIA_ABIERTO",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "<div style='text-align:Left;font-size:12pt'><div><div><p><span>Localización de los centros establecidos como albergues de emergencia y albergues de gran capacid"
+    },
+    {
+      "service": "GEOPORTAL/AMBITOS_ACTUALIZACION_MADRID_ZBE",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Comparativa del ámbito de aplicación de Madrid ZBE 2022 y 2023</SPAN></P></DIV></DIV></DIV>"
+    },
+    {
+      "service": "GEOPORTAL/AMBITOS_Y_MEDIDAS_PROTOCOLO_NO2",
+      "type": "MapServer",
+      "layers": 4,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN><SPAN>Este conjunto de datos contiene los ámbitos geográficos asociados a las distintas medidas previstas en el"
+    },
+    {
+      "service": "GEOPORTAL/APARCAMIENTOS_INTERMODALES_CARSHARING",
+      "type": "MapServer",
+      "layers": 9,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Servicio de mapas que incluye los puntos de los aparcamientos disuasorios del extrarradio y los puntos de aparc"
+    },
+    {
+      "service": "GEOPORTAL/APARCAMIENTOS_PUBLICOS_DISUASORIOS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/APARCAMIENTOS_PUBLICOS_MIXTOS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/APARCAMIENTOS_PUBLICOS_RESIDENTES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/APARCAMIENTOS_PUBLICOS_ROTACION",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/APARCAMIENTOS_PUBLICOS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/AREAS_ACTIVIDADES_PARA_MAYORES",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/AREAS_CANINAS",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/AREAS_INFANTILES",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/ARROYOS_Y_CURSOS_DE_AGUA",
+      "type": "MapServer",
+      "layers": 10,
+      "description": "<DIV STYLE=\"text-align:Left;\"><P STYLE=\"margin:0 0 1067 0;\"><SPAN><SPAN>Servicio de mapas que representa los arroyos y cursos de agua de la ciudad de Madrid de "
+    },
+    {
+      "service": "GEOPORTAL/ASEOS_PUBLICOS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/AUTORIZACION_OCUPACION_VIA",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/AUTORIZACION_OCUPACION_VIA",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/BANCOS",
+      "type": "MapServer",
+      "layers": 4,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/CENTROS_STARS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Servicio de mapas que incluye la ubicación de los Centros Educativos adheridos al Proyecto STARS del Programa d"
+    },
+    {
+      "service": "GEOPORTAL/CIRCUITO_F1_MADRING",
+      "type": "MapServer",
+      "layers": 3,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/COLEGIOS_PUBLICOS__PATIOS_ESCOLARES_2022",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "Servicio de mapas en el que se representan los resultados del estudio de la apertura de patios de colegio para uso vecinal fuera del horario escolar. Se han ana"
+    },
+    {
+      "service": "GEOPORTAL/CONCURSO_2025",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/CUENCAS_VERTIENTES",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P STYLE=\"margin:0 0 1067 0;\"><SPAN>Servicio de mapas que representa que representa las cuencas vertientes a cada estaci"
+    },
+    {
+      "service": "GEOPORTAL/CUIDAR_A_QUIENES_NOS_CUIDAN",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Servicio de mapas que identifica los puntos de los espacios municipales donde se realiza el programa Cuidar a q"
+    },
+    {
+      "service": "GEOPORTAL/EDIFICIOS_MUNICIPALES_ADMINISTRACION",
+      "type": "MapServer",
+      "layers": 4,
+      "description": "Servicio de mapas en el que se visualiza la ubicación de los distintos órganos de gobierno de la ciudad de Madrid. Se representan los edificios y las parcelas d"
+    },
+    {
+      "service": "GEOPORTAL/EJERCICIOS_MAYORES",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": "Servicio de mapas que representa la ubicación para realizar actividades físicas al aire libre para personas mayores durante el curso 2021 en distintas áreas abi"
+    },
+    {
+      "service": "GEOPORTAL/EJERCICIOS_MAYORES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "Servicio de mapas que representa la ubicación para realizar actividades físicas al aire libre para personas mayores durante el curso 2021 en distintas áreas abi"
+    },
+    {
+      "service": "GEOPORTAL/EQUIPAMIENTOS_DEPORTIVOS",
+      "type": "MapServer",
+      "layers": 9,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Servicio de mapas que muestra la ubicación y el acceso al contenido web de los equipamientos deportivos municip"
+    },
+    {
+      "service": "GEOPORTAL/ESCENARIOS_Y_MEDIDAS_PROTOCOLO_NO2",
+      "type": "MapServer",
+      "layers": 21,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Este conjunto de datos representa los escenarios del protocolo de actuación para episodios de contaminación por"
+    },
+    {
+      "service": "GEOPORTAL/ESTACIONES_DE_CALIDAD_DEL_AIRE",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Este conjunto de datos contiene las estaciones de control de calidad del aire del Ayuntamiento de Madrid</SPAN>"
+    },
+    {
+      "service": "GEOPORTAL/ESTACIONES_FLOTA_MUNICIPAL_RECARGA_VEHICULOS_ELECTRICOS_GP",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<DIV STYLE=\"text-align:Left;\"><P STYLE=\"font-size:12ptmargin:0 0 1067 0;\"><SPAN><SPAN>Servicio de mapas que incluye el inventario de los puntos de recarga eléct"
+    },
+    {
+      "service": "GEOPORTAL/ESTACIONES_PUBLICAS_RECARGA_RAPIDA_VEHICULOS_ELECTRICOS___DIFUSION",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<div style='text-align:Left;'><div><div><p><span>Servicio de mapas que incluye los puntos públicos de recarga de vehículos eléctricos según estado: ejecutado, e"
+    },
+    {
+      "service": "GEOPORTAL/ESTACIONES_PUBLICAS_RECARGA_RAPIDA_VEHICULOS_ELECTRICOS_GP",
+      "type": "MapServer",
+      "layers": 6,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Servicio de mapas que incluye los puntos públicos de recarga de vehículos eléctricos.</SPAN></P></DIV></DIV></D"
+    },
+    {
+      "service": "GEOPORTAL/ESTADO_ENTREGAS_CATALOGO_2021_SUSPENSION",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN><SPAN>Servicio de mapas que representa </SPAN></SPAN><SPAN>el estado actualizado de las entregas periódicas de "
+    },
+    {
+      "service": "GEOPORTAL/ESTADO_ENTREGAS_CATALOGO_2021",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Servicio de mapas que representa el estado actualizado de las entregas periódicas de la Revisión del Catálogo M"
+    },
+    {
+      "service": "GEOPORTAL/FLORA_VASCULAR_Y_MICRORRESERVAS_URBANAS",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "<DIV STYLE=\"text-align:Left;\"><P><SPAN><SPAN>Servicio de mapas que representa la información recopilada por el Catálogo de la Flora Vascular de la Ciudad de Mad"
+    },
+    {
+      "service": "GEOPORTAL/IZVER_SIN_CONSERVACIÓN__Mayo_2024",
+      "type": "MapServer",
+      "layers": 0,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/IZVER",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "<div style='text-align:Left;'><div><div><p><span>Servicio de mapas que incluye la capa con las delimitaciones de las parcelas e inmuebles que se identifican com"
+    },
+    {
+      "service": "GEOPORTAL/JUNTOS_CONTRA_LA_SOLEDAD",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<div style='text-align:Left;'><div><div><p><span><span>Servicio de mapas que identifica los puntos y espacios municipales donde se realiza el programa “Acompaña"
+    },
+    {
+      "service": "GEOPORTAL/Locales_abiertos_new",
+      "type": "MapServer",
+      "layers": 8,
+      "description": "<div style='text-align:Left;font-size:12pt'><p><span>Locales abie</span><span>r</span><span>tos obtenidos del censo de locales y la aplicación de actividades</s"
+    },
+    {
+      "service": "GEOPORTAL/LOCALES_ABIERTOS",
+      "type": "MapServer",
+      "layers": 8,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/LOCALES",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/MADRID_COMPENSA",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Madrid Compensa o</SPAN><SPAN STYLE=\"font-size:12pt\">frece a las entidades interesadas la posibilidad de reduci"
+    },
+    {
+      "service": "GEOPORTAL/MADRID_ZBE",
+      "type": "MapServer",
+      "layers": 8,
+      "description": "<div style='text-align:Left;'><div><div><p><span>Servicio de mapas que representa el ámbito geográfico de Madrid Zona de Bajas Emisiones, regulado en el artícul"
+    },
+    {
+      "service": "GEOPORTAL/MEMORIA_MADRID",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/MEMORIA_MADRID",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/MESAS",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/MURALLAS",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/NUMERO_DE_CARRILES",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Grafo con el número de carriles por tramos viarios obtenido del Simulador de Transportes del Ayuntamiento de Ma"
+    },
+    {
+      "service": "GEOPORTAL/OFICINAS_DE_REGISTRO",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/PAPELERAS",
+      "type": "MapServer",
+      "layers": 8,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/PAR_NDP",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/PAR_ZONAS_INFLUENCIA",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/PARADAS_BUS_TURISTICO",
+      "type": "MapServer",
+      "layers": 4,
+      "description": ""
+    },
+    {
+      "service": "GEOPORTAL/PARQUÍMETROS_DEL_SERVICIO_DE_ESTACIONAMIENTO_REGULADO",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "<div style='text-align:Left;'><div><div><p><span>Este servicio de mapas recoge los datos de parquímetros desde el año 2014 (vigentes e histórico) del Servicio d"
+    },
+    {
+      "service": "GEOPORTAL/PEATONALES",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "Servicio de mapas que incluye los viales afectados por cortes a la circulación en días festivos para ampliar la zona de circulación de los peatones."
+    },
+    {
+      "service": "GEOPORTAL/PEATONALIZACIONES_MADRID_360",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Servicio de mapas que representa las calzadas trasformadas en tramos peatonales para la implementación de la Es"
+    },
+    {
+      "service": "GEOPORTAL/PLAN_DE_EQUIPAMIENTOS",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Plan de Equipamientos, Madrid Capital 21</SPAN></P></DIV></DIV></DIV>"
+    },
+    {
+      "service": "GEOPORTAL/PLAN_DE_EQUIPAMIENTOS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Plan de Equipamientos, Madrid Capital 21</SPAN></P></DIV></DIV></DIV>"
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES_TODOS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN><SPAN>Se</SPAN></SPAN><SPAN><SPAN>rvicio de mapas que muestra la ubicació</SPAN></SPAN><SPAN><SPAN>n</SPAN></SP"
+    },
+    {
+      "service": "GEOPORTAL/POIs_PUNTOS_DE_INTERES",
+      "type": "MapServer",
+      "layers": 60,
+      "description": "<div style='text-align:Left;'><div><p><span>Se incluyen entre otros los puntos de: servicios públicos y organismos oficiales, asociaciones y fundaciones del reg"
+    },
+    {
+      "service": "GEOPORTAL/PUESTOS_RASTRO",
+      "type": "MapServer",
+      "layers": 13,
+      "description": "Servicio de mapas para la generación de incidencias en la vía pública que pueden afectar a la movilidad."
+    },
+    {
+      "service": "GEOPORTAL/RESERVAS_PLAZAS_DE_APARCAMIENTO",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<div style='text-align:Left;'><div><div><p><span><span>Servicio de mapas que incluye la delimitación de las reservas de plazas de aparcamiento según tipologías "
+    },
+    {
+      "service": "GEOPORTAL/RESERVAS_PLAZAS_TAXI",
+      "type": "MapServer",
+      "layers": 4,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN STYLE=\"font-size:12pt\">Servicio de mapas que representa la ubicación y el número de PARADAS de taxi en la Ciuda"
+    },
+    {
+      "service": "GEOPORTAL/SERVICIO_DE_ESTACIONAMIENTO_REGULADO",
+      "type": "MapServer",
+      "layers": 18,
+      "description": "<div style='text-align:Left;'><div><div><p style='margin:0 0 1067 0;'><span>Servicio de mapas que incluye la delimitación del área del Servicio de Estacionamien"
+    },
+    {
+      "service": "GEOPORTAL/ZBEDEP_DISTRITO_CENTRO",
+      "type": "MapServer",
+      "layers": 4,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Servicio de mapas que representa la Zona de Bajas Emisiones de Especial Protección (ZBEDEP) Distrito Centro reg"
+    },
+    {
+      "service": "GEOPORTAL/ZBEDEP_PLAZA_ELIPTICA",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "<div style='text-align:Left;'><div><div><p><span>Servicio de mapas que representa la Zona de Bajas Emisiones de Especial Protección (ZBEDEP) de Plaza Elíptica r"
+    },
+    {
+      "service": "GEOPORTAL/ZONAS_DE_CALIDAD_DEL_AIRE_Y_ESTACIONES_DE_MEDICION",
+      "type": "MapServer",
+      "layers": 6,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Este conjunto de datos contiene las estaciones de control de calidad del aire del Ayuntamiento de Madrid y las "
+    },
+    {
+      "service": "GESTION_URBANA/Licencias_SLIM_COCINA_Ahijones",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "GESTION_URBANA/Madrid_Crece_MNN",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GESTION_URBANA/MCPG_Madrid_Crece",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GESTION_URBANA/SIG_SIGGU_Etapas_Sureste",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GESTION_URBANA/SIG_SIGGU_Planeamiento_WEB_v1",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "GESTION_URBANA/SIG_SIGGU_Todas_las_envolventes",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/20220407_MAPABASE_MTMOV7",
+      "type": "MapServer",
+      "layers": 144,
+      "description": ""
+    },
+    {
+      "service": "Hosted/20250616_viviendas_colaborativas_PUNTOS",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/20250616_viviendas_colaborativas",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/20250623_mamma_mia_puntos",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/20250623_mamma_mia",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/20250910_Finalista_y_Dominio_público",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/20250918_loc_CT_vallecas",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/20260225_comprobacion_PUNTOS",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/20260225_comprobacion",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/ACTUACIONES_COLABORATIVAS",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/AMBITOS_OBRAS_DGRU",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/ANALISIS_URBANO_Datos_2024",
+      "type": "FeatureServer",
+      "layers": 0,
+      "description": ""
+    },
+    {
+      "service": "Hosted/ANALISIS_URBANO_Datos_2025",
+      "type": "FeatureServer",
+      "layers": 0,
+      "description": ""
+    },
+    {
+      "service": "Hosted/ANALISIS_URBANO_Datos_enero26",
+      "type": "FeatureServer",
+      "layers": 0,
+      "description": ""
+    },
+    {
+      "service": "Hosted/ANALISIS_URBANO_Datos_JUL25",
+      "type": "FeatureServer",
+      "layers": 0,
+      "description": ""
+    },
+    {
+      "service": "Hosted/ANALISIS_URBANO_Inf_Remanente_Fecha",
+      "type": "FeatureServer",
+      "layers": 0,
+      "description": ""
+    },
+    {
+      "service": "Hosted/Anillo_Verde",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/Avenida_Forestal",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/Barrios_20210712",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/Convocatorias_RE_VN",
+      "type": "FeatureServer",
+      "layers": 0,
+      "description": ""
+    },
+    {
+      "service": "Hosted/Convocatorias_RE_VNXT",
+      "type": "FeatureServer",
+      "layers": 0,
+      "description": ""
+    },
+    {
+      "service": "Hosted/Distritos",
+      "type": "FeatureServer",
+      "layers": 0,
+      "description": ""
+    },
+    {
+      "service": "Hosted/INCIDENCIAS_PACO",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/Oficinas_linea_Madrid_ETRS89",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/PE_REGUL_shp",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/Planeamiento",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/Planes_Especiales",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/Proyectos",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/prueba_2",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/Prueba",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/refugios_xy_v15",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/survey123_760d378ff873493b86388dd5f95c34f3_form",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": "Feature service view of form for the survey 760d378ff873493b86388dd5f95c34f3"
+    },
+    {
+      "service": "Hosted/UR_PRM_DGRU_Sintesis_shp",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "Hosted/VIV_INVERSIONES_",
+      "type": "FeatureServer",
+      "layers": 0,
+      "description": ""
+    },
+    {
+      "service": "Hosted/VIV_INVERSIONES",
+      "type": "FeatureServer",
+      "layers": 0,
+      "description": ""
+    },
+    {
+      "service": "HUB_FOTOTECA/EMPLAZAMIENTOS_VUELOS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "HUB_FOTOTECA/FOTOGRAFIA_AEREA",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "LIMPIEZAS/COMPETENCIAS_LIMPIEZA",
+      "type": "MapServer",
+      "layers": 22,
+      "description": "<div style='text-align:Left;font-size:12pt'><div><div><p><span><span>Servicio de mapas que representa las competencias de limpieza de espacios pú</span></span><"
+    },
+    {
+      "service": "LIMPIEZAS/GRANDES_NEVADAS",
+      "type": "FeatureServer",
+      "layers": 2,
+      "description": "Servicio de mapas que representa el estado de limpieza del viario en la ciudad de Madrid ante fenómenos meteorológicos de gran adversidad, especialmente nevadas"
+    },
+    {
+      "service": "LIMPIEZAS/GRANDES_NEVADAS",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "Servicio de mapas que representa el estado de limpieza del viario en la ciudad de Madrid ante fenómenos meteorológicos de gran adversidad, especialmente nevadas"
+    },
+    {
+      "service": "LIMPIEZAS/INSTALACIONES_DE_LIMPIEZA",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<div style='text-align:Left;'><div><div><p><span>Servicio de mapas que muestra la ubicación de las instalaciones de limpieza según tipo y contrato y lote asigna"
+    },
+    {
+      "service": "LIMPIEZAS/LIMPIEZA_DE_PINTADAS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN><SPAN>Servicio de mapas que representa la </SPAN></SPAN><SPAN><SPAN>programació</SPAN></SPAN><SPAN><SPAN>n del "
+    },
+    {
+      "service": "LIMPIEZAS/LIMPIEZA_ESPACIOS_PUBLICOS",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "Servicio de mapas que representa los distintos niveles de limpieza asignados a calzadas y aceras, estableciendo los servicios de limpieza básicos que se realiza"
+    },
+    {
+      "service": "LIMPIEZAS/NEVADAS_PRIMERA_INTERVENCION",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Puntos de interés y viales de primera intervención ante nevadas.</SPAN></P></DIV></DIV></DIV>"
+    },
+    {
+      "service": "LIMPIEZAS/PUNTOS_REPARTO_SAL",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": "<div style='text-align:Left;font-size:12pt'><div><div><p><span>Servicio de mapas que representa </span><span>la localización de los puntos de reparto de sal par"
+    },
+    {
+      "service": "LIMPIEZAS/PUNTOS_REPARTO_SAL",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<div style='text-align:Left;font-size:12pt'><div><div><p><span>Servicio de mapas que representa </span><span>la localización de los puntos de reparto de sal par"
+    },
+    {
+      "service": "LIMPIEZAS/RECOGIDA_MUEBLES_ENSERES",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Este servicio se realiza 1 vez al mes, sin tener que solicitarlo previamente.  Verifica el día que se realiza e"
+    },
+    {
+      "service": "MAPAS_BASE/CARTOBASE_LINEAS_CAT",
+      "type": "MapServer",
+      "layers": 79,
+      "description": "<div style='text-align:left;'><p><span style='font-size:16px;'>Servicio de mapas con cartografía actualizada de líneas del Ayuntamiento de Madrid en ETRS89. Vis"
+    },
+    {
+      "service": "MAPAS_BASE/MANZANERO_2016",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN STYLE=\"font-size:14pt\"><SPAN>Servicio de mapas en el que se representa los recintos de manzanas obtenidos a par"
+    },
+    {
+      "service": "MAPAS_BASE/MANZANERO",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "Servicio de mapas en el que se representa los recintos de manzanas obtenidos a partir de la cartografía actualizada. El objetivo de este servicio es su utilizac"
+    },
+    {
+      "service": "MEDIO_AMBIENTE/ALERTAS_PARQUES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "xx"
+    },
+    {
+      "service": "MEDIO_AMBIENTE/ANEMOMETROS",
+      "type": "MapServer",
+      "layers": 4,
+      "description": ""
+    },
+    {
+      "service": "MEDIO_AMBIENTE/ARBOLADO",
+      "type": "MapServer",
+      "layers": 7,
+      "description": ""
+    },
+    {
+      "service": "MEDIO_AMBIENTE/AREAS_ACUSTICAS_2018",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "Servicio de mapas que incluye la capa con las delimitaciones acústicas del año 2018 con la siguiente clasificación: \nResidencial Urbanizada Existente (AUE)\nIndu"
+    },
+    {
+      "service": "MEDIO_AMBIENTE/BIODIVERSIDAD",
+      "type": "MapServer",
+      "layers": 8,
+      "description": ""
+    },
+    {
+      "service": "MEDIO_AMBIENTE/CENTROS_VIGILANTES_DEL_AIRE",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN><SPAN>El objetivo del proyecto es claro: conocer el estado de la calidad del aire en Madrid utilizando plantas "
+    },
+    {
+      "service": "MEDIO_AMBIENTE/CONSERVACION_ZZVV",
+      "type": "MapServer",
+      "layers": 9,
+      "description": "<div style='text-align:Left;'><div><div><p style='margin:0 0 1067 0;'><span>Servicio de mapas para la elaboración del Visor de la S.G. de Conservación de Zonas "
+    },
+    {
+      "service": "MEDIO_AMBIENTE/EDIFICIOS_SOCIOSANITARIOS_Y_CONTROL_ACUSTICO",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "<div style='text-align:Left;'><div><div><p><span>Servicio de mapas que muestra la ubicación de los centros docentes, centros sanitarios, centros de día, residen"
+    },
+    {
+      "service": "MEDIO_AMBIENTE/FUENTES_ASEOS",
+      "type": "FeatureServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "MEDIO_AMBIENTE/FUENTES_ASEOS",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "MEDIO_AMBIENTE/FUENTES_DE_AGUA",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<div style='text-align:Left;'><div><div><p><span><span>Servicio de mapas que muestra la ubicación de las fuentes de agua para beber. Estas fuentes son elementos"
+    },
+    {
+      "service": "MEDIO_AMBIENTE/HUERTOS_CENTROS_ESCOLARES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "MEDIO_AMBIENTE/HUERTOS_CENTROS_MUNICIPALES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "MEDIO_AMBIENTE/HUERTOS_URBANOS_COMUNITARIOS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "MEDIO_AMBIENTE/HUERTOS",
+      "type": "MapServer",
+      "layers": 3,
+      "description": ""
+    },
+    {
+      "service": "MEDIO_AMBIENTE/ZAP",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "Servicio de mapas que muestra las zonas ambientalmente protegidas, determinadas como aquellas en las que la concentración de actividades, o las características "
+    },
+    {
+      "service": "MEDIO_AMBIENTE/ZPAE",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "Servicio de mapas que incluye la capa con las zonas de protección acústica especial de Madrid: AZCA-Av.Brasil, Barrio de Gaztambide, Centro.\nLa clasificación de"
+    },
+    {
+      "service": "MOVILIDAD/MADRID_ZBE_PRUEBAS",
+      "type": "MapServer",
+      "layers": 8,
+      "description": "<div style='text-align:Left;'><div><div><p><span>Servicio de mapas que representa el ámbito geográfico de Madrid Zona de Bajas Emisiones, regulado en el artícul"
+    },
+    {
+      "service": "MOVILIDAD/SEMAFOROS",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "MOVILIDAD/SERVICIO_DE_ESTACIONAMIENTO_REGULADO_prueba",
+      "type": "MapServer",
+      "layers": 15,
+      "description": "<div style='text-align:Left;'><div><div><p style='margin:0 0 1067 0;'><span>Servicio de mapas que incluye la delimitación del área del Servicio de Estacionamien"
+    },
+    {
+      "service": "MOVILIDAD/ZONAS_PEATONALES",
+      "type": "MapServer",
+      "layers": 9,
+      "description": "<div style='text-align:Left;'><div><p><span>Tipologías de zonas peatonales ajustadas a la cartografía, con señalización de referencia</span></p></div></div>"
+    },
+    {
+      "service": "OBRAS/ACCESIBILIDAD_ACERAS_2020",
+      "type": "MapServer",
+      "layers": 4,
+      "description": "Servicio de mapas que incluye los viales y ejes afectados por las actuaciones de mejora de la accesibilidad y movilidad en aceras y calzadas.\n\nEste servicio pro"
+    },
+    {
+      "service": "OBRAS/ACCESIBILIDAD_ACERAS_2021",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "ss"
+    },
+    {
+      "service": "OBRAS/ACCESIBILIDAD_ACERAS_2024",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/ACCESIBILIDAD_CMM_DIA",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/ALUMBRADO__PLAN_MEJORA_ACCESIBILIDAD",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><P><SPAN>Servicio de mapas que muestras las actuaciones del Plan de Mejora de la Accesibilidad en el Alumbrado Público. </SPA"
+    },
+    {
+      "service": "OBRAS/APARCABICIS",
+      "type": "MapServer",
+      "layers": 8,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/BIE_TUNELES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/CENTROIDES_TUNELES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/COLUMNA_SECA_TUNELES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/GALIBO_TUNELES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<div style='text-align:Left;'><div><div><p style='margin:0 0 1067 0;'><span><span>Servicio de mapas que identifica las limitaciones de altura en metros en los t"
+    },
+    {
+      "service": "OBRAS/HIDRANTE_TUNELES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/INFRAESTRUCTURA_CICLISTA",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "Comparación de los shp de datos abiertos 2018 con el shp de las tipologias 2019\n21 elementos de diferencia haciendo el cruce con una distancia de 0,5 m."
+    },
+    {
+      "service": "OBRAS/NUDO_NORTE",
+      "type": "MapServer",
+      "layers": 6,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/OBRA_PUBLICA",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "OBRAS PLANIFICADAS Y EN EJECUCIÓN COMPETENCIA DE LA D.G. DEL ESPACIO PUBLICO, OBRAS E INFRAESTRUCTURAS"
+    },
+    {
+      "service": "OBRAS/OPERACION_ASFALTO_2020_FEATURE",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": "Servicio de mapas que incluye los viales afectados por las actuaciones de mejora de las condiciones de rodadura sobre los pavimentos en calzada.\n\nEste servicio "
+    },
+    {
+      "service": "OBRAS/OPERACION_ASFALTO_2020_FEATURE",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "Servicio de mapas que incluye los viales afectados por las actuaciones de mejora de las condiciones de rodadura sobre los pavimentos en calzada.\n\nEste servicio "
+    },
+    {
+      "service": "OBRAS/OPERACION_ASFALTO_2020",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "Servicio de mapas que incluye los viales afectados por las actuaciones de mejora de las condiciones de rodadura sobre los pavimentos en calzada.\n\nEste servicio "
+    },
+    {
+      "service": "OBRAS/OPERACION_ASFALTO_2021_EDICION",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": "Servicio de mapas que incluye los viales afectados por las actuaciones de mejora de las condiciones de rodadura sobre los pavimentos en calzada. Se ha incluido "
+    },
+    {
+      "service": "OBRAS/OPERACION_ASFALTO_2021_EDICION",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "Servicio de mapas que incluye los viales afectados por las actuaciones de mejora de las condiciones de rodadura sobre los pavimentos en calzada. Se ha incluido "
+    },
+    {
+      "service": "OBRAS/OPERACION_ASFALTO_2021_FEATURE",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": "Servicio de mapas que incluye los viales afectados por las actuaciones de mejora de las condiciones de rodadura sobre los pavimentos en calzada.\n\nEste servicio "
+    },
+    {
+      "service": "OBRAS/OPERACION_ASFALTO_2021_FEATURE",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "Servicio de mapas que incluye los viales afectados por las actuaciones de mejora de las condiciones de rodadura sobre los pavimentos en calzada.\n\nEste servicio "
+    },
+    {
+      "service": "OBRAS/OPERACION_ASFALTO_2021",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "Servicio de mapas que incluye los viales afectados por las actuaciones de mejora de las condiciones de rodadura sobre los pavimentos en calzada.\n\nEste servicio "
+    },
+    {
+      "service": "OBRAS/OPERACION_ASFALTO_2022",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/OPERACION_ASFALTO_2023",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/OPERACION_ASFALTO_2024",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/OPERACION_ASFALTO_2025",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/OPERACION_ASFALTO_2026",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/PANELES_TUNELES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/PASOS_A_DISTINTO_NIVEL",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/PAVIMENTOS_PROTEGIDOS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "Servicio de mapas que incluye tramos de vías o espacios públicos de titularidad municipal cuyos pavimentos se encuentran protegidos por haberse ejecutado obras "
+    },
+    {
+      "service": "OBRAS/PK_TUNELES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/PLAN_COLEGIOS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/PLANES_MOVILIDAD_REVISION",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/PLANES_MOVILIDAD",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/PLANIFICACION_ACTUACIONES_MOVILIDAD",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/PUBLICIDAD_EXTERIOR_Y_PATROCINIO",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/RED_ESTRUCTURANTE",
+      "type": "MapServer",
+      "layers": 7,
+      "description": "Inventario de los pavimentos pertenecientes a la red estructurante de la ciudad de Madrid, definida por el viario de la red principal del PGOUM, la red básica d"
+    },
+    {
+      "service": "OBRAS/REJILLA_TUNELES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/SALIDA_EMERGENCIA_TUNELES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/SOS_TUNELES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/TRAZA_TUNELES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "OBRAS/ZONAS_MOBILIARIO_URBANO",
+      "type": "MapServer",
+      "layers": 4,
+      "description": ""
+    },
+    {
+      "service": "ORDENANZAS/AMPLIACION_ZONA_SER",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<div style='text-align:Left;'><div><div><p style='margin:0 0 1067 0;'><span>Servicio de mapas que incluye la delimitación del área del Servicio de Estacionamien"
+    },
+    {
+      "service": "ORDENANZAS/ESCUELAS_INFANTILES_MUNICIPALES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "ORDENANZAS/MERCADOS_MUNICIPALES_Y_PRODUCTORES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "ORDENANZAS/MERCADOS_MUNICIPALES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "ORDENANZAS/UNIDADES_DE__PAISAJE",
+      "type": "MapServer",
+      "layers": 17,
+      "description": ""
+    },
+    {
+      "service": "PGOUM97/AREAS_PROTECCION_ARQUEOLOGICA_PALEONTOLOGICA",
+      "type": "MapServer",
+      "layers": 6,
+      "description": ""
+    },
+    {
+      "service": "PGOUM97/PG_ABASTECIMIENTO_AGUA",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "PGOUM97/PG_ANALISIS_EDIFICACION",
+      "type": "MapServer",
+      "layers": 13,
+      "description": "Servicio de Mapas donde se representa el Plano de Análisis de la Edificación del Plan General de Ordenación Urbana de Madrid de 1997, tal y como fue publicado t"
+    },
+    {
+      "service": "PGOUM97/PG_AREAS_ESPECIALES",
+      "type": "MapServer",
+      "layers": 7,
+      "description": ""
+    },
+    {
+      "service": "PGOUM97/PG_CONDICIONES_EDIFICACION",
+      "type": "MapServer",
+      "layers": 11,
+      "description": "Servicio de Mapas donde se representa el Plano de Condiciones de la Edificación del Plan General de Ordenación Urbana de Madrid de 1997, tal y como fue publicad"
+    },
+    {
+      "service": "PGOUM97/PG_EDIFICIOS_PROTEGIDOS",
+      "type": "MapServer",
+      "layers": 11,
+      "description": "Servicio de Mapas donde se representa el Plano del Catálogo de Edificios Protegidos del Plan General de Ordenación Urbana de Madrid de 1997, tal y como fue publ"
+    },
+    {
+      "service": "PGOUM97/PG_ELEMENTOS_SINGULARES",
+      "type": "MapServer",
+      "layers": 11,
+      "description": "Servicio de mapas para visualizar el Catálogo de elementos Singulares que engloba los Catálogos de Parques y Jardines, de Establecimientos Comerciales y de Monu"
+    },
+    {
+      "service": "PGOUM97/PG_GESTION",
+      "type": "MapServer",
+      "layers": 16,
+      "description": "Servicio de mapas en el que se representa el Plano de Ordenación del Plan General de Ordenación Urbana de Madrid de 1997, tal y como fue publicado tras su aprob"
+    },
+    {
+      "service": "PGOUM97/PG_ORDENACION_SIN_AMBITO",
+      "type": "MapServer",
+      "layers": 14,
+      "description": "Servicio de mapas en el que se representa el Plano de Ordenación del Plan General de Ordenación Urbana de Madrid de 1997, tal y como fue publicado tras su aprob"
+    },
+    {
+      "service": "PGOUM97/PG_ORDENACION",
+      "type": "MapServer",
+      "layers": 17,
+      "description": "Servicio de mapas en el que se representa el Plano de Ordenación del Plan General de Ordenación Urbana de Madrid de 1997, tal y como fue publicado tras su aprob"
+    },
+    {
+      "service": "PGOUM97/PG_PET_CEMENTERIOS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "PGOUM97/PG_USOS_Y_ACTIVIDADES",
+      "type": "MapServer",
+      "layers": 12,
+      "description": "Servicio de Mapas donde se representa el Plano de Usos y Actividades del Plan General de Ordenación Urbana de Madrid de 1997, tal y como fue publicado tras su a"
+    },
+    {
+      "service": "PROTECCION_CIVIL/ALBERGUES_EMERGENCIA",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<div style='text-align:Left;font-size:12pt'><p><span>Localización de los centros establecidos como refugios climáticos</span></p></div>"
+    },
+    {
+      "service": "PROTECCION_CIVIL/BASES_OPERATIVAS_SAMUR",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "PROTECCION_CIVIL/RECURSOS_PROTECCION_CIVIL_PUBLICO",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "<div style='text-align:Left;font-size:12pt'><div><div><p><span>Localización de los centros establecidos como albergues de emergencia y albergues de gran capacid"
+    },
+    {
+      "service": "PRUEBA/DISTRITOS_OGCAPI_317",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "PRUEBA/ESTRUCTURA_DEMOG_33",
+      "type": "MapServer",
+      "layers": 44,
+      "description": "Servicio de mapas que representa 15 tipos de variables sociodemográficas por barrio en la ciudad de Madrid. Los distintos indicadores proceden del banco de dato"
+    },
+    {
+      "service": "PRUEBA/PROYECTOS_ESPACIOS_URBANOS_INTELIGENTES",
+      "type": "FeatureServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "PRUEBA/PROYECTOS_ESPACIOS_URBANOS_INTELIGENTES",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "PRUEBA/Prueba2_OGCAPI",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "PRUEBA/Prueba_OGCAPI",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "PRUEBA/SemanaMadridBICI",
+      "type": "FeatureServer",
+      "layers": 2,
+      "description": "<div style='text-align:Left;font-size:12pt'><p><span>Mapa de ayuda al evento de Semana Madrid en BICI para localizar los quiscos del ayuntamiento y obtener info"
+    },
+    {
+      "service": "PRUEBA/SemanaMadridBICI",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<div style='text-align:Left;font-size:12pt'><p><span>Mapa de ayuda al evento de Semana Madrid en BICI para localizar los quiscos del ayuntamiento y obtener info"
+    },
+    {
+      "service": "REDES_TRANSPORTE/RED_TRANSPORTE_PEA_VEH",
+      "type": "MapServer",
+      "layers": 11,
+      "description": ""
+    },
+    {
+      "service": "RESIDUOS/PUNTOS_LIMPIOS_REMAD",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;font-size:12pt\"><P><SPAN>Puntos Limpios Fijos del Ayutnamiento de Madrid disponibles en el sistema ReMAD</SPAN></P></DIV>"
+    },
+    {
+      "service": "RESIDUOS/PUNTOS_LIMPIOS",
+      "type": "MapServer",
+      "layers": 6,
+      "description": "Servicio de mapas que incluye los viales y ejes afectados por las actuaciones de mejora de la accesibilidad y movilidad en aceras y calzadas.\n\nEste servicio pro"
+    },
+    {
+      "service": "RESIDUOS/RECOGIDA_PROGRAMADA",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Este servicio se realiza 1 vez al mes, sin tener que solicitarlo previamente.  Verifica el día que se realiza e"
+    },
+    {
+      "service": "SATELITE/AMIANTO_2023",
+      "type": "MapServer",
+      "layers": 3,
+      "description": ""
+    },
+    {
+      "service": "SATELITE/AMIANTO_2024",
+      "type": "MapServer",
+      "layers": 3,
+      "description": ""
+    },
+    {
+      "service": "SATELITE/AMIANTO_2025",
+      "type": "MapServer",
+      "layers": 3,
+      "description": ""
+    },
+    {
+      "service": "SATELITE/CAMBIOS_URBANOS_2009_A_2019",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Mapas de cambios urbanos semestrales con datos tomados en Otoño y Primavera en diferentes años. La representaci"
+    },
+    {
+      "service": "SATELITE/CAMBIOS_URBANOS_DESDE_2020",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<div style='text-align:Left;font-size:12pt'><div><div><p><span>Mapa de cambios urbanos detectados a partir de primavera 2020, con una frecuencia trianual. El añ"
+    },
+    {
+      "service": "SATELITE/CUBIERTAS_AMIANTO",
+      "type": "MapServer",
+      "layers": 4,
+      "description": "Clasificación de los cambios urbanos semestrales obtenidos mediante el uso de algoritmos Deep Learning entre imágenes de satélite de muy alta resolución."
+    },
+    {
+      "service": "SATELITE/DETECCION_AMIANTO_PUBLICO",
+      "type": "MapServer",
+      "layers": 8,
+      "description": "Detección de cubiertas o tejados que contienen amianto mediante técnicas de teledetección, inteligencia artificial y maching learning."
+    },
+    {
+      "service": "SATELITE/ESPECIES_VEGETALES_TELEDETECCIÓN_2024",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "SATELITE/ESPECIES_VEGETALES_TELEDETECCIÓN_2024",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "SATELITE/PERDIDA_MASA_ARBOREA_FILOMENA",
+      "type": "MapServer",
+      "layers": 6,
+      "description": "Diferencia de volumen en metros cúbicos entre noviembre 2020 y marzo 2021, estadísticos por distrito, barrio y malla de 100 x 100 m."
+    },
+    {
+      "service": "SATELITE/POTENCIALIDAD_SOLAR_DE_LAS_CUBIERTAS_DE_LOS_EDIFICIOS_2020",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Determinación de la potencialidad solar de las cubiertas de los edificios de la ciudad de Madrid a partir de pa"
+    },
+    {
+      "service": "SATELITE/POTENCIALIDAD_SOLAR_DE_LAS_CUBIERTAS_DE_LOS_EDIFICIOS_2021",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Determinación de la potencialidad solar de las cubiertas de los edificios de la ciudad de Madrid a partir de pa"
+    },
+    {
+      "service": "SATELITE/POTENCIALIDAD_SOLAR_DE_LAS_CUBIERTAS_DE_LOS_EDIFICIOS_2022",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Determinación de la potencialidad solar de las cubiertas de los edificios de la ciudad de Madrid a partir de pa"
+    },
+    {
+      "service": "SATELITE/POTENCIALIDAD_SOLAR_DE_LAS_CUBIERTAS_DE_LOS_EDIFICIOS_2023",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Determinación de la potencialidad solar de las cubiertas de los edificios de la ciudad de Madrid a partir de pa"
+    },
+    {
+      "service": "SATELITE/POTENCIALIDAD_SOLAR_DE_LAS_CUBIERTAS_DE_LOS_EDIFICIOS_2024",
+      "type": "MapServer",
+      "layers": 5,
+      "description": "<div style='text-align:Left;'><div><div><p><span>Determinación de la potencialidad solar de las cubiertas de los edificios de la ciudad de Madrid a partir de pa"
+    },
+    {
+      "service": "SATELITE/POTENCIALIDAD_SOLAR",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "Determinación de la potencialidad solar de las cubiertas de los edificios de la ciudad de Madrid a partir de parámetros físicos (áreas, orientación y pendiente "
+    },
+    {
+      "service": "SIGMA/MPMALLA_UTIL_prueba",
+      "type": "MapServer",
+      "layers": 44,
+      "description": ""
+    },
+    {
+      "service": "SIGMA/MPMALLA_UTIL",
+      "type": "MapServer",
+      "layers": 44,
+      "description": ""
+    },
+    {
+      "service": "SIN_HOGAR/DIGNITAS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "TRANSFORMACION_DIGITAL/IOT_EUI",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "TRANSFORMACION_DIGITAL/IOT_EUI",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "TRANSFORMACION_DIGITAL/PROYECTOS_INSTALACION_5G",
+      "type": "FeatureServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "TRANSFORMACION_DIGITAL/PROYECTOS_INSTALACION_5G",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "URBANISMO/ACTUACIONES_DG_PLANIFICACION_ESTRATEGICA",
+      "type": "MapServer",
+      "layers": 2,
+      "description": ""
+    },
+    {
+      "service": "URBANISMO/EDIFICIOS_SUSPENSION_LICENCIAS_TRAMADO",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN>Edificios bajo suspensión parcial de actos de uso, construcción y actividades. Expediente 135/2021/01942 Amplia"
+    },
+    {
+      "service": "URBANISMO/ETAPAS_DESARROLLOS_DEL_SURESTE",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "Programación por fases y etapas de los desarrollos del Sureste"
+    },
+    {
+      "service": "URBANISMO/LINEA_LIMITE_EDIFICACION",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "Servicio de Mapas que muestra La Línea de Limitación a la Edificación en el Término Municipal de Madrid según la legislación vigente."
+    },
+    {
+      "service": "URBANISMO/MODELO_ASCENSORES_ESPACIO_PUBLICO",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "Servicio de mapas donde se representan los edificios residenciales incluidos en conjuntos de similares características, para la instalación de torres de ascenso"
+    },
+    {
+      "service": "URBANISMO/PLANEAMIENTO_SIPLAM_AMB_DES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "URBANISMO/PLANES_DIRECTORES_DESPLAZADA",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "URBANISMO/PLANES_DIRECTORES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "URBANISMO/PUBLICIDAD_EXTERIOR_Y_PATROCINIO",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "URBANISMO/SERVIDUMBRES_AERONAUTICAS_DEFENSA",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "URBANISMO/SERVIDUMBRES_AERONAUTICAS_FISICAS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": "Mapa del proyecto visualización servidumbres aéreas sobre el municipio de Madrid"
+    },
+    {
+      "service": "VIVIENDA/MONITORIZACION_VIVVIENDAS",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/MONITORIZACION_VIVVIENDAS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/PLAN_18000",
+      "type": "MapServer",
+      "layers": 2,
+      "description": "<DIV STYLE=\"text-align:Left;\"><DIV><DIV><P><SPAN><SPAN>Plan 18000. Venta de Suelo. Enajenación directa y onerosa a sus titulares superficiarios, de las vivienda"
+    },
+    {
+      "service": "VIVIENDA/PLAN_ADAPTA",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/PLAN_ADAPTA",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/PLAN_REGENERA_MADRID",
+      "type": "FeatureServer",
+      "layers": 5,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/PLAN_REGENERA_MADRID",
+      "type": "MapServer",
+      "layers": 5,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/PLAN_REHABILITA_MADRID_ED",
+      "type": "FeatureServer",
+      "layers": 13,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/PLAN_REHABILITA_MADRID_ED",
+      "type": "MapServer",
+      "layers": 13,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/PLAN_REHABILITA_MADRID",
+      "type": "MapServer",
+      "layers": 142,
+      "description": "xx"
+    },
+    {
+      "service": "VIVIENDA/REHABILITACION_ENERGETICA_CM",
+      "type": "FeatureServer",
+      "layers": 4,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/REHABILITACION_ENERGETICA_CM",
+      "type": "MapServer",
+      "layers": 4,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/REHABILITACION_ENERGETICA_VISOR",
+      "type": "MapServer",
+      "layers": 4,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/SUBVENCIONES_AMBITOS",
+      "type": "MapServer",
+      "layers": 3,
+      "description": "Vivienda. Ámbitos de subvención"
+    },
+    {
+      "service": "VIVIENDA/VIV_INVERSIONES",
+      "type": "FeatureServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/VIV_INVERSIONES",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/VIV_PLAN_REHABILITA_MADRID_ED",
+      "type": "FeatureServer",
+      "layers": 13,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/VIV_PLAN_REHABILITA_MADRID_ED",
+      "type": "MapServer",
+      "layers": 13,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/VIV_PLAN_REHABILITA_MADRID",
+      "type": "MapServer",
+      "layers": 142,
+      "description": "xx"
+    },
+    {
+      "service": "VIVIENDA/VIV_REHABILITACION_ENERGETICA_CM",
+      "type": "FeatureServer",
+      "layers": 4,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/VIV_REHABILITACION_ENERGETICA_CM",
+      "type": "MapServer",
+      "layers": 4,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/VIV_REHABILITACION_ENERGETICA_VISOR",
+      "type": "MapServer",
+      "layers": 4,
+      "description": ""
+    },
+    {
+      "service": "VIVIENDA/VIVIENDAS_TURISTICAS",
+      "type": "MapServer",
+      "layers": 1,
+      "description": ""
+    }
+  ]
+}

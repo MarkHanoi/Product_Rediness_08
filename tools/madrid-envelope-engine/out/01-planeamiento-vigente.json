@@ -1,0 +1,845 @@
+{
+  "probe": "madrid-planeamiento-vigente",
+  "ranAt": "2026-08-02",
+  "service": "https://sigma.madrid.es/hosted/rest/services/ANALISIS_URBANO/Visor_Edificabilidad_enero_2026/MapServer",
+  "layer": 14,
+  "total": 19833,
+  "coverage": {
+    "uubvNmEdPositive": 19074,
+    "uubvNmEdZero": 759,
+    "uubvNmEdNull": 0,
+    "pctPositive": 96.17
+  },
+  "units": [
+    {
+      "value": "m² Cat",
+      "n": 8263,
+      "area_m2": 33114995.576293945
+    },
+    {
+      "value": "m² Plan",
+      "n": 6086,
+      "area_m2": 29829219.2154541
+    },
+    {
+      "value": "m² Est",
+      "n": 2906,
+      "area_m2": 9563381.551269531
+    },
+    {
+      "value": "m²/m² Plan",
+      "n": 2335,
+      "area_m2": 22019027.735107422
+    },
+    {
+      "value": "m² Rev",
+      "n": 183,
+      "area_m2": 770827.2385253906
+    },
+    {
+      "value": "m² Libre",
+      "n": 60,
+      "area_m2": 60188.03283691406
+    }
+  ],
+  "unitsOnPositive": [
+    {
+      "value": "m² Cat",
+      "n": 8100,
+      "area_m2": 32624537.368041992
+    },
+    {
+      "value": "m² Plan",
+      "n": 5591,
+      "area_m2": 27705169.606201172
+    },
+    {
+      "value": "m² Est",
+      "n": 2888,
+      "area_m2": 9542141.333251953
+    },
+    {
+      "value": "m²/m² Plan",
+      "n": 2321,
+      "area_m2": 21981507.956176758
+    },
+    {
+      "value": "m² Rev",
+      "n": 174,
+      "area_m2": 767245.251953125
+    }
+  ],
+  "ambitos": [
+    {
+      "value": "4",
+      "n": 3012,
+      "area_m2": 8096109.053344727
+    },
+    {
+      "value": "3.1.a",
+      "n": 2265,
+      "area_m2": 13480619.034179688
+    },
+    {
+      "value": "3.2",
+      "n": 1187,
+      "area_m2": 6293887.388549805
+    },
+    {
+      "value": "1.3",
+      "n": 981,
+      "area_m2": 4178072.4569091797
+    },
+    {
+      "value": "1.2",
+      "n": 628,
+      "area_m2": 1040907.2969970703
+    },
+    {
+      "value": "8.4",
+      "n": 485,
+      "area_m2": 1537024.999633789
+    },
+    {
+      "value": "1.1",
+      "n": 459,
+      "area_m2": 1285820.3614501953
+    },
+    {
+      "value": "UZP.2.01",
+      "n": 361,
+      "area_m2": 1474585.0676269531
+    },
+    {
+      "value": "UZP.1.03",
+      "n": 324,
+      "area_m2": 1364784.9381103516
+    },
+    {
+      "value": "8.3.a",
+      "n": 300,
+      "area_m2": 1276715.2667236328
+    },
+    {
+      "value": "UZPp.03.01-RP",
+      "n": 299,
+      "area_m2": 2848261.812133789
+    },
+    {
+      "value": "9.1",
+      "n": 291,
+      "area_m2": 643851.7866210938
+    },
+    {
+      "value": "1.4",
+      "n": 287,
+      "area_m2": 723975.1527099609
+    },
+    {
+      "value": "UZI.0.07",
+      "n": 284,
+      "area_m2": 599641.8951416016
+    },
+    {
+      "value": "3.1",
+      "n": 259,
+      "area_m2": 1128641.6413574219
+    },
+    {
+      "value": "UZPp.02.04-RP",
+      "n": 255,
+      "area_m2": 2195938.7447509766
+    },
+    {
+      "value": "1.6",
+      "n": 225,
+      "area_m2": 743332.1343994141
+    },
+    {
+      "value": "UZI.0.10",
+      "n": 168,
+      "area_m2": 831096.0211181641
+    },
+    {
+      "value": "3.1.b",
+      "n": 167,
+      "area_m2": 949801.0030517578
+    },
+    {
+      "value": "7.1.a",
+      "n": 152,
+      "area_m2": 1053611.6311035156
+    },
+    {
+      "value": "8.2.a",
+      "n": 147,
+      "area_m2": 2426400.8966064453
+    },
+    {
+      "value": "UZPp.02.03-RP",
+      "n": 141,
+      "area_m2": 1359484.7399902344
+    },
+    {
+      "value": "APR.10.03",
+      "n": 138,
+      "area_m2": 56140.02392578125
+    },
+    {
+      "value": "APE.20.10",
+      "n": 125,
+      "area_m2": 599101.9952392578
+    },
+    {
+      "value": "8.1.a",
+      "n": 124,
+      "area_m2": 2126540.788330078
+    },
+    {
+      "value": "API.13.10",
+      "n": 110,
+      "area_m2": 340682.73046875
+    },
+    {
+      "value": "APE.08.07",
+      "n": 110,
+      "area_m2": 176533.4578857422
+    },
+    {
+      "value": "UZI.0.09",
+      "n": 98,
+      "area_m2": 852448.4664306641
+    },
+    {
+      "value": "APR.10.04",
+      "n": 95,
+      "area_m2": 35359.11950683594
+    },
+    {
+      "value": "APE.16.11-RP",
+      "n": 93,
+      "area_m2": 996162.6003417969
+    },
+    {
+      "value": "5.2",
+      "n": 83,
+      "area_m2": 499985.12060546875
+    },
+    {
+      "value": "API.13.04",
+      "n": 79,
+      "area_m2": 151069.9569091797
+    },
+    {
+      "value": "9.5",
+      "n": 78,
+      "area_m2": 3723897.9782714844
+    },
+    {
+      "value": "8.3.c",
+      "n": 77,
+      "area_m2": 309655.1124267578
+    },
+    {
+      "value": "5.3",
+      "n": 72,
+      "area_m2": 263683.48486328125
+    },
+    {
+      "value": "APE.05.19",
+      "n": 71,
+      "area_m2": 81577.75817871094
+    },
+    {
+      "value": "UZI.0.08",
+      "n": 70,
+      "area_m2": 719599.4077148438
+    },
+    {
+      "value": "9.4.a",
+      "n": 64,
+      "area_m2": 1141630.2955322266
+    },
+    {
+      "value": "API.08.05",
+      "n": 62,
+      "area_m2": 144687.41735839844
+    },
+    {
+      "value": "APE.16.07",
+      "n": 61,
+      "area_m2": 249745.72973632812
+    },
+    {
+      "value": "API.13.07",
+      "n": 60,
+      "area_m2": 106970.32006835938
+    },
+    {
+      "value": "APE.18.02",
+      "n": 60,
+      "area_m2": 117818.68957519531
+    },
+    {
+      "value": "8.5",
+      "n": 60,
+      "area_m2": 127227.78063964844
+    },
+    {
+      "value": "API.16.01",
+      "n": 59,
+      "area_m2": 48193.96960449219
+    },
+    {
+      "value": "API.06.11",
+      "n": 58,
+      "area_m2": 110686.64929199219
+    },
+    {
+      "value": "8.2.b",
+      "n": 58,
+      "area_m2": 340167.0205078125
+    },
+    {
+      "value": "API.08.04",
+      "n": 58,
+      "area_m2": 269309.6555175781
+    },
+    {
+      "value": "API.19.01",
+      "n": 55,
+      "area_m2": 272713.48046875
+    },
+    {
+      "value": "APE.10.23-RP",
+      "n": 55,
+      "area_m2": 546420.78125
+    },
+    {
+      "value": "8.6",
+      "n": 54,
+      "area_m2": 636643.4184570312
+    },
+    {
+      "value": "APE.08.08",
+      "n": 51,
+      "area_m2": 85491.47814941406
+    },
+    {
+      "value": "API.20.07",
+      "n": 50,
+      "area_m2": 176754.4998779297
+    },
+    {
+      "value": "UZI.0.02",
+      "n": 49,
+      "area_m2": 167317.95935058594
+    },
+    {
+      "value": "APE.09.11",
+      "n": 48,
+      "area_m2": 133671.5252685547
+    },
+    {
+      "value": "APE.09.24/UE-5",
+      "n": 48,
+      "area_m2": 139445.82580566406
+    },
+    {
+      "value": "APE.19.06",
+      "n": 48,
+      "area_m2": 85885.20104980469
+    },
+    {
+      "value": "APR.01.02",
+      "n": 47,
+      "area_m2": 11103.523193359375
+    },
+    {
+      "value": "API.02.14",
+      "n": 47,
+      "area_m2": 115469.20568847656
+    },
+    {
+      "value": "9.3",
+      "n": 46,
+      "area_m2": 1038332.2098388672
+    },
+    {
+      "value": "API.15.01",
+      "n": 45,
+      "area_m2": 246276.35095214844
+    }
+  ],
+  "ambitoDistinct": 664,
+  "uses": [
+    {
+      "value": "RESIDENCIAL VIVIENDA COLECTIVA",
+      "n": 10788,
+      "area_m2": 42567562.541259766
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA UNIFAMILIAR",
+      "n": 2715,
+      "area_m2": 12159017.176757812
+    },
+    {
+      "value": "RESIDENCIAL",
+      "n": 1997,
+      "area_m2": 7240150.403198242
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA COLECTIVA LIBRE",
+      "n": 904,
+      "area_m2": 5266235.262329102
+    },
+    {
+      "value": "INDUSTRIAL",
+      "n": 886,
+      "area_m2": 11901747.55883789
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA UNIFAMILIAR LIBRE",
+      "n": 580,
+      "area_m2": 1204707.1632080078
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA COLECTIVA PROTEGIDA PRECIO TASADO",
+      "n": 409,
+      "area_m2": 2178934.4240722656
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA COLECTIVA PROTEGIDA PROTECCIÓN OFICIAL",
+      "n": 384,
+      "area_m2": 1829477.2012939453
+    },
+    {
+      "value": "SERVICIOS TERCIARIOS",
+      "n": 266,
+      "area_m2": 1943164.7885742188
+    },
+    {
+      "value": "SERVICIOS TERCIARIOS OFICINAS",
+      "n": 170,
+      "area_m2": 1293315.3682861328
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA",
+      "n": 107,
+      "area_m2": 390242.3483886719
+    },
+    {
+      "value": "INDUSTRIAL INDUSTRIA TRADICIONAL",
+      "n": 86,
+      "area_m2": 1866605.4329833984
+    },
+    {
+      "value": "INDUSTRIAL PARQUE INDUSTRIAL",
+      "n": 80,
+      "area_m2": 1558867.9973144531
+    },
+    {
+      "value": "SERVICIOS TERCIARIOS COMERCIAL",
+      "n": 75,
+      "area_m2": 493586.82653808594
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA UNIFAMILIAR PROTEGIDA PRECIO TASADO",
+      "n": 48,
+      "area_m2": 240921.72619628906
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA COLECTIVA PROTECCIÓN PÚBLICA",
+      "n": 47,
+      "area_m2": 114353.38391113281
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA LIBRE",
+      "n": 47,
+      "area_m2": 278325.94006347656
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA COLECTIVA PROTEGIDA",
+      "n": 43,
+      "area_m2": 215035.06884765625
+    },
+    {
+      "value": "INDUSTRIAL GENERAL",
+      "n": 27,
+      "area_m2": 193591.96728515625
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA UNIFAMILIAR PROTEGIDA PROTECCIÓN OFICIAL",
+      "n": 22,
+      "area_m2": 68220.73120117188
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA COLECTIVA PROTECCIÓN PÚBLICA PRECIO LIMITADO",
+      "n": 17,
+      "area_m2": 74487.50952148438
+    },
+    {
+      "value": "SERVICIOS TERCIARIOS COMERCIAL PEQUEÑO COMERCIO",
+      "n": 15,
+      "area_m2": 27946.306640625
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA PROTECCIÓN PÚBLICA",
+      "n": 14,
+      "area_m2": 86151.34167480469
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA PROTEGIDA PRECIO TASADO",
+      "n": 12,
+      "area_m2": 164481.11157226562
+    },
+    {
+      "value": "SERVICIOS TERCIARIOS COMERCIAL GRANDES SUPERFICIES COMERCIALES",
+      "n": 11,
+      "area_m2": 543905.7534179688
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA COLECTIVA PROTECCIÓN PÚBLICA BÁSICA",
+      "n": 10,
+      "area_m2": 69532.27770996094
+    },
+    {
+      "value": "SERVICIOS TERCIARIOS HOSPEDAJE",
+      "n": 9,
+      "area_m2": 23646.707885742188
+    },
+    {
+      "value": "RESIDENCIAL PROTEGIDA INTEGRACIÓN SOCIAL",
+      "n": 9,
+      "area_m2": 388515.09729003906
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA PROTEGIDA PROTECCIÓN OFICIAL",
+      "n": 8,
+      "area_m2": 78443.63317871094
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA PROTEGIDA INTEGRACIÓN SOCIAL",
+      "n": 8,
+      "area_m2": 540846.1827392578
+    },
+    {
+      "value": "SERVICIOS TERCIARIOS COMERCIAL MEDIANO COMERCIO",
+      "n": 7,
+      "area_m2": 46126.43469238281
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA PROTECCIÓN PÚBLICA PRECIO LIMITADO",
+      "n": 6,
+      "area_m2": 24098.649169921875
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA PROTECCIÓN PÚBLICA BÁSICA",
+      "n": 6,
+      "area_m2": 37735.75109863281
+    },
+    {
+      "value": "SERVICIOS TERCIARIOS OTROS SERVICIOS TERCIARIOS",
+      "n": 5,
+      "area_m2": 6396.583251953125
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA COLECTIVA PROTEGIDA INTEGRACIÓN SOCIAL",
+      "n": 4,
+      "area_m2": 158029.90356445312
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA UNIFAMILIAR PROTECCIÓN PÚBLICA",
+      "n": 2,
+      "area_m2": 7709.92919921875
+    },
+    {
+      "value": "INDUSTRIAL SERVICIOS EMPRESARIALES",
+      "n": 2,
+      "area_m2": 35278.89794921875
+    },
+    {
+      "value": "RESIDENCIAL RESIDENCIA COMUNITARIA",
+      "n": 2,
+      "area_m2": 30082.513061523438
+    },
+    {
+      "value": "SERVICIOS TERCIARIOS RECREATIVO",
+      "n": 2,
+      "area_m2": 5467.75146484375
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA INTEGRACIÓN SOCIAL",
+      "n": 1,
+      "area_m2": 856.1641845703125
+    },
+    {
+      "value": "RESIDENCIAL VIVIENDA UNIFAMILIAR PROTECCIÓN PÚBLICA PRECIO LIMITADO",
+      "n": 1,
+      "area_m2": 3751.275146484375
+    },
+    {
+      "value": "SERVICIOS TERCIARIOS RECREATIVO ESTABLECIMIENTOS PARA CONSUMO DE BEBIDAS Y COMIDAS",
+      "n": 1,
+      "area_m2": 86.2645263671875
+    }
+  ],
+  "alignment": [
+    {
+      "value": "NP",
+      "n": 19833,
+      "area_m2": 95357639.3494873
+    }
+  ],
+  "nzFlag": [
+    {
+      "value": 0,
+      "n": 19599,
+      "area_m2": 94950945.94726562
+    },
+    {
+      "value": 1,
+      "n": 234,
+      "area_m2": 406693.4022216797
+    }
+  ],
+  "zoneLabelDistinct": 2000,
+  "zoneLabelTop": [
+    {
+      "value": "RE-1",
+      "n": 53,
+      "area_m2": 190583.11572265625
+    },
+    {
+      "value": "2",
+      "n": 42,
+      "area_m2": 151740.89233398438
+    },
+    {
+      "value": "P-2",
+      "n": 23,
+      "area_m2": 91555.64672851562
+    },
+    {
+      "value": "R1",
+      "n": 21,
+      "area_m2": 52079.37414550781
+    },
+    {
+      "value": "E",
+      "n": 18,
+      "area_m2": 100383.44653320312
+    },
+    {
+      "value": "RE-10",
+      "n": 14,
+      "area_m2": 30929.503173828125
+    },
+    {
+      "value": "P-4",
+      "n": 14,
+      "area_m2": 32291.087890625
+    },
+    {
+      "value": "RE-9",
+      "n": 13,
+      "area_m2": 39761.10949707031
+    },
+    {
+      "value": "RE_3",
+      "n": 12,
+      "area_m2": 59728.089111328125
+    },
+    {
+      "value": "RE-13",
+      "n": 11,
+      "area_m2": 27716.782958984375
+    },
+    {
+      "value": "EI",
+      "n": 9,
+      "area_m2": 12317.481811523438
+    },
+    {
+      "value": "39",
+      "n": 8,
+      "area_m2": 38181.49230957031
+    },
+    {
+      "value": "P2",
+      "n": 8,
+      "area_m2": 23357.505493164062
+    },
+    {
+      "value": "R-1",
+      "n": 7,
+      "area_m2": 17775.837280273438
+    },
+    {
+      "value": "A2",
+      "n": 7,
+      "area_m2": 15478.875244140625
+    },
+    {
+      "value": "RC-1",
+      "n": 7,
+      "area_m2": 40788.45080566406
+    },
+    {
+      "value": "RC-2",
+      "n": 6,
+      "area_m2": 33043.07775878906
+    },
+    {
+      "value": "P4",
+      "n": 6,
+      "area_m2": 25764.048706054688
+    },
+    {
+      "value": "T",
+      "n": 5,
+      "area_m2": 4847.2711181640625
+    },
+    {
+      "value": "RE-25",
+      "n": 5,
+      "area_m2": 11340.941772460938
+    },
+    {
+      "value": "RE-18",
+      "n": 5,
+      "area_m2": 11828.620239257812
+    },
+    {
+      "value": "RE-32",
+      "n": 5,
+      "area_m2": 10024.706176757812
+    },
+    {
+      "value": "RE-02",
+      "n": 4,
+      "area_m2": 21423.357788085938
+    },
+    {
+      "value": "B3",
+      "n": 4,
+      "area_m2": 21223.327880859375
+    },
+    {
+      "value": "A-2",
+      "n": 4,
+      "area_m2": 2205.7535400390625
+    },
+    {
+      "value": "PR-4",
+      "n": 4,
+      "area_m2": 5298.9578857421875
+    },
+    {
+      "value": "RC-9",
+      "n": 4,
+      "area_m2": 22223.727783203125
+    },
+    {
+      "value": "M03951_1",
+      "n": 4,
+      "area_m2": 13502.843627929688
+    },
+    {
+      "value": "RC-23",
+      "n": 3,
+      "area_m2": 8501.582641601562
+    },
+    {
+      "value": "RE-47",
+      "n": 3,
+      "area_m2": 6918.2532958984375
+    },
+    {
+      "value": "RE_12",
+      "n": 3,
+      "area_m2": 4021.8399658203125
+    },
+    {
+      "value": "RC-22",
+      "n": 3,
+      "area_m2": 8338.383178710938
+    },
+    {
+      "value": "RE-4A",
+      "n": 3,
+      "area_m2": 3641.21728515625
+    },
+    {
+      "value": "68122",
+      "n": 3,
+      "area_m2": 534.4039306640625
+    },
+    {
+      "value": "RC1",
+      "n": 3,
+      "area_m2": 57318.8076171875
+    },
+    {
+      "value": "RU-2",
+      "n": 3,
+      "area_m2": 19007.980590820312
+    },
+    {
+      "value": "RE-9A",
+      "n": 3,
+      "area_m2": 2762.78076171875
+    },
+    {
+      "value": "RC2",
+      "n": 3,
+      "area_m2": 14840.085815429688
+    },
+    {
+      "value": "RE_15",
+      "n": 3,
+      "area_m2": 2985.0335693359375
+    },
+    {
+      "value": "R6",
+      "n": 3,
+      "area_m2": 10770.536010742188
+    }
+  ],
+  "pointHits": [
+    {
+      "name": "historic core (Sol/Austrias)",
+      "lon": -3.707959,
+      "lat": 40.423667,
+      "priorNZ": "1.2",
+      "features": [],
+      "featureCount": 0
+    },
+    {
+      "name": "Barrio de Salamanca",
+      "lon": -3.6807,
+      "lat": 40.4256,
+      "priorNZ": "1.3",
+      "features": [],
+      "featureCount": 0
+    },
+    {
+      "name": "Chamartín",
+      "lon": -3.6737,
+      "lat": 40.4577,
+      "priorNZ": "3.1.a",
+      "features": [],
+      "featureCount": 0
+    },
+    {
+      "name": "Mirasierra",
+      "lon": -3.7462,
+      "lat": 40.476,
+      "priorNZ": "8.2.a",
+      "features": [],
+      "featureCount": 0
+    }
+  ],
+  "transportFailures": 0,
+  "failures": []
+}

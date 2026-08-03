@@ -1552,3 +1552,102 @@ export {
     type ParcelHttpResponse,
     type DkMatrikelProviderDeps,
 } from './parcelProviders/dkMatrikelParcelProvider.js';
+
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ §MADRID-SPACM-PORT (L-681) — COMUNIDAD DE MADRID, the 178 municipalities that are NOT the     ║
+// ║ capital. Ported from `tools/madrid-envelope-engine/` so the adapter is REACHABLE from the app ║
+// ║ and obeys the layer rule; the tool keeps only its network probes, fixtures and reports.       ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+//
+// ⛔ NOTHING HERE PUBLISHES. `CM_SPACM_ENVELOPE_VERIFIED` is `false` and the flip is a founder act
+// (L-449). Every record the adapter returns carries a `verification-gate-closed` refusal COMPUTED
+// ALONGSIDE its routing refusals, never instead of them — so signing the gate can never expose a
+// refusal nobody had ever seen.
+//
+// ⚠ THE CAPITAL IS A DIFFERENT JURISDICTION AND A DIFFERENT CORPUS — `esMadridNZ1` /
+// `esMadridPgoum97`, exported above, whose NZ-1 ring-only position is SETTLED. Do not route one
+// through the other.
+
+// The regional routing gate + the EXACT INE-28 citation gate (§COMUNIDAD-MADRID-SPILL).
+export {
+    COMUNIDAD_MADRID_BBOX,
+    isInComunidadMadrid,
+    COMUNIDAD_MADRID_INE_PROVINCE_PREFIX,
+    isComunidadMadridIneCode,
+    isMadridCapitalIneCode,
+} from './providers/comunidadMadridBbox.js';
+// The jurisdiction surface: id, the UNSIGNED L-449 gate, the §6.1 refusal-code map and the cited
+// coverage refusal every Comunidad de Madrid parcel receives while that gate is shut.
+export {
+    CM_SPACM_JURISDICTION_ID,
+    CM_SPACM_ENVELOPE_VERIFIED,
+    CM_SPACM_REGISTRATION_BLOCKED,
+    CM_SPACM_PROVEN_PARCEL,
+    CM_SPACM_ROADMAP_LINE,
+    envelopeRefusalCodeFor as madridSpacmEnvelopeRefusalCodeFor,
+    comunidadMadridNoRulePackRefusal,
+    comunidadMadridRegistryRefusal,
+} from './rulepacks/esMadridSpacm.js';
+// The common envelope schema the adapter emits. ⚠ The four `Parameter` CONSTRUCTORS (`published` /
+// `unknown` / `contradicted` / `wrongKind`) are NOT re-exported: they are the adapter's internal
+// algebra, and `unknown` in particular would read at the barrel as the TypeScript keyword.
+export {
+    isDrawable as isMadridSpacmDrawable,
+    isKnown as isMadridSpacmParameterKnown,
+    type ValueProvenance as MadridSpacmValueProvenance,
+    type Parameter as MadridSpacmParameter,
+    type EnvelopeGrammar as MadridSpacmEnvelopeGrammar,
+    type RefusalReason as MadridSpacmRefusalReason,
+    type Refusal as MadridSpacmRefusal,
+    type Contradiction as MadridSpacmContradiction,
+    type Provenance as MadridSpacmProvenance,
+    type EnvelopeRules as MadridSpacmEnvelopeRules,
+    type CommonEnvelopeRecord as MadridSpacmEnvelopeRecord,
+} from './rulepacks/esMadridSpacmSchema.js';
+// The four validators standing between the corpus and a fabricated envelope. Each is backed by a
+// measured count from the committed census — `0` is a SENTINEL, never a measurement.
+export {
+    readNumeric as madridSpacmReadNumeric,
+    readOccupationPct as madridSpacmReadOccupationPct,
+    checkHeightAgainstStoreys as madridSpacmCheckHeightAgainstStoreys,
+    applyBand as madridSpacmApplyBand,
+    BANDS as MADRID_SPACM_BANDS,
+    METRES_PER_STOREY_MIN as MADRID_SPACM_METRES_PER_STOREY_MIN,
+    METRES_PER_STOREY_MAX as MADRID_SPACM_METRES_PER_STOREY_MAX,
+    type HeightStoreyCheck as MadridSpacmHeightStoreyCheck,
+} from './rulepacks/esMadridSpacmValidate.js';
+// The grammar classifier — a KIND, never a number (ADR-0270). `unknown` is a first-class answer.
+export {
+    classifyGrammar as classifyMadridSpacmGrammar,
+    isPublicSystemOrdinance as isMadridSpacmPublicSystemOrdinance,
+    isIndustrialOrdinance as isMadridSpacmIndustrialOrdinance,
+    requiredParameters as madridSpacmRequiredParameters,
+    hasVerticalLimit as madridSpacmHasVerticalLimit,
+    type GrammarClassification as MadridSpacmGrammarClassification,
+} from './rulepacks/esMadridSpacmGrammar.js';
+// ⭐ THE ROUTING GUARD — being right about when NOT to draw is the deliverable, not a side-condition.
+export {
+    classifyRoute as classifyMadridSpacmRoute,
+    routingRefusals as madridSpacmRoutingRefusals,
+    MADRID_MISSING_CONSTRAINTS,
+    type RouteClass as MadridSpacmRouteClass,
+    type RoutingFacts as MadridSpacmRoutingFacts,
+} from './rulepacks/esMadridSpacmRoutingGuard.js';
+// The ámbito NAME join — the REGISTER, not a code prefix, is the authority on whether a development
+// instrument exists. Measured 817/817 on Moralzarzal's opaque `Z##-P#` tokens.
+export {
+    buildAmbitoIndex as buildMadridSpacmAmbitoIndex,
+    resolveAmbito as resolveMadridSpacmAmbito,
+    type AmbitoRow as MadridSpacmAmbitoRow,
+    type AmbitoResolution as MadridSpacmAmbitoResolution,
+} from './rulepacks/esMadridSpacmAmbitoJoin.js';
+// The adapter itself: one published ordinance row → one rule the SHIPPED engine can solve, or a
+// named refusal. Total, pure, deterministic — the same row in yields a byte-identical record out.
+export {
+    adaptSpacmRow,
+    buildGeometricRule as buildMadridSpacmGeometricRule,
+    composeIne5 as composeMadridIne5,
+    emptyRules as emptyMadridSpacmRules,
+    type SpacmOrdenanzaRow,
+    type AdapterContext as MadridSpacmAdapterContext,
+} from './rulepacks/esMadridSpacmAdapter.js';

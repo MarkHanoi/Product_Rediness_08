@@ -1,0 +1,582 @@
+{
+  "tool": "madrid-envelope-engine",
+  "ranAt": "2026-08-02",
+  "denominator": "ORDINANCE POLYGONS in sitcm:VPLA_V_ORDENANZA. ⚠ NOT parcels — this corpus contains none. A parcel-weighted figure requires a Catastro join that has not been run.",
+  "gate": "MADRID_ENVELOPE_VERIFIED = false (L-449 unsigned). `gateClosed` is what ships today.",
+  "municipalities": [
+    {
+      "cd": "022",
+      "name": "BOADILLA DEL MONTE",
+      "role": "proving",
+      "numberMatched": 1958,
+      "rowsCaptured": 1958,
+      "completeCapture": true,
+      "gateClosed": {
+        "n": 1958,
+        "drawable": 0,
+        "drawablePct": 0,
+        "grammar": {
+          "setback": {
+            "n": 1067,
+            "pct": 54.49
+          },
+          "unknown": {
+            "n": 820,
+            "pct": 41.88
+          },
+          "alignment": {
+            "n": 29,
+            "pct": 1.48
+          },
+          "occupation": {
+            "n": 25,
+            "pct": 1.28
+          },
+          "industrial": {
+            "n": 17,
+            "pct": 0.87
+          }
+        },
+        "refusalsByReason": {
+          "verification-gate-closed": {
+            "n": 1958,
+            "pctOfRows": 100
+          },
+          "public-system": {
+            "n": 1124,
+            "pctOfRows": 57.41
+          },
+          "development-ambito-governs": {
+            "n": 202,
+            "pctOfRows": 10.32
+          },
+          "instrument-key-ambiguous": {
+            "n": 40,
+            "pctOfRows": 2.04
+          },
+          "instrument-class-unpublished": {
+            "n": 27,
+            "pctOfRows": 1.38
+          },
+          "parameters-contradict": {
+            "n": 20,
+            "pctOfRows": 1.02
+          },
+          "no-grammar-determined": {
+            "n": 1,
+            "pctOfRows": 0.05
+          }
+        }
+      },
+      "gateOpen": {
+        "n": 1958,
+        "drawable": 771,
+        "drawablePct": 39.38,
+        "grammar": {
+          "setback": {
+            "n": 1067,
+            "pct": 54.49
+          },
+          "unknown": {
+            "n": 820,
+            "pct": 41.88
+          },
+          "alignment": {
+            "n": 29,
+            "pct": 1.48
+          },
+          "occupation": {
+            "n": 25,
+            "pct": 1.28
+          },
+          "industrial": {
+            "n": 17,
+            "pct": 0.87
+          }
+        },
+        "refusalsByReason": {
+          "public-system": {
+            "n": 1124,
+            "pctOfRows": 57.41
+          },
+          "development-ambito-governs": {
+            "n": 202,
+            "pctOfRows": 10.32
+          },
+          "instrument-key-ambiguous": {
+            "n": 40,
+            "pctOfRows": 2.04
+          },
+          "instrument-class-unpublished": {
+            "n": 27,
+            "pctOfRows": 1.38
+          },
+          "parameters-contradict": {
+            "n": 20,
+            "pctOfRows": 1.02
+          },
+          "no-grammar-determined": {
+            "n": 1,
+            "pctOfRows": 0.05
+          }
+        }
+      }
+    },
+    {
+      "cd": "090",
+      "name": "MORALZARZAL",
+      "role": "control",
+      "numberMatched": 819,
+      "rowsCaptured": 819,
+      "completeCapture": true,
+      "gateClosed": {
+        "n": 819,
+        "drawable": 0,
+        "drawablePct": 0,
+        "grammar": {
+          "setback": {
+            "n": 441,
+            "pct": 53.85
+          },
+          "occupation": {
+            "n": 247,
+            "pct": 30.16
+          },
+          "unknown": {
+            "n": 109,
+            "pct": 13.31
+          },
+          "industrial": {
+            "n": 22,
+            "pct": 2.69
+          }
+        },
+        "refusalsByReason": {
+          "verification-gate-closed": {
+            "n": 819,
+            "pctOfRows": 100
+          },
+          "development-ambito-governs": {
+            "n": 817,
+            "pctOfRows": 99.76
+          },
+          "instrument-class-unpublished": {
+            "n": 802,
+            "pctOfRows": 97.92
+          },
+          "instrument-key-ambiguous": {
+            "n": 139,
+            "pctOfRows": 16.97
+          },
+          "no-grammar-determined": {
+            "n": 109,
+            "pctOfRows": 13.31
+          },
+          "public-system": {
+            "n": 8,
+            "pctOfRows": 0.98
+          }
+        }
+      },
+      "gateOpen": {
+        "n": 819,
+        "drawable": 0,
+        "drawablePct": 0,
+        "grammar": {
+          "setback": {
+            "n": 441,
+            "pct": 53.85
+          },
+          "occupation": {
+            "n": 247,
+            "pct": 30.16
+          },
+          "unknown": {
+            "n": 109,
+            "pct": 13.31
+          },
+          "industrial": {
+            "n": 22,
+            "pct": 2.69
+          }
+        },
+        "refusalsByReason": {
+          "development-ambito-governs": {
+            "n": 817,
+            "pctOfRows": 99.76
+          },
+          "instrument-class-unpublished": {
+            "n": 802,
+            "pctOfRows": 97.92
+          },
+          "instrument-key-ambiguous": {
+            "n": 139,
+            "pctOfRows": 16.97
+          },
+          "no-grammar-determined": {
+            "n": 109,
+            "pctOfRows": 13.31
+          },
+          "public-system": {
+            "n": 8,
+            "pctOfRows": 0.98
+          }
+        }
+      }
+    },
+    {
+      "cd": "160",
+      "name": "VALDEMORILLO",
+      "role": "control",
+      "numberMatched": 723,
+      "rowsCaptured": 723,
+      "completeCapture": true,
+      "gateClosed": {
+        "n": 723,
+        "drawable": 0,
+        "drawablePct": 0,
+        "grammar": {
+          "setback": {
+            "n": 555,
+            "pct": 76.76
+          },
+          "unknown": {
+            "n": 86,
+            "pct": 11.89
+          },
+          "occupation": {
+            "n": 74,
+            "pct": 10.24
+          },
+          "industrial": {
+            "n": 8,
+            "pct": 1.11
+          }
+        },
+        "refusalsByReason": {
+          "verification-gate-closed": {
+            "n": 723,
+            "pctOfRows": 100
+          },
+          "development-ambito-governs": {
+            "n": 571,
+            "pctOfRows": 78.98
+          },
+          "instrument-class-unpublished": {
+            "n": 549,
+            "pctOfRows": 75.93
+          },
+          "instrument-key-ambiguous": {
+            "n": 184,
+            "pctOfRows": 25.45
+          },
+          "public-system": {
+            "n": 141,
+            "pctOfRows": 19.5
+          },
+          "no-grammar-determined": {
+            "n": 86,
+            "pctOfRows": 11.89
+          },
+          "required-parameter-unknown": {
+            "n": 9,
+            "pctOfRows": 1.24
+          },
+          "parameters-contradict": {
+            "n": 8,
+            "pctOfRows": 1.11
+          }
+        }
+      },
+      "gateOpen": {
+        "n": 723,
+        "drawable": 12,
+        "drawablePct": 1.66,
+        "grammar": {
+          "setback": {
+            "n": 555,
+            "pct": 76.76
+          },
+          "unknown": {
+            "n": 86,
+            "pct": 11.89
+          },
+          "occupation": {
+            "n": 74,
+            "pct": 10.24
+          },
+          "industrial": {
+            "n": 8,
+            "pct": 1.11
+          }
+        },
+        "refusalsByReason": {
+          "development-ambito-governs": {
+            "n": 571,
+            "pctOfRows": 78.98
+          },
+          "instrument-class-unpublished": {
+            "n": 549,
+            "pctOfRows": 75.93
+          },
+          "instrument-key-ambiguous": {
+            "n": 184,
+            "pctOfRows": 25.45
+          },
+          "public-system": {
+            "n": 141,
+            "pctOfRows": 19.5
+          },
+          "no-grammar-determined": {
+            "n": 86,
+            "pctOfRows": 11.89
+          },
+          "required-parameter-unknown": {
+            "n": 9,
+            "pctOfRows": 1.24
+          },
+          "parameters-contradict": {
+            "n": 8,
+            "pctOfRows": 1.11
+          }
+        }
+      }
+    },
+    {
+      "cd": "080",
+      "name": "MAJADAHONDA",
+      "role": "adversarial-contradiction",
+      "numberMatched": 556,
+      "rowsCaptured": 556,
+      "completeCapture": true,
+      "gateClosed": {
+        "n": 556,
+        "drawable": 0,
+        "drawablePct": 0,
+        "grammar": {
+          "unknown": {
+            "n": 311,
+            "pct": 55.94
+          },
+          "occupation": {
+            "n": 99,
+            "pct": 17.81
+          },
+          "alignment": {
+            "n": 89,
+            "pct": 16.01
+          },
+          "setback": {
+            "n": 57,
+            "pct": 10.25
+          }
+        },
+        "refusalsByReason": {
+          "verification-gate-closed": {
+            "n": 556,
+            "pctOfRows": 100
+          },
+          "no-grammar-determined": {
+            "n": 299,
+            "pctOfRows": 53.78
+          },
+          "required-parameter-unknown": {
+            "n": 118,
+            "pctOfRows": 21.22
+          },
+          "development-ambito-governs": {
+            "n": 43,
+            "pctOfRows": 7.73
+          },
+          "instrument-class-unpublished": {
+            "n": 43,
+            "pctOfRows": 7.73
+          },
+          "public-system": {
+            "n": 12,
+            "pctOfRows": 2.16
+          },
+          "parameters-contradict": {
+            "n": 11,
+            "pctOfRows": 1.98
+          }
+        }
+      },
+      "gateOpen": {
+        "n": 556,
+        "drawable": 57,
+        "drawablePct": 10.25,
+        "grammar": {
+          "unknown": {
+            "n": 311,
+            "pct": 55.94
+          },
+          "occupation": {
+            "n": 99,
+            "pct": 17.81
+          },
+          "alignment": {
+            "n": 89,
+            "pct": 16.01
+          },
+          "setback": {
+            "n": 57,
+            "pct": 10.25
+          }
+        },
+        "refusalsByReason": {
+          "no-grammar-determined": {
+            "n": 299,
+            "pctOfRows": 53.78
+          },
+          "required-parameter-unknown": {
+            "n": 118,
+            "pctOfRows": 21.22
+          },
+          "development-ambito-governs": {
+            "n": 43,
+            "pctOfRows": 7.73
+          },
+          "instrument-class-unpublished": {
+            "n": 43,
+            "pctOfRows": 7.73
+          },
+          "public-system": {
+            "n": 12,
+            "pctOfRows": 2.16
+          },
+          "parameters-contradict": {
+            "n": 11,
+            "pctOfRows": 1.98
+          }
+        }
+      }
+    },
+    {
+      "cd": "079",
+      "name": "MADRID",
+      "role": "capital",
+      "numberMatched": 22181,
+      "rowsCaptured": 2000,
+      "completeCapture": false,
+      "gateClosed": {
+        "n": 2000,
+        "drawable": 0,
+        "drawablePct": 0,
+        "grammar": {
+          "unknown": {
+            "n": 1043,
+            "pct": 52.15
+          },
+          "occupation": {
+            "n": 721,
+            "pct": 36.05
+          },
+          "setback": {
+            "n": 159,
+            "pct": 7.95
+          },
+          "alignment": {
+            "n": 67,
+            "pct": 3.35
+          },
+          "industrial": {
+            "n": 10,
+            "pct": 0.5
+          }
+        },
+        "refusalsByReason": {
+          "verification-gate-closed": {
+            "n": 2000,
+            "pctOfRows": 100
+          },
+          "public-system": {
+            "n": 911,
+            "pctOfRows": 45.55
+          },
+          "development-ambito-governs": {
+            "n": 904,
+            "pctOfRows": 45.2
+          },
+          "no-grammar-determined": {
+            "n": 815,
+            "pctOfRows": 40.75
+          },
+          "instrument-class-unpublished": {
+            "n": 455,
+            "pctOfRows": 22.75
+          },
+          "instrument-key-ambiguous": {
+            "n": 393,
+            "pctOfRows": 19.65
+          },
+          "required-parameter-unknown": {
+            "n": 74,
+            "pctOfRows": 3.7
+          },
+          "not-urban-land": {
+            "n": 1,
+            "pctOfRows": 0.05
+          }
+        }
+      },
+      "gateOpen": {
+        "n": 2000,
+        "drawable": 85,
+        "drawablePct": 4.25,
+        "grammar": {
+          "unknown": {
+            "n": 1043,
+            "pct": 52.15
+          },
+          "occupation": {
+            "n": 721,
+            "pct": 36.05
+          },
+          "setback": {
+            "n": 159,
+            "pct": 7.95
+          },
+          "alignment": {
+            "n": 67,
+            "pct": 3.35
+          },
+          "industrial": {
+            "n": 10,
+            "pct": 0.5
+          }
+        },
+        "refusalsByReason": {
+          "public-system": {
+            "n": 911,
+            "pctOfRows": 45.55
+          },
+          "development-ambito-governs": {
+            "n": 904,
+            "pctOfRows": 45.2
+          },
+          "no-grammar-determined": {
+            "n": 815,
+            "pctOfRows": 40.75
+          },
+          "instrument-class-unpublished": {
+            "n": 455,
+            "pctOfRows": 22.75
+          },
+          "instrument-key-ambiguous": {
+            "n": 393,
+            "pctOfRows": 19.65
+          },
+          "required-parameter-unknown": {
+            "n": 74,
+            "pctOfRows": 3.7
+          },
+          "not-urban-land": {
+            "n": 1,
+            "pctOfRows": 0.05
+          }
+        }
+      }
+    }
+  ]
+}

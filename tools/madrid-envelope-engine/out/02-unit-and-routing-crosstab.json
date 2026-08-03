@@ -1,0 +1,416 @@
+{
+  "probe": "madrid-unit-and-routing-crosstab",
+  "ranAt": "2026-08-02",
+  "service": "https://sigma.madrid.es/hosted/rest/services/ANALISIS_URBANO/Visor_Edificabilidad_enero_2026/MapServer",
+  "layer": 14,
+  "where": "UUBV_NM_ED > 0",
+  "denominator": {
+    "n": 19074,
+    "area_m2": 92620601.515625
+  },
+  "byRoute": {
+    "norma-zonal": {
+      "n": 11352,
+      "area_m2": 55773430.095458984
+    },
+    "development": {
+      "n": 7685,
+      "area_m2": 36412360.330078125
+    },
+    "unclassified": {
+      "n": 37,
+      "area_m2": 434811.0900878906
+    }
+  },
+  "byUnit": {
+    "m² Plan": {
+      "n": 5591,
+      "area_m2": 27705169.606201172
+    },
+    "m² Est": {
+      "n": 2888,
+      "area_m2": 9542141.333251953
+    },
+    "m² Cat": {
+      "n": 8100,
+      "area_m2": 32624537.368041992
+    },
+    "m²/m² Plan": {
+      "n": 2321,
+      "area_m2": 21981507.956176758
+    },
+    "m² Rev": {
+      "n": 174,
+      "area_m2": 767245.251953125
+    }
+  },
+  "planSourcedUnits": [
+    "m² Plan",
+    "m²/m² Plan"
+  ],
+  "survivors": {
+    "n": 2005,
+    "area_m2": 17463031.181518555
+  },
+  "survivorPctOfRows": 10.51,
+  "survivorPctOfArea": 18.85,
+  "refusals": {
+    "routing": {
+      "n": 7722,
+      "area_m2": 36847171.420166016,
+      "pctOfRows": 40.48
+    },
+    "provenance": {
+      "n": 9347,
+      "area_m2": 38310398.91394043,
+      "pctOfRows": 49
+    }
+  },
+  "survivorZoneList": [
+    {
+      "zone": "9.5",
+      "n": 75,
+      "area_m2": 3722090,
+      "units": [
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "8.2.a",
+      "n": 139,
+      "area_m2": 2420167,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "8.1.a",
+      "n": 122,
+      "area_m2": 2121745,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "8.4",
+      "n": 482,
+      "area_m2": 1534280,
+      "units": [
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "8.3.a",
+      "n": 295,
+      "area_m2": 1275888,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "9.4.a",
+      "n": 63,
+      "area_m2": 1139898,
+      "units": [
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "7.1.a",
+      "n": 152,
+      "area_m2": 1053612,
+      "units": [
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "9.3",
+      "n": 43,
+      "area_m2": 1035922,
+      "units": [
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "9.4.b",
+      "n": 31,
+      "area_m2": 723112,
+      "units": [
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "5.2",
+      "n": 75,
+      "area_m2": 487283,
+      "units": [
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "9.1",
+      "n": 121,
+      "area_m2": 343513,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "8.2.b",
+      "n": 54,
+      "area_m2": 337143,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "8.3.c",
+      "n": 76,
+      "area_m2": 291495,
+      "units": [
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "5.3",
+      "n": 72,
+      "area_m2": 263683,
+      "units": [
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "8.1.c",
+      "n": 8,
+      "area_m2": 145065,
+      "units": [
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "8.2.c",
+      "n": 16,
+      "area_m2": 129792,
+      "units": [
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "8.5",
+      "n": 59,
+      "area_m2": 126658,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "9.2",
+      "n": 44,
+      "area_m2": 93348,
+      "units": [
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "7.1.b",
+      "n": 9,
+      "area_m2": 56577,
+      "units": [
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "5.1",
+      "n": 11,
+      "area_m2": 48598,
+      "units": [
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "3.2",
+      "n": 23,
+      "area_m2": 42708,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "3.1.c",
+      "n": 3,
+      "area_m2": 24390,
+      "units": [
+        "m²/m² Plan",
+        "m² Plan"
+      ]
+    },
+    {
+      "zone": "1.3",
+      "n": 10,
+      "area_m2": 14973,
+      "units": [
+        "m² Plan"
+      ]
+    },
+    {
+      "zone": "3.1.a",
+      "n": 5,
+      "area_m2": 11117,
+      "units": [
+        "m²/m² Plan",
+        "m² Plan"
+      ]
+    },
+    {
+      "zone": "4",
+      "n": 4,
+      "area_m2": 5171,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "7.2.e",
+      "n": 1,
+      "area_m2": 4638,
+      "units": [
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "1.2",
+      "n": 5,
+      "area_m2": 4627,
+      "units": [
+        "m² Plan"
+      ]
+    },
+    {
+      "zone": "1.1",
+      "n": 3,
+      "area_m2": 2546,
+      "units": [
+        "m² Plan"
+      ]
+    },
+    {
+      "zone": "3.1",
+      "n": 3,
+      "area_m2": 1988,
+      "units": [
+        "m² Plan"
+      ]
+    },
+    {
+      "zone": "1.4",
+      "n": 1,
+      "area_m2": 1005,
+      "units": [
+        "m² Plan"
+      ]
+    }
+  ],
+  "mixedUnitZones": [
+    {
+      "zone": "8.2.a",
+      "n": 139,
+      "area_m2": 2420167,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "8.1.a",
+      "n": 122,
+      "area_m2": 2121745,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "8.3.a",
+      "n": 295,
+      "area_m2": 1275888,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "9.1",
+      "n": 121,
+      "area_m2": 343513,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "8.2.b",
+      "n": 54,
+      "area_m2": 337143,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "8.5",
+      "n": 59,
+      "area_m2": 126658,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "3.2",
+      "n": 23,
+      "area_m2": 42708,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    },
+    {
+      "zone": "3.1.c",
+      "n": 3,
+      "area_m2": 24390,
+      "units": [
+        "m²/m² Plan",
+        "m² Plan"
+      ]
+    },
+    {
+      "zone": "3.1.a",
+      "n": 5,
+      "area_m2": 11117,
+      "units": [
+        "m²/m² Plan",
+        "m² Plan"
+      ]
+    },
+    {
+      "zone": "4",
+      "n": 4,
+      "area_m2": 5171,
+      "units": [
+        "m² Plan",
+        "m²/m² Plan"
+      ]
+    }
+  ],
+  "cellCount": 814,
+  "transportFailures": 0,
+  "failures": []
+}

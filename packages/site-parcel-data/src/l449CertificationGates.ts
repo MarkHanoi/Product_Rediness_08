@@ -60,6 +60,9 @@ import { BALEARS_ENVELOPE_VERIFIED } from './rulepacks/esBalearsMuib.js';
 import { CANARIAS_ENVELOPE_VERIFIED } from './rulepacks/esCanariasSipu.js';
 import { CATALUNYA_ENVELOPE_VERIFIED } from './rulepacks/esCatalunya.js';
 import { CORDOBA_ENVELOPE_VERIFIED } from './rulepacks/esCordobaZoneClassification.js';
+// §MADRID-SPACM-PORT (L-681) — the Comunidad de Madrid REGIONAL gate. ⚠ Distinct from
+// `MADRID_ENVELOPE_VERIFIED` (the capital's PGOUM-97 gate): different publisher, different corpus.
+import { CM_SPACM_ENVELOPE_VERIFIED } from './rulepacks/esMadridSpacm.js';
 import { CORNELLA_ENVELOPE_VERIFIED } from './rulepacks/esCornella.js';
 import { LHOSPITALET_ENVELOPE_VERIFIED } from './rulepacks/esLHospitalet.js';
 import { MADRID_ENVELOPE_VERIFIED } from './rulepacks/esMadridPgoum97.js';
@@ -179,6 +182,18 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         file: 'packages/site-parcel-data/src/rulepacks/esCordobaZoneClassification.ts',
         value: CORDOBA_ENVELOPE_VERIFIED,
         signature: null,
+    },
+    {
+        // §MADRID-SPACM-PORT (L-681) — the Comunidad de Madrid REGIONAL corpus, i.e. the 178
+        // municipalities that are NOT the capital. ⚠ A SECOND, INDEPENDENT Madrid gate, and the
+        // duplication is deliberate: `MADRID_ENVELOPE_VERIFIED` above governs PGOUM-97 in the
+        // capital, read from `sigma.madrid.es`; this one governs `sitcm:VPLA_V_ORDENANZA` on
+        // `idem.comunidad.madrid`. Different publisher, different corpus, different failure mode —
+        // one signature must not be able to open the other.
+        gate: 'CM_SPACM_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esMadridSpacm.ts',
+        value: CM_SPACM_ENVELOPE_VERIFIED,
+        signature: null, // Not requested yet — the adapter is proven, the transcription is unsigned.
     },
     {
         gate: 'VALENCIA_ENVELOPE_VERIFIED',

@@ -107,6 +107,9 @@ import { MADRID_JURISDICTION_ID } from './esMadridNZ1.js';
 import { MURCIA_ENVELOPE_VERIFIED, MURCIA_JURISDICTION_ID } from './esMurciaEnvelope.js';
 // ── ILLES BALEARS (L-680) — a LIVE-RESOLVED jurisdiction that still owes a gate. See the row below. ──
 import { BALEARS_ENVELOPE_VERIFIED, BALEARS_JURISDICTION_ID } from './esBalearsMuib.js';
+// §MADRID-SPACM-PORT (L-681) — the Comunidad de Madrid REGIONAL gate. ⚠ Distinct from
+// `MADRID_ENVELOPE_VERIFIED` (the capital's PGOUM-97 gate): one signature must not open the other.
+import { CM_SPACM_ENVELOPE_VERIFIED } from './esMadridSpacm.js';
 import { SANT_BOI_ENVELOPE_VERIFIED, SANT_BOI_JURISDICTION_ID } from './esSantBoi.js';
 // ⚠ VALÈNCIA — a gate of a THIRD kind. See the third group in the table below.
 import { VALENCIA_ENVELOPE_VERIFIED, VALENCIA_JURISDICTION_ID } from './esValenciaEnvelope.js';
@@ -164,6 +167,22 @@ const GATE_DECLARATIONS: readonly GateDeclaration[] = Object.freeze([
     { gate: 'MADRID_ENVELOPE_VERIFIED', value: MADRID_ENVELOPE_VERIFIED, jurisdictions: [MADRID_JURISDICTION_ID] },
     { gate: 'CORDOBA_ENVELOPE_VERIFIED', value: CORDOBA_ENVELOPE_VERIFIED, jurisdictions: [CORDOBA_JURISDICTION_ID] },
     { gate: 'MURCIA_ENVELOPE_VERIFIED', value: MURCIA_ENVELOPE_VERIFIED, jurisdictions: [MURCIA_JURISDICTION_ID] },
+    // §MADRID-SPACM-PORT (L-681) — the Comunidad de Madrid REGIONAL corpus (`sitcm:VPLA_V_*`),
+    // i.e. the 178 municipalities that are NOT the capital.
+    //
+    // ⚠⚠ `jurisdictions: []` — AND THAT IS THE HONEST ENTRY, NOT A PLACEHOLDER. There is no
+    // registered `es-md-comunidad-madrid` jurisdiction to name yet: a rectangle CANNOT separate the
+    // capital from its western neighbours, because their real municipal terms interleave (measured
+    // 2026-08-02 from `Callejero:SIGI_V_MUNICIPIOS`: Madrid 28079 spans lon [-3.8890, -3.5181],
+    // Boadilla 28022 spans [-3.9526, -3.8378] — a 4.35 km longitudinal OVERLAP). Registering it
+    // would have broken `jurisdictionSpecificity`'s shipped "a registration's own centre resolves
+    // to it" invariant and still not routed the proven parcel. See `esMadridSpacm.ts`
+    // §CM-REGISTRATION-BLOCKED.
+    //
+    // ⇒ The gate is declared HERE ANYWAY, before the registration exists, so that the day someone
+    // wires the polygon routing gate the authorisation classifier ALREADY fails closed for this
+    // corpus. A gate that arrives after its jurisdiction is a gate that was briefly absent.
+    { gate: 'CM_SPACM_ENVELOPE_VERIFIED', value: CM_SPACM_ENVELOPE_VERIFIED, jurisdictions: [] },
     // ── Awaiting a per-clau confirmation that Barcelona's numbers transfer (Envelope Phase 2). ──
     // ⚠ THESE FOUR ARE DELIBERATELY **NOT** FOLDED INTO THE AMB CORPUS GATE BELOW, even though all
     // four are measured PGM='S'. Each already owns a municipal signature question, and re-keying it
