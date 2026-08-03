@@ -177,6 +177,7 @@ describe('Canarias SIPU — GRAMMAR DETECTION maps to an engine that already exi
         expect(
             detectSipuGrammar({
                 dispObl: 'I',
+                fonMaxEd: null,
                 hasNumericDepth: false,
                 hasSetback: true,
                 hasCoverage: true,
@@ -188,6 +189,7 @@ describe('Canarias SIPU — GRAMMAR DETECTION maps to an engine that already exi
         expect(
             detectSipuGrammar({
                 dispObl: 'AV',
+                fonMaxEd: null,
                 hasNumericDepth: true,
                 hasSetback: false,
                 hasCoverage: false,
@@ -200,6 +202,7 @@ describe('Canarias SIPU — GRAMMAR DETECTION maps to an engine that already exi
         expect(
             detectSipuGrammar({
                 dispObl: 'GRF',
+                fonMaxEd: null,
                 hasNumericDepth: false,
                 hasSetback: true,
                 hasCoverage: true,
@@ -211,6 +214,7 @@ describe('Canarias SIPU — GRAMMAR DETECTION maps to an engine that already exi
         expect(
             detectSipuGrammar({
                 dispObl: 'I',
+                fonMaxEd: null,
                 hasNumericDepth: true,
                 hasSetback: false,
                 hasCoverage: false,

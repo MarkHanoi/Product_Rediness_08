@@ -61,8 +61,13 @@
 // inventing one.
 //
 // ⚠ THE DOMINANT CELL VALUE IN EVERY PARAMETER COLUMN IS THE SENTINEL `'I'` (~5 500–6 000 of
-// ~7 400 rows per column). PRYZM does NOT hold the SIPU 2.6.A codebook, so what `'I'` MEANS is
-// **UNKNOWN** — and UNKNOWN is not zero and not absence. See `SIPU_SENTINELS` below.
+// ~7 400 rows per column). ⭐ 2026-08-03 — the ITPU-SIPU codebook was FOUND and VALIDATED against
+// its primary source (§10 "Tablas alfanuméricas", read directly, not a secondary mirror): `'I'`
+// ("Indefinido") is CONFIRMED as "the plan does not establish direct substantive content" — a
+// real absence of determination, not a pointer. It remains modelled as UNKNOWN here because a
+// mandatory PRYZM refusal is the conservative behaviour regardless, but the prior uncertainty
+// about WHETHER it was a pointer is now resolved. See `SIPU_SENTINELS` below for the full,
+// primary-source-verified vocabulary (`I`/`COM`/`NP`/`REM`/`IDEM`/`GRF`/`T`/`TP`/`TS`).
 //
 // PURITY: L2-pure (C58 §1.1/§1.9) — no I/O, no THREE, no DOM, no clock, no RNG.
 //
@@ -92,10 +97,10 @@ export const TELDE_JURISDICTION_ID = 'es-35026-telde';
  *  - that `EDIF.mdb`'s named columns ARE the governing built-form parameters for the zone code
  *    the polygon layer cites — verified against the instrument's own *Normas Urbanísticas*, which
  *    PRYZM has NOT retrieved for any municipality (the SIPU package ships the PDF, unread);
- *  - that the sentinel `'I'` means "no determination in this table" rather than "see the general
- *    ordinance". ⚠ **THIS IS THE MATERIAL UNKNOWN.** If `'I'` is a POINTER, then ~80 % of rows
- *    are not empty at all and both the coverage figure AND the refusals below are wrong in the
- *    conservative direction. PRYZM does not hold the SIPU 2.6.A codebook and did not guess;
+ *  - that the sentinel `'I'` means "no determination in this table" — ⭐ CONFIRMED 2026-08-03
+ *    against the primary ITPU-SIPU manual (Versión 02, 19-abr-2012, §10): "Indefinido" is defined
+ *    verbatim as the plan not establishing direct substantive content, not a pointer elsewhere.
+ *    The codebook is no longer unheld; this line item is settled;
  *  - that the height DATUM is read correctly per row (see `SIPU_HEIGHT_DATUM`).
  *
  * ⚠ AND A CEILING NO SIGNATURE LIFTS: the **PLANES INSULARES** (island plans) sit ABOVE municipal
@@ -119,20 +124,42 @@ export const CANARIAS_ENVELOPE_VERIFIED = false as const;
  * "build to the boundary". Both are fabricated determinations (L-616 mechanism-A).
  */
 export const SIPU_SENTINELS: Readonly<Record<string, string>> = Object.freeze({
-    // ⚠ THE DOMINANT ONE, AND ITS MEANING IS **UNKNOWN**. ~75-80 % of every parameter column.
+    // ⭐ 2026-08-03 — VALIDATED against the primary codebook: "Manual de Sistematización de
+    // Planeamiento Vigente conforme a la ITPU-SIPU", Grupo de trabajo ITPU, Gobierno de Canarias,
+    // Versión 02, 19-abr-2012, §10 "Tablas alfanuméricas" (verbatim, fetched and read directly —
+    // not the secondary-mirror corroboration this file previously relied on). "SIPU 2.6.A" does
+    // NOT appear anywhere in that document; its only self-identified version is "N° versión: 02".
+    // Every citation of "SIPU 2.6.A" below is corrected to cite the manual as it names itself.
     I:
-        'UNKNOWN — the single most common cell value in every parameter column. Plausibly ' +
-        '"Indiferente"/"Indefinido" (no determination) or a POINTER to the general ordinance. ' +
-        'PRYZM does not hold the SIPU 2.6.A codebook and does NOT guess. Treated as UNKNOWN.',
+        '"Indefinido" — the plan does not establish DIRECT substantive content for this ' +
+        'determination. ~75-80 % of every parameter column. Confirmed, not inferred: does not ' +
+        'itself imply a pointer elsewhere (that is REM\'s job). Treated as UNKNOWN.',
     COM:
-        'UNKNOWN — plausibly "Común" (determined by the common/general ordinance). Treated as ' +
-        'UNKNOWN, i.e. the parameter is not readable FROM THIS TABLE.',
-    NP: 'UNKNOWN — plausibly "No procede" (not applicable to this zone).',
-    T: 'UNKNOWN.',
+        '"Complejo" — the plan DOES establish a real determination, but assigns it content ' +
+        'outside every standardized value in the manual\'s own vocabulary (not merely non-numeric). ' +
+        'The manual MANDATES the companion `Obs*` field carry that content ("Para los valores REM ' +
+        'y COM habrá que cumplimentar los campos adyacentes de observaciones") — so the real value ' +
+        'is very likely legible in the adjacent observations column, not a dead end. Still not a ' +
+        'number this pack may draw from, but NOT the same kind of unknown as `I`.',
+    NP: '"No Procede" — the determination is not applicable to this zone. Confirmed verbatim.',
+    T:
+        '"Paralelo a alineación viaria" — a KNOWN alignment-depth grammar token, NOT unknown. The ' +
+        'buildable-depth line runs parallel to ALL alignment stretches at the distance stated in ' +
+        'the companion `FonMaxEdm` field. Same shape as `AV` for `DispObl` — selects the ' +
+        'alignment+depth geometric rule when `FonMaxEdm` is numeric.',
+    TP:
+        'As `T`, but parallel only to the PRINCIPAL alignment stretches (`tramos principales`). ' +
+        'Distance in the companion `FonMaxEdm` field.',
+    TS:
+        'As `T`, but parallel only to the SECONDARY alignment stretches (`tramos secundarios`). ' +
+        'Distance in the companion `FonMaxEdm` field.',
     GRF:
-        '"Gráfico" — THE DETERMINATION IS ON A PLAN SHEET. This is the València Plano C ' +
-        'situation exactly: the rule exists, is published, and is NOT data PRYZM holds. It is a ' +
-        'REFUSAL WITH A NAMED CAUSE, which is strictly better than an absence.',
+        '"Gráfico" — the determination is expressed graphically, and per the manual "su trazado ' +
+        'estará recogido en un shape": it points at the companion `EDIF_L` SHAPEFILE (structured ' +
+        'GIS line geometry shipped in the same SIPU package as EDIF.mdb/EDIF.shp), NOT a scanned ' +
+        'or PDF plan sheet — this is materially different from the València Plano C analogy this ' +
+        'file previously drew. Whether `EDIF_L` is populated per-municipality and whether PRYZM\'s ' +
+        'ingestion reads it are separate, unanswered empirical questions — still refused here.',
     AV:
         '"Alineación a vial" — the façade sits ON the street line. A GRAMMAR SIGNAL, not a null: ' +
         'it selects the alignment+depth geometric rule.',
@@ -268,6 +295,15 @@ export type SipuGrammar =
 
 export interface SipuGrammarInput {
     readonly dispObl: string | null;
+    /**
+     * ⭐ ADDED 2026-08-03, VALIDATED against the primary codebook. `FonMaxEd` (the depth field
+     * ITSELF, not `DispObl`) carries its OWN alignment grammar — `T`/`TP`/`TS` mean the buildable
+     * depth line runs parallel to alignment stretches at the `FonMaxEdm` distance. Before this
+     * field existed, a `T`-tagged row with a numeric `FonMaxEdm` fell through to setback/coverage/
+     * depth-without-datum because only `DispObl` was ever inspected — silently discarding a known
+     * datum edge on every such row.
+     */
+    readonly fonMaxEd: string | null;
     readonly hasNumericDepth: boolean;
     readonly hasSetback: boolean;
     readonly hasCoverage: boolean;
@@ -281,15 +317,19 @@ export interface SipuGrammarInput {
  *  1. a GRAPHED alignment with no numeric depth REFUSES — it must not fall through to a setback
  *     inset, which would silently draw a different building on the same parcel;
  *  2. an alignment token WITH a numeric depth selects the alignment rule even when setbacks also
- *     speak, because on that fabric the depth band is the binding constraint;
+ *     speak, because on that fabric the depth band is the binding constraint — this now includes
+ *     `FonMaxEd ∈ {T, TP, TS}` (§10 of the ITPU-SIPU manual), not only `DispObl ∈ {AV, F}`;
  *  3. setbacks; 4. coverage; 5. a depth with no datum edge is UNSOLVABLE and says so.
  */
 export function detectSipuGrammar(input: SipuGrammarInput): SipuGrammar {
     return tracer.startActiveSpan('canarias.detectSipuGrammar', (span) => {
         try {
             const tok = (input.dispObl ?? '').trim().toUpperCase();
+            const fonTok = (input.fonMaxEd ?? '').trim().toUpperCase();
             const graphed = tok === 'GRF' || tok === 'AV+GRF';
-            const aligned = tok === 'AV' || tok === 'AV+GRF' || tok === 'F';
+            const alignedByDispObl = tok === 'AV' || tok === 'AV+GRF' || tok === 'F';
+            const alignedByFonMaxEd = fonTok === 'T' || fonTok === 'TP' || fonTok === 'TS';
+            const aligned = alignedByDispObl || alignedByFonMaxEd;
             let out: SipuGrammar;
             if (graphed && !input.hasNumericDepth) out = 'graphed-refusal';
             else if (aligned && input.hasNumericDepth) out = 'alignment-depth';
@@ -463,13 +503,16 @@ export function canariasGraphedRefusal(
                 headline: 'The building line is on a plan sheet, not in the data.',
                 detail:
                     `Zone ${zoneCode}${zoneLabel ? ` (${zoneLabel})` : ''} is governed by an ` +
-                    'alignment the plan publishes as a DRAWING: the SIPU `EDIF` record sets ' +
-                    '`DispObl = GRF` ("gráfico"), i.e. the mandatory building line is on a plan ' +
-                    'sheet and not in the data. The rule exists and is not held. PRYZM does not ' +
-                    'substitute the cadastral edge for a graphed alignment — that would draw a ' +
-                    'different building on the same parcel.',
+                    'alignment the plan publishes GRAPHICALLY: the SIPU `EDIF` record sets ' +
+                    '`DispObl = GRF` ("gráfico"), i.e. the mandatory building line is recorded ' +
+                    'in the companion `EDIF_L` shapefile, not this attribute table. The rule ' +
+                    'exists and is published as structured GIS geometry PRYZM does not currently ' +
+                    'ingest here. PRYZM does not substitute the cadastral edge for a graphed ' +
+                    'alignment — that would draw a different building on the same parcel.',
                 ordinanceRef:
-                    'SIPU 2.6.A, tabla EDIF, campo DispObl = GRF (Gobierno de Canarias).',
+                    'Manual de Sistematización de Planeamiento Vigente conforme a la ITPU-SIPU, ' +
+                    'Grupo de trabajo ITPU, Gobierno de Canarias, Versión 02 (19-abr-2012), §10, ' +
+                    'tabla EDIF, campo DispObl = GRF.',
                 knownFacts: [...knownFacts],
                 legallyGrounded: true,
             };

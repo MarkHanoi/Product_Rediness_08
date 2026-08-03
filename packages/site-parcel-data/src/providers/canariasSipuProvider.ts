@@ -289,6 +289,10 @@ export function readSipuZone(rec: SipuEdifRecord): SipuZoneReading {
 
             const grammar = detectSipuGrammar({
                 dispObl: (rec.DispObl ?? null) as string | null,
+                // ⭐ 2026-08-03 — FonMaxEd's own token (T/TP/TS) is a second, independent alignment
+                // signal per the ITPU-SIPU manual §10 — previously unread, silently discarding the
+                // datum edge on every such row. See `SipuGrammarInput.fonMaxEd`'s docstring.
+                fonMaxEd: (rec.FonMaxEd ?? null) as string | null,
                 hasNumericDepth: depth !== null,
                 hasSetback,
                 hasCoverage: coverage !== null,
