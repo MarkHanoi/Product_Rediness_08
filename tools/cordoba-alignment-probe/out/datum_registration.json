@@ -1,0 +1,91 @@
+{
+  "catastro_fetch": "CACHED",
+  "bbox_25830": [
+    340720.98,
+    4197630.99,
+    343161.0,
+    4199421.01
+  ],
+  "raster": [
+    1220,
+    895
+  ],
+  "plan_sample_points": 1446,
+  "catastro_ink_cells": 178557,
+  "catastro_ink_fraction": 0.1635,
+  "holdout": {
+    "fit_points": 723,
+    "holdout_points": 723,
+    "holdout_hits_at_peak": 320,
+    "holdout_pct_at_peak": 44.26
+  },
+  "best_other_basin_offset_m": [
+    -230.0,
+    80.0
+  ],
+  "hypotheses": {
+    "ETRS89_zero_shift": {
+      "shift_m": [
+        0.0,
+        0.0
+      ],
+      "hits": 259,
+      "pct": 17.91
+    },
+    "ED50_published_shift": {
+      "shift_m": [
+        -104.0,
+        -207.0
+      ],
+      "hits": 540,
+      "pct": 37.34
+    },
+    "decoy_plus_150E": {
+      "shift_m": [
+        150.0,
+        0.0
+      ],
+      "hits": 245,
+      "pct": 16.94
+    },
+    "decoy_minus_150N": {
+      "shift_m": [
+        0.0,
+        -150.0
+      ],
+      "hits": 292,
+      "pct": 20.19
+    },
+    "decoy_plus_250E_250N": {
+      "shift_m": [
+        250.0,
+        250.0
+      ],
+      "hits": 183,
+      "pct": 12.66
+    }
+  },
+  "peak": {
+    "shift_m": [
+      -113.0,
+      -206.0
+    ],
+    "hits": 660,
+    "pct": 45.64
+  },
+  "best_other_basin": {
+    "hits": 322,
+    "pct": 22.27
+  },
+  "peak_over_other_basin": 2.05,
+  "null_rate_pct": 16.35,
+  "peak_vs_published_ed50_shift": {
+    "published_shift_m": [
+      -104.0,
+      -207.0
+    ],
+    "distance_m": 9.1,
+    "note": "The published shift was NOT used to find the peak. Its agreement is external corroboration, and it is the load-bearing part of this verdict \u2014 the basin margin alone would not be enough."
+  },
+  "VERDICT": "ED50 / UTM 30N (EPSG:23030). Peak [-113.0, -206.0] clears the best rival basin by 2.05\u00d7 and sits 9.1 m from the published ED50\u2192ETRS89 shift, while the ETRS89 hypothesis scores 17.91% against a 16.35% null \u2014 i.e. ETRS89 is indistinguishable from a random offset."
+}

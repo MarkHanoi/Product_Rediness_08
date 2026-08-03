@@ -1,0 +1,4030 @@
+{
+  "city": "Córdoba",
+  "ine": "14021",
+  "catastro_dgc": "14900",
+  "instrument": "PGOU Córdoba 2001, texto refundido octubre 2002 — plano «Alineaciones y Rasantes» 1:2000, 49 hojas. Normativa: «Las alineaciones y rasantes del Suelo Urbano serán las grafiadas en el plano de Alineaciones y Rasantes a escala 1/2000», and that sheet PREVAILS where it is more precise — it is the superior instrument, not one source among several.",
+  "sheet_index_url": "https://www.gmucordoba.es/planos/alineaciones-y-rasantes",
+  "sheets": {
+    "ar01": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar01.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 126916,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "ali01",
+        "created": "D:20130709130824+02'00'",
+        "page_pt": [
+          3529.0,
+          2551.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 10234,
+        "operators": {
+          "l": 107086,
+          "c": 1393,
+          "re": 7,
+          "qu": 221
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 81.1787109375,
+          "y0": 41.739990234375,
+          "x1": 3330.77880859375,
+          "y1": 2117.860107421875,
+          "width_pt": 3249.60009765625,
+          "height_pt": 2076.1201171875
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 361.066,
+            "max_resid_pt": 0.026
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 361.066,
+            "max_resid_pt": 0.026
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 361.058,
+            "max_resid_pt": 0.023
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 361.058,
+            "max_resid_pt": 0.023
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.553922,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar02": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar02.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 212843,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "ali02",
+        "created": "D:20130709131048+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 25146,
+        "operators": {
+          "l": 170677,
+          "c": 2726,
+          "re": 12,
+          "qu": 662
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 91.800048828125,
+          "y0": 44.47998046875,
+          "x1": 3112.260009765625,
+          "y1": 1974.260009765625,
+          "width_pt": 3020.4599609375,
+          "height_pt": 1929.780029296875
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 335.61,
+            "max_resid_pt": 0.017
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 335.61,
+            "max_resid_pt": 0.017
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 335.607,
+            "max_resid_pt": 0.019
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 335.607,
+            "max_resid_pt": 0.019
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.595932,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar03": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar03.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 59704,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "03",
+        "created": "D:20130709131252+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 6652,
+        "operators": {
+          "l": 48764,
+          "c": 867,
+          "re": 6,
+          "qu": 103
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 115.02001953125,
+          "y0": 47.06005859375,
+          "x1": 3114.9599609375,
+          "y1": 1963.699951171875,
+          "width_pt": 2999.93994140625,
+          "height_pt": 1916.639892578125
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 333.324,
+            "max_resid_pt": 0.027
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 333.324,
+            "max_resid_pt": 0.027
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 333.322,
+            "max_resid_pt": 0.023
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 333.322,
+            "max_resid_pt": 0.023
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.600018,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar04": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar04.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 182748,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "04",
+        "created": "D:20130709131452+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 13124,
+        "operators": {
+          "l": 149949,
+          "c": 6985,
+          "re": 7,
+          "qu": 339
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 110.580078125,
+          "y0": 39.14013671875,
+          "x1": 3139.68017578125,
+          "y1": 1974.3800048828125,
+          "width_pt": 3029.10009765625,
+          "height_pt": 1935.2398681640625
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 336.57,
+            "max_resid_pt": 0.017
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 336.57,
+            "max_resid_pt": 0.017
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 336.564,
+            "max_resid_pt": 0.028
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 336.564,
+            "max_resid_pt": 0.028
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.594235,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar05": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar05.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 309643,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "05",
+        "created": "D:20130709131731+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 48862,
+        "operators": {
+          "l": 229920,
+          "c": 5465,
+          "re": 15,
+          "qu": 2617
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "stroke_inventory": [
+        {
+          "stroke": {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.72,
+            "dashes": "[] 0"
+          },
+          "segments": 227214,
+          "ink_pt": 1008879.8
+        },
+        {
+          "stroke": {
+            "type": "s",
+            "stroke_rgb": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 0.84,
+            "dashes": "[] 0"
+          },
+          "segments": 5273,
+          "ink_pt": 115375.0
+        },
+        {
+          "stroke": {
+            "type": "s",
+            "stroke_rgb": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "fill_rgb": null,
+            "width": 1.44,
+            "dashes": "[] 0"
+          },
+          "segments": 2898,
+          "ink_pt": 10617.6
+        }
+      ],
+      "legend": {
+        "rows": [
+          {
+            "row": "R1",
+            "label_es": "DELIMITACIÓN DE CALZADA",
+            "meaning_en": "carriageway edge — the PHYSICAL road, not a legal line",
+            "captions": 1,
+            "measured": [
+              {
+                "stroke": {
+                  "type": "s",
+                  "stroke_rgb": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "fill_rgb": null,
+                  "width": 0.72,
+                  "dashes": "[] 0"
+                },
+                "key": "{\"dashes\": \"[] 0\", \"stroke_rgb\": [0.0, 0.0, 0.0], \"width\": 0.72}",
+                "segments": 2,
+                "ink_pt": 127.56
+              }
+            ],
+            "status": "BOUND"
+          },
+          {
+            "row": "R2",
+            "label_es": "ALINEACIÓN DEL VIAL",
+            "meaning_en": "official street alignment — the legal frontage line",
+            "captions": 1,
+            "measured": [
+              {
+                "stroke": {
+                  "type": "s",
+                  "stroke_rgb": [
+                    1.0,
+                    0.0,
+                    0.0
+                  ],
+                  "fill_rgb": null,
+                  "width": 0.84,
+                  "dashes": "[] 0"
+                },
+                "key": "{\"dashes\": \"[] 0\", \"stroke_rgb\": [1.0, 0.0, 0.0], \"width\": 0.84}",
+                "segments": 1,
+                "ink_pt": 63.78
+              }
+            ],
+            "status": "BOUND"
+          },
+          {
+            "row": "R3",
+            "label_es": "ALINEACIÓN DE EDIFICACIÓN",
+            "meaning_en": "official building line; per the sheet's own note, normally defined by the zone ordinance rather than graphed here",
+            "captions": 1,
+            "measured": [
+              {
+                "stroke": {
+                  "type": "s",
+                  "stroke_rgb": [
+                    1.0,
+                    0.0,
+                    0.0
+                  ],
+                  "fill_rgb": null,
+                  "width": 0.84,
+                  "dashes": "[] 0"
+                },
+                "key": "{\"dashes\": \"[] 0\", \"stroke_rgb\": [1.0, 0.0, 0.0], \"width\": 0.84}",
+                "segments": 5,
+                "ink_pt": 43.62
+              }
+            ],
+            "status": "BOUND"
+          }
+        ],
+        "collisions": {
+          "{\"dashes\": \"[] 0\", \"stroke_rgb\": [1.0, 0.0, 0.0], \"width\": 0.84}": [
+            "R2",
+            "R3"
+          ]
+        },
+        "n_collisions": 1
+      },
+      "georeference": {
+        "frame": {
+          "x0": 116.340087890625,
+          "y0": 34.93994140625,
+          "x1": 3141.300048828125,
+          "y1": 1967.5400390625,
+          "width_pt": 3024.9599609375,
+          "height_pt": 1932.60009765625
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 336.103,
+            "max_resid_pt": 0.03
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 336.103,
+            "max_resid_pt": 0.03
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 336.098,
+            "max_resid_pt": 0.023
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 336.098,
+            "max_resid_pt": 0.023
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.59506,
+        "status": "OK",
+        "fit_east": {
+          "metres_per_point": 0.5950556821019444,
+          "slope": 0.5950556821019444,
+          "intercept": 340971.7517154036,
+          "n_ticks": 9,
+          "anchor_tick_position": 383.58,
+          "anchor_value": 341200.0,
+          "max_resid_m": 0.017653397109825164,
+          "median_resid_m": 0.007934075722005218,
+          "residuals_m": [
+            -0.0032,
+            -0.0133,
+            0.0123,
+            0.0022,
+            -0.0079,
+            0.0177,
+            0.0075,
+            -0.0026,
+            -0.0127
+          ]
+        },
+        "fit_north": {
+          "metres_per_point": 0.5950650401548284,
+          "slope": -0.5950650401548284,
+          "intercept": 4199121.801312409,
+          "n_ticks": 6,
+          "anchor_tick_position": 204.68,
+          "anchor_value": 4199000.0,
+          "max_resid_m": 0.013941294513642788,
+          "median_resid_m": 0.00986130628734827,
+          "residuals_m": [
+            -0.0034,
+            0.0099,
+            -0.0126,
+            0.0007,
+            0.0139,
+            -0.0085
+          ]
+        },
+        "scale_check": {
+          "measured_m_per_pt": 0.5950603611283865,
+          "printed_m_per_pt": 0.7055555555555555,
+          "printed_denominator": 2000.0,
+          "implied_denominator": 1686.7852756395207,
+          "ratio": 0.8433926378197604,
+          "pct_error_if_printed_trusted": 18.56873716435118
+        },
+        "frame_ground": {
+          "top_left": [
+            341040.98,
+            4199101.01
+          ],
+          "bottom_right": [
+            342841.0,
+            4197950.99
+          ],
+          "width_m": 1800.02,
+          "height_m": 1150.02
+        },
+        "printed_corner_check": {
+          "printed": [
+            341041.0,
+            4199101.0
+          ],
+          "implied": [
+            341040.98,
+            4199101.01
+          ],
+          "delta_east_m": -0.02,
+          "delta_north_m": 0.01
+        }
+      },
+      "alignment": {
+        "polylines": 200,
+        "total_length_m": 68587.5,
+        "median_polyline_m": 234.13,
+        "attribution_ceiling": {
+          "legend_dash_length_m": 6.01,
+          "dash_like_polylines": 1,
+          "dash_like_length_m": 5.2,
+          "max_share_that_could_be_edificacion_pct": 0.008,
+          "note": "An UPPER BOUND on «alineación de edificación», not a classification. The remainder is continuous linework consistent with «alineación del vial», which agrees with the sheet's own note that the building line is normally set by the zone ordinance rather than graphed here."
+        }
+      }
+    },
+    "ar06": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar06.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 124019,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "06",
+        "created": "D:20130709132013+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 24224,
+        "operators": {
+          "l": 88937,
+          "c": 2218,
+          "re": 8,
+          "qu": 557
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 131.280029296875,
+          "y0": 49.33984375,
+          "x1": 3125.10009765625,
+          "y1": 1962.02001953125,
+          "width_pt": 2993.820068359375,
+          "height_pt": 1912.68017578125
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 332.651,
+            "max_resid_pt": 0.029
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 332.651,
+            "max_resid_pt": 0.029
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 332.654,
+            "max_resid_pt": 0.027
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 332.654,
+            "max_resid_pt": 0.027
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.601228,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar07": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar07.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 174422,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "07",
+        "created": "D:20130709132220+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 19369,
+        "operators": {
+          "l": 139716,
+          "c": 2922,
+          "re": 6,
+          "qu": 798
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 108.840087890625,
+          "y0": 44.47998046875,
+          "x1": 3100.56005859375,
+          "y1": 1955.8399658203125,
+          "width_pt": 2991.719970703125,
+          "height_pt": 1911.3599853515625
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 332.41,
+            "max_resid_pt": 0.027
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 332.41,
+            "max_resid_pt": 0.027
+          },
+          "left": {
+            "count": 7,
+            "spacing_pt": 166.2,
+            "max_resid_pt": 0.051
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 332.4,
+            "max_resid_pt": 0.0
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.80223,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar08": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar08.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 128669,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "08",
+        "created": "D:20130709132415+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 17631,
+        "operators": {
+          "l": 98772,
+          "c": 2666,
+          "re": 13,
+          "qu": 832
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 131.27978515625,
+          "y0": 57.31982421875,
+          "x1": 3122.8798828125,
+          "y1": 1968.6199951171875,
+          "width_pt": 2991.60009765625,
+          "height_pt": 1911.3001708984375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 332.4,
+            "max_resid_pt": 0.0
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 332.4,
+            "max_resid_pt": 0.0
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 332.4,
+            "max_resid_pt": 0.0
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 332.4,
+            "max_resid_pt": 0.0
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.601685,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar09": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar09.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 128459,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "09",
+        "created": "D:20130709132620+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 20217,
+        "operators": {
+          "l": 96249,
+          "c": 2490,
+          "re": 10,
+          "qu": 948
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 102.780029296875,
+          "y0": 38.360107421875,
+          "x1": 3127.56005859375,
+          "y1": 1970.8399658203125,
+          "width_pt": 3024.780029296875,
+          "height_pt": 1932.4798583984375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 336.09,
+            "max_resid_pt": 0.017
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 336.09,
+            "max_resid_pt": 0.017
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 336.084,
+            "max_resid_pt": 0.028
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 336.084,
+            "max_resid_pt": 0.028
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.595084,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar10": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar10.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 262081,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "10",
+        "created": "D:20130709132831+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 22226,
+        "operators": {
+          "l": 218898,
+          "c": 4133,
+          "re": 8,
+          "qu": 549
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 94.3798828125,
+          "y0": 536.1199951171875,
+          "x1": 3286.919921875,
+          "y1": 2040.1400146484375,
+          "width_pt": 3192.5400390625,
+          "height_pt": 1504.02001953125
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 12,
+            "spacing_pt": 261.578,
+            "max_resid_pt": 0.029
+          },
+          "top": {
+            "count": 12,
+            "spacing_pt": 261.578,
+            "max_resid_pt": 0.029
+          },
+          "left": {
+            "count": 5,
+            "spacing_pt": 261.582,
+            "max_resid_pt": 0.024
+          },
+          "right": {
+            "count": 5,
+            "spacing_pt": 261.582,
+            "max_resid_pt": 0.024
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.764585,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar11": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar11.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 266410,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "11",
+        "created": "D:20130708131105+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 49085,
+        "operators": {
+          "l": 187532,
+          "c": 5331,
+          "re": 21,
+          "qu": 2896
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 106.260009765625,
+          "y0": 44.9599609375,
+          "x1": 3120.840087890625,
+          "y1": 1970.8399658203125,
+          "width_pt": 3014.580078125,
+          "height_pt": 1925.8800048828125
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 334.95,
+            "max_resid_pt": 0.017
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 334.95,
+            "max_resid_pt": 0.017
+          },
+          "left": {
+            "count": 5,
+            "spacing_pt": 334.944,
+            "max_resid_pt": 0.024
+          },
+          "right": {
+            "count": 5,
+            "spacing_pt": 334.944,
+            "max_resid_pt": 0.024
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.597109,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar12": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar12.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 286519,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "12",
+        "created": "D:20130708131621+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 50417,
+        "operators": {
+          "l": 203577,
+          "c": 6426,
+          "re": 13,
+          "qu": 3025
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 118.500244140625,
+          "y0": 46.81982421875,
+          "x1": 3133.68017578125,
+          "y1": 1973.179931640625,
+          "width_pt": 3015.179931640625,
+          "height_pt": 1926.360107421875
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 335.026,
+            "max_resid_pt": 0.026
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 83.756,
+            "max_resid_pt": 0.023
+          },
+          "left": {
+            "count": 5,
+            "spacing_pt": 335.022,
+            "max_resid_pt": 0.024
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 335.022,
+            "max_resid_pt": 0.145
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.596972,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar13": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar13.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 232968,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "13",
+        "created": "D:20130708132359+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 28769,
+        "operators": {
+          "l": 182564,
+          "c": 4680,
+          "re": 7,
+          "qu": 1216
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 116.0400390625,
+          "y0": 42.860107421875,
+          "x1": 3132.06005859375,
+          "y1": 1969.699951171875,
+          "width_pt": 3016.02001953125,
+          "height_pt": 1926.83984375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 335.114,
+            "max_resid_pt": 0.026
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 335.114,
+            "max_resid_pt": 0.026
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 335.112,
+            "max_resid_pt": 0.285
+          },
+          "right": {
+            "count": 5,
+            "spacing_pt": 335.112,
+            "max_resid_pt": 0.024
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.596814,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar14": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar14.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 159017,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "14",
+        "created": "D:20130708132756+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 28054,
+        "operators": {
+          "l": 118234,
+          "c": 2113,
+          "re": 7,
+          "qu": 773
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 91.739990234375,
+          "y0": 34.52001953125,
+          "x1": 3114.419921875,
+          "y1": 1965.6199951171875,
+          "width_pt": 3022.679931640625,
+          "height_pt": 1931.0999755859375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 335.856,
+            "max_resid_pt": 0.027
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 335.856,
+            "max_resid_pt": 0.027
+          },
+          "left": {
+            "count": 5,
+            "spacing_pt": 335.838,
+            "max_resid_pt": 0.024
+          },
+          "right": {
+            "count": 5,
+            "spacing_pt": 335.838,
+            "max_resid_pt": 0.024
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.595509,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar15": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar15.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 187074,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "15",
+        "created": "D:20130708133136+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 33689,
+        "operators": {
+          "l": 134227,
+          "c": 3612,
+          "re": 10,
+          "qu": 1912
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 100.080078125,
+          "y0": 42.14013671875,
+          "x1": 3124.860107421875,
+          "y1": 1974.6199951171875,
+          "width_pt": 3024.780029296875,
+          "height_pt": 1932.4798583984375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 336.09,
+            "max_resid_pt": 0.017
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 336.09,
+            "max_resid_pt": 0.017
+          },
+          "left": {
+            "count": 5,
+            "spacing_pt": 336.09,
+            "max_resid_pt": 0.018
+          },
+          "right": {
+            "count": 5,
+            "spacing_pt": 336.09,
+            "max_resid_pt": 0.018
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.595079,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar16": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar16.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 73784,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "16",
+        "created": "D:20130708133608+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 15797,
+        "operators": {
+          "l": 51661,
+          "c": 1305,
+          "re": 8,
+          "qu": 505
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 100.440185546875,
+          "y0": 44.419921875,
+          "x1": 3108.60009765625,
+          "y1": 1966.280029296875,
+          "width_pt": 3008.159912109375,
+          "height_pt": 1921.860107421875
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 334.239,
+            "max_resid_pt": 0.023
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 334.239,
+            "max_resid_pt": 0.023
+          },
+          "left": {
+            "count": 5,
+            "spacing_pt": 334.242,
+            "max_resid_pt": 0.024
+          },
+          "right": {
+            "count": 5,
+            "spacing_pt": 334.242,
+            "max_resid_pt": 0.024
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.598372,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar17": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar17.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 147754,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "17",
+        "created": "D:20130708133849+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 25225,
+        "operators": {
+          "l": 109238,
+          "c": 2885,
+          "re": 15,
+          "qu": 848
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 88.800048828125,
+          "y0": 561.260009765625,
+          "x1": 3281.340087890625,
+          "y1": 2065.340087890625,
+          "width_pt": 3192.5400390625,
+          "height_pt": 1504.080078125
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 12,
+            "spacing_pt": 261.576,
+            "max_resid_pt": 0.026
+          },
+          "top": {
+            "count": 13,
+            "spacing_pt": 65.394,
+            "max_resid_pt": 0.29
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 261.578,
+            "max_resid_pt": 0.023
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 261.578,
+            "max_resid_pt": 0.023
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.764594,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar18": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar18.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 192395,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "18",
+        "created": "D:20130708134804+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 32837,
+        "operators": {
+          "l": 132956,
+          "c": 4177,
+          "re": 17,
+          "qu": 3500
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 103.139892578125,
+          "y0": 43.760009765625,
+          "x1": 3128.4599609375,
+          "y1": 1976.5999755859375,
+          "width_pt": 3025.320068359375,
+          "height_pt": 1932.8399658203125
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 336.15,
+            "max_resid_pt": 0.017
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 336.15,
+            "max_resid_pt": 0.017
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 336.144,
+            "max_resid_pt": 0.028
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 336.144,
+            "max_resid_pt": 0.028
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.594978,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar19": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar19.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 265482,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "19",
+        "created": "D:20130708135130+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 49753,
+        "operators": {
+          "l": 178070,
+          "c": 4906,
+          "re": 67,
+          "qu": 5152
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {
+            "/VP": 1
+          },
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 97.440185546875,
+          "y0": 39.2001953125,
+          "x1": 3106.740234375,
+          "y1": 1961.780029296875,
+          "width_pt": 3009.300048828125,
+          "height_pt": 1922.579833984375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 334.367,
+            "max_resid_pt": 0.026
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 334.367,
+            "max_resid_pt": 0.026
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 334.366,
+            "max_resid_pt": 0.027
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 334.366,
+            "max_resid_pt": 0.027
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.598146,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar20": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar20.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 225438,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "20",
+        "created": "D:20130708140104+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 42354,
+        "operators": {
+          "l": 153025,
+          "c": 4555,
+          "re": 34,
+          "qu": 3803
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 2561.280029296875,
+          "y0": 2232.56005859375,
+          "x1": 2619.06005859375,
+          "y1": 2269.4599609375,
+          "width_pt": 57.780029296875,
+          "height_pt": 36.89990234375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": null,
+          "top": null,
+          "left": null,
+          "right": null
+        },
+        "graticule_detected": false,
+        "implied_m_per_pt": null,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar21": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar21.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 168979,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "21",
+        "created": "D:20130708140526+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 25916,
+        "operators": {
+          "l": 127353,
+          "c": 3237,
+          "re": 12,
+          "qu": 1198
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 103.919921875,
+          "y0": 38.780029296875,
+          "x1": 3112.43994140625,
+          "y1": 1960.820068359375,
+          "width_pt": 3008.52001953125,
+          "height_pt": 1922.0400390625
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 334.27,
+            "max_resid_pt": 0.027
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 334.27,
+            "max_resid_pt": 0.027
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 334.277,
+            "max_resid_pt": 0.026
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 334.277,
+            "max_resid_pt": 0.026
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.598312,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar22": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar22.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 187195,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "22",
+        "created": "D:20130708140759+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 38879,
+        "operators": {
+          "l": 130535,
+          "c": 2637,
+          "re": 14,
+          "qu": 1881
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 109.97998046875,
+          "y0": 50.780029296875,
+          "x1": 3122.219970703125,
+          "y1": 1975.280029296875,
+          "width_pt": 3012.239990234375,
+          "height_pt": 1924.5
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 10,
+            "spacing_pt": 334.694,
+            "max_resid_pt": 0.792
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 334.694,
+            "max_resid_pt": 0.026
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 334.694,
+            "max_resid_pt": 0.027
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 334.694,
+            "max_resid_pt": 0.027
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.597561,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar23": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar23.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 58730,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "23",
+        "created": "D:20130708141055+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 10682,
+        "operators": {
+          "l": 42837,
+          "c": 1231,
+          "re": 9,
+          "qu": 318
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 103.6201171875,
+          "y0": 41.5400390625,
+          "x1": 3120.960205078125,
+          "y1": 1969.280029296875,
+          "width_pt": 3017.340087890625,
+          "height_pt": 1927.739990234375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 335.259,
+            "max_resid_pt": 0.023
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 335.259,
+            "max_resid_pt": 0.023
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 335.253,
+            "max_resid_pt": 0.019
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 335.253,
+            "max_resid_pt": 0.019
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.596559,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar24": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar24.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 146268,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "24",
+        "created": "D:20130708141312+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 26199,
+        "operators": {
+          "l": 104125,
+          "c": 3016,
+          "re": 18,
+          "qu": 1585
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 93.9599609375,
+          "y0": 38.5400390625,
+          "x1": 3102.179931640625,
+          "y1": 1960.4599609375,
+          "width_pt": 3008.219970703125,
+          "height_pt": 1921.919921875
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 334.247,
+            "max_resid_pt": 0.026
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 334.247,
+            "max_resid_pt": 0.026
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 334.238,
+            "max_resid_pt": 0.023
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 334.238,
+            "max_resid_pt": 0.023
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.598368,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar25": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar25.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 224830,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "26",
+        "created": "D:20130708141607+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 42084,
+        "operators": {
+          "l": 150708,
+          "c": 4096,
+          "re": 33,
+          "qu": 4492
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {
+            "/VP": 1
+          },
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 97.139892578125,
+          "y0": 42.6201171875,
+          "x1": 3084.719970703125,
+          "y1": 1951.3399658203125,
+          "width_pt": 2987.580078125,
+          "height_pt": 1908.7198486328125
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 331.954,
+            "max_resid_pt": 0.028
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 331.954,
+            "max_resid_pt": 0.028
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 331.958,
+            "max_resid_pt": 0.023
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 331.958,
+            "max_resid_pt": 0.023
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.60249,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar26": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar26.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 286604,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "26",
+        "created": "D:20130708141858+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 48788,
+        "operators": {
+          "l": 198610,
+          "c": 5504,
+          "re": 48,
+          "qu": 5071
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 94.259765625,
+          "y0": 46.219970703125,
+          "x1": 3106.3798828125,
+          "y1": 1970.5999755859375,
+          "width_pt": 3012.1201171875,
+          "height_pt": 1924.3800048828125
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 334.689,
+            "max_resid_pt": 0.029
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 334.689,
+            "max_resid_pt": 0.029
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 334.68,
+            "max_resid_pt": 0.0
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 334.68,
+            "max_resid_pt": 0.0
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.597578,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar27": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar27.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 238168,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "27",
+        "created": "D:20130708142210+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 43278,
+        "operators": {
+          "l": 159397,
+          "c": 5459,
+          "re": 43,
+          "qu": 4880
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 2811.0,
+          "y0": 2172.739990234375,
+          "x1": 3147.179931640625,
+          "y1": 2309.179931640625,
+          "width_pt": 336.179931640625,
+          "height_pt": 136.43994140625
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": null,
+          "top": null,
+          "left": null,
+          "right": null
+        },
+        "graticule_detected": false,
+        "implied_m_per_pt": null,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar28": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar28.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 109107,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "28",
+        "created": "D:20130708142422+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 17119,
+        "operators": {
+          "l": 81887,
+          "c": 2324,
+          "re": 8,
+          "qu": 778
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 123.239990234375,
+          "y0": 42.97998046875,
+          "x1": 3152.340087890625,
+          "y1": 1978.219970703125,
+          "width_pt": 3029.10009765625,
+          "height_pt": 1935.239990234375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 336.566,
+            "max_resid_pt": 0.028
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 336.566,
+            "max_resid_pt": 0.028
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 336.564,
+            "max_resid_pt": 0.028
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 336.564,
+            "max_resid_pt": 0.028
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.594239,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar29": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar29.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 144461,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "29",
+        "created": "D:20130708142713+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 30411,
+        "operators": {
+          "l": 100802,
+          "c": 2735,
+          "re": 12,
+          "qu": 1136
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 104.0400390625,
+          "y0": 39.97998046875,
+          "x1": 3099.719970703125,
+          "y1": 1953.8599853515625,
+          "width_pt": 2995.679931640625,
+          "height_pt": 1913.8800048828125
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 332.857,
+            "max_resid_pt": 0.027
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 332.857,
+            "max_resid_pt": 0.027
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 332.858,
+            "max_resid_pt": 0.023
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 332.858,
+            "max_resid_pt": 0.023
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.600858,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar30": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar30.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 79210,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "30",
+        "created": "D:20130708142918+02'00'",
+        "page_pt": [
+          792.0,
+          612.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 16968,
+        "operators": {
+          "l": 56423,
+          "c": 1750,
+          "re": 10,
+          "qu": 351
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 27.41998291015625,
+          "y0": 31.20001220703125,
+          "x1": 759.6599731445312,
+          "y1": 498.9599914550781,
+          "width_pt": 732.239990234375,
+          "height_pt": 467.7599792480469
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": null,
+          "top": null,
+          "left": null,
+          "right": null
+        },
+        "graticule_detected": false,
+        "implied_m_per_pt": null,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar31": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar31.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 196389,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "31",
+        "created": "D:20130708143151+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 37533,
+        "operators": {
+          "l": 141927,
+          "c": 3480,
+          "re": 16,
+          "qu": 1319
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 106.199951171875,
+          "y0": 37.8798828125,
+          "x1": 2535.300048828125,
+          "y1": 2333.419921875,
+          "width_pt": 2429.10009765625,
+          "height_pt": 2295.5400390625
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 269.903,
+            "max_resid_pt": 0.027
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 269.903,
+            "max_resid_pt": 0.027
+          },
+          "left": {
+            "count": 8,
+            "spacing_pt": 269.899,
+            "max_resid_pt": 0.024
+          },
+          "right": {
+            "count": 8,
+            "spacing_pt": 269.899,
+            "max_resid_pt": 0.024
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.741012,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar32": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar32.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 160778,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "32",
+        "created": "D:20130708143434+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 31459,
+        "operators": {
+          "l": 112274,
+          "c": 2885,
+          "re": 26,
+          "qu": 1760
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 101.10009765625,
+          "y0": 45.6201171875,
+          "x1": 3117.66015625,
+          "y1": 1972.820068359375,
+          "width_pt": 3016.56005859375,
+          "height_pt": 1927.199951171875
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 335.173,
+            "max_resid_pt": 0.026
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 335.173,
+            "max_resid_pt": 0.026
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 335.174,
+            "max_resid_pt": 0.027
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 335.174,
+            "max_resid_pt": 0.027
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.596706,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar33": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar33.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 223794,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "33",
+        "created": "D:20130708143721+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 43203,
+        "operators": {
+          "l": 150427,
+          "c": 4759,
+          "re": 9,
+          "qu": 3878
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 132.239990234375,
+          "y0": 46.280029296875,
+          "x1": 3144.659912109375,
+          "y1": 1970.8399658203125,
+          "width_pt": 3012.419921875,
+          "height_pt": 1924.5599365234375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 334.706,
+            "max_resid_pt": 0.026
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 334.706,
+            "max_resid_pt": 0.026
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 334.704,
+            "max_resid_pt": 0.028
+          },
+          "right": {
+            "count": 7,
+            "spacing_pt": 334.696,
+            "max_resid_pt": 0.09
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.597541,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar34": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar34.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 237010,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "34",
+        "created": "D:20130708143949+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 40018,
+        "operators": {
+          "l": 167538,
+          "c": 5363,
+          "re": 13,
+          "qu": 3252
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 105.06005859375,
+          "y0": 48.679931640625,
+          "x1": 3117.719970703125,
+          "y1": 1973.4200439453125,
+          "width_pt": 3012.659912109375,
+          "height_pt": 1924.7401123046875
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 334.74,
+            "max_resid_pt": 0.0
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 334.74,
+            "max_resid_pt": 0.0
+          },
+          "left": {
+            "count": 8,
+            "spacing_pt": 334.746,
+            "max_resid_pt": 0.688
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 334.74,
+            "max_resid_pt": 0.0
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.597473,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar35": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar35.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 204921,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "35",
+        "created": "D:20130708144257+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 41801,
+        "operators": {
+          "l": 139854,
+          "c": 4007,
+          "re": 10,
+          "qu": 2711
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 108.719970703125,
+          "y0": 36.43994140625,
+          "x1": 3130.43994140625,
+          "y1": 1967.0,
+          "width_pt": 3021.719970703125,
+          "height_pt": 1930.56005859375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 335.747,
+            "max_resid_pt": 0.026
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 335.747,
+            "max_resid_pt": 0.026
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 335.746,
+            "max_resid_pt": 0.027
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 335.746,
+            "max_resid_pt": 0.027
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.595687,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar36": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar36.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 55608,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "36",
+        "created": "D:20130708144445+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 9654,
+        "operators": {
+          "l": 40893,
+          "c": 1171,
+          "re": 7,
+          "qu": 363
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 102.0,
+          "y0": 44.179931640625,
+          "x1": 3098.0400390625,
+          "y1": 1958.239990234375,
+          "width_pt": 2996.0400390625,
+          "height_pt": 1914.06005859375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 332.89,
+            "max_resid_pt": 0.027
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 332.89,
+            "max_resid_pt": 0.027
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 332.889,
+            "max_resid_pt": 0.029
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 332.889,
+            "max_resid_pt": 0.029
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.6008,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar37": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar37.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 90560,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "37",
+        "created": "D:20130708144645+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 12463,
+        "operators": {
+          "l": 69122,
+          "c": 2286,
+          "re": 7,
+          "qu": 656
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 126.06005859375,
+          "y0": 37.0400390625,
+          "x1": 3151.199951171875,
+          "y1": 1969.760009765625,
+          "width_pt": 3025.139892578125,
+          "height_pt": 1932.719970703125
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 336.124,
+            "max_resid_pt": 0.037
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 336.124,
+            "max_resid_pt": 0.037
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 336.12,
+            "max_resid_pt": 0.0
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 336.12,
+            "max_resid_pt": 0.0
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.595022,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar38": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar38.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 25817,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "38",
+        "created": "D:20130708144844+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 3940,
+        "operators": {
+          "l": 19742,
+          "c": 627,
+          "re": 7,
+          "qu": 92
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 124.97998046875,
+          "y0": 44.9599609375,
+          "x1": 3133.320068359375,
+          "y1": 1966.93994140625,
+          "width_pt": 3008.340087890625,
+          "height_pt": 1921.97998046875
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 334.26,
+            "max_resid_pt": 0.0
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 334.26,
+            "max_resid_pt": 0.0
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 334.26,
+            "max_resid_pt": 0.0
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 334.26,
+            "max_resid_pt": 0.0
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.598337,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar39": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar39.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 124872,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "39",
+        "created": "D:20130708145037+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 23867,
+        "operators": {
+          "l": 88659,
+          "c": 2655,
+          "re": 8,
+          "qu": 1053
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 91.5,
+          "y0": 45.3798828125,
+          "x1": 3104.10009765625,
+          "y1": 1970.1199951171875,
+          "width_pt": 3012.60009765625,
+          "height_pt": 1924.7401123046875
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 334.731,
+            "max_resid_pt": 0.029
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 334.731,
+            "max_resid_pt": 0.029
+          },
+          "left": {
+            "count": 5,
+            "spacing_pt": 334.74,
+            "max_resid_pt": 0.0
+          },
+          "right": {
+            "count": 5,
+            "spacing_pt": 334.74,
+            "max_resid_pt": 0.0
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.597487,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar40": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar40.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 187820,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "40",
+        "created": "D:20130708145309+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 33780,
+        "operators": {
+          "l": 131106,
+          "c": 5700,
+          "re": 16,
+          "qu": 2047
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 117.06005859375,
+          "y0": 49.159912109375,
+          "x1": 3113.880126953125,
+          "y1": 1963.820068359375,
+          "width_pt": 2996.820068359375,
+          "height_pt": 1914.66015625
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 332.984,
+            "max_resid_pt": 0.025
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 332.984,
+            "max_resid_pt": 0.025
+          },
+          "left": {
+            "count": 5,
+            "spacing_pt": 332.982,
+            "max_resid_pt": 0.024
+          },
+          "right": {
+            "count": 5,
+            "spacing_pt": 332.982,
+            "max_resid_pt": 0.024
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.600631,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar41": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar41.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 298971,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "41",
+        "created": "D:20130708145547+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 52215,
+        "operators": {
+          "l": 209557,
+          "c": 7091,
+          "re": 23,
+          "qu": 4109
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 117.2998046875,
+          "y0": 42.5,
+          "x1": 3121.3798828125,
+          "y1": 1961.780029296875,
+          "width_pt": 3004.080078125,
+          "height_pt": 1919.280029296875
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 333.789,
+            "max_resid_pt": 0.029
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 333.789,
+            "max_resid_pt": 0.029
+          },
+          "left": {
+            "count": 5,
+            "spacing_pt": 333.78,
+            "max_resid_pt": 0.0
+          },
+          "right": {
+            "count": 5,
+            "spacing_pt": 333.78,
+            "max_resid_pt": 0.0
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.599189,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar42": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar42.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 122609,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "42",
+        "created": "D:20130709084247+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 19218,
+        "operators": {
+          "l": 91937,
+          "c": 2260,
+          "re": 8,
+          "qu": 956
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 105.239990234375,
+          "y0": 42.31982421875,
+          "x1": 3110.760009765625,
+          "y1": 1962.5,
+          "width_pt": 3005.52001953125,
+          "height_pt": 1920.18017578125
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 333.947,
+            "max_resid_pt": 0.026
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 333.947,
+            "max_resid_pt": 0.026
+          },
+          "left": {
+            "count": 5,
+            "spacing_pt": 333.942,
+            "max_resid_pt": 0.024
+          },
+          "right": {
+            "count": 5,
+            "spacing_pt": 333.942,
+            "max_resid_pt": 0.024
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.598902,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar43": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar43.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 26346,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "43",
+        "created": "D:20130709084506+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 4056,
+        "operators": {
+          "l": 20269,
+          "c": 577,
+          "re": 8,
+          "qu": 82
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 114.0,
+          "y0": 44.719970703125,
+          "x1": 3118.320068359375,
+          "y1": 1964.06005859375,
+          "width_pt": 3004.320068359375,
+          "height_pt": 1919.340087890625
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 333.81,
+            "max_resid_pt": 0.017
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 333.81,
+            "max_resid_pt": 0.017
+          },
+          "left": {
+            "count": 5,
+            "spacing_pt": 333.81,
+            "max_resid_pt": 0.018
+          },
+          "right": {
+            "count": 5,
+            "spacing_pt": 333.81,
+            "max_resid_pt": 0.018
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.599143,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar44": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar44.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 143010,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "44",
+        "created": "D:20130709084716+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 30604,
+        "operators": {
+          "l": 99297,
+          "c": 2411,
+          "re": 8,
+          "qu": 1177
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 94.739990234375,
+          "y0": 39.97998046875,
+          "x1": 3107.39990234375,
+          "y1": 1964.719970703125,
+          "width_pt": 3012.659912109375,
+          "height_pt": 1924.739990234375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 334.731,
+            "max_resid_pt": 0.029
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 334.731,
+            "max_resid_pt": 0.029
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 334.74,
+            "max_resid_pt": 0.0
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 334.74,
+            "max_resid_pt": 0.0
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.597487,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar45": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar45.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 140178,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "45",
+        "created": "D:20130709084919+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 23878,
+        "operators": {
+          "l": 103094,
+          "c": 2847,
+          "re": 10,
+          "qu": 1099
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 90.840087890625,
+          "y0": 38.0,
+          "x1": 3128.760009765625,
+          "y1": 1978.820068359375,
+          "width_pt": 3037.919921875,
+          "height_pt": 1940.820068359375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 10,
+            "spacing_pt": 112.515,
+            "max_resid_pt": 0.06
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 337.544,
+            "max_resid_pt": 0.025
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 337.538,
+            "max_resid_pt": 0.023
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 337.538,
+            "max_resid_pt": 0.023
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.888785,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar46": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar46.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 200288,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "46",
+        "created": "D:20130709085123+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 33008,
+        "operators": {
+          "l": 141422,
+          "c": 4527,
+          "re": 19,
+          "qu": 3091
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 140.219970703125,
+          "y0": 44.0,
+          "x1": 3135.419921875,
+          "y1": 1957.5799560546875,
+          "width_pt": 2995.199951171875,
+          "height_pt": 1913.5799560546875
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 332.802,
+            "max_resid_pt": 0.024
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 332.802,
+            "max_resid_pt": 0.024
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 332.805,
+            "max_resid_pt": 0.022
+          },
+          "right": {
+            "count": 7,
+            "spacing_pt": 83.201,
+            "max_resid_pt": 0.023
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.600956,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar47": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar47.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 32843,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "47",
+        "created": "D:20130709085304+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 4692,
+        "operators": {
+          "l": 25464,
+          "c": 733,
+          "re": 6,
+          "qu": 139
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 90.06005859375,
+          "y0": 37.280029296875,
+          "x1": 3109.02001953125,
+          "y1": 1966.0400390625,
+          "width_pt": 3018.9599609375,
+          "height_pt": 1928.760009765625
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 335.438,
+            "max_resid_pt": 0.029
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 335.438,
+            "max_resid_pt": 0.029
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 335.438,
+            "max_resid_pt": 0.023
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 335.438,
+            "max_resid_pt": 0.023
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.596236,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar48": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar48.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 118451,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "48",
+        "created": "D:20130709085526+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 18796,
+        "operators": {
+          "l": 88665,
+          "c": 2435,
+          "re": 9,
+          "qu": 811
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 112.800048828125,
+          "y0": 44.659912109375,
+          "x1": 3125.4599609375,
+          "y1": 1969.3399658203125,
+          "width_pt": 3012.659912109375,
+          "height_pt": 1924.6800537109375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 334.73,
+            "max_resid_pt": 0.027
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 334.73,
+            "max_resid_pt": 0.027
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 334.74,
+            "max_resid_pt": 0.0
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 334.74,
+            "max_resid_pt": 0.0
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.597488,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    },
+    "ar49": {
+      "url": "https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/PDF_ar/ar49.pdf",
+      "fetch": "CACHED",
+      "anatomy": {
+        "verdict": "OUTLINED_TEXT_VECTOR",
+        "vector_path_ops_total": 29824,
+        "painted_text_ops": 0,
+        "font_objects": 0,
+        "images": {
+          "DCTDecode": 0,
+          "JBIG2Decode": 0,
+          "CCITTFaxDecode": 0,
+          "JPXDecode": 0,
+          "image_xobjects": 0
+        },
+        "producer": "Acrobat Distiller 8.0.0 (Windows)",
+        "creator": "PScript5.dll Version 5.2.2",
+        "title": "49",
+        "created": "D:20130709085820+02'00'",
+        "page_pt": [
+          3370.0,
+          2384.0
+        ],
+        "rotation": 270,
+        "raster_images": 0,
+        "path_objects": 4620,
+        "operators": {
+          "l": 22673,
+          "c": 744,
+          "re": 7,
+          "qu": 109
+        },
+        "extractable_text_chars": 0,
+        "named_layers": [],
+        "published_georeference": {
+          "markers": {},
+          "VERDICT": "NO_EMBEDDED_GEOREFERENCE"
+        }
+      },
+      "georeference": {
+        "frame": {
+          "x0": 100.919921875,
+          "y0": 54.260009765625,
+          "x1": 3096.89990234375,
+          "y1": 1968.320068359375,
+          "width_pt": 2995.97998046875,
+          "height_pt": 1914.06005859375
+        },
+        "grid_interval_m": 200.0,
+        "combs": {
+          "bottom": {
+            "count": 9,
+            "spacing_pt": 332.893,
+            "max_resid_pt": 0.026
+          },
+          "top": {
+            "count": 9,
+            "spacing_pt": 332.893,
+            "max_resid_pt": 0.026
+          },
+          "left": {
+            "count": 6,
+            "spacing_pt": 332.88,
+            "max_resid_pt": 0.0
+          },
+          "right": {
+            "count": 6,
+            "spacing_pt": 332.88,
+            "max_resid_pt": 0.0
+          }
+        },
+        "graticule_detected": true,
+        "implied_m_per_pt": 0.600805,
+        "status": "NO_TRANSCRIBED_ANCHOR",
+        "note": "The graticule was DETECTED and its spacing measured; only the printed VALUE beside it has not been transcribed for this sheet. That is a transcription gap, NOT absence of a georeference."
+      }
+    }
+  },
+  "series_summary": {
+    "sheets_total": 49,
+    "anatomy_verdicts": {
+      "OUTLINED_TEXT_VECTOR": 49
+    },
+    "raster_images_across_series": 0,
+    "path_objects_across_series": 1332794,
+    "reference_spacing_pt": 336.103,
+    "graticule_confirmed_both_axes": {
+      "count": 42,
+      "sheets": [
+        "ar02",
+        "ar03",
+        "ar04",
+        "ar05",
+        "ar06",
+        "ar07",
+        "ar08",
+        "ar09",
+        "ar11",
+        "ar12",
+        "ar13",
+        "ar14",
+        "ar15",
+        "ar16",
+        "ar18",
+        "ar19",
+        "ar21",
+        "ar22",
+        "ar23",
+        "ar24",
+        "ar25",
+        "ar26",
+        "ar28",
+        "ar29",
+        "ar32",
+        "ar33",
+        "ar34",
+        "ar35",
+        "ar36",
+        "ar37",
+        "ar38",
+        "ar39",
+        "ar40",
+        "ar41",
+        "ar42",
+        "ar43",
+        "ar44",
+        "ar45",
+        "ar46",
+        "ar47",
+        "ar48",
+        "ar49"
+      ]
+    },
+    "graticule_not_confirmed": {
+      "count": 7,
+      "sheets": [
+        "ar01",
+        "ar10",
+        "ar17",
+        "ar20",
+        "ar27",
+        "ar30",
+        "ar31"
+      ],
+      "why": "On these the largest rectangle on the page is not the neatline (some are tens of points across), so the tick search ran against the wrong frame. This is a FRAME-DETECTION gap in this tool, NOT evidence that the sheet lacks a graticule — it must not be reported as absence."
+    },
+    "frame_detection_failed": {
+      "count": 3,
+      "sheets": [
+        "ar20",
+        "ar27",
+        "ar30"
+      ]
+    }
+  }
+}

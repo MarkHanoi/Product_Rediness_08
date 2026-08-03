@@ -1,4 +1,13 @@
 # Raw WFS payloads fetched while iterating — reproducible by re-running probe.mjs, so they are not
-# evidence worth versioning. `probe.json` IS the measurement record and is committed.
+# evidence worth versioning. The MEASUREMENT RECORDS below ARE committed: they are the evidence.
 *.json
 !probe.json
+!cordoba_alignment.json
+!datum_registration.json
+
+# The extracted alignment geometry IS the deliverable, so it is versioned.
+!alignment_*.geojson
+
+# Plan sheets and comparison rasters — ~30 MB of re-fetchable binaries.
+pdf_cache/
+*.png
