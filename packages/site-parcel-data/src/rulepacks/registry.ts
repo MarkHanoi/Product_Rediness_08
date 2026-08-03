@@ -264,6 +264,7 @@ import { VALENCIA_BBOX, isInValencia } from '../providers/valenciaBbox.js';
 import {
     HUESCA_JURISDICTION_ID,
     ZARAGOZA_JURISDICTION_ID,
+    ZARAGOZA_ENVELOPE_VERIFIED,
     huescaNoRulePackRefusal,
     zaragozaNoRulePackRefusal,
 } from './esAragon.js';
@@ -273,6 +274,11 @@ import {
     isInHuesca,
     isInZaragoza,
 } from '../providers/aragonBbox.js';
+// §ZGZ-SUBGRADO-PACK — the 4 transcribed A1 subgrados (3.1/3.2/4.1/4.2, Arts. 4.1.12/4.1.13/
+// 4.1.15/4.1.17). ⚠ REGISTERING THIS PACK DOES NOT RENDER A NUMBER — see the gated `packsByZone`
+// below, on the Córdoba precedent. `ZARAGOZA_ENVELOPE_VERIFIED` (declared once, in `esAragon.js`,
+// imported above and reused here — never redeclared) stays `false` until a human signs.
+import { ES_ZARAGOZA_PGOU2024_PACK, ZARAGOZA_ZONE_CODES } from './esZaragoza.js';
 // ── ⚠ END OF THE ARAGÓN IMPORT BLOCK. ─────────────────────────────────────────────────────────
 // ── L-449 SIGNED — Denmark (national, Plandata.dk). The FIRST fully-automated jurisdiction: its
 //    buildable-envelope pack is resolved LIVE per parcel (`dkPlandataResolvedPack`) by the L5 DK
@@ -1226,14 +1232,26 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
             'populated, at parcel precision — NOT the 1:15,000 regional layer, whose 21.8% ' +
             'legal-approval ceiling was measured NOT to bind on 97.9% of a 421-parcel sample. ' +
             'The governing instrument is served too: 525 ámbitos with links to their own normas ' +
-            'and planos. The buildable ENVELOPE refuses, and the reason is one named attribute: ' +
-            'PGOU Título 4 splits the aprovechamiento conditions across separate articles per A1 ' +
-            'subgrado (A1/3.1, A1/3.2, A1/4.1, A1/4.2), and the published polygon carries only ' +
-            '"A1". Without the subgrado no floor-area ratio and no height ladder can be ' +
-            'selected. For A1 the plan additionally regulates the fondo edificable graphically. ' +
+            'and planos. ⚠ Arts. 4.1.12/4.1.13/4.1.15/4.1.17 (subgrados A1/3.1, A1/3.2, A1/4.1, ' +
+            'A1/4.2) are now TRANSCRIBED and REGISTERED — but the buildable ENVELOPE still ' +
+            'refuses: no human has signed off the transcription (`ZARAGOZA_ENVELOPE_VERIFIED` is ' +
+            'false, the Córdoba discipline), and the live calificación feed the dispatch reads ' +
+            'still resolves only the coarse "A1" code, not the subgrado a pack needs to key on. ' +
             'No height, buildability, occupation or depth is published here — never an estimate, ' +
             'never a proxy figure.',
-        packsByZone: packMap(),
+        // ⚠⚠ GATED, NOT EMPTY. Unlike Huesca/València, Zaragoza now HAS 4 transcribed subgrados
+        // (`esZaragoza.ts`). Exposing them through `packsByZone` unconditionally would let a FUTURE
+        // subgrado-resolving caller reach a machine/human-transcribed-but-UNSIGNED number the
+        // moment such a resolver is wired — before any human has verified this transcription. So
+        // the map itself is gated on `ZARAGOZA_ENVELOPE_VERIFIED` (imported from `esAragon.js`,
+        // the ONE declaration — see the import comment), mirroring `applyCordobaZoningThenFallback`'s
+        // dispatcher-level gate check one layer up, at the point where a number could otherwise
+        // leak through even without a live L5 dispatch function. While the gate is false this is
+        // `packMap()` — empty — and every subgrado code falls through to the coverage-gap refusal
+        // below, exactly as before this pack existed.
+        packsByZone: ZARAGOZA_ENVELOPE_VERIFIED
+            ? packMap([ES_ZARAGOZA_PGOU2024_PACK, [...ZARAGOZA_ZONE_CODES]])
+            : packMap(),
         // Refusal is a function of the live zone, not of a static enumeration.
         refusalFor: () => null,
         noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>

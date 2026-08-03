@@ -59,6 +59,7 @@ import { CH_ZURICH_BZO_PACK } from '../src/rulepacks/chZurichBzo.js';
 import { SA_RIYADH_DEMO_PACK } from '../src/rulepacks/saRiyadhDemo.js';
 import { ESTIMATED_DEFAULT_PACK } from '../src/rulepacks/estimatedDefault.js';
 import { ES_TELDE_PGO2003_PACK } from '../src/rulepacks/esTeldePgo2003.js';
+import { ES_ZARAGOZA_PGOU2024_PACK } from '../src/rulepacks/esZaragoza.js';
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // THE FROZEN MANIFEST — every pack's PUBLISHED `defaultConfidence`, as shipped before L-664.
@@ -95,6 +96,10 @@ const PUBLISHED: ReadonlyArray<readonly [string, { defaultConfidence: RulePackDe
     // a promotion here would silently launder a machine read into a curated estimate.
     ['ES_MADRID_PGOUM97_PACK', ES_MADRID_PGOUM97_PACK, 'pipeline-extracted-unverified'],
     ['ES_CORDOBA_PGOU2001_PACK', ES_CORDOBA_PGOU2001_PACK, 'pipeline-extracted-unverified'],
+    // Zaragoza PGOU 2024 (Grado A1, subgrados 3.1/3.2/4.1/4.2) — landed after this manifest was
+    // frozen. Human/agent-transcribed VERBATIM from the ordinance text (not OCR), so it ships the
+    // curated-estimate ceiling `estimated-ruleset`, never the OCR-pipeline bottom tier.
+    ['ES_ZARAGOZA_PGOU2024_PACK', ES_ZARAGOZA_PGOU2024_PACK, 'estimated-ruleset'],
     // The rest.
     ['NL_BESTEMMINGSPLAN_PACK', NL_BESTEMMINGSPLAN_PACK, 'estimated-ruleset'],
     ['FR_PARIS_PLU_PACK', FR_PARIS_PLU_PACK, 'estimated-ruleset'],

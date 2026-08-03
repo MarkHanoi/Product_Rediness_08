@@ -1217,6 +1217,18 @@ export {
     zaragozaAlignmentSeparationRatio,
     zaragozaNoRulePackRefusal,
 } from './rulepacks/esAragon.js';
+// §ZGZ-SUBGRADO-PACK — the 4 transcribed A1 subgrados (3.1/3.2/4.1/4.2). Registered but GATED —
+// see `esZaragoza.ts` and the `packsByZone` wiring in `registry.ts`.
+export {
+    ES_ZARAGOZA_PGOU2024_PACK,
+    ZARAGOZA_ZONE_CODES,
+    ZARAGOZA_FIELD_PROVENANCE,
+    ZARAGOZA_PACK_DEFAULT_CONFIDENCE,
+    ZARAGOZA_A1_3_WIDTH_BANDS,
+    ZARAGOZA_A1_3_2_TRAVESIA_GAP,
+    resolveZaragozaA13Height,
+    zaragozaA13WeightedEdificabilidad,
+} from './rulepacks/esZaragoza.js';
 // ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
 // ║ ⚠ END OF THE ARAGÓN BLOCK.                                                                   ║
 // ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
