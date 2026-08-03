@@ -1,0 +1,448 @@
+{
+  "urbanismo:Calificaciones_Urbanas": {
+    "fetched": 7967,
+    "declared_total": 7967,
+    "crs": "urn:ogc:def:crs:EPSG::25830",
+    "distinct_codes": 52,
+    "subgraded_codes": 27,
+    "subgraded_polygons": 2025,
+    "vocabulary": {
+      "EQ": {
+        "count": 1614,
+        "descripcion": "EQ: Equipamientos y servicios"
+      },
+      "ZV": {
+        "count": 1666,
+        "descripcion": "ZV: Zonas Verdes"
+      },
+      "SUZ-PD": {
+        "count": 556,
+        "descripcion": "SUZ-PD: Sector delimitado en suelo urbanizable. Plan parcial aprobado"
+      },
+      "PR": {
+        "count": 905,
+        "descripcion": "PR: Planeamiento recogido"
+      },
+      "VT-PIGA": {
+        "count": 185,
+        "descripcion": "VT-PIGA: Vertido y tratamiento de residuos. Proyecto Supramunicipal PTR"
+      },
+      "C1": {
+        "count": 119,
+        "descripcion": "C1: Conjuntos urbanos contemporáneos"
+      },
+      "A1/1": {
+        "count": 299,
+        "descripcion": "A1/1: Edificación en manzana cerrada. Trama de ensanche con ordenación gráfica de fondo edificable"
+      },
+      "A1/2": {
+        "count": 354,
+        "descripcion": "A1/2: Edificación en manzana cerrada. Trama de ensanche con patio de manzana por agregación de espacios libres"
+      },
+      "A1/3.2": {
+        "count": 40,
+        "descripcion": "A1/3.2: Edificación en manzana cerrada. Barrios periféricos: Travesías de Casetas y Santa Isabel"
+      },
+      "A1/3.1": {
+        "count": 301,
+        "descripcion": "A1/3.1: Edificación en manzana cerrada. Barrios periféricos"
+      },
+      "A2/3": {
+        "count": 218,
+        "descripcion": "A2/3: Edificación en ordenación abierta de vivienda colectiva. Solares edificados con anterioridad a vigencia del plan general"
+      },
+      "A1/4.2": {
+        "count": 114,
+        "descripcion": "A1/4.2: Edificación en manzana cerrada. Núcleos históricos de barrios rurales"
+      },
+      "A1/4.1": {
+        "count": 215,
+        "descripcion": "A1/4.1: Edificación en manzana cerrada. Núcleos históricos de barrios rurales"
+      },
+      "A6/2": {
+        "count": 25,
+        "descripcion": "A6/2: Edificación usos productivos. Manzanas industriales compactas"
+      },
+      "A2/2": {
+        "count": 8,
+        "descripcion": "A2/2: Edificación en ordenación abierta de vivienda colectiva"
+      },
+      "G": {
+        "count": 164,
+        "descripcion": "G: Área residencial de nueva ordenación en ámbitos vacantes u obsoletos"
+      },
+      "A2/4": {
+        "count": 10,
+        "descripcion": "A2/4: Edificación en ordenación abierta. Uso terciario"
+      },
+      "A2/5": {
+        "count": 3,
+        "descripcion": "A2/5: Edificación en ordenación abierta. Sustitución actividades y edificios existentes por uso y tipologia residencial del entorno "
+      },
+      "A2/1": {
+        "count": 8,
+        "descripcion": "A2/1: Edificación en ordenación abierta de vivienda colectiva"
+      },
+      "D1": {
+        "count": 15,
+        "descripcion": "D1: Zona de edificación residencial en agrupaciones de densidad media"
+      },
+      "A3/1": {
+        "count": 19,
+        "descripcion": "A3/1: Edificación en ordenación abierta con viviendas unifamiliares o colectivas en coexistencia"
+      },
+      "A3/2": {
+        "count": 13,
+        "descripcion": "A3/2: Edificación en ordenación abierta con viviendas unifamiliares o colectivas en coexistencia"
+      },
+      "F-PD": {
+        "count": 216,
+        "descripcion": "F-PD: Área de nueva ordenación en ámbitos vacantes u obsoletos. Plan especial aprobado"
+      },
+      "A4/2": {
+        "count": 18,
+        "descripcion": "A4/2: Edificación en ordenación abierta con viviendas unifamiliares exclusivamente"
+      },
+      "A4/1": {
+        "count": 12,
+        "descripcion": "A4/1: Edificación en ordenación abierta con viviendas unifamiliares exclusivamente"
+      },
+      "D2": {
+        "count": 78,
+        "descripcion": "D2: Zona de edificación residencial en agrupaciones de densidad media"
+      },
+      "A6/1": {
+        "count": 21,
+        "descripcion": "A6/1: Edificación usos productivos. Polígonos de Malpica y Cogullada"
+      },
+      "B2": {
+        "count": 12,
+        "descripcion": "B2: Ciudad histórica. Remodelación de la estructura urbana"
+      },
+      "A6/1***": {
+        "count": 4,
+        "descripcion": "A6/1***: Edificación usos productivos. Polígonos de Malpica y Cogullada. Bandas de borde con grandes ejes viarios"
+      },
+      "A6/1*": {
+        "count": 3,
+        "descripcion": "A6/1*: Edificación usos productivos. Ámbito plan parcial poligono Cogullada"
+      },
+      "A6/1**": {
+        "count": 3,
+        "descripcion": "A6/1**: Edificación usos productivos. Polígonos de Malpica y Cogullada. Bandas de borde con usos residenciales"
+      },
+      "A6/2**": {
+        "count": 1,
+        "descripcion": "A6/2**: Edificación usos productivos. Manzanas industriales compactas. Bandas de borde con usos residenciales"
+      },
+      "B1/1": {
+        "count": 181,
+        "descripcion": "B1/1: Ciudad histórica. Casco antiguo"
+      },
+      "B1/2": {
+        "count": 98,
+        "descripcion": "B1/2: Ciudad histórica. Vías perimetrales y aperturas"
+      },
+      "B1/3": {
+        "count": 45,
+        "descripcion": "B1/3: Ciudad histórica. Ensanches decimonónicos"
+      },
+      "B4": {
+        "count": 2,
+        "descripcion": "B4: Ciudad histórica. Bloques aislados en Paseo de María Agustín"
+      },
+      "C2": {
+        "count": 45,
+        "descripcion": "C2: Conjuntos urbanos contemporáneos"
+      },
+      "H1": {
+        "count": 72,
+        "descripcion": "H1: Área edificación usos productivos industriales pendiente de gestión"
+      },
+      "H2": {
+        "count": 47,
+        "descripcion": "H2: Área edificación usos productivos mixtos pendiente de gestión"
+      },
+      "B1/1*": {
+        "count": 10,
+        "descripcion": "B1/1*: Ciudad histórica. Casco antiguo. Ordenación gráfica de patios interiores"
+      },
+      "F": {
+        "count": 49,
+        "descripcion": "F: Área de nueva ordenación en ámbitos vacantes u obsoletos"
+      },
+      "G-PD": {
+        "count": 47,
+        "descripcion": "G-PD: Área residencial de nueva ordenación en ámbitos vacantes u obsoletos. Ordenación vigente por plan especial"
+      },
+      "AC": {
+        "count": 1,
+        "descripcion": "AC: Área con convenio urbanístico aprobado"
+      },
+      "AC-PD": {
+        "count": 26,
+        "descripcion": "AC-PD: Área con convenio urbanístico aprobado. Ordenación pormenorizada aprobada"
+      },
+      "AL-PIGA": {
+        "count": 104,
+        "descripcion": "AL-PIGA: Actividades Logísticas. Proyecto Supramunicipal PLAZA"
+      },
+      "E-PD": {
+        "count": 2,
+        "descripcion": "E-PD: Área de nueva ordenación por renovación de uso. Plan especial aprobado"
+      },
+      "H2-PD": {
+        "count": 4,
+        "descripcion": "H2-PD: Área de edificación usos productivos mixtos pendiente de gestión. Ordenación vigente por plan especial"
+      },
+      "E": {
+        "count": 3,
+        "descripcion": "E: Área de nueva ordenación por renovación de uso"
+      },
+      "K": {
+        "count": 7,
+        "descripcion": "K: Núcleo de población por parcelaciones urbanísticas irregulares"
+      },
+      "K-PD": {
+        "count": 3,
+        "descripcion": "K-PD: Núcleo de población por parcelaciones urbanísticas irregulares. Plan especial aprobado"
+      },
+      "A1/2*": {
+        "count": 1,
+        "descripcion": null
+      },
+      "A1/3.1*": {
+        "count": 1,
+        "descripcion": null
+      }
+    }
+  },
+  "urbanismo:Estructura": {
+    "fetched": 9031,
+    "declared_total": 9031,
+    "crs": "urn:ogc:def:crs:EPSG::25830",
+    "distinct_codes": 42,
+    "subgraded_codes": 0,
+    "subgraded_polygons": 0,
+    "vocabulary": {
+      "SNU-EP-V": {
+        "count": 270,
+        "descripcion": "Vales"
+      },
+      "SNU-EP-S": {
+        "count": 90,
+        "descripcion": "Protección de la agricultura en el secano tradicional"
+      },
+      "SNU-EN-SE": {
+        "count": 184,
+        "descripcion": "Protección del suelo estepario"
+      },
+      "SNU-EN-NI": {
+        "count": 27,
+        "descripcion": "Otros espacios naturales de interés"
+      },
+      "EQ": {
+        "count": 1614,
+        "descripcion": "Equipamientos y Servicios"
+      },
+      "SNU-EN-CC": {
+        "count": 45,
+        "descripcion": "Protección de cauces y canales de crecida"
+      },
+      "SNU-EC": {
+        "count": 86,
+        "descripcion": "Patrimonio cultural en medio rural"
+      },
+      "SNU-EN-MA": {
+        "count": 10,
+        "descripcion": "Masas arbóreas y terrenos forestales naturales"
+      },
+      "SNU-EN-RF": {
+        "count": 55,
+        "descripcion": "Montes y suelos de repoblación forestal"
+      },
+      "SNU-EN-SR": {
+        "count": 41,
+        "descripcion": "Sotos, galachos y riberas fluviales"
+      },
+      "SNU-G-NRT": {
+        "count": 17,
+        "descripcion": "Núcleos Rurales Tradicionales"
+      },
+      "SNU-ES-SCI": {
+        "count": 26,
+        "descripcion": "Protección del sistema de comunicaciones e infraestructuras"
+      },
+      "SNU-EP-R": {
+        "count": 49,
+        "descripcion": "Protección de la agricultura en el regadío alto tradicional"
+      },
+      "SNU-EP-HH": {
+        "count": 62,
+        "descripcion": "Protección de la huerta honda"
+      },
+      "SUZ-R": {
+        "count": 31,
+        "descripcion": "SUZ-R: Suelo urbanizable Residencial"
+      },
+      "ZV": {
+        "count": 1665,
+        "descripcion": "Zonas Verdes – Espacios libres"
+      },
+      "SUZ-PD-R": {
+        "count": 537,
+        "descripcion": "Suelo urbanizable Residencial"
+      },
+      "SUZ-P": {
+        "count": 37,
+        "descripcion": "SUZ-P: Suelo urbanizable Usos productivos"
+      },
+      "SNU-EN-VB": {
+        "count": 17,
+        "descripcion": "Protección de vaguadas y barrancos"
+      },
+      "SNU-ET": {
+        "count": 7,
+        "descripcion": "Transición del tramo urbano del Ebro"
+      },
+      "SNU-ES-D": {
+        "count": 6,
+        "descripcion": "Áreas de la Defensa"
+      },
+      "AL-PIGA": {
+        "count": 104,
+        "descripcion": "Terminales de transporte y actividades logísticas"
+      },
+      "SUZ-PD-P": {
+        "count": 19,
+        "descripcion": "Suelo urbanizable Usos productivos"
+      },
+      "PR-R": {
+        "count": 805,
+        "descripcion": "PR-R: Planeamiento recogido Residencial"
+      },
+      "SNU-G-VT": {
+        "count": 2,
+        "descripcion": "Vertido, tratamiento, recuperación y valoración de residuos"
+      },
+      "SNU-G-C": {
+        "count": 1,
+        "descripcion": "Núcleos Tradicionales de Cuevas"
+      },
+      "A1": {
+        "count": 1325,
+        "descripcion": "A1. Edificación en manzana cerrada"
+      },
+      "F": {
+        "count": 267,
+        "descripcion": "Zona F. Área de reforma interior pendiente de ordenación"
+      },
+      "PR-OU": {
+        "count": 101,
+        "descripcion": "PR-OU: Planeamiento recogido Otros Usos"
+      },
+      "E": {
+        "count": 5,
+        "descripcion": "Zona E. Área de nueva ordenación por renovación de uso"
+      },
+      "B": {
+        "count": 347,
+        "descripcion": "B. Ciudad histórica"
+      },
+      "H": {
+        "count": 123,
+        "descripcion": "Zona H. Área de edificación destinada a usos productivos"
+      },
+      "VT-PIGA": {
+        "count": 185,
+        "descripcion": "Vertido, tratamiento, recuperación y valoración de residuos"
+      },
+      "AC": {
+        "count": 27,
+        "descripcion": "Zona AC. Área pendiente de convenio urbanístico"
+      },
+      "G": {
+        "count": 211,
+        "descripcion": "Zona G. Área de reforma interior pendiente de gestión"
+      },
+      "A2": {
+        "count": 248,
+        "descripcion": "A2. Edificación en ordenación abierta"
+      },
+      "D": {
+        "count": 93,
+        "descripcion": "D. Zona de edificación residencial en agrupaciones de densidad media"
+      },
+      "C": {
+        "count": 164,
+        "descripcion": "C. Conjuntos urbanos contemporáneos"
+      },
+      "A6": {
+        "count": 56,
+        "descripcion": "A6. Edificación destinada a usos productivos"
+      },
+      "A3": {
+        "count": 32,
+        "descripcion": "A3. Edificación en ordenación abierta extensiva "
+      },
+      "A4": {
+        "count": 30,
+        "descripcion": "A4. Vivienda unifamiliar aislada o agrupada"
+      },
+      "K": {
+        "count": 10,
+        "descripcion": "Zona K. Núcleo de población por parcelaciones urbanísticas irregulares"
+      }
+    }
+  },
+  "urbanismo:Clasificaciones": {
+    "fetched": 683,
+    "declared_total": 683,
+    "crs": "urn:ogc:def:crs:EPSG::25830",
+    "distinct_codes": 10,
+    "subgraded_codes": 0,
+    "subgraded_polygons": 0,
+    "vocabulary": {
+      "SNU-G": {
+        "count": 31,
+        "descripcion": "Suelo no urbanizable genérico"
+      },
+      "SU-NC": {
+        "count": 192,
+        "descripcion": "Suelo  urbano  no consolidado"
+      },
+      "SU": {
+        "count": 200,
+        "descripcion": "Suelo  urbano consolidado"
+      },
+      "SNU-E": {
+        "count": 46,
+        "descripcion": "Suelo no urbanizable especial"
+      },
+      "SGU": {
+        "count": 55,
+        "descripcion": "Sistema general urbano"
+      },
+      "SGNU": {
+        "count": 13,
+        "descripcion": "Sistema general no urbanizable"
+      },
+      "SGUZ": {
+        "count": 38,
+        "descripcion": "Sistema general urbanizable"
+      },
+      "RIO": {
+        "count": 18,
+        "descripcion": null
+      },
+      "SUZ": {
+        "count": 84,
+        "descripcion": "Suelo urbanizable"
+      },
+      "SUZ (D)": {
+        "count": 6,
+        "descripcion": null
+      }
+    }
+  }
+}

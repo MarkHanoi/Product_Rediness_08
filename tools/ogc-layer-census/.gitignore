@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+
+# ── BULK RAW CAPABILITIES DUMPS — regenerable caches, not evidence. ──
+# Every one of these is reproduced verbatim by re-running the probe against the same endpoint;
+# committing ~6 MB of them buys nothing the scripts do not rebuild in a minute. The DECISIVE,
+# compact measurements ARE committed (subgrado census, DescribeLayer map, alignment control,
+# per-feature-type census) because those are what the code's constants cite.
+out/zaragoza_ogc_census.json
+out/zaragoza_wms_layers_full.json
+out/zaragoza_wms_tree.json
+out/zaragoza_hidden_featuretypes.json
+out/zaragoza_wfs_layers_full.json

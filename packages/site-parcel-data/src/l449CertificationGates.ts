@@ -239,10 +239,15 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         value: ZARAGOZA_ENVELOPE_VERIFIED,
         // ⚠ NOT signable today either, and again not for want of a reader. The zoning is LIVE and
         // parcel-precise (9,031 calificación polygons, 100 % populated), and the articles are
-        // published — but the polygon carries `A1` without its subgrado, and the aprovechamiento
-        // article is selected BY the subgrado (4.1.12 / 4.1.13 / 4.1.15 / 4.1.17). A 28-name
-        // typename sweep for a subgrado-bearing layer returned HTTP 400 on all 28. What closes
-        // this is one attribute the city holds and does not serve.
+        // published. ⚠ CORRECTED (§ZGZ-SUBGRADO): this row used to say the blocker was that the
+        // polygon carries `A1` without its subgrado, evidenced by a 28-name typename sweep that
+        // returned HTTP 400 on all 28. That evidence was worthless — HTTP 400 means UNKNOWN
+        // TYPENAME, a fact about the guesses. `urbanismo:Calificaciones_Urbanas` serves all four
+        // article selectors (A1/3.1, A1/3.2, A1/4.1, A1/4.2) over the same WFS and answers 200;
+        // it is merely absent from GetCapabilities. So the gate is no longer waiting on DATA — it
+        // is waiting on the TRANSCRIPTION of arts. 4.1.12/4.1.13/4.1.15/4.1.17 and on the
+        // graphically-regulated fondo, which is exactly the kind of thing a signature covers.
+        // ⇒ Still `false`, and now genuinely signable ONCE THE READING IS DONE. See `esAragon.ts`.
         signature: null,
     },
     {

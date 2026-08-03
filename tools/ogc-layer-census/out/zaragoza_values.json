@@ -1,0 +1,1286 @@
+{
+  "wfs": {
+    "urbanismo:Portales": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 46414,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "codigo_via": [
+          "25225",
+          "9236",
+          "17410",
+          "9710",
+          "7595",
+          "21785",
+          "24663",
+          "33173"
+        ],
+        "numero": [
+          "9",
+          "15",
+          "27",
+          "18",
+          "21",
+          "11",
+          "4",
+          "16"
+        ],
+        "calificacion": [
+          "None"
+        ],
+        "bloque_escalera": [
+          "None"
+        ],
+        "numero_policia": [
+          "9",
+          "15",
+          "27",
+          "18",
+          "21",
+          "11",
+          "4",
+          "16"
+        ],
+        "referencia_catastral": [
+          "2602501XM7120D",
+          "3498701XM7039G",
+          "2998601XM7029H",
+          "3299401XM7039G",
+          "3301501XM7130A",
+          "3500301XM7130B",
+          "3598301XM7039H",
+          "3396101XM7039E"
+        ],
+        "area_referencia": [
+          "None"
+        ],
+        "fecha_alta": [
+          "None"
+        ],
+        "canu": [
+          "2120529",
+          "0220026",
+          "2466338",
+          "2522513",
+          "252259",
+          "0971039",
+          "0971045",
+          "3317338"
+        ]
+      }
+    },
+    "urbanismo:Parcelas": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 33606,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "codigo_municipal": [
+          "None"
+        ],
+        "referencia_catastral": [
+          "7237427XM7173G",
+          "7237428XM7173G",
+          "7237430XM7173G",
+          "7237431XM7173G",
+          "7237425XM7173G",
+          "6337434XM7163G",
+          "6338933XM7163G",
+          "6337436XM7163G"
+        ],
+        "numero_parcela": [
+          "09",
+          "07",
+          "08",
+          "05",
+          "06",
+          "10",
+          "25",
+          "34"
+        ],
+        "perimetro": [
+          "83.47",
+          "58.31",
+          "10.03",
+          "36.96",
+          "69.54",
+          "128.82",
+          "66.89",
+          "69.92"
+        ],
+        "superficie": [
+          "271.59",
+          "156.52",
+          "2.95",
+          "84.76",
+          "299.98",
+          "644.65",
+          "252.37",
+          "254.04"
+        ],
+        "igm": [
+          "37676",
+          "37677",
+          "37678",
+          "37679",
+          "37680",
+          "37681",
+          "37682",
+          "37683"
+        ],
+        "referencia": [
+          "7237427XM7173G",
+          "7237428XM7173G",
+          "7237430XM7173G",
+          "7237431XM7173G",
+          "7237425XM7173G",
+          "6337434XM7163G",
+          "6338933XM7163G",
+          "6337436XM7163G"
+        ],
+        "referencia_manzana": [
+          "72371",
+          "72374",
+          "65398",
+          "63374",
+          "70359",
+          "70384",
+          "68379",
+          "66365"
+        ],
+        "es_rustico": [
+          "False"
+        ],
+        "plano_catastro": [
+          "XM7173E",
+          "XM7173G",
+          "XM7163G",
+          "XM7163H",
+          "XM7163F",
+          "XM7163E",
+          "XM7173C"
+        ],
+        "tipo_referencia": [
+          "U"
+        ]
+      }
+    },
+    "urbanismo:Manzanas": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 4549,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "referencia": [
+          "82216",
+          "66407",
+          "69383",
+          "70384",
+          "71365",
+          "65402",
+          "65407",
+          "65411"
+        ],
+        "perimetro": [
+          "366.86",
+          "208.99",
+          "497.32",
+          "257.9",
+          "292.2",
+          "586.97",
+          "188.89",
+          "115.35"
+        ],
+        "superficie": [
+          "3537.92",
+          "2464.76",
+          "8372.23",
+          "3671.37",
+          "2607.34",
+          "9167.55",
+          "2045.91",
+          "723.49"
+        ],
+        "codigo_municipal": [
+          "78151186",
+          "76501385",
+          "76841368",
+          "77033910",
+          "77171367",
+          "76501406",
+          "76591401",
+          "76521413"
+        ],
+        "es_rustico": [
+          "False"
+        ],
+        "igm": [
+          "4593",
+          "4594",
+          "4595",
+          "4596",
+          "4597",
+          "4598",
+          "4599",
+          "4600"
+        ],
+        "plano_catastro": [
+          "XM7163H",
+          "XM7163F",
+          "XM7164B",
+          "XM7173E",
+          "XM7163G",
+          "XM7182A",
+          "XM7173G",
+          "XM7164A"
+        ]
+      }
+    },
+    "urbanismo:Lineas_Edificaciones": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 676482,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "tipo": [
+          "visible"
+        ]
+      }
+    },
+    "urbanismo:IDEZar_Ordenacion_lineas": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 219089,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "LEVEL": [
+          "10",
+          "4",
+          "5",
+          "21"
+        ],
+        "BLUE": [
+          "0",
+          "255"
+        ],
+        "GREEN": [
+          "255",
+          "127",
+          "0"
+        ],
+        "RED": [
+          "255",
+          "0",
+          "120"
+        ],
+        "COMMENT": [
+          "parcelario campos",
+          "curvas de nivel",
+          "curvas de nivel directoras",
+          "ferrocarriles y caminos"
+        ],
+        "LEVEL_NAME": [
+          "Nivel 10",
+          "Nivel 4",
+          "Nivel 5",
+          "Nivel 21"
+        ]
+      }
+    },
+    "urbanismo:Alturas_Edificios": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 179692,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "etiqueta": [
+          "ZV",
+          "I",
+          "MARQ.",
+          "II"
+        ]
+      }
+    },
+    "urbanismo:Areas_Referencia": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 82,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "codigo": [
+          "38",
+          "88",
+          "44",
+          "10",
+          "72",
+          "16",
+          "68",
+          "26"
+        ],
+        "perimetro": [
+          "1930",
+          "8342",
+          "86756",
+          "8471",
+          "3928",
+          "3373",
+          "2794",
+          "9287"
+        ],
+        "superficie": [
+          "2551068",
+          "242348516.0",
+          "1878713",
+          "750551",
+          "571606",
+          "399952",
+          "5734786",
+          "200553"
+        ],
+        "codigo_numerico": [
+          "38",
+          "88",
+          "44",
+          "10",
+          "72",
+          "16",
+          "68",
+          "26"
+        ],
+        "igm": [
+          "8",
+          "10",
+          "1",
+          "7",
+          "76",
+          "48",
+          "15",
+          "4"
+        ]
+      }
+    },
+    "urbanismo:Textos_Edificaciones": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 945,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "texto": [
+          "FACULTAD DE MEDICINA",
+          "RÍO HUERVA",
+          "FACULTAD DE DERECHO",
+          "POLICÍA LOCAL",
+          "FACULTAD DE GEOLÓGICAS",
+          "FACULTAD DE MATEMÁTICAS",
+          "FACULTAD DE CIENCIAS",
+          "ESCUELA UNIVERSITARIA\nDE CIENCIAS DE LA SALUD"
+        ]
+      }
+    },
+    "urbanismo:PLA_1_Instrumentos_ambito": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 525,
+      "crs": null,
+      "sample_values": {
+        "id": [
+          "447",
+          "448",
+          "138",
+          "141",
+          "464",
+          "465",
+          "466",
+          "387"
+        ],
+        "codigo_ambito": [
+          "PR-89-02",
+          "G-57-04",
+          "G-19-01",
+          "SUZ-89-04",
+          "PR-86-03",
+          "PR-86-02",
+          "G-02-01",
+          "G-10-04"
+        ],
+        "tipo_ambito": [
+          "AI",
+          "PR",
+          "SUZ"
+        ],
+        "tipo_instrumento": [
+          "PE",
+          "PP",
+          "MPE",
+          "MPP",
+          "MPP1",
+          "MPG02",
+          "MPG118",
+          "MPG12"
+        ],
+        "nombre_instrumento": [
+          "Plan Especial",
+          "Plan Parcial",
+          "Modificación de Plan Especial",
+          "Modificación de Plan Parcial",
+          "Modificación 1 de Plan Parcial",
+          "Modificación del Plan General nº 2",
+          "Modificación del Plan General nº 118",
+          "Modificación del Plan General nº 12"
+        ],
+        "tipo_base": [
+          "PE",
+          "PP",
+          "MPG",
+          "None",
+          "AA",
+          "ED"
+        ],
+        "identificacion_instrumento": [
+          "None",
+          "La Cartuja de la Concepci¢n",
+          "U-86-2(B)",
+          "Manzana «Conde Aranda-Oasis»",
+          "SUP 89/1-2 (ERe PV 89.43)",
+          "SUP 89/1-2 (ED PV 89.26)",
+          "SUP 89/1-2 (AOD-CC3 y EA PV 89.44)",
+          "U-85-2(B)"
+        ],
+        "expediente": [
+          "None",
+          "13845/22",
+          "1295136/06",
+          "502690/2005",
+          "21210/2003",
+          "935606/03",
+          "250685/06",
+          "803584/18"
+        ],
+        "apr_definitiva": [
+          "None",
+          "27/07/06",
+          "30/06/04",
+          "26/07/07",
+          "23/12/05",
+          "24/07/09",
+          "27/04/07",
+          "24/02/94"
+        ],
+        "fecha_publicacion": [
+          "None",
+          "NULL"
+        ],
+        "area": [
+          "89",
+          "2",
+          "56",
+          "86",
+          "57",
+          "61",
+          "69",
+          "7"
+        ],
+        "orden": [
+          "None",
+          "222",
+          "226",
+          "8",
+          "15",
+          "247",
+          "248",
+          "249"
+        ],
+        "observaciones": [
+          "None",
+          "-",
+          "Declarado nulo por sentencia de la Sección 1ª de la Sala de ",
+          "C/ Cartagena, camino de\nCabaldós y otras calles"
+        ],
+        "pgou_1986": [
+          "None",
+          "La Cartuja de la Concepci¢n",
+          "U-86-2(B)",
+          "SUP 89/1-2 (ERe PV 89.43)",
+          "SUP 89/1-2 (ED PV 89.26)",
+          "SUP 89/1-2 (AOD-CC3 y EA PV 89.44)",
+          "U-85-2(B)",
+          "Plaza de Espa¤a (Tubo)"
+        ],
+        "ante_pgou_1986": [
+          "None",
+          "NULL",
+          "Pol¡gono 13,  rea Sur"
+        ],
+        "prescripciones": [
+          "None",
+          "Esta área fue objeto de un avance de ordenación que situaba ",
+          "426800/03",
+          "El plan especial se adecuará al contenido de las declaracion",
+          " - No aparece en normas"
+        ],
+        "enlace_documentos": [
+          "None",
+          "https://www.zaragoza.es/pgou/fichas/AI/ - No aparece en norm"
+        ],
+        "apr_definitiva_rep": [
+          "None",
+          "12/06/09",
+          "29/02/08",
+          "-",
+          "10/02/17",
+          "02/04/09",
+          "13/03/08",
+          "19/01/07"
+        ],
+        "apr_definitiva_urb": [
+          "None",
+          "-",
+          "01/08/08",
+          "17/04/09",
+          "19/09/08",
+          "12/06/09",
+          "06/10/08",
+          "24/07/08"
+        ],
+        "enlace_acuerdo": [
+          "None",
+          "https://www.zaragoza.es/contenidos/urbanismo/planesparciales",
+          "https://www.zaragoza.es/contenidos/urbanismo/planesespeciale",
+          "NULL"
+        ],
+        "enlace_memoria": [
+          "None",
+          "NULL"
+        ],
+        "enlace_normas": [
+          "None",
+          "https://www.zaragoza.es/contenidos/urbanismo/planesparciales",
+          "https://www.zaragoza.es/contenidos/urbanismo/planesespeciale",
+          "NULL"
+        ],
+        "enlace_planos": [
+          "None",
+          "https://www.zaragoza.es/contenidos/urbanismo/planesparciales",
+          "https://www.zaragoza.es/contenidos/urbanismo/planesespeciale",
+          "NULL"
+        ]
+      }
+    },
+    "urbanismo:PLA_1_Ambitos_desarrollo": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 312,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "codigo_ambito": [
+          "SUZ-J-01",
+          "G-59-01B",
+          "F-55-03",
+          "G-54-03",
+          "H-57-01",
+          "G-34-01",
+          "G-02-01",
+          "G-53-04"
+        ],
+        "tipo_ambito": [
+          "AI",
+          "SUZ"
+        ],
+        "descripcion": [
+          "None",
+          "División en áreas G-59-1/A y G-59-1/B",
+          "Manzana «Conde Aranda-Oasis»",
+          "Antigua fábrica de Pikolín (Torre Outlet)",
+          "Urbanización Valdesapartera",
+          "Esquinas del Psiquiátrico",
+          "Entorno del pabellón Príncipe Felipe",
+          "Delimitación del ámbito y tipo edificatorio"
+        ],
+        "etiqueta_visor": [
+          "SUZ J/1",
+          "G-59-1B",
+          "F-55-3",
+          "G-54-3",
+          "H-57-1",
+          "G-34-1",
+          "G-2-1",
+          "G-53-4"
+        ],
+        "enlace_ficha": [
+          "None",
+          "https://www.zaragoza.es/pgou/fichas/AI/H.pdf",
+          "https://www.zaragoza.es/pgou/fichas/AI/G-59-01B.pdf",
+          "https://www.zaragoza.es/pgou/fichas/AI/F-55-03.pdf",
+          "https://www.zaragoza.es/pgou/fichas/AI/G-54-03.pdf",
+          "https://www.zaragoza.es/pgou/fichas/AI/G-34-01.pdf",
+          "https://www.zaragoza.es/pgou/fichas/AI/G-02-01.pdf",
+          "https://www.zaragoza.es/pgou/fichas/AI/G-53-04.pdf"
+        ],
+        "tiene_instrumentos": [
+          "False",
+          "True"
+        ]
+      }
+    },
+    "urbanismo:PLA_1_Ambitos_recogido": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 230,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "codigo_ambito": [
+          "PR-03-02",
+          "PR-49-01",
+          "PR-85-03",
+          "PR-88-01",
+          "PR-03-01",
+          "PR-05-02",
+          "PR-12-01",
+          "PR-27-01"
+        ],
+        "tipo_ambito": [
+          "PR"
+        ],
+        "descripcion": [
+          "U-3-1/2 (entorno Pignatelli)",
+          "U-49-1",
+          "U-85-3",
+          "SUP 88/2-1 y SUP 88/2-2",
+          "U-3-1/1 (C/ Ramón y Cajal,\nPignatelli, Caballo)",
+          "Plaza de los Sitios\n(Espacio Goya)",
+          "Manzana N-12 del pol¡gono 12",
+          "C/ Violante de Hungría"
+        ],
+        "etiqueta_visor": [
+          "PR",
+          "U-3-1/2",
+          "U-49-1",
+          "U-85-3",
+          "U-3-1/1",
+          "U-36-3",
+          "U-37-2",
+          "U-51-1"
+        ],
+        "enlace_ficha": [
+          "None"
+        ],
+        "tiene_instrumentos": [
+          "True"
+        ]
+      }
+    },
+    "urbanismo:suelos_vacantes": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 3081,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "ogc_fid": [
+          "1208484",
+          "1208493",
+          "1208490",
+          "1206873",
+          "1217084",
+          "1217085",
+          "1206870",
+          "1208488"
+        ],
+        "referencia_catastral": [
+          "0001401XM7100A",
+          "0003901XM7100C",
+          "0004602XM7100C",
+          "0004603XM7100C",
+          "00046Z1XM7100C",
+          "00046Z2XM7100C",
+          "0005901XM7100E",
+          "0005902XM7100E"
+        ],
+        "superficie": [
+          "2921.83",
+          "4800",
+          "4887",
+          "5460",
+          "948.55",
+          "766.12",
+          "1615.56",
+          "2524.77"
+        ],
+        "perimetro": [
+          "294",
+          "257.61",
+          "280",
+          "299.66",
+          "133.54",
+          "119.7",
+          "191.79",
+          "249.34"
+        ],
+        "codigo_municipal": [
+          "None"
+        ]
+      }
+    },
+    "urbanismo:hoja_pgou_2000": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 165,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "ogc_fid": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8"
+        ],
+        "codigo": [
+          "H12",
+          "H13",
+          "H14",
+          "H17",
+          "H18",
+          "H19",
+          "G7",
+          "G15"
+        ]
+      }
+    },
+    "urbanismo:hoja_pgou_5000": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 141,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "ogc_fid": [
+          "19",
+          "20",
+          "21",
+          "22",
+          "23",
+          "24",
+          "25",
+          "26"
+        ],
+        "codigo": [
+          "094",
+          "085",
+          "066",
+          "116",
+          "057",
+          "107",
+          "058",
+          "019"
+        ]
+      }
+    },
+    "urbanismo:hoja_pgou_chc": {
+      "status": 200,
+      "returned": 4,
+      "totalFeatures": 4,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "codigo": [
+          "a",
+          "b",
+          "c",
+          "d"
+        ]
+      }
+    },
+    "urbanismo:hoja_pgou_chr": {
+      "status": 200,
+      "returned": 11,
+      "totalFeatures": 11,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "codigo": [
+          "01",
+          "02",
+          "03",
+          "04",
+          "05",
+          "06",
+          "07",
+          "08"
+        ]
+      }
+    },
+    "urbanismo:Vias": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 3359,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "codigo": [
+          "80",
+          "82",
+          "40099",
+          "40096",
+          "40100",
+          "40103",
+          "40022",
+          "40105"
+        ],
+        "tipo_via": [
+          "CL",
+          "DS",
+          "CN",
+          "AN",
+          "PL",
+          "GL",
+          "JR",
+          "CT"
+        ],
+        "nombre": [
+          "AEROPUERTO",
+          "ABEJAR",
+          "ABRIL SÁNCHEZ, JUAN A.",
+          "LORENTE DE NO, RAFAEL",
+          "GUERRA PEÑAMARÍA, ISABEL",
+          "ORTEGA, ORENCIO \"MERLÍN\"",
+          "CLAVERÍA, PILAR \"LA RONA\"",
+          "SOLANS, JUAN"
+        ],
+        "nombre_completo": [
+          "AEROPUERTO",
+          "ABEJAR",
+          "JUAN ANTONIO ABRIL SÁNCHEZ",
+          "RAFAEL LORENTE DE NO",
+          "ISABEL GUERRA PEÑAMARÍA",
+          "ORENCIO ORTEGA \"MERLÍN\"",
+          "PILAR CLAVERÍA, \"LA RONA\"",
+          "JUAN SOLANS"
+        ],
+        "nombre_reducido": [
+          "None",
+          "AEROPUERTO",
+          "ABEJAR",
+          "JUAN A. ABRIL SÁNCHEZ",
+          "RAFAEL LORENTE DE NO",
+          "ISABEL GUERRA PEÑAMARÍA",
+          "ORENCIO ORTEGA \"MERLÍN\"",
+          "PILAR CLAVERÍA, \"LA RONA\""
+        ],
+        "barrio_rural": [
+          "None",
+          "CRT",
+          "GRP",
+          "MNT",
+          "ALF",
+          "CST",
+          "JSL",
+          "VLR"
+        ],
+        "codigo_via_entrada": [
+          "None",
+          "16980",
+          "6980",
+          "8545",
+          "22860",
+          "17420",
+          "10465",
+          "23040"
+        ],
+        "codigo_via_salida": [
+          "None",
+          "6980",
+          "6592",
+          "90002",
+          "15680",
+          "20040",
+          "27600",
+          "40096"
+        ],
+        "fecha_acuerdo": [
+          "None",
+          "2025-03-14",
+          "1994-11-24",
+          "2010-12-23",
+          "2016-07-25",
+          "2005-04-28",
+          "2004-06-30",
+          "2008-11-13"
+        ],
+        "fecha_baja": [
+          "None"
+        ],
+        "nombre_publico": [
+          "CAMINO ABEJAR",
+          "CALLE JUAN ANTONIO ABRIL SÁNCHEZ",
+          "ANDADOR RAFAEL LORENTE DE NO",
+          "CALLE ISABEL GUERRA PEÑAMARÍA",
+          "ANDADOR ORENCIO ORTEGA \"MERLÍN\"",
+          "CALLE PILAR CLAVERÍA, \"LA RONA\"",
+          "ANDADOR JUAN SOLANS",
+          "ANDADOR CURA ALFONSO"
+        ],
+        "fecha_propuesta": [
+          "None"
+        ]
+      }
+    },
+    "urbanismo:v_ambitos_desarrollo_etiquetas": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 562,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "ogc_fid": [
+          "5815",
+          "5816",
+          "5817",
+          "5818",
+          "5819",
+          "5820",
+          "5821",
+          "5822"
+        ],
+        "codigo_ambito": [
+          "K-82",
+          "K-65-02",
+          "K-65-03",
+          "K-59-01",
+          "H-63-09",
+          "H-63-08",
+          "H-63-07",
+          "H-83-07"
+        ],
+        "tipo_ambito": [
+          "AI"
+        ],
+        "etiqueta_visor": [
+          "K-82",
+          "K-65-2",
+          "K-65-3",
+          "K-59-1",
+          "H-63-9",
+          "H-63-8",
+          "H-63-7",
+          "H-83-7"
+        ]
+      }
+    },
+    "urbanismo:Clavos_Topograficos": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 4308,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "nombre": [
+          "16 708",
+          "61 59",
+          "4 704",
+          "1 767",
+          "1 768",
+          "1 770",
+          "1 728",
+          "1 729"
+        ],
+        "altitud": [
+          "205.23",
+          "211.578",
+          "208.946",
+          "201.547",
+          "202.302",
+          "203.671",
+          "200.14",
+          "202.79"
+        ],
+        "emplazamiento": [
+          "ASALTO",
+          "AMISTAD, LA",
+          "UNIVERSIDAD",
+          "SAN VICENTE PAUL",
+          "ORGANO",
+          "MAYOR",
+          "SAN BLAS",
+          "SANTA LUCIA"
+        ],
+        "foto": [
+          "https://www.zaragoza.es/cont/paginas/urbanismo/clavosimg/FOT",
+          "https://www.zaragoza.es/cont/paginas/urbanismo/clavosimg/Fot"
+        ],
+        "image": [
+          "https://www.zaragoza.es/cont/paginas/urbanismo/clavosimg/CLV",
+          "https://www.zaragoza.es/cont/paginas/urbanismo/clavosimg/CLv"
+        ],
+        "base": [
+          "Secundaria",
+          "Primaria"
+        ],
+        "comentario": [
+          "None",
+          "Situado sobre el bordillo, entre las Carmelitas Descalzas y ",
+          "Situado sobre el bordillo.",
+          "Clavo situado sobre la acera a la entrada de la plaza frente",
+          "Situado en el bordillo de la acera del puente sobre la autop",
+          "En la intersección de las calles Cadiz y Murillo",
+          "En la acera de la calle Don Teobaldo, frente al número 16, j",
+          "En el bordillo de la calle Universidad, frente a la Calle To"
+        ],
+        "comprobado": [
+          "None"
+        ],
+        "emplazamiento_alt": [
+          "None",
+          "CARRILLO, MARTIN",
+          "PEROMARTA, TELESFORO",
+          "FORQUE, JOSE M. PL.",
+          "SAN VICTORIAN,MTR.P",
+          "SALINAS, MADRINA",
+          "autopista A-68",
+          "MURILLO, DIEGO (FRAY)"
+        ],
+        "numero": [
+          "708",
+          "729",
+          "710",
+          "723",
+          "724",
+          "731",
+          "737",
+          "702"
+        ],
+        "observado": [
+          "1990-01-01T00:00:00+01:00",
+          "1995-01-01T00:00:00+01:00",
+          "2021-05-20T00:00:00+02:00",
+          "1998-11-01T00:00:00+01:00",
+          "1998-10-01T00:00:00+02:00",
+          "2022-09-12T00:00:00+02:00",
+          "1999-09-01T00:00:00+02:00",
+          "1998-03-01T00:00:00+01:00"
+        ],
+        "poligono": [
+          "1",
+          "7",
+          "3",
+          "9",
+          "2",
+          "6",
+          "5",
+          "16"
+        ],
+        "sede_id": [
+          "15",
+          "19",
+          "32",
+          "42",
+          "43",
+          "47",
+          "73",
+          "74"
+        ],
+        "signal": [
+          "Clavo de acero",
+          "Clavo rego",
+          "clavo geopunto",
+          "Clavo de laton",
+          "Clavo geopunto"
+        ],
+        "tipo_calculo": [
+          "2",
+          "1"
+        ]
+      }
+    },
+    "elu:ExistingLandUseObject": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 9645,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "@featureType": [
+          "ExistingLandUseObject"
+        ],
+        "inspireId": [
+          "{'@dataType': 'Identifier', 'localId': 'calificacion.134155'",
+          "{'@dataType': 'Identifier', 'localId': 'calificacion.134156'",
+          "{'@dataType': 'Identifier', 'localId': 'calificacion.134157'",
+          "{'@dataType': 'Identifier', 'localId': 'calificacion.134158'",
+          "{'@dataType': 'Identifier', 'localId': 'calificacion.134159'",
+          "{'@dataType': 'Identifier', 'localId': 'calificacion.134160'",
+          "{'@dataType': 'Identifier', 'localId': 'calificacion.134161'",
+          "{'@dataType': 'Identifier', 'localId': 'calificacion.134162'"
+        ],
+        "hilucsLandUse": [
+          "[{'@href': 'http://inspire.ec.europa.eu/codelist/HILUCSValue"
+        ],
+        "specificLandUse": [
+          "[{'@href': 'http://www.zaragoza.es/inspire/codelist/LandUseC"
+        ],
+        "beginLifespanVersion": [
+          "2001-06-01T00:00:00Z"
+        ]
+      }
+    },
+    "cp:CadastralParcel": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 33606,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "@featureType": [
+          "CadastralParcel"
+        ],
+        "inspireId": [
+          "{'@dataType': 'Identifier', 'localId': '0001401XM7100A', 'na",
+          "{'@dataType': 'Identifier', 'localId': '0002601XM7100A', 'na",
+          "{'@dataType': 'Identifier', 'localId': '0003901XM7100C', 'na",
+          "{'@dataType': 'Identifier', 'localId': '0004602XM7100C', 'na",
+          "{'@dataType': 'Identifier', 'localId': '0004603XM7100C', 'na",
+          "{'@dataType': 'Identifier', 'localId': '00046Z1XM7100C', 'na",
+          "{'@dataType': 'Identifier', 'localId': '00046Z2XM7100C', 'na",
+          "{'@dataType': 'Identifier', 'localId': '0004901XM7100C', 'na"
+        ],
+        "nationalCadastralReference": [
+          "0001401XM7100A",
+          "0002601XM7100A",
+          "0003901XM7100C",
+          "0004602XM7100C",
+          "0004603XM7100C",
+          "00046Z1XM7100C",
+          "00046Z2XM7100C",
+          "0004901XM7100C"
+        ],
+        "areaValue": [
+          "2921.83",
+          "4887",
+          "960",
+          "5460",
+          "948.55",
+          "766.12",
+          "1615.56",
+          "2524.77"
+        ],
+        "beginLifespanVersion": [
+          "2024-01-01T00:00:00Z"
+        ]
+      }
+    },
+    "cp:CadastralZoning": {
+      "status": 200,
+      "returned": 60,
+      "totalFeatures": 4151,
+      "crs": "urn:ogc:def:crs:EPSG::25830",
+      "sample_values": {
+        "@featureType": [
+          "CadastralZoning"
+        ],
+        "inspireId": [
+          "{'@dataType': 'Identifier', 'localId': '00014', 'namespace':",
+          "{'@dataType': 'Identifier', 'localId': '00026', 'namespace':",
+          "{'@dataType': 'Identifier', 'localId': '00039', 'namespace':",
+          "{'@dataType': 'Identifier', 'localId': '00046', 'namespace':",
+          "{'@dataType': 'Identifier', 'localId': '00049', 'namespace':",
+          "{'@dataType': 'Identifier', 'localId': '00059', 'namespace':",
+          "{'@dataType': 'Identifier', 'localId': '00061', 'namespace':",
+          "{'@dataType': 'Identifier', 'localId': '00069', 'namespace':"
+        ],
+        "nationalCadastalZoningReference": [
+          "00014",
+          "00026",
+          "00039",
+          "00046",
+          "00049",
+          "00059",
+          "00061",
+          "00069"
+        ],
+        "level": [
+          "{'@dataType': 'Reference'}"
+        ],
+        "beginLifespanVersion": [
+          "2024-01-01T00:00:00Z"
+        ]
+      }
+    }
+  },
+  "featureinfo": {
+    "676200.0,4614600.0": {
+      "Plano_Calificacion": {
+        "format": "application/json",
+        "status": 200,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"id\":\"Clasificaciones.fid--741f910a_19fc692dd30_6a97\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[675921.5,4614411.4],[675970.4,4614438.6],[675982.5,4614416.6],[676020.4,4614437.5],[676093.2,4614422.2],[676086.3,4614389.6],[676082.1,4614376.7],[676078.5,4614372.1],[676073.8,4614368.7],[676068.7,4614367],[676060.9,4614366.1],[676111.9,4614352.6],[676111.4,4614364.5],[676112.3,4614371.1],[676150.9,4614556.7],[676152.1,4614572.2],[676148.1,4614598.2],[676184.3,4614617.8],[676185.7,4614617.7],[676187.7,4614615.5],[676191.1,4614599.9],[676192.4,4614582.8],[676191.4,4614564.1],[676151.1,4614369.4],[676150.2,4614359.1],[676152.5,4614344.7],[676191.4,4614338.1],[676246.6,4614333.3],[676248.9,4614334.8],[676299.1,4614334.3],[676336.6,4614336.1],[676349.4,4614338.8],[676360.5,4614346.5],[676366,4614354.4],[676368.5,4614363.1],[676410.3,4614792.7],[676407.8,4614805.2],[676401.8,4614816.5],[676353.1,4614869],[676341.5,4614875.8],[676332.9,4614877.8],[676320,4614878.7],[676278.5,4614872.1],[676241.6,4614863.6],[676211.4,4614854.1],[676167.5,4614837.4],[676119.5,4614813.1],[676088,4614795],[676074.9,4614784.9],[676114.1,4614733],[676116.7,4614728.2],[676118.3,4614722.5],[676118.4,4614715.2],[676115.7,4614707.1],[676110.8,4614700.7],[676104.4,4614696.5],[676097.6,4614694.5],[676091.5,4614694.3],[676085.6,4614695.7],[676079.4,4614699.2],[676032.1,4614751.9],[675984.3,4614711.9],[675976.5,4614706.5],[675963.9,4614694.4],[675950.7,4614679.5],[675928.7,4614646.9],[675924.1,4614644],[675885,4614593.2],[675812.4,4614489.8],[675811.1,4614481.3],[675812.1,4614472.4],[675818.9,4614459.7],[675879.8,4614429.4],[675921.5,4614411.4],[675921.5,4614411.4]]]},\"geometry_name\":\"geom\",\"properties\":{\"clasificacion\":\"SU\",\"clase\":\"P\",\"descripcion\":\"Suelo  urbano consolidado\",\"perimetro\":2650.53,\"superficie\":203219.17,\"tipo\":\"CLAS\"}}],\"totalFeatures\":\"unknown\",\"numberReturned\":1,\"timeStamp\":\"2026-08-03T07:43:35.845Z\",\"crs\":{\"type\":\"name\",\"properties\":{\"name\":\"urn:ogc:def:crs:EPSG::25830\"}}}"
+      },
+      "urbanismo:Plano_Clasificacion": {
+        "format": "application/json",
+        "status": 200,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"id\":\"Clasificaciones.fid--741f910a_19fc692dd30_6aa9\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[675921.5,4614411.4],[675970.4,4614438.6],[675982.5,4614416.6],[676020.4,4614437.5],[676093.2,4614422.2],[676086.3,4614389.6],[676082.1,4614376.7],[676078.5,4614372.1],[676073.8,4614368.7],[676068.7,4614367],[676060.9,4614366.1],[676111.9,4614352.6],[676111.4,4614364.5],[676112.3,4614371.1],[676150.9,4614556.7],[676152.1,4614572.2],[676148.1,4614598.2],[676184.3,4614617.8],[676185.7,4614617.7],[676187.7,4614615.5],[676191.1,4614599.9],[676192.4,4614582.8],[676191.4,4614564.1],[676151.1,4614369.4],[676150.2,4614359.1],[676152.5,4614344.7],[676191.4,4614338.1],[676246.6,4614333.3],[676248.9,4614334.8],[676299.1,4614334.3],[676336.6,4614336.1],[676349.4,4614338.8],[676360.5,4614346.5],[676366,4614354.4],[676368.5,4614363.1],[676410.3,4614792.7],[676407.8,4614805.2],[676401.8,4614816.5],[676353.1,4614869],[676341.5,4614875.8],[676332.9,4614877.8],[676320,4614878.7],[676278.5,4614872.1],[676241.6,4614863.6],[676211.4,4614854.1],[676167.5,4614837.4],[676119.5,4614813.1],[676088,4614795],[676074.9,4614784.9],[676114.1,4614733],[676116.7,4614728.2],[676118.3,4614722.5],[676118.4,4614715.2],[676115.7,4614707.1],[676110.8,4614700.7],[676104.4,4614696.5],[676097.6,4614694.5],[676091.5,4614694.3],[676085.6,4614695.7],[676079.4,4614699.2],[676032.1,4614751.9],[675984.3,4614711.9],[675976.5,4614706.5],[675963.9,4614694.4],[675950.7,4614679.5],[675928.7,4614646.9],[675924.1,4614644],[675885,4614593.2],[675812.4,4614489.8],[675811.1,4614481.3],[675812.1,4614472.4],[675818.9,4614459.7],[675879.8,4614429.4],[675921.5,4614411.4],[675921.5,4614411.4]]]},\"geometry_name\":\"geom\",\"properties\":{\"clasificacion\":\"SU\",\"clase\":\"P\",\"descripcion\":\"Suelo  urbano consolidado\",\"perimetro\":2650.53,\"superficie\":203219.17,\"tipo\":\"CLAS\"}}],\"totalFeatures\":\"unknown\",\"numberReturned\":1,\"timeStamp\":\"2026-08-03T07:43:36.116Z\",\"crs\":{\"type\":\"name\",\"properties\":{\"name\":\"urn:ogc:def:crs:EPSG::25830\"}}}"
+      },
+      "urbanismo:Plano_Estructura": {
+        "format": "application/json",
+        "status": 200,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[],\"totalFeatures\":\"unknown\",\"numberReturned\":0,\"timeStamp\":\"2026-08-03T07:43:36.382Z\",\"crs\":null}"
+      },
+      "urbanismo:Parcelario_Ordenacion": {
+        "format": "application/json",
+        "status": 200,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[],\"totalFeatures\":\"unknown\",\"numberReturned\":0,\"timeStamp\":\"2026-08-03T07:43:36.564Z\",\"crs\":null}"
+      },
+      "urbanismo:Parcelario_Integral": {
+        "format": "application/json",
+        "status": 200,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[],\"totalFeatures\":\"unknown\",\"numberReturned\":0,\"timeStamp\":\"2026-08-03T07:43:36.768Z\",\"crs\":null}"
+      }
+    },
+    "675800.0,4613900.0": {
+      "Plano_Calificacion": {
+        "format": "application/json",
+        "status": 200,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"id\":\"Parcelas.1184337\",\"geometry\":{\"type\":\"MultiPolygon\",\"coordinates\":[[[[675793.1,4613900.3],[675805.8,4613897.9],[675805.6,4613895.6],[675811.4,4613894.6],[675811.9,4613897.7],[675810.5,4613897.8],[675812,4613912],[675795,4613914.7],[675793.1,4613900.3],[675793.1,4613900.3]]]]},\"geometry_name\":\"geom\",\"properties\":{\"codigo_municipal\":null,\"referencia_catastral\":\"5941755XM7154B\",\"numero_parcela\":\"55\",\"perimetro\":71.66,\"superficie\":272.2,\"igm\":38539,\"referencia\":\"5941755XM7154B\",\"referencia_manzana\":\"59417\",\"es_rustico\":false,\"plano_catastro\":\"XM7154B\",\"tipo_referencia\":\"U\"}},{\"type\":\"Feature\",\"id\":\"Parcelas.1184879\",\"geometry\":{\"type\":\"MultiPolygon\",\"coordinates\":[[[[675790.9,4613888.3],[675794.8,4613888.3],[675793.9,4613880.6],[675797.5,4613880.3],[675797.8,4613882],[675802.5,4613881.7],[675803.3,4613888.9],[675810.6,4613888.1],[675811.4,4613894.6],[675805.6,4613895.6],[675805.8,4613897.9],[675793.1,4613900.3],[675790.9,4613888.3],[675790.9,4613888.3]]]]},\"geometry_name\":\"geom\",\"properties\":{\"codigo_municipal\":null,\"referencia_catastral\":\"5941749XM7154B\",\"numero_parcela\":\"49\",\"perimetro\":76.24,\"superficie\":244.19,\"igm\":39094,\"referencia\":\"5941749XM7154B\",\"referencia_manzana\":\"59417\",\"es_rustico\":false,\"plano_catastro\":\"XM7154B\",\"tipo_referencia\":\"U\"}},{\"type\":\"Feature\",\"id\":\"Calificaciones_Urbanas.fid--741f910a_19fc692dd30_6bbe\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[675843.4,4613925.5],[675797.3,4613929.3],[675793.1,4613900.4],[675788.6,4613878],[675824,4613871.5],[675824.3,4613873.2],[675829.8,4613872],[675829.7,4613870.4],[675838.3,4613868.7],[675838.7,4613870.1],[675855.5,4613866.4],[675856.8,4613895.4],[675841.8,4613895.7],[675843.4,4613925.5],[675843.4,4613925.5]]]},\"geometry_name\":\"geom\",\"properties\":{\"calificacion\":\"B1/1*\",\"clase\":null,\"descripcion\":\"B1/1*: Ciudad histórica. Casco antiguo. Ordenación gráfica de patios interiores\",\"tipo\":null,\"perimetro\":null,\"superficie\":null}},{\"type\":\"Feature\",\"id\":\"Manzanas.97257\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[675788.6,4613878],[675824,4613871.5],[675824.3,4613873.2],[675829.8,4613872],[675829.7,4613870.4],[675838.3,4613868.7],[675838.7,4613870.1],[675935.3,4613848.6],[675941.8,4613877.6],[675908.2,4613884.6],[675908.4,4613886.7],[675942.2,4613879.5],[675945.5,4613893.7],[675952.4,4613915.4],[675904.3,4613919],[675843.4,4613925.5],[675797.3,4613929.3],[675793.1,4613900.4],[675788.6,4613878],[675788.6,4613878]]]},\"geometry_name\":\"geom\",\"properties\":{\"referencia\":\"59417\",\"perimetro\":504.28,\"superficie\":8911.31,\"codigo_municipal\":\"75971410\",\"es_rustico\":false,\"igm\":4733,\"plano_catastro\":\"XM7154B\"}},{\"type\":\"Feature\",\"id\":\"Elementos_Catalogados_Conjuntos.10455\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[676973.6,4614023.3],[676972.9,4614038.1],[676982.9,4614078.4],[677025.8,4614226.4],[676997.8,4614241.4],[676913.7,4614274.7],[676904.6,4614250.4],[676874.5,4614261.9],[676856.2,4614240.4],[676833.4,4614237.7],[676835.5,4614208.3],[676855.1,4614163.3],[676889.7,4614094.5],[676913,4614055.8],[676927.2,4614035.5],[676828,4613815.5],[676822.2,4613828],[676821.2,4613827.9],[676805.8,4613855.2],[676789.9,4613870.3],[676768.5,4613885.7],[676698.9,4613913],[676688.6,4613912.9],[676634.2,4613932.2],[676614.3,4613929.9],[676588.1,4613936.8],[676527.3,4613947.2],[676493.5,4613955.5],[676417,4613969.7],[676415.7,4613970.6],[676398.5,4613972.4],[676348,4613973],[676347.9,4613974],[676342.5,4613974],[676342.5,4613972.9],[676249.8,4613975.6],[676249.6,4613977.2],[676184.8,4613979.3],[676132.1,4613984.1],[676096.9,4613989.7],[675841.3,4614036.1],[675742,4614048.5],[675729.6,4613959.2],[675642.3,4613978.9],[675616.7,4613820.7],[675596.1,4613701.6],[675527.7,4613717.1],[675460.8,4613733.7],[675428,4613740.6],[675382.6,4613747.4],[675379.1,4613714.9],[675380,4613687.8],[675392.6,4613603.5],[675398.8,4613575.7],[675406.8,4613551.7],[675422.4,4613520.8],[675437.2,4613497.5],[675462.6,4613460],[675481.3,4613435.6],[675617.6"
+      },
+      "urbanismo:Plano_Clasificacion": {
+        "format": "application/json",
+        "status": 200,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"id\":\"Clasificaciones.fid--741f910a_19fc692dd30_6bcb\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[676008.7,4613603.2],[676014.3,4613624],[676022.5,4613646.3],[676023.7,4613652.6],[676038.5,4613649.5],[676050.9,4613642.6],[676063.6,4613633.8],[676052.1,4613620.6],[676041.3,4613610],[676031.8,4613596.8],[676041.6,4613591.6],[676147,4613550.9],[676151.8,4613552.3],[676153.2,4613555.1],[676154.7,4613597.8],[676156.3,4613615.5],[676160.8,4613629.6],[676175.7,4613659.7],[676213.9,4613715.8],[676217.9,4613723.3],[676225.5,4613718.4],[676298.6,4613833.5],[676299.5,4613846],[676359.9,4613940.8],[676315.3,4613949.8],[676139.7,4613958.5],[676086.1,4613963.9],[675988.8,4613981.3],[675989,4613982.7],[675922.7,4613997],[675919.4,4613978.7],[675915.5,4613979.1],[675913.7,4613959.3],[675918.4,4613958.8],[675919.1,4613963.4],[675937.8,4613961.3],[675934.5,4613928],[675807,4613943.2],[675809,4613959.2],[675811.4,4613958.9],[675812.1,4613964.3],[675809.7,4613964.7],[675813.2,4613992],[675788.2,4613995.6],[675788,4613994.3],[675784,4613994.8],[675784.2,4613996.2],[675778.9,4613997],[675781.6,4614018.2],[675730.8,4614025],[675575.6,4614039.7],[675548.5,4614039.5],[675541.9,4614038.7],[675534.1,4614036.1],[675528.7,4614032],[675525.8,4614026.7],[675526.5,4614022.9],[675529.8,4614018.7],[675518.9,4613995.1],[675504.4,4614001.1],[675495.6,4614001.8],[675485.2,4614000.2],[675480.5,4613998.4],[675472.5,4613993.2],[675467.2,4613987.6],[675462.6,4613979.6],[675461.6,4613980],[675431.1,4613906.5],[675420.7,4613888.3],[675401.3,4613825.1],[675394.3,4613766],[675395,4613762.3],[675397.3,4613760],[675509.7,4613733.3],[675536.8,4613725.9],[675745.3,4613675],[675962,4613614.9],[676002.8,4613603.7],[676008.7,4613603.2],[676008.7,4613603.2]],[[676087.8,4613628.6],[676075,4613631.3],[676066.5,4613635.7],[676071.2,4613649.5],[676070.4,4613679.5],[676080.5,4613679.9],[676080.7,4613677.6],[676084.4,4613678],[676083,4613685],[676087.5,4613684.90000001],[676088.3,4613680.20000001],[676086.9,4613680.3],[676087.6,4613671.70000001],[676094.3,4613673],[676094.5,4613670],[676101.8,4613669.70000001],[676110.5,4613670.70000001],[676119,4613668.10000001],[676119.5,4613672.50000001],[676128.9,4613670.20000001],[676127.5,4613666.50000001],[676126.5,4613657.30000001],[676124.3,4613658.00000001],[676121.1,4613653.00000001],[676114.9,4613660.20000001],[676105.1,4613654.60000001],[676097.2,4613648.00000001],[676087.8,4613628.60000001],[676087.8,4613628.6]]]},\"geometry_name\":\"geom\",\"properties\":{\"clasificacion\":\"SU\",\"clase\":\"P\",\"descripcion\":\"Suelo  urbano consolidado\",\"perimetro\":2987.55,\"superficie\":275647.18,\"tipo\":\"CLAS\"}}],\"totalFeatures\":\"unknown\",\"numberReturned\":1,\"timeStamp\":\"2026-08-03T07:43:37.494Z\",\"crs\":{\"type\":\"name\",\"properties\":{\"name\":\"urn:ogc:def:crs:EPSG::25830\"}}}"
+      },
+      "urbanismo:Plano_Estructura": {
+        "format": "application/json",
+        "status": 200,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"id\":\"Estructura.fid--741f910a_19fc692dd30_6bcd\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[675843.364629,4613925.530962],[675797.264544,4613929.252321],[675793.133663,4613900.412316],[675788.622972,4613877.972349],[675824.042931,4613871.511289],[675824.252981,4613873.151291],[675829.842971,4613872.041123],[675829.732922,4613870.401119],[675838.342909,4613868.730861],[675838.67295,4613870.080857],[675855.532914,4613866.440351],[675856.753785,4613895.400441],[675841.79373,4613895.680878],[675843.364629,4613925.530962]]]},\"geometry_name\":\"geom\",\"properties\":{\"calificacion\":\"B\",\"descripcion\":\"B. Ciudad histórica\"}}],\"totalFeatures\":\"unknown\",\"numberReturned\":1,\"timeStamp\":\"2026-08-03T07:43:37.699Z\",\"crs\":{\"type\":\"name\",\"properties\":{\"name\":\"urn:ogc:def:crs:EPSG::25830\"}}}"
+      },
+      "urbanismo:Parcelario_Ordenacion": {
+        "format": "application/json",
+        "status": 200,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[],\"totalFeatures\":\"unknown\",\"numberReturned\":0,\"timeStamp\":\"2026-08-03T07:43:37.857Z\",\"crs\":null}"
+      },
+      "urbanismo:Parcelario_Integral": {
+        "format": "application/json",
+        "status": 200,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[],\"totalFeatures\":\"unknown\",\"numberReturned\":0,\"timeStamp\":\"2026-08-03T07:43:38.081Z\",\"crs\":null}"
+      }
+    },
+    "677000.0,4615200.0": {
+      "Plano_Calificacion": {
+        "format": "application/json",
+        "status": 200,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"id\":\"Parcelas.1215331\",\"geometry\":{\"type\":\"MultiPolygon\",\"coordinates\":[[[[676985.2,4615204.6],[676985.2,4615197.5],[677005.9,4615197.4],[677005.8,4615204.7],[676985.2,4615204.6],[676985.2,4615204.6]]]]},\"geometry_name\":\"geom\",\"properties\":{\"codigo_municipal\":null,\"referencia_catastral\":\"7255236XM7175C\",\"numero_parcela\":\"36\",\"perimetro\":56.15,\"superficie\":148.75,\"igm\":70456,\"referencia\":\"7255236XM7175C\",\"referencia_manzana\":\"72552\",\"es_rustico\":false,\"plano_catastro\":\"XM7175E\",\"tipo_referencia\":\"U\"}},{\"type\":\"Feature\",\"id\":\"Calificaciones_Urbanas.fid--741f910a_19fc692dd30_6bd1\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[676973.4,4615187.7],[677010.4,4615187.6],[677010.5,4615186.4],[677022.5,4615186.4],[677022.5,4615187.5],[677064.8,4615187.7],[677064.9,4615184.4],[677066.6,4615184.3],[677066.7,4615282.9],[677063,4615282.9],[677062.9,4615306.3],[677024.1,4615317],[677024.9,4615314.9],[677012.8,4615253.5],[677005.4,4615256.3],[676997.5,4615256.3],[676982.4,4615211.3],[676979.8,4615200.6],[676973.4,4615187.7]]]},\"geometry_name\":\"geom\",\"properties\":{\"calificacion\":\"C1\",\"clase\":null,\"descripcion\":\"C1: Conjuntos urbanos contemporáneos\",\"tipo\":null,\"perimetro\":null,\"superficie\":null}},{\"type\":\"Feature\",\"id\":\"Manzanas.101246\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[676960.7,4615159.3],[676960.7,4615137.7],[677066.4,4615137.5],[677066.7,4615282.9],[677063,4615282.9],[677062.9,4615306.3],[677066.8,4615305.2],[677066.9,4615379.2],[677066.1,4615381.9],[677064,4615383.8],[677011.7,4615397.4],[677007.4,4615394.6],[677007.5,4615355.7],[677005.2,4615355.7],[677005.2,4615340.7],[677007.5,4615339.2],[677006.7,4615319.7],[677003,4615295.6],[676999.5,4615296.1],[676997.3,4615282.1],[677001,4615281.5],[676997,4615256.7],[676997.7,4615256.6],[676982.4,4615211.3],[676979.8,4615200.4],[676973.3,4615187.7],[676971.4,4615187.7],[676972.3,4615177],[676969.1,4615177.2],[676968.4,4615159.4],[676960.7,4615159.3],[676960.7,4615159.3]]]},\"geometry_name\":\"geom\",\"properties\":{\"referencia\":\"72552\",\"perimetro\":710.12,\"superficie\":18898.72,\"codigo_municipal\":\"77131546\",\"es_rustico\":false,\"igm\":8983,\"plano_catastro\":\"XM7175E\"}},{\"type\":\"Feature\",\"id\":\"Elementos_Catalogados_Conjuntos.10614\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[677076,4615287.3],[677067.9,4615287.6],[677067.6,4615306.7],[677029.1,4615317.3],[677015.8,4615246.4],[676998.5,4615244.5],[676976.2,4615189.8],[677076.4,4615191.1],[677076,4615287.3],[677076,4615287.3]]]},\"geometry_name\":\"geom\",\"properties\":{\"designacion\":\"TENIENTE  POLANCO\",\"grado_proteccion\":null,\"grado_proteccion_descripcion\":null,\"subgrado_proteccion\":null,\"subgrado_proteccion_descripcion\":null,\"clase_pca\":null,\"clase_pca_descripcion\":null,\"perimetro\":412.14,\"superficie\":8271.22,\"numero_catalogo\":\"4031\",\"ficha_web\":\"https://www.zaragoza.es/pgou/edih/area43teniente.pdf\",\"codigo_pca\":null,\"ordenanzas_especiales\":null,\"conservar\":null,\"fase_catalogacion\":null,\"fecha_aprobacion_definitiva\":null,\"fecha_aprobacion_inicial\":null,\"fecha_bopz_definitiva\":null,\"fecha_bopz_inicial\":null,\"intervenciones\":null,\"observaciones\":null,\"tipo_elemento\":\"CONJUNTO\",\"hoja\":\"C-15\",\"igm\":1633,\"nombre_via_cat\":null,\"numero_via_cat\":null,\"numero_cata\":4031,\"emplazamiento\":\"TENIENTE  POLANCO\"}},{\"type\":\"Feature\",\"id\":\"Clasificaciones.fid--741f910a_19fc692dd30_6bd7\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[676791.4,4614955.8],[676881.1,4614954.3],[676889.3,4614953.3],[676935.4,4614953.5],[676955.7,4614951.4],[676995,4614951.4],[677021.4,4614954.7],[677158.3,4614954.5],[677160.9,4614955.7],[677162,4614958],[677162.1,4614997.4],[677171.5,4615054.2],[677170,4615122.4],[677171.6,4615137.7],[677085.4,4615138],[677085.9,4615299.8],[677110,4615296],[677118.8,4615293],[677118.7,4615287.7],[677141.8,4615283.7],[677141.9,4615272],[677160.6,4615272],[677160.6,4615256.1],[677167.5,4615248.9],[677182.6,4615248.9],[677184.1,4615940.1],[677114.6,4615940.4],[677114.5,4615886.9],[677084.2,4615886.9],["
+      },
+      "urbanismo:Plano_Clasificacion": {
+        "format": "application/json",
+        "status": 200,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"id\":\"Clasificaciones.fid--741f910a_19fc692dd30_6bdd\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[676791.4,4614955.8],[676881.1,4614954.3],[676889.3,4614953.3],[676935.4,4614953.5],[676955.7,4614951.4],[676995,4614951.4],[677021.4,4614954.7],[677158.3,4614954.5],[677160.9,4614955.7],[677162,4614958],[677162.1,4614997.4],[677171.5,4615054.2],[677170,4615122.4],[677171.6,4615137.7],[677085.4,4615138],[677085.9,4615299.8],[677110,4615296],[677118.8,4615293],[677118.7,4615287.7],[677141.8,4615283.7],[677141.9,4615272],[677160.6,4615272],[677160.6,4615256.1],[677167.5,4615248.9],[677182.6,4615248.9],[677184.1,4615940.1],[677114.6,4615940.4],[677114.5,4615886.9],[677084.2,4615886.9],[677083.1,4615813.4],[676933.4,4615813.4],[676933.4,4615808.7],[676923.8,4615808.8],[676924,4615936.6],[676969.6,4615936.5],[676974.8,4615950.9],[676972.1,4615957.8],[676965.4,4615962],[676960.4,4615964.2],[676929.1,4615972.9],[676927.1,4615977.2],[676874.9,4615995.5],[676917.3,4616131.7],[676895.3,4616121.8],[676877.4,4616110.6],[676871.9,4616102.6],[676843.8,4616079.4],[676821.2,4616053.6],[676799.1,4616020.4],[676776.3,4615976.5],[676766.4,4615954.1],[676749.5,4615909.2],[676728.1,4615821.6],[676723.2,4615790.8],[676720.5,4615759.8],[676719.9,4615744.2],[676732.5,4615614.1],[676501.1,4615610.8],[676492.8,4615608.4],[676486.4,4615603.6],[676481.8,4615596.9],[676479.8,4615589.2],[676521.6,4615290.8],[676532.4,4615187.6],[676536.7,4615060.5],[676540,4615042.8],[676546.6,4615025.9],[676553.4,4615014.2],[676561.7,4615003.7],[676601.2,4614968.5],[676609.5,4614963.2],[676618.6,4614959.4],[676633,4614957.1],[676791.4,4614955.8],[676791.4,4614955.8]],[[676913.7,4615813.6],[676886,4615813.7],[676885.7,4615857.8],[676865.9,4615857.7],[676865.8,4615906.5],[676913.9,4615906.7],[676913.7,4615813.6]]]},\"geometry_name\":\"geom\",\"properties\":{\"clasificacion\":\"SU\",\"clase\":\"P\",\"descripcion\":\"Suelo  urbano consolidado\",\"perimetro\":4435.18,\"superficie\":558919.76,\"tipo\":\"CLAS\"}},{\"type\":\"Feature\",\"id\":\"Protecciones_Sistemas.fid--741f910a_19fc692dd30_6be0\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[680992.8,4618653.5],[680992.4,4618710],[680989.2,4618823.1],[680982.8,4618936.1],[680973.2,4619048.8],[680960.5,4619161.2],[680952.9,4619217.3],[680935.4,4619329],[680914.7,4619440.3],[680890.9,4619550.9],[680877.8,4619605.9],[680849.3,4619715.4],[680817.7,4619824],[680783.1,4619931.7],[680745.4,4620038.4],[680725.5,4620091.3],[680683.3,4620196.3],[680638.2,4620300.1],[680614.6,4620351.5],[680565.1,4620453.2],[680512.8,4620553.5],[680457.6,4620652.3],[680429,4620701.1],[680369.7,4620797.5],[680307.8,4620892.1],[680275.8,4620938.8],[680209.8,4621030.7],[680141.3,4621120.7],[680070.3,4621208.8],[679996.8,4621294.8],[679920.9,4621378.7],[679842.7,4621460.4],[679802.7,4621500.4],[679721.1,4621578.8],[679637.2,4621654.8],[679594.5,4621691.9],[679507.6,4621764.2],[679418.6,4621834.1],[679327.7,4621901.4],[679281.5,4621934.1],[679187.8,4621997.5],[679140.3,4622028.2],[679044,4622087.6],[678946.1,4622144.3],[678896.5,4622171.5],[678846.6,4622198.1],[678745.6,4622249.1],[678643.2,4622297.2],[678539.5,4622342.5],[678487.2,4622364],[678381.7,4622404.7],[678275,4622442.5],[678167.3,4622477.3],[678058.7,4622509],[677949.3,4622537.6],[677839.1,4622563.1],[677783.7,4622574.6],[677728.2,4622585.4],[677616.7,4622604.6],[677504.7,4622620.7],[677392.3,4622633.6],[677279.6,4622643.3],[677223.1,4622647],[677110.1,4622651.9],[676997,4622653.6],[676883.8,4622652.1],[676770.8,4622647.4],[676714.4,4622643.9],[676601.6,4622634.4],[676545.4,4622628.5],[676433.1,4622614.3],[676321.3,4622596.8],[676210.1,4622576.3],[676154.7,4622564.8],[676044.4,4622539.6],[675934.9,4622511.2],[675880.5,4622495.8],[675826.2,4622479.7],[675718.5,4622445.2],[675611.8,4622407.6],[675506.2,4622367.1],[675453.8,4622345.7],[675350,4622300.7],[675247.5,4622252.8],[675146.4,4622202],[675046.8,4622148.3],[674948.7,4622091.9],[674852.3,4622032.7],[674804.8,4622002.1],[674710"
+      },
+      "urbanismo:Plano_Estructura": {
+        "format": "application/json",
+        "status": 200,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"id\":\"Estructura.fid--741f910a_19fc692dd30_6be1\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[676973.398538,4615187.659951],[677010.416805,4615187.601971],[677010.456769,4615186.381965],[677022.466812,4615186.361608],[677022.496846,4615187.511611],[677064.827005,4615187.670353],[677064.936909,4615184.390337],[677066.606914,4615184.340287],[677066.669812,4615282.910674],[677063.049798,4615282.850782],[677062.890485,4615306.260879],[677024.05066,4615316.962079],[677024.850603,4615314.932047],[677012.758753,4615253.532163],[677005.398807,4615256.292394],[676997.54878,4615256.322627],[676982.3674,4615211.2929],[676979.799825,4615200.610808],[676973.398538,4615187.659951]]]},\"geometry_name\":\"geom\",\"properties\":{\"calificacion\":\"C\",\"descripcion\":\"C. Conjuntos urbanos contemporáneos\"}},{\"type\":\"Feature\",\"id\":\"Protecciones_Sistemas.fid--741f910a_19fc692dd30_6be4\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[680992.8,4618653.5],[680992.4,4618710],[680989.2,4618823.1],[680982.8,4618936.1],[680973.2,4619048.8],[680960.5,4619161.2],[680952.9,4619217.3],[680935.4,4619329],[680914.7,4619440.3],[680890.9,4619550.9],[680877.8,4619605.9],[680849.3,4619715.4],[680817.7,4619824],[680783.1,4619931.7],[680745.4,4620038.4],[680725.5,4620091.3],[680683.3,4620196.3],[680638.2,4620300.1],[680614.6,4620351.5],[680565.1,4620453.2],[680512.8,4620553.5],[680457.6,4620652.3],[680429,4620701.1],[680369.7,4620797.5],[680307.8,4620892.1],[680275.8,4620938.8],[680209.8,4621030.7],[680141.3,4621120.7],[680070.3,4621208.8],[679996.8,4621294.8],[679920.9,4621378.7],[679842.7,4621460.4],[679802.7,4621500.4],[679721.1,4621578.8],[679637.2,4621654.8],[679594.5,4621691.9],[679507.6,4621764.2],[679418.6,4621834.1],[679327.7,4621901.4],[679281.5,4621934.1],[679187.8,4621997.5],[679140.3,4622028.2],[679044,4622087.6],[678946.1,4622144.3],[678896.5,4622171.5],[678846.6,4622198.1],[678745.6,4622249.1],[678643.2,4622297.2],[678539.5,4622342.5],[678487.2,4622364],[678381.7,4622404.7],[678275,4622442.5],[678167.3,4622477.3],[678058.7,4622509],[677949.3,4622537.6],[677839.1,4622563.1],[677783.7,4622574.6],[677728.2,4622585.4],[677616.7,4622604.6],[677504.7,4622620.7],[677392.3,4622633.6],[677279.6,4622643.3],[677223.1,4622647],[677110.1,4622651.9],[676997,4622653.6],[676883.8,4622652.1],[676770.8,4622647.4],[676714.4,4622643.9],[676601.6,4622634.4],[676545.4,4622628.5],[676433.1,4622614.3],[676321.3,4622596.8],[676210.1,4622576.3],[676154.7,4622564.8],[676044.4,4622539.6],[675934.9,4622511.2],[675880.5,4622495.8],[675826.2,4622479.7],[675718.5,4622445.2],[675611.8,4622407.6],[675506.2,4622367.1],[675453.8,4622345.7],[675350,4622300.7],[675247.5,4622252.8],[675146.4,4622202],[675046.8,4622148.3],[674948.7,4622091.9],[674852.3,4622032.7],[674804.8,4622002.1],[674710.9,4621938.9],[674664.7,4621906.3],[674573.6,4621839.2],[674484.5,4621769.5],[674397.4,4621697.3],[674312.4,4621622.7],[674270.6,4621584.5],[674188.8,4621506.3],[674109.3,4621425.9],[674032,4621343.2],[673994.3,4621301.1],[673920.6,4621215.2],[673849.4,4621127.3],[673780.7,4621037.4],[673747.3,4620991.8],[673682.5,4620899],[673620.3,4620804.5],[673560.8,4620708.3],[673504.1,4620610.4],[673476.8,4620560.9],[673424.2,4620460.7],[673374.6,4620359],[673327.8,4620256],[673305.5,4620204],[673263.1,4620099.2],[673223.7,4619993.1],[673205.2,4619939.7],[673170.3,4619832],[673138.5,4619723.5],[673123.8,4619668.8],[673096.6,4619559],[673072.5,4619448.5],[673051.6,4619337.3],[673042.4,4619281.5],[673026.2,4619169.5],[673013.2,4619057.1],[673003.4,4618944.4],[672999.6,4618888],[672994.6,4618775],[672992.8,4618661.8],[672993.1,4618605.3],[672996,4618492.2],[673002.2,4618379.2],[673011.5,4618266.5],[673024.1,4618154],[673039.8,4618042],[673048.8,4617986.1],[673069.3,4617874.9],[673080.7,4617819.5],[673105.9,4617709.2],[673134.1,4617599.6],[673165.5,4617490.9],[673199.9,4617383.1],[673237.3,4617276.4],[673257.2,4617223.4],[673299.1,4617118.3],[673321.2,4617066.3],[673367.6,4"
+      },
+      "urbanismo:Parcelario_Ordenacion": {
+        "format": "application/json",
+        "status": 200,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[],\"totalFeatures\":\"unknown\",\"numberReturned\":0,\"timeStamp\":\"2026-08-03T07:43:39.426Z\",\"crs\":null}"
+      },
+      "urbanismo:Parcelario_Integral": {
+        "format": "application/json",
+        "status": 200,
+        "body": "{\"type\":\"FeatureCollection\",\"features\":[],\"totalFeatures\":\"unknown\",\"numberReturned\":0,\"timeStamp\":\"2026-08-03T07:43:39.588Z\",\"crs\":null}"
+      }
+    }
+  }
+}

@@ -230,15 +230,26 @@ const GATE_DECLARATIONS: readonly GateDeclaration[] = Object.freeze([
     // is true. The genuinely productive unlock is `openTopIndicative.ts` + the renderer input it
     // names, NOT a signature here. See `BALEARS_ENVELOPE_VERIFIED`'s own docstring.
     { gate: 'BALEARS_ENVELOPE_VERIFIED', value: BALEARS_ENVELOPE_VERIFIED, jurisdictions: [BALEARS_JURISDICTION_ID] },
-    // ── ARAGÓN. Both shut, and — like València — NEITHER is waiting on a signature, because in
-    //    neither case is the missing thing a legal reading. Huesca's ordinance is fully read and
-    //    article-cited; what is missing is a GEOREFERENCE for the 1:1.000 plan sheet that carries
-    //    the depth and the storey count (rejected at 2.31 m median error, 1.9× vs a wrong-control
-    //    offset, against a 3× bar). Zaragoza's zoning is live and parcel-precise; what is missing
-    //    is the A1 subgrado attribute, which the city holds but does not serve.
-    // ⇒ Registered so the classifier cannot FAIL OPEN on either, NOT so either can be signed.
-    //   Flipping these would authorise nothing — it would only remove the interlock that stops a
-    //   later author packing a guessed depth (the L-616 mechanism). See `esAragon.ts`.
+    // ── ARAGÓN. Both shut — but ⚠ AS OF §ZGZ-SUBGRADO THE TWO ARE NO LONGER THE SAME KIND, and
+    //    the difference is worth keeping visible because it decides what actually unblocks each.
+    //
+    //    HUESCA is still the València kind: NOT waiting on a signature, because the missing thing
+    //    is not a legal reading at all. Its ordinance is fully read and article-cited; what is
+    //    missing is a GEOREFERENCE for the 1:1.000 plan sheet carrying the depth and storey count
+    //    (rejected at 2.31 m median error, 1.9× vs a wrong-control offset, against a 3× bar).
+    //    A signature cannot supply a coordinate.
+    //
+    //    ZARAGOZA HAS MOVED. This comment used to say the blocker was "the A1 subgrado attribute,
+    //    which the city holds but does not serve" — measured false. `Calificaciones_Urbanas`
+    //    serves all four article selectors and answers 200; it is simply unadvertised in WFS
+    //    GetCapabilities, so a 28-name guess sweep and a capabilities census would BOTH have
+    //    missed it. Zaragoza is therefore now the ORDINARY kind of shut gate: a real transcription
+    //    (arts. 4.1.12/4.1.13/4.1.15/4.1.17 + the graphic fondo) that a human has not yet done and
+    //    signed. That is a promotion, not an unlock.
+    //
+    // ⇒ Registered so the classifier cannot FAIL OPEN on either. Flipping either today would
+    //   authorise nothing — neither has a zone table — and would only remove the interlock that
+    //   stops a later author packing a guessed depth (the L-616 mechanism). See `esAragon.ts`.
     { gate: 'HUESCA_ENVELOPE_VERIFIED', value: HUESCA_ENVELOPE_VERIFIED, jurisdictions: [HUESCA_JURISDICTION_ID] },
     { gate: 'ZARAGOZA_ENVELOPE_VERIFIED', value: ZARAGOZA_ENVELOPE_VERIFIED, jurisdictions: [ZARAGOZA_JURISDICTION_ID] },
     // ── NOT waiting on a signature: there is nothing to sign (no Catalonia-wide instrument

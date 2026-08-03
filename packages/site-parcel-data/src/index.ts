@@ -1181,11 +1181,16 @@ export {
     HUESCA_LAW_STATUS,
     HUESCA_LEGEND_STATUS,
     HUESCA_PLANO5_FINDING,
+    ZARAGOZA_ALIGNMENT_CANDIDATE,
+    ZARAGOZA_CALIFICACION_CENSUS,
     ZARAGOZA_ENVELOPE_VERIFIED,
     ZARAGOZA_INSTRUMENT_REF,
     ZARAGOZA_JURISDICTION_ID,
+    ZARAGOZA_REACHABLE_NORMATIVE_LAYERS,
+    ZARAGOZA_SHEET_INDEX_FINDING,
     ZARAGOZA_SUBGRADO_FINDING,
     huescaNoRulePackRefusal,
+    zaragozaAlignmentSeparationRatio,
     zaragozaNoRulePackRefusal,
 } from './rulepacks/esAragon.js';
 // ╔══════════════════════════════════════════════════════════════════════════════════════════════╗

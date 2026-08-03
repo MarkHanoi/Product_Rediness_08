@@ -39,8 +39,21 @@ export const ZARAGOZA_JURISDICTION_ID = 'es-50297-zaragoza';
 export const HUESCA_ENVELOPE_VERIFIED: boolean = false;
 
 /**
- * ⚠ THE HONESTY GATE for Zaragoza. `false`, and the reason is ONE named attribute — the A1
- * subgrado — not a missing ordinance. See `ZARAGOZA_SUBGRADO_FINDING`.
+ * ⚠ THE HONESTY GATE for Zaragoza. `false` — and as of the §ZGZ-SUBGRADO census the REASON HAS
+ * CHANGED, while the value deliberately has not.
+ *
+ * It used to read: *"the reason is ONE named attribute — the A1 subgrado — not a missing
+ * ordinance."* That was wrong. The subgrado is published (`urbanismo:Calificaciones_Urbanas`,
+ * 7,967 polygons, all four article selectors populated); it was merely unreachable by guessing
+ * and invisible to WFS GetCapabilities. What is missing now is the TRANSCRIPTION of arts. 4.1.12
+ * / 4.1.13 / 4.1.15 / 4.1.17 and the graphically-regulated fondo — i.e. a legal reading and a
+ * signature, which is precisely what a gate exists to withhold.
+ *
+ * ⛔ DO NOT FLIP THIS BECAUSE THE DATA GOT BETTER. Better data moved Zaragoza from *"cannot be
+ * signed"* to *"can now be signed once someone does the reading"*. A signature is a founder act
+ * (L-449); a model flipping it is the L-677 defect. Flipping it today would authorise nothing
+ * anyway — no zone table exists to publish — and would only remove the interlock that stops a
+ * later author packing a guessed FAR (the L-616 mechanism).
  */
 export const ZARAGOZA_ENVELOPE_VERIFIED: boolean = false;
 
@@ -200,39 +213,217 @@ export const HUESCA_LAW_STATUS =
     'published zoning data does not identify. The gap is DATA, not law.';
 
 /**
- * §ZARAGOZA-SUBGRADO — one named attribute separates a refusal from a numeric pack.
+ * ═════════════════════════════════════════════════════════════════════════════════════════════
+ * §ZGZ-SUBGRADO — ⛔ THE RECORDED BLOCKER WAS FALSE. THE SUBGRADO IS PUBLISHED, AND ALWAYS WAS.
+ * ═════════════════════════════════════════════════════════════════════════════════════════════
  *
- * MEASURED AND LIVE: IDEZar's municipal WFS serves 9,031 `Estructura` calificación polygons in
- * EPSG:25830 at parcel precision — `calificacion` 100 % non-null across a 42-code vocabulary —
- * plus 683 `Clasificaciones` polygons and 525 governing-instrument ámbitos with links to their
- * own normas and planos. This is NOT the 1:15,000 regional layer.
+ * WHAT THIS FILE USED TO SAY, AND WHY IT WAS WRONG
+ * ------------------------------------------------
+ * *"The published polygon carries only `A1`. A 28-name sweep for a subgrado-bearing typename
+ * returned HTTP 400 on all 28 — an unknown-typename answer, which IS evidence."*
  *
- * ⛔ THE GAP: PGOU Título 4 Cap. 4.1 splits CONDICIONES DE APROVECHAMIENTO across arts. 4.1.12
- *    (A1/3.1) / 4.1.13 (A1/3.2) / 4.1.15 (A1/4.1) / 4.1.17 (A1/4.2). The polygon's `calificacion`
- *    reads `A1` and nothing finer. Without the subgrado NO aprovechamiento article can be
- *    selected, so no FAR and no height ladder can be applied. A 28-name sweep for a
- *    subgrado-bearing typename returned HTTP 400 on all 28 — an unknown-typename answer, which
- *    IS evidence, unlike a timeout.
+ * The 28 400s were REAL and they were WORTHLESS. An HTTP 400 from a WFS means UNKNOWN TYPENAME:
+ * it is a fact about the twenty-eight GUESSES, not about the city. Reading it as "the city does
+ * not hold this" is the §CONTEXT-DATA-HONESTY failure exactly — *could not find* recorded as
+ * *is not there* — and it cost Zaragoza a numeric pack it was eligible for.
  *
- * ⚠ And for zone A1 (manzana cerrada, 1,325 polygons) the plan regulates the fondo edificable
- *   GRAPHICALLY, with art. 4.1.3 making the 7,50 m prose figure a MINIMUM that applies only where
- *   no graphic regulation exists — a condition that cannot be evaluated without the plan sheet.
- *   Zaragoza's equivalent sheet (tomo 11) has NOT been anatomised: UNKNOWN, not absent.
+ * ⭐ TWO LAYERS WITH ALMOST THE SAME NAME, AND OPPOSITE VERDICTS. The earlier probe measured
+ *    `urbanismo:Estructura` (9,031 polygons) — the *plano de ESTRUCTURA urbanística*, whose
+ *    `calificacion` is deliberately coarse (`A1`, `B`, `C`, 42 codes, zero containing `/`).
+ *    That reading was accurate about `Estructura` and was then generalised to "Zaragoza".
+ *    The *plano de CALIFICACIÓN y regulación del suelo* is a DIFFERENT feature type,
+ *    `urbanismo:Calificaciones_Urbanas` — 7,967 polygons, EPSG:25830, and its codes CARRY THE
+ *    SUBGRADO. All four articles' selectors are present and populated:
+ *
+ *        A1/3.1 → 301 polygons (art. 4.1.12)   A1/4.1 → 215 polygons (art. 4.1.15)
+ *        A1/3.2 →  40 polygons (art. 4.1.13)   A1/4.2 → 114 polygons (art. 4.1.17)
+ *        plus A1/1 (299), A1/2 (354), A1/2* (1), A1/3.1* (1)
+ *
+ *    ⭐ AND THE TWO LAYERS RECONCILE EXACTLY: `Estructura` reports A1 = **1,325** polygons, and
+ *      those eight A1/* codes sum to **1,325**. The fine layer is the coarse layer resolved, not
+ *      a rival dataset — which is the strongest available evidence that the subgrado is the
+ *      SAME determination at finer grain, and not some unrelated annotation.
+ *
+ * ⛔⛔ WHY NO AMOUNT OF GUESSING **OR** ENUMERATING WOULD HAVE FOUND IT — THE REUSABLE LESSON.
+ *    `urbanismo:Calificaciones_Urbanas` answers WFS `GetFeature` with HTTP 200 and always did.
+ *    It is simply **ABSENT FROM WFS `GetCapabilities`**, which advertises 178 typenames and omits
+ *    it. So the obvious correction to a failed name-sweep — *"stop guessing, enumerate
+ *    GetCapabilities"* — WOULD ALSO HAVE MISSED IT. Capabilities is not an inventory; it is a
+ *    publication choice.
+ *
+ *    The step that closes it is WMS **`DescribeLayer`**, which asks the server what each drawn
+ *    layer is MADE OF and returns the typeName behind it. Chained from the city's own published
+ *    page, every link is server-authored and nothing is invented:
+ *
+ *        published city page → WMS endpoint → GetCapabilities (4,565 layers)
+ *          → DescribeLayer → 47 `urbanismo:` feature types, of which **25 are unadvertised**
+ *
+ *    ⇒ `tools/ogc-layer-census/` implements this and is city-agnostic. Any jurisdiction recorded
+ *      blocked on "the service does not serve X" should be re-run through it before that claim is
+ *      allowed to stand. §CONTEXT-DATA-HONESTY: ship the probe before the fix.
+ *
+ * ⚠ WHAT THIS DOES **NOT** DO: it does not open the gate. Selecting art. 4.1.12 now has a
+ *   selector, but PRYZM has NOT transcribed those articles' numbers, and the A1 fondo edificable
+ *   remains graphically regulated (art. 4.1.3 makes the 7,50 m prose figure a minimum that
+ *   applies only where no graphic regulation exists). A selector is not a number.
+ *   ⇒ `ZARAGOZA_ENVELOPE_VERIFIED` stays `false`. What changed is the REASON, and the reason is
+ *     now a transcription that has not been done rather than data the city withholds.
  */
 export const ZARAGOZA_SUBGRADO_FINDING =
-    'Zaragoza’s municipal zoning is live and parcel-precise — 9,031 calificación polygons on the ' +
-    'city’s own service, fully populated. What is missing is one attribute: the plan splits the ' +
-    'A1 zone into subgrados (A1/3.1, A1/3.2, A1/4.1, A1/4.2) and gives each its own ' +
-    'aprovechamiento article, but the published polygon carries only "A1". Without the subgrado ' +
-    'no floor-area ratio and no height ladder can be selected, so PRYZM selects none.';
+    'Zaragoza’s municipal zoning is live and parcel-precise, and — corrected against an earlier ' +
+    'reading — the plan’s subgrado IS published: the city’s calificación layer carries 7,967 ' +
+    'polygons whose codes are the full grades (A1/3.1, A1/3.2, A1/4.1, A1/4.2 and 23 more), not ' +
+    'the coarse "A1" an earlier probe measured on the separate estructura layer. What is still ' +
+    'missing is not data but a reading: the articles those grades select have not been ' +
+    'transcribed and signed, and the buildable depth for the closed-block grades is regulated ' +
+    'graphically on the plan. So PRYZM publishes no floor-area ratio and no height here yet.';
+
+/** Zaragoza's calificación vocabulary as MEASURED, not as transcribed — the counts are a census
+ *  of `urbanismo:Calificaciones_Urbanas` (7,967 polygons, EPSG:25830), not a claim about the law. */
+export const ZARAGOZA_CALIFICACION_CENSUS = Object.freeze({
+    typeName: 'urbanismo:Calificaciones_Urbanas',
+    epsg: 25830,
+    polygons: 7967,
+    distinctCodes: 52,
+    subgradedCodes: 27,
+    subgradedPolygons: 2025,
+    /** ⚠ ADVERTISED = false. Reachable over WFS, absent from WFS GetCapabilities. */
+    advertisedInWfsCapabilities: false,
+    /** The four selectors the aprovechamiento articles key on, with their measured counts. */
+    articleSelectors: Object.freeze({
+        'A1/3.1': Object.freeze({ polygons: 301, article: '4.1.12' }),
+        'A1/3.2': Object.freeze({ polygons: 40, article: '4.1.13' }),
+        'A1/4.1': Object.freeze({ polygons: 215, article: '4.1.15' }),
+        'A1/4.2': Object.freeze({ polygons: 114, article: '4.1.17' }),
+    }),
+    /** The reconciliation that makes the fine layer the coarse layer RESOLVED, not a rival. */
+    coarseA1Polygons: 1325,
+    fineA1PolygonsSummed: 1325,
+} as const);
+
+/**
+ * §ZGZ-ALIGNMENT-CANDIDATE — a candidate PROVED against a paired control, and still not adopted.
+ *
+ * Zaragoza runs an official *Alineaciones y Rasantes* procedure (sede tramite 3337), so
+ * authoritative alignment data demonstrably EXISTS as an administrative product. The city's own
+ * A&R page states that editable Shapefile/GeoJSON over WMS/WFS is a FUTURE availability, and a
+ * term census over all 4,565 published WMS layers returns **ZERO** hits for `alineac` and
+ * **ZERO** for `rasante`. So there is no layer that ANNOUNCES itself as the alignment.
+ *
+ * ⚠ THERE IS, HOWEVER, ONE UNADVERTISED CANDIDATE, AND IT WAS TESTED RATHER THAN ASSUMED.
+ *   `urbanismo:Linea_Normativa` ("Línea normativa", 8,705 lines, EPSG:25830) splits into three
+ *   `codigo` classes. Measured as point-to-segment distance from each class's vertices to the
+ *   nearest `urbanismo:Manzanas` block boundary, inside one dense consolidated-urban window:
+ *
+ *     codigo=302101   n=1,643   median  0.03 m   74.2 % within 1 m   ◀ on the block/street line
+ *     codigo=302401   n=3,054   median 10.77 m   10.1 % within 1 m
+ *     codigo=302201   n=   90   median 12.67 m   16.7 % within 1 m
+ *     PAIRED CONTROL — `urbanismo:Vias` named street CENTRELINES:
+ *                     n=7,240   median 11.68 m    1.0 % within 1 m
+ *
+ *   ⇒ the candidate class is **367×** closer to the block boundary than the axis control, while
+ *     its OWN SIBLING CLASSES sit at the control's distance (1.08× and 0.92×). The separation is
+ *     therefore not an artefact of "in a dense city everything is near everything" — the same
+ *     layer, same window, same metric discriminates internally. (A second control, `Parcelas`
+ *     boundaries, lands between at 6.04 m as expected, since it includes interior plot divisions.)
+ *
+ * ⛔ AND IT IS STILL NOT ADOPTED, for a reason that is not squeamishness. Lying on the
+ *    block/street interface is NECESSARY for an alineación and NOT SUFFICIENT — a kerb line, a
+ *    façade line and a parcel frontage all satisfy it. GeoServer's own SLD for this layer keys
+ *    its rules on the bare code (`302101`) with NO human-readable title, so the city publishes
+ *    the geometry WITHOUT its semantics. Adopting it would mean asserting a meaning nobody has
+ *    established — the L-616 mechanism, and the thing §NO-SYNTHESISED-ALIGNMENT forbids.
+ *    ⇒ Recorded as a MEASURED CANDIDATE awaiting a semantic citation, never as an alignment.
+ */
+export const ZARAGOZA_ALIGNMENT_CANDIDATE = Object.freeze({
+    typeName: 'urbanismo:Linea_Normativa',
+    epsg: 25830,
+    candidateCodigo: '302101',
+    candidateSamples: 1643,
+    /** ⚠ FULL PRECISION, as measured. Rounding this to `0.03` for readability and ALSO storing a
+     *  separately-rounded ratio made the two disagree by 6 % — the L-422 family at the numeric
+     *  seam, caught by the test that recomputes it. Store the measurement; derive the rest. */
+    candidateMedianMetres: 0.03179072931957302,
+    candidateFractionWithin1m: 0.7419354838709677,
+    controlTypeName: 'urbanismo:Vias',
+    controlSamples: 7240,
+    controlMedianMetres: 11.67704921777246,
+    controlFractionWithin1m: 0.009668508287292817,
+    /** ⛔ The gating fact: geometry published, meaning not. */
+    semanticsPublished: false,
+    adopted: false,
+} as const);
+
+/**
+ * How much closer to a block boundary the candidate sits than the paired street-axis control.
+ * ⚠ DERIVED, never stored — see `candidateMedianMetres`. One statement of a number, not two.
+ */
+export function zaragozaAlignmentSeparationRatio(): number {
+    const span = tracer.startSpan('pryzm.zoning.zaragozaAlignmentSeparationRatio');
+    try {
+        const { controlMedianMetres, candidateMedianMetres } = ZARAGOZA_ALIGNMENT_CANDIDATE;
+        const ratio = controlMedianMetres / candidateMedianMetres;
+        span.setAttribute('separationRatio', ratio);
+        span.setStatus({ code: SpanStatusCode.OK });
+        return ratio;
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * §ZGZ-SHEET-INDEX — the plan-sheet index the Aragón agent recorded as NOT LOCATED. It exists.
+ *
+ * That agent was right to refuse to guess a URL for Zaragoza's tomo 11 sheet index. It is
+ * published as VECTOR GEOMETRY rather than as a document: four georeferenced sheet-grid layers on
+ * the city's own WFS, in EPSG:25830 —
+ *   `urbanismo:hoja_pgou_2000` (165 sheets, codes H12…), `hoja_pgou_5000` (141),
+ *   `hoja_pgou_chc` (4), `hoja_pgou_chr` (11).
+ *
+ * ⭐ WHY THIS MATTERS BEYOND ZARAGOZA. Huesca's blocker is that plano nº 5 is vector CAD that is
+ *   NOT GEOREFERENCED (best fit rejected at 2.31 m). A sheet index is exactly the missing datum:
+ *   each polygon IS the sheet's footprint on the ground, so a sheet can be positioned from the
+ *   publisher's own geometry instead of fitted against the cadastre. Zaragoza publishes one.
+ *   ⚠ It is NOT asserted that Huesca has an equivalent — that is UNKNOWN and worth one probe.
+ */
+export const ZARAGOZA_SHEET_INDEX_FINDING =
+    'Zaragoza publishes its PGOU plan-sheet index as georeferenced vector geometry (165 sheets at ' +
+    '1:2.000 and 141 at 1:5.000, in ETRS89 / UTM 30N), so a plan sheet can be placed on the ' +
+    'ground from the city’s own published footprint rather than fitted by guesswork.';
+
+/**
+ * §ZGZ-NORMATIVE-LAYERS — what else the DescribeLayer census turned up, stated as reachability
+ * only. None of these is transcribed, and none authorises a number.
+ *
+ * ⚠ THE ONE MOST LIKELY TO BE MISREAD: `urbanismo:Alturas_Edificios` (179,692 labels) is the
+ *   SURVEYED existing storey count — its vocabulary contains `SOLAR`, `MARQ.` and `E.T.`, which
+ *   are descriptions of what is standing, not grants. The NORMATIVE height is a different,
+ *   unadvertised layer, `urbanismo:Textos_Altura_Edificable` (7,856 labels), whose GeoServer rule
+ *   is literally named "Altura Edificable" and whose values include `H = III PLANTAS` and
+ *   `H = 10,50 M.`. Confusing the two would publish an existing building as a legal entitlement.
+ */
+export const ZARAGOZA_REACHABLE_NORMATIVE_LAYERS = Object.freeze([
+    Object.freeze({ typeName: 'urbanismo:Calificaciones_Urbanas', features: 7967, advertised: false }),
+    Object.freeze({ typeName: 'urbanismo:Textos_Altura_Edificable', features: 7856, advertised: false }),
+    Object.freeze({ typeName: 'urbanismo:Condiciones_Edificacion', features: 8092, advertised: false }),
+    Object.freeze({ typeName: 'urbanismo:Linea_Normativa', features: 8705, advertised: false }),
+    Object.freeze({ typeName: 'urbanismo:Poligono_Normativo', features: 986, advertised: false }),
+    Object.freeze({ typeName: 'urbanismo:Acotaciones', features: 3287, advertised: false }),
+    Object.freeze({ typeName: 'urbanismo:Condicion_Adjetiva_Uso', features: 93, advertised: false }),
+    Object.freeze({ typeName: 'urbanismo:Ejes_Vias_Previstos', features: 1945, advertised: false }),
+    Object.freeze({ typeName: 'urbanismo:Calificaciones_No_Urbanas', features: 995, advertised: false }),
+    Object.freeze({ typeName: 'urbanismo:Estructura', features: 9031, advertised: false }),
+    Object.freeze({ typeName: 'urbanismo:Alturas_Edificios', features: 179692, advertised: true }),
+] as const);
 
 /** C60 §3 — the honest statement of what PRYZM covers in Aragón today, and its limits. */
 export const ARAGON_ROADMAP_LINE =
     'Aragón coverage today: both provincial capitals are ROUTED, and their parcels resolve from ' +
     'the national Catastro. Zaragoza additionally resolves its municipal calificación live. ' +
     'Neither publishes a buildable envelope yet, and the two reasons are different and specific ' +
-    '— Zaragoza needs one attribute (the A1 subgrado) that the city holds but does not serve; ' +
-    'Huesca needs its 1:1.000 plan sheet positioned on the ground to better than a metre. ' +
+    '— Zaragoza serves the plan’s full zone grades, so what it now needs is the transcription of ' +
+    'the articles those grades select, plus the graphically-regulated depth; Huesca needs its ' +
+    '1:1.000 plan sheet positioned on the ground to better than a metre. ' +
     'Neither is a legislative gap. Points outside these municipalities fall back to their own ' +
     'jurisdiction, never to a borrowed Aragonese number.';
 
@@ -313,8 +504,8 @@ export function zaragozaNoRulePackRefusal(
             code: 'no-rule-pack',
             headline:
                 `${zone} — PRYZM has identified your land and reads Zaragoza's municipal zoning ` +
-                'live. One published attribute is still missing, and until it arrives PRYZM will ' +
-                'not publish a buildable figure.',
+                'live, at the plan’s own zone grade. The articles that grade selects have not ' +
+                'yet been transcribed and signed, so PRYZM will not publish a buildable figure.',
             detail:
                 'The parcel is established from the Spanish Dirección General del Catastro, and ' +
                 "the zoning from the city's own municipal service at parcel precision. " +

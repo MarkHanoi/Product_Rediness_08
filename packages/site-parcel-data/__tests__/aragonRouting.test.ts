@@ -24,9 +24,14 @@ import {
 import {
     HUESCA_ENVELOPE_VERIFIED,
     HUESCA_JURISDICTION_ID,
+    ZARAGOZA_ALIGNMENT_CANDIDATE,
+    ZARAGOZA_CALIFICACION_CENSUS,
     ZARAGOZA_ENVELOPE_VERIFIED,
     ZARAGOZA_JURISDICTION_ID,
+    ZARAGOZA_REACHABLE_NORMATIVE_LAYERS,
+    ZARAGOZA_SHEET_INDEX_FINDING,
     huescaNoRulePackRefusal,
+    zaragozaAlignmentSeparationRatio,
     zaragozaNoRulePackRefusal,
 } from '../src/rulepacks/esAragon.js';
 
@@ -187,10 +192,86 @@ describe('Aragón — the honesty gates are shut, and the copy never promises a 
         expect(r.detail).toMatch(/cannot be attributed/i);
     });
 
-    it('Zaragoza names the ONE missing attribute', () => {
-        const r = zaragozaNoRulePackRefusal('A1');
-        expect(r.detail).toMatch(/subgrado/i);
-        expect(r.detail).toMatch(/A1\/3\.1|A1\/4\.1/);
+    // ═════════════════════════════════════════════════════════════════════════════════════════
+    // §ZGZ-SUBGRADO — the correction. These tests exist to stop the OLD claim coming back.
+    // ═════════════════════════════════════════════════════════════════════════════════════════
+
+    it('Zaragoza no longer claims the subgrado is withheld — because it is published', () => {
+        const r = zaragozaNoRulePackRefusal('A1/3.1');
+        // The grades ARE served, so the refusal must not tell the user the city withholds them.
+        expect(r.detail).toMatch(/A1\/3\.1/);
+        expect(r.detail).toMatch(/published/i);
+        // ⛔ The retired framing. `Calificaciones_Urbanas` answers 200 with all four selectors, so
+        //    any wording that blames the city for not serving the attribute is now FALSE.
+        expect(r.detail).not.toMatch(/holds but does not serve/i);
+        expect(r.detail).not.toMatch(/carries only "?A1"?[^/]/i);
+    });
+
+    it('the calificación census reconciles the fine layer to the coarse one EXACTLY', () => {
+        // This is the load-bearing evidence that `Calificaciones_Urbanas` is `Estructura`
+        // RESOLVED rather than an unrelated dataset: A1 = 1,325 in the coarse layer, and the
+        // eight A1/* grades sum to the same 1,325. If a future edit changes one and not the
+        // other, the claim silently stops being true — so it is asserted.
+        expect(ZARAGOZA_CALIFICACION_CENSUS.fineA1PolygonsSummed).toBe(
+            ZARAGOZA_CALIFICACION_CENSUS.coarseA1Polygons,
+        );
+        const selectors = ZARAGOZA_CALIFICACION_CENSUS.articleSelectors;
+        expect(Object.keys(selectors).sort()).toEqual(['A1/3.1', 'A1/3.2', 'A1/4.1', 'A1/4.2']);
+        // Every article the refusal names must have a measured, non-empty selector behind it.
+        for (const [code, v] of Object.entries(selectors)) {
+            expect(v.polygons, `${code} must have measured polygons`).toBeGreaterThan(0);
+            expect(v.article).toMatch(/^4\.1\.\d+$/);
+        }
+    });
+
+    it('records that the layer is REACHABLE YET UNADVERTISED — the reusable lesson', () => {
+        // The whole reason 28 guesses AND a GetCapabilities census would both have failed.
+        expect(ZARAGOZA_CALIFICACION_CENSUS.advertisedInWfsCapabilities).toBe(false);
+        expect(ZARAGOZA_CALIFICACION_CENSUS.typeName).toBe('urbanismo:Calificaciones_Urbanas');
+        expect(ZARAGOZA_CALIFICACION_CENSUS.epsg).toBe(25830);
+        // ⚠ Aragón straddles UTM 30N/31N. Zaragoza is 30N and that must be stated, not assumed.
+        const unadvertised = ZARAGOZA_REACHABLE_NORMATIVE_LAYERS.filter((l) => !l.advertised);
+        expect(unadvertised.length).toBeGreaterThanOrEqual(9);
+    });
+
+    it('the alignment candidate is MEASURED against a control and still NOT adopted', () => {
+        const a = ZARAGOZA_ALIGNMENT_CANDIDATE;
+        // A candidate is only admissible with a paired control that behaves DIFFERENTLY.
+        expect(a.controlTypeName).not.toBe(a.typeName);
+        expect(a.candidateSamples).toBeGreaterThan(1000);
+        expect(a.controlSamples).toBeGreaterThan(1000);
+        // The separation must be large, and it is DERIVED from the two medians rather than
+        // restated independently — a second statement of a number is how they drift, and an
+        // earlier revision of this file drifted by 6 % exactly that way.
+        expect(zaragozaAlignmentSeparationRatio()).toBeGreaterThan(100);
+        // ⭐ The control must ALSO discriminate: an axis must be nowhere near a block boundary,
+        //    otherwise "close to the boundary" would be true of everything and mean nothing.
+        expect(a.controlFractionWithin1m).toBeLessThan(0.05);
+        expect(a.candidateFractionWithin1m).toBeGreaterThan(0.5);
+        // ⛔ THE POINT OF THE TEST: geometry passing is NOT adoption. The city publishes the
+        //    lines without their semantics, so asserting "this is the alineación" would be an
+        //    invention. If someone flips `adopted` they must also publish the semantics.
+        expect(a.semanticsPublished).toBe(false);
+        expect(a.adopted).toBe(false);
+    });
+
+    it('⛔ the gate stays SHUT even though the data improved', () => {
+        // Better data changed the REASON, never the value. A signature is a founder act (L-449),
+        // and a model flipping its own publication gate is the L-677 defect.
+        expect(ZARAGOZA_ENVELOPE_VERIFIED).toBe(false);
+        expect(HUESCA_ENVELOPE_VERIFIED).toBe(false);
+        const r = zaragozaNoRulePackRefusal('A1/3.1');
+        expect(r.legallyGrounded).toBe(false);
+        expect(r.ordinanceRef).toBeNull();
+        expect(r.code).toBe('no-rule-pack');
+    });
+
+    it('the plan-sheet index is recorded as FOUND, in a stated CRS', () => {
+        // Previously recorded as "NOT located" and correctly not guessed at. It is published as
+        // georeferenced vector geometry, which is exactly the datum Huesca's blocker needs.
+        expect(ZARAGOZA_SHEET_INDEX_FINDING).toMatch(/sheet index|plan-sheet index/i);
+        expect(ZARAGOZA_SHEET_INDEX_FINDING).toMatch(/UTM 30N/);
+        expect(ZARAGOZA_SHEET_INDEX_FINDING).toMatch(/165/);
     });
 
     it('knownFacts pass through without mutation', () => {

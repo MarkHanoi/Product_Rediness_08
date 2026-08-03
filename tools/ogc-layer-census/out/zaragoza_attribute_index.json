@@ -1,0 +1,2960 @@
+{
+  "5659_CA_ID": [
+    "idezar_base:AcerasZonasVerdes_carto1000_2009"
+  ],
+  "AGUA_P_ID": [
+    "idezar_base:EXPO_Canal_carto2004_2009"
+  ],
+  "ALTTOTAL": [
+    "idezar_base:arboles_2022"
+  ],
+  "ALTURA": [
+    "idezar_base:arbustos_2022"
+  ],
+  "ANCHURA": [
+    "idezar_base:arbustos_2022"
+  ],
+  "AREA": [
+    "idezar_base:AcerasZonasVerdes_carto1000_2009",
+    "idezar_base:EXPO_Canal_carto2004_2009",
+    "idezar_base:EXPO_ZonaVerde_carto2004_2009"
+  ],
+  "AREA_URBANISTICA": [
+    "movilidad:MU2_veladores"
+  ],
+  "Altura": [
+    "mapa_del_ruido_2016:mapa_ruido_tarde_2016"
+  ],
+  "BADENES_ASOCIADOS": [
+    "movilidad:MU1_parking"
+  ],
+  "BARRIO": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "BLUE": [
+    "urbanismo:IDEZar_Ordenacion_lineas"
+  ],
+  "BRIDGE": [
+    "idezar_base:Carreteras_cartoOSM_2019_Exteriores",
+    "idezar_base:Carreteras_cartoOSM_2019_Interiores",
+    "idezar_base:Carreteras_cartoOSM_2019_Principales"
+  ],
+  "CALLE": [
+    "idezar_base:JERARQUIA_VIARIA",
+    "movilidad:MU1_CC_carriles_bici_todos_2023",
+    "movilidad:MU1_parking"
+  ],
+  "CALLE_Z30": [
+    "idezar_base:JERARQUIA_VIARIA"
+  ],
+  "CAPACIDAD": [
+    "idezar_base:JERARQUIA_VIARIA"
+  ],
+  "CARRIL_BUS": [
+    "idezar_base:JERARQUIA_VIARIA"
+  ],
+  "CARRIL_VH": [
+    "idezar_base:JERARQUIA_VIARIA"
+  ],
+  "CARSING": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "CATEGORIA": [
+    "idezar_base:Urbanos_carto1000_2009_et"
+  ],
+  "CCARSING": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "CELEMENTO": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "CENTIDAD": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "CESPECIE": [
+    "idezar_base:arbustos_2022"
+  ],
+  "CO": [
+    "idezar_base:arboles_urbanismo",
+    "idezar_base:arbustos_urbanismo"
+  ],
+  "COMMENT": [
+    "urbanismo:IDEZar_Ordenacion_lineas"
+  ],
+  "CTIPOLOG": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "Codigo_calle": [
+    "movilidad:MU2_motos"
+  ],
+  "DB_HI": [
+    "mapa_del_ruido_2016:mapa_ruido_DEN_2016",
+    "mapa_del_ruido_2016:mapa_ruido_dia_2016",
+    "mapa_del_ruido_2016:mapa_ruido_noche_2016",
+    "mapa_del_ruido_2016:mapa_ruido_tarde_2016"
+  ],
+  "DESCRIPCION": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "DESDE": [
+    "movilidad:MU1_CC_carriles_bici_todos_2023"
+  ],
+  "DIAMCOPA": [
+    "idezar_base:arboles_2022",
+    "idezar_base:arbustos_2022"
+  ],
+  "DIRECCION": [
+    "movilidad:MU2_veladores"
+  ],
+  "DISTRITO": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "DOBLE_SENT": [
+    "idezar_base:JERARQUIA_VIARIA"
+  ],
+  "DST": [
+    "indicadores:manzanas_densidad"
+  ],
+  "EDADREL": [
+    "idezar_base:arboles_2022"
+  ],
+  "ELEMENTO": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "ENTITY_NUM": [
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009"
+  ],
+  "ESPECIE": [
+    "idezar_base:arboles_2022",
+    "idezar_base:arbustos_2022"
+  ],
+  "ETIQUETA": [
+    "idezar_base:Barriadas_carto2004_2009_et",
+    "idezar_base:Barrios_carto2004_2009_et",
+    "idezar_base:Ebro_carto2004_2009_et",
+    "idezar_base:Rios_carto1000_2010",
+    "idezar_base:Zaragoza_carto2004_2009_et"
+  ],
+  "ET_ID": [
+    "mapa_del_ruido_2016:mapa_ruido_DEN_2016",
+    "mapa_del_ruido_2016:mapa_ruido_dia_2016",
+    "mapa_del_ruido_2016:mapa_ruido_noche_2016",
+    "mapa_del_ruido_2016:mapa_ruido_tarde_2016"
+  ],
+  "FECHAACT": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "FECHADAT": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "FECHAPLANT": [
+    "idezar_base:arboles_2022",
+    "idezar_base:arbustos_2022"
+  ],
+  "FT": [
+    "idezar_base:arboles_urbanismo",
+    "idezar_base:arbustos_urbanismo"
+  ],
+  "Fecha_instalacion": [
+    "movilidad:MU2_motos"
+  ],
+  "Ficha_web": [
+    "movilidad:MU1_CC_estaciones_aforos_fichas_2025_pdf",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_PDF"
+  ],
+  "GEODB_OID": [
+    "idezar_base:EXPO_Canal_carto2004_2009",
+    "idezar_base:EXPO_ParqueMetropolitano_carto2004_2009",
+    "idezar_base:EXPO_Plazas_carto2004_2009",
+    "idezar_base:EXPO_Recinto_carto2004_2009",
+    "idezar_base:EXPO_ZonaVerde_carto2004_2009",
+    "idezar_base:Puentes_carto1000_n23_2009",
+    "idezar_base:Rios_carto1000_2010",
+    "idezar_base:Urbanos_carto1000_2009_et",
+    "idezar_base:ZonasVerdesPrincipales_carto1000_2012"
+  ],
+  "GREEN": [
+    "urbanismo:IDEZar_Ordenacion_lineas"
+  ],
+  "GRUPO": [
+    "idezar_base:Urbanos_carto1000_2009_et"
+  ],
+  "HAB_HA": [
+    "indicadores:manzanas_densidad"
+  ],
+  "HASTA": [
+    "movilidad:MU1_CC_carriles_bici_todos_2023"
+  ],
+  "HORARIO": [
+    "movilidad:MU1_reservas"
+  ],
+  "ID": [
+    "idezar_base:Zaragoza_carto2004_2009_et",
+    "idezar_base:arboles_2022",
+    "idezar_base:arbustos_2022",
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "ID1": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "IDBARRIO": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "IDCLIENTE": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "IDDISTRITO": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "IDUG": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "IGDS_BASEN": [
+    "idezar_base:Urbanos_carto1000_2009_et",
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_CELL2": [
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_CELL3": [
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_CELL_": [
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_CLASS": [
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_COLOR": [
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_FILL_": [
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_FONT": [
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_GRAPH": [
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_JUSTI": [
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_LEVEL": [
+    "idezar_base:Urbanos_carto1000_2009_et",
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_ROTAT": [
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_STYLE": [
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_SYMBO": [
+    "idezar_base:Urbanos_carto1000_2009_et",
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_TEXT2": [
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_TEXT_": [
+    "idezar_base:Urbanos_carto1000_2009_et",
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "IGDS_WEIGH": [
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019"
+  ],
+  "INFANTIL": [
+    "indicadores:manzanas_densidad"
+  ],
+  "Id": [
+    "idezar_base:Autopistas_carto1000_2009_et"
+  ],
+  "LEVEL": [
+    "idezar_base:Etiquetas_5000",
+    "idezar_base:Etiquetas_5000_mal",
+    "idezar_base:Etiquetas_5000_old",
+    "urbanismo:IDEZar_Ordenacion_lineas"
+  ],
+  "LEVEL_NAME": [
+    "urbanismo:IDEZar_Ordenacion_lineas"
+  ],
+  "LIMITE_VEL": [
+    "idezar_base:JERARQUIA_VIARIA",
+    "idezar_base:JERARQUIA_VIARIA_POINTS"
+  ],
+  "LNOCHE": [
+    "mapa_del_ruido_2016:fachadas_sensibles_noche_2016"
+  ],
+  "LONGITUD": [
+    "idezar_base:JERARQUIA_VIARIA",
+    "idezar_base:zona_verde_juegos_infantiles_2022",
+    "movilidad:MU1_reservas",
+    "movilidad:MU2_veladores"
+  ],
+  "MALLA_BASI": [
+    "idezar_base:JERARQUIA_VIARIA"
+  ],
+  "MAN": [
+    "indicadores:manzanas_densidad"
+  ],
+  "MATRICULA": [
+    "idezar_base:arboles_2022"
+  ],
+  "MAXSPEED": [
+    "idezar_base:Carreteras_cartoOSM_2019_Exteriores",
+    "idezar_base:Carreteras_cartoOSM_2019_Interiores",
+    "idezar_base:Carreteras_cartoOSM_2019_Principales"
+  ],
+  "MSLINK": [
+    "idezar_base:arboles_urbanismo",
+    "idezar_base:arbustos_urbanismo"
+  ],
+  "MSLINK_0": [
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009"
+  ],
+  "MUNICIPAL": [
+    "idezar_base:JERARQUIA_VIARIA"
+  ],
+  "NAME": [
+    "idezar_base:Carreteras_cartoOSM_2019_Exteriores",
+    "idezar_base:Carreteras_cartoOSM_2019_Interiores",
+    "idezar_base:Carreteras_cartoOSM_2019_Principales",
+    "idezar_base:Rios_carto1000_2010",
+    "idezar_base:ZonasVerdesPrincipales_carto1000_2012"
+  ],
+  "NEW_TYPE": [
+    "idezar_base:Carreteras_cartoOSM_2019_Exteriores",
+    "idezar_base:Carreteras_cartoOSM_2019_Interiores",
+    "idezar_base:Carreteras_cartoOSM_2019_Principales"
+  ],
+  "NODO_D": [
+    "movilidad:MU1_CC_carriles_bici_todos_2023"
+  ],
+  "NODO_H": [
+    "movilidad:MU1_CC_carriles_bici_todos_2023"
+  ],
+  "NOMBRE_CALLE": [
+    "movilidad:MU1_reservas"
+  ],
+  "NOMBRE_LOCAL": [
+    "movilidad:MU2_veladores"
+  ],
+  "NOMBRE_ZONA": [
+    "movilidad:MU1_zonas_reguladas"
+  ],
+  "NUMERO_ZONA": [
+    "movilidad:MU1_zonas_reguladas"
+  ],
+  "N_HOGAR": [
+    "indicadores:manzanas_densidad"
+  ],
+  "N_ID": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "Name": [
+    "mapa_del_ruido_2016:fachadas_residenciales_DEN_2016",
+    "mapa_del_ruido_2016:fachadas_residenciales_dia_2016",
+    "mapa_del_ruido_2016:fachadas_residenciales_noche_2016",
+    "mapa_del_ruido_2016:fachadas_residenciales_tarde_2016",
+    "mapa_del_ruido_2016:fachadas_sensibles_DEN_2016",
+    "mapa_del_ruido_2016:fachadas_sensibles_dia_2016",
+    "mapa_del_ruido_2016:fachadas_sensibles_tarde_2016"
+  ],
+  "Nombre": [
+    "idezar_base:Autopistas_carto1000_2009_et"
+  ],
+  "Nombre_calle": [
+    "movilidad:MU2_motos"
+  ],
+  "Numero_plazas": [
+    "movilidad:MU2_motos"
+  ],
+  "OBJECTID": [
+    "idezar_base:Puentes_carto1000_n23_2009"
+  ],
+  "OBSERVAC": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "OBSERVACIO": [
+    "idezar_base:JERARQUIA_VIARIA"
+  ],
+  "OID_": [
+    "idezar_base:Puentes_carto1000_n23_2009"
+  ],
+  "ONEWAY": [
+    "idezar_base:Carreteras_cartoOSM_2019_Exteriores",
+    "idezar_base:Carreteras_cartoOSM_2019_Interiores",
+    "idezar_base:Carreteras_cartoOSM_2019_Principales"
+  ],
+  "OSM_ID": [
+    "idezar_base:Carreteras_cartoOSM_2019_Exteriores",
+    "idezar_base:Carreteras_cartoOSM_2019_Interiores",
+    "idezar_base:Carreteras_cartoOSM_2019_Principales"
+  ],
+  "PACIFICADA": [
+    "idezar_base:JERARQUIA_VIARIA",
+    "idezar_base:JERARQUIA_VIARIA_POINTS"
+  ],
+  "PERIMETRO": [
+    "movilidad:MU1_zonas_reguladas"
+  ],
+  "PLATAFORMA": [
+    "idezar_base:JERARQUIA_VIARIA"
+  ],
+  "PLAZAS": [
+    "movilidad:MU1_reservas",
+    "movilidad:MU2_veladores"
+  ],
+  "PMA12,5_18": [
+    "idezar_base:JERARQUIA_VIARIA"
+  ],
+  "PMA_18": [
+    "idezar_base:JERARQUIA_VIARIA"
+  ],
+  "PORTAL": [
+    "movilidad:MU1_parking",
+    "movilidad:MU1_reservas"
+  ],
+  "P_ADULTA": [
+    "indicadores:manzanas_densidad"
+  ],
+  "P_HOG": [
+    "indicadores:manzanas_densidad"
+  ],
+  "Poligono": [
+    "movilidad:MU2_motos"
+  ],
+  "Porcentaje": [
+    "movilidad:MU1_CC_bici_comparativa_2023_2024"
+  ],
+  "Portal": [
+    "movilidad:MU2_motos"
+  ],
+  "RED": [
+    "urbanismo:IDEZar_Ordenacion_lineas"
+  ],
+  "REF": [
+    "idezar_base:Carreteras_cartoOSM_2019_Exteriores",
+    "idezar_base:Carreteras_cartoOSM_2019_Interiores",
+    "idezar_base:Carreteras_cartoOSM_2019_Principales"
+  ],
+  "RESIDENCIA": [
+    "idezar_base:JERARQUIA_VIARIA"
+  ],
+  "ROTACION": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "ROTATION": [
+    "idezar_base:Calles_Tercer_Nivel_2014",
+    "idezar_base:Etiquetas_500",
+    "idezar_base:Etiquetas_5000",
+    "idezar_base:Etiquetas_5000_mal",
+    "idezar_base:Etiquetas_5000_old",
+    "idezar_base:Etiquetas_500_old"
+  ],
+  "SCC": [
+    "indicadores:manzanas_densidad"
+  ],
+  "SHAPE_LENG": [
+    "idezar_base:Puentes_carto1000_n23_2009"
+  ],
+  "SHAPE_LE_1": [
+    "idezar_base:Puentes_carto1000_n23_2009"
+  ],
+  "ST": [
+    "idezar_base:arboles_urbanismo",
+    "idezar_base:arbustos_urbanismo"
+  ],
+  "STINSP": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "SUBGRUPO": [
+    "idezar_base:Urbanos_carto1000_2009_et"
+  ],
+  "SUBTIPO": [
+    "movilidad:MU1_reservas"
+  ],
+  "SUPERFICIE": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "SY": [
+    "idezar_base:arboles_urbanismo",
+    "idezar_base:arbustos_urbanismo"
+  ],
+  "TAMAÑO": [
+    "movilidad:MU1_zonas_reguladas"
+  ],
+  "TEMA": [
+    "idezar_base:Urbanos_carto1000_2009_et"
+  ],
+  "TEXT": [
+    "idezar_base:Calles_Tercer_Nivel_2014",
+    "idezar_base:Etiquetas_500",
+    "idezar_base:Etiquetas_5000",
+    "idezar_base:Etiquetas_5000_mal",
+    "idezar_base:Etiquetas_5000_old",
+    "idezar_base:Etiquetas_500_old"
+  ],
+  "TEXT_SIZE": [
+    "idezar_base:Calles_Tercer_Nivel_2014",
+    "idezar_base:Etiquetas_500",
+    "idezar_base:Etiquetas_5000",
+    "idezar_base:Etiquetas_5000_mal",
+    "idezar_base:Etiquetas_5000_old",
+    "idezar_base:Etiquetas_500_old"
+  ],
+  "TIPO": [
+    "idezar_base:JERARQUIA_VIARIA",
+    "movilidad:MU1_parking",
+    "movilidad:MU1_reservas"
+  ],
+  "TIPOLOG": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "TIPO_CARRI": [
+    "idezar_base:carril_bizi_20250127"
+  ],
+  "TIPO_DIREC": [
+    "idezar_base:carril_bizi_20250127"
+  ],
+  "TIPO_PAVIM": [
+    "idezar_base:AcerasZonasVerdes_PavimentosTF_2017",
+    "idezar_base:Aceras_PavimentoTF_2017",
+    "idezar_base:Medianas_PavimentoTF_201702",
+    "idezar_base:PBandVerde_PavimentoTF_20170"
+  ],
+  "TOTAL_PLAZAS": [
+    "movilidad:MU1_parking"
+  ],
+  "TOT_POB": [
+    "indicadores:manzanas_densidad"
+  ],
+  "TRAMO": [
+    "idezar_base:JERARQUIA_VIARIA"
+  ],
+  "TX": [
+    "idezar_base:arboles_urbanismo",
+    "idezar_base:arbustos_urbanismo"
+  ],
+  "TXT_ANGLE": [
+    "idezar_base:arboles_urbanismo",
+    "idezar_base:arbustos_urbanismo"
+  ],
+  "TXT_LABEL": [
+    "idezar_base:arboles_urbanismo",
+    "idezar_base:arbustos_urbanismo"
+  ],
+  "TYPE": [
+    "idezar_base:Carreteras_cartoOSM_2019_Exteriores",
+    "idezar_base:Carreteras_cartoOSM_2019_Interiores",
+    "idezar_base:Carreteras_cartoOSM_2019_Principales"
+  ],
+  "Tipo_via": [
+    "movilidad:MU2_motos"
+  ],
+  "UG": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "UNIDADES": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "VERDE__ID": [
+    "idezar_base:EXPO_ZonaVerde_carto2004_2009"
+  ],
+  "VIAL": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "Vias_codigo": [
+    "movilidad:MU1_parking"
+  ],
+  "Vias_tipo_via": [
+    "movilidad:MU1_parking"
+  ],
+  "WT": [
+    "idezar_base:arboles_urbanismo",
+    "idezar_base:arbustos_urbanismo"
+  ],
+  "X": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "Y": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ],
+  "acceso": [
+    "movilidad:MU1_CC_camaras_trafico",
+    "movilidad:MU1_CC_espectro_camaras"
+  ],
+  "aforo_2021": [
+    "movilidad:MU1_CC_estaciones_aforos_fichas_2025_pdf",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_PDF"
+  ],
+  "aggregatio": [
+    "movilidad:MU1_CC_viales_comp_2024vs2023",
+    "movilidad:MU1_CC_viales_iml2024"
+  ],
+  "aggregation_category": [
+    "movilidad:MU1_CC_viales_comp_2025vs2024",
+    "movilidad:MU1_CC_viales_iml2025"
+  ],
+  "agregacion": [
+    "movilidad:MU1_CC_estaciones_aforos_fichas_2025_pdf",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_PDF"
+  ],
+  "altitud": [
+    "urbanismo:Clavos_Topograficos"
+  ],
+  "altitude": [
+    "medioambiente:estacion_calidad_aire"
+  ],
+  "altura": [
+    "medioambiente:edificaciones_niveles_ruido_2025"
+  ],
+  "altura_lib": [
+    "infraestructuras:escaleras"
+  ],
+  "ancho_baden": [
+    "movilidad:MU1_badenes"
+  ],
+  "anclajes": [
+    "movilidad:MU2_aparcabicis"
+  ],
+  "anclajes_bicicletas": [
+    "movilidad:MU1_estaciones_bici_ubicacion"
+  ],
+  "anio": [
+    "medioambiente:edificaciones_niveles_ruido_2025",
+    "medioambiente:fachada_residencial_dia_2016",
+    "medioambiente:fachada_residencial_lden_2016",
+    "medioambiente:fachada_residencial_noche_2016",
+    "medioambiente:fachada_residencial_tarde_2016",
+    "medioambiente:fachada_sensible_dia_2016",
+    "medioambiente:fachada_sensible_lden_2016",
+    "medioambiente:fachada_sensible_noche_2016",
+    "medioambiente:fachada_sensible_tarde_2016",
+    "medioambiente:limite_aglomeracion_2025",
+    "medioambiente:mapa_ruido_ferroviario_dia_2025",
+    "medioambiente:mapa_ruido_ferroviario_lden_2025",
+    "medioambiente:mapa_ruido_ferroviario_noche_2025",
+    "medioambiente:mapa_ruido_ferroviario_tarde_2025",
+    "medioambiente:mapa_ruido_industrial_dia_2025",
+    "medioambiente:mapa_ruido_industrial_lden_2025",
+    "medioambiente:mapa_ruido_industrial_noche_2025",
+    "medioambiente:mapa_ruido_industrial_tarde_2025",
+    "medioambiente:mapa_ruido_todas_dia_2025",
+    "medioambiente:mapa_ruido_todas_lden_2025",
+    "medioambiente:mapa_ruido_todas_noche_2025",
+    "medioambiente:mapa_ruido_todas_tarde_2025",
+    "medioambiente:mapa_ruido_viario_dia_2016",
+    "medioambiente:mapa_ruido_viario_dia_2025",
+    "medioambiente:mapa_ruido_viario_lden_2016",
+    "medioambiente:mapa_ruido_viario_lden_2025",
+    "medioambiente:mapa_ruido_viario_noche_2016",
+    "medioambiente:mapa_ruido_viario_noche_2025",
+    "medioambiente:mapa_ruido_viario_tarde_2016",
+    "medioambiente:mapa_ruido_viario_tarde_2025",
+    "medioambiente:poblacion_afectada_2025"
+  ],
+  "ante_pgou_1986": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "apr_definitiva": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "apr_definitiva_rep": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "apr_definitiva_urb": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "arboles_2022": [
+    "idezar_base:arboles_2022"
+  ],
+  "arboles_urbanismo": [
+    "idezar_base:arboles_urbanismo"
+  ],
+  "arbustos_2022": [
+    "idezar_base:arbustos_2022"
+  ],
+  "arbustos_urbanismo": [
+    "idezar_base:arbustos_urbanismo"
+  ],
+  "area": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "area_classification": [
+    "medioambiente:estacion_calidad_aire"
+  ],
+  "area_expuesta_km2": [
+    "medioambiente:poblacion_afectada_2025"
+  ],
+  "area_has": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "area_has_1": [
+    "ctsvg:ISV_Manzanas_2024_abrev_publi"
+  ],
+  "area_m2_1": [
+    "ctsvg:ISV_Manzanas_2024_abrev_publi"
+  ],
+  "area_referencia": [
+    "urbanismo:Portales"
+  ],
+  "artic": [
+    "movilidad:MU1_CC_reguladores"
+  ],
+  "barandilla": [
+    "infraestructuras:escaleras"
+  ],
+  "barrio_rural": [
+    "urbanismo:Vias"
+  ],
+  "base": [
+    "urbanismo:Clavos_Topograficos"
+  ],
+  "bloque_escalera": [
+    "urbanismo:Portales"
+  ],
+  "bridge": [
+    "movilidad:MU3_lineas_tranvia"
+  ],
+  "calificacion": [
+    "urbanismo:Portales"
+  ],
+  "calle": [
+    "infraestructuras:escaleras",
+    "movilidad:MU1_CC_bici_comparativa_2023_2024",
+    "movilidad:MU1_CC_bici_comparativa_2024_2025",
+    "movilidad:MU1_CC_carriles_bici_todos_2024",
+    "movilidad:MU1_CC_carriles_bici_todos_2025",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_VMP_2024",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_vmp_2025",
+    "movilidad:MU1_CC_viales_comp_2024vs2023",
+    "movilidad:MU1_CC_viales_comp_2025vs2024",
+    "movilidad:MU1_CC_viales_iml2024",
+    "movilidad:MU1_CC_viales_iml2025",
+    "movilidad:MU1_badenes",
+    "movilidad:MU1_puntos_recarga",
+    "movilidad:MU2_señalizacion_vertical"
+  ],
+  "calle1": [
+    "movilidad:MU1_CC_estaciones_aforos_fichas_2025_pdf",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_PDF"
+  ],
+  "calle2": [
+    "movilidad:MU1_CC_estaciones_aforos_fichas_2025_pdf",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_PDF"
+  ],
+  "calle3": [
+    "movilidad:MU1_CC_estaciones_aforos_fichas_2025_pdf",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_PDF"
+  ],
+  "calle_1": [
+    "movilidad:MU1_CC_aforos_bici_y_vmp"
+  ],
+  "calle_2": [
+    "movilidad:MU1_CC_aforos_bici_y_vmp"
+  ],
+  "calle_2024": [
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "calle_3": [
+    "movilidad:MU1_CC_aforos_bici_y_vmp"
+  ],
+  "calle_desd": [
+    "movilidad:MU1_CC_viales_comp_2024vs2023",
+    "movilidad:MU1_CC_viales_iml2024"
+  ],
+  "calle_desde": [
+    "movilidad:MU1_CC_bici_comparativa_2023_2024",
+    "movilidad:MU1_CC_bici_comparativa_2024_2025",
+    "movilidad:MU1_CC_carriles_bici_todos_2024",
+    "movilidad:MU1_CC_carriles_bici_todos_2025",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_VMP_2024",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_vmp_2025",
+    "movilidad:MU1_CC_viales_comp_2025vs2024",
+    "movilidad:MU1_CC_viales_iml2025"
+  ],
+  "calle_hast": [
+    "movilidad:MU1_CC_viales_comp_2024vs2023",
+    "movilidad:MU1_CC_viales_iml2024"
+  ],
+  "calle_hasta": [
+    "movilidad:MU1_CC_bici_comparativa_2023_2024",
+    "movilidad:MU1_CC_bici_comparativa_2024_2025",
+    "movilidad:MU1_CC_carriles_bici_todos_2024",
+    "movilidad:MU1_CC_carriles_bici_todos_2025",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_VMP_2024",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_vmp_2025",
+    "movilidad:MU1_CC_viales_comp_2025vs2024",
+    "movilidad:MU1_CC_viales_iml2025"
+  ],
+  "calle_z30": [
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "camaraip": [
+    "movilidad:MU1_CC_espectro_camaras"
+  ],
+  "canu": [
+    "urbanismo:Portales"
+  ],
+  "capacidad": [
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "carril_bizi_20250127": [
+    "idezar_base:carril_bizi_20250127"
+  ],
+  "carril_bus": [
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "carril_vh": [
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "central": [
+    "movilidad:MU1_CC_reguladores"
+  ],
+  "cespecie": [
+    "infraestructuraverde:reposicion"
+  ],
+  "cod_man": [
+    "ctsvg:ISV_Manzanas_2024_abrev_publi"
+  ],
+  "cod_postal": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev"
+  ],
+  "cod_poste": [
+    "movilidad:MU3_paradas_BUS"
+  ],
+  "cod_poste_": [
+    "movilidad:MU3_paradas_BUS"
+  ],
+  "cod_sector": [
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "code": [
+    "idezar_base:Ferrocarriles_cartoOSM_2019",
+    "movilidad:MU3_lineas_tranvia"
+  ],
+  "codigo": [
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev",
+    "medioambiente:contenedor",
+    "medioambiente:fuente_agua_potable",
+    "medioambiente:recogidamuebles",
+    "movilidad:MU1_estacionamientos_calle",
+    "movilidad:MU1_jerarquia_viaria",
+    "movilidad:MU1_parking",
+    "movilidad:MU2_señalizacion_vertical",
+    "movilidad:MU3_lineas_bus",
+    "movilidad:MU3_paradas_bus_unicas",
+    "movilidad:MU3_paradas_tranvia",
+    "urbanismo:Areas_Referencia",
+    "urbanismo:Distritos_Municipales",
+    "urbanismo:Juntas_Municipales_Vecinales",
+    "urbanismo:Municipios",
+    "urbanismo:Vias",
+    "urbanismo:hoja_pgou_2000",
+    "urbanismo:hoja_pgou_5000",
+    "urbanismo:hoja_pgou_chc",
+    "urbanismo:hoja_pgou_chr"
+  ],
+  "codigo_ambito": [
+    "urbanismo:PLA_1_Ambitos_desarrollo",
+    "urbanismo:PLA_1_Ambitos_recogido",
+    "urbanismo:PLA_1_Instrumentos_ambito",
+    "urbanismo:v_ambitos_desarrollo_etiquetas"
+  ],
+  "codigo_callejero": [
+    "urbanismo:Juntas_Municipales_Vecinales"
+  ],
+  "codigo_municipal": [
+    "urbanismo:Manzanas",
+    "urbanismo:Parcelas",
+    "urbanismo:suelos_vacantes"
+  ],
+  "codigo_nacional": [
+    "medioambiente:estacion_calidad_aire"
+  ],
+  "codigo_numerico": [
+    "urbanismo:Areas_Referencia"
+  ],
+  "codigo_t": [
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "codigo_ubicacion": [
+    "medioambiente:contenedor",
+    "medioambiente:recogidamuebles"
+  ],
+  "codigo_ume": [
+    "medioambiente:edificaciones_niveles_ruido_2025",
+    "medioambiente:limite_aglomeracion_2025"
+  ],
+  "codigo_via": [
+    "urbanismo:Portales"
+  ],
+  "codigo_via_entrada": [
+    "urbanismo:Vias"
+  ],
+  "codigo_via_salida": [
+    "urbanismo:Vias"
+  ],
+  "color": [
+    "medioambiente:fuente_agua_potable"
+  ],
+  "comentario": [
+    "urbanismo:Clavos_Topograficos"
+  ],
+  "comprobado": [
+    "urbanismo:Clavos_Topograficos"
+  ],
+  "conector": [
+    "movilidad:MU1_puntos_recarga"
+  ],
+  "contaminantes": [
+    "medioambiente:estacion_calidad_aire"
+  ],
+  "contenedor": [
+    "medioambiente:contenedor"
+  ],
+  "coord_x": [
+    "movilidad:MU1_estaciones_bici_ubicacion"
+  ],
+  "coord_y": [
+    "movilidad:MU1_estaciones_bici_ubicacion"
+  ],
+  "correspond": [
+    "movilidad:MU3_paradas_BUS"
+  ],
+  "cumplimien": [
+    "infraestructuras:escaleras"
+  ],
+  "cusec": [
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024_abrev"
+  ],
+  "db_max": [
+    "medioambiente:fachada_residencial_dia_2016",
+    "medioambiente:fachada_residencial_lden_2016",
+    "medioambiente:fachada_residencial_noche_2016",
+    "medioambiente:fachada_residencial_tarde_2016",
+    "medioambiente:fachada_sensible_dia_2016",
+    "medioambiente:fachada_sensible_lden_2016",
+    "medioambiente:fachada_sensible_noche_2016",
+    "medioambiente:fachada_sensible_tarde_2016",
+    "medioambiente:mapa_ruido_ferroviario_dia_2025",
+    "medioambiente:mapa_ruido_ferroviario_lden_2025",
+    "medioambiente:mapa_ruido_ferroviario_noche_2025",
+    "medioambiente:mapa_ruido_ferroviario_tarde_2025",
+    "medioambiente:mapa_ruido_industrial_dia_2025",
+    "medioambiente:mapa_ruido_industrial_lden_2025",
+    "medioambiente:mapa_ruido_industrial_noche_2025",
+    "medioambiente:mapa_ruido_industrial_tarde_2025",
+    "medioambiente:mapa_ruido_todas_dia_2025",
+    "medioambiente:mapa_ruido_todas_lden_2025",
+    "medioambiente:mapa_ruido_todas_noche_2025",
+    "medioambiente:mapa_ruido_todas_tarde_2025",
+    "medioambiente:mapa_ruido_viario_dia_2016",
+    "medioambiente:mapa_ruido_viario_dia_2025",
+    "medioambiente:mapa_ruido_viario_lden_2016",
+    "medioambiente:mapa_ruido_viario_lden_2025",
+    "medioambiente:mapa_ruido_viario_noche_2016",
+    "medioambiente:mapa_ruido_viario_noche_2025",
+    "medioambiente:mapa_ruido_viario_tarde_2016",
+    "medioambiente:mapa_ruido_viario_tarde_2025",
+    "medioambiente:poblacion_afectada_2025"
+  ],
+  "db_min": [
+    "medioambiente:fachada_residencial_dia_2016",
+    "medioambiente:fachada_residencial_lden_2016",
+    "medioambiente:fachada_residencial_noche_2016",
+    "medioambiente:fachada_residencial_tarde_2016",
+    "medioambiente:fachada_sensible_dia_2016",
+    "medioambiente:fachada_sensible_lden_2016",
+    "medioambiente:fachada_sensible_noche_2016",
+    "medioambiente:fachada_sensible_tarde_2016",
+    "medioambiente:mapa_ruido_ferroviario_dia_2025",
+    "medioambiente:mapa_ruido_ferroviario_lden_2025",
+    "medioambiente:mapa_ruido_ferroviario_noche_2025",
+    "medioambiente:mapa_ruido_ferroviario_tarde_2025",
+    "medioambiente:mapa_ruido_industrial_dia_2025",
+    "medioambiente:mapa_ruido_industrial_lden_2025",
+    "medioambiente:mapa_ruido_industrial_noche_2025",
+    "medioambiente:mapa_ruido_industrial_tarde_2025",
+    "medioambiente:mapa_ruido_todas_dia_2025",
+    "medioambiente:mapa_ruido_todas_lden_2025",
+    "medioambiente:mapa_ruido_todas_noche_2025",
+    "medioambiente:mapa_ruido_todas_tarde_2025",
+    "medioambiente:mapa_ruido_viario_dia_2016",
+    "medioambiente:mapa_ruido_viario_dia_2025",
+    "medioambiente:mapa_ruido_viario_lden_2016",
+    "medioambiente:mapa_ruido_viario_lden_2025",
+    "medioambiente:mapa_ruido_viario_noche_2016",
+    "medioambiente:mapa_ruido_viario_noche_2025",
+    "medioambiente:mapa_ruido_viario_tarde_2016",
+    "medioambiente:mapa_ruido_viario_tarde_2025",
+    "medioambiente:poblacion_afectada_2025"
+  ],
+  "descripcion": [
+    "urbanismo:PLA_1_Ambitos_desarrollo",
+    "urbanismo:PLA_1_Ambitos_recogido"
+  ],
+  "direccion": [
+    "medioambiente:estacion_calidad_aire",
+    "movilidad:MU1_estacionamientos_calle",
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "direction": [
+    "movilidad:MU3_lineas_tranvia"
+  ],
+  "direction_": [
+    "movilidad:MU3_lineas_bus",
+    "movilidad:MU3_paradas_BUS"
+  ],
+  "district": [
+    "medioambiente:emisiones_agregados_juntas"
+  ],
+  "district_name": [
+    "medioambiente:emisiones_agregados_juntas"
+  ],
+  "distrito": [
+    "infraestructuras:escaleras",
+    "infraestructuraverde:reposicion",
+    "medioambiente:Plantacion",
+    "movilidad:MU1_estacionamientos_calle"
+  ],
+  "doble_sent": [
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "dsvest_isv": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev",
+    "ctsvg:ISV_Manzanas_2024_abrev_publi",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024_abrev",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "edificaciones_niveles_ruido_2025": [
+    "medioambiente:edificaciones_niveles_ruido_2025"
+  ],
+  "edificio_id": [
+    "medioambiente:edificaciones_niveles_ruido_2025"
+  ],
+  "elemento": [
+    "infraestructuraverde:reposicion",
+    "medioambiente:Plantacion"
+  ],
+  "email": [
+    "movilidad:MU1_puntos_recarga"
+  ],
+  "emisiones_agregados_ciudad": [
+    "medioambiente:emisiones_agregados_ciudad"
+  ],
+  "emisiones_agregados_juntas": [
+    "medioambiente:emisiones_agregados_juntas"
+  ],
+  "emplazamiento": [
+    "urbanismo:Clavos_Topograficos"
+  ],
+  "emplazamiento_alt": [
+    "urbanismo:Clavos_Topograficos"
+  ],
+  "en_servicio": [
+    "medioambiente:fuente_agua_potable"
+  ],
+  "enlace_acuerdo": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "enlace_documentos": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "enlace_ficha": [
+    "urbanismo:PLA_1_Ambitos_desarrollo",
+    "urbanismo:PLA_1_Ambitos_recogido"
+  ],
+  "enlace_memoria": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "enlace_normas": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "enlace_planos": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "entityhand": [
+    "movilidad:MU2_semaforos_1"
+  ],
+  "es_rustico": [
+    "urbanismo:Manzanas",
+    "urbanismo:Parcelas"
+  ],
+  "esc_angulo": [
+    "infraestructuras:escaleras"
+  ],
+  "esc_banda_": [
+    "infraestructuras:escaleras"
+  ],
+  "esc_contra": [
+    "infraestructuras:escaleras"
+  ],
+  "esc_espaci": [
+    "infraestructuras:escaleras"
+  ],
+  "esc_formul": [
+    "infraestructuras:escaleras"
+  ],
+  "esc_huella": [
+    "infraestructuras:escaleras"
+  ],
+  "esc_num_es": [
+    "infraestructuras:escaleras"
+  ],
+  "esc_rellan": [
+    "infraestructuras:escaleras"
+  ],
+  "esc_tien_1": [
+    "infraestructuras:escaleras"
+  ],
+  "esc_tiene_": [
+    "infraestructuras:escaleras"
+  ],
+  "esc_tramo_": [
+    "infraestructuras:escaleras"
+  ],
+  "esc_variac": [
+    "infraestructuras:escaleras"
+  ],
+  "escaleras": [
+    "infraestructuras:escaleras"
+  ],
+  "escuelas_expuestas": [
+    "medioambiente:poblacion_afectada_2025"
+  ],
+  "especial": [
+    "movilidad:MU1_CC_reguladores"
+  ],
+  "especie": [
+    "infraestructuraverde:reposicion"
+  ],
+  "espira": [
+    "movilidad:MU1_CC_estaciones_aforos_fichas_2025_pdf"
+  ],
+  "estacion_calidad_aire": [
+    "medioambiente:estacion_calidad_aire"
+  ],
+  "estado": [
+    "medioambiente:contenedor",
+    "medioambiente:recogidamuebles",
+    "urbanismo:Juntas_Municipales_Vecinales"
+  ],
+  "etiqueta": [
+    "urbanismo:Alturas_Edificios"
+  ],
+  "etiqueta_visor": [
+    "urbanismo:PLA_1_Ambitos_desarrollo",
+    "urbanismo:PLA_1_Ambitos_recogido",
+    "urbanismo:v_ambitos_desarrollo_etiquetas"
+  ],
+  "expediente": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "exposed_area": [
+    "medioambiente:v_poblacion_afectada_2025_df4_8"
+  ],
+  "exposed_dwelings": [
+    "medioambiente:v_poblacion_afectada_2025_df4_8"
+  ],
+  "exposed_hospitals": [
+    "medioambiente:v_poblacion_afectada_2025_df4_8"
+  ],
+  "exposed_people": [
+    "medioambiente:v_poblacion_afectada_2025_df4_8"
+  ],
+  "exposed_schools": [
+    "medioambiente:v_poblacion_afectada_2025_df4_8"
+  ],
+  "fachada_residencial_dia_2016": [
+    "medioambiente:fachada_residencial_dia_2016"
+  ],
+  "fachada_residencial_lden_2016": [
+    "medioambiente:fachada_residencial_lden_2016"
+  ],
+  "fachada_residencial_noche_2016": [
+    "medioambiente:fachada_residencial_noche_2016"
+  ],
+  "fachada_residencial_tarde_2016": [
+    "medioambiente:fachada_residencial_tarde_2016"
+  ],
+  "fachada_sensible_dia_2016": [
+    "medioambiente:fachada_sensible_dia_2016"
+  ],
+  "fachada_sensible_lden_2016": [
+    "medioambiente:fachada_sensible_lden_2016"
+  ],
+  "fachada_sensible_noche_2016": [
+    "medioambiente:fachada_sensible_noche_2016"
+  ],
+  "fachada_sensible_tarde_2016": [
+    "medioambiente:fachada_sensible_tarde_2016"
+  ],
+  "fachadas_residenciales_DEN_2016": [
+    "mapa_del_ruido_2016:fachadas_residenciales_DEN_2016"
+  ],
+  "fachadas_residenciales_dia_2016": [
+    "mapa_del_ruido_2016:fachadas_residenciales_dia_2016"
+  ],
+  "fachadas_residenciales_noche_2016": [
+    "mapa_del_ruido_2016:fachadas_residenciales_noche_2016"
+  ],
+  "fachadas_residenciales_tarde_2016": [
+    "mapa_del_ruido_2016:fachadas_residenciales_tarde_2016"
+  ],
+  "fachadas_sensibles_DEN_2016": [
+    "mapa_del_ruido_2016:fachadas_sensibles_DEN_2016"
+  ],
+  "fachadas_sensibles_dia_2016": [
+    "mapa_del_ruido_2016:fachadas_sensibles_dia_2016"
+  ],
+  "fachadas_sensibles_noche_2016": [
+    "mapa_del_ruido_2016:fachadas_sensibles_noche_2016"
+  ],
+  "fachadas_sensibles_tarde_2016": [
+    "mapa_del_ruido_2016:fachadas_sensibles_tarde_2016"
+  ],
+  "fase": [
+    "movilidad:MU1_ZBE_Zona_Bajas_Emisiones",
+    "movilidad:MU1_estaciones_bici_ubicacion"
+  ],
+  "fclass": [
+    "idezar_base:Ferrocarriles_cartoOSM_2019",
+    "movilidad:MU3_lineas_tranvia"
+  ],
+  "fecha": [
+    "movilidad:MU2_carriles_bici",
+    "movilidad:MU3_lineas_bus",
+    "movilidad:MU3_paradas_BUS"
+  ],
+  "fecha_acuerdo": [
+    "urbanismo:Vias"
+  ],
+  "fecha_alta": [
+    "medioambiente:contenedor",
+    "medioambiente:recogidamuebles",
+    "movilidad:MU2_señalizacion_horizontal",
+    "movilidad:MU2_señalizacion_vertical",
+    "urbanismo:Portales"
+  ],
+  "fecha_baja": [
+    "medioambiente:contenedor",
+    "medioambiente:recogidamuebles",
+    "movilidad:MU2_señalizacion_horizontal",
+    "movilidad:MU2_señalizacion_vertical",
+    "urbanismo:Vias"
+  ],
+  "fecha_insp": [
+    "infraestructuras:escaleras"
+  ],
+  "fecha_propuesta": [
+    "urbanismo:Vias"
+  ],
+  "fecha_publicacion": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "fid": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Manzanas_2024_abrev_publi",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev",
+    "infraestructuras:escaleras",
+    "movilidad:MU1_CC_bici_comparativa_2023_2024",
+    "movilidad:MU1_CC_bici_comparativa_2024_2025",
+    "movilidad:MU1_CC_carriles_bici_todos_2023",
+    "movilidad:MU1_CC_carriles_bici_todos_2024",
+    "movilidad:MU1_CC_carriles_bici_todos_2025",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_2025_pdf",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_PDF",
+    "movilidad:MU1_CC_reguladores",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_VMP_2024",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_vmp_2025",
+    "movilidad:MU1_CC_viales_comp_2024vs2023",
+    "movilidad:MU1_CC_viales_comp_2025vs2024",
+    "movilidad:MU1_CC_viales_iml2024",
+    "movilidad:MU1_CC_viales_iml2025",
+    "movilidad:MU1_jerarquia_viaria",
+    "movilidad:MU1_zonas_reguladas",
+    "movilidad:MU2_carriles_bici",
+    "movilidad:MU3_paradas_taxi"
+  ],
+  "fill": [
+    "movilidad:MU2_señalizacion_horizontal"
+  ],
+  "forma_estacionar": [
+    "movilidad:MU1_estacionamientos_calle"
+  ],
+  "foto": [
+    "urbanismo:Clavos_Topograficos"
+  ],
+  "foto_det_1": [
+    "infraestructuras:escaleras"
+  ],
+  "foto_detal": [
+    "infraestructuras:escaleras"
+  ],
+  "foto_gener": [
+    "infraestructuras:escaleras"
+  ],
+  "fuente": [
+    "medioambiente:fachada_residencial_dia_2016",
+    "medioambiente:fachada_residencial_lden_2016",
+    "medioambiente:fachada_residencial_noche_2016",
+    "medioambiente:fachada_residencial_tarde_2016",
+    "medioambiente:fachada_sensible_dia_2016",
+    "medioambiente:fachada_sensible_lden_2016",
+    "medioambiente:fachada_sensible_noche_2016",
+    "medioambiente:fachada_sensible_tarde_2016",
+    "medioambiente:mapa_ruido_ferroviario_dia_2025",
+    "medioambiente:mapa_ruido_ferroviario_lden_2025",
+    "medioambiente:mapa_ruido_ferroviario_noche_2025",
+    "medioambiente:mapa_ruido_ferroviario_tarde_2025",
+    "medioambiente:mapa_ruido_industrial_dia_2025",
+    "medioambiente:mapa_ruido_industrial_lden_2025",
+    "medioambiente:mapa_ruido_industrial_noche_2025",
+    "medioambiente:mapa_ruido_industrial_tarde_2025",
+    "medioambiente:mapa_ruido_todas_dia_2025",
+    "medioambiente:mapa_ruido_todas_lden_2025",
+    "medioambiente:mapa_ruido_todas_noche_2025",
+    "medioambiente:mapa_ruido_todas_tarde_2025",
+    "medioambiente:mapa_ruido_viario_dia_2016",
+    "medioambiente:mapa_ruido_viario_dia_2025",
+    "medioambiente:mapa_ruido_viario_lden_2016",
+    "medioambiente:mapa_ruido_viario_lden_2025",
+    "medioambiente:mapa_ruido_viario_noche_2016",
+    "medioambiente:mapa_ruido_viario_noche_2025",
+    "medioambiente:mapa_ruido_viario_tarde_2016",
+    "medioambiente:mapa_ruido_viario_tarde_2025",
+    "medioambiente:poblacion_afectada_2025",
+    "movilidad:MU1_CC_reguladores"
+  ],
+  "fuente_agua_potable": [
+    "medioambiente:fuente_agua_potable"
+  ],
+  "geom": [
+    "infraestructuras:escaleras",
+    "infraestructuraverde:reposicion",
+    "medioambiente:Plantacion",
+    "medioambiente:contenedor",
+    "medioambiente:edificaciones_niveles_ruido_2025",
+    "medioambiente:emisiones_agregados_ciudad",
+    "medioambiente:emisiones_agregados_juntas",
+    "medioambiente:estacion_calidad_aire",
+    "medioambiente:fachada_residencial_dia_2016",
+    "medioambiente:fachada_residencial_lden_2016",
+    "medioambiente:fachada_residencial_noche_2016",
+    "medioambiente:fachada_residencial_tarde_2016",
+    "medioambiente:fachada_sensible_dia_2016",
+    "medioambiente:fachada_sensible_lden_2016",
+    "medioambiente:fachada_sensible_noche_2016",
+    "medioambiente:fachada_sensible_tarde_2016",
+    "medioambiente:fuente_agua_potable",
+    "medioambiente:limite_aglomeracion_2025",
+    "medioambiente:mapa_ruido_ferroviario_dia_2025",
+    "medioambiente:mapa_ruido_ferroviario_lden_2025",
+    "medioambiente:mapa_ruido_ferroviario_noche_2025",
+    "medioambiente:mapa_ruido_ferroviario_tarde_2025",
+    "medioambiente:mapa_ruido_industrial_dia_2025",
+    "medioambiente:mapa_ruido_industrial_lden_2025",
+    "medioambiente:mapa_ruido_industrial_noche_2025",
+    "medioambiente:mapa_ruido_industrial_tarde_2025",
+    "medioambiente:mapa_ruido_todas_dia_2025",
+    "medioambiente:mapa_ruido_todas_lden_2025",
+    "medioambiente:mapa_ruido_todas_noche_2025",
+    "medioambiente:mapa_ruido_todas_tarde_2025",
+    "medioambiente:mapa_ruido_viario_dia_2016",
+    "medioambiente:mapa_ruido_viario_dia_2025",
+    "medioambiente:mapa_ruido_viario_lden_2016",
+    "medioambiente:mapa_ruido_viario_lden_2025",
+    "medioambiente:mapa_ruido_viario_noche_2016",
+    "medioambiente:mapa_ruido_viario_noche_2025",
+    "medioambiente:mapa_ruido_viario_tarde_2016",
+    "medioambiente:mapa_ruido_viario_tarde_2025",
+    "medioambiente:recogidamuebles",
+    "movilidad:MU1_CC_aforos_bici_y_vmp",
+    "movilidad:MU1_CC_bici_comparativa_2023_2024",
+    "movilidad:MU1_CC_bici_comparativa_2024_2025",
+    "movilidad:MU1_CC_camaras_trafico",
+    "movilidad:MU1_CC_carriles_bici_todos_2023",
+    "movilidad:MU1_CC_carriles_bici_todos_2024",
+    "movilidad:MU1_CC_carriles_bici_todos_2025",
+    "movilidad:MU1_CC_espectro_camaras",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_2025_pdf",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_PDF",
+    "movilidad:MU1_CC_paneles_informativos",
+    "movilidad:MU1_CC_reguladores",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_VMP_2024",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_vmp_2025",
+    "movilidad:MU1_CC_viales_comp_2024vs2023",
+    "movilidad:MU1_CC_viales_comp_2025vs2024",
+    "movilidad:MU1_CC_viales_iml2024",
+    "movilidad:MU1_CC_viales_iml2025",
+    "movilidad:MU1_ZBE_Zona_Bajas_Emisiones",
+    "movilidad:MU1_badenes",
+    "movilidad:MU1_estacionamientos_calle",
+    "movilidad:MU1_estaciones_bici_ubicacion",
+    "movilidad:MU1_jerarquia_viaria",
+    "movilidad:MU1_parking",
+    "movilidad:MU1_puntos_recarga",
+    "movilidad:MU1_reservas",
+    "movilidad:MU1_zonas_reguladas",
+    "movilidad:MU2_aparcabicis",
+    "movilidad:MU2_carriles_bici",
+    "movilidad:MU2_motos",
+    "movilidad:MU2_semaforos_1",
+    "movilidad:MU2_semaforos_2",
+    "movilidad:MU2_señalizacion_horizontal",
+    "movilidad:MU2_señalizacion_vertical",
+    "movilidad:MU2_veladores",
+    "movilidad:MU2_zonas_transporte_actuales",
+    "movilidad:MU2_zonas_transporte_mejoradas",
+    "movilidad:MU3_lineas_bus",
+    "movilidad:MU3_lineas_tranvia",
+    "movilidad:MU3_paradas_BUS",
+    "movilidad:MU3_paradas_bus_unicas",
+    "movilidad:MU3_paradas_taxi",
+    "movilidad:MU3_paradas_tranvia",
+    "urbanismo:Alturas_Edificios",
+    "urbanismo:Areas_Referencia",
+    "urbanismo:Clavos_Topograficos",
+    "urbanismo:Distritos_Municipales",
+    "urbanismo:IDEZar_Zona_Menor_Agua",
+    "urbanismo:Juntas_Municipales_Vecinales",
+    "urbanismo:Lineas_Edificaciones",
+    "urbanismo:Manzanas",
+    "urbanismo:Municipios",
+    "urbanismo:PLA_1_Ambitos_desarrollo",
+    "urbanismo:PLA_1_Ambitos_recogido",
+    "urbanismo:Parcelas",
+    "urbanismo:Portales",
+    "urbanismo:Textos_Edificaciones",
+    "urbanismo:Vias",
+    "urbanismo:hoja_pgou_2000",
+    "urbanismo:hoja_pgou_5000",
+    "urbanismo:hoja_pgou_chc",
+    "urbanismo:hoja_pgou_chr",
+    "urbanismo:suelos_vacantes",
+    "urbanismo:v_ambitos_desarrollo_etiquetas"
+  ],
+  "gestora": [
+    "movilidad:MU1_puntos_recarga"
+  ],
+  "gravedad_i": [
+    "infraestructuras:escaleras"
+  ],
+  "grupo": [
+    "movilidad:MU2_señalizacion_vertical"
+  ],
+  "gsview": [
+    "movilidad:MU3_paradas_BUS"
+  ],
+  "has_cusec": [
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024_abrev"
+  ],
+  "hoja_pgou_2000": [
+    "urbanismo:hoja_pgou_2000"
+  ],
+  "hoja_pgou_5000": [
+    "urbanismo:hoja_pgou_5000"
+  ],
+  "hoja_pgou_chc": [
+    "urbanismo:hoja_pgou_chc"
+  ],
+  "hoja_pgou_chr": [
+    "urbanismo:hoja_pgou_chr"
+  ],
+  "horario": [
+    "movilidad:MU1_badenes"
+  ],
+  "hospitales_expuestos": [
+    "medioambiente:poblacion_afectada_2025"
+  ],
+  "i_01": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_02": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_03": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_04": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_05": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_06": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_07": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_08": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_09": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_10": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_11a": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_11b": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_11c": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_12": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_13": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_14": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_15": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_16": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_17": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_18a": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_18b": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_18c": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_19a": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_19b": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_20": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_21a": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_21b": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_21c": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_21d": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_22a": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_22b": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_22c": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_22d": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_22e": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_22f": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_22g": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_22h": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_23a": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_23b": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_24a": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_24b": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_24c": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_24d": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_24e": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_25": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_26a": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_26b": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_26c": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_27a": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_27b": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "i_28": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024"
+  ],
+  "id": [
+    "infraestructuraverde:reposicion",
+    "medioambiente:Plantacion",
+    "medioambiente:emisiones_agregados_ciudad",
+    "medioambiente:emisiones_agregados_juntas",
+    "medioambiente:estacion_calidad_aire",
+    "medioambiente:v_poblacion_afectada_2025_df4_8",
+    "movilidad:MU1_CC_aforos_bici_y_vmp",
+    "movilidad:MU1_CC_bici_comparativa_2023_2024",
+    "movilidad:MU1_CC_bici_comparativa_2024_2025",
+    "movilidad:MU1_CC_camaras_trafico",
+    "movilidad:MU1_CC_carriles_bici_todos_2023",
+    "movilidad:MU1_CC_carriles_bici_todos_2024",
+    "movilidad:MU1_CC_carriles_bici_todos_2025",
+    "movilidad:MU1_CC_espectro_camaras",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_2025_pdf",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_PDF",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_VMP_2024",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_vmp_2025",
+    "movilidad:MU2_semaforos_2",
+    "movilidad:MU2_señalizacion_horizontal",
+    "movilidad:MU2_señalizacion_vertical",
+    "movilidad:MU3_lineas_bus",
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "id_aglomeracion": [
+    "medioambiente:edificaciones_niveles_ruido_2025",
+    "medioambiente:limite_aglomeracion_2025"
+  ],
+  "id_cp": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev"
+  ],
+  "id_element": [
+    "infraestructuras:escaleras"
+  ],
+  "id_padron": [
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev"
+  ],
+  "identificacion_instrumento": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "idimportar": [
+    "infraestructuraverde:reposicion",
+    "medioambiente:Plantacion"
+  ],
+  "igm": [
+    "urbanismo:Areas_Referencia",
+    "urbanismo:Distritos_Municipales",
+    "urbanismo:Juntas_Municipales_Vecinales",
+    "urbanismo:Manzanas",
+    "urbanismo:Municipios",
+    "urbanismo:Parcelas"
+  ],
+  "image": [
+    "urbanismo:Clavos_Topograficos"
+  ],
+  "imagen": [
+    "movilidad:MU1_CC_camaras_trafico",
+    "movilidad:MU1_CC_espectro_camaras",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_2025_pdf",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_PDF"
+  ],
+  "imagen_url": [
+    "movilidad:MU2_señalizacion_vertical"
+  ],
+  "iml": [
+    "movilidad:MU1_CC_carriles_bici_todos_2023",
+    "movilidad:MU1_CC_carriles_bici_todos_2024",
+    "movilidad:MU1_CC_carriles_bici_todos_2025",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_VMP_2024",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_vmp_2025",
+    "movilidad:MU1_CC_viales_iml2024",
+    "movilidad:MU1_CC_viales_iml2025"
+  ],
+  "iml_2023": [
+    "movilidad:MU1_CC_aforos_bici_y_vmp"
+  ],
+  "iml_dif": [
+    "movilidad:MU1_CC_bici_comparativa_2023_2024",
+    "movilidad:MU1_CC_bici_comparativa_2024_2025"
+  ],
+  "iml_diff": [
+    "movilidad:MU1_CC_viales_comp_2024vs2023",
+    "movilidad:MU1_CC_viales_comp_2025vs2024"
+  ],
+  "iml_obj": [
+    "movilidad:MU1_CC_bici_comparativa_2023_2024",
+    "movilidad:MU1_CC_bici_comparativa_2024_2025",
+    "movilidad:MU1_CC_viales_comp_2024vs2023",
+    "movilidad:MU1_CC_viales_comp_2025vs2024"
+  ],
+  "iml_perc": [
+    "movilidad:MU1_CC_bici_comparativa_2023_2024",
+    "movilidad:MU1_CC_bici_comparativa_2024_2025",
+    "movilidad:MU1_CC_viales_comp_2024vs2023",
+    "movilidad:MU1_CC_viales_comp_2025vs2024"
+  ],
+  "iml_ref": [
+    "movilidad:MU1_CC_bici_comparativa_2023_2024",
+    "movilidad:MU1_CC_bici_comparativa_2024_2025",
+    "movilidad:MU1_CC_viales_comp_2024vs2023",
+    "movilidad:MU1_CC_viales_comp_2025vs2024"
+  ],
+  "interval": [
+    "mapa_del_ruido_2016:fachadas_residenciales_DEN_2016",
+    "mapa_del_ruido_2016:fachadas_residenciales_dia_2016",
+    "mapa_del_ruido_2016:fachadas_residenciales_noche_2016",
+    "mapa_del_ruido_2016:fachadas_residenciales_tarde_2016",
+    "mapa_del_ruido_2016:fachadas_sensibles_DEN_2016",
+    "mapa_del_ruido_2016:fachadas_sensibles_dia_2016",
+    "mapa_del_ruido_2016:fachadas_sensibles_tarde_2016"
+  ],
+  "isv": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev",
+    "ctsvg:ISV_Manzanas_2024_abrev_publi",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024_abrev",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "isv_dem": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev",
+    "ctsvg:ISV_Manzanas_2024_abrev_publi",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024_abrev",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "isv_equ": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev",
+    "ctsvg:ISV_Manzanas_2024_abrev_publi",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024_abrev",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "isv_hog": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev",
+    "ctsvg:ISV_Manzanas_2024_abrev_publi",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024_abrev",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "isv_ryd": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev",
+    "ctsvg:ISV_Manzanas_2024_abrev_publi",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024_abrev",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "isv_viv": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev",
+    "ctsvg:ISV_Manzanas_2024_abrev_publi",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024_abrev",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "isvms13": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024_abrev",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "isvms17": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024_abrev",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "junta_municipal": [
+    "movilidad:MU1_estaciones_bici_ubicacion"
+  ],
+  "km2": [
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev"
+  ],
+  "kpi": [
+    "medioambiente:emisiones_agregados_ciudad",
+    "medioambiente:emisiones_agregados_juntas"
+  ],
+  "kpi_name": [
+    "medioambiente:emisiones_agregados_ciudad",
+    "medioambiente:emisiones_agregados_juntas"
+  ],
+  "kpia_value": [
+    "medioambiente:emisiones_agregados_juntas"
+  ],
+  "layer": [
+    "movilidad:MU2_semaforos_1",
+    "movilidad:MU2_semaforos_2",
+    "movilidad:MU3_lineas_tranvia"
+  ],
+  "limite_aglomeracion_2025": [
+    "medioambiente:limite_aglomeracion_2025"
+  ],
+  "limite_vel": [
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "lineas": [
+    "movilidad:MU3_paradas_tranvia"
+  ],
+  "linetype": [
+    "movilidad:MU2_semaforos_1"
+  ],
+  "longitud": [
+    "movilidad:MU1_estacionamientos_calle",
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "longitud_total": [
+    "movilidad:MU2_carriles_bici"
+  ],
+  "lote": [
+    "infraestructuraverde:reposicion",
+    "medioambiente:Plantacion"
+  ],
+  "maestroes": [
+    "movilidad:MU1_CC_reguladores"
+  ],
+  "malla_basi": [
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "manzanas_densidad": [
+    "indicadores:manzanas_densidad"
+  ],
+  "mapa_ruido_DEN_2016": [
+    "mapa_del_ruido_2016:mapa_ruido_DEN_2016"
+  ],
+  "mapa_ruido_dia_2016": [
+    "mapa_del_ruido_2016:mapa_ruido_dia_2016"
+  ],
+  "mapa_ruido_ferroviario_dia_2025": [
+    "medioambiente:mapa_ruido_ferroviario_dia_2025"
+  ],
+  "mapa_ruido_ferroviario_lden_2025": [
+    "medioambiente:mapa_ruido_ferroviario_lden_2025"
+  ],
+  "mapa_ruido_ferroviario_noche_2025": [
+    "medioambiente:mapa_ruido_ferroviario_noche_2025"
+  ],
+  "mapa_ruido_ferroviario_tarde_2025": [
+    "medioambiente:mapa_ruido_ferroviario_tarde_2025"
+  ],
+  "mapa_ruido_industrial_dia_2025": [
+    "medioambiente:mapa_ruido_industrial_dia_2025"
+  ],
+  "mapa_ruido_industrial_lden_2025": [
+    "medioambiente:mapa_ruido_industrial_lden_2025"
+  ],
+  "mapa_ruido_industrial_noche_2025": [
+    "medioambiente:mapa_ruido_industrial_noche_2025"
+  ],
+  "mapa_ruido_industrial_tarde_2025": [
+    "medioambiente:mapa_ruido_industrial_tarde_2025"
+  ],
+  "mapa_ruido_noche_2016": [
+    "mapa_del_ruido_2016:mapa_ruido_noche_2016"
+  ],
+  "mapa_ruido_tarde_2016": [
+    "mapa_del_ruido_2016:mapa_ruido_tarde_2016"
+  ],
+  "mapa_ruido_todas_dia_2025": [
+    "medioambiente:mapa_ruido_todas_dia_2025"
+  ],
+  "mapa_ruido_todas_lden_2025": [
+    "medioambiente:mapa_ruido_todas_lden_2025"
+  ],
+  "mapa_ruido_todas_noche_2025": [
+    "medioambiente:mapa_ruido_todas_noche_2025"
+  ],
+  "mapa_ruido_todas_tarde_2025": [
+    "medioambiente:mapa_ruido_todas_tarde_2025"
+  ],
+  "mapa_ruido_viario_dia_2016": [
+    "medioambiente:mapa_ruido_viario_dia_2016"
+  ],
+  "mapa_ruido_viario_dia_2025": [
+    "medioambiente:mapa_ruido_viario_dia_2025"
+  ],
+  "mapa_ruido_viario_lden_2016": [
+    "medioambiente:mapa_ruido_viario_lden_2016"
+  ],
+  "mapa_ruido_viario_lden_2025": [
+    "medioambiente:mapa_ruido_viario_lden_2025"
+  ],
+  "mapa_ruido_viario_noche_2016": [
+    "medioambiente:mapa_ruido_viario_noche_2016"
+  ],
+  "mapa_ruido_viario_noche_2025": [
+    "medioambiente:mapa_ruido_viario_noche_2025"
+  ],
+  "mapa_ruido_viario_tarde_2016": [
+    "medioambiente:mapa_ruido_viario_tarde_2016"
+  ],
+  "mapa_ruido_viario_tarde_2025": [
+    "medioambiente:mapa_ruido_viario_tarde_2025"
+  ],
+  "marca": [
+    "medioambiente:contenedor",
+    "medioambiente:recogidamuebles"
+  ],
+  "marras": [
+    "infraestructuraverde:reposicion",
+    "medioambiente:Plantacion"
+  ],
+  "matricula": [
+    "infraestructuraverde:reposicion",
+    "medioambiente:Plantacion"
+  ],
+  "modal_bici": [
+    "movilidad:MU1_CC_carriles_bici_todos_2024",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_VMP_2024",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_vmp_2025"
+  ],
+  "modal_vmp": [
+    "movilidad:MU1_CC_carriles_bici_todos_2024",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_VMP_2024",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_vmp_2025"
+  ],
+  "mslink": [
+    "urbanismo:IDEZar_Zona_Menor_Agua"
+  ],
+  "municipal": [
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "n_aparcamiento": [
+    "movilidad:MU2_aparcabicis"
+  ],
+  "n_est": [
+    "movilidad:MU1_CC_aforos_bici_y_vmp",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_2025_pdf",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_PDF"
+  ],
+  "n_estacion": [
+    "movilidad:MU1_CC_estaciones_aforos_fichas_2025_pdf",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_PDF",
+    "movilidad:MU2_aparcabicis"
+  ],
+  "nivel_dia": [
+    "medioambiente:edificaciones_niveles_ruido_2025"
+  ],
+  "nivel_lden": [
+    "medioambiente:edificaciones_niveles_ruido_2025"
+  ],
+  "nivel_noche": [
+    "medioambiente:edificaciones_niveles_ruido_2025"
+  ],
+  "nivel_tarde": [
+    "medioambiente:edificaciones_niveles_ruido_2025"
+  ],
+  "no": [
+    "movilidad:MU2_zonas_transporte_actuales",
+    "movilidad:MU2_zonas_transporte_mejoradas"
+  ],
+  "nodo_d": [
+    "movilidad:MU1_CC_bici_comparativa_2023_2024",
+    "movilidad:MU1_CC_bici_comparativa_2024_2025",
+    "movilidad:MU1_CC_carriles_bici_todos_2024",
+    "movilidad:MU1_CC_carriles_bici_todos_2025",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_VMP_2024",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_vmp_2025",
+    "movilidad:MU1_CC_viales_comp_2024vs2023",
+    "movilidad:MU1_CC_viales_comp_2025vs2024",
+    "movilidad:MU1_CC_viales_iml2024",
+    "movilidad:MU1_CC_viales_iml2025"
+  ],
+  "nodo_h": [
+    "movilidad:MU1_CC_bici_comparativa_2023_2024",
+    "movilidad:MU1_CC_bici_comparativa_2024_2025",
+    "movilidad:MU1_CC_carriles_bici_todos_2024",
+    "movilidad:MU1_CC_carriles_bici_todos_2025",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_VMP_2024",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_vmp_2025",
+    "movilidad:MU1_CC_viales_comp_2024vs2023",
+    "movilidad:MU1_CC_viales_comp_2025vs2024",
+    "movilidad:MU1_CC_viales_iml2024",
+    "movilidad:MU1_CC_viales_iml2025"
+  ],
+  "noise_level": [
+    "medioambiente:v_poblacion_afectada_2025_df4_8"
+  ],
+  "noise_source": [
+    "medioambiente:v_poblacion_afectada_2025_df4_8"
+  ],
+  "nombre": [
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev",
+    "medioambiente:estacion_calidad_aire",
+    "movilidad:MU1_CC_paneles_informativos",
+    "movilidad:MU1_CC_reguladores",
+    "movilidad:MU1_estaciones_bici_ubicacion",
+    "movilidad:MU1_puntos_recarga",
+    "urbanismo:Clavos_Topograficos",
+    "urbanismo:Distritos_Municipales",
+    "urbanismo:Juntas_Municipales_Vecinales",
+    "urbanismo:Municipios",
+    "urbanismo:Vias"
+  ],
+  "nombre_1": [
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "nombre_completo": [
+    "urbanismo:Vias"
+  ],
+  "nombre_instrumento": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "nombre_publico": [
+    "urbanismo:Vias"
+  ],
+  "nombre_reducido": [
+    "movilidad:MU2_aparcabicis",
+    "urbanismo:Vias"
+  ],
+  "notas": [
+    "medioambiente:contenedor",
+    "medioambiente:recogidamuebles"
+  ],
+  "num": [
+    "movilidad:MU1_CC_reguladores"
+  ],
+  "num_escalo": [
+    "infraestructuras:escaleras"
+  ],
+  "num_est": [
+    "movilidad:MU1_CC_aforos_bici_y_vmp",
+    "movilidad:MU1_CC_bici_comparativa_2023_2024",
+    "movilidad:MU1_CC_bici_comparativa_2024_2025",
+    "movilidad:MU1_CC_carriles_bici_todos_2023",
+    "movilidad:MU1_CC_carriles_bici_todos_2024",
+    "movilidad:MU1_CC_carriles_bici_todos_2025",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_VMP_2024",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_vmp_2025",
+    "movilidad:MU1_CC_viales_comp_2024vs2023",
+    "movilidad:MU1_CC_viales_comp_2025vs2024",
+    "movilidad:MU1_CC_viales_iml2024",
+    "movilidad:MU1_CC_viales_iml2025"
+  ],
+  "num_est_al": [
+    "movilidad:MU1_CC_bici_comparativa_2023_2024",
+    "movilidad:MU1_CC_bici_comparativa_2024_2025",
+    "movilidad:MU1_CC_carriles_bici_todos_2023",
+    "movilidad:MU1_CC_carriles_bici_todos_2024",
+    "movilidad:MU1_CC_carriles_bici_todos_2025",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_VMP_2024",
+    "movilidad:MU1_CC_reparto_modal_bicis_y_vmp_2025",
+    "movilidad:MU1_CC_viales_comp_2024vs2023",
+    "movilidad:MU1_CC_viales_comp_2025vs2024",
+    "movilidad:MU1_CC_viales_iml2024",
+    "movilidad:MU1_CC_viales_iml2025"
+  ],
+  "num_rellan": [
+    "infraestructuras:escaleras"
+  ],
+  "num_tramos": [
+    "infraestructuras:escaleras"
+  ],
+  "numero": [
+    "infraestructuras:escaleras",
+    "movilidad:MU1_CC_camaras_trafico",
+    "movilidad:MU1_CC_espectro_camaras",
+    "movilidad:MU1_CC_paneles_informativos",
+    "movilidad:MU1_CC_reguladores",
+    "movilidad:MU1_estaciones_bici_ubicacion",
+    "movilidad:MU2_señalizacion_vertical",
+    "urbanismo:Clavos_Topograficos",
+    "urbanismo:Portales"
+  ],
+  "numero_espira": [
+    "movilidad:MU1_CC_estaciones_aforos_fichas_PDF"
+  ],
+  "numero_parcela": [
+    "urbanismo:Parcelas"
+  ],
+  "numero_policia": [
+    "urbanismo:Portales"
+  ],
+  "observacio": [
+    "idezar_base:Urbanos_carto1000_2009_et",
+    "infraestructuras:escaleras",
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "observaciones": [
+    "movilidad:MU2_carriles_bici",
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "observado": [
+    "urbanismo:Clavos_Topograficos"
+  ],
+  "ogc_fid": [
+    "urbanismo:IDEZar_Zona_Menor_Agua",
+    "urbanismo:Municipios",
+    "urbanismo:hoja_pgou_2000",
+    "urbanismo:hoja_pgou_5000",
+    "urbanismo:suelos_vacantes",
+    "urbanismo:v_ambitos_desarrollo_etiquetas"
+  ],
+  "operational_activity_period_begin": [
+    "medioambiente:estacion_calidad_aire"
+  ],
+  "operational_activity_period_end": [
+    "medioambiente:estacion_calidad_aire"
+  ],
+  "orden": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "orig_ogc_f": [
+    "infraestructuraverde:reposicion",
+    "medioambiente:Plantacion"
+  ],
+  "osm_id": [
+    "idezar_base:Ferrocarriles_cartoOSM_2019",
+    "movilidad:MU3_lineas_tranvia"
+  ],
+  "pacificada": [
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "pago": [
+    "movilidad:MU1_puntos_recarga"
+  ],
+  "paperspace": [
+    "movilidad:MU2_semaforos_1"
+  ],
+  "pasamano_1": [
+    "infraestructuras:escaleras"
+  ],
+  "pasamano_2": [
+    "infraestructuras:escaleras"
+  ],
+  "pasamano_3": [
+    "infraestructuras:escaleras"
+  ],
+  "pasamano_4": [
+    "infraestructuras:escaleras"
+  ],
+  "pasamano_5": [
+    "infraestructuras:escaleras"
+  ],
+  "pasamanos_": [
+    "infraestructuras:escaleras"
+  ],
+  "path": [
+    "movilidad:MU2_semaforos_1",
+    "movilidad:MU2_semaforos_2"
+  ],
+  "paviment_1": [
+    "infraestructuras:escaleras"
+  ],
+  "pavimento": [
+    "movilidad:MU1_estaciones_bici_ubicacion"
+  ],
+  "pavimento_": [
+    "infraestructuras:escaleras"
+  ],
+  "pdf_url": [
+    "movilidad:MU2_señalizacion_vertical"
+  ],
+  "perimetro": [
+    "urbanismo:Areas_Referencia",
+    "urbanismo:Distritos_Municipales",
+    "urbanismo:Juntas_Municipales_Vecinales",
+    "urbanismo:Manzanas",
+    "urbanismo:Municipios",
+    "urbanismo:Parcelas",
+    "urbanismo:suelos_vacantes"
+  ],
+  "periodo": [
+    "medioambiente:fachada_residencial_dia_2016",
+    "medioambiente:fachada_residencial_lden_2016",
+    "medioambiente:fachada_residencial_noche_2016",
+    "medioambiente:fachada_residencial_tarde_2016",
+    "medioambiente:fachada_sensible_dia_2016",
+    "medioambiente:fachada_sensible_lden_2016",
+    "medioambiente:fachada_sensible_noche_2016",
+    "medioambiente:fachada_sensible_tarde_2016",
+    "medioambiente:mapa_ruido_ferroviario_dia_2025",
+    "medioambiente:mapa_ruido_ferroviario_lden_2025",
+    "medioambiente:mapa_ruido_ferroviario_noche_2025",
+    "medioambiente:mapa_ruido_ferroviario_tarde_2025",
+    "medioambiente:mapa_ruido_industrial_dia_2025",
+    "medioambiente:mapa_ruido_industrial_lden_2025",
+    "medioambiente:mapa_ruido_industrial_noche_2025",
+    "medioambiente:mapa_ruido_industrial_tarde_2025",
+    "medioambiente:mapa_ruido_todas_dia_2025",
+    "medioambiente:mapa_ruido_todas_lden_2025",
+    "medioambiente:mapa_ruido_todas_noche_2025",
+    "medioambiente:mapa_ruido_todas_tarde_2025",
+    "medioambiente:mapa_ruido_viario_dia_2016",
+    "medioambiente:mapa_ruido_viario_dia_2025",
+    "medioambiente:mapa_ruido_viario_lden_2016",
+    "medioambiente:mapa_ruido_viario_lden_2025",
+    "medioambiente:mapa_ruido_viario_noche_2016",
+    "medioambiente:mapa_ruido_viario_noche_2025",
+    "medioambiente:mapa_ruido_viario_tarde_2016",
+    "medioambiente:mapa_ruido_viario_tarde_2025",
+    "medioambiente:poblacion_afectada_2025"
+  ],
+  "permanencia": [
+    "movilidad:MU1_badenes"
+  ],
+  "pgou_1986": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "placa_baden": [
+    "movilidad:MU1_badenes"
+  ],
+  "plano_catastro": [
+    "urbanismo:Manzanas",
+    "urbanismo:Parcelas"
+  ],
+  "plataforma": [
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "plazas": [
+    "movilidad:MU1_estacionamientos_calle"
+  ],
+  "pma_12_5_1": [
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "pma_18": [
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "pob": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024_abrev",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "pob24": [
+    "ctsvg:ISV_Manzanas_2024_abrev_publi"
+  ],
+  "poblacion": [
+    "medioambiente:edificaciones_niveles_ruido_2025"
+  ],
+  "poblacion_afectada_2025": [
+    "medioambiente:poblacion_afectada_2025"
+  ],
+  "poblacion_expuesta": [
+    "medioambiente:poblacion_afectada_2025"
+  ],
+  "point_x": [
+    "movilidad:MU3_paradas_BUS"
+  ],
+  "point_y": [
+    "movilidad:MU3_paradas_BUS"
+  ],
+  "poligono": [
+    "movilidad:MU1_estaciones_bici_ubicacion",
+    "urbanismo:Clavos_Topograficos"
+  ],
+  "porc": [
+    "movilidad:MU1_CC_bici_comparativa_2024_2025"
+  ],
+  "porcen": [
+    "movilidad:MU1_CC_bici_comparativa_2024_2025"
+  ],
+  "porcentaje": [
+    "movilidad:MU1_CC_bici_comparativa_2024_2025"
+  ],
+  "portal": [
+    "movilidad:MU1_badenes",
+    "movilidad:MU1_estacionamientos_calle"
+  ],
+  "potencia": [
+    "movilidad:MU1_puntos_recarga"
+  ],
+  "prescripciones": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "propinsp": [
+    "infraestructuraverde:reposicion",
+    "medioambiente:Plantacion"
+  ],
+  "puntoscarga": [
+    "movilidad:MU1_puntos_recarga"
+  ],
+  "ram_espaci": [
+    "infraestructuras:escaleras"
+  ],
+  "ram_pend_1": [
+    "infraestructuras:escaleras"
+  ],
+  "ram_pendie": [
+    "infraestructuras:escaleras"
+  ],
+  "ram_rellan": [
+    "infraestructuras:escaleras"
+  ],
+  "ram_tram_1": [
+    "infraestructuras:escaleras"
+  ],
+  "ram_tramo_": [
+    "infraestructuras:escaleras"
+  ],
+  "recogidamuebles": [
+    "medioambiente:recogidamuebles"
+  ],
+  "referencia": [
+    "urbanismo:Distritos_Municipales",
+    "urbanismo:Juntas_Municipales_Vecinales",
+    "urbanismo:Manzanas",
+    "urbanismo:Parcelas"
+  ],
+  "referencia_catastral": [
+    "urbanismo:Parcelas",
+    "urbanismo:Portales",
+    "urbanismo:suelos_vacantes"
+  ],
+  "referencia_distrito": [
+    "urbanismo:Juntas_Municipales_Vecinales"
+  ],
+  "referencia_manzana": [
+    "urbanismo:Parcelas"
+  ],
+  "regulador": [
+    "movilidad:MU1_CC_reguladores"
+  ],
+  "reposicion": [
+    "infraestructuraverde:reposicion"
+  ],
+  "residencia": [
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "rt_long_nm": [
+    "movilidad:MU3_lineas_bus"
+  ],
+  "rt_shrt_nm": [
+    "movilidad:MU3_lineas_bus"
+  ],
+  "sector": [
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev",
+    "medioambiente:emisiones_agregados_ciudad",
+    "medioambiente:emisiones_agregados_juntas"
+  ],
+  "sede_id": [
+    "urbanismo:Clavos_Topograficos"
+  ],
+  "shape_leng": [
+    "movilidad:MU3_lineas_bus",
+    "movilidad:MU3_lineas_tranvia"
+  ],
+  "short_name": [
+    "movilidad:MU3_paradas_BUS"
+  ],
+  "signal": [
+    "urbanismo:Clavos_Topograficos"
+  ],
+  "simbolo_porcentaje": [
+    "movilidad:MU1_CC_bici_comparativa_2024_2025"
+  ],
+  "situacion": [
+    "movilidad:MU1_estaciones_bici_ubicacion"
+  ],
+  "sop_id": [
+    "movilidad:MU2_señalizacion_vertical"
+  ],
+  "station_classification": [
+    "medioambiente:estacion_calidad_aire"
+  ],
+  "stop_code": [
+    "movilidad:MU3_paradas_BUS",
+    "movilidad:MU3_paradas_bus_unicas"
+  ],
+  "stop_name": [
+    "movilidad:MU3_paradas_BUS",
+    "movilidad:MU3_paradas_bus_unicas",
+    "movilidad:MU3_paradas_tranvia"
+  ],
+  "subclasses": [
+    "movilidad:MU2_semaforos_1"
+  ],
+  "suelos_vacantes": [
+    "urbanismo:suelos_vacantes"
+  ],
+  "sum_kpia_value": [
+    "medioambiente:emisiones_agregados_ciudad"
+  ],
+  "superficie": [
+    "medioambiente:fuente_agua_potable",
+    "urbanismo:Areas_Referencia",
+    "urbanismo:Distritos_Municipales",
+    "urbanismo:Juntas_Municipales_Vecinales",
+    "urbanismo:Manzanas",
+    "urbanismo:Municipios",
+    "urbanismo:Parcelas",
+    "urbanismo:suelos_vacantes"
+  ],
+  "tag": [
+    "medioambiente:contenedor",
+    "medioambiente:recogidamuebles",
+    "movilidad:MU1_CC_espectro_camaras"
+  ],
+  "taxi_cal_1": [
+    "movilidad:MU3_paradas_taxi"
+  ],
+  "taxi_cal_2": [
+    "movilidad:MU3_paradas_taxi"
+  ],
+  "taxi_calle": [
+    "movilidad:MU3_paradas_taxi"
+  ],
+  "taxi_id": [
+    "movilidad:MU3_paradas_taxi"
+  ],
+  "taxi_longi": [
+    "movilidad:MU3_paradas_taxi"
+  ],
+  "taxi_num_1": [
+    "movilidad:MU3_paradas_taxi"
+  ],
+  "taxi_num_2": [
+    "movilidad:MU3_paradas_taxi"
+  ],
+  "taxi_num_3": [
+    "movilidad:MU3_paradas_taxi"
+  ],
+  "taxi_num_4": [
+    "movilidad:MU3_paradas_taxi"
+  ],
+  "taxi_num_5": [
+    "movilidad:MU3_paradas_taxi"
+  ],
+  "taxi_num_c": [
+    "movilidad:MU3_paradas_taxi"
+  ],
+  "taxi_num_p": [
+    "movilidad:MU3_paradas_taxi"
+  ],
+  "taxi_obser": [
+    "movilidad:MU3_paradas_taxi"
+  ],
+  "taxi_rotac": [
+    "movilidad:MU3_paradas_taxi"
+  ],
+  "tecnico": [
+    "infraestructuras:escaleras"
+  ],
+  "tecnologia": [
+    "movilidad:MU1_puntos_recarga"
+  ],
+  "telefono": [
+    "movilidad:MU1_puntos_recarga"
+  ],
+  "text": [
+    "movilidad:MU2_semaforos_1"
+  ],
+  "texto": [
+    "urbanismo:Textos_Edificaciones"
+  ],
+  "the_geom": [
+    "idezar_base:AcerasZonasVerdes_PavimentosTF_2017",
+    "idezar_base:AcerasZonasVerdes_carto1000_2009",
+    "idezar_base:Aceras_PavimentoTF_2017",
+    "idezar_base:Autopistas_carto1000_2009_et",
+    "idezar_base:Barriadas_carto2004_2009_et",
+    "idezar_base:Barrios_carto2004_2009_et",
+    "idezar_base:Calles_Tercer_Nivel_2014",
+    "idezar_base:Carreteras_cartoOSM_2019_Exteriores",
+    "idezar_base:Carreteras_cartoOSM_2019_Interiores",
+    "idezar_base:Carreteras_cartoOSM_2019_Principales",
+    "idezar_base:EXPO_Canal_carto2004_2009",
+    "idezar_base:EXPO_ParqueMetropolitano_carto2004_2009",
+    "idezar_base:EXPO_Plazas_carto2004_2009",
+    "idezar_base:EXPO_Recinto_carto2004_2009",
+    "idezar_base:EXPO_ZonaVerde_carto2004_2009",
+    "idezar_base:Ebro_carto2004_2009_et",
+    "idezar_base:Etiquetas_500",
+    "idezar_base:Etiquetas_5000",
+    "idezar_base:Etiquetas_5000_mal",
+    "idezar_base:Etiquetas_5000_old",
+    "idezar_base:Etiquetas_500_old",
+    "idezar_base:Ferrocarriles_cartoOSM_2019",
+    "idezar_base:JERARQUIA_VIARIA",
+    "idezar_base:JERARQUIA_VIARIA_POINTS",
+    "idezar_base:Medianas_PavimentoTF_201702",
+    "idezar_base:PBandVerde_PavimentoTF_20170",
+    "idezar_base:Plazas_carto1000_2009",
+    "idezar_base:Puentes_carto1000_n23_2009",
+    "idezar_base:Rios_carto1000_2010",
+    "idezar_base:Urbanos_carto1000_2009_et",
+    "idezar_base:Zaragoza_carto2004_2009_et",
+    "idezar_base:ZonasVerdesPrincipales_carto1000_2012",
+    "idezar_base:ZonasVerdesSecundarias_carto1000_n50_2009",
+    "idezar_base:ZonasVerdesSecundarias_carto500_n50_2019",
+    "idezar_base:arboles_2022",
+    "idezar_base:arboles_urbanismo",
+    "idezar_base:arbustos_2022",
+    "idezar_base:arbustos_urbanismo",
+    "idezar_base:carril_bizi_20250127",
+    "idezar_base:zona_verde_juegos_infantiles_2022",
+    "indicadores:manzanas_densidad",
+    "mapa_del_ruido_2016:fachadas_residenciales_DEN_2016",
+    "mapa_del_ruido_2016:fachadas_residenciales_dia_2016",
+    "mapa_del_ruido_2016:fachadas_residenciales_noche_2016",
+    "mapa_del_ruido_2016:fachadas_residenciales_tarde_2016",
+    "mapa_del_ruido_2016:fachadas_sensibles_DEN_2016",
+    "mapa_del_ruido_2016:fachadas_sensibles_dia_2016",
+    "mapa_del_ruido_2016:fachadas_sensibles_noche_2016",
+    "mapa_del_ruido_2016:fachadas_sensibles_tarde_2016",
+    "mapa_del_ruido_2016:mapa_ruido_DEN_2016",
+    "mapa_del_ruido_2016:mapa_ruido_dia_2016",
+    "mapa_del_ruido_2016:mapa_ruido_noche_2016",
+    "mapa_del_ruido_2016:mapa_ruido_tarde_2016",
+    "urbanismo:IDEZar_Ordenacion_lineas"
+  ],
+  "tiene_instrumentos": [
+    "urbanismo:PLA_1_Ambitos_desarrollo",
+    "urbanismo:PLA_1_Ambitos_recogido"
+  ],
+  "tipo": [
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev",
+    "medioambiente:fachada_residencial_dia_2016",
+    "medioambiente:fachada_residencial_lden_2016",
+    "medioambiente:fachada_residencial_noche_2016",
+    "medioambiente:fachada_residencial_tarde_2016",
+    "medioambiente:fachada_sensible_dia_2016",
+    "medioambiente:fachada_sensible_lden_2016",
+    "medioambiente:fachada_sensible_noche_2016",
+    "medioambiente:fachada_sensible_tarde_2016",
+    "movilidad:MU1_CC_aforos_bici_y_vmp",
+    "movilidad:MU1_CC_camaras_trafico",
+    "movilidad:MU1_CC_espectro_camaras",
+    "movilidad:MU1_CC_paneles_informativos",
+    "movilidad:MU1_CC_reguladores",
+    "movilidad:MU1_badenes",
+    "movilidad:MU1_jerarquia_viaria",
+    "movilidad:MU2_señalizacion_vertical",
+    "movilidad:MU3_lineas_bus",
+    "urbanismo:Lineas_Edificaciones"
+  ],
+  "tipo_actual": [
+    "movilidad:MU1_estacionamientos_calle"
+  ],
+  "tipo_ambito": [
+    "urbanismo:PLA_1_Ambitos_desarrollo",
+    "urbanismo:PLA_1_Ambitos_recogido",
+    "urbanismo:PLA_1_Instrumentos_ambito",
+    "urbanismo:v_ambitos_desarrollo_etiquetas"
+  ],
+  "tipo_aparcamiento": [
+    "movilidad:MU2_aparcabicis"
+  ],
+  "tipo_base": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "tipo_calculo": [
+    "urbanismo:Clavos_Topograficos"
+  ],
+  "tipo_carri": [
+    "movilidad:MU2_carriles_bici"
+  ],
+  "tipo_contenedor": [
+    "medioambiente:contenedor",
+    "medioambiente:recogidamuebles"
+  ],
+  "tipo_edificio": [
+    "medioambiente:edificaciones_niveles_ruido_2025"
+  ],
+  "tipo_eleme": [
+    "infraestructuras:escaleras"
+  ],
+  "tipo_estac": [
+    "movilidad:MU1_CC_estaciones_aforos_fichas_2025_pdf",
+    "movilidad:MU1_CC_estaciones_aforos_fichas_PDF"
+  ],
+  "tipo_estacion": [
+    "movilidad:MU2_aparcabicis"
+  ],
+  "tipo_instrumento": [
+    "urbanismo:PLA_1_Instrumentos_ambito"
+  ],
+  "tipo_poste": [
+    "movilidad:MU2_señalizacion_vertical"
+  ],
+  "tipo_referencia": [
+    "urbanismo:Parcelas"
+  ],
+  "tipo_residuo": [
+    "medioambiente:contenedor",
+    "medioambiente:recogidamuebles"
+  ],
+  "tipo_ubicacion": [
+    "medioambiente:contenedor",
+    "medioambiente:recogidamuebles"
+  ],
+  "tipo_via": [
+    "movilidad:MU1_estacionamientos_calle",
+    "movilidad:MU1_jerarquia_viaria",
+    "movilidad:MU2_aparcabicis",
+    "urbanismo:Vias"
+  ],
+  "tipologia": [
+    "movilidad:MU1_estaciones_bici_ubicacion"
+  ],
+  "title": [
+    "movilidad:MU1_puntos_recarga"
+  ],
+  "tot_pob_1": [
+    "indicadores:manzanas_densidad"
+  ],
+  "tramo": [
+    "movilidad:MU1_jerarquia_viaria"
+  ],
+  "tranvia": [
+    "movilidad:MU1_CC_reguladores"
+  ],
+  "tunnel": [
+    "movilidad:MU3_lineas_tranvia"
+  ],
+  "ubicacion": [
+    "medioambiente:fuente_agua_potable",
+    "movilidad:MU1_CC_camaras_trafico",
+    "movilidad:MU1_CC_espectro_camaras",
+    "movilidad:MU1_CC_paneles_informativos"
+  ],
+  "ug": [
+    "infraestructuraverde:reposicion",
+    "medioambiente:Plantacion"
+  ],
+  "url": [
+    "movilidad:MU1_puntos_recarga"
+  ],
+  "v_ambitos_desarrollo_etiquetas": [
+    "urbanismo:v_ambitos_desarrollo_etiquetas"
+  ],
+  "v_poblacion_afectada_2025_df4_8": [
+    "medioambiente:v_poblacion_afectada_2025_df4_8"
+  ],
+  "version": [
+    "movilidad:MU1_CC_reguladores",
+    "movilidad:MU3_lineas_bus",
+    "movilidad:MU3_paradas_BUS"
+  ],
+  "vial": [
+    "medioambiente:fuente_agua_potable"
+  ],
+  "vias_codigo": [
+    "movilidad:MU1_badenes",
+    "movilidad:MU2_carriles_bici"
+  ],
+  "vias_nombre_reducido": [
+    "movilidad:MU2_carriles_bici"
+  ],
+  "vias_tipo_via": [
+    "movilidad:MU1_badenes",
+    "movilidad:MU2_carriles_bici"
+  ],
+  "viviendas": [
+    "medioambiente:edificaciones_niveles_ruido_2025"
+  ],
+  "viviendas_expuestas": [
+    "medioambiente:poblacion_afectada_2025"
+  ],
+  "volumen": [
+    "medioambiente:contenedor",
+    "medioambiente:recogidamuebles"
+  ],
+  "wkb_geometry": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev",
+    "ctsvg:ISV_Manzanas_2024_abrev_publi",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024_abrev",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "x": [
+    "medioambiente:Plantacion"
+  ],
+  "y": [
+    "medioambiente:Plantacion"
+  ],
+  "year": [
+    "medioambiente:emisiones_agregados_ciudad",
+    "medioambiente:emisiones_agregados_juntas"
+  ],
+  "z_muyvuln": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev",
+    "ctsvg:ISV_Manzanas_2024_abrev_publi",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024_abrev",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "z_vuln": [
+    "ctsvg:ISV_Codigo_Postal_2024",
+    "ctsvg:ISV_Codigo_Postal_2024_abrev",
+    "ctsvg:ISV_Distritos_Municipales_2024",
+    "ctsvg:ISV_Distritos_Municipales_2024_abrev",
+    "ctsvg:ISV_Manzanas_2024_abrev_publi",
+    "ctsvg:ISV_Secciones_Censales_2024",
+    "ctsvg:ISV_Secciones_Censales_2024_abrev",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024",
+    "ctsvg:ISV_Zonas_Basicas_Salud_2024_abrev"
+  ],
+  "zocalos_la": [
+    "infraestructuras:escaleras"
+  ],
+  "zona_reguladora": [
+    "movilidad:MU1_estacionamientos_calle"
+  ],
+  "zona_verde_juegos_infantiles_2022": [
+    "idezar_base:zona_verde_juegos_infantiles_2022"
+  ]
+}
