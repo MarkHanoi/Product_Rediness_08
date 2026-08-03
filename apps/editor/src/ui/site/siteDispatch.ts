@@ -233,6 +233,10 @@ import {
     BALEARS_ROADMAP_LINE,
     BALEARS_MISSING_CONSTRAINTS,
     envelopePublicationPosture,
+    // §OPEN-TOP-INDICATIVE — the MEASURED renderer capability, not a permission. The indicative
+    // drawing arm below is gated on it, so if the render path ever regresses the arm self-disables
+    // rather than shipping a solid that looks complete (ADR-0293).
+    rendererCanExpressOpenTop,
     // BARCELONA-GIS-AUDIT-SPIKE — clau 18 (volumetria específica) explicit-area path. The AMB Refós
     // OV_Trames resolver (footprint + PLANTES floor count, WGS84, never throws) + its UNREGISTERED
     // pack. Gated on `BCN_REFOS_OV_CERTIFIED` (default OFF): while closed, clau 18 keeps its cited
@@ -2811,6 +2815,12 @@ async function applyParisZoningThenFallback(
             // The drawn ring is the published ECM footprint geometry (never parcel×%), so it is a real
             // solved footprint — not a full-parcel upper bound (L-619 flag stays false here).
             footprintIsUpperBound: false,
+            // §OPEN-TOP-INDICATIVE — Paris draws from PUBLISHED ECM geometry through its own gate,
+            // not through `envelopePublicationPosture()`. Null = NOT STATED, which is the honest
+            // answer for a path that never asked the posture question — and it classifies exactly as
+            // it always did. ⛔ NOT `'determination'`: that would put a publication claim on an
+            // envelope no gate has been consulted about, which is the direction §1.4 forbids.
+            publicationPosture: null,
             // §L-619 — `placement` / `openSpace` are the DK placement-resolver's vocabulary
             // (byggefelt / byggelinje / derived band). Paris ECM is a different pipeline and makes
             // no such statement, so both stay null — the honest "no placement claim" (this literal
@@ -4222,11 +4232,16 @@ async function tryBcnClau18Volumetria(
  *
  * ⚠ THE GATE IS READ THROUGH `envelopePublicationPosture`, NOT AS A CONSTANT — the
  * §MURCIA-GATE-BYPASS-REGRESSION lesson applied pre-emptively. That function consults the L-449
- * gate AND the open-top registry, so opening either door needs NO edit here. ⚠ AND THE
- * `open-top-indicative` ARM DELIBERATELY DOES NOT DRAW EITHER: `rendererCanExpressOpenTop` is
- * `false` (measured — `classifyEnvelopeCompleteness` has no input for the posture, so an indicative
- * solid renders in the same confident violet as a determination). When that renderer input lands,
- * THIS is the one place that gains a drawing arm.
+ * gate AND the open-top registry, so opening either door needs NO edit here.
+ *
+ * ⭐ §OPEN-TOP-INDICATIVE — THE SECOND DRAWING ARM NOW EXISTS AND IS STILL SHUT. The renderer input
+ * has landed: the posture is a fourth signal to `classifyEnvelopeCompleteness`, `complete` is
+ * UNREACHABLE for an indicative envelope, and both rasterisers draw it UNCAPPED
+ * (`rendererCanExpressOpenTop === true`, measured). So an indicative Balears would now draw a
+ * provisional-grey OPEN-TOP volume that cannot be confused with a determination — but it draws
+ * NOTHING today, because `OPEN_TOP_INDICATIVE_JURISDICTIONS` is EMPTY and listing a jurisdiction is
+ * a founder line. What changed is that the founder's decision is now a one-line registry entry
+ * instead of a blocked one; the decision itself has NOT been taken here.
  *
  * Fully guarded: it never throws into the commit path, and it never falls back to the estimated
  * triple on a jurisdiction we DO answer.
@@ -4328,11 +4343,29 @@ async function applyBalearsZoningThenFallback(
             `Fitxa: ${record.fitxaUrl}`,
         ].filter((s): s is string => typeof s === 'string');
 
-        if (posture.posture === 'determination') {
-            // ⚠ UNREACHABLE TODAY (the gate is shut), and left as the ONLY drawing arm so that a
-            // signature changes behaviour with no edit here. ADR-0293: an envelope drawn on this
-            // arm MUST carry the open-top reasons as caveats — they are what make the solid an
-            // upper bound rather than a determination about the whole site.
+        // ── THE DRAWING ARM — TWO POSTURES, ONE COMPUTATION, TWO DIFFERENT CLAIMS. ──
+        //
+        // ⚠ BOTH ARE UNREACHABLE TODAY: the L-449 gate is shut AND `OPEN_TOP_INDICATIVE_JURISDICTIONS`
+        // ships empty, so `posture.posture` is `'refused'` for Balears and this whole block is skipped.
+        // Each arm opens by a ONE-LINE founder edit in the package (a signature, or a registry entry),
+        // with no edit here — the §MURCIA-GATE-BYPASS-REGRESSION discipline.
+        //
+        // ⭐ WHY THEY SHARE THE COMPUTATION AND DIFFER ONLY IN THE STAMP. The GEOMETRY a fitxa's rule
+        // produces on this parcel is the same question either way; what differs is what PRYZM may SAY
+        // about it. Duplicating the arm would let the two computations drift until "indicative" meant
+        // a different shape rather than a different claim. So the envelope is computed once and the
+        // posture is stamped on it — `publicationPosture` then forces `complete: false` + `openTop`
+        // through the L2 classifier onto EVERY solid, on both the globe and the plan overlay.
+        //
+        // ⛔ THE INDICATIVE ARM IS ADDITIONALLY GATED ON `rendererCanExpressOpenTop` (a MEASUREMENT of
+        // the render path, not a permission). If that ever regresses to false, this arm self-disables
+        // back to the cited refusal below rather than shipping a solid that looks complete — ADR-0293.
+        const indicativeDrawable =
+            posture.posture === 'open-top-indicative' && rendererCanExpressOpenTop;
+        if (posture.posture === 'determination' || indicativeDrawable) {
+            // ADR-0293: an envelope drawn on EITHER arm MUST carry the open-top reasons as caveats —
+            // they are what make the solid an upper bound rather than a determination about the
+            // whole site.
             const envelope = computeBuildableEnvelope({
                 parcelRing: boundary.polygon,
                 edgeClassifications: boundary.edgeClassifications,
@@ -4361,6 +4394,14 @@ async function applyBalearsZoningThenFallback(
                     site.id,
                     {
                         ...envelope,
+                        // §OPEN-TOP-INDICATIVE — ⭐ THE STAMP IS THE WHOLE DIFFERENCE BETWEEN THE TWO
+                        // ARMS, and it is carried BY THE ENVELOPE so every downstream surface reads
+                        // one decision. On the indicative arm the L2 classifier makes `complete`
+                        // UNREACHABLE and sets `openTop`, so the solid renders provisional-grey and
+                        // UNCAPPED — it cannot be mistaken for the determination arm's closed box on
+                        // any surface, including one written later. It is `posture.posture` verbatim
+                        // and never a literal: re-deriving it here would be a second authority.
+                        publicationPosture: posture.posture,
                         caveats: [
                             ...envelope.caveats,
                             // ⚠ `c: string` is annotated, not inferred: in the root tsconfig this
@@ -4370,11 +4411,27 @@ async function applyBalearsZoningThenFallback(
                             ...BALEARS_MISSING_CONSTRAINTS.map(
                                 (c: string) => `OPEN TOP (ADR-0293) — not accounted for: ${c}`,
                             ),
+                            // ⛔ THE CLAIM ITSELF, IN WORDS, ON THE INDICATIVE ARM. A caveat list of
+                            // unmodelled layers still reads like a determination with footnotes; this
+                            // says the thing outright, so an exported or screenshotted card carries
+                            // it even when the geometry does not travel with it.
+                            ...(indicativeDrawable
+                                ? [
+                                      'INDICATIVE (ADR-0293) — PRYZM claims NO buildable right here. ' +
+                                          'This volume is drawn with an OPEN TOP: it is an upper bound ' +
+                                          'that the unmodelled constraints above can only REDUCE, and ' +
+                                          'it is not a determination.',
+                                  ]
+                                : []),
                         ],
                     },
                     JURISDICTION_REF,
                 );
-                console.log(`${TAG} zone ${zoneCode} RENDERED at ${envelope.confidence ?? 'n/a'}.`);
+                console.log(
+                    `${TAG} zone ${zoneCode} RENDERED at ${envelope.confidence ?? 'n/a'} ` +
+                        `posture=${posture.posture}` +
+                        `${indicativeDrawable ? ' — OPEN TOP, no buildable right claimed' : ''}.`,
+                );
                 return;
             }
             // The fitxa's own rule leaves no buildable footprint on THIS parcel. A cited refusal is
@@ -4408,11 +4465,17 @@ async function applyBalearsZoningThenFallback(
         //    publishes no figure. `posture.authorisationReason` distinguishes "a human has not
         //    signed" (`gate-shut`) from "nobody has ever looked here" (`unknown-jurisdiction`) —
         //    collapsing them would lose the difference this whole subsystem exists to keep.
+        // ⚠ REACHED BY AN INDICATIVE JURISDICTION ONLY IF THE RENDER PATH REGRESSED. The indicative
+        // arm above draws whenever `rendererCanExpressOpenTop` holds; if that measurement ever goes
+        // false the posture falls through to HERE — the cited refusal — and says so, rather than
+        // shipping a solid that looks complete (ADR-0293). Silence in that case would be the
+        // §CONTEXT-DATA-HONESTY defect: a render regression presenting as an ordinary refusal.
         const indicativeNote =
             posture.posture === 'open-top-indicative'
-                ? ' ⚠ This jurisdiction is listed as OPEN-TOP INDICATIVE, but the renderer cannot yet ' +
-                  'express an open top (an indicative solid would render identically to a determined ' +
-                  'one), so PRYZM still draws nothing rather than ship a solid that looks complete.'
+                ? ' ⚠ This jurisdiction IS listed as OPEN-TOP INDICATIVE, but the renderer cannot ' +
+                  'currently express an open top, so PRYZM draws nothing rather than ship a solid ' +
+                  'that looks complete. This is a PRYZM render-path regression, not a change in what ' +
+                  'is known about your land.'
                 : '';
         dispatchEnvelope(
             ctx,

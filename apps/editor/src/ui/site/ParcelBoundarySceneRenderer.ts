@@ -305,7 +305,16 @@ export class ParcelBoundarySceneRenderer {
             // §L-619 — an upper-bound footprint (no published setbacks) forces the provisional grey +
             // the near-transparent fill below, so the plan/BIM view stays consistent with the globe's
             // §1.14 rasteriser. Same shared classifier as `envelopeToMassing` — one honesty decision.
-            const style = envelopeRenderStyle(env.confidence, hasRealHeight, env.footprintIsUpperBound === true);
+            // §OPEN-TOP-INDICATIVE (ADR-0293) — the publication posture rides on the envelope itself
+            // (the §1.14 carrier), so this surface reads the SAME honesty decision the globe does.
+            // `null` (every envelope shipped before the posture, and every persisted ring) means NOT
+            // STATED and classifies exactly as it always did.
+            const style = envelopeRenderStyle(
+                env.confidence,
+                hasRealHeight,
+                env.footprintIsUpperBound === true,
+                env.publicationPosture ?? null,
+            );
 
             const shape = new THREE.Shape();
             shape.moveTo(ring[0]!.x, -ring[0]!.z);
@@ -331,13 +340,39 @@ export class ParcelBoundarySceneRenderer {
                 transparent: true,
                 // §L-619 — a MAXIMUM-extent footprint (no published setbacks) renders near-wireframe so
                 // it reads as a provisional upper bound, not a solved study fill.
-                opacity: style.footprintUpperBound ? 0.05 : 0.16,
+                // §OPEN-TOP-INDICATIVE — an indicative volume takes the SAME near-wireframe weight:
+                // both are study extents, and giving the posture its own opacity would let the two
+                // drift until one read as confident.
+                opacity: style.footprintUpperBound || style.openTop ? 0.05 : 0.16,
                 depthWrite: false,
                 side: THREE.DoubleSide,
             });
-            const mesh = new THREE.Mesh(geo, mat);
+            // §OPEN-TOP-INDICATIVE (ADR-0293) — ⭐ DRAW IT WITHOUT ITS LIDS. `ExtrudeGeometry` emits
+            // two groups: materialIndex 0 = the caps (lids), 1 = the side walls. Handing it a
+            // material array whose CAP slot is fully transparent leaves an open shell — the literal
+            // open top the ADR requires, and the one channel that survives a greyscale screenshot
+            // (the hue is already provisional grey; an indicative envelope is never `complete`).
+            // ⚠ Guarded on the group count rather than assumed: if a future THREE emits a single
+            // group we fall back to the closed prism, which is merely the pre-existing look, never a
+            // wrong claim — the grey hue and the card's caveats still carry the disclosure.
+            const capMat = style.openTop
+                ? new THREE.MeshBasicMaterial({
+                      color: style.hex,
+                      transparent: true,
+                      opacity: 0,
+                      depthWrite: false,
+                      side: THREE.DoubleSide,
+                  })
+                : null;
+            const useOpenTop = capMat !== null && geo.groups.length >= 2;
+            const mesh = new THREE.Mesh(geo, useOpenTop ? [capMat!, mat] : mat);
+            if (capMat !== null && !useOpenTop) capMat.dispose();
             mesh.name = 'pryzm-buildable-envelope-volume';
             mesh.userData.envelopeConfidenceComplete = style.complete;
+            // §OPEN-TOP-INDICATIVE — the posture on the mesh, so a screenshot test / a11y layer can
+            // assert "this volume claims no buildable right" without re-deriving it.
+            mesh.userData.envelopeOpenTop = style.openTop;
+            mesh.userData.envelopeOpenTopExpressed = useOpenTop;
             // Distinct flag (NOT the parcel hide flags) — visible in the BIM 3D + plan
             // design scene; a future view gate can target this without touching the parcel.
             mesh.userData.isBuildableEnvelopeVolume = true;

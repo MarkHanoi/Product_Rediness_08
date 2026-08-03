@@ -22,7 +22,7 @@
 //
 // Colour ONLY — each renderer keeps its own fill/line opacity; the honest signal is the hue.
 
-import type { EnvelopeConfidence } from '@pryzm/schemas';
+import type { EnvelopeConfidence, EnvelopePublicationPosture } from '@pryzm/schemas';
 import { classifyEnvelopeCompleteness } from '@pryzm/site-parcel-data';
 
 /** The unified PRYZM violet — a CONFIDENT, real determination. Exported so the Cesium rasteriser
@@ -47,6 +47,15 @@ export interface EnvelopeRenderStyle {
      * regardless of how trusted the height/FAR are.
      */
     readonly footprintUpperBound: boolean;
+    /**
+     * §OPEN-TOP-INDICATIVE (ADR-0293) — TRUE when the publication posture is `open-top-indicative`:
+     * PRYZM may DRAW this volume but claims NO buildable right in it, because constraint families
+     * that can only ever REDUCE it are unmodelled. The flat overlay MUST then draw the prism with
+     * NO TOP CAP (an open shell) at the near-wireframe fill. `complete` is always false when this is
+     * true, so the hue is already the provisional grey — the open top is the SECOND, independent
+     * channel, and it is the one a colour-blind viewer still reads.
+     */
+    readonly openTop: boolean;
     /** THREE numeric colour. */
     readonly hex: number;
     /** Cesium / CSS colour string. */
@@ -67,16 +76,33 @@ export interface EnvelopeRenderStyle {
  *                     flat footprint slab).
  * @param footprintIsUpperBound §L-619 — true when the FOOTPRINT is the whole parcel ONLY because the
  *                     ordinance publishes no setbacks. Forces PROVISIONAL regardless of confidence.
+ * @param publicationPosture §OPEN-TOP-INDICATIVE (ADR-0293) — what PRYZM may CLAIM, from
+ *                     `envelopePublicationPosture()`. `'open-top-indicative'` forces PROVISIONAL and
+ *                     sets `openTop`. ⚠ NULL/absent means NOT STATED and changes nothing — every
+ *                     pre-existing call site is byte-identical.
+ *
+ * ⭐ NO NEW COLOUR SYSTEM. There are exactly TWO hues here and there still are: the unified violet is
+ * reserved for a real determination, and an indicative envelope — never `complete` — takes the SAME
+ * provisional grey an estimate takes. What separates INDICATIVE from merely provisional is `openTop`,
+ * a SILHOUETTE difference, not a third swatch. (`PreviewStyle.ts`'s `#6600FF` is the CREATION-preview
+ * purple and is a different vocabulary entirely; it is not in play on this surface.)
  */
 export function envelopeRenderStyle(
     confidence: EnvelopeConfidence | null | undefined,
     hasRealHeight: boolean,
     footprintIsUpperBound: boolean = false,
+    publicationPosture: EnvelopePublicationPosture | null | undefined = null,
 ): EnvelopeRenderStyle {
-    const cls = classifyEnvelopeCompleteness(confidence, hasRealHeight, footprintIsUpperBound);
+    const cls = classifyEnvelopeCompleteness(
+        confidence,
+        hasRealHeight,
+        footprintIsUpperBound,
+        publicationPosture,
+    );
     return {
         complete: cls.complete,
         footprintUpperBound: cls.footprintUpperBound,
+        openTop: cls.openTop,
         hex: cls.complete ? CONFIDENT_VIOLET_HEX : PROVISIONAL_GREY_HEX,
         cssHex: cls.complete ? CONFIDENT_VIOLET_CSS : PROVISIONAL_GREY_CSS,
         reason: cls.reason,

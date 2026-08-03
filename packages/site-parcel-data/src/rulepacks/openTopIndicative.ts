@@ -58,7 +58,10 @@
 //     record with an empty `missingConstraints` — an open top with nothing named is a closed box
 //     wearing a label, which is strictly worse than a shut gate because it looks like disclosure.
 //  4. ⭐ RENDERING MUST MAKE IT UNMISTAKABLE — and `rendererCanExpressOpenTop` is where that claim is
-//     recorded rather than assumed. See its docstring: TODAY IT IS `false`, WITH THE MEASUREMENT.
+//     recorded rather than assumed. See its docstring: it is now `true`, WITH THE MEASUREMENT — the
+//     posture is a fourth input to `classifyEnvelopeCompleteness`, `complete` is UNREACHABLE for an
+//     indicative envelope, and both rasterisers draw it UNCAPPED. ⚠ That changed the PICTURE, not the
+//     PERMISSION: the registry below is still empty and still a founder line.
 //
 // ⛔ NOTHING HERE SIGNS ANYTHING. L-449 reserves certification to humans. Every gate stays
 // `signature: null`, and `OPEN_TOP_INDICATIVE_JURISDICTIONS` ships EMPTY — enabling a jurisdiction
@@ -69,6 +72,7 @@
 // ADR-0293, C58 §1.4/§1.13, C63 §1.6, L-449, L-665, L-677.
 
 import { trace } from '@opentelemetry/api';
+import type { EnvelopePublicationPosture } from '@pryzm/schemas';
 import {
     envelopePublicationAuthorisation,
     type EnvelopeAuthorisationReason,
@@ -180,8 +184,14 @@ export const BALEARS_OPEN_TOP_INDICATIVE: OpenTopIndicativeRecord = openTopIndic
  *  • `determination`       — publishable AS A DETERMINATION. Only ever from the owned gate.
  *  • `open-top-indicative` — DRAWS, but claims no buildable right. Carries its reasons in the data.
  *  • `refused`             — draws nothing.
+ *
+ * ⛔ RE-EXPORTED, NOT RESTATED. The vocabulary itself lives in L0 (`EnvelopePublicationPostureSchema`)
+ * because the posture is now CARRIED on `BuildableEnvelope` and read by the L2 render classifier — a
+ * second hand-written copy of the union here is precisely how "indicative" would acquire a fourth
+ * spelling that one layer honours and another does not. L0 owns the WORDS; this module owns the
+ * DECISION, and nothing else may make one.
  */
-export type EnvelopePublicationPosture = 'determination' | 'open-top-indicative' | 'refused';
+export type { EnvelopePublicationPosture };
 
 export interface EnvelopePosture {
     readonly posture: EnvelopePublicationPosture;
@@ -275,34 +285,40 @@ export function mayDrawEnvelope(
 }
 
 /**
- * ⭐ CAN THE RENDERER ACTUALLY EXPRESS AN OPEN TOP TODAY? **`false` — AND THE REASON IS NARROWER AND
- * MORE USEFUL THAN "THE RENDERER HAS NO PROVISIONAL STYLE", WHICH WOULD HAVE BEEN WRONG.**
+ * ⭐ CAN THE RENDERER ACTUALLY EXPRESS AN OPEN TOP TODAY? **`true` — AND THIS IS A MEASUREMENT OF THE
+ * RENDER PATH, NOT A PUBLICATION DECISION.**
  *
  * ADR-0293 requires an indicative envelope to READ as an open top, never as a closed box, and the
  * instruction accompanying this state was explicit: *if the renderer cannot express that yet, SAY SO
  * — do not ship a solid that looks complete.* This constant is that statement, in code, so a caller
  * gates on it instead of discovering the gap on a screenshot.
  *
- * ── ⚠ WHAT WAS ACTUALLY MEASURED (2026-08-02), HAVING FIRST GOT IT WRONG ─────────────────────────
- * A PROVISIONAL VISUAL CHANNEL **DOES** EXIST AND IS FULLY WIRED. `ZoningRulesEngine` sets
- * `BuildableEnvelope.footprintIsUpperBound`; `ParcelBoundarySceneRenderer` reads it and calls
- * `envelopeRenderStyle(confidence, hasRealHeight, footprintIsUpperBound)`, which delegates to the L2
- * `classifyEnvelopeCompleteness` and renders PROVISIONAL GREY `#9A93B0` — outline-dominant "maximum
- * extent" — instead of the confident violet `#6600FF`. The globe reads the same class through
- * `MassingSolid.style`. So the "flag is produced and consumed by nothing" hypothesis was FALSE; it
- * is consumed, in one place, by design.
+ * ── ⚠ THE HISTORY, KEPT BECAUSE THE FIRST TWO DIAGNOSES WERE BOTH WRONG ──────────────────────────
+ * (a) "the flag is produced and consumed by nothing" — FALSE. `footprintIsUpperBound` was always
+ *     consumed, in one place, by design. (b) "the renderer has no provisional style" — FALSE. The
+ *     provisional grey `#9A93B0` channel was fully wired on both surfaces. The REAL gap, measured
+ *     2026-08-02, was narrower: `classifyEnvelopeCompleteness` took exactly THREE signals —
+ *     `confidence`, `hasRealHeight`, `footprintIsUpperBound` — and the posture was none of them, so
+ *     an indicative envelope with a trusted confidence, a real height and a solved footprint
+ *     classified `complete: true` and rendered in the SAME CONFIDENT VIOLET as a determination. The
+ *     existing signals bounded the FOOTPRINT; nothing bounded the TOP.
  *
- * ⛔ THE REAL GAP IS THAT THE CLASSIFIER HAS NO INPUT FOR THIS STATE. `classifyEnvelopeCompleteness`
- * takes exactly THREE signals — `confidence`, `hasRealHeight`, `footprintIsUpperBound` — and
- * `open-top-indicative` is none of them. An indicative envelope with a trusted confidence, a real
- * height and a genuinely solved footprint therefore classifies `complete: true` and renders in the
- * SAME CONFIDENT VIOLET as a determination. The unmodelled constraints bound the TOP; the existing
- * signal bounds the FOOTPRINT; the renderer can express the second and not the first.
+ * ── ⭐ WHAT NOW EXISTS, AND WHERE TO GO AND CHECK IT ─────────────────────────────────────────────
+ *  1. L0 carries the posture: `BuildableEnvelope.publicationPosture`
+ *     (`EnvelopePublicationPostureSchema`, additive, `null` = NOT STATED).
+ *  2. L2 decides on it ONCE: `classifyEnvelopeCompleteness(confidence, hasRealHeight,
+ *     footprintIsUpperBound, publicationPosture)` returns `complete: false` + `openTop: true` for
+ *     `'open-top-indicative'`. ⛔ `complete` is UNREACHABLE for that posture, so no renderer — including
+ *     one written later, by someone who never read this file — can paint it the determination violet.
+ *  3. Both rasterisers obey `openTop` and draw the volume UNCAPPED: `CesiumViewport` via
+ *     `closeTop: !solid.style.openTop`, `ParcelBoundarySceneRenderer` via a transparent
+ *     `ExtrudeGeometry` cap group. The open top is LITERAL geometry, so it survives a greyscale
+ *     screenshot and a colour-blind viewer — the hue is the second channel, not the only one.
  *
- * ⇒ THE FIX IS SMALL AND IS NOT LEGAL WORK: add the posture as a fourth input to
- *   `classifyEnvelopeCompleteness` (L2, one function, one authority — the same place §L-619's signal
- *   already wins over every confidence tier) so an `open-top-indicative` envelope can never classify
- *   `complete`. Until that lands, listing a jurisdiction above would ship a solid that looks
- *   complete — which is exactly what ADR-0293 forbids, and why the registry ships EMPTY.
+ * ⛔ THIS CONSTANT AUTHORISES NOTHING. It says the PICTURE can now tell the two states apart. It does
+ * not list a jurisdiction, does not flip any `*_ENVELOPE_VERIFIED`, and does not make
+ * `mayPublishAsDetermination()` return true for anything. `OPEN_TOP_INDICATIVE_JURISDICTIONS` is
+ * still EMPTY and enabling a jurisdiction is still a founder line — that was always a separate
+ * decision, and this only removes the reason it could not be taken.
  */
-export const rendererCanExpressOpenTop = false as const;
+export const rendererCanExpressOpenTop = true as const;

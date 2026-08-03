@@ -443,6 +443,30 @@ export const EnvelopeOpenSpaceSchema = z.object({
 export type EnvelopeOpenSpace = z.infer<typeof EnvelopeOpenSpaceSchema>;
 
 /**
+ * §OPEN-TOP-INDICATIVE (ADR-0293 / L-677) — WHAT PRYZM MAY CLAIM about this envelope. The THIRD
+ * publication state, promoted from a rendering convention to a value the type system carries.
+ *
+ *  - `determination`       — publishable AS A DETERMINATION (the L-449 human-signed gate said yes).
+ *  - `open-top-indicative` — DRAWS, but claims NO buildable right: unmodelled constraint families can
+ *                            only ever REDUCE the solid, so its TOP is not a limit PRYZM asserts.
+ *  - `refused`             — draws nothing.
+ *
+ * ⛔ THIS IS THE VOCABULARY, IN L0, SO THERE IS EXACTLY ONE. The L2 authorisation module
+ * (`@pryzm/site-parcel-data` → `openTopIndicative.ts`) is the only thing that may DECIDE a posture; it
+ * re-exports this type rather than restating the union, because two copies of a three-member union is
+ * how "indicative" quietly becomes a fourth spelling of "authorised".
+ *
+ * ⚠ L0 PURITY (P5) HOLDS: this is a string enum. It encodes no policy, reads no table and decides
+ * nothing — the DECISION lives in L2, where the gate tables and the registry are.
+ */
+export const EnvelopePublicationPostureSchema = z.enum([
+    'determination',
+    'open-top-indicative',
+    'refused',
+]);
+export type EnvelopePublicationPosture = z.infer<typeof EnvelopePublicationPostureSchema>;
+
+/**
  * §L-619 / DK-ENVELOPE-REALISM — WHICH open-space sources each placement source may legally claim.
  *
  * ⚠ THIS TABLE IS THE POINT, not a convenience. `placement.source` states how strong the footprint
@@ -511,6 +535,25 @@ export const BuildableEnvelopeSchema = z.object({
      * for every zone whose footprint came from the setback/alignment/tiered/explicit-area paths;
      * populated only by a placement resolver (the DK perimeter-block resolver). Additive, default null.
      */
+    /**
+     * §OPEN-TOP-INDICATIVE (ADR-0293 / L-677) — WHAT PRYZM MAY CLAIM about this envelope, carried on
+     * the envelope itself so the §1.14 massing seam is the ONE route every honesty field takes to the
+     * picture. `'open-top-indicative'` makes `classifyEnvelopeCompleteness` return `complete: false`
+     * and `openTop: true`, which forces the provisional grey + a literally UNCAPPED solid — an
+     * indicative envelope therefore CANNOT render in the determination style, by construction rather
+     * than by a renderer remembering to check.
+     *
+     * ⚠ NULL IS THE NORM AND MEANS "NOT STATED", NOT "REFUSED". Every envelope shipped before this —
+     * and every persisted one — leaves it null and classifies EXACTLY as it did. Only a caller that
+     * has consulted `envelopePublicationPosture()` (the single L2 authorisation decision point) may
+     * stamp it. Additive with a default, so persisted envelopes remain valid.
+     *
+     * ⛔ IT CANNOT WIDEN ANYTHING. `'determination'` here is a RECORD of what the owned L-449 gate
+     * already said; writing it does not consult, bypass or grant that gate, and the classifier treats
+     * it identically to null. The only value that CHANGES behaviour is `'open-top-indicative'`, and it
+     * only ever narrows: it can turn a confident violet grey, never the reverse.
+     */
+    publicationPosture: EnvelopePublicationPostureSchema.nullable().default(null),
     placement: EnvelopePlacementSchema.nullable().default(null),
     /**
      * §L-619 / DK-ENVELOPE-REALISM — the interior open space (karré courtyard) the footprint leaves,

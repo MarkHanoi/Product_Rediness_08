@@ -1059,6 +1059,15 @@ export function computeBuildableEnvelope(
             // are unknown; a consumer must hatch it, not draw a confident solid. See the flag's
             // schema docstring and the computation above.
             footprintIsUpperBound,
+            // §OPEN-TOP-INDICATIVE — NULL HERE, FOR THE SAME REASON `placement` IS.
+            //
+            // The posture answers *"what may PRYZM CLAIM about this?"* — an AUTHORISATION question,
+            // settled by the L-449 gate and the open-top registry (`rulepacks/openTopIndicative.ts`).
+            // This engine answers *"what shape does this rule produce?"* and knows nothing about
+            // signatures. Deriving a posture here would put a second, weaker authority beside the
+            // owned gate — the parallel-wiring hazard. The stamp is applied one layer out, by the
+            // dispatch that has already called `envelopePublicationPosture()`.
+            publicationPosture: null,
             // §L-619 — NULL HERE, AND THAT IS THE ARCHITECTURE, NOT AN OMISSION.
             //
             // `placement` / `openSpace` name the evidence class behind a footprint's PLACEMENT

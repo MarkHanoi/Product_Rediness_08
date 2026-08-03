@@ -5103,7 +5103,17 @@ export class CesiumViewport {
             outlineWidth: 2,
             shadows: Cesium.ShadowMode.DISABLED,
             perPositionHeight: false,
-            closeTop: true,
+            // §OPEN-TOP-INDICATIVE (ADR-0293) — ⭐ THE OPEN TOP IS LITERAL, NOT A METAPHOR. An
+            // `open-top-indicative` envelope is drawn as an UNCAPPED shell: PRYZM may draw the
+            // volume but claims no buildable right in it, and the unmodelled constraint families
+            // can only ever REDUCE it, so its top is not a limit we assert. A closed box would
+            // state exactly the thing we are refusing to state. This is the SECOND channel — the
+            // hue is already the provisional grey (an indicative solid is never `complete`) — and
+            // it is the one that survives a greyscale screenshot.
+            //
+            // ⚠ THIS LOOP STILL HOLDS NO ENVELOPE KNOWLEDGE: the decision was made by the L2
+            // classifier and arrives as `style.openTop`. The rasteriser only obeys it.
+            closeTop: !solid.style.openTop,
             closeBottom: true,
           },
         });
@@ -5118,9 +5128,11 @@ export class CesiumViewport {
       const roles = envSolids.map((s) => `${s.role}@${s.topHeightM.toFixed(1)}m`).join(', ');
       const upper = envSolids.some((s) => s.style.footprintUpperBound);
       const grey = envSolids.some((s) => s.style.hue === 'provisional');
+      const openTop = envSolids.some((s) => s.style.openTop);
       console.log(
         `[CesiumViewport][forma] §ENVELOPE-VIA-MASSING (§1.14 rasteriser) drew ${envelopeEntitiesAdded}/` +
           `${envSolids.length} solid(s): [${roles}]${upper ? ' · UPPER-BOUND (max extent)' : ''}` +
+          `${openTop ? ' · OPEN TOP (indicative — drawn uncapped, NO buildable right claimed)' : ''}` +
           `${grey ? ' · provisional grey' : ' · confident violet'}.`,
       );
     }

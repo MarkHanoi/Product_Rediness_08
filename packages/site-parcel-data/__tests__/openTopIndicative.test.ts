@@ -117,18 +117,40 @@ describe('§OPEN-TOP · 3 — THE REASON LIST IS DATA, NOT DECORATION', () => {
     });
 });
 
-describe('§OPEN-TOP · 4 — RENDERING MUST MAKE IT UNMISTAKABLE, AND TODAY IT CANNOT', () => {
-    it('⛔ SAYS SO IN CODE: the renderer cannot express an open top yet', () => {
-        // ADR-0293: do not ship a solid that looks complete. The measured gap is that
-        // `classifyEnvelopeCompleteness` takes confidence / hasRealHeight / footprintIsUpperBound
-        // and has NO input for this posture — so an indicative envelope with a real height and a
-        // solved footprint would classify `complete` and render in the confident violet.
-        expect(rendererCanExpressOpenTop).toBe(false);
+describe('§OPEN-TOP · 4 — RENDERING MUST MAKE IT UNMISTAKABLE, AND NOW IT DOES', () => {
+    it('⭐ SAYS SO IN CODE: the renderer CAN express an open top', () => {
+        // ADR-0293: do not ship a solid that looks complete. The measured gap was that
+        // `classifyEnvelopeCompleteness` took confidence / hasRealHeight / footprintIsUpperBound and
+        // had NO input for this posture — so an indicative envelope with a real height and a solved
+        // footprint classified `complete` and rendered in the confident violet. The posture is now a
+        // FOURTH input, `complete` is unreachable for it, and both rasterisers draw it uncapped.
+        expect(rendererCanExpressOpenTop).toBe(true);
     });
 
-    it('⇒ and that is exactly why the shipped registry is empty — the two facts agree', () => {
-        if (!rendererCanExpressOpenTop) {
-            expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.size).toBe(0);
-        }
+    it('⛔ AND THAT CHANGED THE PICTURE, NOT THE PERMISSION — the registry is STILL EMPTY', () => {
+        // ⚠ THE TRAP THIS TEST GUARDS. "The renderer can now express it" is the kind of statement
+        // that invites someone to conclude the jurisdiction may therefore be listed. It may not:
+        // listing is a founder decision about DRAWING ON SOMEONE'S LAND, and removing its blocker
+        // does not take it. The two facts are INDEPENDENT and this asserts them independently.
+        expect(rendererCanExpressOpenTop).toBe(true);
+        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.size).toBe(0);
+    });
+
+    it('⛔ BALEARS IS SPECIFICALLY NOT LISTED, and its determination gate is SHUT', () => {
+        // The record is BUILT and TESTED (see §3) and deliberately NOT registered. Both halves:
+        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.has(BALEARS_JURISDICTION_ID)).toBe(false);
+        expect(isEnvelopePublicationAuthorised(BALEARS_JURISDICTION_ID)).toBe(false);
+        // ⇒ so with the SHIPPED registry, a Balears click still draws nothing at all.
+        expect(mayDrawEnvelope(BALEARS_JURISDICTION_ID)).toBe(false);
+        expect(mayPublishAsDetermination(BALEARS_JURISDICTION_ID)).toBe(false);
+    });
+
+    it('the one-line founder edit is all that stands between here and a drawn open top', () => {
+        // Exercised through the INJECTED registry, never the shipped one — this proves the edit
+        // would work without being the edit. `withBalears` is exactly `[[id, record]]`.
+        expect(mayDrawEnvelope(BALEARS_JURISDICTION_ID, withBalears)).toBe(true);
+        expect(mayPublishAsDetermination(BALEARS_JURISDICTION_ID, withBalears)).toBe(false);
+        // …and the shipped registry is untouched by having exercised the injected one.
+        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.size).toBe(0);
     });
 });

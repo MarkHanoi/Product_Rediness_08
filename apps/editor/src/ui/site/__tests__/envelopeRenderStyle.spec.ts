@@ -71,3 +71,107 @@ describe('§L-619 — an UPPER-BOUND footprint is never a confident solid', () =
         }
     });
 });
+
+// §OPEN-TOP-INDICATIVE (ADR-0293 / L-677) — the FLAT surface's half of the posture contract. The L2
+// classifier is pinned exhaustively in `site-parcel-data/__tests__/envelopePosturePresentation.test.ts`;
+// what THIS file must prove is that the flat overlay + card ADAPTER maps that class to the right
+// pixels — that an indicative envelope never receives the determination violet, and that the fourth
+// argument's default left the three pre-existing call sites alone.
+describe('§OPEN-TOP-INDICATIVE — an indicative envelope never gets the determination violet', () => {
+    it('⭐ THE CONTRACT: it greys and flags `openTop` even at the STRONGEST possible signals', () => {
+        // Authoritative confidence, a real height, a genuinely solved footprint — the exact case
+        // that used to classify `complete` and paint #6600FF, identical to a signed determination.
+        const s = envelopeRenderStyle('authoritative', true, false, 'open-top-indicative');
+        expect(s.complete).toBe(false);
+        expect(s.openTop).toBe(true);
+        expect(s.cssHex).toBe(GREY);
+        expect(s.cssHex).not.toBe(VIOLET);
+        expect(s.reason).toMatch(/indicative/i);
+        expect(s.reason).toMatch(/open top/i);
+    });
+
+    it('⛔ the violet is UNREACHABLE for an indicative envelope, over every input combination', () => {
+        for (const c of [
+            'authoritative',
+            'structured',
+            'block-constructed',
+            'estimated-ruleset',
+            'not-determined',
+            null,
+        ] as const) {
+            for (const h of [true, false]) {
+                for (const u of [true, false]) {
+                    const s = envelopeRenderStyle(c, h, u, 'open-top-indicative');
+                    expect(s.complete, `${c}/${h}/${u}`).toBe(false);
+                    expect(s.openTop, `${c}/${h}/${u}`).toBe(true);
+                    expect(s.cssHex, `${c}/${h}/${u}`).toBe(GREY);
+                    expect(s.hex, `${c}/${h}/${u}`).not.toBe(0x6600ff);
+                }
+            }
+        }
+    });
+
+    it('NO NEW COLOUR SYSTEM — the swatch set is still exactly {violet, grey}', () => {
+        const swatches = new Set(
+            (['determination', 'open-top-indicative', 'refused', null] as const).flatMap((p) => [
+                envelopeRenderStyle('authoritative', true, false, p).cssHex,
+                envelopeRenderStyle('estimated-ruleset', true, false, p).cssHex,
+                envelopeRenderStyle('structured', true, true, p).cssHex,
+            ]),
+        );
+        expect([...swatches].sort()).toEqual([GREY, VIOLET].sort());
+    });
+
+    it('⇒ INDICATIVE is separated from merely-provisional by the SILHOUETTE, not a third swatch', () => {
+        const estimate = envelopeRenderStyle('estimated-ruleset', true);
+        const indicative = envelopeRenderStyle('authoritative', true, false, 'open-top-indicative');
+        expect(indicative.cssHex).toBe(estimate.cssHex); // same grey — no new colour
+        expect(indicative.openTop).toBe(true); // …and a DIFFERENT shape
+        expect(estimate.openTop).toBe(false);
+    });
+
+    it('⚠ the two doubts COMPOSE — upper-bound footprint AND indicative posture report both flags', () => {
+        const s = envelopeRenderStyle('structured', true, true, 'open-top-indicative');
+        expect(s.footprintUpperBound).toBe(true);
+        expect(s.openTop).toBe(true);
+        expect(s.cssHex).toBe(GREY);
+    });
+
+    it('a `refused` posture greys and is NOT dressed up as an open top', () => {
+        const s = envelopeRenderStyle('authoritative', true, false, 'refused');
+        expect(s.complete).toBe(false);
+        expect(s.openTop).toBe(false);
+        expect(s.cssHex).toBe(GREY);
+    });
+});
+
+describe('§OPEN-TOP-INDICATIVE — the pre-existing 3-arg call site is byte-identical', () => {
+    it('⭐ 3-arg === null === undefined === `determination`, over the whole matrix', () => {
+        // This adapter is one of the THREE shipped call sites. Had the fourth argument's default
+        // been anything but inert, every confident envelope in every jurisdiction would have greyed.
+        for (const c of [
+            'authoritative',
+            'structured',
+            'block-constructed',
+            'estimated-ruleset',
+            'not-determined',
+            null,
+        ] as const) {
+            for (const h of [true, false]) {
+                for (const u of [true, false]) {
+                    const three = envelopeRenderStyle(c, h, u);
+                    const label = `${c}/${h}/${u}`;
+                    expect(envelopeRenderStyle(c, h, u, null), label).toEqual(three);
+                    expect(envelopeRenderStyle(c, h, u, undefined), label).toEqual(three);
+                    expect(envelopeRenderStyle(c, h, u, 'determination'), label).toEqual(three);
+                    expect(three.openTop, label).toBe(false);
+                }
+            }
+        }
+    });
+
+    it('the confident violet still happens — the guard did not simply grey everything', () => {
+        expect(envelopeRenderStyle('structured', true).cssHex).toBe(VIOLET);
+        expect(envelopeRenderStyle('authoritative', true, false, 'determination').cssHex).toBe(VIOLET);
+    });
+});

@@ -25,7 +25,13 @@
 // Strategic context — C58 §1.14; SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md Part 3 §3.1;
 // jurisdictions/ENVELOPE-REALISM-MATRIX.md (L-616).
 
-import type { EnvelopeConfidence, EnvelopeStatus, EnvelopeTier, Pt } from '@pryzm/schemas';
+import type {
+    EnvelopeConfidence,
+    EnvelopePublicationPosture,
+    EnvelopeStatus,
+    EnvelopeTier,
+    Pt,
+} from '@pryzm/schemas';
 
 // ── Style constants — the ONE knob set, matched to the pre-seam render (byte-compatible). ──────────
 /** A footprint-only "we do not claim a height" slab (§1.12.6 / §ENVELOPE-NO-FABRICATED-HEIGHT L-525a). */
@@ -36,6 +42,14 @@ export const SOLID_FILL_ALPHA = 0.34;
 export const UPPER_BOUND_FILL_ALPHA = 0.06;
 /** §L-616 — the translucent legal-ceiling shell drawn AROUND a FAR-limited solid. */
 export const SHELL_FILL_ALPHA = 0.08;
+/**
+ * §OPEN-TOP-INDICATIVE (ADR-0293) — an INDICATIVE solid draws at the SAME near-wireframe weight as a
+ * §L-619 maximum-extent footprint. An ALIAS, deliberately, not a fourth number: both say "this is a
+ * study extent, not a solved solid", and giving the posture its own tuneable alpha would let the two
+ * drift until one of them read as confident. The posture's OWN distinguishing mark is the uncapped
+ * top (`MassingSolidStyle.openTop`) plus the provisional hue — geometry and colour, not opacity.
+ */
+export const OPEN_TOP_FILL_ALPHA = UPPER_BOUND_FILL_ALPHA;
 
 /** Confidence tiers that represent a REAL determination rather than an estimate/guess (C58 §1.2). */
 const TRUSTED_CONFIDENCE: ReadonlySet<EnvelopeConfidence> = new Set<EnvelopeConfidence>([
@@ -55,40 +69,101 @@ export interface EnvelopeCompleteness {
     readonly complete: boolean;
     /** §L-619 — the FOOTPRINT is a whole-parcel UPPER BOUND (setbacks unpublished), never a solved area. */
     readonly footprintUpperBound: boolean;
+    /**
+     * §OPEN-TOP-INDICATIVE (ADR-0293) — the solid's TOP is not a limit PRYZM asserts: the publication
+     * posture is `'open-top-indicative'`, so constraint families that can only ever REDUCE the volume
+     * are unmodelled. The rasterisers draw such a solid WITHOUT A TOP CAP — a literal open top, which
+     * is the one thing a determination's closed box can never be mistaken for.
+     *
+     * ⚠ ORTHOGONAL TO `footprintUpperBound`, and both can be true. That one says the FOOTPRINT is
+     * unknown (in plan); this one says the TOP is unclaimed (in section). Collapsing them into one
+     * "provisional" boolean would lose which of the two dimensions is actually in doubt.
+     */
+    readonly openTop: boolean;
     /** One line for logs / an aria hint — WHY it is grey, when it is. */
     readonly reason: string;
 }
 
+/** §L-619 — the exact pre-existing wording, hoisted so the composed reason cannot drift from it. */
+const UPPER_BOUND_REASON =
+    'maximum extent — ordinance publishes no setbacks, footprint is an upper bound (L-619)';
+/** §OPEN-TOP-INDICATIVE — what an open top MEANS, in the one sentence a card/log has to show. */
+const OPEN_TOP_REASON =
+    'indicative — open top (ADR-0293): PRYZM claims no buildable right here; unmodelled constraints ' +
+    'can only REDUCE this volume';
+
 /**
- * Decide the honesty class of a buildable-envelope solid from its signals (C58 §1.2 / L-608 / L-619).
+ * Decide the honesty class of a buildable-envelope solid from its signals (C58 §1.2 / L-608 / L-619
+ * / §OPEN-TOP-INDICATIVE L-677).
  *
  * An envelope reads CONFIDENT only when its confidence is a REAL determination AND it carries a real
  * height. An UPPER-BOUND footprint is NEVER confident, however trusted its height/FAR — the footprint
  * is the thing in doubt (setbacks unpublished). Otherwise provisional. Conservative by construction:
  * an unknown confidence greys.
+ *
+ * ⭐ §OPEN-TOP-INDICATIVE — THE FOURTH SIGNAL, AND WHY IT IS HERE AND NOT IN A RENDERER.
+ * Before it, an indicative envelope with a trusted confidence, a real height and a genuinely solved
+ * footprint classified `complete: true` and rendered in the SAME confident violet as a signed
+ * determination (`rendererCanExpressOpenTop === false` recorded exactly that gap). The two existing
+ * signals bound the FOOTPRINT; nothing bounded the TOP. Adding the posture HERE — the single
+ * authority the globe, the plan overlay and the card all read — means an indicative solid cannot
+ * render as a determination on ANY surface, including one written later, because no renderer is
+ * trusted to remember: `complete` is simply never true for it.
+ *
+ * ⛔ IT ONLY EVER NARROWS. `'determination'` is treated EXACTLY like an absent posture — it is a
+ * record of what the L-449 gate already said, and this function neither consults nor grants that
+ * gate. The only values that change anything make an envelope LESS confident, never more.
+ *
+ * PURITY: pure (C58 §1.9) — no I/O, no clock, no RNG. Deterministic in its four arguments.
+ *
+ * @param publicationPosture §OPEN-TOP-INDICATIVE — from `envelopePublicationPosture()` (the single L2
+ *        authorisation decision point), or null/undefined when not stated. ⚠ NULL MEANS "NOT STATED",
+ *        NOT "REFUSED": the default preserves every pre-existing call site byte-for-byte.
  */
 export function classifyEnvelopeCompleteness(
     confidence: EnvelopeConfidence | null | undefined,
     hasRealHeight: boolean,
     footprintIsUpperBound: boolean = false,
+    publicationPosture: EnvelopePublicationPosture | null | undefined = null,
 ): EnvelopeCompleteness {
+    // §OPEN-TOP-INDICATIVE — the posture's two NARROWING values. `'determination'` and a null/absent
+    // posture both fall through to the pre-existing rule unchanged.
+    const openTop = publicationPosture === 'open-top-indicative';
+    // ⛔ A `'refused'` envelope draws nothing at all (§1.13.3 zeroes it upstream). If one nonetheless
+    // reaches the classifier, it can never be `complete` — fail-closed, and NOT `openTop`, because an
+    // open top is a DISCLOSURE about a solid we drew, not a label for one we refused to draw.
+    const refused = publicationPosture === 'refused';
+
     // §L-619 — the upper-bound signal wins over EVERY confidence tier: the FOOTPRINT is unknown.
+    // ⚠ The two doubts COMPOSE: plan-unknown and section-unclaimed are different facts, so an
+    // upper-bound footprint under an indicative posture reports BOTH flags and BOTH reasons.
     if (footprintIsUpperBound) {
         return {
             complete: false,
             footprintUpperBound: true,
-            reason: 'maximum extent — ordinance publishes no setbacks, footprint is an upper bound (L-619)',
+            openTop,
+            reason: openTop ? `${UPPER_BOUND_REASON}; ${OPEN_TOP_REASON}` : UPPER_BOUND_REASON,
         };
     }
-    const trusted = confidence != null && TRUSTED_CONFIDENCE.has(confidence);
-    const complete = trusted && hasRealHeight;
-    if (complete) {
-        return { complete: true, footprintUpperBound: false, reason: `confident (${confidence})` };
+    if (openTop) {
+        return { complete: false, footprintUpperBound: false, openTop: true, reason: OPEN_TOP_REASON };
     }
-    const why = !trusted
-        ? `provisional — confidence=${confidence ?? 'unknown'} (estimate/unverified)`
-        : 'provisional — no confirmed height (flat footprint)';
-    return { complete: false, footprintUpperBound: false, reason: why };
+    const trusted = confidence != null && TRUSTED_CONFIDENCE.has(confidence);
+    const complete = trusted && hasRealHeight && !refused;
+    if (complete) {
+        return {
+            complete: true,
+            footprintUpperBound: false,
+            openTop: false,
+            reason: `confident (${confidence})`,
+        };
+    }
+    const why = refused
+        ? 'provisional — publication REFUSED for this jurisdiction; nothing here may be claimed'
+        : !trusted
+          ? `provisional — confidence=${confidence ?? 'unknown'} (estimate/unverified)`
+          : 'provisional — no confirmed height (flat footprint)';
+    return { complete: false, footprintUpperBound: false, openTop: false, reason: why };
 }
 
 /** The colour intent of a solid. Mapped to a concrete hue by the rasteriser (violet vs grey). */
@@ -119,6 +194,15 @@ export interface MassingSolidStyle {
     readonly complete: boolean;
     /** §L-619 — true on EVERY solid of an upper-bound-footprint envelope. */
     readonly footprintUpperBound: boolean;
+    /**
+     * §OPEN-TOP-INDICATIVE (ADR-0293) — true on EVERY solid of an `open-top-indicative` envelope.
+     *
+     * ⭐ THE RASTERISER'S CONTRACT: **draw this solid WITHOUT ITS TOP CAP.** Cesium's `closeTop:
+     * false`, THREE's cap-less extrusion. Combined with `hue: 'provisional'` (always — `complete` is
+     * never true here) an indicative solid differs from a determination in BOTH channels available to
+     * it, colour AND silhouette, so it cannot be mistaken for one at any zoom or in any screenshot.
+     */
+    readonly openTop: boolean;
     /** WHY the hue is what it is (logs / aria). */
     readonly reason: string;
 }
@@ -163,6 +247,13 @@ export interface BuildableEnvelopeMassingInput {
     readonly maxVolumeM3?: number | null;
     readonly maxCoverage?: number | null;
     readonly footprintIsUpperBound?: boolean;
+    /**
+     * §OPEN-TOP-INDICATIVE — what PRYZM may CLAIM about this envelope, stamped by the dispatch that
+     * already consulted `envelopePublicationPosture()`. Optional + absent-means-not-stated, so a
+     * `BuildableEnvelope` from before this field, a persisted ring and the minimal geometry-only
+     * fallback all classify EXACTLY as they did.
+     */
+    readonly publicationPosture?: EnvelopePublicationPosture | null;
     readonly confidence?: EnvelopeConfidence | null;
     readonly status?: EnvelopeStatus;
     readonly tiers?: ReadonlyArray<EnvelopeTier>;
@@ -193,6 +284,9 @@ function polygonAreaM2(ring: ReadonlyArray<Pt>): number {
  *   • single prism otherwise → one opaque solid to `maxHeight_m` (13a/13b + every current-good case).
  *   • `footprintIsUpperBound` → EVERY solid carries the provisional grey + near-wireframe study style
  *     (§L-619 — a footprint we could not shape can never read as a confident buildable solid).
+ *   • `publicationPosture: 'open-top-indicative'` → EVERY solid carries `style.openTop` + the
+ *     provisional grey (§OPEN-TOP-INDICATIVE / ADR-0293 — an envelope we may DRAW but may not CLAIM
+ *     is rasterised UNCAPPED, so it can never read as a determination's closed box).
  *
  * The never-overstate guarantee (§1.14.4): the sum of `claimsVolume` solid volumes never exceeds the
  * envelope's `maxVolumeM3` (or the tier-summed geometric cap). Proven for all packs in the CI guard.
@@ -204,7 +298,12 @@ export function envelopeToMassing(env: BuildableEnvelopeMassingInput): MassingSo
     if (!Array.isArray(inset) || inset.length < 3) return [];
 
     const upperBound = env.footprintIsUpperBound === true;
-    const solidAlpha = upperBound ? UPPER_BOUND_FILL_ALPHA : SOLID_FILL_ALPHA;
+    // §OPEN-TOP-INDICATIVE — read ONCE here and threaded into every `classifyEnvelopeCompleteness`
+    // call below, so the posture reaches EVERY solid of the envelope (tier, shell, FAR, slab) and a
+    // multi-solid indicative envelope cannot have one confident-looking member.
+    const posture = env.publicationPosture ?? null;
+    const openTop = posture === 'open-top-indicative';
+    const solidAlpha = upperBound || openTop ? UPPER_BOUND_FILL_ALPHA : SOLID_FILL_ALPHA;
 
     // ── Tiered envelope (§1.7b.4 / ADR-0273): one solid per tier at its own height. ────────────────
     const tiers = env.tiers ?? [];
@@ -215,12 +314,13 @@ export function envelopeToMassing(env: BuildableEnvelopeMassingInput): MassingSo
             const areaM2 = t.areaM2 > 0 ? t.areaM2 : polygonAreaM2(t.polygon);
             const base = Math.max(0, t.baseHeight_m ?? 0);
             const hasHeight = typeof t.maxHeight_m === 'number' && t.maxHeight_m > 0;
-            const cls = classifyEnvelopeCompleteness(env.confidence, hasHeight, upperBound);
+            const cls = classifyEnvelopeCompleteness(env.confidence, hasHeight, upperBound, posture);
             const style: MassingSolidStyle = {
                 hue: cls.complete ? 'confident' : 'provisional',
                 fillAlpha: solidAlpha,
                 complete: cls.complete,
                 footprintUpperBound: cls.footprintUpperBound,
+                openTop: cls.openTop,
                 reason: cls.reason,
             };
             if (hasHeight) {
@@ -255,12 +355,13 @@ export function envelopeToMassing(env: BuildableEnvelopeMassingInput): MassingSo
     // ── Single-prism envelope. ─────────────────────────────────────────────────────────────────────
     const areaM2 = env.insetAreaM2 && env.insetAreaM2 > 0 ? env.insetAreaM2 : polygonAreaM2(inset);
     const hasRealHeight = typeof env.maxHeight_m === 'number' && env.maxHeight_m > 0;
-    const cls = classifyEnvelopeCompleteness(env.confidence, hasRealHeight, upperBound);
+    const cls = classifyEnvelopeCompleteness(env.confidence, hasRealHeight, upperBound, posture);
     const baseStyle = (fillAlpha: number): MassingSolidStyle => ({
         hue: cls.complete ? 'confident' : 'provisional',
         fillAlpha,
         complete: cls.complete,
         footprintUpperBound: cls.footprintUpperBound,
+        openTop: cls.openTop,
         reason: cls.reason,
     });
 

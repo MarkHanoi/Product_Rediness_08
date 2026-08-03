@@ -106,6 +106,12 @@ export function buildRefusedEnvelope(
         // §L-619 — a refusal draws no footprint at all; false like every other flag (this literal
         // never goes through `.parse()`, so the schema default would not apply otherwise).
         footprintIsUpperBound: false,
+        // §OPEN-TOP-INDICATIVE — a refusal draws nothing, so there is no posture to state ABOUT a
+        // solid. Null = "not stated", which is correct: the refusal's own `refusal.code` already
+        // says why nothing is drawn, and stamping `'refused'` here would put the same statement in
+        // two places that could then disagree. (This literal never goes through `.parse()`, so the
+        // schema default would not apply and the field would be structurally absent.)
+        publicationPosture: null,
         // §L-619 — a refusal has no footprint, so there is nothing to have PLACED and no void to
         // attribute. Null like every other field (this literal never goes through `.parse()`, so
         // the schema default would not apply and the fields would be structurally absent).
