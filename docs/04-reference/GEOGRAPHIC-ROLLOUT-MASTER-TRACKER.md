@@ -14,6 +14,7 @@ beyond?"* Created 2026-07-22.
 > | **How to REPLICATE a city end-to-end (all 8 layers, the golden recipe)** | [CITY-REPLICATION-STANDARD.md](./standards/CITY-REPLICATION-STANDARD.md) |
 > | **How to REPLICATE a city's buildable ENVELOPE (the 5-slot recipe, ADR-0279)** | [ENVELOPE-REPLICATION-STANDARD.md](./standards/ENVELOPE-REPLICATION-STANDARD.md) |
 > | **⭐ The LIVE, computed Spanish programme state (the only place figures live)** | [PEC-EXECUTION-DASHBOARD.md](../03-execution/plans/PEC-EXECUTION-DASHBOARD.md) + `tools/city-completion/measurements/*.measurements.json` |
+> | **Per-jurisdiction capability status (VERIFIED/UPPER_BOUND/BLOCKED, gate-status-based, next unlock)** | [jurisdictions/ENVELOPE-CAPABILITY-MATRIX.md](./jurisdictions/ENVELOPE-CAPABILITY-MATRIX.md) |
 > | **What the compiler owes a user; the determination taxonomy; what we may assert** | [C64 — The Envelope Compiler](../02-decisions/contracts/C64-ENVELOPE-COMPILER.md) |
 > | **How the programme is run — intake, priority, effort, reporting, validation** | [SPEC-ENVELOPE-COMPILER-PROGRAMME.md](../03-execution/specs/SPEC-ENVELOPE-COMPILER-PROGRAMME.md) |
 > | **What has already been DECIDED (check before re-opening anything)** | [DECISION-REGISTER.md](./standards/DECISION-REGISTER.md) + [MACHINE-READABLE-EVIDENCE-REGISTER.md](./standards/MACHINE-READABLE-EVIDENCE-REGISTER.md) |
