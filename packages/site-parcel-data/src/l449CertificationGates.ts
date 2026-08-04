@@ -72,6 +72,7 @@ import { VALENCIA_ENVELOPE_VERIFIED } from './rulepacks/esValenciaEnvelope.js';
 import { SEVILLA_ENVELOPE_VERIFIED } from './rulepacks/esSevilla.js';
 import { MALAGA_ENVELOPE_VERIFIED } from './rulepacks/esMalaga.js';
 import { GRANADA_ENVELOPE_VERIFIED } from './rulepacks/esGranada.js';
+import { CARTAGENA_ENVELOPE_VERIFIED } from './rulepacks/esCartagena.js';
 import { HUESCA_ENVELOPE_VERIFIED, ZARAGOZA_ENVELOPE_VERIFIED } from './rulepacks/esAragon.js';
 import { EL_SAUZAL_ENVELOPE_VERIFIED } from './rulepacks/esElSauzal.js';
 import { FR_PARIS_PLU_CERTIFIED } from './rulepacks/frParisPluBioclimatique.js';
@@ -233,6 +234,16 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         value: GRANADA_ENVELOPE_VERIFIED,
         // Not signable at all: ZERO research has happened — no planning source, GIS endpoint or
         // zone-classification method has been identified.
+        signature: null,
+    },
+    {
+        gate: 'CARTAGENA_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esCartagena.ts',
+        value: CARTAGENA_ENVELOPE_VERIFIED,
+        // Not signable: the live `wms_RPG0` service resolves a zone code, but every Vc1/Vc2/Vu1
+        // zone's mandatory road setback ("retranqueo a vial") is unquantified in PGMO 1987 Título
+        // Cuarto's base text — a founder must locate the quantifying source (fichas/plans) before
+        // this can be signed. Nothing fabricated in the meantime.
         signature: null,
     },
     {

@@ -449,6 +449,18 @@ import {
     isInGranada,
     GRANADA_JURISDICTION_ID,
     granadaResearchPendingRefusal,
+    // §CARTAGENA-ENVELOPE — Cartagena (INE 30016, Región de Murcia). ⚠ The ONE Murcia-region
+    // municipality (of 5 researched) with a LIVE, confirmed-working zone resolver: `wms_RPG0`
+    // `GetFeatureInfo` (the currently-valid R0/1987 PGMO, reinstated after the 2012 revision's
+    // annulment). `CARTAGENA_ENVELOPE_VERIFIED` is unsigned — every Vc1/Vc2/Vu1 zone's mandatory
+    // road setback is unquantified in the base ordinance text (Título Cuarto), so this path
+    // ALWAYS renders a cited structural refusal, never a fabricated full-parcel box. Same
+    // discipline as Sevilla SB / Córdoba MC's `explicit-area`/unresolved-ring pattern.
+    isInCartagena,
+    CARTAGENA_JURISDICTION_ID,
+    CARTAGENA_ENVELOPE_VERIFIED,
+    cartagenaNoRulePackRefusal,
+    resolveCartagenaZone,
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 // ADR-0271 §BCN-REAL-ENVELOPE — the impure edge providers the Barcelona path injects into the
@@ -1494,6 +1506,16 @@ function applyZoning(
                 buildRefusedEnvelope('granada-research-pending', granadaResearchPendingRefusal(), 'none'),
                 GRANADA_JURISDICTION_ID,
             );
+            return;
+        }
+        // §CARTAGENA-ENVELOPE — a Cartagena (INE 30016) plot. ⚠ REGISTERED BEFORE the Murcia
+        // (capital, INE 30030) branch below — Cartagena is its own municipality, ~50 km from
+        // Murcia's box, and this ORDER is legibility not precedence. `CARTAGENA_ENVELOPE_VERIFIED`
+        // is unsigned, so this ALWAYS resolves the live zone (to name it on the refusal card) then
+        // dispatches a cited structural refusal — the "retranqueos a vial obligatorios" setback is
+        // genuinely unquantified in the source ordinance, never fabricated as `0`.
+        if (qLat != null && qLon != null && isInCartagena(qLat, qLon)) {
+            void applyCartagenaZoningThenFallback(ctx, qLat, qLon, estimated);
             return;
         }
         // §MURCIA-ENVELOPE — a Murcia (INE 30030) plot. ⚠ A REGIONALLY DISTINCT branch, not a
@@ -4613,6 +4635,108 @@ function applyElSauzalZoningThenFallback(
         );
     } catch (e) {
         console.warn(`${TAG} El Sauzal path failed (non-fatal) — falling back to estimated default:`, e);
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+    }
+}
+
+/**
+ * §CARTAGENA-ENVELOPE — the Cartagena (INE 30016, Región de Murcia) path.
+ *
+ * ⚠ Cartagena's `wms_RPG0` `GetFeatureInfo` service is LIVE (confirmed 2026-08-04): it resolves a
+ * parcel's block, matrícula and `Norma` composite (zone code + block-specific coefficient) in real
+ * time, against the currently-valid R0/1987 PGMO (reinstated after the 2012 revision was annulled
+ * by STSJ Murcia 2015 / TS 2016 — see `resolveCartagenaZone.ts` for the full instrument-precedence
+ * rationale). This is the ONE Murcia-region municipality (of 5 researched) with a confirmed-working
+ * per-parcel resolver.
+ *
+ * ⚠⚠ UNLIKE Telde/El Sauzal, THIS PATH HAS NO SIGNED-FUTURE COMPUTE BRANCH. `esCartagena.ts`'s
+ * Vc1/Vc2/Vu1 zones all use the `explicit-area`/unresolved-ring structural-refusal pattern (mirrors
+ * Sevilla SB / Córdoba MC) because PGMO 1987 Título Cuarto states a mandatory road setback
+ * ("retranqueo a vial obligatorio") WITHOUT quantifying it — there is no honest full-parcel box to
+ * compute even once a human signs off, until that quantifying source (fichas/planos) is located. So
+ * this function ALWAYS resolves the live zone (to name it on the refusal card) then ALWAYS
+ * dispatches a cited structural refusal — never a fabricated `0`-setback box.
+ *
+ * Fully guarded: any problem falls back to the precomputed estimated envelope; never throws into
+ * the commit path. `status: 'none'` on the refusal keeps every numeric field null.
+ */
+async function applyCartagenaZoningThenFallback(
+    ctx: SiteContext,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+): Promise<void> {
+    const TAG = '[gis][c58] §CARTAGENA-ENVELOPE';
+    const JURISDICTION_REF = CARTAGENA_JURISDICTION_ID;
+    const CARTAGENA_FALLBACK_ZONE_CODE = 'cartagena-pgmo1987';
+    try {
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        // ── §CARTAGENA-ZONE — resolve the `Manzanas` block record BEFORE dispatching. ─────────
+        //
+        // ⚠⚠ THIS RESOLVES DATA, IT DOES NOT DECIDE TO RENDER. `CARTAGENA_ENVELOPE_VERIFIED` is
+        // `false` below regardless of what resolves — it only lets the refusal say WHICH zone
+        // refused, exactly the same honesty property `resolveTeldeZone`/`resolveElSauzalZone`
+        // document.
+        let zoneCode: string | null = null;
+        let coefficient: number | null = null;
+        let zoneNote: string | null = null;
+        try {
+            const z = await resolveCartagenaZone({ lat, lon });
+            if (z.ok) {
+                zoneCode = z.resolution.norma.zoneCode;
+                coefficient = z.resolution.norma.coefficient;
+            } else if (z.reason === 'no-zone-here') {
+                zoneNote =
+                    'No `Manzanas` block record covers this point — outside Cartagena\'s ' +
+                    'published R0/1987 zoning geometry.';
+            } else if (z.reason === 'out-of-cartagena') {
+                zoneNote = 'Point falls outside Cartagena\'s municipal bounding box.';
+            } else {
+                zoneNote =
+                    `Cartagena zone NOT resolved (${z.reason}${z.detail ? `: ${z.detail}` : ''}) — ` +
+                    'this is an unknown, not an absence of planning.';
+            }
+        } catch (e) {
+            console.warn(`${TAG} §CARTAGENA-ZONE resolve failed (non-fatal):`, e);
+            zoneNote = 'Cartagena zone NOT resolved (resolver error) — this is an unknown, not an absence of planning.';
+        }
+
+        const knownFacts = [
+            `Location: Cartagena (${lat.toFixed(5)}, ${lon.toFixed(5)}) — PGMO 1987, Título Cuarto ` +
+                '(vigente, reinstated 2015/2016 after the 2012 revision\'s annulment)',
+            zoneCode !== null
+                ? `Zone: ${zoneCode}${coefficient !== null ? ` (coeficiente ${coefficient})` : ''} ` +
+                  '(`wms_RPG0` `Manzanas` layer, live GetFeatureInfo, ide.cartagena.es)'
+                : null,
+            zoneNote,
+            'Blocking fact: the mandatory road setback ("retranqueo a vial obligatorio") is not ' +
+                'quantified in the base PGMO 1987 Título Cuarto text — no honest footprint can be ' +
+                'computed until that quantifying source (fichas/planos) is located.',
+        ].filter((s): s is string => typeof s === 'string');
+
+        // ⚠⚠⚠ THE HONESTY GATE — ⛔ DO NOT FLIP `CARTAGENA_ENVELOPE_VERIFIED` HERE OR ANYWHERE
+        // ELSE. A signature is a founder act (L-449); a model flipping it is the L-677 defect. This
+        // gate has NO compute branch (signed or preview) — see the function docstring.
+        void CARTAGENA_ENVELOPE_VERIFIED;
+        const refusal = cartagenaNoRulePackRefusal(zoneCode, knownFacts);
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(zoneCode ?? CARTAGENA_FALLBACK_ZONE_CODE, refusal, 'none'),
+            JURISDICTION_REF,
+        );
+        console.log(
+            `${TAG} §HONESTY-GATE — dispatched the unquantified-setback structural refusal; NO ` +
+                `number rendered (${refusal.code}). zoneCode=${zoneCode ?? 'unresolved'} ` +
+                `coefficient=${coefficient ?? 'n/a'}.`,
+        );
+    } catch (e) {
+        console.warn(`${TAG} Cartagena path failed (non-fatal) — falling back to estimated default:`, e);
         try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
     }
 }

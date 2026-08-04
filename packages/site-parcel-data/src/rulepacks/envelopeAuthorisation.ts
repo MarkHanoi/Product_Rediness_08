@@ -128,6 +128,7 @@ import { SEVILLA_ENVELOPE_VERIFIED, SEVILLA_JURISDICTION_ID } from './esSevilla.
 // jurisdiction that has an `isInX` dispatch branch but zero research behind it.
 import { MALAGA_ENVELOPE_VERIFIED, MALAGA_JURISDICTION_ID } from './esMalaga.js';
 import { GRANADA_ENVELOPE_VERIFIED, GRANADA_JURISDICTION_ID } from './esGranada.js';
+import { CARTAGENA_ENVELOPE_VERIFIED, CARTAGENA_JURISDICTION_ID } from './esCartagena.js';
 import {
     HUESCA_ENVELOPE_VERIFIED,
     HUESCA_JURISDICTION_ID,
@@ -249,6 +250,10 @@ const GATE_DECLARATIONS: readonly GateDeclaration[] = Object.freeze([
     // one research stage earlier.
     { gate: 'MALAGA_ENVELOPE_VERIFIED', value: MALAGA_ENVELOPE_VERIFIED, jurisdictions: [MALAGA_JURISDICTION_ID] },
     { gate: 'GRANADA_ENVELOPE_VERIFIED', value: GRANADA_ENVELOPE_VERIFIED, jurisdictions: [GRANADA_JURISDICTION_ID] },
+    // ⚠ CARTAGENA — 2026-08-04: a real rulepack + live WMS resolver exist, but every zone's
+    // mandatory setback is unquantified in the source ordinance, so every parcel is a structural
+    // refusal. Declared here for the same fail-closed reason as Málaga/Granada.
+    { gate: 'CARTAGENA_ENVELOPE_VERIFIED', value: CARTAGENA_ENVELOPE_VERIFIED, jurisdictions: [CARTAGENA_JURISDICTION_ID] },
     // ── ⚠ A FOURTH KIND, AND THE ONE MOST LIKELY TO BE MIS-SORTED: LIVE-RESOLVED, YET GATED. ──
     // §BALEARS-GATE (L-680). Balears looks like Denmark — the authority publishes the parameters as
     // machine-readable data, PRYZM transcribes NO ordinance, and `ES_BALEARS` has no static zone

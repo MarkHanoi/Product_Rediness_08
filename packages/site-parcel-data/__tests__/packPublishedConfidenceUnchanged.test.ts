@@ -62,6 +62,7 @@ import { ES_TELDE_PGO2003_PACK } from '../src/rulepacks/esTeldePgo2003.js';
 import { ES_ZARAGOZA_PGOU2024_PACK } from '../src/rulepacks/esZaragoza.js';
 import { ES_SEVILLA_PGOU_PACK } from '../src/rulepacks/esSevilla.js';
 import { ES_EL_SAUZAL_PACK } from '../src/rulepacks/esElSauzal.js';
+import { ES_CARTAGENA_PGMO1987_PACK } from '../src/rulepacks/esCartagena.js';
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // THE FROZEN MANIFEST — every pack's PUBLISHED `defaultConfidence`, as shipped before L-664.
@@ -115,6 +116,13 @@ const PUBLISHED: ReadonlyArray<readonly [string, { defaultConfidence: RulePackDe
     // EL_SAUZAL_TYPOLOGY_BINDING_INFERENCE in esElSauzal.ts), and a per-area "fichero de
     // ordenación anexo" this transcription did not find could override any packed figure.
     ['ES_EL_SAUZAL_PACK', ES_EL_SAUZAL_PACK, 'estimated-ruleset'],
+    // Cartagena PGMO-1987 (INE 30016, Región de Murcia) — landed after this manifest was frozen.
+    // Human/agent-transcribed VERBATIM from Título Cuarto of the currently-valid 1987 plan (not
+    // OCR), so it ships the curated-estimate ceiling `estimated-ruleset` — the same tier as
+    // Zaragoza/Telde/El Sauzal, never higher: every zone's setback is genuinely unquantified in
+    // the source text, so even the height/FAR/coverage this pack DOES cite stays capped at the
+    // estimate tier, never `structured` or `authoritative`.
+    ['ES_CARTAGENA_PGMO1987_PACK', ES_CARTAGENA_PGMO1987_PACK, 'estimated-ruleset'],
     // The rest.
     ['NL_BESTEMMINGSPLAN_PACK', NL_BESTEMMINGSPLAN_PACK, 'estimated-ruleset'],
     ['FR_PARIS_PLU_PACK', FR_PARIS_PLU_PACK, 'estimated-ruleset'],

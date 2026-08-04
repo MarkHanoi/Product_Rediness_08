@@ -91,6 +91,27 @@ function isCanariasMunicipal(c: { readonly jurisdictionId: string; readonly exte
     return CANARIAS_MUNICIPAL_ID.test(c.jurisdictionId) && c.extentResolution === 'municipal';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §CARTAGENA-REGISTRATION (2026-08-04) — the SAME class of honest tie as the Canarias block
+// above, ONE pair, named explicitly rather than matched by a regex (there is no third Región de
+// Murcia municipality registered yet to justify a pattern). Cartagena's own bbox (Nominatim,
+// ~558 km² término, rounded outward-only) and Murcia (capital)'s box are BOTH `'municipal'` and
+// genuinely share a border — tightening either would be the fabrication `cartagenaBbox.ts`
+// documents refusing. `siteDispatch.ts` still answers a real click deterministically (it checks
+// `isInCartagena` before `isInMurcia` in its hand-ordered `if` chain), but the REGISTRY-level
+// claim at their shared edge is an honest tie, same as two adjoining Canarias towns.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+function isMurciaCartagenaTie(a: { readonly jurisdictionId: string }, b: { readonly jurisdictionId: string }): boolean {
+    const ids = [a.jurisdictionId, b.jurisdictionId].sort();
+    return ids[0] === 'es-30016-cartagena' && ids[1] === 'es-30030-murcia';
+}
+/** Either half of the named Murcia/Cartagena tie, OR a Canarias municipal registration. */
+function isHonestTieMember(c: { readonly jurisdictionId: string; readonly extentResolution: string }): boolean {
+    return isCanariasMunicipal(c) ||
+        c.jurisdictionId === 'es-30016-cartagena' ||
+        c.jurisdictionId === 'es-30030-murcia';
+}
+
 describe('§JURISDICTION-SPECIFICITY — the registry declares a resolution for every extent', () => {
     it('every registration declares an `extentResolution` from the known ladder', () => {
         expect(ALL.length).toBeGreaterThan(0);
@@ -130,7 +151,7 @@ describe('§JURISDICTION-SPECIFICITY — routing exclusivity over EVERY register
                 // See §CANARIAS-88-REGISTRATION above: only acceptable when EVERY tied candidate is
                 // a Canarias municipal registration, including `c` itself.
                 expect(
-                    r.candidates.every(isCanariasMunicipal),
+                    r.candidates.every(isHonestTieMember),
                     `${c.jurisdictionId} centre — ambiguous tie with a non-Canarias-municipal claim`,
                 ).toBe(true);
                 expect(
@@ -151,7 +172,7 @@ describe('§JURISDICTION-SPECIFICITY — routing exclusivity over EVERY register
                 const r = resolveRegisteredJurisdictionAt(lat, lon);
                 if (r.kind === 'ambiguous') {
                     expect(
-                        r.candidates.every(isCanariasMunicipal),
+                        r.candidates.every(isHonestTieMember),
                         `${c.jurisdictionId} @ ${lat.toFixed(4)},${lon.toFixed(4)} — two ` +
                             'registrations claim this point at the SAME resolution, and at least ' +
                             'one is NOT a Canarias municipal registration. Resolve the overlap ' +
@@ -177,7 +198,7 @@ describe('§JURISDICTION-SPECIFICITY — routing exclusivity over EVERY register
                 const r = resolveRegisteredJurisdictionAt(lat, lon);
                 if (r.kind === 'ambiguous') {
                     expect(
-                        r.candidates.every(isCanariasMunicipal),
+                        r.candidates.every(isHonestTieMember),
                         `${c.jurisdictionId} @ ${lat.toFixed(4)},${lon.toFixed(4)} — ambiguous tie ` +
                             'with a non-Canarias-municipal claim',
                     ).toBe(true);
@@ -241,7 +262,10 @@ describe('§JURISDICTION-SPECIFICITY — routing exclusivity over EVERY register
         // pairs are checked as a PROPERTY instead (below), the same way the rest of this file
         // already prefers properties to city lists (see the file header).
         const canariasOverlaps = overlaps.filter(([a, b]) => isCanariasMunicipal(a) && isCanariasMunicipal(b));
-        const namedOverlaps = overlaps.filter(([a, b]) => !(isCanariasMunicipal(a) && isCanariasMunicipal(b)));
+        const honestTieOverlaps = overlaps.filter(([a, b]) => isMurciaCartagenaTie(a, b));
+        const namedOverlaps = overlaps.filter(
+            ([a, b]) => !(isCanariasMunicipal(a) && isCanariasMunicipal(b)) && !isMurciaCartagenaTie(a, b),
+        );
         expect(namedOverlaps.map(([a, b]) => `${a.jurisdictionId}|${b.jurisdictionId}`).sort()).toEqual(
             [
                 `${BCN_JURISDICTION_ID}|${BADALONA_JURISDICTION_ID}`,
@@ -295,6 +319,30 @@ describe('§JURISDICTION-SPECIFICITY — routing exclusivity over EVERY register
             expect(forwardIds).toEqual([a.jurisdictionId, b.jurisdictionId].sort());
             // …and the whole-registry answer at that point is ALSO ambiguous, and still names both
             // (it may legitimately name MORE than two if a third municipality also ties there).
+            const whole = resolveRegisteredJurisdictionAt(lat, lon);
+            expect(whole.kind, `${a.jurisdictionId}|${b.jurisdictionId} whole-registry`).toBe('ambiguous');
+            if (whole.kind === 'ambiguous') {
+                const wholeIds = whole.candidates.map((c) => c.jurisdictionId);
+                expect(wholeIds).toContain(a.jurisdictionId);
+                expect(wholeIds).toContain(b.jurisdictionId);
+            }
+        }
+
+        // The Murcia/Cartagena pair: the SAME honest-tie shape as the Canarias block, just named
+        // instead of pattern-matched (see `isMurciaCartagenaTie`'s header comment).
+        expect(honestTieOverlaps.length).toBe(1);
+        for (const [a, b] of honestTieOverlaps) {
+            const lat = (Math.max(a.extent.minLat, b.extent.minLat) + Math.min(a.extent.maxLat, b.extent.maxLat)) / 2;
+            const lon = (Math.max(a.extent.minLon, b.extent.minLon) + Math.min(a.extent.maxLon, b.extent.maxLon)) / 2;
+            const forward = resolveJurisdictionClaim([a, b], lat, lon);
+            const reverse = resolveJurisdictionClaim([b, a], lat, lon);
+            expect(forward.kind, `${a.jurisdictionId}|${b.jurisdictionId} forward`).toBe('ambiguous');
+            expect(reverse.kind, `${a.jurisdictionId}|${b.jurisdictionId} reverse`).toBe('ambiguous');
+            if (forward.kind !== 'ambiguous' || reverse.kind !== 'ambiguous') continue;
+            const forwardIds = forward.candidates.map((c) => c.jurisdictionId).sort();
+            const reverseIds = reverse.candidates.map((c) => c.jurisdictionId).sort();
+            expect(forwardIds).toEqual(reverseIds);
+            expect(forwardIds).toEqual([a.jurisdictionId, b.jurisdictionId].sort());
             const whole = resolveRegisteredJurisdictionAt(lat, lon);
             expect(whole.kind, `${a.jurisdictionId}|${b.jurisdictionId} whole-registry`).toBe('ambiguous');
             if (whole.kind === 'ambiguous') {

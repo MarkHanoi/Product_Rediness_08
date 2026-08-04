@@ -1289,6 +1289,45 @@ export { researchPendingRefusal } from './rulepacks/researchPendingRefusal.js';
 // ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
 
 // ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠ CARTAGENA (INE 30016, Región de Murcia) — the live-WMS, structural-refusal jurisdiction.    ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+export { isInCartagena, CARTAGENA_BBOX, CARTAGENA_INE_CODE } from './providers/cartagenaBbox.js';
+export { queryWmsGetFeatureInfo } from './providers/containers/wmsGetFeatureInfo.js';
+export type {
+    WmsFeatureInfoFeature,
+    WmsFeatureInfoResult,
+    WmsFeatureInfoOk,
+    WmsFeatureInfoError,
+    WmsGetFeatureInfoOptions,
+} from './providers/containers/wmsGetFeatureInfo.js';
+export {
+    resolveCartagenaZone,
+    parseCartagenaNorma,
+    CARTAGENA_WMS_RPG0_SERVICE,
+    CARTAGENA_MANZANAS_LAYER,
+} from './providers/resolveCartagenaZone.js';
+export type {
+    CartagenaLngLat,
+    CartagenaNormaParsed,
+    CartagenaZoneResolution,
+    CartagenaZoneResult,
+    CartagenaZoneRefusalReason,
+    CartagenaZoneDeps,
+} from './providers/resolveCartagenaZone.js';
+export {
+    CARTAGENA_JURISDICTION_ID,
+    CARTAGENA_ENVELOPE_VERIFIED,
+    CARTAGENA_PGMO_INSTRUMENT_REF,
+    CARTAGENA_ROADMAP_LINE,
+    cartagenaNoRulePackRefusal,
+    ES_CARTAGENA_PGMO1987_PACK,
+    CARTAGENA_ZONE_CODES,
+} from './rulepacks/esCartagena.js';
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠ END OF THE CARTAGENA BLOCK.                                                                 ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
 // ║ ⚠ ARAGÓN — Huesca (INE 22125) + Zaragoza (INE 50297). Confine Aragón edits to this block.    ║
 // ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
 // Two REFUSAL jurisdictions. ⚠ `*_CATASTRO_DGC_CODE` is exported alongside the INE code on

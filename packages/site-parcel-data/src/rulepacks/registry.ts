@@ -276,6 +276,13 @@ import { MALAGA_BBOX, isInMalaga } from '../providers/malagaBbox.js';
 import { GRANADA_JURISDICTION_ID, granadaResearchPendingRefusal } from './esGranada.js';
 import { GRANADA_BBOX, isInGranada } from '../providers/granadaBbox.js';
 // ── ⚠ END OF THE MÁLAGA / GRANADA IMPORT BLOCK. ──────────────────────────────────────────────
+// ── CARTAGENA (INE 30016, Región de Murcia) — ⚠ START OF THE CARTAGENA IMPORT BLOCK. ──────────
+// A REFUSAL jurisdiction with a LIVE zone-identity WMS (currently-valid R0/1987 plan) — 3
+// transcribed zones (Vc1/Vc2/Vu1), height+FAR+coverage cited, footprint structurally unresolved
+// (setback not quantified in Título 4). See `esCartagena.ts`.
+import { CARTAGENA_JURISDICTION_ID, cartagenaNoRulePackRefusal } from './esCartagena.js';
+import { CARTAGENA_BBOX, isInCartagena } from '../providers/cartagenaBbox.js';
+// ── ⚠ END OF THE CARTAGENA IMPORT BLOCK. ─────────────────────────────────────────────────────
 // ── ARAGÓN (Huesca INE 22125, Zaragoza INE 50297) — ⚠ START OF THE ARAGÓN IMPORT BLOCK. ───────
 // Two REFUSAL jurisdictions. Registered because "Aragón is CLOSED" was a claim about the
 // REGIONAL SIUa layer that does not survive at the municipal level — measured on 421 Zaragoza
@@ -1383,6 +1390,35 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
     },
     // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
     // ║ ⚠ END OF THE MÁLAGA / GRANADA BLOCK.                                                      ║
+    // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
+    // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ START OF THE CARTAGENA BLOCK. Cartagena (INE 30016) has a LIVE WMS GetFeatureInfo        ║
+    // ║ service (`resolveCartagenaZone.ts`) and a real currently-valid R0/1987 rulepack            ║
+    // ║ (`esCartagena.ts`), but every zone's setbacks are "mandatory but unquantified" in the       ║
+    // ║ source text — so every parcel resolves to a cited, zone-specific structural refusal,        ║
+    // ║ never a fabricated box. `CARTAGENA_ENVELOPE_VERIFIED` is `false` — unsigned.                ║
+    // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
+    {
+        jurisdictionId: CARTAGENA_JURISDICTION_ID, // 'es-30016-cartagena'
+        displayName: 'Cartagena',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        extent: CARTAGENA_BBOX,
+        contains: isInCartagena,
+        extentResolution: 'municipal',
+        answerSummary:
+            "Cartagena's `wms_RPG0` WMS service (the currently-valid 1987 PGMO, reinstated after " +
+            "the 2012 revision's annulment) resolves a parcel's block, matrícula and zone-family " +
+            'code live. PRYZM has a rulepack for the Vc1/Vc2/Vu1 residential zones citing PGMO 1987 ' +
+            'Título Cuarto, but the "retranqueos a vial obligatorios" (mandatory road setbacks) are ' +
+            'not quantified in the base ordinance text, so every parcel receives a cited, ' +
+            'zone-specific structural refusal rather than a computed envelope.',
+        packsByZone: packMap(),
+        refusalFor: () => null,
+        noRulePackRefusal: (zoneCode?: string | null) => cartagenaNoRulePackRefusal(zoneCode),
+    },
+    // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ END OF THE CARTAGENA BLOCK.                                                              ║
     // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
     // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
     // ║ ⚠ START OF THE ARAGÓN BLOCK. Confine Aragón edits to this block.                         ║
