@@ -271,6 +271,94 @@ describe('§L-663 — a hand-drawn Eixample boundary never receives the estimate
     });
 });
 
+/**
+ * §CANARIAS-88-REGISTRATION (2026-08-03) — three of the 87 newly-registered municipalities
+ * (`canariasMunicipalBboxes.ts`), picked to exercise BOTH refusal flavours and BOTH islands:
+ *
+ *   • Tinajo (INE 35029, Lanzarote) — ROUTABLE (single determinable base instrument, unsigned).
+ *   • Arrecife (INE 35004, Lanzarote) — MULTI-INSTRUMENT (ambiguous governing plan).
+ *   • Adeje (INE 38001, Tenerife) — MULTI-INSTRUMENT, a different island again.
+ *
+ * All three bbox CENTRES resolve `'resolved'` (not `'ambiguous'`) at the registry level — checked
+ * against `resolveRegisteredJurisdictionAt` directly, since many Canarias centroids legitimately
+ * tie with an adjoining town (§CANARIAS-88-REGISTRATION in `jurisdictionSpecificity.test.ts`) and
+ * an ambiguous claim carries no per-jurisdiction `answerSummary`, which would make this suite
+ * unable to tell the two flavours apart.
+ *
+ * None of these has a bespoke `applyXZoningThenFallback` branch in `siteDispatch.ts` — unlike
+ * Telde, they are ENTIRELY dependent on the generic §L-663 guard this suite already tests for
+ * Barcelona/Lisbon. Before `canariasMunicipalBboxes.ts` + the registry.ts wiring, none of these
+ * three points matched ANY `contains` predicate, so a click here fell to the same
+ * `applyEstimatedZoning` branch as Lisbon and published the fabricated 3.0/1.5/3.0 m, FAR 2.0,
+ * 50 % triple on real Canarian land (§L-663). This suite proves the fix directly: the SAME points
+ * now resolve to a cited refusal.
+ *
+ * ⚠ THE REFUSAL `code` IS THE SAME GENERIC `'source-data-unavailable'` FOR BOTH FLAVOURS, AND THAT
+ * IS CORRECT, NOT A GAP. This guard never resolves a zone — it only knows the JURISDICTION was
+ * claimed — so it dispatches `estimateSuppressedRefusal()` (`zoneRefusal.ts`), the same generic
+ * card Barcelona/Lisbon exercise above, never each registration's own `noRulePackRefusal`
+ * function (`canariasNoRulePackRefusal` / `canariasMultiInstrumentRefusal` in `esCanariasSipu.ts`
+ * — those fire only once a live per-zone resolver exists for a municipality, which none of these
+ * 87 has yet; they are wired and load-bearing for that future path, but dormant today, same as an
+ * empty `packsByZone`). What DOES differ today is each registration's own `answerSummary`, which
+ * `estimateSuppressedRefusal` appends verbatim ("What PRYZM can answer here: …") — and THAT is
+ * genuinely worded differently for the routable-unsigned group vs the multi-instrument-ambiguous
+ * group (`buildCanariasMunicipalRegistrations()` in `registry.ts`), which is what this suite pins.
+ */
+const TINAJO = { lat: 29.055, lon: -13.7235 } as const; // routable — bbox centroid, INE 35029
+const ARRECIFE = { lat: 28.9795, lon: -13.5525 } as const; // multi-instrument — INE 35004
+const ADEJE = { lat: 28.14, lon: -16.7305 } as const; // multi-instrument, different island — INE 38001
+
+describe('§CANARIAS-88-REGISTRATION — the 87 newly-registered municipalities never fall through to the fabricated estimate', () => {
+    let realFetch: typeof globalThis.fetch;
+    beforeEach(() => { realFetch = globalThis.fetch; });
+    afterEach(() => { globalThis.fetch = realFetch; vi.restoreAllMocks(); });
+
+    it('Tinajo (routable, unsigned) refuses, never the triple, and names PRYZM\'s Tinajo coverage', async () => {
+        const { store, envelope } = await commitBoundaryAt(TINAJO, { kind: 'empty' });
+        expectNoEstimatedTriple(store, envelope);
+        expect(envelope!.refusal).toBeTruthy();
+        expect(envelope!.refusal!.code).toBe('source-data-unavailable');
+        expect(envelope!.refusal!.detail).toMatch(/not transcribed this table into a signed pack/i);
+        expect(envelope!.refusal!.headline).toContain('Tinajo');
+        expect(store.getSite()!.parcel.zoning.jurisdictionRef).toBe('es-35029-tinajo');
+    });
+
+    it('Arrecife (multi-instrument) refuses, distinctly worded from the routable flavour', async () => {
+        const { store, envelope } = await commitBoundaryAt(ARRECIFE, { kind: 'empty' });
+        expectNoEstimatedTriple(store, envelope);
+        expect(envelope!.refusal).toBeTruthy();
+        expect(envelope!.refusal!.code).toBe('source-data-unavailable');
+        expect(envelope!.refusal!.detail).toMatch(/more than one municipality-wide base/i);
+        expect(envelope!.refusal!.headline).toContain('Arrecife');
+        expect(store.getSite()!.parcel.zoning.jurisdictionRef).toBe('es-35004-arrecife');
+    });
+
+    it('Adeje (multi-instrument, Tenerife) also refuses — the registration is not Gran-Canaria-only', async () => {
+        const { store, envelope } = await commitBoundaryAt(ADEJE, { kind: 'empty' });
+        expectNoEstimatedTriple(store, envelope);
+        expect(envelope!.refusal).toBeTruthy();
+        expect(envelope!.refusal!.detail).toMatch(/more than one municipality-wide base/i);
+        expect(store.getSite()!.parcel.zoning.jurisdictionRef).toBe('es-38001-adeje');
+    });
+
+    it('the two refusal flavours read differently to a user (routable-unsigned vs multi-instrument-ambiguous)', async () => {
+        // ⚠ SEQUENTIAL, NOT `Promise.all`. `_lastParcelQueryPoint` (siteDispatch.ts) is a MODULE-
+        // LOCAL threaded through the async zoning continuation (see its own docstring); running two
+        // dispatches concurrently lets the second overwrite it before the first's §L-663 guard
+        // reads it, and BOTH refusals end up describing the same point. Sequential is what every
+        // other scenario in this suite already does.
+        const routable = await commitBoundaryAt(TINAJO, { kind: 'empty' });
+        const blocked = await commitBoundaryAt(ARRECIFE, { kind: 'empty' });
+        // Same generic refusal CODE (see the block comment above for why) — the same-length
+        // prohibition would be a false claim, so this suite pins the honest difference instead:
+        // the DETAIL text, carrying each registration's own answerSummary, is NOT interchangeable.
+        expect(routable.envelope!.refusal!.detail).not.toBe(blocked.envelope!.refusal!.detail);
+        expect(routable.envelope!.refusal!.detail).toMatch(/signed pack/i);
+        expect(blocked.envelope!.refusal!.detail).not.toMatch(/signed pack/i);
+    });
+});
+
 describe('§L-663 — the guard is SCOPED: uncovered land keeps the honestly-badged estimate', () => {
     let realFetch: typeof globalThis.fetch;
     beforeEach(() => { realFetch = globalThis.fetch; });

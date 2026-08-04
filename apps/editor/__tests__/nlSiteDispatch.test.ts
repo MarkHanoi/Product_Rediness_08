@@ -18,6 +18,17 @@
 // falls to the estimated default and the proxy is never called.
 //
 // Mirrors `murciaSiteDispatch.test.ts` (the canonical reachability template).
+//
+// ⚠ UPDATED 2026-08-04 (§UNSIGNED-GATE-DEFAULTS-SHUT / L-449). `NL_BESTEMMINGSPLAN_CERTIFIED` was
+// `true` with NO recorded signature — the exact Madrid-style defect `l449CertificationGates.ts`
+// exists to catch — and was correctly SHUT on 2026-08-02. `applyNlZoningThenFallback`'s own
+// safety-valve comment says the intended behaviour explicitly: "if a regression flips
+// `NL_BESTEMMINGSPLAN_CERTIFIED` false, every NL parcel refuses honestly rather than render a
+// stale/uncertified number" — NO resolve attempt, NO fetch, a cited refusal. This suite's tests
+// below assert THAT reality now, not the pre-2026-08-02 open-gate one. The bouwvlak-clip /
+// maatvoering-threading behaviour they used to exercise here is unit-tested directly in
+// `resolveNlBestemmingsplan.test.ts` and will be reachable from a click again once a human signs
+// `docs/04-reference/jurisdictions/nl/sources/VERIFICATION.md` and the gate reopens.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SiteModelStore, siteCreate } from '@pryzm/stores';
@@ -161,53 +172,42 @@ describe('§NL-BESTEMMINGSPLAN — a click on a Dutch parcel reaches the bestemm
     beforeEach(() => { realFetch = globalThis.fetch; });
     afterEach(() => { globalThis.fetch = realFetch; vi.restoreAllMocks(); });
 
-    it('ROUTES to the PDOK proxy at the PARCEL centroid — the reachability assertion', async () => {
+    it('§UNSIGNED-GATE-DEFAULTS-SHUT — does NOT call the PDOK proxy while the gate is closed', async () => {
+        // ⚠ THE REACHABILITY ASSERTION, INVERTED. `NL_BESTEMMINGSPLAN_CERTIFIED` is false (correctly
+        // shut, L-449), and `applyNlZoningThenFallback`'s own safety-valve comment says a closed gate
+        // means "NO resolve, no fabricated number" — the proxy must never be called, whatever the
+        // stubbed body would have said.
         const { urls } = await dispatchNl(BOUWVLAK_BODY);
-        // ⚠ THE REACHABILITY ASSERTION. Remove the `isInNetherlands` branch from `applyZoning` and
-        // the parcel falls to the estimated default; this call never happens and this fails.
         const nlCall = urls.find((u) => u.startsWith('/api/nl/bestemmingsplan'));
-        expect(nlCall).toBeDefined();
-        // §L-521 — the query point is the PARCEL'S AREA CENTROID, not the site anchor.
-        const q = new URLSearchParams(nlCall!.split('?')[1]!);
-        expect(Math.abs(Number(q.get('lat')) - PARCEL.lat)).toBeLessThan(5e-4);
-        expect(Math.abs(Number(q.get('lon')) - PARCEL.lon)).toBeLessThan(5e-4);
+        expect(nlCall).toBeUndefined();
     });
 
-    it('CLIPS the parcel to the published bouwvlak and applies the real maatvoering', async () => {
+    it('renders NO number while the gate is closed — a cited refusal, never a fabricated envelope', async () => {
         const { envelope } = await dispatchNl(BOUWVLAK_BODY);
         expect(envelope).not.toBeNull();
-        expect(envelope!.status).toBe('ok');
-        expect(envelope!.refusal).toBeNull();
-        // The height is the plan's OWN "maximum bouwhoogte (m)" — a structured value with a stated
-        // SVBP2012 unit, never derived and never defaulted.
-        expect(envelope!.maxHeight_m).toBe(PARCEL.bouwhoogte_m);
-        expect(envelope!.maxFloors).toBe(13);
-        // ⚠ The footprint is the BOUWVLAK (≈ 320 m²), not the 40 × 41 m parcel (1 640 m²). A
-        // pass-through of the parcel ring would land near 1 640 and fail here.
-        expect(envelope!.insetAreaM2).toBeGreaterThan(200);
-        expect(envelope!.insetAreaM2).toBeLessThan(500);
-        expect(envelope!.insetPolygon.length).toBeGreaterThanOrEqual(3);
-        // A precise published bouwvlak is not an upper bound — the §L-619 flag stays false.
-        expect(envelope!.footprintIsUpperBound).toBe(false);
+        expect(envelope!.status).toBe('none');
+        expect(envelope!.refusal).toBeTruthy();
+        expect(envelope!.refusal!.code).toBe('source-data-unavailable');
+        expect(envelope!.maxHeight_m).toBeNull();
+        expect(envelope!.insetPolygon).toEqual([]);
     });
 
-    it('threads the published height onto the C19 Parcel via the command bus', async () => {
+    it('threads NO height onto the C19 Parcel while the gate is closed', async () => {
         const { store } = await dispatchNl(BOUWVLAK_BODY);
         const site = store.getSite()!;
-        expect(site.parcel.maxHeight).toBe(PARCEL.bouwhoogte_m);
-        expect(site.parcel.buildableRing).not.toBeNull();
+        expect(site.parcel.maxHeight).toBeNull();
+        expect(site.parcel.buildableRing).toBeNull();
     });
 
-    it('§NL-SPARSE-FALLBACK — no bouwvlak ⇒ the ZONE extent, LABELLED an upper bound', async () => {
-        // ⚠ The honesty property: the zone extent is real published data but a WEAKER claim than a
-        // bouwvlak, so it must never ship at `structured` and must SAY it is an upper bound.
+    it('§NL-SPARSE-FALLBACK body — SAME gate-closed refusal regardless of what the proxy would answer', async () => {
+        // ⚠ The honesty property, post-shut: the gate check runs BEFORE any resolve, so a sparse body
+        // (no bouwvlak, zone-only) produces the identical cited refusal a full bouwvlak body does —
+        // the proxy is never reached to tell the two apart. See `resolveNlBestemmingsplan.test.ts`
+        // for the unit-level sparse-fallback behaviour this will exercise again once re-signed.
         const { envelope } = await dispatchNl(SPARSE_BODY);
-        expect(envelope!.status).toBe('ok');
-        expect(envelope!.maxHeight_m).toBe(24);
-        expect(envelope!.confidence).toBe('estimated-ruleset');
-        const caveats = envelope!.caveats.join(' | ');
-        expect(caveats).toContain('bestemmingsvlak');
-        expect(caveats).toMatch(/UPPER BOUND/i);
+        expect(envelope!.status).toBe('none');
+        expect(envelope!.refusal!.code).toBe('source-data-unavailable');
+        expect(envelope!.maxHeight_m).toBeNull();
     });
 
     it('does NOT fall back to the estimated triple when PDOK is DOWN — and says it was a retry', async () => {
@@ -224,9 +224,13 @@ describe('§NL-BESTEMMINGSPLAN — a click on a Dutch parcel reaches the bestemm
         expect(store.getSite()!.parcel.maxHeight).toBeNull();
     });
 
-    it('ABSENCE is a DIFFERENT refusal from FAILURE — no plan here never offers a retry', async () => {
-        // §CONTEXT-DATA-HONESTY (L-422/457/467/469): the source ANSWERED and there is nothing here.
-        // That is durable, so it must not be quoted with the transient code the test above asserts.
+    it('a genuinely-empty body still gets the SAME gate-closed refusal — the resolver is never reached', async () => {
+        // ⚠ UPDATED 2026-08-04 — while the gate is shut, `no-plan-at-point` (the DURABLE
+        // §CONTEXT-DATA-HONESTY absence code, distinct from a transient fetch failure) can never
+        // surface: that distinction is made by `resolveNlBestemmingsplan`'s READING of the PDOK
+        // response, and the gate check returns before any resolve is attempted. Both codes remain
+        // unit-tested at `resolveNlBestemmingsplan.test.ts`; this suite only re-gains the ability to
+        // observe the distinction once the gate reopens.
         const { envelope } = await dispatchNl({
             plan: null,
             bestemmingsvlak: null,
@@ -234,8 +238,7 @@ describe('§NL-BESTEMMINGSPLAN — a click on a Dutch parcel reaches the bestemm
             maatvoeringen: [],
         });
         expect(envelope!.status).toBe('none');
-        expect(envelope!.refusal!.code).toBe('no-plan-at-point');
-        expect(envelope!.refusal!.detail).toContain('will not change');
+        expect(envelope!.refusal!.code).toBe('source-data-unavailable');
         expect(envelope!.maxHeight_m).toBeNull();
     });
 

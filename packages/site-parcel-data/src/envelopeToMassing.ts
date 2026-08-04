@@ -91,6 +91,14 @@ const UPPER_BOUND_REASON =
 const OPEN_TOP_REASON =
     'indicative — open top (ADR-0293): PRYZM claims no buildable right here; unmodelled constraints ' +
     'can only REDUCE this volume';
+/**
+ * §STAGING-UNCERTIFIED-PREVIEW (L-449) — the one sentence a card/log must show for this posture.
+ * ⚠ DELIBERATELY LOUDER THAN `OPEN_TOP_REASON`: this is not a modelling gap, it is an UNSIGNED gate —
+ * the exact fact L-449 exists to keep off any surface a user could mistake for a determination.
+ */
+const UNCERTIFIED_PREVIEW_REASON =
+    '⚠ TEST MODE — NOT LEGALLY CERTIFIED: this rule pack has NO human sign-off (L-449 gate is shut). ' +
+    'Staging validation only — never a buildable right, never publishable as a determination.';
 
 /**
  * Decide the honesty class of a buildable-envelope solid from its signals (C58 §1.2 / L-608 / L-619
@@ -126,9 +134,14 @@ export function classifyEnvelopeCompleteness(
     footprintIsUpperBound: boolean = false,
     publicationPosture: EnvelopePublicationPosture | null | undefined = null,
 ): EnvelopeCompleteness {
-    // §OPEN-TOP-INDICATIVE — the posture's two NARROWING values. `'determination'` and a null/absent
+    // §OPEN-TOP-INDICATIVE — the posture's NARROWING values. `'determination'` and a null/absent
     // posture both fall through to the pre-existing rule unchanged.
     const openTop = publicationPosture === 'open-top-indicative';
+    // §STAGING-UNCERTIFIED-PREVIEW (L-449) — a DIFFERENT reason to never be `complete`: not an
+    // unmodelled-constraint disclosure, an UNSIGNED gate. Drawn with the same uncapped geometry as
+    // `openTop` (both say "study extent, not a solved solid") but its OWN, louder reason string, so a
+    // log/card can never read "indicative" when the real fact is "nobody has certified this at all".
+    const uncertifiedPreview = publicationPosture === 'uncertified-preview';
     // ⛔ A `'refused'` envelope draws nothing at all (§1.13.3 zeroes it upstream). If one nonetheless
     // reaches the classifier, it can never be `complete` — fail-closed, and NOT `openTop`, because an
     // open top is a DISCLOSURE about a solid we drew, not a label for one we refused to draw.
@@ -136,13 +149,22 @@ export function classifyEnvelopeCompleteness(
 
     // §L-619 — the upper-bound signal wins over EVERY confidence tier: the FOOTPRINT is unknown.
     // ⚠ The two doubts COMPOSE: plan-unknown and section-unclaimed are different facts, so an
-    // upper-bound footprint under an indicative posture reports BOTH flags and BOTH reasons.
+    // upper-bound footprint under an indicative/preview posture reports BOTH flags and BOTH reasons.
     if (footprintIsUpperBound) {
+        const topReason = uncertifiedPreview ? UNCERTIFIED_PREVIEW_REASON : openTop ? OPEN_TOP_REASON : null;
         return {
             complete: false,
             footprintUpperBound: true,
-            openTop,
-            reason: openTop ? `${UPPER_BOUND_REASON}; ${OPEN_TOP_REASON}` : UPPER_BOUND_REASON,
+            openTop: openTop || uncertifiedPreview,
+            reason: topReason ? `${UPPER_BOUND_REASON}; ${topReason}` : UPPER_BOUND_REASON,
+        };
+    }
+    if (uncertifiedPreview) {
+        return {
+            complete: false,
+            footprintUpperBound: false,
+            openTop: true,
+            reason: UNCERTIFIED_PREVIEW_REASON,
         };
     }
     if (openTop) {

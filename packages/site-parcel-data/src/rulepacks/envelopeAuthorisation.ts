@@ -98,6 +98,13 @@ import { trace } from '@opentelemetry/api';
 import { BADALONA_ENVELOPE_VERIFIED, BADALONA_JURISDICTION_ID } from './esBadalona.js';
 import { CATALUNYA_ENVELOPE_VERIFIED, CATALUNYA_JURISDICTION_ID } from './esCatalunya.js';
 import { CANARIAS_ENVELOPE_VERIFIED, TELDE_JURISDICTION_ID } from './esCanariasSipu.js';
+// §CANARIAS-88-REGISTRATION (2026-08-03) — the other 87 municipalities registered in registry.ts
+// govern by the SAME gate as Telde: one signature question ("has PRYZM's SIPU EDIF reading been
+// checked against the Normas Urbanísticas"), the same corpus-gate shape the AMB rows below use.
+import {
+    CANARIAS_ROUTABLE_MUNICIPAL_BBOXES,
+    CANARIAS_MULTI_INSTRUMENT_MUNICIPAL_BBOXES,
+} from '../providers/canariasMunicipalBboxes.js';
 import { CORDOBA_ENVELOPE_VERIFIED } from './esCordobaZoneClassification.js';
 import { CORDOBA_JURISDICTION_ID } from './esCordobaPGOU2001.js';
 import { CORNELLA_ENVELOPE_VERIFIED, CORNELLA_JURISDICTION_ID } from './esCornella.js';
@@ -113,12 +120,19 @@ import { CM_SPACM_ENVELOPE_VERIFIED } from './esMadridSpacm.js';
 import { SANT_BOI_ENVELOPE_VERIFIED, SANT_BOI_JURISDICTION_ID } from './esSantBoi.js';
 // ⚠ VALÈNCIA — a gate of a THIRD kind. See the third group in the table below.
 import { VALENCIA_ENVELOPE_VERIFIED, VALENCIA_JURISDICTION_ID } from './esValenciaEnvelope.js';
+// ⚠ SEVILLA — same kind of gate as València: `zones` is empty by construction (no ordinance
+// transcription exists at all yet), so registering it here stops the classifier failing open.
+import { SEVILLA_ENVELOPE_VERIFIED, SEVILLA_JURISDICTION_ID } from './esSevilla.js';
 import {
     HUESCA_ENVELOPE_VERIFIED,
     HUESCA_JURISDICTION_ID,
     ZARAGOZA_ENVELOPE_VERIFIED,
     ZARAGOZA_JURISDICTION_ID,
 } from './esAragon.js';
+// ⚠ EL SAUZAL — a real Ciudad Jardín (Título X Cap.3) ruleset is transcribed and cited, but NOT
+// wired into registry.ts/siteDispatch.ts yet (see esElSauzal.ts header for why). Registered here
+// regardless, so the classifier cannot fail open the day it IS wired.
+import { EL_SAUZAL_ENVELOPE_VERIFIED, EL_SAUZAL_JURISDICTION_ID } from './esElSauzal.js';
 // ── §GATE-KEYED-ON-THE-CORPUS — the two AMB corpus gates and the 31 ids they govern. ──
 import {
     AMB_PGM_NNUU_ENVELOPE_VERIFIED,
@@ -168,6 +182,16 @@ interface GateDeclaration {
  *
  * ⚠ THE KEYS ARE JURISDICTION ID CONSTANTS, not literals, for the same reason.
  */
+// §CANARIAS-88-REGISTRATION — every jurisdiction id `registry.ts` generates for the 87 non-Telde
+// municipalities, derived from the SAME sourced bbox tables (never restated as a literal list, so
+// the two cannot drift). Both the 41 routable and 46 multi-instrument municipalities owe the same
+// signature question as Telde: the constant is `CANARIAS_ENVELOPE_VERIFIED` either way — a
+// multi-instrument municipality's blocker is about WHICH plan governs, not a different signature.
+const CANARIAS_OTHER_MUNICIPAL_JURISDICTION_IDS: readonly string[] = [
+    ...CANARIAS_ROUTABLE_MUNICIPAL_BBOXES,
+    ...CANARIAS_MULTI_INSTRUMENT_MUNICIPAL_BBOXES,
+].map((m) => `es-${m.ine}-${m.jurisdictionSlug}`);
+
 const GATE_DECLARATIONS: readonly GateDeclaration[] = Object.freeze([
     // ── Awaiting a signature on a transcription PRYZM already holds. ──
     { gate: 'MADRID_ENVELOPE_VERIFIED', value: MADRID_ENVELOPE_VERIFIED, jurisdictions: [MADRID_JURISDICTION_ID] },
@@ -209,6 +233,11 @@ const GATE_DECLARATIONS: readonly GateDeclaration[] = Object.freeze([
     // interlock that stops a later author packing a guessed Np and shipping it (L-616 mechanism-A).
     // ⇒ It is registered here so the classifier cannot FAIL OPEN on València, not so it can be signed.
     { gate: 'VALENCIA_ENVELOPE_VERIFIED', value: VALENCIA_ENVELOPE_VERIFIED, jurisdictions: [VALENCIA_JURISDICTION_ID] },
+    // ⚠ SEVILLA — 2026-08-03: `ES_SEVILLA_PGOU_PACK.zones` now carries one transcribed zone (SB),
+    // but this gate STILL authorises nothing: `SEVILLA_ENVELOPE_VERIFIED` is false and SB itself
+    // hard-refuses at the geometry level regardless (`SEVILLA_SB_FONDO_UNRESOLVED_RING`). Declared
+    // so the classifier cannot fail open on a registered jurisdiction with no gate declared.
+    { gate: 'SEVILLA_ENVELOPE_VERIFIED', value: SEVILLA_ENVELOPE_VERIFIED, jurisdictions: [SEVILLA_JURISDICTION_ID] },
     // ── ⚠ A FOURTH KIND, AND THE ONE MOST LIKELY TO BE MIS-SORTED: LIVE-RESOLVED, YET GATED. ──
     // §BALEARS-GATE (L-680). Balears looks like Denmark — the authority publishes the parameters as
     // machine-readable data, PRYZM transcribes NO ordinance, and `ES_BALEARS` has no static zone
@@ -252,6 +281,14 @@ const GATE_DECLARATIONS: readonly GateDeclaration[] = Object.freeze([
     //   stops a later author packing a guessed depth (the L-616 mechanism). See `esAragon.ts`.
     { gate: 'HUESCA_ENVELOPE_VERIFIED', value: HUESCA_ENVELOPE_VERIFIED, jurisdictions: [HUESCA_JURISDICTION_ID] },
     { gate: 'ZARAGOZA_ENVELOPE_VERIFIED', value: ZARAGOZA_ENVELOPE_VERIFIED, jurisdictions: [ZARAGOZA_JURISDICTION_ID] },
+    // ── El Sauzal (INE 38041, Canarias) — a cited Ciudad Jardín ruleset exists (Título X Cap.3,
+    //    Arts. 10.24-10.32), registered in registry.ts with its OWN bespoke entry (the Telde
+    //    pattern) and excluded from the generic Canarias 86-municipality table
+    //    (`canariasMunicipalBboxes.ts`) so `es-38041-el-sauzal` is claimed exactly once. Flipping
+    //    this today would authorise nothing: the RE-ViUf ↔ Ciudad Jardín typology binding is an
+    //    inference (see EL_SAUZAL_TYPOLOGY_BINDING_INFERENCE) and a per-area fichero override may
+    //    exist unread — real, cited gaps, not a placeholder.
+    { gate: 'EL_SAUZAL_ENVELOPE_VERIFIED', value: EL_SAUZAL_ENVELOPE_VERIFIED, jurisdictions: [EL_SAUZAL_JURISDICTION_ID] },
     // ── NOT waiting on a signature: there is nothing to sign (no Catalonia-wide instrument
     //    exists). Listed because the gate EXISTS and totality demands it — never because a
     //    signature would open it. See `esCatalunya.ts`: do not "fix" this by flipping it.
@@ -266,7 +303,14 @@ const GATE_DECLARATIONS: readonly GateDeclaration[] = Object.freeze([
     //    `*_ENVELOPE_VERIFIED` FAILS OPEN, so a routed-but-ungated Telde would have the classifier
     //    promise a full envelope for a jurisdiction that refuses every parcel — strictly worse than
     //    not routing it at all.
-    { gate: 'CANARIAS_ENVELOPE_VERIFIED', value: CANARIAS_ENVELOPE_VERIFIED, jurisdictions: [TELDE_JURISDICTION_ID] },
+    {
+        gate: 'CANARIAS_ENVELOPE_VERIFIED',
+        value: CANARIAS_ENVELOPE_VERIFIED,
+        // Telde (its own bespoke pack) + all 87 other Canarias municipalities registered in
+        // registry.ts (§CANARIAS-88-REGISTRATION, empty packs, cited refusal either way) — one
+        // signature question, one constant, exactly the AMB corpus-gate shape below.
+        jurisdictions: [TELDE_JURISDICTION_ID, ...CANARIAS_OTHER_MUNICIPAL_JURISDICTION_IDS],
+    },
 
     // ══════════════════════════════════════════════════════════════════════════════════════════
     // §GATE-KEYED-ON-THE-CORPUS (L-678) — THE 31 AMB MUNICIPALITIES, ALL SHUT, ALL UNSIGNED.

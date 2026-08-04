@@ -446,15 +446,28 @@ export type EnvelopeOpenSpace = z.infer<typeof EnvelopeOpenSpaceSchema>;
  * §OPEN-TOP-INDICATIVE (ADR-0293 / L-677) — WHAT PRYZM MAY CLAIM about this envelope. The THIRD
  * publication state, promoted from a rendering convention to a value the type system carries.
  *
- *  - `determination`       — publishable AS A DETERMINATION (the L-449 human-signed gate said yes).
- *  - `open-top-indicative` — DRAWS, but claims NO buildable right: unmodelled constraint families can
- *                            only ever REDUCE the solid, so its TOP is not a limit PRYZM asserts.
- *  - `refused`             — draws nothing.
+ *  - `determination`         — publishable AS A DETERMINATION (the L-449 human-signed gate said yes).
+ *  - `open-top-indicative`   — DRAWS, but claims NO buildable right: unmodelled constraint families
+ *                              can only ever REDUCE the solid, so its TOP is not a limit PRYZM asserts.
+ *  - `uncertified-preview`   — §STAGING-UNCERTIFIED-PREVIEW (L-449). DRAWS from the SAME transcribed
+ *                              rule pack a signed determination would use, but the L-449 gate is still
+ *                              SHUT — no human has certified the reading. Exists ONLY so a non-
+ *                              production environment can visually verify a compute path renders
+ *                              correctly before anyone signs off on it; the module that may set it
+ *                              (`apps/editor` → `ui/site/testMode/uncertifiedPreviewMode.ts`) is
+ *                              triple-gated to refuse outside a non-production Vite build,
+ *                              explicitly-marked staging environment, and it never reads, writes or
+ *                              otherwise touches any `*_ENVELOPE_VERIFIED` / `*_CERTIFIED` constant —
+ *                              those stay exactly what L-449 requires: a human signature, or `false`.
+ *  - `refused`               — draws nothing.
  *
  * ⛔ THIS IS THE VOCABULARY, IN L0, SO THERE IS EXACTLY ONE. The L2 authorisation module
- * (`@pryzm/site-parcel-data` → `openTopIndicative.ts`) is the only thing that may DECIDE a posture; it
- * re-exports this type rather than restating the union, because two copies of a three-member union is
- * how "indicative" quietly becomes a fourth spelling of "authorised".
+ * (`@pryzm/site-parcel-data` → `openTopIndicative.ts`) is the only thing that may DECIDE
+ * `determination` / `open-top-indicative` / `refused`; `testMode/uncertifiedPreviewMode.ts` is the
+ * only thing that may decide `uncertified-preview`, and only in siteDispatch's Telde branch today,
+ * only as a narrowing of an ALREADY-refused gate. Each re-exports this type rather than restating the
+ * union, because a second hand-copy of a four-member union is how a posture quietly acquires a fifth
+ * spelling one layer honours and another does not.
  *
  * ⚠ L0 PURITY (P5) HOLDS: this is a string enum. It encodes no policy, reads no table and decides
  * nothing — the DECISION lives in L2, where the gate tables and the registry are.
@@ -462,6 +475,7 @@ export type EnvelopeOpenSpace = z.infer<typeof EnvelopeOpenSpaceSchema>;
 export const EnvelopePublicationPostureSchema = z.enum([
     'determination',
     'open-top-indicative',
+    'uncertified-preview',
     'refused',
 ]);
 export type EnvelopePublicationPosture = z.infer<typeof EnvelopePublicationPostureSchema>;

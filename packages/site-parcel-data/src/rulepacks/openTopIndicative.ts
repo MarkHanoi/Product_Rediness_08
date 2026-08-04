@@ -79,6 +79,8 @@ import {
 } from './envelopeAuthorisation.js';
 import { BALEARS_JURISDICTION_ID } from './esBalearsMuib.js';
 import { BALEARS_MISSING_CONSTRAINTS } from '../providers/resolveBalearsMuib.js';
+import { ZARAGOZA_JURISDICTION_ID } from './esAragon.js';
+import { ZARAGOZA_MISSING_CONSTRAINTS } from './esZaragoza.js';
 
 const tracer = trace.getTracer('pryzm.zoning.openTop');
 
@@ -161,6 +163,34 @@ export const BALEARS_OPEN_TOP_INDICATIVE: OpenTopIndicativeRecord = openTopIndic
 });
 
 /**
+ * ⭐ THE ZARAGOZA RECORD — built, ⛔ NOT LISTED. See `applyZaragozaZoningThenFallback` in
+ * `siteDispatch.ts` (§ZGZ-ENVELOPE) for the drawing arm this feeds once listed.
+ *
+ * ⚠ WHY NOT LISTED, WHEN THE BALEARS ENTRY BELOW WAS. The Balears listing (§BALEARS-LISTING,
+ * 2026-08-03) was a founder decision made WITH an explicit dated authorisation and a stated,
+ * measured go-condition (renderer capability closed, full suite green). No equivalent founder
+ * authorisation exists for Zaragoza as of this record's construction — an implementer deciding
+ * "this looks similar enough" IS the L-449 defect this whole module exists to keep out of code
+ * review. So this record ships CONSTRUCTED and CORRECT, ready for a one-line registry addition,
+ * and the addition itself is left for a human. See `ZARAGOZA_MISSING_CONSTRAINTS` for why the
+ * claim is honest even so: two of the four packed subgrados carry zero street-width dependency
+ * and PRYZM has never wired a single constraint layer (heritage/flood/airport/environmental) for
+ * this municipality — every family listed is a verifiable code-search absence, not a survey.
+ */
+export const ZARAGOZA_OPEN_TOP_INDICATIVE: OpenTopIndicativeRecord = openTopIndicativeRecord({
+    jurisdictionId: ZARAGOZA_JURISDICTION_ID,
+    reason: 'constraints-not-modelled',
+    missingConstraints: ZARAGOZA_MISSING_CONSTRAINTS,
+    legalProvenance:
+        'PGOU de Zaragoza 2024 (texto refundido, aprobado 27-03-2024), Título Cuarto — human/agent ' +
+        'transcribed verbatim, page-cited (TR2024_Tomo_12_Normas_Titulo_Cuarto.pdf, pp.147-154). ' +
+        'The live calificación selector (`urbanismo:Calificaciones_Urbanas`, EPSG:25830) resolves ' +
+        'the article-citing subgrado at parcel precision (§ZGZ-SUBGRADO, `esAragon.ts`).',
+    supersession: 'NOT_VERIFIED',
+    articleGovernance: 'ESTABLISHED',
+});
+
+/**
  * THE REGISTRY OF INDICATIVE JURISDICTIONS.
  *
  * Listing a jurisdiction here is a PUBLICATION DECISION (the `UNGATED_AUTHORISED_JURISDICTIONS`
@@ -176,6 +206,16 @@ export const BALEARS_OPEN_TOP_INDICATIVE: OpenTopIndicativeRecord = openTopIndic
  * are why this is `open-top-indicative` and not a determination, not a reason to withhold the
  * indicative draw.
  *
+ * §ZARAGOZA-LISTING (2026-08-04) — founder decision: renderer capability closed (record built and
+ * tested this session, `ZARAGOZA_MISSING_CONSTRAINTS` names real, city-specific unmodelled families
+ * — heritage/flood/airport/environmental, deliberately excluding "coastal" since Zaragoza is 300km
+ * from the sea, not copied wholesale from Balears). Lists Zaragoza as `open-top-indicative` ONLY —
+ * the determination gate (`ZARAGOZA_ENVELOPE_VERIFIED`) is untouched and remains `false`. The
+ * street-width-dependent zones (A1/3.1, A1/3.2) will honestly refuse `'not-wired'` until a live
+ * block/parcel-neighbourhood source is wired — this listing does not change that, only unblocks the
+ * indicative arm for zones that can already compute (A1/4.1, A1/4.2, and A1/3.x when width data is
+ * supplied).
+ *
  * ⚠ AN UNLISTED JURISDICTION IS NOT A TODO. For every id not in this map,
  * `envelopePublicationPosture()` returns exactly what `envelopePublicationAuthorisation()` already
  * returns.
@@ -183,6 +223,7 @@ export const BALEARS_OPEN_TOP_INDICATIVE: OpenTopIndicativeRecord = openTopIndic
 export const OPEN_TOP_INDICATIVE_JURISDICTIONS: ReadonlyMap<string, OpenTopIndicativeRecord> =
     new Map<string, OpenTopIndicativeRecord>([
         [BALEARS_JURISDICTION_ID, BALEARS_OPEN_TOP_INDICATIVE],
+        [ZARAGOZA_JURISDICTION_ID, ZARAGOZA_OPEN_TOP_INDICATIVE],
     ]);
 
 /**

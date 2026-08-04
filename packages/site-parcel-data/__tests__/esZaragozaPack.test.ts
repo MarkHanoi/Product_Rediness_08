@@ -16,8 +16,11 @@ import {
     ZARAGOZA_PACK_DEFAULT_CONFIDENCE,
     ZARAGOZA_A1_3_WIDTH_BANDS,
     ZARAGOZA_A1_3_2_TRAVESIA_GAP,
+    ZARAGOZA_MISSING_CONSTRAINTS,
     resolveZaragozaA13Height,
     zaragozaA13WeightedEdificabilidad,
+    zaragozaA13ResolvedPack,
+    type ZaragozaA13Resolution,
 } from '../src/rulepacks/esZaragoza.js';
 import {
     ZARAGOZA_ENVELOPE_VERIFIED,
@@ -261,5 +264,56 @@ describe('Zaragoza — the bbox jurisdiction gate (a coarse proximity claim)', (
         expect(ZARAGOZA_BBOX.maxLat).toBeCloseTo(41.94, 2);
         expect(ZARAGOZA_BBOX.minLon).toBeCloseTo(-1.18, 2);
         expect(ZARAGOZA_BBOX.maxLon).toBeCloseTo(-0.66, 2);
+    });
+});
+
+describe('Zaragoza — §ZGZ-MISSING-CONSTRAINTS (the open-top-indicative reason list)', () => {
+    it('names real, verifiable families and never a manufactured coastal one', () => {
+        expect(ZARAGOZA_MISSING_CONSTRAINTS.length).toBeGreaterThanOrEqual(4);
+        const joined = ZARAGOZA_MISSING_CONSTRAINTS.join(' ').toLowerCase();
+        for (const f of ['heritage', 'flood', 'airport', 'environmental']) {
+            expect(joined, f).toContain(f);
+        }
+        expect(joined).not.toContain('coastal');
+        expect(ZARAGOZA_MISSING_CONSTRAINTS).toContain(ZARAGOZA_A1_3_2_TRAVESIA_GAP);
+    });
+
+    it('is frozen — cannot be emptied after the fact', () => {
+        expect(Object.isFrozen(ZARAGOZA_MISSING_CONSTRAINTS)).toBe(true);
+    });
+});
+
+describe('Zaragoza — §ZGZ-A13-RESOLVED-PACK (per-parcel street-width pack)', () => {
+    const resolvedNarrow = resolveZaragozaA13Height(8) as Extract<ZaragozaA13Resolution, { ok: true }>;
+    const resolvedWide = resolveZaragozaA13Height(20) as Extract<ZaragozaA13Resolution, { ok: true }>;
+
+    it('builds a valid one-zone contract for A1/3.1 from a resolved narrow-street band', () => {
+        const pack = zaragozaA13ResolvedPack('A1/3.1', resolvedNarrow, 'TEST-AUTHORITY');
+        expect(pack.zones).toHaveLength(1);
+        const z = pack.zones[0]!;
+        expect(z.code).toBe('A1/3.1');
+        expect(z.maxHeight_m).toBe(10.5);
+        expect(z.maxFloors).toBe(3); // 2 above ground + planta baja
+        expect(z.plotRatioFAR).toBe(1.6);
+        expect(z.maxCoverage).toBe(0.5);
+        expect(z.geometricRule).toMatchObject({ kind: 'alignment', buildableDepth_m: 15 });
+        expect(pack.defaultConfidence).toBe(ZARAGOZA_PACK_DEFAULT_CONFIDENCE);
+        expect(z.ordinanceRef).toMatch(/TEST-AUTHORITY/);
+    });
+
+    it('builds a valid one-zone contract for A1/3.2 from a resolved wide-street band, carrying the travesía gap', () => {
+        const pack = zaragozaA13ResolvedPack('A1/3.2', resolvedWide, 'TEST-AUTHORITY');
+        const z = pack.zones[0]!;
+        expect(z.code).toBe('A1/3.2');
+        expect(z.maxHeight_m).toBe(13.5);
+        expect(z.maxFloors).toBe(4);
+        expect(z.plotRatioFAR).toBe(2.1);
+        expect(z.ordinanceRef).toMatch(/Travesía/);
+    });
+
+    it('never higher than `estimated-ruleset`, matching the static pack ceiling', () => {
+        const pack = zaragozaA13ResolvedPack('A1/3.1', resolvedNarrow, 'x');
+        expect(pack.defaultConfidence).not.toBe('structured');
+        expect(pack.defaultConfidence).not.toBe('authoritative');
     });
 });

@@ -63,6 +63,34 @@ function interiorPoints(e: JurisdictionExtent): ReadonlyArray<readonly [number, 
     return pts;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §CANARIAS-88-REGISTRATION (2026-08-03) — a NAMED, DELIBERATE exception to "same-rank claims
+// never overlap".
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+//
+// Every property below was proved against a registry where same-`extentResolution` overlaps were
+// a HAND-ARRANGED absence — Barcelona/AMB/Catalunya/Córdoba were deliberately built so no two
+// `'municipal'` (or coarser) boxes ever touch. `canariasMunicipalBboxes.ts` breaks that absence on
+// purpose: it registers all 88 REAL Canarias municipalities from their own Catastro INSPIRE
+// extents (the same source, same rounding convention `teldeBbox.ts` already used for Telde alone),
+// and adjoining island towns' own bounding rectangles routinely overlap across an irregular shared
+// border — exactly the class `teldeBbox.ts` §TELDE-BBOX-SPILL already documented for Telde vs
+// Valsequillo, now visible at scale because Valsequillo (and 86 others) are registered too.
+//
+// Tightening a box to make it stop touching a neighbour would be the FABRICATION this whole
+// package exists to refuse (§CANARIAS-88-PROVENANCE in `canariasMunicipalBboxes.ts`: "outward
+// only, never too tight" — a box may only ever be too generous). So a tie between two Canarias
+// MUNICIPAL registrations is accepted here as an HONEST outcome, not a bug: `resolveRegisteredJur
+// isdictionAt` returns `'ambiguous'`, and `refuseEstimateInsideRegisteredJurisdiction` in
+// `siteDispatch.ts` already treats `'ambiguous'` as CLAIMED — it dispatches a cited refusal naming
+// every tied municipality, never a silent fall-through to the fabricated estimated triple. The
+// properties below still hold in full for EVERY OTHER registration in this file; only ties BETWEEN
+// TWO Canarias municipal entries are exempted, and only from being flagged as a defect.
+const CANARIAS_MUNICIPAL_ID = /^es-3[58]\d{3}-/;
+function isCanariasMunicipal(c: { readonly jurisdictionId: string; readonly extentResolution: string }): boolean {
+    return CANARIAS_MUNICIPAL_ID.test(c.jurisdictionId) && c.extentResolution === 'municipal';
+}
+
 describe('§JURISDICTION-SPECIFICITY — the registry declares a resolution for every extent', () => {
     it('every registration declares an `extentResolution` from the known ladder', () => {
         expect(ALL.length).toBeGreaterThan(0);
@@ -92,40 +120,69 @@ describe('§JURISDICTION-SPECIFICITY — the registry declares a resolution for 
 });
 
 describe('§JURISDICTION-SPECIFICITY — routing exclusivity over EVERY registered jurisdiction', () => {
-    it("each registration's extent CENTRE resolves to that registration", () => {
+    it("each registration's extent CENTRE resolves to that registration (or, for the Canarias municipal mosaic, an honest tie naming it)", () => {
         // The case that caught the defect. Kept as a property, not as four city names.
         for (const c of ALL) {
             const lat = (c.extent.minLat + c.extent.maxLat) / 2;
             const lon = (c.extent.minLon + c.extent.maxLon) / 2;
             const r = resolveRegisteredJurisdictionAt(lat, lon);
+            if (r.kind === 'ambiguous') {
+                // See §CANARIAS-88-REGISTRATION above: only acceptable when EVERY tied candidate is
+                // a Canarias municipal registration, including `c` itself.
+                expect(
+                    r.candidates.every(isCanariasMunicipal),
+                    `${c.jurisdictionId} centre — ambiguous tie with a non-Canarias-municipal claim`,
+                ).toBe(true);
+                expect(
+                    r.candidates.map((x) => x.jurisdictionId),
+                    `${c.jurisdictionId} centre — tie must include itself`,
+                ).toContain(c.jurisdictionId);
+                continue;
+            }
             expect(r.kind, `${c.jurisdictionId} centre`).toBe('resolved');
             if (r.kind !== 'resolved') continue;
             expect(r.jurisdiction.jurisdictionId, `${c.jurisdictionId} centre`).toBe(c.jurisdictionId);
         }
     });
 
-    it('NO point inside ANY registered extent is ambiguous — no two claims tie', () => {
+    it('NO point inside ANY registered extent is ambiguous, EXCEPT the documented Canarias municipal mosaic', () => {
         for (const c of ALL) {
             for (const [lat, lon] of interiorPoints(c.extent)) {
                 const r = resolveRegisteredJurisdictionAt(lat, lon);
-                expect(
-                    r.kind,
-                    `${c.jurisdictionId} @ ${lat.toFixed(4)},${lon.toFixed(4)} — two registrations ` +
-                        'claim this point at the SAME resolution. Resolve the overlap (make one ' +
-                        'finer, or shrink a box); do NOT break the tie by hand.',
-                ).not.toBe('ambiguous');
+                if (r.kind === 'ambiguous') {
+                    expect(
+                        r.candidates.every(isCanariasMunicipal),
+                        `${c.jurisdictionId} @ ${lat.toFixed(4)},${lon.toFixed(4)} — two ` +
+                            'registrations claim this point at the SAME resolution, and at least ' +
+                            'one is NOT a Canarias municipal registration. Resolve the overlap ' +
+                            '(make one finer, or shrink a box); do NOT break the tie by hand.',
+                    ).toBe(true);
+                    continue;
+                }
+                expect(r.kind, `${c.jurisdictionId} @ ${lat.toFixed(4)},${lon.toFixed(4)}`).not.toBe(
+                    'ambiguous',
+                );
             }
         }
     });
 
-    it('a point inside a registration resolves to it, or to a STRICTLY FINER claim — never coarser', () => {
+    it('a point inside a registration resolves to it, or to a STRICTLY FINER claim — never coarser — or, within the Canarias mosaic, an honest tie', () => {
         // THE routing-exclusivity property. It is not "exactly one claimant" — Barcelona's
         // metropolitan gate legitimately overlaps four municipal boxes — it is "the winner is never
         // less specific than a registration that claims the point". A new registration that
-        // overlapped an existing one at the same or a coarser resolution fails here.
+        // overlapped an existing one at the same or a coarser resolution fails here, UNLESS both
+        // sides are Canarias municipal registrations (§CANARIAS-88-REGISTRATION above).
         for (const c of ALL) {
             for (const [lat, lon] of interiorPoints(c.extent)) {
                 const r = resolveRegisteredJurisdictionAt(lat, lon);
+                if (r.kind === 'ambiguous') {
+                    expect(
+                        r.candidates.every(isCanariasMunicipal),
+                        `${c.jurisdictionId} @ ${lat.toFixed(4)},${lon.toFixed(4)} — ambiguous tie ` +
+                            'with a non-Canarias-municipal claim',
+                    ).toBe(true);
+                    continue;
+                }
                 expect(r.kind, `${c.jurisdictionId} @ ${lat},${lon}`).toBe('resolved');
                 if (r.kind !== 'resolved') continue;
                 const won = r.jurisdiction;
@@ -173,7 +230,19 @@ describe('§JURISDICTION-SPECIFICITY — routing exclusivity over EVERY register
         // of the generic estimated triple the §L-663 chokepoint lets through on genuinely uncovered
         // land. It is `'municipal'`, the pilot is `'district'` ⇒ the pilot wins its own land by
         // RULE, and the municipal box wins everywhere else — added with no ordering edit anywhere.
-        expect(overlaps.map(([a, b]) => `${a.jurisdictionId}|${b.jurisdictionId}`).sort()).toEqual(
+        //
+        // ⭐⭐ §CANARIAS-88-REGISTRATION (2026-08-03) — split the overlap set in two BEFORE
+        // asserting the snapshot. 87 real Canarias municipal registrations add a LARGE number of
+        // same-rank overlaps (adjoining island towns' own INSPIRE extents genuinely touch — see
+        // the header note above `isCanariasMunicipal`), and enumerating every pair literally would
+        // turn this from a property into a fragile transcript of today's geometry. The NAMED-city
+        // snapshot below is UNCHANGED from before this registration landed — that is the actual
+        // regression protection this test provides, and it still holds byte-for-byte. The Canarias
+        // pairs are checked as a PROPERTY instead (below), the same way the rest of this file
+        // already prefers properties to city lists (see the file header).
+        const canariasOverlaps = overlaps.filter(([a, b]) => isCanariasMunicipal(a) && isCanariasMunicipal(b));
+        const namedOverlaps = overlaps.filter(([a, b]) => !(isCanariasMunicipal(a) && isCanariasMunicipal(b)));
+        expect(namedOverlaps.map(([a, b]) => `${a.jurisdictionId}|${b.jurisdictionId}`).sort()).toEqual(
             [
                 `${BCN_JURISDICTION_ID}|${BADALONA_JURISDICTION_ID}`,
                 `${BCN_JURISDICTION_ID}|${CORNELLA_JURISDICTION_ID}`,
@@ -187,7 +256,12 @@ describe('§JURISDICTION-SPECIFICITY — routing exclusivity over EVERY register
                 `es-14021-cordoba|es-14021-cordoba-municipal`,
             ].sort(),
         );
-        for (const [a, b] of overlaps) {
+        // A sanity floor, not a fragile count: the Canarias mosaic is DENSE (88 municipalities
+        // over a handful of islands), so overlaps are expected in the hundreds, not zero and not
+        // a suspiciously round number that would suggest every pair happened to tie.
+        expect(canariasOverlaps.length).toBeGreaterThan(50);
+
+        for (const [a, b] of namedOverlaps) {
             const lat = (Math.max(a.extent.minLat, b.extent.minLat) + Math.min(a.extent.maxLat, b.extent.maxLat)) / 2;
             const lon = (Math.max(a.extent.minLon, b.extent.minLon) + Math.min(a.extent.maxLon, b.extent.maxLon)) / 2;
             const forward = resolveJurisdictionClaim([a, b], lat, lon);
@@ -201,6 +275,32 @@ describe('§JURISDICTION-SPECIFICITY — routing exclusivity over EVERY register
             expect(whole.kind).toBe('resolved');
             if (whole.kind === 'resolved') {
                 expect(whole.jurisdiction.jurisdictionId).toBe(forward.jurisdiction.jurisdictionId);
+            }
+        }
+
+        // The Canarias pairs: order-independence still holds, but the VERDICT is an honest TIE
+        // (never a silent pick), and it agrees whichever order the pair is presented in, and it
+        // agrees with the whole-registry answer at the same point.
+        for (const [a, b] of canariasOverlaps) {
+            const lat = (Math.max(a.extent.minLat, b.extent.minLat) + Math.min(a.extent.maxLat, b.extent.maxLat)) / 2;
+            const lon = (Math.max(a.extent.minLon, b.extent.minLon) + Math.min(a.extent.maxLon, b.extent.maxLon)) / 2;
+            const forward = resolveJurisdictionClaim([a, b], lat, lon);
+            const reverse = resolveJurisdictionClaim([b, a], lat, lon);
+            expect(forward.kind, `${a.jurisdictionId}|${b.jurisdictionId} forward`).toBe('ambiguous');
+            expect(reverse.kind, `${a.jurisdictionId}|${b.jurisdictionId} reverse`).toBe('ambiguous');
+            if (forward.kind !== 'ambiguous' || reverse.kind !== 'ambiguous') continue;
+            const forwardIds = forward.candidates.map((c) => c.jurisdictionId).sort();
+            const reverseIds = reverse.candidates.map((c) => c.jurisdictionId).sort();
+            expect(forwardIds).toEqual(reverseIds);
+            expect(forwardIds).toEqual([a.jurisdictionId, b.jurisdictionId].sort());
+            // …and the whole-registry answer at that point is ALSO ambiguous, and still names both
+            // (it may legitimately name MORE than two if a third municipality also ties there).
+            const whole = resolveRegisteredJurisdictionAt(lat, lon);
+            expect(whole.kind, `${a.jurisdictionId}|${b.jurisdictionId} whole-registry`).toBe('ambiguous');
+            if (whole.kind === 'ambiguous') {
+                const wholeIds = whole.candidates.map((c) => c.jurisdictionId);
+                expect(wholeIds).toContain(a.jurisdictionId);
+                expect(wholeIds).toContain(b.jurisdictionId);
             }
         }
     });

@@ -435,8 +435,33 @@ describe('coverage is derived from the rule-pack registry, and cannot drift', ()
     });
 
     it('every registered jurisdiction lights up exactly where its own predicate says', () => {
+        // §CANARIAS-88-REGISTRATION (2026-08-03) — the SAME documented, deliberate exception
+        // `jurisdictionSpecificity.test.ts` (`isCanariasMunicipal`) already carries: 88 real
+        // Canarias municipal boxes are sourced from their own Catastro INSPIRE extents, rounded
+        // OUTWARD only (never too tight — §CANARIAS-88-PROVENANCE in `canariasMunicipalBboxes.ts`),
+        // so adjoining island towns' boxes routinely overlap across an irregular shared coastline.
+        // At their own centre that is an honest `jurisdictionClaimAt` TIE, not a routing defect:
+        // `jurisdictionAt` returns `null` for a tie by design (§JURISDICTION-SPECIFICITY — "an
+        // ambiguity is a legitimate shippable answer... a coin flip is not"), and
+        // `refuseEstimateInsideRegisteredJurisdiction` treats an ambiguous claim as CLAIMED, never
+        // a silent fall-through. Tightening a box to make this assertion pass unconditionally would
+        // be the exact fabrication `canariasMunicipalBboxes.ts` refuses to commit.
+        const CANARIAS_MUNICIPAL_ID = /^es-3[58]\d{3}-/;
+        const isCanariasMunicipal = (id: string) => CANARIAS_MUNICIPAL_ID.test(id);
         for (const e of siteEntryCoverageEntries()) {
             const c = extentCentre(e.extent);
+            const claim = jurisdictionClaimAt(siteEntryCoverageEntries(), c.lat, c.lon);
+            if (claim.kind === 'ambiguous' && isCanariasMunicipal(e.jurisdictionId)) {
+                expect(
+                    claim.candidates.every((cand) => isCanariasMunicipal(cand.jurisdictionId)),
+                    `${e.jurisdictionId} centre — ambiguous tie with a non-Canarias-municipal claim`,
+                ).toBe(true);
+                expect(
+                    claim.candidates.map((cand) => cand.jurisdictionId),
+                    `${e.jurisdictionId} centre — tie must include itself`,
+                ).toContain(e.jurisdictionId);
+                continue;
+            }
             expect(jurisdictionAt(siteEntryCoverageEntries(), c.lat, c.lon)?.jurisdictionId).toBe(
                 e.jurisdictionId,
             );

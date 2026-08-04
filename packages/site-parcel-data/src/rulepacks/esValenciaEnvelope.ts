@@ -783,6 +783,104 @@ export const VALENCIA_ROADMAP_LINE =
     'is answered, and not one day earlier.';
 
 /**
+ * §VALENCIA-ORIGEN-DERIVED-PLAN (2026-08-03) — closes CLOSURE-REGISTER #3.
+ *
+ * `esValenciaPgou.ts` §DELEGATION-MEASURED and this file's registry entry both name the same open
+ * item: 36,40 % of València's private buildable land (L-656 denominator) is ordered by a DERIVED
+ * instrument (`origen` not `PGOU*`), measured over the whole `MapServer/231.origen` column — but a
+ * land SHARE cannot license the stronger `derived-plan` refusal on any ONE parcel; that needs the
+ * LIVE `origen` value read AT the parcel, which `resolveValenciaOrigen.ts` (providers/) now does.
+ *
+ * ⚠ THIS DOES NOT TOUCH THE ENVELOPE GATE. `VALENCIA_ENVELOPE_VERIFIED` stays `false` — nothing
+ * here computes a height, a depth, a FAR or a coverage. It upgrades the REFUSAL's legal grounding
+ * on the measured 36,40 % share, from `no-rule-pack` (`legallyGrounded: false` — a statement about
+ * PRYZM's coverage) to `derived-plan` (`legallyGrounded: true` — a statement about the LAW: a
+ * document other than the PGOU governs this specific site, and PRYZM does not hold it). Everywhere
+ * else — including every point `resolveValenciaOrigen` cannot reach — the weaker, always-true
+ * `no-rule-pack` refusal below still applies. Never the reverse: `derived-plan` may ONLY be
+ * returned once a live, non-`PGOU*` `origen` value has actually been read for that parcel.
+ */
+
+/**
+ * Is a live `origen` value the PGOU itself, or a derived instrument? PURE; never throws.
+ *
+ * ⚠ `null`/blank is NOT `PGOU*` — an unread field must never default to "the general plan
+ * governs", which would be a fabricated legal claim in the OPTIMISTIC direction (§CONTEXT-DATA-
+ * HONESTY: an unknown must never be coerced into the more convenient of two answers).
+ */
+export function valenciaOrigenIsPgouOrdered(origen: string | null | undefined): boolean {
+    const s = typeof origen === 'string' ? origen.trim().toUpperCase() : '';
+    return s.length > 0 && s.startsWith('PGOU');
+}
+
+/**
+ * The STRONGER, legally-grounded refusal for a parcel whose LIVE `origen` names a document other
+ * than the PGOU. `code: 'derived-plan'` is the contract's own vocabulary for exactly this case
+ * (`EnvelopeRefusalCodeSchema`: *"the general plan POINTS AT ANOTHER DOCUMENT … the rule is not
+ * absent — it is elsewhere, and PRYZM does not hold it"*) — reusing it keeps València inside the
+ * shared engine rather than inventing a city-specific code (P1).
+ *
+ * `legallyGrounded: true` — the classification itself (which document governs) is a fact of the
+ * municipal record, read live, not a coverage gap.
+ *
+ * ⚠ `ordinanceRef` stays `null`, DELIBERATELY. Murcia's equivalent refusal cites Arts. 5.25.3.3 /
+ * 5.26.3.3 because those articles were transcribed and verified as saying, in terms, that a
+ * delegating ámbito's own zonal code governs use/typology but NOT height or edificabilidad.
+ * València's PGOU text has NOT been read for an equivalent article, and citing one that has not
+ * been verified would be exactly the fabrication this whole file exists to refuse. The citation
+ * this refusal rests on is the live municipal record itself — named in `detail` and `knownFacts`,
+ * never invented as an `ordinanceRef` this file cannot back.
+ *
+ * PURE; never throws. OTel span `pryzm.zoning.valenciaDerivedPlanRefusal` (P8 / C58 §1.10).
+ *
+ * @param origen the live, non-blank `origen` value from `MapServer/231` (already confirmed by the
+ *   caller not to start with `PGOU`, via `valenciaOrigenIsPgouOrdered`).
+ */
+export function valenciaDerivedPlanRefusal(
+    origen: string,
+    zoneCode?: string | null,
+    zoneLabel?: string | null,
+    knownFacts: readonly string[] = [],
+): EnvelopeRefusal {
+    const span = tracer.startSpan('pryzm.zoning.valenciaDerivedPlanRefusal');
+    try {
+        const zone =
+            zoneLabel && zoneLabel.trim()
+                ? `${zoneLabel.trim()}${zoneCode ? ` (${zoneCode})` : ''}`
+                : zoneCode && zoneCode.trim()
+                  ? `Zone ${zoneCode}`
+                  : 'This València parcel';
+
+        span.setAttribute('jurisdictionId', VALENCIA_JURISDICTION_ID);
+        span.setAttribute('origen', origen);
+        span.setAttribute('resultFields', 'derived-plan');
+        span.setStatus({ code: SpanStatusCode.OK });
+
+        return {
+            code: 'derived-plan',
+            headline:
+                `${zone} is governed by a separate planning instrument, not directly by the PGOU ` +
+                '— and PRYZM does not hold that document.',
+            detail:
+                `València's own zoning service records this parcel's governing instrument as ` +
+                `"${origen}" — not the PGOU itself. The general plan's Título VI Normas ` +
+                'Urbanísticas do apply to this land, but a derived instrument governs the specific ' +
+                'buildable parameters here; that document is a separate publication PRYZM does not ' +
+                'hold. This is a stronger, legally-grounded refusal than a generic coverage gap: ' +
+                'PRYZM has identified WHICH document governs your parcel, live, from the ' +
+                "municipality's own planning register — it is simply not one PRYZM has transcribed " +
+                '(measured 2026-08-01: derived instruments order 36,40 % of the city\'s private ' +
+                'buildable land). ' + VALENCIA_ROADMAP_LINE,
+            ordinanceRef: null,
+            legallyGrounded: true,
+            knownFacts: [...knownFacts, `Governing instrument (live): ${origen}`],
+        };
+    } finally {
+        span.end();
+    }
+}
+
+/**
  * THE HONESTY-GATE refusal: returned for EVERY València parcel.
  *
  * `code: 'no-rule-pack'` + `legallyGrounded: false` + `ordinanceRef: null` — a statement about

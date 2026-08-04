@@ -19,6 +19,14 @@
 //
 // Mirrors `murciaSiteDispatch.test.ts` (the canonical reachability template) and imports the real
 // `@pryzm/stores` + `@pryzm/site-parcel-data`, like `parcelBoundaryEnvelopeOrdering.test.ts`.
+//
+// ⚠ UPDATED 2026-08-04 (§UNSIGNED-GATE-DEFAULTS-SHUT / L-449). `FR_PARIS_PLU_CERTIFIED` was `true`
+// with NO recorded signature and was correctly SHUT on 2026-08-02 (`l449CertificationGates.ts`).
+// Unlike NL, Paris resolves + computes BEFORE checking the gate (see `applyParisZoningThenFallback`
+// step 3's own comment: "gate closed but the engine computed a volume → show the enriched
+// zone+height refusal, never the structured volume"), so the proxy call and zone resolution below
+// are UNCHANGED — only the two tests that asserted a DRAWN volume are updated to expect the
+// enriched cited refusal instead.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SiteModelStore, siteCreate } from '@pryzm/stores';
@@ -176,35 +184,25 @@ describe('§PARIS-PLU — a click on a Ville-de-Paris parcel reaches the Paris c
         expect(Math.abs(Number(q.get('lon')) - PARCEL.lon)).toBeLessThan(5e-4);
     });
 
-    it('DRAWS the published ECM footprint extruded to the published height — real geometry', async () => {
+    it('§UNSIGNED-GATE-DEFAULTS-SHUT — computes the real ECM volume, then WITHHOLDS it (cited refusal)', async () => {
+        // ⚠ Paris resolves + computes BEFORE gating (unlike NL), so the proxy IS called and the zone
+        // IS identified — but `FR_PARIS_PLU_CERTIFIED` is false, so the computed volume must never
+        // reach the render: the enriched zone+height refusal replaces it, never a fabrication and
+        // never the structured `ok` this test asserted before the gate was correctly shut.
         const { envelope } = await dispatchParis(PLU_BODY);
         expect(envelope).not.toBeNull();
-        expect(envelope!.status).toBe('ok');
+        expect(envelope!.status).toBe('none');
         expect(envelope!.zoneCode).toBe('UG');
-        expect(envelope!.refusal).toBeNull();
-        // The height is the PUBLISHED plafond, never a derived or defaulted value.
-        expect(envelope!.maxHeight_m).toBe(PARCEL.heightCeiling_m);
-        // ⚠ The drawn ring is the published ECM polygon — 13 source vertices, so ≥ 3 after
-        // projection, and NOT the 4-vertex parcel box (the old fabricated parcel×hauteur massing).
-        expect(envelope!.insetPolygon.length).toBeGreaterThanOrEqual(3);
-        expect(envelope!.insetPolygon.length).not.toBe(BOUNDARY.polygon.length);
-        // Real published geometry ⇒ NOT a full-parcel upper bound (the §L-619 flag).
-        expect(envelope!.footprintIsUpperBound).toBe(false);
-        // The ECM is ~83 m², an order of magnitude smaller than the 28 × 29 m parcel box: proof the
-        // envelope is the ordinance's footprint and not the parcel silently re-used as one.
-        expect(envelope!.insetAreaM2).toBeGreaterThan(40);
-        expect(envelope!.insetAreaM2).toBeLessThan(200);
-        // The citation rides on the derivation, naming the height's own source.
-        expect(envelope!.derivation.some((d) => d.constraint === 'maxHeight')).toBe(true);
+        expect(envelope!.refusal).toBeTruthy();
+        expect(envelope!.maxHeight_m).toBeNull();
+        expect(envelope!.insetPolygon).toEqual([]);
     });
 
-    it('threads the published height onto the C19 Parcel via the command bus', async () => {
+    it('threads NO height onto the C19 Parcel while the gate is closed', async () => {
         const { store } = await dispatchParis(PLU_BODY);
         const site = store.getSite()!;
-        expect(site.parcel.zoning.category).toBe('UG');
-        expect(site.parcel.maxHeight).toBe(PARCEL.heightCeiling_m);
-        // A buildable ring reached the parcel — the payoff of the whole path.
-        expect(site.parcel.buildableRing).not.toBeNull();
+        expect(site.parcel.maxHeight).toBeNull();
+        expect(site.parcel.buildableRing).toBeNull();
     });
 
     it('does NOT fall back to the estimated triple when the PLU proxy is DOWN', async () => {

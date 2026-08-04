@@ -163,12 +163,67 @@ import {
     CORDOBA_ENVELOPE_VERIFIED,
     cordobaUnverifiedRefusal,
     cordobaNoRulePackRefusal,
+    // §COR-COMPUTE (2026-08-03, re-landed 2026-08-04 after a concurrent-edit revert — see
+    // ENVELOPE-PIPELINE-FORENSIC-BLOCKER-ANALYSIS.md for the incident) — the two symbols the
+    // compute branch needs once the gate is signed: the jurisdiction id for the ZoningRecord, and
+    // the pack itself.
+    CORDOBA_JURISDICTION_ID,
+    ES_CORDOBA_PGOU2001_PACK,
     // §COR-SUBZONE (CLOSURE-REGISTER blocker 3) — authored since 068a02ce and never called. It
     // renders NO number (the gate stays shut); it makes the REFUSAL SPECIFIC — the same job
     // `server/murciaPgouProxy.js` documents for Murcia: "to make that refusal SPECIFIC …, never to
     // produce a figure". `cordobaUnverifiedRefusal` was written to take a subzone and the
     // dispatcher was passing `null` on every parcel.
     resolveCordobaSubzone,
+    // ── Sevilla (INE 41091) — ZERO transcribed ordinance, live zone-identity resolve only. ──
+    // `SEVILLA_ENVELOPE_VERIFIED` is `false` and there is nothing behind the gate to sign yet
+    // (`ES_SEVILLA_PGOU_PACK.zones` is empty by construction). `resolveSevillaZone` queries the
+    // city's own ArcGIS "Calificación" layer (25, EPSG:25830) so the refusal names the real
+    // `zona_orden` instead of speaking about Sevilla generically.
+    isInSevilla,
+    resolveSevillaZone,
+    sevillaNoRulePackRefusal,
+    SEVILLA_JURISDICTION_ID,
+    // ── Zaragoza (INE 50297), Aragón — the CITED-REFUSAL jurisdiction (§ZGZ-SUBGRADO). ──
+    // Zaragoza's municipal calificación is live and parcel-precise (`resolveZaragozaZone` →
+    // `urbanismo:Calificaciones_Urbanas`), but `ZARAGOZA_ENVELOPE_VERIFIED` stays false until a
+    // human transcribes arts. 4.1.12/4.1.13/4.1.15/4.1.17 and signs `sources/VERIFICATION.md` — so
+    // `applyZaragozaZoningThenFallback` dispatches `zaragozaNoRulePackRefusal` (naming the resolved
+    // grade when one resolves) and NO number reaches the panel/massing. Same discipline as Córdoba.
+    isInZaragoza,
+    ZARAGOZA_ENVELOPE_VERIFIED,
+    ZARAGOZA_JURISDICTION_ID,
+    ZARAGOZA_ZONE_CODES,
+    ES_ZARAGOZA_PGOU2024_PACK,
+    zaragozaNoRulePackRefusal,
+    resolveZaragozaZone,
+    // §ZGZ-A13-ANCHO-DE-CALLE / §OPEN-TOP-INDICATIVE — the indicative drawing arm, built on the
+    // Balears posture pattern. `ZARAGOZA_ENVELOPE_VERIFIED` is deliberately NOT branched on twice
+    // here (§MURCIA-GATE-BYPASS-REGRESSION) — `envelopePublicationPosture` is the one decision
+    // point, imported once above for Balears and reused verbatim for Zaragoza.
+    resolveZaragozaA13Height,
+    zaragozaA13ResolvedPack,
+    resolveZaragozaStreetWidth,
+    type ZaragozaZoneCode,
+    type OpenTopIndicativeRecord,
+    // ── Telde (INE 35026, Gran Canaria) — the CITED-REFUSAL jurisdiction, SIPU EDIF. ──
+    // Telde's SIPU EDIF zones resolve via `resolveTeldeZone` (WIRED the way Zaragoza is, but —
+    // unlike Zaragoza — the live endpoint it would call does not exist yet: IDECanarias' WFS is
+    // measured administratively disabled, see `resolveTeldeZone.ts`'s header). `CANARIAS_ENVELOPE_
+    // VERIFIED` stays false until a human signs `sources/VERIFICATION.md`, so
+    // `applyTeldeZoningThenFallback` dispatches `canariasNoRulePackRefusal` (packed/unresolved
+    // zones) or `canariasGraphedRefusal` (GRF/graphed zones) — naming the resolved zone and its
+    // `TELDE_UNPACKED_ZONES` reason when applicable — and NO number reaches the panel/massing. Same
+    // discipline as Córdoba/Zaragoza.
+    isInTelde,
+    TELDE_JURISDICTION_ID,
+    CANARIAS_ENVELOPE_VERIFIED,
+    ES_TELDE_PGO2003_PACK,
+    TELDE_PGO2003_ZONE_CODES,
+    TELDE_UNPACKED_ZONES,
+    canariasNoRulePackRefusal,
+    canariasGraphedRefusal,
+    resolveTeldeZone,
     // ── Envelope Phase 2 — L'Hospitalet de Llobregat (INE 08101), the SECOND Catalan municipality. ──
     // The S2 router predicate + the S5 honesty gate. L'Hospitalet shares Barcelona's MUC + PGM-1976,
     // so it is ROUTED — but `LHOSPITALET_ENVELOPE_VERIFIED` is false until a human verifies its
@@ -219,6 +274,19 @@ import {
     detectDerivedPlanMarkers,
     resolveMurciaZoning,
     type DerivedPlanMarker,
+    // ── §VALENCIA-ORIGEN-DERIVED-PLAN (2026-08-03), CLOSURE-REGISTER #3 — the València (INE 46250)
+    // per-parcel LIVE `origen` upgrade. `VALENCIA_ENVELOPE_VERIFIED` is deliberately NOT imported
+    // here (the §MURCIA-GATE-BYPASS-REGRESSION lesson, applied pre-emptively): this branch never
+    // publishes a number, so there is no gate for it to bypass, and importing the constant would
+    // invite a future edit to branch on it directly instead of through the one decision point
+    // (`valenciaOrigenIsPgouOrdered`). `resolveValenciaOrigen` is the live fetch (never throws);
+    // `valenciaDerivedPlanRefusal` / `valenciaNoRulePackRefusal` are the two refusal tiers.
+    isInValencia,
+    resolveValenciaOrigen,
+    valenciaOrigenIsPgouOrdered,
+    valenciaDerivedPlanRefusal,
+    valenciaNoRulePackRefusal,
+    VALENCIA_JURISDICTION_ID,
     // ── §BALEARS-ENVELOPE (L-680) — the Illes Balears. Same shape as Murcia, one rung better data. ──
     // ⚠ `BALEARS_ENVELOPE_VERIFIED` is deliberately NOT imported (the §MURCIA-GATE-BYPASS-REGRESSION
     // lesson, applied pre-emptively). The branch asks `envelopePublicationPosture()` — the ONE
@@ -361,6 +429,10 @@ import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.
 import { latLonToSceneXZ, sceneXZToLatLon, type LatLon } from './boundaryProjection.js';
 import { trace } from '@opentelemetry/api';
 import { polygonAreaXZ } from './siteInspectorData';
+import {
+    isUncertifiedPreviewModeActive,
+    uncertifiedPreviewCaveat,
+} from './testMode/uncertifiedPreviewMode.js';
 
 const _siteRestoreTracer = trace.getTracer('pryzm.site.restore');
 
@@ -1328,6 +1400,33 @@ function applyZoning(
             void applyCordobaZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
             return;
         }
+        // §SEVILLA-ENVELOPE — a Sevilla (INE 41091) plot. ⚠ There is no transcribed ordinance at
+        // all (unlike Córdoba/Madrid), so this path never renders a number: it resolves the real
+        // `zona_orden` from the city's own ArcGIS service first, then dispatches a cited,
+        // zone-named "PRYZM has not transcribed this ordinance" refusal.
+        if (qLat != null && qLon != null && isInSevilla(qLat, qLon)) {
+            void applySevillaZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+            return;
+        }
+        // §ZGZ-ENVELOPE — a Zaragoza (INE 50297) plot. ⚠ The municipal calificación resolves LIVE
+        // (`urbanismo:Calificaciones_Urbanas`), but the pack is UNSIGNED, so this path renders NO
+        // number: until `sources/VERIFICATION.md` is signed it dispatches a cited "no signed rule"
+        // refusal, naming the resolved grade when one resolves, never a fabricated envelope.
+        if (qLat != null && qLon != null && isInZaragoza(qLat, qLon)) {
+            void applyZaragozaZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+            return;
+        }
+        // §TELDE-ENVELOPE — a Telde (INE 35026, Gran Canaria) plot. ⚠ The SIPU `EDIF` archive
+        // publishes 31 of 46 zone codes as a drawable rule (named numeric columns, not an OCR or a
+        // PDF transcription), but `CANARIAS_ENVELOPE_VERIFIED` is unsigned, so this path renders NO
+        // number: until `sources/VERIFICATION.md` is signed it dispatches a cited "no signed
+        // transcription" refusal, naming the resolved zone when one resolves, never a fabricated
+        // envelope. VERIFICATION.md §6 records that a signature alone would not have rendered
+        // anything here — this branch is the missing dispatch wiring that closes that gap.
+        if (qLat != null && qLon != null && isInTelde(qLat, qLon)) {
+            void applyTeldeZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+            return;
+        }
         // §MURCIA-ENVELOPE — a Murcia (INE 30030) plot. ⚠ A REGIONALLY DISTINCT branch, not a
         // variation on the Catalan ones above: Región de Murcia, PGOU de Murcia, municipal
         // GeoServer. Its box is ~450 km from every other registered Spanish jurisdiction, so the
@@ -1337,6 +1436,20 @@ function applyZoning(
         // numeric buildable parameter, so a front/side/rear estimate would be pure invention.
         if (qLat != null && qLon != null && isInMurcia(qLat, qLon)) {
             void applyMurciaZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+            return;
+        }
+        // §VALENCIA-ORIGEN-DERIVED-PLAN — a València (INE 46250) plot. ⚠ NEVER publishes a number:
+        // `VALENCIA_ENVELOPE_VERIFIED` is `false` (Plano C / the `altura` offset convention — see
+        // `esValenciaEnvelope.ts`) and this branch does not touch that gate. What it DOES do is read
+        // the live `origen` field (`MapServer/231`, the same layer `resolveValenciaAlineaciones`
+        // already queries for the R1 containment check) and, on the measured 36,40 % of buildable
+        // land whose governing document is NOT the PGOU, dispatch the STRONGER, legally-grounded
+        // `derived-plan` refusal instead of the generic `no-rule-pack` one — closing
+        // CLOSURE-REGISTER #3. Any resolution failure (out-of-box, transport, no record) falls
+        // through to `applyEstimatedZoning`, which the registered-jurisdiction guard then answers
+        // with the same honest coverage refusal València has always had.
+        if (qLat != null && qLon != null && isInValencia(qLat, qLon)) {
+            void applyValenciaZoningThenFallback(ctx, qLat, qLon, estimated);
             return;
         }
         // §BALEARS-ENVELOPE (L-680) — an Illes Balears plot (Mallorca / Menorca / Eivissa /
@@ -3249,26 +3362,90 @@ async function applyCordobaZoningThenFallback(
             return;
         }
 
-        // ── VERIFICATION SIGNED (future). ⬆ The subzone resolver IS now wired (§COR-SUBZONE
-        // above), so on the day the gate opens `subzone` already carries the real ordenanza. What
-        // is still deliberately NOT written here is the COMPUTE branch, and a second, independent
-        // defect is why: `ZoningRulesEngine` never reads a pack's `defaultConfidence`, so solving
-        // now would publish `pipeline-extracted-unverified` numbers wearing the violet "Estimated"
-        // chip — an OVER-statement of certainty on a machine reading, exactly what the gate exists
-        // to prevent. It is the same blocker that holds Madrid's compute branch (see
-        // MADRID_ENVELOPE_VERIFIED above); landing the C58 confidence fix and both compute
-        // branches together is the correct order.
-        //
-        // ⚠ AND A THIRD CONDITION IS NOT MET FOR THE MC FAMILY, which must not be quietly skipped:
-        // MC's height is a per-street-width table (Art. 13.5.3.1) and Córdoba publishes NO
-        // alineación from which that width could be measured — see the §COR-ALIGNMENT refusal note
-        // on `applyCordobaZoningThenFallback`. MC therefore refuses on its own merits even after a
-        // signature; the signature does not unblock it.
+        // ── VERIFICATION SIGNED — §COR-COMPUTE (2026-08-03; re-landed 2026-08-04 after a
+        // concurrent-edit revert during heavy multi-agent activity on this file — see
+        // ENVELOPE-PIPELINE-FORENSIC-BLOCKER-ANALYSIS.md). The C58 confidence-cap fix
+        // (`capEnvelopeConfidenceToPackDefault`, `ZoningRulesEngine.ts:264`) is confirmed landed —
+        // the comment that used to block this branch on it was stale. `subzone` is already resolved
+        // above (§COR-SUBZONE); no subzone means either outside the pilot or an unresolved lookup,
+        // neither of which this branch can compute on, so it falls through to the coverage-gap
+        // refusal exactly as before. MC is NOT special-cased here: its pack entries carry
+        // `geometricRule: { kind: 'explicit-area', ringRef: CORDOBA_MC_FONDO_UNRESOLVED_RING }` with
+        // no injected `explicitAreaFootprint` (no ring resolver exists for it — Córdoba publishes no
+        // alineación to measure MC's per-street-width height table from), so `computeBuildableEnvelope`
+        // hard-fails that rule on its own merits (ADR-0270) and MC refuses through the SAME path as
+        // every other non-'ok' result below, not a bespoke branch. Proven live in
+        // `apps/editor/__tests__/cordobaSiteDispatch.test.ts`'s §COR-COMPUTE suite — an OA-1 parcel
+        // computes `status:'ok'`, an MC-3 parcel still structurally refuses, both against a resolved
+        // subzone (not just typechecked, actually executed).
+        if (subzone !== null) {
+            const record: ZoningRecord = {
+                zoneCode: subzone,
+                zoneLabel: subzoneOrdenanza,
+                jurisdictionId: CORDOBA_JURISDICTION_ID,
+                // COACo's `coaco:ordenanzas` publishes no numeric buildable parameter — every number
+                // comes from the transcribed pack (mirrors Murcia's identical `structuredFields: {}`).
+                structuredFields: {},
+                overlays: [],
+                ordinanceRef: null,
+                provenance: {
+                    source: 'cordoba-pgou-2001',
+                    label:
+                        'PGOU de Córdoba (2001), Normativa de Usos, Ordenanzas y Urbanización — ' +
+                        'machine-extracted, human-signed (VERIFICATION.md §SIG-1, 2026-08-03)',
+                    version: '2001',
+                    license: null,
+                    crs: 'EPSG:4326',
+                },
+            };
+            const envelope = computeBuildableEnvelope({
+                parcelRing: boundary.polygon,
+                edgeClassifications: boundary.edgeClassifications,
+                zoning: record,
+                rulePack: ES_CORDOBA_PGOU2001_PACK,
+            });
+            if (envelope.status === 'ok') {
+                dispatchEnvelope(ctx, site.id, envelope, 'coaco-pgou');
+                console.log(
+                    `${TAG} §COR-COMPUTE subzone=${subzone} — RENDERED a signed envelope at ` +
+                        `${envelope.confidence ?? 'n/a'}. area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m².`,
+                );
+                return;
+            }
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(
+                    subzone,
+                    {
+                        code: 'source-data-unavailable',
+                        headline:
+                            `${subzone}: the PGOU's own conditions leave no buildable footprint on ` +
+                            'this parcel.',
+                        detail:
+                            envelope.refusal?.detail ??
+                            'The signed ordenanza does not resolve to a buildable ring here ' +
+                                '(e.g. MC\'s per-street-width height table has no alignment to ' +
+                                'measure from — Art. 13.5.3.1).',
+                        ordinanceRef: null,
+                        // FALSE: the ordenanza answers; this is a fact about THIS parcel/rule, not
+                        // an unresolved-ordinance state (mirrors Murcia's identical annotation).
+                        legallyGrounded: false,
+                        knownFacts,
+                    },
+                    'none',
+                ),
+                'coaco-pgou',
+            );
+            console.log(
+                `${TAG} §COR-COMPUTE subzone=${subzone} — compute did not resolve to 'ok' ` +
+                    `(status=${envelope.status}); dispatched a cited refusal, not a fallback estimate.`,
+            );
+            return;
+        }
         console.warn(
-            `${TAG} verification is signed but the C58 confidence plumbing is not landed ` +
-                `(ZoningRulesEngine hard-codes 'estimated-ruleset' and ignores defaultConfidence) — ` +
-                `dispatching the coverage-gap refusal rather than a machine-extracted number under ` +
-                `an over-confident badge. subzone=${subzone ?? 'unresolved'}.`,
+            `${TAG} verification is signed but no subzone resolved (${subzoneNote ?? 'unknown reason'}) ` +
+                `— dispatching the coverage-gap refusal.`,
         );
         const coverageGap = cordobaNoRulePackRefusal(subzone ?? CORDOBA_PILOT_ZONE_CODE, null, knownFacts);
         dispatchEnvelope(
@@ -3279,6 +3456,746 @@ async function applyCordobaZoningThenFallback(
         );
     } catch (e) {
         console.warn(`${TAG} Córdoba path failed (non-fatal) — falling back to estimated default:`, e);
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+    }
+}
+
+/**
+ * §SEVILLA-ENVELOPE — the Sevilla (INE 41091) path.
+ *
+ * ⚠⚠ UNLIKE Córdoba/Madrid, there is NOT a machine-extracted pack waiting behind a verification
+ * gate — Sevilla has ZERO transcribed PGOU-2006 ordinance parameters (`ES_SEVILLA_PGOU_PACK.zones`
+ * is empty by construction, `esSevilla.ts`). What IS live is the ZONE IDENTITY: the city's own
+ * ArcGIS "Calificación" service (layer 25, EPSG:25830 — CONFIRMED live) resolves `zona_orden` for
+ * any point (`resolveSevillaZone`), so this path resolves the real zone BEFORE dispatching the
+ * refusal, exactly as `applyCordobaZoningThenFallback` resolves the subzone first — the refusal
+ * names the zone instead of speaking generically. `SEVILLA_ENVELOPE_VERIFIED` stays `false`.
+ *
+ * Fully guarded: any problem falls back to the precomputed estimated envelope; never throws into
+ * the commit path. `status: 'none'` on the refusal keeps every numeric field null and clears any
+ * stale `buildableRing` (`dispatchEnvelope` writes a ring only on `'ok'`).
+ */
+async function applySevillaZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+): Promise<void> {
+    const TAG = '[gis][c58] §SEVILLA-ENVELOPE';
+    // The FALLBACK zone code for the refusal envelope, used only when the ArcGIS `zona_orden`
+    // does not resolve. `zoneCode` is required (min length 1); this names the municipality, not a
+    // real zone, and no number rides on it either way.
+    const SEVILLA_UNRESOLVED_ZONE_CODE = 'sevilla-pgou-2006-unresolved';
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        // ── Resolve the real zona_orden BEFORE dispatching the refusal ─────────────────────────
+        // ⚠ THIS RESOLVES DATA, IT DOES NOT DECIDE TO RENDER. `SEVILLA_ENVELOPE_VERIFIED` is
+        // false below regardless of what resolves, so a resolved zone binds NO number — it only
+        // lets the refusal say WHICH zone refused, rather than speak about Sevilla generically.
+        let zonaOrden: string | null = null;
+        let zoneNote: string | null = null;
+        try {
+            const z = await resolveSevillaZone({ lat, lon });
+            if (z.ok) {
+                zonaOrden = z.resolution.zonaOrden;
+            } else if (z.reason === 'no-zone-here') {
+                zoneNote =
+                    'Sevilla\'s own "Calificación" service answered but assigns no zone polygon to ' +
+                    'this exact point.';
+            } else {
+                zoneNote =
+                    `Zone NOT resolved (${z.reason}) — this is an unknown, not an absence of planning.`;
+            }
+        } catch (e) {
+            console.warn(`${TAG} resolveSevillaZone failed (non-fatal):`, e);
+            zoneNote = 'Zone NOT resolved (resolver error) — this is an unknown, not an absence of planning.';
+        }
+
+        const knownFacts = [
+            `Location: Sevilla (${lat.toFixed(5)}, ${lon.toFixed(5)})`,
+            zonaOrden !== null
+                ? `Calificación: zona_orden ${zonaOrden} (ArcGIS Info_Urban_Groups/PGOU, EPSG:25830)`
+                : null,
+            zoneNote,
+            'Planning source: Ayuntamiento de Sevilla PGOU-2006 — no ordinance parameters transcribed',
+        ].filter((s): s is string => typeof s === 'string');
+
+        // ⚠⚠⚠ SEVILLA_ENVELOPE_VERIFIED is a founder-only, permanently-false-until-signed constant
+        // and there is nothing behind it to sign yet (no transcribed pack). Every Sevilla parcel
+        // therefore refuses, named by its real zone when the ArcGIS lookup succeeded.
+        const refusal = sevillaNoRulePackRefusal(zonaOrden, null, knownFacts);
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            // The zone code is the RESOLVED zona_orden when we have one, so the refusal is
+            // attributable to a real Calificación rather than a placeholder. `status: 'none'`
+            // keeps every numeric field null (no ring is written).
+            buildRefusedEnvelope(zonaOrden ?? SEVILLA_UNRESOLVED_ZONE_CODE, refusal, 'none'),
+            SEVILLA_JURISDICTION_ID,
+        );
+        console.log(
+            `${TAG} SEVILLA_ENVELOPE_VERIFIED=false — dispatched the no-rule-pack refusal; NO ` +
+                `number rendered (${refusal.code}). zona_orden=${zonaOrden ?? 'unresolved'}.`,
+        );
+    } catch (e) {
+        console.warn(`${TAG} Sevilla path failed (non-fatal) — falling back to estimated default:`, e);
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+    }
+}
+
+/**
+ * §ZGZ-ENVELOPE — the Zaragoza (INE 50297) path, on the Córdoba/Murcia precedent.
+ *
+ * Zaragoza's calificación resolves LIVE and at parcel precision (`resolveZaragozaZone` against
+ * `urbanismo:Calificaciones_Urbanas` — §ZGZ-SUBGRADO, `esAragon.ts`), and `esZaragoza.ts` ships a
+ * curated, page-cited pack for the 4 subgrados the transcription covers (A1/3.1, A1/3.2, A1/4.1,
+ * A1/4.2). What is NOT yet true is a human sign-off: `ZARAGOZA_ENVELOPE_VERIFIED` is false until a
+ * Spanish-planning-literate human signs `sources/VERIFICATION.md`, so this path renders NO number
+ * today — it dispatches `zaragozaNoRulePackRefusal`, naming the resolved grade when the WFS answers
+ * (never a placeholder pilot name once a real grade is known) and never a fabricated envelope.
+ *
+ * Fully guarded: any problem falls back to the precomputed estimated envelope; never throws into
+ * the commit path. `status: 'none'` on the refusal keeps every numeric field null and clears any
+ * stale `buildableRing` (`dispatchEnvelope` writes a ring only on `'ok'`).
+ */
+async function applyZaragozaZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+): Promise<void> {
+    const TAG = '[gis][c58] §ZGZ-ENVELOPE';
+    const JURISDICTION_REF = 'idezar-calificaciones';
+    /** Fallback zone code for the refusal envelope when the WFS does not resolve a grade. */
+    const ZARAGOZA_FALLBACK_ZONE_CODE = 'zaragoza-pgou-2024';
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        const parcelAreaM2 = (() => {
+            try {
+                const ring = boundary.polygon;
+                const a = Math.abs(
+                    ring.reduce((acc, p, i) => {
+                        const q = ring[(i + 1) % ring.length]!;
+                        return acc + (p.x * q.z - q.x * p.z);
+                    }, 0) / 2,
+                );
+                return Number.isFinite(a) && a > 0 ? a : null;
+            } catch { return null; }
+        })();
+
+        // ── §ZGZ-ZONE — resolve the live calificación grade BEFORE the gate. ─────────────────
+        //
+        // ⚠⚠ THIS RESOLVES DATA, IT DOES NOT DECIDE TO RENDER. `ZARAGOZA_ENVELOPE_VERIFIED` is
+        // still false below, so a resolved grade binds NO number — it only lets the refusal say
+        // WHICH grade refused, exactly the same honesty property `resolveCordobaSubzone` documents.
+        //
+        // ⚠ A FAILURE AND AN EMPTY ANSWER ARE NOT THE SAME VALUE (§CONTEXT-DATA-HONESTY). `no-zone`
+        // means the WFS answered and this point carries no `Calificaciones_Urbanas` polygon;
+        // `endpoint-unreachable` means we do not know. Reported differently, and neither reads as
+        // "there is no plan here".
+        //
+        // ⚠ A MATCHED-BUT-UNPACKED CODE (e.g. `A1/1`, `EQ`) IS NOT SILENTLY DROPPED. The resolver
+        // returns the raw code regardless of pack membership (honesty property 3 on
+        // `resolveZaragozaZone`); `packed` here is what THIS function computes from
+        // `ZARAGOZA_ZONE_CODES`, purely to phrase the refusal — it is never used to discard a real
+        // resolution.
+        let zoneCode: string | null = null;
+        let zoneDescripcion: string | null = null;
+        let packed = false;
+        let zoneNote: string | null = null;
+        try {
+            const z = await resolveZaragozaZone({ lat, lon });
+            if (z.ok) {
+                zoneCode = z.resolution.zoneCode;
+                zoneDescripcion = z.resolution.descripcion;
+                packed = (ZARAGOZA_ZONE_CODES as readonly string[]).includes(zoneCode);
+                if (!packed) {
+                    zoneNote =
+                        `Calificación ${zoneCode} is outside the 4 subgrados PRYZM has transcribed ` +
+                        '(A1/3.1, A1/3.2, A1/4.1, A1/4.2) — no rule exists for it yet, transcribed or not.';
+                }
+            } else if (z.reason === 'no-zone') {
+                zoneNote =
+                    'No `Calificaciones_Urbanas` polygon covers this point — outside Zaragoza\'s ' +
+                    'published planned land (parks, infrastructure corridors and similar carry no ' +
+                    'calificación code).';
+            } else {
+                zoneNote =
+                    `Calificación NOT resolved (${z.reason}) — this is an unknown, not an absence of planning.`;
+            }
+        } catch (e) {
+            console.warn(`${TAG} §ZGZ-ZONE resolve failed (non-fatal):`, e);
+            zoneNote = 'Calificación NOT resolved (resolver error) — this is an unknown, not an absence of planning.';
+        }
+
+        const knownFacts = [
+            `Location: Zaragoza (${lat.toFixed(5)}, ${lon.toFixed(5)}) — PGOU de Zaragoza 2024`,
+            parcelAreaM2 !== null ? `Parcel area: ${Math.round(parcelAreaM2).toLocaleString()} m²` : null,
+            zoneCode !== null
+                ? `Calificación: ${zoneDescripcion ? `${zoneDescripcion} — ` : ''}${zoneCode} ` +
+                  '(IDEZar «urbanismo:Calificaciones_Urbanas», EPSG:25830)'
+                : null,
+            zoneNote,
+            'Planning source: Ayuntamiento de Zaragoza PGOU-2024 (IDEZar) — live, parcel-precise; ' +
+                'transcription unsigned',
+        ].filter((s): s is string => typeof s === 'string');
+
+        if (!ZARAGOZA_ENVELOPE_VERIFIED) {
+            // ── §ZGZ-OPEN-TOP-INDICATIVE — THE SECOND DRAWING ARM. Same posture pattern as Balears
+            // (`applyBalearsZoningThenFallback`): `envelopePublicationPosture` is the ONE decision
+            // point, consulting the L-449 gate (still shut) AND the open-top registry.
+            // `ZARAGOZA_OPEN_TOP_INDICATIVE` (`openTopIndicative.ts`) is BUILT and CORRECT but
+            // deliberately UNLISTED in `OPEN_TOP_INDICATIVE_JURISDICTIONS` — no founder authorisation
+            // for Zaragoza has been recorded the way §BALEARS-LISTING was, so `posture.posture` is
+            // `'refused'` for Zaragoza today and this whole block falls through to the honesty-gate
+            // refusal below, unchanged. Listing Zaragoza later needs a ONE-LINE registry edit and NO
+            // edit here (§MURCIA-GATE-BYPASS-REGRESSION).
+            const posture = envelopePublicationPosture(ZARAGOZA_JURISDICTION_ID);
+            const indicativeDrawable =
+                posture.posture === 'open-top-indicative' && rendererCanExpressOpenTop;
+            if (indicativeDrawable && zoneCode !== null && packed) {
+                const indicative = tryZaragozaIndicativeEnvelope(
+                    zoneCode as ZaragozaZoneCode,
+                    zoneDescripcion,
+                    boundary,
+                    posture.openTop!,
+                );
+                if (indicative) {
+                    dispatchEnvelope(ctx, site.id, indicative, JURISDICTION_REF);
+                    console.log(
+                        `${TAG} §OPEN-TOP-INDICATIVE zoneCode=${zoneCode} — RENDERED an indicative ` +
+                            `envelope (posture=open-top-indicative, NO buildable right claimed). ` +
+                            `area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m².`,
+                    );
+                    return;
+                }
+                console.log(
+                    `${TAG} §OPEN-TOP-INDICATIVE zoneCode=${zoneCode} could not be drawn (see the ` +
+                        `warning above) — falling through to the honesty-gate refusal.`,
+                );
+            }
+
+            // ⚠⚠⚠ THE HONESTY GATE — ⛔ DO NOT FLIP `ZARAGOZA_ENVELOPE_VERIFIED` HERE OR ANYWHERE
+            // ELSE. A signature is a founder act (L-449); a model flipping it is the L-677 defect,
+            // restated in `esAragon.ts`. `status: 'none'` = attempted, value WITHHELD pending a
+            // human transcription + sign-off (NOT `'not-applicable'`, which would assert the
+            // ordinance grants no envelope — arts. 4.1.12/4.1.13/4.1.15/4.1.17 DO grant one).
+            const refusal = zaragozaNoRulePackRefusal(zoneCode, zoneDescripcion, knownFacts);
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(zoneCode ?? ZARAGOZA_FALLBACK_ZONE_CODE, refusal, 'none'),
+                JURISDICTION_REF,
+            );
+            console.log(
+                `${TAG} §HONESTY-GATE ZARAGOZA_ENVELOPE_VERIFIED=false — dispatched the no-signed-` +
+                    `rule refusal; NO number rendered (${refusal.code}). zoneCode=${zoneCode ?? 'unresolved'} ` +
+                    `packed=${packed} area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m². ` +
+                    `Signs off via sources/VERIFICATION.md.`,
+            );
+            return;
+        }
+
+        // ── VERIFICATION SIGNED (future). Only a PACKED grade (A1/3.1, A1/3.2, A1/4.1, A1/4.2) may
+        // compute — an unpacked but resolved code (e.g. `A1/1`) still refuses on its own merits,
+        // never borrows another subgrado's numbers.
+        if (zoneCode !== null && packed) {
+            const packZone = ES_ZARAGOZA_PGOU2024_PACK.zones.find((z) => z.code === zoneCode);
+            const record: ZoningRecord = {
+                zoneCode,
+                zoneLabel: packZone?.label ?? zoneDescripcion ?? null,
+                jurisdictionId: ZARAGOZA_JURISDICTION_ID,
+                // Zaragoza's calificación WFS publishes NO numeric buildable parameter — every
+                // number comes from the transcribed pack, so there is nothing structured to pass.
+                structuredFields: {},
+                overlays: [],
+                ordinanceRef: packZone?.ordinanceRef ?? null,
+                provenance: {
+                    source: 'zaragoza-pgou-2024',
+                    label:
+                        'PGOU de Zaragoza 2024, Normas Urbanísticas, Título Cuarto — human/agent-' +
+                        'transcribed, page-cited',
+                    version: '2024-03',
+                    license: null,
+                    crs: 'EPSG:4326',
+                },
+            };
+            const envelope = computeBuildableEnvelope({
+                parcelRing: boundary.polygon,
+                edgeClassifications: boundary.edgeClassifications,
+                zoning: record,
+                rulePack: ES_ZARAGOZA_PGOU2024_PACK,
+            });
+            if (envelope.status === 'ok') {
+                dispatchEnvelope(ctx, site.id, envelope, JURISDICTION_REF);
+                console.log(
+                    `${TAG} zoneCode=${zoneCode} — RENDERED a signed envelope at ` +
+                        `${envelope.confidence ?? 'n/a'}. area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m².`,
+                );
+                return;
+            }
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(
+                    zoneCode,
+                    {
+                        code: 'source-data-unavailable',
+                        headline:
+                            `${zoneCode}${packZone ? ` — ${packZone.label}` : ''}: the transcribed ` +
+                            'ordinance leaves no buildable footprint on this parcel.',
+                        detail:
+                            'PRYZM applied the transcribed, signed A1 subgrado rule to your parcel ' +
+                            'boundary and the resulting footprint is empty — typically a plot ' +
+                            'narrower than the ordinance\'s alignment/party-wall geometry permits. ' +
+                            'PRYZM will not substitute an estimated figure to avoid showing an ' +
+                            'empty result.',
+                        ordinanceRef: packZone?.ordinanceRef ?? null,
+                        legallyGrounded: false,
+                        knownFacts,
+                    },
+                    'none',
+                ),
+                JURISDICTION_REF,
+            );
+            console.log(
+                `${TAG} zoneCode=${zoneCode} produced status=${envelope.status} — dispatched the ` +
+                    `empty-footprint refusal. NO number rendered.`,
+            );
+            return;
+        }
+
+        // Verified but unpacked/unresolved — the coverage-gap refusal, never a guessed number.
+        const coverageGap = zaragozaNoRulePackRefusal(zoneCode, zoneDescripcion, knownFacts);
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(zoneCode ?? ZARAGOZA_FALLBACK_ZONE_CODE, coverageGap, 'none'),
+            JURISDICTION_REF,
+        );
+    } catch (e) {
+        console.warn(`${TAG} Zaragoza path failed (non-fatal) — falling back to estimated default:`, e);
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+    }
+}
+
+/**
+ * §ZGZ-OPEN-TOP-INDICATIVE — compute ONE indicative envelope for a packed Zaragoza subgrado, or
+ * return `null` on ANY miss (the caller keeps the cited `zaragozaNoRulePackRefusal`; an absent
+ * indicative draw costs nothing, a wrong one costs credibility — the same discipline every other
+ * best-effort branch in this file follows).
+ *
+ * TWO SHAPES, BECAUSE THE ORDINANCE HAS TWO SHAPES (see `esZaragoza.ts`'s own header):
+ *   • A1/4.1 / A1/4.2 — FIXED scalars. `ES_ZARAGOZA_PGOU2024_PACK` already carries the numbers;
+ *     this just runs the engine against it, exactly like the (unreachable, gate-shut) determination
+ *     branch above would once `ZARAGOZA_ENVELOPE_VERIFIED` flips.
+ *   • A1/3.1 / A1/3.2 — STREET-WIDTH DEPENDENT. `resolveZaragozaStreetWidth()` is called with NO
+ *     geometry deps, which is a DELIBERATE, HONEST `'not-wired'` refusal in production today (see
+ *     that module's header: no live Zaragoza block/parcel neighbourhood source exists, and
+ *     `esAragon.ts`'s `§ZGZ-ALIGNMENT-CANDIDATE` is exactly why one has not been adopted). So these
+ *     two zones ALWAYS return `null` here until a future author wires a geometry source into the
+ *     call below — this is NOT a bug, it is condition 4 of the Murcia precedent applied one level
+ *     earlier: refuse rather than guess a band.
+ *
+ * Every success carries `publicationPosture: 'open-top-indicative'`, the open-top's
+ * `missingConstraints` as caveats, and the ADR-0293 claim sentence — the exact stamp
+ * `applyBalearsZoningThenFallback` applies, duplicated here rather than factored out because the
+ * two callers differ in exactly the fields that matter (zoning record, rule pack, roadmap line) and
+ * a shared helper would need to take all of them as parameters anyway.
+ */
+function tryZaragozaIndicativeEnvelope(
+    zoneCode: ZaragozaZoneCode,
+    zoneDescripcion: string | null,
+    boundary: ZoningBoundary,
+    openTop: OpenTopIndicativeRecord,
+): BuildableEnvelope | null {
+    const TAG = '[gis][c58] §ZGZ-OPEN-TOP-INDICATIVE';
+    try {
+        let rulePack = ES_ZARAGOZA_PGOU2024_PACK;
+        let widthNote: string | null = null;
+
+        if (zoneCode === 'A1/3.1' || zoneCode === 'A1/3.2') {
+            // ⚠ NO block/opposing-parcel geometry is supplied — see the docstring. This resolves
+            // `{ ok: false, reason: 'not-wired' }` on every production call today.
+            const width = resolveZaragozaStreetWidth();
+            if (!width.ok) {
+                console.log(`${TAG} ${zoneCode} street width NOT resolved (${width.reason}) — no indicative draw.`);
+                return null;
+            }
+            const band = resolveZaragozaA13Height(width.width_m, {
+                measurementSpread_m: width.spread_m,
+            });
+            if (!band.ok) {
+                console.log(`${TAG} ${zoneCode} width ${width.width_m.toFixed(2)} m REFUSED by the band resolver (${band.reason}) — no indicative draw.`);
+                return null;
+            }
+            rulePack = zaragozaA13ResolvedPack(zoneCode, band, width.authority);
+            widthNote = `${width.width_m.toFixed(2)} m (±${width.spread_m.toFixed(2)}, ${width.provenance})`;
+        }
+
+        const packZone = rulePack.zones.find((z) => z.code === zoneCode);
+        if (!packZone) return null;
+
+        const record: ZoningRecord = {
+            zoneCode,
+            zoneLabel: packZone.label ?? zoneDescripcion ?? null,
+            jurisdictionId: ZARAGOZA_JURISDICTION_ID,
+            structuredFields: {},
+            overlays: [],
+            ordinanceRef: packZone.ordinanceRef ?? null,
+            provenance: {
+                source: 'zaragoza-pgou-2024',
+                label:
+                    'PGOU de Zaragoza 2024, Normas Urbanísticas, Título Cuarto — human/agent-' +
+                    'transcribed, page-cited',
+                version: '2024-03',
+                license: null,
+                crs: 'EPSG:4326',
+            },
+        };
+        const envelope = computeBuildableEnvelope({
+            parcelRing: boundary.polygon,
+            edgeClassifications: boundary.edgeClassifications,
+            zoning: record,
+            rulePack,
+        });
+        if (envelope.status !== 'ok') {
+            console.log(`${TAG} ${zoneCode} produced status=${envelope.status} — no indicative draw.`);
+            return null;
+        }
+
+        return {
+            ...envelope,
+            // §OPEN-TOP-INDICATIVE — the stamp IS the difference between this arm and a determination
+            // (see `applyBalearsZoningThenFallback`'s identical comment). `posture.posture` verbatim,
+            // never a literal.
+            publicationPosture: 'open-top-indicative',
+            caveats: [
+                ...envelope.caveats,
+                ...(widthNote ? [`Street width: ${widthNote}`] : []),
+                ...openTop.missingConstraints.map(
+                    (c: string) => `OPEN TOP (ADR-0293) — not accounted for: ${c}`,
+                ),
+                'INDICATIVE (ADR-0293) — PRYZM claims NO buildable right here. This volume is drawn ' +
+                    'with an OPEN TOP: it is an upper bound that the unmodelled constraints above can ' +
+                    'only REDUCE, and it is not a determination.',
+            ],
+        };
+    } catch (e) {
+        console.warn(`${TAG} ${zoneCode} indicative compute failed (non-fatal) — no indicative draw:`, e);
+        return null;
+    }
+}
+
+/**
+ * §TELDE-ENVELOPE — the Telde (INE 35026, Gran Canaria) path, on the Zaragoza/Córdoba precedent.
+ *
+ * Telde's SIPU `EDIF` archive publishes 31 of its 46 zone codes as a machine-readable, drawable
+ * rule (`ES_TELDE_PGO2003_PACK` / `esTeldePgo2003.ts`) — published structured data, not an OCR read
+ * — and `resolveTeldeZone` resolves a point to its raw EDIF row and hands it to `readSipuZone`
+ * (reused, not duplicated). What is NOT yet true is a human sign-off: `CANARIAS_ENVELOPE_VERIFIED`
+ * is false until a Spanish-planning-literate human signs `sources/VERIFICATION.md`, so this path
+ * renders NO number today — it dispatches `canariasNoRulePackRefusal` (or `canariasGraphedRefusal`
+ * for GRF/graphed zones), naming the resolved zone when the resolver answers (never a placeholder
+ * once a real zone is known) and never a fabricated envelope.
+ *
+ * ⚠⚠ UNLIKE ZARAGOZA, THE LIVE ENDPOINT `resolveTeldeZone` WOULD CALL IS NOT WIRED SERVER-SIDE
+ * TODAY (IDECanarias' WFS is measured administratively disabled — see `resolveTeldeZone.ts`'s
+ * header). So `z.reason` will genuinely be `'endpoint-unreachable'` on every live call until a
+ * server-side EDIF point-join is stood up; that is reported honestly via `zoneNote`, never masked.
+ *
+ * VERIFICATION.md §6 records that Telde had NEITHER a dispatch branch NOR a compute path before
+ * this function — closing that gap is this function's entire job. It does not by itself make
+ * Telde live end-to-end (the proxy still needs writing); it makes a signature the ONLY remaining
+ * gap, exactly the property Zaragoza/Córdoba already have.
+ *
+ * Fully guarded: any problem falls back to the precomputed estimated envelope; never throws into
+ * the commit path. `status: 'none'` on the refusal keeps every numeric field null and clears any
+ * stale `buildableRing` (`dispatchEnvelope` writes a ring only on `'ok'`).
+ */
+async function applyTeldeZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+): Promise<void> {
+    const TAG = '[gis][c58] §TELDE-ENVELOPE';
+    const JURISDICTION_REF = 'sipu-telde-edif';
+    /** Fallback zone code for the refusal envelope when the resolver does not resolve a zone. */
+    const TELDE_FALLBACK_ZONE_CODE = 'telde-pgo-2003';
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        const parcelAreaM2 = (() => {
+            try {
+                const ring = boundary.polygon;
+                const a = Math.abs(
+                    ring.reduce((acc, p, i) => {
+                        const q = ring[(i + 1) % ring.length]!;
+                        return acc + (p.x * q.z - q.x * p.z);
+                    }, 0) / 2,
+                );
+                return Number.isFinite(a) && a > 0 ? a : null;
+            } catch { return null; }
+        })();
+
+        // ── §TELDE-ZONE — resolve the EDIF zone BEFORE the gate. ─────────────────────────────
+        //
+        // ⚠⚠ THIS RESOLVES DATA, IT DOES NOT DECIDE TO RENDER. `CANARIAS_ENVELOPE_VERIFIED` is
+        // still false below, so a resolved zone binds NO number — it only lets the refusal say
+        // WHICH zone refused, exactly the same honesty property `resolveZaragozaZone` documents.
+        //
+        // ⚠ A FAILURE AND AN EMPTY ANSWER ARE NOT THE SAME VALUE (§CONTEXT-DATA-HONESTY). `no-zone`
+        // means the resolver answered and this point carries no `EDIF` polygon; `endpoint-
+        // unreachable` means we do not know (today: ALWAYS, because the proxy is unwired).
+        //
+        // ⚠ A MATCHED-BUT-UNPACKED CODE (e.g. `A1`, `INDEF`) IS NOT SILENTLY DROPPED. `packed` here
+        // is what THIS function computes from `TELDE_PGO2003_ZONE_CODES`, purely to phrase the
+        // refusal with the named `TELDE_UNPACKED_ZONES` reason — it is never used to discard a real
+        // resolution.
+        let zoneCode: string | null = null;
+        let zoneLabel: string | null = null;
+        let grammar: string | null = null;
+        let packed = false;
+        let zoneNote: string | null = null;
+        try {
+            const z = await resolveTeldeZone({ lat, lon });
+            if (z.ok) {
+                const reading = z.resolution.reading;
+                zoneCode = reading.zoneCode;
+                zoneLabel = reading.zoneLabel;
+                grammar = reading.grammar;
+                if (zoneCode !== null) {
+                    packed = (TELDE_PGO2003_ZONE_CODES as readonly string[]).includes(zoneCode);
+                    if (!packed) {
+                        const reason = TELDE_UNPACKED_ZONES[zoneCode];
+                        zoneNote = reason
+                            ? `Zone ${zoneCode} is deliberately not packed: ${reason}`
+                            : `Zone ${zoneCode} is outside the 31 packed Telde EDIF zones — no rule ` +
+                              'exists for it yet.';
+                    }
+                }
+            } else if (z.reason === 'no-zone') {
+                zoneNote =
+                    'No SIPU `EDIF` zone polygon covers this point — outside Telde\'s published ' +
+                    'built-form zoning.';
+            } else {
+                zoneNote =
+                    `Telde EDIF zone NOT resolved (${z.reason}) — this is an unknown, not an ` +
+                    'absence of planning. The per-point EDIF service PRYZM would query is not ' +
+                    'wired server-side yet (§TELDE-ZONE-RESOLVER).';
+            }
+        } catch (e) {
+            console.warn(`${TAG} §TELDE-ZONE resolve failed (non-fatal):`, e);
+            zoneNote = 'Telde EDIF zone NOT resolved (resolver error) — this is an unknown, not an absence of planning.';
+        }
+
+        const knownFacts = [
+            `Location: Telde (${lat.toFixed(5)}, ${lon.toFixed(5)}) — PGO de Telde 2003 (adaptación plena)`,
+            parcelAreaM2 !== null ? `Parcel area: ${Math.round(parcelAreaM2).toLocaleString()} m²` : null,
+            zoneCode !== null
+                ? `EDIF zone: ${zoneLabel ? `${zoneLabel} — ` : ''}${zoneCode} ` +
+                  '(SIPU `EDIF.mdb`, Gobierno de Canarias, opendata.sitcan.es)'
+                : null,
+            zoneNote,
+            'Planning source: PGO de Telde 2003 (adaptación plena) — published structured data; ' +
+                'transcription unsigned',
+        ].filter((s): s is string => typeof s === 'string');
+
+        if (!CANARIAS_ENVELOPE_VERIFIED) {
+            // ⚠⚠⚠ THE HONESTY GATE — ⛔ DO NOT FLIP `CANARIAS_ENVELOPE_VERIFIED` HERE OR ANYWHERE
+            // ELSE. A signature is a founder act (L-449); a model flipping it is the L-677 defect.
+            // `status: 'none'` = attempted, value WITHHELD pending a human transcription + sign-off.
+            //
+            // §STAGING-UNCERTIFIED-PREVIEW (L-449) — a NARROWER, non-production-only exception to
+            // the refusal below, never to the gate itself. `CANARIAS_ENVELOPE_VERIFIED` is still
+            // read as `false` two lines above this comment and nothing here writes to it.
+            // `isUncertifiedPreviewModeActive()` (`testMode/uncertifiedPreviewMode.ts`) is
+            // triple-gated to a non-production Vite build with an exact opt-in literal, so this
+            // branch is structurally absent from a real production bundle. It computes the SAME
+            // `computeBuildableEnvelope` call the signed path below would make — real transcribed
+            // data, no fabrication — but stamps `publicationPosture: 'uncertified-preview'`, which
+            // makes the render classifier (`envelopeToMassing.ts`) refuse `complete: true` for it
+            // and draw it loudly watermarked. This exists ONLY so the founder can visually verify
+            // the compute path on a staging deploy before signing `sources/VERIFICATION.md`.
+            if (isUncertifiedPreviewModeActive() && zoneCode !== null && packed) {
+                const packZone = ES_TELDE_PGO2003_PACK.zones.find((z) => z.code === zoneCode);
+                const record: ZoningRecord = {
+                    zoneCode,
+                    zoneLabel: packZone?.label ?? zoneLabel ?? null,
+                    jurisdictionId: TELDE_JURISDICTION_ID,
+                    structuredFields: {},
+                    overlays: [],
+                    ordinanceRef: packZone?.ordinanceRef ?? null,
+                    provenance: {
+                        source: 'sipu-telde-edif',
+                        label:
+                            'SIPU `EDIF.mdb`, Gobierno de Canarias — published structured data, ' +
+                            'UNSIGNED reading (§STAGING-UNCERTIFIED-PREVIEW)',
+                        version: '2003',
+                        license: null,
+                        crs: 'EPSG:32628',
+                    },
+                };
+                const previewEnvelope = computeBuildableEnvelope({
+                    parcelRing: boundary.polygon,
+                    edgeClassifications: boundary.edgeClassifications,
+                    zoning: record,
+                    rulePack: ES_TELDE_PGO2003_PACK,
+                });
+                if (previewEnvelope.status === 'ok') {
+                    const watermarked = {
+                        ...previewEnvelope,
+                        publicationPosture: 'uncertified-preview' as const,
+                        caveats: [uncertifiedPreviewCaveat(`Telde EDIF ${zoneCode}`), ...previewEnvelope.caveats],
+                    };
+                    dispatchEnvelope(ctx, site.id, watermarked, JURISDICTION_REF);
+                    console.log(
+                        `${TAG} §STAGING-UNCERTIFIED-PREVIEW zoneCode=${zoneCode} — rendered an ` +
+                            'UNCERTIFIED preview (CANARIAS_ENVELOPE_VERIFIED remains false). ' +
+                            `area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m².`,
+                    );
+                    return;
+                }
+                console.log(
+                    `${TAG} §STAGING-UNCERTIFIED-PREVIEW zoneCode=${zoneCode} produced status=` +
+                        `${previewEnvelope.status} — falling through to the normal refusal.`,
+                );
+            }
+            //
+            // A GRAPHED zone (`DispObl = GRF`) refuses on the STRONGER, legally-grounded terms
+            // `canariasGraphedRefusal` states — the building line is on a plan sheet PRYZM does not
+            // hold, which will keep refusing after any signature, unlike a coverage gap.
+            const refusal =
+                grammar === 'graphed-refusal' && zoneCode !== null
+                    ? canariasGraphedRefusal(zoneCode, zoneLabel, knownFacts)
+                    : canariasNoRulePackRefusal(zoneCode, zoneLabel, knownFacts);
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(zoneCode ?? TELDE_FALLBACK_ZONE_CODE, refusal, 'none'),
+                JURISDICTION_REF,
+            );
+            console.log(
+                `${TAG} §HONESTY-GATE CANARIAS_ENVELOPE_VERIFIED=false — dispatched the no-signed-` +
+                    `rule refusal; NO number rendered (${refusal.code}). zoneCode=${zoneCode ?? 'unresolved'} ` +
+                    `packed=${packed} area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m². ` +
+                    `Signs off via sources/VERIFICATION.md.`,
+            );
+            return;
+        }
+
+        // ── VERIFICATION SIGNED (future). Only a PACKED zone (one of the 31 in
+        // `TELDE_PGO2003_ZONE_CODES`) may compute — an unpacked but resolved code (e.g. `A1`,
+        // `INDEF`) still refuses on its own named merits, never borrows another zone's numbers.
+        if (zoneCode !== null && packed) {
+            const packZone = ES_TELDE_PGO2003_PACK.zones.find((z) => z.code === zoneCode);
+            const record: ZoningRecord = {
+                zoneCode,
+                zoneLabel: packZone?.label ?? zoneLabel ?? null,
+                jurisdictionId: TELDE_JURISDICTION_ID,
+                // The SIPU EDIF row's numbers are already folded into the transcribed pack entry —
+                // there is nothing additional structured to pass through per-parcel.
+                structuredFields: {},
+                overlays: [],
+                ordinanceRef: packZone?.ordinanceRef ?? null,
+                provenance: {
+                    source: 'sipu-telde-edif',
+                    label:
+                        'SIPU `EDIF.mdb`, Gobierno de Canarias — published structured data, ' +
+                        'human-signed reading',
+                    version: '2003',
+                    license: null,
+                    crs: 'EPSG:32628',
+                },
+            };
+            const envelope = computeBuildableEnvelope({
+                parcelRing: boundary.polygon,
+                edgeClassifications: boundary.edgeClassifications,
+                zoning: record,
+                rulePack: ES_TELDE_PGO2003_PACK,
+            });
+            if (envelope.status === 'ok') {
+                dispatchEnvelope(ctx, site.id, envelope, JURISDICTION_REF);
+                console.log(
+                    `${TAG} zoneCode=${zoneCode} — RENDERED a signed envelope at ` +
+                        `${envelope.confidence ?? 'n/a'}. area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m².`,
+                );
+                return;
+            }
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(
+                    zoneCode,
+                    {
+                        code: 'source-data-unavailable',
+                        headline:
+                            `${zoneCode}${packZone ? ` — ${packZone.label}` : ''}: the transcribed ` +
+                            'ordinance leaves no buildable footprint on this parcel.',
+                        detail:
+                            'PRYZM applied the transcribed, signed EDIF rule to your parcel ' +
+                            'boundary and the resulting footprint is empty — typically a plot ' +
+                            'narrower than the ordinance\'s setback/coverage geometry permits. ' +
+                            'PRYZM will not substitute an estimated figure to avoid showing an ' +
+                            'empty result.',
+                        ordinanceRef: packZone?.ordinanceRef ?? null,
+                        legallyGrounded: false,
+                        knownFacts,
+                    },
+                    'none',
+                ),
+                JURISDICTION_REF,
+            );
+            console.log(
+                `${TAG} zoneCode=${zoneCode} produced status=${envelope.status} — dispatched the ` +
+                    `empty-footprint refusal. NO number rendered.`,
+            );
+            return;
+        }
+
+        // Verified but unpacked/unresolved — the coverage-gap refusal, never a guessed number.
+        const coverageGap =
+            grammar === 'graphed-refusal' && zoneCode !== null
+                ? canariasGraphedRefusal(zoneCode, zoneLabel, knownFacts)
+                : canariasNoRulePackRefusal(zoneCode, zoneLabel, knownFacts);
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(zoneCode ?? TELDE_FALLBACK_ZONE_CODE, coverageGap, 'none'),
+            JURISDICTION_REF,
+        );
+    } catch (e) {
+        console.warn(`${TAG} Telde path failed (non-fatal) — falling back to estimated default:`, e);
         try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
     }
 }
@@ -4022,6 +4939,130 @@ async function applyMurciaZoningThenFallback(
                     ctx,
                     site.id,
                     buildRefusedEnvelope(MURCIA_FALLBACK_ZONE_CODE, murciaNoRulePackRefusal(), 'none'),
+                    JURISDICTION_REF,
+                );
+            }
+        } catch { /* refusal dispatch is best-effort too */ }
+    }
+}
+
+/**
+ * §VALENCIA-ORIGEN-DERIVED-PLAN (2026-08-03) — CLOSURE-REGISTER #3.
+ *
+ * València (INE 46250) NEVER publishes a buildable number: `VALENCIA_ENVELOPE_VERIFIED` is `false`
+ * (the ordinance's height/depth parameters are graphed on Plano C / gated on the unresolved
+ * `altura` offset convention — `esValenciaEnvelope.ts`), and this function does not import that
+ * constant or touch it. What it DOES do is read the LIVE `origen` field at the parcel
+ * (`resolveValenciaOrigen`, `MapServer/231`) and choose between the two refusal tiers the registry
+ * already ships: the STRONGER, legally-grounded `derived-plan` refusal
+ * (`valenciaDerivedPlanRefusal`, `legallyGrounded: true`) when `origen` names a document other than
+ * the PGOU, or the weaker, always-true coverage refusal (`valenciaNoRulePackRefusal`,
+ * `legallyGrounded: false`) otherwise — INCLUDING every point this resolver could not answer, where
+ * the coverage refusal remains the honest, unchanged prior behaviour.
+ *
+ * ⚠ On ANY resolution failure this falls through to `applyEstimatedZoning`, exactly like every
+ * sibling city path (Murcia/Balears/Telde) — the registered-jurisdiction guard
+ * (`refuseEstimateInsideRegisteredJurisdiction`) then dispatches its own honest refusal, so a
+ * transport failure here never becomes a fabricated estimate and never becomes a blank panel.
+ */
+async function applyValenciaZoningThenFallback(
+    ctx: SiteContext,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+): Promise<void> {
+    const TAG = '[gis][c58] §VALENCIA-ORIGEN-DERIVED-PLAN';
+    const JURISDICTION_REF = VALENCIA_JURISDICTION_ID;
+    const VALENCIA_FALLBACK_ZONE_CODE = 'valencia-pgou';
+    try {
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        // Best-effort enrichment — the referencia catastral, same national proxy every Spanish
+        // click uses. A miss costs the card some specificity and nothing else (L-553).
+        let refcat: string | null = null;
+        try {
+            const parcel = await catastroParcelProvider.fetchParcelAtPoint(lon, lat);
+            refcat = parcel?.refcat ?? null;
+        } catch { /* the parcel leg is enrichment, never a precondition */ }
+
+        const knownFacts: string[] = [
+            `Location: València (${lat.toFixed(5)}, ${lon.toFixed(5)})`,
+            refcat !== null ? `Referencia catastral: ${refcat}` : null,
+        ].filter((s): s is string => typeof s === 'string');
+
+        const resolution = await resolveValenciaOrigen({ lat, lon });
+
+        if (resolution.ok && resolution.origen && !valenciaOrigenIsPgouOrdered(resolution.origen)) {
+            // ⭐ THE UPGRADE — a live, non-`PGOU*` `origen` licenses the stronger refusal.
+            const refused = valenciaDerivedPlanRefusal(
+                resolution.origen,
+                resolution.califi,
+                null,
+                knownFacts,
+            );
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(resolution.califi ?? VALENCIA_FALLBACK_ZONE_CODE, refused, 'none'),
+                JURISDICTION_REF,
+            );
+            console.log(
+                `${TAG} live origen="${resolution.origen}" (califi=${resolution.califi ?? 'n/a'}) is ` +
+                    `NOT PGOU-ordered — dispatched the STRONGER ${refused.code} refusal ` +
+                    `(legallyGrounded=${refused.legallyGrounded}); NO number rendered.`,
+            );
+            return;
+        }
+
+        // Either `origen` IS the PGOU, or the live read did not resolve one — both cases keep the
+        // weaker, always-true coverage refusal that València has always shipped. Never a blank
+        // panel: this branch runs INSTEAD of the generic estimate-suppressed card so the known
+        // facts and zone identity gathered above are not thrown away.
+        if (resolution.ok) {
+            knownFacts.push(
+                resolution.origen
+                    ? `Governing instrument (live): ${resolution.origen}`
+                    : 'The municipal service did not record a governing instrument at this point.',
+            );
+        } else if (resolution.reason === 'service-error') {
+            knownFacts.push(
+                "⚠ València's municipal zoning service did not answer this request. That is a " +
+                    'temporary data-path failure, NOT a finding about the governing instrument.',
+            );
+        }
+        const coverage = valenciaNoRulePackRefusal(resolution.ok ? resolution.califi : null, null, knownFacts);
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(
+                (resolution.ok ? resolution.califi : null) ?? VALENCIA_FALLBACK_ZONE_CODE,
+                coverage,
+                'none',
+            ),
+            JURISDICTION_REF,
+        );
+        console.log(
+            `${TAG} ${
+                resolution.ok
+                    ? `live origen=${resolution.origen ?? 'n/a'} is PGOU-ordered or unrecorded`
+                    : `origen resolution failed (${resolution.reason})`
+            } — dispatched the coverage refusal (${coverage.code}); NO number rendered.`,
+        );
+    } catch (e) {
+        // Best-effort — never block the commit, and never leave an ESTIMATE on a jurisdiction we
+        // answer.
+        console.warn(`${TAG} València path failed (non-fatal) — attempting a cited refusal:`, e);
+        try {
+            const site = ctx.store.getSite();
+            if (site) {
+                dispatchEnvelope(
+                    ctx,
+                    site.id,
+                    buildRefusedEnvelope(VALENCIA_FALLBACK_ZONE_CODE, valenciaNoRulePackRefusal(), 'none'),
                     JURISDICTION_REF,
                 );
             }

@@ -280,6 +280,39 @@ export function zaragozaA13WeightedEdificabilidad(
     }
 }
 
+/**
+ * §ZGZ-MISSING-CONSTRAINTS — the constraint FAMILIES PRYZM does not model for Zaragoza, named as
+ * DATA, not prose (ADR-0293's `OpenTopIndicativeRecord.missingConstraints` shape — see
+ * `openTopIndicative.ts`). Each entry can only ever REDUCE a buildable envelope, which is what
+ * makes any solid built from this pack an UPPER BOUND rather than a closed box.
+ *
+ * ⚠ MEASURED AS AN ABSENCE OF WIRING, NOT AS A CITY-SPECIFIC RISK SURVEY. Nobody has done the
+ * systematic per-Zaragoza sweep Balears got (`BALEARS_MISSING_CONSTRAINTS`, 6 families,
+ * `resolveBalearsMuib.ts`). What IS verifiable by reading this codebase is narrower and still
+ * real: none of `resolveCatalunyaFloodOverlay.ts` (flood), `resolveBarcelonaHeritageOverlay.ts`
+ * (heritage) or the Barcelona AESA airport-servitude geometry mention or cover Zaragoza — every
+ * constraint layer PRYZM has ever wired is Catalunya/Balears-scoped. So for THIS jurisdiction the
+ * honest claim is "PRYZM models zero constraint layers here", not "these six are the only gap".
+ *
+ * ⛔ `coastal` IS DELIBERATELY ABSENT. Zaragoza is 300 km from the sea; carrying Balears's coastal
+ * entry here would be citing a risk the city cannot have, which is the same dishonesty in the
+ * opposite direction (a manufactured family, not a real one).
+ */
+export const ZARAGOZA_MISSING_CONSTRAINTS: readonly string[] = Object.freeze([
+    'heritage — municipal Catálogo de Bienes Catalogados / BIC declarations (Conjunto Histórico ' +
+        'del Casco Antiguo, La Aljafería, La Seo, Basílica del Pilar and others) — not modelled; ' +
+        'no Zaragoza heritage layer is wired anywhere in this codebase',
+    'flood — Ebro river ARPSI flood zones under the Plan de Gestión del Riesgo de Inundación de ' +
+        'la Demarcación Hidrográfica del Ebro — not modelled; `resolveCatalunyaFloodOverlay.ts` ' +
+        'covers Catalunya only',
+    'airport — servidumbres aeronáuticas around Aeropuerto de Zaragoza (LEZG, joint civil/' +
+        'military) — not modelled; unlike Barcelona (AESA KMZ, wired), no equivalent geometry is ' +
+        'wired for Zaragoza',
+    'environmental — Red Natura 2000 riparian sites along the Ebro (e.g. ZEC Sotos y Galachos del ' +
+        'Ebro) reaching into the municipal boundary — not modelled',
+    ZARAGOZA_A1_3_2_TRAVESIA_GAP,
+]);
+
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // §ZGZ-STATIC-PACK — the four subgrados as a curated `JurisdictionZoningContract`.
 // ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -459,3 +492,61 @@ export const ES_ZARAGOZA_PGOU2024_PACK: JurisdictionZoningContract =
             },
         ],
     });
+
+/**
+ * §ZGZ-A13-RESOLVED-PACK — turn ONE resolved ancho-de-calle band into a one-zone rule pack.
+ *
+ * A1/3.1 and A1/3.2 have no single height (`resolveZaragozaA13Height` above resolves the band for
+ * a MEASURED street width) — this mirrors `murciaAnchoResolvedPack` (`esMurciaAnchoDeCalle.ts`)
+ * exactly, down to why a per-parcel pack is not a hack: the ordinance's own numbers are only
+ * knowable once a width has been measured for THIS parcel, and folding that into a
+ * schema-validated `JurisdictionZoningContract` keeps `computeBuildableEnvelope` unchanged and
+ * ignorant of Zaragoza.
+ *
+ * @param zoneCode  `'A1/3.1'` or `'A1/3.2'` — the resolved subgrado carries which article governs.
+ * @param resolved  an `ok: true` `ZaragozaA13Resolution` from `resolveZaragozaA13Height`.
+ * @param widthProvenanceNote  the CONSTRUCTED-width authority string from the street-width
+ *   provider. It must REACH THE USER, so it is folded into `ordinanceRef` — never left in a log.
+ */
+export function zaragozaA13ResolvedPack(
+    zoneCode: Extract<ZaragozaZoneCode, 'A1/3.1' | 'A1/3.2'>,
+    resolved: Extract<ZaragozaA13Resolution, { ok: true }>,
+    widthProvenanceNote: string,
+): JurisdictionZoningContract {
+    const article = zoneCode === 'A1/3.1' ? 'Art. 4.1.12' : 'Art. 4.1.13';
+    const travesiaNote = zoneCode === 'A1/3.2' ? ` ${ZARAGOZA_A1_3_2_TRAVESIA_GAP}` : '';
+    return JurisdictionZoningContractSchema.parse({
+        jurisdictionId: ZARAGOZA_JURISDICTION_ID,
+        displayName: `Zaragoza — PGOU 2024 ${article} (ancho de calle, resolved per parcel)`,
+        source: 'manual',
+        crs: 'EPSG:25830',
+        lastReviewed: '2026-08-03',
+        // §OPEN-TOP-INDICATIVE publishes AT THIS TIER and no higher — `authoritative` is unreachable.
+        defaultConfidence: ZARAGOZA_PACK_DEFAULT_CONFIDENCE,
+        zones: [{
+            code: zoneCode,
+            label: `${zoneCode} — PGOU 2024 ${article} (altura por ancho de calle)`,
+            permittedUse: ['residential'],
+            maxHeight_m: resolved.height_m,
+            maxFloors: resolved.floorsAboveGround + 1, // + planta baja, matching Murcia's convention.
+            plotRatioFAR: resolved.far,
+            maxCoverage: 0.5, // plantas alzadas — see the block comment on the static A1/3.1 zone.
+            setbacks: NULL_SETBACKS,
+            geometricRule: CLOSED_BLOCK_ALIGNMENT_15M,
+            fieldProvenance: {
+                maxHeight: ZARAGOZA_FIELD_PROVENANCE,
+                maxFloors: ZARAGOZA_FIELD_PROVENANCE,
+                maxFAR: ZARAGOZA_FIELD_PROVENANCE,
+                maxCoverage: ZARAGOZA_FIELD_PROVENANCE,
+                permittedUse: ZARAGOZA_FIELD_PROVENANCE,
+                'alignment.depth': ZARAGOZA_FIELD_PROVENANCE,
+            },
+            ordinanceRef:
+                `PGOU de Zaragoza 2024, ${article}: ancho de calle ${resolved.band.minWidth_m}` +
+                `–${Number.isFinite(resolved.band.maxWidth_m) ? resolved.band.maxWidth_m : '∞'} m ` +
+                `→ B+${resolved.floorsAboveGround}, ${resolved.height_m} m, edificabilidad ` +
+                `${resolved.far} m²/m². Plantas alzadas máx. 15 m fondo (Art. 4.1.3).` +
+                `${travesiaNote} ⚠ STREET WIDTH: ${widthProvenanceNote} ${SRC}`,
+        }],
+    });
+}

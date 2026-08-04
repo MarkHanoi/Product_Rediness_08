@@ -480,6 +480,65 @@ export function canariasNoRulePackRefusal(
 }
 
 /**
+ * ⭐ ADDED 2026-08-03 (§CANARIAS-88-REGISTRATION) — the refusal for the OTHER 46 municipalities:
+ * multi-instrument, no vigencia source, so the GOVERNING PLAN ITSELF is undetermined. This reads
+ * differently from `canariasNoRulePackRefusal` on purpose, and the difference is not cosmetic:
+ *
+ *   • `canariasNoRulePackRefusal` (routable municipalities, incl. Telde) — PRYZM knows WHICH
+ *     instrument governs and can read its EDIF columns; what is missing is a human SIGNATURE
+ *     (L-449). The gap is entirely PRYZM's.
+ *   • `canariasMultiInstrumentRefusal` (this function) — PRYZM does not know which of 2+ published
+ *     base instruments is CURRENT, because Canarias publishes no vigencia field anywhere
+ *     (`CANARIAS_MULTI_INSTRUMENT_BLOCKER`). Even a signed reading of either instrument would not
+ *     fix this: the question is which LAW applies, not whether PRYZM read it correctly. So the
+ *     `code` is `'regime-undetermined'` (the same code `canariasGraphedRefusal` uses for "the
+ *     ordinance has a determination PRYZM cannot resolve"), never `'no-rule-pack'`.
+ *
+ * ⚠ `municipalityName` is threaded through rather than hidden behind a generic "Canarias" line —
+ * unlike the signature gap (one regional fact, true of all 41 routable municipalities alike), the
+ * multi-instrument blocker is a MUNICIPAL fact (how many base instruments THIS town published),
+ * so naming the town is the honest level of detail.
+ *
+ * Cites `CANARIAS_MULTI_INSTRUMENT_BLOCKER` rather than restating it — one string, not two that
+ * can drift (the same discipline `ENVELOPE_PUBLICATION_GATES` applies to gate constants).
+ */
+export function canariasMultiInstrumentRefusal(
+    municipalityName: string,
+    zoneCode: string | null,
+    zoneLabel: string | null,
+    knownFacts: readonly string[],
+): EnvelopeRefusal {
+    return tracer.startActiveSpan('canarias.multiInstrumentRefusal', (span) => {
+        try {
+            span.setAttribute('pryzm.canarias.municipality', municipalityName);
+            span.setAttribute('pryzm.canarias.zoneCode', zoneCode ?? 'none');
+            const refusal: EnvelopeRefusal = {
+                // ⚠ NOT `no-rule-pack`: PRYZM is not missing a pack for a known instrument, it is
+                // missing the ANSWER TO "which instrument". `regime-undetermined` says so.
+                code: 'regime-undetermined',
+                headline: `${municipalityName} — the governing planning instrument is undetermined.`,
+                detail:
+                    `${municipalityName}: ${CANARIAS_MULTI_INSTRUMENT_BLOCKER} ` +
+                    (zoneCode
+                        ? `A zone code resolved for this parcel is ${zoneCode}` +
+                          (zoneLabel ? ` (${zoneLabel})` : '.') +
+                          ' — but naming a zone under an unknown instrument names nothing PRYZM ' +
+                          'can stand behind.'
+                        : 'No zone code was resolved for this parcel.'),
+                // ⚠ null for the same reason as `canariasNoRulePackRefusal`: no single ordinance
+                // has been identified as governing, so there is no article to cite.
+                ordinanceRef: null,
+                knownFacts: [...knownFacts],
+                legallyGrounded: false,
+            };
+            return refusal;
+        } finally {
+            span.end();
+        }
+    });
+}
+
+/**
  * The GRAPHED refusal — a *stronger*, structural one, and the reason it is worth separating.
  *
  * When `DispObl` is `GRF` the ordinance HAS a determination and has published it AS A DRAWING.

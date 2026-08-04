@@ -60,6 +60,8 @@ import { SA_RIYADH_DEMO_PACK } from '../src/rulepacks/saRiyadhDemo.js';
 import { ESTIMATED_DEFAULT_PACK } from '../src/rulepacks/estimatedDefault.js';
 import { ES_TELDE_PGO2003_PACK } from '../src/rulepacks/esTeldePgo2003.js';
 import { ES_ZARAGOZA_PGOU2024_PACK } from '../src/rulepacks/esZaragoza.js';
+import { ES_SEVILLA_PGOU_PACK } from '../src/rulepacks/esSevilla.js';
+import { ES_EL_SAUZAL_PACK } from '../src/rulepacks/esElSauzal.js';
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // THE FROZEN MANIFEST — every pack's PUBLISHED `defaultConfidence`, as shipped before L-664.
@@ -74,6 +76,12 @@ const PUBLISHED: ReadonlyArray<readonly [string, { defaultConfidence: RulePackDe
     // data), so this seed describes NOTHING today. It is pinned at the floor tier precisely so a
     // future zone cannot inherit a flattering default by being added to an unpinned pack.
     ['esValenciaPgou', ES_VALENCIA_PGOU_PACK, 'estimated-ruleset'],
+    // Sevilla PGOU-2006 — landed after this manifest was frozen. ⚠ 2026-08-03: carries one
+    // transcribed zone (`SB`) but is STILL pinned at the floor tier — `SEVILLA_PACK_DEFAULT_
+    // CONFIDENCE` ('estimated-ruleset') is the honest ceiling for a human/agent-transcribed pack,
+    // same reasoning as València's line above, so a future zone cannot inherit a flattering
+    // default silently.
+    ['esSevilla', ES_SEVILLA_PGOU_PACK, 'estimated-ruleset'],
     // Telde PGO-2003 (Canarias SIPU) — landed after this manifest was frozen. ⚠ Its numbers are
     // PUBLISHED STRUCTURED DATA (the Gobierno de Canarias' own typed EDIF columns), which is
     // stronger provenance than an OCR read — and it is pinned at `estimated-ruleset` ANYWAY,
@@ -100,6 +108,13 @@ const PUBLISHED: ReadonlyArray<readonly [string, { defaultConfidence: RulePackDe
     // frozen. Human/agent-transcribed VERBATIM from the ordinance text (not OCR), so it ships the
     // curated-estimate ceiling `estimated-ruleset`, never the OCR-pipeline bottom tier.
     ['ES_ZARAGOZA_PGOU2024_PACK', ES_ZARAGOZA_PGOU2024_PACK, 'estimated-ruleset'],
+    // El Sauzal (INE 38041, Canarias) — Normativa Urbanística Título X Cap.3 (Ciudad Jardín,
+    // RE-ViUf-*). Human/agent-transcribed VERBATIM from the PGOU ordinance text (not OCR), so it
+    // ships the curated-estimate ceiling `estimated-ruleset` — the same tier as Zaragoza/Telde,
+    // never higher: the RE-ViUf ↔ Ciudad Jardín typology binding is itself an inference (see
+    // EL_SAUZAL_TYPOLOGY_BINDING_INFERENCE in esElSauzal.ts), and a per-area "fichero de
+    // ordenación anexo" this transcription did not find could override any packed figure.
+    ['ES_EL_SAUZAL_PACK', ES_EL_SAUZAL_PACK, 'estimated-ruleset'],
     // The rest.
     ['NL_BESTEMMINGSPLAN_PACK', NL_BESTEMMINGSPLAN_PACK, 'estimated-ruleset'],
     ['FR_PARIS_PLU_PACK', FR_PARIS_PLU_PACK, 'estimated-ruleset'],

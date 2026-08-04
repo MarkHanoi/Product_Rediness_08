@@ -257,6 +257,16 @@ import {
 } from './esValenciaEnvelope.js';
 import { VALENCIA_BBOX, isInValencia } from '../providers/valenciaBbox.js';
 // ── ⚠ END OF THE VALÈNCIA IMPORT BLOCK. ───────────────────────────────────────────────────────
+// ── SEVILLA (INE 41091) — ⚠ START OF THE SEVILLA IMPORT BLOCK. ───────────────────────────────
+// A REFUSAL jurisdiction, and — unlike Córdoba/Murcia — one with NO transcribed ordinance at
+// all: `ES_SEVILLA_PGOU_PACK.zones` is empty because no PGOU-2006 article has been read yet (that
+// is separate legal/research work). What IS live is the zone IDENTITY: Sevilla's own ArcGIS
+// service resolves `zona_orden` per parcel (`resolveSevillaZone.ts`), so the refusal names the
+// real zone instead of speaking generically. `SEVILLA_ENVELOPE_VERIFIED` is `false` and there is
+// nothing behind the gate to sign yet. See `esSevilla.ts`.
+import { SEVILLA_JURISDICTION_ID, sevillaNoRulePackRefusal } from './esSevilla.js';
+import { SEVILLA_BBOX, isInSevilla } from '../providers/sevillaBbox.js';
+// ── ⚠ END OF THE SEVILLA IMPORT BLOCK. ────────────────────────────────────────────────────────
 // ── ARAGÓN (Huesca INE 22125, Zaragoza INE 50297) — ⚠ START OF THE ARAGÓN IMPORT BLOCK. ───────
 // Two REFUSAL jurisdictions. Registered because "Aragón is CLOSED" was a claim about the
 // REGIONAL SIUa layer that does not survive at the municipal level — measured on 421 Zaragoza
@@ -305,9 +315,36 @@ import { CATALUNYA_BBOX, isInCatalunya } from '../providers/catalunyaBbox.js';
 // ── TELDE / CANARIAS (municipal) — the SIPU adapter's one wired municipality. See its
 //    registration at the END of `REGISTRATIONS`, and §TELDE-BBOX-PROVENANCE in `teldeBbox.ts`
 //    for where the extent was sourced from (it was sourced, not drawn).
-import { TELDE_JURISDICTION_ID, canariasNoRulePackRefusal } from './esCanariasSipu.js';
+import {
+    TELDE_JURISDICTION_ID,
+    canariasNoRulePackRefusal,
+    canariasMultiInstrumentRefusal,
+} from './esCanariasSipu.js';
 import { ES_TELDE_PGO2003_PACK, TELDE_PGO2003_ZONE_CODES } from './esTeldePgo2003.js';
 import { TELDE_BBOX, isInTelde } from '../providers/teldeBbox.js';
+// ── EL SAUZAL / CANARIAS (municipal) — the second bespoke Canarias registration, on the SAME
+//    "excluded from the generic 87, own literal entry" pattern as Telde above. See its
+//    registration at the END of `REGISTRATIONS`, and `esElSauzal.ts` for the article-cited
+//    Ciudad Jardín (RE-ViUf-*) transcription + the two named honesty gaps that keep
+//    `EL_SAUZAL_ENVELOPE_VERIFIED` false.
+import {
+    EL_SAUZAL_JURISDICTION_ID,
+    EL_SAUZAL_ENVELOPE_VERIFIED,
+    EL_SAUZAL_ZONE_CODES,
+    ES_EL_SAUZAL_PACK,
+    elSauzalNoRulePackRefusal,
+} from './esElSauzal.js';
+import { EL_SAUZAL_BBOX, isInElSauzal } from '../providers/elSauzalBbox.js';
+// ── THE OTHER 87 CANARIAS MUNICIPALITIES (§CANARIAS-88-REGISTRATION, 2026-08-03) — municipal,
+//    same shape as Telde, generated below rather than hand-written 87 times. See the block
+//    comment at `buildCanariasMunicipalRegistrations()` and `canariasMunicipalBboxes.ts` for the
+//    provenance of every bbox.
+import {
+    CANARIAS_ROUTABLE_MUNICIPAL_BBOXES,
+    CANARIAS_MULTI_INSTRUMENT_MUNICIPAL_BBOXES,
+    isWithinCanariasMunicipalBbox,
+    type CanariasMunicipalBboxEntry,
+} from '../providers/canariasMunicipalBboxes.js';
 // ── ILLES BALEARS (autonomous community) — LIVE-RESOLVED, `packsByZone` EMPTY, GATE SHUT (L-680).
 //    The Denmark/Paris/NL shape: the pack is built per parcel from the MUIB fitxa by the L5 dispatch
 //    (`resolveBalearsMuib` → `/api/es/balears-muib`), so there is nothing static to key here. See the
@@ -524,6 +561,77 @@ function packMap(
         }
     }
     return m;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §CANARIAS-88-REGISTRATION (2026-08-03) — GENERATED, NOT HAND-WRITTEN, AND THAT IS DELIBERATE.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+//
+// Every other registration in this file is a literal object because each carries its own
+// bespoke `answerSummary` / research. 87 Canarias municipalities do not: within each of the two
+// groups below (routable-but-unsigned, multi-instrument-ambiguous) every entry differs from its
+// siblings ONLY in `jurisdictionId`, `displayName` and `extent` — the refusal TEXT, the pack
+// (none), the resolution rung and the answer summary are the SAME FACT about Canarias repeated
+// 41 (or 46) times. Writing that fact out as 87 near-identical literals would be the restatement
+// this whole file's header warns against (drift risk: one manually-typed entry loses a word the
+// other 86 have, and nothing catches it). A `.map()` over the sourced bbox tables in
+// `canariasMunicipalBboxes.ts` makes the single fact the single source, and
+// `canariasMunicipalBboxesTotality.test.ts` asserts the generated ids match the 41+46 municipality
+// lists this was built from, so silent drift there fails CI instead of reaching a user.
+//
+// ⚠ TELDE IS NOT HERE. It keeps its own literal registration (its own pack, its own bespoke
+// `answerSummary` naming the SIPU grammar it exercises) — see the TELDE / CANARIAS BLOCK below.
+// This generator covers exactly the OTHER 87.
+function buildCanariasMunicipalRegistrations(): readonly JurisdictionRegistration[] {
+    const toRegistration = (
+        m: CanariasMunicipalBboxEntry,
+        answerSummary: string,
+        noRulePackRefusal: JurisdictionRegistration['noRulePackRefusal'],
+    ): JurisdictionRegistration => ({
+        jurisdictionId: `es-${m.ine}-${m.jurisdictionSlug}`,
+        displayName: m.name,
+        countryCode: 'ES',
+        countryName: 'Spain',
+        extent: m.bbox,
+        contains: (lat, lon) => isWithinCanariasMunicipalBbox(m.bbox, lat, lon),
+        // Municipal, like Telde: each box is one town's own INSPIRE extent, not a proximity gate
+        // over a wider area — see §CANARIAS-88-PROVENANCE in `canariasMunicipalBboxes.ts`.
+        extentResolution: 'municipal',
+        answerSummary,
+        // EMPTY BY CONSTRUCTION — no municipality here has a transcribed EDIF pack (only Telde
+        // does, and it is registered separately). Every parcel refuses.
+        packsByZone: packMap(),
+        refusalFor: () => null,
+        noRulePackRefusal,
+    });
+
+    const routableSummary =
+        'The Gobierno de Canarias publishes this municipality\'s plan as a SIPU package: EDIF.mdb ' +
+        'carries the built-form parameters (setbacks, buildable depth, coverage, FAR, storeys, ' +
+        'height with the datum disambiguated by schema) as named numeric columns, and the census ' +
+        'of published resources shows exactly ONE municipality-wide base instrument governs here, ' +
+        'so there is no vigencia question to answer. PRYZM has not transcribed this table into a ' +
+        'signed pack, so every parcel receives a cited refusal — no number is published.';
+    const routableRegistrations = CANARIAS_ROUTABLE_MUNICIPAL_BBOXES.map((m) =>
+        toRegistration(m, routableSummary, (zoneCode, zoneLabel, knownFacts) =>
+            canariasNoRulePackRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
+        ),
+    );
+
+    const multiInstrumentSummary =
+        'The Gobierno de Canarias publishes more than one municipality-wide base planning ' +
+        'instrument for this municipality on opendata.sitcan.es, and Canarias publishes no ' +
+        'currency/validity field in any SIPU family that would say which one is current. PRYZM ' +
+        'will not guess which instrument governs your parcel, so every parcel receives a cited ' +
+        'refusal naming that ambiguity — no number is published, and none would be even with a ' +
+        'signature: the open question is which LAW applies, not whether PRYZM read one correctly.';
+    const multiInstrumentRegistrations = CANARIAS_MULTI_INSTRUMENT_MUNICIPAL_BBOXES.map((m) =>
+        toRegistration(m, multiInstrumentSummary, (zoneCode, zoneLabel, knownFacts) =>
+            canariasMultiInstrumentRefusal(m.name, zoneCode, zoneLabel ?? null, knownFacts ?? []),
+        ),
+    );
+
+    return [...routableRegistrations, ...multiInstrumentRegistrations];
 }
 
 const REGISTRATIONS: readonly JurisdictionRegistration[] = [
@@ -1175,6 +1283,55 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
     // ║ ⚠ END OF THE VALÈNCIA BLOCK.                                                             ║
     // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
     // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ START OF THE SEVILLA BLOCK. Confine Sevilla edits to this block.                       ║
+    // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
+    // Sevilla (INE 41091) — the first Andalucían ArcGIS-REST-published municipality PRYZM has
+    // registered. ⚠ 2026-08-03: `esSevilla.ts` now carries ONE transcribed zone (`SB`, Capítulo
+    // V, Arts. 12.5.1-12.5.13) — but `packsByZone` below stays `packMap()` (EMPTY) ON PURPOSE:
+    // wiring a per-zone compute path is a SEPARATE decision from transcribing the ordinance, and
+    // `siteDispatch.ts`'s dedicated `applySevillaZoningThenFallback` never reads `packsByZone` for
+    // Sevilla anyway — it always dispatches `sevillaNoRulePackRefusal` regardless of pack
+    // contents. SB additionally hard-refuses at the GEOMETRY level even if a future pass does wire
+    // it (see `SEVILLA_SB_FONDO_UNRESOLVED_RING` in `esSevilla.ts`), so this gap costs nothing
+    // today; it is a named follow-up, not a silent omission.
+    // The city's own ArcGIS service resolves the real `zona_orden` per parcel
+    // (`resolveSevillaZone.ts`, layer 25 "Calificación", EPSG:25830 — CONFIRMED live, closing the
+    // "CRS: NOT FOUND" gap two prior research passes left open), so `noRulePackRefusal` names the
+    // real zone rather than speaking generically — the same shape as `cordobaUnverifiedRefusal`'s
+    // conditional copy.
+    {
+        jurisdictionId: SEVILLA_JURISDICTION_ID, // 'es-41091-sevilla'
+        displayName: 'Sevilla',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        // ⚠ THE SAME OBJECT/FUNCTION `siteDispatch.ts` routes on — imported, not restated.
+        extent: SEVILLA_BBOX,
+        contains: isInSevilla,
+        // A loose municipal-term box; it spills into several bordering municipalities exactly as
+        // Córdoba's and València's boxes do. See `sevillaBbox.ts`.
+        extentResolution: 'municipal',
+        answerSummary:
+            'The ZONE half is live and keyless: Sevilla\'s own ArcGIS service ' +
+            '(Info_Urban_Groups/PGOU/MapServer, layer 25 "Calificación") resolves the zona_orden ' +
+            'zone identifier for any point, plus its land classification and the linked Normas ' +
+            'documents — an unusually complete published GIS layer set (alignment, height-label, ' +
+            'development-planning and modification layers are all published too). One zone (SB, ' +
+            '"Suburbana") has been transcribed from its own ordinance PDF; every buildable figure ' +
+            'is still refused, either because no other zone has been read yet or because SB\'s own ' +
+            'buildable depth is a conditional occupancy rule the pack cannot honestly draw as a ' +
+            'scalar — never an estimate, never a guess at what a zone name implies.',
+        // ⚠ EMPTY ON PURPOSE, not by lack of transcription — see the comment above the block.
+        packsByZone: packMap(),
+        // No per-zone legal refusal table: nothing has been read from the ordinance yet, so there
+        // is no legally-grounded classification to make — only the coverage-gap card applies.
+        refusalFor: () => null,
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            sevillaNoRulePackRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
+    },
+    // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ END OF THE SEVILLA BLOCK.                                                               ║
+    // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
+    // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
     // ║ ⚠ START OF THE ARAGÓN BLOCK. Confine Aragón edits to this block.                         ║
     // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
     // Both are REFUSAL jurisdictions with EMPTY `packsByZone`, for two DIFFERENT and specific
@@ -1561,6 +1718,73 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
     // ╔════════════════════════════════════════════════════════════════════════════════════════╗
     // ║ ⚠ END OF THE TELDE / CANARIAS BLOCK.                                                    ║
     // ╚════════════════════════════════════════════════════════════════════════════════════════╝
+    // ╔════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ EL SAUZAL / CANARIAS BLOCK — the second bespoke municipality (§CANARIAS-88-REGISTRATION,║
+    // ║   2026-08-03), excluded from the generic 86 for the same reason Telde is.               ║
+    // ╚════════════════════════════════════════════════════════════════════════════════════════╝
+    //
+    // El Sauzal's SIPU package carries NO `EDIF.mdb` (unlike Telde) — its ZUSO shapefile is a
+    // zoning-USE geometry layer with no numeric column at all (a proper DBF header parse, not a
+    // grep, confirmed this — `resolveElSauzalZone.ts`). The numeric envelope here instead comes
+    // from the PGOU's own "Normativa Urbanística" (Título X Cap. 3, Ciudad Jardín, Arts.
+    // 10.24-10.32) — human/agent-transcribed, article-cited, real. ⚠⚠ STILL GATED SHUT:
+    // `EL_SAUZAL_ENVELOPE_VERIFIED` is `false`, so `packsByZone` below is EMPTY while the gate is
+    // shut (the Zaragoza pattern) — every RE-ViUf-* code, packed or not, falls through to
+    // `elSauzalNoRulePackRefusal` until a human signs off. See `esElSauzal.ts` for the two named
+    // gaps (`EL_SAUZAL_FICHERO_ANEXO_GAP`, `EL_SAUZAL_TYPOLOGY_BINDING_INFERENCE`) that keep the
+    // gate closed even once transcribed.
+    {
+        jurisdictionId: EL_SAUZAL_JURISDICTION_ID, // 'es-38041-el-sauzal'
+        displayName: 'El Sauzal',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        // ⚠ THE SAME OBJECT/FUNCTION any El Sauzal dispatch would route on — imported, not restated.
+        extent: EL_SAUZAL_BBOX,
+        contains: isInElSauzal,
+        extentResolution: 'municipal',
+        answerSummary:
+            "El Sauzal's own SIPU zoning-use geometry (ZUSO, 529 polygons, 70-code ETIQUETA " +
+            'vocabulary) resolves a parcel to its real zone code OFFLINE, from a committed extract ' +
+            "of the municipality's own published package — not a live service, since El Sauzal " +
+            'publishes none. For the RE-ViUf-* ("Ciudad Jardín") family, the PGOU\'s Normativa ' +
+            'Urbanística (Título X, Cap. 3, Arts. 10.24-10.32) is read and article-cited: minimum ' +
+            'plot, inscribed-circle diameter, net edificabilidad, height/storeys, coverage and ' +
+            'setbacks. PRYZM still publishes NO number here: the typology binding is an inference ' +
+            'and a per-area override ("fichero de ordenación anexo") this transcription did not ' +
+            'find may exist unread, so every parcel receives a cited refusal, never an estimate.',
+        // ⚠⚠ GATED, NOT POPULATED — mirrors `ZARAGOZA_ENVELOPE_VERIFIED`'s pattern exactly. While
+        // the gate is false this is `packMap()` (empty), so `canariasMunicipalBboxesTotality.test.ts`
+        // sees an empty `packZoneCodes` here too, same as every other unsigned Canarias entry.
+        packsByZone: EL_SAUZAL_ENVELOPE_VERIFIED
+            ? packMap([ES_EL_SAUZAL_PACK, [...EL_SAUZAL_ZONE_CODES]])
+            : packMap(),
+        refusalFor: () => null,
+        noRulePackRefusal: (zoneCode, _zoneLabel, knownFacts) =>
+            elSauzalNoRulePackRefusal(zoneCode ?? null, knownFacts ?? []),
+    },
+    // ╔════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ END OF THE EL SAUZAL / CANARIAS BLOCK.                                                ║
+    // ╚════════════════════════════════════════════════════════════════════════════════════════╝
+    // ╔════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ 86 MORE CANARIAS MUNICIPALITIES (§CANARIAS-88-REGISTRATION, 2026-08-03).              ║
+    // ╚════════════════════════════════════════════════════════════════════════════════════════╝
+    //
+    // 40 routable (single determinable base instrument, unsigned) + 46 multi-instrument
+    // (ambiguous governing plan) = 86 — every Canarias municipality except Telde (its own
+    // registration above) and El Sauzal (INE 38041 — EXCLUDED here, see the comment beside its
+    // skipped slot in `canariasMunicipalBboxes.ts`: a concurrently-landed, article-cited
+    // transcription, `esElSauzal.ts`, is the more specific registration for that one town). See
+    // `buildCanariasMunicipalRegistrations()` for why these are generated instead of 86 literal
+    // entries, and `canariasMunicipalBboxes.ts` for where every bbox was sourced (the same
+    // Catastro INSPIRE ATOM feeds `teldeBbox.ts` already trusts, extended to their other rows —
+    // not invented, not derived from a different method).
+    //
+    // ⚠ 87/88 Canarias municipalities are registered by THIS block plus Telde; El Sauzal (38041)
+    // owes its own registration (`esElSauzal.ts`), landing separately. None of the 87 publishes a
+    // number: every one resolves to a cited refusal, never `applyEstimatedZoning`'s fabricated
+    // generic triple. `CANARIAS_ENVELOPE_VERIFIED` stays `false`; this is a routing fix, not a
+    // publication.
+    ...buildCanariasMunicipalRegistrations(),
     // ── §BALEARS-REGISTRATION (L-680) — the ILLES BALEARS, the second `'regional'` registration. ──
     //
     // ⚠ THE DEFECT IT CLOSES IS THE CÓRDOBA-MUNICIPAL ONE, MEASURED: before this entry a click in

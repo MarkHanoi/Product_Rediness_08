@@ -69,7 +69,9 @@ import { MADRID_ENVELOPE_VERIFIED } from './rulepacks/esMadridPgoum97.js';
 import { MURCIA_ENVELOPE_VERIFIED } from './rulepacks/esMurciaEnvelope.js';
 import { SANT_BOI_ENVELOPE_VERIFIED } from './rulepacks/esSantBoi.js';
 import { VALENCIA_ENVELOPE_VERIFIED } from './rulepacks/esValenciaEnvelope.js';
+import { SEVILLA_ENVELOPE_VERIFIED } from './rulepacks/esSevilla.js';
 import { HUESCA_ENVELOPE_VERIFIED, ZARAGOZA_ENVELOPE_VERIFIED } from './rulepacks/esAragon.js';
+import { EL_SAUZAL_ENVELOPE_VERIFIED } from './rulepacks/esElSauzal.js';
 import { FR_PARIS_PLU_CERTIFIED } from './rulepacks/frParisPluBioclimatique.js';
 
 const tracer = trace.getTracer('pryzm.zoning.l449');
@@ -206,6 +208,15 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         signature: null, // Not signable at all: `zones` is empty by construction (L-676).
     },
     {
+        gate: 'SEVILLA_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esSevilla.ts',
+        value: SEVILLA_ENVELOPE_VERIFIED,
+        // Not signable at all: `zones` is empty by construction — no PGOU-2006 ordinance
+        // parameter has been transcribed yet (separate legal/research work, same shape as
+        // València's `VALENCIA_ENVELOPE_VERIFIED`).
+        signature: null,
+    },
+    {
         gate: 'CATALUNYA_ENVELOPE_VERIFIED',
         file: 'packages/site-parcel-data/src/rulepacks/esCatalunya.ts',
         value: CATALUNYA_ENVELOPE_VERIFIED,
@@ -251,6 +262,19 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         // is waiting on the TRANSCRIPTION of arts. 4.1.12/4.1.13/4.1.15/4.1.17 and on the
         // graphically-regulated fondo, which is exactly the kind of thing a signature covers.
         // ⇒ Still `false`, and now genuinely signable ONCE THE READING IS DONE. See `esAragon.ts`.
+        signature: null,
+    },
+    {
+        gate: 'EL_SAUZAL_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esElSauzal.ts',
+        value: EL_SAUZAL_ENVELOPE_VERIFIED,
+        // ⚠ NOT signable today. The ordinance IS read and article-cited (Título X Cap.3, Arts.
+        // 10.24-10.32) — but Título X repeatedly defers the FINAL per-area figure to a "fichero
+        // de ordenación anexo" this transcription did not find, and the RE-ViUf ↔ Ciudad Jardín
+        // typology binding itself is an inference from article text + GIS-label naming, not a
+        // confirmed cross-reference (see EL_SAUZAL_FICHERO_ANEXO_GAP and
+        // EL_SAUZAL_TYPOLOGY_BINDING_INFERENCE in esElSauzal.ts). NOT wired into
+        // siteDispatch.ts/registry.ts pending that reading — see esElSauzal.ts header.
         signature: null,
     },
     {

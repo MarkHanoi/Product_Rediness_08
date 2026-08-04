@@ -151,17 +151,24 @@ describe('L-445 resolveRenderableBuildableEnvelope — persisted-ring fallback',
         expect(res!.source).toBe('persisted');
     });
 
-    // ⚠ THE HONESTY BOUNDARY (C58 §1.4). The persisted record is the RING ONLY. `confidence`,
-    // `status` and the `derivation` trace are NOT persisted, so this resolver deliberately
-    // returns a geometry-only shape: there is no field on it into which a caller could read a
-    // provenance we did not re-derive. Fabricating one would present unverified data as a
-    // determination — the exact failure this whole fix exists to prevent.
-    it('exposes GEOMETRY ONLY — no confidence/status/derivation to fabricate', () => {
+    // ⚠ THE HONESTY BOUNDARY (C58 §1.4). The persisted record is the RING ONLY. `confidence` and
+    // `status`/`derivation` are NOT persisted, so this resolver deliberately returns them as
+    // explicit `null` (never a guessed/inherited value) — the honest "we did not re-derive this",
+    // not an absent field. `farLimitedHeightM` joined the shape under the same rule (§L-616): the
+    // FAR-realistic height is likewise not re-derivable from a persisted ring alone, so it too is
+    // an explicit `null`, present uniformly across every `RenderableBuildableEnvelope` source tier
+    // so a renderer can read it without branching on `source`. Fabricating a NON-null value in
+    // either field would present unverified data as a determination — the exact failure this
+    // whole fix exists to prevent; `null` is the fix, not a gap in it.
+    it('exposes GEOMETRY as real values — confidence/status/derivation stay null, never fabricated', () => {
         const res = resolveRenderableBuildableEnvelope(
             runtimeWithParcel({ buildableRing: RING, maxHeight: 12 }) as never,
         )!;
-        expect(Object.keys(res).sort()).toEqual(['maxHeightM', 'ring', 'source']);
-        expect(res).not.toHaveProperty('confidence');
+        expect(Object.keys(res).sort()).toEqual([
+            'confidence', 'farLimitedHeightM', 'maxHeightM', 'ring', 'source',
+        ]);
+        expect(res.confidence).toBeNull();
+        expect(res.farLimitedHeightM).toBeNull();
         expect(res).not.toHaveProperty('derivation');
         expect(res).not.toHaveProperty('status');
     });

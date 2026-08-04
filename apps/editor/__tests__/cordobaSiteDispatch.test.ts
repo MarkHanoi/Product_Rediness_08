@@ -63,6 +63,20 @@ const BOUNDARY = {
     edgeClassifications: ['front', 'side', 'rear', 'side'] as const,
 };
 
+/**
+ * A large plot, sized to actually clear OA-1's real Art. 13.6.3.3 setback (½ × 21m height =
+ * 10.5m on side AND rear) with buildable area left over. The small `BOUNDARY` above is correct
+ * for the refusal-path tests (geometry never matters there) but is genuinely too small for OA-1's
+ * real rule — confirmed by running the compute engine against it and observing a true
+ * `status:'degenerate'`, not a bug in the dispatch code.
+ */
+const LARGE_BOUNDARY = {
+    polygon: [
+        { x: 0, z: 0 }, { x: 40, z: 0 }, { x: 40, z: 40 }, { x: 0, z: 40 },
+    ],
+    edgeClassifications: ['front', 'side', 'rear', 'side'] as const,
+};
+
 interface RouteLog {
     readonly urls: string[];
 }
@@ -72,7 +86,7 @@ interface RouteLog {
  * unit test may reach no network, and if the Córdoba path ever started calling a COACo endpoint
  * (WIRING-TODO 5, which lands WITH the sign-off) it must surface here rather than hang.
  */
-function stubProxies(log: RouteLog): typeof globalThis.fetch {
+function stubProxies(log: RouteLog, opts?: { resolvedSubzoneLink?: string }): typeof globalThis.fetch {
     return vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
         log.urls.push(url);
@@ -97,6 +111,27 @@ function stubProxies(log: RouteLog): typeof globalThis.fetch {
                 }),
             } as unknown as Response;
         }
+        if (opts?.resolvedSubzoneLink && url.startsWith('/api/cordoba/ordenanzas')) {
+            return {
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    features: [
+                        {
+                            properties: {
+                                link: opts.resolvedSubzoneLink,
+                                ordenanza: 'Ordenación Abierta',
+                            },
+                        },
+                    ],
+                }),
+            } as unknown as Response;
+        }
+        if (url.startsWith('/api/cordoba/')) {
+            // Unstubbed §COR-SUBZONE call in a test that doesn't provide `resolvedSubzoneLink` —
+            // this is the DEFAULT (subzone genuinely unresolved), not a test-harness failure.
+            return { ok: false, status: 404, json: async () => ({}) } as unknown as Response;
+        }
         throw new TypeError(`unstubbed URL in unit test: ${url}`);
     }) as unknown as typeof globalThis.fetch;
 }
@@ -118,23 +153,27 @@ async function waitForEvent(emitted: readonly string[], type: string, timeoutMs 
     }
 }
 
-async function dispatchCordoba(): Promise<{
+async function dispatchCordoba(opts?: {
+    resolvedSubzoneLink?: string;
+    boundary?: typeof BOUNDARY;
+}): Promise<{
     store: SiteModelStore;
     envelope: BuildableEnvelope | null;
     urls: string[];
 }> {
     const log: RouteLog = { urls: [] };
-    globalThis.fetch = stubProxies(log);
+    globalThis.fetch = stubProxies(log, opts);
     const store = new SiteModelStore();
     siteCreate(
         { projectId: 'proj-cordoba', location: { latitude: PARCEL.lat, longitude: PARCEL.lon } },
         store,
     );
     const { ctx, emitted } = ctxFor(store);
+    const activeBoundary = opts?.boundary ?? BOUNDARY;
     expect(
         dispatchParcelBoundary(ctx, {
-            ...BOUNDARY,
-            edgeClassifications: [...BOUNDARY.edgeClassifications],
+            ...activeBoundary,
+            edgeClassifications: [...activeBoundary.edgeClassifications],
         }),
     ).toBe(true);
     await waitForEvent(emitted, 'site.zoning-updated');
@@ -186,11 +225,13 @@ describe('§COR-ENVELOPE §HONESTY-GATE — 13 OCR subzones are REGISTERED and N
     beforeEach(() => { realFetch = globalThis.fetch; });
     afterEach(() => { globalThis.fetch = realFetch; vi.restoreAllMocks(); });
 
-    it('the pack IS registered (so the risk is real) and the gate IS shut (so it does not fire)', () => {
-        // Both halves matter. The first half is why this suite exists at all; the second is the
-        // single constant that keeps 13 uncertified OCR subzones off the screen.
+    it('the pack IS registered — 13 OCR subzones exist to be at risk', () => {
+        // ⚠ CORRECTED 2026-08-03: `CORDOBA_ENVELOPE_VERIFIED` was signed `true` by commit
+        // `6d2357a8` — six other test files were updated in that commit to match; this one was
+        // missed. The registration-count assertion still holds; the gate assertion below is now
+        // the opposite of what it asserted before signing.
         expect(registeredPackZoneCodes(CORDOBA_JURISDICTION_ID)).toHaveLength(13);
-        expect(CORDOBA_ENVELOPE_VERIFIED).toBe(false);
+        expect(CORDOBA_ENVELOPE_VERIFIED).toBe(true);
     });
 
     it('dispatches the cited MACHINE-EXTRACTED-UNVERIFIED refusal, never an OCR number', async () => {
@@ -231,5 +272,71 @@ describe('§COR-ENVELOPE §HONESTY-GATE — 13 OCR subzones are REGISTERED and N
         expect(site.parcel.maxHeight).toBeNull();
         expect(site.parcel.maxFAR).toBeNull();
         expect(site.parcel.buildableRing).toBeNull();
+    });
+});
+
+describe('§COR-COMPUTE — a RESOLVED subzone, gate signed, actually renders (2026-08-04)', () => {
+    // ⚠ WHY THIS SUITE EXISTS. Every test above this line drives `dispatchCordoba()` with the
+    // §COR-SUBZONE call unstubbed, so `subzone` never resolves and every assertion above only
+    // proves the UNRESOLVED-subzone fallback path. `CORDOBA_ENVELOPE_VERIFIED` has been `true`
+    // since `6d2357a8`, and the compute branch (`siteDispatch.ts`, §COR-COMPUTE) has existed since
+    // this session — but until this suite, NOTHING in the repo exercised a resolved subzone
+    // actually reaching `computeBuildableEnvelope` and returning `status: 'ok'`. That gap was
+    // flagged explicitly rather than assumed closed; this suite closes it for real.
+    let realFetch: typeof globalThis.fetch;
+    beforeEach(() => { realFetch = globalThis.fetch; });
+    afterEach(() => { globalThis.fetch = realFetch; vi.restoreAllMocks(); });
+
+    it('CORDOBA_ENVELOPE_VERIFIED is genuinely true today (the precondition this suite assumes)', () => {
+        expect(CORDOBA_ENVELOPE_VERIFIED).toBe(true);
+    });
+
+    it('OA-1 (alignment-based, a real 21m height, not the MC structural-refusal family) COMPUTES', async () => {
+        // `O_OA1.pdf` -> subzoneCodeFromLink -> "OA-1", one of the 13 registered zones, and one
+        // whose `geometricRule` is a plain `alignment` kind (per `esCordobaPGOU2001.ts`) — not
+        // MC's `explicit-area` + unresolved-ring sentinel, which structurally refuses on its own
+        // merits regardless of the gate. This is the "normal" case the gate was signed for.
+        const { store, envelope } = await dispatchCordoba({
+            resolvedSubzoneLink: 'O_OA1.pdf',
+            boundary: LARGE_BOUNDARY,
+        });
+        expect(envelope).not.toBeNull();
+        expect(envelope!.status).toBe('ok');
+        expect(envelope!.refusal).toBeFalsy();
+        expect(envelope!.insetPolygon.length).toBeGreaterThan(0);
+        expect(envelope!.insetAreaM2).toBeGreaterThan(0);
+        expect(envelope!.maxHeight_m).toBe(21);
+        // The gate being signed does NOT mean the confidence tier jumps to "verified" — a
+        // machine-OCR'd pack stays capped at its own declared ceiling (L-665,
+        // `capEnvelopeConfidenceToPackDefault`, confirmed landed in `ZoningRulesEngine.ts:264`).
+        // Proven live here: the actual dispatched confidence is `pipeline-extracted-unverified`.
+        expect(envelope!.confidence).toBe('pipeline-extracted-unverified');
+        // A real number now reaches the persisted parcel too — the mirror of the earlier
+        // "writes NO number" assertion, now that there IS a legitimate number to write.
+        const site = store.getSite()!;
+        expect(site.parcel.maxHeight).toBe(21);
+    });
+
+    it('MC-3 (the explicit-area / unresolved-ring family) STILL structurally refuses even resolved+signed', async () => {
+        // The signature does not unblock MC — Córdoba publishes no alineación from which MC's
+        // per-street-width height table (Art. 13.5.3.1) could be measured. `O_MC3.pdf` ->
+        // "MC-3" resolves fine (the SUBZONE is known), but `computeBuildableEnvelope` hard-fails
+        // the `explicit-area` rule because no `explicitAreaFootprint` is ever injected for the
+        // `CORDOBA_MC_FONDO_UNRESOLVED_RING` sentinel — ADR-0270's "hard fail, never fall through
+        // to the plain parcel inset" behaviour, proven here rather than assumed.
+        const { envelope } = await dispatchCordoba({ resolvedSubzoneLink: 'O_MC3.pdf' });
+        expect(envelope).not.toBeNull();
+        expect(envelope!.status).not.toBe('ok');
+        expect(envelope!.refusal).toBeTruthy();
+        expect(envelope!.insetPolygon).toEqual([]);
+    });
+
+    it('an unresolved subzone (§COR-SUBZONE genuinely fails) still falls through to the honest coverage-gap refusal', async () => {
+        // The negative control for this whole suite: no `resolvedSubzoneLink` means the same
+        // unresolved path every earlier test in this file exercises — confirms the new stub
+        // machinery didn't change default behaviour for the common (still-most-likely) case.
+        const { envelope } = await dispatchCordoba();
+        expect(envelope!.status).not.toBe('ok');
+        expect(envelope!.refusal).toBeTruthy();
     });
 });

@@ -1047,6 +1047,7 @@ export {
     openTopIndicativeRecord,
     OPEN_TOP_INDICATIVE_JURISDICTIONS,
     BALEARS_OPEN_TOP_INDICATIVE,
+    ZARAGOZA_OPEN_TOP_INDICATIVE,
     rendererCanExpressOpenTop,
     type OpenTopReason,
     type OpenTopIndicativeRecord,
@@ -1100,6 +1101,11 @@ export {
     valenciaHeritageDisposition,
     valenciaHeritageRefusal,
     valenciaNoRulePackRefusal,
+    // §VALENCIA-ORIGEN-DERIVED-PLAN — closes CLOSURE-REGISTER #3: the per-parcel LIVE `origen`
+    // upgrade from the coverage-only `no-rule-pack` refusal to the legally-grounded `derived-plan`
+    // one. Pure classifier + refusal constructor; the live fetch is `resolveValenciaOrigen.ts`.
+    valenciaOrigenIsPgouOrdered,
+    valenciaDerivedPlanRefusal,
 } from './rulepacks/esValenciaEnvelope.js';
 export type {
     ValenciaAlturaBlocker,
@@ -1139,6 +1145,21 @@ export type {
     ValenciaAlineacionesRefusal,
     ValenciaAlineacionesDeps,
 } from './providers/resolveValenciaAlineaciones.js';
+// ── §VALENCIA-ORIGEN — the LIVE layer-231 `origen` seam (CLOSURE-REGISTER #3). ────────────────
+// ⚠ Reads `origen`/`califi`/`tipoca`/`clase` ONLY — no geometry (that stays owned by
+// `resolveValenciaAlineaciones`). Feeds `valenciaOrigenIsPgouOrdered` / `valenciaDerivedPlanRefusal`
+// (`esValenciaEnvelope.ts`); does not touch `VALENCIA_ENVELOPE_VERIFIED`.
+export {
+    resolveValenciaOrigen,
+    VALENCIA_ORIGEN_SERVICE,
+} from './providers/resolveValenciaOrigen.js';
+export type {
+    ValenciaOrigenResolution,
+    ValenciaOrigenHit,
+    ValenciaOrigenMiss,
+    ValenciaOrigenRefusal,
+    ValenciaOrigenDeps,
+} from './providers/resolveValenciaOrigen.js';
 export { valenciaAlturaGroundClass } from './rulepacks/esValenciaAlineaciones.js';
 export type { ValenciaGroundClass } from './rulepacks/esValenciaAlineaciones.js';
 
@@ -1176,6 +1197,55 @@ export {
 } from './rulepacks/esValenciaPgou.js';
 // ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
 // ║ ⚠ END OF THE VALÈNCIA BLOCK.                                                                 ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠ SEVILLA (INE 41091). Confine Sevilla edits to this block.                                  ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+// A REFUSAL jurisdiction. ⚠ 2026-08-03: one zone (SB, Suburbana) is now transcribed from its own
+// ordinance PDF, but every parcel still refuses — `SEVILLA_ENVELOPE_VERIFIED` stays false, and SB
+// itself hard-refuses at the geometry level (see `SEVILLA_SB_FONDO_UNRESOLVED_RING`). The zone
+// IDENTITY is live — `resolveSevillaZone` queries the city's own ArcGIS
+// "Calificación" layer (25, EPSG:25830 — CONFIRMED live) for `zona_orden` per parcel, so the
+// coverage-gap refusal names the real zone. `SEVILLA_ENVELOPE_VERIFIED` stays `false`; there is
+// nothing behind the gate to sign yet. The point-intersect query itself lives in the reusable
+// `containers/arcgisRest.ts` seam, not hand-inlined here, so a future ArcGIS-published Spanish
+// municipality can reuse it.
+export { isInSevilla, SEVILLA_BBOX, SEVILLA_INE_CODE } from './providers/sevillaBbox.js';
+export {
+    queryArcgisRestPointIntersect,
+} from './providers/containers/arcgisRest.js';
+export type {
+    ArcgisRestFeature,
+    ArcgisRestQueryResult,
+    ArcgisRestQueryOk,
+    ArcgisRestQueryError,
+    ArcgisRestPointQueryOptions,
+} from './providers/containers/arcgisRest.js';
+export {
+    resolveSevillaZone,
+    SEVILLA_ARCGIS_SERVICE,
+    SEVILLA_CALIFICACION_LAYER,
+    SEVILLA_NATIVE_EPSG,
+} from './providers/resolveSevillaZone.js';
+export type {
+    SevillaLngLat,
+    SevillaZoneDeps,
+    SevillaZoneResolution,
+    SevillaZoneResult,
+    SevillaZoneRefusalReason,
+} from './providers/resolveSevillaZone.js';
+export {
+    SEVILLA_JURISDICTION_ID,
+    SEVILLA_ENVELOPE_VERIFIED,
+    SEVILLA_PGOU_INSTRUMENT_REF,
+    SEVILLA_ROADMAP_LINE,
+    sevillaNoRulePackRefusal,
+    ES_SEVILLA_PGOU_PACK,
+    SEVILLA_PGOU_ZONE_CODES,
+} from './rulepacks/esSevilla.js';
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠ END OF THE SEVILLA BLOCK.                                                                   ║
 // ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
 
 // ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
@@ -1226,11 +1296,130 @@ export {
     ZARAGOZA_PACK_DEFAULT_CONFIDENCE,
     ZARAGOZA_A1_3_WIDTH_BANDS,
     ZARAGOZA_A1_3_2_TRAVESIA_GAP,
+    ZARAGOZA_MISSING_CONSTRAINTS,
     resolveZaragozaA13Height,
     zaragozaA13WeightedEdificabilidad,
+    zaragozaA13ResolvedPack,
+    type ZaragozaA13Band,
+    type ZaragozaA13Resolution,
+    type ZaragozaZoneCode,
 } from './rulepacks/esZaragoza.js';
+// §ZGZ-STREET-WIDTH — the ancho-de-calle measurement seam for A1/3.1 / A1/3.2. ⛔ `'not-wired'`
+// today for every production call: no live Zaragoza block/parcel neighbourhood source is wired.
+export {
+    resolveZaragozaStreetWidth,
+    ZARAGOZA_STREET_WIDTH_AUTHORITY,
+    type ZaragozaStreetWidthResolution,
+    type ZaragozaStreetWidthRefusal,
+    type ZaragozaStreetWidthDeps,
+} from './providers/resolveZaragozaStreetWidth.js';
+// §ZGZ-ZONE-RESOLVER — the live `Calificaciones_Urbanas` point resolver (WIRED, gated shut — see
+// `ZARAGOZA_ENVELOPE_VERIFIED` above). The client-side half of `server/zaragozaZoningProxy.js`.
+export {
+    resolveZaragozaZone,
+    ZARAGOZA_CALIFICACIONES_PATH,
+    type ZaragozaLngLat,
+    type ZaragozaZoneDeps,
+    type ZaragozaZoneResolution,
+    type ZaragozaZoneResult,
+    type ZaragozaZoneRefusalReason,
+} from './providers/resolveZaragozaZone.js';
 // ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
 // ║ ⚠ END OF THE ARAGÓN BLOCK.                                                                   ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠ START OF THE CANARIAS / TELDE BLOCK (INE 35026, Gran Canaria). ──                          ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+// The SIPU 2.6.A adapter machinery — the jurisdiction gate + the sentinel/grammar vocabulary.
+// `CANARIAS_ENVELOPE_VERIFIED` is false; every Telde parcel gets a CITED REFUSAL, never a number.
+export {
+    CANARIAS_JURISDICTION_ID,
+    TELDE_JURISDICTION_ID,
+    CANARIAS_ENVELOPE_VERIFIED,
+    SIPU_SENTINELS,
+    SIPU_HEIGHT_DATUM,
+    SIPU_RUSTIC_HEIGHT_NOTE,
+    type SipuHeightDatum,
+    type SipuGrammar,
+    detectSipuGrammar,
+    fonMaxEdRoutingHint,
+    CANARIAS_ROUTABLE_MUNICIPALITIES,
+    CANARIAS_MULTI_INSTRUMENT_BLOCKER,
+    TELDE_ROUTING_BASIS,
+    canariasNoRulePackRefusal,
+    canariasMultiInstrumentRefusal,
+    canariasGraphedRefusal,
+} from './rulepacks/esCanariasSipu.js';
+// The Telde PGO-2003 pack — 31 packed zones (of 46), and the 15 deliberately-unpacked codes with
+// their named refusal reasons (`TELDE_UNPACKED_ZONES`), so a future reader never "completes" the
+// pack with a null-setback inset that draws the whole parcel (L-616 mechanism-A).
+export {
+    ES_TELDE_PGO2003_PACK,
+    TELDE_PGO2003_ZONE_CODES,
+    TELDE_UNPACKED_ZONES,
+    TELDE_INTENDED_DEFAULT_CONFIDENCE,
+} from './rulepacks/esTeldePgo2003.js';
+// The bbox gate + registration key. ⚠ A coarse proximity gate, never an authorisation — see
+// `teldeBbox.ts` for the §TELDE-BBOX-SPILL discipline this box carries.
+export { TELDE_BBOX, TELDE_BBOX_SOURCE, TELDE_INE_CODE, isInTelde } from './providers/teldeBbox.js';
+// El Sauzal (INE 38041, Canarias) — the offline ZUSO shapefile resolver + the Ciudad Jardín
+// (RE-ViUf-*) pack, article-cited from the PGOU's own Normativa Urbanística. See `esElSauzal.ts`
+// for the two named honesty gaps that keep `EL_SAUZAL_ENVELOPE_VERIFIED` false.
+export {
+    EL_SAUZAL_JURISDICTION_ID,
+    EL_SAUZAL_ENVELOPE_VERIFIED,
+    EL_SAUZAL_ZONE_CODES,
+    EL_SAUZAL_PACK_DEFAULT_CONFIDENCE,
+    EL_SAUZAL_FICHERO_ANEXO_GAP,
+    EL_SAUZAL_TYPOLOGY_BINDING_INFERENCE,
+    ES_EL_SAUZAL_PACK,
+    elSauzalNoRulePackRefusal,
+} from './rulepacks/esElSauzal.js';
+export {
+    EL_SAUZAL_BBOX,
+    EL_SAUZAL_BBOX_SOURCE,
+    EL_SAUZAL_INE_CODE,
+    isInElSauzal,
+} from './providers/elSauzalBbox.js';
+export {
+    wgs84ToUtm28N,
+    pointInRingsEvenOdd,
+    loadElSauzalZusoRecords,
+    resolveElSauzalZone,
+    resolveElSauzalZoneFromRecords,
+    type ElSauzalLngLat,
+    type ElSauzalZusoRecord,
+    type ElSauzalZoneResult,
+    type ElSauzalZoneRefusalReason,
+} from './providers/resolveElSauzalZone.js';
+// The row → validated, grammar-classified reading parser. Reused by `resolveTeldeZone` rather than
+// duplicated — see that file's header for why.
+export {
+    readSipuValue,
+    readSipuZone,
+    classifyObservation,
+    type SipuEdifRecord,
+    type SipuValue,
+    type SipuRejectReason,
+    type ObservationKind,
+    type SipuZoneReading,
+} from './providers/canariasSipuProvider.js';
+// §TELDE-ZONE-RESOLVER — the per-point EDIF zone resolver. WIRED like Zaragoza/Córdoba's siblings
+// (injectable fetch, typed refusals, never throws) but — unlike them — the live endpoint it would
+// call does not exist yet (IDECanarias' WFS is measured administratively disabled); see the module
+// header for why that is recorded honestly rather than faked live.
+export {
+    resolveTeldeZone,
+    TELDE_EDIF_PATH,
+    type TeldeLngLat,
+    type TeldeZoneDeps,
+    type TeldeZoneResolution,
+    type TeldeZoneResult,
+    type TeldeZoneRefusalReason,
+} from './providers/resolveTeldeZone.js';
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠ END OF THE CANARIAS / TELDE BLOCK.                                                          ║
 // ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
 
 // ── L-608 — Madrid (INE 28079) jurisdiction gate + the NZ 1 explicit-area pack, refusal + ──

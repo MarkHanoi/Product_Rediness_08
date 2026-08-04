@@ -12,6 +12,7 @@ import {
     openTopIndicativeRecord,
     OPEN_TOP_INDICATIVE_JURISDICTIONS,
     BALEARS_OPEN_TOP_INDICATIVE,
+    ZARAGOZA_OPEN_TOP_INDICATIVE,
     rendererCanExpressOpenTop,
     type OpenTopIndicativeRecord,
 } from '../src/rulepacks/openTopIndicative.js';
@@ -22,10 +23,16 @@ import {
 import { BALEARS_JURISDICTION_ID } from '../src/rulepacks/esBalearsMuib.js';
 import { MURCIA_JURISDICTION_ID } from '../src/rulepacks/esMurciaEnvelope.js';
 import { MADRID_JURISDICTION_ID } from '../src/rulepacks/esMadridNZ1.js';
+import { ZARAGOZA_JURISDICTION_ID } from '../src/rulepacks/esAragon.js';
 
 /** A registry populated ONLY for the test — the shipped one stays empty (a founder decision). */
 const withBalears: ReadonlyMap<string, OpenTopIndicativeRecord> = new Map([
     [BALEARS_JURISDICTION_ID, BALEARS_OPEN_TOP_INDICATIVE],
+]);
+
+/** Same shape, for Zaragoza — proves the record WOULD work once a founder lists it. */
+const withZaragoza: ReadonlyMap<string, OpenTopIndicativeRecord> = new Map([
+    [ZARAGOZA_JURISDICTION_ID, ZARAGOZA_OPEN_TOP_INDICATIVE],
 ]);
 
 describe('§OPEN-TOP · 1 — IT IS NOT `gate-open` WITH A LABEL', () => {
@@ -77,10 +84,12 @@ describe('§OPEN-TOP · 2 — IT STILL FAILS CLOSED FOR AN UNLISTED JURISDICTION
 
     it('the SHIPPED registry holds exactly the founder-listed jurisdictions, nothing implicit', () => {
         // ⚠ 2026-08-03: the founder listed Balears (renderer capability closed, tests green).
+        // ⚠ 2026-08-04: the founder listed Zaragoza (§ZARAGOZA-LISTING, same bar).
         // The invariant this guards did not change — membership is still by EXPLICIT ENTRY, never a
         // default — only the registry's contents did.
-        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.size).toBe(1);
+        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.size).toBe(2);
         expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.has(BALEARS_JURISDICTION_ID)).toBe(true);
+        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.has(ZARAGOZA_JURISDICTION_ID)).toBe(true);
         // ⇒ with the shipped registry, Balears now DRAWS as indicative, never a determination.
         expect(envelopePublicationPosture(BALEARS_JURISDICTION_ID).posture).toBe('open-top-indicative');
         expect(mayDrawEnvelope(BALEARS_JURISDICTION_ID)).toBe(true);
@@ -161,5 +170,52 @@ describe('§OPEN-TOP · 4 — RENDERING MUST MAKE IT UNMISTAKABLE, AND NOW IT DO
         expect(envelopePublicationPosture(BALEARS_JURISDICTION_ID, withBalears).posture).toBe(
             envelopePublicationPosture(BALEARS_JURISDICTION_ID).posture,
         );
+    });
+});
+
+describe('§OPEN-TOP · 5 — ZARAGOZA: BUILT, CORRECT, AND LISTED (§ZARAGOZA-LISTING, 2026-08-04)', () => {
+    it('✅ the record is constructed AND the SHIPPED registry carries it — a dated founder decision', () => {
+        // ⚠ THIS IS THE DECISION BOUNDARY. Unlike an implementer flipping this silently (the L-449
+        // defect this whole module exists to keep out of code review), this listing carries a dated
+        // founder note in `openTopIndicative.ts` (§ZARAGOZA-LISTING, 2026-08-04) — mirroring
+        // §BALEARS-LISTING's explicit dated authorisation exactly.
+        expect(OPEN_TOP_INDICATIVE_JURISDICTIONS.has(ZARAGOZA_JURISDICTION_ID)).toBe(true);
+        expect(envelopePublicationPosture(ZARAGOZA_JURISDICTION_ID).posture).toBe('open-top-indicative');
+        expect(mayDrawEnvelope(ZARAGOZA_JURISDICTION_ID)).toBe(true);
+        // The determination gate is a SEPARATE decision and remains untouched.
+        expect(mayPublishAsDetermination(ZARAGOZA_JURISDICTION_ID)).toBe(false);
+    });
+
+    it('names real, verifiable missing-constraint families — never a manufactured one', () => {
+        const r = ZARAGOZA_OPEN_TOP_INDICATIVE;
+        expect(r.jurisdictionId).toBe(ZARAGOZA_JURISDICTION_ID);
+        expect(r.reason).toBe('constraints-not-modelled');
+        expect(r.missingConstraints.length).toBeGreaterThanOrEqual(4);
+        const joined = r.missingConstraints.join(' ').toLowerCase();
+        for (const f of ['heritage', 'flood', 'airport', 'environmental']) {
+            expect(joined, f).toContain(f);
+        }
+        // Zaragoza is 300 km from the sea — carrying Balears's coastal entry here would be the
+        // manufactured-family failure this test guards against.
+        expect(joined).not.toContain('coastal');
+        // The named, cited travesía gap (§ZGZ-TRAVESIA-GAP) rides along as a real, specific absence.
+        expect(joined).toContain('travesía');
+        expect(r.supersession).toBe('NOT_VERIFIED');
+    });
+
+    it('a constructed record is frozen — its risk list cannot be emptied after the fact', () => {
+        expect(Object.isFrozen(ZARAGOZA_OPEN_TOP_INDICATIVE)).toBe(true);
+        expect(Object.isFrozen(ZARAGOZA_OPEN_TOP_INDICATIVE.missingConstraints)).toBe(true);
+    });
+
+    it('the posture and the drawing arm work exactly like Balears, now on the SHIPPED registry too', () => {
+        expect(envelopePublicationPosture(ZARAGOZA_JURISDICTION_ID, withZaragoza).posture).toBe(
+            'open-top-indicative',
+        );
+        expect(mayDrawEnvelope(ZARAGOZA_JURISDICTION_ID, withZaragoza)).toBe(true);
+        expect(mayPublishAsDetermination(ZARAGOZA_JURISDICTION_ID, withZaragoza)).toBe(false);
+        // The injected-registry variant and the SHIPPED registry now agree — confirms the listing
+        // above is real, not a test-only fixture artifact.
+        expect(envelopePublicationPosture(ZARAGOZA_JURISDICTION_ID).posture).toBe('open-top-indicative');
     });
 });

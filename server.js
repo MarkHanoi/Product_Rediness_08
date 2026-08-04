@@ -96,6 +96,12 @@ import {
     CORDOBA_ORDENANZAS_PATH, cordobaOrdenanzasHandler,
     CORDOBA_VCATASTRO_PATH, cordobaVcatastroHandler,
 } from './server/cordobaZoningProxy.js';
+// §ZARAGOZA-ZONING-PROXY — the IDEZar `urbanismo:Calificaciones_Urbanas` calificación lookup.
+// Client consumer: @pryzm/site-parcel-data → resolveZaragozaZone. ⚠ Renders NO number while
+// ZARAGOZA_ENVELOPE_VERIFIED is false — the DATA path that turns on with a future L-449 sign-off.
+import {
+    ZARAGOZA_CALIFICACIONES_PATH, zaragozaCalificacionesHandler,
+} from './server/zaragozaZoningProxy.js';
 // §MURCIA-PGOU-PROXY (INE 30030) — the municipal GeoServer calificación (`Murcia:pgou_alineaciones`)
 // + ámbito (`Murcia:pgou_sectores`) point lookup. Client consumer: @pryzm/site-parcel-data →
 // resolveMurciaZoning. ⚠ Returns IDENTITY only — neither layer publishes altura/edificabilidad/
@@ -532,6 +538,9 @@ app.get(NL_BESTEMMINGSPLAN_PATH, apiLimiter, nlBestemmingsplanHandler);
 // path that turns on with the L-449 sign-off. Same-origin, apiLimiter, never crashes.
 app.get(CORDOBA_ORDENANZAS_PATH, apiLimiter, cordobaOrdenanzasHandler);
 app.get(CORDOBA_VCATASTRO_PATH, apiLimiter, cordobaVcatastroHandler);
+// §ZARAGOZA-ZONING-PROXY — IDEZar `urbanismo:Calificaciones_Urbanas` spatial point lookup. ⚠
+// Renders NO number while ZARAGOZA_ENVELOPE_VERIFIED is false. Same-origin, apiLimiter, never crashes.
+app.get(ZARAGOZA_CALIFICACIONES_PATH, apiLimiter, zaragozaCalificacionesHandler);
 // §MURCIA-PGOU-PROXY — same-origin KEYLESS municipal GeoServer WFS point lookup.
 // GET /api/es/murcia-pgou?lat=&lon= → { calificaciones, sectores } (7-day coord cache). Each key is
 // `null` when THAT layer's upstream did not answer and `[]` when it answered empty — failure and
