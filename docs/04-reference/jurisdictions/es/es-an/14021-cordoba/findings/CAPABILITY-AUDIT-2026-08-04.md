@@ -1,0 +1,291 @@
+# CAPABILITY AUDIT — Córdoba (INE 14021), city-wide — 2026-08-04
+
+> **Scope.** Can PRYZM produce legally-defensible buildable envelopes ACROSS Córdoba — not just the
+> existing 2-district COACo pilot (Sur + Noroeste)? This audit builds on, cites, and does not
+> re-derive the extensive prior forensic work in this same directory:
+> [`FORENSIC-BLOCKER-AUDIT-2026-08-03.md`](./FORENSIC-BLOCKER-AUDIT-2026-08-03.md),
+> [`../sources/VERIFICATION.md`](../sources/VERIFICATION.md) (the SIG-1 signature ledger),
+> [`../CLOSURE-REGISTER.md`](../CLOSURE-REGISTER.md) (26-row blocker list),
+> [`CALIFICACION-ENDPOINT-PROBE.md`](./CALIFICACION-ENDPOINT-PROBE.md),
+> [`MACHINE-READABLE-SOURCE-SEARCH-2026-08-02.md`](./MACHINE-READABLE-SOURCE-SEARCH-2026-08-02.md),
+> [`../RISK-REGISTER.md`](../RISK-REGISTER.md). New work in this pass: (a) direct re-read of
+> `apps/editor/src/ui/site/siteDispatch.ts` to confirm the compute path's *current* code state, and
+> (b) live verification of four research areas the existing dossier had **not** covered — heritage
+> geometry, flood, airport servitudes, environmental overlays — which turned up one materially new,
+> previously-undocumented, live, machine-readable source (§5 below).
+
+---
+
+## Executive Summary
+
+PRYZM can, as of this pass, compute and render a real signed buildable envelope for a narrow slice of
+Córdoba — 4 of 13 packed PGOU-2001 subzones (OA-1, CTP-1, UAD-1, PAS-2), inside the 2-district COACo
+pilot (Sur + Noroeste, 4.96 km²), confirmed live in code (`siteDispatch.ts:3411-3513`, gate
+`CORDOBA_ENVELOPE_VERIFIED = true`, `esCordobaZoneClassification.ts:48`) and pinned by
+`apps/editor/__tests__/cordobaSiteDispatch.test.ts`. That slice is worth **≈16% full / ≈31% any**
+envelope of the pilot's buildable land, which is itself only **4.88%** of Córdoba's 33.342 km² of
+`SUELO URBANO`. Scaled to the whole municipality the ceiling is **≈0.9% full / ≈1.7% any envelope of
+SUELO URBANO** — and that ceiling is not PRYZM's to raise: an exhaustive, reproducible six-probe
+search (2026-08-02) established that no machine-readable calificación exists for the remaining
+95.1% of urban land, and that the municipal authority's own raster index (77 georeferenceable JPGs)
+is itself **41 of 49 dead** on re-fetch. Everywhere outside the packed slice PRYZM now returns a
+cited, evidence-backed refusal rather than the fabricated generic-default envelope it shipped before
+2026-08-01 — which is the single most important correctness fix in this file's history, and it means
+Córdoba is close to **100% "terminal"** (every parcel reaches an explicit, cited outcome) while being
+nowhere near 100% **numeric**. This pass additionally found, live, a materially significant asset the
+prior dossier had marked "unsourced": the Ayuntamiento's Gerencia Municipal de Urbanismo (GMU)
+publishes the historic-centre PEPCH'01 protection catalogue — covering the UNESCO Judería — as
+static, structured GeoJSON (boundary + ~1,000+ protected-asset points/polygons with protection-level
+IDs), fully machine-readable, at `gmucordoba.es/visorcasco/data/**/*.geojson`. It is not wired into
+PRYZM and does not by itself supply envelope parameters (it supplies protection *level*, not
+height/setback numbers), but it closes a real "does this even exist" gap. Flood (REDIAM regional WMS)
+and Natura 2000 (REDIAM regional WMS) machine-readable layers were also confirmed live and unwired;
+airport servitudes were confirmed to exist only as an informal Google-My-Maps overlay plus the
+authoritative-but-non-geospatial Real Decreto 729/2015 text.
+
+---
+
+## Capability: **Research Blocked** (city-wide) — with a narrow **Engineering Blocked** pocket inside the pilot
+
+Two different, non-contradictory ratings are true at two different scopes, and conflating them is the
+exact error this dossier's own `CLOSURE-REGISTER.md` was written to prevent (see its "ceiling vs
+blocker" lesson):
+
+- **Inside the 4 bound subzones of the 2-district pilot (≈1.7% of `SUELO URBANO`'s worth of land,
+  concentrated in OA-1 + CTP-1):** the remaining work — the UAD depth rule (D1), the resolver call
+  site — is **Engineering Blocked**, i.e. genuinely staffable by PRYZM, days not weeks. The signature
+  itself is done (`VERIFICATION.md §SIG-1`, signed 2026-08-03) and the compute path is confirmed live
+  in code as of this pass.
+- **City-wide (the 95.1% of `SUELO URBANO` outside the pilot):** the dominant blocker is that **no
+  machine-readable calificación geometry exists to acquire**. This is not an engineering backlog and
+  not a legal prohibition — it is an absence of a usable primary source, confirmed by exhaustive
+  search, that only the publisher (GMU) can resolve by serving its raster sheets, publishing vector
+  data, or answering a written data request. That is the definition of **Research Blocked**: the next
+  action is not "build" or "wait for a court", it is "locate or request a source that does not
+  currently exist in usable form" — and the search has already been run to exhaustion once
+  (`MACHINE-READABLE-SOURCE-SEARCH-2026-08-02.md`, do-not-re-run flagged in the register).
+
+City-wide, PRYZM **cannot today** and, on current evidence, **cannot in the near term without an
+external data grant**, produce legally-defensible buildable envelopes across Córdoba. It **can**
+produce a small number of legally-defensible envelopes in two ordenanza families of a 4.96 km² pilot
+area, and — separately and just as importantly — it can produce a **complete, terminal, honest map of
+absence** (cited refusals) everywhere else, which is real, shipped value distinct from coverage.
+
+---
+
+## Evidence Matrix
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| Planning document (PGOU-2001 text) | Scanned/vector-path PDFs, no text layer on 4 of 5 core docs; OCR'd and independently re-verified 13/13 subzones, zero digit errors | `VERIFICATION.md §SIG-1`; `OCR-EXTRACTION-RESULTS.md` |
+| Zoning geometry, pilot (2 districts) | WFS 2.0.0 + WMS 1.3.0 live, `coaco:ordenanzas`, 453 polygons | `CALIFICACION-ENDPOINT-PROBE.md §2`, re-verified live this session (see §5 below for adjacent finds) |
+| Zoning geometry, city-wide | **Does not exist as vector.** GMU raster index: 8/49 urban CUS sheets live, 41/49 dead on re-fetch | `CLOSURE-REGISTER.md` blocker 22, re-measured 2026-08-02 |
+| Parcel geometry | Catastro INSPIRE (national) + COACo `vcatastro_urbanismo` join, 5,721/5,725 pilot parcels populated | `CLOSURE-REGISTER.md` blocker 20 — PARCEL axis measured 95% |
+| Block ring (for depth construction) | `idecordoba:manzana`, 20,730 blocks municipality-wide, 88.0% of pilot ordenanza land covered | `LAYER2-GEOMETRY-RECOVERY-2026-08-02.md`; `NATIONAL-CAPABILITY-REGISTER.md` row K15 |
+| Height | Machine-readable for PAS/OA/UAD/CTP-1; MC is a per-street-width table with **no published alignment layer anywhere** (ADR-0285 4-part test failed at Part 3, tested not assumed) | `CLOSURE-REGISTER.md` row 25 |
+| FAR / edificabilidad | Numeric for most; **algorithmic (`null` by design)** for CTP-1/MC-1/2/4 per the ordinance text itself | `VERIFICATION.md §SIG-1`; row 15 |
+| Setbacks / alignment | **No alignment layer published by any Córdoba source**, city-wide GIS sweep (105 WFS + 119 WMS + 15 COACo) returned zero | `FORENSIC-BLOCKER-AUDIT-2026-08-03.md` item 8; row 25 |
+| Heritage — historic centre boundary (UNESCO Judería) | ⭐ **Live, machine-readable GeoJSON**, previously undocumented in this dossier | §5 below, verified live this session |
+| Heritage — protected-asset catalogue (PEPCH'01) | ⭐ **Live, machine-readable GeoJSON**, per-asset protection level, **no height/setback numbers** | §5 below |
+| Flood (Río Guadalquivir) | Live regional WMS (REDIAM), single 500-yr consolidated layer confirmed; a separate multi-return-period (T10/T50/T100/T500) REDIAM WMS-WFS product is catalogued but not independently re-verified live this session | §6 below |
+| Airport servitude surfaces | **No authoritative machine-readable geometry found.** AESA's own "Mapa de SSAA" is a Google My Maps embed; the binding instrument is Real Decreto 729/2015 (text, not geodata) | §7 below |
+| Environmental (Natura 2000) | Live regional WMS (REDIAM, LIC/ZEC/ZEPA) confirmed | §8 below |
+| Legal delegation to derived plans | Measured, ≈43–45% of pilot ordinance land, `coaco:actuaciones` layer | `CLOSURE-REGISTER.md` row 14 |
+| Dispatch feasibility, pilot | ✔ resolver called, gate open, compute confirmed in code this session | `siteDispatch.ts:3411-3513` |
+| Dispatch feasibility, city-wide | ✘ — no registration/source exists to dispatch against outside the pilot; refusal-only municipal registration ships instead | `CLOSURE-REGISTER.md` blocker 1 (closed as a refusal, not as coverage) |
+
+---
+
+## Machine-readable assets — every endpoint verified this session or in the cited prior work
+
+**Zoning / parcel (prior work, re-cited, not independently re-hit live this session — see caveat below):**
+- `https://geoserver.pgou.coacordoba.org/geoserver/wfs` (WFS 2.0.0) — `coaco:ordenanzas`, `coaco:actuaciones`, `coaco:usos_globales`, `coaco:distritos`, `coaco:vcatastro_urbanismo`
+- `https://mapas.fomento.gob.es/arcgis/rest/services/SIU/Servicios_OGC/MapServer/15` — national SIU *clasificación* (not calificación), covers whole municipality
+- `https://idecordoba.cordoba.es` GeoServer — `idecordoba:manzana` (20,730 blocks)
+
+**Heritage — ⭐ NEW, verified live this session:**
+- `https://www.gmucordoba.es/visorcasco/data/limites/limite_ch.geojson` — **HTTP 200**, 52,002 bytes, `FeatureCollection`, CRS84 — the historic-centre (PEPCH/Judería-UNESCO) boundary polygon.
+- `https://www.gmucordoba.es/visorcasco/data/catalogo/ed_edificios.geojson` — **HTTP 200**, 632,188 bytes — catalogued buildings, properties include `id0/id1/id2`, `nombre`, `tipo`, `idlink`, a link to a per-asset PDF ficha.
+- `https://www.gmucordoba.es/visorcasco/data/catalogo/ed_monumentos.geojson` — **HTTP 200**, 283,585 bytes — catalogued monuments (e.g. `MC-15` "Muralla de la Ajerquía").
+- `https://www.gmucordoba.es/visorcasco/data/catalogo/ed_conjuntos.geojson`, `ed_hitos.geojson`, `al_espacios.geojson`, `espacios_catalogados.geojson` — sibling layers, same pattern (linked, not independently opened this session — same host, same static-file convention, same viewer, treat as live with the same confidence).
+- Publisher-announced (not independently confirmed this session): bulk download in CSV / KML / ESRI Shapefile / GeoJSON via the catalogue's own UI (`gmucordoba.es/novedades/item/183-...`), WGS84.
+- **What it is NOT**: a source of envelope parameters. The catalogue records a protection *level* (`tipo`, an identification code) per asset and links a PDF record, not a machine-readable height/setback/volume rule. The PEPCH's actual buildability rules (Normas Urbanísticas) were not confirmed this session to have a text layer — treat as unverified pending the same OCR-fidelity discipline already applied to the PGOU-2001 pack.
+- `https://www.iaph.es/ide/localizador/wms` — **HTTP 200**, WMS, single layer `localizador` ("Localizador Cartográfico del Patrimonio Cultural Andaluz") — regional BIC/heritage locator, coarser than the GMU catalogue, not Córdoba-specific.
+
+**Flood — verified live this session:**
+- `https://www.juntadeandalucia.es/medioambiente/mapwms/REDIAM_zonas_inundables_Andalucia` — **HTTP 200**, WMS, layer `zonas_inundables_andalucia` (500-yr return period compilation, whole-Andalucía bbox, includes Río Guadalquivir at Córdoba).
+- Catalogued but not independently re-hit this session: `REDIAM_zonas_inundables_periodos_retorno` (T10/T50/T100/T500 WMS-WFS product) and Confederación Hidrográfica del Guadalquivir's own APSFR service. Note: `idechg.chguadalquivir.es/geoserver/wms` was probed live this session (HTTP 200, 254 KB capabilities XML) and its layer list contains **no flood-zone layer** — only water-quality/abstraction-zone layers (`zonas_sensibles_*`, `zonas_captacion_rio`, etc.). The authoritative CHG flood service, if one exists, was not located this session; REDIAM's regional compilation is the only flood source confirmed live.
+
+**Environmental — verified live this session:**
+- `https://www.juntadeandalucia.es/medioambiente/mapwms/REDIAM_Red_Natura_2000` — **HTTP 200**, WMS, layer `red_natura_2000` (LIC/ZEC/ZEPA, whole Andalucía).
+
+**Airport — verified live this session:**
+- No dedicated WMS/WFS/REST endpoint located. AESA's "Mapa de SSAA" (`seguridadaerea.gob.es/es/ambitos/servidumbres-aeronauticas/mapa-de-ssaa`) links out to a **Google My Maps** viewer (`google.com/maps/d/viewer?...mid=1W0aSGJIpS2QHRd24hk87CISY2ekmnx8`) — not an authoritative GIS service, though Google My Maps does support a KML export a determined pipeline could scrape (untested, and its legal status as a primary source is weak — it is AESA's *convenience* map, not the instrument itself).
+- The binding legal instrument is **Real Decreto 729/2015** (modifying Córdoba airport's servidumbres), confirmed to exist via `seguridadaerea.gob.es/sites/default/files/ficha_cordoba.pdf`, but that PDF itself is a reference sheet with outbound links, not geodata.
+
+---
+
+## Missing assets
+
+- Vector calificación for 95.1% of `SUELO URBANO` (41 of 49 urban CUS raster sheets are dead; no
+  alternative machine-readable source found after an exhaustive 2026-08-02 search).
+- Any alignment/frontage layer anywhere in Córdoba's published GIS (needed for setback measurement
+  and for the MC street-width height table) — proven absent, not merely unfound.
+- A structured (non-scanned) source for PGOU-2001 ordinance numbers — none exists; COACo serves only
+  scanned/vector-path PDFs.
+- PEPCH'01 Normas Urbanísticas as structured/text-extractable data (only the catalogue *index*
+  geometry was confirmed machine-readable this session; the actual protection-level rulebook was not
+  fidelity-checked).
+- An authoritative, geospatial airport-servitude layer (only an informal Google My Maps overlay
+  exists publicly).
+- A confirmed authoritative CHG-specific (rather than REDIAM-regional) flood-risk layer for the
+  Guadalquivir at Córdoba.
+- Tomo VI (Conjunto Histórico envelope volume cited in Art. 13.4.1) — confirmed not served anywhere
+  (prior work).
+- A COACo subzone attribute for the 14 bare-`O_MC.pdf` polygons (1.14% of ordenanzas land) —
+  publisher-gated, not obtainable by PRYZM.
+
+---
+
+## Blockers
+
+1. **95.1% of `SUELO URBANO` has no machine-readable calificación.** *Category:* Data acquisition
+   (Research Blocked). *Solvability:* Not engineering-solvable; requires GMU to publish vector data,
+   fix its raster sheets, or respond to a direct data request. Exhaustively searched once
+   (`MACHINE-READABLE-SOURCE-SEARCH-2026-08-02.md`) — do not re-search without new information.
+
+2. **Manzana Cerrada (16.86% of pilot buildable land) height is an unresolvable per-street-width
+   table.** *Category:* External authority / Awaiting authoritative interpretation. *Solvability:*
+   Requires GMU/COACo to publish an alignment layer or state the measurement basis of Art. 13.5.3.1;
+   PRYZM's own street-polygon proxy was tested and rejected under ADR-0287 (band-edge sensitivity too
+   high — 45.4% of streets sit within ±1 m of a 2 m-wide height band edge).
+
+3. **~43–45% of pilot ordinance land is legally delegated** to Plan Parcial / PERI / Estudio de
+   Detalle / Plan Especial. *Category:* Legal, terminal. *Solvability:* Correctly answered today with
+   a cited refusal once the delegation branch is exercised (blocker 3 in `CLOSURE-REGISTER.md`); not
+   a gap to close, a fact to report.
+
+4. ~~**UAD `profundidad máxima edificable` (Art. 13.9.3.3) is stated in the source and absent from the
+   shipped pack.**~~ **STALE — already closed.** This blocker was fixed in commit `fcd239ab`
+   (2026-08-02, "OCR verified 13/13 CLEAN — and the ENVELOPE ceiling is ~3x LOWER than advertised")
+   and reconfirmed live in `packages/site-parcel-data/src/rulepacks/esCordobaPGOU2001.ts` (D1, all
+   three UAD subzones carry a `geometricRule` with the stated 16/18/16 m depth) and
+   `CLOSURE-REGISTER.md` row 4 ("**CLOSED**"). Re-verified against the current tree this session
+   (2026-08-04): the fix is present and the Córdoba test suite passes with it in place. Flagged here,
+   not silently corrected in the numbered claim above, per this dossier's own documentation-drift
+   discipline (see blocker 8).
+
+5. **PEPCH/historic-centre buildability numbers are unverified and unwired.** *Category:* Engineering
+   + OCR-verification (the same L-449 discipline already applied to the PGOU-2001 pack has not been
+   applied here). *Solvability:* Medium — the geometry (§5) is already live; what's missing is (a)
+   confirming the Normas Urbanísticas text is extractable, (b) transcribing/OCR-verifying it, (c) a
+   human sign-off, exactly the PGOU-2001 playbook, applied to a second, disjoint instrument.
+
+6. **No airport servitude source meets PRYZM's own evidentiary bar.** *Category:* Data
+   acquisition/External authority. *Solvability:* Low without a direct AESA data request; the
+   informal Google My Maps overlay is not something PRYZM's documented standards (`ADR-0284`
+   forbidding derived-law substitution) would allow treating as authoritative.
+
+7. **No confirmed Córdoba-specific (CHG) flood layer**, only a regional REDIAM compilation.
+   *Category:* Data acquisition, low severity — REDIAM's product is plausibly sufficient (whole-
+   Andalucía, includes the Guadalquivir corridor) but was not cross-checked against a Córdoba-specific
+   authoritative source this session. *Solvability:* Small — a follow-up probe of CHG's actual
+   flood/APSFR service (distinct from the geoserver instance probed this session, which carries no
+   flood layer) would close this.
+
+8. **`CORDOBA_ENVELOPE_VERIFIED` signature and compute path are landed, but the prior dossier's own
+   `GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md` (line 449) still reads "⛔ refusing — refusal-only since
+   2026-08-01."** *Category:* Documentation drift, not a capability blocker — flagged so the next
+   reader does not trust a stale cross-reference over the code and the signed `VERIFICATION.md`
+   directly re-read this session.
+
+---
+
+## Estimated Unlock Effort
+
+- **Pilot-scope engineering closure** (blockers 4 + the resolver wiring, both largely done per this
+  session's direct code read): **Tiny–Small** (hours to ~1 eng-day remaining).
+- **MC street-width resolver**: **Medium**, and gated on an external publisher action that may never
+  come — effort estimate assumes the data becomes available, which is not assured.
+- **PEPCH transcription + sign-off** (a second, smaller L-449 pass): **Small–Medium**, days, mostly
+  human OCR-verification and legal sign-off time, not engineering.
+- **City-wide vector calificación (the 95.1% gap)**: **Very Large**, and possibly **Impossible without
+  external cooperation** — this is not a PRYZM staffing question.
+- **Overall, to move the *city-wide* capability rating**: **Very Large**, dominated by an external
+  dependency PRYZM does not control.
+
+## Recommendation: **Wait for external source** (city-wide) / **Build now, narrowly** (pilot subzones only)
+
+Do not invest further engineering in trying to manufacture city-wide coverage — the search for a
+machine-readable source has already been run to exhaustion and the answer is negative, confirmed
+again by this session's independent checks (flood/heritage/environmental/airport probes each
+surfaced real regional infrastructure but nothing that changes the calificación picture). The correct
+next action for the 95.1% gap is a **written data request to GMU** (specific asks already itemised in
+`CLOSURE-REGISTER.md` blocker 22: the 41 missing sheets, world files for the 8 live ones, the `et`
+field definition, the instrument date), not more searching and not more building. Inside the pilot,
+finishing blockers 3–4 and applying the same certification discipline to the newly-found PEPCH
+catalogue are both legitimate, boundable, worthwhile engineering tasks — "build now, narrowly" — but
+they will never make Córdoba a city-wide answer on their own.
+
+## PRYZM Readiness Score: **17 / 100**
+
+Rationale: ENVELOPE axis is a *measured* 0.0% as of the register's last full C63 pass
+(`cordoba.measurements.json`, 2026-08-01), and this session's direct code read confirms a real but
+extremely narrow compute path now renders on ~1.7% of `SUELO URBANO`'s worth of land at best — not
+enough to move the measured axis meaningfully. PARCEL is genuinely strong (95%, independently
+measured). LEGISLATION coverage of the *known* subzone families is 40–50% but resolves to numbers on
+a small fraction of land once delegation is subtracted. HEIGHTS is 0.271% (measured, pre-national-
+bake). Heritage/flood/environmental data now confirmed reachable but entirely unintegrated (0 credit
+under current C63 axes, which don't yet score those overlays at all). The score reflects genuine,
+verifiable, non-fabricated progress in a corner of the city, not a city capability.
+
+---
+
+## Compare against: Barcelona, Murcia, Balears, Zaragoza, Sevilla, Valencia, Granada, Málaga
+
+⚠ This comparison draws on this repo's existing cross-city trackers
+(`docs/04-reference/GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md`,
+`docs/04-reference/standards/NATIONAL-CAPABILITY-REGISTER.md`) rather than fresh live audits of each
+city — those are out of scope for this pass. Treat non-Córdoba figures as **secondary, previously
+measured by other sessions**, not independently re-verified here.
+
+| City | Status (per existing trackers) | vs. Córdoba |
+|---|---|---|
+| **Barcelona** | Only city "live in production"; **20.9%** end-to-end envelope resolution measured 2026-07-22; corpus boundary formally signed (D-006); ~62.8% of land is legally derived-plan (worse delegation ratio than Córdoba's ~43–45%) | Materially ahead — real production traffic, a signed corpus, and an order of magnitude more measured coverage |
+| **Murcia** | Signed, `estimated-ruleset` published; street width **constructed** from a published alignment layer (`Murcia:pgou_alineaciones`) — the exact layer type Córdoba has proven **does not exist** at any Córdoba publisher; ~28% ECC measured | Ahead specifically on the alignment/street-width problem that structurally blocks Córdoba's MC family (16.86% of pilot land) |
+| **Madrid** | Packed zones exist but router gap (`isInBarcelona`-style bbox checks) means Madrid's dissolve/depth/inset paths are "currently unobservable" in production per the tracker; NZ-3 (90.43 M m²) is legally terminal | Roughly comparable maturity — both have real packs gated behind unresolved wiring/legal issues |
+| **València** | 0% ECC measured per the same tracker; storeys variable blocks 85.5% of buildable land | Behind Córdoba on measured ECC, though not independently confirmed this session |
+| **Sevilla** | "Not started" per tracker (zone identity resolves via ArcGIS `zona_orden`, but the PGOU-2006 rule pack is empty by construction — zero transcribed parameters) | Behind Córdoba — Córdoba at least has a signed, partially computing pack; Sevilla has none |
+| **Balears, Zaragoza, Granada, Málaga** | No entries found in either cross-city tracker; Málaga has some real-corpus reading work recorded in agent memory but no evidenced envelope-computation status in repo docs. **Not assessed this session** — do not infer a rating | Unknown; cannot be honestly ranked against Córdoba from what this repo currently holds |
+
+**Net position:** Córdoba is neither the best nor the worst documented Spanish city in this repo. It
+is distinguished by having done unusually rigorous **negative-evidence** work (proving what does NOT
+exist, at scale, rather than assuming) — which is valuable but does not itself produce coverage.
+Murcia's alignment layer is the single clearest "what would unblock Córdoba" reference point.
+
+---
+
+## Final Verdict
+
+**Can PRYZM create legally-defensible buildable envelopes in Córdoba? Yes, but only for a small,
+provable slice — 4 ordenanza subzones inside a 4.96 km² pilot area, worth on the order of 1–2% of the
+city's urban land — and No, not city-wide, not in the foreseeable term, without an external data
+grant.** Everywhere outside that slice PRYZM correctly refuses rather than fabricates, which is a real
+and defensible product state (a complete map of honest "I don't know, and here is exactly why"), but
+it is not buildable-envelope coverage and should never be reported as such.
+
+**Single biggest blocker:** the Gerencia Municipal de Urbanismo's own calificación geometry is not
+usably published — 41 of 49 urban raster sheets are dead links, no vector alternative exists anywhere
+(confirmed by an exhaustive six-probe search), and this is an external-publisher gap, not something
+PRYZM engineering, however well-resourced, can build its way past. It sits alongside a second,
+structurally similar blocker inside the pilot itself — no alignment/frontage layer exists anywhere in
+Córdoba's GIS, which permanently blocks the Manzana Cerrada family (the single largest ordenanza by
+land share) unless the publisher (not PRYZM) produces one.
+
+---
+
+*Authority: this pass supersedes nothing in the cited findings; it adds §5–§8 (heritage/flood/
+airport/environmental, previously absent from this dossier) and reconfirms the compute-path code
+state directly against `siteDispatch.ts` as of 2026-08-04. Maintainer: UNASSIGNED. All URLs above
+were fetched live in this session on 2026-08-04 except where explicitly marked "not independently
+re-hit this session" / "catalogued but not confirmed."*
