@@ -273,8 +273,10 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         // de ordenación anexo" this transcription did not find, and the RE-ViUf ↔ Ciudad Jardín
         // typology binding itself is an inference from article text + GIS-label naming, not a
         // confirmed cross-reference (see EL_SAUZAL_FICHERO_ANEXO_GAP and
-        // EL_SAUZAL_TYPOLOGY_BINDING_INFERENCE in esElSauzal.ts). NOT wired into
-        // siteDispatch.ts/registry.ts pending that reading — see esElSauzal.ts header.
+        // EL_SAUZAL_TYPOLOGY_BINDING_INFERENCE in esElSauzal.ts). ⚠ UPDATED 2026-08-04: NOW WIRED
+        // into siteDispatch.ts (`applyElSauzalZoningThenFallback`, §EL-SAUZAL-ENVELOPE) — every
+        // parcel dispatches a cited refusal naming the resolved ZUSO zone; the gate itself is
+        // unchanged and still awaits the fichero anexo + a human signature.
         signature: null,
     },
     {

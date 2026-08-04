@@ -417,6 +417,21 @@ import {
     // `maxHeight_m: null`, so the engine's cap is skipped at solve time). Replaces the inline object
     // spread the §BCN-ALCADA block used, which was both FAR-blind and tier-unsafe (see envelopeHeight.ts).
     applyConstructedHeight,
+    // §EL-SAUZAL-ENVELOPE — an El Sauzal (INE 38041, Tenerife) plot. ⚠ El Sauzal's SIPU package
+    // carries NO `EDIF.mdb` (unlike Telde), so the zone is resolved OFFLINE from a committed ZUSO
+    // shapefile extract (`resolveElSauzalZone`, sync, never throws). `EL_SAUZAL_ENVELOPE_VERIFIED`
+    // is unsigned — TWO named gaps (the missing "fichero de ordenación anexo" + the RE-ViUf↔Ciudad
+    // Jardín typology binding being an inference, not a confirmed cross-reference) — so this path
+    // renders NO number: it dispatches a cited "no signed transcription" refusal, naming the
+    // resolved ZUSO zone when one resolves, never a fabricated envelope. Same discipline as
+    // Telde/Zaragoza/Córdoba.
+    isInElSauzal,
+    EL_SAUZAL_JURISDICTION_ID,
+    EL_SAUZAL_ENVELOPE_VERIFIED,
+    EL_SAUZAL_ZONE_CODES,
+    ES_EL_SAUZAL_PACK,
+    elSauzalNoRulePackRefusal,
+    resolveElSauzalZone,
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 // ADR-0271 §BCN-REAL-ENVELOPE — the impure edge providers the Barcelona path injects into the
@@ -1425,6 +1440,16 @@ function applyZoning(
         // anything here — this branch is the missing dispatch wiring that closes that gap.
         if (qLat != null && qLon != null && isInTelde(qLat, qLon)) {
             void applyTeldeZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+            return;
+        }
+        // §EL-SAUZAL-ENVELOPE — an El Sauzal (INE 38041, Tenerife) plot. ⚠ Checked alongside Telde
+        // (both Canarias, both offline-resolved) but registered as its own municipality — El
+        // Sauzal's own bbox is on Tenerife, ~90 km from Telde's Gran Canaria box, so this test's
+        // ORDER is legibility, not precedence. `EL_SAUZAL_ENVELOPE_VERIFIED` is unsigned, so this
+        // path renders NO number: it dispatches a cited "no signed transcription" refusal, naming
+        // the resolved ZUSO zone when one resolves, never a fabricated envelope.
+        if (qLat != null && qLon != null && isInElSauzal(qLat, qLon)) {
+            applyElSauzalZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
             return;
         }
         // §MURCIA-ENVELOPE — a Murcia (INE 30030) plot. ⚠ A REGIONALLY DISTINCT branch, not a
@@ -4196,6 +4221,256 @@ async function applyTeldeZoningThenFallback(
         );
     } catch (e) {
         console.warn(`${TAG} Telde path failed (non-fatal) — falling back to estimated default:`, e);
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+    }
+}
+
+/**
+ * §EL-SAUZAL-ENVELOPE — the El Sauzal (INE 38041, Tenerife) path, on the Telde/Zaragoza/Córdoba
+ * precedent. This closes the gap `esElSauzal.ts`'s header named: the pack + offline resolver were
+ * built but `siteDispatch.ts` was deliberately left unwired pending this function.
+ *
+ * ⚠ El Sauzal's SIPU package carries NO `EDIF.mdb` (unlike Telde), so `resolveElSauzalZone` reads a
+ * committed offline `ZUSO.shp`/`.dbf` extract instead of a live WFS — SYNCHRONOUS, never throws.
+ * `EL_SAUZAL_ENVELOPE_VERIFIED` stays false until a human (a) locates and reads the "fichero de
+ * ordenación anexo" Título X repeatedly defers to and (b) signs `sources/VERIFICATION.md` — TWO
+ * named gaps (`EL_SAUZAL_FICHERO_ANEXO_GAP`, `EL_SAUZAL_TYPOLOGY_BINDING_INFERENCE`), so this path
+ * renders NO number today: it dispatches `elSauzalNoRulePackRefusal`, naming the resolved ZUSO
+ * `ETIQUETA` when one resolves, never a fabricated envelope.
+ *
+ * Fully guarded: any problem falls back to the precomputed estimated envelope; never throws into
+ * the commit path. `status: 'none'` on the refusal keeps every numeric field null and clears any
+ * stale `buildableRing` (`dispatchEnvelope` writes a ring only on `'ok'`).
+ */
+function applyElSauzalZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+): void {
+    const TAG = '[gis][c58] §EL-SAUZAL-ENVELOPE';
+    const JURISDICTION_REF = 'el-sauzal-zuso-shapefile';
+    const EL_SAUZAL_FALLBACK_ZONE_CODE = 'el-sauzal-normativa';
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        const parcelAreaM2 = (() => {
+            try {
+                const ring = boundary.polygon;
+                const a = Math.abs(
+                    ring.reduce((acc, p, i) => {
+                        const q = ring[(i + 1) % ring.length]!;
+                        return acc + (p.x * q.z - q.x * p.z);
+                    }, 0) / 2,
+                );
+                return Number.isFinite(a) && a > 0 ? a : null;
+            } catch { return null; }
+        })();
+
+        // ── §EL-SAUZAL-ZONE — resolve the ZUSO zone BEFORE the gate. ─────────────────────────
+        //
+        // ⚠⚠ THIS RESOLVES DATA, IT DOES NOT DECIDE TO RENDER. `EL_SAUZAL_ENVELOPE_VERIFIED` is
+        // still false below, so a resolved zone binds NO number — it only lets the refusal say
+        // WHICH zone refused, exactly the same honesty property Telde/Zaragoza's resolvers document.
+        let zoneCode: string | null = null;
+        let packed = false;
+        let zoneNote: string | null = null;
+        try {
+            const z = resolveElSauzalZone({ lat, lon });
+            if (z.ok) {
+                zoneCode = z.resolution.zoneCode;
+                packed = (EL_SAUZAL_ZONE_CODES as readonly string[]).includes(zoneCode);
+                if (!packed) {
+                    zoneNote =
+                        `Zone ${zoneCode} is outside the 17 packed Ciudad Jardín (RE-ViUf-*) zones ` +
+                        '— no rule exists for it yet.';
+                }
+            } else if (z.reason === 'no-zone') {
+                zoneNote =
+                    'No SIPU `ZUSO` zone polygon covers this point — outside El Sauzal\'s ' +
+                    'published zoning-use geometry.';
+            } else {
+                zoneNote = `El Sauzal ZUSO zone NOT resolved (${z.reason}) — this is an unknown, ` +
+                    'not an absence of planning.';
+            }
+        } catch (e) {
+            console.warn(`${TAG} §EL-SAUZAL-ZONE resolve failed (non-fatal):`, e);
+            zoneNote = 'El Sauzal ZUSO zone NOT resolved (resolver error) — this is an unknown, not an absence of planning.';
+        }
+
+        const knownFacts = [
+            `Location: El Sauzal (${lat.toFixed(5)}, ${lon.toFixed(5)}) — PGO de El Sauzal, ` +
+                'Normativa Urbanística (Aprobación Definitiva 2010)',
+            parcelAreaM2 !== null ? `Parcel area: ${Math.round(parcelAreaM2).toLocaleString()} m²` : null,
+            zoneCode !== null
+                ? `ZUSO zone: ${zoneCode} (SIPU \`ZUSO.dbf\`, offline extract, ETIQUETA field)`
+                : null,
+            zoneNote,
+            'Planning source: PGO de El Sauzal, Título X Cap.3 (Ciudad Jardín) — human-transcribed ' +
+                'from the Normativa PDF; transcription unsigned',
+        ].filter((s): s is string => typeof s === 'string');
+
+        if (!EL_SAUZAL_ENVELOPE_VERIFIED) {
+            // ⚠⚠⚠ THE HONESTY GATE — ⛔ DO NOT FLIP `EL_SAUZAL_ENVELOPE_VERIFIED` HERE OR ANYWHERE
+            // ELSE. A signature is a founder act (L-449); a model flipping it is the L-677 defect.
+            // `status: 'none'` = attempted, value WITHHELD pending a human reading the fichero
+            // anexo + sign-off.
+            //
+            // §STAGING-UNCERTIFIED-PREVIEW (L-449) — a NARROWER, non-production-only exception to
+            // the refusal below, never to the gate itself. `EL_SAUZAL_ENVELOPE_VERIFIED` is still
+            // read as `false` two lines above this comment and nothing here writes to it. See the
+            // identical block in `applyTeldeZoningThenFallback` for the full rationale — this
+            // mirrors it exactly, computing the SAME `computeBuildableEnvelope` call the signed
+            // path below would make, then stamping `publicationPosture: 'uncertified-preview'`.
+            if (isUncertifiedPreviewModeActive() && zoneCode !== null && packed) {
+                const zone = ES_EL_SAUZAL_PACK.zones.find((z) => z.code === zoneCode);
+                const record: ZoningRecord = {
+                    zoneCode,
+                    zoneLabel: zone?.label ?? null,
+                    jurisdictionId: EL_SAUZAL_JURISDICTION_ID,
+                    structuredFields: {},
+                    overlays: [],
+                    ordinanceRef: zone?.ordinanceRef ?? null,
+                    provenance: {
+                        source: 'el-sauzal-zuso-shapefile',
+                        label:
+                            'El Sauzal PGOU Normativa Urbanística, Título X Cap.3 — human-' +
+                            'transcribed, UNSIGNED reading (§STAGING-UNCERTIFIED-PREVIEW)',
+                        version: '2010',
+                        license: null,
+                        crs: 'EPSG:32628',
+                    },
+                };
+                const previewEnvelope = computeBuildableEnvelope({
+                    parcelRing: boundary.polygon,
+                    edgeClassifications: boundary.edgeClassifications,
+                    zoning: record,
+                    rulePack: ES_EL_SAUZAL_PACK,
+                });
+                if (previewEnvelope.status === 'ok') {
+                    const watermarked = {
+                        ...previewEnvelope,
+                        publicationPosture: 'uncertified-preview' as const,
+                        caveats: [
+                            uncertifiedPreviewCaveat(`El Sauzal ZUSO ${zoneCode}`),
+                            ...previewEnvelope.caveats,
+                        ],
+                    };
+                    dispatchEnvelope(ctx, site.id, watermarked, JURISDICTION_REF);
+                    console.log(
+                        `${TAG} §STAGING-UNCERTIFIED-PREVIEW zoneCode=${zoneCode} — rendered an ` +
+                            'UNCERTIFIED preview (EL_SAUZAL_ENVELOPE_VERIFIED remains false). ' +
+                            `area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m².`,
+                    );
+                    return;
+                }
+                console.log(
+                    `${TAG} §STAGING-UNCERTIFIED-PREVIEW zoneCode=${zoneCode} produced status=` +
+                        `${previewEnvelope.status} — falling through to the normal refusal.`,
+                );
+            }
+            const refusal = elSauzalNoRulePackRefusal(zoneCode, knownFacts);
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(zoneCode ?? EL_SAUZAL_FALLBACK_ZONE_CODE, refusal, 'none'),
+                JURISDICTION_REF,
+            );
+            console.log(
+                `${TAG} §HONESTY-GATE EL_SAUZAL_ENVELOPE_VERIFIED=false — dispatched the no-signed-` +
+                    `rule refusal; NO number rendered (${refusal.code}). zoneCode=${zoneCode ?? 'unresolved'} ` +
+                    `packed=${packed} area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m². ` +
+                    `Signs off via sources/VERIFICATION.md.`,
+            );
+            return;
+        }
+
+        // ── VERIFICATION SIGNED (future). Only a PACKED zone (one of the 17 RE-ViUf-N codes) may
+        // compute — an unpacked but resolved code (e.g. RE-ViCo-*) still refuses on its own named
+        // merits, never borrows another zone's numbers.
+        if (zoneCode !== null && packed) {
+            const packZone = ES_EL_SAUZAL_PACK.zones.find((z) => z.code === zoneCode);
+            const record: ZoningRecord = {
+                zoneCode,
+                zoneLabel: packZone?.label ?? null,
+                jurisdictionId: EL_SAUZAL_JURISDICTION_ID,
+                structuredFields: {},
+                overlays: [],
+                ordinanceRef: packZone?.ordinanceRef ?? null,
+                provenance: {
+                    source: 'el-sauzal-zuso-shapefile',
+                    label:
+                        'El Sauzal PGOU Normativa Urbanística, Título X Cap.3 — human-transcribed, ' +
+                        'human-signed reading',
+                    version: '2010',
+                    license: null,
+                    crs: 'EPSG:32628',
+                },
+            };
+            const envelope = computeBuildableEnvelope({
+                parcelRing: boundary.polygon,
+                edgeClassifications: boundary.edgeClassifications,
+                zoning: record,
+                rulePack: ES_EL_SAUZAL_PACK,
+            });
+            if (envelope.status === 'ok') {
+                dispatchEnvelope(ctx, site.id, envelope, JURISDICTION_REF);
+                console.log(
+                    `${TAG} zoneCode=${zoneCode} — RENDERED a signed envelope at ` +
+                        `${envelope.confidence ?? 'n/a'}. area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m².`,
+                );
+                return;
+            }
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(
+                    zoneCode,
+                    {
+                        code: 'source-data-unavailable',
+                        headline:
+                            `${zoneCode}${packZone ? ` — ${packZone.label}` : ''}: the transcribed ` +
+                            'ordinance leaves no buildable footprint on this parcel.',
+                        detail:
+                            'PRYZM applied the transcribed, signed Ciudad Jardín rule to your ' +
+                            'parcel boundary and the resulting footprint is empty — typically a ' +
+                            'plot narrower than the ordinance\'s setback geometry permits. PRYZM ' +
+                            'will not substitute an estimated figure to avoid showing an empty ' +
+                            'result.',
+                        ordinanceRef: packZone?.ordinanceRef ?? null,
+                        legallyGrounded: false,
+                        knownFacts,
+                    },
+                    'none',
+                ),
+                JURISDICTION_REF,
+            );
+            console.log(
+                `${TAG} zoneCode=${zoneCode} produced status=${envelope.status} — dispatched the ` +
+                    `empty-footprint refusal. NO number rendered.`,
+            );
+            return;
+        }
+
+        // Verified but unpacked/unresolved — the coverage-gap refusal, never a guessed number.
+        const coverageGap = elSauzalNoRulePackRefusal(zoneCode, knownFacts);
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(zoneCode ?? EL_SAUZAL_FALLBACK_ZONE_CODE, coverageGap, 'none'),
+            JURISDICTION_REF,
+        );
+    } catch (e) {
+        console.warn(`${TAG} El Sauzal path failed (non-fatal) — falling back to estimated default:`, e);
         try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
     }
 }
