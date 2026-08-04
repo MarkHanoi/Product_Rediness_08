@@ -73,6 +73,10 @@ import { SEVILLA_ENVELOPE_VERIFIED } from './rulepacks/esSevilla.js';
 import { MALAGA_ENVELOPE_VERIFIED } from './rulepacks/esMalaga.js';
 import { GRANADA_ENVELOPE_VERIFIED } from './rulepacks/esGranada.js';
 import { CARTAGENA_ENVELOPE_VERIFIED } from './rulepacks/esCartagena.js';
+import { LORCA_ENVELOPE_VERIFIED } from './rulepacks/esLorca.js';
+import { MOLINA_DE_SEGURA_ENVELOPE_VERIFIED } from './rulepacks/esMolinaDeSegura.js';
+import { ALCANTARILLA_ENVELOPE_VERIFIED } from './rulepacks/esAlcantarilla.js';
+import { LAS_TORRES_DE_COTILLAS_ENVELOPE_VERIFIED } from './rulepacks/esLasTorresDeCotillas.js';
 import { HUESCA_ENVELOPE_VERIFIED, ZARAGOZA_ENVELOPE_VERIFIED } from './rulepacks/esAragon.js';
 import { EL_SAUZAL_ENVELOPE_VERIFIED } from './rulepacks/esElSauzal.js';
 import { FR_PARIS_PLU_CERTIFIED } from './rulepacks/frParisPluBioclimatique.js';
@@ -244,6 +248,39 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         // zone's mandatory road setback ("retranqueo a vial") is unquantified in PGMO 1987 Título
         // Cuarto's base text — a founder must locate the quantifying source (fichas/plans) before
         // this can be signed. Nothing fabricated in the meantime.
+        signature: null,
+    },
+    {
+        gate: 'LORCA_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esLorca.ts',
+        value: LORCA_ENVELOPE_VERIFIED,
+        // Not signable: no rulepack exists. A candidate parcel-lookup mechanism was located in the
+        // live viewer's JS bundle but requires a runtime session token automated tooling could not
+        // obtain, so it was never fired against a real coordinate.
+        signature: null,
+    },
+    {
+        gate: 'MOLINA_DE_SEGURA_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esMolinaDeSegura.ts',
+        value: MOLINA_DE_SEGURA_ENVELOPE_VERIFIED,
+        // Not signable: no rulepack exists. The public viewer is a third-party SPA whose backend
+        // could not be enumerated, and the ordinance PDFs' tables are un-OCR'd.
+        signature: null,
+    },
+    {
+        gate: 'ALCANTARILLA_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esAlcantarilla.ts',
+        value: ALCANTARILLA_ENVELOPE_VERIFIED,
+        // Not signable: no rulepack exists. The two 1983 PGOU ordinance source documents are
+        // SharePoint-hosted and return HTTP 403 to every automated fetch attempt.
+        signature: null,
+    },
+    {
+        gate: 'LAS_TORRES_DE_COTILLAS_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esLasTorresDeCotillas.ts',
+        value: LAS_TORRES_DE_COTILLAS_ENVELOPE_VERIFIED,
+        // Not signable: no rulepack exists. The parcel-level zoning digitization (VisualUrb) is a
+        // paid third-party SaaS returning HTTP 401 without a licence; the setback PDF is unreadable.
         signature: null,
     },
     {

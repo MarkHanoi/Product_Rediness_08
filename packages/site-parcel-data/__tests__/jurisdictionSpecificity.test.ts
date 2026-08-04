@@ -92,24 +92,29 @@ function isCanariasMunicipal(c: { readonly jurisdictionId: string; readonly exte
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
-// §CARTAGENA-REGISTRATION (2026-08-04) — the SAME class of honest tie as the Canarias block
-// above, ONE pair, named explicitly rather than matched by a regex (there is no third Región de
-// Murcia municipality registered yet to justify a pattern). Cartagena's own bbox (Nominatim,
-// ~558 km² término, rounded outward-only) and Murcia (capital)'s box are BOTH `'municipal'` and
-// genuinely share a border — tightening either would be the fabrication `cartagenaBbox.ts`
-// documents refusing. `siteDispatch.ts` still answers a real click deterministically (it checks
-// `isInCartagena` before `isInMurcia` in its hand-ordered `if` chain), but the REGISTRY-level
-// claim at their shared edge is an honest tie, same as two adjoining Canarias towns.
+// §REGION-MURCIA-MUNICIPAL-CLUSTER (2026-08-04, extended from the single-pair §CARTAGENA-
+// REGISTRATION of the same date) — the SAME class of honest tie as the Canarias block above, now
+// matched by a REGEX rather than a single named pair, because a THIRD (and fourth, fifth, sixth)
+// Región de Murcia municipality has since been registered: Lorca (30024), Molina de Segura
+// (30027), Alcantarilla (30005), Las Torres de Cotillas (30038), alongside Murcia capital (30030)
+// and Cartagena (30016). Every one of these six is `'municipal'`, every box is a Nominatim término
+// municipal extent rounded OUTWARD ONLY (never tightened — that would be the fabrication each
+// city's own bbox module documents refusing), and real neighbouring municipalities in the Región
+// de Murcia's Vega Media del Segura genuinely share borders (Alcantarilla/Las Torres de
+// Cotillas/Molina de Segura are mutually adjacent; all sit inside Murcia capital's own
+// deliberately loose term). Tightening any of them to stop touching a neighbour would be exactly
+// the fabrication `§CANARIAS-88-REGISTRATION` above already refuses for the same reason.
 // ─────────────────────────────────────────────────────────────────────────────────────────────
-function isMurciaCartagenaTie(a: { readonly jurisdictionId: string }, b: { readonly jurisdictionId: string }): boolean {
-    const ids = [a.jurisdictionId, b.jurisdictionId].sort();
-    return ids[0] === 'es-30016-cartagena' && ids[1] === 'es-30030-murcia';
+const REGION_MURCIA_MUNICIPAL_ID = /^es-300(05|16|24|27|30|38)-/;
+function isRegionMurciaMunicipal(c: { readonly jurisdictionId: string; readonly extentResolution: string }): boolean {
+    return REGION_MURCIA_MUNICIPAL_ID.test(c.jurisdictionId) && c.extentResolution === 'municipal';
 }
-/** Either half of the named Murcia/Cartagena tie, OR a Canarias municipal registration. */
+function isRegionMurciaTie(a: { readonly jurisdictionId: string; readonly extentResolution: string }, b: { readonly jurisdictionId: string; readonly extentResolution: string }): boolean {
+    return isRegionMurciaMunicipal(a) && isRegionMurciaMunicipal(b);
+}
+/** Either half of a Región de Murcia municipal tie, OR a Canarias municipal registration. */
 function isHonestTieMember(c: { readonly jurisdictionId: string; readonly extentResolution: string }): boolean {
-    return isCanariasMunicipal(c) ||
-        c.jurisdictionId === 'es-30016-cartagena' ||
-        c.jurisdictionId === 'es-30030-murcia';
+    return isCanariasMunicipal(c) || isRegionMurciaMunicipal(c);
 }
 
 describe('§JURISDICTION-SPECIFICITY — the registry declares a resolution for every extent', () => {
@@ -262,9 +267,9 @@ describe('§JURISDICTION-SPECIFICITY — routing exclusivity over EVERY register
         // pairs are checked as a PROPERTY instead (below), the same way the rest of this file
         // already prefers properties to city lists (see the file header).
         const canariasOverlaps = overlaps.filter(([a, b]) => isCanariasMunicipal(a) && isCanariasMunicipal(b));
-        const honestTieOverlaps = overlaps.filter(([a, b]) => isMurciaCartagenaTie(a, b));
+        const honestTieOverlaps = overlaps.filter(([a, b]) => isRegionMurciaTie(a, b));
         const namedOverlaps = overlaps.filter(
-            ([a, b]) => !(isCanariasMunicipal(a) && isCanariasMunicipal(b)) && !isMurciaCartagenaTie(a, b),
+            ([a, b]) => !(isCanariasMunicipal(a) && isCanariasMunicipal(b)) && !isRegionMurciaTie(a, b),
         );
         expect(namedOverlaps.map(([a, b]) => `${a.jurisdictionId}|${b.jurisdictionId}`).sort()).toEqual(
             [
@@ -328,9 +333,11 @@ describe('§JURISDICTION-SPECIFICITY — routing exclusivity over EVERY register
             }
         }
 
-        // The Murcia/Cartagena pair: the SAME honest-tie shape as the Canarias block, just named
-        // instead of pattern-matched (see `isMurciaCartagenaTie`'s header comment).
-        expect(honestTieOverlaps.length).toBe(1);
+        // The Región de Murcia municipal cluster: the SAME honest-tie shape as the Canarias block,
+        // now matched by regex rather than a single named pair (see `isRegionMurciaTie`'s header
+        // comment) — a sanity floor, not a fragile count, for the same reason `canariasOverlaps`
+        // above is.
+        expect(honestTieOverlaps.length).toBeGreaterThan(0);
         for (const [a, b] of honestTieOverlaps) {
             const lat = (Math.max(a.extent.minLat, b.extent.minLat) + Math.min(a.extent.maxLat, b.extent.maxLat)) / 2;
             const lon = (Math.max(a.extent.minLon, b.extent.minLon) + Math.min(a.extent.maxLon, b.extent.maxLon)) / 2;

@@ -129,6 +129,16 @@ import { SEVILLA_ENVELOPE_VERIFIED, SEVILLA_JURISDICTION_ID } from './esSevilla.
 import { MALAGA_ENVELOPE_VERIFIED, MALAGA_JURISDICTION_ID } from './esMalaga.js';
 import { GRANADA_ENVELOPE_VERIFIED, GRANADA_JURISDICTION_ID } from './esGranada.js';
 import { CARTAGENA_ENVELOPE_VERIFIED, CARTAGENA_JURISDICTION_ID } from './esCartagena.js';
+import { LORCA_ENVELOPE_VERIFIED, LORCA_JURISDICTION_ID } from './esLorca.js';
+import {
+    MOLINA_DE_SEGURA_ENVELOPE_VERIFIED,
+    MOLINA_DE_SEGURA_JURISDICTION_ID,
+} from './esMolinaDeSegura.js';
+import { ALCANTARILLA_ENVELOPE_VERIFIED, ALCANTARILLA_JURISDICTION_ID } from './esAlcantarilla.js';
+import {
+    LAS_TORRES_DE_COTILLAS_ENVELOPE_VERIFIED,
+    LAS_TORRES_DE_COTILLAS_JURISDICTION_ID,
+} from './esLasTorresDeCotillas.js';
 import {
     HUESCA_ENVELOPE_VERIFIED,
     HUESCA_JURISDICTION_ID,
@@ -254,6 +264,26 @@ const GATE_DECLARATIONS: readonly GateDeclaration[] = Object.freeze([
     // mandatory setback is unquantified in the source ordinance, so every parcel is a structural
     // refusal. Declared here for the same fail-closed reason as Málaga/Granada.
     { gate: 'CARTAGENA_ENVELOPE_VERIFIED', value: CARTAGENA_ENVELOPE_VERIFIED, jurisdictions: [CARTAGENA_JURISDICTION_ID] },
+    // ⚠ LORCA / MOLINA DE SEGURA / ALCANTARILLA / LAS TORRES DE COTILLAS — 2026-08-04: NO rulepack
+    // exists for any of the four (each blocked by its own specific, confirmed technical/commercial
+    // barrier — see each city's own module). Declared so the classifier cannot fail open on a
+    // registered `isInX` branch with no gate behind it — the same discipline as Málaga/Granada.
+    { gate: 'LORCA_ENVELOPE_VERIFIED', value: LORCA_ENVELOPE_VERIFIED, jurisdictions: [LORCA_JURISDICTION_ID] },
+    {
+        gate: 'MOLINA_DE_SEGURA_ENVELOPE_VERIFIED',
+        value: MOLINA_DE_SEGURA_ENVELOPE_VERIFIED,
+        jurisdictions: [MOLINA_DE_SEGURA_JURISDICTION_ID],
+    },
+    {
+        gate: 'ALCANTARILLA_ENVELOPE_VERIFIED',
+        value: ALCANTARILLA_ENVELOPE_VERIFIED,
+        jurisdictions: [ALCANTARILLA_JURISDICTION_ID],
+    },
+    {
+        gate: 'LAS_TORRES_DE_COTILLAS_ENVELOPE_VERIFIED',
+        value: LAS_TORRES_DE_COTILLAS_ENVELOPE_VERIFIED,
+        jurisdictions: [LAS_TORRES_DE_COTILLAS_JURISDICTION_ID],
+    },
     // ── ⚠ A FOURTH KIND, AND THE ONE MOST LIKELY TO BE MIS-SORTED: LIVE-RESOLVED, YET GATED. ──
     // §BALEARS-GATE (L-680). Balears looks like Denmark — the authority publishes the parameters as
     // machine-readable data, PRYZM transcribes NO ordinance, and `ES_BALEARS` has no static zone

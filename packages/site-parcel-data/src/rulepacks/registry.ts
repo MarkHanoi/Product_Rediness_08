@@ -283,6 +283,30 @@ import { GRANADA_BBOX, isInGranada } from '../providers/granadaBbox.js';
 import { CARTAGENA_JURISDICTION_ID, cartagenaNoRulePackRefusal } from './esCartagena.js';
 import { CARTAGENA_BBOX, isInCartagena } from '../providers/cartagenaBbox.js';
 // ── ⚠ END OF THE CARTAGENA IMPORT BLOCK. ─────────────────────────────────────────────────────
+// ── LORCA / MOLINA DE SEGURA / ALCANTARILLA / LAS TORRES DE COTILLAS (Región de Murcia) — ──────
+// ⚠ START OF THE SECOND MURCIA-REGION BLOCK (2026-08-04). Four §RESEARCH-PENDING-style
+// registrations, each naming its OWN specific confirmed blocker. Alcantarilla differs from its
+// three siblings: it carries a real, live, COARSE land-use resolver (CARM's regional WFS), so its
+// refusal can be land-use-class-named; the other three have no working resolver at all. None has
+// a rulepack — see each city's own module for the full research citation.
+import { LORCA_JURISDICTION_ID, lorcaResearchPendingRefusal } from './esLorca.js';
+import { LORCA_BBOX, isInLorca } from '../providers/lorcaBbox.js';
+import {
+    MOLINA_DE_SEGURA_JURISDICTION_ID,
+    molinaDeSeguraResearchPendingRefusal,
+} from './esMolinaDeSegura.js';
+import { MOLINA_DE_SEGURA_BBOX, isInMolinaDeSegura } from '../providers/molinaDeSeguraBbox.js';
+import { ALCANTARILLA_JURISDICTION_ID, alcantarillaNoRulePackRefusal } from './esAlcantarilla.js';
+import { ALCANTARILLA_BBOX, isInAlcantarilla } from '../providers/alcantarillaBbox.js';
+import {
+    LAS_TORRES_DE_COTILLAS_JURISDICTION_ID,
+    lasTorresDeCotillasResearchPendingRefusal,
+} from './esLasTorresDeCotillas.js';
+import {
+    LAS_TORRES_DE_COTILLAS_BBOX,
+    isInLasTorresDeCotillas,
+} from '../providers/lasTorresDeCotillasBbox.js';
+// ── ⚠ END OF THE SECOND MURCIA-REGION IMPORT BLOCK. ─────────────────────────────────────────────
 // ── ARAGÓN (Huesca INE 22125, Zaragoza INE 50297) — ⚠ START OF THE ARAGÓN IMPORT BLOCK. ───────
 // Two REFUSAL jurisdictions. Registered because "Aragón is CLOSED" was a claim about the
 // REGIONAL SIUa layer that does not survive at the municipal level — measured on 421 Zaragoza
@@ -1419,6 +1443,91 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
     },
     // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
     // ║ ⚠ END OF THE CARTAGENA BLOCK.                                                              ║
+    // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
+    // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ START OF THE SECOND MURCIA-REGION BLOCK — Lorca / Molina de Segura / Alcantarilla /      ║
+    // ║ Las Torres de Cotillas (2026-08-04). Four §RESEARCH-PENDING registrations; none has a       ║
+    // ║ rulepack. This registration exists ONLY to stop the §L-663 fabrication defect for these     ║
+    // ║ four municipalities — before it, none had an `isInX` branch, so every click fell through    ║
+    // ║ to the estimated triple.                                                                    ║
+    // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
+    {
+        jurisdictionId: LORCA_JURISDICTION_ID, // 'es-30024-lorca'
+        displayName: 'Lorca',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        extent: LORCA_BBOX,
+        contains: isInLorca,
+        extentResolution: 'municipal',
+        answerSummary:
+            "A parcel/point→ordinance query mechanism was located in Lorca's live viewer's own " +
+            'production JavaScript bundle, but it requires a runtime session token automated ' +
+            'fetch could not obtain, so it was never fired against a real coordinate. PRYZM has ' +
+            'no working zone-identity resolver and no rulepack for Lorca; every parcel receives a ' +
+            'cited "identified, not yet reachable" refusal, never an estimate.',
+        packsByZone: packMap(),
+        refusalFor: () => null,
+        noRulePackRefusal: () => lorcaResearchPendingRefusal(),
+    },
+    {
+        jurisdictionId: MOLINA_DE_SEGURA_JURISDICTION_ID, // 'es-30027-molina-de-segura'
+        displayName: 'Molina de Segura',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        extent: MOLINA_DE_SEGURA_BBOX,
+        contains: isInMolinaDeSegura,
+        extentResolution: 'municipal',
+        answerSummary:
+            "Molina de Segura's public zoning viewer is white-labelled on a third-party SaaS SPA " +
+            "whose backend API could not be enumerated by static fetch, and the city's own " +
+            'ordinance PDFs carry image/vector-drawn tables that are not yet OCR\'d. PRYZM has no ' +
+            'working zone-identity resolver and no rulepack; every parcel receives a cited ' +
+            '"identified, not yet reachable" refusal, never an estimate.',
+        packsByZone: packMap(),
+        refusalFor: () => null,
+        noRulePackRefusal: () => molinaDeSeguraResearchPendingRefusal(),
+    },
+    {
+        jurisdictionId: ALCANTARILLA_JURISDICTION_ID, // 'es-30005-alcantarilla'
+        displayName: 'Alcantarilla',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        extent: ALCANTARILLA_BBOX,
+        contains: isInAlcantarilla,
+        extentResolution: 'municipal',
+        answerSummary:
+            "CARM's own regional WFS resolves a COARSE, non-binding land-use classification for " +
+            "any point in Alcantarilla, live. The operative 1983 PGOU's two ordinance source " +
+            'documents (which would carry height/FAR/coverage/setback numbers) are hosted ' +
+            'exclusively on SharePoint links that return HTTP 403 to automated fetch. PRYZM has ' +
+            'no rulepack; every parcel receives a cited refusal, land-use-class-named when the ' +
+            'live WFS resolves a feature, never an estimate.',
+        packsByZone: packMap(),
+        refusalFor: () => null,
+        noRulePackRefusal: (_zoneCode, _zoneLabel, knownFacts) =>
+            alcantarillaNoRulePackRefusal(null, knownFacts ?? []),
+    },
+    {
+        jurisdictionId: LAS_TORRES_DE_COTILLAS_JURISDICTION_ID, // 'es-30038-las-torres-de-cotillas'
+        displayName: 'Las Torres de Cotillas',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        extent: LAS_TORRES_DE_COTILLAS_BBOX,
+        contains: isInLasTorresDeCotillas,
+        extentResolution: 'municipal',
+        answerSummary:
+            'A real parcel-level zoning digitization exists for Las Torres de Cotillas, but it ' +
+            'lives inside a commercial third-party SaaS (VisualUrb) that returns HTTP 401 without ' +
+            'a paid licence, and the one municipal PDF carrying the UE/UZE setback figures ' +
+            'returned corrupted/binary to automated extraction. PRYZM has no working zone-identity ' +
+            'resolver and no rulepack; every parcel receives a cited "digitized but commercially ' +
+            'gated" refusal, never an estimate.',
+        packsByZone: packMap(),
+        refusalFor: () => null,
+        noRulePackRefusal: () => lasTorresDeCotillasResearchPendingRefusal(),
+    },
+    // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ END OF THE SECOND MURCIA-REGION BLOCK.                                                   ║
     // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
     // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
     // ║ ⚠ START OF THE ARAGÓN BLOCK. Confine Aragón edits to this block.                         ║

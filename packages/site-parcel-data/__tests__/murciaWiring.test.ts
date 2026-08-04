@@ -394,9 +394,21 @@ describe('S5 — the registry answers for Murcia (the coverage globe reads this)
         expect(d.refusal.legallyGrounded).toBe(false);
     });
 
-    it('does NOT route Murcia through any Catalan / other jurisdiction — exactly one claims it', () => {
+    it('does NOT route Murcia through any Catalan / other jurisdiction', () => {
+        // ⚠ 2026-08-04 — the founder's own fixture parcel (Churra, a Murcia-capital pedanía near
+        // the Molina de Segura border) now ALSO falls inside `MOLINA_DE_SEGURA_BBOX`, a loose
+        // Nominatim término-municipal box registered the same day (§REGION-MURCIA-MUNICIPAL-
+        // CLUSTER, `jurisdictionSpecificity.test.ts`). Both are real, both are `'municipal'`, and
+        // tightening either box to stop touching a genuine neighbour would be the fabrication
+        // every bbox module in this package documents refusing — so this is an HONEST tie, the
+        // same shape as the Cartagena/Murcia and Canarias-mosaic ties, never a Catalan or other
+        // unrelated jurisdiction claiming Murcia's land.
         const claiming = coverage.filter((c) => c.contains(PARCEL.lat, PARCEL.lon));
-        expect(claiming.map((c) => c.jurisdictionId)).toEqual([MURCIA_JURISDICTION_ID]);
+        const ids = claiming.map((c) => c.jurisdictionId).sort();
+        expect(ids).toContain(MURCIA_JURISDICTION_ID);
+        for (const id of ids) {
+            expect(id === MURCIA_JURISDICTION_ID || /^es-300(05|16|24|27|30|38)-/.test(id)).toBe(true);
+        }
     });
 
     it('does not claim Barcelona, Madrid or Córdoba land', () => {
