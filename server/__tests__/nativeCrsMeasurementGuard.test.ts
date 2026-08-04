@@ -76,6 +76,14 @@ const PROVIDER_TO_SOURCE = new Map([
     // below the harm above, and not a GeoServer. It is declared here so its absence from the
     // native-CRS registry is a recorded decision rather than an oversight.
     ['__catastro-measured-on-a-decimetric-degree-grid__', null],
+    // Zaragoza's street-width resolver is PURE and INJECTION-ONLY today (§ZGZ-STREET-WIDTH): it
+    // takes block/parcel rings the CALLER already holds and fetches NOTHING itself — no WFS URL,
+    // no CRS, no `srsName` to police, because nothing in this package wires Zaragoza block/parcel
+    // neighbourhood geometry yet (`resolveZaragozaStreetWidth`'s header names the future source,
+    // a Catastro INSPIRE block dissolve on the Córdoba/Barcelona precedent, as unwired). Declared
+    // here, `null`, so its absence from `MEASURED_GEOMETRY_SOURCES` is a recorded decision, not an
+    // oversight — the day it gets a real fetch, that fetch's CRS is what this guard must police.
+    ['resolveZaragozaStreetWidth.ts', null],
 ]);
 
 describe('§NATIVE-CRS-MEASUREMENT — every MEASURED source is requested in its native metric CRS', () => {

@@ -62,9 +62,14 @@
 // machinery this resolver deliberately does NOT reuse — El Sauzal's SIPU package ships no
 // `EDIF.mdb`; see `esElSauzal.ts` for why the numeric parameters come from a different document).
 
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
+// §BROWSER-SAFE-DATA-LOAD — a STATIC import, not `fs.readFileSync`. This module is reachable from
+// the client bundle (`siteDispatch.ts`'s `applyElSauzalZoningThenFallback`), and Vite's browser
+// build stubs `node:fs` — a runtime `readFileSync` call here is a hard build failure there, not a
+// runtime one, so it stays invisible until the client is actually built. A static import lets the
+// bundler (Vite client-side, tsx/Node server-side — both honour `resolveJsonModule`) embed the
+// 529-record extract as ordinary bundled data in either environment.
+import elSauzalZusoData from './data/elSauzalZuso.json' with { type: 'json' };
 
 const tracer = trace.getTracer('pryzm.zoning.el-sauzal');
 
@@ -202,21 +207,14 @@ export function pointInRingsEvenOdd(
 // DATA LOADING — the ONE impure seam. Injectable so tests never touch the filesystem.
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 
-let cachedRecords: ElSauzalZusoRecord[] | null = null;
-
 /**
- * Read + parse the committed `elSauzalZuso.json` extract (529 records). Cached after the first
- * call — the file is ~1 MB and immutable for the process lifetime. Throws only on a corrupt
- * asset (a packaging bug, not a runtime/user condition), which is why `resolveElSauzalZone`
- * wraps every call to this in a try/catch and turns any throw into a typed refusal.
+ * The committed `elSauzalZuso.json` extract (529 records), statically bundled — see the
+ * §BROWSER-SAFE-DATA-LOAD import note above. Throws only if the packaged asset is malformed (a
+ * packaging bug, not a runtime/user condition), which is why `resolveElSauzalZone` wraps every
+ * call to this in a try/catch and turns any throw into a typed refusal.
  */
 export function loadElSauzalZusoRecords(): ElSauzalZusoRecord[] {
-    if (cachedRecords) return cachedRecords;
-    const dataUrl = new URL('./data/elSauzalZuso.json', import.meta.url);
-    const raw = readFileSync(fileURLToPath(dataUrl), 'utf-8');
-    const parsed = JSON.parse(raw) as ElSauzalZusoRecord[];
-    cachedRecords = parsed;
-    return parsed;
+    return elSauzalZusoData as unknown as ElSauzalZusoRecord[];
 }
 
 /** Injectable dependencies so the adapter is unit-testable without the filesystem. */
