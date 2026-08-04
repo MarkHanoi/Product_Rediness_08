@@ -382,6 +382,20 @@ export {
     CORDOBA_JURISDICTION_ID,
     CORDOBA_INTENDED_DEFAULT_CONFIDENCE,
     CORDOBA_INTENDED_FIELD_PROVENANCE,
+    // §COR-MC-ANCHO (2026-08-04) — the MC per-street-width height table (Art. 13.5.3.1), resolved
+    // PURELY against a MEASURED width with the ADR-0287 band-edge guard. Height only: the MC
+    // footprint (`CORDOBA_MC_FONDO_UNRESOLVED_RING`) is a SEPARATE, still-unresolved capability —
+    // see `cordobaMcResolvedPack`'s header.
+    CORDOBA_MC_STREET_WIDTH_HEIGHT_TABLE,
+    CORDOBA_MC_FONDO_UNRESOLVED_RING,
+    CORDOBA_MC_HEIGHT_ARTICLE,
+    CORDOBA_MC_ADR0287_GUARD_M,
+    resolveCordobaMcHeightForWidth,
+    cordobaMcResolvedPack,
+    type CordobaMcZone,
+    type CordobaMcHeightBand,
+    type CordobaMcHeightResolution,
+    type CordobaMcHeightRefusalReason,
 } from './rulepacks/esCordobaPGOU2001.js';
 export {
     // The honesty gate: false until sign-off; the dispatcher reads it. And the Córdoba refusal

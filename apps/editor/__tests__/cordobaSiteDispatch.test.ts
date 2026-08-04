@@ -82,11 +82,43 @@ interface RouteLog {
 }
 
 /**
- * Stub the one same-origin proxy this path calls. Any OTHER URL rejects, which is deliberate: a
+ * §COR-MC-ANCHO fixture geometry — a 20×20 m block (3 vertical-strip parcels that dissolve by
+ * exact edge-cancellation) with ONE neighbour 6 m across its east edge, i.e. a real, resolvable
+ * 6 m street width (MC-1's first band: PB+2 = 9.75 m, well clear of the 8 m ADR-0287 guard).
+ *
+ * Converted from scene-XZ metres to WGS84 by the EXACT inverse of `latLonToSceneXZ`, about the
+ * site origin (`PARCEL.lat`/`PARCEL.lon` — `siteCreate` below anchors the site there and θ=0), so
+ * the round-trip through `toAuthoringFrame` inside the dispatcher lands back on these metres.
+ */
+const EARTH_RADIUS_M = 6_378_137;
+const DEG2RAD = Math.PI / 180;
+function xzToLatLon(x: number, z: number): { lat: number; lon: number } {
+    const cosLat0 = Math.cos(PARCEL.lat * DEG2RAD);
+    return {
+        lat: PARCEL.lat - z / (DEG2RAD * EARTH_RADIUS_M),
+        lon: PARCEL.lon + x / (DEG2RAD * EARTH_RADIUS_M * cosLat0),
+    };
+}
+const MC_BLOCK_PARCELS_XZ: ReadonlyArray<{ refcat: string; ring: [number, number][] }> = [
+    { refcat: 'BLK1', ring: [[0, 0], [7, 0], [7, 20], [0, 20]] },
+    { refcat: 'BLK2', ring: [[7, 0], [13, 0], [13, 20], [7, 20]] },
+    { refcat: 'BLK3', ring: [[13, 0], [20, 0], [20, 20], [13, 20]] },
+];
+// ⚠ Positioned across the block's BOTTOM edge (z = 0), 6 m south of it (z = −6 … −26) —
+// deliberately the SAME edge the committed `BOUNDARY` fixture's own bottom edge lies on
+// (`BOUNDARY.polygon`'s (0,0)→(12,0)), so `blockEdgesFacingParcel` genuinely identifies this as
+// the parcel's OWN frontage rather than requiring the whole-block fallback.
+const MC_NEIGHBOUR_6M_XZ: [number, number][] = [[0, -6], [20, -6], [20, -26], [0, -26]];
+
+/**
+ * Stub the same-origin proxies this path calls. Any OTHER URL rejects, which is deliberate: a
  * unit test may reach no network, and if the Córdoba path ever started calling a COACo endpoint
  * (WIRING-TODO 5, which lands WITH the sign-off) it must surface here rather than hang.
  */
-function stubProxies(log: RouteLog, opts?: { resolvedSubzoneLink?: string }): typeof globalThis.fetch {
+function stubProxies(
+    log: RouteLog,
+    opts?: { resolvedSubzoneLink?: string; mcBlockAvailable?: boolean },
+): typeof globalThis.fetch {
     return vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
         log.urls.push(url);
@@ -107,6 +139,32 @@ function stubProxies(log: RouteLog, opts?: { resolvedSubzoneLink?: string }): ty
                             { lat: PARCEL.lat + 0.0001, lon: PARCEL.lon + 0.00013 },
                             { lat: PARCEL.lat, lon: PARCEL.lon + 0.00013 },
                         ],
+                    },
+                }),
+            } as unknown as Response;
+        }
+        if (url.startsWith('/api/catastro/block')) {
+            if (!opts?.mcBlockAvailable) {
+                // The DEFAULT — no block published for this test's refcat. `fetchBlockForParcel`
+                // treats a non-ok response as "no block" and never throws, so §COR-MC-ANCHO simply
+                // fails to measure a width and falls through to the structural refusal.
+                return { ok: false, status: 404, json: async () => ({}) } as unknown as Response;
+            }
+            return {
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    block: {
+                        manzana: 'TESTMZ',
+                        parcels: MC_BLOCK_PARCELS_XZ.map((p) => ({
+                            refcat: p.refcat,
+                            ring: p.ring.map(([x, z]) => xzToLatLon(x, z)),
+                            areaM2: 130,
+                        })),
+                        neighbours: [{
+                            refcat: 'NEIGH1',
+                            ring: MC_NEIGHBOUR_6M_XZ.map(([x, z]) => xzToLatLon(x, z)),
+                        }],
                     },
                 }),
             } as unknown as Response;
@@ -156,6 +214,7 @@ async function waitForEvent(emitted: readonly string[], type: string, timeoutMs 
 async function dispatchCordoba(opts?: {
     resolvedSubzoneLink?: string;
     boundary?: typeof BOUNDARY;
+    mcBlockAvailable?: boolean;
 }): Promise<{
     store: SiteModelStore;
     envelope: BuildableEnvelope | null;
@@ -338,5 +397,52 @@ describe('§COR-COMPUTE — a RESOLVED subzone, gate signed, actually renders (2
         const { envelope } = await dispatchCordoba();
         expect(envelope!.status).not.toBe('ok');
         expect(envelope!.refusal).toBeTruthy();
+    });
+});
+
+describe('§COR-MC-ANCHO (2026-08-04) — the MC per-street-width HEIGHT resolves; the FOOTPRINT still refuses', () => {
+    let realFetch: typeof globalThis.fetch;
+    beforeEach(() => { realFetch = globalThis.fetch; });
+    afterEach(() => { globalThis.fetch = realFetch; vi.restoreAllMocks(); });
+
+    it('a Catastro block THAT DISSOLVES with a real opposing frontage RESOLVES the height (Art. 13.5.3.1)', async () => {
+        // `O_MC1.pdf` -> "MC-1"; the stubbed `/api/catastro/block` dissolves to a 20×20 m manzana
+        // with a 6 m opposing frontage — MC-1's first band, PB+2 = 9.75 m, comfortably clear of
+        // the ADR-0287 guard around the 8 m boundary.
+        const { envelope } = await dispatchCordoba({
+            resolvedSubzoneLink: 'O_MC1.pdf',
+            mcBlockAvailable: true,
+        });
+        expect(envelope).not.toBeNull();
+        // ⚠ THE FOOTPRINT STILL REFUSES — this is NOT a full 'ok' envelope. MC's *fondo edificable*
+        // has no resolved block geometry (a SEPARATE, out-of-scope capability); see
+        // `cordobaMcResolvedPack`'s own header. Resolving the height does not resolve the footprint.
+        expect(envelope!.status).not.toBe('ok');
+        expect(envelope!.insetPolygon).toEqual([]);
+        const r = envelope!.refusal!;
+        expect(r.legallyGrounded).toBe(false);
+        // The REAL, computed height + measured width now ride in the refusal as cited facts —
+        // this is what distinguishes this branch from the plain "nothing is known" card below.
+        const prose = r.knownFacts.join(' ');
+        expect(prose).toMatch(/13\.5\.3\.1/);
+        expect(prose).toMatch(/PB\+2/);
+        expect(prose).toMatch(/9\.75/);
+        expect(prose).toMatch(/6\.00 m|6\.0\d m/); // the measured street width
+        expect(prose).toMatch(/ADR-0287/);
+    });
+
+    it('an MC parcel WITHOUT a resolvable width (no block published) falls through UNCHANGED', async () => {
+        const { envelope } = await dispatchCordoba({
+            resolvedSubzoneLink: 'O_MC1.pdf',
+            mcBlockAvailable: false,
+        });
+        expect(envelope!.status).not.toBe('ok');
+        expect(envelope!.insetPolygon).toEqual([]);
+        const r = envelope!.refusal!;
+        // The height-resolution branch never fired, so the refusal is the SAME generic card the
+        // pre-existing MC-3 test above pins — no fabricated height, no measured-width fact.
+        const prose = r.knownFacts.join(' ');
+        expect(prose).not.toMatch(/measured street width/);
+        expect(prose).not.toMatch(/PB\+2/);
     });
 });

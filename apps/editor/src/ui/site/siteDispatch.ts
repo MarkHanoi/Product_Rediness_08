@@ -175,6 +175,14 @@ import {
     // produce a figure". `cordobaUnverifiedRefusal` was written to take a subzone and the
     // dispatcher was passing `null` on every parcel.
     resolveCordobaSubzone,
+    // §COR-MC-ANCHO (2026-08-04) — the MC per-street-width height table (Art. 13.5.3.1), resolved
+    // PURELY against a MEASURED width with the ADR-0287 band-edge guard. The MEASUREMENT itself
+    // (`resolveCordobaMcStreetWidth`) lives beside `CatastroBlockProvider` — see its own header
+    // for why (packages may not import apps/editor's same-origin proxy client).
+    CORDOBA_MC_HEIGHT_ARTICLE,
+    resolveCordobaMcHeightForWidth,
+    cordobaMcResolvedPack,
+    type CordobaMcZone,
     // ── Sevilla (INE 41091) — ZERO transcribed ordinance, live zone-identity resolve only. ──
     // `SEVILLA_ENVELOPE_VERIFIED` is `false` and there is nothing behind the gate to sign yet
     // (`ES_SEVILLA_PGOU_PACK.zones` is empty by construction). `resolveSevillaZone` queries the
@@ -487,6 +495,9 @@ import { GeospatialAdapter } from '@pryzm/geospatial';
 import { fetchQualificationAtPoint } from './zoning/MucZoningProvider.js';
 import { catastroParcelProvider } from './parcel/CatastroParcelProvider.js';
 import { fetchBlockForParcel } from './parcel/CatastroBlockProvider.js';
+// §COR-MC-STREET-WIDTH (2026-08-04) — Córdoba MC's own analogue of the block-dissolve width
+// construction Barcelona already runs inline (§BCN-ALCADA-WIDTH); see the module header.
+import { resolveCordobaMcStreetWidth } from './parcel/resolveCordobaMcStreetWidth.js';
 import { fetchContextRoads } from '../geospatial/contextRoads.js';
 import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.js';
 import { latLonToSceneXZ, sceneXZToLatLon, type LatLon } from './boundaryProjection.js';
@@ -3558,11 +3569,110 @@ async function applyCordobaZoningThenFallback(
                     crs: 'EPSG:4326',
                 },
             };
+            // ── §COR-MC-ANCHO (2026-08-04) — for MC-1..MC-4 ONLY, attempt to resolve the REAL
+            // per-street-width height (Art. 13.5.3.1) BEFORE computing the envelope.
+            //
+            // ⚠⚠ THIS IS A HEIGHT CAPABILITY, NOT A FOOTPRINT ONE. Success swaps in a per-parcel
+            // `cordobaMcResolvedPack` with `maxHeight_m`/`maxFloors` POPULATED instead of null —
+            // but that pack's `geometricRule` is DELIBERATELY UNCHANGED, still `explicit-area` /
+            // `CORDOBA_MC_FONDO_UNRESOLVED_RING` (see that constant's own header: Art. 13.5.2.4
+            // leaves the *fondo edificable* unconstrained, but a block-fondo GEOMETRY source to
+            // place the building within that constraint still does not exist — a separate,
+            // out-of-scope capability). So `computeBuildableEnvelope` below still hard-refuses on
+            // the footprint ground alone (ADR-0270) even when this branch succeeds — the resolved
+            // height instead rides into the refusal's `knownFacts` as a cited, honest partial
+            // answer (never a fabricated volume; C58 §1.4/§1.14.4). It becomes a full envelope for
+            // free the day the footprint capability lands — nothing here needs to change then.
+            //
+            // Failure — no Catastro refcat, no dissolvable block, no opposing frontage, or an
+            // ADR-0287 band-edge proximity — falls through UNCHANGED to the existing coverage-gap
+            // refusal below, exactly as MC has always resolved (proven by the pre-existing
+            // `cordobaSiteDispatch.test.ts` §COR-COMPUTE "MC-3 … STILL structurally refuses" case).
+            let rulePackForCompute = ES_CORDOBA_PGOU2001_PACK;
+            let mcHeightFact: string | null = null;
+            const isMcZone: boolean =
+                subzone === 'MC-1' || subzone === 'MC-2' || subzone === 'MC-3' || subzone === 'MC-4';
+            if (isMcZone) {
+                try {
+                    const mcZone = subzone as CordobaMcZone;
+                    // Independent point lookup — this branch is the ONLY Córdoba path that needs
+                    // the parcel's own Catastro refcat, so it is fetched here rather than for
+                    // every Córdoba parcel (keeps the base path's "no network at all" property).
+                    const mcParcelFeat = await catastroParcelProvider.fetchParcelAtPoint(lon, lat);
+                    const mcRing = Array.isArray(mcParcelFeat?.ring) ? mcParcelFeat.ring : null;
+                    // §BLOCK-CENTROID-REUSE — hand the block fetch the centroid we already have.
+                    const mcCentroid =
+                        mcRing && mcRing.length >= 3
+                            ? {
+                                  lat: mcRing.reduce((s: number, p: LatLon) => s + p.lat, 0) / mcRing.length,
+                                  lon: mcRing.reduce((s: number, p: LatLon) => s + p.lon, 0) / mcRing.length,
+                              }
+                            : undefined;
+                    // FRAME — project + de-rotate about the SAME origin + θ the parcel boundary
+                    // used, exactly as `applyBcnZoningThenFallback`'s `toAuthoringFrame` does.
+                    const rawTheta = site.location.trueNorth;
+                    const theta = Number.isFinite(rawTheta) ? rawTheta : 0;
+                    const toAuthoringFrame = (p: LatLon): Pt => {
+                        const xz = latLonToSceneXZ(p, site.location.latitude, site.location.longitude);
+                        if (theta === 0) return { x: xz.x, z: xz.z };
+                        const e = trueVectorToProjectNorth({ east: xz.x, north: -xz.z }, theta);
+                        return { x: e.east, z: -e.north };
+                    };
+                    const width = await resolveCordobaMcStreetWidth(
+                        mcParcelFeat?.refcat ?? null,
+                        mcCentroid,
+                        boundary.polygon,
+                        toAuthoringFrame,
+                    );
+                    if (width.ok) {
+                        const height = resolveCordobaMcHeightForWidth(mcZone, width.width_m);
+                        if (height.ok) {
+                            rulePackForCompute = cordobaMcResolvedPack(
+                                mcZone,
+                                height,
+                                `${width.authority} Measured ${width.width_m.toFixed(2)} m ` +
+                                    `(± ${width.spread_m.toFixed(2)} m spread, manzana ` +
+                                    `${width.manzana}).`,
+                            );
+                            mcHeightFact =
+                                `Height (${CORDOBA_MC_HEIGHT_ARTICLE}): ${height.storeys} = ` +
+                                `${height.maxHeight_m.toFixed(2)} m — measured street width ` +
+                                `${width.width_m.toFixed(2)} m (± ${width.spread_m.toFixed(2)} m, ` +
+                                'CONSTRUCTED from Catastro block-dissolve geometry; ADR-0287 ' +
+                                'band-edge guard cleared). ⚠ The buildable FOOTPRINT (fondo ' +
+                                'edificable) still has no resolved block geometry, so this height ' +
+                                'alone cannot become a volume yet.';
+                            console.log(
+                                `${TAG} §COR-MC-ANCHO subzone=${mcZone} height RESOLVED ` +
+                                    `${height.storeys}=${height.maxHeight_m}m ` +
+                                    `(width=${width.width_m.toFixed(2)}m).`,
+                            );
+                        } else {
+                            console.log(
+                                `${TAG} §COR-MC-ANCHO subzone=${mcZone} width=` +
+                                    `${width.width_m.toFixed(2)}m but height refused ` +
+                                    `(${height.reason}) — falling through to the existing ` +
+                                    `structural refusal.`,
+                            );
+                        }
+                    } else {
+                        console.log(
+                            `${TAG} §COR-MC-ANCHO subzone=${mcZone} street width NOT measured ` +
+                                `(${width.reason}) — falling through to the existing structural ` +
+                                `refusal.`,
+                        );
+                    }
+                } catch (e) {
+                    // Never allowed to cost the (already-honest) refusal path.
+                    console.warn(`${TAG} §COR-MC-ANCHO failed (non-fatal) — height omitted:`, e);
+                }
+            }
+
             const envelope = computeBuildableEnvelope({
                 parcelRing: boundary.polygon,
                 edgeClassifications: boundary.edgeClassifications,
                 zoning: record,
-                rulePack: ES_CORDOBA_PGOU2001_PACK,
+                rulePack: rulePackForCompute,
             });
             if (envelope.status === 'ok') {
                 dispatchEnvelope(ctx, site.id, envelope, 'coaco-pgou');
@@ -3591,7 +3701,9 @@ async function applyCordobaZoningThenFallback(
                         // FALSE: the ordenanza answers; this is a fact about THIS parcel/rule, not
                         // an unresolved-ordinance state (mirrors Murcia's identical annotation).
                         legallyGrounded: false,
-                        knownFacts,
+                        // §COR-MC-ANCHO — when the height DID resolve, the refusal names it
+                        // explicitly rather than reading as a blanket "nothing is known" card.
+                        knownFacts: mcHeightFact ? [...knownFacts, mcHeightFact] : knownFacts,
                     },
                     'none',
                 ),

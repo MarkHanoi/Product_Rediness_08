@@ -89,6 +89,7 @@
 // Urbanismo, Ayuntamiento de Córdoba. Strategic context: C57, C58 §1.1/§1.2/§1.4/§1.6/§1.7a/§1.11/§2.2,
 // C23 §1.1, ORDINANCE-EXTRACTION-PIPELINE.md, §CONTEXT-DATA-HONESTY.
 
+import { trace, SpanStatusCode } from '@opentelemetry/api';
 import {
     JurisdictionZoningContractSchema,
     type JurisdictionZoningContract,
@@ -198,6 +199,224 @@ export const CORDOBA_MC_STREET_WIDTH_HEIGHT_TABLE: Readonly<
         { maxStreetWidth_m: null, storeys: 'PB+3', maxFloors: 4, maxHeight_m: 12.75 },
     ],
 } as const;
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §COR-MC-ANCHO — resolving a MEASURED street width against the table above (Art. 13.5.3.1).
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// This is Córdoba's exact analogue of `esMurciaAnchoDeCalle.ts`'s `resolveMurciaAnchoDeCalle`: the
+// TABLE above is `ordinance-pdf`-tier (human-verified, VERIFICATION.md §SIG-1), the WIDTH fed into
+// it is `measured-geometry` (constructed from cadastral block geometry, never an *ample oficial* —
+// Córdoba publishes none). The two tiers must never blur (ADR-0271).
+//
+// PURE (C58 §1.9) — no I/O, no THREE, no DOM, no clock, no RNG. Never throws. OTel span on the one
+// exported resolver (P8 / C58 §1.10). This function NEVER accepts a verified-sign-off parameter —
+// the L-449 human-certification gate is `CORDOBA_ENVELOPE_VERIFIED`, enforced once at the DISPATCH
+// level (`applyCordobaZoningThenFallback`), never re-implemented here.
+
+const cordobaMcTracer = trace.getTracer('pryzm.zoning');
+
+/** The calificaciones the Art. 13.5.3.1 table covers. */
+export type CordobaMcZone = keyof typeof CORDOBA_MC_STREET_WIDTH_HEIGHT_TABLE;
+
+/** The article every resolution from this table cites. */
+export const CORDOBA_MC_HEIGHT_ARTICLE = 'PGOU de Córdoba (2001), Art. 13.5.3.1' as const;
+
+/**
+ * ⚠⚠ ADR-0287 BAND-EDGE GUARD, metres — a SIGNED FOUNDER REQUIREMENT, not a tuned constant.
+ *
+ * Catastro's own positional-accuracy figure for urban parcels is ±0.20 m (BOE-A-2015-11655
+ * §7.2(e)). A street width is measured frontage-to-frontage — TWO independent cadastral edges,
+ * each carrying that error — so the combined 2σ uncertainty is
+ * `2 · √(0.20² + 0.20²) ≈ 0.5657 m`. The MC bands are 2 m apart in places (MC-1: 8/10/14/16 m);
+ * ADR-0287's own worked example (Murcia) is exactly this shape: "a width measured at 4.00 ± 0.15 m
+ * does not yield 'about 3 storeys' — it yields EITHER 3 OR 2, and publishing either one asserts a
+ * legal outcome we cannot support." A measured width sitting within this guard of a band boundary
+ * MUST NOT choose a storey band — see `resolveCordobaMcHeightForWidth`.
+ *
+ * Computed, not hand-typed, so a future edit to the Catastro accuracy figure cannot silently drift
+ * from the guard it is supposed to justify.
+ */
+export const CORDOBA_MC_ADR0287_GUARD_M = 2 * Math.sqrt(0.2 ** 2 + 0.2 ** 2); // ≈ 0.5657 m
+
+/**
+ * Why a measured width did not resolve a band.
+ *   `bad-input`  — not a usable positive finite width.
+ *   `band-edge`  — ADR-0287: the width sits within `CORDOBA_MC_ADR0287_GUARD_M` of a table
+ *                  boundary, so a MEASURED value cannot choose the storey band.
+ *   `no-band`    — the width fell outside every row (a table gap). Every zone's top band is
+ *                  open-ended (`maxStreetWidth_m: null`), so this is structurally unreachable for
+ *                  a finite positive width today — kept as a typed reason rather than an
+ *                  assumption, in case a future table revision removes the open top band.
+ */
+export type CordobaMcHeightRefusalReason = 'bad-input' | 'band-edge' | 'no-band';
+
+export type CordobaMcHeightResolution =
+    | {
+          readonly ok: true;
+          readonly zone: CordobaMcZone;
+          readonly article: string;
+          readonly maxHeight_m: number;
+          readonly maxFloors: number;
+          /** The ordinance's own "PB+n" notation, kept verbatim for citability. */
+          readonly storeys: string;
+          readonly band: CordobaMcHeightBand;
+      }
+    | {
+          readonly ok: false;
+          readonly zone: CordobaMcZone;
+          readonly article: string;
+          readonly reason: CordobaMcHeightRefusalReason;
+          /** Candidate heights straddling the guarded boundary, for an honest "we cannot say". */
+          readonly straddles: readonly number[];
+      };
+
+/** Every finite boundary in a zone's table — the values a measured width must not sit on top of. */
+function cordobaMcBandEdges(bands: readonly CordobaMcHeightBand[]): number[] {
+    const out = new Set<number>();
+    for (const b of bands) {
+        if (b.maxStreetWidth_m !== null) out.add(b.maxStreetWidth_m);
+    }
+    return [...out].sort((a, b) => a - b);
+}
+
+/** The heights of the (at most two) bands meeting at `edge`. */
+function cordobaMcStraddlingHeights(bands: readonly CordobaMcHeightBand[], edge: number): number[] {
+    const idx = bands.findIndex((b) => b.maxStreetWidth_m === edge);
+    if (idx === -1) return [];
+    const heights = [bands[idx]!.maxHeight_m];
+    const next = bands[idx + 1];
+    if (next) heights.push(next.maxHeight_m);
+    return [...new Set(heights)].sort((a, b) => a - b);
+}
+
+/**
+ * Resolve a MEASURED Córdoba MC street width to the storeys/height Art. 13.5.3.1 grants.
+ *
+ * PURE (same input ⇒ byte-identical output), never throws. OTel span
+ * `pryzm.zoning.resolveCordobaMcHeightForWidth` (P8 / C58 §1.10).
+ *
+ * ⚠ IT NEVER CLAMPS TO THE NEAREST BAND AND NEVER PICKS A DEFAULT WIDTH — an unusable or
+ * boundary-straddling input returns `ok: false`, which the caller must render as a cited refusal,
+ * never a fabricated height (C58 §1.4, ADR-0287).
+ *
+ * ⚠ THIS FUNCTION TAKES NO SIGN-OFF / VERIFIED PARAMETER. The L-449 human-certification gate
+ * (`CORDOBA_ENVELOPE_VERIFIED`) is checked exactly once, at the dispatcher, before this function is
+ * ever reached — duplicating that check here would create a second place for the two to drift.
+ *
+ * @param zone     the MC subzone whose table governs (`MC-1`…`MC-4`).
+ * @param width_m  the measured street width, metres (frontage-to-frontage).
+ */
+export function resolveCordobaMcHeightForWidth(
+    zone: CordobaMcZone,
+    width_m: number,
+): CordobaMcHeightResolution {
+    const span = cordobaMcTracer.startSpan('pryzm.zoning.resolveCordobaMcHeightForWidth');
+    try {
+        const bands = CORDOBA_MC_STREET_WIDTH_HEIGHT_TABLE[zone];
+        const article = CORDOBA_MC_HEIGHT_ARTICLE;
+        span.setAttribute('zone', zone);
+
+        if (typeof width_m !== 'number' || !Number.isFinite(width_m) || width_m <= 0) {
+            span.setAttribute('resultFields', 'bad-input');
+            span.setStatus({ code: SpanStatusCode.OK });
+            return { ok: false, zone, article, reason: 'bad-input', straddles: [] };
+        }
+        span.setAttribute('width_m', width_m);
+
+        // ── ADR-0287 — check EVERY finite boundary in THIS zone's table, not just the first one
+        // the width happens to be compared against. A zone with several bands (MC-1 has four) must
+        // refuse near ANY of them, not only the nearest-checked.
+        const edges = cordobaMcBandEdges(bands);
+        const straddledEdge = edges.find((e) => Math.abs(width_m - e) < CORDOBA_MC_ADR0287_GUARD_M);
+        if (straddledEdge !== undefined) {
+            const straddles = cordobaMcStraddlingHeights(bands, straddledEdge);
+            span.setAttribute('resultFields', 'band-edge');
+            span.setAttribute('straddledEdge_m', straddledEdge);
+            span.setStatus({ code: SpanStatusCode.OK });
+            return { ok: false, zone, article, reason: 'band-edge', straddles };
+        }
+
+        // Bands are listed ascending by `maxStreetWidth_m`, with the last row's `null` meaning
+        // unbounded above — so the first row whose bound is null-or-not-exceeded governs.
+        const chosen = bands.find((b) => b.maxStreetWidth_m === null || width_m <= b.maxStreetWidth_m);
+        if (!chosen) {
+            span.setAttribute('resultFields', 'no-band');
+            span.setStatus({ code: SpanStatusCode.OK });
+            return { ok: false, zone, article, reason: 'no-band', straddles: [] };
+        }
+
+        span.setAttribute('resultFields', 'band');
+        span.setAttribute('maxFloors', chosen.maxFloors);
+        span.setAttribute('maxHeight_m', chosen.maxHeight_m);
+        span.setStatus({ code: SpanStatusCode.OK });
+        return {
+            ok: true,
+            zone,
+            article,
+            maxHeight_m: chosen.maxHeight_m,
+            maxFloors: chosen.maxFloors,
+            storeys: chosen.storeys,
+            band: chosen,
+        };
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * §COR-MC-RESOLVED-PACK — turn ONE resolved band into a one-zone rule pack, mirroring
+ * `murciaAnchoResolvedPack`'s shape exactly.
+ *
+ * ⚠⚠ THE `geometricRule` IS DELIBERATELY UNCHANGED — still `explicit-area` /
+ * `CORDOBA_MC_FONDO_UNRESOLVED_RING`. Resolving the HEIGHT does not resolve the FOOTPRINT: Art.
+ * 13.5.2.4 leaves the *fondo edificable* unconstrained (bounded only by ocupación), which still
+ * needs a block-fondo geometry source PRYZM does not yet have (see `CORDOBA_MC_FONDO_UNRESOLVED_RING`'s
+ * own header). So `computeBuildableEnvelope` will keep hard-refusing on the footprint ground alone
+ * until that separate, out-of-scope capability lands — this pack only stops the refusal being
+ * blamed on a height table PRYZM can now actually resolve. `maxHeight_m`/`maxFloors` populated
+ * here are true and citable the day the footprint unlocks; nothing about this call needs to change
+ * then.
+ *
+ * @param widthAuthorityNote  the constructed-width authority string from the street-width
+ *   resolver — folded into `ordinanceRef` so it reaches the user, not just a log line.
+ */
+export function cordobaMcResolvedPack(
+    zone: CordobaMcZone,
+    resolved: Extract<CordobaMcHeightResolution, { ok: true }>,
+    widthAuthorityNote: string,
+): JurisdictionZoningContract {
+    return JurisdictionZoningContractSchema.parse({
+        jurisdictionId: CORDOBA_JURISDICTION_ID,
+        displayName: `Córdoba — PGOU ${resolved.article} (ancho de calle, resolved per parcel)`,
+        source: 'manual',
+        crs: 'EPSG:4326',
+        lastReviewed: '2026-08-04',
+        defaultConfidence: CORDOBA_INTENDED_DEFAULT_CONFIDENCE,
+        zones: [{
+            code: zone,
+            label: `${zone} — PGOU ${resolved.article} (altura por ancho de calle)`,
+            permittedUse: ['residential', 'mixed'],
+            maxHeight_m: resolved.maxHeight_m,
+            maxFloors: resolved.maxFloors,
+            plotRatioFAR: zone === 'MC-3' ? 3.5 : null, // Art. 13.5.2.2 — MC-3 only, unchanged from the base pack
+            maxCoverage: zone === 'MC-4' ? 0.9 : 0.7,   // Art. 13.5.2.5 — unchanged from the base pack
+            setbacks: { front_m: null, side_m: null, rear_m: null },
+            // ⚠ L-616 GUARD — UNCHANGED. See the doc-comment above: height ≠ footprint.
+            geometricRule: { kind: 'explicit-area', ringRef: CORDOBA_MC_FONDO_UNRESOLVED_RING },
+            fieldProvenance: {
+                maxHeight: CORDOBA_INTENDED_FIELD_PROVENANCE,
+                maxFloors: CORDOBA_INTENDED_FIELD_PROVENANCE,
+                maxCoverage: CORDOBA_INTENDED_FIELD_PROVENANCE,
+                permittedUse: CORDOBA_INTENDED_FIELD_PROVENANCE,
+            },
+            ordinanceRef:
+                `${resolved.article}: ${resolved.storeys} = ${resolved.maxHeight_m.toFixed(2)} m. ` +
+                'PGOU Art. 13.5.2.5 (ocup. PB 100 % / PA 70–90 %), 13.5.2.3 (alineación a vial), ' +
+                `13.5.2.4 (fondo edificable libre, sin geometría de manzana resuelta). ⚠ STREET WIDTH: ` +
+                `${widthAuthorityNote} ${SRC}`,
+        }],
+    });
+}
 
 /**
  * The Córdoba PGOU-2001 pack. `source:'manual'` (curated artefact, no published-structured feed);
