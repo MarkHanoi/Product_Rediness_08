@@ -284,6 +284,77 @@ land share) unless the publisher (not PRYZM) produces one.
 
 ---
 
+## §9. Transient `source-data-unavailable` on packed zones — live-tested, NOT a coverage gap (2026-08-04)
+
+A founder testing the production UI at `pryzm.fly.dev` hit "TEMPORARILY UNAVAILABLE" /
+`source-data-unavailable` on two separate clicks inside the Sur district — one resolving to `CTP1-
+Campo de la Verdad`, one to `OA-1` — both of which are among the 4 packed subzones this audit
+confirms have a real signed compute path (§Executive Summary above). This is the SAME kind of
+failure `resolveCordobaSubzone.ts`'s honesty properties are built to surface (an upstream fetch
+failing at that instant), not a resolver defect or a coverage boundary.
+
+**Diagnosed live, same session:** the true upstream (`geoserver.pgou.coacordoba.org`) answered
+`HTTP 200` in ~1.2s on a direct probe. The production same-origin proxy
+(`https://pryzm.fly.dev/api/cordoba/ordenanzas?lat=37.87646&lon=-4.77497` — the EXACT coordinates
+from the first failed screenshot) was re-tested immediately after and returned `HTTP 200` in
+0.18s with the correct feature (`"ordenanza":"CTP1- Campo de la Verdad"`). So this was a genuine,
+one-off transient failure — not a systemic outage, not a misconfigured proxy, and not a coverage
+gap — exactly matching the UI's own "temporary source outage, not an error, not a limit on your
+land" framing. No code change indicated by this single data point; flagged here so a FUTURE report
+of "temporarily unavailable inside the pilot" is checked against this precedent (does it clear on
+retry within seconds, like this one did, or does it persist — which would be a different, real
+problem worth investigating) rather than being mistaken for a coverage-boundary result.
+
+---
+
+## §10. NARROW CHECK — are the 8 live CUS sheets raster or vector? (2026-08-04, second session)
+
+> **Scope of this addendum only.** Does not re-derive `MACHINE-READABLE-SOURCE-SEARCH-2026-08-02.md`
+> or the CLOSURE-REGISTER's row 22 — both already establish 8/49 urban CUS sheets are live and 41/49
+> are dead. This check asks one narrower question that dossier had already answered in passing but
+> not stated as its own conclusion: **for the 8 sheets that ARE live, is the content a scanned raster
+> (needs OCR + georeferencing) or does it carry embedded vector/text data (extractable directly)?**
+
+**Method:** live `curl -I` (HEAD request) against all 8 sheet URLs this session, re-verifying
+`Content-Type` and `Content-Length` against the 2026-08-02 record.
+
+**Result — DECISIVE, no PDF-parsing tooling needed:**
+
+| Sheet | URL | Content-Type | Bytes | Last-Modified |
+|---|---|---|---:|---|
+| CUS18W | `.../doc/planos/cus/CUS18W.jpg` | `image/jpeg` | 447 384 | 2023-11-09 |
+| CUS19W | `.../CUS19W.jpg` | `image/jpeg` | 499 576 | 2023-11-09 |
+| CUS25W | `.../CUS25W.jpg` | `image/jpeg` | 481 662 | 2023-11-09 |
+| CUS26W | `.../CUS26W.jpg` | `image/jpeg` | 478 290 | 2023-11-09 |
+| CUS34W | `.../CUS34W.jpg` | `image/jpeg` | 423 880 | 2023-11-09 |
+| CUS41W | `.../CUS41W.jpg` | `image/jpeg` | 461 957 | 2023-11-09 |
+| CUS45W | `.../CUS45W.jpg` | `image/jpeg` | 365 349 | 2023-11-09 |
+| CUS46W | `.../CUS46W.jpg` | `image/jpeg` | 376 024 | 2023-11-09 |
+
+All 8 byte counts are **identical** to the 2026-08-02 record (unchanged since) and all 8 carry the
+**same `Last-Modified` date** (one batch upload). **All 8 are served with `Content-Type: image/jpeg`
+— they are not PDFs at all.** They are flat JPEG raster images. This makes the raster-vs-vector
+question moot in the strongest possible way: a JPEG is a lossy raster compression format by
+definition and **cannot** contain embedded vector paths, text objects, or any structure a PDF tool
+(`pdfplumber`, `pdftotext`, `pdfjs-dist`, `pdf-lib`) could extract — there is no PDF internal object
+structure to inspect because there is no PDF. This corroborates and sharpens
+`MACHINE-READABLE-SOURCE-SEARCH-2026-08-02.md` §6, which already noted no world file/EXIF/XMP
+producer metadata is served alongside any of the 8 — consistent with these being plain scanned/plotted
+raster exports with zero embedded structured data of any kind.
+
+**Verdict: all 8 live CUS sheets are confirmed scanned/plotted raster images (JPEG), none carries
+extractable vector or text data. This reconfirms the prior conclusion (manual OCR + georeferencing,
+not direct extraction, would be the only path for these 8 — and per the founder's doctrine on
+non-georeferenced rasters, ADR-0283, that path could not authorise a dispatched envelope even if
+attempted). No further action indicated; this closes the raster-vs-vector question cleanly as a
+negative result.** Separately, note the PGOU-2001 **ordinance TEXT** documents (`O_MC.pdf`,
+`O_UAD3.pdf`, etc., cited in `VERIFICATION.md §SIG-1` and row 19 above) are genuinely `application/pdf`
+and were already confirmed to have a real (if sometimes zero-character) text layer by the existing OCR
+verification pass — those are a completely different, already-resolved question from the CUS
+*geometry* sheets checked here.
+
+---
+
 *Authority: this pass supersedes nothing in the cited findings; it adds §5–§8 (heritage/flood/
 airport/environmental, previously absent from this dossier) and reconfirms the compute-path code
 state directly against `siteDispatch.ts` as of 2026-08-04. Maintainer: UNASSIGNED. All URLs above
