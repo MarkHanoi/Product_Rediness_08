@@ -39,16 +39,28 @@
 /** The exact opt-in literal. Not a boolean — see reason 3 above. */
 const ACTIVATION_LITERAL = 'i-understand-this-is-not-legally-certified';
 
+/** The two env fields this module reads — never more. */
+interface PreviewEnvSource {
+    readonly PROD?: boolean | string;
+    readonly VITE_PRYZM_UNCERTIFIED_PREVIEW?: string;
+}
+
 /**
  * Is the staging-uncertified-preview override active in THIS running bundle?
  *
  * ⚠ Call this fresh at each dispatch, never cache the result — `import.meta.env` is a build-time
  * constant, so caching changes nothing at runtime, but a fresh call keeps this function the single
  * legible choke point a future reader greps for, rather than a value threaded through call sites.
+ *
+ * @param envOverride TEST-ONLY injection point (mirrors every other resolver's `deps.fetchImpl`
+ *        convention). Vite's `import.meta.env` is not a plain mutable object a test can reliably
+ *        stub — this parameter exists so `uncertifiedPreviewMode.test.ts` can exercise the TRUE
+ *        branch without fighting that, never for production call sites to pass anything.
  */
-export function isUncertifiedPreviewModeActive(): boolean {
-    const env = (import.meta as ImportMeta & { env?: Record<string, string | boolean | undefined> })
-        .env;
+export function isUncertifiedPreviewModeActive(envOverride?: PreviewEnvSource): boolean {
+    const env =
+        envOverride ??
+        (import.meta as ImportMeta & { env?: PreviewEnvSource }).env;
     if (!env) return false;
     // Reason 2 — Vite's own production flag. Hard no, before anything else is even read.
     if (env.PROD === true) return false;

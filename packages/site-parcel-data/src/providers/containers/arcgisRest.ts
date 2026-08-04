@@ -124,3 +124,81 @@ export async function queryArcgisRestPointIntersect(
         return { ok: false, detail: e instanceof Error ? e.message : String(e) };
     }
 }
+
+export interface ArcgisRestEnvelopeQueryOptions {
+    readonly fetchImpl: typeof fetch;
+    /** The service root, ending in `.../MapServer` or `.../FeatureServer` — no trailing slash. */
+    readonly serviceBase: string;
+    readonly layerId: number;
+    /** Envelope centre, in `inSR`. */
+    readonly lat: number;
+    readonly lon: number;
+    /** Half-width of the query envelope, in `inSR` UNITS (degrees when `inSR` is WGS84). */
+    readonly halfWidth: number;
+    /** The spatial reference the ENVELOPE is expressed in. Default `4326` (WGS84). */
+    readonly inSR?: number;
+    /** The spatial reference the RESPONSE GEOMETRY should be reprojected to. Default = `inSR`. */
+    readonly outSR?: number;
+    /** ArcGIS `where` clause — e.g. `"layer IN ('A','B')"`. Default `'1=1'` (no filter). */
+    readonly where?: string;
+    readonly outFields?: string;
+    readonly timeoutMs?: number;
+}
+
+/**
+ * Envelope (bounding-box) intersect an ArcGIS REST FeatureServer/MapServer layer — the query shape
+ * a POLYLINE layer needs, since a line almost never passes through a queried point exactly.
+ * Otherwise identical honesty contract to `queryArcgisRestPointIntersect`: NEVER THROWS, an
+ * ArcGIS `error` body is a typed failure, never collapsed into "no features".
+ */
+export async function queryArcgisRestEnvelopeIntersect(
+    opts: ArcgisRestEnvelopeQueryOptions,
+): Promise<ArcgisRestQueryResult> {
+    const inSR = opts.inSR ?? 4326;
+    const outSR = opts.outSR ?? inSR;
+    const outFields = opts.outFields ?? '*';
+    const where = opts.where ?? '1=1';
+    const timeoutMs = opts.timeoutMs ?? 20_000;
+
+    try {
+        const geometry = encodeURIComponent(
+            JSON.stringify({
+                xmin: opts.lon - opts.halfWidth,
+                ymin: opts.lat - opts.halfWidth,
+                xmax: opts.lon + opts.halfWidth,
+                ymax: opts.lat + opts.halfWidth,
+                spatialReference: { wkid: inSR },
+            }),
+        );
+        const url =
+            `${opts.serviceBase}/${opts.layerId}/query?geometry=${geometry}` +
+            `&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects` +
+            `&where=${encodeURIComponent(where)}` +
+            `&inSR=${inSR}&outSR=${outSR}&outFields=${encodeURIComponent(outFields)}` +
+            `&returnGeometry=true&f=json`;
+
+        const res = await opts.fetchImpl(url, {
+            headers: { Accept: 'application/json' },
+            signal: AbortSignal.timeout(timeoutMs),
+        });
+        if (!res.ok) return { ok: false, detail: `HTTP ${res.status}` };
+
+        const body: unknown = await res.json();
+        const b = body as {
+            error?: { code?: number; message?: string };
+            spatialReference?: { wkid?: number; latestWkid?: number };
+            features?: ReadonlyArray<{ attributes?: Record<string, unknown>; geometry?: unknown }>;
+        };
+        if (b.error) {
+            return { ok: false, detail: `ArcGIS ${b.error.code ?? '?'}: ${b.error.message ?? 'error'}` };
+        }
+        const features = (b.features ?? []).map((f) => ({
+            attributes: f.attributes ?? {},
+            geometry: f.geometry,
+        }));
+        const spatialReferenceWkid = b.spatialReference?.latestWkid ?? b.spatialReference?.wkid ?? null;
+        return { ok: true, features, spatialReferenceWkid };
+    } catch (e) {
+        return { ok: false, detail: e instanceof Error ? e.message : String(e) };
+    }
+}

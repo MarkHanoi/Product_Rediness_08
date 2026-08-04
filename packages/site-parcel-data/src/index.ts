@@ -1214,6 +1214,7 @@ export {
 export { isInSevilla, SEVILLA_BBOX, SEVILLA_INE_CODE } from './providers/sevillaBbox.js';
 export {
     queryArcgisRestPointIntersect,
+    queryArcgisRestEnvelopeIntersect,
 } from './providers/containers/arcgisRest.js';
 export type {
     ArcgisRestFeature,
@@ -1221,6 +1222,7 @@ export type {
     ArcgisRestQueryOk,
     ArcgisRestQueryError,
     ArcgisRestPointQueryOptions,
+    ArcgisRestEnvelopeQueryOptions,
 } from './providers/containers/arcgisRest.js';
 export {
     resolveSevillaZone,
@@ -1235,6 +1237,20 @@ export type {
     SevillaZoneResult,
     SevillaZoneRefusalReason,
 } from './providers/resolveSevillaZone.js';
+export {
+    resolveSevillaAlignments,
+    SEVILLA_ALINEACIONES_LAYER,
+    SEVILLA_FONDO_MAXIMA_CODES,
+} from './providers/resolveSevillaAlignments.js';
+export type {
+    SevillaLngLat2,
+    SevillaAlignmentLine,
+    SevillaAlignmentsDeps,
+    SevillaAlignmentsResult,
+    SevillaAlignmentsRefusalReason,
+} from './providers/resolveSevillaAlignments.js';
+export { clipParcelByFondoLine, nearestFondoLine } from './sevillaFondoClip.js';
+export type { FondoClipPt } from './sevillaFondoClip.js';
 export {
     SEVILLA_JURISDICTION_ID,
     SEVILLA_ENVELOPE_VERIFIED,

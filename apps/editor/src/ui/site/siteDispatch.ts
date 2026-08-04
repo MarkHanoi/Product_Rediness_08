@@ -184,6 +184,13 @@ import {
     resolveSevillaZone,
     sevillaNoRulePackRefusal,
     SEVILLA_JURISDICTION_ID,
+    ES_SEVILLA_PGOU_PACK,
+    SEVILLA_PGOU_ZONE_CODES,
+    // §STAGING-UNCERTIFIED-PREVIEW — SB's real `fondo máximo edificable` geometry (confirmed live
+    // 2026-08-04, ArcGIS layer 4 `A_INTERIOR-MAXIMA`). See `applySevillaZoningThenFallback`.
+    resolveSevillaAlignments,
+    clipParcelByFondoLine,
+    nearestFondoLine,
     // ── Zaragoza (INE 50297), Aragón — the CITED-REFUSAL jurisdiction (§ZGZ-SUBGRADO). ──
     // Zaragoza's municipal calificación is live and parcel-precise (`resolveZaragozaZone` →
     // `urbanismo:Calificaciones_Urbanas`), but `ZARAGOZA_ENVELOPE_VERIFIED` stays false until a
@@ -3591,6 +3598,104 @@ async function applySevillaZoningThenFallback(
             zoneNote,
             'Planning source: Ayuntamiento de Sevilla PGOU-2006 — no ordinance parameters transcribed',
         ].filter((s): s is string => typeof s === 'string');
+
+        // ── §STAGING-UNCERTIFIED-PREVIEW (L-449) — SB's real fondo geometry, staging-only. ────
+        //
+        // Confirmed live 2026-08-04: Sevilla's `fondo máximo edificable` (Art. 12.5.6) is REAL,
+        // queryable ArcGIS polyline geometry (layer 4 "Alineaciones", `A_INTERIOR-MAXIMA`, 28
+        // features), not merely a cartographic legend entry — the fact
+        // `SEVILLA_SB_FONDO_UNRESOLVED_RING`'s structural refusal assumed was unresolved when it
+        // shipped. `resolveSevillaAlignments` + `clipParcelByFondoLine` construct the buildable
+        // footprint Art. 12.5.6 itself describes ("build until this line") instead of hard-refusing
+        // for want of a scalar depth. `SEVILLA_ENVELOPE_VERIFIED` is still read as `false` below and
+        // nothing here writes to it — same triple-gated, non-production-only exception as Telde/El
+        // Sauzal's identical blocks (`isUncertifiedPreviewModeActive`).
+        const sevillaZoneCode = zonaOrden?.split(/[:\s]/)[0]?.trim().toUpperCase() ?? null;
+        if (
+            isUncertifiedPreviewModeActive() &&
+            sevillaZoneCode !== null &&
+            SEVILLA_PGOU_ZONE_CODES.includes(sevillaZoneCode)
+        ) {
+            try {
+                const alignments = await resolveSevillaAlignments({ lat, lon });
+                if (alignments.ok) {
+                    const origin = { lat: site.location.latitude, lon: site.location.longitude };
+                    const rawTheta = site.location.trueNorth;
+                    const theta = Number.isFinite(rawTheta) ? rawTheta : 0;
+                    const toAuthoringFrame = (p: LatLon): Pt => {
+                        const xz = latLonToSceneXZ(p, origin.lat, origin.lon);
+                        if (theta === 0) return { x: xz.x, z: xz.z };
+                        const e = trueVectorToProjectNorth({ east: xz.x, north: -xz.z }, theta);
+                        return { x: e.east, z: -e.north };
+                    };
+                    const parcelRing = boundary.polygon;
+                    const cx = parcelRing.reduce((s, p) => s + p.x, 0) / parcelRing.length;
+                    const cz = parcelRing.reduce((s, p) => s + p.z, 0) / parcelRing.length;
+                    const frontIdx = boundary.edgeClassifications.findIndex((c) => c === 'front');
+                    const keepSideRef =
+                        frontIdx >= 0
+                            ? {
+                                  x: (parcelRing[frontIdx]!.x + parcelRing[(frontIdx + 1) % parcelRing.length]!.x) / 2,
+                                  z: (parcelRing[frontIdx]!.z + parcelRing[(frontIdx + 1) % parcelRing.length]!.z) / 2,
+                              }
+                            : { x: cx, z: cz };
+                    const nearest = nearestFondoLine(
+                        alignments.fondoLines,
+                        (lon2, lat2) => toAuthoringFrame({ lat: lat2, lon: lon2 }),
+                        { x: cx, z: cz },
+                    );
+                    const clipped = nearest
+                        ? clipParcelByFondoLine(parcelRing, nearest.projected, keepSideRef)
+                        : null;
+                    if (clipped) {
+                        const zone = ES_SEVILLA_PGOU_PACK.zones.find((z) => z.code === sevillaZoneCode);
+                        const record: ZoningRecord = {
+                            zoneCode: sevillaZoneCode,
+                            zoneLabel: zone?.label ?? null,
+                            jurisdictionId: SEVILLA_JURISDICTION_ID,
+                            structuredFields: {},
+                            overlays: [],
+                            ordinanceRef: zone?.ordinanceRef ?? null,
+                            provenance: {
+                                source: 'sevilla-arcgis-alineaciones',
+                                label:
+                                    'PGOU Sevilla 2006 Art. 12.5.6 fondo máximo edificable — real ' +
+                                    'ArcGIS geometry, UNSIGNED reading (§STAGING-UNCERTIFIED-PREVIEW)',
+                                version: '2006',
+                                license: null,
+                                crs: 'EPSG:25830',
+                            },
+                        };
+                        const previewEnvelope = computeBuildableEnvelope({
+                            parcelRing: boundary.polygon,
+                            edgeClassifications: boundary.edgeClassifications,
+                            zoning: record,
+                            rulePack: ES_SEVILLA_PGOU_PACK,
+                            explicitAreaFootprint: clipped,
+                        });
+                        if (previewEnvelope.status === 'ok') {
+                            const watermarked = {
+                                ...previewEnvelope,
+                                publicationPosture: 'uncertified-preview' as const,
+                                caveats: [
+                                    uncertifiedPreviewCaveat(`Sevilla PGOU ${sevillaZoneCode}`),
+                                    ...previewEnvelope.caveats,
+                                ],
+                            };
+                            dispatchEnvelope(ctx, site.id, watermarked, SEVILLA_JURISDICTION_ID);
+                            console.log(
+                                `${TAG} §STAGING-UNCERTIFIED-PREVIEW zone=${sevillaZoneCode} — rendered ` +
+                                    'an UNCERTIFIED preview from real fondo geometry (SEVILLA_ENVELOPE_' +
+                                    'VERIFIED remains false).',
+                            );
+                            return;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn(`${TAG} §STAGING-UNCERTIFIED-PREVIEW fondo resolve failed (non-fatal):`, e);
+            }
+        }
 
         // ⚠⚠⚠ SEVILLA_ENVELOPE_VERIFIED is a founder-only, permanently-false-until-signed constant
         // and there is nothing behind it to sign yet (no transcribed pack). Every Sevilla parcel
