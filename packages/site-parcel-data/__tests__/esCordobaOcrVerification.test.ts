@@ -120,11 +120,21 @@ const SOURCE_VERIFIED: readonly VerifiedZone[] = [
 const zoneByCode = new Map(ES_CORDOBA_PGOU2001_PACK.zones.map((z) => [z.code, z]));
 
 describe('Córdoba PGOU-2001 — OCR verified against the source ordinance (VERIFICATION.md §SIG-1)', () => {
-    it('verifies exactly the 13 registered subzones — no more, no fewer', () => {
+    // ⚠ `PTC` (Campo de la Verdad, packed 2026-08-04) is DELIBERATELY EXCLUDED from this ledger.
+    // `SOURCE_VERIFIED` pins the exact 13-subzone scope of `sources/VERIFICATION.md §SIG-1` — the
+    // 2026-08-01 raster-render OCR re-read a human then signed off on. PTC was verified by a
+    // DIFFERENT, later, and separately-documented method (direct `pdftotext` extraction of
+    // `normativa_PEPCH_Revisado.pdf` / `Normativa_del_conjunto_histórico.pdf`, cross-checked verbatim
+    // between the two, 2026-08-04 — see `CORDOBA_PTCV_FOOTPRINT_UNRESOLVED_RING`'s header in
+    // `esCordobaPGOU2001.ts`), not the raster-OCR path, and no human has (yet) signed a §SIG-1-style
+    // certification for it specifically. Folding it into `SOURCE_VERIFIED` would overstate the scope
+    // of the existing human sign-off; it stays a separate, honestly-scoped 14th zone instead.
+    it('verifies exactly the 13 raster-OCR subzones (PTC is separate, see above) — no more, no fewer', () => {
         expect(SOURCE_VERIFIED.map((v) => v.code).sort()).toEqual(
-            [...CORDOBA_PGOU2001_ZONE_CODES].sort(),
+            [...CORDOBA_PGOU2001_ZONE_CODES].filter((c) => c !== 'PTC').sort(),
         );
         expect(SOURCE_VERIFIED).toHaveLength(13);
+        expect(CORDOBA_PGOU2001_ZONE_CODES).toHaveLength(14);
     });
 
     for (const v of SOURCE_VERIFIED) {

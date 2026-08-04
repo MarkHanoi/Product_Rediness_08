@@ -213,3 +213,56 @@ describe('ADR-0271 — block-derived alignment (the Barcelona Eixample case)', (
         expect(r.kind).toBe('setback');
     });
 });
+
+describe('ADR-0288 — occupation-capped alignment (Córdoba Art. 13.5.2.4: depth libre, ocupación-bound)', () => {
+    // The zone whose depth is unconstrained ("libre") and bounded ONLY by a parcel-level
+    // occupation ratio the ZoningRule already carries (`maxCoverage`) — no stated depth
+    // (`alignment` needs one), no block ring (`block-derived-alignment`/`tiered-occupation` both
+    // need one). See the schema's own header for the full citation trail.
+    const occupationCapped = {
+        kind: 'occupation-capped-alignment' as const,
+        alignTo: 'street' as const,
+        sideTreatment: 'party-wall' as const,
+    };
+
+    it('parses the Córdoba MC shape and defaults the alignment offset to 0', () => {
+        const r = GeometricRuleSchema.parse(occupationCapped);
+        expect(r.kind).toBe('occupation-capped-alignment');
+        if (r.kind === 'occupation-capped-alignment') expect(r.alignmentOffset_m).toBe(0);
+    });
+
+    it('carries NO scalar depth and NO occupation ratio — both are the whole point of the variant', () => {
+        // No `buildableDepth_m` (Art. 13.5.2.4 states none) and no duplicated occupation field
+        // (it already lives on `ZoningRule.maxCoverage` — see `TieredOccupationRuleSchema`'s own
+        // "no occupation figure" precedent this kind follows).
+        const r = GeometricRuleSchema.parse(occupationCapped);
+        expect(r).not.toHaveProperty('buildableDepth_m');
+        expect(r).not.toHaveProperty('occupationRatio');
+        expect(r).not.toHaveProperty('interiorFreeRatio');
+    });
+
+    it('shares the alignment side-treatment refinement — side_m required when set back', () => {
+        expect(() => GeometricRuleSchema.parse({ ...occupationCapped, sideTreatment: 'setback' }))
+            .toThrow(/side_m is REQUIRED/);
+        expect(() => GeometricRuleSchema.parse({ ...occupationCapped, sideTreatment: 'setback', side_m: 3 }))
+            .not.toThrow();
+    });
+
+    it('accepts an optional rear_m (a patio de manzana, where one is imposed)', () => {
+        expect(() => GeometricRuleSchema.parse({ ...occupationCapped, rear_m: 3 })).not.toThrow();
+    });
+
+    it('displaySetbacks returns NULL — this kind has no honest setback triple', () => {
+        expect(displaySetbacks(GeometricRuleSchema.parse(occupationCapped) as GeometricRule)).toBeNull();
+    });
+
+    it('requiresBlockRing is FALSE — unlike block-derived-alignment/tiered-occupation, this kind ' +
+        'is solved from the PARCEL alone (Art. 13.5.2.4 states no block-level condition)', () => {
+        expect(requiresBlockRing(GeometricRuleSchema.parse(occupationCapped) as GeometricRule)).toBe(false);
+    });
+
+    it('BACK-COMPAT: adding this kind did not disturb the legacy setback stamp', () => {
+        const r = GeometricRuleCompatSchema.parse({ front_m: 6, side_m: 3, rear_m: 5 }) as GeometricRule;
+        expect(r.kind).toBe('setback');
+    });
+});

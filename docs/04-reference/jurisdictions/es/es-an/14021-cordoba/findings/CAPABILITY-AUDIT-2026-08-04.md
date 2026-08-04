@@ -19,16 +19,38 @@
 ## Executive Summary
 
 PRYZM can, as of this pass, compute and render a real signed buildable envelope for a narrow slice of
-Córdoba — 4 of 13 packed PGOU-2001 subzones (OA-1, CTP-1, UAD-1, PAS-2), inside the 2-district COACo
-pilot (Sur + Noroeste, 4.96 km²), confirmed live in code (`siteDispatch.ts:3411-3513`, gate
-`CORDOBA_ENVELOPE_VERIFIED = true`, `esCordobaZoneClassification.ts:48`) and pinned by
-`apps/editor/__tests__/cordobaSiteDispatch.test.ts`. That slice is worth **≈16% full / ≈31% any**
+Córdoba, inside the 2-district COACo pilot (Sur + Noroeste, 4.96 km²), confirmed live in code
+(`siteDispatch.ts:3411-3513`, gate `CORDOBA_ENVELOPE_VERIFIED = true`,
+`esCordobaZoneClassification.ts:48`). ⚠ **CORRECTED 2026-08-04, later same day** — a follow-up pass
+traced the lookup mechanism directly (`applyCordobaZoningThenFallback` → `findZone`, `ZoningRulesEngine.ts`
+line 111: `pack.zones.find((z) => z.code === zoneCode)`) and confirmed it is a **fully generic lookup
+by code across the whole 13-zone array — no allowlist, switch, or hardcoded subset anywhere in the
+dispatch path**; `subzoneCodeFromLink` (`resolveCordobaSubzone.ts`) is likewise a pure regex over the
+COACo `O_*` link basename with no special-cased subset. So the earlier "4 of 13" figure (OA-1, CTP-1,
+UAD-1, PAS-2) was a claim about what had been *driven end-to-end in a test or a live probe so far*,
+not a ceiling on what the code can reach — a real wiring gap of that shape was checked for and does
+not exist. `apps/editor/__tests__/cordobaSiteDispatch.test.ts`'s new `§COR-COMPUTE-COVERAGE` suite
+(added this pass) now drives 5 more codes (PAS-1, PAS-3, OA-2, UAD-2, UAD-3) to a real `status:'ok'`
+envelope and 2 more (MC-2, MC-4) to the correct structural refusal, joining the pre-existing OA-1
+(`status:'ok'`) and MC-1/MC-3 (structural refusal) coverage — **11 of 13 packed subzones now have a
+direct dispatch-level test**; CTP-1 and PAS-2's confirmation remains the live-production probe recorded
+in §9 below plus the unit-level `esCordobaEnvelopeCompute.test.ts` suite, and UAD-1 remains confirmed
+via `esCordobaEnvelopeCompute.test.ts` rather than this dispatch-level file. All 13 are reachable by
+construction; none is structurally stranded. That slice is worth **≈16% full / ≈31% any**
 envelope of the pilot's buildable land, which is itself only **4.88%** of Córdoba's 33.342 km² of
 `SUELO URBANO`. Scaled to the whole municipality the ceiling is **≈0.9% full / ≈1.7% any envelope of
 SUELO URBANO** — and that ceiling is not PRYZM's to raise: an exhaustive, reproducible six-probe
 search (2026-08-02) established that no machine-readable calificación exists for the remaining
 95.1% of urban land, and that the municipal authority's own raster index (77 georeferenceable JPGs)
-is itself **41 of 49 dead** on re-fetch. Everywhere outside the packed slice PRYZM now returns a
+is itself ~~**41 of 49 dead**~~ ⛔ **RETRACTED 2026-08-04 — this was measured against the wrong URL
+path.** The correct, live path (`https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/
+imagenes_planos/planos/cusw_jpg/CUS{NN}W.JPG`) was live-verified this session and **all 49 of 49
+urban sheets were bulk-fetched successfully** — see `corpus/MANIFEST.md`. This does not change the
+"no VECTOR calificación exists" conclusion — the 49 sheets are still rasters, not vector data, so
+the city-wide envelope-coverage ceiling is unchanged — but it does retire the "41 dead links" data-
+acquisition framing: the raster SOURCE is fully obtained; what remains is raster→vector engineering
+(georeferencing + vectorisation), the same work already scoped for the 2 previously-live sheets, now
+scaled to 49. Everywhere outside the packed slice PRYZM now returns a
 cited, evidence-backed refusal rather than the fabricated generic-default envelope it shipped before
 2026-08-01 — which is the single most important correctness fix in this file's history, and it means
 Córdoba is close to **100% "terminal"** (every parcel reaches an explicit, cited outcome) while being
@@ -79,12 +101,12 @@ absence** (cited refusals) everywhere else, which is real, shipped value distinc
 |---|---|---|
 | Planning document (PGOU-2001 text) | Scanned/vector-path PDFs, no text layer on 4 of 5 core docs; OCR'd and independently re-verified 13/13 subzones, zero digit errors | `VERIFICATION.md §SIG-1`; `OCR-EXTRACTION-RESULTS.md` |
 | Zoning geometry, pilot (2 districts) | WFS 2.0.0 + WMS 1.3.0 live, `coaco:ordenanzas`, 453 polygons | `CALIFICACION-ENDPOINT-PROBE.md §2`, re-verified live this session (see §5 below for adjacent finds) |
-| Zoning geometry, city-wide | **Does not exist as vector.** GMU raster index: 8/49 urban CUS sheets live, 41/49 dead on re-fetch | `CLOSURE-REGISTER.md` blocker 22, re-measured 2026-08-02 |
+| Zoning geometry, city-wide | **Does not exist as vector.** GMU raster index: ~~8/49 urban CUS sheets live, 41/49 dead on re-fetch~~ ⛔ **RETRACTED 2026-08-04 — wrong URL path tested; all 49/49 urban CUS raster sheets are live and now fetched.** Still no VECTOR calificación exists — the 49 sheets remain rasters requiring georeferencing/vectorisation. | `CLOSURE-REGISTER.md` blocker 22, corrected 2026-08-04, see `corpus/MANIFEST.md` |
 | Parcel geometry | Catastro INSPIRE (national) + COACo `vcatastro_urbanismo` join, 5,721/5,725 pilot parcels populated | `CLOSURE-REGISTER.md` blocker 20 — PARCEL axis measured 95% |
 | Block ring (for depth construction) | `idecordoba:manzana`, 20,730 blocks municipality-wide, 88.0% of pilot ordenanza land covered | `LAYER2-GEOMETRY-RECOVERY-2026-08-02.md`; `NATIONAL-CAPABILITY-REGISTER.md` row K15 |
 | Height | Machine-readable for PAS/OA/UAD/CTP-1; MC is a per-street-width table with **no published alignment layer anywhere** (ADR-0285 4-part test failed at Part 3, tested not assumed) | `CLOSURE-REGISTER.md` row 25 |
 | FAR / edificabilidad | Numeric for most; **algorithmic (`null` by design)** for CTP-1/MC-1/2/4 per the ordinance text itself | `VERIFICATION.md §SIG-1`; row 15 |
-| Setbacks / alignment | **No alignment layer published by any Córdoba source**, city-wide GIS sweep (105 WFS + 119 WMS + 15 COACo) returned zero | `FORENSIC-BLOCKER-AUDIT-2026-08-03.md` item 8; row 25 |
+| Setbacks / alignment | **No VECTOR alignment layer published by any Córdoba source**, city-wide WFS/WMS GIS sweep (105 WFS + 119 WMS + 15 COACo) returned zero. ⚠ **PARTIAL CORRECTION 2026-08-04**: that sweep tested vector services only; the GMU separately publishes 49 static PDF "Alineaciones y Rasantes" sheets (`ar01.pdf`…`ar49.pdf`), live-verified and bulk-fetched this session — see `corpus/MANIFEST.md`. No vector service still exists; a raster/document source now does. | `FORENSIC-BLOCKER-AUDIT-2026-08-03.md` item 8; row 25; `corpus/MANIFEST.md` |
 | Heritage — historic centre boundary (UNESCO Judería) | ⭐ **Live, machine-readable GeoJSON**, previously undocumented in this dossier | §5 below, verified live this session |
 | Heritage — protected-asset catalogue (PEPCH'01) | ⭐ **Live, machine-readable GeoJSON**, per-asset protection level, **no height/setback numbers** | §5 below |
 | Flood (Río Guadalquivir) | Live regional WMS (REDIAM), single 500-yr consolidated layer confirmed; a separate multi-return-period (T10/T50/T100/T500) REDIAM WMS-WFS product is catalogued but not independently re-verified live this session | §6 below |
@@ -101,7 +123,7 @@ absence** (cited refusals) everywhere else, which is real, shipped value distinc
 **Zoning / parcel (prior work, re-cited, not independently re-hit live this session — see caveat below):**
 - `https://geoserver.pgou.coacordoba.org/geoserver/wfs` (WFS 2.0.0) — `coaco:ordenanzas`, `coaco:actuaciones`, `coaco:usos_globales`, `coaco:distritos`, `coaco:vcatastro_urbanismo`
 - `https://mapas.fomento.gob.es/arcgis/rest/services/SIU/Servicios_OGC/MapServer/15` — national SIU *clasificación* (not calificación), covers whole municipality
-- `https://idecordoba.cordoba.es` GeoServer — `idecordoba:manzana` (20,730 blocks)
+- `https://ide.cordoba.es/geoserver/wfs` GeoServer — `idecordoba:manzana` (20,730 blocks; ⚠ CORRECTED 2026-08-04 — the host is `ide.cordoba.es`, NOT `idecordoba.cordoba.es`, which does not resolve. Live-reverified this session: `totalFeatures`/`numberMatched` = 20,730, matching the count below, EPSG:25830, plausible Córdoba UTM coordinates)
 
 **Heritage — ⭐ NEW, verified live this session:**
 - `https://www.gmucordoba.es/visorcasco/data/limites/limite_ch.geojson` — **HTTP 200**, 52,002 bytes, `FeatureCollection`, CRS84 — the historic-centre (PEPCH/Judería-UNESCO) boundary polygon.
@@ -127,10 +149,22 @@ absence** (cited refusals) everywhere else, which is real, shipped value distinc
 
 ## Missing assets
 
-- Vector calificación for 95.1% of `SUELO URBANO` (41 of 49 urban CUS raster sheets are dead; no
-  alternative machine-readable source found after an exhaustive 2026-08-02 search).
-- Any alignment/frontage layer anywhere in Córdoba's published GIS (needed for setback measurement
-  and for the MC street-width height table) — proven absent, not merely unfound.
+> ⛔ **CORRECTION 2026-08-04 applies to both bullets below** — see `corpus/MANIFEST.md`. Both were
+> written testing the wrong URL path / the wrong service type; both underlying document sources
+> are now confirmed live and fetched. Neither correction produces a VECTOR calificación or a VECTOR
+> alignment layer — that remains genuinely missing — but "no source exists to acquire" is false for
+> both; the raster/document sources exist and are now in-repo.
+
+- ~~Vector calificación for 95.1% of `SUELO URBANO` (41 of 49 urban CUS raster sheets are dead; no
+  alternative machine-readable source found after an exhaustive 2026-08-02 search).~~ **CORRECTED:
+  all 49 urban CUS raster sheets are live and fetched** (wrong URL path was tested). What is
+  genuinely still missing is the VECTOR calificación — the 49 sheets are rasters, not vector data,
+  and georeferencing/vectorising them into calificación polygons is unstarted engineering work.
+- ~~Any alignment/frontage layer anywhere in Córdoba's published GIS (needed for setback measurement
+  and for the MC street-width height table) — proven absent, not merely unfound.~~ **PARTIALLY
+  CORRECTED:** no VECTOR alignment layer (WFS/WMS) exists — that finding stands. But a published,
+  citable static-document alignment source (49 "Alineaciones y Rasantes" PDFs) does exist and is
+  now fetched; it was outside the scope of the WFS/WMS sweep that produced "proven absent."
 - A structured (non-scanned) source for PGOU-2001 ordinance numbers — none exists; COACo serves only
   scanned/vector-path PDFs.
 - PEPCH'01 Normas Urbanísticas as structured/text-extractable data (only the catalogue *index*
@@ -149,16 +183,29 @@ absence** (cited refusals) everywhere else, which is real, shipped value distinc
 
 ## Blockers
 
-1. **95.1% of `SUELO URBANO` has no machine-readable calificación.** *Category:* Data acquisition
-   (Research Blocked). *Solvability:* Not engineering-solvable; requires GMU to publish vector data,
-   fix its raster sheets, or respond to a direct data request. Exhaustively searched once
-   (`MACHINE-READABLE-SOURCE-SEARCH-2026-08-02.md`) — do not re-search without new information.
+1. ⛔ **CORRECTED 2026-08-04** — ~~95.1% of `SUELO URBANO` has no machine-readable calificación,
+   requires GMU to publish vector data, fix its raster sheets, or respond to a direct data
+   request.~~ The GMU's raster sheets were never broken — the wrong URL path was tested. All 49
+   urban CUS raster sheets are live and now fetched (`corpus/MANIFEST.md`). **95.1% of `SUELO
+   URBANO` still has no VECTOR calificación**, but the blocker has changed category: it is no
+   longer *Data acquisition* waiting on GMU to fix or serve anything — the raster source is fully
+   in hand. It is now **Engineering**: georeferencing + vectorising 49 raster sheets into
+   calificación polygons, then binding through the resolver (the same treatment already given to
+   the 8 previously-known-live sheets, scaled up). *Solvability:* Large but genuinely
+   engineering-solvable, not externally gated. Exhaustively searched once for a shortcut vector
+   source (`MACHINE-READABLE-SOURCE-SEARCH-2026-08-02.md`) — that conclusion (no vector alternative
+   exists) still stands; only the raster-availability premise was wrong.
 
 2. **Manzana Cerrada (16.86% of pilot buildable land) height is an unresolvable per-street-width
    table.** *Category:* External authority / Awaiting authoritative interpretation. *Solvability:*
    Requires GMU/COACo to publish an alignment layer or state the measurement basis of Art. 13.5.3.1;
    PRYZM's own street-polygon proxy was tested and rejected under ADR-0287 (band-edge sensitivity too
-   high — 45.4% of streets sit within ±1 m of a 2 m-wide height band edge).
+   high — 45.4% of streets sit within ±1 m of a 2 m-wide height band edge). ⚠ **PARTIAL CORRECTION
+   2026-08-04:** a static alignment document source (49 "Alineaciones y Rasantes" PDFs) has now been
+   found and fetched (`corpus/MANIFEST.md`) — this is a candidate path to reading Art. 13.5.3.1's
+   measurement basis directly, which was previously believed to require a GMU response with no
+   existing source to consult. No vector alignment layer exists (that conclusion stands); the
+   street-polygon proxy remains rejected under ADR-0287 regardless.
 
 3. **~43–45% of pilot ordinance land is legally delegated** to Plan Parcial / PERI / Estudio de
    Detalle / Plan Especial. *Category:* Legal, terminal. *Solvability:* Correctly answered today with
@@ -275,12 +322,16 @@ and defensible product state (a complete map of honest "I don't know, and here i
 it is not buildable-envelope coverage and should never be reported as such.
 
 **Single biggest blocker:** the Gerencia Municipal de Urbanismo's own calificación geometry is not
-usably published — 41 of 49 urban raster sheets are dead links, no vector alternative exists anywhere
-(confirmed by an exhaustive six-probe search), and this is an external-publisher gap, not something
-PRYZM engineering, however well-resourced, can build its way past. It sits alongside a second,
-structurally similar blocker inside the pilot itself — no alignment/frontage layer exists anywhere in
-Córdoba's GIS, which permanently blocks the Manzana Cerrada family (the single largest ordenanza by
-land share) unless the publisher (not PRYZM) produces one.
+usably published **as vector** — ~~41 of 49 urban raster sheets are dead links~~ ⛔ **CORRECTED
+2026-08-04: all 49 urban raster sheets are live and now fetched, see `corpus/MANIFEST.md`; the
+"dead links" premise was a wrong URL path, not a publisher gap.** No vector alternative exists
+anywhere (confirmed by an exhaustive six-probe search, and this narrower conclusion still stands) —
+but the blocker is now **Engineering** (georeference + vectorise 49 raster sheets), not an
+external-publisher wait. It sits alongside a second, related blocker inside the pilot itself — no
+VECTOR alignment/frontage layer exists anywhere in Córdoba's GIS (this still stands), though a
+static document alignment source (49 PDFs) has now been found and fetched, which the Manzana
+Cerrada height-table problem may be able to use directly once someone reads it against Art.
+13.5.3.1's open measurement-basis question.
 
 ---
 

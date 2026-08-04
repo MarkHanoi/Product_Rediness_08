@@ -81,6 +81,25 @@ export const DerivationConstraintSchema = z.enum([
     'tier.bandDepth',
     /** Art. 350.2.e — the height permitted on the block-interior tier (22a ⇒ 5 m, one storey). */
     'tier.interiorHeight',
+    // ─── ADR-0288 — occupation-capped alignment (Córdoba Art. 13.5.2.4, §COR-MC-FOOTPRINT) ──
+    /**
+     * The stated ocupación ratio (`ZoningRule.maxCoverage`, echoed here so the row that actually
+     * SHAPED the footprint is self-contained) used to construct the footprint's depth. ⚠ This is
+     * NOT a second home for the number — `maxCoverage`'s own derivation row (above) still carries
+     * the field-level citation; this row exists only so "why this SHAPE" is answerable without
+     * cross-referencing a different constraint.
+     */
+    'occupationCap.ratio',
+    /** `maxCoverage × parcelArea` — the target footprint area PRYZM's construction solved for. */
+    'occupationCap.targetAreaM2',
+    /**
+     * The DEPTH PRYZM's construction solved (metres from the alignment) to hit that target area.
+     * ⚠⚠ UNLIKE `alignment.depth` AND `tier.bandDepth`, THIS IS NOT A CITABLE ORDINANCE FIGURE —
+     * it is the output of a PRYZM ENGINEERING DECISION about which of many equally-legal footprint
+     * shapes to draw (see `OccupationCappedAlignmentRuleSchema`'s header). Present only when the
+     * cap actually bound (absent when `capInactive` — see the engine branch).
+     */
+    'occupationCap.depth_m',
 ]);
 export type DerivationConstraint = z.infer<typeof DerivationConstraintSchema>;
 

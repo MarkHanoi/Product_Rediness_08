@@ -17,6 +17,7 @@ import {
     ES_CORDOBA_PGOU2001_PACK,
     CORDOBA_JURISDICTION_ID,
     CORDOBA_MC_FONDO_UNRESOLVED_RING,
+    CORDOBA_PTCV_FOOTPRINT_UNRESOLVED_RING,
 } from '../src/rulepacks/esCordobaPGOU2001.js';
 
 /** 30 m wide (x) × 40 m deep (z). Edge 0 (z=0 → the +x run) is the street frontage. */
@@ -101,6 +102,36 @@ describe('Córdoba — CTP-1 is an ALIGNMENT zone: a 16 m depth band, never the 
         expect(env.derivation.some((d) => d.constraint === 'alignment.depth' && d.value === 16)).toBe(true);
     });
 
+    // §WIRING-TODO-6-EDIFICABILIDAD — CTP-1's `plotRatioFAR` is `null` BY DESIGN (Art. 13.8.2.3:
+    // the techo edificable is "resultante de la aplicación de las Normas de Composición", i.e. no
+    // stated coefficient exists to hold). This does NOT mean the zone cannot produce a real GFA/
+    // volume: `computeFarLimitedHeight` (farLimitedHeight.ts) treats a null FAR as "does not bind"
+    // — never a refusal — so `computeBuildableEnvelope` still derives `maxVolumeM3` GEOMETRICALLY
+    // from footprint (the 16 m alignment depth-band clip, Art. 13.8.2.4) × the stated `maxHeight_m`
+    // (7 m, Art. 13.8.3.1). That IS "las Normas de Composición" applied — height + depth + coverage
+    // — exactly what Art. 13.8.2.3 says governs, with no FAR coefficient invented. These two tests
+    // pin that the null FAR neither blocks the envelope nor silently zeroes the volume.
+    it('derives a REAL maxVolumeM3 from footprint × height with NO stated FAR (Art. 13.8.2.3)', () => {
+        const zone = ES_CORDOBA_PGOU2001_PACK.zones.find((z) => z.code === 'CTP-1')!;
+        expect(zone.plotRatioFAR).toBeNull(); // still the honest null — no coefficient exists to hold
+        const env = solve('CTP-1');
+        expect(env.status).toBe('ok');
+        expect(env.maxFAR).toBeNull();
+        expect(env.maxVolumeM3).not.toBeNull();
+        expect(env.maxVolumeM3).toBeCloseTo(env.insetAreaM2 * 7, 6); // 7 m = Art. 13.8.3.1 (PB+1)
+    });
+
+    it('a null FAR does not bind farLimitedHeight_m — the solid equals the legal 7 m shell', () => {
+        const env = solve('CTP-1');
+        // computeFarLimitedHeight (farLimitedHeight.ts) returns NO_BIND (farLimitedHeight_m: null)
+        // whenever maxFAR is null — "FAR can only ever LOWER a height ... with no legal ceiling
+        // there is nothing to lower" does not apply here (there IS a ceiling, 7 m); rather, with no
+        // FAR at all there is no SEPARATE cap to compute, so the field stays null and the massing
+        // draws at the full legal height — never a fabricated FAR-derived reduction.
+        expect(env.farLimitedHeight_m).toBeNull();
+        expect(env.caveats.some((c) => /FAR .* caps usable floorspace/i.test(c))).toBe(false);
+    });
+
     it('HARD-FAILS to degenerate with NO front edge — never a full-depth fallback (the guard)', () => {
         const env = solve('CTP-1', ALL_UNCLASSIFIED);
         expect(env.status).toBe('degenerate');
@@ -135,6 +166,37 @@ describe('Córdoba — MC-* is a STRUCTURAL REFUSAL: never a full-parcel box (th
                 ringRef: CORDOBA_MC_FONDO_UNRESOLVED_RING,
             });
         }
+    });
+});
+
+describe('Córdoba — PTC (Campo de la Verdad) is a STRUCTURAL REFUSAL, MC-shaped (the guard)', () => {
+    it('refuses (degenerate, zero area) rather than draw the whole parcel', () => {
+        const env = solve('PTC');
+        expect(env.status).toBe('degenerate');
+        expect(env.insetAreaM2).toBe(0);
+        expect(env.insetAreaM2).not.toBeCloseTo(PARCEL_AREA, 0);
+    });
+
+    it('cites the unresolvable explicit-area footprint (no full-parcel fall-through)', () => {
+        const env = solve('PTC');
+        expect(env.caveats.some((c) => /explicit-area|published buildable footprint/i.test(c))).toBe(true);
+    });
+
+    it('the guard ring handle is a stable, greppable constant, distinct from MC’s own', () => {
+        expect(CORDOBA_PTCV_FOOTPRINT_UNRESOLVED_RING).toMatch(/UNRESOLVED/);
+        expect(CORDOBA_PTCV_FOOTPRINT_UNRESOLVED_RING).not.toBe(CORDOBA_MC_FONDO_UNRESOLVED_RING);
+        const zone = ES_CORDOBA_PGOU2001_PACK.zones.find((z) => z.code === 'PTC')!;
+        expect(zone.geometricRule).toEqual({
+            kind: 'explicit-area',
+            ringRef: CORDOBA_PTCV_FOOTPRINT_UNRESOLVED_RING,
+        });
+    });
+
+    it('maxHeight/maxFloors are null — Art. 49.1 keys floor count to a per-parcel plan PRYZM lacks', () => {
+        const zone = ES_CORDOBA_PGOU2001_PACK.zones.find((z) => z.code === 'PTC')!;
+        expect(zone.maxHeight_m).toBeNull();
+        expect(zone.maxFloors).toBeNull();
+        expect(zone.maxCoverage).toBe(0.7); // Art. 46.1
     });
 });
 

@@ -92,9 +92,14 @@ import { NL_BESTEMMINGSPLAN_PATH, nlBestemmingsplanHandler } from './server/nlBe
 // §CORDOBA-ZONING-PROXY (WIRING-TODO 5) — the COACo PGOU-2001 subzone + refcat-join same-origin
 // lookup. Client consumer: @pryzm/site-parcel-data → resolveCordobaSubzone. ⚠ Renders NO number
 // while CORDOBA_ENVELOPE_VERIFIED is false — the DATA path that turns on with the L-449 sign-off.
+// §COR-MANZANA-PROXY (2026-08-04) — the idecordoba (Ayuntamiento IDE) `idecordoba:manzana` published
+// block-ring layer, live-verified at `ide.cordoba.es` (NOT `idecordoba.cordoba.es`, which does not
+// resolve). Client consumer: @pryzm/site-parcel-data → resolveCordobaStreetWidth. Carries no zoning
+// — base cartography only — feeding Art. 13.5.3.1's MC per-street-width height table.
 import {
     CORDOBA_ORDENANZAS_PATH, cordobaOrdenanzasHandler,
     CORDOBA_VCATASTRO_PATH, cordobaVcatastroHandler,
+    CORDOBA_MANZANA_PATH, cordobaManzanaHandler,
 } from './server/cordobaZoningProxy.js';
 // §ZARAGOZA-ZONING-PROXY — the IDEZar `urbanismo:Calificaciones_Urbanas` calificación lookup.
 // Client consumer: @pryzm/site-parcel-data → resolveZaragozaZone. ⚠ Renders NO number while
@@ -538,6 +543,10 @@ app.get(NL_BESTEMMINGSPLAN_PATH, apiLimiter, nlBestemmingsplanHandler);
 // path that turns on with the L-449 sign-off. Same-origin, apiLimiter, never crashes.
 app.get(CORDOBA_ORDENANZAS_PATH, apiLimiter, cordobaOrdenanzasHandler);
 app.get(CORDOBA_VCATASTRO_PATH, apiLimiter, cordobaVcatastroHandler);
+// §COR-MANZANA-PROXY — same-origin KEYLESS `idecordoba:manzana` published block-ring lookup at
+// `ide.cordoba.es` (the Ayuntamiento IDE GeoServer, a DIFFERENT host+publisher from COACo above).
+// GET /api/cordoba/manzana?lat=&lon= → { crs, manzanas, truncated }. Feeds resolveCordobaStreetWidth.
+app.get(CORDOBA_MANZANA_PATH, apiLimiter, cordobaManzanaHandler);
 // §ZARAGOZA-ZONING-PROXY — IDEZar `urbanismo:Calificaciones_Urbanas` spatial point lookup. ⚠
 // Renders NO number while ZARAGOZA_ENVELOPE_VERIFIED is false. Same-origin, apiLimiter, never crashes.
 app.get(ZARAGOZA_CALIFICACIONES_PATH, apiLimiter, zaragozaCalificacionesHandler);

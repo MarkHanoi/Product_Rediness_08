@@ -400,6 +400,60 @@ describe('§COR-COMPUTE — a RESOLVED subzone, gate signed, actually renders (2
     });
 });
 
+describe('§COR-COMPUTE-COVERAGE (2026-08-04) — the OTHER 9 packed subzones are dispatch-reachable too', () => {
+    // ⚠ WHY THIS SUITE EXISTS. `applyCordobaZoningThenFallback` looks a resolved subzone up with
+    // `pack.zones.find((z) => z.code === zoneCode)` (`ZoningRulesEngine.ts` `findZone`, generic —
+    // no allowlist, no switch) and `subzoneCodeFromLink` is a pure regex over the COACo `O_*` link
+    // basename (`resolveCordobaSubzone.ts`) — neither has any special-cased subset of the 13 packed
+    // codes. So OA-1 + MC-1 + MC-3 above were never the LIMIT of what is reachable, only what had
+    // been driven end-to-end before this pass. This suite closes that gap for the remaining 9 codes
+    // (PAS-1, PAS-3, OA-2, UAD-2, UAD-3, MC-2, MC-4 here; CTP-1 and UAD-1/PAS-2 are covered by the
+    // §COR-COMPUTE / §9 production-probe evidence cited in `CAPABILITY-AUDIT-2026-08-04.md`) —
+    // proving, not assuming, that the generic lookup really does carry every packed code through.
+    let realFetch: typeof globalThis.fetch;
+    beforeEach(() => { realFetch = globalThis.fetch; });
+    afterEach(() => { globalThis.fetch = realFetch; vi.restoreAllMocks(); });
+
+    it.each([
+        { link: 'O_PAS1.pdf', zone: 'PAS-1', maxHeight_m: 12.75 },
+        { link: 'O_PAS3.pdf', zone: 'PAS-3', maxHeight_m: 19.5 },
+        { link: 'O_OA2.pdf', zone: 'OA-2', maxHeight_m: 21 },
+        { link: 'O_UAD2.pdf', zone: 'UAD-2', maxHeight_m: 7 },
+        { link: 'O_UAD3.pdf', zone: 'UAD-3', maxHeight_m: 7 },
+    ])('$zone (setback/alignment family) COMPUTES a real signed envelope', async ({ link, zone, maxHeight_m }) => {
+        const { store, envelope } = await dispatchCordoba({
+            resolvedSubzoneLink: link,
+            boundary: LARGE_BOUNDARY,
+        });
+        expect(envelope).not.toBeNull();
+        expect(envelope!.status).toBe('ok');
+        expect(envelope!.refusal).toBeFalsy();
+        expect(envelope!.insetPolygon.length).toBeGreaterThan(0);
+        expect(envelope!.insetAreaM2).toBeGreaterThan(0);
+        expect(envelope!.maxHeight_m).toBe(maxHeight_m);
+        // Same permanent bottom confidence tier as OA-1 — a machine-OCR'd pack never claims more.
+        expect(envelope!.confidence).toBe('pipeline-extracted-unverified');
+        const site = store.getSite()!;
+        expect(site.parcel.maxHeight).toBe(maxHeight_m);
+    });
+
+    it.each([
+        { link: 'O_MC2.pdf', zone: 'MC-2' },
+        { link: 'O_MC4.pdf', zone: 'MC-4' },
+    ])('$zone (explicit-area / unresolved-ring family) STILL structurally refuses even resolved+signed', async ({ link }) => {
+        // Mirrors the MC-3 case above: `explicit-area` + `CORDOBA_MC_FONDO_UNRESOLVED_RING` hard-fails
+        // in `computeBuildableEnvelope` (ADR-0270) regardless of which MC subzone resolves — this is
+        // the known, correct, cited refusal, NOT a fabricated envelope (per the task brief: do not
+        // "fix" MC to render a number).
+        const { envelope } = await dispatchCordoba({ resolvedSubzoneLink: link });
+        expect(envelope).not.toBeNull();
+        expect(envelope!.status).not.toBe('ok');
+        expect(envelope!.refusal).toBeTruthy();
+        expect(envelope!.insetPolygon).toEqual([]);
+        expect(envelope!.refusal!.legallyGrounded).toBe(false);
+    });
+});
+
 describe('§COR-MC-ANCHO (2026-08-04) — the MC per-street-width HEIGHT resolves; the FOOTPRINT still refuses', () => {
     let realFetch: typeof globalThis.fetch;
     beforeEach(() => { realFetch = globalThis.fetch; });

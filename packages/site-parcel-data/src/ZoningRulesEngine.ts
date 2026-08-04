@@ -35,6 +35,7 @@ import { insetPolygonPerEdge, type PerEdgeSetbacks } from './geometry/insetPolyg
 import { solveBlockDerivedDepth, type BlockDepthBinding } from './geometry/blockDerivedDepth.js';
 import { solveBlockConcentricBandDepth } from './geometry/blockConcentricBand.js';
 import { solveExplicitArea, type ExplicitAreaPart } from './geometry/explicitArea.js';
+import { solveOccupationCappedDepth } from './geometry/occupationCappedDepth.js';
 import { computeFarLimitedHeight, farLimitedHeightCaveat } from './farLimitedHeight.js';
 
 const tracer = trace.getTracer('pryzm.zoning');
@@ -839,6 +840,108 @@ export function computeBuildableEnvelope(
                     }
                 }
 
+                // ── ADR-0288 / §COR-MC-FOOTPRINT — OCCUPATION-CAPPED ALIGNMENT. ─────────────
+                //
+                // ⚠⚠⚠ READ `OccupationCappedAlignmentRuleSchema`'s HEADER IN `GeometricRule.ts`
+                // BEFORE TOUCHING THIS BRANCH. The ordinance states an alignment (front on the
+                // vial, party-wall sides) and a PARCEL-level occupation ratio, and explicitly
+                // states NO depth — Art. 13.5.2.4 (Córdoba MC): *"cuando este parámetro [fondo]
+                // no venga expresamente fijado, se entenderá libre, con la única condición de que
+                // la ocupación ... no podrá rebasar los límites"*. An occupation ratio with no
+                // stated siting rule does NOT determine a unique footprint polygon — this branch
+                // does not extract one from the ordinance, it CONSTRUCTS one, and every caveat and
+                // derivation row below says so loudly. This is the whole reason the kind is not
+                // `alignment` (needs a stated scalar depth) or `tiered-occupation` (needs a BLOCK
+                // ring and a BLOCK-relative siting convention Art. 13.5.2.4 does not state).
+                //
+                // THE CONSTRUCTION (composed from EXISTING, separately-tested pieces — no new
+                // clipper): the per-edge inset above already applied the alignment offset, the
+                // party-wall/setback side treatment, and any rear patio. `solveOccupationCappedDepth`
+                // (geometry/occupationCappedDepth.ts) then extends that ring's own depth from the
+                // aligned edge — via the SAME `clipToDepthBand` half-plane clip `alignment` uses —
+                // until the footprint area equals `maxCoverage × parcelArea`, or the ring's own
+                // rear boundary, whichever binds first. Full rationale + the shape's honesty
+                // labelling lives in that module's header; do not re-derive it here.
+                else if (geometricRule?.kind === 'occupation-capped-alignment') {
+                    const occProv = zone?.fieldProvenance['geometricRule'] ?? 'estimated';
+                    const addOcc = (
+                        constraint: DerivationEntry['constraint'],
+                        value: number | string,
+                    ): void => {
+                        derivation.push({
+                            constraint, value, zoneCode: zoning.zoneCode, source,
+                            fieldProvenance: occProv, ordinanceRef,
+                        });
+                    };
+
+                    const frontIdx = edgeClassifications.findIndex((c) => c === 'front');
+                    if (edgeClassifications.length !== parcelRing.length) {
+                        status = 'degenerate';
+                        insetPolygon = [];
+                        caveats.push(
+                            'Occupation-capped alignment zone, but the parcel edge classification ' +
+                            `array does not match the parcel ring (${edgeClassifications.length} ` +
+                            `classifications for ${parcelRing.length} vertices) — the alineación ` +
+                            'cannot be located reliably. No envelope (ADR-0288; C58 §1.4).',
+                        );
+                    } else if (frontIdx < 0) {
+                        status = 'degenerate';
+                        insetPolygon = [];
+                        caveats.push(
+                            'Occupation-capped alignment zone, but no parcel edge is classified ' +
+                            '`front` — the alineación cannot be located, so the occupation cap ' +
+                            'cannot be sited. No envelope (ADR-0288; C58 §1.4).',
+                        );
+                    } else if (maxCoverage.value === null) {
+                        // HARD FAIL, not a fall-through to the un-truncated inset. Without a held
+                        // occupation ratio there is NOTHING to construct the footprint from — this
+                        // kind's entire premise is "depth is free, capped by ocupación" — so
+                        // skipping the cap would silently draw the whole parcel (the exact L-616
+                        // mechanism-A failure this kind exists to prevent).
+                        status = 'degenerate';
+                        insetPolygon = [];
+                        caveats.push(
+                            'Occupation-capped alignment zone, but no maxCoverage (ocupación) is ' +
+                            'held for this zone — the depth is stated as unconstrained EXCEPT for ' +
+                            'the occupation cap, so with no cap there is nothing to construct the ' +
+                            'footprint from. No envelope (ADR-0288; C58 §1.2, §1.4).',
+                        );
+                    } else {
+                        const targetAreaM2 = maxCoverage.value * polygonArea(parcelRing);
+                        addOcc('occupationCap.ratio', maxCoverage.value);
+                        addOcc('occupationCap.targetAreaM2', targetAreaM2);
+                        const a = parcelRing[frontIdx]!;
+                        const b = parcelRing[(frontIdx + 1) % parcelRing.length]!;
+                        const solved = solveOccupationCappedDepth(insetPolygon, a, b, targetAreaM2);
+                        if (solved.degenerate || solved.polygon.length < 3) {
+                            status = 'degenerate';
+                            insetPolygon = [];
+                            caveats.push(
+                                `Occupation-capped alignment zone: the ${(maxCoverage.value * 100).toFixed(0)} % ` +
+                                'ocupación cap leaves no buildable footprint on this parcel after ' +
+                                'the alignment/party-wall inset. No envelope.',
+                            );
+                        } else {
+                            insetPolygon = solved.polygon;
+                            if (solved.depth_m !== null) addOcc('occupationCap.depth_m', solved.depth_m);
+                            caveats.push(
+                                solved.capInactive
+                                    ? `Ocupación cap ${(maxCoverage.value * 100).toFixed(0)} % does NOT ` +
+                                      'bind here — this parcel is too shallow for the cap to reduce the ' +
+                                      'alignment/party-wall footprint; the full inset is shown.'
+                                    : `⚠ PRYZM-CONSTRUCTED FOOTPRINT, NOT AN ORDINANCE-STATED SHAPE ` +
+                                      `(ADR-0288): the ordinance states an area cap ` +
+                                      `(${(maxCoverage.value * 100).toFixed(0)} % ocupación) with NO ` +
+                                      'siting rule for where inside the parcel it sits. PRYZM draws the ' +
+                                      'MAXIMAL legally-consistent rectangle at the alignment’s frontage ' +
+                                      `width, extended back ${solved.depth_m!.toFixed(2)} m until the ` +
+                                      'cap is met — an ENGINEERING DECISION about which of many equally ' +
+                                      'legal shapes to render, not a transcribed fact. Do not cite this ' +
+                                      'footprint\'s shape or depth as the ordinance\'s own.',
+                            );
+                        }
+                    }
+                }
 
                 if (status === 'ok') {
                     insetAreaM2 = polygonArea(insetPolygon);
@@ -926,7 +1029,8 @@ export function computeBuildableEnvelope(
                         geometricRule?.kind === 'alignment' ||
                         geometricRule?.kind === 'block-derived-alignment' ||
                         geometricRule?.kind === 'tiered-occupation' ||
-                        geometricRule?.kind === 'explicit-area';
+                        geometricRule?.kind === 'explicit-area' ||
+                        geometricRule?.kind === 'occupation-capped-alignment';
                     const setbacksAllUnknown =
                         front.from === 'none' && side.from === 'none' && rear.from === 'none';
                     if (setbacksAllUnknown && !footprintShapingRule) {

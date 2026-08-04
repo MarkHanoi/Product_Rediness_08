@@ -1,0 +1,29 @@
+{
+  "province": "14",
+  "ine_cordoba": "14021",
+  "feeds": {
+    "buildings": {
+      "OUTCOME": "OK",
+      "url": "https://www.catastro.hacienda.gob.es/INSPIRE/buildings/14/ES.SDGC.BU.atom_14.xml",
+      "href": "https://www.catastro.hacienda.gob.es/INSPIRE/Buildings/14/14900-CORDOBA/A.ES.SDGC.BU.14900.zip",
+      "title": "14900-CORDOBA buildings",
+      "n_bytes": 22926867,
+      "gml_files": [
+        "A.ES.SDGC.BU.14900.building.gml",
+        "A.ES.SDGC.BU.14900.buildingpart.gml",
+        "A.ES.SDGC.BU.14900.otherconstruction.gml"
+      ]
+    },
+    "parcels": {
+      "OUTCOME": "OK",
+      "url": "https://www.catastro.hacienda.gob.es/INSPIRE/CadastralParcels/14/ES.SDGC.CP.atom_14.xml",
+      "href": "https://www.catastro.hacienda.gob.es/INSPIRE/CadastralParcels/14/14900-CORDOBA/A.ES.SDGC.CP.14900.zip",
+      "title": "14900-CORDOBA Cadastral Parcels",
+      "n_bytes": 14388277,
+      "gml_files": [
+        "A.ES.SDGC.CP.14900.cadastralparcel.gml",
+        "A.ES.SDGC.CP.14900.cadastralzoning.gml"
+      ]
+    }
+  }
+}

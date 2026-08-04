@@ -41,8 +41,11 @@ const COACO_FAMILIES = [
     { family: 'Colonia Tradicional Popular', polygons: 99, m2: 280139.6, packed: true },
     { family: 'Plurifamiliar aislada', polygons: 30, m2: 172760.95, packed: true },
     { family: 'Unifamiliar Adosada', polygons: 22, m2: 87911.86, packed: true },
+    // ⭐ 2026-08-04 — PACKED (`PTC` in `esCordobaPGOU2001.ts`, Art. 13.4.1 → Tomo VI's "PT" ordinance,
+    // now held). Still resolves to NO envelope (MC-shaped structural refusal), but that is now a
+    // PACKED refusal, not a "PRYZM has not transcribed this" coverage gap or a legal "no".
+    { family: 'CTP1- Campo de la Verdad', polygons: 16, m2: 21284.9, packed: true },
     { family: 'Uso Comercial', polygons: 8, m2: 37095.55, packed: false },
-    { family: 'CTP1- Campo de la Verdad', polygons: 16, m2: 21284.9, packed: false },
     { family: 'Elemento protegido', polygons: 7, m2: 10846.19, packed: false },
     { family: 'Unifamiliar Aislada', polygons: 1, m2: 2687.97, packed: false },
     { family: 'Uso Industrial', polygons: 1, m2: 1920.35, packed: false },
@@ -57,12 +60,14 @@ describe('§CORDOBA-UNPACKED-FAMILY-SPLIT — the publisher inventory this is me
         // Within 1 m² of the live Σ `sup_m2` — the numbers are transcribed, not approximated.
         expect(Math.abs(sum - ORDENANZAS_LAND_M2)).toBeLessThan(1);
         const packedShare = COACO_FAMILIES.filter((f) => f.packed).reduce((a, f) => a + f.m2, 0) / sum;
-        // 5 of 10 families = 95.47 % of ordenanzas land. ⚠ A LAND share, not an ANSWER share:
-        // ~44.7 % of that land is delegated to a later instrument and MC's height table is
-        // unresolved, so the envelope that actually renders today is ZERO (see the measurements
-        // record). Quoting 95 % as coverage would be the withdrawn "89 %" error a third time.
-        expect(packedShare).toBeGreaterThan(0.954);
-        expect(packedShare).toBeLessThan(0.955);
+        // 6 of 10 families (2026-08-04: + `PTC`/Campo de la Verdad) = 96.77 % of ordenanzas land.
+        // ⚠ A LAND share, not an ANSWER share: ~44.7 % of that land is delegated to a later
+        // instrument, MC's height table is unresolved, AND PTC itself is a structural refusal
+        // (no stated buildable depth), so the envelope that actually renders today is still ZERO
+        // for a large share of this "packed" land (see the measurements record). Quoting 96.77 %
+        // as coverage would be the withdrawn "89 %" error a third time.
+        expect(packedShare).toBeGreaterThan(0.967);
+        expect(packedShare).toBeLessThan(0.969);
     });
 
     it('every UNPACKED family reaches a refusal — none falls through to silence', () => {
@@ -84,17 +89,20 @@ describe('§CORDOBA-UNPACKED-FAMILY-SPLIT — the publisher inventory this is me
         for (const f of COACO_FAMILIES.filter((x) => x.packed)) {
             expect(cordobaZoneRefusalFor(f.family), `${f.family} must not be a LEGAL "no"`).toBeNull();
         }
-        // …and the pack really does carry a subzone for each of those five families.
+        // …and the pack really does carry a subzone for each of those six families.
         const codes = CORDOBA_PGOU2001_ZONE_CODES as readonly string[];
         for (const prefix of ['MC-', 'OA-', 'CTP-', 'PAS-', 'UAD-']) {
             expect(codes.some((c) => c.startsWith(prefix)), prefix).toBe(true);
         }
+        expect(codes.includes('PTC'), 'PTC').toBe(true);
     });
 });
 
-describe('the THREE legally-grounded families each NAME their governing article', () => {
+describe('the TWO legally-grounded families each NAME their governing article', () => {
+    // ⚠ CTP1-Campo de la Verdad used to be a THIRD row here (Art. 13.4.1 → Tomo VI "not held"). It
+    // is now PACKED (`PTC` in `esCordobaPGOU2001.ts`, Tomo VI IS held) and no longer classified as a
+    // legally-grounded "no" — see the removal note in `esCordobaZoneClassification.ts`.
     const CASES = [
-        { token: 'CTP1-Campo de la Verdad', article: 'Art. 13.4.1', mustSay: 'Tomo VI' },
         { token: 'Uso Comercial', article: 'Art. 13.12.2', mustSay: 'Plan Parcial' },
         { token: 'Elemento protegido', article: 'Art. 13.3', mustSay: 'protección' },
     ] as const;
@@ -110,13 +118,19 @@ describe('the THREE legally-grounded families each NAME their governing article'
         });
     }
 
-    it('the classification table is DISJOINT and covers exactly these three families', () => {
-        // Built at module load with a duplicate-throw; this pins the SIZE so a fourth family cannot
+    it('CTP1-Campo de la Verdad is no longer a legal "no" — it is PACKED', () => {
+        expect(cordobaZoneRefusalFor('CTP1-Campo de la Verdad')).toBeNull();
+        expect(cordobaZoneRefusalFor('O_PTC')).toBeNull();
+        expect(cordobaZoneRefusalFor('PTC')).toBeNull();
+    });
+
+    it('the classification table is DISJOINT and covers exactly these two families', () => {
+        // Built at module load with a duplicate-throw; this pins the SIZE so a third family cannot
         // be added silently (it would need its own article and its own row here).
         const families = CORDOBA_LEGALLY_REFUSED_ORDENANZAS.filter((t) => t.includes(' '));
         expect(new Set(families).size).toBe(families.length);
         expect(families.sort()).toEqual(
-            ['CTP1-Campo de la Verdad', 'Elemento protegido', 'Uso Comercial'].sort(),
+            ['Elemento protegido', 'Uso Comercial'].sort(),
         );
     });
 });

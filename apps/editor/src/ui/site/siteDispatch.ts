@@ -182,6 +182,13 @@ import {
     CORDOBA_MC_HEIGHT_ARTICLE,
     resolveCordobaMcHeightForWidth,
     cordobaMcResolvedPack,
+    // §COR-STREET-WIDTH (2026-08-04) — the PRIMARY width source for MC's Art. 13.5.3.1 table: the
+    // Ayuntamiento's own PUBLISHED `idecordoba:manzana` block layer, live-verified at
+    // `ide.cordoba.es` (ADR-0283/ADR-0290: published geometry outranks geometry PRYZM derives
+    // itself). This one is L2-pure and lives in @pryzm/site-parcel-data, unlike the older
+    // Catastro-dissolve `resolveCordobaMcStreetWidth` below, which stays as the FALLBACK wherever
+    // the manzana layer does not cover a point (§COR-MC-ANCHO's own call site tries this one first).
+    resolveCordobaStreetWidth,
     type CordobaMcZone,
     // ── Sevilla (INE 41091) — ZERO transcribed ordinance, live zone-identity resolve only. ──
     // `SEVILLA_ENVELOPE_VERIFIED` is `false` and there is nothing behind the gate to sign yet
@@ -3618,12 +3625,43 @@ async function applyCordobaZoningThenFallback(
                         const e = trueVectorToProjectNorth({ east: xz.x, north: -xz.z }, theta);
                         return { x: e.east, z: -e.north };
                     };
-                    const width = await resolveCordobaMcStreetWidth(
-                        mcParcelFeat?.refcat ?? null,
-                        mcCentroid,
-                        boundary.polygon,
-                        toAuthoringFrame,
-                    );
+                    // §COR-STREET-WIDTH (2026-08-04) — try the PUBLISHED `idecordoba:manzana`
+                    // block layer FIRST (ADR-0283/ADR-0290: published geometry outranks geometry
+                    // PRYZM derives itself), falling back to the Catastro-dissolve resolver
+                    // wherever the manzana layer does not cover this point. Both resolvers return
+                    // an `{ ok, width_m, spread_m, authority, ... }` shape; normalised to ONE local
+                    // interface here so the rest of this block (band lookup, pack build, refusal
+                    // copy) does not need to know which resolver answered.
+                    interface CordobaWidthResult {
+                        readonly ok: boolean;
+                        readonly width_m: number;
+                        readonly spread_m: number;
+                        readonly authority: string;
+                        readonly manzana: string;
+                        readonly reason: string;
+                    }
+                    const primaryWidth = await resolveCordobaStreetWidth(mcCentroid ?? null, {
+                        parcelRingLonLat: mcRing?.map((p: LatLon) => [p.lon, p.lat] as const),
+                    });
+                    let width: CordobaWidthResult;
+                    if (primaryWidth.ok) {
+                        width = { ...primaryWidth, manzana: 'idecordoba:manzana', reason: '' };
+                    } else {
+                        console.log(
+                            `${TAG} §COR-STREET-WIDTH manzana layer did not resolve ` +
+                                `(${primaryWidth.reason}) — falling back to the Catastro ` +
+                                'block-dissolve resolver.',
+                        );
+                        const fallback = await resolveCordobaMcStreetWidth(
+                            mcParcelFeat?.refcat ?? null,
+                            mcCentroid,
+                            boundary.polygon,
+                            toAuthoringFrame,
+                        );
+                        width = fallback.ok
+                            ? { ...fallback, reason: '' }
+                            : { ok: false, width_m: NaN, spread_m: NaN, authority: '', manzana: '', reason: fallback.reason };
+                    }
                     if (width.ok) {
                         const height = resolveCordobaMcHeightForWidth(mcZone, width.width_m);
                         if (height.ok) {
@@ -3634,14 +3672,16 @@ async function applyCordobaZoningThenFallback(
                                     `(± ${width.spread_m.toFixed(2)} m spread, manzana ` +
                                     `${width.manzana}).`,
                             );
+                            const widthSourceLabel = primaryWidth.ok
+                                ? 'CONSTRUCTED from the published idecordoba:manzana block layer'
+                                : 'CONSTRUCTED from Catastro block-dissolve geometry (manzana fallback)';
                             mcHeightFact =
                                 `Height (${CORDOBA_MC_HEIGHT_ARTICLE}): ${height.storeys} = ` +
                                 `${height.maxHeight_m.toFixed(2)} m — measured street width ` +
                                 `${width.width_m.toFixed(2)} m (± ${width.spread_m.toFixed(2)} m, ` +
-                                'CONSTRUCTED from Catastro block-dissolve geometry; ADR-0287 ' +
-                                'band-edge guard cleared). ⚠ The buildable FOOTPRINT (fondo ' +
-                                'edificable) still has no resolved block geometry, so this height ' +
-                                'alone cannot become a volume yet.';
+                                `${widthSourceLabel}; ADR-0287 band-edge guard cleared). ⚠ The ` +
+                                'buildable FOOTPRINT (fondo edificable) still has no resolved block ' +
+                                'geometry, so this height alone cannot become a volume yet.';
                             console.log(
                                 `${TAG} §COR-MC-ANCHO subzone=${mcZone} height RESOLVED ` +
                                     `${height.storeys}=${height.maxHeight_m}m ` +

@@ -964,6 +964,18 @@ export {
     type MurciaStreetWidthRefusal,
     type MurciaStreetWidthDeps,
 } from './providers/resolveMurciaStreetWidth.js';
+// §COR-STREET-WIDTH (2026-08-04) — the `idecordoba:manzana`-fed street-width resolver, PRIMARY
+// source for Córdoba MC's Art. 13.5.3.1 per-street-width height table. Falls back, at the
+// `apps/editor` dispatcher, to the older Catastro-dissolve `resolveCordobaMcStreetWidth` wherever
+// the published manzana layer does not cover a point.
+export {
+    resolveCordobaStreetWidth,
+    CORDOBA_STREET_WIDTH_AUTHORITY,
+    CORDOBA_MANZANA_PATH,
+    type CordobaStreetWidthResolution,
+    type CordobaStreetWidthRefusal,
+    type CordobaStreetWidthDeps,
+} from './providers/resolveCordobaStreetWidth.js';
 export {
     resolveMurciaAnchoDeCalle,
     murciaAnchoResolvedPack,

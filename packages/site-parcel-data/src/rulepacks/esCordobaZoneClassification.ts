@@ -127,12 +127,13 @@ export const CORDOBA_ROADMAP_LINE =
 // resolves a `subzone` from `coaco:ordenanzas.link` basename + the `ordenanza` family name (pack
 // WIRING-TODO 5, `resolveCordobaSubzone`). The tokens below were GUESSED in the first commit; they
 // are now the values the CORDOBA-DATA-RECON-SPIKE §3a / CORDOBA-ORDINANCE-REGISTRY confirmed against
-// the live layer — `Uso Comercial`/`O_COMERCIAL`, `CTP1-Campo de la Verdad`/`O_PTC`, `Elemento
-// protegido`/`O_EP` — plus the `subzoneCodeFromLink` parse of each (`O_PTC`→`PTC`, …) so the
-// classifier matches whichever form the resolver hands it. Because the VERIFICATION GATE refuses the
-// whole pilot today, nothing routes through here in production yet — but the classification is
-// correct and permanent: these families refuse even AFTER the packed subzones are verified, because
-// their envelope lives in a document PRYZM does not hold.
+// the live layer — `Uso Comercial`/`O_COMERCIAL`, `Elemento protegido`/`O_EP` — plus the
+// `subzoneCodeFromLink` parse of each so the classifier matches whichever form the resolver hands it.
+// (`CTP1-Campo de la Verdad`/`O_PTC`→`PTC` used to be a third row here; it is now PACKED in
+// `esCordobaPGOU2001.ts` — see that removal's own comment above.) Because the VERIFICATION GATE
+// refuses the whole pilot today, nothing routes through here in production yet — but the
+// classification is correct and permanent: these families refuse even AFTER the packed subzones are
+// verified, because their envelope lives in a document PRYZM does not hold.
 
 /** The article-attributable part of a refusal — everything EXCEPT the per-parcel `knownFacts`. */
 type ClassifiedRefusal = Omit<EnvelopeRefusal, 'knownFacts'>;
@@ -143,34 +144,20 @@ interface FamilyClassification {
     readonly refusal: ClassifiedRefusal;
 }
 
+// ⚠⚠ CTP1-Campo de la Verdad (`O_PTC` → `PTC`) — REMOVED FROM THIS TABLE 2026-08-04. It used to
+// classify PT-CV as a legally-grounded "no" because the Conjunto Histórico Tomo VI it defers to
+// (Art. 13.4.1) was a document PRYZM did not hold. Tomo VI IS NOW HELD
+// (`Normativa_del_conjunto_histórico.pdf` / `normativa_PEPCH_Revisado.pdf`, cross-verified verbatim)
+// and its "PT" ordinance (Art. 43-55) is packed as zone `PTC` in `esCordobaPGOU2001.ts` — see that
+// file's `CORDOBA_PTCV_FOOTPRINT_UNRESOLVED_RING` header for the full record. Leaving this entry here
+// would have asserted a now-FALSE fact ("which PRYZM does not hold") and would also have been
+// unreachable in practice (`resolveZoneDisposition` checks `packsByZone` before `refusalFor` for the
+// same zoneCode, §CORDOBA-UNPACKED-FAMILY-SPLIT precedence) — but a stale, false assertion left in
+// source is a defect on its own even when dead code shadows it, so it is deleted, not just shadowed.
+// PT-CV still resolves to NO buildable envelope today (a packed structural refusal, MC-shaped) — that
+// is now stated IN THE PACK, not in this legal-classification table.
+
 const FAMILY_CLASSIFICATIONS: readonly FamilyClassification[] = [
-    // CTP1-Campo de la Verdad — the envelope is defined in the Conjunto Histórico **Tomo VI**, a
-    // document PRYZM does not hold. Only its parcelación borrows from CTP; the buildability does not.
-    {
-        // Live COACo tokens (recon §3a): family `CTP1-Campo de la Verdad`, link `O_PTC.pdf` → `PTC`.
-        ordenanzas: ['CTP1-Campo de la Verdad', 'O_PTC', 'PTC'],
-        refusal: {
-            code: 'derived-plan',
-            headline:
-                'Campo de la Verdad (CTP-1) — buildability is fixed by the Conjunto Histórico ' +
-                'special plan (Tomo VI), which PRYZM does not hold.',
-            detail:
-                'This parcel’s calificación borrows the CTP-1 parcelación, but its buildable ' +
-                'envelope is NOT the CTP-1 zone rule: the PGOU delegates it to the Conjunto ' +
-                'Histórico ordination (Tomo VI), a per-ámbito document PRYZM has not ingested. ' +
-                'There is no generic zone parameter to apply, and inventing one would manufacture ' +
-                'a number the ordinance does not contain.',
-            // ⚠ THE ARTICLE IS NAMED, not merely the family. `findings/OCR-EXTRACTION-RESULTS.md`
-            // §3 transcribes Art. 13.4.1 verbatim: the envelope is *"en la Memoria y Normativa
-            // correspondiente al Conjunto Histórico (Tomo VI)"*. A refusal that cites a family but
-            // not the article cannot be checked by the reader it is addressed to.
-            ordinanceRef:
-                'PGOU-Córdoba-2001, Art. 13.4.1 — CTP-1 (Colonia Tradicional Popular) → Conjunto ' +
-                'Histórico, Tomo VI ("en la Memoria y Normativa correspondiente al Conjunto ' +
-                'Histórico (Tomo VI)"). ' + CORDOBA_PGOU_INSTRUMENT_REF,
-            legallyGrounded: true,
-        },
-    },
     // Uso Comercial — a USE overlay, not a form zone: it defers to the underlying calificación or a
     // Plan Parcial for the envelope. There is no single commercial envelope to state.
     {
@@ -340,10 +327,11 @@ export function cordobaNoRulePackRefusal(
 // ═════════════════════════════════════════════════════════════════════════════════════════════
 //
 // COACo publishes TEN `ordenanza` families (measured live 2026-08-01: 453 polygons, Σ `sup_m2`
-// 1 628 615.63 m², ten distinct `ordenanza` values). PRYZM holds transcribed rules for five. Of the
-// other five, THREE are legally-grounded "no"s and live in `FAMILY_CLASSIFICATIONS` above
-// (CTP1-Campo de la Verdad · Uso Comercial · Elemento protegido, now each citing its article). The
-// remaining TWO are COVERAGE statements — and they shared one card until this pass.
+// 1 628 615.63 m², ten distinct `ordenanza` values). PRYZM holds transcribed rules for SIX as of
+// 2026-08-04 (the original five plus `PTC`/Campo de la Verdad, see `esCordobaPGOU2001.ts`). Of the
+// remaining four, TWO are legally-grounded "no"s and live in `FAMILY_CLASSIFICATIONS` above
+// (Uso Comercial · Elemento protegido, each citing its article). The other TWO are COVERAGE
+// statements — and they shared one card until an earlier pass.
 //
 // ⚠ WHY THEY MUST NOT SHARE A CARD. Their causes are not the same VALUE (L-422/457/467/469):
 //   • Uso Industrial — PRYZM HAS READ the chapter (Art. 13.11, born-digital text, 23 620 chars,

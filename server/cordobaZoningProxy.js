@@ -215,3 +215,157 @@ export function makeCordobaVcatastroHandler(deps = {}) {
 
 export const cordobaOrdenanzasHandler = makeCordobaOrdenanzasHandler();
 export const cordobaVcatastroHandler = makeCordobaVcatastroHandler();
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// §COR-MANZANA-PROXY (2026-08-04) — `idecordoba:manzana`, the PUBLISHED block-ring layer.
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// WHY A SEPARATE ROUTE, ON A SEPARATE HOST. `coaco:*` above lives on the COACo GeoServer
+// (`geoserver.pgou.coacordoba.org`) and carries the calificación. `idecordoba:manzana` is a
+// DIFFERENT publisher — the Ayuntamiento's own IDE (Infraestructura de Datos Espaciales) GeoServer
+// — and carries no zoning at all, only the block outline (base cartography). It is the missing
+// piece `packages/site-parcel-data/src/geometry/streetWidth.ts` names as "(a) its own parcel/block
+// source that can produce a block ring": a manzana IS a ring, published directly, no dissolve.
+//
+// ⚠⚠ THE HOST, AND WHY IT IS WRITTEN OUT IN FULL HERE, ON PURPOSE. Live-verified 2026-08-04 via a
+// real `GetFeature` (not just `GetCapabilities`): the correct origin is
+//
+//     https://ide.cordoba.es/geoserver/wfs
+//
+// **NOT** `idecordoba.cordoba.es` — a domain that does not resolve at all, despite appearing (as a
+// plain assertion, never re-fetched) in three earlier documents/files. `idecordoba` is the WFS
+// WORKSPACE PREFIX (`idecordoba:manzana`), not part of the hostname — the same shape as
+// `coaco:ordenanzas` living on `geoserver.pgou.coacordoba.org`, not `coaco.cordoba.es`. A workspace
+// prefix and a hostname are independent facts about a GeoServer and must never be inferred from
+// each other. `GetFeature&typeNames=idecordoba:manzana&count=3&outputFormat=application/json`
+// returned real MultiPolygon geometry, `crs: urn:ogc:def:crs:EPSG::25830`, coordinates in the
+// ~366 000 E / ~4 210 000 N range (plausible Córdoba UTM 30N), and `totalFeatures: 20 730` —
+// matching `LAYER2-GEOMETRY-RECOVERY-2026-08-02.md`'s prior count exactly, which is strong
+// corroboration that document's coverage claim (92.9 % of ordenanza polygons / 88.0 % of pilot
+// ordenanza land) still describes the live layer, not a stale snapshot.
+//
+// ⚠ SAME CRS/AXIS DISCIPLINE AS MURCIA (§NATIVE-CRS-MEASUREMENT, `server/murciaPgouProxy.js`'s own
+// header): the BBOX selection window uses the EXPLICIT `urn:ogc:def:crs:EPSG::4326` authority
+// (lat/lon) axis order (a bare 4326 bbox is silently EMPTY against a native-25830 layer — the
+// documented Córdoba gotcha this very file's `coaco:*` routes above already worked around); the
+// response `srsName` is the layer's OWN native `EPSG:25830`, never reprojected to degrees before
+// serialisation — a 4-decimal degree serialisation quantises geometry to ~10 m against Art.
+// 13.5.3.1's 2 m-apart bands, which is the entire reason `nativeCrs.ts` exists.
+//
+// HONESTY — mirrors `fetchMurciaAlineacionesNeighbourhood`: `null` (upstream did not answer) and
+// `[]` (it answered, nothing published here) are different values and stay apart to the client.
+
+/** The same-origin route the client's `resolveCordobaStreetWidth` calls. */
+export const CORDOBA_MANZANA_PATH = '/api/cordoba/manzana';
+
+/** The Ayuntamiento de Córdoba IDE GeoServer WFS (keyless, public). ⚠ `ide.` — see header above. */
+export const CORDOBA_IDE_WFS_ENDPOINT = 'https://ide.cordoba.es/geoserver/wfs';
+
+export const CORDOBA_MANZANA_LAYER = 'idecordoba:manzana';
+
+/** §NATIVE-CRS-MEASUREMENT — the layer's own published metric CRS; never asked for in 4326. */
+export const CORDOBA_MANZANA_NATIVE_CRS = 'EPSG:25830';
+
+/**
+ * Half-extent (degrees) of the NEIGHBOURHOOD bbox — the window `measureStreetWidths` needs to see
+ * both our own manzana and the ones across every surrounding street. Mirrors
+ * `MURCIA_NEIGHBOURHOOD_HALF_DEG` exactly (same job, same reasoning: half a block plus the 80 m ray
+ * search distance), so the two cities do not drift apart on a number that means the same thing.
+ */
+export const CORDOBA_MANZANA_NEIGHBOURHOOD_HALF_DEG = 0.002;
+
+/** Feature cap for a neighbourhood query — mirrors `MURCIA_NEIGHBOURHOOD_MAX_FEATURES`. */
+export const CORDOBA_MANZANA_MAX_FEATURES = 600;
+
+/** Build the `idecordoba:manzana` neighbourhood `GetFeature` URL for a WGS84 point. */
+export function buildCordobaManzanaUrl(
+    lat, lon, halfDeg = CORDOBA_MANZANA_NEIGHBOURHOOD_HALF_DEG, count = CORDOBA_MANZANA_MAX_FEATURES,
+) {
+    const r = (n) => Number(n.toFixed(7));
+    const minLon = r(lon - halfDeg), maxLon = r(lon + halfDeg);
+    const minLat = r(lat - halfDeg), maxLat = r(lat + halfDeg);
+    const qs = new URLSearchParams({
+        service: 'WFS',
+        version: '2.0.0',
+        request: 'GetFeature',
+        typeNames: CORDOBA_MANZANA_LAYER,
+        outputFormat: 'application/json',
+        // §NATIVE-CRS-MEASUREMENT — the layer's own metric CRS, at full serialised precision.
+        srsName: CORDOBA_MANZANA_NATIVE_CRS,
+        count: String(count),
+        // Authority (lat/lon) axis order — the documented gotcha against native-25830 layers.
+        bbox: `${minLat},${minLon},${maxLat},${maxLon},urn:ogc:def:crs:EPSG::4326`,
+    });
+    return `${CORDOBA_IDE_WFS_ENDPOINT}?${qs.toString()}`;
+}
+
+/**
+ * Fetch the manzana polygons AROUND a point → `{ features: Feature[]|null, truncated }`. `null` =
+ * the IDE WFS did not answer (NOT "no block published here"). NEVER throws.
+ */
+export async function fetchCordobaManzanaNeighbourhood(lat, lon, deps = {}) {
+    const halfDeg = deps.halfDeg ?? CORDOBA_MANZANA_NEIGHBOURHOOD_HALF_DEG;
+    const url = buildCordobaManzanaUrl(lat, lon, halfDeg, CORDOBA_MANZANA_MAX_FEATURES);
+    const body = await fetchCordobaWfs(url, deps);
+    if (body === null || !Array.isArray(body.features)) return { features: null, truncated: false };
+    return {
+        features: body.features,
+        truncated: body.features.length >= CORDOBA_MANZANA_MAX_FEATURES,
+    };
+}
+
+/**
+ * `GET /api/cordoba/manzana?lat=&lon=` →
+ *   200 `{ crs: 'EPSG:25830', manzanas: Feature[]|null, truncated: boolean }`
+ *   502 `{ error }` when the IDE WFS did not answer
+ *   400 on missing/bad coordinates
+ *
+ * Mirrors `makeMurciaPgouHandler`'s `?extent=neighbourhood` branch: `crs` travels on every body,
+ * including empty ones, so a consumer never has to special-case which answer carries it.
+ */
+export function makeCordobaManzanaHandler(deps = {}) {
+    return async function cordobaManzanaHandler(req, res) {
+        const lat = Number(req.query?.lat);
+        const lon = Number(req.query?.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+            return res.status(400).json({ error: 'lat and lon query parameters (EPSG:4326) are required.' });
+        }
+        const key = `mz:${lat.toFixed(4)},${lon.toFixed(4)}`;
+        const cached = cacheGet(key);
+        if (cached !== undefined) {
+            _hits++;
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+            res.setHeader('X-Cordoba-Cache', 'HIT');
+            return res.status(200).json(cached);
+        }
+        _misses++;
+        let hood;
+        try {
+            hood = await fetchCordobaManzanaNeighbourhood(lat, lon, deps);
+        } catch (err) {
+            console.warn('[cordoba-proxy] manzana neighbourhood error:', err?.message ?? err);
+            hood = { features: null, truncated: false };
+        }
+        if (hood.features === null) {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+            res.setHeader('X-Cordoba-Cache', 'MISS-UNREACHABLE');
+            return res.status(502).json({
+                error:
+                    'The idecordoba (IDE Córdoba) manzana WFS did not answer. This is NOT a ' +
+                    'statement that no block is published at this point.',
+            });
+        }
+        const payload = {
+            crs: CORDOBA_MANZANA_NATIVE_CRS,
+            manzanas: hood.features,
+            truncated: hood.truncated,
+        };
+        // ⚠ A TRUNCATED answer is never cached — pinning a partial neighbourhood for a week would
+        // turn one busy response into a lasting under-measurement (mirrors the Murcia proxy).
+        if (!hood.truncated) cacheSet(key, payload);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('X-Cordoba-Cache', 'MISS');
+        return res.status(200).json(payload);
+    };
+}
+
+export const cordobaManzanaHandler = makeCordobaManzanaHandler();

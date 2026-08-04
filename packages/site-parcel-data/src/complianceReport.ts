@@ -80,6 +80,12 @@ const CONSTRAINT_ORDER: readonly DerivationConstraint[] = [
     'tier.bandAreaRatio',
     'tier.bandDepth',
     'tier.interiorHeight',
+    // ADR-0288 — occupation-capped alignment (§COR-MC-FOOTPRINT). Same reasoning as the two
+    // families above: on this kind the occupation cap IS what shaped the footprint, so the ratio
+    // and the depth PRYZM constructed from it lead, ahead of the plain setback/coverage rows.
+    'occupationCap.ratio',
+    'occupationCap.targetAreaM2',
+    'occupationCap.depth_m',
     'setback.front',
     'setback.side',
     'setback.rear',
@@ -103,6 +109,13 @@ const LABELS: Record<DerivationConstraint, string> = {
     'tier.bandAreaRatio': 'Upper-floor band, as a share of the BLOCK (franja concèntrica)',
     'tier.bandDepth': 'Upper-floor band depth from the block alignments',
     'tier.interiorHeight': 'Height in the block interior, beyond the band',
+    // ADR-0288 — ⚠ the depth here is a PRYZM-CONSTRUCTED shape choice, not an ordinance-stated
+    // figure (see `OccupationCappedAlignmentRuleSchema`'s header) — the label says "constructed"
+    // rather than echoing the "Buildable depth" wording used for a genuinely stated depth above,
+    // so a reader cannot mistake the two for the same kind of fact.
+    'occupationCap.ratio': 'Occupation cap (ocupación)',
+    'occupationCap.targetAreaM2': 'Target footprint area from the occupation cap',
+    'occupationCap.depth_m': 'PRYZM-constructed depth to meet the occupation cap (not ordinance-stated)',
     'setback.front': 'Front setback',
     'setback.side': 'Side setback',
     'setback.rear': 'Rear setback',

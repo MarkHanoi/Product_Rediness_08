@@ -881,7 +881,7 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
     // every Córdoba parcel with a cited "machine-extracted, unverified" card until a human signs
     // `sources/VERIFICATION.md` (pack WIRING-TODO 3). This registration wires the pack + refusals +
     // extent so the coverage globe (C60 §2) and the future subzone resolver share one source; it is
-    // NOT an authorisation to draw a number. `packsByZone` gives the 13 packed subzones precedence
+    // NOT an authorisation to draw a number. `packsByZone` gives the 14 packed subzones precedence
     // for the day verification lands, exactly as Barcelona's does.
     {
         jurisdictionId: CORDOBA_JURISDICTION_ID,

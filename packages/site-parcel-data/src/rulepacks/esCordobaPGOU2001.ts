@@ -68,13 +68,35 @@
 //     (null scalar); edificabilidad DERIVED except MC-3 (3.50, which the range gate flags). Alignment
 //     zone with NO held depth → an `explicit-area` geometricRule with an UNRESOLVABLE footprint handle
 //     (CORDOBA_MC_FONDO_UNRESOLVED_RING): a cited STRUCTURAL REFUSAL, never a full-parcel box (L-616).
+//   • PTC (Campo de la Verdad)    — ⭐ PARTIAL, PACKED 2026-08-04. Art. 13.4.1 redirects the envelope
+//     to the Conjunto Histórico Tomo VI "Ordenanza de Protección Tipológica" (Art. 43-55), which IS
+//     now held (`Normativa_del_conjunto_histórico.pdf` / `normativa_PEPCH_Revisado.pdf`, cross-
+//     verified verbatim via `pdftotext`). coverage+use clean (70 %/80 %, Art. 46.1); height is
+//     PER-PARCEL from an unheld plan sheet (Art. 49.1) → null; no stated buildable depth (Art. 47's
+//     patio-siting rule is real but not a numeric depth) → `explicit-area` with an UNRESOLVABLE
+//     footprint handle (CORDOBA_PTCV_FOOTPRINT_UNRESOLVED_RING), MC-shaped, never a full-parcel box.
 //
 // WHAT IS DELIBERATELY NOT PACKED (each a cited "no", never an estimate) — see the SPEC:
 //   • Uso Industrial — 1 parcel, subzone-unbindable, ocupación DERIVED (the sufficiency trap).
-//   • CTP1-Campo de la Verdad — envelope deferred to the Conjunto Histórico Tomo VI (not held).
 //   • Uso Comercial — context-dependent overlay (defers to underlying zone / Plan Parcial).
 //   • Elemento protegido — a preservation regime; envelope = the existing building. A refusal, not a pack.
-//   • Unifamiliar Aislada — dead `O_UAS1` link; content in no held document.
+//   • Unifamiliar Aislada (UAS) — ⚠ STALE-CLAIM CORRECTED 2026-08-04: this line used to say "dead
+//     `O_UAS1` link; content in no held document". That is no longer true of the CONTENT: Art. 13.10
+//     (6 subzones, UAS-1…UAS-6, every field a stated scalar — edificabilidad 0,40→0,18, parcela
+//     mínima 600→1.700 m², ocupación 40 %→18 %, altura PB+1/7 m, retranqueos 6 m frontal / 3 m
+//     lindero) was RECOVERED from the consolidated, born-digital "PLAN GENERAL DE ORDENACION
+//     CORDOBA 2001, TEXTO REFUNDIDO OCT. 2002 — NORMATIVA: USOS, ORDENANZAS Y URBANIZACIÓN" (Tomo
+//     II; innovaciones 1-2-2021 / guía práctica 26-5-2021), the SAME volume this file already cites
+//     as its authoritative source — see `findings/CORDOBA-ORDINANCE-REGISTRY.md §6`. What is STILL
+//     true, and is the actual reason this family stays unpacked, is the exact same shape as Uso
+//     Industrial above: the COACo `coaco:ordenanzas` calificación names only the FAMILY
+//     ("Unifamiliar Aislada"), never a UAS-1…UAS-6 subzone suffix, so the one UAS parcel in the pilot
+//     cannot be BOUND to any single row of the six — picking one (FAR ranges 0,40 down to 0,18,
+//     parcela mínima 600 up to 1.700 m²) would be a guess dressed as a determination, exactly the
+//     `regime-undetermined` case `cordobaUasChapterUnobtainableRefusal` in
+//     `esCordobaZoneClassification.ts` is written for. Content-known ≠ parcel-bindable; do not pack
+//     until the publisher's calificación carries a subzone key (`CORDOBA-ORDINANCE-REGISTRY.md §6`:
+//     "Record the numbers for the SPEC; do not auto-pack until binding is solved").
 //
 // EVERY `null` BELOW IS A FINDING WITH A REASON (C58 §1.7a: null ≠ 0), never a placeholder:
 //   • edificabilidad null on CTP-1 / MC-1/2/4 = the DERIVED "resultante de las Normas de Composición"
@@ -123,24 +145,195 @@ const SRC =
  * "MC states NO *profundidad edificable* we hold". Art. **13.5.2.4** in fact states: «Cuando este
  * parámetro no venga expresamente fijado, se entenderá **libre**, con la única condición de que la
  * ocupación del edificio en planta no podrá rebasar los límites … del apartado 5» — depth is
- * UNCONSTRAINED, bounded by ocupación, which this pack HOLDS (0.70 / 0.90). So the ordinance requires
- * NO MC block-fondo geometry source; WIRING-TODO 6 is mis-scoped on that point.
+ * UNCONSTRAINED, bounded by ocupación, which this pack HOLDS (0.70 / 0.90). So the ordinance itself
+ * requires NO MC block-fondo geometry source: unlike `block-derived-alignment` (PGM Art. 242.2) or
+ * `tiered-occupation` (PGM Art. 350.2), Art. 13.5.2.4's depth is not a function of the BLOCK at all.
  *
- * THE REFUSAL NEVERTHELESS STANDS, on the HEIGHT ground alone: MC's height is a per-street-width
- * TABLE we do not yet resolve (Art. 13.5.3.1, maxHeight null), so no storey count and therefore no
- * volume can be honestly produced. `block-derived-alignment` is REFUSED on principle: it requires Art. 242's
- * min/max/ratio clamps, which are Barcelona's numbers — supplying them here is the L-526 failure
- * verbatim (see GeometricRule.ts §350 note). C58 §1.7a: never invent a value.
+ * ⚠ RE-CHECKED 2026-08-04 (CLOSURE-REGISTER footprint task) — A LATER, SEPARATE CLAIM BUILT ON D3 WAS
+ * ALSO WRONG, and is corrected here so this comment stops contradicting itself: "no block ring is
+ * needed" was read as "the height resolver ALONE lifts MC to a real envelope" (see the retracted
+ * framing this replaced, and WIRING-TODO 6 below). It does not, because "no block needed" is not the
+ * same claim as "no footprint construction needed". Checked directly against the `GeometricRule`
+ * union (`packages/schemas/src/site/GeometricRule.ts`) and `ZoningRulesEngine.ts`'s solve paths:
+ *   • `alignment` requires a STATED, STRICTLY-POSITIVE `buildableDepth_m` scalar (schema: `z.number()
+ *     .positive()`, not nullable/optional). Art. 13.5.2.4 states no number — it states the opposite,
+ *     that no number applies — so writing `buildableDepth_m: null` (or any invented figure) is not a
+ *     legal value of this kind; it would either fail Zod validation or, worse, publish a fabricated
+ *     depth under a citation that says depth is free (C58 §1.7a).
+ *   • `explicit-area` (this kind, below) needs an actual PUBLISHED footprint ring injected by a
+ *     provider (`resolveExplicitAreaRing` / `solveExplicitArea`, `geometry/explicitArea.ts`) — the
+ *     Madrid `Fondo de la Edificación` polyline case. Córdoba's PGOU does not publish MC footprints as
+ *     geometry (Art. 13.5.2.4 is a NUMERIC occupation rule, not a drawn plan), so there is nothing for
+ *     `ringRef` to resolve to. `CORDOBA_MC_FONDO_UNRESOLVED_RING` names exactly that absence.
+ *   • `block-derived-alignment` / `tiered-occupation` both require a block ring by their own schema
+ *     (`requiresBlockRing()`) AND both construct depth from a BLOCK-level geometric condition (Art.
+ *     242.2's concentric band, Art. 350.2's area equality on the block) that Art. 13.5.2.4 does not
+ *     state — MC's occupation cap is a plain area ratio of the PARCEL, not a shape derived from the
+ *     block, so neither kind's construction is even the right one to reach for here.
+ *   • The engine's occupation cap (`maxCoverage`) is ALSO not a general footprint-shaping mechanism
+ *     today: `ZoningRulesEngine.ts` applies `maxCoverage.value * polygonArea(parcelRing)` as an area
+ *     clamp on the STUDY VOLUME (`maxVolumeM3`) ONLY inside the `tiered-occupation` branch
+ *     (`tiers.length > 0`), never as a general ring-shaping clip (ADR-0272 §3.2: "a coverage limit
+ *     constrains HOW MUCH ground is occupied, never WHERE, so it must not reshape a polygon"). There is
+ *     no existing code path, for ANY `geometricRule` kind, that turns "ocupación ≤ 70 %/90 % of the
+ *     parcel, no depth clip" into a footprint RING on its own — and it could not do so honestly even if
+ *     wired up, because an area cap with no siting rule does not determine a unique polygon (where the
+ *     70 % sits on the plot is exactly the thing Art. 13.5.2.4 does not say).
+ *
+ * So THE FOOTPRINT GROUND FOR THE REFUSAL ALSO STANDS, independently of height, and independently of
+ * any block geometry PRYZM lacks. It is a GENUINE PRODUCT/ENGINEERING GAP, not a missing external data
+ * source: closing it needs either (a) real published MC footprint geometry for Córdoba (unlikely to
+ * exist, per the above), or (b) a NEW `GeometricRule` kind — e.g. an "occupation-only" variant that
+ * states an explicit siting convention for how the capped area sits on the parcel (analogous to how
+ * `tiered-occupation` states a concentric-band convention for Art. 350.2) — plus the matching engine
+ * solve path. Designing that kind is a schema/engine change with its own citation and test surface; it
+ * is explicitly OUT OF SCOPE for this pack file (C58 §1.7a: this file states facts about the ordinance,
+ * it does not invent geometric conventions the ordinance itself never specifies).
+ *
+ * ⬆⬆ 2026-08-04 — (b) IS NOW BUILT: `OccupationCappedAlignmentRuleSchema` (`kind:
+ * 'occupation-capped-alignment'`, `packages/schemas/src/site/GeometricRule.ts`, ADR-0288) plus its
+ * `ZoningRulesEngine.ts` solve branch and `occupationCappedDepth.ts` geometry helper. Tested standalone
+ * in `occupationCappedAlignmentEnvelope.test.ts` against a synthetic fixture pack — NOT against
+ * Córdoba. Read that schema's header before considering it for MC: it does not extract a shape from
+ * Art. 13.5.2.4, it CONSTRUCTS the maximal legally-consistent rectangle at the alignment's frontage
+ * width and says so, loudly, in every caveat and derivation row it produces — a documented PRYZM
+ * ENGINEERING DECISION, never presented as the ordinance's own stated shape.
+ *
+ * ⚠⚠ MC IS DELIBERATELY **NOT** WIRED TO IT HERE. Three independent reasons, not one:
+ *   1. MC's height ground (Art. 13.5.3.1's per-street-width table) is STILL UNRESOLVED (no
+ *      street-width resolver consumes `CORDOBA_MC_STREET_WIDTH_HEIGHT_TABLE` yet — see
+ *      `cordobaMcResolvedPack`'s own header). Wiring the footprint alone would change MC's engine
+ *      `status` from `degenerate` (today, via the unresolvable `explicit-area` ring) to `ok` WITH a
+ *      real footprint and a `null` height/volume — a materially different shape of "no number yet"
+ *      that this pack's existing structural-refusal tests (`esCordobaEnvelopeCompute.test.ts`,
+ *      "MC-* is a STRUCTURAL REFUSAL") are not written to assert, and changing that assertion is a
+ *      considered decision about what MC's refusal should look like, not a side-effect of adding a
+ *      capability elsewhere.
+ *   2. Confidence, not mechanics. The rectangle-at-frontage-width construction is defensible and
+ *      tested in isolation, but "genuinely confident enough to bind it to a live, sign-gated pack"
+ *      is a higher bar than "the tests pass" — and per the founder's own standing instruction on
+ *      this exact gap, that bar is met by STOPPING at "capability built and tested in isolation,
+ *      not yet wired to MC" rather than wiring it on mechanical confidence alone.
+ *   3. ⚠ CORRECTED — `CORDOBA_ENVELOPE_VERIFIED` is **TRUE** (signed 2026-08-03,
+ *      `esCordobaZoneClassification.ts:48`), NOT false as an earlier draft of this note claimed.
+ *      That makes reason 1 MORE pressing, not less: MC's `explicit-area` structural refusal is
+ *      LIVE in production today, so wiring the footprint half without the height half would be a
+ *      real, user-visible `status` change (degenerate → ok-with-null-height) on a live pack, not a
+ *      hypothetical one behind a closed gate. Separately, per this session's own capability audit,
+ *      MC's remaining height ground (the street-width table) is judged NOT closeable by
+ *      engineering alone — it needs an external alignment/frontage document Córdoba's publishers
+ *      do not publish; sourcing it is a founder-level effort, unconfirmed as of this writing.
+ * The footprint ground therefore STILL STANDS on its own, narrower reading: it is no longer "no
+ * `GeometricRule` kind CAN express this" (that gap is closed) but "MC has not yet been RE-POINTED at
+ * the kind that can" — a deliberate, separate, later decision. WIRING-TODO 6 below is corrected to
+ * match.
+ *
+ * THE REFUSAL THEREFORE STANDS ON TWO INDEPENDENT GROUNDS, not one:
+ *   1. HEIGHT — MC's height is a per-street-width TABLE we do not yet resolve (Art. 13.5.3.1,
+ *      maxHeight null), so no storey count and therefore no volume can be honestly produced.
+ *   2. FOOTPRINT — no `GeometricRule` kind in the current schema can honestly express "unconstrained
+ *      depth, bounded only by a parcel-level ocupación cap with no stated siting rule" (see above).
+ * Closing ONLY the height ground (the street-width resolver, WIRING-TODO 6) does NOT lift MC to a real
+ * envelope by itself — the footprint ground is a separate, still-open blocker.
  *
  * The honest shape in the `GeometricRule` union is therefore `explicit-area` with a footprint HANDLE
  * that is DELIBERATELY UNRESOLVABLE for Córdoba: no MC footprint geometry is ever injected, so the
  * engine HARD-FAILS to `status:'degenerate'` and yields NO envelope (ZoningRulesEngine ~L661) — a
- * cited structural refusal, never a full-parcel box. It lifts to a real envelope only once the MC
- * street-width height resolver + a block-fondo geometry source exist (pack WIRING-TODO 6). The ring
- * ref names that gap so a future reader does not mistake it for a published-geometry claim.
+ * cited structural refusal, never a full-parcel box. It lifts to a real envelope only once BOTH the MC
+ * street-width height resolver AND a new occupation-only geometric-rule capability (or real published
+ * footprint geometry) exist — two independent unlocks, not one. The ring ref names the footprint gap so
+ * a future reader does not mistake it for a published-geometry claim.
  */
 export const CORDOBA_MC_FONDO_UNRESOLVED_RING =
     'cordoba-mc-fondo:UNRESOLVED/pgou-13.5.3.1-street-width-table' as const;
+
+/**
+ * ⚠⚠ PT-CV (Campo de la Verdad, `code:'PTC'`) — the MC-SHAPED STRUCTURAL REFUSAL handle.
+ *
+ * 2026-08-04 — PACKED. PGOU Art. 13.4.1 (TomoIIB_TR_A4_Revisado_Parte2.pdf) redirects this zone's
+ * envelope to *"la Memoria y Normativa correspondiente al Conjunto Histórico (Tomo VI. Conjunto
+ * Histórico)"* — the "PT" (Protección Tipológica) ordinance — except parcelación, which follows CTP
+ * instead (a field this schema does not carry, so the exception has no effect on any packed value).
+ * Tomo VI is NOW HELD in the corpus as `Normativa_del_conjunto_histórico.pdf` (internally titled
+ * "TOMO VIB. CONJUNTO HISTÓRICO", 353 439 chars) and independently corroborated, article-for-article
+ * and figure-for-figure, by the sibling `normativa_PEPCH_Revisado.pdf` (164 282 chars, the "Revisado"
+ * standalone Normas). Both were extracted with `pdftotext` and cross-read verbatim for THIS pack
+ * (2026-08-04), not merely re-quoted from a prior summary — see the article-by-article citations
+ * on the `PTC` zone block below.
+ *
+ * WHAT IS STATED, VERIFIED VERBATIM IN BOTH DOCUMENTS:
+ *   • Art. 46.1 — ocupación máxima 70 % de parcela (80 % edificación residencial unifamiliar).
+ *   • Art. 45.2 — *"se prohíben toda clase de retranqueos debiéndose mantener el plano de fachada
+ *     en toda su superficie"* — retranqueos categorically prohibited (front alignment, offset 0).
+ *   • Art. 49.2 — alturas reguladoras máximas by floor count: PB 4,50 m · PB+1 8,00 m · PB+2 11,00 m
+ *     · PB+3 14,00 m.
+ *   • Art. 50 — one basement floor, capped at the ground-floor footprint.
+ *
+ * ⚠⚠ WHY `maxHeight_m` / `maxFloors` ARE STILL `null` DESPITE ART. 49.2's TABLE — read Art. 49.1
+ * FIRST, verbatim, both documents: *"El número máximo de plantas autorizable es el que se recoge
+ * PARA CADA PARCELA en el plano de edificación (ES)."* The height table is a floor-count → metres
+ * CONVERSION, not a zone-wide answer: WHICH row applies to a given parcel is a PER-PARCEL
+ * determination published on a separate plan sheet ("plano de edificación (ES)"). This is the EXACT
+ * same structural shape as `CORDOBA_MC_STREET_WIDTH_HEIGHT_TABLE` (a real, verified table this pack
+ * still cannot bind to a scalar because the KEY that selects a row is not held) — so PT-CV gets the
+ * same honest treatment: the table is recorded in this comment for citability, `maxHeight_m` and
+ * `maxFloors` stay `null`, and nothing may read a floor-count off it until an `(ES)` plan resolver
+ * exists. Publishing one row (say, PB+2 → 11,00 m) as a zone-wide scalar would assert a determination
+ * for every parcel in the zone that the ordinance itself explicitly delegates to a per-parcel plan.
+ *
+ * ⭐ 2026-08-04 — THE `(ES)` SHEETS ARE NOW HELD, AND THE REFUSAL IS STRONGER FOR IT, NOT WEAKER.
+ * 15 "plano de edificación" sheets (`corpus/Edification/E12ollerias.pdf` … `E62confederacion.pdf`,
+ * one per Conjunto Histórico sector) are now in the corpus. `pdftotext` on all 15 yields almost no
+ * extractable text (31–547 chars per sheet vs. ~130–490 KB of PDF each) — these are vector line
+ * drawings, not text documents; every one of Art. 21/27/40/43/49/56/59/61/118-141's repeated cites
+ * to "el plano de edificación (ES)" (verified across `normativa_PEPCH_Revisado.pdf`) point at THIS
+ * kind of sheet. What little text IS embedded is a scatter of short catalogued-building reference
+ * codes (`EA nn`, `EV nn`, `CC nn`, `MA nn`, `MC n`, `MV nn` — protection-catalogue IDs, per Art.
+ * 27's "Monumentos, edificios y conjuntos catalogados" zone) plus bare single digits (`1`–`6`)
+ * scattered among them that are consistent with being the per-parcel floor-count labels Art. 49.1
+ * describes for the un-catalogued (Protección Tipológica / Zona Renovada) parcels — BUT `pdftotext`
+ * carries no positional/geometric information, so none of these tokens can be tied to a specific
+ * parcel, and no sheet's extracted text names "PT-CV", "Campo de la Verdad", or any parcel/cadastral
+ * reference. No "leyenda" (legend) text was found embedded in any of the 15 sheets either — the key
+ * to the codes above is inferred from the normativa's own article text, not from an on-sheet legend.
+ * CONCLUSION: this is not a missing-document gap any more — the document is held and confirms, via
+ * its own unreadable-as-text form, that Art. 49.1's "per parcel on the plan sheet" framing is a real
+ * MAP-READ determination (a GIS/vector-overlay problem), not a zone-wide scalar merely absent from
+ * this corpus. Extracting a specific parcel's floor count would require parsing/rendering the vector
+ * geometry (OCR or CAD-layer extraction), which is out of scope here; `maxHeight_m` and `maxFloors`
+ * stay `null` on that basis, now for a verified rather than an assumed reason. Separately: the PT
+ * chapter's *profundidad edificable* gap (next paragraph) was re-checked against these same 15
+ * sheets — no depth/crujía dimension is stated as text on any of them either, so that gap is
+ * unchanged.
+ *
+ * ⚠⚠ WHY THE FOOTPRINT IS `explicit-area` (UNRESOLVED), NOT `alignment` WITH A STATED DEPTH — unlike
+ * CTP-1 (Art. 13.8.2.4, 16 m from the alignment) or UAD (Art. 13.9.3.3, 16/18/16 m), the PT chapter
+ * (Art. 43-55) states NO *profundidad edificable* / *fondo edificable* number anywhere — verified by
+ * a targeted read of the full chapter text, not merely its absence from a keyword search. What it
+ * states instead is TWO independent, non-numeric-depth constraints: (a) Art. 46.1's 70 %/80 %
+ * ocupación cap (a PARCEL-area ratio, not a depth), and (b) Art. 47's mandatory *patio principal* —
+ * ≥25 % of parcel area (20 % unifamiliar), minimum side 7 m/5 m/4 m by use, sited so the façade-to-
+ * patio distance is ≤10 m AND the patio falls within the first-to-third *crujía* (structural bay).
+ * This is NOT the MC shape (Art. 13.5.2.4: depth "libre", bounded ONLY by ocupación, no siting rule
+ * at all) — PT-CV's Art. 47 imposes a real siting/positioning rule for the mandatory open space, one
+ * this pack has no numeric *crujía* width to translate into a buildable-depth band. Reaching for
+ * `occupation-capped-alignment` (ADR-0288's "maximal legally-consistent rectangle at the alignment's
+ * frontage width, capped by ocupación, no stated siting rule") here would be a MIS-FIT, not a
+ * conservative approximation: it would construct a rectangle that ignores Art. 47's patio-siting rule
+ * entirely and could legally overstate footprint depth on any parcel where that rectangle swallows
+ * space Art. 47 requires to stay open near the façade — exactly the confident-wrong shape C58 §1.7a
+ * forbids. So PT-CV mirrors MC's OWN honest answer instead: `explicit-area` with an UNRESOLVABLE
+ * footprint handle — a cited structural refusal, never a full-parcel box, never a mis-fit rectangle.
+ *
+ * NET EFFECT: PT-CV is now REGISTERED (closing the "deferred to an unheld Tomo VI" state — Tomo VI IS
+ * held and its PT ordinance IS read) but, like MC, it still resolves to NO buildable envelope — on
+ * TWO independent grounds (height is per-parcel-plan-keyed; footprint has no stated depth and no
+ * geometric-rule kind can honestly express Art. 47's siting constraint without real footprint or
+ * *crujía* data this pack does not hold). Both grounds are genuinely open engineering/data gaps, not
+ * placeholders — closing either alone does not lift the refusal.
+ */
+export const CORDOBA_PTCV_FOOTPRINT_UNRESOLVED_RING =
+    'cordoba-ptcv-fondo:UNRESOLVED/pgou-conjunto-historico-art47-patio-siting' as const;
 
 /**
  * One band of the Art. 13.5.3.1 per-street-width height table. `maxStreetWidth_m: null` marks the
@@ -369,10 +562,16 @@ export function resolveCordobaMcHeightForWidth(
  *
  * ⚠⚠ THE `geometricRule` IS DELIBERATELY UNCHANGED — still `explicit-area` /
  * `CORDOBA_MC_FONDO_UNRESOLVED_RING`. Resolving the HEIGHT does not resolve the FOOTPRINT: Art.
- * 13.5.2.4 leaves the *fondo edificable* unconstrained (bounded only by ocupación), which still
- * needs a block-fondo geometry source PRYZM does not yet have (see `CORDOBA_MC_FONDO_UNRESOLVED_RING`'s
- * own header). So `computeBuildableEnvelope` will keep hard-refusing on the footprint ground alone
- * until that separate, out-of-scope capability lands — this pack only stops the refusal being
+ * 13.5.2.4 leaves the *fondo edificable* unconstrained (bounded only by ocupación), but — per D3's
+ * 2026-08-04 correction on `CORDOBA_MC_FONDO_UNRESOLVED_RING`'s own header, read that comment first —
+ * this is NOT a "needs a block-fondo geometry source" gap (MC's depth is not block-derived at all). It
+ * is that NO `GeometricRule` kind in the current schema can express "unconstrained depth, capped only
+ * by a parcel-level ocupación ratio with no stated siting rule": `alignment` requires a positive
+ * `buildableDepth_m`, `explicit-area` requires real published footprint geometry Córdoba does not
+ * publish for MC, and the engine's `maxCoverage` cap only shapes a ring inside the `tiered-occupation`
+ * branch (ADR-0272 §3.2). So `computeBuildableEnvelope` will keep hard-refusing on the footprint
+ * ground alone until a new occupation-only rule kind (or real footprint geometry) lands — a separate,
+ * out-of-scope capability from this height resolver. This function only stops the refusal being
  * blamed on a height table PRYZM can now actually resolve. `maxHeight_m`/`maxFloors` populated
  * here are true and citable the day the footprint unlocks; nothing about this call needs to change
  * then.
@@ -665,6 +864,21 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 maxHeight_m: 7,             // Art. 13.8.3.1 — PB+1, 7 m (cumbrera 9,75 for attic)
                 maxFloors: 2,
                 // Art. 13.8.2.3 — "resultante de la aplicación de las Normas de Composición" = DERIVED.
+                // ⚠⚠ THIS DOES NOT MEAN CTP-1 HAS NO BUILDABLE FLOOR AREA — verified 2026-08-04
+                // against `ZoningRulesEngine.ts` (the `alignment`/`block-derived-alignment` branch,
+                // ~L843-911) and pinned by `esCordobaEnvelopeCompute.test.ts`
+                // ("derives a REAL maxVolumeM3..."). `computeFarLimitedHeight` (farLimitedHeight.ts)
+                // treats a null `maxFAR` as "does not bind" (NO_BIND), never as a reason to refuse —
+                // so the engine still computes `maxVolumeM3 = footprint × maxHeight_m`, where the
+                // footprint is the real 16 m alignment depth-band clip below (Art. 13.8.2.4) and the
+                // height is the real 7 m PB+1 cap (Art. 13.8.3.1). That IS "las Normas de Composición"
+                // literally applied — height × depth-clipped footprint — with zero coefficient
+                // invented. `plotRatioFAR: null` only means no SEPARATE FAR ceiling exists to further
+                // LOWER that height below 7 m (the way MC-3's stated 3,50 would); it never means "no
+                // envelope" or "no GFA". So CTP-1 needs NO edificabilidad hook to be functionally
+                // complete — WIRING-TODO 6's remaining CTP-1 half is ocupación's step-function alone
+                // (D2, below), not this field. Do not "fix" this null; it is already correct AND
+                // already load-bearing.
                 plotRatioFAR: null,
                 // Art. 13.8.2.5 — STEP-FUNCTION of parcel size. ⚠ D2, CORRECTED 2026-08-01 (400 dpi):
                 // the source reads «Parcelas de hasta 100 m2, el 100%. Parcela de más de 100 m2 y menos
@@ -782,6 +996,56 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                     'CORDOBA_MC_STREET_WIDTH_HEIGHT_TABLE[\'MC-4\'] (not yet consumed — no street-width ' +
                     'resolver). edificabilidad 13.5.2.2 DERIVED → null. ' + SRC,
             },
+            // ── PT-CV (Campo de la Verdad, Conjunto Histórico "PT" ordinance) — PARTIAL, redirected
+            // by Art. 13.4.1 to the Tomo VI / Conjunto Histórico "Ordenanza de Protección Tipológica"
+            // (Art. 43-55). ⭐ NEWLY PACKED 2026-08-04 — Tomo VI is now HELD (see
+            // `CORDOBA_PTCV_FOOTPRINT_UNRESOLVED_RING`'s header for the full verification record and
+            // the reasoning behind every null below). `code:'PTC'` — NOT the family name
+            // "CTP1-Campo de la Verdad" — because `subzoneCodeFromLink` parses the live COACo
+            // `coaco:ordenanzas.link` basename `O_PTC.pdf` to the bare token `PTC` (no trailing
+            // digits), and `resolveZoneDisposition` looks up `packsByZone` by THAT code, exactly the
+            // convention every other zone in this pack already follows (`O_MC1`→`MC-1`,
+            // `O_PAS2`→`PAS-2`, …). The family name stays the classification-table matching key in
+            // `esCordobaZoneClassification.ts`, a DIFFERENT, coarser field.
+            {
+                code: 'PTC',
+                label: 'Campo de la Verdad, Conjunto Histórico — Ordenanza de Protección Tipológica (PGOU Art. 13.4.1 → Tomo VI, Art. 43-55)',
+                permittedUse: ['residential', 'mixed'],
+                // Art. 49.1: floor count is fixed PER PARCEL on a plan sheet ("plano de edificación
+                // (ES)") this corpus does not hold — a scalar would publish one parcel's answer for
+                // the whole zone (the same L-526 shape as MC's per-street-width table). Art. 49.2's
+                // PB/PB+1/PB+2/PB+3 → 4,50/8,00/11,00/14,00 m table is real and verified but is a
+                // floor-count→metres CONVERSION, not a zone-wide selector; see the header comment.
+                maxHeight_m: null,
+                maxFloors: null,
+                // PT chapter (Art. 43-55) states no edificabilidad/FAR coefficient anywhere — unlike
+                // CTP-1/MC, which each have a dedicated FAR article. DERIVED-or-absent → null, never 0.
+                plotRatioFAR: null,
+                maxCoverage: 0.7, // Art. 46.1 — 70 % general; 80 % unifamiliar residencial (conservative: the lower, non-overstating value; see ordinanceRef)
+                // Art. 45.2: retranqueos categorically prohibited (façade on the vial line) — an
+                // ALIGNMENT zone, same shape as CTP-1/MC. setbacks stay null (the geometricRule below
+                // carries the alignment concept); null ≠ 0 keeps the engine skipping the edge rather
+                // than asserting a numeric clearance the ordinance does not state that way.
+                setbacks: { front_m: null, side_m: null, rear_m: null },
+                // ⚠ L-616 GUARD — structural refusal (never a full-parcel box), MC-shaped: no stated
+                // buildable depth (Art. 47's patio-siting rule is real but not reducible to a
+                // buildableDepth_m this pack can honestly state). See
+                // CORDOBA_PTCV_FOOTPRINT_UNRESOLVED_RING's header for why `occupation-capped-alignment`
+                // was considered and rejected as a mis-fit for this zone.
+                geometricRule: { kind: 'explicit-area', ringRef: CORDOBA_PTCV_FOOTPRINT_UNRESOLVED_RING },
+                fieldProvenance: { maxCoverage: 'pipeline-extracted', permittedUse: 'pipeline-extracted' },
+                ordinanceRef:
+                    'PGOU Art. 13.4.1 (PT-CV envelope → Conjunto Histórico Tomo VI, "Ordenanza de ' +
+                    'Protección Tipológica"; parcelación only follows CTP — no effect on any field ' +
+                    'here). Tomo VI / normativa_PEPCH_Revisado.pdf, Art. 46.1 (ocup. 70 %, 80 % ' +
+                    'unifamiliar), 45.2 (retranqueos prohibidos, alineación a vial), 47 (patio ' +
+                    'principal ≥25 %/20 %, lado mín. 7/5/4 m, distancia a fachada ≤10 m, 1ª-3ª ' +
+                    'crujía — no reducible a una profundidad edificable), 49.1 (nº plantas POR ' +
+                    'PARCELA en el plano de edificación (ES), no held → maxHeight/maxFloors null), ' +
+                    '49.2 (alturas reguladoras PB 4,50 / PB+1 8,00 / PB+2 11,00 / PB+3 14,00 m — ' +
+                    'conversion table, not a zone-wide selector), 50 (sótano, 1 planta, ocup. ≤ PB). ' +
+                    SRC,
+            },
         ],
     });
 
@@ -790,9 +1054,14 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
  * resolves from `coaco:ordenanzas.ordenanza` + the `O_*` link suffix (e.g. `O_PAS2`→PAS-2, `O_MC3`→MC-3).
  *
  * ⚠ NOT registered here and MUST NOT be — each a cited "no", see the SPEC:
- *   Uso Industrial (subzone-unbindable, ocupación DERIVED), CTP1-Campo de la Verdad (Conjunto Histórico
- *   Tomo VI not held), Uso Comercial (context-dependent), Elemento protegido (preservation → refusal),
- *   Unifamiliar Aislada (dead link).
+ *   Uso Industrial (subzone-unbindable, ocupación DERIVED), Uso Comercial (context-dependent),
+ *   Elemento protegido (preservation → refusal), Unifamiliar Aislada (dead link).
+ *
+ * ⭐ 2026-08-04 — `PTC` (Campo de la Verdad) IS now registered — see the `PTC` zone block above and
+ * `CORDOBA_PTCV_FOOTPRINT_UNRESOLVED_RING`'s header. Tomo VI is held and its "PT" ordinance is read;
+ * the zone still resolves to no envelope (structural refusal, MC-shaped), but that is now a PACKED
+ * refusal like MC, not a "document not held" coverage gap. `esCordobaZoneClassification.ts`'s legal
+ * classification table no longer carries a `CTP1-Campo de la Verdad` entry for this reason.
  */
 export const CORDOBA_PGOU2001_ZONE_CODES = [
     'PAS-1', 'PAS-2', 'PAS-3',
@@ -800,6 +1069,7 @@ export const CORDOBA_PGOU2001_ZONE_CODES = [
     'UAD-1', 'UAD-2', 'UAD-3',
     'CTP-1',
     'MC-1', 'MC-2', 'MC-3', 'MC-4',
+    'PTC',
 ] as const;
 
 // ─── WIRING-TODO — STATUS after this PR (the pack is REGISTERED but renders NO number) ───────────
@@ -828,15 +1098,26 @@ export const CORDOBA_PGOU2001_ZONE_CODES = [
 //    machine-extracted-unverified refusal and NO numeric envelope reaches the panel/massing. The
 //    subzone resolver (`ordenanza` + `O_*` link suffix → COACo WFS) + the re-tiered louder-than-
 //    estimated render turn on together WITH step 3; both are the same sign-off event.
-// 6. ⛔ OPEN — RE-SCOPED 2026-08-01 (D3). Author (a) the CTP-1 ocupación step-function hook from
-//    `sup_pc_m2` — ⚠ encode the TRUE step: ≤100 m² → 100 %; >100 and <125 m² → an ABSOLUTE 100 m²
-//    CAP; >125 m² → 80 % (NOT "≤125 → 100 %"); (b) the MC per-street-width height resolver, the
-//    Córdoba analogue of `bcnAlcadaNucliAntic.ts`. ⬇ An MC block-fondo geometry source is NO LONGER
-//    REQUIRED: Art. 13.5.2.4 makes MC depth *libre*, bounded by the ocupación this pack already
-//    holds. The height resolver ALONE lifts MC from structural refusal to a real envelope — a
-//    materially cheaper unlock than previously recorded, and the largest one outstanding (MC is
-//    16.86 % of pilot buildable land). Until it ships MC stays a structural refusal via
-//    `explicit-area` + CORDOBA_MC_FONDO_UNRESOLVED_RING (WIRING-TODO 7, below), CTP-1 clips to 16 m.
+// 6. ⛔ OPEN — RE-SCOPED 2026-08-01 (D3), CORRECTED AGAIN 2026-08-04 (see the D3 correction on
+//    `CORDOBA_MC_FONDO_UNRESOLVED_RING`'s own header — read that first). Author (a) the CTP-1
+//    ocupación step-function hook from `sup_pc_m2` — ⚠ encode the TRUE step: ≤100 m² → 100 %; >100
+//    and <125 m² → an ABSOLUTE 100 m² CAP; >125 m² → 80 % (NOT "≤125 → 100 %"); (b) the MC
+//    per-street-width height resolver, the Córdoba analogue of `bcnAlcadaNucliAntic.ts`. An MC
+//    block-fondo geometry source is NO LONGER REQUIRED: Art. 13.5.2.4 makes MC depth *libre*, bounded
+//    by the ocupación this pack already holds, and that ratio is a PARCEL quantity, not a BLOCK one.
+//    ⚠ RETRACTED CLAIM (2026-08-04): this item used to say the height resolver ALONE lifts MC to a
+//    real envelope. That is FALSE — checked directly against `GeometricRule.ts` and
+//    `ZoningRulesEngine.ts` (see the D3 correction). "No block ring needed" ≠ "no footprint
+//    construction needed": NO `geometricRule` kind in the current schema can turn "unconstrained
+//    depth, ocupación-capped, no stated siting rule" into a footprint ring — `alignment` needs a
+//    positive `buildableDepth_m` Art. 13.5.2.4 does not state, `explicit-area` needs published
+//    footprint geometry Córdoba does not publish for MC, and the engine's `maxCoverage` cap shapes a
+//    ring only inside `tiered-occupation` (ADR-0272 §3.2), never generally. MC's footprint blocker is
+//    therefore a SEPARATE, independent gap from its height blocker — a new occupation-only
+//    `geometricRule` kind (or real footprint geometry), not merely a resolver. The height resolver
+//    remains real, valuable work (MC is 16.86 % of pilot buildable land) — it just closes ONE of
+//    MC's two grounds, not both. Until BOTH ship, MC stays a structural refusal via `explicit-area` +
+//    CORDOBA_MC_FONDO_UNRESOLVED_RING (WIRING-TODO 7, below), CTP-1 clips to 16 m.
 //    ⬆ 2026-08-04 — PARTIAL: the verified table itself is now real, typed, citable data
 //    (`CORDOBA_MC_STREET_WIDTH_HEIGHT_TABLE`, all four subzones), so it no longer lives only as a
 //    comment. It is DELIBERATELY NOT CONSUMED — no street-width resolver exists to look a parcel's
@@ -844,6 +1125,21 @@ export const CORDOBA_PGOU2001_ZONE_CODES = [
 //    Catastro yet either (needed for any future raycast-based width measurement's error buffer,
 //    ADR-0287). The resolver + its call site remain fully open; do not wire this table into
 //    `siteDispatch.ts` or the engine until both land and are cited at the call site.
+//    ⬆ 2026-08-04 — THE FOOTPRINT HALF OF THIS ITEM IS NOW BUILT AND TESTED, BUT NOT WIRED. The
+//    "new occupation-only `geometricRule` kind" this item called for exists:
+//    `OccupationCappedAlignmentRuleSchema` (`kind: 'occupation-capped-alignment'`, ADR-0288,
+//    `packages/schemas/src/site/GeometricRule.ts`) plus the matching `ZoningRulesEngine.ts` solve
+//    branch and `geometry/occupationCappedDepth.ts` helper — schema + engine tested in ISOLATION
+//    against a synthetic fixture (`occupationCappedAlignmentEnvelope.test.ts`), never against
+//    Córdoba. Read that schema's header (and the ⬆ 2026-08-04 addendum on
+//    `CORDOBA_MC_FONDO_UNRESOLVED_RING`'s own header, above) before reaching for it here: the kind
+//    does not extract a shape from Art. 13.5.2.4, it CONSTRUCTS one (the maximal legally-consistent
+//    rectangle at the alignment's frontage width) and labels every output as a PRYZM engineering
+//    decision, never an ordinance-stated fact. MC-1..4 STAY on `explicit-area` +
+//    `CORDOBA_MC_FONDO_UNRESOLVED_RING` in THIS pack — re-pointing them at the new kind is a
+//    separate, later, considered decision (three independent reasons given at the addendum above),
+//    not a mechanical follow-up to the kind existing. Height (Art. 13.5.3.1's table) is STILL
+//    unresolved regardless, so MC keeps refusing either way until both grounds close.
 // 8. ⛔ OPEN (D1, BLOCKING for UAD-3). Carry the stated UAD *profundidad máxima edificable*
 //    (Art. 13.9.3.3 — UAD-1 16 m · UAD-2 18 m · UAD-3 16 m) as a `geometricRule`. Without it UAD-3
 //    (front 0 + side 0 + no depth band) is an unguarded L-616 mechanism-A whole-parcel overstatement.

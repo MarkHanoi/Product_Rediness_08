@@ -43,12 +43,15 @@ import {
 } from '../src/rulepacks/registry.js';
 import { subzoneCodeFromLink } from '../src/providers/resolveCordobaSubzone.js';
 
-describe('Córdoba PGOU-2001 — the pack is VALID (parses at load) and covers 13 subzones', () => {
+describe('Córdoba PGOU-2001 — the pack is VALID (parses at load) and covers 14 subzones', () => {
     it('parsed the schema without throwing', () => {
         expect(ES_CORDOBA_PGOU2001_PACK.jurisdictionId).toBe('es-14021-cordoba');
         expect(ES_CORDOBA_PGOU2001_PACK.jurisdictionId).toBe(CORDOBA_JURISDICTION_ID);
-        expect(ES_CORDOBA_PGOU2001_PACK.zones).toHaveLength(13);
-        expect([...CORDOBA_PGOU2001_ZONE_CODES]).toHaveLength(13);
+        // 13 raster-OCR subzones (PAS/OA/UAD/CTP-1/MC-*) + `PTC` (Campo de la Verdad, packed
+        // 2026-08-04 from the now-held Conjunto Histórico Tomo VI — see esCordobaOcrVerification.test.ts
+        // for why it is tracked separately from the 13-subzone §SIG-1 human-verification ledger).
+        expect(ES_CORDOBA_PGOU2001_PACK.zones).toHaveLength(14);
+        expect([...CORDOBA_PGOU2001_ZONE_CODES]).toHaveLength(14);
         for (const code of CORDOBA_PGOU2001_ZONE_CODES) {
             expect(ES_CORDOBA_PGOU2001_PACK.zones.find((z) => z.code === code)).toBeDefined();
         }
@@ -181,7 +184,7 @@ describe('Córdoba — the refusal vocabulary (coverage gap + legally-grounded "
     });
 
     it('the no-pack card never claims we lack a rule we HOLD (the Barcelona 20a/22a lesson)', () => {
-        // PRYZM ships 13 transcribed subzones. `resolveZoneDisposition` must hand every one of them
+        // PRYZM ships 14 transcribed subzones. `resolveZoneDisposition` must hand every one of them
         // the PACK, so this false-statement card is structurally unreachable for them.
         for (const code of CORDOBA_PGOU2001_ZONE_CODES) {
             const d = resolveZoneDisposition(CORDOBA_JURISDICTION_ID, code);
@@ -269,12 +272,12 @@ describe('Córdoba — the registry registration (pack precedence + coverage glo
         if (d.kind === 'refusal') expect(d.refusal.code).toBe('no-rule-pack');
     });
 
-    it('surfaces on the coverage globe with all 13 packed subzones and the pilot summary', () => {
+    it('surfaces on the coverage globe with all 14 packed subzones and the pilot summary', () => {
         const cov = listJurisdictionCoverage().find(
             (c) => c.jurisdictionId === CORDOBA_JURISDICTION_ID,
         );
         expect(cov).toBeDefined();
-        expect(cov!.packZoneCodes).toHaveLength(13);
+        expect(cov!.packZoneCodes).toHaveLength(14);
         expect(cov!.answerSummary).toMatch(/unverified|machine-extracted/i);
         expect(cov!.contains(37.88, -4.78)).toBe(true);
     });

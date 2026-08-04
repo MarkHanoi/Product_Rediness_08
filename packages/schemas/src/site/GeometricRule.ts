@@ -273,6 +273,81 @@ export const TieredOccupationRuleSchema = z
     .refine(requireSideWhenSetback, SIDE_REQUIRED_MSG);
 
 /**
+ * §COR-MC-FOOTPRINT / ADR-0288 — **OCCUPATION-CAPPED ALIGNMENT**: alignment-governed fabric where
+ * the ordinance states NO buildable depth AT ALL — not a scalar (`alignment`), not a
+ * block-derived algorithm (`block-derived-alignment`), not a block-relative equality
+ * (`tiered-occupation`) — and instead states that depth is *libre* (free), bounded only by a
+ * PARCEL-level occupation ratio that already lives on `ZoningRule.maxCoverage`.
+ *
+ * PGOU de Córdoba (2001) Art. 13.5.2.4 (Manzana Cerrada, *fondo edificable*): *"Cuando este
+ * parámetro no venga expresamente fijado, se entenderá **libre**, con la única condición de que
+ * la ocupación del edificio en planta no podrá rebasar los límites … del apartado 5"* — when this
+ * parameter [depth] is not expressly fixed, it is understood to be FREE, with the sole condition
+ * that the building's ground-floor occupation may not exceed the limits of §5 (the ocupación
+ * cap). See `packages/site-parcel-data/src/rulepacks/esCordobaPGOU2001.ts`, the D3 correction on
+ * `CORDOBA_MC_FONDO_UNRESOLVED_RING`'s own header, for the full citation trail and the two
+ * earlier (WRONG) framings of this gap that this kind finally closes.
+ *
+ * ── WHY THIS IS A NEW `kind` AND NOT ANY OF THE FOUR ABOVE ───────────────────────────────────
+ *
+ *  • `alignment` — REQUIRES a strictly positive `buildableDepth_m` (`z.number().positive()`).
+ *    Art. 13.5.2.4 states no number; it states the OPPOSITE, that no number applies. Writing
+ *    `buildableDepth_m: null` is not a legal value of this kind (the schema forbids it), and
+ *    inventing a figure would publish a fabricated depth under a citation that says depth is free
+ *    (C58 §1.7a).
+ *  • `block-derived-alignment` / `tiered-occupation` — BOTH require a block ring
+ *    (`requiresBlockRing`) AND both construct their depth from a BLOCK-level geometric condition
+ *    (Art. 242.2's concentric band; Art. 350.2's area equality on the block). Art. 13.5.2.4 states
+ *    no block-level condition whatsoever — MC's occupation cap is a plain ratio of the PARCEL, not
+ *    a shape derived from the block — so reaching for either kind would require synthesising a
+ *    block-level rule the ordinance never states.
+ *  • `explicit-area` — needs a REAL PUBLISHED FOOTPRINT RING. Córdoba's PGOU does not publish MC
+ *    footprints as geometry (Art. 13.5.2.4 is a NUMERIC occupation rule, not a drawn plan); there
+ *    is nothing for `ringRef` to resolve to.
+ *
+ * ── WHAT THIS KIND DELIBERATELY DOES NOT CARRY ───────────────────────────────────────────────
+ *
+ * **No occupation ratio field.** `ZoningRule.maxCoverage` already holds it, and per
+ * `TieredOccupationRuleSchema`'s own precedent (see its header) repeating a legal quantity in two
+ * places gives it two homes free to disagree on a compliance number. The engine branch for this
+ * kind reads the ZONE's resolved `maxCoverage`, exactly as the `tiered-occupation` branch reads it
+ * to bind `maxVolumeM3` (ADR-0272 §3.2) — the only difference is WHERE that cap is consumed (here,
+ * to shape the ring itself; there, only the volume).
+ *
+ * **No depth bounds.** There are none to carry — Art. 13.5.2.4 states none.
+ *
+ * ── ⚠⚠⚠ THE PART THAT IS NOT A LEGAL FACT — READ BEFORE WIRING ANY PACK TO THIS KIND ⚠⚠⚠ ──────
+ *
+ * An occupation ratio with NO stated siting rule does **not**, by itself, determine a unique
+ * footprint polygon. Infinitely many shapes of the right AREA satisfy "≤ ocupación % of the
+ * parcel" — a thin L along one edge, a square in a corner, a strip the full parcel width. Art.
+ * 13.5.2.4 is silent on WHICH of these Córdoba means (unlike Barcelona PGM Art. 350.2, which
+ * states a genuine siting convention — "a band concentric with the block alignments" —
+ * `TieredOccupationRuleSchema` exists because THAT convention is a stated fact to encode).
+ *
+ * So the engine's solve for THIS kind (`ZoningRulesEngine.ts`, the `occupation-capped-alignment`
+ * branch) does not extract a shape from the ordinance — **it draws one, and says so.** The
+ * documented, loudly-labelled ENGINEERING DECISION is: extend the front-aligned, party-walled
+ * inset straight back — at whatever width the alignment and side treatment already give it — until
+ * either (a) it consumes exactly `maxCoverage × parcelArea`, or (b) it reaches the parcel's own
+ * rear boundary, whichever comes first. That is the MAXIMAL legally-consistent envelope: since
+ * front alignment + party-wall sides + unconstrained depth means the building COULD legally fill
+ * the whole parcel behind the alignment (subject only to the area cap), the rectangle-at-frontage-
+ * width construction is the most useful, least-arbitrary massing a feasibility tool can draw —
+ * but it is PRYZM's modelling choice, not the ordinance's stated shape, and every consumer of this
+ * kind's output MUST cite it as exactly that (see the engine branch's caveat text and the
+ * `occupationCappedDepth.ts` geometry module header). A pack MUST NOT wire a zone to this kind
+ * believing the resulting ring is "the ordinance's footprint" — it is "PRYZM's best-defensible
+ * footprint under an ordinance that states an area cap and no siting rule".
+ */
+export const OccupationCappedAlignmentRuleSchema = z
+    .object({
+        kind: z.literal('occupation-capped-alignment'),
+        ...alignmentCoreShape,
+    })
+    .refine(requireSideWhenSetback, SIDE_REQUIRED_MSG);
+
+/**
  * The PGOU publishes the buildable area DIRECTLY as geometry (Madrid's `Fondo de la
  * Edificación` polyline).
  *
@@ -293,6 +368,7 @@ export const GeometricRuleSchema = z.discriminatedUnion('kind', [
     BlockDerivedAlignmentRuleSchema,
     TieredOccupationRuleSchema,
     ExplicitAreaRuleSchema,
+    OccupationCappedAlignmentRuleSchema,
 ]);
 
 export type SetbackRule = z.infer<typeof SetbackRuleSchema>;
@@ -300,6 +376,7 @@ export type AlignmentRule = z.infer<typeof AlignmentRuleSchema>;
 export type BlockDerivedAlignmentRule = z.infer<typeof BlockDerivedAlignmentRuleSchema>;
 export type TieredOccupationRule = z.infer<typeof TieredOccupationRuleSchema>;
 export type ExplicitAreaRule = z.infer<typeof ExplicitAreaRuleSchema>;
+export type OccupationCappedAlignmentRule = z.infer<typeof OccupationCappedAlignmentRuleSchema>;
 export type GeometricRule = z.infer<typeof GeometricRuleSchema>;
 
 /**

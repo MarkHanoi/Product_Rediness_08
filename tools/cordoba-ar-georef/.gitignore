@@ -1,0 +1,7 @@
+# Downloaded sources — large binaries, all re-fetchable by fetch_catastro_cordoba.py.
+# The JSON measurements/reports in out/ are small and may be committed as evidence.
+out/pdf_cache/
+out/cadastre/
+out/*.zip
+out/rotations.log
+__pycache__/

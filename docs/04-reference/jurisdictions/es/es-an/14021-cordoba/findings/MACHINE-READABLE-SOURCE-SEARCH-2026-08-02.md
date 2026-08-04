@@ -15,7 +15,31 @@
 
 ## VERDICT
 
-> ## ⛔ NO MACHINE-READABLE CALIFICACIÓN SOURCE EXISTS BEYOND THE COACo 2-DISTRICT PILOT.
+> ### ⛔ RETRACTED IN PART 2026-08-04 — "41 of 49 sheets return a 69-byte dead page" was measured
+> ### against the wrong host. The correct, live GMU document-tree path serves all 49.
+>
+> This pass's raster-availability probes (§6 below, and the table at line ~165) hit
+> `https://visor.pgou.coacordoba.org/doc/planos/cus/CUS{NN}W.jpg` — a **`coacordoba.org` viewer
+> subdomain**, not the municipality's `gmucordoba.es` document host. That subdomain path is genuinely
+> dead for 41 of 49 sheets — the measurement itself was not fabricated — but it is not the only path,
+> and it is not the one the municipality actually serves its planos from. **The correct, live path is
+> `https://www.gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/cusw_jpg/
+> CUS{NN}W.JPG`** (zero-padded 01–49, uppercase `.JPG`), live-verified 2026-08-04 and then **all 49 of
+> 49 urban sheets bulk-fetched successfully**, including sheets this file's own dead-list named
+> explicitly (CUS01W, CUS14-region, CUS33W, CUS49W all confirmed live and fetched). See
+> [`../corpus/MANIFEST.md`](../corpus/MANIFEST.md) for full provenance and per-file sizes.
+>
+> **What this changes:** Blocker 22 is a raster→vector **engineering** task again (49 sheets to
+> georeference + vectorise), not a data request waiting on GMU to fix or serve anything — the raster
+> source was never actually broken. **What this does NOT change:** Probes 1–5's conclusion that no
+> *vector* calificación source exists anywhere (ArcGIS `GMU_Services` is an unrelated George Mason
+> University service; COACo's own bundle has zero ArcGIS references; the Ayuntamiento's GeoServer
+> carries zero zoning layers) stands untouched — this correction is about raster availability only,
+> not about the vector-source search.
+>
+> ## ⛔ NO MACHINE-READABLE (VECTOR) CALIFICACIÓN SOURCE EXISTS BEYOND THE COACo 2-DISTRICT PILOT.
+> ### (Original verdict below, retained for the record; "manual vectorisation is not possible because
+> ### the rasters are unavailable" is the retracted clause — see correction above.)
 >
 > **AND — the finding that changes the roadmap — MANUAL VECTORISATION IS ALSO NOT CURRENTLY POSSIBLE.**
 > CLOSURE-REGISTER blocker 22 proposes georeferencing *"the remaining 69 of 77 GMU CUS raster
@@ -162,8 +186,8 @@ sheet** (`CUS41W` → 200). All 49 urban sheets were fetched this pass:
 | Sheet state | Count | Evidence |
 |---|---:|---|
 | **LIVE** `image/jpeg`, 365 KB–500 KB | **8** | CUS18W 447 384 · CUS19W 499 576 · CUS25W 481 662 · CUS26W 478 290 · CUS34W 423 880 · CUS41W 461 957 · CUS45W 365 349 · CUS46W 376 024 |
-| **DEAD** — 69-byte `Server under construction` HTML | **41** | CUS01–17W, CUS20–24W, CUS27–33W, CUS35–40W, CUS42–44W, CUS47–49W |
-| Peripheral sheets under any of 4 tested suffixes (`E`/`P`/`N`/`S`, 112 candidates) | **0 live** | none served |
+| **DEAD** — 69-byte `Server under construction` HTML, on `visor.pgou.coacordoba.org` | **41** | CUS01–17W, CUS20–24W, CUS27–33W, CUS35–40W, CUS42–44W, CUS47–49W — ⛔ **RETRACTED 2026-08-04: this host is dead, but a different host (`www.gmucordoba.es`, see VERDICT correction above) serves all 41 of these live. Zero of the 49 urban sheets are actually unobtainable.** |
+| Peripheral sheets under any of 4 tested suffixes (`E`/`P`/`N`/`S`, 112 candidates) | **0 live** | none served — not re-tested against `gmucordoba.es`; this row's "0 live" is **not** covered by the 2026-08-04 correction and should not be assumed fixed |
 
 **`coaco:hojas_cus` lists the vectorised set: CUS25W, CUS26W, CUS34W, CUS41W, CUS45W, CUS46W
 (6 distinct, 8 rows).** So the **live** set is the vectorised set **plus exactly two** (CUS18W,
@@ -286,7 +310,7 @@ full vectorisation is pre-authorised — *"The source data are already public."*
 
 > ## No discoverable machine-readable calificación source exists for Córdoba beyond the COACo 2-district pilot.
 
-⚠⚠ **THE SECOND HALF IS NOT, AND IT MUST BE SAID BEFORE ANYONE STARTS TRACING.** The pre-approval
+⚠⚠ ~~**THE SECOND HALF IS NOT, AND IT MUST BE SAID BEFORE ANYONE STARTS TRACING.** The pre-approval
 rests on *"the source data are already public"*. **Measured: they are not.** 41 of the 49 urban CUS
 sheets return a 69-byte "Server under construction" page (§6). **Vectorisation is authorised and the
 thing to vectorise is missing.** The available work is **2 sheets** — CUS18W and CUS19W, the only
@@ -294,7 +318,16 @@ live sheets COACo has not already done — not 69.
 
 ⇒ **Blocker 22 does NOT migrate Data acquisition → Engineering.** Under the new standard a category
 change requires explicit evidence; the evidence points the other way. It **stays Data acquisition**,
-because the exit criterion *"the dataset is obtained"* is precisely what is unmet.
+because the exit criterion *"the dataset is obtained"* is precisely what is unmet.~~
+⛔ **RETRACTED 2026-08-04.** The "41 of 49 dead" measurement was against the wrong host
+(`visor.pgou.coacordoba.org`, a defunct viewer subdomain); the municipality's actual document host
+(`www.gmucordoba.es`) serves all 49 live, and all 49 have now been fetched — see
+[`../corpus/MANIFEST.md`](../corpus/MANIFEST.md). **The second half of the founder's pre-approval
+condition IS now satisfied: the source data are, in fact, already public**, just not at the path
+this pass tested. ⇒ **Blocker 22 DOES migrate Data acquisition → Engineering, effective 2026-08-04**:
+the exit criterion "the dataset is obtained" is now met for all 49 sheets; what remains is
+georeferencing + vectorisation of 49 sheets (not 2), which is staffable engineering work, not a wait
+on GMU.
 
 | | |
 |---|---|

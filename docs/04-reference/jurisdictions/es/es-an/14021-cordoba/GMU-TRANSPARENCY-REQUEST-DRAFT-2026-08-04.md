@@ -1,5 +1,37 @@
 # Solicitud de acceso a información pública — Gerencia Municipal de Urbanismo de Córdoba
 
+> ### ⚠ CORRECTION 2026-08-04 — ITEM 1 MAY NOW BE MOOT. READ BEFORE SUBMITTING.
+>
+> This draft's **Item 1** asks GMU to supply or restore 41 "dead" CUS sheets
+> (CUS01–17W, CUS20–24W, CUS27–33W, CUS35–40W, CUS42–44W, CUS47–49W). Those sheets were tested
+> at the wrong host (`visor.pgou.coacordoba.org`). The municipality's actual document host
+> (`www.gmucordoba.es`) serves all 49 urban sheets live, and **all 49 have now been bulk-fetched**
+> into this repo — see [`corpus/MANIFEST.md`](./corpus/MANIFEST.md). **Item 1's ask is very likely
+> moot — do not submit it as written without re-checking whether it is still needed.**
+>
+> The Item 4 "(Opcional, de mayor alcance)" ask — vector calificación data beyond what's now
+> obtained as raster — **may still be valid**: obtaining the 49 raster sheets does not give PRYZM
+> vector polygons, only the source to georeference/vectorise from. Whoever reviews this draft should
+> decide whether Item 4 is still worth asking for (a shortcut past in-house vectorisation) or should
+> be dropped now that the raster corpus is in hand and vectorisation is a staffable engineering task.
+>
+> **Item 2 (georeferencing world files) is UNCHANGED and still valid** — the corpus fetch obtained
+> the JPEGs, not `.jgw`/`.wld`/`.prj` files, which still do not appear to be published anywhere. **Item
+> 3 (the `et` field definition) is also UNCHANGED and still valid** — unaffected by this correction.
+>
+> **Separately, not covered by this draft at all:** the alignment/frontage ("alineaciones y
+> rasantes") layer this jurisdiction's other findings described as "published nowhere" has the same
+> wrong-host problem as Item 1's CUS sheets — 49 AR PDFs are live at `www.gmucordoba.es` and have
+> also been bulk-fetched (`corpus/MANIFEST.md`). If a future revision of this letter is drafted to
+> ask GMU about alignment data, note that the DOCUMENT source is no longer missing; what would still
+> be worth asking is a VECTOR alignment layer (none exists) or clarification of Art. 13.5.3.1's
+> measurement basis, which the 49 PDFs may or may not themselves resolve once read.
+>
+> **Do not delete this letter or its remaining valid asks (items 2, 3, and the georeferencing/
+> measurement-basis question) — only item 1 is likely moot, and even that should be re-verified
+> rather than assumed, since this correction was written by the acquiring session, not by whoever
+> ultimately submits the request.**
+
 > **Status:** DRAFT — not yet submitted. Ready to paste into the Ayuntamiento de Córdoba's
 > Sede Electrónica "Solicitud Genérica" form (or REC), addressed to the Gerencia Municipal de
 > Urbanismo (GMU). Requires the requester's own Cl@ve/Certificado Digital to submit.

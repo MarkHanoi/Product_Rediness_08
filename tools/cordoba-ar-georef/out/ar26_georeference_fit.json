@@ -1,0 +1,513 @@
+{
+  "probe": "cordoba-ar-georef-step3",
+  "sheet": "ar26",
+  "crs": {
+    "epsg": 25830,
+    "how_established": "GML srsName (3 declarations, see fetch_catastro_cordoba.py output), matching UTM zone 30N visual tick reads"
+  },
+  "cadastre_window": {
+    "bbox_easting": [
+      330000.0,
+      352000.0
+    ],
+    "bbox_northing": [
+      4188000.0,
+      4206000.0
+    ],
+    "n_buildings_in_window": 48556
+  },
+  "scale_search": [
+    {
+      "scale_denominator": 500,
+      "metres_per_pdf_point": 0.17638888888888887,
+      "plan_polygons_in_window": 338,
+      "vote": {
+        "fit_features": 169,
+        "holdout_features": 169,
+        "peak_support": 13,
+        "top5_support": [
+          13,
+          12,
+          11,
+          11,
+          11
+        ]
+      },
+      "refine": {
+        "pairs_used": 20,
+        "dx": 343666.202,
+        "dy": 4193221.556
+      },
+      "discrimination": {
+        "holdout_matched_at_fit": 8,
+        "holdout_matched_at_best_decoy": 4,
+        "decoy_counts": [
+          1,
+          4,
+          2,
+          2,
+          2,
+          4
+        ],
+        "signal_to_decoy": 2.0
+      },
+      "holdout": {
+        "matched": 8,
+        "of": 169,
+        "match_rate": 0.0473,
+        "residual_metres": {
+          "median": 1.89,
+          "mean": 1.96,
+          "p90": 2.46,
+          "max": 2.76
+        }
+      },
+      "OUTCOME": "REFUSED",
+      "dx": 343666.20213017374,
+      "dy": 4193221.555689184
+    },
+    {
+      "scale_denominator": 750,
+      "metres_per_pdf_point": 0.26458333333333334,
+      "plan_polygons_in_window": 459,
+      "vote": {
+        "fit_features": 230,
+        "holdout_features": 229,
+        "peak_support": 13,
+        "top5_support": [
+          13,
+          12,
+          12,
+          12,
+          11
+        ]
+      },
+      "refine": {
+        "pairs_used": 13,
+        "dx": 343702.636,
+        "dy": 4192693.097
+      },
+      "discrimination": {
+        "holdout_matched_at_fit": 8,
+        "holdout_matched_at_best_decoy": 7,
+        "decoy_counts": [
+          2,
+          7,
+          4,
+          1,
+          3,
+          3
+        ],
+        "signal_to_decoy": 1.143
+      },
+      "holdout": {
+        "matched": 8,
+        "of": 229,
+        "match_rate": 0.0349,
+        "residual_metres": {
+          "median": 1.85,
+          "mean": 1.68,
+          "p90": 2.06,
+          "max": 2.21
+        }
+      },
+      "OUTCOME": "REFUSED",
+      "dx": 343702.6358106687,
+      "dy": 4192693.0971290753
+    },
+    {
+      "scale_denominator": 1000,
+      "metres_per_pdf_point": 0.35277777777777775,
+      "plan_polygons_in_window": 586,
+      "vote": {
+        "fit_features": 293,
+        "holdout_features": 293,
+        "peak_support": 12,
+        "top5_support": [
+          12,
+          12,
+          11,
+          11,
+          11
+        ]
+      },
+      "refine": {
+        "pairs_used": 17,
+        "dx": 344857.435,
+        "dy": 4195323.148
+      },
+      "discrimination": {
+        "holdout_matched_at_fit": 5,
+        "holdout_matched_at_best_decoy": 10,
+        "decoy_counts": [
+          2,
+          4,
+          4,
+          3,
+          10,
+          7
+        ],
+        "signal_to_decoy": 0.5
+      },
+      "holdout": {
+        "matched": 5,
+        "of": 293,
+        "match_rate": 0.0171,
+        "residual_metres": {
+          "median": 1.47,
+          "mean": 1.49,
+          "p90": 2.51,
+          "max": 2.93
+        }
+      },
+      "OUTCOME": "REFUSED",
+      "dx": 344857.43549966236,
+      "dy": 4195323.147956023
+    },
+    {
+      "scale_denominator": 1250,
+      "metres_per_pdf_point": 0.4409722222222222,
+      "plan_polygons_in_window": 753,
+      "vote": {
+        "fit_features": 377,
+        "holdout_features": 376,
+        "peak_support": 17,
+        "top5_support": [
+          17,
+          16,
+          15,
+          14,
+          14
+        ]
+      },
+      "refine": {
+        "pairs_used": 21,
+        "dx": 342957.745,
+        "dy": 4192851.31
+      },
+      "discrimination": {
+        "holdout_matched_at_fit": 6,
+        "holdout_matched_at_best_decoy": 5,
+        "decoy_counts": [
+          4,
+          4,
+          5,
+          4,
+          4,
+          3
+        ],
+        "signal_to_decoy": 1.2
+      },
+      "holdout": {
+        "matched": 6,
+        "of": 376,
+        "match_rate": 0.016,
+        "residual_metres": {
+          "median": 1.96,
+          "mean": 1.82,
+          "p90": 2.3,
+          "max": 2.46
+        }
+      },
+      "OUTCOME": "REFUSED",
+      "dx": 342957.74494619813,
+      "dy": 4192851.309680347
+    },
+    {
+      "scale_denominator": 1500,
+      "metres_per_pdf_point": 0.5291666666666667,
+      "plan_polygons_in_window": 971,
+      "vote": {
+        "fit_features": 486,
+        "holdout_features": 485,
+        "peak_support": 17,
+        "top5_support": [
+          17,
+          16,
+          16,
+          16,
+          16
+        ]
+      },
+      "refine": {
+        "pairs_used": 37,
+        "dx": 342745.266,
+        "dy": 4193037.374
+      },
+      "discrimination": {
+        "holdout_matched_at_fit": 1,
+        "holdout_matched_at_best_decoy": 12,
+        "decoy_counts": [
+          9,
+          4,
+          12,
+          4,
+          3,
+          7
+        ],
+        "signal_to_decoy": 0.083
+      },
+      "holdout": {
+        "matched": 1,
+        "of": 485,
+        "match_rate": 0.0021,
+        "residual_metres": {
+          "median": 1.9,
+          "mean": 1.9,
+          "p90": 1.9,
+          "max": 1.9
+        }
+      },
+      "OUTCOME": "REFUSED",
+      "dx": 342745.26608714677,
+      "dy": 4193037.373536762
+    },
+    {
+      "scale_denominator": 2000,
+      "metres_per_pdf_point": 0.7055555555555555,
+      "plan_polygons_in_window": 1656,
+      "vote": {
+        "fit_features": 828,
+        "holdout_features": 828,
+        "peak_support": 20,
+        "top5_support": [
+          20,
+          20,
+          19,
+          19,
+          19
+        ]
+      },
+      "refine": {
+        "pairs_used": 39,
+        "dx": 343590.311,
+        "dy": 4195302.84
+      },
+      "discrimination": {
+        "holdout_matched_at_fit": 7,
+        "holdout_matched_at_best_decoy": 15,
+        "decoy_counts": [
+          15,
+          6,
+          9,
+          4,
+          7,
+          5
+        ],
+        "signal_to_decoy": 0.467
+      },
+      "holdout": {
+        "matched": 7,
+        "of": 828,
+        "match_rate": 0.0085,
+        "residual_metres": {
+          "median": 2.12,
+          "mean": 2.03,
+          "p90": 2.67,
+          "max": 2.89
+        }
+      },
+      "OUTCOME": "REFUSED",
+      "dx": 343590.31079939194,
+      "dy": 4195302.839864275
+    },
+    {
+      "scale_denominator": 2500,
+      "metres_per_pdf_point": 0.8819444444444444,
+      "plan_polygons_in_window": 2543,
+      "vote": {
+        "fit_features": 1272,
+        "holdout_features": 1271,
+        "peak_support": 22,
+        "top5_support": [
+          22,
+          22,
+          22,
+          22,
+          21
+        ]
+      },
+      "refine": {
+        "pairs_used": 50,
+        "dx": 343222.227,
+        "dy": 4195483.798
+      },
+      "discrimination": {
+        "holdout_matched_at_fit": 11,
+        "holdout_matched_at_best_decoy": 14,
+        "decoy_counts": [
+          12,
+          10,
+          10,
+          8,
+          14,
+          12
+        ],
+        "signal_to_decoy": 0.786
+      },
+      "holdout": {
+        "matched": 11,
+        "of": 1271,
+        "match_rate": 0.0087,
+        "residual_metres": {
+          "median": 1.92,
+          "mean": 1.77,
+          "p90": 2.76,
+          "max": 2.92
+        }
+      },
+      "OUTCOME": "REFUSED",
+      "dx": 343222.2273168279,
+      "dy": 4195483.797641044
+    },
+    {
+      "scale_denominator": 3000,
+      "metres_per_pdf_point": 1.0583333333333333,
+      "plan_polygons_in_window": 3578,
+      "vote": {
+        "fit_features": 1789,
+        "holdout_features": 1789,
+        "peak_support": 27,
+        "top5_support": [
+          27,
+          25,
+          25,
+          25,
+          24
+        ]
+      },
+      "refine": {
+        "pairs_used": 54,
+        "dx": 342746.708,
+        "dy": 4196588.812
+      },
+      "discrimination": {
+        "holdout_matched_at_fit": 7,
+        "holdout_matched_at_best_decoy": 15,
+        "decoy_counts": [
+          13,
+          15,
+          14,
+          11,
+          14,
+          11
+        ],
+        "signal_to_decoy": 0.467
+      },
+      "holdout": {
+        "matched": 7,
+        "of": 1789,
+        "match_rate": 0.0039,
+        "residual_metres": {
+          "median": 2.48,
+          "mean": 2.51,
+          "p90": 2.8,
+          "max": 2.86
+        }
+      },
+      "OUTCOME": "REFUSED",
+      "dx": 342746.7076158093,
+      "dy": 4196588.812219673
+    },
+    {
+      "scale_denominator": 4000,
+      "metres_per_pdf_point": 1.411111111111111,
+      "plan_polygons_in_window": 4370,
+      "vote": {
+        "fit_features": 2185,
+        "holdout_features": 2185,
+        "peak_support": 31,
+        "top5_support": [
+          31,
+          31,
+          31,
+          31,
+          30
+        ]
+      },
+      "refine": {
+        "pairs_used": 66,
+        "dx": 341698.236,
+        "dy": 4195731.064
+      },
+      "discrimination": {
+        "holdout_matched_at_fit": 14,
+        "holdout_matched_at_best_decoy": 18,
+        "decoy_counts": [
+          12,
+          9,
+          17,
+          10,
+          15,
+          18
+        ],
+        "signal_to_decoy": 0.778
+      },
+      "holdout": {
+        "matched": 14,
+        "of": 2185,
+        "match_rate": 0.0064,
+        "residual_metres": {
+          "median": 2.47,
+          "mean": 2.28,
+          "p90": 2.87,
+          "max": 2.94
+        }
+      },
+      "OUTCOME": "REFUSED",
+      "dx": 341698.2363244763,
+      "dy": 4195731.064319192
+    },
+    {
+      "scale_denominator": 5000,
+      "metres_per_pdf_point": 1.7638888888888888,
+      "plan_polygons_in_window": 4869,
+      "vote": {
+        "fit_features": 2435,
+        "holdout_features": 2434,
+        "peak_support": 29,
+        "top5_support": [
+          29,
+          28,
+          28,
+          28,
+          28
+        ]
+      },
+      "refine": {
+        "pairs_used": 59,
+        "dx": 339318.441,
+        "dy": 4196509.249
+      },
+      "discrimination": {
+        "holdout_matched_at_fit": 10,
+        "holdout_matched_at_best_decoy": 14,
+        "decoy_counts": [
+          10,
+          14,
+          7,
+          8,
+          11,
+          12
+        ],
+        "signal_to_decoy": 0.714
+      },
+      "holdout": {
+        "matched": 10,
+        "of": 2434,
+        "match_rate": 0.0041,
+        "residual_metres": {
+          "median": 1.7,
+          "mean": 1.74,
+          "p90": 2.65,
+          "max": 2.79
+        }
+      },
+      "OUTCOME": "REFUSED",
+      "dx": 339318.4405980009,
+      "dy": 4196509.248737524
+    }
+  ],
+  "OUTCOME": "REFUSED",
+  "why": "no candidate scale in CANDIDATE_SCALES cleared the acceptance bar (>=25 holdout matches within 3m, >=3x best-decoy signal, median residual <=2m). This is an UNKNOWN, not a statement that the sheet cannot be georeferenced by this method -- either the true scale is not in the candidate list, or the black-bucket rings are not predominantly individual buildings on this sheet (they may be a mix of buildings/parcels/calzada outlines the area filter did not cleanly separate)."
+}
