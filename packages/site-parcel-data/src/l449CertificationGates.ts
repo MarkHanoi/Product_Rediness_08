@@ -70,6 +70,8 @@ import { MURCIA_ENVELOPE_VERIFIED } from './rulepacks/esMurciaEnvelope.js';
 import { SANT_BOI_ENVELOPE_VERIFIED } from './rulepacks/esSantBoi.js';
 import { VALENCIA_ENVELOPE_VERIFIED } from './rulepacks/esValenciaEnvelope.js';
 import { SEVILLA_ENVELOPE_VERIFIED } from './rulepacks/esSevilla.js';
+import { MALAGA_ENVELOPE_VERIFIED } from './rulepacks/esMalaga.js';
+import { GRANADA_ENVELOPE_VERIFIED } from './rulepacks/esGranada.js';
 import { HUESCA_ENVELOPE_VERIFIED, ZARAGOZA_ENVELOPE_VERIFIED } from './rulepacks/esAragon.js';
 import { EL_SAUZAL_ENVELOPE_VERIFIED } from './rulepacks/esElSauzal.js';
 import { FR_PARIS_PLU_CERTIFIED } from './rulepacks/frParisPluBioclimatique.js';
@@ -214,6 +216,23 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         // Not signable at all: `zones` is empty by construction — no PGOU-2006 ordinance
         // parameter has been transcribed yet (separate legal/research work, same shape as
         // València's `VALENCIA_ENVELOPE_VERIFIED`).
+        signature: null,
+    },
+    {
+        gate: 'MALAGA_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esMalaga.ts',
+        value: MALAGA_ENVELOPE_VERIFIED,
+        // Not signable at all: NO rulepack exists — every attempted read of the municipal
+        // GeoServer's zoning layers fails with an authority-side Oracle access error
+        // (`ORA-28000`). Nothing to transcribe until that clears.
+        signature: null,
+    },
+    {
+        gate: 'GRANADA_ENVELOPE_VERIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/esGranada.ts',
+        value: GRANADA_ENVELOPE_VERIFIED,
+        // Not signable at all: ZERO research has happened — no planning source, GIS endpoint or
+        // zone-classification method has been identified.
         signature: null,
     },
     {

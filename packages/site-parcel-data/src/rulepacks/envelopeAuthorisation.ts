@@ -123,6 +123,11 @@ import { VALENCIA_ENVELOPE_VERIFIED, VALENCIA_JURISDICTION_ID } from './esValenc
 // ⚠ SEVILLA — same kind of gate as València: `zones` is empty by construction (no ordinance
 // transcription exists at all yet), so registering it here stops the classifier failing open.
 import { SEVILLA_ENVELOPE_VERIFIED, SEVILLA_JURISDICTION_ID } from './esSevilla.js';
+// ⚠ MÁLAGA / GRANADA — the SAME third kind of gate as València/Sevilla, one step earlier: NO
+// rulepack exists at all, so registering them here stops the classifier failing open on a
+// jurisdiction that has an `isInX` dispatch branch but zero research behind it.
+import { MALAGA_ENVELOPE_VERIFIED, MALAGA_JURISDICTION_ID } from './esMalaga.js';
+import { GRANADA_ENVELOPE_VERIFIED, GRANADA_JURISDICTION_ID } from './esGranada.js';
 import {
     HUESCA_ENVELOPE_VERIFIED,
     HUESCA_JURISDICTION_ID,
@@ -238,6 +243,12 @@ const GATE_DECLARATIONS: readonly GateDeclaration[] = Object.freeze([
     // hard-refuses at the geometry level regardless (`SEVILLA_SB_FONDO_UNRESOLVED_RING`). Declared
     // so the classifier cannot fail open on a registered jurisdiction with no gate declared.
     { gate: 'SEVILLA_ENVELOPE_VERIFIED', value: SEVILLA_ENVELOPE_VERIFIED, jurisdictions: [SEVILLA_JURISDICTION_ID] },
+    // ⚠ MÁLAGA / GRANADA — 2026-08-04: NO rulepack exists for either (Málaga's zoning geometry is
+    // Oracle-locked; Granada has zero research). Declared so the classifier cannot fail open on a
+    // registered `isInX` branch with no gate behind it — the same discipline as València/Sevilla,
+    // one research stage earlier.
+    { gate: 'MALAGA_ENVELOPE_VERIFIED', value: MALAGA_ENVELOPE_VERIFIED, jurisdictions: [MALAGA_JURISDICTION_ID] },
+    { gate: 'GRANADA_ENVELOPE_VERIFIED', value: GRANADA_ENVELOPE_VERIFIED, jurisdictions: [GRANADA_JURISDICTION_ID] },
     // ── ⚠ A FOURTH KIND, AND THE ONE MOST LIKELY TO BE MIS-SORTED: LIVE-RESOLVED, YET GATED. ──
     // §BALEARS-GATE (L-680). Balears looks like Denmark — the authority publishes the parameters as
     // machine-readable data, PRYZM transcribes NO ordinance, and `ES_BALEARS` has no static zone

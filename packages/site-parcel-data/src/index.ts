@@ -1247,6 +1247,30 @@ export {
 // ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
 // ║ ⚠ END OF THE SEVILLA BLOCK.                                                                   ║
 // ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠ START OF THE MÁLAGA / GRANADA §RESEARCH-PENDING BLOCK.                                      ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+// Neither has a rulepack, a zone-identity resolver, or a signable gate — this closes ONLY the
+// §L-663 fabrication defect (a click here previously fell through to `applyEstimatedZoning`, a
+// FABRICATED generic envelope) by routing to a cited "not yet researched" refusal. See
+// `esMalaga.ts` / `esGranada.ts` for each city's specific root blocker.
+export { isInMalaga, MALAGA_BBOX, MALAGA_INE_CODE } from './providers/malagaBbox.js';
+export {
+    MALAGA_JURISDICTION_ID,
+    MALAGA_ENVELOPE_VERIFIED,
+    malagaResearchPendingRefusal,
+} from './rulepacks/esMalaga.js';
+export { isInGranada, GRANADA_BBOX, GRANADA_INE_CODE } from './providers/granadaBbox.js';
+export {
+    GRANADA_JURISDICTION_ID,
+    GRANADA_ENVELOPE_VERIFIED,
+    granadaResearchPendingRefusal,
+} from './rulepacks/esGranada.js';
+export type { ResearchPendingRecord } from './rulepacks/researchPendingRefusal.js';
+export { researchPendingRefusal } from './rulepacks/researchPendingRefusal.js';
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠ END OF THE MÁLAGA / GRANADA BLOCK.                                                          ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
 
 // ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
 // ║ ⚠ ARAGÓN — Huesca (INE 22125) + Zaragoza (INE 50297). Confine Aragón edits to this block.    ║

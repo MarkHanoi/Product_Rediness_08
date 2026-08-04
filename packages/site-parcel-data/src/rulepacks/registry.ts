@@ -267,6 +267,15 @@ import { VALENCIA_BBOX, isInValencia } from '../providers/valenciaBbox.js';
 import { SEVILLA_JURISDICTION_ID, sevillaNoRulePackRefusal } from './esSevilla.js';
 import { SEVILLA_BBOX, isInSevilla } from '../providers/sevillaBbox.js';
 // ── ⚠ END OF THE SEVILLA IMPORT BLOCK. ────────────────────────────────────────────────────────
+// ── MÁLAGA (INE 29067) / GRANADA (INE 18087) — §RESEARCH-PENDING, NOT §L-449. ─────────────────
+// Neither has a rulepack or a zone-identity resolver at all — this registration closes ONLY the
+// §L-663 fabrication defect (no `isInX` branch meant every click fell to the estimated triple).
+// See `esMalaga.ts` / `esGranada.ts` for each city's specific root blocker.
+import { MALAGA_JURISDICTION_ID, malagaResearchPendingRefusal } from './esMalaga.js';
+import { MALAGA_BBOX, isInMalaga } from '../providers/malagaBbox.js';
+import { GRANADA_JURISDICTION_ID, granadaResearchPendingRefusal } from './esGranada.js';
+import { GRANADA_BBOX, isInGranada } from '../providers/granadaBbox.js';
+// ── ⚠ END OF THE MÁLAGA / GRANADA IMPORT BLOCK. ──────────────────────────────────────────────
 // ── ARAGÓN (Huesca INE 22125, Zaragoza INE 50297) — ⚠ START OF THE ARAGÓN IMPORT BLOCK. ───────
 // Two REFUSAL jurisdictions. Registered because "Aragón is CLOSED" was a claim about the
 // REGIONAL SIUa layer that does not survive at the municipal level — measured on 421 Zaragoza
@@ -1330,6 +1339,50 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
     },
     // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
     // ║ ⚠ END OF THE SEVILLA BLOCK.                                                               ║
+    // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
+    // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ START OF THE MÁLAGA / GRANADA §RESEARCH-PENDING BLOCK.                                  ║
+    // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
+    // Neither is signable — there is no rulepack to sign. This registration exists ONLY to stop
+    // the §L-663 fabrication defect: before it, neither city had an `isInX` branch anywhere, so
+    // every click fell through to `applyEstimatedZoning`'s fabricated generic envelope.
+    {
+        jurisdictionId: MALAGA_JURISDICTION_ID, // 'es-29067-malaga'
+        displayName: 'Málaga',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        extent: MALAGA_BBOX,
+        contains: isInMalaga,
+        extentResolution: 'municipal',
+        answerSummary:
+            "Málaga's municipal GeoServer publishes 43 feature types including a calificación " +
+            'layer and an alignment layer — but every attempted read of a zoning layer fails ' +
+            'with an authority-side database access error (control-tested: other layers on the ' +
+            'same server serve normally). PRYZM has no zone-identity resolver and no rulepack ' +
+            'for Málaga; every parcel receives a cited "not yet researched" refusal, never an ' +
+            'estimate.',
+        packsByZone: packMap(),
+        refusalFor: () => null,
+        noRulePackRefusal: () => malagaResearchPendingRefusal(),
+    },
+    {
+        jurisdictionId: GRANADA_JURISDICTION_ID, // 'es-18087-granada'
+        displayName: 'Granada',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        extent: GRANADA_BBOX,
+        contains: isInGranada,
+        extentResolution: 'municipal',
+        answerSummary:
+            'No planning source, GIS endpoint or zone-classification method has been identified ' +
+            'for Granada yet. PRYZM has no zone-identity resolver and no rulepack; every parcel ' +
+            'receives a cited "not yet researched" refusal, never an estimate.',
+        packsByZone: packMap(),
+        refusalFor: () => null,
+        noRulePackRefusal: () => granadaResearchPendingRefusal(),
+    },
+    // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
+    // ║ ⚠ END OF THE MÁLAGA / GRANADA BLOCK.                                                      ║
     // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
     // ╔══════════════════════════════════════════════════════════════════════════════════════════╗
     // ║ ⚠ START OF THE ARAGÓN BLOCK. Confine Aragón edits to this block.                         ║

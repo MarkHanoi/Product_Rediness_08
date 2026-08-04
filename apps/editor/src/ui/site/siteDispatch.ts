@@ -432,6 +432,16 @@ import {
     ES_EL_SAUZAL_PACK,
     elSauzalNoRulePackRefusal,
     resolveElSauzalZone,
+    // §RESEARCH-PENDING — Málaga (INE 29067) and Granada (INE 18087). ⚠ Neither has a rulepack or
+    // a zone-identity resolver at all; this stops the §L-663 fabrication defect (no `isInX` branch
+    // meant a click fell straight through to the estimated triple), never claims research that
+    // hasn't happened.
+    isInMalaga,
+    MALAGA_JURISDICTION_ID,
+    malagaResearchPendingRefusal,
+    isInGranada,
+    GRANADA_JURISDICTION_ID,
+    granadaResearchPendingRefusal,
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 // ADR-0271 §BCN-REAL-ENVELOPE — the impure edge providers the Barcelona path injects into the
@@ -1450,6 +1460,33 @@ function applyZoning(
         // the resolved ZUSO zone when one resolves, never a fabricated envelope.
         if (qLat != null && qLon != null && isInElSauzal(qLat, qLon)) {
             applyElSauzalZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+            return;
+        }
+        // §RESEARCH-PENDING — Málaga (INE 29067) and Granada (INE 18087). ⚠ Neither has a
+        // rulepack or a zone-identity resolver: PRYZM has not researched either ordinance yet.
+        // Before this branch existed, a click here fell straight through to the estimated triple
+        // (§L-663's fabrication defect) — this dispatches a cited "not yet researched" refusal
+        // instead, never a fabricated number and never a claim of research that has not happened.
+        if (qLat != null && qLon != null && isInMalaga(qLat, qLon)) {
+            const site = ctx.store.getSite();
+            if (!site) { applyEstimatedZoning(ctx, estimated); return; }
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope('malaga-research-pending', malagaResearchPendingRefusal(), 'none'),
+                MALAGA_JURISDICTION_ID,
+            );
+            return;
+        }
+        if (qLat != null && qLon != null && isInGranada(qLat, qLon)) {
+            const site = ctx.store.getSite();
+            if (!site) { applyEstimatedZoning(ctx, estimated); return; }
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope('granada-research-pending', granadaResearchPendingRefusal(), 'none'),
+                GRANADA_JURISDICTION_ID,
+            );
             return;
         }
         // §MURCIA-ENVELOPE — a Murcia (INE 30030) plot. ⚠ A REGIONALLY DISTINCT branch, not a
