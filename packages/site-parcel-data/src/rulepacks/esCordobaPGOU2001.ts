@@ -142,6 +142,64 @@ export const CORDOBA_MC_FONDO_UNRESOLVED_RING =
     'cordoba-mc-fondo:UNRESOLVED/pgou-13.5.3.1-street-width-table' as const;
 
 /**
+ * One band of the Art. 13.5.3.1 per-street-width height table. `maxStreetWidth_m: null` marks the
+ * open top band (strictly greater than the previous band's bound — the ordinance's own "> N m" row).
+ * `maxFloors` follows this pack's PB+n convention used everywhere else (UAD-1 "PB+1" → maxFloors 2),
+ * i.e. ground floor + n upper storeys.
+ */
+export interface CordobaMcHeightBand {
+    readonly maxStreetWidth_m: number | null;
+    readonly storeys: string; // ordinance's own "PB+n" notation, kept verbatim for citability
+    readonly maxFloors: number;
+    readonly maxHeight_m: number;
+}
+
+/**
+ * ⭐ CLOSURE-REGISTER blocker 8 / D3 — the VERIFIED MC per-street-width height table, Art. 13.5.3.1,
+ * transcribed exact band-for-band for all four subzones and cross-verified TWICE independently
+ * against the publisher's own PDFs (the raster-render path, since `O_MC` has a zero-character text
+ * layer): `sources/VERIFICATION.md` §SIG-1 (lines 44-46, 106-107 — "the MC per-street-width height
+ * table §2.5 is exact, band for band, for all four subzones"), `findings/OCR-EXTRACTION-RESULTS.md`
+ * §2.5 (lines 249-253, the transcription this table mirrors verbatim), `HEIGHT.md` (H3).
+ *
+ * ⚠⚠ THIS IS DATA, NOT A COMPUTE PATH. It exists so the verified table stops living only in a
+ * comment (`maxHeight_m: null` below still stands, unchanged, on every MC zone). It is deliberately
+ * **not** consumed anywhere yet: applying it needs a MEASURED street width per parcel frontage, and
+ * PRYZM has no Córdoba street-width resolver (CLOSURE-REGISTER blocker 8/25 — the Barcelona
+ * `bcnAlcadaNucliAntic.ts` analogue does not exist here). Looking a value up in this table against a
+ * fabricated or unmeasured width would be the exact L-526 failure the `null` scalar exists to
+ * prevent — so nothing in this pack, the dispatcher, or the engine may read this constant until that
+ * resolver lands and is cited at the call site. Do not delete the surrounding `maxHeight_m: null`
+ * fields to "use" this table — the null is the honesty gate, this constant is the payload behind it.
+ */
+export const CORDOBA_MC_STREET_WIDTH_HEIGHT_TABLE: Readonly<
+    Record<'MC-1' | 'MC-2' | 'MC-3' | 'MC-4', readonly CordobaMcHeightBand[]>
+> = {
+    'MC-1': [
+        { maxStreetWidth_m: 8, storeys: 'PB+2', maxFloors: 3, maxHeight_m: 9.75 },
+        { maxStreetWidth_m: 10, storeys: 'PB+3', maxFloors: 4, maxHeight_m: 12.75 },
+        { maxStreetWidth_m: 14, storeys: 'PB+4', maxFloors: 5, maxHeight_m: 16.75 },
+        { maxStreetWidth_m: 16, storeys: 'PB+5', maxFloors: 6, maxHeight_m: 19.5 },
+        { maxStreetWidth_m: null, storeys: 'PB+6', maxFloors: 7, maxHeight_m: 22.5 },
+    ],
+    'MC-2': [
+        { maxStreetWidth_m: 10, storeys: 'PB+2', maxFloors: 3, maxHeight_m: 9.75 },
+        { maxStreetWidth_m: null, storeys: 'PB+3', maxFloors: 4, maxHeight_m: 12.75 },
+    ],
+    'MC-3': [
+        { maxStreetWidth_m: 10, storeys: 'PB+2', maxFloors: 3, maxHeight_m: 9.75 },
+        { maxStreetWidth_m: 15, storeys: 'PB+3', maxFloors: 4, maxHeight_m: 12.75 },
+        { maxStreetWidth_m: 20, storeys: 'PB+4', maxFloors: 5, maxHeight_m: 16.75 },
+        { maxStreetWidth_m: null, storeys: 'PB+5', maxFloors: 6, maxHeight_m: 19.5 },
+    ],
+    // MC-4 shares MC-2's band structure verbatim (Art. 13.5.3.1 states them jointly).
+    'MC-4': [
+        { maxStreetWidth_m: 10, storeys: 'PB+2', maxFloors: 3, maxHeight_m: 9.75 },
+        { maxStreetWidth_m: null, storeys: 'PB+3', maxFloors: 4, maxHeight_m: 12.75 },
+    ],
+} as const;
+
+/**
  * The Córdoba PGOU-2001 pack. `source:'manual'` (curated artefact, no published-structured feed);
  * `crs:'EPSG:4326'` (COACo GeoServer WFS default). Zone `code` matches the calificación subzone name
  * the dispatcher will resolve from `coaco:ordenanzas.ordenanza` + the `O_*` link suffix.
@@ -445,7 +503,8 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 ordinanceRef:
                     'PGOU Art. 13.5.2.5 (ocup. PB 100 % / PA 70 %), 13.5.2.3 (alineación a vial), 13.5.4 ' +
                     '(uso resid. plurifam.). ⚠ altura Art. 13.5.3.1 = per-street-width TABLE → null; ' +
-                    'edificabilidad 13.5.2.2 DERIVED → null. ' + SRC,
+                    'verified table: CORDOBA_MC_STREET_WIDTH_HEIGHT_TABLE[\'MC-1\'] (not yet consumed — ' +
+                    'no street-width resolver). edificabilidad 13.5.2.2 DERIVED → null. ' + SRC,
             },
             {
                 code: 'MC-2',
@@ -461,7 +520,9 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 fieldProvenance: { maxCoverage: 'pipeline-extracted', permittedUse: 'pipeline-extracted' },
                 ordinanceRef:
                     'PGOU Art. 13.5.2.5 (ocup. PB 100 % / PA 70 %), 13.5.2.3 (alineación a vial). ⚠ altura ' +
-                    '13.5.3.1 TABLE (≤10 m→PB+2; >10→PB+3) → null; edificabilidad 13.5.2.2 DERIVED → null. ' + SRC,
+                    '13.5.3.1 TABLE (≤10 m→PB+2; >10→PB+3) → null; verified table: ' +
+                    'CORDOBA_MC_STREET_WIDTH_HEIGHT_TABLE[\'MC-2\'] (not yet consumed — no street-width ' +
+                    'resolver). edificabilidad 13.5.2.2 DERIVED → null. ' + SRC,
             },
             {
                 code: 'MC-3',
@@ -480,7 +541,9 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 fieldProvenance: { maxFAR: 'pipeline-extracted', maxCoverage: 'pipeline-extracted', permittedUse: 'pipeline-extracted' },
                 ordinanceRef:
                     'PGOU Art. 13.5.2.2 (FAR 3,50 — ⚠ OUT OF RANGE [0.2,3.0], human-verify), 13.5.2.5 ' +
-                    '(ocup. PB 100 % / PA 70 %), 13.5.2.3 (alineación a vial). ⚠ altura 13.5.3.1 TABLE → null. ' + SRC,
+                    '(ocup. PB 100 % / PA 70 %), 13.5.2.3 (alineación a vial). ⚠ altura 13.5.3.1 TABLE → null; ' +
+                    'verified table: CORDOBA_MC_STREET_WIDTH_HEIGHT_TABLE[\'MC-3\'] (not yet consumed — ' +
+                    'no street-width resolver). ' + SRC,
             },
             {
                 code: 'MC-4',
@@ -496,7 +559,9 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 fieldProvenance: { maxCoverage: 'pipeline-extracted', permittedUse: 'pipeline-extracted' },
                 ordinanceRef:
                     'PGOU Art. 13.5.2.5.2 (ocup. PB 100 % / PA 90 %), 13.5.2.3 (alineación a vial). ⚠ altura ' +
-                    '13.5.3.1 TABLE (MC-2/MC-4 band) → null; edificabilidad 13.5.2.2 DERIVED → null. ' + SRC,
+                    '13.5.3.1 TABLE (MC-2/MC-4 band) → null; verified table: ' +
+                    'CORDOBA_MC_STREET_WIDTH_HEIGHT_TABLE[\'MC-4\'] (not yet consumed — no street-width ' +
+                    'resolver). edificabilidad 13.5.2.2 DERIVED → null. ' + SRC,
             },
         ],
     });
@@ -553,6 +618,13 @@ export const CORDOBA_PGOU2001_ZONE_CODES = [
 //    materially cheaper unlock than previously recorded, and the largest one outstanding (MC is
 //    16.86 % of pilot buildable land). Until it ships MC stays a structural refusal via
 //    `explicit-area` + CORDOBA_MC_FONDO_UNRESOLVED_RING (WIRING-TODO 7, below), CTP-1 clips to 16 m.
+//    ⬆ 2026-08-04 — PARTIAL: the verified table itself is now real, typed, citable data
+//    (`CORDOBA_MC_STREET_WIDTH_HEIGHT_TABLE`, all four subzones), so it no longer lives only as a
+//    comment. It is DELIBERATELY NOT CONSUMED — no street-width resolver exists to look a parcel's
+//    frontage width up against, and PRYZM has no verified Córdoba positional-accuracy figure for
+//    Catastro yet either (needed for any future raycast-based width measurement's error buffer,
+//    ADR-0287). The resolver + its call site remain fully open; do not wire this table into
+//    `siteDispatch.ts` or the engine until both land and are cited at the call site.
 // 8. ⛔ OPEN (D1, BLOCKING for UAD-3). Carry the stated UAD *profundidad máxima edificable*
 //    (Art. 13.9.3.3 — UAD-1 16 m · UAD-2 18 m · UAD-3 16 m) as a `geometricRule`. Without it UAD-3
 //    (front 0 + side 0 + no depth band) is an unguarded L-616 mechanism-A whole-parcel overstatement.
