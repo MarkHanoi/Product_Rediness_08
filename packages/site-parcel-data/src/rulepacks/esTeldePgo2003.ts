@@ -560,3 +560,23 @@ export const TELDE_UNPACKED_ZONES: Readonly<Record<string, string>> = Object.fre
     SO: 'Every parameter is a sentinel.',
     INDEF: '"Indefinida" — the plan itself declares the zone undetermined.',
 });
+
+/**
+ * Zone codes whose row is `DispObl = GRF` (the building line lives on a plan sheet PRYZM does not
+ * hold) — DERIVED from `TELDE_UNPACKED_ZONES`' own citation text, never re-guessed or hand-
+ * restated, so the two cannot drift apart.
+ *
+ * ⭐ WHY THIS EXISTS: `resolveTeldeZone.ts`'s offline `EDIF.shp`/`EDIF.dbf` join reports a zone
+ * CODE only — the shapefile's DBF has no `DispObl` column (that lives in `EDIF.mdb`, unparsed by
+ * that resolver). Whether a zone is graphed is a property of the TYPOLOGY (invariant per code),
+ * not of any individual polygon instance, so the dispatcher (`applyTeldeZoningThenFallback`) asks
+ * THIS set — sourced from the same human-read `EDIF.mdb` citations already in `esTeldePgo2003.ts`
+ * — instead of needing per-point `DispObl` at all.
+ */
+export const TELDE_GRAPHED_ZONE_CODES: ReadonlySet<string> = Object.freeze(
+    new Set(
+        Object.entries(TELDE_UNPACKED_ZONES)
+            .filter(([, reason]) => /\bGRF\b/.test(reason))
+            .map(([code]) => code),
+    ),
+);

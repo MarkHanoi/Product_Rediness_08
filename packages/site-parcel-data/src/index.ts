@@ -1328,6 +1328,63 @@ export {
 // ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
 
 // ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠ LORCA (30024) / MOLINA DE SEGURA (30027) / ALCANTARILLA (30005) / LAS TORRES DE COTILLAS   ║
+// ║ (30038), Región de Murcia — 2026-08-04. Four §RESEARCH-PENDING jurisdictions; none has a       ║
+// ║ rulepack. Alcantarilla alone carries a live coarse land-use resolver (CARM regional WFS).      ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+export { isInLorca, LORCA_BBOX, LORCA_INE_CODE } from './providers/lorcaBbox.js';
+export {
+    LORCA_JURISDICTION_ID,
+    LORCA_ENVELOPE_VERIFIED,
+    lorcaResearchPendingRefusal,
+} from './rulepacks/esLorca.js';
+export {
+    isInMolinaDeSegura,
+    MOLINA_DE_SEGURA_BBOX,
+    MOLINA_DE_SEGURA_INE_CODE,
+} from './providers/molinaDeSeguraBbox.js';
+export {
+    MOLINA_DE_SEGURA_JURISDICTION_ID,
+    MOLINA_DE_SEGURA_ENVELOPE_VERIFIED,
+    molinaDeSeguraResearchPendingRefusal,
+} from './rulepacks/esMolinaDeSegura.js';
+export {
+    isInAlcantarilla,
+    ALCANTARILLA_BBOX,
+    ALCANTARILLA_INE_CODE,
+} from './providers/alcantarillaBbox.js';
+export {
+    resolveAlcantarillaLanduse,
+    CARM_SIT_USU_PLU_SERVICE,
+    CARM_PLU_ZE_LAYER,
+} from './providers/resolveAlcantarillaLanduse.js';
+export type {
+    AlcantarillaLngLat,
+    AlcantarillaLanduseResolution,
+    AlcantarillaLanduseResult,
+    AlcantarillaLanduseRefusalReason,
+    AlcantarillaLanduseDeps,
+} from './providers/resolveAlcantarillaLanduse.js';
+export {
+    ALCANTARILLA_JURISDICTION_ID,
+    ALCANTARILLA_ENVELOPE_VERIFIED,
+    alcantarillaNoRulePackRefusal,
+} from './rulepacks/esAlcantarilla.js';
+export {
+    isInLasTorresDeCotillas,
+    LAS_TORRES_DE_COTILLAS_BBOX,
+    LAS_TORRES_DE_COTILLAS_INE_CODE,
+} from './providers/lasTorresDeCotillasBbox.js';
+export {
+    LAS_TORRES_DE_COTILLAS_JURISDICTION_ID,
+    LAS_TORRES_DE_COTILLAS_ENVELOPE_VERIFIED,
+    lasTorresDeCotillasResearchPendingRefusal,
+} from './rulepacks/esLasTorresDeCotillas.js';
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠ END OF THE SECOND MURCIA-REGION BLOCK.                                                       ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
 // ║ ⚠ ARAGÓN — Huesca (INE 22125) + Zaragoza (INE 50297). Confine Aragón edits to this block.    ║
 // ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
 // Two REFUSAL jurisdictions. ⚠ `*_CATASTRO_DGC_CODE` is exported alongside the INE code on
@@ -1437,6 +1494,7 @@ export {
     ES_TELDE_PGO2003_PACK,
     TELDE_PGO2003_ZONE_CODES,
     TELDE_UNPACKED_ZONES,
+    TELDE_GRAPHED_ZONE_CODES,
     TELDE_INTENDED_DEFAULT_CONFIDENCE,
 } from './rulepacks/esTeldePgo2003.js';
 // The bbox gate + registration key. ⚠ A coarse proximity gate, never an authorisation — see
@@ -1484,14 +1542,18 @@ export {
     type ObservationKind,
     type SipuZoneReading,
 } from './providers/canariasSipuProvider.js';
-// §TELDE-ZONE-RESOLVER — the per-point EDIF zone resolver. WIRED like Zaragoza/Córdoba's siblings
-// (injectable fetch, typed refusals, never throws) but — unlike them — the live endpoint it would
-// call does not exist yet (IDECanarias' WFS is measured administratively disabled); see the module
-// header for why that is recorded honestly rather than faked live.
+// §TELDE-ZONE-RESOLVER — the per-point EDIF zone resolver. Rewritten 2026-08-04 onto the El Sauzal
+// offline-shapefile pattern (`resolveElSauzalZone.ts`): a committed extract of the REAL
+// `EDIF.shp`/`EDIF.dbf` pair (2 643 records, 46 distinct codes) from the same SIPU zip
+// `esTeldePgo2003.ts` already cites, point-in-polygon at query time — no live WFS dependency, no
+// unwired server proxy. See the module header for the full provenance and for what this resolver
+// deliberately does NOT carry (per-parcel numeric attributes — those come from the pack, per code).
 export {
     resolveTeldeZone,
-    TELDE_EDIF_PATH,
+    resolveTeldeZoneFromRecords,
+    loadTeldeEdifRecords,
     type TeldeLngLat,
+    type TeldeEdifRecord,
     type TeldeZoneDeps,
     type TeldeZoneResolution,
     type TeldeZoneResult,

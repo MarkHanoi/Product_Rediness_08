@@ -248,43 +248,57 @@ ever reduce, never validate, whatever this pack computes).
 
 ## 6. Activation steps after signature — signing ≠ rendering
 
-⚠⚠ **A signature ALONE will not render anything in Telde.** This mirrors Córdoba's own
-post-signature discovery this session (where signing did not enable rendering because the compute
-branch was never written) — checked directly against `apps/editor/src/ui/site/siteDispatch.ts`
-rather than assumed:
+⚠ **UPDATED 2026-08-04 — the dispatch-wiring gap this section originally recorded (2026-08-03,
+"zero references... in siteDispatch.ts") is CLOSED.** `apps/editor/src/ui/site/siteDispatch.ts` now
+carries `isInTelde(qLat, qLon)` routing to a dedicated `applyTeldeZoningThenFallback` function
+(committed `a83ed14a`, prior to this session), mirroring `applyCordobaZoningThenFallback` /
+`isInBalears`. A Telde parcel click today reaches `applyTeldeZoningThenFallback`, resolves a real
+`EDIF` zone code, and dispatches a zone-named cited refusal (`canariasNoRulePackRefusal` /
+`canariasGraphedRefusal`) — never the generic §L-663 `estimateSuppressedRefusal` card, and never a
+number, per §5. Verified this session via `apps/editor/__tests__/teldeSiteDispatch.test.ts` (9/9
+passing against real production data, not stubs).
 
-- **Zero references** to `TELDE_JURISDICTION_ID`, `CANARIAS_JURISDICTION_ID`, or `isInTelde` exist
-  anywhere in `siteDispatch.ts` — confirmed by direct grep of the file, re-run this session. Compare
-  Córdoba, which has a dedicated `applyCordobaZoningThenFallback` function and a City-specific `if
-  (isInCordoba(qLat, qLon))` branch (`siteDispatch.ts:1349`), or Balears, which has its own `if
-  (isInBalears(qLat, qLon))` branch (`siteDispatch.ts:1391`) calling a dedicated resolver chain.
-  **Telde has no equivalent of either.**
-- The only place a Telde parcel click can reach today is the **generic §L-663 chokepoint**
-  (`refuseEstimateInsideRegisteredJurisdiction`, `siteDispatch.ts:5849` ff.), which asks
-  `resolveRegisteredJurisdictionAt` whether *any* registered jurisdiction's `contains` predicate
-  claims the point. Because Telde **is** registered in `registry.ts`, that check succeeds — but its
-  only job is to **suppress the generic `estimated-default` triple** and dispatch a generic
-  `estimateSuppressedRefusal` card naming the jurisdiction. It never calls into
-  `canariasSipuProvider.ts`, never reads an `EDIF` row, and never calls
-  `computeBuildableEnvelope` for Telde specifically. In other words: today, a Telde parcel gets
-  **the same undifferentiated "this is a registered city, no estimate for you" refusal** as any
-  other registered-but-unwired jurisdiction — not even a Telde-specific citation, let alone a
-  number.
-- **Consequence:** flipping the gate constant, by itself, changes nothing a user sees. To make a
-  signature render anything, a **separate, additional piece of engineering work** is required:
-  authoring a Telde/Canarias-specific dispatch branch (mirroring
-  `applyCordobaZoningThenFallback` or the Balears `isInBalears` branch) that resolves the parcel's
-  point to a SIPU `EDIF` row, calls `readSipuZone`, and — only once the gate is open — routes a
-  resolved, drawable zone into `computeBuildableEnvelope` / `dispatchEnvelope`. **That wiring does
-  not exist yet, in any form, not even as an authored-but-uncalled function** (unlike Córdoba's
-  `resolveCordobaSubzone`, which exists but is simply never invoked). For Telde the gap is one
-  step earlier: the dispatch branch itself has not been written.
-- **Recommendation for whoever signs:** treat the signature and the dispatch-wiring work as two
-  separate approvals on two separate timelines, exactly as the Córdoba ledger now does. Signing
-  this document's gate is a legal act about the ordinance transcription; wiring the dispatch branch
-  is an engineering act that should land in a change a human can review on its own merits (and,
-  per this repo's `architectural-soundness mandate`, against the C11/C15-style contract for
-  element-creation-pipeline analogues) — not bundled silently into "the gate is now open."
+⚠⚠ **SEPARATELY, 2026-08-04 — the resolver itself was rewritten, closing a second gap.** The
+version of `resolveTeldeZone.ts` that shipped alongside the dispatch wiring called a same-origin
+proxy (`/api/telde/edif`) that was **never wired server-side** (no `server/telde*.js` file existed,
+and IDECanarias' live WFS — the service that proxy would ultimately call — is measured
+administratively disabled). That made the dispatch wiring genuinely reachable but genuinely
+NON-FUNCTIONAL end-to-end: every real call would return `endpoint-unreachable`.
+
+This session found and closed that gap **without standing up a server proxy**: Telde's own SIPU
+package — the exact zip already cited in `esTeldePgo2003.ts`
+(`030319-pgo-ad-itpu-150323-210504-sipu.zip`, downloaded and verified live this session,
+9 081 608 bytes) — ships `02SIST/EDIF.shp` + `02SIST/EDIF.dbf` (the zone-polygon geometry, ESRI
+shapefile, 2 643 records / 46 distinct `ETIQUETA` codes, confirmed to match the 46-code vocabulary
+`esTeldePgo2003.ts` already documents) in the SAME archive as `EDIF.mdb` (the numeric attributes
+already transcribed). `resolveTeldeZone.ts` was rewritten onto the El Sauzal offline-shapefile
+pattern (`resolveElSauzalZone.ts`): a committed extract
+(`packages/site-parcel-data/src/providers/data/teldeEdif.json`, 2 643 records, coordinates rounded
+to 0.1 m) is point-in-polygon joined at query time — no network call, no external dependency, no
+IDECanarias reliance of any kind. `DispObl = GRF` (graphed) classification, which the shapefile's
+DBF does not carry (that column lives only in `EDIF.mdb`), is supplied statically via a new
+`TELDE_GRAPHED_ZONE_CODES` export, derived programmatically from the SAME `TELDE_UNPACKED_ZONES`
+citations already in `esTeldePgo2003.ts` — not re-guessed.
+
+**Consequence:** a Telde parcel click today resolves a REAL zone code from REAL geometry and
+dispatches a REAL, zone-named cited refusal — entirely offline, entirely reproducible, no service
+dependency to come back online. Verified against real coordinates independently derived (not
+synthetic fixtures) for packed zone `E`, graphed-unpacked zone `D1`, and unpacked zone `INDEF`.
+
+- **What is still true, unchanged by this session:** `CANARIAS_ENVELOPE_VERIFIED` is `false`, and
+  nothing above the gate changes what a signature would authorise — §5 stands exactly as written.
+  Flipping the gate remains the ONLY remaining step to render the 31 packed zones' numbers (subject
+  to every §4 caveat, especially the open-top requirement). There is no remaining engineering
+  blocker between "signed" and "rendering" for Telde — the property Córdoba/Zaragoza already had,
+  now also true for Telde.
+- **What this does NOT do:** it does not read `EDIF.mdb`'s numeric columns per-parcel (those are
+  already folded into the pack, per code, as before); it does not change which 31 of 46 zones are
+  packed (§1); it does not touch El Sauzal's own dispatch status, which remains unwired
+  (deliberately out of scope this session — see El Sauzal's own header).
+- **Recommendation for whoever signs:** unchanged from the prior revision of this section — the
+  signature is a legal act about the ordinance transcription (§5), independent of the engineering
+  state above. What has changed is that the engineering state is now fully closed, so a signature
+  would take effect immediately rather than requiring further wiring.
 
 ---
 
@@ -297,6 +311,7 @@ never convert an estimate into an authoritative determination, and it would neve
 output a permit.
 
 *Maintainer: UNASSIGNED. Authority: C58 §1.1/§1.4/§1.6/§1.9/§1.11/§1.13 · ADR-0283 · ADR-0270/0271 ·
-L-449 · L-616 · L-656 · L-677. Last updated 2026-08-03 — test evidence re-run live (41/41);
-routing-inconsistency finding and dispatch-wiring gap independently checked against the current
-`siteDispatch.ts` this session.*
+L-449 · L-616 · L-656 · L-677. Last updated 2026-08-04 — §6 corrected: dispatch wiring (landed
+`a83ed14a`, prior to this session) and offline resolver rewrite (this session) both independently
+verified against the current `siteDispatch.ts` / `resolveTeldeZone.ts` and against
+`teldeSiteDispatch.test.ts` (9/9 passing on real production data). §1–§5 unchanged.*

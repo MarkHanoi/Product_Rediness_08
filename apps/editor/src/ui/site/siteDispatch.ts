@@ -214,20 +214,21 @@ import {
     type ZaragozaZoneCode,
     type OpenTopIndicativeRecord,
     // ── Telde (INE 35026, Gran Canaria) — the CITED-REFUSAL jurisdiction, SIPU EDIF. ──
-    // Telde's SIPU EDIF zones resolve via `resolveTeldeZone` (WIRED the way Zaragoza is, but —
-    // unlike Zaragoza — the live endpoint it would call does not exist yet: IDECanarias' WFS is
-    // measured administratively disabled, see `resolveTeldeZone.ts`'s header). `CANARIAS_ENVELOPE_
-    // VERIFIED` stays false until a human signs `sources/VERIFICATION.md`, so
+    // Telde's SIPU EDIF zones resolve via `resolveTeldeZone` — an OFFLINE point-in-polygon join
+    // against a committed extract of the real `EDIF.shp`/`EDIF.dbf` pair (rewritten 2026-08-04; see
+    // that file's header for why IDECanarias' disabled WFS was never actually load-bearing here).
+    // `CANARIAS_ENVELOPE_VERIFIED` stays false until a human signs `sources/VERIFICATION.md`, so
     // `applyTeldeZoningThenFallback` dispatches `canariasNoRulePackRefusal` (packed/unresolved
-    // zones) or `canariasGraphedRefusal` (GRF/graphed zones) — naming the resolved zone and its
-    // `TELDE_UNPACKED_ZONES` reason when applicable — and NO number reaches the panel/massing. Same
-    // discipline as Córdoba/Zaragoza.
+    // zones) or `canariasGraphedRefusal` (GRF/graphed zones, per `TELDE_GRAPHED_ZONE_CODES`) —
+    // naming the resolved zone and its `TELDE_UNPACKED_ZONES` reason when applicable — and NO
+    // number reaches the panel/massing. Same discipline as Córdoba/Zaragoza.
     isInTelde,
     TELDE_JURISDICTION_ID,
     CANARIAS_ENVELOPE_VERIFIED,
     ES_TELDE_PGO2003_PACK,
     TELDE_PGO2003_ZONE_CODES,
     TELDE_UNPACKED_ZONES,
+    TELDE_GRAPHED_ZONE_CODES,
     canariasNoRulePackRefusal,
     canariasGraphedRefusal,
     resolveTeldeZone,
@@ -461,6 +462,24 @@ import {
     CARTAGENA_ENVELOPE_VERIFIED,
     cartagenaNoRulePackRefusal,
     resolveCartagenaZone,
+    // §RESEARCH-PENDING (second Murcia-region pass, 2026-08-04) — Lorca (30024), Molina de Segura
+    // (30027), Alcantarilla (30005), Las Torres de Cotillas (30038). None has a rulepack. Same
+    // "stop the §L-663 fabrication defect" discipline as Málaga/Granada. Alcantarilla alone owns a
+    // live coarse land-use resolver (CARM regional WFS) so its refusal can name a resolved class.
+    isInLorca,
+    LORCA_JURISDICTION_ID,
+    lorcaResearchPendingRefusal,
+    isInMolinaDeSegura,
+    MOLINA_DE_SEGURA_JURISDICTION_ID,
+    molinaDeSeguraResearchPendingRefusal,
+    isInAlcantarilla,
+    ALCANTARILLA_JURISDICTION_ID,
+    ALCANTARILLA_ENVELOPE_VERIFIED,
+    alcantarillaNoRulePackRefusal,
+    resolveAlcantarillaLanduse,
+    isInLasTorresDeCotillas,
+    LAS_TORRES_DE_COTILLAS_JURISDICTION_ID,
+    lasTorresDeCotillasResearchPendingRefusal,
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 // ADR-0271 §BCN-REAL-ENVELOPE — the impure edge providers the Barcelona path injects into the
@@ -1516,6 +1535,56 @@ function applyZoning(
         // genuinely unquantified in the source ordinance, never fabricated as `0`.
         if (qLat != null && qLon != null && isInCartagena(qLat, qLon)) {
             void applyCartagenaZoningThenFallback(ctx, qLat, qLon, estimated);
+            return;
+        }
+        // §RESEARCH-PENDING (second Murcia-region pass, 2026-08-04) — Lorca (30024), Molina de
+        // Segura (30027), Alcantarilla (30005), Las Torres de Cotillas (30038). None has a
+        // rulepack or a working parcel-level zone resolver — see each city's own module for the
+        // specific confirmed blocker. Checked AFTER Cartagena (the one Murcia-region municipality
+        // with a working resolver) and BEFORE the Murcia-capital branch below, for legibility only.
+        if (qLat != null && qLon != null && isInLorca(qLat, qLon)) {
+            const site = ctx.store.getSite();
+            if (!site) { applyEstimatedZoning(ctx, estimated); return; }
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope('lorca-research-pending', lorcaResearchPendingRefusal(), 'none'),
+                LORCA_JURISDICTION_ID,
+            );
+            return;
+        }
+        if (qLat != null && qLon != null && isInMolinaDeSegura(qLat, qLon)) {
+            const site = ctx.store.getSite();
+            if (!site) { applyEstimatedZoning(ctx, estimated); return; }
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(
+                    'molina-de-segura-research-pending',
+                    molinaDeSeguraResearchPendingRefusal(),
+                    'none',
+                ),
+                MOLINA_DE_SEGURA_JURISDICTION_ID,
+            );
+            return;
+        }
+        if (qLat != null && qLon != null && isInAlcantarilla(qLat, qLon)) {
+            void applyAlcantarillaZoningThenFallback(ctx, qLat, qLon, estimated);
+            return;
+        }
+        if (qLat != null && qLon != null && isInLasTorresDeCotillas(qLat, qLon)) {
+            const site = ctx.store.getSite();
+            if (!site) { applyEstimatedZoning(ctx, estimated); return; }
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(
+                    'las-torres-de-cotillas-research-pending',
+                    lasTorresDeCotillasResearchPendingRefusal(),
+                    'none',
+                ),
+                LAS_TORRES_DE_COTILLAS_JURISDICTION_ID,
+            );
             return;
         }
         // §MURCIA-ENVELOPE — a Murcia (INE 30030) plot. ⚠ A REGIONALLY DISTINCT branch, not a
@@ -4100,23 +4169,25 @@ function tryZaragozaIndicativeEnvelope(
  * §TELDE-ENVELOPE — the Telde (INE 35026, Gran Canaria) path, on the Zaragoza/Córdoba precedent.
  *
  * Telde's SIPU `EDIF` archive publishes 31 of its 46 zone codes as a machine-readable, drawable
- * rule (`ES_TELDE_PGO2003_PACK` / `esTeldePgo2003.ts`) — published structured data, not an OCR read
- * — and `resolveTeldeZone` resolves a point to its raw EDIF row and hands it to `readSipuZone`
- * (reused, not duplicated). What is NOT yet true is a human sign-off: `CANARIAS_ENVELOPE_VERIFIED`
- * is false until a Spanish-planning-literate human signs `sources/VERIFICATION.md`, so this path
- * renders NO number today — it dispatches `canariasNoRulePackRefusal` (or `canariasGraphedRefusal`
- * for GRF/graphed zones), naming the resolved zone when the resolver answers (never a placeholder
- * once a real zone is known) and never a fabricated envelope.
+ * rule (`ES_TELDE_PGO2003_PACK` / `esTeldePgo2003.ts`) — published structured data, not an OCR
+ * read. `resolveTeldeZone` resolves a point to its `ETIQUETA` zone CODE by an OFFLINE point-in-
+ * polygon join against a committed extract of the real `EDIF.shp`/`EDIF.dbf` pair (rewritten
+ * 2026-08-04 — see that file's header for why IDECanarias' WFS was never actually load-bearing
+ * here: the geometry ships in the same SIPU zip already cited for the pack's own numbers). The
+ * numeric parameters this function renders (once signed) come from `ES_TELDE_PGO2003_PACK`, keyed
+ * by that code — never from the resolver, which carries geometry + code only, nothing else.
  *
- * ⚠⚠ UNLIKE ZARAGOZA, THE LIVE ENDPOINT `resolveTeldeZone` WOULD CALL IS NOT WIRED SERVER-SIDE
- * TODAY (IDECanarias' WFS is measured administratively disabled — see `resolveTeldeZone.ts`'s
- * header). So `z.reason` will genuinely be `'endpoint-unreachable'` on every live call until a
- * server-side EDIF point-join is stood up; that is reported honestly via `zoneNote`, never masked.
+ * What is NOT yet true is a human sign-off: `CANARIAS_ENVELOPE_VERIFIED` is false until a
+ * Spanish-planning-literate human signs `sources/VERIFICATION.md`, so this path renders NO number
+ * today — it dispatches `canariasNoRulePackRefusal` (or `canariasGraphedRefusal` for the
+ * `TELDE_GRAPHED_ZONE_CODES` — `DispObl = GRF` zones, a per-CODE typology property read statically
+ * rather than per-point, since the offline shapefile's DBF carries no `DispObl` column), naming the
+ * resolved zone when the resolver answers (never a placeholder once a real zone is known) and never
+ * a fabricated envelope.
  *
  * VERIFICATION.md §6 records that Telde had NEITHER a dispatch branch NOR a compute path before
- * this function — closing that gap is this function's entire job. It does not by itself make
- * Telde live end-to-end (the proxy still needs writing); it makes a signature the ONLY remaining
- * gap, exactly the property Zaragoza/Córdoba already have.
+ * this function existed. Closing the dispatch gap AND the live-resolution gap (offline, not proxy)
+ * makes a signature the ONLY remaining gap, exactly the property Zaragoza/Córdoba already have.
  *
  * Fully guarded: any problem falls back to the precomputed estimated envelope; never throws into
  * the commit path. `status: 'none'` on the refusal keeps every numeric field null and clears any
@@ -4179,12 +4250,18 @@ async function applyTeldeZoningThenFallback(
         try {
             const z = await resolveTeldeZone({ lat, lon });
             if (z.ok) {
-                const reading = z.resolution.reading;
-                zoneCode = reading.zoneCode;
-                zoneLabel = reading.zoneLabel;
-                grammar = reading.grammar;
+                zoneCode = z.resolution.zoneCode;
+                // ⚠ The offline `EDIF.shp`/`EDIF.dbf` join carries geometry + zone CODE only (no
+                // `Nombre`/label column — that lives in `EDIF.mdb`, unparsed here). A packed zone's
+                // label comes from the pack itself below; an unpacked zone simply has none to show.
+                zoneLabel = null;
                 if (zoneCode !== null) {
                     packed = (TELDE_PGO2003_ZONE_CODES as readonly string[]).includes(zoneCode);
+                    // ⭐ `DispObl = GRF` (graphed) is a per-CODE typology property, not a per-point
+                    // one — `TELDE_GRAPHED_ZONE_CODES` supplies it statically (derived from the same
+                    // human-read `EDIF.mdb` citations already in `TELDE_UNPACKED_ZONES`) rather than
+                    // needing a `DispObl` column the offline shapefile does not carry.
+                    grammar = TELDE_GRAPHED_ZONE_CODES.has(zoneCode) ? 'graphed-refusal' : null;
                     if (!packed) {
                         const reason = TELDE_UNPACKED_ZONES[zoneCode];
                         zoneNote = reason
@@ -4200,8 +4277,7 @@ async function applyTeldeZoningThenFallback(
             } else {
                 zoneNote =
                     `Telde EDIF zone NOT resolved (${z.reason}) — this is an unknown, not an ` +
-                    'absence of planning. The per-point EDIF service PRYZM would query is not ' +
-                    'wired server-side yet (§TELDE-ZONE-RESOLVER).';
+                    'absence of planning. (§TELDE-ZONE-RESOLVER, offline extract.)';
             }
         } catch (e) {
             console.warn(`${TAG} §TELDE-ZONE resolve failed (non-fatal):`, e);
@@ -4737,6 +4813,82 @@ async function applyCartagenaZoningThenFallback(
         );
     } catch (e) {
         console.warn(`${TAG} Cartagena path failed (non-fatal) — falling back to estimated default:`, e);
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+    }
+}
+
+/**
+ * §ALCANTARILLA-ENVELOPE — the Alcantarilla (INE 30005, Región de Murcia) path.
+ *
+ * ⚠ Alcantarilla has NO rulepack — the two 1983 PGOU ordinance source documents are hosted
+ * exclusively on SharePoint links that return HTTP 403 to automated fetch (see `esAlcantarilla.ts`).
+ * What it DOES have is a live, coarse, non-binding land-use resolver against CARM's own regional
+ * WFS (`resolveAlcantarillaLanduse.ts`), confirmed live 2026-08-04. So this path ALWAYS resolves
+ * the live land-use feature (to name it on the refusal card, exactly the same honesty property
+ * `applyCartagenaZoningThenFallback` documents for its zone resolve) then ALWAYS dispatches a
+ * cited refusal — never a fabricated envelope, and never a claim that a fine zone code or a
+ * numeric ordinance parameter was resolved.
+ *
+ * Fully guarded: any problem falls back to the precomputed estimated envelope; never throws into
+ * the commit path. `status: 'none'` on the refusal keeps every numeric field null.
+ */
+async function applyAlcantarillaZoningThenFallback(
+    ctx: SiteContext,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+): Promise<void> {
+    const TAG = '[gis][c58] §ALCANTARILLA-ENVELOPE';
+    const JURISDICTION_REF = ALCANTARILLA_JURISDICTION_ID;
+    const ALCANTARILLA_FALLBACK_ZONE_CODE = 'alcantarilla-research-pending';
+    try {
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        let landuseProperties: Readonly<Record<string, unknown>> | null = null;
+        let landuseNote: string | null = null;
+        try {
+            const r = await resolveAlcantarillaLanduse({ lat, lon });
+            if (r.ok) {
+                landuseProperties = r.resolution.properties;
+            } else if (r.reason === 'no-feature-here') {
+                landuseNote =
+                    "No sitmurcia_plu_ze feature covers this point in CARM's regional WFS.";
+            } else if (r.reason === 'out-of-alcantarilla') {
+                landuseNote = "Point falls outside Alcantarilla's municipal bounding box.";
+            } else {
+                landuseNote =
+                    `Alcantarilla land-use NOT resolved (${r.reason}${r.detail ? `: ${r.detail}` : ''}).`;
+            }
+        } catch (e) {
+            console.warn(`${TAG} land-use resolve failed (non-fatal):`, e);
+            landuseNote = 'Alcantarilla land-use NOT resolved (resolver error).';
+        }
+
+        const knownFacts = [
+            `Location: Alcantarilla (${lat.toFixed(5)}, ${lon.toFixed(5)}) — PGOU 1983 (vigente)`,
+            landuseNote,
+        ].filter((s): s is string => typeof s === 'string');
+
+        // ⚠⚠⚠ THE HONESTY GATE — ⛔ DO NOT FLIP `ALCANTARILLA_ENVELOPE_VERIFIED` HERE OR
+        // ANYWHERE ELSE. There is no transcription to sign at all yet (L-449).
+        void ALCANTARILLA_ENVELOPE_VERIFIED;
+        const refusal = alcantarillaNoRulePackRefusal(landuseProperties, knownFacts);
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(ALCANTARILLA_FALLBACK_ZONE_CODE, refusal, 'none'),
+            JURISDICTION_REF,
+        );
+        console.log(
+            `${TAG} §HONESTY-GATE — dispatched the no-rulepack refusal; NO number rendered ` +
+                `(${refusal.code}). landuseResolved=${landuseProperties !== null}.`,
+        );
+    } catch (e) {
+        console.warn(`${TAG} Alcantarilla path failed (non-fatal) — falling back to estimated default:`, e);
         try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
     }
 }

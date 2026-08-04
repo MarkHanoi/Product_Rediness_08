@@ -5,18 +5,25 @@
 // WHY THIS TEST EXISTS
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
 // `ES_TELDE_PGO2003_PACK` is REGISTERED in `rulepacks/registry.ts` with a non-empty `packsByZone`
-// (31 packed EDIF zones), and until this session NOTHING in `siteDispatch.ts` referenced
+// (31 packed EDIF zones), and until 2026-08-03 NOTHING in `siteDispatch.ts` referenced
 // `isInTelde` / `TELDE_JURISDICTION_ID` / `applyTeldeZoningThenFallback` — VERIFICATION.md §6
 // records that a Telde click reached only the generic §L-663 chokepoint
 // (`refuseEstimateInsideRegisteredJurisdiction`), which suppresses the estimated triple but never
 // names a Telde zone or reads an EDIF row. This suite is the direct analogue of
 // `zaragozaSiteDispatch.test.ts`: the real `dispatchParcelBoundary`, a real `SiteModelStore`, a
-// site on real Telde land, and the ONLY stub is the injectable `resolveTeldeZone` fetch. Nothing
-// about the routing, the ordering, the gate or the dispatch is mocked — remove the `isInTelde`
-// branch from `applyZoning` and the first test fails, because a Telde plot would then fall through
-// to the ESTIMATED front/side/rear default, precisely the fabrication the gate exists to prevent.
+// site on real Telde land — nothing stubbed. Remove the `isInTelde` branch from `applyZoning` and
+// the first test fails, because a Telde plot would then fall through to the ESTIMATED front/side/
+// rear default, precisely the fabrication the gate exists to prevent.
+//
+// ⭐ 2026-08-04 — NO FETCH STUB. `resolveTeldeZone` was rewritten onto the El Sauzal offline-
+// shapefile pattern: it point-in-polygon joins against a COMMITTED extract of the real
+// `EDIF.shp`/`EDIF.dbf` pair (`data/teldeEdif.json`, 2 643 records), not a network call. So the
+// fixture points below are REAL WGS84 coordinates, independently derived by numerically inverting
+// the resolver's own `wgs84ToUtm28N` projection against each zone's real polygon centroid from the
+// committed data (see the session's extraction notes) — not synthetic geometry. A click at these
+// exact coordinates in production resolves to exactly the zone code each test names.
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { SiteModelStore, siteCreate } from '@pryzm/stores';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { BuildableEnvelope } from '@pryzm/schemas';
@@ -37,11 +44,29 @@ import {
 /**
  * A real point inside Telde's término municipal (well within `TELDE_BBOX`, asserted below) —
  * `teldeRouting.test.ts` resolves the same municipality independently from a Catastro OVC probe,
- * this file only needs a point safely inside the box, not a specific parcel identity.
+ * this file only needs a point safely inside the box, not a specific parcel identity. This point
+ * sits inside a real `E` (packed) EDIF polygon in the committed offline extract.
  */
 const PARCEL = {
-    lat: 27.995,
-    lon: -15.42,
+    lat: 28.01478338454933,
+    lon: -15.382309021079934,
+} as const;
+
+/**
+ * Real WGS84 points, each independently verified (this session) to fall inside a specific real
+ * EDIF polygon in the committed `teldeEdif.json` extract, by numerically inverting
+ * `wgs84ToUtm28N` against that polygon's own vertex centroid and re-running the SAME forward-
+ * projection + even-odd point-in-polygon test the shipped resolver uses.
+ */
+const REAL_ZONE_POINTS = {
+    /** Packed zone `E` — Ciudad jardín, unifamiliar aislada (Art. 229). */
+    E: { lat: 28.01478338454933, lon: -15.382309021079934 },
+    /** Unpacked, graphed zone `D1` — `DispObl = GRF`. */
+    D1: { lat: 27.997386367147705, lon: -15.410879878830968 },
+    /** Unpacked zone `INDEF` — "Indefinida". */
+    INDEF: { lat: 28.028548910374724, lon: -15.415081646617685 },
+    /** Outside every committed EDIF polygon (well outside the extract's own bounding box). */
+    OUTSIDE: { lat: 27.922847492182665, lon: -15.534930886011523 },
 } as const;
 
 /** A small plot ring in scene metres — the shape a draw/select commits. */
@@ -51,39 +76,6 @@ const BOUNDARY = {
     ],
     edgeClassifications: ['front', 'side', 'rear', 'side'] as const,
 };
-
-interface RouteLog {
-    readonly urls: string[];
-}
-
-/**
- * Stub the one same-origin proxy this path would call. Any OTHER URL rejects, which is
- * deliberate: if the Telde path ever started calling a national Catastro endpoint (it does not
- * today) that would need to surface here rather than hang silently.
- *
- * ⚠ Unlike Zaragoza's `/api/zaragoza/calificaciones`, `/api/telde/edif` is NOT wired server-side
- * today (`resolveTeldeZone.ts`'s header) — this stub exists purely to prove the PARSE/dispatch side
- * of the contract; it is not a claim that the real endpoint answers this way in production.
- */
-function stubProxy(
-    log: RouteLog,
-    edifRow: Record<string, string> | null,
-): typeof globalThis.fetch {
-    return vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input);
-        log.urls.push(url);
-        if (url.startsWith('/api/telde/edif')) {
-            return {
-                ok: true,
-                status: 200,
-                json: async () => ({
-                    features: edifRow ? [{ properties: edifRow }] : [],
-                }),
-            } as unknown as Response;
-        }
-        throw new TypeError(`unstubbed URL in unit test: ${url}`);
-    }) as unknown as typeof globalThis.fetch;
-}
 
 function ctxFor(store: SiteModelStore) {
     const emitted: string[] = [];
@@ -103,17 +95,14 @@ async function waitForEvent(emitted: readonly string[], type: string, timeoutMs 
 }
 
 async function dispatchTelde(
-    edifRow: Record<string, string> | null = { Etiqueta: 'E', Nombre: 'Ciudad jardín, unifamiliar aislada' },
+    point: { readonly lat: number; readonly lon: number } = PARCEL,
 ): Promise<{
     store: SiteModelStore;
     envelope: BuildableEnvelope | null;
-    urls: string[];
 }> {
-    const log: RouteLog = { urls: [] };
-    globalThis.fetch = stubProxy(log, edifRow);
     const store = new SiteModelStore();
     siteCreate(
-        { projectId: 'proj-telde', location: { latitude: PARCEL.lat, longitude: PARCEL.lon } },
+        { projectId: 'proj-telde', location: { latitude: point.lat, longitude: point.lon } },
         store,
     );
     const { ctx, emitted } = ctxFor(store);
@@ -124,14 +113,10 @@ async function dispatchTelde(
         }),
     ).toBe(true);
     await waitForEvent(emitted, 'site.zoning-updated');
-    return { store, envelope: getLastBuildableEnvelope(), urls: log.urls };
+    return { store, envelope: getLastBuildableEnvelope() };
 }
 
 describe('§TELDE-ENVELOPE — a click on a Telde parcel reaches the Telde code', () => {
-    let realFetch: typeof globalThis.fetch;
-    beforeEach(() => { realFetch = globalThis.fetch; });
-    afterEach(() => { globalThis.fetch = realFetch; vi.restoreAllMocks(); });
-
     it('the fixture point really is inside the shipping Telde bbox extent (the routing premise)', () => {
         expect(isInTelde(PARCEL.lat, PARCEL.lon)).toBe(true);
         expect(PARCEL.lat).toBeGreaterThanOrEqual(TELDE_BBOX.minLat);
@@ -146,14 +131,11 @@ describe('§TELDE-ENVELOPE — a click on a Telde parcel reaches the Telde code'
         // envelope with setbacks and a height — `status: 'ok'`, no refusal. Both assertions below
         // then fail. The jurisdiction ref is the second half of the same proof: `sipu-telde-edif`
         // is written by no other branch.
-        const { store, envelope, urls } = await dispatchTelde();
+        const { store, envelope } = await dispatchTelde();
         expect(envelope).not.toBeNull();
         expect(envelope!.status).toBe('none');
         expect(envelope!.refusal).toBeTruthy();
         expect(store.getSite()!.parcel.zoning.jurisdictionRef).toBe('sipu-telde-edif');
-        // The Telde leg calls exactly the one same-origin proxy it needs, nothing more.
-        const planningCalls = urls.filter((u) => u.includes('telde'));
-        expect(planningCalls.length).toBeGreaterThan(0);
     });
 
     it('the pack is REGISTERED-AND-REFUSING (unlike Zaragoza): populated packsByZone, gate still shut', () => {
@@ -180,20 +162,12 @@ describe('§TELDE-ENVELOPE — a click on a Telde parcel reaches the Telde code'
 });
 
 describe('§TELDE-ENVELOPE §HONESTY-GATE — a resolved zone never renders a number while the gate is shut', () => {
-    let realFetch: typeof globalThis.fetch;
-    beforeEach(() => { realFetch = globalThis.fetch; });
-    afterEach(() => { globalThis.fetch = realFetch; vi.restoreAllMocks(); });
-
     it('a PACKED zone (E) resolves but dispatches a cited no-signed-rule refusal naming it, never a number', async () => {
         // Zone E — Ciudad jardín, edificación residencial unifamiliar aislada. One of the 31
-        // packed zones (`esTeldePgo2003.ts`, SETBACK grammar).
+        // packed zones (`esTeldePgo2003.ts`, SETBACK grammar). `REAL_ZONE_POINTS.E` is a real
+        // WGS84 point independently verified to sit inside a real `E` EDIF polygon.
         expect(TELDE_PGO2003_ZONE_CODES).toContain('E');
-        const { envelope } = await dispatchTelde({
-            Etiqueta: 'E',
-            Nombre: 'Ciudad jardín, edificación residencial unifamiliar aislada',
-            SepMinFr: '5', SepMinPs: '5', SepMinLt: '2',
-            PMaxOcup: '40', EdifMax: '0,60', AltMaxPl: '2', AltMaxMP: '7,50',
-        });
+        const { envelope } = await dispatchTelde(REAL_ZONE_POINTS.E);
         const r = envelope!.refusal!;
         // ⚠ `legallyGrounded: false` and it must stay false. PGO Telde Art. 229 DOES set an
         // envelope for zone E — what is missing is PRYZM's signed transcription, not the law.
@@ -211,9 +185,10 @@ describe('§TELDE-ENVELOPE §HONESTY-GATE — a resolved zone never renders a nu
     it('an UNPACKED zone (INDEF) refuses citing its OWN named TELDE_UNPACKED_ZONES reason, not a generic message', async () => {
         // "Indefinida" — the plan itself declares the zone undetermined. One of the 15
         // deliberately-unpacked codes; the reason string lives in `TELDE_UNPACKED_ZONES.INDEF`.
+        // `REAL_ZONE_POINTS.INDEF` is a real point inside a real `INDEF` EDIF polygon.
         expect(TELDE_PGO2003_ZONE_CODES).not.toContain('INDEF');
         expect(TELDE_UNPACKED_ZONES.INDEF).toBeTruthy();
-        const { envelope } = await dispatchTelde({ Etiqueta: 'INDEF', Nombre: 'Indefinida' });
+        const { envelope } = await dispatchTelde(REAL_ZONE_POINTS.INDEF);
         const r = envelope!.refusal!;
         expect(r.legallyGrounded).toBe(false);
         expect(envelope!.status).toBe('none');
@@ -228,21 +203,14 @@ describe('§TELDE-ENVELOPE §HONESTY-GATE — a resolved zone never renders a nu
     it('another UNPACKED zone (D1, graphed) refuses on the STRONGER graphed-refusal terms, not the generic coverage-gap one', async () => {
         // D1 — DispObl = GRF: the building line is on a plan sheet PRYZM does not hold. This is
         // `canariasGraphedRefusal`, deliberately `legallyGrounded: true` (a stronger, structural
-        // refusal), distinct from the generic `canariasNoRulePackRefusal`.
+        // refusal), distinct from the generic `canariasNoRulePackRefusal`. `REAL_ZONE_POINTS.D1`
+        // is a real point inside a real `D1` EDIF polygon; the offline resolver has no `DispObl`
+        // column to read (it lives in `EDIF.mdb`, not the shapefile), so the dispatcher derives
+        // "graphed" statically from `TELDE_GRAPHED_ZONE_CODES`, itself derived from the SAME
+        // `EDIF.mdb`-sourced citation already in `TELDE_UNPACKED_ZONES.D1`.
         expect(TELDE_PGO2003_ZONE_CODES).not.toContain('D1');
         expect(TELDE_UNPACKED_ZONES.D1).toMatch(/GRF|plan sheet/i);
-        // Verbatim shape of Telde's real D1 row (`esCanariasTelde.test.ts` TELDE_D1 fixture): the
-        // setback/depth columns are ALL the sentinel `I` — DispObl=GRF is the only speaking field,
-        // so `hasNumericDepth` is false and `detectSipuGrammar` selects `graphed-refusal` (its
-        // FIRST, most-specific branch: `graphed && !hasNumericDepth`).
-        const { envelope } = await dispatchTelde({
-            Etiqueta: 'D1',
-            Nombre: 'Proceso tipológico de edificación residencial colectiva con patio de manzana. Ordenanza D',
-            SepMinFr: 'I', SepMinPs: 'I', SepMinLt: 'I',
-            DispObl: 'GRF',
-            FonMaxEdm: 'I',
-            PMaxOcup: 'I',
-        });
+        const { envelope } = await dispatchTelde(REAL_ZONE_POINTS.D1);
         const r = envelope!.refusal!;
         expect(r.legallyGrounded).toBe(true);
         expect(r.code).toBe('regime-undetermined');
@@ -252,7 +220,7 @@ describe('§TELDE-ENVELOPE §HONESTY-GATE — a resolved zone never renders a nu
     });
 
     it('an UNRESOLVED point (no EDIF feature) still dispatches a cited refusal, never falls through to the estimate', async () => {
-        const { envelope } = await dispatchTelde(null);
+        const { envelope } = await dispatchTelde(REAL_ZONE_POINTS.OUTSIDE);
         expect(envelope).not.toBeNull();
         expect(envelope!.status).toBe('none');
         expect(envelope!.refusal).toBeTruthy();
