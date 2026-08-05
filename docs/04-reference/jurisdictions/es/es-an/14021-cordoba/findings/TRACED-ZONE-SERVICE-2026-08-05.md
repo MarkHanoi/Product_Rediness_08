@@ -387,3 +387,149 @@ of the physical sheet. If a truly higher-resolution source (e.g., a fresh scan a
 vector/GIS-native calificación layer instead of a raster) becomes available, it should be dimension-
 checked (`PIL.Image.size`) **and** visually crop-compared against the existing baseline — exactly the
 two-step test this pass ran — before any tracing time is spent on it.
+
+## 2026-08-05 (fourth pass) — SECOND RECORD ADDED: `OA-1` from `CUS27W.jpg` (Distrito Sureste)
+
+The first pass since the seed to actually **add** a polygon. `cordobaTracedZones.json` now holds
+**two** records: the 2026-08-04 `PAS-2` seed and a new `OA-1` block. `CORDOBA_TRACED_ZONES_VERIFIED`
+is **unchanged, still `false`** — this is data, not a sign-off, and nothing in this pass touched
+`resolveCordobaTracedZone.ts`'s logic, `esCordobaPGOU2001.ts`, or `CORDOBA_ENVELOPE_VERIFIED`.
+
+This is the Priority-2 ("Derived Planning Layer") seed from
+[`DIGITIZATION-ROADMAP-2026-08-05.md`](./DIGITIZATION-ROADMAP-2026-08-05.md) at its smallest honest
+scale: **one** reviewable, human-read record, not automated bulk classification.
+
+### 1. Sheet selection — and why `CUS27W` is not a duplicate of anything stronger
+
+`coaco:hojas_cus` was re-queried live this pass (`geoserver.pgou.coacordoba.org`, 8 features,
+EPSG:25830) and confirms the vectorised set is exactly **`CUS25W, CUS26W, CUS34W, CUS41W, CUS45W,
+CUS46W`** — the Sur+Noroeste pilot. `CUS27W` is outside that set, so this record adds coverage rather
+than shadowing a live WFS answer. The interior test point independently returns
+`isInCordoba(...) === false` **and** `isInCordobaMunicipality(...) === true` — i.e. exactly the
+dispatcher branch this store exists for — and Nominatim reverse-geocodes it to **Distrito Sureste**,
+one of the five districts the pilot does *not* cover. All three checks are asserted in tests, not
+just stated here.
+
+**Fake-upscale check (the `CUS20W_v2`/`CUS34W_v2` test), run not assumed.** `CUS27W.jpg` is
+1882 × 1469 px, 467 304 bytes, sha256 `99bdba5c…`. No other sheet in the 49-sheet corpus shares its
+dimensions, and no other sheet stands in a uniform (integer-or-otherwise constant) width/height ratio
+to it that would indicate a resample of the same raster — the one near-miss (`CUS34W`, ratio
+1.0178 × 1.0194) is a genuinely different sheet showing different map content, and its X/Y ratios are
+not equal. This is an original bulk-fetched GMU sheet.
+
+### 2. Georeferencing — ED50 (EPSG:23030), fitted to fifteen of the sheet's own printed labels
+
+The sheet is **skewed ≈0.36°** in the scan, so a naïve axis-aligned corner affine is wrong. Method
+used instead, all from `CUS27W`'s own printed grid:
+
+- **Bottom edge** — 9 interior easting labels (`344800 … 346400`, 200 m pitch) plus both corner
+  labels (`344641`, `346441`), located by ink-run centroiding in a band that *follows* the skewed
+  frame line. Measured pitch 200.6 px / 200 m → **0.99688 m/px**.
+- **Left edge** — 6 interior northing labels (`4194600 … 4195600`) → **0.99404 m/px**.
+- Rotation taken from the frame lines themselves, read pixel-by-pixel at four well-separated places
+  (top, bottom, left, right); the two axis directions come out perpendicular to **0.035°**.
+- **The closure test that makes this trustworthy**: the easting calibration (bottom edge only) and
+  the northing calibration (left edge only) are *independent*, and each correctly predicts the
+  other's reference point to **0.3 m**. Residuals over all 15 printed control values are **≤ 1.3 m**
+  (≈1.3 px, i.e. the label-centroid reading precision). By contrast the `PAS-2` seed's own top-edge
+  northing was never read at all — it was held equal to the x-scale.
+- Frame extent confirms the sheet-grid model: `CUS27W` = E 344641–346441, N 4194501–4195651 (ED50),
+  1800 × 1150 m, which is the tile directly south of `CUS20W` and directly east of `CUS26W`.
+- **ED50, not ETRS89.** Read as EPSG:23030 and reprojected 23030 → 25830 → 4326 with `pyproj`, per
+  §2.2 of `RASTER-PARCEL-ZONING-FEASIBILITY-2026-08-05.md`. Reading it as ETRS89 would have misplaced
+  the polygon by ≈234 m. Cross-check: applying the shift to `CUS41W`'s printed corners reproduces
+  `coaco:hojas_cus`'s own published `CUS41W` footprint (342727.4–344528.6 E / 4191997.2–4193149.1 N)
+  to within ~2 m.
+
+### 3. The zone — family by legend RGB, subzone by direct digit read
+
+- **Family**: the ten `ZONAS DE ORDENANZA` swatches were sampled by pixel from **CUS27W's own legend
+  panel** (not from memory, not from CUS41W's palette): Ordenación Abierta = **(220, 48, 32)**.
+  The traced block matches that swatch; it is *not* Manzana Cerrada (249, 156, 124) — the exact
+  colour near-miss §Stage 3 of `END-TO-END-PROOF-2026-08-04.md` recorded.
+- **Subzone**: the block carries a single printed **"1"**, read directly at 11× zoom (unambiguous
+  vertical stroke with the top-left flag and wide base, identical in form to the "1" on the adjacent
+  OA block across the street). No second digit appears anywhere inside the polygon. → **`OA-1`**.
+- **Pack cross-reference**: `OA-1` is registered in `CORDOBA_PGOU2001_ZONE_CODES` and fully packed in
+  `ES_CORDOBA_PGOU2001_PACK` with real Art. 13.6 numbers (FAR 1,4 · ocupación 40 % · PB+3..PB+6 máx
+  21 m · linderos privados ½·altura = 10,5 m · no front retranqueo). It computes, rather than
+  structurally refusing — deliberately *not* `MC` (unresolved `fondo`) and not an unpacked family.
+
+### 4. Geometry — five vertices, every one measured, none extrapolated
+
+The polygon is the **street-bounded block** itself (the ring is used only for the point-in-polygon
+zone lookup — `applyCordobaTracedZoneThenFallback` computes the envelope on the *user's* drawn
+boundary, never on this ring, so a block-scale ring overstates nothing).
+
+Each of the five edges was independently line-fitted to the block's own raster boundary (per-edge fit
+RMS **0.18–0.58 px** over 19–99 boundary pixels); the five vertices are the intersections of adjacent
+fitted edges, and each was then **visually confirmed** on a crosshair overlay at 18× zoom.
+
+| V | sheet px | ED50 (23030) E, N | ETRS89 (25830) E, N | WGS84 lon, lat |
+|---|---|---|---|---|
+| V1 (W)  | 1304.70, 809.11 | 345902.4, 4194866.4 | 345791.4, 4194660.4 | −4.753646264, 37.886399139 |
+| V2 (NW) | 1349.51, 734.22 | 345946.6, 4194941.1 | 345835.6, 4194735.1 | −4.753159797, 37.887079599 |
+| V3 (N)  | 1390.16, 733.62 | 345987.1, 4194941.9 | 345876.1, 4194735.9 | −4.752699427, 37.887093845 |
+| V4 (E)  | 1431.87, 757.98 | 346028.9, 4194918.0 | 345917.8, 4194711.9 | −4.752219852, 37.886884960 |
+| V5 (S)  | 1376.45, 852.54 | 345974.2, 4194823.7 | 345863.2, 4194617.6 | −4.752820935, 37.886026071 |
+
+Shoelace area **≈ 8 641 m²** — a plausible single urban block. The ring follows the colour **fill**,
+so it sits ≈1–1.5 m *inside* the printed boundary stroke; that is the conservative direction for a
+containment test (it can only ever fail to claim land, never over-claim), and it is stated in the
+record's own `provenance`.
+
+### 5. Independent verification against an authority that is not the sheet
+
+The weakness this file has repeatedly named is that a trace is checked only against itself. This one
+was checked against the **Spanish Catastro** (OVC `Consulta_RCCOOR`, EPSG:25830), which knows nothing
+about the PGOU raster:
+
+- **Five points inside** the ring (one per vertex, 25 % toward the centroid) each return a **real
+  urban cadastral parcel**, and their addresses name exactly the four streets that bound the block on
+  the sheet: `CL POETA ANTONIO GALA 18/22`, `CL ACERA ALONSO GOMEZ FIGUER 10`, `AV VIRGEN DEL MAR
+  41/45`, `PJ ROSAL DE LA FRONTERA 4`. The centroid returns `5948503UG4954N`,
+  `CL PERIODISTA PACO VARGAS 1`.
+- **Five points 18 m beyond each edge midpoint** all return
+  `PARA ESAS COORDENADAS NO HAY REFERENCIA DISPONIBLE` — no parcel, i.e. public *viario*.
+
+So the traced boundary coincides with a real cadastral block edge **on all five sides**, verified by
+a source with no relationship to the CUS raster. Nominatim independently reverse-geocodes the five
+vertices to those same five street names. (Deeper interior sample points also return "no reference" —
+consistent with `Ordenación Abierta`'s open-block typology, where the interior is communal open space
+rather than parcelled frontage; a small corroboration of the family reading.)
+
+### 6. Provenance model
+
+The record's `provenance` follows the roadmap's model: facts only (source sheet + URL, method, date,
+CRS chain, what was cross-checked against what) plus a plain-language tier —
+**`verified_manual_transcription`** — and **no invented probability**. It states verbatim that this is
+not authoritative municipal geometry and that no COACo/GMU service publishes this polygon.
+
+### 7. Tests
+
+- `packages/site-parcel-data` full suite → **151 files / 3132 tests, all passed** (4 new tests in
+  `resolveCordobaTracedZone.test.ts`: the record exists and is `OA-1` from `CUS27W.jpg`; **no** record
+  may cite one of the six `coaco:hojas_cus` sheets; the interior point resolves `OA-1` with an
+  ED50-and-legend-swatch-citing provenance; the point is outside the pilot bbox and inside the
+  municipality; and every stored code is one the real pack carries with an `ordinanceRef`).
+- `apps/editor` — `cordobaSiteDispatch` + `cordobaTracedZoneSiteDispatch` +
+  `cordobaTracedZoneVerifiedSiteDispatch` → **26 tests, all passed** (1 new: the `OA-1` point renders
+  a real `status: 'ok'`, less-than-parcel, `pipeline-extracted-unverified` envelope end-to-end through
+  the **unmodified** `resolveCordobaTracedZone` → `applyCordobaTracedZoneThenFallback` →
+  `computeBuildableEnvelope` chain, with the gate mocked open in that file's module graph only).
+  The previously-noted pre-existing `toHaveLength` mismatch stays fixed; nothing regressed.
+- Gate-closed behaviour is unchanged and still asserted: with the real `CORDOBA_TRACED_ZONES_VERIFIED
+  === false`, a point inside this new block still falls through to the §L-663 cited refusal.
+
+### 8. What this pass does **not** claim
+
+- It does not sign `CORDOBA_TRACED_ZONES_VERIFIED`. The QA methodology named in §"What still needs a
+  human" above is still the bar, and this record was *authored* to that bar (every corner read, the
+  legend swatch RGB-sampled, an independent authority consulted) — but authoring to a bar is not the
+  same act as an independent human re-derivation, and it is not a founder sign-off.
+- It does not claim the *ordinance* numbers are anything other than what the already-signed pack says
+  (`pipeline-extracted-unverified` still caps the confidence — the two claims stay separate).
+- One honest imperfection, recorded rather than smoothed over: the block spans **two** cadastral
+  *manzana* codes (`5948`, `5949`). That is a cadastral subdivision, not a calificación one — the
+  colour field is continuous across it and only one subzone digit is printed — but a future reviewer
+  should know the cadastral and zoning tessellations do not coincide here.

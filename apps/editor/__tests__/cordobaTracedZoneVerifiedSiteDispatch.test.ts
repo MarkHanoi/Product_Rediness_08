@@ -34,6 +34,13 @@ import { dispatchParcelBoundary, getLastBuildableEnvelope } from '../src/ui/site
 /** Same PAS-2 interior point as the gate-off companion file — see that file's own derivation note. */
 const PAS2_POINT = { lat: 37.9000309378604, lon: -4.751228404551405 };
 
+/**
+ * A point inside the SECOND traced record — the OA-1 block read off `CUS27W.jpg` on 2026-08-05
+ * (Distrito Sureste, outside both the COACo pilot bbox and the six COACo-vectorised sheets). This is
+ * the WGS84 position of the block's own printed subzone digit "1", not arithmetic on the stored ring.
+ */
+const OA1_POINT = { lat: 37.8864229, lon: -4.7529792 };
+
 /** Same fixture as the gate-off companion file (LARGE_BOUNDARY-shaped, clears PAS-2's real setbacks). */
 const BOUNDARY = {
     polygon: [
@@ -113,4 +120,40 @@ describe('§COR-TRACED-ZONE (gate mocked TRUE, this file only) — the full path
             .filter((u) => u.includes('catastro') || u.includes('coaco') || u.includes('coacordoba') || u.includes('cordoba-traced'));
         expect(planningCalls).toEqual([]);
     });
+
+    it('the CUS27W-traced OA-1 block also computes a real envelope end-to-end (Art. 13.6 numbers)',
+        async () => {
+            // §END-TO-END — the same proof shape as the PAS-2 case above, run against the second
+            // committed record through the REAL, unmodified resolver → dispatcher →
+            // computeBuildableEnvelope chain. Nothing but the data file changed to make this pass.
+            globalThis.fetch = failOnAnyFetch();
+            const store = new SiteModelStore();
+            siteCreate(
+                {
+                    projectId: 'proj-cordoba-traced-verified',
+                    location: { latitude: OA1_POINT.lat, longitude: OA1_POINT.lon },
+                },
+                store,
+            );
+            const { ctx, emitted } = ctxFor(store);
+            expect(
+                dispatchParcelBoundary(ctx, {
+                    ...BOUNDARY,
+                    edgeClassifications: [...BOUNDARY.edgeClassifications],
+                }),
+            ).toBe(true);
+            await waitForEvent(emitted, 'site.zoning-updated');
+            const envelope: BuildableEnvelope | null = getLastBuildableEnvelope();
+            expect(envelope).not.toBeNull();
+            expect(envelope!.status).toBe('ok');
+            expect(envelope!.refusal).toBeFalsy();
+            expect(envelope!.zoneCode).toBe('OA-1');
+            expect(envelope!.insetPolygon.length).toBeGreaterThan(0);
+            expect(envelope!.insetAreaM2).toBeGreaterThan(0);
+            // Less than the parcel — a real setback was actually applied (OA-1 Art. 13.6.3.3,
+            // linderos privados ½·altura = 10,5 m), not a full-parcel fallback.
+            expect(envelope!.insetAreaM2).toBeLessThan(40 * 40);
+            expect(envelope!.confidence).toBe('pipeline-extracted-unverified');
+            expect(store.getSite()!.parcel.zoning.jurisdictionRef).toBe('coaco-pgou-traced');
+        });
 });

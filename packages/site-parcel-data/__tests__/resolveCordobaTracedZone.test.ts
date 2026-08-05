@@ -11,12 +11,23 @@ import {
     CORDOBA_TRACED_ZONES_VERIFIED,
     type CordobaTracedZoneRecord,
 } from '../src/providers/resolveCordobaTracedZone.js';
-import { CORDOBA_PGOU2001_ZONE_CODES } from '../src/rulepacks/esCordobaPGOU2001.js';
+import {
+    CORDOBA_PGOU2001_ZONE_CODES,
+    ES_CORDOBA_PGOU2001_PACK,
+} from '../src/rulepacks/esCordobaPGOU2001.js';
+import { isInCordoba, isInCordobaMunicipality } from '../src/providers/cordobaBbox.js';
 
 // A point comfortably inside the seeded PAS-2 pentagon (see cordobaProofOfConcept.test.ts's own
 // PAS2_TRACED_UTM header for the UTM derivation; this is that same polygon's rough centroid in
 // WGS84, independently computed — not copy-pasted from the data file's own vertices).
 const PAS2_INTERIOR_POINT = { lat: 37.9000309378604, lon: -4.751228404551405 };
+
+// A point inside the OA-1 block traced from CUS27W.jpg on 2026-08-05 (Distrito Sureste, the block
+// bounded by C/ Poeta Antonio Gala, Acera de Alonso Gómez de Figueroa, Av. Virgen del Mar and
+// Pje. del Pintor Rafael Romero de Torres). ⚠ NOT the data file's own centroid arithmetic: this is
+// the WGS84 position of the block's printed subzone digit "1" (sheet pixel 1363.6, 807.9), derived
+// through the same published affine but from a DIFFERENT source pixel than any stored vertex.
+const OA1_INTERIOR_POINT = { lat: 37.8864229, lon: -4.7529792 };
 
 // Well outside any traced polygon, but still inside Córdoba municipality (central Córdoba).
 const CORDOBA_NO_TRACED_ZONE_POINT = { lat: 37.883, lon: -4.78 };
@@ -66,6 +77,55 @@ describe('resolveCordobaTracedZone — the committed store (real data file)', ()
             expect(result.resolution.provenance).toMatch(/NOT authoritative/i);
         }
     });
+
+    it('contains the OA-1 record traced from CUS27W (2026-08-05), outside the vectorised six', () => {
+        const records = loadCordobaTracedZoneRecords();
+        const oa1 = records.find((r) => r.sourceSheet === 'CUS27W.jpg');
+        expect(oa1).toBeDefined();
+        expect(oa1!.zoneCode).toBe('OA-1');
+        expect(oa1!.ring).toHaveLength(5);
+        // ⚠ The whole point of the traced store is land COACo has NOT vectorised. `coaco:hojas_cus`
+        // publishes exactly six sheets (CUS25W/26W/34W/41W/45W/46W = the Sur+Noroeste pilot); a
+        // traced record on any of those would duplicate a strictly stronger live source.
+        const COACO_VECTORISED_SHEETS = [
+            'CUS25W.jpg', 'CUS26W.jpg', 'CUS34W.jpg', 'CUS41W.jpg', 'CUS45W.jpg', 'CUS46W.jpg',
+        ];
+        for (const r of records) expect(COACO_VECTORISED_SHEETS).not.toContain(r.sourceSheet);
+    });
+
+    it('resolves OA-1 for a point inside the CUS27W-traced block', async () => {
+        const result = await resolveCordobaTracedZone(OA1_INTERIOR_POINT);
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.resolution.zoneCode).toBe('OA-1');
+            expect(result.resolution.sourceSheet).toBe('CUS27W.jpg');
+            expect(result.resolution.provenance).toMatch(/NOT authoritative/i);
+            // The two named, demonstrated failure modes of a hand trace must both be addressed in
+            // the provenance string itself, not only in a findings doc: the datum trap (ED50 vs
+            // ETRS89, ≈234 m) and the colour-family near-miss (RGB legend-swatch sampling).
+            expect(result.resolution.provenance).toMatch(/EPSG:23030/);
+            expect(result.resolution.provenance).toMatch(/legend swatch/i);
+        }
+    });
+
+    it('is OUTSIDE the COACo pilot bbox but INSIDE the municipality — the branch this store serves',
+        () => {
+            // Mirrors `siteDispatch.ts`'s own routing condition for the traced-zone path.
+            expect(isInCordoba(OA1_INTERIOR_POINT.lat, OA1_INTERIOR_POINT.lon)).toBe(false);
+            expect(isInCordobaMunicipality(OA1_INTERIOR_POINT.lat, OA1_INTERIOR_POINT.lon)).toBe(true);
+        });
+
+    it('every traced zoneCode computes a real envelope (or a cited refusal) from the signed pack',
+        () => {
+            // §END-TO-END — the same proof shape as END-TO-END-PROOF-2026-08-04.md, but run against
+            // the UNMODIFIED committed store: every stored zone code must be one the real pack can
+            // actually act on. A code that silently produced nothing would be a dead record.
+            for (const r of loadCordobaTracedZoneRecords()) {
+                const zone = ES_CORDOBA_PGOU2001_PACK.zones.find((z) => z.code === r.zoneCode);
+                expect(zone, `pack carries ${r.zoneCode}`).toBeDefined();
+                expect(zone!.ordinanceRef).toBeTruthy();
+            }
+        });
 
     it('refuses no-traced-zone-here for a Córdoba point with no traced polygon', async () => {
         const result = await resolveCordobaTracedZone(CORDOBA_NO_TRACED_ZONE_POINT);

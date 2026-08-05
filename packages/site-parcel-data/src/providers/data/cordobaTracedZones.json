@@ -11,5 +11,18 @@
             [-4.750772795438035, 37.90029005443858],
             [-4.750747123834404, 37.89968663162375]
         ]
+    },
+    {
+        "zoneCode": "OA-1",
+        "sourceSheet": "CUS27W.jpg",
+        "tracedDate": "2026-08-05",
+        "provenance": "PRYZM's OWN hand-traced reading of a published Ayuntamiento de Córdoba PGOU-2001 CUS calificación sheet (Gerencia Municipal de Urbanismo, gmucordoba.es/documentos/Gerencia_de_Urbanismo/imagenes_planos/planos/cusw_jpg/CUS27W.JPG) — one street-bounded urban block in Distrito Sureste (Calle del Poeta Antonio Gala / Acera de Alonso Gómez de Figueroa / Avenida Virgen del Mar / Pasaje del Pintor Rafael Romero de Torres). Method: pixel→UTM georeferencing fitted to fifteen of the sheet's OWN printed grid-tick labels (nine along the bottom edge, six along the left edge, 200 m pitch, all read at 10× zoom; every residual ≤ 1.3 m), read as ED50/UTM30N (EPSG:23030 — the datum the pre-2007 sheet series is actually printed in) and reprojected ED50→ETRS89→WGS84 with pyproj; zone FAMILY confirmed by RGB-sampling CUS27W's OWN legend swatch (Ordenación Abierta = 220,48,32) rather than by eye; SUBZONE digit \"1\" read directly off the block at 11× zoom, giving OA-1 (Art. 13.6); all five vertices measured individually from the sheet raster as intersections of five independently line-fitted block edges (per-edge fit RMS 0.18–0.58 px) and each then visually confirmed on a crosshair overlay — NO vertex is an extrapolation. Independently cross-checked against the Spanish Catastro (OVC Consulta_RCCOOR): five points inside the ring return real urban parcels on the four named bounding streets (e.g. 5948503UG4954N, \"CL PERIODISTA PACO VARGAS 1\"), and five points 18 m beyond each edge midpoint return \"no hay referencia disponible\" (public viario) — i.e. the traced boundary coincides with a real cadastral block edge on all five sides. Confidence tier: verified_manual_transcription (a real human/agent read of a real published raster, corroborated against an independent authoritative source) — this is NOT authoritative municipal geometry; no COACo/GMU service publishes this polygon (CUS27W is outside the six COACo-vectorised sheets and Distrito Sureste is outside the Sur+Noroeste pilot). Because the ring follows the block's colour FILL, it sits ≈1–1.5 m inside the printed boundary stroke — a deliberately conservative error direction for a containment test. Full derivation: docs/04-reference/jurisdictions/es/es-an/14021-cordoba/findings/TRACED-ZONE-SERVICE-2026-08-05.md.",
+        "ring": [
+            [-4.753646264, 37.886399139],
+            [-4.753159797, 37.887079599],
+            [-4.752699427, 37.887093845],
+            [-4.752219852, 37.886884960],
+            [-4.752820935, 37.886026071]
+        ]
     }
 ]
