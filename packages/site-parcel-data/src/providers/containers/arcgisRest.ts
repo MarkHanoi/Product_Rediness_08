@@ -50,6 +50,49 @@ export interface ArcgisRestQueryError {
 
 export type ArcgisRestQueryResult = ArcgisRestQueryOk | ArcgisRestQueryError;
 
+// §ARCGIS-TRANSIENT-RETRY (2026-08-05) — a single dropped/5xx/429 response from Sevilla's ArcGIS
+// service used to surface all the way to the L5 dispatcher as a zone-identity `service-error`
+// refusal (observed live: a real parcel inside a REAL, packed, non-refused zone — see
+// `esSevilla.ts`'s 5 real-footprint zones — showing "Zone NOT resolved (service-error)" instead of
+// its computed envelope). That is a RELIABILITY gap, not a coverage gap: the zone/ordinance work is
+// already done for those zones: retrying a transient failure a bounded number of times closes it
+// without touching any legal/geometric logic.
+//
+// Retried: network/transport exceptions (`fetch` throwing — DNS, TLS, abrupt close), HTTP 5xx
+// (server-side, plausibly transient), and HTTP 429 (rate-limited — the service is asking us to
+// back off, not stating a fact about the query). NEVER retried: any other HTTP 4xx (retrying a bad
+// request wastes the retry budget on something that will never succeed) and an ArcGIS `{"error":
+// ...}` 200-body (that is the service's own considered answer, not a hiccup — retrying it would
+// misrepresent a real response as noise). Bounded to 3 attempts total with short, capped backoff so
+// a genuinely down service still fails fast rather than stalling the caller.
+const ARCGIS_RETRY_MAX_ATTEMPTS = 3;
+const ARCGIS_RETRY_BACKOFF_MS = [250, 750] as const;
+
+function isRetryableArcgisFailure(detail: string): boolean {
+    const httpMatch = /^HTTP (\d{3})$/.exec(detail);
+    if (httpMatch) {
+        const status = Number(httpMatch[1]);
+        return status === 429 || (status >= 500 && status <= 599);
+    }
+    // A thrown transport exception's message never starts with "HTTP " or "ArcGIS " (those are
+    // this file's own typed prefixes) — treat any other message as a transport-layer failure.
+    return !detail.startsWith('ArcGIS ');
+}
+
+async function withArcgisRetry(
+    attempt: () => Promise<ArcgisRestQueryResult>,
+): Promise<ArcgisRestQueryResult> {
+    let last: ArcgisRestQueryResult = { ok: false, detail: 'unreachable' };
+    for (let i = 0; i < ARCGIS_RETRY_MAX_ATTEMPTS; i++) {
+        last = await attempt();
+        if (last.ok || !isRetryableArcgisFailure(last.detail)) return last;
+        if (i < ARCGIS_RETRY_MAX_ATTEMPTS - 1) {
+            await new Promise((r) => setTimeout(r, ARCGIS_RETRY_BACKOFF_MS[i]));
+        }
+    }
+    return last;
+}
+
 export interface ArcgisRestPointQueryOptions {
     readonly fetchImpl: typeof fetch;
     /** The service root, ending in `.../MapServer` or `.../FeatureServer` — no trailing slash. */
@@ -77,8 +120,19 @@ export interface ArcgisRestPointQueryOptions {
  * "no feature here". Callers must keep that distinction — collapsing "the service failed" into
  * "there is nothing at this point" is the exact §CONTEXT-DATA-HONESTY defect this repo's other
  * resolvers (`resolveCordobaSubzone`, `resolveValenciaAlineaciones`) were built to avoid.
+ *
+ * §ARCGIS-TRANSIENT-RETRY — a transport exception / 5xx / 429 is retried up to
+ * `ARCGIS_RETRY_MAX_ATTEMPTS` times with short backoff before resolving `{ ok: false }`; an ArcGIS
+ * semantic `error` body or any other 4xx is returned immediately, unretried (see that constant's
+ * header for why).
  */
 export async function queryArcgisRestPointIntersect(
+    opts: ArcgisRestPointQueryOptions,
+): Promise<ArcgisRestQueryResult> {
+    return withArcgisRetry(() => queryArcgisRestPointIntersectOnce(opts));
+}
+
+async function queryArcgisRestPointIntersectOnce(
     opts: ArcgisRestPointQueryOptions,
 ): Promise<ArcgisRestQueryResult> {
     const inSR = opts.inSR ?? 4326;
@@ -149,9 +203,16 @@ export interface ArcgisRestEnvelopeQueryOptions {
  * Envelope (bounding-box) intersect an ArcGIS REST FeatureServer/MapServer layer — the query shape
  * a POLYLINE layer needs, since a line almost never passes through a queried point exactly.
  * Otherwise identical honesty contract to `queryArcgisRestPointIntersect`: NEVER THROWS, an
- * ArcGIS `error` body is a typed failure, never collapsed into "no features".
+ * ArcGIS `error` body is a typed failure, never collapsed into "no features". Same
+ * §ARCGIS-TRANSIENT-RETRY policy as the point-intersect query above.
  */
 export async function queryArcgisRestEnvelopeIntersect(
+    opts: ArcgisRestEnvelopeQueryOptions,
+): Promise<ArcgisRestQueryResult> {
+    return withArcgisRetry(() => queryArcgisRestEnvelopeIntersectOnce(opts));
+}
+
+async function queryArcgisRestEnvelopeIntersectOnce(
     opts: ArcgisRestEnvelopeQueryOptions,
 ): Promise<ArcgisRestQueryResult> {
     const inSR = opts.inSR ?? 4326;
