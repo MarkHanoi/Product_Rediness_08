@@ -3889,7 +3889,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // to the Forma PLAN-oblique (the signature look — near-top-down shadowed
     // massing) so the demo lands straight on the Forma "plan view". Mirrors
     // pryzmShowSiteResultView. Accepts 'map2d' | 'plan' | '3d'.
-    window.pryzmShowFormaView = (initial?: 'map2d' | 'plan' | '3d') => mountFormaViewToggle(initial ?? 'plan');
+    window.pryzmShowFormaView = (initial?: 'map2d' | 'plan' | '3d') => {
+        mountFormaViewToggle(initial ?? 'plan');
+        // §COR-MANUAL-ADMIN-ZONE (2026-08-05, follow-up fix) — same auto-open as
+        // `pryzmEnterSiteView` below; this is a sibling site-view entry point, and the call is a
+        // documented no-op for any non-admin session, so duplicating it here is harmless.
+        void import('../site/ManualAdminZonePanel')
+            .then((m) => m.openManualAdminZonePanelIfAdmin(runtime))
+            .catch((e) => console.warn('[gis][site-view] manual admin zone panel auto-open failed (non-fatal):', e));
+    };
     window.pryzmHideFormaView = () => removeFormaViewToggle();
 
     // §FEAT-SITE-VIEW-ALWAYS-ON (L-40, ADR-0114) — the 3D globe / 3D site view must be
@@ -3906,6 +3914,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         } catch (e) {
             console.error('[gis][site-view] pryzmEnterSiteView failed:', e);
         }
+        // §COR-MANUAL-ADMIN-ZONE (2026-08-05, follow-up fix) — the panel's only launcher was a
+        // button on `GISRailPanel.ts`, a class that (per the same "buried, unreachable button" bug
+        // class §FEAT-SITE-VIEW-ALWAYS-ON was written to fix, above) is never actually instantiated
+        // anywhere in this app. Auto-attempt to open it here instead, every time site view is
+        // entered — `openManualAdminZonePanelIfAdmin` itself asks the server and is a documented
+        // no-op for any non-admin session, so this is safe to call unconditionally.
+        void import('../site/ManualAdminZonePanel')
+            .then((m) => m.openManualAdminZonePanelIfAdmin(runtime))
+            .catch((e) => console.warn('[gis][site-view] manual admin zone panel auto-open failed (non-fatal):', e));
     };
     // §FEAT-PLAN-VIEW-GIS (L-104, ADR-0115) — the PLAN-VIEW analogue of pryzmEnterSiteView.
     // Switch to the orthographic Top (plan) view and composite the real-world GIS/aerial
