@@ -24,6 +24,7 @@
 // PURE (C58 §1.9) — no THREE, no DOM, no I/O, no RNG. Deterministic (C58 §1.1).
 
 import type { Pt } from '@pryzm/schemas';
+import { polygonSignedArea } from '@pryzm/site-validators';
 
 export interface DepthClipResult {
     /** The clipped ring (scene-XZ metres). Empty when `degenerate`. */
@@ -167,11 +168,107 @@ export function clipBeyondDepthBand(
 }
 
 /**
- * Sutherland–Hodgman against ONE half-plane. `keepBeyond` selects which side survives.
+ * §DEPTHBAND-SPLIT (2026-08-05) — clip `ring` against the half-plane directly into however many
+ * SIMPLE, DISJOINT loops the retained region genuinely has, with no bridging chord ever
+ * constructed between them.
+ *
+ * WHY THIS REPLACES A "CLIP THEN REPAIR SELF-INTERSECTIONS" APPROACH (tried first, and wrong).
+ * An earlier version of this fix ran the classic single-pass S-H walk (emit intersection/vertex
+ * per edge in original order) and then post-hoc detected + split self-intersections the same way
+ * `insetPolygon.ts`'s §INSET-LOOP-DECOMPOSE does. That is NOT reliable here: when the ring's first
+ * vertex happens to land exactly on the clip line's own boundary (a winding/parameterisation
+ * artefact, not a property of the geometry), the spurious "bridge" chord can come out COLLINEAR
+ * with — and fully overlapping — another real edge, rather than PROPERLY crossing it. A proper-
+ * crossing test (`d1>0 !== d2>0` etc.) does not fire on a collinear overlap, so that repair missed
+ * exactly this case (caught by this module's own winding-independence test: the same horseshoe
+ * ring, reversed, silently kept the bridge and returned 120 m² instead of the correct 60 m²).
+ *
+ * THE CORRECT CONSTRUCTION. A single half-plane clip of a simple polygon can only ever produce
+ * SEPARATE simple loops — walking the ring and starting a fresh loop on every entry, closing it on
+ * every exit, NEVER needs to connect one loop's exit to a different loop's entry (there is no
+ * boundary segment to trace for an unbounded half-plane, and there does not need to be: the loops
+ * are genuinely disjoint). Rotating the traversal to begin exactly at an entry transition (which
+ * must exist whenever the ring is not wholly inside or wholly outside) means the walk closes every
+ * loop cleanly within one lap, with no wrap-around special case and no repair pass at all.
+ */
+function clipHalfPlaneLoops(
+    ring: ReadonlyArray<Pt>,
+    depthOf: (p: Pt) => number,
+    depth: number,
+    keepBeyond: boolean,
+): Pt[][] {
+    const n = ring.length;
+    const inside = ring.map((p) => {
+        const d = depthOf(p) - depth;
+        return keepBeyond ? d >= 0 : d <= 0;
+    });
+    if (inside.every((v) => v)) return [ring.map((p) => ({ x: p.x, z: p.z }))];
+    if (!inside.some((v) => v)) return [];
+
+    // Rotate the walk to start exactly at an outside→inside transition. Guaranteed to exist:
+    // `inside` holds both a `true` and a `false` on a cycle (the two early-outs above ruled out
+    // the all-true and all-false cases), so somewhere the cycle must switch from false to true.
+    let start = 0;
+    for (let i = 0; i < n; i++) {
+        if (inside[i] && !inside[(i - 1 + n) % n]) { start = i; break; }
+    }
+
+    const intersect = (prev: Pt, cur: Pt): Pt => {
+        const dPrev = depthOf(prev) - depth;
+        const dCur = depthOf(cur) - depth;
+        const denom = dCur - dPrev;
+        const t = Math.abs(denom) > EPS ? -dPrev / denom : 0;
+        return { x: prev.x + (cur.x - prev.x) * t, z: prev.z + (cur.z - prev.z) * t };
+    };
+
+    const loops: Pt[][] = [];
+    let current: Pt[] = [];
+    for (let k = 0; k < n; k++) {
+        const i = (start + k) % n;
+        const prevIdx = (i - 1 + n) % n;
+        const cur = ring[i]!;
+        const prev = ring[prevIdx]!;
+        const curIn = inside[i]!;
+        const prevIn = inside[prevIdx]!;
+        if (curIn && !prevIn) {
+            current = [intersect(prev, cur)]; // entry — begin a fresh loop
+        } else if (!curIn && prevIn) {
+            current.push(intersect(prev, cur)); // exit — close it
+            if (current.length >= 3) loops.push(current);
+            current = [];
+        }
+        if (curIn) current.push({ x: cur.x, z: cur.z });
+    }
+    return loops;
+}
+
+/**
+ * Clip `ring` against ONE half-plane. `keepBeyond` selects which side survives.
  *
  * Exact for any simple polygon, convex or not — which matters because parcel insets are routinely
  * concave. Shared by both public clips so the two tiers of an Art. 350.2 envelope are cut by
  * identical arithmetic and cannot drift apart (see `clipBeyondDepthBand`).
+ *
+ * ⚠ §DEPTHBAND-SPLIT (2026-08-05, real defect, not hypothetical, now fixed). A real, legally-
+ * published irregular cadastral parcel can cross a depth-band clip line MORE than twice — e.g. a
+ * notch/driveway reentrant near the aligned edge that puts a throat of the polygon entirely on the
+ * excluded side of the band — leaving a retained region that is genuinely TWO (or more) disjoint
+ * pieces. The single-pass S-H walk this function used to run emitted both pieces' vertices as one
+ * sequence and joined the exit point of one straight to the entry point of the next (there is no
+ * clip-BOUNDARY segment to trace for an unbounded half-plane, unlike a bounded convex-clip window).
+ * That spurious "bridge" chord sliced straight across the excluded gap and produced a SELF-
+ * INTERSECTING ring — confirmed with a probe reproducing the founder's report (a horseshoe/notched
+ * subject ring, clipped to a shallow depth band, came back bridged, reporting the SUM of both
+ * pieces' areas as one impossible polygon). Rendered/extruded downstream, a self-intersecting ring
+ * is exactly what turns into "a triangular sliver sitting next to/overlapping a separate
+ * rectangular slab" instead of one clean quadrilateral — the reported symptom.
+ *
+ * THE FIX IS `clipHalfPlaneLoops` (see its own docstring for why a post-hoc self-intersection
+ * repair was tried first and is NOT reliable here — it missed a winding-dependent collinear-
+ * overlap case, caught by this module's own tests). `DepthClipResult` carries ONE ring (matching
+ * `InsetResult`'s established convention), so a genuine split under-reports total buildable area —
+ * the conservative direction a setback/depth-band result is allowed to err in (C58 §1.4: never
+ * overstate).
  */
 function sutherlandHodgman(
     ring: ReadonlyArray<Pt>,
@@ -179,41 +276,31 @@ function sutherlandHodgman(
     depth: number,
     keepBeyond: boolean,
 ): DepthClipResult {
-    const out: Pt[] = [];
-    for (let i = 0; i < ring.length; i++) {
-        const cur = ring[i]!;
-        const prev = ring[(i - 1 + ring.length) % ring.length]!;
-        const dCur = depthOf(cur) - depth;
-        const dPrev = depthOf(prev) - depth;
-        const curIn = keepBeyond ? dCur >= 0 : dCur <= 0;
-        const prevIn = keepBeyond ? dPrev >= 0 : dPrev <= 0;
+    const rawLoops = clipHalfPlaneLoops(ring, depthOf, depth, keepBeyond);
 
-        if (curIn !== prevIn) {
-            // Crossing — emit the exact intersection. Guarded against the degenerate
-            // denominator so a coincident pair cannot produce NaN coordinates that would
-            // propagate silently into an area calculation.
-            const denom = dCur - dPrev;
-            if (Math.abs(denom) > EPS) {
-                const t = -dPrev / denom;
-                out.push({ x: prev.x + (cur.x - prev.x) * t, z: prev.z + (cur.z - prev.z) * t });
+    const loops = rawLoops
+        .map((loop) => {
+            // Drop consecutive duplicates the clip can introduce when a vertex sits exactly on
+            // the line.
+            const dedup: Pt[] = [];
+            for (const p of loop) {
+                const last = dedup[dedup.length - 1];
+                if (!last || Math.hypot(p.x - last.x, p.z - last.z) > COINCIDENT_EPS) dedup.push(p);
             }
-        }
-        if (curIn) out.push({ x: cur.x, z: cur.z });
-    }
+            if (dedup.length > 1) {
+                const first = dedup[0]!;
+                const last = dedup[dedup.length - 1]!;
+                if (Math.hypot(first.x - last.x, first.z - last.z) <= COINCIDENT_EPS) dedup.pop();
+            }
+            return dedup;
+        })
+        .filter((loop) => loop.length >= 3);
 
-    // Drop consecutive duplicates the clip can introduce when a vertex sits exactly on the line.
-    const dedup: Pt[] = [];
-    for (const p of out) {
-        const last = dedup[dedup.length - 1];
-        if (!last || Math.hypot(p.x - last.x, p.z - last.z) > COINCIDENT_EPS) dedup.push(p);
-    }
-    if (dedup.length > 1) {
-        const first = dedup[0]!;
-        const last = dedup[dedup.length - 1]!;
-        if (Math.hypot(first.x - last.x, first.z - last.z) <= COINCIDENT_EPS) dedup.pop();
-    }
-
-    return dedup.length < 3
-        ? { polygon: [], degenerate: true, bandInactive: false }
-        : { polygon: dedup, degenerate: false, bandInactive: false };
+    if (loops.length === 0) return { polygon: [], degenerate: true, bandInactive: false };
+    // §DEPTHBAND-SPLIT: a genuine multi-component retained region. Each loop from
+    // `clipHalfPlaneLoops` is already simple and correctly wound (no bridge, no artefact-winding
+    // filtering needed — unlike an offset construction, a half-plane clip cannot manufacture a
+    // reversed loop). Return the largest surviving piece (see docstring above for why).
+    loops.sort((a, b) => Math.abs(polygonSignedArea(b)) - Math.abs(polygonSignedArea(a)));
+    return { polygon: loops[0]!, degenerate: false, bandInactive: false };
 }

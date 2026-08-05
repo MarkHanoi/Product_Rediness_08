@@ -126,4 +126,100 @@ describe('ADR-0270 §A1b — clipToDepthBand: THE core acceptance criterion', ()
         expect(r.degenerate).toBe(false);
         expect(area(r.polygon)).toBeCloseTo(15, 6);
     });
+
+    describe('§DEPTHBAND-SPLIT (2026-08-05) — subject crosses the clip line MORE than twice', () => {
+        /** True iff any two non-adjacent edges of `ring` properly cross. */
+        function selfIntersects(ring: ReadonlyArray<{ x: number; z: number }>): boolean {
+            const cr = (o: any, p: any, q: any) => (p.x - o.x) * (q.z - o.z) - (p.z - o.z) * (q.x - o.x);
+            const cross = (a: any, b: any, c: any, d: any) => {
+                const d1 = cr(a, b, c), d2 = cr(a, b, d), d3 = cr(c, d, a), d4 = cr(c, d, b);
+                return (d1 > 1e-9) !== (d2 > 1e-9) && (d3 > 1e-9) !== (d4 > 1e-9);
+            };
+            const n = ring.length;
+            for (let i = 0; i < n; i++) {
+                const a = ring[i]!, b = ring[(i + 1) % n]!;
+                for (let j = i + 1; j < n; j++) {
+                    if (j === i || j === (i + 1) % n || (j + 1) % n === i) continue;
+                    if (cross(a, b, ring[j]!, ring[(j + 1) % n]!)) return true;
+                }
+            }
+            return false;
+        }
+
+        // A U-shaped (horseshoe) ring: a notch cut into the front edge between x=12..18,
+        // reconnecting only at z=15 — well beyond the depth-5 band. Below z=15 the polygon is
+        // genuinely TWO disjoint strips ([0,12]×[0,5] and [18,30]×[0,5]). This is the shape a real
+        // irregular cadastral inset (a notch/driveway reentrant near the aligned edge) can produce —
+        // the exact class of many-vertex, non-convex ring the founder's real Córdoba UAD-1 parcel
+        // was (8–9 boundary edges, several under 5 m).
+        const horseshoe = [
+            { x: 0, z: 0 }, { x: 12, z: 0 }, { x: 12, z: 15 }, { x: 18, z: 15 },
+            { x: 18, z: 0 }, { x: 30, z: 0 }, { x: 30, z: 20 }, { x: 0, z: 20 },
+        ];
+
+        it('returns a SIMPLE (non-self-intersecting) ring, not a bowtie', () => {
+            const r = clipToDepthBand(horseshoe, streetA, streetB, 5);
+            expect(r.degenerate).toBe(false);
+            expect(r.polygon.length).toBeGreaterThanOrEqual(3);
+            expect(selfIntersects(r.polygon)).toBe(false);
+        });
+
+        it('returns ONE of the two disjoint pieces (the larger), not a phantom bridge across the gap', () => {
+            const r = clipToDepthBand(horseshoe, streetA, streetB, 5);
+            // The two true disjoint pieces are each 12 × 5 = 60 m². The old (buggy) behaviour
+            // bridged them into one self-intersecting ring reporting 120 m² total — an area that
+            // was never a real simple buildable region. The fixed behaviour keeps the largest
+            // genuine simple piece (60 m²), which is the conservative (never-overstate, C58 §1.4)
+            // outcome `insetPolygon.ts`'s own §INSET-LOOP-DECOMPOSE precedent already establishes.
+            expect(area(r.polygon)).toBeCloseTo(60, 6);
+            // Every vertex must be entirely within EITHER the left [0,12] or right [18,30] strip —
+            // never straddling the excluded [12,18] gap, which is what the spurious bridge chord did.
+            const xs = r.polygon.map((p) => p.x);
+            const allLeft = xs.every((x) => x <= 12 + 1e-9);
+            const allRight = xs.every((x) => x >= 18 - 1e-9);
+            expect(allLeft || allRight).toBe(true);
+        });
+
+        it('never emits NaN coordinates on the split path', () => {
+            const r = clipToDepthBand(horseshoe, streetA, streetB, 5);
+            for (const p of r.polygon) {
+                expect(Number.isFinite(p.x)).toBe(true);
+                expect(Number.isFinite(p.z)).toBe(true);
+            }
+        });
+
+        it('is DETERMINISTIC on the split path (C58 §1.1)', () => {
+            const a = clipToDepthBand(horseshoe, streetA, streetB, 5);
+            const b = clipToDepthBand(horseshoe, streetA, streetB, 5);
+            expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+        });
+
+        it('REGRESSION: simple rectangles are completely unaffected by the split-handling path', () => {
+            // The core acceptance test's rectangle must still clip to exactly the same ring —
+            // the self-intersection check must never fire (and never change behaviour) on the
+            // common single-component case.
+            const r = clipToDepthBand(parcel, streetA, streetB, 12);
+            expect(r.degenerate).toBe(false);
+            expect(area(r.polygon)).toBeCloseTo(360, 6);
+            expect(selfIntersects(r.polygon)).toBe(false);
+        });
+
+        it('REGRESSION: the concave L-shaped case (single component) is unaffected', () => {
+            const lShaped = [
+                { x: 0, z: 0 }, { x: 30, z: 0 }, { x: 30, z: -10 },
+                { x: 15, z: -10 }, { x: 15, z: -40 }, { x: 0, z: -40 },
+            ];
+            const r = clipToDepthBand(lShaped, streetA, streetB, 5);
+            expect(r.degenerate).toBe(false);
+            expect(area(r.polygon)).toBeCloseTo(150, 6);
+            expect(selfIntersects(r.polygon)).toBe(false);
+        });
+
+        it('WINDING-INDEPENDENT on the split path — a reversed horseshoe splits the same way', () => {
+            const ccw = clipToDepthBand(horseshoe, streetA, streetB, 5);
+            const cw = clipToDepthBand([...horseshoe].reverse(), streetA, streetB, 5);
+            expect(area(cw.polygon)).toBeCloseTo(area(ccw.polygon), 6);
+            expect(selfIntersects(cw.polygon)).toBe(false);
+        });
+    });
 });
