@@ -13,6 +13,9 @@ import { readContextTileFeatures, contextTilesEnabled, type ContextTileFeature }
 import { resolveUseTag } from './contextBuildingUse';
 // §CTX-HEIGHT-C62 (L-646) — the shared confidence/provenance vocabulary every PRYZM datum speaks.
 import type { DomainConfidence } from '@pryzm/schemas';
+// §CTX-RING-SANITIZE (L-663) — repair near-duplicate/near-collinear vertices BEFORE a ring reaches
+// Cesium's earcut-based triangulator. See contextRingGeometry.ts header for the full defect trace.
+import { sanitizeRing } from './contextRingGeometry';
 //
 // WHY THIS EXISTS
 // ---------------
@@ -767,11 +770,14 @@ export function overpassToCollection(elements: OverpassElement[]): ContextBuildi
         id: number,
     ): void => {
         if (!geom || geom.length < 4) return; // need a closed ring (≥3 pts + close)
-        const ring = geom.map((p) => [p.lon, p.lat] as [number, number]);
+        const rawRing = geom.map((p) => [p.lon, p.lat] as [number, number]);
         // Ensure the ring is closed.
-        const first = ring[0]!;
-        const last = ring[ring.length - 1]!;
-        if (first[0] !== last[0] || first[1] !== last[1]) ring.push([first[0], first[1]]);
+        const first = rawRing[0]!;
+        const last = rawRing[rawRing.length - 1]!;
+        if (first[0] !== last[0] || first[1] !== last[1]) rawRing.push([first[0], first[1]]);
+        // §CTX-RING-SANITIZE (L-663) — repair near-duplicate/near-collinear vertices before this
+        // ring reaches the 3D extruder's triangulator. Never makes an already-clean ring worse.
+        const ring = sanitizeRing(rawRing);
         const floors = resolveFloors(tags);
         // §CTX-HEIGHT-PROVENANCE (L-459) — resolve height and its origin TOGETHER. The branch
         // was always known here; it was simply discarded one line later.
@@ -829,8 +835,12 @@ export function tilesToCollection(tileFeatures: readonly ContextTileFeature[]): 
         // A multipolygon contributes one feature per part — the consumers extrude a single outer
         // ring each, exactly as the Overpass path emits one feature per `outer` member.
         for (let part = 0; part < tf.rings.length; part++) {
-            const ring = tf.rings[part]!;
-            if (ring.length < 4) continue; // need ≥3 distinct points + the closing point
+            const rawRing = tf.rings[part]!;
+            if (rawRing.length < 4) continue; // need ≥3 distinct points + the closing point
+            // §CTX-RING-SANITIZE (L-663) — same repair as the Overpass path. MVT tile quantisation
+            // (dequantised integer grid coordinates) is a documented source of exactly the
+            // near-duplicate/near-collinear vertex noise this guards against.
+            const ring = sanitizeRing(rawRing);
             features.push({
                 type: 'Feature',
                 geometry: { type: 'Polygon', coordinates: [ring as number[][]] },
