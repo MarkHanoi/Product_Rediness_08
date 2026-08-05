@@ -1393,6 +1393,60 @@ type ZoningBoundary = {
  * envelope REPLACES it in `_lastEnvelope` when the async fetch returns, and both
  * renderers redraw off the same single cache.
  */
+/**
+ * §L-521 / §MANUAL-ADMIN-ZONE-QUERY-POINT-FIX (2026-08-05) — the SINGLE source of truth for
+ * "what lat/lon does PRYZM actually query zoning at for this parcel". Extracted from
+ * `applyZoning` so every caller — the normal dispatch chain below AND
+ * `ManualAdminZonePanel.ts`'s save handler — computes the IDENTICAL point.
+ *
+ * WHY THIS MATTERS: before this extraction, `ManualAdminZonePanel.ts` saved a manual entry at
+ * `site.location.latitude/longitude` (the geocode/select ANCHOR), while `resolveManualAdminZone`'s
+ * 60m match radius was always checked against THIS function's AREA-CENTROID point — the same
+ * anchor-vs-parcel-centroid split L-521 already found and fixed for the Denmark/Barcelona real-
+ * zoning fetch. On a DRAW flow (anchor = initial geocode, parcel drawn elsewhere) or any parcel
+ * whose centroid sits >60m from its anchor, a manually-saved entry silently missed its own match
+ * radius on read-back — the admin saw "Saved — envelope recomputed" but the card kept showing the
+ * OLD refusal, because the resolver's query point never matched the entry's saved point. Founder-
+ * reported and reproduced 2026-08-05.
+ *
+ * Uses the AREA centroid (shoelace), NOT the vertex average — see the original §L-521b note this
+ * carries forward: a hand-drawn concave boundary's vertex average can drift outside the polygon.
+ */
+export function deriveParcelQueryLatLon(
+    loc: { latitude: number; longitude: number; trueNorth?: number } | null | undefined,
+    boundaryPolygon: ReadonlyArray<XZPoint>,
+): { lat: number; lon: number } | null {
+    if (!loc) return null;
+    if (boundaryPolygon.length < 3) {
+        return Number.isFinite(loc.latitude) && Number.isFinite(loc.longitude)
+            ? { lat: loc.latitude, lon: loc.longitude }
+            : null;
+    }
+    const poly = boundaryPolygon;
+    let cx = 0, cz = 0;
+    let a2 = 0, ax = 0, az = 0;
+    for (let i = 0; i < poly.length; i++) {
+        const p = poly[i]!, q = poly[(i + 1) % poly.length]!;
+        const cross = p.x * q.z - q.x * p.z;
+        a2 += cross;
+        ax += (p.x + q.x) * cross;
+        az += (p.z + q.z) * cross;
+    }
+    if (Math.abs(a2) > 1e-6) {
+        cx = ax / (3 * a2);
+        cz = az / (3 * a2);
+    } else {
+        for (const p of poly) { cx += p.x; cz += p.z; }
+        cx /= poly.length; cz /= poly.length;
+    }
+    const theta = Number.isFinite(loc.trueNorth) ? (loc.trueNorth as number) : 0;
+    const tn = theta === 0
+        ? { east: cx, north: -cz }
+        : trueVectorToProjectNorth({ east: cx, north: -cz }, -theta);
+    const ll = sceneXZToLatLon({ x: tn.east, z: -tn.north }, loc.latitude, loc.longitude);
+    return { lat: ll.lat, lon: ll.lon };
+}
+
 function applyZoning(
     ctx: SiteContext,
     boundary: ZoningBoundary,
@@ -1410,43 +1464,12 @@ function applyZoning(
         // anchor ⇒ unchanged); on a DRAW flow the anchor is the initial geocode (e.g. the Barcelona
         // city centre / Gothic Quarter) while the boundary is drawn elsewhere (Passeig de Gràcia),
         // so querying at the anchor hit a NON-Eixample clau and fell back to estimated — the
-        // founder's "the drawn envelope stays on placeholder dims". Recover the centroid's lat/lon:
-        // undo the commit θ-rotation (project→true via -θ), then invert the equirectangular
-        // projection about the site origin (= anchor lat/lon).
-        let qLat: number | undefined = loc?.latitude;
-        let qLon: number | undefined = loc?.longitude;
-        if (loc && boundary.polygon.length >= 3) {
-            // §L-521b — use the AREA centroid (shoelace), NOT the vertex average. A hand-drawn boundary
-            // can be irregular/concave, where the vertex average drifts OUTSIDE the polygon and would
-            // query Catastro/MUC at the wrong point → wrong clau / no parcel → estimated fallback (the
-            // founder's recurring "estimated on a Barcelona draw"). The area centroid is the proper
-            // polygon centroid and lands inside for the typical near-convex parcel; a degenerate
-            // (near-zero) area falls back to the vertex average.
-            const poly = boundary.polygon;
-            let cx = 0, cz = 0;
-            let a2 = 0, ax = 0, az = 0;
-            for (let i = 0; i < poly.length; i++) {
-                const p = poly[i]!, q = poly[(i + 1) % poly.length]!;
-                const cross = p.x * q.z - q.x * p.z;
-                a2 += cross;
-                ax += (p.x + q.x) * cross;
-                az += (p.z + q.z) * cross;
-            }
-            if (Math.abs(a2) > 1e-6) {
-                cx = ax / (3 * a2);
-                cz = az / (3 * a2);
-            } else {
-                for (const p of poly) { cx += p.x; cz += p.z; }
-                cx /= poly.length; cz /= poly.length;
-            }
-            const theta = Number.isFinite(loc.trueNorth) ? loc.trueNorth : 0;
-            const tn = theta === 0
-                ? { east: cx, north: -cz }
-                : trueVectorToProjectNorth({ east: cx, north: -cz }, -theta);
-            const ll = sceneXZToLatLon({ x: tn.east, z: -tn.north }, loc.latitude, loc.longitude);
-            qLat = ll.lat;
-            qLon = ll.lon;
-        }
+        // founder's "the drawn envelope stays on placeholder dims". See `deriveParcelQueryLatLon`
+        // above (extracted 2026-08-05 so this is the SAME point a manual admin entry is matched
+        // against, not a second, silently-diverging computation).
+        const derived = deriveParcelQueryLatLon(loc, boundary.polygon);
+        let qLat: number | undefined = derived?.lat ?? loc?.latitude;
+        let qLon: number | undefined = derived?.lon ?? loc?.longitude;
         // §L-663 — PUBLISH THE ROUTING POINT for the estimated-fallback chokepoint, and publish it
         // UNCONDITIONALLY (including `null`). This is the single write; see the declaration for why
         // it is a module-local rather than a parameter threaded through fifteen call sites.

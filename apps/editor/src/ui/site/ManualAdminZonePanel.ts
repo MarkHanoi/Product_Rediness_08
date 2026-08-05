@@ -29,7 +29,7 @@
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { injectAppTheme } from '../styles/AppTheme';
-import { dispatchParcelBoundary, resolveSiteContext, type SiteContext } from './siteDispatch';
+import { dispatchParcelBoundary, deriveParcelQueryLatLon, resolveSiteContext, type SiteContext } from './siteDispatch';
 
 type Runtime = import('@pryzm/runtime-composer/types').PryzmRuntime;
 
@@ -394,6 +394,18 @@ async function _onSave(): Promise<void> {
             span.setStatus({ code: SpanStatusCode.OK });
             return;
         }
+        // §MANUAL-ADMIN-ZONE-QUERY-POINT-FIX (2026-08-05) — save at the SAME point the resolver
+        // will query at, not the site's anchor/geocode location. Before this fix, a save at
+        // `location.latitude/longitude` could silently miss `resolveManualAdminZone`'s 60m match
+        // radius whenever the parcel's true centroid sat further than that from the anchor (any
+        // DRAW flow, or a SELECT on an off-centre parcel) — the admin saw "Saved" but the card kept
+        // showing the old refusal, because read-back queried a DIFFERENT point than what was saved.
+        // `deriveParcelQueryLatLon` is the exact function `siteDispatch.ts`'s own zoning dispatch
+        // uses for this parcel, so save and read are now guaranteed to agree.
+        const boundary = site.parcel?.boundary;
+        const queryPoint =
+            deriveParcelQueryLatLon(location, boundary?.polygon ?? []) ??
+            { lat: location.latitude, lon: location.longitude };
 
         _setStatus('Saving…');
         const res = await fetch('/api/manual-zone', {
@@ -401,8 +413,8 @@ async function _onSave(): Promise<void> {
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({
                 jurisdiction: 'es-cordoba',
-                lat: location.latitude,
-                lon: location.longitude,
+                lat: queryPoint.lat,
+                lon: queryPoint.lon,
                 zoneCode,
                 subzoneCode,
             }),
@@ -416,7 +428,6 @@ async function _onSave(): Promise<void> {
         }
 
         _setStatus('Saved — recomputing…');
-        const boundary = site.parcel?.boundary;
         if (boundary && Array.isArray(boundary.polygon) && boundary.polygon.length >= 3) {
             dispatchParcelBoundary(ctx, {
                 polygon: boundary.polygon,
