@@ -182,6 +182,60 @@ export function disposeManualAdminZonePanel(): void {
     _subzoneInput = null;
 }
 
+/**
+ * Makes `panel` draggable by pointer-dragging `handle` (its header). Converts the panel's
+ * fixed `right`/`bottom` anchoring to an explicit `left`/`top` pixel position on first drag (so it
+ * moves from wherever it currently sits, not from a hardcoded corner), and clamps the result to
+ * stay fully on-screen — dragging off-viewport would make the panel unreachable/unclosable, which
+ * would be worse than not offering drag at all.
+ */
+function _wireDrag(panel: HTMLElement, handle: HTMLElement): void {
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    const onPointerDown = (ev: PointerEvent): void => {
+        // Ignore drags started on the close button itself.
+        if ((ev.target as HTMLElement)?.tagName === 'BUTTON') return;
+        const rect = panel.getBoundingClientRect();
+        // Freeze the panel's CURRENT on-screen position as explicit left/top, replacing
+        // right/bottom anchoring — otherwise the browser would keep re-deriving position from
+        // right/bottom as the window resizes, fighting the drag.
+        panel.style.left = `${rect.left}px`;
+        panel.style.top = `${rect.top}px`;
+        panel.style.right = '';
+        panel.style.bottom = '';
+        startLeft = rect.left;
+        startTop = rect.top;
+        startX = ev.clientX;
+        startY = ev.clientY;
+        dragging = true;
+        handle.setPointerCapture(ev.pointerId);
+        ev.preventDefault();
+    };
+    const onPointerMove = (ev: PointerEvent): void => {
+        if (!dragging) return;
+        const rect = panel.getBoundingClientRect();
+        const maxLeft = Math.max(0, window.innerWidth - rect.width);
+        const maxTop = Math.max(0, window.innerHeight - rect.height);
+        const nextLeft = Math.min(maxLeft, Math.max(0, startLeft + (ev.clientX - startX)));
+        const nextTop = Math.min(maxTop, Math.max(0, startTop + (ev.clientY - startY)));
+        panel.style.left = `${nextLeft}px`;
+        panel.style.top = `${nextTop}px`;
+    };
+    const onPointerUp = (ev: PointerEvent): void => {
+        if (!dragging) return;
+        dragging = false;
+        try { handle.releasePointerCapture(ev.pointerId); } catch { /* already released */ }
+    };
+    handle.addEventListener('pointerdown', onPointerDown);
+    handle.addEventListener('pointermove', onPointerMove);
+    handle.addEventListener('pointerup', onPointerUp);
+    handle.addEventListener('pointercancel', onPointerUp);
+}
+
 function _build(): HTMLElement {
     injectAppTheme();
     const el = document.createElement('div');
@@ -193,15 +247,21 @@ function _build(): HTMLElement {
         'font:12px/1.4 system-ui,sans-serif;';
 
     const header = document.createElement('div');
-    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;font-weight:600;';
-    header.textContent = '🛠️ Manual zone entry (admin)';
+    header.style.cssText =
+        'display:flex;justify-content:space-between;align-items:center;font-weight:600;' +
+        'cursor:move;user-select:none;';
+    const headerLabel = document.createElement('span');
+    headerLabel.textContent = '🛠️ Manual zone entry (admin)';
+    header.appendChild(headerLabel);
     const close = document.createElement('button');
     close.type = 'button';
     close.textContent = '✕';
-    close.style.cssText = 'background:none;border:none;color:inherit;cursor:pointer;';
+    close.title = 'Close';
+    close.style.cssText = 'background:none;border:none;color:inherit;cursor:pointer;font-size:14px;';
     close.addEventListener('click', () => closeManualAdminZonePanel());
     header.appendChild(close);
     el.appendChild(header);
+    _wireDrag(el, header);
 
     const zoneLabel = document.createElement('label');
     zoneLabel.textContent = 'Zone';

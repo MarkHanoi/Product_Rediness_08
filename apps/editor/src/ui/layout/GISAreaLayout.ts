@@ -2086,6 +2086,24 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         };
     };
 
+    // §L-621b follow-up (2026-08-05, founder: "already movable, just not closable") — the
+    // `envelopeCardHidden` / `toggleEnvelopeCard` mechanism has existed since L-621b, but no
+    // actual ✕ button was ever added to any of the card's THREE render templates to trigger it —
+    // only the re-open launcher pill (`envelope-card-launcher`, ~line 4129) existed, so the card
+    // could be re-shown but never actually dismissed from itself. This is that missing ✕.
+    const envelopeCloseButtonHtml = (): string =>
+        `<button data-testid="envelope-close" title="Close (re-open via the launcher pill)"
+                 style="flex:none;appearance:none;border:none;background:transparent;color:#8a5a00;
+                        cursor:pointer;font-size:14px;line-height:1;padding:2px 4px;margin-left:6px;">✕</button>`;
+    const wireEnvelopeClose = (panel: HTMLDivElement): void => {
+        const btn = panel.querySelector('[data-testid="envelope-close"]') as HTMLButtonElement | null;
+        if (!btn) return;
+        btn.onclick = (ev) => {
+            ev.stopPropagation(); // never let this bubble into the header's own drag-start handler
+            toggleEnvelopeCard();
+        };
+    };
+
     /**
      * L-445 — the REDUCED card, shown when the buildable ring was read back from persistence
      * (C58 §1.7a) but this session never re-solved the envelope.
@@ -2103,7 +2121,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         panel.innerHTML =
             `<div data-envelope-drag="1" title="Drag to move" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;cursor:grab;">
                <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>
-               <span style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#f4f2f8;color:#6b6480;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Saved</span>
+               <span style="display:flex;align-items:center;">
+                 <span style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#f4f2f8;color:#6b6480;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Saved</span>
+                 ${envelopeCloseButtonHtml()}
+               </span>
              </div>
              <div style="display:flex;justify-content:space-between;"><span style="color:#6b6480;">Max height</span><span style="font-weight:600;">${heightTxt}</span></div>
              <div style="margin-top:8px;color:#8a5a00;background:#fff6e5;border-radius:6px;padding:5px 7px;font-size:10px;">
@@ -2112,6 +2133,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              </div>
              ${envelopeToggleHtml()}`;
         wireEnvelopeToggle(panel);
+        wireEnvelopeClose(panel);
     };
 
     // ── §ENVELOPE-SITE-DATA (L-586) — the full parcel + massing read-out ─────────────────────
@@ -2548,7 +2570,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 : `<div style="margin-top:8px;color:#8a83a0;font-size:10.5px;">Zone ${escHtml(env.zoneCode ?? 'n/a')} · reason <code style="font-size:10px;">${escHtml(r.code)}</code></div>`;
             panel.innerHTML =
                 `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:9px;cursor:grab;">
-                   <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${chip}
+                   <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${chip}${envelopeCloseButtonHtml()}
                  </div>
                  <div style="font-weight:600;font-size:11.5px;color:#3d4a5c;line-height:1.4;">${escHtml(r.headline)}</div>
                  <div style="margin-top:6px;color:#6b6480;font-size:11px;line-height:1.5;">${escHtml(r.detail)}</div>
@@ -2558,6 +2580,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                  ${safeCapacitySection}
                  ${envelopeToggleHtml()}`;
             wireEnvelopeToggle(panel);
+            wireEnvelopeClose(panel);
             return;
         }
         const setback = (c: 'setback.front' | 'setback.side' | 'setback.rear'): string => {
@@ -2771,7 +2794,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             : '';
         panel.innerHTML =
             `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:9px;cursor:grab;">
-               <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${badge}
+               <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${badge}${envelopeCloseButtonHtml()}
              </div>
              ${rows}
              ${upperBoundCaveat}
@@ -2784,6 +2807,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              ${whyBlock}
              ${envelopeToggleHtml()}`;
         wireEnvelopeToggle(panel);
+        wireEnvelopeClose(panel);
     };
 
     /**
