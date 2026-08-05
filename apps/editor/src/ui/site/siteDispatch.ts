@@ -4177,6 +4177,10 @@ async function applySevillaZoningThenFallback(
                                     'flat scalar this pack can honestly carry.',
                             ordinanceRef: zone.ordinanceRef ?? null,
                             legallyGrounded: true,
+                            knownFacts: [
+                                `Zone: ${sevillaZoneCode}${zone.label ? ` — ${zone.label}` : ''}`,
+                                ...(envelope.refusal?.knownFacts ?? []),
+                            ],
                         },
                         'none',
                     ),
