@@ -555,3 +555,207 @@ P.2.9  …/P.2%20Ordenacion%20general/P.2.9/RR.C.pdf                     (RR=01.
 >
 > Not a dead end. The remaining blocker in §7 should be re-read as *"zone identity requires a
 > raster-georeferencing pipeline"*, not *"zone identity is unavailable"*.
+
+---
+
+## 10. Documento C.3 — "Fichas de ámbitos de planeamiento de desarrollo y gestión" (investigated 2026-08-05, third pass)
+
+> **Scope**: read-and-report scoping check only. **No code, rule pack or data file was modified.**
+> The question asked was narrow: does C.3 hand `PROD` — or any other refused zone — concrete flat
+> buildable parameters that would let §5's refusals be narrowed?
+> **Corpus added**: `findings/corpus/FichasAmbitos/` — 25 curated PDFs + `LINK-INVENTORY-823-fichas.txt`.
+
+### 10.1 The document exists, was never held, and is now fetched
+
+C.3 is a **sibling of C.1/C.2 inside the same 2011 `pgou_ad1` tree**, not a separate publication —
+so §1's "Documento C" fetch had opened only branches 1 and 2 of three. Enumerated live from the same
+index (`pgou2011ad1.html`, re-fetched this pass, **1,119,340 B — byte-identical to §9.1**):
+
+```
+…/pgou_ad1/Documento C. Normativa, ordenanzas y fichas/
+   1. Normas urbanisticas. Disposiciones generales/     ← §1 (C.1)
+   2.  Normas urbanisticas. Ordenanzas/                 ← §1 (C.2, Título XII et al.)
+   3. Fichas de ambitos de planeamiento de desarrollo y gestion/   ← THIS SECTION
+```
+
+⚠ **Unlike C.1/C.2 there is no FEB-2018 consolidation of C.3.** Checked the same way: the Feb-2018
+gallery at `urbanismo.malaga.eu/…/documento-c.-2018/` publishes **only** the Normas/Ordenanzas
+títulos. The fichas exist solely in the 2011 AD1 tree. Same standing as Documento B (§9.8): current
+but unconsolidated.
+
+**823 ficha PDFs**, in two families:
+
+| Family | Folder | Count | Nature |
+|---|---|---|---|
+| **Planeamiento Aprobado** | `1 .PA 1983` / `2. PAM 1983` / `3. PA 1997` / `4. PAM 1997` | 147 / 33 / 147 / 42 | ámbitos whose development instrument is **already approved and executed** |
+| **Planeamiento Desarrollo SUC_SUNC** | `1. SUC` … `9. SUNC` | 353 | ámbitos **remitted to a future instrument** (PP / PE / ED) |
+
+**430 of 446** targeted PDFs downloaded (HTTP 200); **16 hrefs on the index are dead links on the
+municipality's own server** (e.g. `PA-CH.11 (97).pdf`, `PA-PT.12 (97).pdf` → 404). All 430 are
+**natively text-extractable** — `pdftotext -enc UTF-8 -layout`, zero needing OCR.
+
+### 10.2 The answer to brief question 1 — **No. Not one ficha states a parcel-level parameter.**
+
+This is the load-bearing finding, and it is quantified across all 430, not sampled:
+
+| Parameter a rule pack needs | Fichas stating it |
+|---|---|
+| `ocupación máxima` (coverage) | **0** |
+| `edificabilidad neta` (parcel FAR) | **0** |
+| `fondo edificable` (buildable depth) | **0** |
+| `retranqueo` / lindero separation as a **figure** | **0** (5 files use the word, all in prose — *"tipologías que permitan el retranqueo respecto del viario"* — none give a number) |
+| `parcela mínima` | 2 |
+| `altura máxima` (storeys or metres) | 68 |
+| `Ie` (ámbito-level m²t/m²s) | **413** |
+
+The fichas are **land-accounting instruments, not ordinances**. What a PA ficha actually carries
+(`PA-CA.1 (83) M`, verbatim):
+
+```
+1.- Ordenanza de aplicación: UAD (PB+1)
+2.- Cesiones: Verde/Deportivo 25.038,00 m2s · Viario 2.956,00 m2s
+3.- Superficie del ámbito: 33.621,00 m2s
+4.- Ie: 0,17 m2s/m2t          5.- Edificabilidad Total: 5.613,00 m2t
+```
+
+`Ie` here is a **gross ámbito index** — total floorspace ÷ whole ámbito area *including viario and
+cesiones*. It is **not** `plotRatioFAR` and packing it as one would be a **C63 denominator
+substitution** (score against buildable land, not gross land) of exactly the kind §5 already refused
+for `OA-2`'s graphic-footprint 90 %.
+
+The per-parcel geometry is **always** delegated onward, in one of two directions:
+
+- **Backwards to Título XII** — *"Ordenanza de aplicación: UAD-1"*. That ordinance is already
+  transcribed in the pack. The ficha adds **nothing numeric**.
+- **Forwards to a further instrument** — `SUNC-O-CA.1` is the sharpest case. It looks like it
+  resolves (it is `Ordenación Pormenorizada Potestativa`, i.e. the PGOU did exercise its option) but
+  reads: *"Los parámetros de referencia para la edificación son los de la ordenanza **CTP-1**, si bien
+  la edificabilidad neta y la ocupación por parcela **serán la resultante del techo máximo permitido
+  en la ordenación propuesta**"* — the two parameters PRYZM needs are handed to a **graphic**
+  ordenación, and *"Mediante Estudio de Detalle se definirán las alineaciones interiores"*.
+
+**347 of 430 are stamped `Ordenación Pormenorizada Completa`** — i.e. the brief's "already
+complete/consolidated" category is not rare, it is the majority. **Being complete still yields no
+flat parameter**, because completeness here means *the land accounting closed*, not *the envelope
+was written down*.
+
+### 10.3 Brief question 2 — nothing to cite, with one honest partial exception
+
+No ficha is citable as packable envelope data. The nearest misses, recorded so they are not
+re-discovered as leads:
+
+- `PA-LE.3 (97)`: *"3.- Ordenanza: MC · 4.- **Altura máxima desde rasante acera: 16 m**"* — a real,
+  flat, unconditional height. But it is **per-ámbito**, keyed to an ámbito whose geometry is behind
+  the same locked `POLCALIF_T` (§3), and it constrains height only — MC's blocker is **free depth**,
+  not height. 68 fichas carry such a height; none carries a footprint.
+- `SUS-G.1`: *"La parcela mínima de las zonas empresarial y comercial será de **1.000 m2s**"* —
+  a minimum parcel size, not an envelope parameter.
+
+### 10.4 Brief question 1, PROD specifically — the fichas *disambiguate*, they do not *quantify*
+
+This is the one place C.3 genuinely touches §5's PROD refusal, and it is worth stating precisely
+because it is easy to overstate.
+
+§5 recorded that `PROD-4` refuses partly because Art. 12.11.8.1.5 makes it **"a container for three
+IND types with different numbers."** C.3 shows the plan resolves that container **per ámbito**:
+
+```
+GA-G.3 (97)    Ordenanza de aplicación: PRODUCTIVO-4 (IND-3).
+PA-G.10 (83)   Ordenanzas de Aplicación: Productivo-4 (IND-2, IND-3) (PR)
+PA-G.12 (97)   Ordenanza de aplicación: PRODUCTIVO-4 (IND-1)
+PAM-G.5 (T)    Ordenanza de aplicación  Productivo-4 (IND-3, IND-4).
+```
+
+**35 fichas name a specific IND type** under Productivo-4 (IND-3 ×13, IND-1 ×4, IND-2 ×3, and 15
+more that name **two or more** IND types for a single ámbito, or just *"(IND)"*). So the ambiguity is
+**resolvable in principle** — but this does **not** narrow the refusal, for three independent
+reasons, any one of which is sufficient:
+
+1. **It supplies a selector, not a value.** Knowing an ámbito is IND-3 still sends you back to
+   Art. 12.11.8, whose numbers §5 already found conditional. The ficha adds no FAR, coverage or setback.
+2. **The selector is keyed to ámbito geometry PRYZM cannot obtain** — the same `muralPGOU:POLCALIF_T`
+   Oracle lock (§3). There is no way to ask "which PA ámbito is this parcel in".
+3. **15 of the 35 are themselves ambiguous** — `(IND-2, IND-3)` for one ámbito is two ordinances, not one.
+
+`PROD-1A/1B/2/3A/3B` fare worse still. The SUS-P sector fichas — the delegated-sector territory the
+brief expected to be productive — hand back only an **indicative** table. `SUS-CA.10 "Rosado Este"`,
+verbatim structure:
+
+| Column | Value |
+|---|---|
+| Section heading | **`ORDENACION PORMENORIZADA INDICATIVA`** ← non-binding by its own title |
+| Ie (ordenación **estructural**, binding) | **0,3500 m²t/m²s** — gross, over 279.158,20 m²s of sector |
+| Altura Máxima | B+2 (industrial) / B+1 (logístico) |
+| **Tipología de Referencia** | **`PROD-1, 2`** ← two subzones at once, and *"de referencia"* |
+| `INSTRUMENTO DE DESARROLLO` | **`PLAN PARCIAL`** |
+
+A **reference** typology naming **two** subzones, inside an explicitly **indicative** table, for land
+whose development instrument has **not been written**. That is the textbook shape of a genuine
+delegation.
+
+> **Verdict on PROD: the refusal is confirmed correct, and its mechanism is now better evidenced.**
+> C.3 does **not** narrow any of the 8. It converts one of §5's stated mechanisms from a *reading of
+> the ordinance* into a *documented fact*: the plan really does defer PROD's per-parcel numbers, and
+> where it disambiguates, it disambiguates **by ámbito** — a key PRYZM cannot look up.
+
+### 10.5 Brief question 4 — bearing on the other refused zones
+
+- **`CH` / `C-1`…`C-4` — confirmed blocked, and now confirmed from the fichas' own mouth.** Each of
+  the four PEPRI/PERI instruments has a ficha, and every one is a *delegation notice*.
+  `PAM-PEPRI (83) M` (PEPRI Centro) states the PEPRI *"se declara **expresamente vigente** en su
+  ámbito"* and then lists **only which of its articles Título XII substitutes** — including the
+  explicit carve-out *"los artículos 7 (**excepto listado de alturas por calles**) … quedan
+  sustituidos por el artículo 12.4.3"*, i.e. the per-street height list stays inside the PEPRI. That
+  is §5's `MALAGA_CH_PEPRI_UNRESOLVED_RING` reasoning, verbatim, from the plan itself.
+  `PA-P.13 (97)` (PEPRI Perchel Sur = `C-4`) is seven prose objectives; its `DETERMINACIONES` block
+  has **`Ie` and `EDIFICABILIDAD TOTAL` literally blank**. ✅ Useful cross-link: §9.7 flagged that
+  `C-4` has **no graphic representation anywhere in P.2.1**. C.3 explains why — Perchel Sur is
+  carried as a **PA ámbito** (39.452,00 m²s), not as a calificación fill.
+- **`MC` — unchanged.** Zero fichas state a `fondo edificable`. The 48 MC-referencing fichas name the
+  ordinance and sometimes a height (§10.3); the free-depth blocker is untouched.
+- **`EP` — unchanged**, and independently re-confirmed a third way: `EP` appears in **no** ficha as
+  an "Ordenanza de aplicación". Consistent with §5 (per-building regime) and §9.7 (overlay symbol).
+- **`CO` / `GSM` / `H` / Equipamiento — unchanged.** `CO` appears only as a co-ordinance in mixed
+  ámbitos (*"MC, CO (PR)"*); `GSM` appears in **no** ficha at all.
+
+### 10.6 🚩 New finding, unasked-for: fichas cite zone codes that are NOT in the 38
+
+**33 fichas name `MC-1`, `MC-2`, `CJ-5`, `CJ-6` or `OA-3`** — five codes that **do not exist** in the
+38-code universe §2 derived from Título XII (which stops at `CJ-4`, `OA-2`, and an unsuffixed `MC`).
+
+> **Do not read this as "the universe is wrong."** The PA/GA fichas are stamped **`CONDICIONES PGOU
+> 97`** and the índices carry paired columns *"DENOMINACIÓN PGOU 2011 | CÓDIGO PGOU 97"* — these are
+> **PGOU-1997-era ordinance codes**, quoted to record what the approved instrument was granted under,
+> not codes in force under the 2011 plan. The suffix `(PR)` that accompanies nearly all of them
+> (152 fichas) is undefined anywhere in the corpus and should be treated as unresolved.
+>
+> It is recorded here because it is the **third** instance of the §2 warning's theme: Documento C's
+> Título XII, Documento B's P.2.1 legend, and Documento C.3's fichas are **three different code
+> vocabularies that are not in bijection**. Any future zone-identity pipeline must normalise across
+> all three, and must not assume a token like `MC-1` from one document is a 2011 subzone.
+
+### 10.7 Verified URL base paths (add to §9.10)
+
+```
+Documento C.3  https://www.malaga.eu/recursos/urbanismo/pgou_ap2/pgou_ad1/Documento%20C.%20Normativa%2C%20ordenanzas%20y%20fichas/3.%20Fichas%20de%20ambitos%20de%20planeamiento%20de%20desarrollo%20y%20gestion/…
+                                                                                        ^^^ comma is %2C — literal comma 404s
+  …/Planeamiento%20Aprobado/{1%20.PA%201983,2.%20PAM%201983,3.%20PA%201997,4.%20PAM%201997}/
+  …/Planeamiento%20Desarrollo%20SUC_SUNC/{1.%20SUC,2.%20ED,3.%20PE,4.%20SG,5.%20FICHAS%20SL,6.%20SUS-R,7.SUS-P,8.%20SUNS,9.%20SUNC}/
+```
+⚠ Note the folder name irregularities the site actually uses and which must be reproduced exactly:
+`1 .PA 1983` (space **before** the dot) and `7.SUS-P` (**no** space after the dot).
+
+### 10.8 Verdict
+
+> ❌ **C.3 does not narrow PROD's 8 refusals. It confirms all 8 are already correct as-is — and the
+> same for `CH`, `MC`, `EP`, `CO`, `GSM` and Equipamiento.** A clean negative.
+>
+> Across **430 fichas**: **zero** state a coverage, a net FAR, a buildable depth or a numeric setback.
+> They state gross ámbito accounting (`Ie`, superficie, cesiones) plus a **pointer** — either back to
+> the Título XII ordinance already transcribed in §4/§5, or forward to a Plan Parcial / Estudio de
+> Detalle that does not exist yet. **There is nothing in C.3 to pack.**
+>
+> The one substantive gain is evidentiary, not numeric: C.3 upgrades §5's `PROD` and `CH` refusal
+> rationales from *ordinance interpretation* to *documented municipal fact*, and it independently
+> re-confirms `EP`. The one new liability is §10.6 — a **third** non-bijective zone-code vocabulary,
+> which belongs in the §9.11 feasibility study's assumptions rather than being met inside it.
