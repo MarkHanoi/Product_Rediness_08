@@ -68,10 +68,18 @@
 // §2's own statement that height is fixed per-manzana on a separate graphic layer, not a zone-wide
 // scalar) — never a guessed unit conversion.
 //
-// ⇒ THE HONEST OUTPUT REMAINS A CITED REFUSAL for every Sevilla parcel — now ZONE-NAMED AND, for
-// `SB`, PARAMETER-CITED — because `SEVILLA_ENVELOPE_VERIFIED` is `false` and MUST stay `false`
-// until a human signs off a transcribed pack (L-449 — the flip is a legal act, and it is the
-// founder's; an implementer may not perform it).
+// ⇒ 2026-08-05 STATE (this paragraph replaces the pre-signature one, which said "THE HONEST OUTPUT
+// REMAINS A CITED REFUSAL for every Sevilla parcel ... because `SEVILLA_ENVELOPE_VERIFIED` is
+// `false` and MUST stay `false`"). The gate WAS signed by the founder that day (see the flag's own
+// certification note below and sources/VERIFICATION.md §SIG-1). The honest output is now split:
+//   • AD, UA, IS, IA, SA  → a REAL computed footprint (every setback a flat, cited article figure).
+//   • the other TEN       → a cited STRUCTURAL REFUSAL, on their own articles, unchanged by the
+//                           signature — signing a pack does not resolve an h/2 separation.
+//   • HEIGHT              → real for IS (20 m) and IA (15 m) only; every other zone's height sits
+//                           on a graphic plan layer this pack does not read, so only the absolute
+//                           never-exceed ceiling is cited, never packed as the answer.
+// The flip remains a founder-only legal act (L-449) — an implementer may not perform, revert, or
+// re-perform it.
 //
 // PURITY: L2-pure (C58 §1.9) — no I/O, no THREE, no DOM, no clock. A refusal is data.
 //
@@ -95,12 +103,15 @@ const tracer = trace.getTracer('pryzm.zoning');
 export const SEVILLA_JURISDICTION_ID = 'es-41091-sevilla';
 
 /**
- * ⛔ **`false`, and it MUST default `false`.** Founder-only act (L-449), exactly the discipline
- * `CORDOBA_ENVELOPE_VERIFIED` and `VALENCIA_ENVELOPE_VERIFIED` carry. Unlike Córdoba, there is not
- * even a machine-extracted pack waiting behind this gate — `ES_SEVILLA_PGOU_PACK.zones` is empty
- * by construction, so flipping this flag today would authorise the publication of nothing (safe),
- * but the flag itself is still a founder-only signal and must never be set `true` by an
- * implementer, a test, or a "just to demo it" edit.
+ * ⛔ **Founder-only act (L-449)**, exactly the discipline `CORDOBA_ENVELOPE_VERIFIED` and
+ * `VALENCIA_ENVELOPE_VERIFIED` carry. It must never be changed by an implementer, a test, or a
+ * "just to demo it" edit — only by the founder, against a written certification.
+ *
+ * ⚠ The paragraph that used to sit here ("there is not even a machine-extracted pack waiting
+ * behind this gate — `ES_SEVILLA_PGOU_PACK.zones` is empty by construction") described the
+ * 2026-08-03 state and is no longer true: all fifteen live `zona_orden` codes are packed below,
+ * five with real footprints. It is corrected rather than left standing, because a stale comment
+ * beside a signed legal gate is the most dangerous kind of stale comment in this file.
  *
  * (Typed `boolean`, not the literal `false`, so a consumer's `if (SEVILLA_ENVELOPE_VERIFIED)`
  * compute branch stays a real runtime check rather than something a future edit narrows to dead
@@ -124,16 +135,32 @@ export const SEVILLA_PGOU_INSTRUMENT_REF =
  * The roadmap line, stated once — the same role as `CORDOBA_ROADMAP_LINE` / `VALENCIA_ROADMAP_LINE`:
  * the refusal card must say what would change the answer, or a coverage gap reads as a crash.
  */
+// ⚠ §SEVILLA-ROADMAP-ACCURACY (2026-08-05) — this string is USER-FACING (it is appended verbatim
+// to `sevillaNoRulePackRefusal`'s `detail`). It previously stated "the ENVELOPE half has not been
+// started: PRYZM has not transcribed a single PGOU-2006 ordinance parameter", which was true when
+// written (2026-08-03) and is now FALSE: all 15 live `zona_orden` codes are transcribed below, 5 of
+// them (`AD`/`UA`/`IS`/`IA`/`SA`) carry real `kind:'setback'` footprints, and
+// `SEVILLA_ENVELOPE_VERIFIED` was signed. A refusal card that UNDERSTATES PRYZM's own coverage is
+// the same §CONTEXT-DATA-HONESTY defect class as one that overstates it, pointing the other way —
+// so the copy is corrected to what the pack actually holds. Nothing about the LAW changed here.
 export const SEVILLA_ROADMAP_LINE =
     'Sevilla (INE 41091) coverage today: the ZONE half is live — the city\'s own ArcGIS service ' +
     '(Info_Urban_Groups/PGOU/MapServer, layer 25 "Calificación") resolves the zona_orden zone ' +
     'identifier for any point, along with its land classification and the linked Normas ' +
     'documents. The same service also publishes alignment, height-label, development-planning ' +
     'and modification layers — an unusually complete set of structured GIS layers for a Spanish ' +
-    'municipality. The ENVELOPE half has not been started: PRYZM has not transcribed a single ' +
-    'PGOU-2006 ordinance parameter (no FAR, coverage, setback, height or depth table), so no ' +
-    'buildable figure can be published for any Sevilla parcel yet — never an estimate borrowed ' +
-    'from a similar zone, and never a guess at what the zone name implies.';
+    'municipality. The ENVELOPE half is transcribed too: all fifteen live zona_orden codes are ' +
+    'read article-by-article from the PGOU-2006 Texto Refundido (Título XII, Capítulos II–XII), ' +
+    'and five of them — AD, UA, IS, IA and SA — state every setback as a flat, unconditional ' +
+    'figure and so produce a real buildable footprint. The other ten (SB, CJ, M, CT, IC, ST-C, ' +
+    'ST-A, A, MP, CH) still refuse on purpose: their ordinance ties buildable depth to something ' +
+    'no single number can answer — an occupation-percentage cap, a height-dependent h/2 or 40%·h ' +
+    'separation, a parcel-size-bracketed table, or a line that exists only on a graphic plan — ' +
+    'so PRYZM shows a cited refusal rather than a figure the plan does not contain. Real building ' +
+    'HEIGHT is resolved for two zones only (IS 20 m, IA 15 m, both stated flat in the article ' +
+    'itself); everywhere else the PGOU fixes height per parcel or per block on a separate ' +
+    'graphic layer PRYZM has not resolved, so only the absolute never-exceed ceiling is cited. ' +
+    'Never an estimate borrowed from a similar zone, and never a guess at what a zone name implies.';
 
 /** The article-attributable part of a refusal — everything EXCEPT the per-parcel `knownFacts`. */
 type ClassifiedRefusal = Omit<EnvelopeRefusal, 'knownFacts'>;
@@ -176,22 +203,30 @@ export function sevillaNoRulePackRefusal(
 
         const refusal: ClassifiedRefusal = {
             code: 'no-rule-pack',
+            // ⚠ §SEVILLA-ROADMAP-ACCURACY — this card is reached ONLY when the resolved
+            // `zona_orden` is not one of the fifteen packed codes: no zone polygon at the point, a
+            // service failure, a blank/`null` value, or the layer's one anomalous `"ver PG 87"`
+            // graphic cross-reference (CAPABILITY-AUDIT-2026-08-04 §1). It is NOT the card a
+            // packed-but-structurally-refusing zone gets — those refuse through
+            // `computeBuildableEnvelope` on their own cited articles. The copy said "PRYZM has not
+            // transcribed the ordinance for any zone", which stopped being true on 2026-08-05.
             headline: known
-                ? `${zone} — PRYZM has resolved your parcel's real zone from Sevilla's own planning ` +
-                  'service, and has not yet transcribed that zone\'s buildable rules.'
-                : `${zone} — PRYZM has not transcribed Sevilla's PGOU-2006 buildable rules for any ` +
-                  'zone yet.',
+                ? `${zone} — PRYZM resolved your parcel's zone from Sevilla's own planning service, ` +
+                  'and that zone code is not one of the fifteen PGOU-2006 zones PRYZM has transcribed.'
+                : `${zone} — PRYZM could not resolve a PGOU-2006 zone for this parcel from Sevilla's ` +
+                  'own planning service.',
             detail:
                 (known
                     ? `PRYZM queried Sevilla's own ArcGIS "Calificación" service and identified this ` +
-                      `parcel's zone as ${zone} — a real, cited zone name, not a guess. `
+                      `parcel's zone as ${zone} — a real, cited value, not a guess. That value is ` +
+                      'not one of the fifteen ordenanza zone codes PRYZM has transcribed from the ' +
+                      'PGOU-2006 Texto Refundido, so there is no ordinance article to apply to it. '
                     : 'PRYZM could not resolve this parcel\'s zone from Sevilla\'s own ArcGIS ' +
-                      '"Calificación" service. ') +
-                'What PRYZM has not done is transcribe the PGOU-2006 ordinance itself: no FAR, ' +
-                'coverage, setback, height or buildable-depth parameter has been read from the ' +
-                'plan text for any Sevilla zone, so there is no rule to apply even to a correctly ' +
-                'identified zone. A generic setback estimate would be a number the ordinance does ' +
-                'not contain, so PRYZM shows none rather than something wrong. ' +
+                      '"Calificación" service — the layer returned no zoning polygon here, or the ' +
+                      'service could not be reached. Without a zone, no ordinance article applies. ') +
+                'Applying another zone\'s figures, or a generic setback estimate, would be a number ' +
+                'the ordinance does not contain for this parcel, so PRYZM shows none rather than ' +
+                'something wrong. ' +
                 SEVILLA_ROADMAP_LINE,
             ordinanceRef: null,
             legallyGrounded: false,
@@ -549,7 +584,9 @@ export const ES_SEVILLA_PGOU_PACK: JurisdictionZoningContract = JurisdictionZoni
     displayName: 'Sevilla — PGOU 2006 (Texto Refundido)',
     source: 'manual',
     crs: 'EPSG:25830',
-    lastReviewed: '2026-08-03',
+    // 2026-08-05 — the date the last zone (CH, Capítulo II) was read and the whole pack was
+    // re-verified end to end. Was '2026-08-03' (the SB-only state), stale for twelve more zones.
+    lastReviewed: '2026-08-05',
     defaultConfidence: SEVILLA_PACK_DEFAULT_CONFIDENCE,
     zones: [
         // ── SB (Suburbana) — Capítulo V, Arts. 12.5.1–12.5.13 ───────────────────────────────

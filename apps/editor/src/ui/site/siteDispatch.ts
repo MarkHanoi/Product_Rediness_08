@@ -3949,13 +3949,17 @@ async function applyCordobaTracedZoneThenFallback(
 /**
  * §SEVILLA-ENVELOPE — the Sevilla (INE 41091) path.
  *
- * ⚠⚠ UNLIKE Córdoba/Madrid, there is NOT a machine-extracted pack waiting behind a verification
- * gate — Sevilla has ZERO transcribed PGOU-2006 ordinance parameters (`ES_SEVILLA_PGOU_PACK.zones`
- * is empty by construction, `esSevilla.ts`). What IS live is the ZONE IDENTITY: the city's own
- * ArcGIS "Calificación" service (layer 25, EPSG:25830 — CONFIRMED live) resolves `zona_orden` for
- * any point (`resolveSevillaZone`), so this path resolves the real zone BEFORE dispatching the
- * refusal, exactly as `applyCordobaZoningThenFallback` resolves the subzone first — the refusal
- * names the zone instead of speaking generically. `SEVILLA_ENVELOPE_VERIFIED` stays `false`.
+ * ⚠ 2026-08-05 — this header used to say "Sevilla has ZERO transcribed PGOU-2006 ordinance
+ * parameters (`ES_SEVILLA_PGOU_PACK.zones` is empty by construction)". That was the 2026-08-03
+ * state and is no longer true: `esSevilla.ts` packs ALL FIFTEEN live `zona_orden` codes, five with
+ * real footprints, and `SEVILLA_ENVELOPE_VERIFIED` is signed — see `§SEV-COMPUTE` below, the one
+ * branch that actually computes.
+ *
+ * The ZONE IDENTITY half is live and unchanged: the city's own ArcGIS "Calificación" service
+ * (layer 25, EPSG:25830 — CONFIRMED live) resolves `zona_orden` for any point
+ * (`resolveSevillaZone`), and this path resolves the real zone FIRST — before `§SEV-COMPUTE` and
+ * before any refusal — exactly as `applyCordobaZoningThenFallback` resolves the subzone first, so
+ * whichever outcome is reached names the real zone instead of speaking generically.
  *
  * Fully guarded: any problem falls back to the precomputed estimated envelope; never throws into
  * the commit path. `status: 'none'` on the refusal keeps every numeric field null and clears any

@@ -1326,14 +1326,17 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
     // ║ ⚠ START OF THE SEVILLA BLOCK. Confine Sevilla edits to this block.                       ║
     // ╚══════════════════════════════════════════════════════════════════════════════════════════╝
     // Sevilla (INE 41091) — the first Andalucían ArcGIS-REST-published municipality PRYZM has
-    // registered. ⚠ 2026-08-03: `esSevilla.ts` now carries ONE transcribed zone (`SB`, Capítulo
-    // V, Arts. 12.5.1-12.5.13) — but `packsByZone` below stays `packMap()` (EMPTY) ON PURPOSE:
-    // wiring a per-zone compute path is a SEPARATE decision from transcribing the ordinance, and
-    // `siteDispatch.ts`'s dedicated `applySevillaZoningThenFallback` never reads `packsByZone` for
-    // Sevilla anyway — it always dispatches `sevillaNoRulePackRefusal` regardless of pack
-    // contents. SB additionally hard-refuses at the GEOMETRY level even if a future pass does wire
-    // it (see `SEVILLA_SB_FONDO_UNRESOLVED_RING` in `esSevilla.ts`), so this gap costs nothing
-    // today; it is a named follow-up, not a silent omission.
+    // registered. ⚠ 2026-08-05: `esSevilla.ts` carries ALL FIFTEEN live `zona_orden` codes, five of
+    // them (`AD`/`UA`/`IS`/`IA`/`SA`) with real `kind:'setback'` footprints, and
+    // `SEVILLA_ENVELOPE_VERIFIED` is signed. `packsByZone` below stays `packMap()` (EMPTY) ON
+    // PURPOSE anyway: `siteDispatch.ts`'s dedicated `applySevillaZoningThenFallback` reads
+    // `ES_SEVILLA_PGOU_PACK` directly (its `§SEV-COMPUTE` branch) and never consults `packsByZone`
+    // for Sevilla, so populating it here would create a second, divergent source of truth for the
+    // same pack. `noRulePackRefusal` below is therefore reached only for a zona_orden value that is
+    // NOT one of the fifteen packed codes (or no zone at all) — not for the ten zones that
+    // structurally refuse, which refuse through `computeBuildableEnvelope` on their own articles.
+    // ⚠ The prior version of this comment said "it always dispatches `sevillaNoRulePackRefusal`
+    // regardless of pack contents" — true on 2026-08-03, false since `§SEV-COMPUTE` shipped.
     // The city's own ArcGIS service resolves the real `zona_orden` per parcel
     // (`resolveSevillaZone.ts`, layer 25 "Calificación", EPSG:25830 — CONFIRMED live, closing the
     // "CRS: NOT FOUND" gap two prior research passes left open), so `noRulePackRefusal` names the
@@ -1355,15 +1358,23 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
             '(Info_Urban_Groups/PGOU/MapServer, layer 25 "Calificación") resolves the zona_orden ' +
             'zone identifier for any point, plus its land classification and the linked Normas ' +
             'documents — an unusually complete published GIS layer set (alignment, height-label, ' +
-            'development-planning and modification layers are all published too). One zone (SB, ' +
-            '"Suburbana") has been transcribed from its own ordinance PDF; every buildable figure ' +
-            'is still refused, either because no other zone has been read yet or because SB\'s own ' +
-            'buildable depth is a conditional occupancy rule the pack cannot honestly draw as a ' +
-            'scalar — never an estimate, never a guess at what a zone name implies.',
-        // ⚠ EMPTY ON PURPOSE, not by lack of transcription — see the comment above the block.
+            'development-planning and modification layers are all published too). ALL FIFTEEN live ' +
+            'zona_orden codes are transcribed from the PGOU-2006 Texto Refundido (Título XII, ' +
+            'Capítulos II–XII), machine-extracted and human-signed; five of them (AD, UA, IS, IA, ' +
+            'SA) state every setback as a flat, unconditional figure and produce a real buildable ' +
+            'footprint. The other ten (SB, CJ, M, CT, IC, ST-C, ST-A, A, MP, CH) refuse on purpose: ' +
+            'their buildable depth is an occupation-percentage cap, a height-dependent (h/2 or ' +
+            '40%·h) separation, a parcel-size-bracketed table, or a line that exists only on a ' +
+            'graphic plan — none of which one scalar can honestly answer. Real building HEIGHT is ' +
+            'resolved for two zones only (IS 20 m, IA 15 m, stated flat in the article); elsewhere ' +
+            'the PGOU fixes height per parcel or per block on a separate graphic layer, so only the ' +
+            'absolute ceiling is cited — never an estimate, never a guess at what a zone name implies.',
+        // ⚠ EMPTY ON PURPOSE — `applySevillaZoningThenFallback` reads `ES_SEVILLA_PGOU_PACK`
+        // directly; see the comment above the block. NOT a lack of transcription.
         packsByZone: packMap(),
-        // No per-zone legal refusal table: nothing has been read from the ordinance yet, so there
-        // is no legally-grounded classification to make — only the coverage-gap card applies.
+        // No per-zone legal refusal table: the ten refusing zones refuse GEOMETRICALLY (each ships
+        // its own named UNRESOLVED ring in `esSevilla.ts`), not by a legal classification of the
+        // land — so there is no per-zone legally-grounded "no" to table here.
         refusalFor: () => null,
         noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
             sevillaNoRulePackRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),

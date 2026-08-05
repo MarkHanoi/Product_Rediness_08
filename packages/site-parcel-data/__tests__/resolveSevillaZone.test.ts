@@ -161,6 +161,47 @@ describe('sevillaNoRulePackRefusal — the honest, zone-named refusal', () => {
         expect(unresolved.headline).not.toBe(resolved.headline);
         expect(unresolved.headline).not.toContain('SB: Suburbana');
     });
+
+    // §SEVILLA-ROADMAP-ACCURACY (2026-08-05) — the card's copy was written on 2026-08-03, when
+    // nothing was transcribed, and kept claiming so after all 15 zones were packed and the gate
+    // signed. UNDERSTATING PRYZM's own coverage on a user-facing card is the same
+    // §CONTEXT-DATA-HONESTY defect class as overstating it. These pin the corrected copy so it
+    // cannot silently rot back.
+    it('never claims PRYZM has transcribed nothing — that stopped being true 2026-08-05', () => {
+        for (const r of [
+            sevillaNoRulePackRefusal('ver PG 87', null, []),
+            sevillaNoRulePackRefusal(null, null, []),
+        ]) {
+            const text = `${r.headline} ${r.detail}`;
+            expect(text).not.toMatch(/has not transcribed a single/i);
+            expect(text).not.toMatch(/no FAR, coverage, setback, height or (buildable-)?depth/i);
+            expect(text).not.toMatch(/ENVELOPE half has not been started/i);
+            expect(text).not.toMatch(/for any Sevilla zone/i);
+        }
+    });
+
+    it('states the real coverage split: 15 packed, 5 with real footprints, 10 refusing', () => {
+        const detail = sevillaNoRulePackRefusal('ver PG 87', null, []).detail;
+        expect(detail).toMatch(/fifteen/i);
+        for (const z of ['AD', 'UA', 'IS', 'IA', 'SA']) expect(detail).toContain(z);
+        expect(detail).toMatch(/IS 20 m/);
+        expect(detail).toMatch(/IA 15 m/);
+        // Still a coverage-gap card about PRYZM, never a legal claim about the land.
+        const r = sevillaNoRulePackRefusal('ver PG 87', null, []);
+        expect(r.code).toBe('no-rule-pack');
+        expect(r.legallyGrounded).toBe(false);
+        expect(r.ordinanceRef).toBeNull();
+    });
+
+    it('the five real-footprint zones named in the copy are exactly the pack\'s non-refusing zones', () => {
+        // Derived from the pack, never re-typed — if a zone lifts out of structural refusal, this
+        // fails until the user-facing copy is updated to match.
+        const realFootprint = ES_SEVILLA_PGOU_PACK.zones
+            .filter((z) => z.geometricRule?.kind !== 'explicit-area')
+            .map((z) => z.code)
+            .sort();
+        expect(realFootprint).toEqual(['AD', 'IA', 'IS', 'SA', 'UA']);
+    });
 });
 
 describe('SEVILLA_ENVELOPE_VERIFIED — the founder-only sign-off gate', () => {

@@ -8,11 +8,14 @@
 // `cdu.urbanismosevilla.org/arcgis/rest/services/Info_Urban_Groups/PGOU/MapServer/25` ("Calificación")
 // by point, via the reusable `queryArcgisRestPointIntersect` container (`containers/arcgisRest.ts`).
 //
-// ⚠⚠ IT RESOLVES DATA, IT DOES NOT DECIDE TO RENDER. `SEVILLA_ENVELOPE_VERIFIED`
-// (`esSevilla.ts`) is `false` — Sevilla has ZERO PRYZM rulepack code (no transcribed ordinance
-// parameters), so a resolved zone binds NO number. What it does bind is the ZONE NAME on the
-// refusal card, so a Sevilla parcel gets a cited, zone-specific "PRYZM has not transcribed this
-// ordinance" refusal instead of a generic message — mirroring `resolveCordobaSubzone`'s three
+// ⚠⚠ IT RESOLVES DATA, IT DOES NOT DECIDE TO RENDER. This file reads no gate and computes no
+// envelope; the L5 dispatcher (`siteDispatch.ts` §SEV-COMPUTE) decides, gated on
+// `SEVILLA_ENVELOPE_VERIFIED` (`esSevilla.ts`). ⚠ This header previously asserted that flag was
+// `false` and that "Sevilla has ZERO PRYZM rulepack code (no transcribed ordinance parameters)" —
+// the 2026-08-03 state, corrected here: all fifteen live `zona_orden` codes are packed and the gate
+// was signed 2026-08-05. What this resolver binds is unchanged either way: the real zone identity,
+// so the outcome — a computed envelope, a cited structural refusal, or a coverage-gap card — always
+// names the real zone rather than speaking generically, mirroring `resolveCordobaSubzone`'s three
 // honesty properties.
 //
 // ══════════════════════════════════════════════════════════════════════════════════════════════
