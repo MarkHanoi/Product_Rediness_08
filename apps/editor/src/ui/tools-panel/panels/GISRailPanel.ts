@@ -127,6 +127,24 @@ export class GISRailPanel {
             }
         ));
 
+        // §COR-MANUAL-ADMIN-ZONE (2026-08-05) — the admin-only manual zone-entry panel. The button
+        // is always registered (no client-side allowlist check here — that would just be dead
+        // weight in the rail's own bundle); `openManualAdminZonePanelIfAdmin` itself asks the server
+        // `GET /api/session/whoami` and is a documented no-op for any non-admin session, so a
+        // non-admin clicking this simply sees nothing happen (never an error, never a leak of what
+        // the panel would have shown).
+        root.appendChild(this._buildDivider());
+        root.appendChild(this._buildActionBtn(
+            '🛠️', 'Manual Zone Entry (admin)',
+            'Admin-only: type a zone/subzone code for this site and compute an envelope instantly, visible only to you',
+            () => {
+                console.log('[GISRailPanel] Open Manual Admin Zone panel (no-op unless session is allowlisted)');
+                void import('../../site/ManualAdminZonePanel')
+                    .then(m => m.openManualAdminZonePanelIfAdmin(this.runtime))
+                    .catch(err => console.error('[GISRailPanel] open manual admin zone panel failed:', err));
+            }
+        ));
+
         // A.11 — Climate substrate UI. Site-anchored sun-path + wind-rose +
         // temperature profile over the A.10 ClimateStore. Opens a floating
         // panel reading runtime.climateStore + runtime.siteModelStore.

@@ -198,6 +198,14 @@ import {
     isInCordobaMunicipality,
     resolveCordobaTracedZone,
     CORDOBA_TRACED_ZONES_VERIFIED,
+    // §COR-MANUAL-ADMIN-ZONE (2026-08-05) — the LIVE, server-backed admin-entry provider. A small
+    // named `PRYZM_ADMIN` allowlist can type a zone code and see it computed immediately, in their
+    // OWN session only. Never inherits `CORDOBA_ENVELOPE_VERIFIED` / `CORDOBA_TRACED_ZONES_VERIFIED`
+    // — see `resolveCordobaManualAdminZone.ts`'s header. Checked FIRST in the Córdoba chain (before
+    // even the pilot's `isInCordoba`), so an admin's manual entry can override any Córdoba parcel for
+    // testing, while remaining a byte-for-byte no-op for every non-admin session (no auth token ⇒
+    // no network call at all).
+    resolveCordobaManualAdminZone,
     // §COR-RASTER-ZONE (2026-08-05) — the THIRD and weakest Córdoba zone-identity source: machine
     // classification of the CUS sheets' colour fields, snapped to Catastro parcels. Tried only after
     // the hand-traced store misses. ⚠ Resolves a FAMILY, never a subzone, so it can only make a
@@ -1488,6 +1496,15 @@ function applyZoning(
         // front/side/rear estimate would be the wrong SHAPE, and the zone code is not yet verified.
         if (qLat != null && qLon != null && isInMadrid(qLat, qLon)) {
             void applyMadridZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+            return;
+        }
+        // §COR-MANUAL-ADMIN-ZONE (2026-08-05) — checked FIRST, before every other Córdoba branch: an
+        // allowlisted admin's manual zone entry, live only in their own session. Covers the WHOLE
+        // municipality (not just the pilot), so it can override either downstream path. Falls
+        // straight through to the existing chain (unmodified) for every non-admin session, and for
+        // an admin session with no matching entry — see `applyCordobaManualAdminZoneThenFallback`.
+        if (qLat != null && qLon != null && isInCordobaMunicipality(qLat, qLon)) {
+            void applyCordobaManualAdminZoneThenFallback(ctx, boundary, qLat, qLon, estimated);
             return;
         }
         // §COR-ENVELOPE — a Córdoba (Sur + Noroeste pilot) plot. ⚠ The pack is machine-OCR'd and
@@ -3394,6 +3411,162 @@ async function applyChZoningThenFallback(
                 );
             }
         } catch { /* refusal dispatch is best-effort too */ }
+    }
+}
+
+/**
+ * Reads the current session's bearer token from client-side auth storage, exactly the same
+ * `'bim-platform-token'` localStorage key `AuthModal.ts` / `ProjectHub.ts` / `initUI.ts` already
+ * read/write. Never throws (private-mode / SSR / test environments may not have `localStorage` at
+ * all) — returns `null` in every such case, which is exactly what makes
+ * `resolveCordobaManualAdminZone` skip its network call entirely (see that resolver's own header).
+ */
+function currentAuthTokenForManualAdminZone(): string | null {
+    try {
+        if (typeof localStorage === 'undefined') return null;
+        return localStorage.getItem('bim-platform-token');
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * §COR-MANUAL-ADMIN-ZONE (2026-08-05) — a small named `PRYZM_ADMIN` allowlist
+ * (`server/adminAllowlist.js`) can type a zone + subzone code for a Córdoba parcel via the admin-only
+ * panel (`apps/editor/src/ui/site/ManualAdminZonePanel.ts`) and see a REAL computed envelope
+ * IMMEDIATELY — no git commit, no deploy, no founder sign-off step. Replaces the much slower full
+ * agent hand-tracing pass for one-off TEST parcels (see
+ * `docs/04-reference/jurisdictions/es/es-an/14021-cordoba/findings/TRACED-ZONE-SERVICE-2026-08-05.md`).
+ *
+ * ⚠⚠ THIS IS A COMPLETELY SEPARATE, ADDITIVE MECHANISM FROM `CORDOBA_ENVELOPE_VERIFIED` /
+ * `CORDOBA_TRACED_ZONES_VERIFIED`. It never reads either flag, and dispatching a computed envelope
+ * from this source must never be read as satisfying either sign-off. Visibility is enforced
+ * SERVER-SIDE (`server/manualAdminZoneStore.js`'s `resolveManualAdminZone`): the server only ever
+ * answers with an entry belonging to the SAME admin session that wrote it, so this branch is,
+ * observably, a true no-op for every non-admin session and for every OTHER admin's session — the
+ * exact same "closed until proven open" honesty shape every other gated resolver in this file
+ * follows, just enforced by session identity instead of a boolean constant.
+ *
+ * No auth token in client storage ⇒ `resolveCordobaManualAdminZone` never calls the network (its own
+ * documented short-circuit) ⇒ this function falls straight through to the UNMODIFIED existing chain
+ * (`isInCordoba` ? the pilot path : the traced-zone path) — byte-for-byte the same routing that ran
+ * before this function was wired in, for every session without a manual entry.
+ */
+async function applyCordobaManualAdminZoneThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+    deps: { authToken?: string | null } = {},
+): Promise<void> {
+    const TAG = '[gis][c58] §COR-MANUAL-ADMIN-ZONE';
+    const fallthroughToExistingChain = async (): Promise<void> => {
+        if (isInCordoba(lat, lon)) {
+            await applyCordobaZoningThenFallback(ctx, boundary, lat, lon, estimated);
+        } else {
+            await applyCordobaTracedZoneThenFallback(ctx, boundary, lat, lon, estimated);
+        }
+    };
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            await fallthroughToExistingChain();
+            return;
+        }
+        const site = ctx.store.getSite();
+        if (!site) {
+            await fallthroughToExistingChain();
+            return;
+        }
+
+        const authToken = deps.authToken !== undefined ? deps.authToken : currentAuthTokenForManualAdminZone();
+
+        let manual: Awaited<ReturnType<typeof resolveCordobaManualAdminZone>>;
+        try {
+            manual = await resolveCordobaManualAdminZone({ lat, lon }, { authToken });
+        } catch (e) {
+            console.warn(`${TAG} resolveCordobaManualAdminZone failed (non-fatal):`, e);
+            await fallthroughToExistingChain();
+            return;
+        }
+
+        if (!manual.ok) {
+            // Includes 'not-authenticated' (the common case for every non-admin session), 'forbidden'
+            // (a non-allowlisted caller), and 'no-match' (an admin with no saved entry for this
+            // point) — all fall through identically to the pre-existing, unmodified chain.
+            await fallthroughToExistingChain();
+            return;
+        }
+
+        const knownFacts = [
+            `Location: Córdoba (${lat.toFixed(5)}, ${lon.toFixed(5)}) — manual admin zone entry`,
+            `Manual zone: ${manual.resolution.zoneCode}` +
+                (manual.resolution.subzoneCode ? ` / ${manual.resolution.subzoneCode}` : ''),
+            `⚠ Provenance: ${manual.resolution.provenance}`,
+        ];
+
+        const record: ZoningRecord = {
+            zoneCode: manual.resolution.zoneCode,
+            zoneLabel: manual.resolution.zoneCode,
+            jurisdictionId: CORDOBA_JURISDICTION_ID,
+            structuredFields: {},
+            overlays: [],
+            ordinanceRef: null,
+            provenance: {
+                source: 'cordoba-pgou-2001-manual-admin-entry',
+                label:
+                    "PGOU de Córdoba (2001) — zone CODE typed by an allowlisted PRYZM admin " +
+                    '(no geometry trace, no municipal publication behind it). ' + manual.resolution.provenance,
+                version: '2001',
+                license: null,
+                crs: 'EPSG:4326',
+            },
+        };
+
+        const envelope = computeBuildableEnvelope({
+            parcelRing: boundary.polygon,
+            edgeClassifications: boundary.edgeClassifications,
+            zoning: record,
+            rulePack: ES_CORDOBA_PGOU2001_PACK,
+        });
+
+        if (envelope.status === 'ok') {
+            dispatchEnvelope(ctx, site.id, envelope, 'coaco-pgou-manual-admin');
+            console.log(
+                `${TAG} §COR-MANUAL-ADMIN-COMPUTE zone=${manual.resolution.zoneCode} — RENDERED a ` +
+                    `manual-admin-entry envelope at ${envelope.confidence ?? 'n/a'} for ${manual.resolution.enteredByEmail}.`,
+            );
+            return;
+        }
+
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(
+                manual.resolution.zoneCode,
+                {
+                    code: 'source-data-unavailable',
+                    headline:
+                        `${manual.resolution.zoneCode}: the PGOU's own conditions leave no buildable ` +
+                        'footprint on this parcel.',
+                    detail:
+                        envelope.refusal?.detail ??
+                        'The manually-entered zone does not resolve to a buildable ring here.',
+                    ordinanceRef: null,
+                    legallyGrounded: false,
+                    knownFacts,
+                },
+                'none',
+            ),
+            'coaco-pgou-manual-admin',
+        );
+        console.log(
+            `${TAG} §COR-MANUAL-ADMIN-COMPUTE zone=${manual.resolution.zoneCode} — compute did not ` +
+                `resolve to 'ok' (status=${envelope.status}); dispatched a cited refusal.`,
+        );
+    } catch (e) {
+        console.warn(`${TAG} manual-admin-zone path failed (non-fatal) — falling through:`, e);
+        try { await fallthroughToExistingChain(); } catch { /* fallback is best-effort too */ }
     }
 }
 

@@ -14,6 +14,8 @@ import { dirname, join } from 'path';
 import { existsSync, readdirSync } from 'fs';
 import { enforceAIQuota, getUserPlan, setUserPlan, getAIUsageStats, maybeAutoGrantOwner } from './server/planStore.js';
 import { aiLimiter, globalLimiter, apiLimiter } from './server/rateLimiter.js';
+import { isPryzmAdmin } from './server/adminAllowlist.js';
+import { saveManualAdminZone, resolveManualAdminZone } from './server/manualAdminZoneStore.js';
 import { v1Router } from './server/api/v1/routes.js';
 // FAMILY-MARKETPLACE (S59 — phase 3-B exit): /api/v1/families publish + browse.
 import { buildFamilyMarketplaceRouter } from './server/familyMarketplaceRoutes.js';
@@ -2079,6 +2081,68 @@ app.get('/api/auth/me', authMiddleware, (req, res) => {
         return res.status(401).json({ error: 'Not authenticated.' });
     }
     res.json({ userId, email: req.auth.email ?? null });
+});
+
+// ── Manual admin zone entry (fast, no-deploy test path) ───────────────────────
+// See `server/manualAdminZoneStore.js` for the full design note and
+// `docs/04-reference/jurisdictions/es/es-an/14021-cordoba/findings/
+// TRACED-ZONE-SERVICE-2026-08-05.md` for why this exists. Both routes re-check
+// `isPryzmAdmin()` themselves (redundant with the store's own check — defense in
+// depth, mirrors the existing PRYZM_OWNER_EMAIL gating idiom above).
+
+/**
+ * GET /api/session/whoami — minimal authenticated-identity endpoint for client UI that only needs
+ * to know "who is logged in" (e.g. to decide whether to render an admin-only panel). Distinct from
+ * `/api/auth/me` only in name/shape stability for this purpose; kept as a thin alias rather than
+ * repointing existing callers of `/api/auth/me`.
+ */
+app.get('/api/session/whoami', authMiddleware, (req, res) => {
+    const userId = req.auth?.userId ?? 'anonymous';
+    const email = req.auth?.email ?? null;
+    res.json({ userId, email, isAdmin: isPryzmAdmin(email) });
+});
+
+/**
+ * POST /api/manual-zone — save a manual zone/subzone entry. ADMIN-GATED: non-allowlisted callers
+ * (including unauthenticated/anonymous) get a 403. The UI-visible client-side admin check
+ * (`isPryzmAdmin` mirrored in the editor panel) is advisory only — this server check is the real
+ * gate, exactly as `saveManualAdminZone` itself re-enforces.
+ */
+app.post('/api/manual-zone', authMiddleware, async (req, res) => {
+    const email = req.auth?.email ?? null;
+    if (!isPryzmAdmin(email)) {
+        return res.status(403).json({ error: 'Forbidden — manual zone entry requires an allowlisted admin account.' });
+    }
+    try {
+        const { jurisdiction, lat, lon, zoneCode, subzoneCode, payload, notes } = req.body ?? {};
+        const row = await saveManualAdminZone(
+            { jurisdiction, lat, lon, zoneCode, subzoneCode, payload, notes },
+            { email, userId: req.auth?.userId ?? null },
+        );
+        res.json({ ok: true, entry: row });
+    } catch (err) {
+        if (err?.code === 'forbidden') return res.status(403).json({ error: err.message });
+        if (err?.code === 'invalid-input') return res.status(400).json({ error: err.message });
+        console.error('[manual-zone] save failed:', err?.message ?? err);
+        res.status(500).json({ error: 'Failed to save manual zone entry.' });
+    }
+});
+
+/**
+ * GET /api/manual-zone/resolve?jurisdiction=&lat=&lon= — resolves the caller's OWN closest manual
+ * zone entry for the given point, or a typed "no match"/"forbidden" result. NEVER leaks whether an
+ * entry exists to a caller who isn't its own author (see `resolveManualAdminZone`'s scoping note).
+ */
+app.get('/api/manual-zone/resolve', authMiddleware, async (req, res) => {
+    const email = req.auth?.email ?? null;
+    if (!isPryzmAdmin(email)) {
+        return res.status(403).json({ ok: false, reason: 'forbidden' });
+    }
+    const jurisdiction = String(req.query.jurisdiction ?? '');
+    const lat = Number(req.query.lat);
+    const lon = Number(req.query.lon);
+    const result = await resolveManualAdminZone({ jurisdiction, lat, lon }, { email });
+    res.json(result);
 });
 
 // ── Google OAuth ──────────────────────────────────────────────────────────────

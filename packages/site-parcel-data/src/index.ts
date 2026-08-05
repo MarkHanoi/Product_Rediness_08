@@ -458,6 +458,20 @@ export {
     type CordobaTracedZoneRefusalReason,
 } from './providers/resolveCordobaTracedZone.js';
 
+// ── Córdoba MANUAL-ADMIN-ZONE resolver (2026-08-05) — the LIVE, admin-entry provider. ──
+// A small named `PRYZM_ADMIN` allowlist (`server/adminAllowlist.js`) can type a zone + subzone code
+// for a parcel and see it computed IMMEDIATELY, in their OWN session only — no commit/deploy, no
+// sign-off gate. Server-enforced (`server/manualAdminZoneStore.js`); never inherits
+// `CORDOBA_ENVELOPE_VERIFIED` / `CORDOBA_TRACED_ZONES_VERIFIED`. Never throws.
+export {
+    resolveCordobaManualAdminZone,
+    type CordobaManualAdminZoneLngLat,
+    type CordobaManualAdminZoneDeps,
+    type CordobaManualAdminZoneResolution,
+    type CordobaManualAdminZoneResult,
+    type CordobaManualAdminZoneRefusalReason,
+} from './providers/resolveCordobaManualAdminZone.js';
+
 // ── Córdoba RASTER-CLASSIFIED-ZONE resolver (2026-08-05) — the offline machine-derived provider. ──
 // The WEAKEST rung of the Córdoba zone-identity hierarchy (COACo WFS > hand-trace > this > refusal):
 // zone FAMILIES reconstructed from the CUS calificación sheets by colour classification snapped to

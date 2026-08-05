@@ -355,6 +355,32 @@ CREATE TABLE IF NOT EXISTS event_log (
 );
 CREATE INDEX IF NOT EXISTS idx_event_log_project_id ON event_log (project_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_event_log_actor_id   ON event_log (actor_id, created_at DESC);
+
+-- 17. Manual admin zone entries — the fast, no-deploy "type in the zone code" path for the
+-- small named PRYZM_ADMIN allowlist (server/adminAllowlist.js). Jurisdiction-agnostic: keyed by
+-- (jurisdiction, lat, lon) + a free-form JSONB payload for jurisdiction-specific fields (subzone
+-- code, notes, etc.), NOT hardcoded to Córdoba columns. See
+-- docs/04-reference/jurisdictions/es/es-an/14021-cordoba/findings/TRACED-ZONE-SERVICE-2026-08-05.md
+-- for why this exists (replaces the full agent hand-tracing pass for one-off test parcels).
+-- Visibility is enforced entirely in server/manualAdminZoneStore.js + the API routes in server.js
+-- (an entry is only ever resolved back to the SAME admin email that wrote it) — this table has no
+-- concept of "published"; every row is always live for its own author only.
+CREATE TABLE IF NOT EXISTS manual_admin_zones (
+    id               TEXT PRIMARY KEY,
+    jurisdiction     TEXT NOT NULL,
+    lat              DOUBLE PRECISION NOT NULL,
+    lon              DOUBLE PRECISION NOT NULL,
+    zone_code        TEXT NOT NULL,
+    subzone_code     TEXT,
+    payload          JSONB NOT NULL DEFAULT '{}',
+    method           TEXT NOT NULL DEFAULT 'manual_admin_entry',
+    entered_by_email TEXT NOT NULL,
+    entered_by_id    TEXT,
+    entered_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    notes            TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_manual_admin_zones_lookup
+    ON manual_admin_zones (jurisdiction, entered_by_email, entered_at DESC);
 `;
 
 // §B9 (audit) — advisory-lock key. A single hard-coded 64-bit lock key shared
