@@ -17,19 +17,20 @@
  * P6 — THIS PANEL NEVER WRITES TO ANY STORE DIRECTLY. Saving a manual zone entry is a plain
  * `fetch()` to the server (there is no client-side store field for "manual admin zone" at all —
  * the server is the sole source of truth for it). To make the freshly-saved entry compute
- * IMMEDIATELY, this panel re-invokes `dispatchParcelBoundary()` with the site's OWN
- * already-committed boundary — the exact same sanctioned re-entry point every other GIS authoring
- * surface in this codebase uses to (re)trigger zoning resolution, which itself writes zoning
- * fields ONLY via the `site.updateZoning` command (`siteUpdateZoning`, see `dispatchEnvelope` in
- * `siteDispatch.ts`, annotated "(P6)" at its call site) — never a raw store write. This panel adds
- * no new store-mutation path; it only triggers the existing one.
+ * IMMEDIATELY, this panel calls `reapplyZoningForActiveSite()` — a narrow re-trigger that
+ * re-resolves zoning against the site's ALREADY-COMMITTED boundary without touching its geometry
+ * (see that function's own header for why the more obvious `dispatchParcelBoundary()` re-entry
+ * point is UNSAFE to call repeatedly here). That re-resolve writes zoning fields ONLY via the
+ * `site.updateZoning` command (`siteUpdateZoning`, see `dispatchEnvelope` in `siteDispatch.ts`,
+ * annotated "(P6)" at its call site) — never a raw store write. This panel adds no new
+ * store-mutation path; it only triggers the existing one.
  *
  * P8 — every exported function below adds an OTel span.
  */
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { injectAppTheme } from '../styles/AppTheme';
-import { dispatchParcelBoundary, deriveParcelQueryLatLon, resolveSiteContext, type SiteContext } from './siteDispatch';
+import { deriveParcelQueryLatLon, reapplyZoningForActiveSite, resolveSiteContext, type SiteContext } from './siteDispatch';
 
 type Runtime = import('@pryzm/runtime-composer/types').PryzmRuntime;
 
@@ -354,10 +355,11 @@ function _setStatus(msg: string): void {
 }
 
 /**
- * The panel's ONE mutating action: save the typed zone/subzone to the server, then re-invoke
- * `dispatchParcelBoundary()` on the site's OWN already-committed boundary so the new entry
+ * The panel's ONE mutating action: save the typed zone/subzone to the server, then call
+ * `reapplyZoningForActiveSite()` on the site's OWN already-committed boundary so the new entry
  * computes immediately (see the file header's P6 note — this never writes to any store field
- * directly; it re-triggers the existing, sanctioned zoning-recompute entry point).
+ * directly; it re-triggers the existing, sanctioned zoning-recompute entry point, without
+ * re-deriving or re-rotating the boundary's geometry).
  */
 async function _onSave(): Promise<void> {
     const span = tracer.startSpan('pryzm.ui.manual_admin_zone_panel.save');
@@ -428,11 +430,18 @@ async function _onSave(): Promise<void> {
         }
 
         _setStatus('Saved — recomputing…');
-        if (boundary && Array.isArray(boundary.polygon) && boundary.polygon.length >= 3) {
-            dispatchParcelBoundary(ctx, {
-                polygon: boundary.polygon,
-                edgeClassifications: boundary.edgeClassifications ?? [],
-            });
+        // §MANUAL-ADMIN-ZONE-REAPPLY-FIX (2026-08-05) — re-resolve zoning against the EXISTING
+        // committed boundary only. Was `dispatchParcelBoundary(ctx, {...})`, which re-derives AND
+        // re-applies the project-north rotation on every call — unsafe to repeat on a complex/
+        // hand-drawn boundary (see `reapplyZoningForActiveSite`'s own header for why this could
+        // silently reopen the exact query-point mismatch the lat/lon fix above just closed, one
+        // layer deeper). This function touches zoning only, never the boundary's geometry.
+        const recomputed = reapplyZoningForActiveSite(ctx);
+        if (!recomputed) {
+            _setStatus(`Saved ${zoneCode}${subzoneCode ? `/${subzoneCode}` : ''} — but no committed boundary to recompute against yet.`);
+            span.setAttribute('result', 'saved-no-boundary');
+            span.setStatus({ code: SpanStatusCode.OK });
+            return;
         }
         _setStatus(`Saved ${zoneCode}${subzoneCode ? `/${subzoneCode}` : ''} — envelope recomputed.`);
         span.setAttribute('result', 'ok');

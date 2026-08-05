@@ -1369,6 +1369,40 @@ export function dispatchParcelBoundary(
     return true;
 }
 
+/**
+ * §MANUAL-ADMIN-ZONE-REAPPLY-FIX (2026-08-05) — re-runs zoning resolution against the site's
+ * ALREADY-COMMITTED boundary, WITHOUT touching geometry at all. Exists because
+ * `ManualAdminZonePanel.ts` needs to force a fresh zoning resolve immediately after saving a
+ * manual entry (so the just-saved entry is picked up), and re-calling the full
+ * `dispatchParcelBoundary` for that purpose is UNSAFE to repeat: that function RE-DERIVES the
+ * project-north angle from the boundary and RE-ROTATES it whenever the derivation comes out
+ * non-zero. For a simple rectangle this is idempotent (a second derivation on an already-squared
+ * polygon yields θ≈0); for a complex/hand-drawn boundary with many short edges (a real case, not
+ * hypothetical), the "dominant edge" the derivation picks can differ run-to-run, so each
+ * re-commit can apply a SMALL additional rotation — silently shifting the polygon's coordinates
+ * on every save-then-recompute cycle. That would reopen the exact query-point mismatch this same
+ * fix pass just closed (see `deriveParcelQueryLatLon`), just one layer deeper: the point SAVED a
+ * moment earlier (from boundary version N) could already differ from the point the next resolve
+ * QUERIES (boundary version N+1, freshly re-rotated) — even with save and resolve now using the
+ * identical formula.
+ *
+ * Returns false (no-op) if there is no active site or no committed boundary yet.
+ */
+export function reapplyZoningForActiveSite(ctx: SiteContext): boolean {
+    const site = ctx.store.getSite();
+    const boundary = site?.parcel?.boundary;
+    if (!site || !boundary || !Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+        return false;
+    }
+    const zoningBoundary = {
+        polygon: boundary.polygon,
+        edgeClassifications: boundary.edgeClassifications ?? [],
+    };
+    const envelope = computeAndCacheEstimatedEnvelope(zoningBoundary);
+    applyZoning(ctx, zoningBoundary, envelope);
+    return true;
+}
+
 type ZoningBoundary = {
     polygon: XZPoint[];
     edgeClassifications: ParcelEdgeClassification[];
@@ -3564,6 +3598,12 @@ async function applyCordobaManualAdminZoneThenFallback(
             // Includes 'not-authenticated' (the common case for every non-admin session), 'forbidden'
             // (a non-allowlisted caller), and 'no-match' (an admin with no saved entry for this
             // point) — all fall through identically to the pre-existing, unmodified chain.
+            // §DIAG-FIX (2026-08-05) — this branch used to be SILENT, so a save that "succeeded"
+            // but never actually resolved back gave zero console signal to diagnose from (founder
+            // report: filtering for MANUAL-ADMIN showed nothing at all). Log the exact reason for
+            // every non-admin session too — `reason` is one of a small closed set, never PII, and
+            // this fires on every ordinary site view, so keep it terse.
+            console.log(`${TAG} no-op — reason='${manual.reason}' at (${lat.toFixed(5)}, ${lon.toFixed(5)}); falling through to the normal chain.`);
             await fallthroughToExistingChain();
             return;
         }
