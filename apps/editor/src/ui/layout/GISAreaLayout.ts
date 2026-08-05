@@ -2104,6 +2104,22 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         };
     };
 
+    // §COR-MANUAL-ADMIN-ZONE (2026-08-05) — wires the "Set zone manually (admin)" button that
+    // `renderCoverageGapEnvelopePanel`'s isGap branch renders into the card itself (a no-op query
+    // on the other two render templates, which never emit this button). Mirrors the exact
+    // dynamic-import + no-op-for-non-admin contract already used at every other entry point for
+    // this panel (`GISRailPanel.ts`, `pryzmEnterSiteView`/`pryzmShowFormaView` above).
+    const wireManualZoneButton = (panel: HTMLDivElement): void => {
+        const btn = panel.querySelector('[data-testid="envelope-manual-zone-btn"]') as HTMLButtonElement | null;
+        if (!btn) return;
+        btn.onclick = (ev) => {
+            ev.stopPropagation();
+            void import('../site/ManualAdminZonePanel')
+                .then((m) => m.openManualAdminZonePanelIfAdmin(runtime))
+                .catch((e) => console.warn('[gis][envelope-card] manual admin zone panel open failed (non-fatal):', e));
+        };
+    };
+
     /**
      * L-445 — the REDUCED card, shown when the buildable ring was read back from persistence
      * (C58 §1.7a) but this session never re-solved the envelope.
@@ -2568,6 +2584,22 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 : isGap
                 ? `<div style="margin-top:8px;color:#a49dbb;font-size:10px;">Coverage status <code style="font-size:10px;">${escHtml(r.code)}</code> — not an error. Your parcel, boundary and area are unaffected.</div>`
                 : `<div style="margin-top:8px;color:#8a83a0;font-size:10.5px;">Zone ${escHtml(env.zoneCode ?? 'n/a')} · reason <code style="font-size:10px;">${escHtml(r.code)}</code></div>`;
+            // §COR-MANUAL-ADMIN-ZONE (2026-08-05, founder: "I thought this would be in the
+            // buildable envelope panel") — a coverage-gap card is EXACTLY where an allowlisted
+            // admin wants to type a zone code, so the affordance belongs here, not only on a
+            // separate floating panel the user has to already know exists. Rendered unconditionally
+            // (isGap only — the state this whole feature targets); the click handler itself asks
+            // `GET /api/session/whoami` and is a documented no-op for any non-admin session, so a
+            // non-admin who clicks it simply sees nothing happen, same contract as every other
+            // admin-only entry point in this codebase.
+            const manualZoneAffordance = isGap
+                ? `<button data-testid="envelope-manual-zone-btn" type="button"
+                           style="margin-top:8px;width:100%;appearance:none;border:1px dashed #6600FF;
+                                  cursor:pointer;padding:6px 10px;border-radius:8px;font:600 11px system-ui;
+                                  background:#faf9fd;color:#6600FF;">
+                     🛠️ Set zone manually (admin)
+                   </button>`
+                : '';
             panel.innerHTML =
                 `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:9px;cursor:grab;">
                    <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${chip}${envelopeCloseButtonHtml()}
@@ -2577,10 +2609,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                  ${facts}
                  ${reasonLine}
                  ${cite}
+                 ${manualZoneAffordance}
                  ${safeCapacitySection}
                  ${envelopeToggleHtml()}`;
             wireEnvelopeToggle(panel);
             wireEnvelopeClose(panel);
+            wireManualZoneButton(panel);
             return;
         }
         const setback = (c: 'setback.front' | 'setback.side' | 'setback.rear'): string => {
