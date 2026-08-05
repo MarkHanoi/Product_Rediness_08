@@ -294,3 +294,264 @@ New file `packages/site-parcel-data/__tests__/esMalagaEnvelope.test.ts` — **25
 
 Málaga's readiness is no longer limited by *research*. It is limited by **one third party's database
 account**.
+
+---
+
+## 9. Documento B — "Planos" (investigated 2026-08-05, second pass)
+
+> **Scope**: investigation only. No code was touched, no resolver written, no georeferencing or
+> vectorisation attempted. The raster/vector classification feasibility work — the analogue of
+> Córdoba's `RASTER-PARCEL-ZONING-FEASIBILITY-2026-08-05.md` — is deliberately **not** done here.
+> **Corpus added**: `findings/corpus/planos/P.2.1_Calificacion/` (all 35 sheets + index),
+> `…/P.2.2_Calificacion_PEPRI_Centro/` (3 sheets + index),
+> `…/P.2.9_Alineaciones_Alturas_Rasantes/` (3 sample sheets + index),
+> `findings/corpus/DocumentoD_Catalogos/` (2 samples).
+
+### 9.1 What Documento B actually is
+
+§3 closed every *live service* route. Documento B is the **paper** route, and it had never been
+opened. Fetched live and enumerated from the raw HTML of
+`https://www.malaga.eu/recursos/urbanismo/pgou_ap2/pgou2011ad1.html` (1,119,340 B, 4,172 links):
+
+| Documento | PDF links |
+|---|---|
+| B. Planos | **1,860** |
+| C. Normativa, ordenanzas y fichas | 1,660 |
+| I. Anejos | 340 |
+| D. Los catálogos | 94 |
+| F / A / E / H / G | 60 / 58 / 58 / 36 / 2 |
+
+**Every one of the 1,860 is a PDF. There is no WFS, WMS, ArcGIS REST, GeoJSON, SHP, DWG or DGN
+download anywhere in the tree.** Documento B splits into `1. Planos de Informacion` (782) and
+`2. Planos de Propuesta` (1,078). Only the *Propuesta* half is normative.
+
+⚠ **The corpus already held part of Documento B and it was the wrong half.** The pre-existing
+`findings/corpus/planos/` subfolders (`Alturas`, `Uso_del_Suelo`, `Red_Viaria`, `SuelosYTipos`, …,
+fetched 06:52–07:44 today) are all `I_*` sheets — **Planos de *Información***. Descriptive survey,
+not ordinance. This is the same Documento-A-shaped mistake §1 caught, one document later.
+
+> 🚩 **`corpus/planos/Alturas/` is a fabrication trap.** It is `I.3.3 Alturas de la edificación`,
+> **1/32.000**, footed *"Documento de Aprobación Provisional, JUNIO 2010"* — a **surveyed existing**
+> storey-count survey (legend: *solar, B–B+1, B+2–B+3, B+4–B+6, B+7–B+9, >B+10*). Reading it as a
+> normative height permission is exactly the §GETCAPABILITIES-IS-NOT-AN-INVENTORY / L-616 error the
+> `ALTEDIFICA` field was rejected for in §3. The **normative** height plan is `P.2.9` (§9.5), a
+> different document at 1/2.000. They must never be conflated.
+
+### 9.2 P.2.1 "Calificación, Usos y Sistemas" — the zoning map exists
+
+`…/Documento B. Planos/2. Planos de Propuesta/P.2 Ordenacion general/P.2.1/`
+
+**35 sheets (`P_2_1_01.pdf` … `P_2_1_35.pdf`) + `grafico de distribucion de hojas.pdf`.** All 36
+downloaded live (HTTP 200, 75 MB). Titleblock verified visually on sheet 24:
+
+> Ayuntamiento de Málaga · **Aprobación Definitiva · Documento de Subsanación de Deficiencias** ·
+> Planos de Ordenación · Ordenación General · **P.2.1 Calificación, Usos y Sistemas** ·
+> FECHA **MARZO 2011** · ESCALA **1 / 5.000** · HOJA **24/35**
+
+The sheet index is a **regular rectangular grid** of 35 tiles covering the whole municipality, with
+the current sheet boxed on each sheet's own index thumbnail.
+
+### 9.3 Raster or vector? — **hybrid, and CAD-derived**
+
+Answering point 3 of the brief first, because it changes the rest. **File metadata, not appearance:**
+
+```
+P_2_1_01.pdf  creator: MicroStation 8.11.7.446 de Bentley Systems Incorporated
+P_2_1_20.pdf  title: P_2_1_20.dgn   author: Bentley Systems, Inc.   creator: MicroStation 8.5.2.35
+P_2_1_24.pdf  title: P_2_1_24.dgn   creator: MicroStation 8.5.2.35
+```
+
+These are **exports from MicroStation `.dgn` CAD files**. A vector master therefore exists inside the
+Gerencia — a fact worth knowing for any future data request, even though it is not published.
+
+What was *published*, per content-stream operator census on sheet 24:
+
+| Operator | Count | Meaning |
+|---|---|---|
+| `Tj` | **7,255** | text-show — real, selectable, coordinate-addressable text |
+| `Do` | 47 | image draws |
+| `S` / `l` | 55 / 2 | strokes / linetos — **essentially no vector linework** |
+
+- **Graphics = raster.** 47 `DCTDecode` (JPEG) tiles, 76,979,456 px total. The dominant tile is
+  **9,664 × 6,768 px at exactly 300 dpi**, covering 2,319 × 1,624 pt (818 × 573 mm) — the whole map
+  frame. At 1:5.000, 300 dpi ⇒ **0.42 m per pixel on the ground.** That is far better than a scan:
+  it is a clean 300 dpi *export*, not a digitised sheet.
+- **Zone labels = vector text.** The subzone codes are live text at known page coordinates —
+  `CTP-1`, `OA-1`, `UAS-3`, `CJ-2` extract directly with no OCR.
+
+So P.2.1 is **not** Córdoba's 49-CUS-sheet situation. It is strictly easier: colour-fill raster
+classification for the *family*, plus zero-OCR text extraction for the *subzone digit*.
+
+### 9.4 Georeferenceability — **P.2.1 has NO coordinate grid**
+
+Checked, not assumed. Across all 35 sheets, tokens matching `\d{6,7}`: **1** (`120120`, a stray
+label). The map frame corners were rendered at 4× and inspected — a **plain frame, no tick marks, no
+grid crosses, no UTM callouts**. The only scale reference is a graphic scale bar (0–200 m).
+
+**Consequence:** P.2.1 needs **ground-control-point registration** — it cannot be georeferenced from
+its own content. Mitigants: a regular 35-tile index grid, a fixed 1:5.000 scale, and a base
+cartography layer (contours, buildings, street names) that is matchable against Catastro.
+
+### 9.5 🎯 P.2.9 "Alineaciones, Alturas y Rasantes" — fully vector **and self-georeferencing**
+
+Not asked for, found while cross-checking, and materially more valuable than P.2.1 on two of the
+open blockers. **114 sheets + index**, named `<row 01–17>.<col A–M>.pdf`. Three sampled live.
+
+| Property | Value |
+|---|---|
+| Scale | **1 / 2.000** |
+| Images | **0** |
+| Vector paths | **49,799 / 73,110 / 84,886** (sheets 09.F / 10.G / 11.H) |
+| Sheet size | 3,237 × 1,704 pt (~1,142 × 601 mm) |
+| Content | Alineaciones · **Altura de la edificación en número de plantas incluida la baja** · Ordenanza particular |
+
+**It carries a UTM coordinate grid as extractable text**, 17 labels per sheet:
+
+```
+11.H.pdf   easting  372000 @ x=302pt … 374000 @ x=3136pt   (every 200 m)
+           northing 4066000 @ y=1485pt … 4067000 @ y=68pt
+10.G.pdf   370000…372000 / 4065000…4066000
+09.F.pdf   368000…370000 / 4064000…4065000
+```
+
+Affine verified: **283.4 pt between 200 m ticks = 99.98 mm = 1:2.000 exactly.** The sheet grid is
+perfectly regular — **column letter ⇒ +2.000 m easting, row number ⇒ +1.000 m northing** — so the
+transform for all 114 sheets is derivable from each sheet's own text with **zero GCP work**.
+⚠ The datum is *not* stated on the sheet: UTM zone 30N is certain from the magnitudes, but **ED50
+(EPSG:23030) vs ETRS89 (EPSG:25830) is unresolved** and they differ by ~100 m here — that must be
+pinned before any use, per §MURCIA-PGOU-EJES (never measure after a lossy reprojection).
+
+Its legend, read at 3×, is **three grey tones only**: `MANZANA CERRADA (MC)`,
+`ORDENACION ABIERTA (OA-2)`, `OTRAS ORDENANZAS` — plus storey counts annotated three ways (*en el
+tramo de calle* / *en el tramo de fachada de la manzana* / *en la manzana*). Code tokens `MC` and
+`OA-2` appear exactly 3× across 3 sheets = **legend only**. So P.2.9 gives a **3-way** ordinance
+split, not the 38 codes — it is **not** a zone-identity source. But it is the direct answer to two
+blockers in §7:
+
+- **MC per-street-width height** — P.2.9 states the storey count *per street segment*, which is what
+  Art. 12.5.3.1's per-plano listing refers to. This is the *published* table, not a PRYZM-constructed
+  rectangle, so it avoids the ADR-0287 concern §7 flagged.
+- **OA road-axis alignment** — `alineaciones` are drawn here as vector geometry.
+
+### 9.6 P.2.2 "Calificación PEPRI Centro" — fully vector, but only delimits the ámbito
+
+3 sheets + index, **1/2.000, MARZO 2011, zero images, up to 43,034 vector paths and 3,990 filled
+paths**. Its `CALIFICACIONES` legend has **exactly one** entry — `PEPRI — CIUDAD HISTÓRICA - Centro`
+— plus `HOTELERO`, dotaciones `E`/`S`/`D`, and protection overlays. It **delimits the PAM-PEPRI
+Centro ámbito; it does not carry the PEPRI's own internal ordenanza zoning.** No coordinate grid
+(0 UTM tokens). **C-1…C-4 therefore remain unresolved**, exactly as §5 recorded.
+
+### 9.7 🚩 Legend cross-check against the 38 transcribed codes — **it does NOT line up**
+
+Flagging loudly, as the brief required. Method: full text of all 35 sheets, regex tolerant of both
+hyphen and space (`C-2`, `C 2`, `C2` all match). The legend contributes ≤1 hit per sheet, so a count
+of 35/35 sheets is *legend-only* and a count well above 35 is a genuine map label.
+
+**P.2.1's legend is family-level.** Colour encodes the family (`MC`, `OA`, `CJ`, `CTP`, `UAS`, `UAD`,
+`H`, `PROD`, `PROD-4`, `PROD-5`, `CO`, `PEPRI`, `C2`, `C3`); the **subzone digit lives only in the
+map-body text label**.
+
+**Resolvable from P.2.1 — 23 codes** (counts = total / sheets):
+
+`MC` 83/35 · `OA-1` 143/8 · `OA-2` 130/9 · `CJ-1` 10/3 · `CJ-2` 17/5 · `CJ-3` 22/5 · `CJ-4` 10/6 ·
+`UAS-1` 28/8 · `UAS-2` 25/9 · `UAS-3` 12/5 · `UAS-4` 21/6 · `UAS-5` 5/3 · `UAD-1` 17/8 ·
+`CTP-1` 172/35 · `CTP-2` 28/8 · `PROD-4` 60/35 · `CO` 105/35 · `H` 51/35 · `E` 311/35 · `S` 333/35 ·
+`D` 98/35. (`UAD-2` 3/3 and `PROD-5` 35/35 are marginal — present but barely, or legend-only.)
+
+**NOT resolvable from P.2.1 — 13 of the 38 codes appear NOWHERE, legend or map:**
+
+| Code(s) | Finding |
+|---|---|
+| `C-1` | **Notation mismatch.** The plan writes the PEPRI Centro zone as **`PEPRI`**, never `C-1`. |
+| `C-2` `C-3` | **Notation mismatch.** Plan writes **`C2` `C3`** (no hyphen), and only in the legend — Ciudad Histórica polygons carry **no map-body text label at all**, they are identified by fill colour alone. |
+| `C-4` | **Absent entirely.** *PEPRI Perchel Sur has no legend entry and no map label on any of the 35 sheets.* A zone the pack declares has no graphic representation in the plan's own zoning map. |
+| `CJ-1A` `CJ-2A` | **Absent.** P.2.1 labels only `CJ-1`…`CJ-4`. The `A` variants are invisible to it. |
+| `PROD-1A` `PROD-1B` `PROD-2` `PROD-3A` `PROD-3B` | **Absent, and structurally so** — the legend groups them under a *single* colour reading **`PROD` / "PRODUCTIVO 1/2/3"**. The plan **does not graphically distinguish** these five. |
+| `PROD-4B` | **Absent.** Only `PROD-4` is drawn. |
+| `SC` `GSM` | **Absent.** `GSM` — the code §2 noted Art. 12.1.1 omits — has no graphic representation either. |
+| `EP` | **Absent as a calificación** — it appears instead as **`PROTECCIÓN ARQUITECTÓNICA` under `DETERMINACIONES COMPLEMENTARIAS`**, i.e. a per-building **overlay symbol**, not a zone fill. ✅ This independently **confirms** §5's reasoning for `MALAGA_EP_CATALOGO_UNRESOLVED_RING`. |
+
+> **Honest reading of the mismatch.** Absence from P.2.1 does *not* prove a code is not in force —
+> it may be carried by a subordinate instrument (the PEPRIs for `C-*`) or by a ficha rather than the
+> citywide map. What it *does* prove is that **P.2.1 alone cannot resolve those 13**, and that the
+> §2 warning — *"a code in force on the ground yet absent from Documento C would be invisible…and no
+> live-service cross-check is available to catch that"* — now has its **converse** on record: codes
+> present in Documento C that Documento B never draws. The two documents are **not** in bijection.
+> Neither is wrong; they are different instruments at different resolutions.
+>
+> Usefully, the 13 unresolvable codes are **almost entirely already-refused zones** (`C-*`, `EP`,
+> `PROD-*`, `GSM`, `SC` are all in §5's 29). The only additional losses are `CJ-1A` and `CJ-2A`, both
+> already refused under `MALAGA_CJ_LINDEROS_UNRESOLVED_RING`. **All 9 real-footprint zones
+> (`UAS-1`…`UAS-5`, `UAD-1`, `UAD-2`, `CTP-1`, `CTP-2`) are present as map labels** — `UAD-2` only
+> weakly (3 sheets) — so the ceiling on *dispatchable* coverage is unaffected by the mismatch.
+
+### 9.8 Is the 2011 Documento B current? — checked, and yes, with caveats
+
+Documento C had a binding FEB-2018 consolidation (§1), so this was checked rather than assumed.
+**There is no 2018 (or any post-2011) consolidation of Documento B.**
+
+- `urbanismo.malaga.eu/…/pgou-2011-aprobado/` offers exactly two links, and its *"Visualización del
+  Plan"* points **back to `…/pgou_ap2/PGOU2011AD1.html`** — the same 2011 AD1 tree used here. That
+  is the in-force plano set.
+- `…/modificaciones-al-plan/` lists **13 modificaciones (≈2012–2014)** as individual PDFs, several of
+  which **do alter calificación locally** (e.g. *"Calificaciones en SGIT viario en C/ Centaurea"*,
+  *"Modificación de zona verde por equipamiento en La Araña"*). So the 2011 sheets are
+  **current but not consolidated** — a production pipeline would have to overlay all 13.
+- ⚠ **Wrong-URL trap, recorded so nobody walks into it:**
+  `urbanismo.malaga.eu/plan-general-de-ordenacion/documentos-de-tramite-pgou-2011/aprobacion-provisional-pgou-2008/documento-b.-planos-del-plan-general/`
+  is a page literally titled *"Documento B. Planos del Plan General"* — but it is the **2008
+  Aprobación Provisional**, i.e. *superseded*, three years older than the AD1 set. Search engines
+  surface it above the real one.
+- ⚠ A second live-verified trap: Documento D's hrefs on the index page **omit the `pgou_ad1/`
+  path segment** that Documento B's carry. Building a Documento D URL by analogy with Documento B
+  returns **HTTP 404** — observed, then corrected. Both base paths are recorded in §9.10.
+
+### 9.9 Documento D "Los catálogos" — secondary, and it closes `EP` rather than `CH`
+
+47 PDFs in three catalogues: **Catálogo de edificaciones protegidas** (292 pp., per-building fichas
+grouped into zones A–N), **Catálogo de jardines protegidos** (14 gardens), **Catálogo de protección
+arqueológica** (92 yacimientos). Natively text-extractable. A ficha sampled live reads:
+
+> `Zona LIMONAR-MALAGUETA` · `Dirección CAMINO SANTA PAULA, 6` · `Referencia A01` ·
+> `Grado de Protección ARQUITECTÓNICA-I` · DESCRIPCIÓN / SITUACIÓN / FOTOGRAFÍA
+
+**Address-keyed, protection-grade only — no FAR, no height, no setback, no zone-wide parameter.**
+This is a **positive confirmation** of §5's `EP` refusal: Cap. III really is a per-building regime
+with nothing to transcribe, and §9.7 independently showed `EP` is drawn as an overlay symbol rather
+than a zone fill. Relevant to **1** of the 29 refused zones (`EP`), plus arqueológica as an overlay.
+It contains **none** of the four `CH` instruments (PEPRI Centro, PERI-C.2, PERI Trinidad-Perchel,
+PEPRI Perchel Sur) — **`C-1`…`C-4` stay blocked**. ⚠ Provenance caveat: the fichas are footed
+*"Aprobación Provisional. Junio 2010"*, an earlier stage than the AD1 2011 tree that serves them.
+
+### 9.10 Verified URL base paths
+
+```
+index          https://www.malaga.eu/recursos/urbanismo/pgou_ap2/pgou2011ad1.html
+Documento B    https://www.malaga.eu/recursos/urbanismo/pgou_ap2/pgou_ad1/Documento%20B.%20Planos/…
+Documento D    https://www.malaga.eu/recursos/urbanismo/pgou_ap2/Documento%20D.%20Los%20catalogos/…
+                                                              ^^^ NO pgou_ad1/ segment — 404 if added
+P.2.1  …/2.%20Planos%20de%20Propuesta/P.2%20Ordenacion%20general/P.2.1/P_2_1_NN.pdf   (NN=01..35)
+P.2.2  …/P.2%20Ordenacion%20general/P.2.2/P_2_2_0N.pdf                                (N=1..3)
+P.2.9  …/P.2%20Ordenacion%20general/P.2.9/RR.C.pdf                     (RR=01..17, C=A..M, 114 sheets)
+```
+
+### 9.11 Verdict
+
+> ✅ **Plausible path — worth a full feasibility study, and on better terms than Córdoba got.**
+>
+> Málaga's zone identity is **not** unobtainable; it is **unobtainable *as a service***. §3's
+> conclusion ("limited by one third party's database account") is now too pessimistic: the same
+> information is published as **P.2.1, 35 sheets at 1:5.000, MicroStation-derived, 300 dpi
+> (0.42 m/px) colour raster with the subzone codes as OCR-free extractable vector text**. The single
+> hard cost is **GCP georeferencing** — P.2.1 carries no coordinate grid — and that cost is
+> **partly pre-paid by P.2.9**, which is fully vector, at 1:2.000, and **self-georeferencing from its
+> own UTM tick labels**, giving a registered municipal reference frame to register P.2.1 against.
+>
+> Two findings must be carried into that study rather than discovered inside it: **(a)** the legend
+> resolves only ~23 of the 38 codes and **structurally cannot** separate `PROD-1A/1B/2/3A/3B`,
+> `CJ-1A/2A`, `SC`, `GSM` or `C-1`…`C-4` — though all **9 real-footprint zones are resolvable**, so
+> the ceiling on *dispatchable* coverage is unaffected; and **(b)** the 2011 sheets are current but
+> **not consolidated** — 13 modificaciones (2012–2014) sit on top and some move calificación.
+>
+> Not a dead end. The remaining blocker in §7 should be re-read as *"zone identity requires a
+> raster-georeferencing pipeline"*, not *"zone identity is unavailable"*.
