@@ -17,12 +17,21 @@
 name: Deploy to Fly.io
 
 on:
-  # §OPTION-A (2026-07-23) — PUSH-DEPLOY DISABLED. Deploys now go DIRECT from the
-  # dev machine via `flyctl deploy --remote-only -a pryzm` (the 16GB remote/Depot
-  # builder was proven to build this, retiring the local-only-on-Actions path AND
-  # the Actions-billing failures that repeatedly killed deploys). `git push` is now
-  # a PURE BACKUP and must NOT trigger a deploy. This workflow is retained as a
-  # manual emergency fallback only. See docs/04-reference/runbooks/DEPLOYMENT-PLATFORM-AUDIT.md.
+  # §OPTION-B (2026-08-05, supersedes §OPTION-A/2026-07-23) — PUSH-DEPLOY
+  # RESTORED. §OPTION-A's own stated reason for disabling push-deploy was the
+  # Actions-billing failures that repeatedly killed runs (see
+  # github-actions-billing-blocks-deploy in the runbook), not a problem with the
+  # push trigger itself — and separately, the v278 deploy-marker recorded that a
+  # push-triggered run in that era correctly died at §L-540-CI-GATE because
+  # `command-manager` CI had been red since 2026-06-02. As of this change,
+  # `npm run check:commandmanager` PASSES (52/52 — zero headroom, but green), so
+  # that specific historical failure mode is gone; the CI gate below still
+  # protects prod either way. `git push origin main` is once again the primary
+  # deploy path; manual `flyctl deploy` / `workflow_dispatch` remain available as
+  # a fallback. See docs/04-reference/runbooks/DEPLOYMENT-PLATFORM-AUDIT.md.
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       # §L-540-CI-GATE — the ONLY way past the CI gate below. Deliberately an
@@ -370,6 +379,13 @@ jobs:
           echo "build-arg VITE_GLB_URL           = '${GLB_URL_CLEAN}'   (public; empty = keep local /items/)"
           echo "build-arg VITE_CONTEXT_TILES_URL = '${TILES_URL_CLEAN}' (public; empty = live Overpass fallback)"
 
+          # §DEPLOY-VERSION (2026-08-05) — GET /version provenance (server.js). Real
+          # values from the Actions context, matching the Dockerfile's runtime-stage
+          # ARG/ENV names exactly. BUILT_AT is computed here (not passed by the
+          # caller) so it reflects the actual build instant, not the commit/push time.
+          BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "build-arg GIT_SHA=${GITHUB_SHA} GIT_BRANCH=${GITHUB_REF_NAME} BUILT_AT=${BUILT_AT} RUN_NUMBER=${GITHUB_RUN_NUMBER}"
+
           set +e
           for attempt in 1 2 3; do
             echo "───────── Fly deploy attempt $attempt ─────────"
@@ -379,6 +395,10 @@ jobs:
               --build-arg VITE_GOOGLE_MAPS_KEY="$GOOGLE_KEY_CLEAN" \
               --build-arg VITE_GLB_URL="$GLB_URL_CLEAN" \
               --build-arg VITE_CONTEXT_TILES_URL="$TILES_URL_CLEAN" \
+              --build-arg GIT_SHA="$GITHUB_SHA" \
+              --build-arg GIT_BRANCH="$GITHUB_REF_NAME" \
+              --build-arg BUILT_AT="$BUILT_AT" \
+              --build-arg RUN_NUMBER="$GITHUB_RUN_NUMBER" \
               --strategy=rolling \
               --wait-timeout=5m 2>&1 | tee "/tmp/fly-attempt-$attempt.log"
             code=${PIPESTATUS[0]}

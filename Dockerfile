@@ -144,6 +144,27 @@ ENV NODE_ENV=production \
     # Disable npm telemetry / update notifier at runtime.
     npm_config_update_notifier=false
 
+# ── Build/deploy provenance (GET /version, server.js) ───────────────────────
+# server.js runs as LIVE source under tsx (see the prod-shim note at the top of
+# this file) — it is never bundled/inlined the way VITE_* client build-args are
+# — so these can be plain runtime ENV vars, read fresh by process.env at request
+# time, rather than needing a build-time-baked JSON file.
+#   • GitHub Actions passes real values: --build-arg GIT_SHA=${{ github.sha }}
+#     --build-arg GIT_BRANCH=${{ github.ref_name }} --build-arg BUILT_AT=<UTC ISO>
+#     --build-arg RUN_NUMBER=${{ github.run_number }} (see deploy-fly.yml).
+#   • A manual `flyctl deploy` that does NOT pass these build-args gets the
+#     literal string "unknown" here — never a fabricated/guessed value. The
+#     `scripts/deploy/local-deploy.mjs` helper populates them for you via
+#     `git rev-parse HEAD` for exactly this case (Objective 5).
+ARG GIT_SHA=unknown
+ARG GIT_BRANCH=unknown
+ARG BUILT_AT=unknown
+ARG RUN_NUMBER=unknown
+ENV GIT_SHA=${GIT_SHA} \
+    GIT_BRANCH=${GIT_BRANCH} \
+    BUILT_AT=${BUILT_AT} \
+    RUN_NUMBER=${RUN_NUMBER}
+
 # Run as non-root. `node` user comes preinstalled on the official node image (uid 1000).
 WORKDIR /app
 

@@ -2345,6 +2345,28 @@ app.use('/api/stripe', authMiddleware, stripeRouter);
 // /api/health endpoint runs three information_schema queries and a FK check —
 // previously polled every few seconds it would self-DoS the PG pool.
 app.get('/api/health/live', (_req, res) => res.status(200).json({ ok: true }));
+
+// GET /version — build/deploy provenance. No auth required; safe for monitoring
+// and for the deploy pipeline's own post-deploy verification step (§DEPLOY-VERSION).
+// Every value is read from process.env, populated ONLY by the Dockerfile's
+// GIT_SHA/GIT_BRANCH/BUILT_AT/RUN_NUMBER build-args (see Dockerfile's runtime
+// stage) — nothing here is hardcoded. A build that did not pass those build-args
+// (e.g. a bare `docker build` with no --build-arg) reports the literal string
+// "unknown" for each, never a fabricated value. `fly_release` is NOT a build-arg —
+// Fly injects FLY_IMAGE_REF into the running machine automatically at runtime
+// (https://fly.io/docs/machines/runtime-environment/), so it is read directly
+// rather than re-derived; it is `null` when running outside Fly (e.g. local dev).
+app.get('/version', (_req, res) => {
+    res.status(200).json({
+        git_sha: process.env.GIT_SHA || 'unknown',
+        branch: process.env.GIT_BRANCH || 'unknown',
+        built_at: process.env.BUILT_AT || 'unknown',
+        run_number: process.env.RUN_NUMBER || 'unknown',
+        fly_release: process.env.FLY_IMAGE_REF || null,
+        environment: process.env.NODE_ENV || 'development',
+    });
+});
+
 app.get('/api/health/ready', async (_req, res) => {
     try {
         const pool = getPgPool();
