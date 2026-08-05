@@ -39,6 +39,7 @@ import {
     MURCIA_SECTOR_LAYER,
     MURCIA_EJE_COMERCIAL_LAYER,
 } from '../murciaPgouProxy.js';
+import { buildCordobaManzanaUrl, CORDOBA_MANZANA_NATIVE_CRS } from '../cordobaZoningProxy.js';
 import { isNativeMetricCrs } from '../../packages/site-parcel-data/src/geometry/nativeCrs.ts';
 
 /**
@@ -59,6 +60,12 @@ const MEASURED_GEOMETRY_SOURCES = [
             buildMurciaWfsUrl(MURCIA_EJE_COMERCIAL_LAYER, 37.99, -1.13, 0.002, 200),
         ],
     },
+    {
+        id: 'es-cordoba/idecordoba-manzana',
+        nativeCrs: CORDOBA_MANZANA_NATIVE_CRS,
+        why: 'MC per-street-width HEIGHT → Ordenanza MC Art. 13.5.3.1 storey bands (ADR-0287).',
+        urls: () => [buildCordobaManzanaUrl(37.88, -4.78)],
+    },
 ];
 
 /** Providers that import the shared measurement module, and are therefore in scope. */
@@ -71,6 +78,7 @@ const MEASUREMENT_MODULE = 'geometry/streetWidth.js';
  */
 const PROVIDER_TO_SOURCE = new Map([
     ['resolveMurciaStreetWidth.ts', 'es-murcia/pgou_alineaciones'],
+    ['resolveCordobaStreetWidth.ts', 'es-cordoba/idecordoba-manzana'],
     // Barcelona's amplada de vial is measured from Catastro INSPIRE, whose publication grid was
     // MEASURED at 1e-6° ≈ 0,083 m E / 0,111 m N (`blockRing.test.ts`) — two orders of magnitude
     // below the harm above, and not a GeoServer. It is declared here so its absence from the
