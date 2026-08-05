@@ -39,6 +39,14 @@ wrong.** Measured on CUS41W (a sheet with both a corpus raster and live COACo ve
 **Recommendation: APPROVE WITH LIMITATIONS.** Justification in §9 / §11 — it rests on a
 per-class precision failure, not on the aggregate accuracy, which passes the pre-declared bar.
 
+> ⚠ **Superseded in part by §12 (multi-sheet validation, same day).** The aggregate result
+> replicated on 4 further sheets and got *stronger* (coincidence 4.2×–7.2× chance; pooled accuracy
+> 89.8 % over 4 780 parcels; micro-IoU 0.823–0.980). The **recommendation stands, but its stated
+> limitation does not**: the "per-class allow-list" of §9.2/§11.1 is refuted by measurement.
+> Per-class precision turns out to be a property of *(class × the other classes on the sheet)* —
+> `Colonia Tradicional Popular` scores 100 % here and **86.3 %** on CUS25W. **Read §12.4 and §12.6
+> before acting on §9.2 or §11.1.**
+
 ---
 
 ## 0. Method, provenance and honesty statement
@@ -854,9 +862,395 @@ figures are stable and not a CUS41W artefact — this is the cheapest, highest-v
 is what the allow-list must be built from; (2) only then consider the hatch-texture classifier that
 would recover the CTP/Comercial confusion. Do **not** build production wiring before (1).
 
+> ⚠ **Step (1) was executed the same day — see §12. It changed this section's conclusion.**
+> The per-class failures below (`Uso Comercial`, `Uso Industrial`, `Elemento protegido`) all
+> replicated. But `Colonia Tradicional Popular`'s **100 % precision did not**: it measures 86.3 % on
+> CUS25W, because the class it collides with is absent from CUS41W. **The "class allow-list" this
+> section rests on is refuted as specified** — read §12.4 and §12.6 before acting on §9.2 or §11.1.
+
 ---
 
-*Method: all figures computed live 2026-08-05 from `coaco:ordenanzas` (COACo GeoServer) and the
-Catastro INSPIRE CP WFS, against `corpus/cus/CUS41W.jpg` and `CUS34W.jpg`. Prototype scripts listed
-in §0.3. No production code, rule pack, dispatcher, provider, data file, or verification gate was
-modified. No derived parcel record was written to any production location.*
+*Method (§1–§11): all figures computed live 2026-08-05 from `coaco:ordenanzas` (COACo GeoServer)
+and the Catastro INSPIRE CP WFS, against `corpus/cus/CUS41W.jpg` and `CUS34W.jpg`. Prototype
+scripts listed in §0.3. No production code, rule pack, dispatcher, provider, data file, or
+verification gate was modified. No derived parcel record was written to any production location.*
+
+---
+
+# 12. Multi-sheet validation — §11's own next step, executed (2026-08-05)
+
+> **Task type: VALIDATION / MEASUREMENT ONLY.** As with §1–§11: no production code, rule pack,
+> dispatcher, provider, data file or verification gate was modified. Nothing was written into
+> `packages/site-parcel-data/src/` or `apps/editor/src/`. Every figure below was computed live
+> this session from real `coaco:ordenanzas` and real Catastro INSPIRE CP responses.
+
+§11 asked for exactly one thing next: *"re-run this exact validation on the other five
+COACo-vectorised sheets … to confirm the per-class precision figures are stable and not a CUS41W
+artefact — this is what the allow-list must be built from."* That was done.
+
+**Headline: the aggregate result replicates and strengthens; the per-class allow-list of §9.2/§11.1
+does not survive contact with the other sheets.** `Uso Comercial`, `Uso Industrial` and
+`Elemento protegido` are stably bad, exactly as §6 found — but `Colonia Tradicional Popular`,
+certified at **100 % precision** on CUS41W and placed on the safe list, measures **86.3 %** on
+CUS25W. Its 100 % was a **composition artefact**: the class that collides with it is absent from
+CUS41W. §12.5.
+
+---
+
+## 12.0 Scope actually completed, stated plainly
+
+| sheet | COACo ground truth | Catastro | validated? |
+|---|---|---|---|
+| **CUS25W** | 90 polygons, 6 families | 1 610 parcels, 60/60 tiles OK | ✅ full |
+| **CUS26W** | 35 polygons, 1 family | 3 607 parcels, 60/60 tiles OK | ✅ full (single-class) |
+| **CUS34W** | 58 polygons, 4 families | 2 431 parcels, 60/60 tiles OK | ✅ full |
+| **CUS41W** | 190 polygons, 7 families | 3 422 parcels, 60/60 tiles OK | ✅ re-run as **control** |
+| **CUS46W** | 45 polygons, 3 families | 288 parcels, 60/60 tiles OK | ✅ full |
+| **CUS45W** | **2 polygons**, 1 family | 218 parcels, 60/60 tiles OK | ⛔ **NOT VALIDATABLE** |
+
+**4 new sheets validated, plus CUS41W re-run as a control — 5 sheets with results, 1 refused.**
+
+**CUS45W is not a result and is not counted as one.** COACo has vectorised only 2 polygons
+(0.15 km of zone edge, 2 scorable parcels) in its extent. Both services answered — no fetch failed,
+0/60 Catastro tiles failed — so this is a real absence of ground truth, not an outage. Any accuracy
+computed on 2 parcels is noise; it is reported in the tables for completeness and **excluded from
+every synthesis**. No sheet outside these six was tested and nothing here extrapolates to the other
+43 unvectorised sheets.
+
+Prototype scripts (scratch, session-scoped, **not** in the repo):
+`…\scratchpad\cusmulti\` — `geo.py` (frame detect + transform), `fetch.py` (COACo + Catastro),
+`legend.py` (per-sheet palette), `raster.py`, `georef_check.py`, `pipeline.py` (Phases 2–6),
+`synth.py` (cross-sheet synthesis).
+
+---
+
+## 12.1 ⭐ Georeferencing got *better* than §2.3 — the publisher ships the sheet footprints
+
+§2.3 georeferenced CUS34W by predicting its extent from a **hypothesised regular sheet-index
+grid**. That hypothesis is wrong as a numbering rule, and testing it would have misplaced four of
+five sheets: the naive row-major reading (sheet *n* → row `(n-1)//7`, col `(n-1)%7`) puts CUS45W
+5.4 km west of where it actually is. The sheets' own printed index diagram (visible in the legend
+panel, §3.1) shows the series is an **irregular** grid following the city outline, not a 7×7 block.
+
+It does not matter, because **`coaco:hojas_cus` — the same layer §1.2 already used to *count* the
+vectorised sheets — publishes each sheet's actual footprint polygon.** Converting those footprints
+back to ED50 and snapping them to the §2.4 anchor grid:
+
+| sheet | `hojas_cus` footprint → ED50 origin | snaps to anchor grid | offset |
+|---|---|---|---:|
+| CUS41W | E 342838.4, N 4192203.3 | E 342841, N 4192201 | 2.6 m, 2.3 m |
+| CUS34W | E 342837.4, N 4193352.3 | E 342841, N 4193351 | 3.6 m, 1.3 m |
+| CUS26W | E 342838.4, N 4194501.3 | E 342841, N 4194501 | 2.6 m, 0.3 m |
+| CUS25W | E 341041.2, N 4194501.2 | E 341041, N 4194501 | 0.2 m, 0.2 m |
+| CUS45W | E 341037.7, N 4191050.0 | E 341041, N 4191051 | 3.3 m, 1.0 m |
+| CUS46W | E 342838.0, N 4191047.2 | E 342841, N 4191051 | 3.0 m, 3.8 m |
+
+**Every footprint snaps to a clean multiple of 1800 × 1150 m from the CUS41W anchor, within 3.8 m.**
+So §2.3's *substantive* claim — the series is a regular grid and georeferencing is
+batch-automatable — is **confirmed and strengthened**; only its method of finding each sheet's cell
+is replaced by something authoritative rather than inferred.
+
+Two data-quality notes recorded rather than smoothed over:
+
+1. **`coaco:hojas_cus` has a labelling defect.** It returns 8 features for 6 named sheets, and
+   **three distinct footprints are all labelled `CUS25W`**. The ambiguity was resolved *without*
+   trusting the layer: each sheet's own printed index diagram highlights its cell with a bold box,
+   and reading those boxes puts CUS25W one column west and two rows north of CUS41W — matching
+   exactly one of the three candidates. Every one of the six cell assignments was confirmed this
+   way, independently of the WFS.
+2. **Frame detection had to be rebuilt.** §2.4's dark-row/column-count profile is dominated by map
+   content and fails on sheets with sparse rural coverage (it put CUS46W's right neat-line 94 px
+   out). Replacing it with *"the density spike immediately inside the blank paper margin"* is
+   content-independent and **reproduces §2.4's manually-calibrated CUS41W frame (36, 1841, 16, 1170)
+   exactly**, plus CUS34W's (1829, 1172).
+
+### Georeference residual, per sheet — fully automated, zero manual input
+
+Same FFT cross-correlation as §2.2. COACo is used **only to measure** the residual; the transform
+is never fitted to it, so Phase 6 remains a genuine held-out test.
+
+| sheet | families correlated | dx range (px) | dy range (px) |
+|---|---:|---|---|
+| CUS25W | 5 | −1 … +1 | +1 … +3 |
+| CUS26W | 1 | +3 | +2 |
+| CUS34W | 4 | +1 … +4 | +4 |
+| CUS41W | 6 | +1 … +5 | −5 … +5 |
+| CUS46W | 3 | −4 … +0 | −1 … +1 |
+| CUS45W | — | *(2 polygons — no usable signal)* | |
+
+**Residual ≤ 5 px ≈ 5 m on every sheet with signal, from automated frame detection + published
+footprint + the ED50 datum shift, with no per-sheet human input.** CUS41W reproduces §2.2's
+residual table including its `Uso Industrial` anomaly (dy = +40, the near-white swatch). The ED50
+finding (§2.2) is re-confirmed on five more sheets and needs no revision.
+
+---
+
+## 12.2 Control — does this re-implementation reproduce CUS41W?
+
+The §0.3 scripts did not survive their session, so Phases 2–6 were rebuilt from this document.
+CUS41W was re-run to make the other sheets' numbers comparable to §2–§6.
+
+| metric | §2–§6 (published) | control re-run | verdict |
+|---|---:|---:|---|
+| zone edge sampled | 50.39 km | **50.37 km** | ✅ |
+| Phase 2 A @ 1 m | 66.9 % | **65.5 %** | ✅ |
+| Phase 2 A @ 5 m | 86.1 % | **86.2 %** | ✅ |
+| Phase 2 C @ 5 m (cuts parcel) | 2.2 % | **2.2 %** | ✅ |
+| chance @ 1/2/5/10 m | 14.8/23.0/41.6/55.3 % | **14.8/23.0/41.5/55.4 %** | ✅ |
+| deviation mean / median | 2.45 / 1.00 m | **2.54 / 1.00 m** | ✅ |
+| street/open-space share | 50.7 % | **50.7 %** | ✅ |
+| scorable parcels | 3 331 | **3 331** | ✅ exact |
+| straddling parcels / of which wrong | 41 / 2 | **40 / 2** | ✅ |
+| micro-IoU over parcel-covered area | 0.808 | **0.823** | ✅ |
+| IoU `Ordenacion Abierta` (parcel) | 0.907 | **0.904** | ✅ |
+| IoU `Plurifamiliar aislada` (parcel) | 0.864 | **0.864** | ✅ exact |
+| **precision CTP / MC / OA** | **100 / 100 / 100 %** | **100 / 100 / 100 %** | ✅ |
+| precision `Uso Comercial` | 25.3 % | **24.8 %** | ✅ |
+| precision `Elemento protegido` | 61.4 % | **63.3 %** | ✅ |
+| parcel accuracy (ungated) | 90.8 % | **87.4 %** | ⚠ see below |
+
+**Every quantity this section reasons about reproduces.** One deviation is stated rather than
+buried: ungated parcel accuracy came out **87.4 % against the published 90.8 %**, entirely because
+of `Uso Industrial`. §3.3/§6 record it predicted **0** times (0 % recall); the control predicts it
+**112** times, all wrong. The cause is a knife-edge: the Industrial swatch (234,233,241) sits
+Chebyshev-22 from paper white, so whether the "near-white reject" threshold falls just above or just
+below it decides whether the class is **silently absent** or **a 112-parcel false-positive sink**.
+An 8-grey-level change in one threshold flips it.
+
+> **This is itself a finding, not just an implementation difference.** §8c called `Uso Industrial`
+> "not recoverable by colour at all"; the sharper statement is that it is *not stably
+> **suppressible** either*. A class whose swatch is inside scanner noise of blank paper is
+> uncontrolled in both directions.
+
+The same reject rule was then applied unchanged to all six sheets, so cross-sheet comparisons are
+internally consistent.
+
+---
+
+## 12.3 Per-sheet metrics
+
+### Phase 2 — boundary coincidence
+
+| sheet | zone edge | A @1 m | A @5 m | C @5 m | chance @1 m | ratio | dev mean / median | p95 / p99 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| CUS25W | 21.37 km | **91.8 %** | 97.4 % | 0.7 % | 12.7 % | **7.2×** | 0.79 / 1.00 m | 2.23 / 7.97 |
+| CUS26W | 5.51 km | **97.3 %** | 100.0 % | 0.0 % | 23.2 % | **4.2×** | 0.56 / 0.99 m | 1.00 / 1.41 |
+| CUS34W | 10.79 km | **80.8 %** | 98.9 % | 0.3 % | 13.8 % | **5.8×** | 0.95 / 0.99 m | 2.23 / 7.78 |
+| CUS41W | 50.37 km | **65.5 %** | 86.2 % | 2.2 % | 14.8 % | **4.4×** | 2.54 / 1.00 m | 12.00 / 24.92 |
+| CUS46W | 11.95 km | 28.1 % | 86.9 % | 10.4 % | 4.7 % | **5.9×** | 2.93 / 1.99 m | 8.06 / 28.98 |
+| *CUS45W* | *0.15 km* | *1.3 %* | *24.7 %* | *75.3 %* | *4.6 %* | *0.3×* | *18.52 / 21.97 m* | *33.27 / 36.09* |
+
+**The Phase 2 premise replicates on all five validated sheets, and CUS41W is the *worst* of them.**
+Coincidence runs **4.2× – 7.2× chance** at 1 m — CUS41W's headline 4.5× was the floor, not a
+flattering outlier. On three of five sheets, ≥ 97 % of zone-boundary length is within 5 m of a
+cadastral edge. Total zone edge measured across the five sheets: **99.98 km**.
+
+### Phase 6 — parcel accuracy, and Phase 5 — IoU
+
+| sheet | scorable | decided | abstain | accuracy | area-weighted | micro-IoU (parcel) | pixel agree |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| CUS25W | 830 | 804 | 26 | **94.2 %** | 98.6 % | **0.962** | 98.0 % |
+| CUS26W | 134 | 132 | 2 | **89.4 %** | 99.2 % | **0.980** | 100.0 % |
+| CUS34W | 603 | 559 | 44 | **94.3 %** | 97.5 % | **0.907** | 97.9 % |
+| CUS41W | 3 331 | 3 095 | 236 | **87.4 %** | 90.0 % | **0.823** | 92.4 % |
+| CUS46W | 190 | 190 | 0 | **97.9 %** | 99.9 % | **0.876** | 100.0 % |
+| **pooled** | **5 088** | **4 780** | **308** | **89.8 %** | — | — | — |
+
+Aggregate performance is **stable and, if anything, better than CUS41W suggested**: micro-IoU
+0.823 – 0.980 against the published 0.808, and CUS41W is again the weakest sheet of the five.
+
+### Confidence gating — a new, adverse finding
+
+| sheet | ungated | ≥0.70 | ≥0.80 | ≥0.85 | ≥0.90 | ≥0.95 |
+|---|---:|---:|---:|---:|---:|---:|
+| CUS25W | 94.2 % | **96.5 %** | 96.4 % | 96.5 % | 96.4 % | 95.9 % |
+| CUS26W | 89.4 % | **95.0 %** | 92.5 % | 88.9 % | 85.7 % | **80.0 %** |
+| CUS34W | 94.3 % | **96.9 %** | 96.8 % | 96.5 % | 96.3 % | 96.4 % |
+| CUS41W | 87.4 % | 92.9 % | 93.9 % | **94.4 %** | 94.3 % | 94.1 % |
+| CUS46W | 97.9 % | 98.9 % | 98.8 % | 98.7 % | **99.3 %** | 99.2 % |
+
+**On four of five sheets accuracy peaks at threshold 0.70 and then flattens or *declines*.** On
+CUS26W it declines steeply — gating at 0.95 is **worse than not gating at all** (80.0 % vs 89.4 %)
+while discarding 85 % of answers. §11.2 said the confidence score must not be the safety mechanism
+because it is uncalibrated; the multi-sheet evidence is stronger than that — **it is
+non-monotonic**, so raising the threshold is not even reliably conservative. The report's chosen
+operating point of **0.85 is not the optimum on any sheet except CUS41W**; 0.70 dominates it on
+coverage and accuracy nearly everywhere.
+
+Confidently-wrong answers (`classification_confidence` = 1.000) recur on **every** sheet, at a
+strikingly constant rate — **25 %, 29 %, 34 %, 35 %, 41 % of each sheet's errors**, 171 of 486
+pooled (**35.2 %**). §4's most important caveat is fully confirmed as structural.
+
+---
+
+## 12.4 ⭐ The decisive synthesis — is per-class precision stable?
+
+**Precision per sheet.** `FP-only(n)` = the class has **zero** ground truth on that sheet yet was
+predicted *n* times — every one of those is a false positive.
+
+| class | CUS25W | CUS26W | CUS34W | CUS41W | CUS46W | pooled | **worst sheet** |
+|---|---|---|---|---|---|---:|---:|
+| Manzana Cerrada | 100.0 % | 100.0 % | 99.2 % | 100.0 % | 100.0 % | **99.8 %** | **99.2 %** ✅ |
+| Ordenacion Abierta | 100.0 % | — | — | 100.0 % | 100.0 % | **100.0 %** | **100.0 %** ✅ |
+| Unifamiliar Adosada | 100.0 % | — | — | — | 100.0 % | **100.0 %** | **100.0 %** ✅ |
+| Plurifamiliar aislada | 100.0 % | — | — | 88.9 % | — | 95.7 % | **88.9 %** ⚠ |
+| **Colonia Trad. Popular** | **86.3 %** | — | 100.0 % | 100.0 % | FP-only(1) | 98.8 % | **86.3 %** ⛔ |
+| CTP1-Campo de la Verdad | FP-only(3) | FP-only(9) | 88.8 % | FP-only(11) | — | 68.9 % | **0 %** ⛔ |
+| Elemento protegido | — | FP-only(3) | 64.9 % | 63.3 % | FP-only(1) | 61.7 % | **0 %** ⛔ |
+| Uso Comercial | 8.3 % | FP-only(2) | FP-only(7) | 24.8 % | FP-only(2) | **23.4 %** | **0 %** ⛔ |
+| Uso Industrial | FP-only(2) | — | FP-only(2) | 0.9 % | — | **0.9 %** | **0 %** ⛔ |
+
+**The answer is: mostly stable — and the stability is what condemns the design.**
+
+1. **The bad classes are stably bad, on every sheet.** `Uso Comercial` never once clears 25 %
+   (pooled **23.4 %**, 259 false positives against 79 true). `Uso Industrial` is 0.9 % pooled.
+   `Elemento protegido` is astonishingly consistent — **63.3 % and 64.9 %** on the two sheets where
+   it has ground truth, pooled 61.7 %. §6's per-class failures are **not** a CUS41W artefact.
+   They replicate.
+2. **Three classes are stably good**: `Manzana Cerrada` (99.2 – 100 % across **all five** sheets),
+   `Ordenacion Abierta` (100 % on three), `Unifamiliar Adosada` (100 % on two) — and none of them
+   ever fires on a sheet where it has no ground truth (1 false positive **in total**, pooled).
+3. **One class moved, and it is the one that matters most.** `Colonia Tradicional Popular` —
+   §6/§11's flagship 100 %-precision class, and by volume the dominant residential family in
+   Córdoba's centre (2 442 truth parcels on CUS41W alone) — drops to **86.3 % on CUS25W**, below the
+   §9.1 bar of 90 %.
+
+**Why CTP moved is the finding, not that it moved.** All 31 of its CUS25W false positives are the
+same confusion: **`Unifamiliar Adosada` → `Colonia Tradicional Popular`**. Their legend swatches are
+Chebyshev **74–78** apart, a marginal pair. And `Unifamiliar Adosada` **does not exist on CUS41W** —
+zero polygons. CTP could not possibly have been caught failing there.
+
+> **CTP's 100 % precision was never a property of CTP. It was a property of CUS41W's class
+> composition.** Per-class precision measured on one sheet is not an estimate of that class's
+> precision; it is an estimate of *that class on a sheet containing that particular mix of other
+> classes*.
+
+### The failure is compositional, not sheet-specific — measured, not assumed
+
+The task asked whether the failure mode is class-specific or **sheet-specific (lighting, print run,
+scan-to-scan colour drift)**. It is measurably **not** the latter:
+
+```
+legend swatch drift across all 6 sheets :  median 11, max 19 grey levels
+colliding-pair swatch separation        :  46 - 79 grey levels
+```
+
+Drift is **2.4× – 7× smaller than the smallest collision gap**, and the colliding-pair table is
+near-identical on every sheet (`Elemento Protegido ↔ Ordenacion Abierta` 46/48/50;
+`Comercial ↔ Industrial` 52/52/58; `Prot. Tipologica ↔ Manzana Cerrada` 56/59/59). **Print run,
+lighting and scan drift are ruled out as the cause.** The confusions are baked into the *legend
+design* — and which of them actually fire is decided by **which classes happen to co-occur on a
+sheet**.
+
+### Therefore: a fixed per-class allow-list is not a coherent concept
+
+§9.2 and §11.1 specify the safety mechanism as *"an allow-list of classes whose measured precision
+clears the bar"*. The evidence refutes the premise that per-class precision is a well-defined
+quantity to build such a list from:
+
+- Precision is a property of a **(class × co-present classes)** pair, not of a class. CTP: 100 % /
+  100 % / **86.3 %** depending only on whether its collider is on the sheet.
+- **Single-sheet precision is systematically optimistic**, because a class cannot be observed
+  failing against a collider that is absent. CUS41W contained 7 of 10 legend families; three
+  never appeared and so three collisions were unobservable.
+- The **`FP-only` mode is invisible to single-sheet validation entirely.** Four classes fire on
+  sheets where they have *no* ground truth (23 false positives for `CTP1-Campo de la Verdad`
+  alone). A list keyed on "precision where the class exists" says nothing about a class's
+  behaviour where it doesn't.
+
+An allow-list is still the right *shape* of control — but it must be keyed on **confusion pairs**
+and paired with a **presence guard**, not on class identity alone.
+
+---
+
+## 12.5 What this does to the §8f self-check gate
+
+§9.3 step 4 proposes a hard gate: *parcel-boundary coincidence ≥ 60 % @ 1 m, abort if not met.*
+Applied to all six sheets:
+
+| sheet | A @1 m | chance | ratio | absolute gate (≥60 %) | ratio gate (≥3×) |
+|---|---:|---:|---:|---|---|
+| CUS25W | 91.8 % | 12.7 % | 7.2× | PASS | PASS |
+| CUS26W | 97.3 % | 23.2 % | 4.2× | PASS | PASS |
+| CUS34W | 80.8 % | 13.8 % | 5.8× | PASS | PASS |
+| CUS41W | 65.5 % | 14.8 % | 4.4× | PASS | PASS |
+| **CUS46W** | 28.1 % | 4.7 % | **5.9×** | ⛔ **REFUSE** | ✅ PASS |
+| **CUS45W** | 1.3 % | 4.6 % | **0.3×** | ⛔ REFUSE | ⛔ REFUSE |
+
+The gate as written **refuses CUS46W — a sheet that scored 97.9 % parcel accuracy and micro-IoU
+0.876**, its best-performing sheet after CUS25W. The reason is that CUS46W is sparsely parcelled
+(288 large parcels covering 77 % of the sheet), so *chance* coincidence is only 4.7 %; an absolute
+threshold silently conflates "the georeference is wrong" with "the parcels here are big".
+It correctly refuses CUS45W.
+
+**Concrete, evidence-backed fix: gate on the ratio to the chance rate, not the absolute rate.**
+The ratio separates the two cases cleanly and with a wide margin — **4.2× – 7.2×** on every
+sheet with real ground truth versus **0.3×** on the one without. This is a genuine improvement to
+§9.3 that only multi-sheet data could have revealed.
+
+---
+
+## 12.6 Revised recommendation
+
+# APPROVE WITH LIMITATIONS — reaffirmed at the aggregate level, but §9.2/§11.1's limitation is REVISED as unsound
+
+**What replicated, and is now on much firmer ground than a single sheet could put it.**
+The Phase 2 premise held on all five validated sheets at **4.2× – 7.2× chance** at 1 m over
+**99.98 km** of measured zone edge, with CUS41W the *worst* case rather than a flattering one.
+Parcel accuracy was **87.4 – 97.9 %** (pooled **89.8 %** over 4 780 decided parcels) and micro-IoU
+**0.823 – 0.980**. Georeferencing is now **fully automated end-to-end** — the publisher's own
+`coaco:hojas_cus` footprints supply each sheet's cell, and residuals are **≤ 5 px on every sheet**
+with zero manual input, which is a stronger result than §2.3 claimed.
+
+**What has changed, and forces a revision.** §9.2 and §11.1 make the safety of this pipeline rest
+on *"a class allow-list bound to measured per-class precision"*. **That mechanism is refuted by
+measurement and must not be built as specified:**
+
+1. **Per-class precision is not a property of a class.** `Colonia Tradicional Popular` measures
+   100 % on CUS41W and CUS34W but **86.3 % on CUS25W**, because its collider
+   (`Unifamiliar Adosada`, swatch separation 74–78) is **absent from CUS41W**. §11 would have put
+   Córdoba's single largest residential family on the safe list on the strength of a number that
+   its validation sheet was structurally incapable of falsifying.
+2. **Single-sheet precision is systematically optimistic**, and the `FP-only` failure mode —
+   classes firing on sheets where they have no ground truth at all — is invisible to it.
+3. **Confidence gating is non-monotonic**, not merely uncalibrated: on CUS26W, gating at 0.95 is
+   *worse* than not gating (80.0 % vs 89.4 %). The §6 operating point of 0.85 is optimal on no
+   sheet but CUS41W; **0.70 dominates it nearly everywhere**.
+4. **The §8f self-check gate is miscalibrated** and falsely refuses a 97.9 %-accurate sheet.
+   Use the ratio to chance (≥ 3×), not an absolute 60 %.
+
+**The revised limitation, stated so it is buildable:**
+
+- **Allow-list on confusion pairs, not classes.** A class may be emitted for a sheet only if every
+  class within Chebyshev ~80 of its swatch either (a) is absent from that sheet, or (b) has been
+  measured against it and clears the bar. This is checkable per sheet from the legend alone.
+- **Presence guard.** Refuse a class on any sheet where it has no independent corroboration of
+  existing — this is what stops the `FP-only` mode, and it is not optional.
+- **On today's evidence, the classes that clear ≥ 90 % precision on *every* sheet where they appear
+  and never fire where they do not are exactly three:** `Manzana Cerrada` (99.2 – 100 %, five
+  sheets), `Ordenacion Abierta` (100 %, three sheets), `Unifamiliar Adosada` (100 %, two sheets).
+  **`Colonia Tradicional Popular` drops off the list**, which materially reduces the pipeline's
+  value in central Córdoba and should be weighed before any further investment.
+- Everything in §9.4 and §10 stands unchanged — its own gate, ranked below the hand-trace; never
+  `"official"`; `source_crs` mandatory. §10's `class_precision_measured` field must be **re-specified
+  as pair-conditioned and sheet-conditioned**; a single per-class scalar is now known to be wrong.
+
+**Why not REJECT:** the core empirical claim survived four independent sheets and got stronger,
+and three classes have clean, replicated, ≥ 99 % precision across every sheet they appear on.
+**Why not unqualified APPROVE:** the specific safety mechanism the previous recommendation depended
+on has been measured and does not work, and the one class it most confidently certified is the one
+that failed.
+
+**Suggested next step, revised:** the cheapest high-value follow-up is no longer "more sheets" —
+it is to **build the confusion-pair table from the legend** (10 classes, 45 pairs, computable
+offline with no new data) and re-express the allow-list against it. Only three of the ten legend
+families have been measured against a collider at all; the other seven are **unmeasured, not
+safe**. The hatch-texture classifier of §11 step 2 remains correctly ranked behind this.
+
+---
+
+*Method (§12): all figures computed live 2026-08-05 from `coaco:ordenanzas` and `coaco:hojas_cus`
+(COACo GeoServer) and the Catastro INSPIRE CP WFS (60/60 tiles OK on all six sheets, zero
+failures), against `corpus/cus/CUS{25,26,34,41,45,46}W.jpg`. CUS45W excluded from all synthesis for
+lack of ground truth (2 polygons). No production code, rule pack, dispatcher, provider, data file,
+or verification gate was modified. No derived parcel record was written to any production location.*
