@@ -768,6 +768,53 @@ export function resolveBuildableFootprint(
 }
 
 /**
+ * §STALE-ASYNC-ZONING (L-644) — pure comparison: does `expectedPolygon` (the parcel boundary
+ * an in-flight async zoning fetch was launched to solve) still match `currentPolygon` (the
+ * parcel boundary actually committed on the Site RIGHT NOW)? Value-based, not reference-based,
+ * so it holds whether or not the store clones its records.
+ *
+ * WHY THIS EXISTS — a SECOND, DISTINCT member of the "purple sits on the wrong plot" family.
+ * 9acd599d (2026-07-28, [[site-origin-on-parcel-regression]]) fixed the ORIGIN-ORDERING defect:
+ * a single commit projected its OWN ring about a stale geocode anchor, offsetting it by
+ * hundreds of metres — reproducible on every affected commit, deterministically.
+ *
+ * This is a RACE, not a coordinate-math bug, and it is intermittent by construction. Barcelona's
+ * real-envelope resolution (`applyBcnZoningThenFallback`) is not one fetch — it is a CHAIN
+ * (MUC clau lookup + Catastro parcel, then the manzana block, then a roads lookup, then the
+ * alçada street-width construction), each a real network round-trip, so the WHOLE async
+ * continuation can take seconds. `dispatchEnvelope` writes onto `_lastEnvelope` and the site's
+ * persisted `Parcel.buildableRing`/setbacks UNCONDITIONALLY, keyed only by `siteId` — which does
+ * NOT change when the user Redraws (§L-384) or re-selects a different cadastral parcel; only
+ * `site.parcel.boundary` changes. So: commit parcel A (kicks off the BCN chain) → before it
+ * resolves, Redraw/select a DIFFERENT parcel B and commit it (B's own — usually faster —
+ * envelope is cached correctly) → A's chain FINALLY resolves and calls `dispatchEnvelope` with
+ * an envelope computed from A's ring, clobbering the live B envelope with A's geometry. Because
+ * `parcelFrameOrigin` anchors every ring near its OWN first vertex (by design, see
+ * `boundaryProjection.ts`), A's inset ring renders at roughly A's own on-plot coordinates
+ * *inside B's ENU frame* — a displacement on the order of ONE PARCEL, not hundreds of metres.
+ * That reads exactly as "the purple volume sits on the neighbouring plot", and it is
+ * NON-DETERMINISTIC: it depends on whether the user re-selects faster than A's chain resolves,
+ * which is why it looks "parcel-specific" (only some parcels — the ones re-selected quickly
+ * after a prior commit — show it) rather than universal.
+ *
+ * Returns true ⇒ STALE ⇒ the caller must discard the response rather than dispatch it.
+ */
+export function isZoningResponseStale(
+    expectedPolygon: ReadonlyArray<{ x: number; z: number }>,
+    currentPolygon: ReadonlyArray<{ x: number; z: number }> | null | undefined,
+): boolean {
+    if (!currentPolygon || currentPolygon.length !== expectedPolygon.length) return true;
+    const EPS = 1e-6;
+    for (let i = 0; i < expectedPolygon.length; i++) {
+        const a = expectedPolygon[i];
+        const b = currentPolygon[i];
+        if (!a || !b) return true;
+        if (Math.abs(a.x - b.x) > EPS || Math.abs(a.z - b.z) > EPS) return true;
+    }
+    return false;
+}
+
+/**
  * L-401 — the PURE decision behind `resolveBuildableFootprint` (envelope + parcel →
  * compliant footprint), extracted so it is unit-testable without the module cache. Uses
  * the envelope INSET ring when the envelope is valid (`status: 'ok'`, ≥ 3 pts), else the
@@ -7027,6 +7074,26 @@ async function applyBalearsZoningThenFallback(
  * persisted via `dispatchSiteTrueNorth`) — see `toAuthoringFrame` below. Any other frame yields
  * a garbage envelope.
  */
+/**
+ * §STALE-ASYNC-ZONING (L-644) — the ctx-aware wrapper `isZoningResponseStale` needs at every
+ * resume point inside an async BCN zoning continuation: is the boundary THIS call was launched
+ * to solve still the one committed on the Site? Logs + returns false (STALE) so every call site
+ * reads as a one-line early-return guard. See `isZoningResponseStale` for the full defect story.
+ */
+function bcnZoningStillCurrent(ctx: SiteContext, boundary: ZoningBoundary, tag: string): boolean {
+    const current = ctx.store.getSite()?.parcel?.boundary?.polygon;
+    if (!isZoningResponseStale(boundary.polygon, current)) return true;
+    console.warn(
+        `${tag} §STALE-ASYNC-ZONING — discarding this response: the committed parcel boundary ` +
+            'changed (Redraw / a different parcel selected+committed) while this real-envelope ' +
+            'fetch chain was still in flight. Writing it now would overwrite the CURRENTLY active ' +
+            "parcel's envelope with a DIFFERENT parcel's geometry — the \"purple volume sits on " +
+            'the neighbouring plot\" symptom. Not the 9acd599d origin-ordering bug: this is a race, ' +
+            'so it is intermittent and looks parcel-specific rather than universal.',
+    );
+    return false;
+}
+
 async function applyBcnZoningThenFallback(
     ctx: SiteContext,
     boundary: ZoningBoundary,
@@ -7058,6 +7125,9 @@ async function applyBcnZoningThenFallback(
             fetchQualificationAtPoint(lat, lon),
             catastroParcelProvider.fetchParcelAtPoint(lon, lat),
         ]);
+        // §STALE-ASYNC-ZONING — the first (and most common) resume point: bail before touching
+        // the store at all if a different parcel is now committed.
+        if (!bcnZoningStillCurrent(ctx, boundary, TAG)) return;
         if (!qual) {
             // §L-663 — **THIS IS THE LINE THE FOUNDER'S EIXAMPLE PARCEL ESCAPED THROUGH.**
             //
@@ -7344,6 +7414,9 @@ async function applyBcnZoningThenFallback(
                 applyEstimatedZoning(ctx, estimated);
                 return true;
             }
+            // §STALE-ASYNC-ZONING — this closure is reached after 1-3 MORE awaits (block fetch,
+            // roads fetch) beyond the guard above; re-check immediately before writing.
+            if (!bcnZoningStillCurrent(ctx, boundary, TAG)) return true;
             const refusal = barcelonaConstructionIncompleteRefusal(
                 clau,
                 reason,
@@ -7744,6 +7817,10 @@ async function applyBcnZoningThenFallback(
             // Never allowed to cost the (already-correct) DEPTH envelope.
             console.warn(`${TAG} §BCN-ALCADA failed — height omitted:`, e);
         }
+
+        // §STALE-ASYNC-ZONING — final resume point, after the block + roads + alçada chain (the
+        // longest window of all). Re-check one last time immediately before the write.
+        if (!bcnZoningStillCurrent(ctx, boundary, TAG)) return;
 
         // (h) Dispatch ONLY a status:'ok' envelope; anything else falls back (never a broken one).
         if (envelope.status === 'ok' && envelope.insetPolygon.length >= 3) {
