@@ -413,13 +413,16 @@ export function mountSiteBoundaryMap2D(
     interToggle.className = 'pryzm-gis-interaction-toggle';
     Object.assign(interToggle.style, {
         position: 'absolute',
-        // §FIX-PARCEL-TOGGLE-CLIP (L-384 follow-up) — the segmented control lived at
-        // left:12px, directly UNDER the root-level PRYZM logo tile + nav rail (z 9999),
-        // which clipped the "Select parcel" half behind the logo so the parcel entry
-        // point was invisible and the user never left DRAW mode. Drop it a row and clear
-        // the left chrome so BOTH segments are fully visible and clickable.
-        top: '64px',
-        left: '64px',
+        // §FIX-PARCEL-TOGGLE-BOTTOM-RIGHT (2026-08-05, founder request) — moved off the top-left
+        // corner (previously top:64px/left:64px, itself a fix for an EARLIER clip-behind-the-logo
+        // bug, §FIX-PARCEL-TOGGLE-CLIP/L-384 — the top-left placement is preserved in git history,
+        // not lost) down to bottom-right, decluttering the map's top edge. Kept clear of the
+        // manual-admin-zone panel (`ManualAdminZonePanel.ts`, `right:16px; bottom:16px`, ~260px
+        // wide) by sitting well above it rather than beside/under it — this toggle is short
+        // (~140px wide, one row tall), so stacking vertically avoids ever needing to reason about
+        // two floating elements' horizontal widths colliding.
+        bottom: '340px',
+        right: '16px',
         zIndex: '22',
         display: 'flex',
         gap: '0',
@@ -532,34 +535,15 @@ export function mountSiteBoundaryMap2D(
     if (opts.overlayOnly) redrawBtn.style.display = 'none';
     overlay.appendChild(redrawBtn);
 
-    // ── §SITE-PLAN-OVERLAY — "Overlay plan/PDF" entry button ─────────────────────
-    // Opens the file picker on the site-plan overlay controller (mounted on map load).
-    // Brand white + #6600FF. Sits under the basemap toggle, left of the panel.
-    // §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 A) — this IS "the site overlay
-    // button that is already there" (founder). It is the user's OPT-IN into the upload, and it
-    // is now shown in EVERY mode (including overlay-only): the picker no longer auto-fires on
-    // mode entry, so the user first navigates to their site, THEN presses this. It is no longer
-    // a duplicate of an auto-opened picker (the L-77 reason it was hidden) — it is the entry.
-    const overlayBtn = document.createElement('button');
-    overlayBtn.type = 'button';
-    overlayBtn.textContent = '📄 Overlay plan / PDF';
-    overlayBtn.setAttribute('data-testid', 'site-overlay-open-btn');
-    Object.assign(overlayBtn.style, {
-        position: 'absolute',
-        top: '92px',
-        left: '12px',
-        zIndex: '21',
-        padding: '7px 12px',
-        borderRadius: '8px',
-        border: `1px solid ${VIOLET}`,
-        background: 'rgba(255,255,255,0.95)',
-        color: VIOLET,
-        cursor: 'pointer',
-        font: '600 12px/1 system-ui, sans-serif',
-        boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
-    } satisfies Partial<CSSStyleDeclaration>);
-    overlayBtn.addEventListener('click', () => overlayController?.promptUpload());
-    overlay.appendChild(overlayBtn);
+    // ── §SITE-PLAN-OVERLAY — "Overlay plan/PDF" entry ────────────────────────────
+    // §FIX-DUPLICATE-OVERLAY-ENTRY (2026-08-05, founder request) — this used to be a SEPARATE
+    // floating top-left button duplicating the "Upload plan / PDF" action the Site plan overlay
+    // panel itself already shows (`SitePlanOverlayController.ts renderPanel()`'s `locating` state,
+    // top-right card) — two buttons for one action, cluttering the top-left corner. Removed the
+    // standalone button entirely; the panel (already visible/mounted) is now the single entry
+    // point. `overlayController` itself is untouched — still declared/used below for the
+    // boundary-commit re-entry path (`enterCanvasWithSitePlan.ts`), unaffected by this UI-only
+    // removal.
 
     // ── §BND-MODE-STRIP — boundary-draw MODE toolbar (mirrors WallDrawingHUD) ────
     // The founder's spec: present the boundary draw modes as a floating wall-style
