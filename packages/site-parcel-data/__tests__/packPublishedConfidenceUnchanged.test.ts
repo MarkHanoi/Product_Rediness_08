@@ -61,6 +61,7 @@ import { ESTIMATED_DEFAULT_PACK } from '../src/rulepacks/estimatedDefault.js';
 import { ES_TELDE_PGO2003_PACK } from '../src/rulepacks/esTeldePgo2003.js';
 import { ES_ZARAGOZA_PGOU2024_PACK } from '../src/rulepacks/esZaragoza.js';
 import { ES_SEVILLA_PGOU_PACK } from '../src/rulepacks/esSevilla.js';
+import { ES_MALAGA_PGOU_PACK } from '../src/rulepacks/esMalaga.js';
 import { ES_EL_SAUZAL_PACK } from '../src/rulepacks/esElSauzal.js';
 import { ES_CARTAGENA_PGMO1987_PACK } from '../src/rulepacks/esCartagena.js';
 
@@ -83,6 +84,15 @@ const PUBLISHED: ReadonlyArray<readonly [string, { defaultConfidence: RulePackDe
     // same reasoning as València's line above, so a future zone cannot inherit a flattering
     // default silently.
     ['esSevilla', ES_SEVILLA_PGOU_PACK, 'estimated-ruleset'],
+    // Málaga PGOU-2011 (Documento C, Normas urbanísticas y ordenanzas, Feb-2018 consolidation) —
+    // landed 2026-08-05. Agent-transcribed VERBATIM from the binding text (not OCR — the PDFs are
+    // natively text-extractable), so it ships the curated-estimate ceiling `estimated-ruleset`,
+    // never the OCR bottom tier and never higher. ⚠ Málaga is the pack where a flattering tier
+    // would be MOST misleading: it carries 38 zone codes and 9 real footprints, but there is no
+    // zone-identity resolver for the city at all (the municipal calificación layer is behind an
+    // authority-side database lock), so every number in it is unreachable and unvalidated against
+    // a single real parcel. `MALAGA_ENVELOPE_VERIFIED` stays `false` independently (L-449).
+    ['esMalaga', ES_MALAGA_PGOU_PACK, 'estimated-ruleset'],
     // Telde PGO-2003 (Canarias SIPU) — landed after this manifest was frozen. ⚠ Its numbers are
     // PUBLISHED STRUCTURED DATA (the Gobierno de Canarias' own typed EDIF columns), which is
     // stronger provenance than an OCR read — and it is pinned at `estimated-ruleset` ANYWAY,

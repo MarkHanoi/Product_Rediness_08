@@ -1311,15 +1311,29 @@ export {
 // ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
 // ║ ⚠ START OF THE MÁLAGA / GRANADA §RESEARCH-PENDING BLOCK.                                      ║
 // ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
-// Neither has a rulepack, a zone-identity resolver, or a signable gate — this closes ONLY the
-// §L-663 fabrication defect (a click here previously fell through to `applyEstimatedZoning`, a
-// FABRICATED generic envelope) by routing to a cited "not yet researched" refusal. See
-// `esMalaga.ts` / `esGranada.ts` for each city's specific root blocker.
+// Neither has a zone-identity resolver or a signable gate — this closes ONLY the §L-663
+// fabrication defect (a click here previously fell through to `applyEstimatedZoning`, a
+// FABRICATED generic envelope) by routing to a cited refusal. See `esMalaga.ts` / `esGranada.ts`
+// for each city's specific root blocker.
+//
+// ⚠ MÁLAGA IS NO LONGER "no rulepack" — as of 2026-08-05 it carries a FULL, article-cited
+// transcription of Documento C (Normas urbanísticas y ordenanzas, Título XII, Feb-2018
+// consolidation): 38 zone codes, 9 with real footprints. It remains §RESEARCH-PENDING at DISPATCH
+// because the municipal calificación layer is Oracle-locked, so no resolver can say which of the
+// 38 governs a given parcel — and `MALAGA_ENVELOPE_VERIFIED` stays `false` regardless (L-449).
+// The refusal function is therefore still the only thing dispatch calls. Granada is unchanged
+// (genuinely no rulepack).
 export { isInMalaga, MALAGA_BBOX, MALAGA_INE_CODE } from './providers/malagaBbox.js';
 export {
     MALAGA_JURISDICTION_ID,
     MALAGA_ENVELOPE_VERIFIED,
     malagaResearchPendingRefusal,
+    MALAGA_PGOU_INSTRUMENT_REF,
+    MALAGA_ROADMAP_LINE,
+    MALAGA_DOC_C_SRC,
+    ES_MALAGA_PGOU_PACK,
+    MALAGA_PGOU_ZONE_CODES,
+    MALAGA_REAL_FOOTPRINT_ZONE_CODES,
 } from './rulepacks/esMalaga.js';
 export { isInGranada, GRANADA_BBOX, GRANADA_INE_CODE } from './providers/granadaBbox.js';
 export {
