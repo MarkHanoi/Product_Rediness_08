@@ -190,17 +190,26 @@ import {
     // the manzana layer does not cover a point (§COR-MC-ANCHO's own call site tries this one first).
     resolveCordobaStreetWidth,
     type CordobaMcZone,
-    // ── Sevilla (INE 41091) — ZERO transcribed ordinance, live zone-identity resolve only. ──
-    // `SEVILLA_ENVELOPE_VERIFIED` is `false` and there is nothing behind the gate to sign yet
-    // (`ES_SEVILLA_PGOU_PACK.zones` is empty by construction). `resolveSevillaZone` queries the
-    // city's own ArcGIS "Calificación" layer (25, EPSG:25830) so the refusal names the real
-    // `zona_orden` instead of speaking about Sevilla generically.
+    // §COR-TRACED-ZONE (2026-08-05) — the municipal bbox (widens the pilot's `isInCordoba` to the
+    // whole of Córdoba, so the traced-zone branch can see land the pilot does not cover) + the
+    // OFFLINE hand-traced-CUS-sheet resolver + its OWN independent honesty gate. See
+    // `applyCordobaTracedZoneThenFallback`'s header for why this must NOT read
+    // `CORDOBA_ENVELOPE_VERIFIED` — a different, unrelated sign-off.
+    isInCordobaMunicipality,
+    resolveCordobaTracedZone,
+    CORDOBA_TRACED_ZONES_VERIFIED,
+    // ── Sevilla (INE 41091) — 15/15 live zona_orden codes transcribed, SIGNED 2026-08-05. ──
+    // `SEVILLA_ENVELOPE_VERIFIED` is `true` (sources/VERIFICATION.md §SIG-1). `resolveSevillaZone`
+    // queries the city's own ArcGIS "Calificación" layer (25, EPSG:25830); §SEV-COMPUTE below
+    // computes a real envelope for the 6 non-refused zones, and the refusal still names the real
+    // `zona_orden` for the 9 that structurally refuse or for any unresolved point.
     isInSevilla,
     resolveSevillaZone,
     sevillaNoRulePackRefusal,
     SEVILLA_JURISDICTION_ID,
     ES_SEVILLA_PGOU_PACK,
     SEVILLA_PGOU_ZONE_CODES,
+    SEVILLA_ENVELOPE_VERIFIED,
     // §STAGING-UNCERTIFIED-PREVIEW — SB's real `fondo máximo edificable` geometry (confirmed live
     // 2026-08-04, ArcGIS layer 4 `A_INTERIOR-MAXIMA`). See `applySevillaZoningThenFallback`.
     resolveSevillaAlignments,
@@ -1479,6 +1488,19 @@ function applyZoning(
         // dispatches a cited "machine-extracted, unverified" refusal, never a fabricated envelope.
         if (qLat != null && qLon != null && isInCordoba(qLat, qLon)) {
             void applyCordobaZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+            return;
+        }
+        // §COR-TRACED-ZONE (2026-08-05) — a Córdoba point OUTSIDE the COACo pilot but still inside
+        // the municipality: try PRYZM's own hand-traced CUS-sheet zone store. ⚠ Independently gated
+        // (`CORDOBA_TRACED_ZONES_VERIFIED`, default OFF — see `applyCordobaTracedZoneThenFallback`'s
+        // header) — while closed this branch is a documented no-op: it falls straight through to
+        // `applyEstimatedZoning`, exactly what running with NO traced-zone branch at all would do,
+        // so today's behaviour for this land (the §L-663 estimate-suppression refusal) is unchanged.
+        if (
+            qLat != null && qLon != null &&
+            !isInCordoba(qLat, qLon) && isInCordobaMunicipality(qLat, qLon)
+        ) {
+            void applyCordobaTracedZoneThenFallback(ctx, boundary, qLat, qLon, estimated);
             return;
         }
         // §SEVILLA-ENVELOPE — a Sevilla (INE 41091) plot. ⚠ There is no transcribed ordinance at
@@ -3773,6 +3795,158 @@ async function applyCordobaZoningThenFallback(
 }
 
 /**
+ * §COR-TRACED-ZONE (2026-08-05) — Córdoba land OUTSIDE the COACo Sur+Noroeste pilot, resolved
+ * against PRYZM's OWN hand-traced CUS-sheet geometry (`resolveCordobaTracedZone`,
+ * `@pryzm/site-parcel-data`) instead of a live COACo WFS answer.
+ *
+ * ⚠⚠ THIS IS A SEPARATE, INDEPENDENTLY-GATED CAPABILITY FROM THE PILOT ABOVE. It reads
+ * `CORDOBA_TRACED_ZONES_VERIFIED`, NOT `CORDOBA_ENVELOPE_VERIFIED` — the two flags certify two
+ * different claims (see `resolveCordobaTracedZone.ts`'s header: OCR-transcription accuracy vs.
+ * hand-traced-geometry accuracy) and must never be conflated. `CORDOBA_TRACED_ZONES_VERIFIED`
+ * defaults `false`, unsigned, exactly like the pilot's own gate did before its 2026-08-03 sign-off —
+ * so THIS branch renders no number today, and calling it costs nothing: a miss, a refusal, or the
+ * closed gate all fall straight through to `applyEstimatedZoning`, which is EXACTLY what would have
+ * run had this function not been wired in at all (the §L-663 registry guard there still converts a
+ * Córdoba-municipality point into the existing `estimateSuppressedRefusal` — see that function's own
+ * header). Wiring this branch in is therefore, by construction, a no-op on current production
+ * behaviour until a human flips the gate — the property `resolveCordobaTracedZoneThenFallback`'s own
+ * test suite pins directly, not just by inspection.
+ *
+ * `deps.verifiedOverride` exists ONLY so a test can exercise the gate-open compute path without
+ * mutating the real committed `CORDOBA_TRACED_ZONES_VERIFIED` constant — mirrors the injectable-deps
+ * pattern every resolver in this file already uses (`CordobaSubzoneDeps.fetchImpl` etc.), applied to
+ * a boolean gate instead of a fetch. Production code NEVER passes it; the call site below omits it,
+ * so production always reads the real (currently `false`) exported flag.
+ */
+async function applyCordobaTracedZoneThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+    deps: { verifiedOverride?: boolean } = {},
+): Promise<void> {
+    const TAG = '[gis][c58] §COR-TRACED-ZONE';
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        const verified = deps.verifiedOverride ?? CORDOBA_TRACED_ZONES_VERIFIED;
+        if (!verified) {
+            // ⚠⚠⚠ THE HONESTY GATE (this capability's own, independent one). Unverified → fall
+            // through to whatever a Córdoba-outside-pilot point already resolves to today (the
+            // §L-663 estimate-suppression refusal) — NEVER a number from traced geometry.
+            console.log(
+                `${TAG} §HONESTY-GATE CORDOBA_TRACED_ZONES_VERIFIED=false — no traced-geometry ` +
+                    'lookup performed; falling through to the existing Córdoba-outside-pilot handling. ' +
+                    'Signs off via a founder-authorized VERIFICATION.md entry for THIS capability ' +
+                    '(never inherits the pilot\'s CORDOBA_ENVELOPE_VERIFIED sign-off).',
+            );
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        let traced: Awaited<ReturnType<typeof resolveCordobaTracedZone>>;
+        try {
+            traced = await resolveCordobaTracedZone({ lat, lon });
+        } catch (e) {
+            console.warn(`${TAG} resolveCordobaTracedZone failed (non-fatal):`, e);
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        if (!traced.ok) {
+            console.log(
+                `${TAG} traced-zone lookup did not resolve (${traced.reason}) — falling through to ` +
+                    'the existing Córdoba-outside-pilot handling.',
+            );
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        const knownFacts = [
+            `Location: Córdoba (${lat.toFixed(5)}, ${lon.toFixed(5)}) — outside the COACo Sur+Noroeste pilot`,
+            `Traced zone: ${traced.resolution.zoneCode} (sheet ${traced.resolution.sourceSheet}, ` +
+                `traced ${traced.resolution.tracedDate})`,
+            `⚠ Provenance: ${traced.resolution.provenance}`,
+        ];
+
+        const record: ZoningRecord = {
+            zoneCode: traced.resolution.zoneCode,
+            zoneLabel: traced.resolution.zoneCode,
+            jurisdictionId: CORDOBA_JURISDICTION_ID,
+            structuredFields: {},
+            overlays: [],
+            ordinanceRef: null,
+            provenance: {
+                source: 'cordoba-pgou-2001-traced',
+                label:
+                    "PGOU de Córdoba (2001) — zone GEOMETRY from PRYZM's own hand-traced CUS-sheet " +
+                    'reading, not a COACo/GMU publication (ordinance NUMBERS still come from the ' +
+                    'human-signed pack, VERIFICATION.md §SIG-1). ' + traced.resolution.provenance,
+                version: '2001',
+                license: null,
+                crs: 'EPSG:4326',
+            },
+        };
+
+        const envelope = computeBuildableEnvelope({
+            parcelRing: boundary.polygon,
+            edgeClassifications: boundary.edgeClassifications,
+            zoning: record,
+            rulePack: ES_CORDOBA_PGOU2001_PACK,
+        });
+
+        if (envelope.status === 'ok') {
+            dispatchEnvelope(ctx, site.id, envelope, 'coaco-pgou-traced');
+            console.log(
+                `${TAG} §COR-TRACED-COMPUTE zone=${traced.resolution.zoneCode} — RENDERED a ` +
+                    `traced-geometry-sourced envelope at ${envelope.confidence ?? 'n/a'}.`,
+            );
+            return;
+        }
+
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(
+                traced.resolution.zoneCode,
+                {
+                    code: 'source-data-unavailable',
+                    headline:
+                        `${traced.resolution.zoneCode}: the PGOU's own conditions leave no buildable ` +
+                        'footprint on this parcel.',
+                    detail:
+                        envelope.refusal?.detail ??
+                        'The signed ordenanza does not resolve to a buildable ring here.',
+                    ordinanceRef: null,
+                    legallyGrounded: false,
+                    knownFacts,
+                },
+                'none',
+            ),
+            'coaco-pgou-traced',
+        );
+        console.log(
+            `${TAG} §COR-TRACED-COMPUTE zone=${traced.resolution.zoneCode} — compute did not ` +
+                `resolve to 'ok' (status=${envelope.status}); dispatched a cited refusal.`,
+        );
+    } catch (e) {
+        console.warn(
+            `${TAG} Córdoba traced-zone path failed (non-fatal) — falling back to estimated default:`,
+            e,
+        );
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+    }
+}
+
+/**
  * §SEVILLA-ENVELOPE — the Sevilla (INE 41091) path.
  *
  * ⚠⚠ UNLIKE Córdoba/Madrid, there is NOT a machine-extracted pack waiting behind a verification
@@ -3940,9 +4114,86 @@ async function applySevillaZoningThenFallback(
             }
         }
 
-        // ⚠⚠⚠ SEVILLA_ENVELOPE_VERIFIED is a founder-only, permanently-false-until-signed constant
-        // and there is nothing behind it to sign yet (no transcribed pack). Every Sevilla parcel
-        // therefore refuses, named by its real zone when the ArcGIS lookup succeeded.
+        // ── §SEV-COMPUTE (2026-08-05) — VERIFICATION SIGNED (sources/VERIFICATION.md §SIG-1).
+        // `SEVILLA_ENVELOPE_VERIFIED` is now `true`; this branch is the ONE place that actually
+        // uses it to compute rather than refuse. Mirrors Córdoba's `§COR-COMPUTE` shape exactly:
+        // resolve first (already done above, unconditionally, so the refusal below can still name
+        // the real zone on any path this branch does not take), gate second, compute third, and
+        // fall through UNCHANGED to the existing refusal for the 9 zones that structurally refuse
+        // (SB/CJ/M/IC/ST-C/ST-A/A/MP/CH — each ships an unresolvable geometry ring, per
+        // esSevilla.ts) — `computeBuildableEnvelope` hard-fails those on its own merits, not a
+        // bespoke branch here. No MC-style external geometry resolver is needed: every packed
+        // Sevilla zone's `geometricRule` is either a plain stated setback or a deliberately
+        // unresolvable ring, both of which `computeBuildableEnvelope` already handles from the
+        // pack alone.
+        if (SEVILLA_ENVELOPE_VERIFIED && sevillaZoneCode !== null) {
+            const zone = ES_SEVILLA_PGOU_PACK.zones.find((z) => z.code === sevillaZoneCode);
+            if (zone) {
+                const record: ZoningRecord = {
+                    zoneCode: sevillaZoneCode,
+                    zoneLabel: zone.label ?? null,
+                    jurisdictionId: SEVILLA_JURISDICTION_ID,
+                    structuredFields: {},
+                    overlays: [],
+                    ordinanceRef: zone.ordinanceRef ?? null,
+                    provenance: {
+                        source: 'sevilla-pgou-2006',
+                        label:
+                            'PGOU de Sevilla (2006), Texto Refundido de la Normativa Urbanística — ' +
+                            'machine-extracted, human-signed (VERIFICATION.md §SIG-1, 2026-08-05)',
+                        version: '2006',
+                        license: null,
+                        crs: 'EPSG:4326',
+                    },
+                };
+                const envelope = computeBuildableEnvelope({
+                    parcelRing: boundary.polygon,
+                    edgeClassifications: boundary.edgeClassifications,
+                    zoning: record,
+                    rulePack: ES_SEVILLA_PGOU_PACK,
+                });
+                if (envelope.status === 'ok') {
+                    dispatchEnvelope(ctx, site.id, envelope, SEVILLA_JURISDICTION_ID);
+                    console.log(
+                        `${TAG} §SEV-COMPUTE zone=${sevillaZoneCode} — RENDERED a signed envelope ` +
+                            `at ${envelope.confidence ?? 'n/a'}. insetAreaM2=${envelope.insetAreaM2 ?? 'n/a'}.`,
+                    );
+                    return;
+                }
+                dispatchEnvelope(
+                    ctx,
+                    site.id,
+                    buildRefusedEnvelope(
+                        sevillaZoneCode,
+                        {
+                            code: 'source-data-unavailable',
+                            headline:
+                                `${sevillaZoneCode}: the PGOU's own conditions leave no buildable ` +
+                                'footprint on this parcel.',
+                            detail:
+                                envelope.refusal?.detail ??
+                                'The signed ordenanza does not resolve to a buildable ring here — ' +
+                                    'a conditional or per-graphic depth/occupation rule with no ' +
+                                    'flat scalar this pack can honestly carry.',
+                            ordinanceRef: zone.ordinanceRef ?? null,
+                            legallyGrounded: true,
+                        },
+                        'none',
+                    ),
+                    SEVILLA_JURISDICTION_ID,
+                );
+                console.log(
+                    `${TAG} §SEV-COMPUTE zone=${sevillaZoneCode} — structurally refused ` +
+                        `(${envelope.status}), as designed. NO number rendered.`,
+                );
+                return;
+            }
+        }
+
+        // ⚠⚠⚠ Fallback: SEVILLA_ENVELOPE_VERIFIED is false, or the zone did not resolve, or the
+        // resolved zone is not in the pack (an unmapped zona_orden — should not happen against the
+        // 15/15 live universe, but never assumed). Every such Sevilla parcel refuses, named by its
+        // real zone when the ArcGIS lookup succeeded.
         const refusal = sevillaNoRulePackRefusal(zonaOrden, null, knownFacts);
         dispatchEnvelope(
             ctx,

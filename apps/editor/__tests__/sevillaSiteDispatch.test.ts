@@ -98,8 +98,8 @@ describe('§SEVILLA-ENVELOPE — default (preview-off) behaviour is unchanged by
         expect(isInSevilla(PARCEL.lat, PARCEL.lon)).toBe(true);
     });
 
-    it('the gate stays shut', () => {
-        expect(SEVILLA_ENVELOPE_VERIFIED).toBe(false);
+    it('the gate is signed open — 2026-08-05, see sources/VERIFICATION.md (SB itself still refuses, independently)', () => {
+        expect(SEVILLA_ENVELOPE_VERIFIED).toBe(true);
     });
 
     it('ROUTES to the Sevilla branch and refuses, naming the resolved SB zone', async () => {
@@ -120,5 +120,20 @@ describe('§SEVILLA-ENVELOPE — default (preview-off) behaviour is unchanged by
         expect(envelope).not.toBeNull();
         expect(envelope!.status).toBe('none');
         expect(envelope!.refusal).toBeTruthy();
+    });
+});
+
+describe('§SEVILLA-ENVELOPE — 2026-08-05: a REAL non-refused zone renders through the live dispatcher, gate signed open', () => {
+    let realFetch: typeof globalThis.fetch;
+    beforeEach(() => { realFetch = globalThis.fetch; });
+    afterEach(() => { globalThis.fetch = realFetch; vi.restoreAllMocks(); });
+
+    it('AD (Vivienda Unifamiliar Adosada) — real flat setbacks, real FAR — computes a real envelope end to end', async () => {
+        const { store, envelope } = await dispatchSevilla('AD: Vivienda Unifamiliar Adosada');
+        expect(envelope).not.toBeNull();
+        expect(envelope!.status).toBe('ok');
+        expect(envelope!.refusal).toBeFalsy();
+        expect(envelope!.insetPolygon.length).toBeGreaterThan(0);
+        expect(store.getSite()!.parcel.zoning.jurisdictionRef).toBe(SEVILLA_JURISDICTION_ID);
     });
 });

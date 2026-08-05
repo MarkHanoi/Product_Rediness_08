@@ -218,10 +218,12 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         gate: 'SEVILLA_ENVELOPE_VERIFIED',
         file: 'packages/site-parcel-data/src/rulepacks/esSevilla.ts',
         value: SEVILLA_ENVELOPE_VERIFIED,
-        // Not signable at all: `zones` is empty by construction — no PGOU-2006 ordinance
-        // parameter has been transcribed yet (separate legal/research work, same shape as
-        // València's `VALENCIA_ENVELOPE_VERIFIED`).
-        signature: null,
+        // ⬆ SIGNED 2026-08-05 — the stale "zones is empty by construction" comment this replaced
+        // predates this session's transcription pass (15/15 live zona_orden codes now packed).
+        signature: {
+            doc: 'docs/04-reference/jurisdictions/es/es-an/41091-sevilla/sources/VERIFICATION.md',
+            anchor: 'SIG-1',
+        },
     },
     {
         gate: 'MALAGA_ENVELOPE_VERIFIED',

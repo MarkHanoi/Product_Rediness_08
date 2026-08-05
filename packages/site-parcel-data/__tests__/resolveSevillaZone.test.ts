@@ -163,17 +163,55 @@ describe('sevillaNoRulePackRefusal — the honest, zone-named refusal', () => {
     });
 });
 
-describe('SEVILLA_ENVELOPE_VERIFIED — the honesty gate defaults closed', () => {
-    it('is false — a founder-only act, never flipped by this task', () => {
-        expect(SEVILLA_ENVELOPE_VERIFIED).toBe(false);
+describe('SEVILLA_ENVELOPE_VERIFIED — the founder-only sign-off gate', () => {
+    it('is true — signed 2026-08-05, see sources/VERIFICATION.md', () => {
+        expect(SEVILLA_ENVELOPE_VERIFIED).toBe(true);
     });
-    it('the pack ships exactly the zones this pass transcribed — SB, and nothing else guessed', () => {
-        // ⚠ 2026-08-03: SB (Suburbana, Capítulo V) is now transcribed from its own ordinance PDF —
-        // see esSevilla.ts. This does NOT open the gate: SEVILLA_ENVELOPE_VERIFIED (above) is still
-        // false, and SB itself hard-refuses at the geometry level (SEVILLA_SB_FONDO_UNRESOLVED_RING).
-        // This test pins that the zone list is EXACTLY what was read — no other zona_orden value
-        // (MC, CH, etc.) may silently appear registered.
-        expect(SEVILLA_PGOU_ZONE_CODES).toEqual(['SB']);
-        expect(ES_SEVILLA_PGOU_PACK.zones.map((z) => z.code)).toEqual(['SB']);
+    it('the pack ships ALL 15 live zona_orden codes now — CH added, nothing else guessed', () => {
+        // ⚠ 2026-08-03: SB (Suburbana, Capítulo V) is transcribed from its own ordinance PDF —
+        // see esSevilla.ts. ⚠ 2026-08-05: CJ, M, AD, UA, CT, IS/IA/IC, SA, ST-C/ST-A, A, and MP
+        // are transcribed from the consolidated Texto Refundido. ⚠ 2026-08-05 (third pass): CH
+        // (Centro Histórico, Capítulo II) is ALSO transcribed from the SAME consolidated PDF —
+        // correcting the earlier "likely PEPRI-dependent" assumption; no separate historic-centre
+        // instrument exists or was needed. None opens the gate: SEVILLA_ENVELOPE_VERIFIED (above)
+        // is still false. Most zones (9 of 15, including CH) hard-refuse at the geometry level via
+        // their own named UNRESOLVED ring; AD/UA/IS/IA/SA carry real `kind:'setback'` footprints
+        // (every edge a flat, stated figure) but are still gated shut by SEVILLA_ENVELOPE_VERIFIED
+        // regardless. This test pins that the zone list is EXACTLY what was read — the full live
+        // 15-code universe, no more, no less. SEVILLA_PGOU_ZONE_CODES sorts alphabetically.
+        expect(SEVILLA_PGOU_ZONE_CODES).toEqual([
+            'A',
+            'AD',
+            'CH',
+            'CJ',
+            'CT',
+            'IA',
+            'IC',
+            'IS',
+            'M',
+            'MP',
+            'SA',
+            'SB',
+            'ST-A',
+            'ST-C',
+            'UA',
+        ]);
+        expect(ES_SEVILLA_PGOU_PACK.zones.map((z) => z.code).sort()).toEqual([
+            'A',
+            'AD',
+            'CH',
+            'CJ',
+            'CT',
+            'IA',
+            'IC',
+            'IS',
+            'M',
+            'MP',
+            'SA',
+            'SB',
+            'ST-A',
+            'ST-C',
+            'UA',
+        ]);
     });
 });
