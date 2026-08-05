@@ -241,9 +241,10 @@ export const CORDOBA_LEGALLY_REFUSED_ORDENANZAS: readonly string[] = [
  * `noRulePackRefusal` answers). `null` never means "buildable" — it means this table is silent.
  *
  * ⚠ Uso Industrial (`O_INDUSTRIAL`; subzone-unbindable, ocupación DERIVED) and Unifamiliar Aislada
- * (`O_UAS1`; its ordinance content is RECOVERED — CORDOBA-ORDINANCE-REGISTRY §6 — but a pilot parcel
- * still cannot be bound to a UAS-1..6 subzone: the calificación gives the family name only) are
- * deliberately NOT here: those are COVERAGE gaps, not legal "no"s, so they fall through to
+ * (`O_UAS1`; its ordinance content is now PACKED — `UAS-1`…`UAS-6` in `esCordobaPGOU2001.ts`,
+ * 2026-08-05 — but a live-COACo pilot parcel still cannot be bound to one of the six: the
+ * calificación gives the family name only) are deliberately NOT here: those are COVERAGE gaps
+ * (a missing SELECTOR, not a missing rule), not legal "no"s, so they fall through to
  * `noRulePackRefusal` — filing them as legal classifications would assert the ordinance refuses an
  * envelope on land that is in fact buildable (the false-negative-about-someone's-land error).
  */
@@ -264,9 +265,15 @@ export function cordobaZoneRefusalFor(
 /**
  * The registry `noRulePackRefusal`: the card shown on a privately-buildable Córdoba parcel inside
  * the pilot whose FAMILY PRYZM deliberately does not pack — **Uso Industrial** (the calificación
- * names the family but never the IND-1/2/3/G/C subzone, and its ocupación is DERIVED) and
- * **Unifamiliar Aislada** (the `O_UAS1` document link is dead and no held document carries the UAS
- * chapter). It states the 2-district pilot scope (C60 §3).
+ * names the family but never the IND-1/2/3/G/C subzone, and its ocupación is DERIVED). It states the
+ * 2-district pilot scope (C60 §3).
+ *
+ * ⚠ 2026-08-05 — **Unifamiliar Aislada** left this list's "not packed" half in one sense (its six
+ * subzones ARE now packed, `esCordobaPGOU2001.ts`) but stays routed through this same coverage-card
+ * hook for a DIFFERENT reason: the live COACo calificación still cannot bind the one UAS pilot
+ * parcel to a subzone. `cordobaUasSubzoneUnbindableRefusal` (below) now returns
+ * `regime-undetermined`, not `no-rule-pack` — the exact same code family as Industrial's — so it no
+ * longer reads as "PRYZM has not transcribed this ordenanza".
  *
  * ⚠⚠ IT NO LONGER SAYS "or the parcel carries no calificación". §CORDOBA-REFUSAL-SPLIT (L-422 /
  * L-457 / L-467 / L-469, the honesty family): *"the publisher maps no ordenanza onto this land"*
@@ -276,10 +283,11 @@ export function cordobaZoneRefusalFor(
  * made every one of them look like our backlog. They are now three distinct cards:
  * `cordobaNoCalificacionAtPointRefusal`, `cordobaUnbindableSubzoneRefusal` and this one.
  *
- * ⚠ AND IT MUST NOT BE USED FOR A PACKED SUBZONE. PRYZM holds 13 transcribed subzone parameter sets
- * (PAS-1…MC-4). Telling a user we hold no rule for one of them would be a FALSE STATEMENT ABOUT OUR
- * OWN COVERAGE — the defect that deleted three Barcelona branches (`13b`, `22a`, `22@`) and the bare
- * `20a` branch. `resolveZoneDisposition` reaches this hook only when `packsByZone` has no entry.
+ * ⚠ AND IT MUST NOT BE USED FOR A PACKED SUBZONE. PRYZM holds 20 transcribed subzone parameter sets
+ * (PAS-1…MC-4, PTC, UAS-1…UAS-6). Telling a user we hold no rule for one of them would be a FALSE
+ * STATEMENT ABOUT OUR OWN COVERAGE — the defect that deleted three Barcelona branches (`13b`, `22a`,
+ * `22@`) and the bare `20a` branch. `resolveZoneDisposition` reaches this hook only when
+ * `packsByZone` has no entry.
  *
  * ⚠ `legallyGrounded: false` and `ordinanceRef: null` — a statement about PRYZM's coverage, never
  * about the law. Rendering it as a legal "no envelope" would tell an owner their buildable plot
@@ -297,7 +305,7 @@ export function cordobaNoRulePackRefusal(
     // now names its OWN governing article (or the measured absence of one) and its own land.
     const industrial = cordobaIndustrialUnbindableRefusal(subzone, subzoneLabel, knownFacts);
     if (industrial) return industrial;
-    const uas = cordobaUasChapterUnobtainableRefusal(subzone, subzoneLabel, knownFacts);
+    const uas = cordobaUasSubzoneUnbindableRefusal(subzone, subzoneLabel, knownFacts);
     if (uas) return uas;
 
     const named =
@@ -327,27 +335,35 @@ export function cordobaNoRulePackRefusal(
 // ═════════════════════════════════════════════════════════════════════════════════════════════
 //
 // COACo publishes TEN `ordenanza` families (measured live 2026-08-01: 453 polygons, Σ `sup_m2`
-// 1 628 615.63 m², ten distinct `ordenanza` values). PRYZM holds transcribed rules for SIX as of
-// 2026-08-04 (the original five plus `PTC`/Campo de la Verdad, see `esCordobaPGOU2001.ts`). Of the
-// remaining four, TWO are legally-grounded "no"s and live in `FAMILY_CLASSIFICATIONS` above
-// (Uso Comercial · Elemento protegido, each citing its article). The other TWO are COVERAGE
-// statements — and they shared one card until an earlier pass.
+// 1 628 615.63 m², ten distinct `ordenanza` values). PRYZM holds transcribed rules for SEVEN as of
+// 2026-08-05 (the original five, `PTC`/Campo de la Verdad added 2026-08-04, and `UAS-1`…`UAS-6`/
+// Unifamiliar Aislada added 2026-08-05 — see `esCordobaPGOU2001.ts`). Of the remaining three, TWO
+// are legally-grounded "no"s and live in `FAMILY_CLASSIFICATIONS` above (Uso Comercial · Elemento
+// protegido, each citing its article). The other ONE is a COVERAGE statement.
 //
-// ⚠ WHY THEY MUST NOT SHARE A CARD. Their causes are not the same VALUE (L-422/457/467/469):
-//   • Uso Industrial — PRYZM HAS READ the chapter (Art. 13.11, born-digital text, 23 620 chars,
-//     `findings/OCR-EXTRACTION-RESULTS.md` §2.6). It is unpackable because the publisher never says
-//     WHICH IND subzone applies AND because the ordinance derives ocupación by algorithm. Telling
-//     this owner "PRYZM has not transcribed this ordenanza" would be a FALSE STATEMENT ABOUT OUR
-//     OWN COVERAGE — the defect class that deleted Barcelona's `13b`/`22a`/`22@`/`20a` branches.
-//   • Unifamiliar Aislada — PRYZM has NOT read the chapter, and cannot: `O_UAS1.pdf` is a 69-byte
-//     "Server under construction" HTML (md5 `75a5f31…`), and no held document carries the UAS
-//     chapter. That is a PUBLISHER absence, closed by negative evidence, not a backlog item.
-// One says "we read it and it does not resolve"; the other says "we could not read it". Collapsing
-// them makes a publisher's dead link look like PRYZM's queue, which is exactly what the old copy did.
+// ⚠ WHY UAS MOVED OUT OF THIS SPLIT, AND WHY THAT IS NOT A REVERSAL. This section used to describe
+// TWO coverage families sharing no card, split because "we read it and it does not resolve"
+// (Industrial) and "we could not read it" (UAS, `O_UAS1.pdf` a dead "Server under construction"
+// stub) were different values (L-422/457/467/469). That distinction is now MOOT for UAS, not wrong
+// in hindsight: `O_UAS1.pdf` is STILL dead — nothing about the publisher's link changed — but Art.
+// 13.10's content was independently recovered from a DIFFERENT held document (the consolidated Tomo
+// II "Texto Refundido" this file already cites, not `O_UAS1`) and is now packed
+// (`esCordobaPGOU2001.ts`, `UAS-1`…`UAS-6`, 2026-08-05). So "we could not read it" is no longer
+// TRUE — PRYZM has read the chapter — and keeping the old refusal wording would itself become the
+// FALSE-STATEMENT-ABOUT-OUR-OWN-COVERAGE defect this whole file exists to avoid, on the same axis
+// that used to make it correct for Industrial. UAS's refusal is therefore now the SAME SHAPE as
+// Industrial's, for an analogous but independently-cited reason: the LAW is fully known and
+// transcribed (Art. 13.10, all six subzones), but the live COACo calificación for the one UAS pilot
+// parcel names only the FAMILY ("Unifamiliar Aislada"), never a UAS-1…6 suffix, so no live-dispatch
+// parcel can be bound to a specific row — a missing SELECTOR, not a missing rule, and no further
+// reading of the ordinance can supply it (the ordinance simply never states which parcel gets which
+// subzone; that assignment lives only in the publisher's own, unpublished zoning map). See
+// `cordobaUasSubzoneUnbindableRefusal` below (renamed from `cordobaUasChapterUnobtainableRefusal` —
+// the old name asserted a document-absence that is no longer true).
 //
-// Both return `legallyGrounded: false`: neither is a statement about what the PGOU PERMITS.
-// Measured land, live COACo 2026-08-01: Uso Industrial 1 polygon / 1 920.35 m² / 0.118 % of
-// ordenanzas land; Unifamiliar Aislada 1 polygon / 2 687.97 m² / 0.165 %.
+// Both remaining functions return `legallyGrounded: false`: neither is a statement about what the
+// PGOU PERMITS. Measured land, live COACo 2026-08-01: Uso Industrial 1 polygon / 1 920.35 m² /
+// 0.118 % of ordenanzas land; Unifamiliar Aislada 1 polygon / 2 687.97 m² / 0.165 %.
 
 /** The COACo tokens (family name, `O_*` link basename, and its `subzoneCodeFromLink` parse). */
 const CORDOBA_INDUSTRIAL_TOKENS = ['uso industrial', 'o_industrial', 'industrial'];
@@ -415,51 +431,74 @@ export function cordobaIndustrialUnbindableRefusal(
 }
 
 /**
- * **Unifamiliar Aislada** — the ordinance document is UNOBTAINABLE, and that is a closed question,
- * not a backlog item. `null` when this parcel is not UAS.
+ * **Unifamiliar Aislada** — PRYZM HAS read and packed the chapter (Art. 13.10, all six subzones,
+ * `esCordobaPGOU2001.ts`, 2026-08-05), but a LIVE-COACo-dispatched parcel still cannot be bound to
+ * one of the six rows, because the publisher's calificación names only the family. `null` when this
+ * parcel is not UAS.
  *
- * ⚠ `no-rule-pack`, deliberately, and explicitly NOT `derived-plan` or any legally-grounded code:
- * filing a publisher's dead link as a legal classification would assert the ordinance refuses an
- * envelope on land that is in fact buildable — the false-negative-about-someone's-land error C58
- * ranks worst. ⚠ AND NOT `source-data-unavailable`, which is DEFINED as transient and is the only
- * code carrying a retry affordance: `O_UAS1.pdf` has returned the same 69-byte "Server under
- * construction" HTML (md5 `75a5f31…`) on every fetch since the recon, so a retry badge would send
- * the user round a loop for ever.
+ * ⚠⚠ RENAMED 2026-08-05 from `cordobaUasChapterUnobtainableRefusal`, AND THE REASON CHANGED WITH IT
+ * — not just the name. The old version said the ordinance DOCUMENT was unobtainable (`O_UAS1.pdf`'s
+ * dead "Server under construction" link, and "no held document contains the UAS chapter"). That
+ * second half is now FALSE: Art. 13.10's content was independently recovered from the consolidated
+ * Tomo II "Texto Refundido" (a document this file already cites as authoritative), re-verified via
+ * `pdftotext -layout` against a clean born-digital text layer, and is now packed. Continuing to tell
+ * an owner "PRYZM has never been able to read its rules" would itself be the
+ * false-statement-about-our-own-coverage defect (the Barcelona `13b`/`22a`/`20a` shape) that the old
+ * wording was written to AVOID for a different family. `O_UAS1.pdf` itself is still dead — that part
+ * of the old evidence is unchanged — it is simply no longer the reason the parcel cannot resolve.
  *
- * The negative evidence is complete: all 15 `link` documents COACo references were enumerated, and
- * unlike `O_UAD1` — whose dead link was RECOVERED because `O_UAD3` carries all three UAD subzones —
- * no held document contains the UAS chapter (`findings/OCR-EXTRACTION-RESULTS.md` §1/§3). It reopens
- * the day the publisher fixes the link, and on no other event.
+ * ⚠ `regime-undetermined`, NOT `no-rule-pack` — this is now the SAME SHAPE as
+ * `cordobaIndustrialUnbindableRefusal`, for an independently-cited reason: the LAW is fully known and
+ * transcribed; what is missing is WHICH of the six rows a given parcel gets, because the live COACo
+ * `coaco:ordenanzas.ordenanza` attribute for the one UAS pilot polygon is the bare family name
+ * "Unifamiliar Aislada" (`link` → `O_UAS1.pdf`, which `subzoneCodeFromLink` cannot parse to a
+ * subzone suffix even if the file were reachable) — never a `UAS-1`…`UAS-6` suffix. Picking one (FAR
+ * ranges 0,40 down to 0,18, parcela mínima 600 up to 1 700 m²) would be a guess dressed as a
+ * determination, the exact `regime-undetermined` definition (C58 §1.13.7).
+ *
+ * ⚠ THIS DOES NOT RESOLVE THE ONE LIVE PILOT PARCEL. It only changes WHY it refuses. The content
+ * being packed does unblock a SEPARATE, independent lookup path — `resolveCordobaTracedZone.ts`,
+ * which reads the subzone digit directly off a map sheet by eye and never touches this live
+ * `ordenanza` attribute at all (see `esCordobaPGOU2001.ts`'s UAS header bullet for the full
+ * two-paths account) — but that is a different code path from this function, reached only once
+ * `CORDOBA_TRACED_ZONES_VERIFIED` is separately signed (it is not, as of this writing).
  */
-export function cordobaUasChapterUnobtainableRefusal(
+export function cordobaUasSubzoneUnbindableRefusal(
     subzone: string,
     subzoneLabel?: string | null,
     knownFacts: readonly string[] = [],
 ): EnvelopeRefusal | null {
     if (!matchesToken(subzone, subzoneLabel, CORDOBA_UAS_TOKENS)) return null;
     return {
-        code: 'no-rule-pack',
+        code: 'regime-undetermined',
         headline:
-            'Unifamiliar Aislada — the ordinance document for this zone is not served by the ' +
-            'publisher, so PRYZM has never been able to read its rules.',
+            'Unifamiliar Aislada — the published map names the aislada ordenanza but not which of ' +
+            'its six subzones applies here.',
         detail:
-            'The zoning map assigns this parcel to the Unifamiliar Aislada ordenanza, and nothing ' +
-            'here says the plot is unbuildable — the PGOU-2001 does give it a buildable regime. ' +
-            'PRYZM cannot state that regime because the document that contains it is not ' +
-            'available: the publisher\'s own link for this chapter returns a 69-byte "Server under ' +
-            'construction" page rather than the ordinance, and it has done so on every attempt. ' +
-            'Every one of the fifteen ordinance documents the zoning map references has been ' +
-            'checked, and none of the readable ones contains the Unifamiliar Aislada chapter — ' +
-            'unlike the Unifamiliar Adosada chapter, whose own broken link was recoverable from a ' +
-            'sibling document. This is not a queue PRYZM can work through and retrying will not ' +
-            'change it; it resolves when the publisher restores the file. ' +
+            'PRYZM has read this ordinance chapter (PGOU-2001 Art. 13.10) in full and holds every ' +
+            'one of its six subzones\' parameters. What stops a number is the published zoning map, ' +
+            'not the ordinance: the COACo calificación for this parcel records only "Unifamiliar ' +
+            'Aislada" and never a UAS-1…UAS-6 suffix, and the subzones are materially different — ' +
+            'edificabilidad runs from 0,40 down to 0,18 m²t/m²s, parcela mínima from 600 up to ' +
+            '1 700 m², fachada mínima from 16 up to 25 m — so choosing one would be a guess ' +
+            'presented as a determination. This is a gap in the published KEY, not in the ordinance ' +
+            'and not in PRYZM\'s transcription. ' +
             CORDOBA_ROADMAP_LINE,
-        // A statement about a DOCUMENT we cannot retrieve, never about what the plan permits.
-        ordinanceRef: null,
+        ordinanceRef: CORDOBA_PGOU_INSTRUMENT_REF,
+        // The LAW is fully known and transcribed; what is missing is which of the six subzones
+        // applies to this parcel — never a claim that the PGOU forbids building here.
         legallyGrounded: false,
         knownFacts: [...knownFacts],
     };
 }
+
+/**
+ * ⚠ DEPRECATED ALIAS — kept only so any not-yet-migrated caller fails loudly at the import site
+ * rather than silently, since the OLD name asserted a now-false "document unobtainable" claim (see
+ * `cordobaUasSubzoneUnbindableRefusal`'s header). Prefer the new name; this alias may be deleted
+ * once no caller references it.
+ */
+export const cordobaUasChapterUnobtainableRefusal = cordobaUasSubzoneUnbindableRefusal;
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════
 // §CORDOBA-REFUSAL-SPLIT — THE THREE "NO NUMBER" VALUES THAT ARE NOT THE SAME VALUE

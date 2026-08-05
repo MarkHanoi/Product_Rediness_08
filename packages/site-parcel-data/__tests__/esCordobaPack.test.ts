@@ -43,15 +43,17 @@ import {
 } from '../src/rulepacks/registry.js';
 import { subzoneCodeFromLink } from '../src/providers/resolveCordobaSubzone.js';
 
-describe('Córdoba PGOU-2001 — the pack is VALID (parses at load) and covers 14 subzones', () => {
+describe('Córdoba PGOU-2001 — the pack is VALID (parses at load) and covers 20 subzones', () => {
     it('parsed the schema without throwing', () => {
         expect(ES_CORDOBA_PGOU2001_PACK.jurisdictionId).toBe('es-14021-cordoba');
         expect(ES_CORDOBA_PGOU2001_PACK.jurisdictionId).toBe(CORDOBA_JURISDICTION_ID);
         // 13 raster-OCR subzones (PAS/OA/UAD/CTP-1/MC-*) + `PTC` (Campo de la Verdad, packed
-        // 2026-08-04 from the now-held Conjunto Histórico Tomo VI — see esCordobaOcrVerification.test.ts
-        // for why it is tracked separately from the 13-subzone §SIG-1 human-verification ledger).
-        expect(ES_CORDOBA_PGOU2001_PACK.zones).toHaveLength(14);
-        expect([...CORDOBA_PGOU2001_ZONE_CODES]).toHaveLength(14);
+        // 2026-08-04 from the now-held Conjunto Histórico Tomo VI) + `UAS-1`…`UAS-6` (Unifamiliar
+        // Aislada, packed 2026-08-05, Art. 13.10) — see esCordobaOcrVerification.test.ts for why the
+        // original 13 are tracked separately from the §SIG-1 human-verification ledger, and this
+        // file's own note for why neither PTC nor UAS is part of that same signed ledger either.
+        expect(ES_CORDOBA_PGOU2001_PACK.zones).toHaveLength(20);
+        expect([...CORDOBA_PGOU2001_ZONE_CODES]).toHaveLength(20);
         for (const code of CORDOBA_PGOU2001_ZONE_CODES) {
             expect(ES_CORDOBA_PGOU2001_PACK.zones.find((z) => z.code === code)).toBeDefined();
         }
@@ -164,18 +166,16 @@ describe('Córdoba — the refusal vocabulary (coverage gap + legally-grounded "
         // the card to NAME BOTH remaining families (`toMatch(/Uso Industrial/)` +
         // `toMatch(/Unifamiliar Aislada/)`). That was the split done HALF WAY: it separated "the
         // publisher mapped nothing" from "PRYZM packed nothing", but left the second bucket as ONE
-        // card reciting two causes that are not the same value either —
-        //   • Uso Industrial — PRYZM HAS read the chapter (Art. 13.11, born-digital text); it does
-        //     not resolve because the publisher never names the IND subzone AND the ordinance
-        //     derives ocupación by algorithm. Telling that owner "PRYZM has not transcribed this
-        //     ordenanza" is a FALSE STATEMENT ABOUT OUR OWN COVERAGE (the Barcelona 13b/22a/20a
-        //     defect, sign reversed).
-        //   • Unifamiliar Aislada — PRYZM could NOT read the chapter: `O_UAS1.pdf` is a 69-byte
-        //     "Server under construction" page and no held document carries the UAS chapter.
-        // So the requirement is now the OPPOSITE and stronger: each family gets its OWN typed,
-        // article-citing card, and neither recites the other's cause. Full property matrix in
+        // card reciting two causes that are not the same value either. Each family now gets its OWN
+        // typed, article-citing card, and neither recites the other's cause. Full property matrix in
         // `esCordobaUnpackedFamilies.test.ts`.
-        expect(r.code).toBe('no-rule-pack'); // UAS: a DOCUMENT absence
+        //
+        // ⬆ SUPERSEDED AGAIN 2026-08-05. Unifamiliar Aislada's six subzones are now PACKED (Art.
+        // 13.10, `esCordobaPGOU2001.ts`) — PRYZM HAS read the chapter, same as Industrial — so its
+        // card is now `regime-undetermined` too (a missing SELECTOR: the live calificación names
+        // only the family, never a UAS-1…6 suffix), never `no-rule-pack` (which would now be the
+        // false "PRYZM has not transcribed this" statement).
+        expect(r.code).toBe('regime-undetermined'); // UAS: a SELECTOR absence, not a document one
         expect(r.detail).toMatch(/Unifamiliar Aislada/);
         expect(r.detail).not.toMatch(/Uso Industrial/);
         const ind = cordobaNoRulePackRefusal('INDUSTRIAL', 'Uso Industrial', []);
@@ -184,7 +184,7 @@ describe('Córdoba — the refusal vocabulary (coverage gap + legally-grounded "
     });
 
     it('the no-pack card never claims we lack a rule we HOLD (the Barcelona 20a/22a lesson)', () => {
-        // PRYZM ships 14 transcribed subzones. `resolveZoneDisposition` must hand every one of them
+        // PRYZM ships 20 transcribed subzones. `resolveZoneDisposition` must hand every one of them
         // the PACK, so this false-statement card is structurally unreachable for them.
         for (const code of CORDOBA_PGOU2001_ZONE_CODES) {
             const d = resolveZoneDisposition(CORDOBA_JURISDICTION_ID, code);
@@ -272,12 +272,12 @@ describe('Córdoba — the registry registration (pack precedence + coverage glo
         if (d.kind === 'refusal') expect(d.refusal.code).toBe('no-rule-pack');
     });
 
-    it('surfaces on the coverage globe with all 14 packed subzones and the pilot summary', () => {
+    it('surfaces on the coverage globe with all 20 packed subzones and the pilot summary', () => {
         const cov = listJurisdictionCoverage().find(
             (c) => c.jurisdictionId === CORDOBA_JURISDICTION_ID,
         );
         expect(cov).toBeDefined();
-        expect(cov!.packZoneCodes).toHaveLength(14);
+        expect(cov!.packZoneCodes).toHaveLength(20);
         expect(cov!.answerSummary).toMatch(/unverified|machine-extracted/i);
         expect(cov!.contains(37.88, -4.78)).toBe(true);
     });

@@ -5,7 +5,8 @@
 // WHY THIS TEST EXISTS
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
 // `ES_CORDOBA_PGOU2001_PACK` is REGISTERED in `rulepacks/registry.ts` with a non-empty `packsByZone`
-// (13 packed subzones). Every value in it was MACHINE-EXTRACTED (OCR) from scanned ordinance PDFs
+// (20 packed subzones, as of 2026-08-05: the original 13 + `PTC` + `UAS-1`…`UAS-6`). Every value in
+// it was MACHINE-EXTRACTED (OCR / `pdftotext`) from scanned or born-digital ordinance PDFs
 // and is `pipeline-extracted-unverified`; `sources/VERIFICATION.md` carries NO signature. A
 // registered pack and an unsigned source are a dangerous pair — the question "is Córdoba publishing
 // uncertified OCR numbers right now?" cannot be answered by reading either file, only by DRIVING
@@ -279,17 +280,18 @@ describe('§COR-ENVELOPE — a click on a Córdoba pilot parcel reaches the Cór
     });
 });
 
-describe('§COR-ENVELOPE §HONESTY-GATE — 13 OCR subzones are REGISTERED and NONE of them renders', () => {
+describe('§COR-ENVELOPE §HONESTY-GATE — 20 OCR subzones are REGISTERED and NONE of them renders', () => {
     let realFetch: typeof globalThis.fetch;
     beforeEach(() => { realFetch = globalThis.fetch; });
     afterEach(() => { globalThis.fetch = realFetch; vi.restoreAllMocks(); });
 
-    it('the pack IS registered — 13 OCR subzones exist to be at risk', () => {
+    it('the pack IS registered — 20 OCR subzones exist to be at risk', () => {
         // ⚠ CORRECTED 2026-08-03: `CORDOBA_ENVELOPE_VERIFIED` was signed `true` by commit
         // `6d2357a8` — six other test files were updated in that commit to match; this one was
         // missed. The registration-count assertion still holds; the gate assertion below is now
         // the opposite of what it asserted before signing.
-        expect(registeredPackZoneCodes(CORDOBA_JURISDICTION_ID)).toHaveLength(13);
+        // ⚠ UPDATED 2026-08-05: 13 (original) + `PTC` (2026-08-04) + `UAS-1`…`UAS-6` (2026-08-05) = 20.
+        expect(registeredPackZoneCodes(CORDOBA_JURISDICTION_ID)).toHaveLength(20);
         expect(CORDOBA_ENVELOPE_VERIFIED).toBe(true);
     });
 

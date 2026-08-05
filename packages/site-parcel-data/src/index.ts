@@ -439,6 +439,25 @@ export {
     type CordobaSubzoneRefusalReason,
 } from './providers/resolveCordobaSubzone.js';
 
+// ── Córdoba TRACED-ZONE resolver (2026-08-05) — the offline hand-traced-CUS-sheet provider. ──
+// Covers land the COACo pilot does NOT (≈92 % of the urban fabric): a point-in-polygon join against
+// PRYZM's own hand-traced reading of the scanned CUS calificación sheets, committed at
+// `./data/cordobaTracedZones.json`. `CORDOBA_TRACED_ZONES_VERIFIED` is its OWN gate, independent of
+// `CORDOBA_ENVELOPE_VERIFIED` — see that constant's header for why the two claims must not share a
+// flip. Never throws.
+export {
+    resolveCordobaTracedZone,
+    resolveCordobaTracedZoneFromRecords,
+    loadCordobaTracedZoneRecords,
+    CORDOBA_TRACED_ZONES_VERIFIED,
+    type CordobaTracedZoneLngLat,
+    type CordobaTracedZoneRecord,
+    type CordobaTracedZoneDeps,
+    type CordobaTracedZoneResolution,
+    type CordobaTracedZoneResult,
+    type CordobaTracedZoneRefusalReason,
+} from './providers/resolveCordobaTracedZone.js';
+
 // L-525a — PGM Art. 327.2 *alçada reguladora* (the height half of the 13a construction, the
 // counterpart to Art. 242's depth). Refuses rather than let a MEASURED street width choose a
 // storey band near a boundary — see the module header.

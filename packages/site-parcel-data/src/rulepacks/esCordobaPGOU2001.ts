@@ -75,28 +75,48 @@
 //     PER-PARCEL from an unheld plan sheet (Art. 49.1) → null; no stated buildable depth (Art. 47's
 //     patio-siting rule is real but not a numeric depth) → `explicit-area` with an UNRESOLVABLE
 //     footprint handle (CORDOBA_PTCV_FOOTPRINT_UNRESOLVED_RING), MC-shaped, never a full-parcel box.
+//   • UAS-1…UAS-6 (Unifamiliar Aislada) — ⭐ FULL, PACKED 2026-08-05. Art. 13.10 (six subzones, every
+//     field a stated scalar) was independently re-read via `pdftotext -layout` against
+//     `TomoIIB_TR_A4_Revisado_Parte2.pdf` (Art. 13.10.1-13.10.4, a clean born-digital text layer —
+//     NOT the zero-character-layer case that forced the raster-render path for `O_PAS2`/`O_OA1`/
+//     `O_CTP1`/`O_MC`) — every one of edificabilidad 0,40→0,18, parcela mínima 600→1.700 m², fachada
+//     mínima 16→25 m, ocupación 40 %→18 %, retranqueo frontal 6 m / lindero 3 m (all subzones),
+//     altura PB+1 / 7 m (cumbrera 9,75 m ático) matched the pre-recorded table digit-for-digit, zero
+//     discrepancies. `kind:'setback'` (plain `setbacks`, no `geometricRule` — Art. 13.10 states no
+//     *profundidad edificable* to clip, unlike UAD/CTP-1, so there is no L-616 guard to add here).
+//     ⚠⚠ THIS DOES NOT CONTRADICT THE "SUBZONE-UNBINDABLE VIA LIVE COACo" FINDING BELOW, AND IT IS
+//     NOT A REVERSAL OF IT — read both together. There are now TWO INDEPENDENT lookup paths onto this
+//     same pack data, and only ONE of them can ever bind a UAS parcel to a specific UAS-1…6 row:
+//       1. LIVE COACo DISPATCH (`resolveCordobaSubzone`, the SUR+Noroeste pilot) — the publisher's
+//          `coaco:ordenanzas.link` for the one UAS polygon in the pilot is `O_UAS1.pdf` (a dead
+//          "Server under construction" stub) and its `ordenanza` attribute names only the FAMILY
+//          ("Unifamiliar Aislada"), never a UAS-1…6 suffix. Nothing about PACKING the six rows
+//          supplies that missing SELECTOR — the calificación simply does not carry it — so a live
+//          Córdoba parcel classified `Unifamiliar Aislada` STAYS structurally unreachable through
+//          this path, exactly as before. `cordobaZoneRefusalFor`/`cordobaNoRulePackRefusal` still
+//          route it to a cited `regime-undetermined` refusal (renamed from the old "document
+//          unobtainable" framing now that the content genuinely IS held — see
+//          `esCordobaZoneClassification.ts`'s `cordobaUasSubzoneUnbindableRefusal`), never a number.
+//       2. THE TRACED-ZONE PATH (`resolveCordobaTracedZone.ts`, 2026-08-05, ≈92 % of Córdoba OUTSIDE
+//          the COACo pilot) reads the subzone digit DIRECTLY off a CUS map sheet by eye (the printed
+//          "UAS-n" label, cross-checked against the legend RGB swatch) and never touches COACo's live
+//          `ordenanza` attribute at all — it hands `computeBuildableEnvelope` a zone code
+//          (`"UAS-3"`, say) that a human/agent read off the sheet, not one COACo's join supplied. For
+//          THIS path, and only this path, the UAS row now being packed is exactly the missing piece:
+//          without it, a correctly-read "UAS-3" traced polygon would still resolve to
+//          `cordobaNoRulePackRefusal` (a false "PRYZM has not transcribed this ordenanza" statement,
+//          now that the content is held) instead of a real envelope.
+//     So: packing UAS-1…6 here changes the traced-zone path's answer (coverage gap → real envelope,
+//     once `CORDOBA_TRACED_ZONES_VERIFIED` is ALSO separately signed — it still is not) and changes
+//     NOTHING about the live-COACo path's answer (still `regime-undetermined`, for the same
+//     `O_UAS1` unbindable-selector reason as always). The two dispatch paths are independent
+//     consumers of the same `CORDOBA_PGOU2001_ZONE_CODES` vocabulary; adding UAS-1…6 to it is safe
+//     for both, because only the traced-zone path can ever produce a UAS *subzone* to look up.
 //
 // WHAT IS DELIBERATELY NOT PACKED (each a cited "no", never an estimate) — see the SPEC:
 //   • Uso Industrial — 1 parcel, subzone-unbindable, ocupación DERIVED (the sufficiency trap).
 //   • Uso Comercial — context-dependent overlay (defers to underlying zone / Plan Parcial).
 //   • Elemento protegido — a preservation regime; envelope = the existing building. A refusal, not a pack.
-//   • Unifamiliar Aislada (UAS) — ⚠ STALE-CLAIM CORRECTED 2026-08-04: this line used to say "dead
-//     `O_UAS1` link; content in no held document". That is no longer true of the CONTENT: Art. 13.10
-//     (6 subzones, UAS-1…UAS-6, every field a stated scalar — edificabilidad 0,40→0,18, parcela
-//     mínima 600→1.700 m², ocupación 40 %→18 %, altura PB+1/7 m, retranqueos 6 m frontal / 3 m
-//     lindero) was RECOVERED from the consolidated, born-digital "PLAN GENERAL DE ORDENACION
-//     CORDOBA 2001, TEXTO REFUNDIDO OCT. 2002 — NORMATIVA: USOS, ORDENANZAS Y URBANIZACIÓN" (Tomo
-//     II; innovaciones 1-2-2021 / guía práctica 26-5-2021), the SAME volume this file already cites
-//     as its authoritative source — see `findings/CORDOBA-ORDINANCE-REGISTRY.md §6`. What is STILL
-//     true, and is the actual reason this family stays unpacked, is the exact same shape as Uso
-//     Industrial above: the COACo `coaco:ordenanzas` calificación names only the FAMILY
-//     ("Unifamiliar Aislada"), never a UAS-1…UAS-6 subzone suffix, so the one UAS parcel in the pilot
-//     cannot be BOUND to any single row of the six — picking one (FAR ranges 0,40 down to 0,18,
-//     parcela mínima 600 up to 1.700 m²) would be a guess dressed as a determination, exactly the
-//     `regime-undetermined` case `cordobaUasChapterUnobtainableRefusal` in
-//     `esCordobaZoneClassification.ts` is written for. Content-known ≠ parcel-bindable; do not pack
-//     until the publisher's calificación carries a subzone key (`CORDOBA-ORDINANCE-REGISTRY.md §6`:
-//     "Record the numbers for the SPEC; do not auto-pack until binding is solved").
 //
 // EVERY `null` BELOW IS A FINDING WITH A REASON (C58 §1.7a: null ≠ 0), never a placeholder:
 //   • edificabilidad null on CTP-1 / MC-1/2/4 = the DERIVED "resultante de las Normas de Composición"
@@ -1046,6 +1066,145 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                     'conversion table, not a zone-wide selector), 50 (sótano, 1 planta, ocup. ≤ PB). ' +
                     SRC,
             },
+            // ── Unifamiliar Aislada (UAS) — FULL, Art. 13.10 ─────────────────────────────────
+            // ⭐ PACKED 2026-08-05. Independently re-verified via `pdftotext -layout` against
+            // `TomoIIB_TR_A4_Revisado_Parte2.pdf` (a clean born-digital text layer for this article —
+            // see the header's UAS bullet for the full cross-check record and why this pack entry
+            // does NOT contradict UAS staying unreachable via live COACo dispatch. Every field below
+            // is a stated scalar; NO `geometricRule` is added because Art. 13.10 states no
+            // *profundidad edificable* to clip (unlike UAD Art. 13.9.3.3 / CTP-1 Art. 13.8.2.4) — a
+            // detached-villa zone with real side+rear clearance on every edge (13.10.3.1/.2) has no
+            // L-616 mechanism-A risk: the setback inset alone already bounds the footprint on all
+            // four sides, so `kind:'setback'` (the default) is the honest, sufficient shape.
+            // parcela mínima / fachada mínima (Art. 13.10.2.2.a/.b) have NO schema slot
+            // (`ZoningRuleSchema` carries no minimum-plot-size or minimum-frontage field) — recorded
+            // in `ordinanceRef` for citability, never silently dropped.
+            {
+                code: 'UAS-1',
+                label: 'Unifamiliar Aislada, subzona UAS-1 (PGOU Art. 13.10)',
+                permittedUse: ['residential', 'mixed'],
+                maxHeight_m: 7,               // Art. 13.10.3.3 — PB+1, 7 m (cumbrera 9,75 m ático)
+                maxFloors: 2,
+                plotRatioFAR: 0.4,            // Art. 13.10.2.1
+                maxCoverage: 0.4,             // Art. 13.10.2.3
+                setbacks: { front_m: 6, side_m: 3, rear_m: 3 }, // 13.10.3.1 (frontal, todas), 13.10.3.2 (lindero, todas)
+                fieldProvenance: {
+                    maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
+                    maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
+                    'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
+                },
+                ordinanceRef:
+                    'PGOU Art. 13.10.2.1 (FAR 0,40), 13.10.2.2.a (parcela mínima 600 m²), 13.10.2.2.b ' +
+                    '(fachada mínima 16 m), 13.10.2.3 (ocup. 40 %), 13.10.3.1 (retranqueo frontal 6 m, ' +
+                    'todas las subzonas), 13.10.3.2 (lindero privado 3 m, todas), 13.10.3.3 (PB+1, 7 m; ' +
+                    'ático bajo cumbrera 9,75 m), 13.10.4 (uso dominante Residencial Unifamiliar; ' +
+                    'compatibles: industria 1ª cat., terciario, equipamiento comunitario, aparcamientos). ' + SRC,
+            },
+            {
+                code: 'UAS-2',
+                label: 'Unifamiliar Aislada, subzona UAS-2 (PGOU Art. 13.10)',
+                permittedUse: ['residential', 'mixed'],
+                maxHeight_m: 7,
+                maxFloors: 2,
+                plotRatioFAR: 0.35,
+                maxCoverage: 0.35,
+                setbacks: { front_m: 6, side_m: 3, rear_m: 3 },
+                fieldProvenance: {
+                    maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
+                    maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
+                    'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
+                },
+                ordinanceRef:
+                    'PGOU Art. 13.10.2.1 (FAR 0,35), 13.10.2.2.a (parcela mínima 750 m²), 13.10.2.2.b ' +
+                    '(fachada mínima 16 m), 13.10.2.3 (ocup. 35 %), 13.10.3.1 (retranqueo frontal 6 m, ' +
+                    'todas las subzonas), 13.10.3.2 (lindero privado 3 m, todas), 13.10.3.3 (PB+1, 7 m; ' +
+                    'ático bajo cumbrera 9,75 m), 13.10.4 (uso dominante Residencial Unifamiliar; ' +
+                    'compatibles: industria 1ª cat., terciario, equipamiento comunitario, aparcamientos). ' + SRC,
+            },
+            {
+                code: 'UAS-3',
+                label: 'Unifamiliar Aislada, subzona UAS-3 (PGOU Art. 13.10)',
+                permittedUse: ['residential', 'mixed'],
+                maxHeight_m: 7,
+                maxFloors: 2,
+                plotRatioFAR: 0.3,
+                maxCoverage: 0.3,
+                setbacks: { front_m: 6, side_m: 3, rear_m: 3 },
+                fieldProvenance: {
+                    maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
+                    maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
+                    'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
+                },
+                ordinanceRef:
+                    'PGOU Art. 13.10.2.1 (FAR 0,30), 13.10.2.2.a (parcela mínima 950 m²), 13.10.2.2.b ' +
+                    '(fachada mínima 18 m), 13.10.2.3 (ocup. 30 %), 13.10.3.1 (retranqueo frontal 6 m, ' +
+                    'todas las subzonas), 13.10.3.2 (lindero privado 3 m, todas), 13.10.3.3 (PB+1, 7 m; ' +
+                    'ático bajo cumbrera 9,75 m), 13.10.4 (uso dominante Residencial Unifamiliar; ' +
+                    'compatibles: industria 1ª cat., terciario, equipamiento comunitario, aparcamientos). ' + SRC,
+            },
+            {
+                code: 'UAS-4',
+                label: 'Unifamiliar Aislada, subzona UAS-4 (PGOU Art. 13.10)',
+                permittedUse: ['residential', 'mixed'],
+                maxHeight_m: 7,
+                maxFloors: 2,
+                plotRatioFAR: 0.25,
+                maxCoverage: 0.25,
+                setbacks: { front_m: 6, side_m: 3, rear_m: 3 },
+                fieldProvenance: {
+                    maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
+                    maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
+                    'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
+                },
+                ordinanceRef:
+                    'PGOU Art. 13.10.2.1 (FAR 0,25), 13.10.2.2.a (parcela mínima 1.200 m²), 13.10.2.2.b ' +
+                    '(fachada mínima 20 m), 13.10.2.3 (ocup. 25 %), 13.10.3.1 (retranqueo frontal 6 m, ' +
+                    'todas las subzonas), 13.10.3.2 (lindero privado 3 m, todas), 13.10.3.3 (PB+1, 7 m; ' +
+                    'ático bajo cumbrera 9,75 m), 13.10.4 (uso dominante Residencial Unifamiliar; ' +
+                    'compatibles: industria 1ª cat., terciario, equipamiento comunitario, aparcamientos). ' + SRC,
+            },
+            {
+                code: 'UAS-5',
+                label: 'Unifamiliar Aislada, subzona UAS-5 (PGOU Art. 13.10)',
+                permittedUse: ['residential', 'mixed'],
+                maxHeight_m: 7,
+                maxFloors: 2,
+                plotRatioFAR: 0.21,
+                maxCoverage: 0.21,
+                setbacks: { front_m: 6, side_m: 3, rear_m: 3 },
+                fieldProvenance: {
+                    maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
+                    maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
+                    'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
+                },
+                ordinanceRef:
+                    'PGOU Art. 13.10.2.1 (FAR 0,21), 13.10.2.2.a (parcela mínima 1.450 m²), 13.10.2.2.b ' +
+                    '(fachada mínima 20 m), 13.10.2.3 (ocup. 21 %), 13.10.3.1 (retranqueo frontal 6 m, ' +
+                    'todas las subzonas), 13.10.3.2 (lindero privado 3 m, todas), 13.10.3.3 (PB+1, 7 m; ' +
+                    'ático bajo cumbrera 9,75 m), 13.10.4 (uso dominante Residencial Unifamiliar; ' +
+                    'compatibles: industria 1ª cat., terciario, equipamiento comunitario, aparcamientos). ' + SRC,
+            },
+            {
+                code: 'UAS-6',
+                label: 'Unifamiliar Aislada, subzona UAS-6 (PGOU Art. 13.10)',
+                permittedUse: ['residential', 'mixed'],
+                maxHeight_m: 7,
+                maxFloors: 2,
+                plotRatioFAR: 0.18,
+                maxCoverage: 0.18,
+                setbacks: { front_m: 6, side_m: 3, rear_m: 3 },
+                fieldProvenance: {
+                    maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
+                    maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
+                    'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
+                },
+                ordinanceRef:
+                    'PGOU Art. 13.10.2.1 (FAR 0,18), 13.10.2.2.a (parcela mínima 1.700 m²), 13.10.2.2.b ' +
+                    '(fachada mínima 25 m), 13.10.2.3 (ocup. 18 %), 13.10.3.1 (retranqueo frontal 6 m, ' +
+                    'todas las subzonas), 13.10.3.2 (lindero privado 3 m, todas), 13.10.3.3 (PB+1, 7 m; ' +
+                    'ático bajo cumbrera 9,75 m), 13.10.4 (uso dominante Residencial Unifamiliar; ' +
+                    'compatibles: industria 1ª cat., terciario, equipamiento comunitario, aparcamientos). ' + SRC,
+            },
         ],
     });
 
@@ -1055,13 +1214,24 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
  *
  * ⚠ NOT registered here and MUST NOT be — each a cited "no", see the SPEC:
  *   Uso Industrial (subzone-unbindable, ocupación DERIVED), Uso Comercial (context-dependent),
- *   Elemento protegido (preservation → refusal), Unifamiliar Aislada (dead link).
+ *   Elemento protegido (preservation → refusal).
  *
  * ⭐ 2026-08-04 — `PTC` (Campo de la Verdad) IS now registered — see the `PTC` zone block above and
  * `CORDOBA_PTCV_FOOTPRINT_UNRESOLVED_RING`'s header. Tomo VI is held and its "PT" ordinance is read;
  * the zone still resolves to no envelope (structural refusal, MC-shaped), but that is now a PACKED
  * refusal like MC, not a "document not held" coverage gap. `esCordobaZoneClassification.ts`'s legal
  * classification table no longer carries a `CTP1-Campo de la Verdad` entry for this reason.
+ *
+ * ⭐ 2026-08-05 — `UAS-1`…`UAS-6` (Unifamiliar Aislada) ARE now registered — see the `UAS` zone
+ * blocks above and the header's UAS bullet for the full record. Registering them here makes this
+ * vocabulary reachable from the TRACED-ZONE path (`resolveCordobaTracedZone.ts`), which reads the
+ * subzone digit off a map sheet and never touches COACo's live `ordenanza` attribute. It does
+ * **not** make a live-COACo-dispatched Córdoba parcel bindable to one of these six rows — the
+ * publisher's `coaco:ordenanzas` layer still names only the family, never a subzone suffix, for the
+ * one UAS pilot parcel — so `cordobaZoneRefusalFor` / `cordobaNoRulePackRefusal` still route that
+ * live-dispatch case to a cited `regime-undetermined` refusal
+ * (`cordobaUasSubzoneUnbindableRefusal` in `esCordobaZoneClassification.ts`), never a number. Two
+ * independent lookup paths share one vocabulary; only one of them can ever produce a UAS-n key.
  */
 export const CORDOBA_PGOU2001_ZONE_CODES = [
     'PAS-1', 'PAS-2', 'PAS-3',
@@ -1070,6 +1240,7 @@ export const CORDOBA_PGOU2001_ZONE_CODES = [
     'CTP-1',
     'MC-1', 'MC-2', 'MC-3', 'MC-4',
     'PTC',
+    'UAS-1', 'UAS-2', 'UAS-3', 'UAS-4', 'UAS-5', 'UAS-6',
 ] as const;
 
 // ─── WIRING-TODO — STATUS after this PR (the pack is REGISTERED but renders NO number) ───────────

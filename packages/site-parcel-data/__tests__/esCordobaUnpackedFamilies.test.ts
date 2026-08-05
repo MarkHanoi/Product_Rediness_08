@@ -1,13 +1,14 @@
-// §CORDOBA-UNPACKED-FAMILY-SPLIT (L-677) — the FIVE families COACo publishes that PRYZM does not pack.
+// §CORDOBA-UNPACKED-FAMILY-SPLIT (L-677) — the THREE families COACo publishes that PRYZM does not pack.
 //
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 // WHAT THIS FILE IS FOR
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 // Measured live against the publisher on 2026-08-01, `coaco:ordenanzas` returns **453 polygons,
 // Σ `sup_m2` 1 628 615.63 m², TEN distinct `ordenanza` families**. PRYZM holds transcribed rules for
-// five (Manzana Cerrada · Ordenación Abierta · Colonia Tradicional Popular · Plurifamiliar aislada ·
-// Unifamiliar Adosada = 95.47 % of ordenanzas land). The other five are **4.53 %** and each must
-// reach a TERMINAL, EVIDENCE-BACKED state — C63 §1.5 / L-656: a cited refusal is a correct answer.
+// SEVEN as of 2026-08-05 (Manzana Cerrada · Ordenación Abierta · Colonia Tradicional Popular ·
+// Plurifamiliar aislada · Unifamiliar Adosada · CTP1-Campo de la Verdad · Unifamiliar Aislada =
+// 96.94 % of ordenanzas land). The other three are **3.06 %** and each must reach a TERMINAL,
+// EVIDENCE-BACKED state — C63 §1.5 / L-656: a cited refusal is a correct answer.
 //
 // ⚠ THE PROPERTY BEING PINNED IS NOT "A REFUSAL APPEARS". It is that each family's refusal is
 //   (a) TYPED to its own cause, (b) LAND-IDENTIFYING (it names the family, so the owner can tell it
@@ -16,16 +17,24 @@
 //   defect that deleted four Barcelona branches — it makes a publisher's gap read as PRYZM's queue,
 //   and a legal delegation read as a coverage gap.
 //
-// The three legally-grounded families now cite Art. 13.4.1 / Art. 13.12.2 / Art. 13.3; the two
-// coverage families are split apart, because "we read the chapter and it does not resolve"
-// (Industrial) and "we could not read the chapter" (UAS) are DIFFERENT VALUES (L-422/457/467/469).
+// The two legally-grounded families now cite Art. 13.12.2 / Art. 13.3; the one remaining coverage
+// family, Uso Industrial, is `regime-undetermined` — the chapter IS read (Art. 13.11), but the
+// publisher never names which IND subzone applies and the ordinance derives ocupación by algorithm.
+//
+// ⚠ 2026-08-05 — Unifamiliar Aislada MOVED OUT of the "unpacked coverage family" bucket this file
+// used to describe. Its six subzones (Art. 13.10) are now packed (`esCordobaPGOU2001.ts`). It is
+// STILL not resolvable via live COACo dispatch — the publisher's calificación names only the family,
+// never a UAS-1…6 suffix — but that is now the SAME `regime-undetermined` shape as Uso Industrial,
+// not a `no-rule-pack` document-absence claim (`cordobaUasSubzoneUnbindableRefusal`, renamed from
+// `cordobaUasChapterUnobtainableRefusal`). See that function's own header for the full record of
+// what changed and why the old "we could not read it" wording would now be false.
 
 import { describe, it, expect } from 'vitest';
 import {
     cordobaZoneRefusalFor,
     cordobaNoRulePackRefusal,
     cordobaIndustrialUnbindableRefusal,
-    cordobaUasChapterUnobtainableRefusal,
+    cordobaUasSubzoneUnbindableRefusal,
     CORDOBA_LEGALLY_REFUSED_ORDENANZAS,
 } from '../src/rulepacks/esCordobaZoneClassification.js';
 import { CORDOBA_PGOU2001_ZONE_CODES } from '../src/rulepacks/esCordobaPGOU2001.js';
@@ -47,7 +56,11 @@ const COACO_FAMILIES = [
     { family: 'CTP1- Campo de la Verdad', polygons: 16, m2: 21284.9, packed: true },
     { family: 'Uso Comercial', polygons: 8, m2: 37095.55, packed: false },
     { family: 'Elemento protegido', polygons: 7, m2: 10846.19, packed: false },
-    { family: 'Unifamiliar Aislada', polygons: 1, m2: 2687.97, packed: false },
+    // ⭐ 2026-08-05 — PACKED (`UAS-1`…`UAS-6` in `esCordobaPGOU2001.ts`, Art. 13.10, all six subzones
+    // held). Still resolves to NO live-COACo-dispatched envelope — the calificación names only the
+    // family — but that is now a PACKED `regime-undetermined` refusal (a missing selector), never a
+    // `no-rule-pack` "PRYZM has not transcribed this" coverage gap.
+    { family: 'Unifamiliar Aislada', polygons: 1, m2: 2687.97, packed: true },
     { family: 'Uso Industrial', polygons: 1, m2: 1920.35, packed: false },
 ] as const;
 
@@ -60,14 +73,15 @@ describe('§CORDOBA-UNPACKED-FAMILY-SPLIT — the publisher inventory this is me
         // Within 1 m² of the live Σ `sup_m2` — the numbers are transcribed, not approximated.
         expect(Math.abs(sum - ORDENANZAS_LAND_M2)).toBeLessThan(1);
         const packedShare = COACO_FAMILIES.filter((f) => f.packed).reduce((a, f) => a + f.m2, 0) / sum;
-        // 6 of 10 families (2026-08-04: + `PTC`/Campo de la Verdad) = 96.77 % of ordenanzas land.
-        // ⚠ A LAND share, not an ANSWER share: ~44.7 % of that land is delegated to a later
-        // instrument, MC's height table is unresolved, AND PTC itself is a structural refusal
-        // (no stated buildable depth), so the envelope that actually renders today is still ZERO
-        // for a large share of this "packed" land (see the measurements record). Quoting 96.77 %
-        // as coverage would be the withdrawn "89 %" error a third time.
-        expect(packedShare).toBeGreaterThan(0.967);
-        expect(packedShare).toBeLessThan(0.969);
+        // 7 of 10 families (2026-08-04: + `PTC`; 2026-08-05: + `Unifamiliar Aislada`) = 96.94 % of
+        // ordenanzas land. ⚠ A LAND share, not an ANSWER share: ~44.7 % of that land is delegated to
+        // a later instrument, MC's height table is unresolved, PTC itself is a structural refusal
+        // (no stated buildable depth), and UAS itself still resolves to NO live-dispatch envelope
+        // (subzone-unbindable), so the envelope that actually renders today is still ZERO for a
+        // large share of this "packed" land (see the measurements record). Quoting 96.94 % as
+        // coverage would be the withdrawn "89 %" error a fourth time.
+        expect(packedShare).toBeGreaterThan(0.969);
+        expect(packedShare).toBeLessThan(0.9695);
     });
 
     it('every UNPACKED family reaches a refusal — none falls through to silence', () => {
@@ -89,9 +103,9 @@ describe('§CORDOBA-UNPACKED-FAMILY-SPLIT — the publisher inventory this is me
         for (const f of COACO_FAMILIES.filter((x) => x.packed)) {
             expect(cordobaZoneRefusalFor(f.family), `${f.family} must not be a LEGAL "no"`).toBeNull();
         }
-        // …and the pack really does carry a subzone for each of those six families.
+        // …and the pack really does carry a subzone for each of those seven families.
         const codes = CORDOBA_PGOU2001_ZONE_CODES as readonly string[];
-        for (const prefix of ['MC-', 'OA-', 'CTP-', 'PAS-', 'UAD-']) {
+        for (const prefix of ['MC-', 'OA-', 'CTP-', 'PAS-', 'UAD-', 'UAS-']) {
             expect(codes.some((c) => c.startsWith(prefix)), prefix).toBe(true);
         }
         expect(codes.includes('PTC'), 'PTC').toBe(true);
@@ -135,8 +149,8 @@ describe('the TWO legally-grounded families each NAME their governing article', 
     });
 });
 
-describe('the TWO coverage families are SPLIT — "read but unresolvable" ≠ "could not read"', () => {
-    it('Uso Industrial is `regime-undetermined` and cites Art. 13.11, never "we have not read it"', () => {
+describe('Uso Industrial — the last remaining coverage family, "read but unresolvable"', () => {
+    it('is `regime-undetermined` and cites Art. 13.11, never "we have not read it"', () => {
         const r = cordobaIndustrialUnbindableRefusal('Uso Industrial', 'Uso Industrial');
         expect(r).not.toBeNull();
         // ⚠ NOT `no-rule-pack`: PRYZM HAS read `O_INDUSTRIAL.pdf` (born-digital, 23 620 chars).
@@ -152,53 +166,61 @@ describe('the TWO coverage families are SPLIT — "read but unresolvable" ≠ "c
         expect(r!.detail).not.toMatch(/has not transcribed/i);
     });
 
-    it('Unifamiliar Aislada is `no-rule-pack` — a DOCUMENT absence, and never a legal "no"', () => {
-        const r = cordobaUasChapterUnobtainableRefusal('UAS-1', 'Unifamiliar Aislada');
+    it('returns `null` for a family it is not about', () => {
+        for (const other of ['MC-2', 'CTP-1', 'Ordenacion Abierta', 'Uso Comercial', '']) {
+            expect(cordobaIndustrialUnbindableRefusal(other), other).toBeNull();
+        }
+    });
+});
+
+// ⭐ 2026-08-05 — Unifamiliar Aislada moved from "could not read the chapter" (`no-rule-pack`) to
+// "read it, but the live map cannot bind a parcel to one of six subzones" (`regime-undetermined`) —
+// now the SAME shape as Uso Industrial, for its own independently-cited article (13.10, not 13.11).
+describe('Unifamiliar Aislada — PACKED 2026-08-05, still `regime-undetermined` via live COACo', () => {
+    it('is `regime-undetermined` and cites Art. 13.10, never "we could not read it"', () => {
+        const r = cordobaUasSubzoneUnbindableRefusal('UAS-1', 'Unifamiliar Aislada');
         expect(r).not.toBeNull();
-        expect(r!.code).toBe('no-rule-pack');
-        // ⚠ NOT legally grounded: asserting the ordinance refuses an envelope on buildable land is
-        // the false-negative-about-someone's-land error C58 ranks worst.
+        // ⚠ NOT `no-rule-pack`: PRYZM HAS packed all six UAS-1…UAS-6 subzones (Art. 13.10).
+        expect(r!.code).toBe('regime-undetermined');
         expect(r!.legallyGrounded).toBe(false);
-        expect(r!.ordinanceRef).toBeNull();
-        // The copy must say the plot IS buildable and that the gap is the publisher's.
-        expect(r!.detail).toMatch(/nothing here says the plot is unbuildable/i);
-        expect(r!.detail).toMatch(/Server under construction/i);
-        // ⚠ NOT `source-data-unavailable` — that code is DEFINED as transient and carries the only
-        // retry affordance; nothing here clears on a retry, and the copy says so.
-        expect(r!.code).not.toBe('source-data-unavailable');
-        expect(r!.detail).toMatch(/retrying will not\s+change it/i);
+        // The old wording asserted a DOCUMENT absence; that must not survive the rename.
+        expect(r!.detail).not.toMatch(/Server under construction/i);
+        expect(r!.detail).not.toMatch(/has never been able to read/i);
+        // It must instead say the LAW is known and the gap is the published SELECTOR.
+        expect(r!.detail).toMatch(/has read this ordinance chapter/i);
+        expect(r!.detail).toMatch(/UAS-1…UAS-6|UAS-1\.\.\.UAS-6|UAS-1…UAS-6 suffix|never a UAS-1/i);
+        expect(r!.detail).not.toMatch(/has not transcribed/i);
+    });
+
+    it('returns `null` for a family it is not about', () => {
+        for (const other of ['MC-2', 'CTP-1', 'Ordenacion Abierta', 'Uso Comercial', '']) {
+            expect(cordobaUasSubzoneUnbindableRefusal(other), other).toBeNull();
+        }
     });
 
     it('the two cards are genuinely DIFFERENT values, not one card with two sentences', () => {
         const ind = cordobaIndustrialUnbindableRefusal('Uso Industrial')!;
-        const uas = cordobaUasChapterUnobtainableRefusal('Unifamiliar Aislada')!;
-        expect(ind.code).not.toBe(uas.code);
+        const uas = cordobaUasSubzoneUnbindableRefusal('Unifamiliar Aislada')!;
+        // Same CODE family now (both `regime-undetermined`), but distinct headlines/citations —
+        // neither may recite the other's cause.
         expect(ind.headline).not.toBe(uas.headline);
-        // Neither may recite the other's cause — that is the "Either… or…" defect being closed.
+        expect(ind.ordinanceRef).not.toBe(uas.ordinanceRef);
         expect(ind.detail).not.toMatch(/Unifamiliar Aislada/);
         expect(uas.detail).not.toMatch(/Uso Industrial|IND-1/);
     });
 
-    it('each returns `null` for a family it is not about (no card may claim another’s land)', () => {
-        for (const other of ['MC-2', 'CTP-1', 'Ordenacion Abierta', 'Uso Comercial', '']) {
-            expect(cordobaIndustrialUnbindableRefusal(other), other).toBeNull();
-            expect(cordobaUasChapterUnobtainableRefusal(other), other).toBeNull();
-        }
-    });
-
-    it('the shared coverage card ROUTES to them, so the dispatcher wiring needs no edit', () => {
+    it('the shared coverage card ROUTES to it as `regime-undetermined`, not `no-rule-pack`', () => {
         // `noRulePackRefusal` is what `registry.ts` hands the dispatcher; the split must be reachable
         // through it or it is authored-but-unwired (the trap the ROI board keeps re-learning).
         expect(cordobaNoRulePackRefusal('INDUSTRIAL', 'Uso Industrial').code).toBe('regime-undetermined');
-        expect(cordobaNoRulePackRefusal('UAS-1', 'Unifamiliar Aislada').code).toBe('no-rule-pack');
-        expect(cordobaNoRulePackRefusal('UAS-1', 'Unifamiliar Aislada').detail)
-            .toMatch(/Server under construction/i);
+        const uasRouted = cordobaNoRulePackRefusal('UAS-1', 'Unifamiliar Aislada');
+        expect(uasRouted.code).toBe('regime-undetermined');
+        expect(uasRouted.detail).not.toMatch(/Server under construction/i);
         // …and an UNANTICIPATED family still gets the generic card rather than a throw or a number.
         const fallback = cordobaNoRulePackRefusal('SOMETHING-NEW', 'A Family Nobody Anticipated');
         expect(fallback.code).toBe('no-rule-pack');
         expect(fallback.headline).toContain('A Family Nobody Anticipated');
-        // ⚠ The generic card must no longer recite the two named families — that recitation was
-        // the whole defect, and leaving it would make every future family read as Industrial+UAS.
+        // ⚠ The generic card must not recite either named family.
         expect(fallback.detail).not.toMatch(/Uso Industrial|Unifamiliar Aislada/);
     });
 
@@ -206,7 +228,7 @@ describe('the TWO coverage families are SPLIT — "read but unresolvable" ≠ "c
         const facts = ['Parcel area: 412 m²', 'Location: Córdoba'];
         for (const r of [
             cordobaIndustrialUnbindableRefusal('Uso Industrial', null, facts)!,
-            cordobaUasChapterUnobtainableRefusal('Unifamiliar Aislada', null, facts)!,
+            cordobaUasSubzoneUnbindableRefusal('Unifamiliar Aislada', null, facts)!,
             cordobaNoRulePackRefusal('X', 'X', facts),
             cordobaZoneRefusalFor('Uso Comercial', null, facts)!,
         ]) {
