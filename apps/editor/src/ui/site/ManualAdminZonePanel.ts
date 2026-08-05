@@ -40,8 +40,56 @@ const AUTH_TOKEN_KEY = 'bim-platform-token';
 let _runtime: Runtime | null = null;
 let _panel: HTMLElement | null = null;
 let _statusEl: HTMLElement | null = null;
+let _zoneSelect: HTMLSelectElement | null = null;
+let _customRow: HTMLElement | null = null;
 let _zoneInput: HTMLInputElement | null = null;
 let _subzoneInput: HTMLInputElement | null = null;
+
+/** Sentinel `<option>` value that reveals the free-text fallback row below. */
+const CUSTOM_CODE_VALUE = '__custom__';
+
+/**
+ * The known, real-footprint Córdoba PGOU-2001 zone codes (`packages/site-parcel-data/src/rulepacks/
+ * esCordobaPGOU2001.ts`) — every code here computes a real envelope, never a refusal. Grouped by
+ * plain-language family so an admin doesn't need to already know the ordinance's own zone-family
+ * abbreviations to pick the right one. Each option's `value` is the EXACT combined code the rule
+ * pack keys on (e.g. `'OA-1'`, not `'OA'` + a separate subzone) — the pack has no separate
+ * zone/subzone fields for these, so selecting one sets `zoneCode` alone and leaves the subzone input
+ * unused (see `_onSave`).
+ *
+ * ⚠ This list is NOT exhaustive of every code the pack recognises — several codes (`MC`, `PTC`, and
+ * others documented in `SEVILLA`/`CORDOBA-REMAINING-BLOCKERS` findings as structural refusals) are
+ * deliberately excluded here because they never resolve to a buildable footprint; offering them in a
+ * "pick one" dropdown would misleadingly imply they're just as usable as the real-footprint codes.
+ * An admin who genuinely wants to test one of those (or a code not in this pack at all) uses
+ * "Other / I don't know — type it" below instead.
+ */
+const KNOWN_CORDOBA_ZONE_OPTIONS: ReadonlyArray<{
+    readonly group: string;
+    readonly code: string;
+    readonly label: string;
+}> = [
+    { group: 'Unifamiliar Aislada — detached single-family houses', code: 'UAS-1', label: 'UAS-1 (PGOU Art. 13.10)' },
+    { group: 'Unifamiliar Aislada — detached single-family houses', code: 'UAS-2', label: 'UAS-2 (PGOU Art. 13.10)' },
+    { group: 'Unifamiliar Aislada — detached single-family houses', code: 'UAS-3', label: 'UAS-3 (PGOU Art. 13.10)' },
+    { group: 'Unifamiliar Aislada — detached single-family houses', code: 'UAS-4', label: 'UAS-4 (PGOU Art. 13.10)' },
+    { group: 'Unifamiliar Aislada — detached single-family houses', code: 'UAS-5', label: 'UAS-5 (PGOU Art. 13.10)' },
+    { group: 'Unifamiliar Aislada — detached single-family houses', code: 'UAS-6', label: 'UAS-6 (PGOU Art. 13.10)' },
+    { group: 'Unifamiliar Adosada — row houses / townhouses', code: 'UAD-1', label: 'UAD-1 (PGOU Art. 13.9)' },
+    { group: 'Unifamiliar Adosada — row houses / townhouses', code: 'UAD-2', label: 'UAD-2 (PGOU Art. 13.9)' },
+    { group: 'Unifamiliar Adosada — row houses / townhouses', code: 'UAD-3', label: 'UAD-3 (PGOU Art. 13.9)' },
+    { group: 'Plurifamiliar Aislada — apartment blocks', code: 'PAS-1', label: 'PAS-1 (PGOU Art. 13.7)' },
+    { group: 'Plurifamiliar Aislada — apartment blocks', code: 'PAS-2', label: 'PAS-2 (PGOU Art. 13.7)' },
+    { group: 'Plurifamiliar Aislada — apartment blocks', code: 'PAS-3', label: 'PAS-3 (PGOU Art. 13.7)' },
+    { group: 'Ordenación Abierta — open urban layout', code: 'OA-1', label: 'OA-1 (PGOU Art. 13.6)' },
+    { group: 'Ordenación Abierta — open urban layout', code: 'OA-2', label: 'OA-2 (PGOU Art. 13.6)' },
+    { group: 'Colonia Tradicional Popular — traditional housing colony', code: 'CTP-1', label: 'CTP-1 (PGOU Art. 13.8)' },
+    // ⚠ Manzana Cerrada (MC-1..4) and PTC are DELIBERATELY EXCLUDED — both are structural refusals in
+    // the pack (`CORDOBA_MC_FONDO_UNRESOLVED_RING` / `CORDOBA_PTCV_FOOTPRINT_UNRESOLVED_RING`; the
+    // depth/footprint is legally unresolved, not just unimplemented), so picking them here would
+    // never compute a real envelope and would misleadingly imply they're as usable as the codes
+    // above. An admin who wants to try one anyway uses "Other / I don't know" below.
+];
 
 export function wireManualAdminZonePanelRuntime(rt: Runtime | null): void {
     _runtime = rt;
@@ -128,6 +176,8 @@ export function disposeManualAdminZonePanel(): void {
     if (_panel?.parentElement) _panel.parentElement.removeChild(_panel);
     _panel = null;
     _statusEl = null;
+    _zoneSelect = null;
+    _customRow = null;
     _zoneInput = null;
     _subzoneInput = null;
 }
@@ -154,13 +204,63 @@ function _build(): HTMLElement {
     el.appendChild(header);
 
     const zoneLabel = document.createElement('label');
-    zoneLabel.textContent = 'Zone code (e.g. PAS-2)';
+    zoneLabel.textContent = 'Zone';
+    el.appendChild(zoneLabel);
+
+    const select = document.createElement('select');
+    select.style.cssText =
+        'padding:6px;border-radius:6px;border:1px solid #444;background:#2a2a2a;color:inherit;';
+    const placeholderOpt = document.createElement('option');
+    placeholderOpt.value = '';
+    placeholderOpt.textContent = '— choose a zone —';
+    placeholderOpt.disabled = true;
+    placeholderOpt.selected = true;
+    select.appendChild(placeholderOpt);
+
+    const groups = new Map<string, HTMLOptGroupElement>();
+    for (const opt of KNOWN_CORDOBA_ZONE_OPTIONS) {
+        let group = groups.get(opt.group);
+        if (!group) {
+            group = document.createElement('optgroup');
+            group.label = opt.group;
+            select.appendChild(group);
+            groups.set(opt.group, group);
+        }
+        const optionEl = document.createElement('option');
+        optionEl.value = opt.code;
+        optionEl.textContent = opt.label;
+        group.appendChild(optionEl);
+    }
+
+    const customOpt = document.createElement('option');
+    customOpt.value = CUSTOM_CODE_VALUE;
+    customOpt.textContent = "Other / I don't know — type it";
+    select.appendChild(customOpt);
+    _zoneSelect = select;
+    select.addEventListener('change', () => {
+        if (_customRow) {
+            _customRow.style.display = select.value === CUSTOM_CODE_VALUE ? 'flex' : 'none';
+        }
+    });
+    el.appendChild(select);
+
+    // Free-text fallback — hidden unless "Other / I don't know" is selected above. Kept as two
+    // separate zone/subzone inputs (rather than one combined-code input) because a code typed here
+    // may be one this dropdown doesn't list at all (see the dropdown's own "deliberately excluded"
+    // note) — an admin exploring an unlisted code still needs to say what they mean in the ordinance's
+    // own vocabulary, which is a family + subzone pair, not always a single hyphenated token.
+    const customRow = document.createElement('div');
+    customRow.style.cssText = 'display:none;flex-direction:column;gap:8px;';
+    _customRow = customRow;
+
+    const zoneInputLabel = document.createElement('label');
+    zoneInputLabel.textContent = 'Zone code (e.g. PAS-2)';
     const zoneInput = document.createElement('input');
     zoneInput.type = 'text';
     zoneInput.placeholder = 'PAS-2';
     _zoneInput = zoneInput;
-    el.appendChild(zoneLabel);
-    el.appendChild(zoneInput);
+    customRow.appendChild(zoneInputLabel);
+    customRow.appendChild(zoneInput);
 
     const subzoneLabel = document.createElement('label');
     subzoneLabel.textContent = 'Subzone (optional)';
@@ -168,8 +268,10 @@ function _build(): HTMLElement {
     subzoneInput.type = 'text';
     subzoneInput.placeholder = '2';
     _subzoneInput = subzoneInput;
-    el.appendChild(subzoneLabel);
-    el.appendChild(subzoneInput);
+    customRow.appendChild(subzoneLabel);
+    customRow.appendChild(subzoneInput);
+
+    el.appendChild(customRow);
 
     const saveBtn = document.createElement('button');
     saveBtn.type = 'button';
@@ -207,10 +309,17 @@ async function _onSave(): Promise<void> {
             span.setStatus({ code: SpanStatusCode.OK });
             return;
         }
-        const zoneCode = _zoneInput?.value?.trim() ?? '';
-        const subzoneCode = _subzoneInput?.value?.trim() || undefined;
+        const selected = _zoneSelect?.value ?? '';
+        const usingCustom = selected === CUSTOM_CODE_VALUE || selected === '';
+        const zoneCode = usingCustom
+            ? (_zoneInput?.value?.trim() ?? '')
+            : selected;
+        // Only the free-text fallback ever carries a separate subzone — every known dropdown code is
+        // already the pack's own combined code (e.g. `'OA-1'`), so appending a subzone to it would be
+        // double-counting (see `KNOWN_CORDOBA_ZONE_OPTIONS`'s doc comment).
+        const subzoneCode = usingCustom ? (_subzoneInput?.value?.trim() || undefined) : undefined;
         if (!zoneCode) {
-            _setStatus('Zone code is required.');
+            _setStatus(usingCustom ? 'Zone code is required.' : 'Choose a zone first.');
             span.setAttribute('result', 'no-zone-code');
             span.setStatus({ code: SpanStatusCode.OK });
             return;
