@@ -30,7 +30,21 @@
 > **Do not delete this letter or its remaining valid asks (items 2, 3, and the georeferencing/
 > measurement-basis question) — only item 1 is likely moot, and even that should be re-verified
 > rather than assumed, since this correction was written by the acquiring session, not by whoever
-> ultimately submits the request.**
+> ultimately submits the request.
+>
+> ### ⬆⬆ CORRECTION 2026-08-05 — ITEM 4 REWRITTEN WITH REAL EVIDENCE, NOW THE STRONGEST ITEM
+>
+> A full raster-to-parcel classification feasibility study ran this session — see
+> [`findings/RASTER-PARCEL-ZONING-FEASIBILITY-2026-08-05.md`](./findings/RASTER-PARCEL-ZONING-FEASIBILITY-2026-08-05.md)
+> and [`findings/RASTER-CLASSIFIER-SAFE-SUBSET-IMPLEMENTATION-2026-08-05.md`](./findings/RASTER-CLASSIFIER-SAFE-SUBSET-IMPLEMENTATION-2026-08-05.md).
+> **Georeferencing, datum recovery, and parcel-boundary alignment are all proven feasible with high
+> precision. What is NOT recoverable by any method tested — colour classification, and real OCR
+> (`rapidocr-onnxruntime`, tested on 6 sheets) — is the subzone digit** (e.g. `MC-2` vs `MC-3`),
+> which the sheets print only as a small rotated numeral indistinguishable from map linework. Item
+> 4 below is rewritten to state this precisely: the blocker is DATA ACCESS, not PRYZM's own
+> capability, which is a considerably stronger and more specific argument than the original
+> "if you happen to have vector data" phrasing. Do not soften this back to a vague ask — the
+> specificity is what makes it hard to deprioritise.**
 
 > **Status:** DRAFT — not yet submitted. Ready to paste into the Ayuntamiento de Córdoba's
 > Sede Electrónica "Solicitud Genérica" form (or REC), addressed to the Gerencia Municipal de
@@ -85,11 +99,25 @@ la contenga.
 
 **4. (Opcional, de mayor alcance) Disponibilidad de la cartografía de calificación en formato
 vectorial.**
-Si la Gerencia dispone internamente de la cartografía de calificación urbanística del PGOU-2001
-en formato vectorial (shapefile, geodatabase, DWG/DXF georreferenciado o servicio WFS/WMS) para
-la totalidad o parte del término municipal más allá del ámbito ya publicado por COACo (distritos
-Sur y Noroeste), solicito su puesta a disposición en dicho formato, al amparo de la Ley 19/2013 y,
-en su caso, de la normativa de reutilización de información del sector público.
+He evaluado técnicamente si es posible reconstruir la calificación urbanística vectorial a partir
+de las hojas ráster CUS ya publicadas, mediante georreferenciación, alineación catastral y
+clasificación automática de color. Esa evaluación demuestra que la georreferenciación, la
+recuperación del datum (ED50/EPSG:23030) y el registro catastral son técnicamente viables con alta
+precisión (coincidencia de borde de calificación con parcela catastral superior al 90 % a 1 metro
+en varias hojas de control). **Sin embargo, el producto ráster publicado no codifica el
+identificador de subzona (p. ej. "MC-2" frente a "MC-3") de forma recuperable automáticamente** —
+la cifra de subzona aparece únicamente como un dígito manuscrito/rotado de tamaño reducido,
+indistinguible mediante reconocimiento óptico de caracteres del trazado cartográfico circundante.
+**El factor limitante es, por tanto, el acceso a los datos vectoriales originales de
+planeamiento, no la capacidad técnica de esta entidad para procesarlos.**
+
+Por ello, si la Gerencia dispone internamente de la cartografía de calificación urbanística del
+PGOU-2001 en formato vectorial — shapefile, geodatabase (File Geodatabase), DWG/DXF
+georreferenciado, MicroStation DGN, exportación PostGIS, o cualquier sistema de información
+geográfica interno utilizado para la publicación del PGOU — para la totalidad o parte del término
+municipal más allá del ámbito ya publicado por COACo (distritos Sur y Noroeste), solicito su
+puesta a disposición en dicho formato, al amparo de la Ley 19/2013 y, en su caso, de la normativa
+de reutilización de información del sector público.
 
 Quedo a la espera de respuesta en el plazo legalmente establecido. Agradezco de antemano la
 atención prestada.
