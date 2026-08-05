@@ -198,6 +198,13 @@ import {
     isInCordobaMunicipality,
     resolveCordobaTracedZone,
     CORDOBA_TRACED_ZONES_VERIFIED,
+    // §COR-RASTER-ZONE (2026-08-05) — the THIRD and weakest Córdoba zone-identity source: machine
+    // classification of the CUS sheets' colour fields, snapped to Catastro parcels. Tried only after
+    // the hand-traced store misses. ⚠ Resolves a FAMILY, never a subzone, so it can only make a
+    // refusal more specific — it never authorises a number. Its own third gate, default OFF; see
+    // `applyCordobaRasterClassifiedZoneThenFallback`'s header.
+    resolveCordobaRasterClassifiedZone,
+    CORDOBA_RASTER_CLASSIFIED_ZONES_VERIFIED,
     // ── Sevilla (INE 41091) — 15/15 live zona_orden codes transcribed, SIGNED 2026-08-05. ──
     // `SEVILLA_ENVELOPE_VERIFIED` is `true` (sources/VERIFICATION.md §SIG-1). `resolveSevillaZone`
     // queries the city's own ArcGIS "Calificación" layer (25, EPSG:25830); §SEV-COMPUTE below
@@ -3841,15 +3848,17 @@ async function applyCordobaTracedZoneThenFallback(
         const verified = deps.verifiedOverride ?? CORDOBA_TRACED_ZONES_VERIFIED;
         if (!verified) {
             // ⚠⚠⚠ THE HONESTY GATE (this capability's own, independent one). Unverified → fall
-            // through to whatever a Córdoba-outside-pilot point already resolves to today (the
-            // §L-663 estimate-suppression refusal) — NEVER a number from traced geometry.
+            // through to the NEXT-WEAKEST source (§COR-RASTER-ZONE), which is itself gated OFF and
+            // therefore falls through in turn to whatever a Córdoba-outside-pilot point already
+            // resolves to today (the §L-663 estimate-suppression refusal) — NEVER a number from
+            // traced geometry.
             console.log(
                 `${TAG} §HONESTY-GATE CORDOBA_TRACED_ZONES_VERIFIED=false — no traced-geometry ` +
-                    'lookup performed; falling through to the existing Córdoba-outside-pilot handling. ' +
+                    'lookup performed; falling through to the raster-classified source. ' +
                     'Signs off via a founder-authorized VERIFICATION.md entry for THIS capability ' +
                     '(never inherits the pilot\'s CORDOBA_ENVELOPE_VERIFIED sign-off).',
             );
-            applyEstimatedZoning(ctx, estimated);
+            await applyCordobaRasterClassifiedZoneThenFallback(ctx, boundary, lat, lon, estimated);
             return;
         }
 
@@ -3858,15 +3867,15 @@ async function applyCordobaTracedZoneThenFallback(
             traced = await resolveCordobaTracedZone({ lat, lon });
         } catch (e) {
             console.warn(`${TAG} resolveCordobaTracedZone failed (non-fatal):`, e);
-            applyEstimatedZoning(ctx, estimated);
+            await applyCordobaRasterClassifiedZoneThenFallback(ctx, boundary, lat, lon, estimated);
             return;
         }
         if (!traced.ok) {
             console.log(
                 `${TAG} traced-zone lookup did not resolve (${traced.reason}) — falling through to ` +
-                    'the existing Córdoba-outside-pilot handling.',
+                    'the raster-classified source.',
             );
-            applyEstimatedZoning(ctx, estimated);
+            await applyCordobaRasterClassifiedZoneThenFallback(ctx, boundary, lat, lon, estimated);
             return;
         }
 
@@ -3940,6 +3949,157 @@ async function applyCordobaTracedZoneThenFallback(
     } catch (e) {
         console.warn(
             `${TAG} Córdoba traced-zone path failed (non-fatal) — falling back to estimated default:`,
+            e,
+        );
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+    }
+}
+
+/**
+ * §COR-RASTER-ZONE (2026-08-05) — the THIRD and weakest Córdoba zone-identity source: zone FAMILIES
+ * machine-classified from the PGOU-2001 CUS calificación sheets' colour fields and snapped to
+ * Catastro parcels (`resolveCordobaRasterClassifiedZone`, `@pryzm/site-parcel-data`).
+ *
+ * Reached only after BOTH stronger sources decline: the COACo pilot (`isInCordoba`, live published
+ * geometry) never routes here, and this runs only when the hand-traced store misses or its gate is
+ * shut. Source hierarchy, weakest last:
+ *     coaco:ordenanzas WFS  >  PRYZM hand-trace  >  THIS  >  refusal
+ *
+ * ⚠⚠ IT NEVER COMPUTES A NUMBER, AND CANNOT — this is a structural property, not a gate setting.
+ * The CUS legend has one swatch per zone FAMILY, so classification is family-level; the SUBZONE
+ * digit, which is what actually selects parameters, is printed as a bare rotated numeral that is not
+ * machine-recoverable (measured — see the resolver's header and the findings doc). And the subzones
+ * are not interchangeable in `ES_CORDOBA_PGOU2001_PACK`: OA-1 is FAR 1.4 against OA-2's 1.6; MC's
+ * footprint is structurally unresolved in every subzone (`CORDOBA_MC_FONDO_UNRESOLVED_RING`). So the
+ * BEST outcome available on this path is a refusal that NAMES the family instead of speaking
+ * generically — "this land reads as Manzana Cerrada on sheet CUS41W, and PRYZM cannot determine
+ * which MC subzone applies". Guessing a subzone to reach a number would be exactly the fabrication
+ * §CONTEXT-DATA-HONESTY exists to prevent. There is deliberately NO call to
+ * `computeBuildableEnvelope` anywhere in this function.
+ *
+ * ⚠⚠ IT IS INDEPENDENTLY GATED, AND THE GATE IS SHUT. `CORDOBA_RASTER_CLASSIFIED_ZONES_VERIFIED`
+ * defaults `false` and must never read `CORDOBA_ENVELOPE_VERIFIED` (OCR of the ordinance NUMBER
+ * tables — signed) or `CORDOBA_TRACED_ZONES_VERIFIED` (hand-traced GEOMETRY — unsigned). Three
+ * claims, three failure modes, three gates. While shut — and the committed record set is EMPTY
+ * besides — this function is a doubly-documented no-op: it falls straight through to
+ * `applyEstimatedZoning`, exactly what running with no such branch at all would do. Its test suite
+ * pins that property directly rather than asserting it by inspection.
+ *
+ * `deps.verifiedOverride` exists ONLY so a test can exercise the gate-open path without mutating the
+ * real committed constant — the same injectable-deps pattern `applyCordobaTracedZoneThenFallback`
+ * uses. Production never passes it.
+ */
+async function applyCordobaRasterClassifiedZoneThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+    deps: { verifiedOverride?: boolean } = {},
+): Promise<void> {
+    const TAG = '[gis][c58] §COR-RASTER-ZONE';
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        const verified = deps.verifiedOverride ?? CORDOBA_RASTER_CLASSIFIED_ZONES_VERIFIED;
+        if (!verified) {
+            console.log(
+                `${TAG} §HONESTY-GATE CORDOBA_RASTER_CLASSIFIED_ZONES_VERIFIED=false — no ` +
+                    'machine-classified lookup performed; falling through to the existing ' +
+                    'Córdoba-outside-pilot handling.',
+            );
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        let classified: Awaited<ReturnType<typeof resolveCordobaRasterClassifiedZone>>;
+        try {
+            classified = await resolveCordobaRasterClassifiedZone({ lat, lon });
+        } catch (e) {
+            console.warn(`${TAG} resolveCordobaRasterClassifiedZone failed (non-fatal):`, e);
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        if (!classified.ok) {
+            console.log(
+                `${TAG} raster-classified lookup did not resolve (${classified.reason}) — falling ` +
+                    'through to the existing Córdoba-outside-pilot handling.',
+            );
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        const { zoneFamily, sourceSheet, refcat, evidence, provenance } = classified.resolution;
+        const FAMILY_LABEL: Record<string, string> = {
+            MC: 'Manzana Cerrada',
+            OA: 'Ordenación Abierta',
+        };
+        const label = FAMILY_LABEL[zoneFamily] ?? zoneFamily;
+
+        // Every fact below is one this pipeline actually MEASURED for this parcel or this sheet.
+        // There is no aggregate confidence float: §12.3 measured errors at confidence 1.000 on every
+        // validated sheet and found confidence gating non-monotonic, so such a number would look
+        // like a safety mechanism without being one.
+        const knownFacts = [
+            `Location: Córdoba (${lat.toFixed(5)}, ${lon.toFixed(5)}) — outside the COACo ` +
+                'Sur+Noroeste vectorised pilot',
+            `Zone FAMILY read from PGOU-2001 sheet ${sourceSheet}: ${label} (${zoneFamily})`,
+            `Catastro parcel: ${refcat}`,
+            `Evidence: ${evidence.winningPixels}/${evidence.classifiedPixels} classified pixels ` +
+                `voted ${zoneFamily}; nearest legend swatch at Chebyshev ` +
+                `${evidence.nearestLegendChebyshev}` +
+                (evidence.runnerUpFamily ? `; runner-up ${evidence.runnerUpFamily}` : '; unanimous') +
+                `; sheet georeference residual ${evidence.georefResidualPx} px (${evidence.sourceCrs})`,
+            'SUBZONE: NOT determined. The sheet encodes the family by colour only; the subzone digit ' +
+                'is not machine-readable, and the subzones do not share parameters.',
+            `⚠ Provenance: ${provenance}`,
+        ];
+
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(
+                zoneFamily,
+                {
+                    code: 'no-rule-pack',
+                    headline:
+                        `${label} — PRYZM can read the zone FAMILY for this parcel, but not the ` +
+                        'subzone that binds the numbers.',
+                    detail:
+                        `PRYZM reconstructed this parcel's ordenanza family (${label}) from the ` +
+                        `Ayuntamiento's own PGOU-2001 calificación sheet ${sourceSheet} by colour ` +
+                        'classification — this is PRYZM\'s machine reading of a scanned map, NOT a ' +
+                        'municipal publication, and no COACo or GMU service publishes a zone polygon ' +
+                        'for this land. Even taking the family as correct, the PGOU sets its buildable ' +
+                        'parameters PER SUBZONE, and the subzone is not recoverable from the sheet: ' +
+                        'the legend carries one colour per family, and the subzone number printed on ' +
+                        'the map is not machine-readable. Choosing a subzone would change the answer ' +
+                        'materially, so PRYZM names what it can read and shows no envelope rather ' +
+                        'than a number the ordinance does not support for this parcel.',
+                    ordinanceRef: null,
+                    legallyGrounded: false,
+                    knownFacts,
+                },
+                'none',
+            ),
+            'coaco-pgou-raster-classified',
+        );
+        console.log(
+            `${TAG} §COR-RASTER-REFUSAL family=${zoneFamily} sheet=${sourceSheet} — dispatched a ` +
+                'family-NAMED refusal. No number is computed on this path by construction.',
+        );
+    } catch (e) {
+        console.warn(
+            `${TAG} Córdoba raster-classified path failed (non-fatal) — falling back to estimated ` +
+                'default:',
             e,
         );
         try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }

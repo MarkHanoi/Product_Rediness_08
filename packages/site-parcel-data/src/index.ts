@@ -458,6 +458,28 @@ export {
     type CordobaTracedZoneRefusalReason,
 } from './providers/resolveCordobaTracedZone.js';
 
+// ── Córdoba RASTER-CLASSIFIED-ZONE resolver (2026-08-05) — the offline machine-derived provider. ──
+// The WEAKEST rung of the Córdoba zone-identity hierarchy (COACo WFS > hand-trace > this > refusal):
+// zone FAMILIES reconstructed from the CUS calificación sheets by colour classification snapped to
+// Catastro parcels. ⚠ It resolves a FAMILY, never a subzone, so it binds NO numeric parameter — it
+// can only make a refusal more specific. `CORDOBA_RASTER_CLASSIFIED_ZONES_VERIFIED` is its OWN third
+// gate, default `false`, and must never read either of the other two Córdoba flags. Never throws.
+export {
+    resolveCordobaRasterClassifiedZone,
+    resolveCordobaRasterClassifiedZoneFromRecords,
+    loadCordobaRasterClassifiedZoneRecords,
+    CORDOBA_RASTER_CLASSIFIED_ZONES_VERIFIED,
+    CORDOBA_RASTER_SAFE_ZONE_FAMILIES,
+    type CordobaRasterZoneFamily,
+    type CordobaRasterClassifiedZoneLngLat,
+    type CordobaRasterClassificationEvidence,
+    type CordobaRasterClassifiedZoneRecord,
+    type CordobaRasterClassifiedZoneDeps,
+    type CordobaRasterClassifiedZoneResolution,
+    type CordobaRasterClassifiedZoneResult,
+    type CordobaRasterClassifiedZoneRefusalReason,
+} from './providers/resolveCordobaRasterClassifiedZone.js';
+
 // L-525a — PGM Art. 327.2 *alçada reguladora* (the height half of the 13a construction, the
 // counterpart to Art. 242's depth). Refuses rather than let a MEASURED street width choose a
 // storey band near a boundary — see the module header.
