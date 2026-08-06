@@ -245,6 +245,24 @@ describe('performUndoRedo — unified undo routing (OI-054)', () => {
     expect(cm.dropEntriesForTargets).not.toHaveBeenCalled();
   });
 
+  it('REGRESSION (L-690): undo of a DELETE restores the element instead of re-undoing its create', () => {
+    const store = makeStore();
+    // The element is already gone — the user just deleted it. `element.delete` is
+    // a bus handler with `affectedStores: []` that bridges to
+    // `commandManager.execute(new DeleteElementCommand(id))`, so EVERY element
+    // type's delete is commandManager-only with NO PatchPair, while the element's
+    // creation may sit on the ring buffer. Ctrl+Z must run the DELETE's inverse.
+    const cm = makeCommandManager([[WALL_ID]], [9_000]);
+    const rb = makeRingBuffer(wallPair(1_000));
+    install(rb, cm, store);
+
+    performUndo();
+
+    expect(cm.undo).toHaveBeenCalledTimes(1);   // DeleteElementCommand.undo() re-adds it
+    expect(rb.canUndo()).toBe(true);            // the create is still pending beneath
+    expect(cm.dropEntriesForTargets).not.toHaveBeenCalled();
+  });
+
   it('REGRESSION (bffa20df family): a hosted door in a PLAN-drawn wall is undone before the wall', () => {
     const store = makeStore();
     store.add({ id: WALL_ID, type: 'wall', levelId: 'L0' });
