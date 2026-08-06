@@ -67,6 +67,9 @@ import { installBriefBootstrap } from '../onboarding/briefBootstrap';
 // that does the engine `import()` dynamically), so this static import adds no
 // engine bytes to the platform critical-path chunk.
 import { ensureEngineWarm } from '@app/engine/engineWarmup';
+// PRYZM-EARTH-ONBOARDING PRD Phase 2 — DOM-free typology-seed resolver (see
+// resolveSeededTypologyId.ts header for why this lives outside PlatformRouter).
+import { resolveSeededTypologyId } from './resolveSeededTypologyId';
 
 /** ADR-055 §7 — marketing routes moved from apps/docs-site/ into the
  *  editor.  Names match the apex pre-render bucket (/, /pricing,
@@ -554,7 +557,7 @@ export class PlatformRouter {
             // still does the legacy blank `_createViaRuntime`. We destroy the hub
             // first so the onboarding overlay owns the surface (the bootstrap
             // re-mounts the hub-equivalent flow on completion via launchWorkspace).
-            onStartOnboarding: (seedFromModal?: { name?: string; projectType?: string }) => {
+            onStartOnboarding: (seedFromModal?: { name?: string; projectType?: string; directEntry?: boolean }) => {
                 this.showOnboarding(seedFromModal);
             },
         }, this.runtime);
@@ -619,48 +622,13 @@ export class PlatformRouter {
      * If the runtime has no typology registry (degraded boot), falls back to
      * the auth modal directly so "Build something" never dead-ends.
      */
-    /**
-     * O.5 — map the New-Project modal's `projectType` select value to a
-     * registered typology id, or `undefined` when there is no confident mapping
-     * (the conversation then asks normally). Only returns an id the registry
-     * actually has, so a degraded boot (no apartment pack) never seeds a
-     * phantom typology. Today only Residential → `apartment` is wired (the one
-     * shipped generator); other types intentionally fall through.
-     */
-    private static _typologyForProjectType(
-        projectType: string | undefined,
-        registryHas: (id: string) => boolean,
-    ): string | undefined {
-        if (!projectType) return undefined;
-        // §A.6.c — the modal now offers explicit building typologies. Map each to
-        // a registered Pack id; "residential — let me choose" / commercial / mixed /
-        // other return undefined so the RAC asks (showing the typology chips).
-        const v = projectType.trim().toLowerCase();
-        // §RESI-MULTIFAMILY — the multi-family residential building is a wired
-        // GENERATOR BRANCH (residentialFromBoundary → ResidentialBuildingController),
-        // NOT a typology-registry Pack. It is therefore seeded directly (it must NOT
-        // be gated on `registryHas`, which only knows the apartment/house Packs); the
-        // brief→project→site→generate spine + the OnboardingStepController switch point
-        // route it to the residential generator. The building-type SELECTION is the
-        // opt-in (no console flag for this path).
-        if (v === 'residential-multifamily') return 'residential-multifamily';
-        // §OFFICE-ONBOARDING-WIRE — the office tower is a wired GENERATOR BRANCH
-        // (OnboardingStepController → generateOffice → OfficeBuildingController), like
-        // residential-multifamily above — NOT a registry-gated Pack. The New-Project
-        // dropdown emits `commercial` for "Commercial building — office"; seed the
-        // office typology id directly so the dispatch (isOfficeTypologyId) routes it to
-        // the office generator instead of falling through to apartment.
-        if (v === 'commercial' || v === 'office' || v === 'office-building' || v === 'commercial-office') {
-            return 'office-building';
-        }
-        let candidate: string | undefined;
-        if (v === 'apartment') candidate = 'apartment';
-        else if (v === 'casa-unifamiliar' || v === 'house' || v === 'casa') candidate = 'casa-unifamiliar';
-        if (candidate && registryHas(candidate)) return candidate;
-        return undefined;
-    }
+    // O.5 — the modal's `projectType` → registered-typology-id mapping, and the
+    // PRYZM-EARTH-ONBOARDING PRD Phase 2 `directEntry` default, now live in
+    // `resolveSeededTypologyId.ts` (a DOM-free module so the routing decision is
+    // directly unit-testable — see that file's header for why this router
+    // itself cannot be imported under the app's node-environment vitest config).
 
-    showOnboarding(seed?: { name?: string; projectType?: string }): void {
+    showOnboarding(seed?: { name?: string; projectType?: string; directEntry?: boolean }): void {
         this.onboarding?.dispose();
         this.onboarding = null;
 
@@ -683,25 +651,25 @@ export class PlatformRouter {
             return;
         }
 
-        // O.5 — map the modal's Project Type select to a registered typology id
-        // so the RAC conversation pre-captures it (skipping the "what type?"
-        // question). Only `apartment` has a shipped generator today, so
-        // Residential → apartment; other types fall through to a normal ask (the
-        // panel ignores an unknown / absent seed). The chosen NAME is carried in
-        // the brief metadata so the created project keeps it (briefBootstrap
-        // reads `metadata.projectName`).
-        const seededTypologyId = PlatformRouter._typologyForProjectType(
-            seed?.projectType,
-            (id: string) => registry.has(id),
-        );
+        // O.5 / PRYZM-EARTH-ONBOARDING PRD Phase 2 — resolve the typology id the
+        // RAC-skip branch below seeds with. `resolveSeededTypologyId` (DOM-free,
+        // unit-tested) maps the legacy modal's `projectType` to a registered
+        // typology id, OR — per the founder's explicit Phase 2 instruction
+        // ("after click new project - go directly to PRYZM EARTH") — defaults to
+        // `'apartment'` when `seed.directEntry` is set (the no-modal "+ New
+        // Project" gesture), so the existing authed+seededTypologyId bypass below
+        // fires and RAC is skipped entirely. See that module's header for the
+        // full reasoning and PRD §14 for what this defers.
+        const seededTypologyId = resolveSeededTypologyId(seed, (id: string) => registry.has(id));
         const seededName = seed?.name?.trim();
         const seedMetadata: Record<string, unknown> = {};
         if (seededName) seedMetadata.projectName = seededName;
         if (seed?.projectType) seedMetadata.projectType = seed.projectType;
         if (seed) {
-            console.log('[onboarding] showOnboarding seeded from New-Project modal:', {
+            console.log('[onboarding] showOnboarding seeded:', {
                 name: seededName ?? '(none)',
                 projectType: seed.projectType ?? '(none)',
+                directEntry: seed.directEntry ?? false,
                 seededTypologyId: seededTypologyId ?? '(none — conversation will ask)',
             });
         }

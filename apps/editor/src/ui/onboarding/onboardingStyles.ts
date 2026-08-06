@@ -469,7 +469,22 @@ export const ONBOARDING_STYLES = `
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  z-index: 1250;
+  /* PRYZM-EARTH-ONBOARDING PRD Phase 2 (2026-08-06) — founder live-traced bug:
+     for the guided (auto-created project) path, runtime.persistence.openProject
+     lazy-boots the FULL BIM engine (walls/slabs/stairs/furniture/37 stores,
+     DefaultViewsManager default views) synchronously ahead of the
+     pryzm-project-loaded event this step-flow's mount waits on
+     (briefBootstrap.ts). The engine's own body-mounted chrome (toolbars, floating
+     panels — see PlatformRouter.ts's §BACK-TO-PROJECT note, which independently
+     found the same class of chrome reaching z-index 2147483000) was rendering
+     ABOVE this overlay's old z-index of 1250 during that gap, so the user briefly
+     saw the empty workspace before this overlay (mounted correctly, just buried)
+     became visible. Raised to the SAME "above all editor chrome" value already
+     established for exactly this problem elsewhere in the platform layer, so the
+     location/globe step is guaranteed on top and opaque for its full life, with
+     no change to engine-boot timing/sequencing (a materially bigger, riskier fix
+     that was deliberately NOT attempted this pass — see PRD §14). */
+  z-index: 2147483000;
   display: flex;
   flex-direction: column;
   width: min(400px, 92vw);

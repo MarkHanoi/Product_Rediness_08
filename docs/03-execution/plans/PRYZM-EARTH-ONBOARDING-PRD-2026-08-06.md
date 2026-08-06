@@ -735,4 +735,100 @@ the label rename this session's task brief bundled into "Phase 1").
 
 ---
 
+## §14 — Phase 2 Implementation Log (2026-08-06, third pass — code changes)
+
+Founder tested Phase 1 live and reported two problems via screenshots + a full browser console log,
+both directly contradicting the PRD's "never present an empty screen" / "no modal" thesis, and gave
+an explicit, direct instruction overriding §13.3's deferral: **"the goal ... is after click new
+project - go directly to PRYZM EARTH."**
+
+### §14.1 — What the founder's live evidence actually showed
+
+1. **The RAC role/typology chat still blocked the globe**, exactly as §13.3 predicted and
+   deliberately left in place pending a founder decision. The founder's decision: skip it.
+2. **A second, more severe bug the console log exposed that §13.3 did not anticipate**: after the
+   RAC brief resolved, `PlatformRouter`'s `createAndOpenProject` → `launchWorkspace` chain boots the
+   **full BIM engine** synchronously — every builder subsystem (walls, slabs, stairs, furniture,
+   lighting, 37 stores), `DefaultViewsManager` creating default 3D/plan/elevation views, the full
+   engine chrome — and only *after* all of that does `[onboarding-step] starting guided flow
+   (location → draw-or-skip → generate)` fire. The `location` step's overlay was mounting correctly,
+   just underneath the engine's own body-mounted chrome (toolbars/floating panels), which independent
+   investigation confirmed already reaches `z-index: 2147483000` elsewhere in the platform layer
+   (`PlatformRouter.ts`'s §BACK-TO-PROJECT note documents the same class of issue). The overlay's own
+   z-index was `1250` — so for a real user, the empty 3D workspace was momentarily visible *through*
+   the gap before the overlay painted over it.
+
+### §14.2 — The fix, and why it's the minimal safe change
+
+- **RAC skip**: `ProjectHub.startGuidedOnboardingDirect()` (Milestone 1) now passes
+  `directEntry: true` to `onStartOnboarding`. `PlatformRouter.showOnboarding()`'s existing
+  `seededTypologyId` resolution (extracted to the new DOM-free `resolveSeededTypologyId.ts` for unit
+  testability) defaults to `'apartment'` — the one always-available shipped generator — when
+  `directEntry` is set and no confident `projectType` mapping exists. This reuses the **existing,
+  already-founder-approved** IT-4e bypass (`if (getCurrentUser() && seededTypologyId)` — dated
+  2026-06-11, "the live modal owns the WHOLE program brief") rather than inventing new routing
+  machinery: the same code path that already skips RAC for a modal-seeded typology now also fires for
+  the no-modal direct-entry gesture. The legacy modal-seeded path and the anonymous "Build something"
+  RAC entry are both untouched — only `directEntry: true` (settable only by the no-modal "+ New
+  Project" click) takes this branch.
+  - **Explicitly a founder-confirmed override of §13.3's fabrication concern**, not a reversal of the
+    underlying principle: §13.3 correctly identified that guessing a typology to skip a screen is the
+    same class of fabrication C60 §3 forbids for place-facts. The founder's direct instruction is the
+    resolution — PRYZM defaults new blank projects to the apartment generator (an explicit, documented,
+    reviewable product default) rather than blocking on a question. This is a real, visible product
+    behavior change worth the founder's attention: **every "+ New Project" click now silently seeds
+    "apartment" as the typology** until the user changes it in the live design modal (per IT-4e, "the
+    user adjusts the program live in the modal"). If a future generate-time UI doesn't surface an
+    obvious "change building type" affordance, a user who meant to build an office will start from an
+    apartment brief with no visible cue why. Flagged here for founder review — not blocked on it,
+    since the instruction to proceed was explicit and direct.
+- **Overlay z-index**: raised the `location`/globe step's overlay from `z-index: 1250` to
+  `2147483000` — matching the value already established elsewhere in the platform layer for "must be
+  above all editor chrome." This guarantees the globe overlay is opaque and on top for its full
+  lifetime, **without changing engine-boot timing or sequencing** — deliberately the smaller, safer
+  fix over deferring/reordering the engine boot itself (which the orchestrator's brief also flagged as
+  an acceptable fallback if the boot proved unavoidably synchronous with project creation; it did, so
+  this is the fix that was taken).
+
+### §14.3 — Files changed
+
+- `apps/editor/src/ui/platform/ProjectHub.ts` — `startGuidedOnboardingDirect()` now passes
+  `directEntry: true`; `onStartOnboarding` callback type updated.
+- `apps/editor/src/ui/platform/PlatformRouter.ts` — `showOnboarding()`/`onStartOnboarding` signatures
+  accept `directEntry?: boolean`; `_typologyForProjectType` (private static method) extracted to the
+  new `resolveSeededTypologyId.ts` module and replaced with a call to it.
+- `apps/editor/src/ui/platform/resolveSeededTypologyId.ts` (new) — DOM-free, unit-tested
+  `typologyForProjectType` (unchanged mapping, re-verified) + new `resolveSeededTypologyId` (adds the
+  `directEntry` → `'apartment'` default).
+- `apps/editor/src/ui/onboarding/onboardingStyles.ts` — `.pryzm-onboarding-panel` (or equivalent
+  location-step overlay class) z-index raised `1250` → `2147483000`.
+- `apps/editor/__tests__/resolveSeededTypologyId.test.ts` (new) — 12 tests covering the RAC-skip
+  default, the registry-degraded case, precedence of an explicit `projectType` mapping over the
+  default, and the unchanged legacy mapping behavior.
+
+### §14.4 — Verification (orchestrator-run, independent of the implementing pass)
+
+- `resolveSeededTypologyId.test.ts` + `projectHubAutoNamedOnboarding.test.ts`: **19/19 passing**.
+- Root `tsc --skipLibCheck --noEmit`: clean.
+- Grepped all four touched files for `import * as THREE` / `(window as any)`: none found (P2/P4
+  intact). No exported function added without an OTel span (P8) — `resolveSeededTypologyId` carries
+  one.
+- Diffs read in full line-by-line before commit; the implementing agent's own final report was
+  truncated/malformed (did not deliver the requested structured summary or append this log itself —
+  written by the orchestrator from the verified diff instead). No PRD-doc or scope conflicts found
+  beyond the typology-default tradeoff flagged in §14.2.
+
+### §14.5 — Deliberately deferred (unchanged from §13.3 except where noted above)
+
+- `siteEntryModel`/`SiteEntryStore` wiring — still Milestone 2 proper (the cinematic
+  `GlobeHeroSearch` presentation layer), still not started.
+- Milestone 3's placeholder-name replacement once parcel/address data resolves — still not
+  implemented.
+- Re-sequencing or deferring the engine-boot itself (vs. the z-index fix taken) — not attempted;
+  flagged in §14.2 as the larger, riskier alternative this pass avoided.
+
+*End addendum — Phase 2 implementation, 2026-08-06.*
+
+---
+
 *End — PRYZM Earth Onboarding PRD, 2026-08-06 — PROPOSAL, zero code changes.*

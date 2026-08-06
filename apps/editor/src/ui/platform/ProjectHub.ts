@@ -57,8 +57,17 @@ export interface ProjectHubCallbacks {
      * the RAC conversation + briefBootstrap then create+open the project and run
      * site → generate. When absent (defensive / null-runtime), the hub falls back
      * to the legacy blank create so "New Project" never dead-ends.
+     *
+     * PRYZM-EARTH-ONBOARDING PRD Phase 2 (2026-08-06, founder-confirmed override
+     * of the Phase 1 §13.3 deferral) — `directEntry: true` marks the no-modal
+     * "+ New Project" gesture (`startGuidedOnboardingDirect`). The host
+     * (`PlatformRouter.showOnboarding`) treats this as an explicit instruction to
+     * skip the RAC role/typology chat entirely and land straight on the
+     * `location` step (PRYZM Earth). It is NOT set by the legacy modal-seeded
+     * path (`handleCreate('guided')`) or the anonymous "Build something" RAC
+     * entry, both of which still show RAC as before.
      */
-    onStartOnboarding?: (seed?: { name?: string; projectType?: string }) => void;
+    onStartOnboarding?: (seed?: { name?: string; projectType?: string; directEntry?: boolean }) => void;
 }
 
 // ── ProjectHub class ──────────────────────────────────────────────────────────
@@ -1359,9 +1368,11 @@ export class ProjectHub {
 
             const name = generateUntitledSiteName();
             if (this.callbacks.onStartOnboarding) {
-                console.log('[ProjectHub] New Project → guided onboarding, no modal (PRYZM Earth Milestone 1):', { name });
+                console.log('[ProjectHub] New Project → guided onboarding, no modal, direct to PRYZM Earth (PRYZM Earth Phase 2):', { name });
                 try {
-                    this.callbacks.onStartOnboarding({ name });
+                    // Phase 2 — `directEntry: true` tells the router to skip the RAC
+                    // role/typology chat and land straight on the `location` step.
+                    this.callbacks.onStartOnboarding({ name, directEntry: true });
                 } catch (err) {
                     // Never throw into the hub — fall back to a blank create, same
                     // guard `handleCreate('guided')` already applies.
