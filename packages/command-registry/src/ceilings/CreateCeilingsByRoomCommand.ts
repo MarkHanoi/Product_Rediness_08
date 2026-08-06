@@ -73,6 +73,11 @@ export class CreateCeilingsByRoomCommand implements Command {
                 ceilingId: crypto.randomUUID(),
                 ifcGuid: crypto.randomUUID(),
                 polygon: room.boundary!.polygon!.map(p => ({ x: p.x, z: p.z })),
+                // §FIX-CEILING-INNER-FACE-PARITY (2026-08-06) — the polygon above is the
+                // room's CENTRELINE ring; declare it so the CreateCeilingCommand chokepoint
+                // insets it to the bounding walls' inner faces (same rule as the floor
+                // batch, CreateFloorsByRoomTypeCommand / L-240).
+                boundarySource: 'room-centreline',
                 height: room.boundary?.height ?? DEFAULT_CEILING_HEIGHT,
                 levelId: this.levelId,
                 systemTypeId,

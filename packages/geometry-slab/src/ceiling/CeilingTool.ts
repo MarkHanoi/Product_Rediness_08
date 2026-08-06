@@ -10,7 +10,9 @@
  * Drawing modes (uniform with WallTool / FloorTool):
  *   • LINEAR     — freeform polygon, axis + diagonal snap
  *   • ORTHO      — 90°-constrained polygon
- *   • ARC        — arc segments  (currently routes to LINEAR — true arc draw deferred)
+ *   • ARC        — §FEAT-BOUNDARY-CURVE-DRAW (2026-08-06): true arc segments — after a
+ *                  vertex, click the arc MIDPOINT then the arc END (the wall tool's
+ *                  3-click pattern); tessellated via the shared `boundaryArc` helper.
  *   • RECTANGLE  — 2-click axis-aligned rectangle, commits immediately
  *   • AUTO_FROM_ROOM — click inside a room to use room boundary
  *
@@ -27,6 +29,8 @@ import { CeilingVertex, CeilingToolState, CeilingLayer } from '@pryzm/core-app-m
 import { computeCeilingArea as computeArea } from '@pryzm/core-app-model/stores';
 import { projectContext } from '@pryzm/core-app-model';
 import { ceilingSystemTypeStore } from '@pryzm/core-app-model/stores';
+// §FEAT-BOUNDARY-CURVE-DRAW — the ONE arc model (wall-tool midpoint-Bézier semantics).
+import { arcSegmentThroughMidpoint } from '../boundaryArc';
 
 export interface CeilingCreationParams {
   kind: 'ceiling';
@@ -100,6 +104,9 @@ export class CeilingTool {
   // Rectangle (2-point) drawing anchor
   private _rectAnchor: CeilingVertex | null = null;
 
+  // §FEAT-BOUNDARY-CURVE-DRAW — ARC mode pending arc midpoint (mirrors FloorTool).
+  private _arcMidPt: CeilingVertex | null = null;
+
   // Pending system type (set by property panel before activation)
   private _pendingSystemTypeId: string | undefined;
   private _pendingHeight = 2.7;   // metres above level datum
@@ -168,6 +175,7 @@ export class CeilingTool {
     const switchAuto = mode === 'AUTO_FROM_ROOM';
     this._drawingMode = mode;
     this._rectAnchor = null;
+    this._arcMidPt = null;
 
     if (this._isActive && wasAuto !== switchAuto) {
       if (switchAuto) {
@@ -309,6 +317,12 @@ export class CeilingTool {
       if (e.key === 'Shift') { this._shiftPressed = true; return; }
       if (e.key === 'Escape') { this.deactivate(); return; }
       if (e.key === 'Enter' && this._points.length >= 3) { this._commitPolygon(); }
+      // §FEAT-BOUNDARY-CURVE-DRAW — Backspace re-picks a pending arc midpoint.
+      if (e.key === 'Backspace' && this._arcMidPt) {
+        this._arcMidPt = null;
+        this._updatePreviewObjects();
+        this._updateHUDText();
+      }
     };
 
     this._onKeyUp = (e) => {
@@ -409,9 +423,45 @@ export class CeilingTool {
     }
 
     // ── POLYGON modes (LINEAR / ORTHO / ARC) ─────────────────────────────────
-    if (isDoubleClick && this._points.length >= 3) {
+    // Double-click commit is suppressed while an arc midpoint is pending (it would
+    // otherwise eat the arc-end click). §FEAT-BOUNDARY-CURVE-DRAW.
+    if (isDoubleClick && this._points.length >= 3 && !this._arcMidPt) {
       this._commitPolygon();
       return;
+    }
+
+    // §FEAT-BOUNDARY-CURVE-DRAW — ARC mode: vertex → midpoint → end (wall pattern;
+    // mirrors FloorTool._handleClick verbatim).
+    if (this._drawingMode === 'ARC' && this._points.length > 0) {
+      const last = this._points[this._points.length - 1]!;
+      if (!this._arcMidPt) {
+        const first = this._points[0];
+        const closes = first && this._points.length >= 3 &&
+          Math.hypot(clickPt.x - first.x, clickPt.z - first.z) <= CLOSURE_THRESHOLD;
+        if (!closes) {
+          this._arcMidPt = { ...clickPt };
+          this._updatePreviewObjects();
+          this._updateHUDText();
+          console.log(`[CeilingTool] Arc midpoint set: (${clickPt.x.toFixed(2)}, ${clickPt.z.toFixed(2)})`);
+          return;
+        }
+      } else {
+        const first = this._points[0]!;
+        const closes = this._points.length >= 3 &&
+          Math.hypot(clickPt.x - first.x, clickPt.z - first.z) <= CLOSURE_THRESHOLD;
+        const end = closes ? { ...first } : { ...clickPt };
+        const arcRun = arcSegmentThroughMidpoint(last, this._arcMidPt, end);
+        if (closes) arcRun.pop(); // do not duplicate the first vertex
+        this._points.push(...arcRun);
+        this._arcMidPt = null;
+        this._state = 'DRAWING';
+        if (!closes) this._addVertexMarker(end);
+        this._updatePreviewObjects();
+        this._updateHUDText();
+        console.log(`[CeilingTool] Arc segment committed (${arcRun.length} tessellated verts). Total: ${this._points.length}`);
+        if (closes) this._commitPolygon();
+        return;
+      }
     }
 
     const firstPt = this._points[0];
@@ -467,7 +517,9 @@ export class CeilingTool {
           // create payload; _createCeiling resolves its layer snapshot from this id.
           this._pendingSystemTypeId = params.systemTypeId;
         }
-        this._createCeiling(polygon);
+        // DRAW mode — the polygon is the user's stated geometry: stored verbatim
+        // (§FIX-CEILING-INNER-FACE-PARITY, mirrors FloorTool / L-240 P3).
+        this._createCeiling(polygon, 'explicit-polygon');
         // CONTINUOUS-CREATION: reset polygon state but keep listeners + HUD.
         this._resetForNext();
       },
@@ -495,7 +547,18 @@ export class CeilingTool {
     this._showHUD();
   }
 
-  private _createCeiling(polygon: CeilingVertex[]): void {
+  /**
+   * @param boundarySource §FIX-CEILING-INNER-FACE-PARITY (2026-08-06) — what `polygon`
+   * MEANS, declared to the `CreateCeilingCommand` chokepoint (verbatim mirror of
+   * `FloorTool._createFloor`, L-240):
+   *   • AUTO_FROM_ROOM passes the room's CENTRELINE boundary ring → `'room-centreline'`;
+   *     the command insets it to the bounding walls' INNER FACES.
+   *   • DRAW passes the user's hand-drawn polygon → `'explicit-polygon'`, stored VERBATIM.
+   */
+  private _createCeiling(
+    polygon: CeilingVertex[],
+    boundarySource: 'room-centreline' | 'explicit-polygon',
+  ): void {
     const cm = this._deps.getCommandManager?.();
     if (!cm) {
       console.error('[CeilingTool] CommandManager not available.');
@@ -538,6 +601,7 @@ export class CeilingTool {
       systemTypeId: this._pendingSystemTypeId,
       layers: resolvedLayers,
       hostRoomId: this._pendingHostRoomId,
+      boundarySource,   // §FIX-CEILING-INNER-FACE-PARITY
       createdBy: 'user',
     });
 
@@ -634,16 +698,23 @@ export class CeilingTool {
       return;
     }
 
+    // §FEAT-BOUNDARY-CURVE-DRAW — while an arc midpoint is pending, the trailing
+    // segment previews as the tessellated Bézier through it to the cursor.
+    const trailing: Array<{ x: number; z: number }> =
+      (this._drawingMode === 'ARC' && this._arcMidPt && this._points.length > 0)
+        ? arcSegmentThroughMidpoint(this._points[this._points.length - 1]!, this._arcMidPt, cursor)
+        : [cursor];
+
     // Main line (ceiling height)
     const mainPts = this._points.map(p => new THREE.Vector3(p.x, ceilingY, p.z));
-    mainPts.push(new THREE.Vector3(cursor.x, ceilingY, cursor.z));
+    for (const v of trailing) mainPts.push(new THREE.Vector3(v.x, ceilingY, v.z));
     this._mainLine!.geometry.dispose();
     this._mainLine!.geometry = new THREE.BufferGeometry().setFromPoints(mainPts);
     this._mainLine!.visible = true;
 
     // Ground main line
     const groundMainPts = this._points.map(p => new THREE.Vector3(p.x, gridY, p.z));
-    groundMainPts.push(new THREE.Vector3(cursor.x, gridY, cursor.z));
+    for (const v of trailing) groundMainPts.push(new THREE.Vector3(v.x, gridY, v.z));
     this._groundMainLine!.geometry.dispose();
     this._groundMainLine!.geometry = new THREE.BufferGeometry().setFromPoints(groundMainPts);
     this._groundMainLine!.visible = true;
@@ -778,6 +849,7 @@ export class CeilingTool {
   private _cancel(): void {
     this._deps.dismissCreationModal?.();
     this._points = [];
+    this._arcMidPt = null;
     this._disposePreviewFills();
     this._disposeVertexMarkers();
     if (this._mainLine) this._mainLine.visible = false;
@@ -821,6 +893,12 @@ export class CeilingTool {
     }
     const modeLabel = m === 'ORTHO' ? 'Orthogonal' : (m === 'ARC' ? 'Curved' : 'Linear');
     const n = this._points.length;
+    if (m === 'ARC' && n > 0) {
+      this._hudText.innerHTML = this._arcMidPt
+        ? '<strong>Ceiling · Curved</strong> — Click the arc END point · Backspace to re-pick midpoint · Esc to finish'
+        : `<strong>Ceiling · Curved</strong> — Click the arc MIDPOINT (then its end)${n >= 3 ? ' · Click first point or Enter to finish' : ''} · Esc to finish`;
+      return;
+    }
     if (n === 0) {
       this._hudText.innerHTML =
         `<strong>Ceiling · ${modeLabel}</strong> — Click to set first vertex · Esc to finish`;
@@ -962,7 +1040,10 @@ export class CeilingTool {
             this._pendingThickness = params.thickness;
             this._pendingSystemTypeId = params.systemTypeId; // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105)
           }
-          this._createCeiling(polygon);
+          // §FIX-CEILING-INNER-FACE-PARITY — `polygon` is the ROOM BOUNDARY ring (wall
+          // CENTRELINES). Declare that to the chokepoint; CreateCeilingCommand insets it
+          // to the bounding walls' INNER FACES, exactly as the floor path does (L-240).
+          this._createCeiling(polygon, 'room-centreline');
           this._pendingHostRoomId = undefined;
           // CONTINUOUS-CREATION: re-attach the room-pick listener so the user
           // can keep clicking rooms.  Only ESC fully tears down.

@@ -10,7 +10,10 @@
  * Drawing modes (uniform with WallTool / CeilingTool):
  *   • LINEAR     — freeform straight segments, no axis snap
  *   • ORTHO      — 90°-constrained polygon (axis-only snap from previous vertex)
- *   • ARC        — arc segments  (currently routes to LINEAR — true arc draw deferred)
+ *   • ARC        — §FEAT-BOUNDARY-CURVE-DRAW (2026-08-06): true arc segments — after a
+ *                  vertex, click the arc MIDPOINT then the arc END (the wall tool's
+ *                  3-click pattern); the quadratic-Bézier segment is tessellated into
+ *                  the polygon via the shared `boundaryArc` helper (the ONE arc model).
  *   • RECTANGLE  — 2-click axis-aligned rectangle, commits immediately
  *   • AUTO_FROM_ROOM — click inside a room and use the room boundary
  *
@@ -82,6 +85,8 @@ import {
   DEFAULT_FLOOR_FINISH_BASE_OFFSET_M,
   DEFAULT_FLOOR_FINISH_THICKNESS_M,
 } from './floorFinishDefaults';
+// §FEAT-BOUNDARY-CURVE-DRAW — the ONE arc model (wall-tool midpoint-Bézier semantics).
+import { arcSegmentThroughMidpoint } from '../boundaryArc';
 export { DEFAULT_FLOOR_FINISH_BASE_OFFSET_M, DEFAULT_FLOOR_FINISH_THICKNESS_M };
 
 export interface FloorToolDeps {
@@ -120,6 +125,14 @@ export class FloorTool {
   // Rectangle (2-point) drawing anchor — first corner is set on first click,
   // second click commits an axis-aligned 4-vertex rectangle.
   private _rectAnchor: FloorVertex | null = null;
+
+  // §FEAT-BOUNDARY-CURVE-DRAW — ARC mode state (mirrors WallPlanToolHandler):
+  //   _arcMidPt set   → awaiting the arc END click.
+  //   _arcMidPt null  → next click sets the arc midpoint (when a start vertex exists).
+  private _arcMidPt: FloorVertex | null = null;
+  // Per committed SEGMENT run length (1 for a straight vertex, N for a tessellated
+  // arc) so Backspace removes a whole arc, never strands a partial tessellation.
+  private _segmentRuns: number[] = [];
 
   // §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — the finish TYPE, THICKNESS and BASE OFFSET
   // are NO LONGER instance fields of this tool. They were the three fields the PLAN path
@@ -190,8 +203,10 @@ export class FloorTool {
     const switchAuto = mode === 'AUTO_FROM_ROOM';
     this._drawingMode = mode;
 
-    // Mode-switch hygiene: clear in-flight rectangle anchor, keep already-placed polygon points.
+    // Mode-switch hygiene: clear in-flight rectangle anchor + pending arc midpoint,
+    // keep already-placed polygon points.
     this._rectAnchor = null;
+    this._arcMidPt = null;
 
     // If we transition between AUTO and DRAW modes mid-session, swap listener sets.
     if (this._isActive && wasAuto !== switchAuto) {
@@ -365,12 +380,23 @@ export class FloorTool {
       if (e.key === 'Shift') { this._shiftPressed = true; return; }
       if (e.key === 'Escape') { this.deactivate(); return; }
       if (e.key === 'Enter' && this._points.length >= 3) { this._commitPolygon(); }
-      if (e.key === 'Backspace' && this._points.length > 0) {
-        // Undo last vertex
-        this._points.pop();
-        this._removeLastVertexMarker();
-        this._updatePreviewObjects();
-        if (this._points.length === 0) this._state = 'IDLE';
+      if (e.key === 'Backspace') {
+        // §FEAT-BOUNDARY-CURVE-DRAW — a pending arc midpoint is the most recent input.
+        if (this._arcMidPt) {
+          this._arcMidPt = null;
+          this._updatePreviewObjects();
+          this._updateHUDText();
+          return;
+        }
+        if (this._points.length > 0) {
+          // Undo the last SEGMENT run (1 vertex for a straight click, the whole
+          // tessellated vertex run for an arc — never a partial arc).
+          const run = this._segmentRuns.pop() ?? 1;
+          for (let i = 0; i < run && this._points.length > 0; i++) this._points.pop();
+          this._removeLastVertexMarker();
+          this._updatePreviewObjects();
+          if (this._points.length === 0) this._state = 'IDLE';
+        }
       }
     };
 
@@ -477,10 +503,47 @@ export class FloorTool {
     }
 
     // ── POLYGON modes (LINEAR / ORTHO / ARC) ─────────────────────────────────
-    // Double-click → commit polygon (≥ 3 points)
-    if (isDoubleClick && this._points.length >= 3) {
+    // Double-click → commit polygon (≥ 3 points). Suppressed while an arc midpoint
+    // is pending (the double-click would otherwise eat the arc-end click).
+    if (isDoubleClick && this._points.length >= 3 && !this._arcMidPt) {
       this._commitPolygon();
       return;
+    }
+
+    // §FEAT-BOUNDARY-CURVE-DRAW — ARC mode: vertex → midpoint → end (wall pattern).
+    if (this._drawingMode === 'ARC' && this._points.length > 0) {
+      const last = this._points[this._points.length - 1]!;
+      if (!this._arcMidPt) {
+        // Click near first point (no pending mid) still closes the polygon below.
+        const first = this._points[0];
+        const closes = first && this._points.length >= 3 &&
+          Math.hypot(clickPt.x - first.x, clickPt.z - first.z) <= CLOSURE_THRESHOLD;
+        if (!closes) {
+          this._arcMidPt = { ...clickPt };
+          this._updatePreviewObjects();
+          this._updateHUDText();
+          console.log(`[FloorTool] Arc midpoint set: (${clickPt.x.toFixed(2)}, ${clickPt.z.toFixed(2)})`);
+          return;
+        }
+      } else {
+        // Arc END. If it lands on the first vertex, close the loop with the arc.
+        const first = this._points[0]!;
+        const closes = this._points.length >= 3 &&
+          Math.hypot(clickPt.x - first.x, clickPt.z - first.z) <= CLOSURE_THRESHOLD;
+        const end = closes ? { ...first } : { ...clickPt };
+        const arcRun = arcSegmentThroughMidpoint(last, this._arcMidPt, end);
+        if (closes) arcRun.pop(); // do not duplicate the first vertex
+        this._points.push(...arcRun);
+        this._segmentRuns.push(arcRun.length);
+        this._arcMidPt = null;
+        this._state = 'DRAWING';
+        if (!closes) this._addVertexMarker(end);
+        this._updatePreviewObjects();
+        this._updateHUDText();
+        console.log(`[FloorTool] Arc segment committed (${arcRun.length} tessellated verts). Total: ${this._points.length}`);
+        if (closes) this._commitPolygon();
+        return;
+      }
     }
 
     // Click near first point → close polygon (≥ 3 existing points)
@@ -497,6 +560,7 @@ export class FloorTool {
 
     // Add vertex
     this._points.push({ ...clickPt });
+    this._segmentRuns.push(1);
     this._state = 'DRAWING';
     this._addVertexMarker(clickPt);
     this._updatePreviewObjects();
@@ -710,9 +774,17 @@ export class FloorTool {
       return;
     }
 
-    // Main line
+    // Main line — §FEAT-BOUNDARY-CURVE-DRAW: while an arc midpoint is pending, the
+    // trailing segment previews as the tessellated Bézier through it to the cursor.
     const mainPts = this._points.map(p => new THREE.Vector3(p.x, previewY, p.z));
-    mainPts.push(new THREE.Vector3(cursor.x, previewY, cursor.z));
+    if (this._drawingMode === 'ARC' && this._arcMidPt && this._points.length > 0) {
+      const last = this._points[this._points.length - 1]!;
+      for (const v of arcSegmentThroughMidpoint(last, this._arcMidPt, cursor)) {
+        mainPts.push(new THREE.Vector3(v.x, previewY, v.z));
+      }
+    } else {
+      mainPts.push(new THREE.Vector3(cursor.x, previewY, cursor.z));
+    }
     this._mainLine!.geometry.dispose();
     this._mainLine!.geometry = new THREE.BufferGeometry().setFromPoints(mainPts);
     this._mainLine!.visible = true;
@@ -819,6 +891,8 @@ export class FloorTool {
   private _cancel(): void {
     this._deps.dismissCreationModal?.();
     this._points = [];
+    this._arcMidPt = null;
+    this._segmentRuns = [];
     this._disposePreviewFill();
     this._disposeVertexMarkers();
     if (this._mainLine) this._mainLine.visible = false;
@@ -860,6 +934,12 @@ export class FloorTool {
     }
     const modeLabel = m === 'ORTHO' ? 'Orthogonal' : (m === 'ARC' ? 'Curved' : 'Linear');
     const n = this._points.length;
+    if (m === 'ARC' && n > 0) {
+      this._hudText.innerHTML = this._arcMidPt
+        ? '<strong>Floor · Curved</strong> — Click the arc END point · Backspace to re-pick midpoint · Esc to finish'
+        : `<strong>Floor · Curved</strong> — Click the arc MIDPOINT (then its end)${n >= 3 ? ' · Click first point or Enter to finish' : ''} · Esc to finish`;
+      return;
+    }
     if (n === 0) {
       this._hudText.innerHTML =
         `<strong>Floor · ${modeLabel}</strong> — Click to set first vertex · Esc to finish`;

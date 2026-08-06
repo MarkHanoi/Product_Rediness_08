@@ -800,12 +800,55 @@ export function repairToSimplePolygon(polygon: RoomVertex[]): RoomVertex[] | nul
  * (keeps this helper pure + decoupled from the wall store / geometry-wall package).
  */
 export interface RoomFinishWall {
-  /** Wall centreline as `[start, end]` in world X-Z. */
+  /** Wall centreline as `[start, end]` in world X-Z. For a CURVED wall these are
+   *  the arc's endpoints (the CHORD) — see `curve`. */
   baseLine?: ReadonlyArray<{ x: number; z: number }>;
   /** Overall wall thickness (m). The finish insets each edge by `thickness / 2`. */
   thickness: number;
   /** Door/window openings — only DOORS create a threshold gap in the finish. */
   openings?: ReadonlyArray<{ type: 'door' | 'window'; offset: number; width: number }>;
+  /**
+   * §FIX-CURVED-ROOM-FINISH-BOUNDARY (L-CURVE 2026-08-06) — quadratic-Bézier arc
+   * metadata, mirroring the canonical wall schema (`packages/schemas/src/elements/Wall.ts`
+   * `WallCurve`): when present the wall's true centreline is the Bézier
+   * `baseLine[0] → control → baseLine[1]`, tessellated at `segments ?? 16` — the EXACT
+   * sampling `RoomDetectionEngine` uses to build the room ring, so the room's arc-edge
+   * chords align 1:1 with this wall's sampled chords. Only `control.x/.z` are read
+   * (the maths is planar); `y` is tolerated so a raw `WallData.curve` passes through.
+   */
+  curve?: { control: { x: number; z: number; y?: number }; segments?: number };
+}
+
+/**
+ * §FIX-CURVED-ROOM-FINISH-BOUNDARY — the wall's centreline as a polyline of chords.
+ * Straight wall → the single `[start, end]` chord (bit-identical to the previous
+ * behaviour). Curved wall → the quadratic Bézier sampled at `segments ?? 16`,
+ * matching `PathResolver.toPolyline({kind:'Arc'},…)` / `THREE.QuadraticBezierCurve3`
+ * exactly: p(t) = (1-t)²·s + 2(1-t)t·c + t²·e. Pure, no THREE.
+ */
+function _wallCentrelinePolyline(wall: RoomFinishWall): RoomVertex[] {
+  const w0 = wall.baseLine?.[0], w1 = wall.baseLine?.[1];
+  if (!w0 || !w1) return [];
+  const c = wall.curve?.control;
+  if (!c || !Number.isFinite(c.x) || !Number.isFinite(c.z)) {
+    return [{ x: w0.x, z: w0.z }, { x: w1.x, z: w1.z }];
+  }
+  const rawSegs = wall.curve?.segments;
+  const n = (typeof rawSegs === 'number' && Number.isFinite(rawSegs) && rawSegs >= 4)
+    ? Math.min(256, Math.floor(rawSegs))
+    : 16;
+  const pts: RoomVertex[] = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const a = (1 - t) * (1 - t);
+    const b = 2 * (1 - t) * t;
+    const d = t * t;
+    pts.push({
+      x: a * w0.x + b * c.x + d * w1.x,
+      z: a * w0.z + b * c.z + d * w1.z,
+    });
+  }
+  return pts;
 }
 
 /**
@@ -1025,11 +1068,24 @@ function _lerpFinish(a: RoomVertex, b: RoomVertex, t: number): RoomVertex {
 }
 
 /**
- * Find the bounding wall whose CENTRELINE segment is collinear with the room edge a→b
- * and contains the edge's midpoint (within a tolerance). The room polygon edge runs
- * along a wall centreline, so the midpoint lies ON the wall's baseLine; perpendicular
- * distance ≈ 0 and the foot of the projection is between the wall endpoints. Returns the
- * BEST (closest) match.
+ * Find the bounding wall whose CENTRELINE is collinear with the room edge a→b and
+ * contains the edge's midpoint (within a tolerance). The room polygon edge runs along
+ * a wall centreline, so the midpoint lies ON the wall's centreline; perpendicular
+ * distance ≈ 0 and the foot of the projection is between the segment endpoints.
+ * Returns the BEST (closest) match.
+ *
+ * §FIX-CURVED-ROOM-FINISH-BOUNDARY — the centreline is a POLYLINE of chords
+ * (`_wallCentrelinePolyline`): one chord for a straight wall (the previous behaviour,
+ * bit-identical), or the tessellated Bézier for a curved wall. Before this, a curved
+ * wall was matched against its CHORD `baseLine[0]→baseLine[1]` only, so the room
+ * ring's tessellated arc edges matched ERRATICALLY (a few chord-parallel edges within
+ * 200 mm matched → inset t/2; the rest missed → inset 0) → a sawtooth mixed-inset
+ * boundary that visibly failed to follow the curve — the founder's parity bug: the
+ * slab (which stores the traced ring verbatim) hugged the curve, the floor did not.
+ * Because room detection samples the SAME Bézier at the SAME segment count, each arc
+ * edge of the ring coincides with a sampled chord here → dot≈1, perp≈0 → every arc
+ * edge insets by the wall's half-thickness → the finish follows the curve at the
+ * INNER FACE, exactly like a straight wall.
  */
 function _wallForFinishEdge(
   a: RoomVertex,
@@ -1044,23 +1100,25 @@ function _wallForFinishEdge(
   let best: RoomFinishWall | undefined;
   let bestPerp = 0.20; // 200 mm — tolerant of join-trim/miter offsets at ends.
   for (const w of walls) {
-    const w0 = w.baseLine?.[0], w1 = w.baseLine?.[1];
-    if (!w0 || !w1) continue;
-    // Parallel? (edge direction ≈ wall direction, either sign)
-    const wdx = w1.x - w0.x, wdz = w1.z - w0.z;
-    const wlen = Math.hypot(wdx, wdz);
-    if (wlen < 1e-6) continue;
-    const wux = wdx / wlen, wuz = wdz / wlen;
-    const dot = Math.abs(eux * wux + euz * wuz);
-    if (dot < 0.985) continue; // > ~10° off — not the same wall line.
-    // Perpendicular distance of the edge midpoint to the wall centreline.
-    const vx = mx - w0.x, vz = mz - w0.z;
-    const tproj = (vx * wux + vz * wuz) / wlen; // 0..1 along the wall
-    const footX = w0.x + tproj * wdx, footZ = w0.z + tproj * wdz;
-    const perp = Math.hypot(mx - footX, mz - footZ);
-    // Midpoint must project ONTO the wall (allow a small overhang for trims).
-    if (tproj < -0.02 || tproj > 1.02) continue;
-    if (perp < bestPerp) { bestPerp = perp; best = w; }
+    const poly = _wallCentrelinePolyline(w);
+    for (let s = 0; s < poly.length - 1; s++) {
+      const w0 = poly[s]!, w1 = poly[s + 1]!;
+      // Parallel? (edge direction ≈ chord direction, either sign)
+      const wdx = w1.x - w0.x, wdz = w1.z - w0.z;
+      const wlen = Math.hypot(wdx, wdz);
+      if (wlen < 1e-6) continue;
+      const wux = wdx / wlen, wuz = wdz / wlen;
+      const dot = Math.abs(eux * wux + euz * wuz);
+      if (dot < 0.985) continue; // > ~10° off — not the same wall line.
+      // Perpendicular distance of the edge midpoint to the chord.
+      const vx = mx - w0.x, vz = mz - w0.z;
+      const tproj = (vx * wux + vz * wuz) / wlen; // 0..1 along the chord
+      const footX = w0.x + tproj * wdx, footZ = w0.z + tproj * wdz;
+      const perp = Math.hypot(mx - footX, mz - footZ);
+      // Midpoint must project ONTO the chord (allow a small overhang for trims).
+      if (tproj < -0.02 || tproj > 1.02) continue;
+      if (perp < bestPerp) { bestPerp = perp; best = w; }
+    }
   }
   return best;
 }
@@ -1079,6 +1137,11 @@ function _doorSpansOnFinishEdge(
 ): Array<{ t0: number; t1: number }> {
   const openings = wall.openings ?? [];
   if (openings.length === 0) return [];
+  // §FIX-CURVED-ROOM-FINISH-BOUNDARY — a curved wall's `offset` runs along the ARC,
+  // not the chord, so the straight-line projection below would misplace the threshold.
+  // Door-gap subdivision on curved walls is deferred: keep the solid inner-face inset
+  // (conservative — the finish stops at the inner face; it never overshoots).
+  if (wall.curve) return [];
   const w0 = wall.baseLine?.[0], w1 = wall.baseLine?.[1];
   if (!w0 || !w1) return [];
   const wlen = Math.hypot(w1.x - w0.x, w1.z - w0.z);

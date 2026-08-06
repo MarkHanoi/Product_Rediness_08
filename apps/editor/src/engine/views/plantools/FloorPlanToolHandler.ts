@@ -58,6 +58,10 @@ import {
 } from '@pryzm/core-app-model/stores';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import type { FloorPickerMode } from '@app/ui/FloorModePicker';
+// §FEAT-BOUNDARY-CURVE-DRAW (2026-08-06) — the ONE arc model for curved boundary
+// segments: the wall tool's midpoint-Bézier semantics + tessellation density, shared
+// with the 3D FloorTool/CeilingTool (no second arc representation).
+import { arcSegmentThroughMidpoint } from '@pryzm/geometry-slab';
 // §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — the SAME modal instance the 3D FloorTool is
 // given in initTools. Precedent for a plan handler using a UI service singleton:
 // AnnotationPlanToolHandlers → `pryzmAnnotationInput`. (Contract 21 §2 forbids a handler
@@ -72,18 +76,21 @@ export class FloorPlanToolHandler implements PlanToolHandler {
     private _points:      WorldPoint[] = [];
     private _cursorPoint: WorldPoint | null = null;
     private _rectAnchor:  WorldPoint | null = null;
+    // §FEAT-BOUNDARY-CURVE-DRAW — CURVED mode pending arc midpoint (wall 3-click pattern).
+    private _arcMidPt:    WorldPoint | null = null;
 
     // §T-B1 (DAILY-USE-AUDIT 2026-05-20) — opt-in stroke-preservation per the
     // PlanToolHandler.hasActiveStroke?() contract. Returns true while a
     // polygon/rectangle is being built so the overlay suspends focus (instead
     // of deactivating + wiping state) when the user briefly leaves the canvas.
-    hasActiveStroke(): boolean { return this._points.length > 0 || this._rectAnchor !== null; }
+    hasActiveStroke(): boolean { return this._points.length > 0 || this._rectAnchor !== null || this._arcMidPt !== null; }
 
     activate(ctx: PlanToolDrawContext): void {
         this._ctx         = ctx;
         this._points      = [];
         this._cursorPoint = null;
         this._rectAnchor  = null;
+        this._arcMidPt    = null;
     }
 
     deactivate(): void {
@@ -96,6 +103,7 @@ export class FloorPlanToolHandler implements PlanToolHandler {
         this._points      = [];
         this._cursorPoint = null;
         this._rectAnchor  = null;
+        this._arcMidPt    = null;
         this._ctx         = null;
     }
 
@@ -160,7 +168,31 @@ export class FloorPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        // ── LINEAR / ORTHO / CURVED — polygon vertex add ─────────────────────
+        // ── CURVED — §FEAT-BOUNDARY-CURVE-DRAW: vertex → arc MIDPOINT → arc END
+        // (the wall tool's 3-click pattern); the Bézier segment is tessellated into
+        // the polygon so every downstream consumer works unchanged. ──────────────
+        if (mode === 'curved' && this._points.length > 0) {
+            if (!this._arcMidPt) {
+                this._arcMidPt = pt;
+                this._cursorPoint = pt;
+                this._drawPreview();
+                console.log('[FloorPlanToolHandler] Arc midpoint set', pt);
+                return;
+            }
+            const last = this._points[this._points.length - 1];
+            const run = arcSegmentThroughMidpoint(
+                { x: last.worldX, z: last.worldZ },
+                { x: this._arcMidPt.worldX, z: this._arcMidPt.worldZ },
+                { x: pt.worldX, z: pt.worldZ },
+            );
+            for (const v of run) this._points.push({ worldX: v.x, worldZ: v.z } as WorldPoint);
+            this._arcMidPt = null;
+            this._drawPreview();
+            console.log(`[FloorPlanToolHandler] Arc segment committed (${run.length} tessellated verts). total: ${this._points.length}`);
+            return;
+        }
+
+        // ── LINEAR / ORTHO — polygon vertex add ──────────────────────────────
         const vertex = (mode === 'ortho' && this._points.length > 0)
             ? this._orthoSnap(this._points[this._points.length - 1], pt)
             : pt;
@@ -172,13 +204,20 @@ export class FloorPlanToolHandler implements PlanToolHandler {
     onDoubleClick(_pt: WorldPoint): void {
         const mode = this._currentMode();
         if (mode === 'rectangle' || mode === 'auto') return;
+        if (this._arcMidPt) return; // arc midpoint pending — dbl-click must not eat the end click
         if (this._points.length >= 3) this._commit();
     }
 
     onKeyDown(e: KeyboardEvent): boolean {
-        if (e.key === 'Enter' && this._points.length >= 3 && this._currentMode() !== 'rectangle') {
+        if (e.key === 'Enter' && this._points.length >= 3 && this._currentMode() !== 'rectangle' && !this._arcMidPt) {
             e.preventDefault();
             this._commit();
+            return true;
+        }
+        if (e.key === 'Backspace' && this._arcMidPt) {
+            // §FEAT-BOUNDARY-CURVE-DRAW — re-pick the pending arc midpoint first.
+            this._arcMidPt = null;
+            this._drawPreview();
             return true;
         }
         if (e.key === 'Backspace' && this._points.length > 0) {
@@ -399,6 +438,7 @@ export class FloorPlanToolHandler implements PlanToolHandler {
         this._points      = [];
         this._cursorPoint = null;
         this._rectAnchor  = null;
+        this._arcMidPt    = null;
         this._clearOverlay();
     }
 
@@ -518,16 +558,31 @@ export class FloorPlanToolHandler implements PlanToolHandler {
         // ── POLYGON preview (LINEAR / ORTHO / CURVED) ────────────────────────
         const screenPts = this._points.map(p => planCanvas.worldToScreen(p.worldX, p.worldZ));
 
+        // §FEAT-BOUNDARY-CURVE-DRAW — the trailing cursor segment: a straight line,
+        // or (curved mode with a pending midpoint) the tessellated Bézier through it.
+        const trailingPts: Array<{ sx: number; sy: number }> = [];
+        if (this._cursorPoint) {
+            if (mode === 'curved' && this._arcMidPt && this._points.length > 0) {
+                const last = this._points[this._points.length - 1];
+                for (const v of arcSegmentThroughMidpoint(
+                    { x: last.worldX, z: last.worldZ },
+                    { x: this._arcMidPt.worldX, z: this._arcMidPt.worldZ },
+                    { x: this._cursorPoint.worldX, z: this._cursorPoint.worldZ },
+                )) {
+                    trailingPts.push(planCanvas.worldToScreen(v.x, v.z));
+                }
+            } else {
+                trailingPts.push(planCanvas.worldToScreen(this._cursorPoint.worldX, this._cursorPoint.worldZ));
+            }
+        }
+
         if (screenPts.length >= 3) {
             ctx.globalAlpha = 0.14;
             ctx.fillStyle   = FILL_A;
             ctx.beginPath();
             ctx.moveTo(screenPts[0].sx, screenPts[0].sy);
             for (let i = 1; i < screenPts.length; i++) ctx.lineTo(screenPts[i].sx, screenPts[i].sy);
-            if (this._cursorPoint) {
-                const cur = planCanvas.worldToScreen(this._cursorPoint.worldX, this._cursorPoint.worldZ);
-                ctx.lineTo(cur.sx, cur.sy);
-            }
+            for (const p of trailingPts) ctx.lineTo(p.sx, p.sy);
             ctx.closePath();
             ctx.fill();
             ctx.globalAlpha = 1;
@@ -539,12 +594,16 @@ export class FloorPlanToolHandler implements PlanToolHandler {
         ctx.beginPath();
         ctx.moveTo(screenPts[0].sx, screenPts[0].sy);
         for (let i = 1; i < screenPts.length; i++) ctx.lineTo(screenPts[i].sx, screenPts[i].sy);
-        if (this._cursorPoint) {
-            const cur = planCanvas.worldToScreen(this._cursorPoint.worldX, this._cursorPoint.worldZ);
-            ctx.lineTo(cur.sx, cur.sy);
-        }
+        for (const p of trailingPts) ctx.lineTo(p.sx, p.sy);
         ctx.stroke();
         ctx.setLineDash([]);
+
+        // Arc midpoint indicator (mirrors WallPlanToolHandler's curved-mode marker).
+        if (mode === 'curved' && this._arcMidPt) {
+            const m = planCanvas.worldToScreen(this._arcMidPt.worldX, this._arcMidPt.worldZ);
+            ctx.fillStyle = STROKE;
+            ctx.beginPath(); ctx.arc(m.sx, m.sy, 5, 0, Math.PI * 2); ctx.fill();
+        }
 
         ctx.fillStyle = STROKE;
         for (const p of screenPts) {
@@ -564,9 +623,13 @@ export class FloorPlanToolHandler implements PlanToolHandler {
         }
 
         const modeLabel = mode === 'ortho' ? 'Orthogonal' : (mode === 'curved' ? 'Curved' : 'Linear');
-        const hint = this._points.length >= 3
-            ? `${modeLabel} · Dbl-click or Enter to close floor`
-            : `${modeLabel} · ${3 - this._points.length} more point${3 - this._points.length !== 1 ? 's' : ''} needed`;
+        const hint = (mode === 'curved' && this._points.length > 0)
+            ? (this._arcMidPt
+                ? 'Curved · Click the arc END point · Backspace to re-pick midpoint'
+                : `Curved · Click the arc MIDPOINT${this._points.length >= 3 ? ' · Enter to close floor' : ''}`)
+            : this._points.length >= 3
+                ? `${modeLabel} · Dbl-click or Enter to close floor`
+                : `${modeLabel} · ${3 - this._points.length} more point${3 - this._points.length !== 1 ? 's' : ''} needed`;
         this._drawHint(ctx, cssH, hint);
         ctx.restore();
     }

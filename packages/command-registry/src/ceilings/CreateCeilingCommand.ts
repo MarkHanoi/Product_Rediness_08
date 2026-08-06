@@ -25,6 +25,12 @@ import {
 import { CeilingData, CeilingBoundary, CeilingFinishSpec, CeilingLayer, CeilingHoleElement, CeilingIfcData, CeilingVertex } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { ensureCeilingCCW as ensureCCW, validateCeilingPolygon as validatePolygon } from '@pryzm/core-app-model';
+// §FIX-CEILING-INNER-FACE-PARITY (2026-08-06) — the inner-face inset is a DOMAIN RULE of
+// room-hosted finish elements (floor AND ceiling), so it is resolved HERE (the single
+// ceiling-create chokepoint), exactly as `CreateFloorCommand` does (L-240). Both symbols
+// are called at execute() time only, never at module evaluation, so the command-registry ↔
+// room-topology cycle is not exercised at load (MEMORY §SCC: no barrel access at module load).
+import { resolveRoomFinishBoundary, ringsCoincide, type RoomFinishWall } from '@pryzm/room-topology';
 
 export interface CreateCeilingPayload {
   /** Pre-generated UUID — MUST come from the calling tool. Never generate here. */
@@ -43,6 +49,22 @@ export interface CreateCeilingPayload {
   holeElements?: CeilingHoleElement[];
   /** Room this ceiling is linked to — finish data is absorbed from the room at creation time. */
   hostRoomId?: string;
+  /**
+   * §FIX-CEILING-INNER-FACE-PARITY (2026-08-06) — what `polygon` MEANS, mirroring
+   * `CreateFloorPayload.boundarySource` (L-240) verbatim:
+   *
+   *   • `'room-centreline'` — `polygon` is the host room's boundary ring (wall
+   *     CENTRELINES). The command insets it to the bounding walls' INNER FACES via the
+   *     ONE canonical `resolveRoomFinishBoundary` — the SAME derivation the floor uses,
+   *     so a room's floor and ceiling boundaries are identical by construction.
+   *   • `'explicit-polygon'` — the user's / the file's stated geometry, stored VERBATIM.
+   *
+   * OMITTED → inferred: a polygon that IS the host room's centreline ring
+   * (`ringsCoincide`) is a room-derived boundary whose author forgot to say so, and is
+   * inset. Anything else is stored verbatim. Makes the rule impossible to bypass by
+   * omission (the L-240 lesson).
+   */
+  boundarySource?: 'room-centreline' | 'explicit-polygon';
   createdBy?: string;
 }
 
@@ -103,7 +125,11 @@ export class CreateCeilingCommand implements Command {
     const ceilingId = this._payload.ceilingId;
     const now = Date.now();
 
-    const polygon = ensureCCW(this._payload.polygon);
+    // §FIX-CEILING-INNER-FACE-PARITY — THE chokepoint. A room-hosted ceiling finish is
+    // bounded by the INNER FACES of its bounding walls, exactly like the floor finish
+    // (CreateFloorCommand, L-240). Derivation happens BEFORE ensureCCW so the output is
+    // byte-identical to the floor path for the same room.
+    const polygon = ensureCCW(this._resolveBoundary(context));
     const thickness = this._payload.thickness ?? 0.025;
 
     const layers = this._payload.systemTypeId && this._payload.layers
@@ -195,6 +221,52 @@ export class CreateCeilingCommand implements Command {
     }
 
     return { success: true, affectedElementIds: [ceilingId] };
+  }
+
+  /**
+   * §FIX-CEILING-INNER-FACE-PARITY — resolve the ceiling's stored boundary from the
+   * payload's DECLARED intent. VERBATIM mirror of `CreateFloorCommand._resolveBoundary`
+   * (L-240): room-derived centreline ring → inset to the bounding walls' inner faces via
+   * the single canonical `resolveRoomFinishBoundary`; explicit/user-drawn → returned
+   * unchanged. Fail-safe on every branch (a ceiling is always created); never applies a
+   * second offset — it only insets a ring PROVEN to be a centreline.
+   */
+  private _resolveBoundary(context: CommandContext): CeilingVertex[] {
+    const src = this._payload.polygon;
+    const hostRoomId = this._payload.hostRoomId;
+    // No host room → nothing to derive from (drawn ceilings, import, paste).
+    if (!hostRoomId || !src || src.length < 3) return src;
+    if (this._payload.boundarySource === 'explicit-polygon') return src;
+
+    const roomStore = (context.stores as any).roomStore as
+      | { getById?: (id: string) => { boundary?: { polygon?: Array<{ x: number; z: number }> }; boundingWallIds?: string[] } | undefined }
+      | undefined;
+    const wallStore = (context.stores as any).wallStore as
+      | { getById?: (id: string) => RoomFinishWall | undefined; getByLevel?: (levelId: string) => RoomFinishWall[] }
+      | undefined;
+    if (!roomStore || !wallStore) return src;
+
+    if (this._payload.boundarySource !== 'room-centreline') {
+      // UNDECLARED payload — infer (see CreateFloorCommand). A correctly-inset finish
+      // lies strictly inside the centreline ring, so it can never be inset twice.
+      const centreline = roomStore.getById?.(hostRoomId)?.boundary?.polygon;
+      if (!ringsCoincide(src, centreline)) return src;
+    }
+
+    const levelId = this._payload.levelId || context.projectContext.activeLevelId;
+    const derived = resolveRoomFinishBoundary(
+      src.map(v => ({ x: v.x, z: v.z })),
+      {
+        roomId: hostRoomId,
+        levelId,
+        lookup: {
+          getRoomById:    (id) => roomStore.getById?.(id),
+          getWallById:    (id) => wallStore.getById?.(id),
+          getWallsByLevel: (lid) => wallStore.getByLevel?.(lid) ?? [],
+        },
+      },
+    );
+    return derived.length >= 3 ? (derived as CeilingVertex[]) : src;
   }
 
   undo(context: CommandContext): CommandResult {

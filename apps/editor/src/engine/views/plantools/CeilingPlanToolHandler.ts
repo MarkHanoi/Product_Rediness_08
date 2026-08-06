@@ -17,6 +17,16 @@
  */
 
 import { createId } from '@pryzm/schemas';
+// §FIX-CEILING-INNER-FACE-PARITY (2026-08-06) — the SAME canonical inner-face derivation
+// the floor plan tool (L-213) and the floor/ceiling command chokepoints use, so an
+// AUTO-from-room ceiling sits inside the walls (not on their centreline) regardless of
+// entry point (C11: one pipeline). This dispatch targets the PLUGIN `ceiling.create`
+// bus handler, which has no host-room concept, so the derivation happens here — exactly
+// as `FloorPlanToolHandler._innerFacePolygon` does for `floor.create`.
+import { resolveRoomFinishBoundary, type RoomFinishWall } from '@pryzm/room-topology';
+// §FEAT-BOUNDARY-CURVE-DRAW (2026-08-06) — the ONE arc model for curved boundary
+// segments (wall-tool midpoint-Bézier semantics), shared with the 3D tools.
+import { arcSegmentThroughMidpoint } from '@pryzm/geometry-slab';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import type { CeilingPickerMode } from '@app/ui/CeilingModePicker';
 
@@ -28,18 +38,21 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
     private _points:      WorldPoint[] = [];
     private _cursorPoint: WorldPoint | null = null;
     private _rectAnchor:  WorldPoint | null = null;
+    // §FEAT-BOUNDARY-CURVE-DRAW — CURVED mode pending arc midpoint (wall 3-click pattern).
+    private _arcMidPt:    WorldPoint | null = null;
 
     // §T-B1 (DAILY-USE-AUDIT 2026-05-20) — opt-in stroke-preservation per the
     // PlanToolHandler.hasActiveStroke?() contract. Mirrors the FloorPlanToolHandler
     // pattern so multi-step polygon/rectangle drawing survives temporary
     // off-canvas excursions (e.g. reading a dimension on the toolbar).
-    hasActiveStroke(): boolean { return this._points.length > 0 || this._rectAnchor !== null; }
+    hasActiveStroke(): boolean { return this._points.length > 0 || this._rectAnchor !== null || this._arcMidPt !== null; }
 
     activate(ctx: PlanToolDrawContext): void {
         this._ctx         = ctx;
         this._points      = [];
         this._cursorPoint = null;
         this._rectAnchor  = null;
+        this._arcMidPt    = null;
     }
 
     deactivate(): void {
@@ -47,6 +60,7 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
         this._points      = [];
         this._cursorPoint = null;
         this._rectAnchor  = null;
+        this._arcMidPt    = null;
         this._ctx         = null;
     }
 
@@ -107,6 +121,29 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
             return;
         }
 
+        // ── CURVED — §FEAT-BOUNDARY-CURVE-DRAW: vertex → arc MIDPOINT → arc END
+        // (the wall tool's 3-click pattern); mirrors FloorPlanToolHandler. ───────
+        if (mode === 'curved' && this._points.length > 0) {
+            if (!this._arcMidPt) {
+                this._arcMidPt = pt;
+                this._cursorPoint = pt;
+                this._drawPreview();
+                console.log('[CeilingPlanToolHandler] Arc midpoint set', pt);
+                return;
+            }
+            const last = this._points[this._points.length - 1];
+            const run = arcSegmentThroughMidpoint(
+                { x: last.worldX, z: last.worldZ },
+                { x: this._arcMidPt.worldX, z: this._arcMidPt.worldZ },
+                { x: pt.worldX, z: pt.worldZ },
+            );
+            for (const v of run) this._points.push({ worldX: v.x, worldZ: v.z } as WorldPoint);
+            this._arcMidPt = null;
+            this._drawPreview();
+            console.log(`[CeilingPlanToolHandler] Arc segment committed (${run.length} tessellated verts). total: ${this._points.length}`);
+            return;
+        }
+
         const vertex = (mode === 'ortho' && this._points.length > 0)
             ? this._orthoSnap(this._points[this._points.length - 1], pt)
             : pt;
@@ -118,13 +155,20 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
     onDoubleClick(_pt: WorldPoint): void {
         const mode = this._currentMode();
         if (mode === 'rectangle' || mode === 'auto') return;
+        if (this._arcMidPt) return; // arc midpoint pending — dbl-click must not eat the end click
         if (this._points.length >= 3) this._commit();
     }
 
     onKeyDown(e: KeyboardEvent): boolean {
-        if (e.key === 'Enter' && this._points.length >= 3 && this._currentMode() !== 'rectangle') {
+        if (e.key === 'Enter' && this._points.length >= 3 && this._currentMode() !== 'rectangle' && !this._arcMidPt) {
             e.preventDefault();
             this._commit();
+            return true;
+        }
+        if (e.key === 'Backspace' && this._arcMidPt) {
+            // §FEAT-BOUNDARY-CURVE-DRAW — re-pick the pending arc midpoint first.
+            this._arcMidPt = null;
+            this._drawPreview();
             return true;
         }
         if (e.key === 'Backspace' && this._points.length > 0) {
@@ -140,6 +184,7 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
         this._points      = [];
         this._cursorPoint = null;
         this._rectAnchor  = null;
+        this._arcMidPt    = null;
         this._clearOverlay();
     }
 
@@ -187,7 +232,12 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        const polygon = room.boundary.polygon.map((v: any) => ({ x: v.x, z: v.z }));
+        // §FIX-CEILING-INNER-FACE-PARITY — the room ring runs along the wall CENTRELINES;
+        // a finish built on it overshoots into every wall by half its thickness. Derive the
+        // INNER-FACE polygon with the SAME canonical helper the floor paths use, so a
+        // room's ceiling and floor boundaries are identical (fail-safe → centreline).
+        const centreline = room.boundary.polygon.map((v: any) => ({ x: v.x, z: v.z }));
+        const polygon = this._innerFacePolygon(room, levelId, centreline);
         const ceilingId = createId('ceiling');
         // §P3.2-CL (IMPL-PLAN-2026-05-17): dispatch payload matches CreateCeilingPayload
         // (new schema: id, boundary as Vec3[], ceilingHeight). Legacy ifcGuid/polygon removed.
@@ -202,6 +252,34 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
         this._cursorPoint = null;
         this._rectAnchor  = null;
         this._clearOverlay();
+    }
+
+    /**
+     * §FIX-CEILING-INNER-FACE-PARITY — the clicked room's INNER-FACE ceiling boundary,
+     * via the ONE canonical, store-injected `resolveRoomFinishBoundary`. Verbatim mirror
+     * of `FloorPlanToolHandler._innerFacePolygon` (L-213/L-240): a single definition of
+     * "which walls bound this room's finish" in the codebase.
+     */
+    private _innerFacePolygon(
+        room: any,
+        levelId: string,
+        centreline: Array<{ x: number; z: number }>,
+    ): Array<{ x: number; z: number }> {
+        const wallStore = window.wallStore as {
+            getById?: (id: string) => RoomFinishWall | undefined;
+            getByLevel?: (levelId: string) => RoomFinishWall[];
+        } | undefined; // TODO(TASK-08)
+        if (!wallStore) return centreline;
+        return resolveRoomFinishBoundary(centreline, {
+            roomId: room.id,
+            levelId,
+            lookup: {
+                // The plan tool already holds the full room record from the pick.
+                getRoomById:     () => ({ boundingWallIds: room.boundingWallIds ?? [] }),
+                getWallById:     (id) => wallStore.getById?.(id),
+                getWallsByLevel: (lid) => wallStore.getByLevel?.(lid) ?? [],
+            },
+        });
     }
 
     private _pointInPolygon(pt: { x: number; z: number }, polygon: Array<{ x: number; z: number }>): boolean {
@@ -295,16 +373,31 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
 
         const screenPts = this._points.map(p => planCanvas.worldToScreen(p.worldX, p.worldZ));
 
+        // §FEAT-BOUNDARY-CURVE-DRAW — the trailing cursor segment: a straight line,
+        // or (curved mode with a pending midpoint) the tessellated Bézier through it.
+        const trailingPts: Array<{ sx: number; sy: number }> = [];
+        if (this._cursorPoint) {
+            if (mode === 'curved' && this._arcMidPt && this._points.length > 0) {
+                const last = this._points[this._points.length - 1];
+                for (const v of arcSegmentThroughMidpoint(
+                    { x: last.worldX, z: last.worldZ },
+                    { x: this._arcMidPt.worldX, z: this._arcMidPt.worldZ },
+                    { x: this._cursorPoint.worldX, z: this._cursorPoint.worldZ },
+                )) {
+                    trailingPts.push(planCanvas.worldToScreen(v.x, v.z));
+                }
+            } else {
+                trailingPts.push(planCanvas.worldToScreen(this._cursorPoint.worldX, this._cursorPoint.worldZ));
+            }
+        }
+
         if (screenPts.length >= 3) {
             ctx.globalAlpha = 0.14;
             ctx.fillStyle   = FILL_A;
             ctx.beginPath();
             ctx.moveTo(screenPts[0].sx, screenPts[0].sy);
             for (let i = 1; i < screenPts.length; i++) ctx.lineTo(screenPts[i].sx, screenPts[i].sy);
-            if (this._cursorPoint) {
-                const cur = planCanvas.worldToScreen(this._cursorPoint.worldX, this._cursorPoint.worldZ);
-                ctx.lineTo(cur.sx, cur.sy);
-            }
+            for (const p of trailingPts) ctx.lineTo(p.sx, p.sy);
             ctx.closePath();
             ctx.fill();
             ctx.globalAlpha = 1;
@@ -316,12 +409,16 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
         ctx.beginPath();
         ctx.moveTo(screenPts[0].sx, screenPts[0].sy);
         for (let i = 1; i < screenPts.length; i++) ctx.lineTo(screenPts[i].sx, screenPts[i].sy);
-        if (this._cursorPoint) {
-            const cur = planCanvas.worldToScreen(this._cursorPoint.worldX, this._cursorPoint.worldZ);
-            ctx.lineTo(cur.sx, cur.sy);
-        }
+        for (const p of trailingPts) ctx.lineTo(p.sx, p.sy);
         ctx.stroke();
         ctx.setLineDash([]);
+
+        // Arc midpoint indicator (mirrors WallPlanToolHandler's curved-mode marker).
+        if (mode === 'curved' && this._arcMidPt) {
+            const m = planCanvas.worldToScreen(this._arcMidPt.worldX, this._arcMidPt.worldZ);
+            ctx.fillStyle = STROKE;
+            ctx.beginPath(); ctx.arc(m.sx, m.sy, 5, 0, Math.PI * 2); ctx.fill();
+        }
 
         ctx.fillStyle = STROKE;
         for (const p of screenPts) {
@@ -341,9 +438,13 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
         }
 
         const modeLabel = mode === 'ortho' ? 'Orthogonal' : (mode === 'curved' ? 'Curved' : 'Linear');
-        const hint = this._points.length >= 3
-            ? `${modeLabel} · Dbl-click or Enter to close ceiling`
-            : `${modeLabel} · ${3 - this._points.length} more point${3 - this._points.length !== 1 ? 's' : ''} needed`;
+        const hint = (mode === 'curved' && this._points.length > 0)
+            ? (this._arcMidPt
+                ? 'Curved · Click the arc END point · Backspace to re-pick midpoint'
+                : `Curved · Click the arc MIDPOINT${this._points.length >= 3 ? ' · Enter to close ceiling' : ''}`)
+            : this._points.length >= 3
+                ? `${modeLabel} · Dbl-click or Enter to close ceiling`
+                : `${modeLabel} · ${3 - this._points.length} more point${3 - this._points.length !== 1 ? 's' : ''} needed`;
         this._drawHint(ctx, cssH, hint);
         ctx.restore();
     }
