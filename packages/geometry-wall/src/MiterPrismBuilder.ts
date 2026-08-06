@@ -128,7 +128,32 @@ export function buildMiterPrism(
         // thicknesses, so clamp the projection distance: a degenerate corner now square-caps
         // (≈ the wall end) instead of extruding off-screen. Legitimate mitres (small t) are
         // byte-identical — this only catches the runaway.
-        const tMax = 4 * halfT + 0.05;
+        //
+        // §MITER-T-CLAMP-LAYER-LAT (founder 2026-08-05/06 — "layered wall outer layer does
+        // not connect at the corner; adding a door/window fixes it"). The clamp bound was
+        // `4 * halfT + 0.05`, where halfT is the half-thickness of the prism BEING BUILT.
+        // For a PLAIN wall that equals the vertex's lateral distance from the centreline —
+        // correct. But the layered no-openings path builds ONE prism PER LAYER: a thin
+        // finish layer (e.g. 15 mm internal render on `wt-exterior-brick`, 375 mm total)
+        // sits ~180 mm off the centreline yet carried tMax = 4·0.0075 + 0.05 = 0.08 m,
+        // while its legitimate 90°-corner miter projection is t ≈ 0.19 m → clamped →
+        // the layer stopped short of the junction (the founder's corner gap). The
+        // with-openings path (`LayeredWallOpeningBuilder.buildContinuousLayerGeometry`,
+        // the SAME shared projection formula) clamps at a flat 1.0 m, which is why adding
+        // an opening "healed" the corner — the two paths disagreed only in this bound.
+        // FIX: bound the projection by the vertex's LATERAL OFFSET FROM THE CENTRELINE
+        // (`latOff` = |(base − miterPlaneOrigin) · outward|; outward ⊥ wallDir, so any
+        // axial component of the origin cancels). A true miter projects t = latOff/tan(θ),
+        // so `4·latOff + 0.05` preserves EXACTLY the same corner-angle envelope the old
+        // clamp enforced for plain walls (latOff = halfT there → byte-identical), while
+        // letting every layer of a layered wall reach the shared junction miter plane.
+        // Render-geometry only — no baseline/store writes (the §CLAMP-COSHARE-WELD
+        // reverted-fix hazard class is untouched).
+        const latOff = Math.abs(
+            (base[0] - miterPlaneOrigin.x) * outward.x +
+            (base[2] - miterPlaneOrigin.z) * outward.z,
+        );
+        const tMax = 4 * (Number.isFinite(latOff) ? latOff : halfT) + 0.05;
         if (t > tMax) t = tMax;
         else if (t < -tMax) t = -tMax;
 
