@@ -154,6 +154,20 @@ export interface AuditInput {
      * audit always supplies it.
      */
     scopeProbes?: Iterable<ScopeProbeReading>;
+    /**
+     * §CONTEXT-DATA-HONESTY — names from {@link AUDITED_STORE_GLOBALS} that the
+     * audit COULD NOT READ this run (absent from `window`, or `getAll()` threw).
+     * An unreadable store contributes zero ids, which is indistinguishable from a
+     * clean store — so it must be reported, not skipped. Defaults to "none".
+     */
+    unreadableStores?: readonly string[];
+    /**
+     * §CONTEXT-DATA-HONESTY — false when the THREE scene could not be traversed.
+     * `sceneObjects: []` alone cannot express the difference between "the scene is
+     * empty" and "there was no scene to look at". Defaults to `true` so existing
+     * call sites that genuinely hand over a scene keep their meaning.
+     */
+    sceneReadable?: boolean;
 }
 
 /**
@@ -161,7 +175,10 @@ export interface AuditInput {
  * Returns a report when a leak is found, else null.
  */
 export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
-    const { projectId, expectedIds, sceneObjects, storeElements, globals, scopeProbes } = input;
+    const {
+        projectId, expectedIds, sceneObjects, storeElements, globals, scopeProbes,
+        unreadableStores = [], sceneReadable = true,
+    } = input;
     const idKnown = expectedIds !== null;
 
     let underlayCount = 0;
@@ -230,6 +247,24 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     if (globals.length > 0)       findings.push({ surface: 'window.globals',        count: globals.length, details: globals });
     if (foreignScopes.length)     findings.push({ surface: 'scope.foreignProject',   count: foreignScopes.length, details: foreignScopes });
     if (brokenProbes.length)      findings.push({ surface: 'scope.probeFailed',      count: brokenProbes.length, details: brokenProbes });
+
+    // §CONTEXT-DATA-HONESTY — a surface the audit COULD NOT INSPECT is not a clean
+    // surface. Every check above turns "found nothing" into "clean"; that inference
+    // is only valid if the looking actually happened. `gatherStoreElements` skips a
+    // missing/throwing store and `gatherSceneObjects` returns `[]` for a missing
+    // scene, so a rename, a disposal, or the pending `TODO(TASK-08)` removal of the
+    // `window.*Store` globals would silently reduce this audit to a rubber stamp —
+    // the exact shape of L-224 (dead listener) and L-676 (unwatched GIS half),
+    // where a green verdict WAS the evidence that nothing was wrong. Reported as a
+    // finding about the AUDIT, alongside `scope.probeFailed`, which is the same
+    // principle already applied to probes.
+    if (unreadableStores.length > 0 || !sceneReadable) {
+        findings.push({
+            surface: 'audit.coverageLoss',
+            count: unreadableStores.length + (sceneReadable ? 0 : 1),
+            details: { unreadableStores: [...unreadableStores], sceneReadable },
+        });
+    }
 
     if (findings.length === 0) return null;
 
@@ -309,33 +344,49 @@ function w<T = unknown>(name: string): T | undefined {
     return (window as unknown as Record<string, T>)[name];
 }
 
-/** Gather the live scene objects (flattened) from `window.scene`. */
-function gatherSceneObjects(): SceneObjectLike[] {
+/**
+ * Gather the live scene objects (flattened) from `window.scene`.
+ *
+ * §CONTEXT-DATA-HONESTY — returns `null` (not `[]`) when there is no traversable
+ * scene, so the caller can tell "the scene is empty" from "there was no scene".
+ */
+function gatherSceneObjects(): SceneObjectLike[] | null {
     const scene = w<{ traverse?: (cb: (o: SceneObjectLike) => void) => void }>('scene');
+    if (!scene || typeof scene.traverse !== 'function') return null;
     const out: SceneObjectLike[] = [];
-    if (scene && typeof scene.traverse === 'function') {
+    try {
         scene.traverse((o) => out.push({
             name: (o as { name?: string }).name,
             userData: (o as { userData?: Record<string, unknown> }).userData,
         }));
-    }
+    } catch { return null; }
     return out;
 }
 
-/** Gather live element ids from every audited store exposed on `window`. */
-function gatherStoreElements(): StoreElementIds[] {
-    const out: StoreElementIds[] = [];
+/**
+ * Gather live element ids from every audited store exposed on `window`.
+ *
+ * §CONTEXT-DATA-HONESTY — also returns the names that could NOT be read. A store
+ * that is absent or whose `getAll()` throws contributes zero ids, which the
+ * detector would otherwise read as "this store is clean".
+ */
+function gatherStoreElements(): { readable: StoreElementIds[]; unreadable: string[] } {
+    const readable: StoreElementIds[] = [];
+    const unreadable: string[] = [];
     for (const name of AUDITED_STORE_GLOBALS) {
         const store = w<{ getAll?: () => Array<{ id?: unknown }> }>(name);
-        if (!store || typeof store.getAll !== 'function') continue;
+        if (!store || typeof store.getAll !== 'function') { unreadable.push(name); continue; }
         try {
             const ids = store.getAll()
                 .map(e => (e && typeof e.id === 'string' ? e.id : null))
                 .filter((id): id is string => id !== null);
-            out.push({ store: name, ids });
-        } catch { /* defensive — a store that throws on getAll is skipped */ }
+            readable.push({ store: name, ids });
+        } catch {
+            // A store that throws on getAll() is BLIND, not clean.
+            unreadable.push(name);
+        }
     }
-    return out;
+    return { readable, unreadable };
 }
 
 /** Surviving window singletons that must be null/empty after a fresh load. */
@@ -364,11 +415,15 @@ function resolveExpectedIds(projectId: string, emptyHint: boolean): ReadonlySet<
 }
 
 function runAudit(projectId: string, emptyHint: boolean): IsolationLeakReport | null {
+    const scene = gatherSceneObjects();
+    const { readable, unreadable } = gatherStoreElements();
     return detectLeaks({
         projectId,
         expectedIds: resolveExpectedIds(projectId, emptyHint),
-        sceneObjects: gatherSceneObjects(),
-        storeElements: gatherStoreElements(),
+        sceneObjects: scene ?? [],
+        sceneReadable: scene !== null,
+        storeElements: readable,
+        unreadableStores: unreadable,
         globals: gatherGlobalOffenders(),
         scopeProbes: readProjectScopeProbes(),
     });
