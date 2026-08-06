@@ -78,6 +78,17 @@ export interface GlobeHeroSearchOptions {
      *  is picked up without this module holding a stale handle — mirrors
      *  `cesiumSiteEntryCameraPort`'s own doc comment. */
     readonly getCameraHost: () => GlobeCameraHost | null;
+    /**
+     * §SITE-ENTRY-GLOBE-READY (PRD §16) — resolves once the camera host `getCameraHost()`
+     * will return is genuinely live and accepting camera commands. Production wiring is
+     * `window.pryzmGetSiteEntryCameraHostReady`. `mount()` awaits this BEFORE its first
+     * `frameCurrent()` call so the initial framing is never dropped by the race where
+     * `toggleGlobe(true)` kicks off an ASYNCHRONOUS viewport construction/mount and
+     * `getCameraHost()` still returns `null` for a while after. Optional (falls back to the
+     * pre-fix synchronous framing, e.g. in tests that fake an already-live host) so this is
+     * additive, not a breaking signature change.
+     */
+    readonly whenCameraHostReady?: () => Promise<void>;
     /** Registry-derived coverage (`siteEntryCoverageEntries()`), forwarded verbatim — this module
      *  holds no jurisdiction data of its own (C60 §2). */
     readonly entries: readonly CoverageEntry[];
@@ -109,8 +120,22 @@ export class GlobeHeroSearch {
         });
     }
 
-    /** Mount the solo globe behind the search card. Idempotent. */
-    mount(): void {
+    /**
+     * Mount the solo globe behind the search card. Idempotent.
+     *
+     * §SITE-ENTRY-GLOBE-READY (PRD §16) — `toggleGlobe(true)` only KICKS OFF the (async)
+     * Cesium viewport construction/mount; calling `frameCurrent()` synchronously right after,
+     * as this method used to, races it — `getCameraHost()` returns `null` for a while after,
+     * so the initial "full, zoomed-out Earth" framing was silently dropped (console:
+     * "[site-entry] no globe mounted — camera target dropped."), leaving Cesium showing its
+     * OWN internal fallback camera (a hard-coded Sydney default — see `CesiumViewport.ts`'s
+     * mount()) instead. Fixed by awaiting the real readiness signal (`whenCameraHostReady`,
+     * production-wired to `CesiumViewport.whenReady()` via `window.pryzmGetSiteEntryCameraHostReady`)
+     * BEFORE framing — never a fixed delay/`setTimeout` guess. `mount()` itself stays
+     * synchronous-looking for callers that don't await it (`toggleGlobe(true)` fires
+     * immediately, same as before); only the framing is deferred.
+     */
+    async mount(): Promise<void> {
         const span = _tracer.startSpan('pryzm.site-entry.globe-hero-search.mount');
         try {
             if (this.mounted || this.disposed) return;
@@ -119,6 +144,16 @@ export class GlobeHeroSearch {
                 this.opts.toggleGlobe(true);
             } catch (e) {
                 console.warn('[globe-hero-search] toggleGlobe(true) threw:', e);
+            }
+            if (this.opts.whenCameraHostReady) {
+                try {
+                    await this.opts.whenCameraHostReady();
+                } catch (e) {
+                    console.warn('[globe-hero-search] whenCameraHostReady() rejected — framing with best-effort camera host:', e);
+                }
+                // `dispose()` may have run while this awaited (e.g. the user hit Skip during
+                // the mount race) — a disposed hero must not fly a camera it just told to hide.
+                if (this.disposed) return;
             }
             // Frame the untouched world view instantly (a mount is not a navigation — mirrors
             // `SiteEntryStore.frameCurrent()`'s own doc comment).

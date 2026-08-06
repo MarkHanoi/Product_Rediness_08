@@ -161,6 +161,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     let cesiumViewport: any = null;
     let bridge: CesiumThreeBridge | null = null;
     let isGisInitialized = false;
+    // §SITE-ENTRY-GLOBE-READY (PRD PRYZM-EARTH-ONBOARDING-PRD-2026-08-06.md §16) — a real
+    // readiness gate for `window.pryzmGetSiteEntryCameraHost()`, closing the race where a
+    // caller (`GlobeHeroSearch.mount()`) resolves the host BEFORE `cesiumViewport` even
+    // exists (it is constructed inside the lazy `Promise.all` import below) and BEFORE its
+    // own async `mount()` has finished (which is when `CesiumViewport` sets its camera —
+    // see `CesiumViewport.ts`'s Sydney-default fallback). Starts pre-resolved (`active`
+    // starting `false` needs no gate); re-armed only for the FIRST activation, since every
+    // later re-activation reuses the already-mounted, already-ready `cesiumViewport`.
+    let _cameraHostReady: Promise<void> = Promise.resolve();
+    let _resolveCameraHostReady: (() => void) | null = null;
     let isBimPlacedOnEarth = false;
     let _gisActive = false;
     // §FIX-GISLAYOUT-PLACE-REAL-MODEL-FORMA-AND-GLOBE-REENTRY (L-193, Symptom B) — set true
@@ -375,6 +385,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             }
 
             if (!isGisInitialized) {
+                // §SITE-ENTRY-GLOBE-READY — arm the gate for this first activation; resolved
+                // once `cesiumViewport.mount()` (and its post-mount camera placement) settles,
+                // whichever way (success or failure — a failed mount must not hang a caller
+                // awaiting readiness forever).
+                _cameraHostReady = new Promise<void>((resolve) => { _resolveCameraHostReady = resolve; });
                 // PERF-FIX-#1: Load Cesium and CesiumThreeBridge dynamically here,
                 // co-located with the CesiumViewport import that already fires on first use.
                 // Both imports are batched in Promise.all so they download in parallel.
@@ -427,6 +442,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                         detachBimGizmoForGis();
                         cesiumViewport.setVisible(true);
                         console.log("GIS: Cesium viewer mounted successfully");
+                        // §SITE-ENTRY-GLOBE-READY — the viewer is genuinely live now (mount()
+                        // above already awaited `resolveReady()`) and visible; a camera command
+                        // issued from here on lands on the real viewer, not a dropped no-op.
+                        _resolveCameraHostReady?.();
+                        _resolveCameraHostReady = null;
                         const viewer = cesiumViewport.getViewer();
                         if (viewer) {
                             // §FIX-GLOBE-ACTIVATE-STALE-VIEWER (L-313) — wire the bridge to the
@@ -491,6 +511,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     }
                 }).catch((err: any) => {
                     console.error("GIS: Error mounting Cesium viewer:", err);
+                    // §SITE-ENTRY-GLOBE-READY — a failed mount must not hang a caller awaiting
+                    // readiness forever; resolve (not reject) so `frameCurrent()` still runs its
+                    // best-effort attempt against whatever `getCameraHost()` returns (possibly
+                    // `null`, which the camera port already handles by logging and no-op'ing).
+                    _resolveCameraHostReady?.();
+                    _resolveCameraHostReady = null;
                 });
             } else {
                 console.log("GIS: Re-activating existing Cesium viewer");
@@ -1222,6 +1248,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // across a device-loss dispose+recreate, and returns `null` before `toggleGIS(true)` has
     // mounted one yet — mirrors the `pryzmToggleGIS` idiom directly above.
     window.pryzmGetSiteEntryCameraHost = () => cesiumViewport;
+    // §SITE-ENTRY-GLOBE-READY — the real readiness signal `GlobeHeroSearch.mount()` awaits
+    // before its first `frameCurrent()` call, closing the "no globe mounted — camera target
+    // dropped" race (PRD §16). Resolves once `toggleGIS(true)`'s FIRST activation has finished
+    // `cesiumViewport.mount()` (or failed it — see the `.catch` above); pre-resolved before any
+    // activation, and never re-armed by later re-activations (the viewport stays ready).
+    window.pryzmGetSiteEntryCameraHostReady = () => _cameraHostReady;
 
     // O.2 (zoom-to-address defect) — let the onboarding location step seed the SAME
     // `lastGeocodeFrame` the GIS-rail search box populates via onFlyTo. The

@@ -268,6 +268,17 @@ declare global {
             pitchDeg: number;
             instant?: boolean;
         }): void } | null;
+        /** PRYZM-EARTH-ONBOARDING PRD §16 (Milestone 2 polish) — resolves once the ONE Cesium
+         *  viewport `pryzmGetSiteEntryCameraHost()` returns is actually live and accepting
+         *  camera commands (i.e. `pryzmToggleGIS(true)`'s first activation has finished
+         *  `CesiumViewport.mount()`, or failed it). Closes the "no globe mounted — camera
+         *  target dropped" race: `getCameraHost()` alone can return `null` for a while after
+         *  `pryzmToggleGIS(true)` because `CesiumViewport` is constructed and mounted inside a
+         *  lazy async import chain. Pre-resolved before any activation; a caller that awaits
+         *  this before its first `flyTo`/`frameCurrent()` call is guaranteed a live host (or an
+         *  honest failure already logged) rather than a silently dropped camera command.
+         *  Registered by GISAreaLayout. */
+        pryzmGetSiteEntryCameraHostReady?: () => Promise<void>;
         /** O.2 (zoom-to-address defect) — seed the 2D boundary map's `getMapInitial`
          *  frame from a geocode result captured OUTSIDE the GIS-rail search box (the
          *  onboarding location step has its own geocode path). Supplies lat/lon and,

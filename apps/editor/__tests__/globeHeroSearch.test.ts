@@ -24,6 +24,7 @@ const COVERED: CoverageEntry = {
 function harness(opts?: {
     entries?: readonly CoverageEntry[];
     geocode?: (q: string) => Promise<readonly GlobeHeroSearchGeocodeResult[]>;
+    whenCameraHostReady?: () => Promise<void>;
 }) {
     const toggleCalls: boolean[] = [];
     const flights: SiteEntryCameraTarget[] = [];
@@ -47,27 +48,36 @@ function harness(opts?: {
     const hero = new GlobeHeroSearch({
         toggleGlobe: (active) => toggleCalls.push(active),
         getCameraHost: () => host,
+        ...(opts?.whenCameraHostReady ? { whenCameraHostReady: opts.whenCameraHostReady } : {}),
         entries: opts?.entries ?? [COVERED],
         geocode,
     });
     return { hero, toggleCalls, flights, geocode };
 }
 
+/** A controllable "not ready yet" gate — mirrors `window.pryzmGetSiteEntryCameraHostReady`'s
+ *  real shape (a promise that resolves once the Cesium viewport has actually mounted). */
+function deferredReadyGate() {
+    let resolve!: () => void;
+    const promise = new Promise<void>((r) => { resolve = r; });
+    return { promise, resolve };
+}
+
 describe('GlobeHeroSearch', () => {
-    it('mount() toggles the globe on exactly once and frames the world view instantly', () => {
+    it('mount() toggles the globe on exactly once and frames the world view instantly (no whenCameraHostReady supplied — pre-fix synchronous framing preserved)', async () => {
         const { hero, toggleCalls, flights } = harness();
-        hero.mount();
+        await hero.mount();
         expect(toggleCalls).toEqual([true]);
         expect(flights).toHaveLength(1);
         expect(flights[0]).toMatchObject({ instant: true });
         // mount() again is a no-op (idempotent).
-        hero.mount();
+        await hero.mount();
         expect(toggleCalls).toEqual([true]);
     });
 
-    it('dispose() toggles the globe off exactly once and is idempotent', () => {
+    it('dispose() toggles the globe off exactly once and is idempotent', async () => {
         const { hero, toggleCalls } = harness();
-        hero.mount();
+        await hero.mount();
         hero.dispose();
         expect(toggleCalls).toEqual([true, false]);
         hero.dispose();
@@ -78,6 +88,49 @@ describe('GlobeHeroSearch', () => {
         const { hero, toggleCalls } = harness();
         hero.dispose();
         expect(toggleCalls).toEqual([]);
+    });
+
+    // §SITE-ENTRY-GLOBE-READY (PRD §16) — the ready-gating fix. Reproduces + closes the
+    // exact race the founder's console log showed: `toggleGlobe(true)` starts an ASYNC
+    // mount; `frameCurrent()` must not fire until the camera host is genuinely live.
+    it('mount() toggles the globe on immediately, but defers frameCurrent() until whenCameraHostReady() resolves — never a dropped frame, never a fixed delay', async () => {
+        const gate = deferredReadyGate();
+        const { hero, toggleCalls, flights } = harness({ whenCameraHostReady: () => gate.promise });
+
+        const mounting = hero.mount();
+        // toggleGlobe(true) fires synchronously, same as before this fix.
+        expect(toggleCalls).toEqual([true]);
+        // But the camera host is not "ready" yet — frameCurrent() must NOT have fired,
+        // proving this isn't a bespoke setTimeout guess that ships before the real signal.
+        await Promise.resolve(); // let any stray microtask settle
+        expect(flights).toHaveLength(0);
+
+        // The real readiness signal fires (mirrors CesiumViewport.mount() completing) —
+        // frameCurrent() must fire now, framing the full zoomed-out world view.
+        gate.resolve();
+        await mounting;
+        expect(flights).toHaveLength(1);
+        expect(flights[0]).toMatchObject({ instant: true });
+    });
+
+    it('mount() still frames the world view even if whenCameraHostReady() rejects (a failed mount must not strand the user on a blank card)', async () => {
+        const { hero, flights } = harness({ whenCameraHostReady: () => Promise.reject(new Error('mount failed')) });
+        await hero.mount();
+        expect(flights).toHaveLength(1);
+    });
+
+    it('a dispose() that races mount() while awaiting whenCameraHostReady() cancels the pending frame (never flies a camera the user already dismissed)', async () => {
+        const gate = deferredReadyGate();
+        const { hero, toggleCalls, flights } = harness({ whenCameraHostReady: () => gate.promise });
+
+        const mounting = hero.mount();
+        expect(toggleCalls).toEqual([true]);
+        hero.dispose(); // e.g. the user hit Skip while the globe was still mounting.
+        expect(toggleCalls).toEqual([true, false]);
+
+        gate.resolve(); // the mount finishes AFTER dispose — must be a no-op now.
+        await mounting;
+        expect(flights).toHaveLength(0);
     });
 
     it('search() with an empty query fails without calling the geocoder', async () => {

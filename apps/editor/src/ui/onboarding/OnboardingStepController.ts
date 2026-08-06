@@ -510,10 +510,17 @@ export class OnboardingStepController {
                 };
                 try { return w.pryzmGetSiteEntryCameraHost?.() ?? null; } catch { return null; }
             },
+            // PRD §16 (Milestone 2 polish) — the real readiness gate that closes the dropped-
+            // frame race (§SITE-ENTRY-GLOBE-READY). Missing the global (older bundle, or a
+            // test harness) degrades to the pre-fix synchronous framing rather than throwing.
+            whenCameraHostReady: () => {
+                const w = window as unknown as { pryzmGetSiteEntryCameraHostReady?: () => Promise<void> };
+                try { return w.pryzmGetSiteEntryCameraHostReady?.() ?? Promise.resolve(); } catch { return Promise.resolve(); }
+            },
             entries: siteEntryCoverageEntries(),
             geocode: geocodeAddress,
         });
-        this.globeHero.mount();
+        void this.globeHero.mount();
         this.addCleanup(() => this.globeHero?.dispose());
 
         const onSubmit = (e: Event): void => {
