@@ -30,7 +30,19 @@
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { injectAppTheme } from '../styles/AppTheme';
-import { deriveParcelQueryLatLon, reapplyZoningForActiveSite, resolveSiteContext, type SiteContext } from './siteDispatch';
+import {
+    deriveParcelQueryLatLon,
+    previewSuggestedZoneEnvelope,
+    reapplyZoningForActiveSite,
+    resolveSiteContext,
+    type SiteContext,
+} from './siteDispatch';
+import { ES_CORDOBA_PGOU2001_PACK, isInCordobaMunicipality } from '@pryzm/site-parcel-data';
+import {
+    suggestZoneFromNearbyHeights,
+    type HeightSuggestionZoneOption,
+    type NearbyHeightSuggestion,
+} from './nearbyBuildingHeightSuggestion';
 
 type Runtime = import('@pryzm/runtime-composer/types').PryzmRuntime;
 
@@ -45,6 +57,18 @@ let _zoneSelect: HTMLSelectElement | null = null;
 let _customRow: HTMLElement | null = null;
 let _zoneInput: HTMLInputElement | null = null;
 let _subzoneInput: HTMLInputElement | null = null;
+let _saveBtn: HTMLButtonElement | null = null;
+/** §NEARBY-HEIGHT-SUGGESTION — the label shown near the dropdown while an unmodified suggestion
+ *  is selected. Hidden the moment the admin picks anything else. */
+let _suggestionLabelEl: HTMLElement | null = null;
+/** §COR-MANUAL-ADMIN-ZONE-SCOPE (2026-08-05) — the jurisdiction-scope explainer, shown INSTEAD of
+ *  a working dropdown/save flow when the current site is outside Córdoba. */
+let _scopeNoticeEl: HTMLElement | null = null;
+/** The real height-based suggestion currently on offer, or null (no real suggestion this parcel). */
+let _suggestion: NearbyHeightSuggestion | null = null;
+/** The `(lat,lon)` key the suggestion above was computed for — guards against re-fetching /
+ *  re-stomping an admin's own choice on every re-open of the SAME parcel. */
+let _suggestionQueryKey: string | null = null;
 
 /** Sentinel `<option>` value that reveals the free-text fallback row below. */
 const CUSTOM_CODE_VALUE = '__custom__';
@@ -91,6 +115,24 @@ const KNOWN_CORDOBA_ZONE_OPTIONS: ReadonlyArray<{
     // never compute a real envelope and would misleadingly imply they're as usable as the codes
     // above. An admin who wants to try one anyway uses "Other / I don't know" below.
 ];
+
+/**
+ * §NEARBY-HEIGHT-SUGGESTION — the codes the height suggester is allowed to pick from: exactly the
+ * dropdown's own known-good codes (never MC/PTC, never a free-text code), each carrying the rule
+ * pack's REAL `maxHeight_m` (never a fabricated one). Computed once at module load.
+ */
+const KNOWN_CORDOBA_HEIGHT_OPTIONS: ReadonlyArray<HeightSuggestionZoneOption> = (() => {
+    const byCode = new Map<string, number>();
+    for (const z of ES_CORDOBA_PGOU2001_PACK.zones) {
+        if (typeof z.maxHeight_m === 'number') byCode.set(z.code, z.maxHeight_m);
+    }
+    const out: HeightSuggestionZoneOption[] = [];
+    for (const opt of KNOWN_CORDOBA_ZONE_OPTIONS) {
+        const h = byCode.get(opt.code);
+        if (typeof h === 'number') out.push({ code: opt.code, maxHeight_m: h });
+    }
+    return out;
+})();
 
 export function wireManualAdminZonePanelRuntime(rt: Runtime | null): void {
     _runtime = rt;
@@ -159,6 +201,10 @@ export async function openManualAdminZonePanelIfAdmin(runtime: Runtime | null = 
             document.body.appendChild(_panel);
         }
         _panel.style.display = 'flex';
+        // §COR-MANUAL-ADMIN-ZONE-SCOPE + §NEARBY-HEIGHT-SUGGESTION — every open re-checks the
+        // CURRENT site's jurisdiction scope and (only when in scope) offers a real height-based
+        // suggestion. Best-effort: never blocks the panel from opening.
+        try { await _refreshSiteScopedState(); } catch (e) { console.warn('[ManualAdminZonePanel] scoped-state refresh failed (non-fatal):', e); }
         span.setStatus({ code: SpanStatusCode.OK });
     } catch (err) {
         span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error)?.message ?? String(err) });
@@ -181,6 +227,11 @@ export function disposeManualAdminZonePanel(): void {
     _customRow = null;
     _zoneInput = null;
     _subzoneInput = null;
+    _saveBtn = null;
+    _suggestionLabelEl = null;
+    _scopeNoticeEl = null;
+    _suggestion = null;
+    _suggestionQueryKey = null;
 }
 
 /**
@@ -302,8 +353,33 @@ function _build(): HTMLElement {
         if (_customRow) {
             _customRow.style.display = select.value === CUSTOM_CODE_VALUE ? 'flex' : 'none';
         }
+        // §NEARBY-HEIGHT-SUGGESTION — the SUGGESTED label is only honest while the dropdown still
+        // shows the exact code the height suggestion named. Any change (including picking "Other")
+        // hides it immediately; re-selecting the SAME suggested code re-shows it (still a real,
+        // unmodified acceptance either way).
+        _updateSuggestionLabelVisibility();
     });
     el.appendChild(select);
+
+    // §NEARBY-HEIGHT-SUGGESTION — a prominent warning label, shown ONLY while the dropdown still
+    // holds the unmodified height-based suggestion. Never shown for a zone the admin typed/picked.
+    const suggestionLabel = document.createElement('div');
+    suggestionLabel.setAttribute('data-role', 'mazp-suggestion-label');
+    suggestionLabel.style.cssText =
+        'display:none;padding:4px 6px;border-radius:4px;background:#4a2a00;color:#ffb84d;' +
+        'font-size:11px;line-height:1.4;font-weight:600;';
+    _suggestionLabelEl = suggestionLabel;
+    el.appendChild(suggestionLabel);
+
+    // §COR-MANUAL-ADMIN-ZONE-SCOPE — shown INSTEAD of a working flow when the site is outside
+    // Córdoba (the only jurisdiction this tool's save+compute chain is wired for).
+    const scopeNotice = document.createElement('div');
+    scopeNotice.setAttribute('data-role', 'mazp-scope-notice');
+    scopeNotice.style.cssText =
+        'display:none;padding:4px 6px;border-radius:4px;background:#4a1a1a;color:#ff9a9a;' +
+        'font-size:11px;line-height:1.4;';
+    _scopeNoticeEl = scopeNotice;
+    el.appendChild(scopeNotice);
 
     // Free-text fallback — hidden unless "Other / I don't know" is selected above. Kept as two
     // separate zone/subzone inputs (rather than one combined-code input) because a code typed here
@@ -340,9 +416,11 @@ function _build(): HTMLElement {
     saveBtn.style.cssText =
         'padding:6px 10px;border-radius:6px;border:none;background:#6600FF;color:#fff;cursor:pointer;';
     saveBtn.addEventListener('click', () => { void _onSave(); });
+    _saveBtn = saveBtn;
     el.appendChild(saveBtn);
 
     const status = document.createElement('div');
+    status.setAttribute('data-role', 'mazp-status');
     status.style.cssText = 'min-height:16px;opacity:0.85;';
     _statusEl = status;
     el.appendChild(status);
@@ -352,6 +430,113 @@ function _build(): HTMLElement {
 
 function _setStatus(msg: string): void {
     if (_statusEl) _statusEl.textContent = msg;
+}
+
+/** Resolve the SAME query point `_onSave` saves at (`§MANUAL-ADMIN-ZONE-QUERY-POINT-FIX`) — reused
+ *  by the scope guard + height suggestion so every check agrees on the SAME point. Returns null
+ *  when there is no active site with a location. */
+function _resolveActiveSiteQueryPoint(): { ctx: SiteContext; siteId: string; lat: number; lon: number } | null {
+    const ctx: SiteContext | null = resolveSiteContext(_runtime);
+    const site = ctx?.store.getSite();
+    const location = site?.location;
+    if (!ctx || !site || location == null || typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
+        return null;
+    }
+    const boundary = site.parcel?.boundary;
+    const queryPoint =
+        deriveParcelQueryLatLon(location, boundary?.polygon ?? []) ??
+        { lat: location.latitude, lon: location.longitude };
+    return { ctx, siteId: site.id, lat: queryPoint.lat, lon: queryPoint.lon };
+}
+
+/** Show/hide the SUGGESTED label to match "is the dropdown still exactly the unmodified suggestion?" */
+function _updateSuggestionLabelVisibility(): void {
+    if (!_suggestionLabelEl) return;
+    const stillSuggested = _suggestion !== null && _zoneSelect?.value === _suggestion.suggestedCode;
+    if (stillSuggested && _suggestion) {
+        _suggestionLabelEl.textContent =
+            `⚠ SUGGESTED — based on neighbouring building heights (median ${_suggestion.medianHeightM.toFixed(1)} m, ` +
+            `${_suggestion.sampleCount} real ${_suggestion.sampleCount === 1 ? 'footprint' : 'footprints'}), not verified zoning.`;
+        _suggestionLabelEl.style.display = 'block';
+    } else {
+        _suggestionLabelEl.style.display = 'none';
+    }
+}
+
+/**
+ * §COR-MANUAL-ADMIN-ZONE-SCOPE (2026-08-05) — the founder-confirmed bug fix: this panel used to
+ * offer a working-looking dropdown + "Saved — envelope recomputed" success message for ANY site,
+ * even though the save+compute chain is wired ONLY for Córdoba (every other jurisdiction's dispatch
+ * never even LOOKS at `manual_admin_zones`). DISABLING the dropdown/save button + naming the scope
+ * gap was chosen over hiding the panel entirely: every other refusal in this codebase is a CITED
+ * message, never silence (§CONTEXT-DATA-HONESTY) — an admin who opens this panel on a non-Córdoba
+ * site should see WHY it will not work, not wonder whether the panel failed to open at all.
+ *
+ * Also runs the §NEARBY-HEIGHT-SUGGESTION flow when (and only when) the site IS in Córdoba: a real
+ * suggestion pre-selects the dropdown, shows the SUGGESTED label, and renders an amber, unreviewed
+ * PREVIEW of that zone's envelope immediately (`previewSuggestedZoneEnvelope`) — never persisted,
+ * never claimed as a determination. Zero real nearby samples ⇒ the dropdown stays exactly at
+ * today's blank placeholder (never a guess).
+ */
+async function _refreshSiteScopedState(): Promise<void> {
+    const resolved = _resolveActiveSiteQueryPoint();
+    if (!resolved) {
+        // No active site with a location yet — nothing to scope-check or suggest. Leave the
+        // dropdown/save button exactly as today (existing `_onSave` message covers this case).
+        if (_scopeNoticeEl) _scopeNoticeEl.style.display = 'none';
+        if (_zoneSelect) _zoneSelect.disabled = false;
+        if (_saveBtn) _saveBtn.disabled = false;
+        return;
+    }
+    const { ctx, lat, lon } = resolved;
+
+    if (!isInCordobaMunicipality(lat, lon)) {
+        if (_zoneSelect) _zoneSelect.disabled = true;
+        if (_saveBtn) _saveBtn.disabled = true;
+        if (_scopeNoticeEl) {
+            _scopeNoticeEl.textContent =
+                'Manual zone entry is currently only wired for Córdoba parcels — this site is ' +
+                'outside that scope. Save + compute would not apply anywhere.';
+            _scopeNoticeEl.style.display = 'block';
+        }
+        _suggestion = null;
+        _suggestionQueryKey = null;
+        _updateSuggestionLabelVisibility();
+        return;
+    }
+
+    if (_zoneSelect) _zoneSelect.disabled = false;
+    if (_saveBtn) _saveBtn.disabled = false;
+    if (_scopeNoticeEl) _scopeNoticeEl.style.display = 'none';
+
+    const key = `${lat.toFixed(5)},${lon.toFixed(5)}`;
+    if (key === _suggestionQueryKey) return; // already suggested (or determined none) for this parcel
+    _suggestionQueryKey = key;
+    _suggestion = null;
+    _updateSuggestionLabelVisibility();
+
+    let suggestion: NearbyHeightSuggestion | null = null;
+    try {
+        suggestion = await suggestZoneFromNearbyHeights(lat, lon, KNOWN_CORDOBA_HEIGHT_OPTIONS);
+    } catch (e) {
+        console.warn('[ManualAdminZonePanel] height suggestion failed (non-fatal):', e);
+    }
+    if (!suggestion || !_zoneSelect) return; // no real samples — leave the placeholder exactly as today
+
+    _suggestion = suggestion;
+    _zoneSelect.value = suggestion.suggestedCode;
+    if (_customRow) _customRow.style.display = 'none';
+    _updateSuggestionLabelVisibility();
+
+    // §NEARBY-HEIGHT-SUGGESTION — auto-render the suggested zone's envelope IMMEDIATELY, in the
+    // amber "unreviewed" colour. Never persists to `manual_admin_zones` (see
+    // `previewSuggestedZoneEnvelope`'s own header) — only the admin's explicit Save + compute click
+    // does that.
+    try {
+        previewSuggestedZoneEnvelope(ctx, suggestion.suggestedCode);
+    } catch (e) {
+        console.warn('[ManualAdminZonePanel] suggested-preview render failed (non-fatal):', e);
+    }
 }
 
 /**
@@ -387,15 +572,6 @@ async function _onSave(): Promise<void> {
             return;
         }
 
-        const ctx: SiteContext | null = resolveSiteContext(_runtime);
-        const site = ctx?.store.getSite();
-        const location = site?.location;
-        if (!ctx || !site || location == null || typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
-            _setStatus('No active site with a location — open/create a site first.');
-            span.setAttribute('result', 'no-site-location');
-            span.setStatus({ code: SpanStatusCode.OK });
-            return;
-        }
         // §MANUAL-ADMIN-ZONE-QUERY-POINT-FIX (2026-08-05) — save at the SAME point the resolver
         // will query at, not the site's anchor/geocode location. Before this fix, a save at
         // `location.latitude/longitude` could silently miss `resolveManualAdminZone`'s 60m match
@@ -403,11 +579,42 @@ async function _onSave(): Promise<void> {
         // DRAW flow, or a SELECT on an off-centre parcel) — the admin saw "Saved" but the card kept
         // showing the old refusal, because read-back queried a DIFFERENT point than what was saved.
         // `deriveParcelQueryLatLon` is the exact function `siteDispatch.ts`'s own zoning dispatch
-        // uses for this parcel, so save and read are now guaranteed to agree.
-        const boundary = site.parcel?.boundary;
-        const queryPoint =
-            deriveParcelQueryLatLon(location, boundary?.polygon ?? []) ??
-            { lat: location.latitude, lon: location.longitude };
+        // uses for this parcel, so save and read are now guaranteed to agree. §COR-MANUAL-ADMIN-ZONE-
+        // SCOPE reuses the SAME resolver so the scope guard and the save agree on the same point.
+        const resolved = _resolveActiveSiteQueryPoint();
+        if (!resolved) {
+            _setStatus('No active site with a location — open/create a site first.');
+            span.setAttribute('result', 'no-site-location');
+            span.setStatus({ code: SpanStatusCode.OK });
+            return;
+        }
+        const { ctx, lat, lon } = resolved;
+
+        // §COR-MANUAL-ADMIN-ZONE-SCOPE (2026-08-05) — DEFENSE IN DEPTH. The dropdown/save button
+        // are already disabled outside Córdoba (`_refreshSiteScopedState`), but this panel's own
+        // header says client-side gating is advisory only — a caller who forced the button enabled
+        // (devtools) must not see a misleading "Saved — envelope recomputed" for a jurisdiction whose
+        // dispatch chain never even looks at `manual_admin_zones`. The server itself still enforces
+        // nothing jurisdiction-specific (it is deliberately jurisdiction-agnostic, `manualAdminZoneStore.js`),
+        // so this check has to live here.
+        if (!isInCordobaMunicipality(lat, lon)) {
+            _setStatus('Manual zone entry is only wired for Córdoba parcels — this site is outside that scope. Nothing was saved.');
+            span.setAttribute('result', 'out-of-scope');
+            span.setStatus({ code: SpanStatusCode.OK });
+            return;
+        }
+
+        // §NEARBY-HEIGHT-SUGGESTION — honestly record whether this save is an UNMODIFIED
+        // height-based suggestion the admin accepted as-is, vs. one they typed/picked themselves.
+        // Only true when the dropdown STILL shows the exact suggested code (not custom, not changed).
+        const suggestedFromHeights = !usingCustom && _suggestion !== null && selected === _suggestion.suggestedCode;
+        const payload = suggestedFromHeights
+            ? {
+                  suggestedFromHeights: true,
+                  suggestionMedianHeightM: _suggestion!.medianHeightM,
+                  suggestionSampleCount: _suggestion!.sampleCount,
+              }
+            : undefined;
 
         _setStatus('Saving…');
         const res = await fetch('/api/manual-zone', {
@@ -415,10 +622,11 @@ async function _onSave(): Promise<void> {
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({
                 jurisdiction: 'es-cordoba',
-                lat: queryPoint.lat,
-                lon: queryPoint.lon,
+                lat,
+                lon,
                 zoneCode,
                 subzoneCode,
+                payload,
             }),
         });
         if (!res.ok) {

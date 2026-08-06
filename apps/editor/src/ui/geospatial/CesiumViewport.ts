@@ -61,7 +61,7 @@ import { zCss } from "../layout/zLayers";
 // derived by the pure L2 `envelopeToMassing`. This viewport holds NO per-field knowledge of the
 // envelope: it maps each solid's hue to the SAME two colours the flat surfaces use (imported from the
 // single colour authority), and extrudes `[baseHeightM, topHeightM]` — it never re-derives a height.
-import { CONFIDENT_VIOLET_CSS, PROVISIONAL_GREY_CSS } from "../site/envelopeRenderStyle";
+import { CONFIDENT_VIOLET_CSS, PROVISIONAL_GREY_CSS, SUGGESTED_AMBER_CSS } from "../site/envelopeRenderStyle";
 import type { MassingSolid } from "@pryzm/site-parcel-data";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
 import { fetchContextWater, buildSeaMaskFromCoastline, type ContextWaterCollection } from "./contextWater";
@@ -5076,9 +5076,17 @@ export class CesiumViewport {
     const envSolids = input.envelope?.solids ?? [];
     const envelopePresent = envSolids.length > 0;
     let envelopeEntitiesAdded = 0;
-    // The SINGLE colour authority: a solid's hue → the same two colours the flat surfaces use.
+    // The SINGLE colour authority: a solid's hue → the same colours the flat surfaces use.
+    // §NEARBY-HEIGHT-SUGGESTION — 'suggested-preview' (the admin-only, not-yet-reviewed
+    // height-based auto-preview) gets its OWN warning amber, never the confident violet or the
+    // normal provisional grey, so it can never be mistaken for a reviewed determination or a
+    // normal estimate on the globe.
     const hueCss = (hue: MassingSolid['style']['hue']): string =>
-      hue === 'confident' ? CONFIDENT_VIOLET_CSS : PROVISIONAL_GREY_CSS;
+      hue === 'confident'
+        ? CONFIDENT_VIOLET_CSS
+        : hue === 'suggested-preview'
+          ? SUGGESTED_AMBER_CSS
+          : PROVISIONAL_GREY_CSS;
     // Every entity is pushed to BOTH the massing list AND the §SITE-OVERLAY-NOT-BUILDING (L-468)
     // survival set — the buildable envelope is a compliance constraint, not a massing block, so it
     // must survive the "real model supersedes the massing" step. Shadows OFF (a study volume must

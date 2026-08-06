@@ -619,6 +619,22 @@ export function getLastBuildableEnvelope(): BuildableEnvelope | null {
 }
 
 /**
+ * §NEARBY-HEIGHT-SUGGESTION (2026-08-05) — TRUE iff `_lastEnvelope` was dispatched via
+ * `previewSuggestedZoneEnvelope` (the admin-only, not-yet-reviewed height-based auto-preview) and
+ * NOT since superseded by a normal `dispatchEnvelope` call. `dispatchEnvelope` (the ONLY other
+ * writer of `_lastEnvelope`) always resets this to `false` first — so the moment an admin clicks
+ * "Save + compute" (which routes through the normal Córdoba manual-admin-zone dispatch, i.e.
+ * `dispatchEnvelope`), the flag drops and the render reverts to the normal confident/provisional
+ * two-hue system, exactly matching "the admin has now reviewed and confirmed this."
+ */
+let _lastEnvelopeIsSuggestedPreview = false;
+
+/** See `_lastEnvelopeIsSuggestedPreview`'s own doc. */
+export function isLastEnvelopeSuggestedPreview(): boolean {
+    return _lastEnvelopeIsSuggestedPreview;
+}
+
+/**
  * C58 §1.7a / ADR-0270 option A (L-445 fix) — the buildable ring + height for RENDERING,
  * resolved from the persisted truth when this session never solved an envelope.
  *
@@ -3677,6 +3693,83 @@ async function applyCordobaManualAdminZoneThenFallback(
     } catch (e) {
         console.warn(`${TAG} manual-admin-zone path failed (non-fatal) — falling through:`, e);
         try { await fallthroughToExistingChain(); } catch { /* fallback is best-effort too */ }
+    }
+}
+
+/**
+ * §NEARBY-HEIGHT-SUGGESTION (2026-08-05) — the admin-only, NOT-YET-REVIEWED live PREVIEW path.
+ *
+ * `ManualAdminZonePanel.ts` calls this the moment its height-based suggestion
+ * (`nearbyBuildingHeightSuggestion.ts`) returns a real match, so the admin sees the suggested
+ * zone's envelope rendered IMMEDIATELY on panel open — in the warning amber
+ * (`envelopeRenderStyle`'s `suggestedPreview`/`SUGGESTED_AMBER_CSS`), never the confident violet.
+ *
+ * ⚠⚠ THIS NEVER WRITES TO `manual_admin_zones`. It computes the envelope CLIENT-SIDE, directly
+ * from the rule pack, exactly the way `applyCordobaManualAdminZoneThenFallback` above does for a
+ * SAVED entry — but it never calls `POST /api/manual-zone`, so nothing is persisted. It is a pure
+ * "what would this zone look like" render. The admin's explicit "Save + compute" click is the ONLY
+ * action that writes a row (`ManualAdminZonePanel.ts`'s existing `_onSave`, unmodified in this
+ * regard) — this function exists purely to render EARLIER than that click, for the ONE zone code
+ * the height suggestion named.
+ *
+ * Sets `_lastEnvelopeIsSuggestedPreview = true` (via the `dispatchEnvelope` call below, which
+ * itself always resets it to `false` first) so the render layer knows to paint amber, not violet.
+ * The very next `dispatchEnvelope` call from ANY other path (in particular the admin's own
+ * `_onSave` → `reapplyZoningForActiveSite`) resets the flag, which is exactly what makes clicking
+ * Save + compute flip the colour back to normal — see that flag's own doc comment.
+ *
+ * Returns `true` iff a real ('ok') envelope was computed and dispatched; `false` on any failure
+ * (no site/boundary, unknown zone code, non-'ok' compute) — never throws, never dispatches a
+ * refusal (a failed preview should leave whatever was already rendered alone, not paint a new
+ * "refused" card over it).
+ */
+export function previewSuggestedZoneEnvelope(ctx: SiteContext, zoneCode: string): boolean {
+    const TAG = '[gis][c58] §NEARBY-HEIGHT-SUGGESTION';
+    try {
+        const site = ctx.store.getSite();
+        const boundary = site?.parcel?.boundary;
+        if (!site || !Array.isArray(boundary?.polygon) || boundary.polygon.length < 3) {
+            console.log(`${TAG} no site/boundary yet — preview skipped.`);
+            return false;
+        }
+
+        const record: ZoningRecord = {
+            zoneCode,
+            zoneLabel: zoneCode,
+            jurisdictionId: CORDOBA_JURISDICTION_ID,
+            structuredFields: {},
+            overlays: [],
+            ordinanceRef: null,
+            provenance: {
+                source: 'cordoba-pgou-2001-manual-admin-entry',
+                label:
+                    'PGOU de Córdoba (2001) — a SUGGESTED zone from real nearby building heights ' +
+                    '(admin-only, not yet reviewed or saved). Not a determination.',
+                version: '2001',
+                license: null,
+                crs: 'EPSG:4326',
+            },
+        };
+
+        const envelope = computeBuildableEnvelope({
+            parcelRing: boundary.polygon,
+            edgeClassifications: boundary.edgeClassifications,
+            zoning: record,
+            rulePack: ES_CORDOBA_PGOU2001_PACK,
+        });
+
+        if (envelope.status !== 'ok') {
+            console.log(`${TAG} zone=${zoneCode} did not compute to 'ok' (status=${envelope.status}) — preview skipped.`);
+            return false;
+        }
+
+        dispatchEnvelope(ctx, site.id, envelope, 'coaco-pgou-manual-admin-suggested-preview');
+        _lastEnvelopeIsSuggestedPreview = true;
+        console.log(`${TAG} zone=${zoneCode} — rendered an UNREVIEWED amber preview.`);
+        return true;
+    } catch (e) {
+        console.warn(`${TAG} preview failed (non-fatal):`, e);
+        return false;
     }
 }
 
@@ -8189,6 +8282,13 @@ function dispatchEnvelope(
     jurisdictionRef: string,
 ): void {
     _lastEnvelope = envelope;
+    // §NEARBY-HEIGHT-SUGGESTION — every NORMAL dispatch (this function) is, by construction, a
+    // reviewed/confirmed result — never the admin-only unreviewed auto-preview (that path is
+    // `previewSuggestedZoneEnvelope`, which sets the flag `true` itself, right after calling this
+    // very function would otherwise have left it `false`). Resetting here — unconditionally, on
+    // every call — is what makes "click Save + compute" flip the render back to the normal
+    // confident/provisional colours even when the admin re-selects the SAME suggested zone.
+    _lastEnvelopeIsSuggestedPreview = false;
 
     // Read the resolved per-edge setbacks off the derivation trace (the numeric
     // "why" entries) to patch the C19 mutable Parcel fields.

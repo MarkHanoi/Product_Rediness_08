@@ -188,8 +188,11 @@ export function classifyEnvelopeCompleteness(
     return { complete: false, footprintUpperBound: false, openTop: false, reason: why };
 }
 
-/** The colour intent of a solid. Mapped to a concrete hue by the rasteriser (violet vs grey). */
-export type MassingHue = 'confident' | 'provisional';
+/**
+ * The colour intent of a solid. Mapped to a concrete hue by the rasteriser (violet vs grey vs the
+ * narrowly-scoped `'suggested-preview'` amber — see `BuildableEnvelopeMassingInput.suggestedPreview`).
+ */
+export type MassingHue = 'confident' | 'provisional' | 'suggested-preview';
 
 /**
  * The kind of solid, which fixes its VOLUME semantics — see `claimsVolume`. Names are stable because
@@ -279,6 +282,16 @@ export interface BuildableEnvelopeMassingInput {
     readonly confidence?: EnvelopeConfidence | null;
     readonly status?: EnvelopeStatus;
     readonly tiers?: ReadonlyArray<EnvelopeTier>;
+    /**
+     * §NEARBY-HEIGHT-SUGGESTION (2026-08-05) — TRUE ONLY for the admin-only, not-yet-reviewed
+     * height-based auto-preview (`ManualAdminZonePanel.ts` → `siteDispatch.ts`'s
+     * `previewSuggestedZoneEnvelope`). Every solid then draws `hue: 'suggested-preview'`
+     * (amber) instead of the normal confident/provisional two-hue system, and `complete` is
+     * forced `false` — an unreviewed suggestion is never a determination. ⚠ Optional and
+     * absent-means-false, so every pre-existing caller (a real solved envelope, the persisted-ring
+     * fallback) is byte-identical.
+     */
+    readonly suggestedPreview?: boolean;
 }
 
 /** Shoelace area (absolute). Pure; matches the engine's `polygonArea`. */
@@ -326,6 +339,11 @@ export function envelopeToMassing(env: BuildableEnvelopeMassingInput): MassingSo
     const posture = env.publicationPosture ?? null;
     const openTop = posture === 'open-top-indicative';
     const solidAlpha = upperBound || openTop ? UPPER_BOUND_FILL_ALPHA : SOLID_FILL_ALPHA;
+    // §NEARBY-HEIGHT-SUGGESTION — read ONCE, threaded into every solid below, exactly like the
+    // posture above: an unreviewed admin suggestion cannot have one confident-looking member.
+    const suggestedPreview = env.suggestedPreview === true;
+    const hueFor = (complete: boolean): MassingHue =>
+        suggestedPreview ? 'suggested-preview' : complete ? 'confident' : 'provisional';
 
     // ── Tiered envelope (§1.7b.4 / ADR-0273): one solid per tier at its own height. ────────────────
     const tiers = env.tiers ?? [];
@@ -338,12 +356,12 @@ export function envelopeToMassing(env: BuildableEnvelopeMassingInput): MassingSo
             const hasHeight = typeof t.maxHeight_m === 'number' && t.maxHeight_m > 0;
             const cls = classifyEnvelopeCompleteness(env.confidence, hasHeight, upperBound, posture);
             const style: MassingSolidStyle = {
-                hue: cls.complete ? 'confident' : 'provisional',
+                hue: hueFor(cls.complete),
                 fillAlpha: solidAlpha,
-                complete: cls.complete,
+                complete: suggestedPreview ? false : cls.complete,
                 footprintUpperBound: cls.footprintUpperBound,
                 openTop: cls.openTop,
-                reason: cls.reason,
+                reason: suggestedPreview ? `SUGGESTED — unreviewed height-based preview (${cls.reason})` : cls.reason,
             };
             if (hasHeight) {
                 solids.push({
@@ -379,12 +397,12 @@ export function envelopeToMassing(env: BuildableEnvelopeMassingInput): MassingSo
     const hasRealHeight = typeof env.maxHeight_m === 'number' && env.maxHeight_m > 0;
     const cls = classifyEnvelopeCompleteness(env.confidence, hasRealHeight, upperBound, posture);
     const baseStyle = (fillAlpha: number): MassingSolidStyle => ({
-        hue: cls.complete ? 'confident' : 'provisional',
+        hue: hueFor(cls.complete),
         fillAlpha,
-        complete: cls.complete,
+        complete: suggestedPreview ? false : cls.complete,
         footprintUpperBound: cls.footprintUpperBound,
         openTop: cls.openTop,
-        reason: cls.reason,
+        reason: suggestedPreview ? `SUGGESTED — unreviewed height-based preview (${cls.reason})` : cls.reason,
     });
 
     // §1.12.6 / L-525a — no constructed height ⇒ a flat footprint slab, never an invented prism.

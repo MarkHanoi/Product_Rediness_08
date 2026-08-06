@@ -211,10 +211,23 @@ export async function resolveCordobaManualAdminZone(
         }
 
         const entry = parsed.entry;
+        // §NEARBY-HEIGHT-SUGGESTION (2026-08-05) — honestly distinguish a saved entry that was a
+        // real-height-based SUGGESTION the admin accepted WITHOUT changing it, from one the admin
+        // typed/picked themselves. ⚠ NEVER read as "PRYZM determined this zone" — always a heuristic
+        // hint the admin reviewed by saving it as-is, never a verified zone reading.
+        const payload = (entry.payload ?? {}) as Record<string, unknown>;
+        const suggestedFromHeights = payload['suggestedFromHeights'] === true;
+        const suggestionNote = suggestedFromHeights
+            ? ' ⚠ This zone was a SUGGESTION from real nearby OSM building heights ' +
+              `(median ${String(payload['suggestionMedianHeightM'] ?? 'n/a')} m over ` +
+              `${String(payload['suggestionSampleCount'] ?? 'n/a')} real footprints) that the admin ` +
+              'accepted WITHOUT changing it — a heuristic hint, not a verified zone determination.'
+            : '';
         const provenance =
             `Manual admin entry by ${entry.enteredByEmail ?? 'unknown admin'} at ${entry.enteredAt ?? 'unknown time'} ` +
             "— a bare zone-code entry with NO geometry trace, distinct from PRYZM's hand-traced " +
-            "polygon readings (method: 'manual_admin_entry'). Live only for the entering admin's own session.";
+            "polygon readings (method: 'manual_admin_entry'). Live only for the entering admin's own session." +
+            suggestionNote;
 
         const zoneCode: string = entry.zoneCode as string;
         span.setAttribute('resultFields', 'ok');

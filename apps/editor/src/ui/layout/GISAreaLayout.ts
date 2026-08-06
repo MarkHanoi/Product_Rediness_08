@@ -14,6 +14,7 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import {
     getCurrentSiteOrigin,
     getLastBuildableEnvelope,
+    isLastEnvelopeSuggestedPreview,
     resolveRenderableBuildableEnvelope,
 } from '../site/siteDispatch';
 // §SEAM-2 INCREMENT 2 (L-604 / C12 §1.5) — the SINGLE origin authority shared by the parcel-ring
@@ -1969,11 +1970,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // derived; this file only chooses the SOURCE envelope and forwards it.
         const full = getLastBuildableEnvelope();
         if (full && full.status === 'ok' && full.insetPolygon.length >= 3) {
-            const solids = envelopeToMassing(full);
+            // §NEARBY-HEIGHT-SUGGESTION — an admin-only, not-yet-reviewed height-based auto-preview
+            // (`previewSuggestedZoneEnvelope`) sets this side-channel flag; forwarding it here is
+            // what turns the solid(s) amber instead of the normal confident/provisional colours.
+            const suggestedPreview = isLastEnvelopeSuggestedPreview();
+            const solids = envelopeToMassing({ ...full, suggestedPreview });
             console.log(
                 `[gis][c58] §ENVELOPE-RESOLVE-DIAG — SOLVED envelope → ${solids.length} solid(s) ` +
                     `(source=solved, confidence=${full.confidence}, tiers=${full.tiers.length}, ` +
-                    `upperBound=${full.footprintIsUpperBound}, maxHeight=${full.maxHeight_m ?? 'n/a'} m).`,
+                    `upperBound=${full.footprintIsUpperBound}, maxHeight=${full.maxHeight_m ?? 'n/a'} m` +
+                    `${suggestedPreview ? ', SUGGESTED-PREVIEW (unreviewed, amber)' : ''}).`,
             );
             return solids.length > 0 ? { solids } : null;
         }

@@ -53,7 +53,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { EDITOR_LAYER } from '@pryzm/scene-committer';
 import { projectScopeRegistry } from '@pryzm/core-app-model';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
-import { getLastBuildableEnvelope } from './siteDispatch';
+import { getLastBuildableEnvelope, isLastEnvelopeSuggestedPreview } from './siteDispatch';
 import { envelopeRenderStyle } from './envelopeRenderStyle';
 
 /** The unified PRYZM preview / site-context violet. */
@@ -314,6 +314,9 @@ export class ParcelBoundarySceneRenderer {
                 hasRealHeight,
                 env.footprintIsUpperBound === true,
                 env.publicationPosture ?? null,
+                // §NEARBY-HEIGHT-SUGGESTION — the admin-only, not-yet-reviewed auto-preview flag;
+                // forces the warning amber here too, so the flat/BIM overlay agrees with the globe.
+                isLastEnvelopeSuggestedPreview(),
             );
 
             const shape = new THREE.Shape();
