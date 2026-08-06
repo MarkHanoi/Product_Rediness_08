@@ -279,6 +279,29 @@ function thirdAtLCornerImmutableEnabled(): boolean {
         .__pryzmWallV2ThirdAtLCornerImmutable !== false;
 }
 
+// §FIX-WALL-LCORNER-COLLINEAR-STEP (founder 2026-08-06) — the EXACTLY-ON-THE-VERTEX hole in
+// the §FIX-WALL-3RD-AT-LCORNER-IMMUTABLE (L-146) guard. See the block comment on the guard
+// pass in `detectJunctions`.
+//
+/** Escape hatch: set `__pryzmWallV2LCornerCollinearStep = false` to restore the pre-fix
+ *  behaviour, where a third wall co-terminating EXACTLY on an existing L-corner vertex and
+ *  COLLINEAR with one of its arms joins the ring sweep as a full member — dissolving the
+ *  corner's outer mitre into an uncovered wedge and drawing a stray diagonal cap. Default ON. */
+function lCornerCollinearStepEnabled(): boolean {
+    return (globalThis as { __pryzmWallV2LCornerCollinearStep?: boolean })
+        .__pryzmWallV2LCornerCollinearStep !== false;
+}
+
+/** |sin θ| below which two ring entries are treated as COLLINEAR, i.e. the ring sweep's
+ *  §V2-NEAR-PARALLEL-CAP guard will skip their shared corner and leave the ring OPEN.
+ *  Kept bit-identical to that guard's own threshold so the two can never disagree. */
+const RING_COLLINEAR_SIN = 0.05;
+
+/** Minimum half-thickness difference (m) that makes a collinear adjacent pair a genuine STEP.
+ *  Below this the two members' facing offset edges are effectively COINCIDENT, the open ring
+ *  closes flush anyway, and the pre-fix N-way solve already tiles cleanly → the pass is inert. */
+const RING_STEP_EPS_M = 1e-4;
+
 /** systemTypeId of a wall, normalised (undefined → '') so equality tests treat every
  *  type-less wall as one and the same type → the guard is a no-op on legacy inputs. */
 function wallSystemType(w: WallInput): string {
@@ -667,6 +690,116 @@ function detectJunctions(walls: readonly WallInput[], opts: Required<ResolveOpti
             }
             // Freeze: this junction now contains ONLY the tight same-corner arms.
             j.realEndpoints = cornerRefs;
+        }
+        for (const e of extra) drafts.push(e);
+    }
+
+    // §FIX-WALL-LCORNER-COLLINEAR-STEP (founder 2026-08-06) — a THIRD wall co-terminating
+    // EXACTLY on an existing L-corner vertex, COLLINEAR with one of the two arms.
+    //
+    // THE founder defect (recurring, HIGH-visibility — his screenshot): two THICK walls A and
+    // B meet in a clean mitred L at a shared corner vertex. A THIN wall C arrives from the
+    // opposite side — collinear with arm A — and terminates at that SAME vertex (the normal
+    // result of snapping the new wall's endpoint to the corner). The junction then renders a
+    // stray DIAGONAL / triangular sliver across the outer corner, the thin wall fails to butt
+    // cleanly on the thick wall's face, and the corner reads as OVERLAPPING OUTLINES instead
+    // of one welded solid.
+    //
+    // ROOT CAUSE (reproduced at footprint level). C is admitted to the ring sweep as a full
+    // member, so A and B stop mitring against EACH OTHER and instead mitre against the THIN
+    // newcomer's offset edges. Because C is collinear with A, their two facing offset edge-
+    // lines are PARALLEL and separated by (halfT_A − halfT_C) — they have NO intersection, so
+    // §V2-NEAR-PARALLEL-CAP skips that adjacent pair and the angular ring never CLOSES. Both
+    // A and B consequently retract their outer mitre corner all the way back to the junction
+    // centre, and the L's outer corner square is left with an UNCOVERED wedge of
+    // (halfT_A − halfT_C) × halfT_B (measured: 0.015 m² for 300/100 mm walls). C's own cap is
+    // mitred against B on one side but square-capped at the centreline on the collinear side —
+    // that asymmetric cap IS the stray diagonal.
+    //
+    // Why the existing guards miss it: §FIX-WALL-3RD-AT-LCORNER-IMMUTABLE (L-146) freezes the
+    // corner only when the newcomer is measurably OFF the shared vertex (> 1 mm), on the
+    // premise that an exactly-coincident newcomer is "the sound symmetric 3-way Y". That
+    // premise holds only when the ring CLOSES; it is false for a collinear pair with a
+    // thickness step, which is precisely the common thin-partition-into-thick-corner case.
+    // §FIX-WALL-LCORNER-T-CLEAN (L-61) does not apply either: C co-terminates at the vertex,
+    // so its foot CLAMPS to the arm's end (not strictly interior) → it is not a tee-attacher.
+    //
+    // THE INVARIANT. A co-terminating cluster is a well-posed N-way corner only when EVERY
+    // adjacent pair in its angular ring yields a shared corner. When an adjacent pair is
+    // COLLINEAR and its members have DIFFERENT thicknesses, the ring is OPEN and the sweep's
+    // result is not a corner at all. The THINNER member of such a pair is not a corner arm —
+    // it is a butt-attacher. EXTRACT it into its OWN T-junction against the most-perpendicular
+    // remaining member (the identical seat L-130 / L-146 already use), so the surviving ring
+    // closes and resolves BYTE-IDENTICALLY to the corner with no newcomer present (C11: creating
+    // an element must not mutate existing ones), while the newcomer butts FLAT on the face it
+    // meets. Repeated until the ring closes or fewer than 3 members remain.
+    //
+    // Guards keeping it inert everywhere it must be: EQUAL-thickness collinear members have no
+    // step (their offset edges are coincident, the open ring closes flush) → no-op, byte-
+    // identical; a genuine 45°/Y/X cluster has NO collinear adjacent pair → no-op; a 2-member
+    // cluster (a plain L, or a genuine collinear pass-through of two walls) is never touched;
+    // clusters carrying a passthrough are left to the T machinery. DETECTION-FRAME ONLY: it
+    // splits a cluster and points the new junction at a foot on the host body — it NEVER
+    // relocates a centreline baseline, so the reverted §CLAMP-COSHARE-WELD / ADR-0072 P3c-b
+    // doubling regression mode is unreachable. Pure + deterministic; runs AFTER L-61/L-130/L-146
+    // so genuine interior tees and off-vertex newcomers are already peeled.
+    if (lCornerCollinearStepEnabled()) {
+        const extra: JunctionDraft[] = [];
+        const posOf = (r: EndpointRef): Pt2 => (r.isStart ? walls[r.wallIdx]!.start : walls[r.wallIdx]!.end);
+        const awayDir = (r: EndpointRef): Pt2 => {
+            const w = walls[r.wallIdx]!;
+            return unit(r.isStart ? sub(w.end, w.start) : sub(w.start, w.end));
+        };
+        for (const j of drafts) {
+            if (j.passthroughWalls.length !== 0) continue;    // pure co-terminating clusters only
+            // Bounded: each iteration removes exactly one member, and we stop at 3.
+            for (let guard = 0; guard < walls.length + 1; guard++) {
+                if (j.realEndpoints.length < 3) break;        // removing one must leave a real corner
+                // Rebuild the angular ring exactly as `buildSweepEntries` will.
+                const ring = j.realEndpoints
+                    .map(r => ({ r, dir: awayDir(r) }))
+                    .map(e => ({ ...e, angle: Math.atan2(e.dir.z, e.dir.x) }))
+                    .sort((a, b) => (a.angle - b.angle) || (a.r.wallIdx - b.r.wallIdx));
+                // Find an adjacent COLLINEAR pair (wrap-around) whose thicknesses STEP.
+                let victim: EndpointRef | null = null;
+                for (let i = 0; i < ring.length; i++) {
+                    const curr = ring[i]!;
+                    const next = ring[(i + 1) % ring.length]!;
+                    if (curr.r.wallIdx === next.r.wallIdx) continue;
+                    const sinAngle = Math.abs(curr.dir.x * next.dir.z - curr.dir.z * next.dir.x);
+                    if (sinAngle >= RING_COLLINEAR_SIN) continue;         // pair yields a real corner
+                    const hCurr = walls[curr.r.wallIdx]!.thickness * 0.5;
+                    const hNext = walls[next.r.wallIdx]!.thickness * 0.5;
+                    if (Math.abs(hCurr - hNext) <= RING_STEP_EPS_M) continue;   // no step → closes flush
+                    // The THINNER member butts onto the thicker run — it is not a corner arm.
+                    victim = hCurr < hNext ? curr.r : next.r;
+                    break;
+                }
+                if (!victim) break;                                       // ring closes — done
+                // Seat the victim as its OWN T-junction on the most-PERPENDICULAR remaining
+                // member (a collinear host would give a degenerate parallel butt). Same seat as
+                // §FIX-WALL-V2-EXISTING-CORNER-IMMUTABLE / §FIX-WALL-3RD-AT-LCORNER-IMMUTABLE.
+                const eG = posOf(victim);
+                const dG = awayDir(victim);
+                let hostIdx = -1;
+                let bestAbsDot = Infinity;
+                for (const H of j.realEndpoints) {
+                    if (H.wallIdx === victim.wallIdx) continue;
+                    const dH = unit(sub(walls[H.wallIdx]!.end, walls[H.wallIdx]!.start));
+                    const ad = Math.abs(dot(dG, dH));
+                    if (ad >= 0.94) continue;                             // near-collinear → not a seat
+                    // Deterministic tie-break on wallIdx so input order cannot change the result.
+                    if (ad < bestAbsDot - 1e-12 || (Math.abs(ad - bestAbsDot) <= 1e-12 && hostIdx >= 0 && H.wallIdx < hostIdx)) {
+                        bestAbsDot = ad;
+                        hostIdx = H.wallIdx;
+                    }
+                }
+                if (hostIdx < 0) break;                                   // no perpendicular seat — leave as-is
+                const host = walls[hostIdx]!;
+                const foot = projectOnSeg(eG, host.start, host.end).foot;
+                extra.push({ point: foot, realEndpoints: [victim], passthroughWalls: [hostIdx] });
+                j.realEndpoints = j.realEndpoints.filter(r => r !== victim);
+            }
         }
         for (const e of extra) drafts.push(e);
     }

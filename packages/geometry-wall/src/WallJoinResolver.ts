@@ -1175,10 +1175,45 @@ export class WallJoinResolver {
                             ? _buttsHere(wJ, epJ.side as 'start' | 'end')
                             : _buttsHere(wI, epI.side as 'start' | 'end'));
 
+                    // §FIX-WALL-LCORNER-COLLINEAR-STEP (founder 2026-08-06) — the GEOMETRIC
+                    // discriminator the L-122 type-proxy / L-251 intent-proxy above both miss.
+                    //
+                    // THE founder defect (his screenshot, and the residual L-251 explicitly
+                    // records as unclosed): two THICK walls meet in a committed mitred L; a THIN
+                    // wall — DEFAULT type, no `joinIntent` (the generated / legacy / plain-drawn
+                    // case) — arrives COLLINEAR with one arm and terminates at the corner. Both
+                    // existing proxies read "same type, no intent" → `freezeExistingCorner` stays
+                    // false → the pass-through predicate fires → §PASS-THROUGH-FLUSH square-caps
+                    // the WHOLE cluster to the consensus and the committed L's miter normals are
+                    // DELETED (measured: the 2-wall L's ±(0.707,−0.707) become null on all three
+                    // walls the moment the thin wall lands). On the legacy render path (LAYERED
+                    // walls and opening-bearing walls → `buildMiterPrism`) that is the founder's
+                    // open corner + overlapping outlines.
+                    //
+                    // The discriminator IS in the geometry, and it is the same invariant the V2
+                    // fix uses: a genuine pass-through is two segments of ONE straight run, and
+                    // one run has ONE THICKNESS. §FIX-NEWWALL-LCORNER-SKEW already tightened this
+                    // predicate with lateral coincidence ("on the same line"); thickness equality
+                    // is the remaining half of "segments of the same wall". A collinear, laterally
+                    // coincident candidate of a DIFFERENT thickness paired with a COMMITTED corner
+                    // arm is a distinct newcomer butting the corner — never a continuation of it.
+                    //
+                    // Conservative by construction: it is an additional OR-term gated behind the
+                    // pre-existing `exactlyOneCommitted` test, so it can only ever fire where a
+                    // committed primary L-corner pair is being dissolved by a newcomer. Genuine
+                    // same-thickness through-runs (the resi §_repro_passthrough pair, the
+                    // §cornerFlush collinear-pass-through + stem) have zero thickness delta → the
+                    // term is inert → byte-unchanged. Detection frame only — it changes which
+                    // branch the cluster takes, never a baseline.
+                    const _thicknessStep =
+                        Math.abs((wI.thickness ?? 0) - (wJ.thickness ?? 0)) > 1e-4;
+
                     const freezeExistingCorner =
                         (globalThis as any).window?.__pryzmExistingCornerImmutable !== false &&
                         exactlyOneCommitted &&
-                        (_wallType(wI) !== _wallType(wJ) || newcomerButtsOntoCorner);
+                        (_wallType(wI) !== _wallType(wJ) || newcomerButtsOntoCorner ||
+                         ((globalThis as { __pryzmWallLCornerCollinearStep?: boolean })
+                              .__pryzmWallLCornerCollinearStep !== false && _thicknessStep));
                     if (Math.abs(dirI.dot(dirJ)) >= COLLINEAR_DOT && laterallyCoincident && !freezeExistingCorner) {
                         clusterHasPassThrough = true;
                         passThroughDir = dirI.clone();
