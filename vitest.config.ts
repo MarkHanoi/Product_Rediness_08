@@ -52,6 +52,12 @@ export default defineConfig({
       // for the buildable-envelope flat render (confident violet vs provisional grey vs upper-bound
       // maximum-extent) — a thin adapter over the shared L2 completeness classifier.
       'apps/editor/src/ui/site/__tests__/**/*.spec.ts',
+      // §FIX-STAIR-PROPS-DISPLAY-DEAF / §FIX-STAIR-PANEL-* : the stair property-panel
+      // REACHABILITY matrix — every editable row must resolve its current value, offer
+      // only schema-valid options, respect STAIR_CONSTRAINTS, and reach a geometry
+      // rebuild. A control that renders and does nothing — or that lies about its
+      // current value — is the defect class these pin.
+      'apps/editor/src/ui/property-panel/__tests__/**/*.spec.ts',
       // §XSS-SINK-SCAN (L-407): the GA-gate HTML-sink classifier + the repo-wide
       // ratchet assertion. Pure Node (fs + string analysis); lives here because
       // `test:root` is the only suite CI runs over non-package tooling.

@@ -310,10 +310,33 @@ export class UpdateElementParameterCommand implements Command {
         }
     }
 
+    /**
+     * §FIX-STAIR-PROPS-UNDO — snapshot the PRE-EDIT value of every key being written,
+     * so `undo()` can replay it as a normal parameter write.
+     *
+     * The flat `element[key]` read was wrong for DOTTED keys. The stair panel sends
+     * `properties.stringerType` / `properties.nosingType` / `properties.riserVisible` /
+     * `properties.material` / `properties.railingType`; `element['properties.nosingType']`
+     * is `undefined`, so the snapshot recorded `undefined` and undo replayed
+     * `{ 'properties.nosingType': undefined }` — which `applyUpdate` faithfully expands
+     * to `{ properties: { nosingType: undefined } }` and StairStore merges, ERASING the
+     * property instead of restoring it. `StairMeshBuilder` then fell back to the type /
+     * DEFAULT_STAIR_PROPERTIES value, so undo produced a stair that matched neither the
+     * before nor the after state. Resolve the path so undo restores the real prior value.
+     */
     private captureCurrentValues(element: any, parameters: Record<string, any>): Record<string, any> {
         const snapshot: Record<string, any> = {};
         for (const key of Object.keys(parameters)) {
-            snapshot[key] = element[key];
+            if (key.includes('.')) {
+                let cur: any = element;
+                for (const seg of key.split('.')) {
+                    if (cur === null || cur === undefined) { cur = undefined; break; }
+                    cur = cur[seg];
+                }
+                snapshot[key] = cur;
+            } else {
+                snapshot[key] = element[key];
+            }
         }
         return snapshot;
     }
