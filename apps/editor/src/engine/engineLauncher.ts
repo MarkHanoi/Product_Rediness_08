@@ -1030,9 +1030,21 @@ export async function bootstrap(
         () => { _levelCamReady = false; }, // step-5 callback
         // §U-B1 (DAILY-USE-AUDIT 2026-05-20) — clear undo stacks on project switch
         // so Project B never sees Project A's Ctrl+Z entries.
+        //
+        // §UNDO-CLEAR-BOTH-STACKS (L-692) — C03 §4.6 U-6 requires BOTH stacks to be
+        // cleared, and this hook cleared only the ring buffer. There are TWO undo
+        // backends (§4.3), so wiping one leaves the other holding Project A's
+        // entries: once Project B's ring buffer is exhausted, `performUndo`'s
+        // commandManager fallback replays a Project-A command's `undo()` against
+        // Project-B stores. ProjectLoader (~:2179) already clears both on the LOAD
+        // path; the project-SWITCH lifecycle path did not.
         () => {
             const r = window.runtime as { bus?: { clearUndoStacks?: () => void } } | undefined;
-            r?.bus?.clearUndoStacks?.();
+            try { r?.bus?.clearUndoStacks?.(); }
+            catch (e) { console.warn('[engineLauncher] §U-B1: bus.clearUndoStacks() failed', e); }
+            const cm = (globalThis as { commandManager?: { clearHistory?: () => void } }).commandManager;
+            try { cm?.clearHistory?.(); }
+            catch (e) { console.warn('[engineLauncher] §U-B1: commandManager.clearHistory() failed', e); }
         },
     );
     _lifecycle.bind();

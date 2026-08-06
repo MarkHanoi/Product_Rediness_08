@@ -133,6 +133,48 @@ describe('§UNDO-SHADOW-DROP-SCOPE — dropEntriesForTargets is ORPHAN-scoped (C
     expect(cm.getHistory().length).toBe(1);
   });
 
+  // ── §UNDO-NO-PHANTOM (C03 §4.6 U-3/U-4) — a REJECTED command leaves no trace ──
+  //
+  // The legacy mirror of the ring buffer's empty-patch rule (U-3,
+  // `CommandBus.ts:354`): a command that never mutated anything must not occupy
+  // an undo slot, or the user pays a keypress for a no-op. On Path A the
+  // equivalents are a `canExecute` refusal and an `execute()` that returns
+  // `success: false` after its snapshot was rolled back.
+
+  it('a canExecute REJECTION pushes no history entry (no phantom Ctrl+Z)', () => {
+    const rejecting = fakeCommand('CREATE_WALL', ['WX']);
+    (rejecting as unknown as { canExecute: () => unknown }).canExecute =
+      () => ({ ok: false, reason: 'no active level' });
+
+    const result = cm.execute(rejecting);
+
+    expect(result.success).toBe(false);
+    expect(cm.canUndo()).toBe(false);
+    expect(cm.getHistory().length).toBe(0);
+  });
+
+  it('an execute() that returns success:false pushes no history entry either', () => {
+    const failing = fakeCommand('CREATE_WALL', ['WY']);
+    (failing as unknown as { execute: () => unknown }).execute =
+      () => ({ success: false, affectedElementIds: [], info: ['degenerate geometry'] });
+
+    expect(cm.execute(failing).success).toBe(false);
+    expect(cm.canUndo()).toBe(false);
+  });
+
+  it('a rejection does NOT clear a pending redo stack', () => {
+    wallStore.add({ id: 'W7' });
+    cm.execute(fakeCommand('CREATE_WALL', ['W7']));
+    cm.undo();
+    expect(cm.canRedo()).toBe(true);
+
+    const rejecting = fakeCommand('CREATE_WALL', ['WZ']);
+    (rejecting as unknown as { canExecute: () => unknown }).canExecute = () => ({ ok: false, reason: 'nope' });
+    cm.execute(rejecting);
+
+    expect(cm.canRedo()).toBe(true);   // a refused command is not a new branch
+  });
+
   it('an orphaned entry is dropped from the REDO stack too (no phantom redo)', () => {
     wallStore.add({ id: 'W9' });
     cm.execute(fakeCommand('CREATE_WALL', ['W9']));

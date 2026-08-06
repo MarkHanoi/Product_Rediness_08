@@ -121,13 +121,11 @@ let _lastSource: 'ring-buffer' | 'commandManager' | null = null;
  *
  * SAME-GESTURE GUARD (load-bearing). The 8+ DUAL-DISPATCH tools (WallTool, Slab,
  * Roof, Furniture, Plumbing, Stair, Handrail, Beam, Room, annotations) put ONE
- * gesture in BOTH stacks, and the two halves are stamped microseconds apart in
+ * gesture in BOTH stacks, and the two halves are stamped milliseconds apart in
  * either order. Routing such a pair by timestamp would undo the legacy twin
  * first and leave the ring-buffer entry behind as a phantom keypress — the very
  * bug U-8 exists to kill. So the chronological rule applies ONLY when the two
- * top entries are about DIFFERENT elements: if the legacy entry's `targetIds`
- * intersect the ids in the ring buffer's top patch, they are the same gesture
- * and the established ring-buffer-first + shadow-drop path handles it.
+ * top entries are NOT the same gesture; see {@link _isSameGestureTwin}.
  */
 function _cmEntryIsNewer(
   pair: PatchPair | null,
@@ -138,11 +136,117 @@ function _cmEntryIsNewer(
   if (!cm?.canUndo?.()) return false;
   const cmTime = cm.peekUndoTimestamp?.();
   if (typeof cmTime !== 'number' || cmTime <= pairTime) return false;
-  // Same-gesture (dual-dispatch twin) → never re-route.
-  const cmTargets = cm.peekUndoTargetIds?.() ?? [];
-  if (cmTargets.length > 0) {
-    const rbIds = new Set(_idsOf(pair));
-    if (cmTargets.some(id => rbIds.has(id))) return false;
+  if (_isSameGestureTwin(pair, cm.peekUndoTargetIds?.() ?? [], pairTime, cmTime)) return false;
+  return true;
+}
+
+/**
+ * §UNDO-SAME-GESTURE (L-690) — the widest same-gesture window a DUAL-DISPATCH
+ * pair can straddle, in ms.
+ *
+ * A twin's two halves are produced inside ONE synchronous dispatch (WallTool
+ * pushes `wall.create` to the bus and then constructs `CreateWallCommand` ten
+ * lines later; the `initBusHandlers` gizmo bridges compute their `undoPatch` and
+ * run `_cmExec` in the same handler call). Both stamps come from the same
+ * `Date.now()` clock, so their delta is bounded by the gesture's own synchronous
+ * duration — single-digit ms in practice. Two DELIBERATE user actions are
+ * separated by at least a selection plus a click or keystroke.
+ *
+ * 250 ms sits an order of magnitude above the first and well below the second.
+ * The failure modes are deliberately asymmetric: too small only ever costs a
+ * phantom no-op keypress (annoying, recoverable), while too large restores the
+ * silent element-destruction this constant exists to prevent.
+ *
+ * This is the one heuristic left in the routing, and it exists only because the
+ * two stacks carry no shared GESTURE identity. The principled replacement is a
+ * gesture/commit id stamped on both `PatchPair` and `Command` — see the C03
+ * §4.6 U-10 amendment proposed with this change, and ADR-0251, which removes the
+ * question entirely by collapsing to one stack.
+ */
+const _SAME_GESTURE_WINDOW_MS = 250;
+
+/**
+ * §UNDO-SAME-GESTURE (L-690) — is the legacy stack's top entry the SAME GESTURE
+ * as the ring buffer's top entry (a dual-dispatch twin), rather than a distinct
+ * later action that merely touches the same elements?
+ *
+ * THE BUG THIS FIXES (found by audit, two live shapes). The guard previously
+ * asked only "do the legacy entry's `targetIds` INTERSECT the ids in the ring
+ * buffer's top patch?" — and answered "intersect ⇒ twin". That inference is
+ * unsound: an intersection is not a twin relation. EVERY later
+ * commandManager-only edit of an element that was CREATED on the ring buffer
+ * intersects it too, and there are ~70 such bridges in `initBusHandlers`
+ * (`stores: []` → no PatchPair): `wall.updateColor`, `slab.updateDimensions`,
+ * `element.changeType`, `door.setOffset`, `level.*`, `view.*`, `grid.*`, …
+ *
+ *   Shape 1 — parameter edit. Draw a wall in PLAN (ring buffer ONLY), then
+ *   change its colour from the property panel (commandManager ONLY). Ctrl+Z read
+ *   the colour edit as the wall-create's twin, ran ring-buffer-first, and
+ *   **deleted the wall**; the shadow-drop then found the colour entry fully
+ *   orphaned and removed it from `history` AND `redoStack`. One keypress, the
+ *   wrong element destroyed, and a user step erased from the timeline.
+ *
+ *   Shape 2 — hosted opening (the `bffa20df` family). A door placed in a
+ *   PLAN-drawn wall is a commandManager-only `CreateWallOpeningCommand` whose
+ *   post-U-9 `targetIds` are `[wallId, doorId]`. Those intersect the wall's ring
+ *   entry, so U-10's ordering never engaged and Ctrl+Z still jumped over the
+ *   door to undo the wall beneath it. U-9's widening stopped the door's entry
+ *   being DESTROYED, but did not fix the ORDER.
+ *
+ * THE PREDICATE. Two independent conditions, both necessary:
+ *
+ *   (a) SUBSET, not intersection — `cmTargets ⊆ rbIds`. This is exactly the
+ *       predicate `CommandManagerImpl.dropEntriesForTargets` uses to identify
+ *       the twin it drops, so the ordering decision and the drop decision now
+ *       agree by construction (they disagreed before, which is what let shape 2
+ *       through). An entry naming an element the ring patch never touched cannot
+ *       be that patch's twin. Closes shape 2.
+ *
+ *   (b) SAME GESTURE IN TIME — the two commits are within
+ *       {@link _SAME_GESTURE_WINDOW_MS}. A twin is produced inside one
+ *       synchronous dispatch; a later edit is a separate user action. Closes
+ *       shape 1, which (a) alone cannot: a whole-element create and a later
+ *       single-element edit have identical id sets.
+ *
+ * Both conditions only ever NARROW the twin class, i.e. hand more cases to the
+ * chronological rule U-10 already mandates. Neither can newly classify an
+ * unrelated pair AS a twin, so no case that routed correctly before can regress.
+ *
+ * An entry with no declared `targetIds` is not treated as a twin — matching
+ * `dropEntriesForTargets`, which never drops such an entry either.
+ */
+function _isSameGestureTwin(
+  pair: PatchPair | null,
+  cmTargets: readonly string[],
+  pairTime: number,
+  cmTime: number,
+): boolean {
+  if (cmTargets.length === 0) return false;
+  if (Math.abs(cmTime - pairTime) > _SAME_GESTURE_WINDOW_MS) return false;
+  const rbIds = new Set(_idsOf(pair));
+  return cmTargets.every(id => rbIds.has(id));
+}
+
+/**
+ * §UNDO-NO-PHANTOM (L-691) — did a legacy `undo()` / `redo()` actually do
+ * something?
+ *
+ * `CommandManager.undo()` returns `null` when its history is empty and a
+ * `CommandResult` with `success: false` when the command's own inverse refused
+ * (a `canExecute` rejection on redo, a store that no longer holds the element).
+ * Both are "this keypress achieved nothing". Treating them as success consumed
+ * the user's Ctrl+Z and — worse — suppressed the ring-buffer entry underneath
+ * that COULD have been reverted (C03 §4.6 U-4: a swallowed failure must be
+ * reported to the caller, never logged as success).
+ *
+ * `undefined` reads as success: the duck-typed `CommandManagerLike` seam allows
+ * implementations that return nothing, and inventing a failure for them would
+ * double-undo.
+ */
+function _cmDidWork(result: unknown): boolean {
+  if (result === null) return false;
+  if (typeof result === 'object' && result !== null && 'success' in result) {
+    return (result as { success?: unknown }).success !== false;
   }
   return true;
 }
@@ -282,12 +386,17 @@ export function performUndo(): void {
         // door/window (ADD_OPENING) to its own undo instead of being jumped over
         // by the older ring-buffer entry beneath it. Cursor untouched — safe.
         if (_cmEntryIsNewer(pair, cm)) {
-          cm?.undo?.();
-          _lastSource = 'commandManager';
-          span.setAttribute('pryzm.undo.path', 'commandManager-newer');
-          console.log('[Undo] commandManager undo (newer than ring-buffer top — cross-stack order)');
-          span.end();
-          return;
+          // §UNDO-NO-PHANTOM (L-691) — only consume the keypress if the legacy
+          // undo actually reverted something; a refusal must fall through to the
+          // ring-buffer entry underneath rather than no-op the user's Ctrl+Z.
+          if (_cmDidWork(cm?.undo?.())) {
+            _lastSource = 'commandManager';
+            span.setAttribute('pryzm.undo.path', 'commandManager-newer');
+            console.log('[Undo] commandManager undo (newer than ring-buffer top — cross-stack order)');
+            span.end();
+            return;
+          }
+          console.warn('[Undo] commandManager undo reported no work — falling through to the ring buffer');
         }
         if (_covered(stores, map)) {
           const ids = _idsOf(pair);               // capture BEFORE the cursor moves
@@ -372,7 +481,14 @@ export function performRedo(): void {
 
       const tryCommandManager = (): boolean => {
         if (!cm?.canRedo?.()) return false;
-        cm.redo?.();
+        // §UNDO-NO-PHANTOM (L-691) — mirror of performUndo. A legacy redo whose
+        // command refuses (canExecute rejection, element gone) must NOT report
+        // success: doing so both ate the keypress and suppressed the ring-buffer
+        // redo that was still pending (C03 §4.6 U-4).
+        if (!_cmDidWork(cm.redo?.())) {
+          console.warn('[Redo] commandManager redo reported no work — trying the ring buffer');
+          return false;
+        }
         _lastSource = 'commandManager';
         span.setAttribute('pryzm.redo.path', 'commandManager');
         console.log('[Redo] commandManager redo');
