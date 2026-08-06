@@ -20,6 +20,16 @@ type WallStoreRef = Pick<WallStore, 'subscribe'>;
 
 export class WindowDependencyTracker {
     private graph = new Map<string, Set<string>>();
+    /**
+     * §FIX-HOSTWALL-TRACKER-INDEX-QUADRATIC — windowId → the wallId bucket it is
+     * currently filed under. Twin of the DoorDependencyTracker pointer; see the long
+     * note there. Turns `register()` / `unregister()` from an O(walls-with-openings)
+     * bucket scan into O(1), which is what makes `bootstrap()` and project-teardown
+     * `clear()` linear instead of quadratic.
+     *
+     * INVARIANT: `home.get(w) === wall`  ⟺  `graph.get(wall)!.has(w)`; empty buckets pruned.
+     */
+    private home = new Map<string, string>();
     private unsubscribeWall?: () => void;
     private unsubscribeWindow?: () => void;
 
@@ -31,6 +41,11 @@ export class WindowDependencyTracker {
 
         this.unsubscribeWall = wallStore.subscribe((event: WallEventType, wall: WallData, prev?: WallData) => {
             if (event === 'remove') {
+                // §FIX-HOSTWALL-TRACKER-INDEX-QUADRATIC — purge BOTH sides of the index
+                // together, or the dropped bucket's windows keep a `home` pointer to a
+                // wall key that no longer exists.
+                const gone = this.graph.get(wall.id);
+                if (gone) { for (const winId of gone) this.home.delete(winId); }
                 this.graph.delete(wall.id);
                 return;
             }
@@ -92,18 +107,36 @@ export class WindowDependencyTracker {
         // reassignment. Every idempotent `touch()` arrives already indexed under
         // the same wall, so this early return removes the re-entrant Set churn at
         // its source. (Twin of the DoorDependencyTracker guard.)
-        if (this.graph.get(wallId)?.has(windowId)) return;
-        for (const set of this.graph.values()) set.delete(windowId);
+        //
+        // §FIX-HOSTWALL-TRACKER-INDEX-QUADRATIC — read the O(1) `home` pointer instead
+        // of probing the bucket, and detach from the previous bucket directly instead of
+        // scanning every bucket.
+        const current = this.home.get(windowId);
+        if (current === wallId) return;
+        if (current !== undefined) this._detach(windowId, current);
         let bucket = this.graph.get(wallId);
         if (!bucket) {
             bucket = new Set();
             this.graph.set(wallId, bucket);
         }
         bucket.add(windowId);
+        this.home.set(windowId, wallId);
     }
 
     private unregister(windowId: string): void {
-        for (const set of this.graph.values()) set.delete(windowId);
+        const current = this.home.get(windowId);
+        if (current === undefined) return;
+        this._detach(windowId, current);
+    }
+
+    /** §FIX-HOSTWALL-TRACKER-INDEX-QUADRATIC — O(1) bucket detach, pruning empties. */
+    private _detach(windowId: string, wallId: string): void {
+        const bucket = this.graph.get(wallId);
+        if (bucket) {
+            bucket.delete(windowId);
+            if (bucket.size === 0) this.graph.delete(wallId);
+        }
+        this.home.delete(windowId);
     }
 
     bootstrap(): void {
@@ -120,5 +153,6 @@ export class WindowDependencyTracker {
         this.unsubscribeWall?.();
         this.unsubscribeWindow?.();
         this.graph.clear();
+        this.home.clear();
     }
 }

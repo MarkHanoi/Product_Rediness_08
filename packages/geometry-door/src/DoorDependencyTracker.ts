@@ -30,6 +30,18 @@ type WallStoreRef = Pick<WallStore, 'subscribe'>;
 export class DoorDependencyTracker {
     /** wallId → doorIds hosted on that wall */
     private graph = new Map<string, Set<string>>();
+    /**
+     * §FIX-HOSTWALL-TRACKER-INDEX-QUADRATIC — doorId → the wallId bucket the door is
+     * CURRENTLY filed under. The forward `graph` alone cannot answer "which bucket holds
+     * this door?" without scanning every bucket, which made `register()`/`unregister()`
+     * O(walls-with-openings) and therefore made `bootstrap()` and project-teardown
+     * `clear()` O(doors × walls) — quadratic. This pointer makes both O(1).
+     *
+     * INVARIANT (must hold after EVERY mutation, mirroring the DoorStore `_byWall`
+     * invariant): `home.get(d) === w`  ⟺  `graph.get(w)!.has(d)`. Empty buckets are
+     * pruned, so `graph` never retains a wall key with a zero-size Set.
+     */
+    private home = new Map<string, string>();
     private unsubscribeWall?: () => void;
     private unsubscribeDoor?: () => void;
 
@@ -44,6 +56,13 @@ export class DoorDependencyTracker {
         this.unsubscribeWall = wallStore.subscribe((event: WallEventType, wall: WallData, prev?: WallData) => {
             if (event === 'remove') {
                 // The wall cascade handles the actual delete; we only purge our index.
+                // §FIX-HOSTWALL-TRACKER-INDEX-QUADRATIC — dropping the bucket alone left
+                // every one of its doors pointing at a wall key that no longer exists, so
+                // a later `register()` for that door would try to prune a bucket that had
+                // already gone and the `home` ⟺ `graph` invariant would be false. Purge
+                // both sides together.
+                const gone = this.graph.get(wall.id);
+                if (gone) { for (const doorId of gone) this.home.delete(doorId); }
                 this.graph.delete(wall.id);
                 return;
             }
@@ -110,19 +129,37 @@ export class DoorDependencyTracker {
         // this early return removes the re-entrant Set churn at its source —
         // any future caller that iterates a live bucket is safe by construction,
         // not merely by that caller's own discipline.
-        if (this.graph.get(wallId)?.has(doorId)) return;
-        // Remove from any previous bucket (handles wallId reassignment).
-        for (const set of this.graph.values()) set.delete(doorId);
+        //
+        // §FIX-HOSTWALL-TRACKER-INDEX-QUADRATIC — the guard now reads the `home`
+        // pointer rather than the bucket, which is the same answer (the invariant
+        // makes them equivalent) at O(1) and without needing the bucket to exist.
+        const current = this.home.get(doorId);
+        if (current === wallId) return;
+        // Remove from the previous bucket — O(1) via `home`, not an O(buckets) scan.
+        if (current !== undefined) this._detach(doorId, current);
         let bucket = this.graph.get(wallId);
         if (!bucket) {
             bucket = new Set();
             this.graph.set(wallId, bucket);
         }
         bucket.add(doorId);
+        this.home.set(doorId, wallId);
     }
 
     private unregister(doorId: string): void {
-        for (const set of this.graph.values()) set.delete(doorId);
+        const current = this.home.get(doorId);
+        if (current === undefined) return;
+        this._detach(doorId, current);
+    }
+
+    /** §FIX-HOSTWALL-TRACKER-INDEX-QUADRATIC — O(1) bucket detach, pruning empties. */
+    private _detach(doorId: string, wallId: string): void {
+        const bucket = this.graph.get(wallId);
+        if (bucket) {
+            bucket.delete(doorId);
+            if (bucket.size === 0) this.graph.delete(wallId);
+        }
+        this.home.delete(doorId);
     }
 
     /** Build an initial dependency graph snapshot from all existing doors. */
@@ -141,5 +178,6 @@ export class DoorDependencyTracker {
         this.unsubscribeWall?.();
         this.unsubscribeDoor?.();
         this.graph.clear();
+        this.home.clear();
     }
 }
