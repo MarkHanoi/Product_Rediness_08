@@ -12,6 +12,8 @@
 .github
 .idea
 .vscode
+# Visual Studio solution cache (revit-addin). ~264MB of local IDE state.
+.vs
 .replit
 replit.nix
 replit.md
@@ -147,3 +149,22 @@ public/items
 docs
 client
 .agents
+
+# ─── Probe caches + research outputs (2026-08-06) ───────────────────────────
+# The build context had grown to 2.8GB, dominated by UNTRACKED probe artefacts
+# under tools/. `tools/` IS copied into the runtime image (Dockerfile L60/L178),
+# so these are excluded surgically — each was verified to be referenced ONLY in
+# source COMMENTS (provenance citations for measured constants), never read at
+# runtime by server.js or any package:
+#  • **/.cache          — 1.57GB, tools/cold-start-probe/.cache (untracked HTTP
+#                         cache for the Spanish cadastre/planning probes).
+#  • cordoba-ar-georef/out — 738MB of AR georeferencing probe output (3 tracked
+#                         files); research evidence, not a build/runtime input.
+#  • scratchpad/        — 34MB of one-off probe scripts (probe-l58*.mts). Cited
+#                         in comments in site-parcel-data; never imported.
+# Net effect: context 2.8GB → ~200MB, which is what makes a non-CI deploy path
+# viable at all. Keep tools/<pack>/out for the small rule-pack probes — only the
+# two heavy dirs above are excluded.
+**/.cache
+tools/cordoba-ar-georef/out
+scratchpad
