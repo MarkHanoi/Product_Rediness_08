@@ -52,6 +52,7 @@ import { GroundFloorPlanController } from '@pryzm/core-app-model';
 import { GridToggleService } from '@app/ui/GridToggleService';
 import { WallEdgeVisibilityService } from '@app/ui/WallEdgeVisibilityService';
 import { initParcelBoundarySceneRenderer } from '@app/ui/site/ParcelBoundarySceneRenderer';
+import { installSiteProjectScope } from '@app/ui/site/siteProjectScope';
 import { ProjectContext, projectContext } from '@pryzm/core-app-model';
 // ViewportPathTracer is dynamically imported on first activation — see
 // `_ensureViewportPathTracer()` below. Statically importing it would pull
@@ -1264,6 +1265,26 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         try { nativeElementMeshExporter.clearCache(); } catch (e) { console.warn('[initScene] §L-325 NME.clearCache (bim-project-cleared) failed:', e); }
         try { frustumCullingService.reset(); } catch (e) { console.warn('[initScene] §L-325 FrustumCulling.reset (bim-project-cleared) failed:', e); }
     });
+
+    // §L-676 (C13 §3.7 / §3.9 / §3.10, C19 §1.11) — WIRE THE GIS/SITE HALF of the
+    // project-isolation teardown. `siteProjectScope` registers the three site scopes
+    // (`site.model`, `site.dispatch`, `site.neighbourFootprints`) with
+    // `projectScopeRegistry` so ClearProjectCommand tears them down on every load,
+    // subscribes the C13 §3.7 `pryzm-project-switch` trigger on the TYPED bus, and
+    // registers the matching `ProjectScopeProbe`s so a surviving Project-A site FAILS
+    // the isolation audit instead of passing it.
+    //
+    // This call is the whole point of that module: until it existed, the file was
+    // exported and imported by nothing, so all three mechanisms were inert — the
+    // classic authored-but-unwired failure, where the fix ships, its unit tests pass
+    // in isolation, and production behaviour is completely unchanged. Placed here
+    // (rather than at module scope) because it resolves `window.runtime.events`, which
+    // the §L-325 block immediately below already relies on being live at this point.
+    try {
+        installSiteProjectScope();
+    } catch (e) {
+        console.error('[initScene] §L-676 installSiteProjectScope failed — GIS/site isolation is NOT wired:', e);
+    }
 
     // §L-325 (C13 §3.10 render side) — RENDER-SIDE ISOLATION DEV-ASSERT. The data-side
     // ProjectIsolationAudit compares the live STORES + scene against the loaded snapshot's
