@@ -92,6 +92,15 @@ export * from './furniture/UpdateFurnitureParametersCommand';
 // ─── Generic ──────────────────────────────────────────────────────────────
 export * from './generic/UpdateElementParameterCommand';
 
+// ─── Seating datum (§FIX-INTERIOR-FFL-SEATING / §FIX-SEATING-ONE-AUTHORITY) ──
+// The ONE authority for "what world Y does a thing resting on the floor sit at,
+// given the floor finishes present?" (C11 §5.4). Exported because the live
+// bus→legacy-store bridges in `apps/editor` must seat through it too — they do not
+// run the create COMMANDS, so without this export they silently re-derived
+// `level.elevation` and re-broke the defect. See SeatingDatumResolver's header.
+export * from './seating/SeatingDatumResolver';
+export * from './seating/ReseatLevelElementsCommand';
+
 // ─── Geospatial ───────────────────────────────────────────────────────────
 export * from './geospatial/SetGeoreferenceCommand';
 

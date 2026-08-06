@@ -38,6 +38,13 @@ import { SelectionManager } from '@pryzm/input-host';
 import { ToolManager } from '@pryzm/input-host';
 import { CommandManager } from '@pryzm/command-registry';
 import { CreateVerticalCirculationCommand } from '@pryzm/command-registry';
+// §FIX-SEATING-ONE-AUTHORITY — the bus→legacy-store bridges below place elements, so
+// they MUST seat through the shared finished-floor / finished-ceiling datum rather
+// than re-deriving `level.elevation` (C11 §5.4).
+import {
+    resolveFloorSeatingDatumFrom,
+    resolveCeilingSeatingDatumFrom,
+} from '@pryzm/command-registry';
 import { resolvePickStrategy } from '@pryzm/picking';
 
 import { SlabTool } from '@pryzm/geometry-slab';
@@ -96,6 +103,11 @@ import {
     DEFAULT_FLOOR_FINISH_BASE_OFFSET_M,
     DEFAULT_FLOOR_FINISH_THICKNESS_M,
 } from '@pryzm/core-app-model/stores';
+// §FIX-SEATING-ONE-AUTHORITY — floor/ceiling finish shapes + the fixture-kind split
+// the seating bridges below read. `FLOOR_MOUNTED_FIXTURES` is the SAME set
+// `CreateLightingCommand` uses, so the bus path and the command path cannot drift.
+import { FLOOR_MOUNTED_FIXTURES } from '@pryzm/core-app-model';
+import type { FloorData, CeilingData, LightingFixtureType } from '@pryzm/core-app-model';
 import { annotationStore } from '@pryzm/plugin-annotations';
 import { constraintStore } from '@pryzm/plugin-annotations';
 import { constraintSolver } from '@pryzm/plugin-annotations';
@@ -1790,12 +1802,42 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             if (!_ls) return;
             if (_ls.has?.(ev.id)) return; // dedup guard
             try {
+                // §FIX-SEATING-ONE-AUTHORITY — re-seat rather than forwarding `origin.y`.
+                // `LightingPlanToolHandler._resolveY` computes the raw structure
+                // (`level.elevation` for floor lamps, `level.elevation + level.height` for
+                // ceiling fixtures), so a floor lamp sank into the floor finish and a
+                // downlight was buried in the ceiling build-up. `CreateLightingCommand`
+                // seats correctly, but the PLAN tool dispatches `lighting.create` on the
+                // bus and lands HERE instead — so the command's fix never reached it.
+                // Deriving seating from the fixture KIND is exactly the C11 §5.4 rule, and
+                // this uses the same `FLOOR_MOUNTED_FIXTURES` split the command uses, so
+                // the two paths cannot drift.
+                const _fixtureType = (ev.kind ?? 'downlight') as LightingFixtureType;
+                const _levelId = ev.levelId ?? '';
+                const _lvl = (() => {
+                    try { return _levelId ? bimManager.getLevelById(_levelId) : undefined; }
+                    catch { return undefined; }
+                })() as { elevation?: number; height?: number } | undefined;
+                const _probe = { x: ev.origin.x, z: ev.origin.z };
+                const _seatY = FLOOR_MOUNTED_FIXTURES.has(_fixtureType)
+                    ? resolveFloorSeatingDatumFrom(
+                        _lvl,
+                        (floorStore as { getByLevel?: (id: string) => FloorData[] } | undefined)
+                            ?.getByLevel?.(_levelId),
+                        _probe,
+                    ).y
+                    : resolveCeilingSeatingDatumFrom(
+                        _lvl,
+                        (ceilingStore as { getByLevel?: (id: string) => CeilingData[] } | undefined)
+                            ?.getByLevel?.(_levelId),
+                        _probe,
+                    ).y;
                 _ls.add({
                     id:          ev.id,
                     type:        'lighting',
-                    levelId:     ev.levelId ?? '',
-                    fixtureType: ev.kind ?? 'downlight',
-                    position:    { x: ev.origin.x, y: ev.origin.y, z: ev.origin.z },
+                    levelId:     _levelId,
+                    fixtureType: _fixtureType,
+                    position:    { x: ev.origin.x, y: _seatY, z: ev.origin.z },
                 });
                 try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
                 console.log('[initTools] §FT-LIGHTING: lighting mirrored to legacy store', ev.id);
@@ -1837,11 +1879,35 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 // above the nightstand. Floor items (baseOffset 0) are unaffected:
                 // floor + 0 either way → byte-identical. Anchor to the floor datum and
                 // pass the real level elevation, mirroring CreateFurnitureCommand's D15 fix.
+                //
+                // §FIX-SEATING-ONE-AUTHORITY — and that floor datum is the FINISHED floor
+                // level (FFL), not the raw structural slab top. This bridge read
+                // `level.elevation` directly, which IS the slab top: every item placed via
+                // the live bus path — plan tool, furniture carousel drag-drop,
+                // KitchenCabinetTool, WardrobeCabinetTool, copy/paste, and the whole D-FLE
+                // `furniture.batch.create` furnish run — was sunk into the floor finish by
+                // its thickness. That is the founder-reported kitchen/wardrobe defect.
+                // `CreateFurnitureCommand` was fixed for it (L-87), but NONE of these paths
+                // run that command, so the fix never reached the user. Seat through the
+                // shared authority instead (C11 §5.4).
+                //
+                // `position.y` remains the storey FLOOR datum, so the A.21.D15 invariant
+                // above still holds — FurnitureFragmentBuilder adds `baseOffset` exactly
+                // once on top of it (`furnitureWorldY`). `levelElevation` stays the LEVEL's
+                // own elevation (it is metadata, not a datum), mirroring
+                // CreateFurnitureCommand which likewise sets `y: seat.y` +
+                // `levelElevation: level.elevation`.
                 const _lvl = (() => {
                     try { return ev.levelId ? bimManager.getLevelById(ev.levelId) : undefined; }
                     catch { return undefined; }
                 })();
-                const _floorY = (_lvl as { elevation?: number } | undefined)?.elevation ?? 0;
+                const _levelElev = (_lvl as { elevation?: number } | undefined)?.elevation ?? 0;
+                const _floorY = resolveFloorSeatingDatumFrom(
+                    _lvl as { elevation?: number; height?: number } | undefined,
+                    (floorStore as { getByLevel?: (id: string) => FloorData[] } | undefined)
+                        ?.getByLevel?.(ev.levelId ?? ''),
+                    { x: ev.position.x, z: ev.position.z },
+                ).y;
                 _fs.add({
                     id:             ev.id,
                     type:           'furniture',
@@ -1852,7 +1918,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     rotation:       { x: 0, y: ev.rotation ?? 0, z: 0 },
                     levelId:        ev.levelId ?? '',
                     levelName:      '',
-                    levelElevation: _floorY,
+                    levelElevation: _levelElev,
                     baseOffset:     ev.baseOffset ?? 0,
                     width:          ev.width  ?? 0.6,
                     length:         ev.length ?? 0.6,

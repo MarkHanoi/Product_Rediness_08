@@ -280,6 +280,10 @@ export enum CommandType {
     UPDATE_FLOOR_BOUNDARY             = 'UPDATE_FLOOR_BOUNDARY',
     UPDATE_FLOOR_LAYERS               = 'UPDATE_FLOOR_LAYERS',
     REMOVE_FLOORS_ON_LEVEL            = 'REMOVE_FLOORS_ON_LEVEL',
+    // §FIX-SEATING-DYNAMIC-REDATUM — re-seat floor-resting / ceiling-hung elements
+    // after a floor or ceiling finish on the level is added, removed or re-sized.
+    // Dispatched BY those commands, so it shares their undo unit.
+    RESEAT_LEVEL_ELEMENTS             = 'RESEAT_LEVEL_ELEMENTS',
 
     // ── Data Platform: Hierarchy (Phase DP) ────────────────────────────────
     CREATE_SITE                       = 'CREATE_SITE',

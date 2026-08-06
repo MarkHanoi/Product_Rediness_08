@@ -56,7 +56,12 @@
  */
 
 import { trace, type Tracer } from '@opentelemetry/api';
-import { resolveFflOffsetAt, resolveCflOffsetAt } from '@pryzm/core-app-model';
+import {
+    resolveFflOffsetAt,
+    resolveCflOffsetAt,
+    type FloorData,
+    type CeilingData,
+} from '@pryzm/core-app-model';
 import type { CommandContext } from '../types';
 
 function _tracer(): Tracer {
@@ -83,11 +88,19 @@ export interface SeatingDatum {
     readonly source: SeatingDatumSource;
 }
 
-/** Minimal shape this module needs from a level. */
-interface LevelLike {
+/**
+ * Minimal shape this module needs from a level.
+ *
+ * Structural, not nominal, so the CONTEXT-FREE entry points below can be called from
+ * a layer that cannot import `BimManager`'s `Level` type (see the note on
+ * `resolveFloorSeatingDatumFrom`).
+ */
+export interface SeatingLevelLike {
     readonly elevation?: number;
     readonly height?: number;
 }
+
+type LevelLike = SeatingLevelLike;
 
 /** Minimal shape this module needs from the floor / ceiling stores. */
 interface ByLevelStore<T> {
@@ -107,27 +120,44 @@ function _store<T>(context: CommandContext, key: string): ByLevelStore<T> | unde
     return (s ?? undefined) as ByLevelStore<T> | undefined;
 }
 
+// ── The datum authority (CONTEXT-FREE core) ────────────────────────────────────
+//
+// §FIX-SEATING-ONE-AUTHORITY. The `CommandContext` entry points below are ADAPTERS.
+// The arithmetic lives here, once, in a form that takes plain data — because not
+// every caller that must seat an element holds a `CommandContext`.
+//
+// Concretely: the LIVE plan-tool / carousel / kitchen / wardrobe / D-FLE furnish
+// path does NOT run `CreateFurnitureCommand`. It dispatches `furniture.create` on
+// the bus and a bridge in `apps/editor/src/engine/initTools.ts` mirrors the result
+// into the legacy `FurnitureStore`. That bridge had its own `level.elevation`
+// arithmetic and so re-broke exactly the founder-reported kitchen/wardrobe/lighting
+// defect the resolver was written to close. Handing that bridge a *second copy* of
+// the rule would be C11 §5.4's "convergence by coincidence" all over again; giving
+// it a context-shaped API it cannot satisfy would leave it broken. So the rule is
+// expressed once, context-free, and every layer adapts INTO it.
+
 /**
- * The FLOOR seating datum: the world Y an element STANDING on the floor rests on at
- * plan position `point` on level `levelId`.
+ * The FLOOR seating datum, computed from plain data — **the single datum authority**.
  *
  * Returns the finish top face when a visible floor finish covers `point`, otherwise
  * the structural slab top. `point` is required — the whole defect is that this answer
  * is POSITION-DEPENDENT: one level routinely carries several finishes of different
  * thickness (tile in the bathroom, timber in the bedroom) plus unfinished regions.
+ *
+ * @param level  the level the element sits on. `undefined` → elevation 0.
+ * @param floors the floor finishes on that level (`floorStore.getByLevel(levelId)`).
+ * @param point  XZ plan position of the element.
  */
-export function resolveFloorSeatingDatum(
-    context: CommandContext,
-    levelId: string,
+export function resolveFloorSeatingDatumFrom(
+    level: SeatingLevelLike | undefined,
+    floors: readonly FloorData[] | undefined | null,
     point: { x: number; z: number },
 ): SeatingDatum {
-    return _tracer().startActiveSpan('pryzm.seating.resolveFloorDatum', (span) => {
+    return _tracer().startActiveSpan('pryzm.seating.resolveFloorDatumFrom', (span) => {
         try {
-            const levelElevation = _level(context, levelId)?.elevation ?? 0;
-            span.setAttribute('pryzm.seating.levelId', levelId);
+            const levelElevation = level?.elevation ?? 0;
             span.setAttribute('pryzm.seating.levelElevation', levelElevation);
 
-            const floors = _store<never>(context, 'floorStore')?.getByLevel?.(levelId);
             const offset = floors ? resolveFflOffsetAt(floors, point) : null;
 
             const source: SeatingDatumSource = offset === null ? 'slab-top' : 'floor-finish';
@@ -143,32 +173,30 @@ export function resolveFloorSeatingDatum(
 }
 
 /**
- * The CEILING seating datum: the world Y a CEILING-HOSTED element hangs from at plan
- * position `point` on level `levelId`.
+ * The CEILING seating datum, computed from plain data — **the single datum authority**
+ * for ceiling-hosted elements. Mirror of `resolveFloorSeatingDatumFrom`.
  *
- * Returns the finished soffit when a visible ceiling covers `point`, otherwise the
- * level's head height (bare structure). `defaultHeadHeightM` is used only when the
- * level itself carries no `height` — it is a LEVEL-GEOMETRY fallback, not a finish
- * thickness, and no finish thickness is hard-coded here.
+ * @param level    the level the element hangs in. `undefined` → elevation 0.
+ * @param ceilings the ceilings on that level (`ceilingStore.getByLevel(levelId)`).
+ * @param point    XZ plan position of the element.
+ * @param defaultHeadHeightM used ONLY when the level carries no `height`. A
+ *   LEVEL-GEOMETRY fallback, never a finish thickness.
  */
-export function resolveCeilingSeatingDatum(
-    context: CommandContext,
-    levelId: string,
+export function resolveCeilingSeatingDatumFrom(
+    level: SeatingLevelLike | undefined,
+    ceilings: readonly CeilingData[] | undefined | null,
     point: { x: number; z: number },
     defaultHeadHeightM = 2.7,
 ): SeatingDatum {
-    return _tracer().startActiveSpan('pryzm.seating.resolveCeilingDatum', (span) => {
+    return _tracer().startActiveSpan('pryzm.seating.resolveCeilingDatumFrom', (span) => {
         try {
-            const level = _level(context, levelId);
             const levelElevation = level?.elevation ?? 0;
             const headHeight =
                 typeof level?.height === 'number' && Number.isFinite(level.height)
                     ? level.height
                     : defaultHeadHeightM;
-            span.setAttribute('pryzm.seating.levelId', levelId);
             span.setAttribute('pryzm.seating.levelElevation', levelElevation);
 
-            const ceilings = _store<never>(context, 'ceilingStore')?.getByLevel?.(levelId);
             const soffit = ceilings ? resolveCflOffsetAt(ceilings, point) : null;
 
             const useFinish = soffit !== null && Number.isFinite(soffit);
@@ -178,6 +206,61 @@ export function resolveCeilingSeatingDatum(
             span.setAttribute('pryzm.seating.offset', off);
 
             return { y: levelElevation + off, offsetAboveLevel: off, source };
+        } finally {
+            span.end();
+        }
+    });
+}
+
+// ── CommandContext adapters ────────────────────────────────────────────────────
+
+/**
+ * The FLOOR seating datum for a command holding a `CommandContext`.
+ *
+ * Thin adapter: pulls the level and the level's floor finishes out of the context
+ * and delegates to `resolveFloorSeatingDatumFrom`. Carries NO arithmetic of its own.
+ */
+export function resolveFloorSeatingDatum(
+    context: CommandContext,
+    levelId: string,
+    point: { x: number; z: number },
+): SeatingDatum {
+    return _tracer().startActiveSpan('pryzm.seating.resolveFloorDatum', (span) => {
+        try {
+            span.setAttribute('pryzm.seating.levelId', levelId);
+            const level = _level(context, levelId);
+            const floors = _store<FloorData>(context, 'floorStore')?.getByLevel?.(levelId);
+            const datum = resolveFloorSeatingDatumFrom(level, floors, point);
+            span.setAttribute('pryzm.seating.source', datum.source);
+            span.setAttribute('pryzm.seating.offset', datum.offsetAboveLevel);
+            return datum;
+        } finally {
+            span.end();
+        }
+    });
+}
+
+/**
+ * The CEILING seating datum for a command holding a `CommandContext`.
+ *
+ * Thin adapter: pulls the level and the level's ceilings out of the context and
+ * delegates to `resolveCeilingSeatingDatumFrom`. Carries NO arithmetic of its own.
+ */
+export function resolveCeilingSeatingDatum(
+    context: CommandContext,
+    levelId: string,
+    point: { x: number; z: number },
+    defaultHeadHeightM = 2.7,
+): SeatingDatum {
+    return _tracer().startActiveSpan('pryzm.seating.resolveCeilingDatum', (span) => {
+        try {
+            span.setAttribute('pryzm.seating.levelId', levelId);
+            const level = _level(context, levelId);
+            const ceilings = _store<CeilingData>(context, 'ceilingStore')?.getByLevel?.(levelId);
+            const datum = resolveCeilingSeatingDatumFrom(level, ceilings, point, defaultHeadHeightM);
+            span.setAttribute('pryzm.seating.source', datum.source);
+            span.setAttribute('pryzm.seating.offset', datum.offsetAboveLevel);
+            return datum;
         } finally {
             span.end();
         }

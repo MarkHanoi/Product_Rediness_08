@@ -10,6 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { CreateFurnitureCommand } from '../src/furniture/CreateFurnitureCommand';
+import { UpdateFurnitureParametersCommand } from '../src/furniture/UpdateFurnitureParametersCommand';
 import type { CommandContext } from '../src/types';
 
 const FINISH = 0.015; // 15 mm finish → FFL 15 mm above the slab top (datum).
@@ -39,6 +40,8 @@ function makeCtx(opts: { elevation: number; fflOffset: number | null }): { ctx: 
         add: (d: any) => { furniture.set(d.id, d); },
         remove: (id: string) => { furniture.delete(id); },
         get: (id: string) => furniture.get(id),
+        // §FIX-SEATING-UPDATE-DOUBLE-OFFSET — the update path needs a writable store.
+        update: (id: string, d: any) => { furniture.set(id, d); },
     };
     const bimManager = {
         getLevelById: (id: string) => (id === levelId ? { id, name: 'Level 1', elevation: opts.elevation } : undefined),
@@ -99,5 +102,42 @@ describe('§FIX-FURNITURE-FFL-DEFAULT / §FIX-FURNITURE-BASE-OFFSET — CreateFu
         expect(made.baseOffset).toBe(1.2);
         // position.y is the FFL datum; the mount offset is applied once downstream.
         expect(made.position.y).toBeCloseTo(FINISH, 9);
+    });
+});
+
+// §FIX-SEATING-UPDATE-DOUBLE-OFFSET — the CREATE and UPDATE paths must agree on what
+// `position.y` means, or editing an item silently teleports it.
+//
+// `FurnitureFragmentBuilder` applies the mount offset EXACTLY ONCE
+// (`furnitureWorldY(position.y, baseOffset)`), so `position.y` is the FLOOR DATUM and
+// nothing else. `CreateFurnitureCommand` obeys that (asserted above).
+// `UpdateFurnitureParametersCommand` did not: it wrote `seat.y + baseOffset` while
+// ALSO storing the new `baseOffset`, so the builder added it a second time and any
+// wall-mounted item jumped to `FFL + 2 × offset` the moment its mount height was
+// edited in the inspector — the A.21.D15 double-application bug, reintroduced on the
+// edit path after the create path was fixed for it.
+describe('§FIX-SEATING-UPDATE-DOUBLE-OFFSET — UpdateFurnitureParametersCommand', () => {
+    it('writes the FFL DATUM to position.y — it does not bake baseOffset in', () => {
+        const { ctx, furniture } = makeCtx({ elevation: 3.0, fflOffset: FINISH });
+        new CreateFurnitureCommand(payload({ baseOffset: 0 })).execute(ctx);
+        const created = Array.from(furniture.values())[0];
+
+        new UpdateFurnitureParametersCommand({ id: created.id, baseOffset: 1.2 }).execute(ctx);
+        const updated = furniture.get(created.id);
+
+        expect(updated.baseOffset).toBe(1.2);
+        // FFL only (3.015) — NOT 3.015 + 1.2. The builder supplies the 1.2.
+        expect(updated.position.y).toBeCloseTo(3.0 + FINISH, 9);
+    });
+
+    it('agrees with CreateFurnitureCommand for the same mount offset', () => {
+        const { ctx, furniture } = makeCtx({ elevation: 3.0, fflOffset: FINISH });
+        new CreateFurnitureCommand(payload({ baseOffset: 1.2 })).execute(ctx);
+        const created = Array.from(furniture.values())[0];
+        const createdY = created.position.y;
+
+        // Re-applying the SAME offset through the update path must be a no-op in Y.
+        new UpdateFurnitureParametersCommand({ id: created.id, baseOffset: 1.2 }).execute(ctx);
+        expect(furniture.get(created.id).position.y).toBeCloseTo(createdY, 9);
     });
 });
