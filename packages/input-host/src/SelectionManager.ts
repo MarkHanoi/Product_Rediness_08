@@ -14,6 +14,7 @@ import type { PickStrategy, PickContext, GpuPickRenderer, ElementRegistry, Eleme
 import { resolveHostedPickPriority } from '@pryzm/picking';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import type { TickListenerDisposer } from '@pryzm/frame-scheduler';
+import { elementRegistry as bimElementRegistry } from '@pryzm/core-app-model/element-registry';
 import { SelectionBoundsRegistry, buildDefaultSelectionBoundsRegistry } from './SelectionBoundsRegistry.js';
 import { startSpan } from './otel.js';
 import type { ISelectionManager } from '@pryzm/engine';
@@ -278,6 +279,8 @@ export class SelectionManager implements ISelectionManager {
     // the scene graph once, not on every click. The cache is invalidated when any
     // BIM element is added, updated, or removed from the scene.
     private _selectableCache: THREE.Object3D[] | null = null;
+    /** §FIX-ELEMENT-REBIND-ON-ROOT-SWAP — disposer for the elementRegistry subscription. */
+    private _rootSwapUnsub: (() => void) | null = null;
 
     // Sprint F-2.0 §E2: pluggable highlight bounds registry — plugins call
     // `selectionManager.boundsRegistry.register(type, builderFn)` at startup.
@@ -934,6 +937,42 @@ export class SelectionManager implements ISelectionManager {
                 setTimeout(() => this._reresolveSelectionAfterRebuild(updatedId), 0);
             });
         }
+
+        // ── §FIX-STAIR-SELECTION-REBIND / §FIX-ELEMENT-REBIND-ON-ROOT-SWAP ────
+        //
+        // INVARIANT: `selectedObject`, the highlight overlay and the pick caches
+        // must always reference the element's LIVE scene root — never a root a
+        // builder has swapped out. The `bim-<type>-updated` listeners above only
+        // uphold that when a rebuild happens to emit its store event. They cannot
+        // uphold it for rebuild paths that swap the mesh WITHOUT a store write:
+        // `GenerateStairGeometryCommand` reconciles the derived fields and then
+        // calls `stairMeshBuilder.updateStair()` DIRECTLY (it emits only
+        // `bim-stair-geometry-updated`, which nothing here subscribes to), so after
+        // a stair WIDTH edit the purple highlight kept cloning the OLD, disposed
+        // group's BufferGeometry — the founder's stale-outline-at-the-old-width.
+        // Whitelisting one more event would only move the hole (same failure class
+        // as L-233's incomplete allowlist).
+        //
+        // `elementRegistry.registerRoot()` is the ONE call EVERY builder makes on
+        // EVERY swap, so subscribing to it makes the guarantee hold by construction
+        // for every element type — wall, slab, floor, ceiling, column, beam, stair,
+        // lift, curtain-wall, door, window, roof, plumbing, furniture, lighting —
+        // and for future types, with no list to fall out of.
+        //
+        // Cache invalidation is unconditional: a swapped-out root must never remain
+        // a raycast/BVH candidate (`bim-stair-updated`, `bim-door-updated`,
+        // `bim-window-updated`, `bim-column/beam/curtainwall/plumbing-updated` are
+        // all absent from `cacheInvalidationEvents` above, so before this the pick
+        // caches held DETACHED roots after any such rebuild).
+        this._rootSwapUnsub?.();
+        this._rootSwapUnsub = bimElementRegistry.onRootSwapped((swappedId) => {
+            invalidateSelectableCache();
+            if (!this.selectedObject) return;
+            if (this.selectedObject.userData?.id !== swappedId) return;
+            // Builders register the root BEFORE scene.add(); defer so the new root
+            // is attached by the time we re-resolve it.
+            setTimeout(() => this._reresolveSelectionAfterRebuild(swappedId), 0);
+        });
 
         // ── Selection highlight refresh on geometry rebuild ───────────────
         // (Folded into the §SELECT-GIZMO-REATTACH `bim-furniture-updated`

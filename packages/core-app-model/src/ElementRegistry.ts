@@ -1,4 +1,29 @@
 import type * as THREE from '@pryzm/renderer-three/three';
+import { trace, type Tracer } from '@opentelemetry/api';
+
+// §FIX-ELEMENT-REBIND-ON-ROOT-SWAP — tracer for the root-swap notification (P8).
+const ROOT_SWAP_TRACER_NAME = '@pryzm/core-app-model';
+let _cachedTracer: Tracer | null = null;
+function _tracer(): Tracer {
+    _cachedTracer ??= trace.getTracer(ROOT_SWAP_TRACER_NAME, '0.1.0');
+    return _cachedTracer;
+}
+
+/**
+ * §FIX-ELEMENT-REBIND-ON-ROOT-SWAP — observer of "this element's scene root object
+ * was REPLACED by a different one".
+ *
+ * @param id        The element id whose root changed.
+ * @param root      The NEW root Object3D (may not be scene-attached yet — builders
+ *                  commonly `registerRoot()` before `scene.add()`; observers that
+ *                  need the live scene graph must defer).
+ * @param previous  The root that was just displaced (already detached/disposed).
+ */
+export type RootSwapListener = (
+    id: string,
+    root: THREE.Object3D,
+    previous: THREE.Object3D,
+) => void;
 
 /**
  * StoreType
@@ -26,6 +51,21 @@ export class ElementRegistry {
     private idToRootMap: Map<string, THREE.Object3D> = new Map();
 
     /**
+     * §FIX-ELEMENT-REBIND-ON-ROOT-SWAP — the most recent root OBJECT IDENTITY seen
+     * for an id, retained across the transient `unregisterRoot()` + `registerRoot()`
+     * pair that a rebuild performs.
+     *
+     * Builders come in two shapes: some overwrite the entry in place
+     * (`WallFragmentBuilder.buildWall` → `registerRoot`), others tear down first
+     * (`StairMeshBuilder.updateStair` → `removeStair()` → `unregisterRoot` →
+     * `registerRoot`). Comparing against `idToRootMap` alone would see `undefined`
+     * for the second shape and miss every stair/column/beam/door/roof rebuild —
+     * i.e. exactly the paths this signal exists to cover. This map is cleared only
+     * by a REAL removal (`unregister`) or `clear()`, never by `unregisterRoot`.
+     */
+    private idToLastRootMap: Map<string, THREE.Object3D> = new Map();
+
+    /**
      * §A.1.1 — Listeners fired by unregister() and unregisterIfPresent().
      * Used by ViewDependencyTracker (A.2) to prune its _elementLevelMap when
      * an element is removed, preventing phantom dirty-view entries after undo.
@@ -34,6 +74,13 @@ export class ElementRegistry {
      * Errors in listeners are caught — tracker failures must not block unregister().
      */
     private _unregisterListeners: Array<(id: string) => void> = [];
+
+    /**
+     * §FIX-ELEMENT-REBIND-ON-ROOT-SWAP — listeners fired by {@link registerRoot}
+     * when it REPLACES an element's existing root with a different Object3D.
+     * See {@link onRootSwapped} for the invariant this exists to uphold.
+     */
+    private _rootSwapListeners: RootSwapListener[] = [];
 
     private constructor() {}
 
@@ -111,6 +158,9 @@ export class ElementRegistry {
     unregister(id: string): void {
         this.idToStoreMap.delete(id);
         this.idToRootMap.delete(id);
+        // §FIX-ELEMENT-REBIND-ON-ROOT-SWAP — a REAL removal ends the element's
+        // identity chain; a later re-create (undo→redo) is a fresh root, not a swap.
+        this.idToLastRootMap.delete(id);
         for (const listener of this._unregisterListeners) {
             try { listener(id); } catch { /* non-fatal — tracker errors must not block unregister */ }
         }
@@ -129,14 +179,71 @@ export class ElementRegistry {
     clear(): void {
         this.idToStoreMap.clear();
         this.idToRootMap.clear();
+        this.idToLastRootMap.clear();
     }
 
     getStoreType(id: string): StoreType | undefined {
         return this.idToStoreMap.get(id);
     }
 
+    /**
+     * §FIX-ELEMENT-REBIND-ON-ROOT-SWAP — subscribe to element ROOT SWAPS.
+     *
+     * INVARIANT: while an element is selected/observed by object REFERENCE, that
+     * reference must follow the element's live scene root. A builder rebuild is
+     * `scene.remove(old)` + `new Object3D` + `scene.add(new)`, so every reference
+     * held across a rebuild is silently stale — it points at a detached, disposed
+     * object. `registerRoot()` is the ONE call every builder makes on every such
+     * swap (wall, slab, floor, ceiling, column, beam, stair, lift, curtain-wall,
+     * door, window, roof, plumbing, furniture, lighting, …), which makes it the
+     * authoritative "the object identity for this element changed" signal.
+     *
+     * Subscribing here — rather than to a per-type `bim-<type>-updated` event —
+     * is what makes the guarantee TYPE-AGNOSTIC and, more importantly, INDEPENDENT
+     * OF WHETHER AN EVENT WAS EMITTED AT ALL. Rebuild paths that swap the mesh
+     * without a store write emit no `bim-*-updated` (e.g.
+     * `GenerateStairGeometryCommand` calls `stairMeshBuilder.updateStair()`
+     * directly after reconciling), and every reference-holder subscribed to the
+     * event allowlist was left pointing at the disposed root. Same failure class as
+     * L-233: an event ALLOWLIST cannot cover paths that emit no event.
+     *
+     * Fires ONLY on a genuine swap (an existing, DIFFERENT root is displaced) —
+     * never on first registration and never on an idempotent re-register, so
+     * creation batches stay silent.
+     *
+     * @returns A disposer — call it to remove the subscription.
+     */
+    onRootSwapped(cb: RootSwapListener): () => void {
+        this._rootSwapListeners.push(cb);
+        return () => {
+            this._rootSwapListeners = this._rootSwapListeners.filter(l => l !== cb);
+        };
+    }
+
     registerRoot(id: string, root: THREE.Object3D): void {
+        const previous = this.idToLastRootMap.get(id);
         this.idToRootMap.set(id, root);
+        this.idToLastRootMap.set(id, root);
+        if (previous === undefined || previous === root) return; // fresh / idempotent
+        if (this._rootSwapListeners.length === 0) return;
+
+        // P8 — one span per swap notification; per-element detail rides as
+        // attributes so span cardinality stays bounded.
+        const span = _tracer().startSpan('pryzm.element-registry.root-swap', {
+            attributes: {
+                'pryzm.element.id': id,
+                'pryzm.element.store_type': this.idToStoreMap.get(id) ?? 'unknown',
+                'pryzm.root_swap.listeners': this._rootSwapListeners.length,
+            },
+        });
+        try {
+            for (const listener of this._rootSwapListeners) {
+                // A misbehaving observer must never break a builder's rebuild.
+                try { listener(id, root, previous); } catch { /* non-fatal */ }
+            }
+        } finally {
+            span.end();
+        }
     }
 
     unregisterRoot(id: string): void {
