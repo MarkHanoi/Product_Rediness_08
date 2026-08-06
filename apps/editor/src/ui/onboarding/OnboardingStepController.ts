@@ -628,93 +628,10 @@ export class OnboardingStepController {
 
     // ── Step 2: Site (draw-or-skip) ────────────────────────────────────────────
 
-    /**
-     * §17.4 EARLY-SPLIT (PRD-2026-08-06 §17.4, §21) — mount the site-authoring split
-     * (LEFT 2D GIS map · RIGHT live 3D Site) the MOMENT the `site` step is entered, for
-     * ALL THREE choice paths (default footprint / draw / overlay-PDF), not just after
-     * the user explicitly clicks "Draw it on the map". This is what makes the split
-     * "already live behind the choice card" (mirroring the globe already being live
-     * behind the `location` step's search card) instead of appearing only down one
-     * path. `pryzmMountSiteAuthoringPanes` is idempotent (GISAreaLayout.ts:4274 —
-     * no-ops + logs if already mounted), so re-entering this step (BACK from confirm,
-     * BACK from drawing) is safe to call again.
-     *
-     * CORRECTNESS: the split's own MapLibre pane mounter unconditionally arms the
-     * boundary-DRAW tool in the left pane as a side effect of mounting
-     * (GISAreaLayout.ts:4309, `mount: (paneEl) => startBoundaryDraw({ parent: paneEl })`)
-     * — this now happens BEFORE the user has chosen "Draw" at all. Without a listener,
-     * a user who starts drawing straight off the now-early-visible split would have
-     * their `site.parcel-boundary-set` commit fire into an EMPTY bus (armBoundaryCommitWait
-     * is only armed inside `startDrawThenGenerate()`, reached solely via the "Draw"
-     * button) — a silently lost boundary. `armEarlySplitBoundaryListener()` closes that
-     * gap with a lightweight (no-watchdog) listener that is superseded cleanly the
-     * moment the user DOES click "Draw" (`armBoundaryCommitWait()` cancels
-     * `this.drawWaitCleanup` before installing its own, full, watchdog-bearing wait).
-     * Deliberately NOT the full `armBoundaryCommitWait()`: that also arms a 60 s
-     * activity-aware watchdog that force-falls-back to a default plot + confirm step —
-     * appropriate once the user has committed to drawing, but NOT appropriate to run
-     * merely because the user is reading the three-choice card, which would otherwise
-     * hijack the default/overlay paths into an unrequested confirm step after a minute
-     * of read-time.
-     */
-    private enterSiteStepSplit(): void {
-        try {
-            (window as unknown as { pryzmMountSiteAuthoringPanes?: () => void })
-                .pryzmMountSiteAuthoringPanes?.();
-        } catch (e) {
-            console.warn('[onboarding-step] §EARLY-SPLIT mount failed (non-fatal):', e);
-        }
-        this.armEarlySplitBoundaryListener();
-    }
-
-    /**
-     * §17.4 EARLY-SPLIT — the lightweight safety net described in `enterSiteStepSplit`'s
-     * header: listens for `site.parcel-boundary-set` (the SAME event
-     * `armBoundaryCommitWait()` listens for) so a boundary drawn/selected on the
-     * now-early-mounted split — before the user has clicked "Draw it on the map" —
-     * still routes to the generate-confirm step instead of vanishing. No watchdog (see
-     * above). Tracked in the SAME `this.drawWaitCleanup` slot `armBoundaryCommitWait()`
-     * uses, so whichever arms LAST wins and neither can double-fire.
-     */
-    private armEarlySplitBoundaryListener(): void {
-        this.drawWaitCleanup?.();
-        this.drawWaitCleanup = null;
-
-        let settled = false;
-        const sub = this.runtime.events?.on('site.parcel-boundary-set', () => {
-            if (settled || this.disposed) return;
-            settled = true;
-            cleanup();
-            console.log('[onboarding-step] §EARLY-SPLIT boundary committed ahead of an explicit "Draw" choice — routing to confirm.');
-            this.renderGenerateConfirmStep('drawn');
-        });
-        const cleanup = (): void => { try { sub?.dispose(); } catch { /* ignore */ } };
-        this.drawWaitCleanup = cleanup;
-        this.addCleanup(cleanup);
-    }
-
-    /** §17.4 EARLY-SPLIT — the symmetric teardown for `enterSiteStepSplit()`: cancels the
-     *  early safety-net listener and unmounts the split. Called ONLY when leaving the
-     *  `site` step BACKWARD (to `location`) — the forward paths (default / draw / overlay)
-     *  each keep the split alive intentionally (KEEP-BOUNDARY-VISIBLE) and own their own
-     *  teardown further down the flow (generate-time / not-now / back-from-drawing all
-     *  already route through the idempotent `pryzmCloseBoundaryMap2D`). */
-    private leaveSiteStepSplit(): void {
-        try { this.drawWaitCleanup?.(); } catch { /* ignore */ }
-        this.drawWaitCleanup = null;
-        try {
-            (window as unknown as { pryzmUnmountSiteAuthoringPanes?: () => void })
-                .pryzmUnmountSiteAuthoringPanes?.();
-        } catch (e) {
-            console.warn('[onboarding-step] §EARLY-SPLIT unmount failed (non-fatal):', e);
-        }
-    }
-
     private renderSiteStep(): void {
         this.step = 'site';
         this.setDrawingPresentation(false);
         this.setStepIndicator(2, 'Your plot');
-        this.enterSiteStepSplit();
         const body = this.clearBody();
 
         const prompt = document.createElement('p');
@@ -777,11 +694,7 @@ export class OnboardingStepController {
             console.log('[onboarding-step] site choice: overlay a plan/PDF → import to canvas (no draw, no generate).');
             void this.startOverlayImport();
         });
-        back.addEventListener('click', () => {
-            console.log('[onboarding-step] §EARLY-SPLIT site → BACK to location (tear the split down).');
-            this.leaveSiteStepSplit();
-            this.renderLocationStep();
-        });
+        back.addEventListener('click', () => this.renderLocationStep());
     }
 
     private buildChoiceCard(label: string, desc: string, testId: string): HTMLButtonElement {
@@ -809,13 +722,6 @@ export class OnboardingStepController {
      * "Generate with AI?" question (rather than a silent auto-generate).
      */
     private useDefaultRectThenConfirm(): void {
-        // §17.4 EARLY-SPLIT — disarm the early safety-net boundary listener FIRST:
-        // `createSiteFromRect` below emits `site.parcel-boundary-set` SYNCHRONOUSLY, which
-        // would otherwise trip that listener into rendering a 'drawn'-labelled confirm a
-        // tick before this path renders its own 'default-plot' confirm (a redundant
-        // double-render, and for the office/residential typologies a double program-step).
-        this.drawWaitCleanup?.();
-        this.drawWaitCleanup = null;
         const siteOk = this.createSite({
             ...(this.picked ? { lat: this.picked.lat, lon: this.picked.lon, address: this.picked.address } : {}),
             width: DEFAULT_PARCEL_WIDTH_M,

@@ -1423,7 +1423,20 @@ the globe can appear.
 
 ---
 
-## §21 — Early Split-Screen Mount Log (2026-08-06 — code changes)
+## §21 — Early Split-Screen Mount Log (2026-08-06 — code changes) — **REVERTED same day**
+
+**⚠ REVERTED (2026-08-06, founder live test):** mounting the split at `site`-step entry ran BEFORE
+`pryzmSetGeocodeFrame` and `dispatchSiteLocation` — both of which the "Draw" path
+(`startDrawThenGenerate`) deliberately fires FIRST. Result: the 2D map opened at world zoom (its
+`getMapInitial` frame was never seeded) and the 3D Site pane mounted with no site location
+("no site location yet — cannot place massing" → empty/black pane). Founder confirmed the prior
+(draw-path-only) sequencing "was working perfect." Lesson recorded for whoever builds the real
+§17.4 choreography: the split may only mount AFTER (1) the geocode frame is seeded and (2) the
+site location is anchored — and the founder's actual spec is stronger still: full-screen zoom
+toward the location FIRST, split only at ~city-block altitude (~300 m) with a transition. That is
+the §17.7-Q2 gated reveal, a sequencing design, not a mount-earlier patch. The correctness
+analysis below (draw-tool auto-arm, early boundary listener) remains valid input for that future
+pass.
 
 **Trigger**: §17.4's target sequence — "GIS initializes → Split-screen fades in (Left: 2D GIS ·
 Right: 3D Site) → Parcel selection" — was not true of the shipped flow. Confirmed in
