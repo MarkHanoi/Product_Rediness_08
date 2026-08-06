@@ -135,13 +135,22 @@ describe('JunctionResolverV2 — §FIX-WALL-V2-EXISTING-CORNER-IMMUTABLE (L-130)
     }
   });
 
-  it('flag OFF restores the pre-fix V2 behaviour — the different-type newcomer RE-MITRES the corner', () => {
-    // This documents the defect: with the guard OFF, arm A\'s end corner is NOT byte-identical to
-    // the bare L (the interior wall distorts it). Flag ON (default) is the fix, proven above.
+  it('flags OFF restore the pre-fix V2 behaviour — the different-type newcomer RE-MITRES the corner', () => {
+    // This documents the defect: with the guards OFF, arm A's end corner is NOT byte-identical to
+    // the bare L (the interior wall distorts it). Flags ON (default) is the fix, proven above.
+    //
+    // §FIX-WALL-LCORNER-COLLINEAR-STEP (2026-08-06) — this fixture's newcomer C is COLLINEAR with
+    // arm B and THINNER than it, so it now ALSO trips the newer, TYPE-INDEPENDENT collinear-step
+    // guard, which freezes the same corner on purely geometric grounds. Two independent guards
+    // cover this topology, so restoring the PRE-FIX solve requires disabling BOTH. Disabling only
+    // the L-130 type guard now (correctly) leaves the corner frozen.
     const C: WallInput = { id: 'C', start: { x: 5, z: 0 }, end: { x: 5, z: -3 }, thickness: 0.1, systemTypeId: 'int' };
+    const step = () => (globalThis as { __pryzmWallV2LCornerCollinearStep?: boolean });
     const bare = resolveJunctions([A, B]);
     flag().__pryzmWallV2ExistingCornerImmutable = false;
+    step().__pryzmWallV2LCornerCollinearStep = false;
     const off = resolveJunctions([A, B, C]);
+    delete step().__pryzmWallV2LCornerCollinearStep;
     // At least one exterior arm corner differs when the guard is disabled (the re-mitre defect).
     const changed =
       endFingerprint(off[0]!, 'end') !== endFingerprint(bare[0]!, 'end') ||
