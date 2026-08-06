@@ -13,6 +13,19 @@ export interface HandrailTypeDefinition {
     railDiameter?: number;
     postSpacing?: number;
     materialColor?: string;
+    /**
+     * §FIX-STAIR-RAILING-TYPE-PICKER — the NAMED material this type is made of.
+     *
+     * `materialColor` is a render tint; it is not a material. The stair-railing
+     * family (`StairRailingBuilder.makeMaterial`) is driven by a NAME
+     * ('steel' | 'chrome' | 'wood' | 'timber' | 'concrete' | 'glass') because the
+     * name carries roughness / metalness / transparency, not just a hue. Until this
+     * field existed the catalogue could not express "this railing is timber", so a
+     * catalogue type applied to a stair railing kept the previous material and only
+     * its geometry changed — a half-applied type. Additive and optional: every
+     * existing consumer that reads `materialColor` is unaffected.
+     */
+    materialName?: 'steel' | 'chrome' | 'wood' | 'timber' | 'concrete' | 'glass';
 }
 
 const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
@@ -28,7 +41,8 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         railProfile: 'round',
         railDiameter: 0.04,
         postSpacing: 1.5,
-        materialColor: '#aaccee'
+        materialColor: '#aaccee',
+        materialName: 'steel'
     },
     {
         id: 'stainless-handrail',
@@ -42,7 +56,8 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         railProfile: 'round',
         railDiameter: 0.04,
         postSpacing: 1.2,
-        materialColor: '#c0c0c0'
+        materialColor: '#c0c0c0',
+        materialName: 'chrome'
     },
     {
         id: 'timber-baluster',
@@ -55,7 +70,8 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         fillType: 'baluster',
         railProfile: 'rectangular',
         postSpacing: 1.8,
-        materialColor: '#8B4513'
+        materialColor: '#8B4513',
+        materialName: 'timber'
     },
     {
         id: 'steel-guardrail',
@@ -68,7 +84,8 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         fillType: 'open',
         railProfile: 'rectangular',
         postSpacing: 1.5,
-        materialColor: '#888888'
+        materialColor: '#888888',
+        materialName: 'steel'
     },
     {
         id: 'stair-handrail',
@@ -82,7 +99,8 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         railProfile: 'round',
         railDiameter: 0.04,
         postSpacing: 0,
-        materialColor: '#888888'
+        materialColor: '#888888',
+        materialName: 'steel'
     }
 ];
 

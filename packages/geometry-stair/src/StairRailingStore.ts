@@ -63,6 +63,23 @@ export class StairRailingStore {
         }
     }
 
+    /**
+     * §FIX-STAIR-RAILING-TYPE-PICKER — restore an EXACT pre-image (C03 §4.5).
+     *
+     * `update()` is a MERGE, and a merge cannot UNSET a field. Undoing a type swap
+     * onto a railing that had never been individually typed must remove `typeId`
+     * again (otherwise the railing keeps claiming a type it no longer has, and stops
+     * following its stair's default forever). Mirrors `handrailStore.restoreSnapshot`,
+     * which exists for exactly this reason.
+     */
+    restoreSnapshot(id: string, railing: StairRailingConfig): void {
+        this.railings.set(id, structuredClone(railing));
+        _bus.emit('bim-stair-railing-updated', { id });
+        if (!batchCoordinator.isBatching) {
+            storeEventBus.emit({ elementId: id, elementType: 'stairRailing', operation: 'update', timestamp: Date.now() });
+        }
+    }
+
     remove(id: string): void {
         const railing = this.railings.get(id);
         if (railing) {

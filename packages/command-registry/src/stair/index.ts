@@ -12,5 +12,7 @@ export { MoveStairCommand } from './MoveStairCommand';
 export type { MoveStairInput } from './MoveStairCommand';
 export { UpdateStairFlightsCommand } from './UpdateStairFlightsCommand';
 export type { UpdateStairFlightsInput, StairFlightInput, StairLandingInput } from './UpdateStairFlightsCommand';
+export { UpdateStairRailingCommand } from './UpdateStairRailingCommand';
+export type { UpdateStairRailingPayload } from './UpdateStairRailingCommand';
 export { ChangeStairShapeCommand } from './ChangeStairShapeCommand';
 export type { ChangeStairShapeInput } from './ChangeStairShapeCommand';

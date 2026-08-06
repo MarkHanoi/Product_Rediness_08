@@ -82,6 +82,20 @@ export class StairRailingBuilder {
             if (stair) this.buildRailing(railing, stair);
         });
 
+        // §FIX-STAIR-RAILING-TYPE-PICKER — `StairRailingStore.update()` has emitted
+        // 'bim-stair-railing-updated' since it was written and NOTHING listened. A
+        // per-railing edit therefore mutated the store and the mesh never rebuilt:
+        // the only way a railing's appearance could change was indirectly, via a
+        // 'bim-stair-updated' rebuild of the whole stair. That made a per-railing
+        // type change unimplementable, which is part of why none existed.
+        window.addEventListener('bim-stair-railing-updated', (e: Event) => {
+            const { id } = (e as CustomEvent<{ id: string }>).detail;
+            const railing = id ? this.railingStore.get(id) : undefined;
+            if (!railing?.stairId) return;
+            const stair = this.resolveStair(railing.stairId);
+            if (stair) this.buildRailing(railing, stair);
+        });
+
         window.addEventListener('bim-stair-railing-removed', (e: Event) => {
             // §FIX-STAIR-RAILING-EVENT: StairRailingStore.remove() and
             // CreateStairRailingCommand.undo() emit `{ id }` — not `{ railingId }`.
@@ -103,13 +117,7 @@ export class StairRailingBuilder {
             const stair = payload?.stair ?? (payload?.id ? this.resolveStair(payload.id) : undefined);
             if (!stair) return;
             const railings = this.railingStore.getByStairId(stair.id);
-            railings.forEach(r => {
-                const effectiveRailing: StairRailingConfig = {
-                    ...r,
-                    railingType: stair.properties?.railingType ?? r.railingType ?? 'flat-bar',
-                };
-                this.buildRailing(effectiveRailing, stair);
-            });
+            railings.forEach(r => this.buildRailing(this._effectiveRailing(r, stair), stair));
         });
         window.addEventListener('bim-stair-updated', (e: Event) => {
             // §FIX-STAIR-RAILING-EVENT: StairStore emits `bim-stair-updated` as `{ id }`.
@@ -117,17 +125,28 @@ export class StairRailingBuilder {
             const stair = detail?.stair ?? (detail?.id ? this.resolveStair(detail.id) : undefined);
             if (!stair) return;
             const railings = this.railingStore.getByStairId(stair.id);
-            railings.forEach(r => {
-                // When the stair's properties.railingType is set (e.g. changed via the
-                // property panel), it takes priority over the per-railing stored type so
-                // that user changes propagate immediately on rebuild.
-                const effectiveRailing: StairRailingConfig = {
-                    ...r,
-                    railingType: stair.properties?.railingType ?? r.railingType ?? 'flat-bar',
-                };
-                this.buildRailing(effectiveRailing, stair);
-            });
+            railings.forEach(r => this.buildRailing(this._effectiveRailing(r, stair), stair));
         });
+    }
+
+    /**
+     * §FIX-STAIR-RAILING-TYPE-PICKER — resolve which construction form a railing
+     * builds with on a STAIR-driven rebuild.
+     *
+     * The stair's `properties.railingType` is a DEFAULT for its railings, and it used
+     * to win unconditionally (`stair.properties?.railingType ?? r.railingType`). That
+     * is correct while no railing has been individually typed — and fatal once one
+     * has: the next stair rebuild (a tread-depth edit, a move, a snap-back) would
+     * silently revert the user's per-railing choice, so a per-railing type picker
+     * would have appeared to work and then quietly undone itself.
+     *
+     * `typeId` is the discriminator. Set only by an explicit catalogue apply, it
+     * marks the railing as individually typed, and its own `railingType` then wins.
+     * A railing that has never been typed behaves EXACTLY as before.
+     */
+    private _effectiveRailing(r: StairRailingConfig, stair: StairData): StairRailingConfig {
+        if (r.typeId) return { ...r, railingType: r.railingType ?? 'flat-bar' };
+        return { ...r, railingType: stair.properties?.railingType ?? r.railingType ?? 'flat-bar' };
     }
 
     setStairStore(stairStore: StairStore): void {
@@ -293,6 +312,9 @@ export class StairRailingBuilder {
         nextFlight: any;
         flightIndex: number;
         sideSign: number;
+        /** §FIX-STAIR-CURVED-FLIGHT-EXPLOSION — true when this flight terminates a
+         *  continuous RUN (no following flight, or a landing breaks the run here). */
+        isRunEnd: boolean;
     }> {
         const sideSign = railing.side === 'left' ? 1 : -1;
         let trackPos = new THREE.Vector3(
@@ -313,6 +335,7 @@ export class StairRailingBuilder {
             nextFlight: any;
             flightIndex: number;
             sideSign: number;
+            isRunEnd: boolean;
         }> = [];
 
         stair.flights.forEach((flight, flightIndex) => {
@@ -355,6 +378,14 @@ export class StairRailingBuilder {
                 nextFlight,
                 flightIndex,
                 sideSign,
+                // §FIX-STAIR-CURVED-FLIGHT-EXPLOSION — INVARIANT: a continuous run is
+                // ONE run however many FLIGHT records model it. Flights are broken by
+                // LANDINGS, never by risers. A curved/spiral stair is authored as one
+                // single-riser micro-flight per step (StairPathToolController), so
+                // treating every flight boundary as a run end put a newel POST and a
+                // duplicate BALUSTER at every single tread — the founder's 17-flight
+                // mesh/material explosion that destroyed the GPU device.
+                isRunEnd: !nextFlight || !!landing,
             });
 
             // Advance tracker for next flight
@@ -400,13 +431,18 @@ export class StairRailingBuilder {
                 .add(flatDir.clone().multiplyScalar(totalRun))
                 .add(offset)
                 .setY(flightStart.y + totalRise + railHeight);
-            const railMesh = this.buildBoxRail(startPoint, endPoint, railW, railH, railMat.clone());
+            const railMesh = this.buildBoxRail(startPoint, endPoint, railW, railH, railMat);
             group.add(railMesh);
 
             // ── Balusters (square profile) ──────────────────────────────────────
             const balSpacing = railing.balusterSpacing;
             const balCount = Math.max(1, Math.floor(totalRun / balSpacing));
-            for (let i = 0; i <= balCount; i++) {
+            // §FIX-STAIR-CURVED-FLIGHT-EXPLOSION — the baluster at t=1 sits exactly on
+            // the NEXT flight's t=0 baluster, so emit it only where the run genuinely
+            // ends. On a 17-micro-flight curved run that removed 17 coincident,
+            // z-fighting duplicate balusters per railing.
+            const balLast = f.isRunEnd ? balCount : balCount - 1;
+            for (let i = 0; i <= balLast; i++) {
                 const t = i / balCount;
                 const balBaseElev = flightStart.y + t * totalRise;
                 const balBasePos = flightStart.clone()
@@ -416,10 +452,10 @@ export class StairRailingBuilder {
                 const bw = railing.balusterWidth;
                 // §PERF-RAIL-INSTANCING — square box baluster; instance when active.
                 if (!(this._buildRailingId && this._tryInstanceMember(
-                    this._buildRailingId, balBasePos.x, balBasePos.y, balBasePos.z, bw, railHeight, false, railMat.clone(),
+                    this._buildRailingId, balBasePos.x, balBasePos.y, balBasePos.z, bw, railHeight, false, railMat,
                 ))) {
                     const balGeom = new THREE.BoxGeometry(bw, railHeight, bw);
-                    const bal = new THREE.Mesh(balGeom, railMat.clone());
+                    const bal = new THREE.Mesh(balGeom, railMat);
                     bal.position.set(balBasePos.x, balBasePos.y + railHeight / 2, balBasePos.z);
                     bal.userData.elementType = 'stair-railing';
                     bal.userData.selectable = false;
@@ -429,17 +465,17 @@ export class StairRailingBuilder {
 
             // ── Start/end posts ──────────────────────────────────────────────────
             if (railing.postAtStart && f.flightIndex === 0) {
-                this.addPost(group, flightStart.clone().add(offset), flightStart.y, railHeight, 0.06, railMat.clone());
+                this.addPost(group, flightStart.clone().add(offset), flightStart.y, railHeight, 0.06, railMat);
             }
-            if (railing.postAtEnd) {
+            if (railing.postAtEnd && f.isRunEnd) {
                 const endBase = flightStart.clone()
                     .add(flatDir.clone().multiplyScalar(totalRun))
                     .add(offset);
-                this.addPost(group, endBase, flightStart.y + totalRise, railHeight, 0.06, railMat.clone());
+                this.addPost(group, endBase, flightStart.y + totalRise, railHeight, 0.06, railMat);
             }
 
             // ── Landing segment ──────────────────────────────────────────────────
-            this.buildLandingSegment(group, f, railing, stair, sideSign, railMat.clone(), (s, e) => this.buildBoxRail(s, e, railW, railH, railMat.clone()), flights);
+            this.buildLandingSegment(group, f, railing, stair, sideSign, railMat, (s, e) => this.buildBoxRail(s, e, railW, railH, railMat), flights);
         });
     }
 
@@ -464,7 +500,7 @@ export class StairRailingBuilder {
                 .add(offset)
                 .setY(flightStart.y + totalRise + railHeight);
             const railGeom = this.buildRailGeometry(startPoint, endPoint, 0.025);
-            const railMesh = new THREE.Mesh(railGeom, railMat.clone());
+            const railMesh = new THREE.Mesh(railGeom, railMat);
             railMesh.userData.elementType = 'stair-railing';
             railMesh.userData.selectable = false;
             group.add(railMesh);
@@ -472,7 +508,12 @@ export class StairRailingBuilder {
             // ── Balusters (round profile) ────────────────────────────────────────
             const balSpacing = railing.balusterSpacing;
             const balCount = Math.max(1, Math.floor(totalRun / balSpacing));
-            for (let i = 0; i <= balCount; i++) {
+            // §FIX-STAIR-CURVED-FLIGHT-EXPLOSION — the baluster at t=1 sits exactly on
+            // the NEXT flight's t=0 baluster, so emit it only where the run genuinely
+            // ends. On a 17-micro-flight curved run that removed 17 coincident,
+            // z-fighting duplicate balusters per railing.
+            const balLast = f.isRunEnd ? balCount : balCount - 1;
+            for (let i = 0; i <= balLast; i++) {
                 const t = i / balCount;
                 const balBaseElev = flightStart.y + t * totalRise;
                 const balBasePos = flightStart.clone()
@@ -482,10 +523,10 @@ export class StairRailingBuilder {
                 const bw = railing.balusterWidth;
                 // §PERF-RAIL-INSTANCING — round (cylinder) baluster; instance when active.
                 if (!(this._buildRailingId && this._tryInstanceMember(
-                    this._buildRailingId, balBasePos.x, balBasePos.y, balBasePos.z, bw, railHeight, true, railMat.clone(),
+                    this._buildRailingId, balBasePos.x, balBasePos.y, balBasePos.z, bw, railHeight, true, railMat,
                 ))) {
                     const balGeom = new THREE.CylinderGeometry(bw / 2, bw / 2, railHeight, 8);
-                    const bal = new THREE.Mesh(balGeom, railMat.clone());
+                    const bal = new THREE.Mesh(balGeom, railMat);
                     bal.position.set(balBasePos.x, balBasePos.y + railHeight / 2, balBasePos.z);
                     bal.userData.elementType = 'stair-railing';
                     bal.userData.selectable = false;
@@ -495,19 +536,19 @@ export class StairRailingBuilder {
 
             // ── Start/end posts ──────────────────────────────────────────────────
             if (railing.postAtStart && f.flightIndex === 0) {
-                this.addPost(group, flightStart.clone().add(offset), flightStart.y, railHeight, 0.06, railMat.clone());
+                this.addPost(group, flightStart.clone().add(offset), flightStart.y, railHeight, 0.06, railMat);
             }
-            if (railing.postAtEnd) {
+            if (railing.postAtEnd && f.isRunEnd) {
                 const endBase = flightStart.clone()
                     .add(flatDir.clone().multiplyScalar(totalRun))
                     .add(offset);
-                this.addPost(group, endBase, flightStart.y + totalRise, railHeight, 0.06, railMat.clone());
+                this.addPost(group, endBase, flightStart.y + totalRise, railHeight, 0.06, railMat);
             }
 
             // ── Landing segment ──────────────────────────────────────────────────
-            this.buildLandingSegment(group, f, railing, stair, sideSign, railMat.clone(), (s, e) => {
+            this.buildLandingSegment(group, f, railing, stair, sideSign, railMat, (s, e) => {
                 const geom = this.buildRailGeometry(s, e, 0.025);
-                const mesh = new THREE.Mesh(geom, railMat.clone());
+                const mesh = new THREE.Mesh(geom, railMat);
                 mesh.userData.elementType = 'stair-railing';
                 mesh.userData.selectable = false;
                 return mesh;
@@ -543,7 +584,7 @@ export class StairRailingBuilder {
                 .add(flatDir.clone().multiplyScalar(totalRun))
                 .add(offset)
                 .setY(flightStart.y + totalRise + railHeight);
-            const topRailMesh = this.buildBoxRail(startPoint, endPoint, 0.05, 0.04, railMat.clone());
+            const topRailMesh = this.buildBoxRail(startPoint, endPoint, 0.05, 0.04, railMat);
             group.add(topRailMesh);
 
             // ── Bottom rail ────────────────────────────────────────────────────
@@ -552,7 +593,7 @@ export class StairRailingBuilder {
                 .add(flatDir.clone().multiplyScalar(totalRun))
                 .add(offset)
                 .setY(flightStart.y + totalRise + 0.1);
-            const botRailMesh = this.buildBoxRail(botStart, botEnd, 0.05, 0.04, railMat.clone());
+            const botRailMesh = this.buildBoxRail(botStart, botEnd, 0.05, 0.04, railMat);
             group.add(botRailMesh);
 
             // ── Glass panels (slope-following parallelogram quads) ───────────────
@@ -592,7 +633,7 @@ export class StairRailingBuilder {
                 panelGeom.setIndex([0, 1, 2, 0, 2, 3]);
                 panelGeom.computeVertexNormals();
 
-                const panelMesh = new THREE.Mesh(panelGeom, glassMat.clone());
+                const panelMesh = new THREE.Mesh(panelGeom, glassMat);
                 panelMesh.userData.elementType = 'stair-railing';
                 panelMesh.userData.selectable = false;
                 group.add(panelMesh);
@@ -600,17 +641,17 @@ export class StairRailingBuilder {
 
             // ── Start/end posts ──────────────────────────────────────────────────
             if (railing.postAtStart && f.flightIndex === 0) {
-                this.addPost(group, flightStart.clone().add(offset), flightStart.y, railHeight, 0.05, railMat.clone());
+                this.addPost(group, flightStart.clone().add(offset), flightStart.y, railHeight, 0.05, railMat);
             }
-            if (railing.postAtEnd) {
+            if (railing.postAtEnd && f.isRunEnd) {
                 const endBase = flightStart.clone()
                     .add(flatDir.clone().multiplyScalar(totalRun))
                     .add(offset);
-                this.addPost(group, endBase, flightStart.y + totalRise, railHeight, 0.05, railMat.clone());
+                this.addPost(group, endBase, flightStart.y + totalRise, railHeight, 0.05, railMat);
             }
 
             // ── Landing segment ──────────────────────────────────────────────────
-            this.buildLandingSegment(group, f, railing, stair, sideSign, railMat.clone(), (s, e) => this.buildBoxRail(s, e, 0.05, 0.04, railMat.clone()), flights);
+            this.buildLandingSegment(group, f, railing, stair, sideSign, railMat, (s, e) => this.buildBoxRail(s, e, 0.05, 0.04, railMat), flights);
         });
     }
 
@@ -634,14 +675,14 @@ export class StairRailingBuilder {
                 .add(offset)
                 .setY(flightStart.y + totalRise + railHeight);
             const geom = this.buildRailGeometry(startPoint, endPoint, 0.025);
-            const mesh = new THREE.Mesh(geom, railMat.clone());
+            const mesh = new THREE.Mesh(geom, railMat);
             mesh.userData.elementType = 'stair-railing';
             mesh.userData.selectable = false;
             group.add(mesh);
 
-            this.buildLandingSegment(group, f, railing, stair, sideSign, railMat.clone(), (s, e) => {
+            this.buildLandingSegment(group, f, railing, stair, sideSign, railMat, (s, e) => {
                 const g = this.buildRailGeometry(s, e, 0.025);
-                const m = new THREE.Mesh(g, railMat.clone());
+                const m = new THREE.Mesh(g, railMat);
                 m.userData.elementType = 'stair-railing';
                 m.userData.selectable = false;
                 return m;

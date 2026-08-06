@@ -38,6 +38,9 @@ import {
   // UpdateBeamCommand / UpdateRoofCommand / UpdateHandrailCommand are already imported
   // above for their move/material bridges — only these two are new imports.
   UpdateStairParametersCommand,
+  // §FIX-STAIR-RAILING-TYPE-PICKER — a STAIR's railing is not a standalone handrail:
+  // different element type, different store, and until now no update command at all.
+  UpdateStairRailingCommand,
   UpdateLightingParametersCommand,
   // §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — the two remaining "double lie" Move buttons
   // (enabled on BOTH surfaces, inert on BOTH). Both legacy commands own the GEOMETRY store
@@ -143,6 +146,11 @@ import { projectOriginStore } from '@pryzm/stores';
 // for the furniture type-swap so the unified ring-first undo (performUndoRedo)
 // reverses the SWAP rather than popping the element's earlier CREATE. C03 §4.5–4.8.
 import { toJsonPointer } from '@pryzm/command-bus';
+// §FIX-STAIR-RAILING-TYPE-PICKER — the ONE named railing catalogue (five built-ins),
+// and the ONE projection from a catalogue definition onto a stair railing's
+// construction fields. Both families now read the same catalogue.
+import { handrailTypeStore } from '@pryzm/core-app-model';
+import { resolveStairRailingTypeFields } from '@pryzm/geometry-stair';
 
 /**
  * Registers structural command-bus stubs (§A40-W04 — column/beam/door/window/ceiling/stair).
@@ -1099,6 +1107,41 @@ export function initBusHandlers(
                                 ...(cmd.depth !== undefined ? { depth: cmd.depth } : {}),
                                 ...(cmd.steelProfileName !== undefined ? { steelProfileName: cmd.steelProfileName } : {}),
                             } as any,
+                        }));
+                    });
+                    return;
+                }
+                if (elType === 'stair-railing' || elType === 'stairrailing') {
+                    // §FIX-STAIR-RAILING-TYPE-PICKER — a STAIR's railing.
+                    //
+                    // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) covered the STANDALONE handrail
+                    // (`handrailStore`). A stair railing is a different element — semantic
+                    // 'stair-railing', record `StairRailingConfig`, store `stairRailingStore`
+                    // — and fell through to the `console.warn(… ignored)` default. Selecting
+                    // one showed "Element Type —" and no picker at all (the founder's report).
+                    //
+                    // THE FIELDS ARE RESOLVED HERE, NOT IN THE WIDGET. The handrail branch
+                    // below takes materialised fields from its widget because `HandrailData`
+                    // has no `typeId` to resolve from. `StairRailingConfig` now HAS one, so
+                    // the catalogue → construction-form projection lives in ONE place
+                    // (`resolveStairRailingTypeFields`, geometry-stair) and every caller —
+                    // the panel, the AI plane, collaboration replay — gets the same result
+                    // from `{ newTypeId }` alone. Explicit payload fields still win, so a
+                    // caller may override a single dimension without inventing a type.
+                    const def = handrailTypeStore.getById(String(cmd.newTypeId));
+                    if (!def) {
+                        console.warn(`[element.changeType] no railing type "${cmd.newTypeId}" in handrailTypeStore — ignored.`);
+                        return;
+                    }
+                    const fields = resolveStairRailingTypeFields(def);
+                    _swapWithRingParity('stairRailingStore', 'stairRailing', cmd.elementId, () => {
+                        _cmExec(new UpdateStairRailingCommand({
+                            id: cmd.elementId,
+                            ...fields,
+                            ...(cmd.topRailHeight   !== undefined ? { topRailHeight:   cmd.topRailHeight   } : {}),
+                            ...(cmd.balusterWidth   !== undefined ? { balusterWidth:   cmd.balusterWidth   } : {}),
+                            ...(cmd.balusterSpacing !== undefined ? { balusterSpacing: cmd.balusterSpacing } : {}),
+                            ...(cmd.material        !== undefined ? { material:        cmd.material        } : {}),
                         }));
                     });
                     return;

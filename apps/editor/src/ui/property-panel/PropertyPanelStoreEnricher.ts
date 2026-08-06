@@ -48,6 +48,12 @@ export function _enrichFromStores(
         case 'roof':        storeData = roofStore?.getById?.(id);              break;
         case 'furniture':   storeData = window.furnitureStore?.get?.(id);      break; // TODO(E.furniture.S): legacy furnitureStore — replace with runtime.stores.furniture
         case 'handrail':    storeData = window.handrailStore?.get?.(id);       break; // TODO(E.handrail.S): legacy handrailStore — replace with runtime.stores.handrail
+        // §FIX-STAIR-RAILING-TYPE-PICKER — a stair railing was NEVER enriched, so the
+        // panel only ever saw the mesh userData (id / stairId / levelId / selectable /
+        // version — exactly the rows the founder photographed). With no `typeId`,
+        // `topRailHeight` or `material` in scope the type picker could not have shown a
+        // current selection even once it existed.
+        case 'stair-railing': storeData = window.stairRailingStore?.get?.(id);  break; // TODO(E.stair.S): legacy stairRailingStore — replace with runtime.stores.stairRailing
         case 'room':        storeData = window.roomStore?.getById?.(id);       break; // TODO(E.18-R.S): legacy roomStore — replace with runtime.stores.rooms slot
         case 'window': {
             const ws  = window.wallStore; // TODO(E.wall.S): legacy wallStore — replace with runtime.stores.wall

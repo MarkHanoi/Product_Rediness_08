@@ -29,6 +29,10 @@ import { buildFurnitureTypeSelectorWidget } from './FurnitureTypeSelectorWidget'
 // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — placed-railing "Type" swap dropdown; the
 // HandrailTypeStore catalogue had no selection surface anywhere in the product.
 import { buildRailingTypeSelectorWidget }  from './RailingTypeSelectorWidget';
+// §FIX-STAIR-RAILING-TYPE-PICKER — a STAIR's railing is a DIFFERENT element from a
+// standalone handrail (semantic 'stair-railing', store `stairRailingStore`); L-623
+// covered only the latter, so selecting a stair railing showed no picker at all.
+import { buildStairRailingTypeSelectorWidget } from './StairRailingTypeSelectorWidget';
 
 // ── Host interface ────────────────────────────────────────────────────────────
 
@@ -229,6 +233,28 @@ export function _buildTypeSelector(
             })
                 ?.then(() => host.onRerender({ ...elementData, ...updates }))
                 ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (beam) failed:', e));
+        });
+    }
+
+    if (elType === 'stair-railing' || elType === 'stairrailing') {
+        // §FIX-STAIR-RAILING-TYPE-PICKER — the founder's defect. Only the standalone
+        // handrail branch below existed, and a stair railing never matched it, so
+        // `_buildTypeSelector` returned null and the panel rendered no picker.
+        //
+        // Only the catalogue id travels: `StairRailingConfig` carries a `typeId`, so the
+        // catalogue → construction-form projection lives ONCE, in the bus handler
+        // (`resolveStairRailingTypeFields`), reachable identically by the AI plane and
+        // collaboration replay. The handrail branch below must materialise in the widget
+        // instead only because `HandrailData` has no typeId to resolve from.
+        return buildStairRailingTypeSelectorWidget(elementData, (payload) => {
+            if (!payload.typeId) return;
+            window.runtime?.bus?.executeCommand('element.changeType', {
+                elementId:   elementData.id,
+                elementType: 'stair-railing',
+                newTypeId:   payload.typeId,
+            })
+                ?.then(() => host.onRerender({ ...elementData, typeId: payload.typeId }))
+                ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (stair-railing) failed:', e));
         });
     }
 

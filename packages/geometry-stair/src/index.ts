@@ -7,6 +7,9 @@
 
 // ── Types / stores (Sprint H P9) ─────────────────────────────────────────────
 export * from './StairRailingTypes';
+// §FIX-STAIR-RAILING-TYPE-PICKER — the one projection from the named railing
+// catalogue (`handrailTypeStore`) onto a stair railing's construction fields.
+export * from './StairRailingTypeMapping';
 export * from './StairLandingTypes';
 export * from './StairTypeDefinitions';
 export * from './StairTypes';

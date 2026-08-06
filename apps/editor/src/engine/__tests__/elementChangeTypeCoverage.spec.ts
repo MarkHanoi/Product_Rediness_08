@@ -73,6 +73,10 @@ type AnyWindow = Record<string, unknown>;
 const GEOMETRY_STORE_GLOBALS = [
     'stairStore', 'columnStore', 'beamStore', 'handrailStore',
     'roofStore', 'lightingStore', 'plumbingStore',
+    // §FIX-STAIR-RAILING-TYPE-PICKER — a STAIR's railing is a separate element in a
+    // separate store; L-623 covered only the standalone handrail, so this family fell
+    // through to the `console.warn(… ignored)` default and the panel offered no picker.
+    'stairRailingStore',
 ] as const;
 
 function installEnvironment(): void {
@@ -121,6 +125,11 @@ function installEnvironment(): void {
     w.roofStore     = makeStore({ id: 'rf-1',   type: 'roof',     roofType: 'flat' });
     w.lightingStore = makeStore({ id: 'lt-1',   type: 'lighting', fixtureType: 'downlight' });
     w.plumbingStore = makeStore({ id: 'pl-1',   type: 'plumbing', toiletVariant: 'wall-hung' });
+    // §FIX-STAIR-RAILING-TYPE-PICKER — a stair's railing (StairRailingConfig).
+    w.stairRailingStore = makeStore({
+        id: 'sr-1', stairId: 'st-1', side: 'left', railingType: 'flat-bar',
+        topRailHeight: 1.1, balusterShape: 'rectangular', balusterWidth: 0.04, material: 'steel',
+    });
 
     initBusHandlers(w.runtime as never);
 }
@@ -220,6 +229,38 @@ describe('element.changeType — §FIX-TYPE-SWAP-ALL-FAMILIES (L-623)', () => {
             });
         });
     }
+
+    // §FIX-STAIR-RAILING-TYPE-PICKER — the stair-railing family. Not in NEWLY_COVERED
+    // because its payload is resolved from the CATALOGUE by the handler (`newTypeId`
+    // alone is sufficient) rather than materialised by the widget, which is the whole
+    // point of the branch: one projection, reachable identically by the panel, the AI
+    // plane and collaboration replay.
+    describe('stair-railing', () => {
+        it('routes to UpdateStairRailingCommand from a catalogue id alone', () => {
+            const v = changeType({ elementId: 'sr-1', elementType: 'stair-railing', newTypeId: 'glass-guardrail' });
+            expect(v.valid).toBe(true);
+            expect(lastCommandName()).toBe('UpdateStairRailingCommand');
+        });
+
+        it('accepts the `stairRailing` spelling too (the store event uses it)', () => {
+            changeType({ elementId: 'sr-1', elementType: 'stairRailing', newTypeId: 'timber-baluster' });
+            expect(lastCommandName()).toBe('UpdateStairRailingCommand');
+        });
+
+        it('pushes exactly ONE invertible replace under the `stairRailing` store key', () => {
+            changeType({ elementId: 'sr-1', elementType: 'stair-railing', newTypeId: 'glass-guardrail' });
+            expect(ringPushes).toHaveLength(1);
+            expect(ringPushes[0].affectedStores).toEqual(['stairRailing']);
+            expect((ringPushes[0].inverse.ops[0].value as { id: string }).id).toBe('sr-1');
+            expect(ringPushes[0].forward.ops[0].value).not.toEqual(ringPushes[0].inverse.ops[0].value);
+        });
+
+        it('REFUSES a type that is not in the catalogue — no command, no ring entry', () => {
+            changeType({ elementId: 'sr-1', elementType: 'stair-railing', newTypeId: 'not-a-real-type' });
+            expect(executed).toHaveLength(0);
+            expect(ringPushes).toHaveLength(0);
+        });
+    });
 
     it('plumbing — the L-622 branch now carries ring parity too', () => {
         changeType({

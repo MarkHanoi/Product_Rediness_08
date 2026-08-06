@@ -240,6 +240,9 @@ export * from './stair/GenerateStairGeometryCommand';
 export * from './stair/MoveStairCommand';
 export * from './stair/UpdateStairFlightsCommand';
 export * from './stair/UpdateStairParametersCommand';
+// §FIX-STAIR-RAILING-TYPE-PICKER — the per-railing update command that
+// CommandType.UPDATE_STAIR_RAILING has named since the railing sub-system shipped.
+export * from './stair/UpdateStairRailingCommand';
 export * from './stair/ValidateStairCommand';
 
 // ─── Vertical circulation (lift) — residential-building multi-family §4 (P2) ─

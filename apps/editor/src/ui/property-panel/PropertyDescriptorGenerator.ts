@@ -266,6 +266,32 @@ const SCHEMAS: Record<string, ElementSchema> = {
         globalId:        READONLY('Global ID', 'metadata'),
     },
 
+    // §FIX-STAIR-RAILING-TYPE-PICKER — a STAIR's railing had NO schema, so it fell to
+    // `buildFallbackSchema`, whose `type: READONLY('Element Type')` row reads
+    // `elementData.type` — a key `StairRailingConfig` does not have (the record and the
+    // mesh userData both spell it `elementType`). That is the literal em-dash the founder
+    // photographed: not a missing value, a row pointed at the wrong key. The rest of the
+    // panel was the fallback's alphabet soup of raw userData keys (Element Id, Stair Id,
+    // Selectable, Version) for the same reason.
+    'stair-railing': {
+        id:              READONLY('Element ID', 'identity'),
+        elementType:     READONLY('Element Type', 'identity'),
+        typeId:          READONLY('Railing Type', 'identity'),
+        railingType:     READONLY('Construction Form', 'definition'),
+        topRailHeight:   NUMBER('Top Rail Height', 'definition', 'definition', true, { unit: 'm', min: 0.3, max: 2.5 }),
+        handrailHeight:  NUMBER('Handrail Height', 'definition', 'definition', true, { unit: 'm', min: 0.3, max: 2.5 }),
+        balusterShape:   ENUM('Baluster Shape', 'definition', 'definition', ['rectangular', 'round']),
+        balusterWidth:   NUMBER('Baluster Width', 'definition', 'definition', true, { unit: 'm', min: 0.005, max: 0.3 }),
+        balusterSpacing: NUMBER('Baluster Spacing', 'definition', 'definition', true, { unit: 'm', min: 0.02, max: 1 }),
+        material:        ENUM('Material', 'definition', 'definition', ['steel', 'chrome', 'wood', 'timber', 'concrete', 'glass']),
+        side:            READONLY('Side', 'spatial'),
+        stairId:         READONLY('Host Stair', 'spatial'),
+        levelId:         READONLY('Level ID', 'spatial'),
+        room:            READONLY('Room', 'spatial'),
+        ifcClass:        READONLY('IFC Class', 'metadata'),
+        globalId:        READONLY('Global ID', 'metadata'),
+    },
+
     // §Feasibility — curtain wall sub-element schemas (Phase 1)
     // Used by the descriptor generator to produce fallback rows if needed;
     // the primary rendering for these types is via CurtainSubElementPanel.ts.
@@ -303,11 +329,19 @@ const IFC_CLASS_MAP: Record<string, string> = {
     roof:        'IfcRoof',
     furniture:   'IfcFurnishingElement',
     handrail:    'IfcRailing',
+    // §FIX-STAIR-RAILING-TYPE-PICKER — CreateStairRailingCommand already stamps
+    // ifcClass 'IfcRailing' on the record; the panel's fallback said
+    // 'IfcBuildingElement', so the two disagreed on the same element.
+    'stair-railing': 'IfcRailing',
 };
 
 function normalizeType(rawType: string): string {
     const t = (rawType || '').toLowerCase().trim();
     if (t === 'stair' || t === 'stairs') return 'stairs';
+    // §FIX-STAIR-RAILING-TYPE-PICKER — the mesh userData spells it 'stair-railing' and
+    // the store event spells it 'stairRailing'. Both name ONE family; without this the
+    // second spelling silently fell through to the fallback schema.
+    if (t === 'stair-railing' || t === 'stairrailing') return 'stair-railing';
     if (t === 'curtain-wall' || t === 'curtainwall') return 'curtainwall';
     if (t === 'curtainpanel' || t === 'curtain-panel') return 'curtain-panel';
     if (t === 'curtainmullion' || t === 'curtain-mullion' || t === 'curtainwallpart') return 'curtain-mullion';
