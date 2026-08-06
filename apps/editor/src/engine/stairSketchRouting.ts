@@ -44,6 +44,9 @@
  * alone cannot distinguish 3D from an elevation; only the view mode can.
  */
 
+// §FIX-STAIR-SHAPE-DESYNC — the shape union is `StairShapeChoice` (one registry,
+// @pryzm/geometry-stair/STAIR_SHAPES); 'C' (curved) is a first-class palette shape.
+import type { StairShapeChoice } from '@pryzm/geometry-stair';
 import { trace } from '@opentelemetry/api';
 import type { ViewMode } from '@pryzm/core-app-model';
 
@@ -96,11 +99,11 @@ export function shouldSketchStairIn3D(
  */
 export interface StairSketchSurfaces {
     /** Arm the 3D sketch handler. Returns true when it took ownership. */
-    arm3D(shape?: 'I' | 'L' | 'U'): boolean;
+    arm3D(shape?: StairShapeChoice): boolean;
     /** Arm the plan-tool path (ToolManager → every attached plan surface). Returns true when reachable. */
-    armPlan(shape?: 'I' | 'L' | 'U'): boolean;
+    armPlan(shape?: StairShapeChoice): boolean;
     /** Legacy modal route, used only when NEITHER surface could be armed. */
-    fallback(shape: 'I' | 'L' | 'U'): void;
+    fallback(shape: StairShapeChoice): void;
 }
 
 export interface StairSketchActivation {
@@ -120,7 +123,7 @@ export function activateStairSketchSurfaces(
     viewMode: ViewMode | undefined,
     cameraIsPerspective: boolean,
     surfaces: StairSketchSurfaces,
-    shape?: 'I' | 'L' | 'U',
+    shape?: StairShapeChoice,
 ): StairSketchActivation {
     return _tracer.startActiveSpan('pryzm.stair.activate_sketch_surfaces', (span) => {
         try {

@@ -118,7 +118,11 @@ export function mountCreatePanel(
                                 items: [
                                     { label: "Straight (I)", icon: "material-symbols:horizontal-rule", action: () => service.activateStairPathTool('I') },
                                     { label: "L-Shape", icon: "material-symbols:corner-left-up", action: () => service.activateStairPathTool('L') },
-                                    { label: "U-Shape", icon: "material-symbols:u-turn-left", action: () => service.activateStairPathTool('U') }
+                                    { label: "U-Shape", icon: "material-symbols:u-turn-left", action: () => service.activateStairPathTool('U') },
+                                    // §FIX-STAIR-SHAPE-DESYNC — curved was reachable in the
+                                    // param panel only; the shape set is declared once in
+                                    // STAIR_SHAPES (@pryzm/geometry-stair).
+                                    { label: "Curved (C)", icon: "material-symbols:rotate-right", action: () => service.activateStairPathTool('C') }
                                 ]
                             }
                         },

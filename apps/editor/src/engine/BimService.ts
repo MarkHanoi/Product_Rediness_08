@@ -393,7 +393,11 @@ export class BimService implements IBimService {
                 void toolManager.activateStairPath(s ? { initialShape: s } : undefined);
                 return true;
             },
-            fallback: (s) => this.createStair(s),
+            // §FIX-STAIR-SHAPE-DESYNC — the legacy 3D setup-panel fallback has no
+            // curved authoring; route 'C' to the straight panel rather than widening a
+            // path that cannot honour it. The stair-PATH tool (armPlan/arm3D above) is
+            // the authoritative curved route and is tried first.
+            fallback: (s) => this.createStair(s === 'C' ? 'I' : s),
         }, shape);
     }
 

@@ -34,6 +34,9 @@
  * rather than dying in the console.
  */
 
+// §FIX-STAIR-SHAPE-DESYNC — the shape union is `StairShapeChoice` (one registry,
+// @pryzm/geometry-stair/STAIR_SHAPES); 'C' (curved) is a first-class palette shape.
+import type { StairShapeChoice } from '@pryzm/geometry-stair';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import { StairPathToolController } from '@pryzm/geometry-stair';
 import type { StairLevelOption, StairToolConfig, StairLevelInput } from '@pryzm/geometry-stair';
@@ -56,7 +59,7 @@ interface ResolvedSpan {
 
 export class StairPathPlanToolHandler implements PlanToolHandler {
     private _ctrl: StairPathToolController | null = null;
-    private _pendingShapeHint: 'I' | 'L' | 'U' | null = null;
+    private _pendingShapeHint: StairShapeChoice | null = null;
     /**
      * §FIX-STAIR-DUAL-VIEW-ACTIVATION — the API object published to
      * `window.stairPathTool`, so teardown only clears the global when this handler

@@ -16,6 +16,9 @@
  * (P2 — the same import StairTool/geometry packages already use).
  */
 
+// §FIX-STAIR-SHAPE-DESYNC — the shape union is `StairShapeChoice` (one registry,
+// @pryzm/geometry-stair/STAIR_SHAPES); 'C' (curved) is a first-class palette shape.
+import type { StairShapeChoice } from '@pryzm/geometry-stair';
 import * as THREE from '@pryzm/renderer-three/three';
 import {
     StairPathToolController,
@@ -81,7 +84,7 @@ export class StairPath3DToolHandler {
      * §FIX-STAIR-DUAL-VIEW-ACTIVATION — shape remembered across a plan-focus
      * suspension so `resumeAfterPlanBlur()` restores the same sketch mode.
      */
-    private _shape: 'I' | 'L' | 'U' | undefined;
+    private _shape: StairShapeChoice | undefined;
     /** True while suspended because the plan pane owns the pointer. */
     private _suspendedForPlanFocus = false;
     private _unsubPlanFocus: (() => void) | null = null;
@@ -120,7 +123,7 @@ export class StairPath3DToolHandler {
         this.activate(this._shape);
     }
 
-    activate(shape?: 'I' | 'L' | 'U'): boolean {
+    activate(shape?: StairShapeChoice): boolean {
         // Re-entrancy guard — destroy any prior controller first.
         this.deactivate();
         this._shape = shape;

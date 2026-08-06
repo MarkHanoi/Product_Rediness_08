@@ -173,13 +173,19 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
       gap: 'NOT IMPLEMENTED — as door.' },
 
     // ── Circulation ──────────────────────────────────────────────────────────
-    { tool: 'stair',      label: 'Stair',      views: ['plan', '3d'], modes: ['I', 'L', 'U'], autoIn: [], modeSource: 'shared',
+    // §FIX-STAIR-SHAPE-DESYNC — 'C' (curved) joined the shape set. The catalogue is
+    // declared ONCE in `STAIR_SHAPES` (@pryzm/geometry-stair/stairPath/StairShapeRegistry);
+    // the ARCHITECTURE palette, the stair-path param panel and this matrix are its faces.
+    // NOTE: curved is authored by the stair-PATH arc gesture; the plan rectangle-drag
+    // handler narrows 'C' → 'I' explicitly (StairPlanToolHandler), it does not silently
+    // mislabel a straight run.
+    { tool: 'stair',      label: 'Stair',      views: ['plan', '3d'], modes: ['I', 'L', 'U', 'C'], autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED — no auto-place-in-circulation-core mode. The batch/house ' +
            'generators DO place stairs automatically (§CORRIDOR-STAIR-CONTIGUITY), so the ' +
            'capability exists; it is simply not offered as an interactive tool mode.' },
     // The dual-view reference implementation: ONE tool, a plan handler AND
     // StairPath3DToolHandler. Cited as the pattern, deliberately not edited here.
-    { tool: 'stair-path', label: 'Stair path', views: ['plan', '3d'], modes: ['I', 'L', 'U'], autoIn: [], modeSource: 'shared',
+    { tool: 'stair-path', label: 'Stair path', views: ['plan', '3d'], modes: ['I', 'L', 'U', 'C'], autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED — as stair. This tool is the DUAL-VIEW REFERENCE ' +
            'IMPLEMENTATION (one tool, StairPathPlanToolHandler + StairPath3DToolHandler ' +
            'over one StairToolConfigStore); it is the pattern the single-view gaps below ' +

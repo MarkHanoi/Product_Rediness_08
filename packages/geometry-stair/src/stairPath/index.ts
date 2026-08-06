@@ -57,3 +57,12 @@ export { CurvedStairSolver } from './CurvedStairSolver';
 export type { CurvedStepSlice, CurvedSolverResult } from './CurvedStairSolver';
 
 export { CurvedStairRenderer } from './CurvedStairRenderer';
+
+// §FIX-STAIR-SHAPE-DESYNC — the ONE stair-shape catalogue (palette + panel).
+export {
+    STAIR_SHAPES,
+    stairShapeDescriptor,
+    expectedSegmentsFor,
+    type StairShapeDescriptor,
+    type StairMode2D,
+} from './StairShapeRegistry';

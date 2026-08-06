@@ -32,7 +32,15 @@
  * Pure: no DOM, no THREE, no I/O.
  */
 
-export type StairShapeChoice = 'I' | 'L' | 'U';
+// §FIX-STAIR-SHAPE-DESYNC — the shape CATALOGUE (labels, drawing mode, click
+// budget) lives in ONE place, `stairPath/StairShapeRegistry`. This store remains
+// the authority for the architect's CHOSEN config; it no longer carries a second,
+// narrower spelling of the shape union. The old local union omitted 'C', which is
+// why curved stairs were authorable in the param panel but had no palette icon and
+// could not survive a round-trip through the tool config (founder: "we are MISSING
+// ONE FOR CURVED STAIR").
+export type { StairShapeChoice } from './stairPath/StairShapeRegistry';
+import type { StairShapeChoice } from './stairPath/StairShapeRegistry';
 
 export interface StairToolConfig {
     /** The architect's chosen stair shape. Defaults to straight. */

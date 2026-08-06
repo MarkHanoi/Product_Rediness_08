@@ -168,7 +168,12 @@ export class StairPlanToolHandler implements PlanToolHandler {
         // and which was a live P4 violation. This discharges the file's own
         // TODO(STAIR-PLAN-DI).
         const config: StairToolConfig = c.stairConfig ?? getStairToolConfig();
-        const shape: 'I' | 'L' | 'U'  = config.shape;
+        // §FIX-STAIR-SHAPE-DESYNC — the PLAN rectangle-drag tool authors straight runs
+        // only (I/L/U); a curved run needs the arc gesture of the stair-PATH tool, which
+        // `BimService.activateStairPathTool` routes to. Narrow explicitly here — with a
+        // documented fall-back to the nearest authorable shape — rather than widening
+        // this handler's union and silently producing a straight stair labelled 'C'.
+        const shape: 'I' | 'L' | 'U'  = config.shape === 'C' ? 'I' : config.shape;
         const requestedWidth          = config.width ?? (depth >= w ? w : depth);
         const typeId                  = config.typeId;
 
@@ -401,7 +406,9 @@ export class StairPlanToolHandler implements PlanToolHandler {
         // config chokepoint that `_commitStair()` uses, so what the architect
         // previews is exactly what gets committed (previously both read
         // `window.activeStairConfig`; now neither does).
-        const previewShape: 'I' | 'L' | 'U' = (c.stairConfig ?? getStairToolConfig()).shape;
+        // §FIX-STAIR-SHAPE-DESYNC — same narrowing as _commitStair (see there).
+        const _previewCfgShape = (c.stairConfig ?? getStairToolConfig()).shape;
+        const previewShape: 'I' | 'L' | 'U' = _previewCfgShape === 'C' ? 'I' : _previewCfgShape;
 
         // §STAIR-PREVIEW-REGRESSION (DAILY-USE 2026-05-21) — probe so the
         // runtime log shows which branch the preview takes for the current

@@ -40,6 +40,7 @@ import { StairPreviewRenderer } from './StairPreviewRenderer';
 import { StairPathAdapter } from './StairPathAdapter';
 import { StairPathHUD } from './StairPathHUD';
 import { StairPathParamPanel, type StairLevelOption, type StairParams } from './StairPathParamPanel';
+import { expectedSegmentsFor, type StairShapeChoice } from './StairShapeRegistry';
 import { CurvedStairSolver } from './CurvedStairSolver';
 import { CurvedStairRenderer } from './CurvedStairRenderer';
 import type { PlanViewCanvas } from '@pryzm/core-app-model';
@@ -101,7 +102,7 @@ export interface StairPathToolConfig {
      * L → auto-finish after 3 clicks (2 segments)
      * U → auto-finish after 4 clicks (3 segments)
      */
-    initialShape?:      'I' | 'L' | 'U';
+    initialShape?:      StairShapeChoice;
     // ── Callbacks ─────────────────────────────────────────────────────────
     onComplete?: (input: ReturnType<StairPathAdapter['toCreateStairInput']>) => void;
     onCancel?:   () => void;
@@ -159,7 +160,7 @@ export class StairPathToolController {
 
     // ── Shape-hint (I/L/U from ribbon) ────────────────────────────────────────
     private _expectedSegments = 0;
-    private _currentStraightShape: 'I' | 'L' | 'U' | null = null;
+    private _currentStraightShape: StairShapeChoice | null = null;
     private _currentUVariant: '2-run' | '3-run' = '2-run';
 
     // ── rAF ───────────────────────────────────────────────────────────────────
@@ -187,10 +188,8 @@ export class StairPathToolController {
         }
 
         this._currentStraightShape = _config.initialShape ?? null;
-        this._expectedSegments =
-            _config.initialShape === 'I' ? 1 :
-            _config.initialShape === 'L' ? 2 :
-            _config.initialShape === 'U' ? 2 : 0;
+        // §FIX-STAIR-SHAPE-DESYNC — one registry owns the click budget.
+        this._expectedSegments = expectedSegmentsFor(_config.initialShape ?? null);
 
         this._model  = new PolylineModel();
         this._solver = new StairSolver2D({
@@ -233,13 +232,11 @@ export class StairPathToolController {
             this._onParamChange(params);
         }, _config.levelOptions ?? [], (shape) => {
             // Shape button clicked — update expected segment count and reset drawing.
-            // U-shape: 2 segments for 2-run variant (3 clicks), 3 for 3-run variant (4 clicks).
             this._currentStraightShape = shape;
             const uVar = this._paramPanel.getParams().uVariant;
-            this._expectedSegments =
-                shape === 'I' ? 1 :
-                shape === 'L' ? 2 :
-                shape === 'U' ? (uVar === '3-run' ? 3 : 2) : 0;
+            // §FIX-STAIR-SHAPE-DESYNC — click budget comes from the ONE registry, so
+            // the panel and the tool can never disagree about it.
+            this._expectedSegments = expectedSegmentsFor(shape, uVar);
             this._hud.setShapeHint(shape);
             // Reset committed points so user re-draws for the new shape
             this._model.clear();
@@ -248,7 +245,13 @@ export class StairPathToolController {
             this._hud.setPointCount(0);
             this._dirty = true;
             console.log(`[StairPathToolController] Shape changed → ${shape} (expectedSegments=${this._expectedSegments})`);
-        });
+        },
+        // §FIX-STAIR-SHAPE-DESYNC — SEED the panel with the shape the architect
+        // picked in the ARCHITECTURE palette. Without this the panel opened on its
+        // hard-coded 'I' whatever icon was clicked, and its rival copy of the shape
+        // then disagreed with the tool at commit time (founder: activated shape=L,
+        // committed shape=U).
+        _config.initialShape ?? 'I');
 
         this._overlayCanvas = this._buildOverlayCanvas();
         document.body.appendChild(this._overlayCanvas);
@@ -445,7 +448,7 @@ export class StairPathToolController {
         // U-variant toggle (2-run ↔ 3-run): reset expected segment count and points.
         if (this._currentStraightShape === 'U' && params.uVariant !== this._currentUVariant) {
             this._currentUVariant = params.uVariant;
-            this._expectedSegments = params.uVariant === '3-run' ? 3 : 2;
+            this._expectedSegments = expectedSegmentsFor('U', params.uVariant);
             this._model.clear();
             this._cursor    = null;
             this._lastResult = null;

@@ -548,6 +548,32 @@ export const pryzmStairU = blk(`
 <line x1="88.1" y1="47.54" x2="100.0" y2="41.27" ${BL}/>
 `, '-4 -4 108 108');
 
+/**
+ * Stair C (curved) — §FIX-STAIR-SHAPE-DESYNC.
+ *
+ * The ARCHITECTURE palette carried I / L / U only, so the CURVED stair the
+ * parameter panel has always supported was unreachable from the palette
+ * (founder: "we are MISSING ONE FOR CURVED STAIR"). Drawn in the same plan-symbol
+ * idiom as its siblings: the two arc stringers plus radial treads that read as a
+ * winder run, with the walking-line arrow.
+ */
+export const pryzmStairC = blk(`
+<path d="M 14 88 A 74 74 0 0 1 88 14" ${BL}/>
+<path d="M 44 88 A 44 44 0 0 1 88 44" ${BL}/>
+<line x1="14" y1="88" x2="44" y2="88" ${BL}/>
+<line x1="88" y1="14" x2="88" y2="44" ${BL}/>
+<line x1="15.6" y1="74.2" x2="45.0" y2="80.0" ${BD}/>
+<line x1="20.4" y1="60.9" x2="47.9" y2="72.2" ${BD}/>
+<line x1="28.1" y1="49.0" x2="53.2" y2="65.3" ${BD}/>
+<line x1="38.3" y1="39.1" x2="60.0" y2="59.7" ${BD}/>
+<line x1="50.4" y1="31.8" x2="68.1" y2="55.9" ${BD}/>
+<line x1="63.8" y1="27.3" x2="77.2" y2="53.6" ${BD}/>
+<line x1="77.9" y1="25.7" x2="87.0" y2="53.0" ${BD}/>
+<path d="M 30 86 A 58 58 0 0 1 86 30" ${BDD}/>
+<line x1="86" y1="30" x2="79.5" y2="33.5" ${BL}/>
+<line x1="86" y1="30" x2="82.5" y2="36.5" ${BL}/>
+`, '-4 -4 108 108');
+
 /** Room — source: Room.SVG (22 lines) */
 export const pryzmRoom = blk(`
 <line x1="0.15" y1="15.7" x2="60.91" y2="39.69" ${BL}/>

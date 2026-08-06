@@ -30,8 +30,11 @@
 
 import { BUILT_IN_STAIR_TYPES } from '../StairTypeDefinitions';
 import type { StairShape2D } from './StairSolver2D';
+// §FIX-STAIR-SHAPE-DESYNC — the shape button row DERIVES from the one registry.
+import { STAIR_SHAPES, type StairShapeChoice } from './StairShapeRegistry';
 
 export type StairMode = 'straight' | 'curved';
+export type { StairShapeChoice };
 
 export interface StairParams {
     baseLevelId:         string;
@@ -67,8 +70,24 @@ export class StairPathParamPanel {
     private _onShapeSelect: ((shape: 'I' | 'L' | 'U') => void) | null = null;
     /** Solver-detected shape — used only for hint text. */
     private _shape: StairShape2D = 'I';
-    /** User-explicitly-selected shape — drives the active button state. */
-    private _selectedShape: 'I' | 'L' | 'U' | 'C' = 'I';
+    /**
+     * The ACTIVE stair shape — drives the active button state and the hint text.
+     *
+     * §FIX-STAIR-SHAPE-DESYNC — this used to be hard-initialised to `'I'` and was
+     * only ever written by a click on one of THIS panel's buttons. The shape the
+     * architect actually picked in the ARCHITECTURE palette reached
+     * `StairPathToolController` (via `config.initialShape`, seeding
+     * `_currentStraightShape` + `_expectedSegments`) and the HUD — but NEVER this
+     * panel. So clicking the L or U icon opened a panel showing `I`
+     * (founder: "no matter which stair button the user clicks it always defaults
+     * to the linear (I) stair"), and because the panel's rival copy disagreed with
+     * the tool, the click budget and the committed shape diverged — the founder's
+     * `activated in 3D (shape=L)` … `Built group … (U, 17 risers)`.
+     *
+     * It is now SEEDED from the activation shape (constructor arg) so the panel is
+     * a VIEW of the tool's shape, not a second authority for it.
+     */
+    private _selectedShape: StairShapeChoice;
     private _levels: StairLevelOption[];
 
     // Drag state
@@ -85,11 +104,38 @@ export class StairPathParamPanel {
         onChange: OnParamsChange,
         levels: StairLevelOption[] = [],
         onShapeSelect?: (shape: 'I' | 'L' | 'U') => void,
+        // §FIX-STAIR-SHAPE-DESYNC — the shape the tool was ACTIVATED with (the
+        // palette icon the architect clicked). Defaults to 'I' only when the caller
+        // genuinely has no shape, never as a hard-coded panel default.
+        initialShape: StairShapeChoice = 'I',
     ) {
         this._params        = { ...initial };
         this._onChange      = onChange;
         this._levels        = levels;
         this._onShapeSelect = onShapeSelect ?? null;
+        this._selectedShape = initialShape;
+        this._shape         = initialShape as StairShape2D;
+    }
+
+    /**
+     * §FIX-STAIR-SHAPE-DESYNC — read back the panel's active shape so a caller can
+     * assert panel ⇄ tool agreement (and so tests can pin it).
+     */
+    getSelectedShape(): StairShapeChoice {
+        return this._selectedShape;
+    }
+
+    /**
+     * §FIX-STAIR-SHAPE-DESYNC — re-seat the panel on the tool's shape WITHOUT
+     * re-entering `onShapeSelect` (that callback is the panel telling the tool; this
+     * is the tool telling the panel). Used when the tool is re-activated with a
+     * different palette icon while the panel instance is reused.
+     */
+    setSelectedShape(shape: StairShapeChoice): void {
+        if (this._selectedShape === shape) return;
+        this._selectedShape = shape;
+        this._shape = shape as StairShape2D;
+        if (this._el) this._render();
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -452,12 +498,9 @@ export class StairPathParamPanel {
             background: #e8edf6; border-radius: 8px; padding: 3px;
         `;
 
-        const modes: { label: 'I' | 'L' | 'U' | 'C'; mode: StairMode; hint?: string }[] = [
-            { label: 'I', mode: 'straight', hint: 'Straight stair' },
-            { label: 'L', mode: 'straight', hint: 'L-shape (90° turn)' },
-            { label: 'U', mode: 'straight', hint: 'U-shape (180° turn, two parallel runs)' },
-            { label: 'C', mode: 'curved',   hint: 'Curved stair' },
-        ];
+        // §FIX-STAIR-SHAPE-DESYNC — derived, never hand-listed: adding a shape to
+        // STAIR_SHAPES gives it a button here AND a palette icon, by construction.
+        const modes = STAIR_SHAPES;
 
         // Active label is driven by the explicitly user-selected shape — NOT the solver-detected shape
         const activeLabel = this._selectedShape;
