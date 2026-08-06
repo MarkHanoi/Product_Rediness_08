@@ -18,9 +18,19 @@
 //      is peeled off; every Barcelona parcel still falls through to `isInBarcelona` unchanged;
 //   2. this box is drawn CONSERVATIVELY around L'Hospitalet's core and stays clear of central
 //      Barcelona (Sants ≈ 2.138 E, Eixample ≈ 2.165 E are all east of `maxLon` here), so it
-//      cannot shadow a Barcelona reference point. Same reasoning as `cordobaBbox.ts`: a tight box
-//      that under-covers is honest (a missed L'Hospitalet strip falls back to Barcelona/estimated,
-//      itself gated), whereas an over-wide box that eats Barcelona is a regression.
+//      cannot shadow a Barcelona reference point.
+//
+// ⚠⚠⚠ AND THE ERROR ASYMMETRY RUNS THE OTHER WAY FROM WHAT "CONSERVATIVE" USUALLY MEANS HERE. An
+// earlier version of this comment claimed a missed L'Hospitalet strip "falls back to Barcelona/
+// estimated, itself gated" — that is FALSE: the Barcelona branch is NOT gated. The two failure
+// modes are not symmetric:
+//   • OVER-COVERING a neighbour costs a MIS-LABELLED REFUSAL — wrong label, zero fabricated figures.
+//   • UNDER-COVERING real L'Hospitalet land costs a CONFIDENT NUMBER: the parcel falls through to
+//     `isInBarcelona` and receives a real `es-08019-barcelona` envelope, with Barcelona's *alçada
+//     reguladora* and citations stamped on another municipality's land — precisely the mis-citation
+//     this file exists to prevent.
+// So UNDER-coverage is the EXPENSIVE error here. The sound fix is routing on the official INE 08101
+// municipal polygon (ICGC/IGN `municipios`, or the MUC municipal layer), not a wider rectangle.
 //
 // ⚠ AND EVEN INSIDE THIS BOX, THE BBOX AUTHORISES NOTHING. It is a proximity gate. The real answer
 // is decided downstream by the dispatcher, and while `LHOSPITALET_ENVELOPE_VERIFIED` is false (it

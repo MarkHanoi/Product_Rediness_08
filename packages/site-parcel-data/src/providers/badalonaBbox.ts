@@ -17,8 +17,22 @@
 //   2. this box is drawn CONSERVATIVELY around Badalona's core, EAST of the Besòs (Barcelona's
 //      Sant Martí/Sant Adrià are all west of `minLon` here, ≈2.20–2.21 E), so it cannot shadow a
 //      Barcelona reference point, and it is disjoint from the L'Hospitalet box (SW, 2.085–2.125 E).
-//      A tight box that under-covers is honest (a missed Badalona strip falls back to Barcelona/
-//      estimated, itself gated); an over-wide box that eats Barcelona would be a regression.
+//
+// ⚠⚠⚠ AND THE ERROR ASYMMETRY RUNS THE OTHER WAY FROM WHAT "CONSERVATIVE" USUALLY MEANS HERE. Read
+// this before widening or narrowing the box. An earlier version of this comment claimed a missed
+// Badalona strip "falls back to Barcelona/estimated, itself gated" — that is FALSE: the Barcelona
+// branch is NOT gated. The two failure modes are not symmetric:
+//   • OVER-COVERING (a neighbouring AMB municipality — Sant Adrià de Besòs to the S, Santa Coloma to
+//     the W, Montgat/Tiana to the NE — falling inside this box) costs a MIS-LABELLED REFUSAL: the
+//     card says "Badalona" and publishes NO number. Wrong label, zero fabricated figures.
+//   • UNDER-COVERING (real Badalona land — Canyet, Montigalà, upper Llefià, and the strip north of
+//     `maxLat` / east of `maxLon` — falling THROUGH to `isInBarcelona`) costs a CONFIDENT NUMBER: a
+//     clau 13a parcel there receives a real `es-08019-barcelona` envelope with Barcelona's *alçada
+//     reguladora* and Barcelona's citations stamped on another municipality's land. That is
+//     precisely the mis-citation this whole file exists to prevent.
+// So UNDER-coverage is the EXPENSIVE error here, not the cheap one. The sound fix is not a wider
+// rectangle (that trades a known bounded leak for an unknown one) but routing on the official INE
+// 08015 municipal polygon (ICGC/IGN `municipios`, or the MUC municipal layer).
 //
 // ⚠ AND EVEN INSIDE THIS BOX, THE BBOX AUTHORISES NOTHING. It is a proximity gate; the answer is
 // decided downstream, and while `BADALONA_ENVELOPE_VERIFIED` is false (it is) the dispatcher renders
