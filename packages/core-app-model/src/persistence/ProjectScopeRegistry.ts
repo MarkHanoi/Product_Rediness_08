@@ -89,6 +89,42 @@ class ProjectScopeRegistryImpl {
         return { cleared, failures };
     }
 
+    /**
+     * §L-676-B (C13 §3.7) — clear a NAMED SUBSET of the registered scopes, with the
+     * same per-scope failure isolation as {@link clearAll}.
+     *
+     * WHY. `clearAll()` runs from `ClearProjectCommand`, i.e. at priority 0 of the
+     * INCOMING project's load. C13 §3.7 additionally requires the GIS/site half to be
+     * torn down synchronously on `pryzm-project-switch`, BEFORE the incoming project's
+     * context is set — and `siteProjectScope`'s switch listener could previously only
+     * run the three scopes it constructs itself. The two GIS scopes owned elsewhere
+     * (`gis.cesiumViewport`, registered in `CesiumViewport`'s constructor, and
+     * `gis.areaLayout`, registered in `mountGISArea`) were therefore torn down only on
+     * the LATER `clearAll()` pass. Naming them here lets the switch listener reach the
+     * registered owner instead of duplicating its clear logic — one owner, one body.
+     *
+     * A name with no registered owner is reported in `missing`, never silently skipped:
+     * "nothing to clear" and "the owner was never registered" are the same value, and
+     * L-676 is the second bug in this subsystem caused by not distinguishing them.
+     */
+    clearScopes(scopeNames: readonly string[]): ClearReport & { missing: string[] } {
+        const cleared: string[] = [];
+        const failures: Array<{ scope: string; error: unknown }> = [];
+        const missing: string[] = [];
+        for (const name of scopeNames) {
+            const store = this._scopes.get(name);
+            if (!store) { missing.push(name); continue; }
+            try {
+                store.clear();
+                cleared.push(name);
+            } catch (error) {
+                failures.push({ scope: name, error });
+                console.error(`[ProjectScopeRegistry] clear() failed for "${name}":`, error);
+            }
+        }
+        return { cleared, failures, missing };
+    }
+
     reseedAll(): void {
         for (const store of this._scopes.values()) {
             if (typeof store.reseed !== 'function') continue;

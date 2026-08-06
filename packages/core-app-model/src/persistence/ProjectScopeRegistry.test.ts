@@ -46,6 +46,41 @@ describe('ProjectScopeRegistry — clearAll / reseedAll', () => {
     });
 });
 
+describe('§L-676-B — clearScopes (C13 §3.7 named-subset teardown)', () => {
+    it('clears only the named scopes, leaving the rest for ClearProjectCommand', () => {
+        const a = vi.fn(); const b = vi.fn();
+        projectScopeRegistry.register({ scopeName: 'l676b_A', clear: a });
+        projectScopeRegistry.register({ scopeName: 'l676b_B', clear: b });
+
+        const report = projectScopeRegistry.clearScopes(['l676b_A']);
+        expect(a).toHaveBeenCalledTimes(1);
+        expect(b).not.toHaveBeenCalled();
+        expect(report.cleared).toEqual(['l676b_A']);
+        expect(report.failures).toHaveLength(0);
+        expect(report.missing).toHaveLength(0);
+    });
+
+    it('a throwing scope is isolated — the later named scopes still clear', () => {
+        const later = vi.fn();
+        projectScopeRegistry.register({ scopeName: 'l676b_throws', clear: () => { throw new Error('boom'); } });
+        projectScopeRegistry.register({ scopeName: 'l676b_later', clear: later });
+
+        const report = projectScopeRegistry.clearScopes(['l676b_throws', 'l676b_later']);
+        expect(later).toHaveBeenCalledTimes(1);
+        expect(report.failures.map(f => f.scope)).toEqual(['l676b_throws']);
+        expect(report.cleared).toEqual(['l676b_later']);
+    });
+
+    it('a name with NO registered owner is REPORTED, never silently treated as clean', () => {
+        // §CONTEXT-DATA-HONESTY — "nothing to clear" and "the owner was never
+        // registered" are the same value; L-676 is the second bug in this subsystem
+        // caused by not distinguishing them.
+        const report = projectScopeRegistry.clearScopes(['l676b_no_such_owner']);
+        expect(report.missing).toEqual(['l676b_no_such_owner']);
+        expect(report.cleared).toHaveLength(0);
+    });
+});
+
 describe('ProjectScopeRegistry — B3 owner invariant', () => {
     it('refuses a scope with no scopeName (cannot be an owner)', () => {
         // @ts-expect-error — deliberately invalid registration

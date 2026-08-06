@@ -84,6 +84,25 @@ export const SITE_PROJECT_SCOPES: readonly string[] = [
     SITE_NEIGHBOURS_SCOPE,
 ];
 
+/**
+ * §L-676-B — GIS scopes owned by OTHER modules that must ALSO be torn down on the
+ * synchronous `pryzm-project-switch` trigger (C13 §3.7), not merely on the later
+ * `ClearProjectCommand.clearAll()` pass.
+ *
+ * `gis.cesiumViewport` is registered in `CesiumViewport`'s constructor and
+ * `gis.areaLayout` in `mountGISArea` — both correct places (those files own the
+ * state), but both were reachable ONLY via `clearAll()`, i.e. AFTER the incoming
+ * project's context was already set. In the founder's reproduction that ordering
+ * let `GISAreaLayout.reframeSiteIn3D()` fly the camera back to the PREVIOUS
+ * project's geocode frame after the teardown had run. We reach them THROUGH the
+ * registry (`clearScopes`) rather than importing them, so there is still exactly
+ * one owner and one clear body per surface (C13 §3.10).
+ */
+export const GIS_SWITCH_SCOPES: readonly string[] = [
+    'gis.cesiumViewport',
+    'gis.areaLayout',
+];
+
 /** Resolve the live runtime without hard-coupling to `window` in tests. */
 function resolveRuntime(explicit?: PryzmRuntime | null): PryzmRuntime | null {
     if (explicit) return explicit;
@@ -126,6 +145,16 @@ export function buildSiteProjectScopes(
 }
 
 /**
+ * §L-676-B — what the teardown ACTUALLY did. Returned (not just logged) so the
+ * regression test can assert failure-isolation without scraping the console, and
+ * so a caller can escalate a partial teardown instead of assuming success.
+ */
+export interface SiteTeardownReport {
+    readonly cleared: readonly string[];
+    readonly failures: ReadonlyArray<{ scope: string; error: string }>;
+}
+
+/**
  * Run the GIS/site teardown once, in order. Synchronous; a throwing scope is
  * logged and the remaining scopes still run (C13 ProjectScopedStore contract:
  * `clear()` must not throw, but the caller must survive it if one does).
@@ -136,8 +165,9 @@ export function buildSiteProjectScopes(
 export function runSiteProjectTeardown(
     reason: 'project-switch' | 'project-load',
     runtimeRef?: PryzmRuntime | null,
-): void {
+): SiteTeardownReport {
     const span = _tracer.startSpan('pryzm.site.projectScopeTeardown');
+    const failures: Array<{ scope: string; error: string }> = [];
     try {
         span.setAttribute('pryzm.site.reason', reason);
         span.setAttribute('pryzm.site.priorDispatchProjectId', getSiteDispatchOwningProjectId() ?? 'none');
@@ -147,14 +177,60 @@ export function runSiteProjectTeardown(
         );
         span.setAttribute('pryzm.site.hadNeighbourFootprints', getNeighbourFootprints() !== null);
 
+        const cleared: string[] = [];
         for (const scope of buildSiteProjectScopes(runtimeRef)) {
             try {
                 scope.clear();
+                cleared.push(scope.scopeName);
             } catch (e) {
+                failures.push({ scope: scope.scopeName, error: e instanceof Error ? e.message : String(e) });
                 console.error(`[siteProjectScope] clear() failed for "${scope.scopeName}":`, e);
             }
         }
-        console.log(`[siteProjectScope] §L-676 GIS/site teardown complete (${reason}).`);
+
+        // §L-676-B (C13 §3.7) — the GIS scopes owned elsewhere, reached through the
+        // registry so their owners stay single. Independently failure-isolated by
+        // `clearScopes`; a scope with no registered owner is REPORTED, not assumed clean.
+        const gis = projectScopeRegistry.clearScopes(GIS_SWITCH_SCOPES);
+        cleared.push(...gis.cleared);
+        for (const f of gis.failures) {
+            failures.push({ scope: f.scope, error: f.error instanceof Error ? f.error.message : String(f.error) });
+        }
+        if (gis.missing.length > 0) {
+            // Not a leak by itself (the viewport may never have been constructed in this
+            // tab), but it IS a coverage loss, and coverage loss reported as success is
+            // how this bug survived a "fix". Say it.
+            console.warn(
+                `[siteProjectScope] §L-676-B ${gis.missing.length} GIS scope(s) had NO registered owner ` +
+                `at switch time — NOT torn down here: [${gis.missing.join(', ')}].`,
+            );
+        }
+        span.setAttribute('pryzm.site.gisScopesMissing', gis.missing.length);
+
+        // §L-676-B — A COMPLETION MESSAGE THAT CANNOT FAIL IS A LIE.
+        //
+        // The previous line logged "teardown complete" unconditionally, from inside the
+        // same `try` that swallowed every per-scope throw. In the founder's production
+        // log that line appears DIRECTLY BENEATH `[SiteModelStore] listener threw:
+        // TypeError: … 'usedTimes'` — i.e. the one visible piece of evidence that the
+        // teardown had partially failed was immediately overwritten by a claim that it
+        // had succeeded. State what actually ran, and say so loudly when it didn't.
+        span.setAttribute('pryzm.site.scopesCleared', cleared.length);
+        span.setAttribute('pryzm.site.scopesFailed', failures.length);
+        if (failures.length === 0) {
+            console.log(
+                `[siteProjectScope] §L-676 GIS/site teardown complete (${reason}) — ` +
+                `${cleared.length} scope(s) cleared [${cleared.join(', ')}].`,
+            );
+        } else {
+            console.error(
+                `[siteProjectScope] §L-676 GIS/site teardown INCOMPLETE (${reason}) — ` +
+                `${cleared.length} cleared [${cleared.join(', ') || 'none'}], ` +
+                `${failures.length} FAILED:`,
+                failures,
+            );
+        }
+        return { cleared, failures };
     } finally {
         span.end();
     }

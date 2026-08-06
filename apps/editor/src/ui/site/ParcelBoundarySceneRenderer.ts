@@ -50,6 +50,7 @@
 //   into Project B. `dispose()` is idempotent and frees geometry/material.
 
 import * as THREE from '@pryzm/renderer-three/three';
+import { safeDisposeObject3D } from '@pryzm/renderer-three';
 import { EDITOR_LAYER } from '@pryzm/scene-committer';
 import { projectScopeRegistry } from '@pryzm/core-app-model';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
@@ -142,10 +143,18 @@ export class ParcelBoundarySceneRenderer {
 
     /** Remove + dispose the current outline group (idempotent). */
     private clear(): void {
-        if (!this.group) return;
-        this.scene.remove(this.group);
-        this.disposeGroup(this.group);
-        this.group = null;
+        const group = this.group;
+        if (!group) return;
+        // §L-676-B — DETACH FIRST, and drop the handle in `finally`. Detaching before
+        // disposal means a throwing dispose can never leave a stale Project-A outline
+        // in Project B's scene, and nulling in `finally` means a throw cannot leave
+        // this renderer permanently convinced it still owns a group it no longer does.
+        try {
+            this.scene.remove(group);
+            this.disposeGroup(group);
+        } finally {
+            this.group = null;
+        }
     }
 
     /**
@@ -386,16 +395,26 @@ export class ParcelBoundarySceneRenderer {
         }
     }
 
-    /** Dispose every geometry + material under a group. */
+    /**
+     * Dispose every geometry + material under a group.
+     *
+     * §I2 / §L-676-B — MUST go through `safeDisposeObject3D`, never a raw
+     * `traverse(… material.dispose())`. This method is reached from a
+     * `SiteModelStore.subscribe` listener (`refresh()` → `clear()`), which is the
+     * FIRST thing the C13 GIS/site teardown triggers (`site.model` scope →
+     * `siteModelStore.reset()`). On the WebGPU backend a raw `material.dispose()`
+     * throws `Cannot read properties of undefined (reading 'usedTimes')` out of
+     * THREE's `Nodes.delete()` when the node-builder cache has no entry for the
+     * material — and that throw escaped this listener, was caught+logged by the
+     * store as `[SiteModelStore] listener threw:` and ABORTED the rest of this
+     * renderer's clear. The founder's production log carries exactly that stack
+     * (`UH.disposeGroup` → `X5.onMaterialDispose` → `tq.delete`). The guard is the
+     * repo's existing single owner of this hazard (`packages/renderer-three/src/
+     * safeDispose.ts`), so it swallows ONLY the `usedTimes` TypeError and re-throws
+     * every genuine disposal bug.
+     */
     private disposeGroup(group: THREE.Group): void {
-        group.traverse((obj) => {
-            const withGeo = obj as { geometry?: { dispose?: () => void } };
-            withGeo.geometry?.dispose?.();
-            const withMat = obj as { material?: { dispose?: () => void } | Array<{ dispose?: () => void }> };
-            const mat = withMat.material;
-            if (Array.isArray(mat)) mat.forEach((m) => m?.dispose?.());
-            else mat?.dispose?.();
-        });
+        safeDisposeObject3D(group);
     }
 
     /** Idempotent teardown — removes the outline + releases subscriptions. */

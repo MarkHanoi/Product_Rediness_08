@@ -2885,6 +2885,13 @@ export class CesiumViewport {
     if (!this.isViewerLive()) return;
     const viewer = this.viewer;
     if (!viewer) return; // isViewerLive() already proved this, kept for TS narrowing.
+    // §L-676-B — THE CAMERA IS PROJECT-SCOPED STATE. This is the site-framing
+    // chokepoint; every geocode / location-change / re-entry framing lands here.
+    // Record WHERE and for WHICH project, so the C13 isolation probe can see a
+    // camera left pointing at the previous project's city (the founder's report:
+    // a brand-new project opened onto Barcelona at lat=41.38258).
+    this.cameraSeatedAt = { lat, lon };
+    this.noteProjectScopeOwner();
     const destination = Cesium.Cartesian3.fromDegrees(lon, lat, groundBase + SITE_FRAME_HEIGHT_M);
     const orientation = {
       heading: 0,
@@ -7139,6 +7146,11 @@ export class CesiumViewport {
       console.warn('[CesiumViewport][forma] flyToFormaSite: no massing placed yet — ignored.');
       return;
     }
+    // §L-676-B — building-anchored framing seats the camera just as surely as the
+    // site-location path does; stamp it too, so the C13 isolation probe cannot be
+    // blinded by which of the two framing routes happened to run.
+    this.cameraSeatedAt = { lat: o.lat, lon: o.lon };
+    this.noteProjectScopeOwner();
     // §GLOBE-FIT-BUILDING — prefer fitting the actual building bounding sphere (whole
     // tower framed, zoom-extents) for BOTH the initial landing and Zoom-to-Site; fall
     // back to the √area altitude heuristic below only when no sphere resolves.
@@ -12646,6 +12658,7 @@ export class CesiumViewport {
    */
   public resetProjectScopedState(mode: 'project-switch' | 'dispose' = 'project-switch'): void {
     const span = _cesiumScopeTracer.startSpan('pryzm.gis.cesiumViewport.resetProjectScope');
+    let partial = false;
     try {
       span.setAttribute('pryzm.gis.mode', mode);
       span.setAttribute('pryzm.gis.priorProjectId', this.owningProjectId ?? 'none');
@@ -12792,10 +12805,42 @@ export class CesiumViewport {
         // its listeners would silently kill the control with nothing failing.
         this.formaSunListeners.clear();
       }
-      this.owningProjectId = null;
+      // §L-676-B — MOVE THE CAMERA. Everything above drops MODEL state; none of it
+      // touches where the user is looking. On a project switch the viewer is
+      // deliberately kept alive (see the `mode` doc above), so unless we actively
+      // re-home it, Project B opens on Project A's city — which is the whole of the
+      // founder's report. Doing it here (rather than leaving the next project to
+      // re-frame) also makes `getOwningProjectId()`'s `null` an earned answer.
+      // §L-676-B — the RENDER MODE is per-project too. The founder's log shows
+      // `[CesiumViewport] Photoreal mode restored.` firing on the re-entry into a
+      // brand-new project: Project A's display mode carried over because nothing
+      // reset it. Return to the cold-boot default (photoreal off / non-Forma) so the
+      // incoming project chooses its own mode. `setFormaMode` self-no-ops when
+      // already false and when no viewer is mounted.
+      try { this.setFormaMode(false); }
+      catch (e) { console.warn('[CesiumViewport] §L-676-B forma-mode reset failed (non-fatal):', e); }
+      // (The camera re-home + owner stamp are executed in `finally` below so an
+      // unguarded throw ANYWHERE above cannot skip them — the "silently skipped
+      // cleanup" shape this whole fix exists to remove.)
     } catch (e) {
-      console.warn('[CesiumViewport] §L-676 resetProjectScopedState failed (non-fatal):', e);
+      console.error(
+        '[CesiumViewport] §L-676-B resetProjectScopedState threw part-way — teardown is ' +
+        'INCOMPLETE; the owner stamp is deliberately KEPT so the C13 audit fails loudly:', e,
+      );
+      partial = true;
+      span.setAttribute('pryzm.gis.resetPartial', true);
     } finally {
+      // §L-676-B — RUNS ON EVERY EXIT PATH. The outer `catch` means a throw part-way
+      // through the body abandons the remaining steps, so the camera re-home — the one
+      // step that decides what the user actually SEES — must not live inside the body.
+      this.resetCameraToNeutralGlobe();
+      // The owner stamp is cleared ONLY on a clean teardown. On a partial one the
+      // residual `formaMassingOrigin` / context / terrain state is still there, so
+      // keeping the stamp makes `getOwningProjectId()` answer with the PREVIOUS project
+      // and the isolation audit report a `scope.foreignProject` finding. Clearing it
+      // would convert a half-torn-down viewport into a green audit — precisely the
+      // false-clean this defect was made of.
+      if (!partial) this.owningProjectId = null;
       span.end();
     }
   }
@@ -12807,6 +12852,46 @@ export class CesiumViewport {
    * real model / context layer is seated for a site.
    */
   private owningProjectId: string | null = null;
+
+  /**
+   * §L-676-B — WHERE THE CAMERA IS CURRENTLY SEATED, or `null` when it has been
+   * returned to the neutral whole-globe home view.
+   *
+   * WHY THIS FIELD EXISTS — it is the field whose ABSENCE made the L-676 probe a
+   * rubber stamp. `getOwningProjectId()` asked only about massing / context / terrain
+   * / ground-datum state. `resetProjectScopedState()` cleared exactly those, so the
+   * probe answered `null` ("I hold nothing") and `ProjectIsolationAudit` printed
+   * `✓ project … loaded clean — … 4 scope probe(s) [… gis.cesiumViewport]` — WHILE
+   * the viewer was still live and still pointed at the previous project's city.
+   * A probe that reports clean during a live leak is itself the defect (C13 §3.10):
+   * the camera was never in the set of things it was willing to call state.
+   */
+  private cameraSeatedAt: { lat: number; lon: number } | null = null;
+
+  /**
+   * §L-676-B — return the camera to the neutral PRYZM Earth whole-globe home view and
+   * drop the seating stamp. Called from the project-switch reset, so the probe's new
+   * `null` answer is EARNED (the camera really did move) rather than asserted.
+   *
+   * Never throws — a dead/mid-recreate viewer is a no-op, and the stamp is cleared on
+   * every path so a failed fly cannot leave the probe claiming a seat it no longer has.
+   */
+  private resetCameraToNeutralGlobe(): void {
+    try {
+      const viewer = this.viewer;
+      if (this.isViewerLive() && viewer) {
+        // `flyHome(0)` is Cesium's own default global view, applied instantly — no
+        // tween to race the incoming project's first framing, no bespoke coordinates
+        // of ours to drift from the product's "PRYZM Earth" default.
+        viewer.camera.flyHome(0);
+        viewer.scene.requestRender();
+      }
+    } catch (e) {
+      console.warn('[CesiumViewport] §L-676-B camera home-reset failed (non-fatal):', e);
+    } finally {
+      this.cameraSeatedAt = null;
+    }
+  }
 
   /** §L-676 — record the project every subsequent per-project write belongs to. */
   private noteProjectScopeOwner(): void {
@@ -12827,7 +12912,13 @@ export class CesiumViewport {
       this.contextSeaAt != null ||
       this.formaTerrainCity != null ||
       this.committedParcelLonLat != null ||
-      this.globeGroundResolved;
+      this.globeGroundResolved ||
+      // §L-676-B — THE TWO SURFACES THE ORIGINAL PROBE COULD NOT SEE, and which are
+      // precisely what the founder saw survive: the camera still seated on the
+      // previous project's city, and the previous project's DISPLAY MODE (the
+      // "Photoreal mode restored." line) re-applied on re-entry.
+      this.cameraSeatedAt != null ||
+      this.formaMode;
     return holdsSomething ? this.owningProjectId : null;
   }
 
@@ -12842,6 +12933,11 @@ export class CesiumViewport {
       contextBuildingEntityCount: this.contextBuildingEntities.length,
       terrainCity: this.formaTerrainCity,
       globeGroundResolved: this.globeGroundResolved,
+      // §L-676-B — report the camera seat verbatim, so a leak report carries the
+      // lat/lon the user is actually looking at rather than only the state we
+      // happened to model. This is the number the founder read off the log.
+      cameraSeatedAt: this.cameraSeatedAt ? { ...this.cameraSeatedAt } : null,
+      formaMode: this.formaMode,
     };
   }
 

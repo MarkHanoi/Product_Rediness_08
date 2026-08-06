@@ -1,4 +1,11 @@
-import { getCesium, storeRegistry } from '@pryzm/core-app-model';
+import {
+    getCesium,
+    storeRegistry,
+    // §L-676-B (C13 §3.10) — this file owns per-project closure state and had NO
+    // lifecycle wiring at all; see the owner block at the end of mountGISArea().
+    projectScopeRegistry,
+    registerProjectScopeProbe,
+} from '@pryzm/core-app-model';
 import type { CesiumThreeBridge } from '@pryzm/plugin-geospatial';
 import type { UIProps } from '../Layout';
 // §FIX-UI-LAYERING-ZINDEX-CONTRACT (L-149, C06 §7) — the single z-index source of
@@ -16,7 +23,11 @@ import {
     getLastBuildableEnvelope,
     isLastEnvelopeSuggestedPreview,
     resolveRenderableBuildableEnvelope,
+    resolveActiveProjectId,
 } from '../site/siteDispatch';
+
+/** §L-676-B — scope name + audit-probe key for this file's per-project closure state. */
+const GIS_LAYOUT_SCOPE = 'gis.areaLayout';
 // §SEAM-2 INCREMENT 2 (L-604 / C12 §1.5) — the SINGLE origin authority shared by the parcel-ring
 // projection (`getSiteOrigin`) and the 3D-Site render frame (`getFormaOrigin`), so the ring and the
 // ENU frame are always built about ONE origin (closes the residual translation shift).
@@ -477,6 +488,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                                     // A.8.c.f.2 — capture the bbox so the 2D Hektar
                                     // map can fit the exact plot when opened.
                                     lastGeocodeFrame = { lat: result.lat, lon: result.lon, bbox: result.bbox };
+                                    noteLayoutOwner(); // §L-676-B — this frame belongs to THIS project.
                                     // §SITE-FRAME-ON-TERRAIN (L-635) — DO NOT fly here at a raw ellipsoid
                                     // altitude (bbox at ellipsoid 0 / point at 600 m). On a high-relief city
                                     // (Madrid ~700 m) that lands the camera UNDER the terrain, so the 3D Site
@@ -640,6 +652,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         if (cesiumViewport) {
             await cesiumViewport.loadBimGltf(blobUrl, { lat, lon, height: alt }, 1.0, true);
             isBimPlacedOnEarth = true;
+            noteLayoutOwner(); // §L-676-B
             if (bridge) {
                 const Cesium = await getCesium();
                 const cartesian = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
@@ -1268,6 +1281,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             return;
         }
         lastGeocodeFrame = { lat: frame.lat, lon: frame.lon, bbox: frame.bbox };
+        noteLayoutOwner(); // §L-676-B — this frame belongs to THIS project.
         console.log('[gis] pryzmSetGeocodeFrame: geocode frame set for 2D map fitBounds →', lastGeocodeFrame);
     };
 
@@ -3192,6 +3206,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // unchanged geometry short-circuits above (no re-export).
                 globeRealLastSig = sig;
                 globeRealPlaced = true;
+                noteLayoutOwner(); // §L-676-B
                 console.log('[gis][globe] §A.21.D49 REAL detailed model placed on tiles — massing blocks hidden.');
             } else {
                 // Declined (fidelity flipped mid-export / load failed) — revoke the unused
@@ -3367,6 +3382,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             if (placed) {
                 formaRealLastSig = sig;
                 formaRealPlaced = true;
+                noteLayoutOwner(); // §L-676-B
                 console.log('[gis][forma6] REAL full-fidelity model placed on the Forma study — massing blocks hidden.');
             } else {
                 // Declined (fidelity flipped mid-export, or load failed) — revoke the
@@ -4503,6 +4519,98 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         try { unmountSiteAuthoringPanes(); }
         catch (e) { console.error('[gis][panes] pryzmUnmountSiteAuthoringPanes failed:', e); }
     };
+
+    // ── §L-676-B (C13 §3.10) — THE MISSING OWNER ────────────────────────────────
+    //
+    // ROOT CAUSE OF THE SURVIVING SESSION. L-676 gave the GIS half three owners
+    // (`site.model`, `site.dispatch`, `site.neighbourFootprints`) plus a fourth
+    // inside `CesiumViewport` (`gis.cesiumViewport`). It gave NONE to THIS file —
+    // and a grep for `projectScopeRegistry` / `pryzm-project-switch` /
+    // `bim-project-cleared` across `GISAreaLayout.ts` returned zero before this
+    // block. Every `let` above is closure state of a function called ONCE per tab,
+    // so all of it outlives a project switch, unowned and unaudited:
+    //
+    //   • `lastGeocodeFrame` — THE stale lat/lon the founder saw. `getSiteOrigin()`
+    //     resolves `resolveSiteFrameOrigin(getCurrentSiteOrigin(), storeLoc,
+    //     lastGeocodeFrame)`. On the new project the first two are correctly null
+    //     (`siteDispatch` IS reset, `site=NULL` in the loader diag) — so the ONLY
+    //     surviving source of `lat=41.38258 lon=2.17707` was this variable, and
+    //     `reframeSiteIn3D()` then flew the camera straight back to Barcelona
+    //     AFTER the C13 teardown had correctly cleared the viewport.
+    //   • `isGisInitialized` — why the log says "Re-activating existing Cesium
+    //     viewer" instead of mounting fresh.
+    //   • `isBimPlacedOnEarth`, `globeRealPlaced/LastSig`, `formaRealPlaced/LastSig`
+    //     — Project A's placement caches, which make Project B's placement path
+    //     short-circuit ("geometry unchanged — reusing placed real model").
+    //   • `siteAuthoringPaneLastFramedCentroid`, `gisReactivationSelfPlaceSuppressed`
+    //     — per-project framing/placement latches.
+    //
+    // The viewer itself is deliberately NOT destroyed here (that stays
+    // `CesiumViewport`'s decision, and its `resetProjectScopedState('project-switch')`
+    // now also re-homes the camera and resets the render mode). What this owner
+    // guarantees is that nothing in THIS file can re-seed it with Project A's data.
+    let _layoutOwningProjectId: string | null = null;
+    const noteLayoutOwner = (): void => {
+        try {
+            const rt = runtime ?? ((typeof window !== 'undefined')
+                ? (window.runtime as unknown as PryzmRuntime | undefined) ?? null : null);
+            const pid = rt ? resolveActiveProjectId(rt) : null;
+            if (typeof pid === 'string' && pid.length > 0) _layoutOwningProjectId = pid;
+        } catch { /* ownership stamping must never break the GIS layout */ }
+    };
+
+    /** The per-project closure state this layout holds, or null when it holds none. */
+    const describeLayoutProjectState = (): Record<string, unknown> => ({
+        lastGeocodeFrame: lastGeocodeFrame ? { ...lastGeocodeFrame } : null,
+        isGisInitialized,
+        isBimPlacedOnEarth,
+        globeRealPlaced,
+        formaRealPlaced,
+        siteAuthoringPaneLastFramedCentroid: siteAuthoringPaneLastFramedCentroid
+            ? { ...siteAuthoringPaneLastFramedCentroid } : null,
+        gisActive: _gisActive,
+    });
+
+    const layoutHoldsProjectState = (): boolean => (
+        lastGeocodeFrame !== null ||
+        isBimPlacedOnEarth ||
+        globeRealPlaced ||
+        formaRealPlaced ||
+        globeRealLastSig !== null ||
+        formaRealLastSig !== null ||
+        siteAuthoringPaneLastFramedCentroid !== null
+    );
+
+    const clearLayoutProjectState = (): void => {
+        // THE fix for the founder's stale lat/lon: no project may inherit another
+        // project's geocode frame.
+        lastGeocodeFrame = null;
+        isBimPlacedOnEarth = false;
+        gisReactivationSelfPlaceSuppressed = false;
+        globeRealLastSig = null;
+        globeRealPlaced = false;
+        formaRealLastSig = null;
+        formaRealPlaced = false;
+        siteAuthoringPaneLastFramedCentroid = null;
+        // A 2D boundary-draw map authored against Project A must not survive into B.
+        // Independently guarded: a throwing map teardown must not skip the rest.
+        try { closeBoundaryMap2D(); }
+        catch (e) { console.warn('[gis] §L-676-B closeBoundaryMap2D during project teardown failed (non-fatal):', e); }
+        try { boundaryTool?.cancel(); }
+        catch (e) { console.warn('[gis] §L-676-B boundaryTool.cancel during project teardown failed (non-fatal):', e); }
+        _layoutOwningProjectId = null;
+        console.log('[gis] §L-676-B GIS layout project scope cleared (geocode frame + placement caches dropped).');
+    };
+
+    projectScopeRegistry.register({
+        scopeName: GIS_LAYOUT_SCOPE,
+        clear: clearLayoutProjectState,
+    });
+    registerProjectScopeProbe({
+        scope: GIS_LAYOUT_SCOPE,
+        owningProjectId: () => (layoutHoldsProjectState() ? _layoutOwningProjectId : null),
+        describe: describeLayoutProjectState,
+    });
 
     return { toggleGIS, flyToCremornePoint, placeBimOnEarth, activateView, gizmoMode, startBoundaryDraw, cancelBoundaryDraw };
 }
