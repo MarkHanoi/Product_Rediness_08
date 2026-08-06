@@ -18,16 +18,32 @@ import { LightingData, LightEmissionConfig } from '@pryzm/geometry-lighting';
 
 export interface UpdateLightingParametersPayload {
     elementId: string;
-    /** Partial patch — any LightingData fields except id/type/levelId. */
+    /**
+     * Partial patch — any LightingData fields except the identity/placement ones.
+     *
+     * §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — `fixtureType` was in this Omit list, so a
+     * lighting TYPE change could not be expressed by the command that owns the
+     * lighting store. The `element.changeType` lighting branch compiled only because
+     * it cast `{ fixtureType } as any` — a type hole hiding the fact that the family's
+     * type-change route had no typed payload (and no UI call site) at all. A fixture's
+     * type IS a lighting parameter: `LightingFragmentBuilder.update()` switches the
+     * whole geometry on it. `position`/`rotation` stay excluded — those are the MOVE
+     * command's, and a type swap must be in place.
+     */
     patch: Partial<Omit<LightingData,
-        'id' | 'type' | 'levelId' | 'fixtureType' | 'position' | 'rotation'
+        'id' | 'type' | 'levelId' | 'position' | 'rotation'
     >> & {
         emission?: Partial<LightEmissionConfig>;
     };
 }
 
 export class UpdateLightingParametersCommand implements Command {
-    readonly affectedStores = ['level'] as const;
+    // §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — was `['level']`, which is not a store this
+    // command writes: it reads the level table and mutates the LIGHTING store. The
+    // lock graph and every `affectedStores`-driven consumer were told the wrong
+    // write-set (the same class of error §STAIR-AUDIT-2026 F33 fixed for
+    // CreateStairRailingCommand). `lighting` IS covered by buildUndoStoreMap().
+    readonly affectedStores = ['lighting'] as const;
     readonly id: string;
     readonly type = CommandType.UPDATE_LIGHTING_PARAMETERS;
     readonly timestamp: number;

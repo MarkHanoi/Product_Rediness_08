@@ -19,10 +19,23 @@
  * Table/surface:
  *  table_terracotta   — terracotta column body + conical shade
  *
- * Night-mode:
- *  Listens to `bam:day-night-changed`. When mode==='night', adds a PointLight
- *  child to each fixture group. When mode==='day', removes them.
- *  The light is NOT present in the group by default (prevents daytime GPU cost).
+ * Emission (§FEAT-FIXTURE-PHOTOMETRY / §FIX-LIGHT-NIGHT-CONTRIBUTION, 2026-08-06):
+ *  Every fixture emits in BOTH day and night. Intensity, colour and reach come
+ *  from `@pryzm/core-app-model`'s photometric table — real LUMENS and KELVIN per
+ *  fixture family, converted to this scene's candela convention — not from a
+ *  single shared magic scalar. Night applies FIXTURE_NIGHT_MULTIPLIER so the
+ *  fixtures become the room's key light while the sun/ambient is dimmed.
+ *
+ *  PREVIOUSLY: a PointLight was added ONLY in night mode, at a flat 1.5 candela
+ *  for every family. THREE r165+ removed legacy lighting, so 1.5 cd falls off as
+ *  1/d² to an irradiance of 0.24 at 2.5 m — BELOW the scene's own ambient floor
+ *  (0.5 ambient + 0.35 hemisphere). A room full of fixtures therefore rendered
+ *  black: the fixtures were physically dimmer than the ambient they had to beat.
+ *
+ *  Cost is bounded by a live-light budget (LiveLightBudget.ts): the N fixtures
+ *  nearest the camera get a real PointLight, everything else keeps only its
+ *  emissive lens, and N degrades with the SceneQualityTier. Fixture PointLights
+ *  never cast shadows — see §NIGHT-ALL-LIGHTS-ON below.
  *
  * Contract compliance:
  *  §01 §4   — builders never mutate stores.
@@ -32,6 +45,13 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §FIX-LIGHT-NIGHT-CONTRIBUTION (2026-08-06) — these consts used to come from the
+// `@pryzm/core-app-model` ROOT barrel, which reaches them only by a long chain
+// (index → stores/index → stores/LightingTypes.js) while this package owns an
+// IDENTICAL local copy and `core-app-model/lighting/LightingTypes.ts` owns a
+// THIRD. Three divergent copies of the same table is a latent trap, so the
+// builder now reads the copy it lives next to. Emission is no longer taken from
+// any of them — it comes from the photometric model below.
 import {
     LightingData,
     DOWNLIGHT_DEFAULTS,
@@ -46,7 +66,18 @@ import {
     FLOOR_TRIPOD_BLACK_DEFAULTS,
     MIRROR_LIGHT_DEFAULTS,
     PENDANT_CLUSTER_DEFAULTS,
-    DEFAULT_EMISSION,
+} from './LightingTypes.js';
+// §FEAT-FIXTURE-PHOTOMETRY — real lumens/kelvin per fixture family, the scene
+// candela scale, day/night multipliers, and the bounded live-light budget.
+import {
+    photometryForFixture,
+    sceneIntensityFor,
+    lensEmissiveFor,
+    kelvinToHex,
+    FIXTURE_LIGHT_ROLE,
+    selectLiveLights,
+    liveLightBudgetForTier,
+    type SceneQualityTier,
 } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 
@@ -105,6 +136,37 @@ const LENS_WARM = '#fff8e0';
  * @param emissive emissive intensity (fixture-tuned)
  * @param bulge    cap depth as a fraction of radius (0 = flat, 0.25 ≈ shallow dome)
  */
+/**
+ * §FEAT-FIXTURE-PHOTOMETRY — shared emissive-lens materials.
+ *
+ * `emissiveLens` used to `new THREE.MeshStandardMaterial(...)` on EVERY call, so
+ * a plate with 200 fixtures carried 200 unique materials — 200 shader programs
+ * and zero instancing potential (this project has already lost instancing that
+ * way once). The lens material is now pooled on `tint × quantised emissive`, so
+ * all fixtures of a given family share exactly one, and the day/night refresh
+ * swaps the material reference rather than mutating a per-element copy.
+ */
+const _lensMatCache = new Map<string, THREE.MeshStandardMaterial>();
+
+function sharedLensMat(tint: string, emissive: number): THREE.MeshStandardMaterial {
+    // Quantise to 0.05 so continuous photometric values collapse onto a small,
+    // bounded set of materials instead of one per fixture.
+    const q = Math.round(Math.max(0, emissive) * 20) / 20;
+    const key = `${tint}|${q}`;
+    let mat = _lensMatCache.get(key);
+    if (!mat) {
+        mat = new THREE.MeshStandardMaterial({
+            color: new THREE.Color(tint),
+            emissive: new THREE.Color(tint),
+            emissiveIntensity: q,
+            roughness: 1,
+            metalness: 0,
+        });
+        _lensMatCache.set(key, mat);
+    }
+    return mat;
+}
+
 function emissiveLens(
     radius: number,
     tint: string,
@@ -117,13 +179,7 @@ function emissiveLens(
     const sphereR = (radius * radius + depth * depth) / (2 * depth);
     const phi = Math.asin(Math.min(1, radius / sphereR));
     const geo = new THREE.SphereGeometry(sphereR, SEG_LENS, Math.max(6, Math.round(SEG_LENS / 3)), 0, Math.PI * 2, 0, phi);
-    const mat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(tint),
-        emissive: new THREE.Color(tint),
-        emissiveIntensity: emissive,
-        roughness: 1,
-        metalness: 0,
-    });
+    const mat = sharedLensMat(tint, emissive);
     // The default cap apex is at +Y; lights face DOWN into the room, so flip it
     // so the dome bulges toward −Y. After the flip the apex sits at −depth and
     // the base ring at local Y=0 (the fixture mouth), matching the old flat-disc
@@ -131,7 +187,24 @@ function emissiveLens(
     geo.rotateX(Math.PI);
     geo.translate(0, sphereR - depth, 0);
     const mesh = new THREE.Mesh(geo, mat);
+    tagLens(mesh, tint, emissive);
     return mesh;
+}
+
+/**
+ * §FEAT-FIXTURE-PHOTOMETRY — mark a mesh as the fixture's LENS and remember the
+ * AUTHORED (shape-relative) emissive so `_syncLens` can re-scale it by the
+ * fixture's photometric lens factor and the day/night state.
+ *
+ * The lens is what makes a fixture read as switched-on, and it is what a fixture
+ * that loses the live-light budget still has — so every family must have one.
+ */
+export const LENS_ROLE = 'lighting.lens';
+
+function tagLens(mesh: THREE.Mesh, tint: string, authoredEmissive: number): void {
+    mesh.userData.role      = LENS_ROLE;
+    mesh.userData.lensTint  = tint;
+    mesh.userData.lensBase  = authoredEmissive;
 }
 
 // ── Builder ───────────────────────────────────────────────────────────────────
@@ -147,19 +220,78 @@ export class LightingFragmentBuilder {
     private _scene: THREE.Object3D | null = null;
     private _isNight = false;
 
+    /**
+     * §FEAT-FIXTURE-PHOTOMETRY — current render tier, driving the live-light
+     * budget. `undefined` until the pipeline reports one (cold start uses
+     * DEFAULT_LIVE_LIGHT_BUDGET).
+     */
+    private _tier: SceneQualityTier | undefined;
+
+    /**
+     * §FEAT-FIXTURE-PHOTOMETRY — importance origin for the live-light budget.
+     * Normally the camera position. Defaults to the world origin, which still
+     * yields a deterministic (if arbitrary) ordering, so the budget is never
+     * undefined behaviour.
+     */
+    private _focusProvider: (() => { x: number; y: number; z: number }) | null = null;
+
     /** F.events.14 — unsub handle for bam:day-night-changed runtime.events listener. */
     private _unsubDayNight: (() => void) | undefined;
 
     constructor() {
         // F.events.14 — bam:day-night-changed migrated from DOM CustomEvent to runtime.events.
-        this._unsubDayNight = (window as any).runtime?.events?.on(
+        // §P4 — `window.runtime` is a TYPED global (src/global-window.d.ts); the old
+        // `(window as any).runtime` cast was a P4 violation and hid the null case.
+        this._unsubDayNight = window.runtime?.events?.on(
             'bam:day-night-changed',
             ({ mode }: { mode: 'day' | 'night' }) => {
-                this._isNight = mode === 'night';
-                this._syncAllLights();
+                this.setDayNight(mode);
             },
         );
     }
+
+    // ── §FIX-LIGHT-NIGHT-CONTRIBUTION — day/night + budget control surface ─────
+
+    /**
+     * Set day or night. Fixtures emit in BOTH modes — night only makes them
+     * brighter (FIXTURE_NIGHT_MULTIPLIER) while the scene's sun/ambient is dimmed
+     * elsewhere, so a fixture reads as ON at noon and DOMINANT after dark.
+     *
+     * Idempotent, and safe to call before `setScene`.
+     */
+    setDayNight(mode: 'day' | 'night'): void {
+        const next = mode === 'night';
+        if (next === this._isNight && this._lights.size > 0) return;
+        this._isNight = next;
+        this._syncAllLights();
+    }
+
+    /** True when the builder is emitting night-mode intensities. */
+    get isNight(): boolean { return this._isNight; }
+
+    /**
+     * §FEAT-FIXTURE-PHOTOMETRY — report the current render tier so the live-light
+     * budget degrades with scene weight (C04 §3.5 / ADR-006).
+     */
+    setQualityTier(tier: SceneQualityTier): void {
+        if (tier === this._tier) return;
+        this._tier = tier;
+        this._syncAllLights();
+    }
+
+    /**
+     * §FEAT-FIXTURE-PHOTOMETRY — supply the importance origin (normally the
+     * camera). Fixtures nearest this point win the live-light budget.
+     */
+    setFocusProvider(fn: () => { x: number; y: number; z: number }): void {
+        this._focusProvider = fn;
+    }
+
+    /** The live-light budget currently in force. */
+    get liveLightBudget(): number { return liveLightBudgetForTier(this._tier); }
+
+    /** Number of fixtures that currently own a real THREE light. */
+    get liveLightCount(): number { return this._lights.size; }
 
     /** Call once after THREE.Scene is available. */
     setScene(scene: THREE.Object3D): void {
@@ -179,10 +311,28 @@ export class LightingFragmentBuilder {
 
         const group = this._buildFixture(data);
 
+        // §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — `enumerable: true` is LOad-BEARING.
+        //
+        // `Object.defineProperties` defaults `enumerable` to FALSE. These three keys
+        // were therefore non-enumerable own properties of `userData`, and the property
+        // panel copies the selection with a SPREAD (`{ ...rawData }`, see
+        // PropertyPanelStoreEnricher) — which copies enumerable properties only. So
+        // `id`, `elementType` and `fixtureType` were silently dropped on the way into
+        // the panel: the IDENTITY section rendered "Element ID —" and "Element Type —"
+        // (the founder's lighting screenshot), the descriptor generator fell back to
+        // the unknown-element schema, and a type picker could not have dispatched a
+        // valid `element.changeType` because `elementData.id` was undefined.
+        //
+        // Every other fragment builder avoids this either by passing `enumerable: true`
+        // explicitly (RoofFragmentBuilder, WallFragmentBuilder) or by freezing keys that
+        // were already ASSIGNED (Beam/Column/Slab/Furniture), which keeps them
+        // enumerable. Lighting was the only builder creating them fresh without the
+        // flag. `writable: false` — the actual intent, protecting identity from later
+        // mutation — is unaffected.
         Object.defineProperties(group.userData, {
-            id:          { value: data.id,            writable: false, configurable: false },
-            elementType: { value: 'Lighting',          writable: false, configurable: false },
-            fixtureType: { value: data.fixtureType,    writable: false, configurable: false },
+            id:          { value: data.id,            writable: false, configurable: false, enumerable: true },
+            elementType: { value: 'Lighting',          writable: false, configurable: false, enumerable: true },
+            fixtureType: { value: data.fixtureType,    writable: false, configurable: false, enumerable: true },
         });
         group.userData.selectable = true;
         group.userData.levelId    = data.levelId;
@@ -212,9 +362,29 @@ export class LightingFragmentBuilder {
 
         elementRegistry.registerRoot(data.id, group);
 
-        if (this._isNight) {
-            this._attachLight(data, group);
-        }
+        // §FIX-LIGHT-NIGHT-CONTRIBUTION — fixtures emit in BOTH day and night
+        // (they were night-only, so a lit room at noon was impossible). Re-run
+        // the whole budget rather than blindly attaching: adding the 65th fixture
+        // must be able to displace a farther one, not overflow the budget.
+        this._requestSync();
+    }
+
+    /**
+     * Coalesce budget reconciliation to one pass per microtask.
+     *
+     * `_syncAllLights` is O(n log n) over every placed fixture, and the AI
+     * layout executors add fixtures in tight loops (see the `*.batch.create`
+     * pattern) — calling it per `add()` would be O(n² log n) on a 200-fixture
+     * plate. P3-safe: a microtask, never a rAF.
+     */
+    private _syncQueued = false;
+    private _requestSync(): void {
+        if (this._syncQueued) return;
+        this._syncQueued = true;
+        queueMicrotask(() => {
+            this._syncQueued = false;
+            this._syncAllLights();
+        });
     }
 
     remove(id: string): void {
@@ -230,6 +400,18 @@ export class LightingFragmentBuilder {
         });
         elementRegistry.unregisterRoot(id);
         this._roots.delete(id);
+        // A freed budget slot must be reclaimed by the next-nearest dark fixture.
+        this._requestSync();
+    }
+
+    /**
+     * §FEAT-FIXTURE-PHOTOMETRY — flush the coalesced budget reconciliation now.
+     * Called by tests and by any caller that needs the scene graph settled
+     * synchronously (e.g. an export or a screenshot pass).
+     */
+    syncLights(): void {
+        this._syncQueued = false;
+        this._syncAllLights();
     }
 
     update(data: LightingData): void {
@@ -354,14 +536,11 @@ export class LightingFragmentBuilder {
         const ledW = p.width * 0.92;
         const ledH = p.height * 0.55;
         const ledGeo = new THREE.BoxGeometry(ledW, ledH, p.depth * 0.4);
-        const ledMat = new THREE.MeshStandardMaterial({
-            color: p.ledColor,
-            emissive: p.ledColor,
-            emissiveIntensity: 1.0,
-            roughness: 0.4,
-            metalness: 0.0,
-        });
-        const led = new THREE.Mesh(ledGeo, ledMat);
+        // §FEAT-FIXTURE-PHOTOMETRY — pooled + lens-tagged so the vanity bar
+        // brightens at night like every other family (was a unique material at a
+        // fixed 1.0, and mirror_light had no point light at all).
+        const led = new THREE.Mesh(ledGeo, sharedLensMat(p.ledColor, 1.0));
+        tagLens(led, p.ledColor, 1.0);
         led.position.set(0, 0, p.depth + p.depth * 0.2 - p.depth * 0.4 / 2);
         group.add(led);
 
@@ -510,14 +689,9 @@ export class LightingFragmentBuilder {
         group.add(bar);
 
         const ledGeo = new THREE.PlaneGeometry(p.length - 0.01, p.width * 0.6);
-        const ledMat = new THREE.MeshStandardMaterial({
-            color: new THREE.Color(p.ledColor),
-            emissive: new THREE.Color(p.ledColor),
-            emissiveIntensity: 1.0,
-            roughness: 1.0,
-            metalness: 0.0,
-        });
-        const led = new THREE.Mesh(ledGeo, ledMat);
+        // §FEAT-FIXTURE-PHOTOMETRY — pooled + lens-tagged (was a unique material).
+        const led = new THREE.Mesh(ledGeo, sharedLensMat(p.ledColor, 1.0));
+        tagLens(led, p.ledColor, 1.0);
         led.rotation.x = Math.PI / 2;
         led.position.y = barY - p.height / 2 - 0.001;
         group.add(led);
@@ -636,13 +810,9 @@ export class LightingFragmentBuilder {
 
         // Exposed bulb visible through opening
         const bulbGeo = new THREE.SphereGeometry(0.038, 16, 12);
-        const bulbMat = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#fff8e0'),
-            emissive: new THREE.Color('#fff8e0'),
-            emissiveIntensity: 0.8,
-            roughness: 1, metalness: 0,
-        });
-        const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+        // §FEAT-FIXTURE-PHOTOMETRY — pooled + lens-tagged (was a unique material).
+        const bulb = new THREE.Mesh(bulbGeo, sharedLensMat(LENS_WARM, 0.8));
+        tagLens(bulb, LENS_WARM, 0.8);
         bulb.position.y = bellY - p.height / 2 + 0.005;
         group.add(bulb);
 
@@ -978,21 +1148,62 @@ export class LightingFragmentBuilder {
 
     // ── Night-mode light management ───────────────────────────────────────────
 
+    /**
+     * §NIGHT-ALL-LIGHTS-ON (2026-06-11) + §FEAT-FIXTURE-PHOTOMETRY (2026-08-06).
+     *
+     * Reconciles the whole fixture set against the live-light budget in ONE pass:
+     *   1. read the store once (not per-root); synthesise minimal data for any
+     *      root whose store record is missing so no fixture is left dark;
+     *   2. rank fixtures by distance to the focus point and take the top N,
+     *      where N = the budget for the current render tier;
+     *   3. attach/refresh a photometrically-driven PointLight on the winners and
+     *      detach it from the losers — the losers keep their emissive lens, so
+     *      they still READ as switched-on.
+     *
+     * Runs on add/remove, on the day-night toggle, and on a tier change. Never
+     * per-frame (P3 — this builder owns no rAF).
+     */
     private _syncAllLights(): void {
-        // §NIGHT-ALL-LIGHTS-ON (2026-06-11) — read the store ONCE (not per-root),
-        // and attach a light to EVERY placed fixture. If the store has no record
-        // for a root (e.g. it was built from a path that didn't mirror into the
-        // legacy LightingStore), synthesise minimal LightingData from the group's
-        // userData so the fixture still illuminates — no fixture is left dark.
-        if (!this._isNight) {
-            for (const [id, group] of this._roots) this._detachLight(id, group);
-            return;
-        }
         const byId = new Map(this._getAllData().map(d => [d.id, d]));
+        const focus = this._focusProvider?.() ?? { x: 0, y: 0, z: 0 };
+
+        const candidates = [...this._roots.entries()].map(([id, group]) => ({
+            id,
+            x: group.position.x,
+            y: group.position.y,
+            z: group.position.z,
+        }));
+
+        const { live } = selectLiveLights(candidates, this.liveLightBudget, focus);
+        const liveSet = new Set(live);
+
         for (const [id, group] of this._roots) {
             const data = byId.get(id) ?? this._synthesizeData(id, group);
-            this._attachLight(data, group);
+            // The LENS is unconditional — every fixture reads as switched-on in
+            // both modes, whether or not it won the live-light budget.
+            this._syncLens(data, group);
+            if (liveSet.has(id)) this._attachLight(data, group);
+            else                 this._detachLight(id, group);
         }
+    }
+
+    /**
+     * §FEAT-FIXTURE-PHOTOMETRY — re-point every lens mesh in `group` at the
+     * pooled material for `authored × lensEmissiveFor(photometry, isNight)`.
+     *
+     * Materials are POOLED, never mutated per element: mutating a shared material
+     * would change every fixture that borrows it. Swapping the reference keeps
+     * fixtures of the same family on one material and preserves instancing.
+     */
+    private _syncLens(data: LightingData, group: THREE.Group): void {
+        const factor = lensEmissiveFor(photometryForFixture(data.fixtureType), this._isNight);
+        group.traverse((child: THREE.Object3D) => {
+            if (child.userData?.role !== LENS_ROLE) return;
+            const tint = child.userData.lensTint as string | undefined;
+            const base = child.userData.lensBase as number | undefined;
+            if (tint === undefined || base === undefined) return;
+            (child as THREE.Mesh).material = sharedLensMat(tint, base * factor);
+        });
     }
 
     /**
@@ -1017,18 +1228,52 @@ export class LightingFragmentBuilder {
         return store ? store.getAll() : [];
     }
 
+    /**
+     * §FEAT-FIXTURE-PHOTOMETRY — create or REFRESH the fixture's point light.
+     *
+     * Intensity/colour/reach come from {@link photometryForFixture}: real lumens
+     * and kelvin per family, converted to this scene's candela convention by
+     * `sceneIntensityFor` and scaled by the day/night multiplier. `data.emission`
+     * remains an explicit per-element override for all four values.
+     *
+     * Re-entrant: called again on a day/night toggle, it UPDATES the existing
+     * light in place rather than bailing out — the old early-return meant a
+     * fixture attached in day mode never brightened at night.
+     */
     private _attachLight(data: LightingData, group: THREE.Group): void {
-        if (this._lights.has(data.id)) return;
+        const photo = photometryForFixture(data.fixtureType);
 
-        const em = { ...DEFAULT_EMISSION, ...data.emission };
+        // Photometric baseline, then the element-level override (if any).
+        const intensity = data.emission?.intensity ?? sceneIntensityFor(photo, this._isNight);
+        const distance  = data.emission?.distance  ?? photo.reachM;
+        const decay     = data.emission?.decay     ?? 2;   // inverse-square; physical.
+        const colorHex  = kelvinToHex(photo.kelvin);
+
+        const existing = this._lights.get(data.id) as THREE.PointLight | undefined;
+        if (existing) {
+            existing.intensity = intensity;
+            existing.distance  = distance;
+            existing.decay     = decay;
+            if (data.emission?.color) existing.color.set(data.emission.color);
+            else                      existing.color.setHex(colorHex);
+            return;
+        }
+
         const light = new THREE.PointLight(
-            new THREE.Color(em.color),
-            em.intensity,
-            em.distance,
-            em.decay,
+            data.emission?.color ? new THREE.Color(data.emission.color) : new THREE.Color(colorHex),
+            intensity,
+            distance,
+            decay,
         );
 
-        // Position light below fixture (at approximate bulb location)
+        // §FIX-LIGHT-NIGHT-CONTRIBUTION — stamp the role so scene-wide dimmers
+        // (BottomActionMenu's day/night traversal) leave fixture lights alone.
+        // Without this the traversal multiplied every fixture by 0.38 at night —
+        // the exact opposite of what night mode must do to artificial light.
+        light.userData.role      = FIXTURE_LIGHT_ROLE;
+        light.userData.elementId = data.id;
+
+        // Position light at the fixture's emitter anchor (approximate bulb location).
         switch (data.fixtureType) {
             case 'downlight':
                 light.position.set(0, -0.10, 0);
@@ -1086,6 +1331,16 @@ export class LightingFragmentBuilder {
                 light.position.set(0, -(pcl.canopyHeight + avgCable + pcl.pendantHeight), 0);
                 break;
             }
+            case 'mirror_light': {
+                // §FEAT-FIXTURE-PHOTOMETRY — `mirror_light` had NO case here, so its
+                // light sat at the group origin: INSIDE the wall plane, where the
+                // wall mesh occluded most of its contribution. The bar's emissive
+                // LED face is at +Z (see _buildMirrorLight), so the emitter sits
+                // just in front of it, projecting into the room.
+                const ml = { ...MIRROR_LIGHT_DEFAULTS, ...data.mirrorLightParams };
+                light.position.set(0, -ml.height * 0.5, ml.depth * 1.6);
+                break;
+            }
         }
 
         // §NIGHT-ALL-LIGHTS-ON (2026-06-11) — every placed fixture must illuminate
@@ -1120,5 +1375,8 @@ export class LightingFragmentBuilder {
         for (const id of [...this._roots.keys()]) this.remove(id);
         _matCache.forEach(m => m.dispose());
         _matCache.clear();
+        // §FEAT-FIXTURE-PHOTOMETRY — the pooled lens materials are builder-owned too.
+        _lensMatCache.forEach(m => m.dispose());
+        _lensMatCache.clear();
     }
 }

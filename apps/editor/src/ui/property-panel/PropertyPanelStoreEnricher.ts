@@ -54,6 +54,11 @@ export function _enrichFromStores(
         // `topRailHeight` or `material` in scope the type picker could not have shown a
         // current selection even once it existed.
         case 'stair-railing': storeData = window.stairRailingStore?.get?.(id);  break; // TODO(E.stair.S): legacy stairRailingStore — replace with runtime.stores.stairRailing
+        // §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — lighting was never enriched either, so
+        // `fixtureType` (a light's TYPE) never reached the panel from the store. With the
+        // builder's userData now enumerable this case is belt-and-braces, and it is what
+        // surfaces the fixture's parametric fields for the rest of the panel.
+        case 'lighting':    storeData = window.lightingStore?.get?.(id);        break; // TODO(E.lighting.S): legacy lightingStore — replace with runtime.stores.lighting
         case 'room':        storeData = window.roomStore?.getById?.(id);       break; // TODO(E.18-R.S): legacy roomStore — replace with runtime.stores.rooms slot
         case 'window': {
             const ws  = window.wallStore; // TODO(E.wall.S): legacy wallStore — replace with runtime.stores.wall

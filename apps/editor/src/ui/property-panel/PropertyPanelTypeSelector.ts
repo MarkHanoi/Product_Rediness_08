@@ -33,6 +33,13 @@ import { buildRailingTypeSelectorWidget }  from './RailingTypeSelectorWidget';
 // standalone handrail (semantic 'stair-railing', store `stairRailingStore`); L-623
 // covered only the latter, so selecting a stair railing showed no picker at all.
 import { buildStairRailingTypeSelectorWidget } from './StairRailingTypeSelectorWidget';
+// §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — the declarative floor under the if-ladder
+// below. The ladder is not derived from anything, so a family with no branch is
+// invisible to any audit OF the ladder — which is precisely why every previous
+// generalisation pass reached only the families that already had a picker. Families
+// declare a catalogue in the registry and get a picker from data.
+import { resolveElementTypeCatalog } from './ElementTypeCatalogRegistry';
+import { buildGenericTypeSelectorWidget } from './GenericTypeSelectorWidget';
 
 // ── Host interface ────────────────────────────────────────────────────────────
 
@@ -354,6 +361,36 @@ export function _buildTypeSelector(
             })
                 ?.then(() => host.onRerender({ ...elementData, typeId: payload.typeId }))
                 ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (stair) failed:', e));
+        });
+    }
+
+    // ── §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — the declarative fall-through ─────
+    //
+    // Everything the bespoke ladder above did not claim. A family that declares a
+    // catalogue gets the SAME picker and the SAME `element.changeType` dispatch
+    // without a branch being written for it; a family that declares it has no
+    // catalogue gets an honest sentence instead of an empty header, which is what
+    // the founder actually saw ("Element Type —", no dropdown, no explanation).
+    //
+    // The dispatch carries only `{ elementId, elementType, newTypeId }` — the
+    // uniform payload (ADR-0105). A family needing more than a type id belongs on a
+    // bespoke widget above, by construction.
+    const catalog = resolveElementTypeCatalog(elType);
+    if (catalog) {
+        const dispatchable = !!catalog.listTypes && !catalog.readOnlyReason;
+        return buildGenericTypeSelectorWidget(catalog, elementData, (payload) => {
+            if (!dispatchable || !payload.typeId) return;
+            window.runtime?.bus?.executeCommand('element.changeType', {
+                elementId:   elementData.id,
+                elementType: catalog.family,
+                newTypeId:   payload.typeId,
+            })
+                // No local field merge: the registry declares HOW to read a family's
+                // current type, not how to write it. `onRerender` re-enriches from the
+                // geometry store, which is the authoritative post-swap value — merging a
+                // guess here is how a panel starts reporting a type the store does not have.
+                ?.then(() => host.onRerender({ ...elementData }))
+                ?.catch((e: unknown) => console.warn(`[PropertyPanel] element.changeType (${catalog.family}) failed:`, e));
         });
     }
 

@@ -8,6 +8,9 @@
  */
 
 export * from './LightingTypes';
+// §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — the NAMED, enumerable fixture catalogue.
+// Identity only; photometry stays in LIGHTING_FIXTURE_PHOTOMETRY (core-app-model).
+export * from './LightingTypeDefinitions';
 export * from './LightingRoomResolver';
 export { LightingStore } from './LightingStore';
 export { LightingFragmentBuilder } from './LightingFragmentBuilder';

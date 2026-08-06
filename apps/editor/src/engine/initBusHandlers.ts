@@ -151,6 +151,9 @@ import { toJsonPointer } from '@pryzm/command-bus';
 // construction fields. Both families now read the same catalogue.
 import { handrailTypeStore } from '@pryzm/core-app-model';
 import { resolveStairRailingTypeFields } from '@pryzm/geometry-stair';
+// §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — the lighting fixture catalogue. Identity only;
+// what a fixture EMITS stays in LIGHTING_FIXTURE_PHOTOMETRY.
+import { getLightingTypeDefinition, type LightingFixtureType } from '@pryzm/geometry-lighting';
 
 /**
  * Registers structural command-bus stubs (§A40-W04 — column/beam/door/window/ceiling/stair).
@@ -1197,10 +1200,25 @@ export function initBusHandlers(
                     // owner — legacy lightingStore + an explicit
                     // `lightingFragmentBuilder.update(record)` so the fixture mesh is rebuilt
                     // with the new type's geometry — and had no change-type call site.
+                    //
+                    // §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — it HAS one now (the registry-driven
+                    // picker), so the id must be validated: `LightingFixtureType` is a closed
+                    // union the fragment builder switches on, and an unknown value builds
+                    // nothing at all with no error anywhere.
+                    if (!getLightingTypeDefinition(String(cmd.newTypeId))) {
+                        console.warn(`[element.changeType] no lighting fixture type "${cmd.newTypeId}" in the catalogue — ignored.`);
+                        return;
+                    }
                     _swapWithRingParity('lightingStore', 'lighting', cmd.elementId, () => {
                         _cmExec(new UpdateLightingParametersCommand({
                             elementId: cmd.elementId,
-                            patch: { fixtureType: cmd.newTypeId } as any,
+                            // §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — the `as any` here was
+                            // hiding that `fixtureType` was excluded from the command's
+                            // patch type. Now typed: reject an id that is not in the
+                            // catalogue rather than writing an unbuildable fixture type
+                            // (LightingFragmentBuilder switches on it and would render
+                            // nothing, silently).
+                            patch: { fixtureType: cmd.newTypeId as LightingFixtureType },
                         }));
                     });
                     return;

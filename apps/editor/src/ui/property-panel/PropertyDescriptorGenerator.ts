@@ -266,6 +266,28 @@ const SCHEMAS: Record<string, ElementSchema> = {
         globalId:        READONLY('Global ID', 'metadata'),
     },
 
+    // §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — lighting had no schema, so it fell to
+    // `buildFallbackSchema` and rendered the founder's "Element ID —" / "Element Type —".
+    // (The deeper cause was the builder stamping those userData keys NON-ENUMERABLE, so
+    // the panel's spread dropped them entirely — fixed in LightingFragmentBuilder.)
+    // `fixtureType` is READONLY here on purpose: the Railing/Lighting TYPE is changed
+    // through the type picker, which dispatches `element.changeType` and rebuilds the
+    // fixture. A second, free-text control for the same field is the §FIX-STAIR-TYPEID-
+    // TWO-CONTROLS defect one family over.
+    lighting: {
+        id:              READONLY('Element ID', 'identity'),
+        elementType:     READONLY('Element Type', 'identity'),
+        fixtureType:     READONLY('Fixture Type', 'identity'),
+        // NO `mark` row: `UpdateElementParameterCommand._resolveStore()` has no
+        // lighting case, so a Mark box here would be a DEAD control — the exact class
+        // §FIX-ELEMENT-MARK-UNHANDLED was written to remove. Offer it when the route exists.
+        levelId:         READONLY('Level ID', 'spatial'),
+        room:            READONLY('Room', 'spatial'),
+        layerName:       READONLY('Layer', 'metadata'),
+        ifcClass:        READONLY('IFC Class', 'metadata'),
+        globalId:        READONLY('Global ID', 'metadata'),
+    },
+
     // §FIX-STAIR-RAILING-TYPE-PICKER — a STAIR's railing had NO schema, so it fell to
     // `buildFallbackSchema`, whose `type: READONLY('Element Type')` row reads
     // `elementData.type` — a key `StairRailingConfig` does not have (the record and the
@@ -333,6 +355,7 @@ const IFC_CLASS_MAP: Record<string, string> = {
     // ifcClass 'IfcRailing' on the record; the panel's fallback said
     // 'IfcBuildingElement', so the two disagreed on the same element.
     'stair-railing': 'IfcRailing',
+    lighting:    'IfcLightFixture',
 };
 
 function normalizeType(rawType: string): string {
@@ -342,6 +365,10 @@ function normalizeType(rawType: string): string {
     // the store event spells it 'stairRailing'. Both name ONE family; without this the
     // second spelling silently fell through to the fallback schema.
     if (t === 'stair-railing' || t === 'stairrailing') return 'stair-railing';
+    // §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — LightingFragmentBuilder stamps 'Lighting',
+    // the bus branch also accepts 'light' / 'lightfixture'. One family, one key.
+    if (t === 'lighting' || t === 'light' || t === 'lightfixture' || t === 'light-fixture') return 'lighting';
+    if (t === 'lift' || t === 'verticalcirculation' || t === 'vertical-circulation') return 'lift';
     if (t === 'curtain-wall' || t === 'curtainwall') return 'curtainwall';
     if (t === 'curtainpanel' || t === 'curtain-panel') return 'curtain-panel';
     if (t === 'curtainmullion' || t === 'curtain-mullion' || t === 'curtainwallpart') return 'curtain-mullion';
