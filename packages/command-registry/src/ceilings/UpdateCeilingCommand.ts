@@ -20,6 +20,7 @@ import {
   CommandContext,
 } from '../types';
 import { CeilingData } from '@pryzm/core-app-model';
+import { ReseatLevelElementsCommand } from '../seating/ReseatLevelElementsCommand';
 
 export interface UpdateCeilingPayload {
   ceilingId: string;
@@ -34,6 +35,12 @@ export class UpdateCeilingCommand implements Command {
   readonly targetIds: string[];
 
   private _previousSnapshot: CeilingData | null = null;
+
+  /**
+   * §FIX-SEATING-DYNAMIC-REDATUM — re-seat triggered by this edit, held so undo()
+   * rolls the ceiling-hung fixtures back together with the ceiling itself.
+   */
+  private _reseat: ReseatLevelElementsCommand | null = null;
 
   constructor(private readonly _payload: UpdateCeilingPayload) {
     this.id = `cmd-ceiling-update-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -65,7 +72,44 @@ export class UpdateCeilingCommand implements Command {
       return { success: false, affectedElementIds: [], error: 'Update failed — see CeilingStore warnings.' };
     }
 
-    return { success: true, affectedElementIds: [this._payload.ceilingId] };
+    // §FIX-SEATING-DYNAMIC-REDATUM — the mirror of the floor case. A downlight hangs
+    // from the FINISHED SOFFIT (`baseOffset + height − thickness`, per
+    // `resolveCflOffsetAt` / `CeilingPanelBuilder`). Drop the ceiling, or thicken its
+    // build-up, and every ceiling-hung fixture must come down with it — otherwise the
+    // fixture is swallowed by the new plenum. Seating was resolved once at create
+    // time and never revisited, so it did not.
+    const affected = [this._payload.ceilingId];
+    if (this._soffitMoved(this._previousSnapshot, updated as CeilingData)) {
+      const levelId = (updated as CeilingData).levelId ?? this._previousSnapshot.levelId;
+      if (levelId) {
+        const reseat = new ReseatLevelElementsCommand(levelId);
+        const r = reseat.execute(context);
+        if (r.success && r.affectedElementIds.length > 0) {
+          this._reseat = reseat;
+          affected.push(...r.affectedElementIds);
+        }
+      }
+    }
+
+    return { success: true, affectedElementIds: affected };
+  }
+
+  /**
+   * Did the FINISHED SOFFIT move, or the area it covers change?
+   *
+   * `resolveCflOffsetAt` reads `baseOffset + height − thickness`, `boundary.polygon`
+   * and `visible` — so those are exactly the inputs that matter here.
+   */
+  private _soffitMoved(before: CeilingData | null, after: CeilingData | null): boolean {
+    if (!before || !after) return false;
+    if ((before.visible !== false) !== (after.visible !== false)) return true;
+    const b = before.boundary;
+    const a = after.boundary;
+    if (!b || !a) return b !== a;
+    const soffit = (x: typeof b): number =>
+      (x.baseOffset ?? 0) + (x.height ?? 0) - (x.thickness ?? 0);
+    if (Math.abs(soffit(b) - soffit(a)) > 1e-9) return true;
+    return JSON.stringify(b.polygon ?? null) !== JSON.stringify(a.polygon ?? null);
   }
 
   undo(context: CommandContext): CommandResult {
@@ -75,6 +119,12 @@ export class UpdateCeilingCommand implements Command {
     if (!this._previousSnapshot) {
       console.warn('[UpdateCeilingCommand.undo] No snapshot — cannot undo.');
       return { success: false, affectedElementIds: [] };
+    }
+
+    // §FIX-SEATING-DYNAMIC-REDATUM — roll the hung fixtures back with the ceiling.
+    if (this._reseat) {
+      this._reseat.undo(context);
+      this._reseat = null;
     }
 
     // §R-6: Use restoreSnapshot (preserves metadata) NOT update() (increments version).

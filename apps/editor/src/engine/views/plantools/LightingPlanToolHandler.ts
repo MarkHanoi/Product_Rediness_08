@@ -13,6 +13,12 @@
  */
 
 import { LightingFixtureType, FLOOR_MOUNTED_FIXTURES } from '@pryzm/core-app-model';
+import type { FloorData, CeilingData } from '@pryzm/core-app-model';
+// §FIX-SEATING-ONE-AUTHORITY — the ONE finished-floor / finished-ceiling datum (C11 §5.4).
+import {
+    resolveFloorSeatingDatumFrom,
+    resolveCeilingSeatingDatumFrom,
+} from '@pryzm/command-registry';
 import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 
@@ -25,15 +31,39 @@ function _activeType(): LightingFixtureType {
 
 function _label(t: string): string { return t.replace(/_/g, ' '); }
 
-function _resolveY(levelId: string, type: LightingFixtureType): number {
+/**
+ * §FIX-SEATING-ONE-AUTHORITY — seat against the FINISHED surfaces, not raw structure.
+ *
+ * This used to return `level.elevation` for a floor lamp and `level.elevation +
+ * level.height` for a downlight. Both are the BARE STRUCTURE: a floor lamp sank into
+ * the floor finish by its thickness and a downlight was buried in the ceiling
+ * build-up. `CreateLightingCommand` was fixed for this, but this tool dispatches
+ * `lighting.create` on the BUS and never runs that command — so the fix never
+ * reached plan-view placement.
+ *
+ * Delegates to the shared datum authority (C11 §5.4). `initTools`' `lighting.created`
+ * bridge re-seats through the same functions, so the two agree by construction; this
+ * keeps the dispatched payload honest rather than relying on the bridge to correct it.
+ *
+ * Seating is POSITION-dependent (one level carries tile in the bathroom and timber in
+ * the bedroom), hence the x/z probe.
+ */
+function _resolveY(levelId: string, type: LightingFixtureType, x: number, z: number): number {
     try {
         const bm = window.projectContext?.bimManager;
-        const level = bm?.getLevelById?.(levelId);
-        if (level) {
-            const elev = typeof level.elevation === 'number' ? level.elevation : 0;
-            const ht   = typeof level.height    === 'number' ? level.height    : 3.0;
-            return FLOOR_MOUNTED_FIXTURES.has(type) ? elev : (elev + ht);
+        const level = bm?.getLevelById?.(levelId) as
+            { elevation?: number; height?: number } | undefined;
+        const point = { x, z };
+        if (FLOOR_MOUNTED_FIXTURES.has(type)) {
+            const floors = (window.floorStore as
+                { getByLevel?: (id: string) => FloorData[] } | undefined)?.getByLevel?.(levelId);
+            return resolveFloorSeatingDatumFrom(level, floors, point).y;
         }
+        const ceilings = (window.ceilingStore as
+            { getByLevel?: (id: string) => CeilingData[] } | undefined)?.getByLevel?.(levelId);
+        // The 3.0 default head height applies only when the LEVEL carries no height —
+        // it is level geometry, never a finish thickness.
+        return resolveCeilingSeatingDatumFrom(level, ceilings, point, 3.0).y;
     } catch { /* ignore */ }
     return FLOOR_MOUNTED_FIXTURES.has(type) ? 0.0 : 3.0;
 }
@@ -88,7 +118,7 @@ export class LightingPlanToolHandler implements PlanToolHandler {
         }
 
         const type = _activeType();
-        const y    = _resolveY(levelId, type);
+        const y    = _resolveY(levelId, type, pt.worldX, pt.worldZ);
         // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary.
         // §FIX-LIGHTING-PAYLOAD (C11 §11.11): CreateLightingHandler's payload is
         // `kind` + `origin` — NOT `fixtureType`/`position`. The two field names

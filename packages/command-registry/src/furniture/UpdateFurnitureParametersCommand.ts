@@ -169,8 +169,18 @@ export class UpdateFurnitureParametersCommand implements Command {
         // ✅ Maintain level-based baseOffset logic
         // §FIX-FURNITURE-FFL-DEFAULT (L-87) — recompute Y off the FINISHED floor
         // level (FFL), not the bare slab top, so editing the mount offset keeps the
-        // item seated on the floor finish (matches CreateFurnitureCommand). The
-        // baseOffset STACKS on the FFL baseline: worldY-datum = fflOffset + baseOffset.
+        // item seated on the floor finish (matches CreateFurnitureCommand).
+        //
+        // §FIX-SEATING-UPDATE-DOUBLE-OFFSET — `position.y` is the FLOOR DATUM ONLY.
+        // The mount offset is applied EXACTLY ONCE downstream by
+        // FurnitureFragmentBuilder (`furnitureWorldY(position.y, baseOffset)`), and
+        // line 73 above already writes the new `baseOffset` into `newData`. This
+        // branch used to ALSO bake it in here (`seat.y + baseOffset`), so the builder
+        // added it a second time and any item with a non-zero mount offset jumped to
+        // `FFL + 2 × offset` the moment the user edited that offset in the inspector.
+        // That is precisely the A.21.D15 double-application bug, reintroduced on the
+        // UPDATE path after CreateFurnitureCommand was fixed for it — the two paths
+        // must agree, and CreateFurnitureCommand writes `y: seat.y`.
         if (this.payload.baseOffset !== undefined) {
             // §FIX-INTERIOR-FFL-SEATING — one chokepoint, no private FFL arithmetic.
             const seat = resolveFloorSeatingDatum(
@@ -178,7 +188,7 @@ export class UpdateFurnitureParametersCommand implements Command {
                 furniture.levelId,
                 { x: (newData.position as any).x, z: (newData.position as any).z },
             );
-            (newData.position as any).y = seat.y + this.payload.baseOffset;
+            (newData.position as any).y = seat.y;
         }
 
         // 🔥 CRITICAL FIX: Synchronize wardrobeConfig with updated dimensions
