@@ -111,6 +111,10 @@ import {
   georefOriginsDiverge,
   resolveGroundSample,
   ringCentroidLatLon,
+  // §TERRAIN-BASE-PROVENANCE (C12 §1.4) — the baked-terrain path's provenance reduction,
+  // so a FAILED centroid sample is no longer the same value as a real 0 m ground.
+  type TerrainBaseSource,
+  resolveTerrainClampBase,
 } from "./globeGroundAnchor";
 // FORMA.6 — pure building-fidelity helpers (no THREE/Cesium/DOM): the floor-filter
 // show-all decision + geometry signature for the REAL full-fidelity Forma model.
@@ -904,8 +908,30 @@ export class CesiumViewport {
    *  only re-samples terrain when the centroid actually moves (SPEC §4.6 /
    *  task #2 "re-clamp terrain only when the centroid changes"). */
   private formaTerrainSampledAt: { lat: number; lon: number } | null = null;
-  /** One-time guard so the "terrain sample failed → base 0" warning logs once. */
-  private formaTerrainWarned = false;
+  /**
+   * §TERRAIN-DEGRADE-LATCH — per-REASON one-shot guard for the terrain-degradation warnings.
+   *
+   * This was a single `boolean`. That made the FIRST degradation — very often the entirely
+   * benign "no real terrain provider attached (keyless ellipsoid ground)" notice, which fires
+   * on every keyless session — latch the channel shut for the whole viewport lifetime, so a
+   * LATER and genuinely serious event ("sampleTerrainMostDetailed rejected", "the globe ground
+   * datum CANNOT be measured on this Cesium build", "globe tile-clamp THREW") logged NOTHING.
+   * A diagnostic that is silenced by a benign predecessor is not a diagnostic. Keyed by the
+   * reason's stable prefix, so each distinct failure still speaks exactly once.
+   */
+  private formaTerrainWarned = new Set<string>();
+  /**
+   * §TERRAIN-BASE-PROVENANCE (C12 §1.4) — WHERE the current `formaTerrainBaseHeight` came
+   * from on the BAKED-TERRAIN path. `formaTerrainBaseHeight` alone cannot distinguish "the
+   * ground here really is 0 m", "no terrain is attached so 0 IS the ground", and "the sample
+   * failed and we fell back" — the §CONTEXT-DATA-HONESTY collapse. Surfaced in `contextDiag()`
+   * so the distinction is observable in a live session rather than inferred from a console
+   * warning that may have been latched away.
+   */
+  private formaTerrainBaseSource: TerrainBaseSource = 'ellipsoid-flat-ground';
+  /** §TERRAIN-BASE-PROVENANCE — FALSE while the base is an `unmeasured-fallback`. Nothing may
+   *  present the massing as "seated on real ground" while this is false. */
+  private formaTerrainBaseMeasured = true;
   /** Monotonic token serialising overlapping async terrain samples — only the
    *  latest placement's clamp is allowed to commit (newer placement wins). */
   private formaTerrainToken = 0;
@@ -3098,6 +3124,11 @@ export class CesiumViewport {
     this.formaTerrainCity = null;
     this.formaTerrainSampledAt = null;
     this.formaTerrainBaseHeight = 0;
+    // §TERRAIN-BASE-PROVENANCE — the base just went back to the ellipsoid, which on this
+    // path is the TRUE flat ground (not a failed sample). Reset the provenance with it so a
+    // stale `unmeasured-fallback` from the previous site cannot leak into the next one.
+    this.formaTerrainBaseSource = 'ellipsoid-flat-ground';
+    this.formaTerrainBaseMeasured = true;
     try { viewer.scene.globe.depthTestAgainstTerrain = false; } catch { /* ignore */ }
     // §TERRAIN-NORMALS (L-636) — flat ellipsoid ground has no relief to shade; restore the §2 flat-lit look.
     try { viewer.scene.globe.enableLighting = false; } catch { /* ignore */ }
@@ -3158,6 +3189,11 @@ export class CesiumViewport {
     // seated. The globe/photoreal path is unaffected: it re-samples + re-seats on
     // entry (restorePhotorealMode → renderBuildingOnGlobe → clampToPhotorealTiles).
     this.formaTerrainBaseHeight = 0;
+    // §TERRAIN-BASE-PROVENANCE — the base just went back to the ellipsoid, which on this
+    // path is the TRUE flat ground (not a failed sample). Reset the provenance with it so a
+    // stale `unmeasured-fallback` from the previous site cannot leak into the next one.
+    this.formaTerrainBaseSource = 'ellipsoid-flat-ground';
+    this.formaTerrainBaseMeasured = true;
     this.formaTerrainSampledAt = null;
     // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — the base just went back to the ellipsoid
     // 0 that the FORMA flat-ground study legitimately uses. That is NOT a measured GLOBE ground:
@@ -6242,6 +6278,20 @@ export class CesiumViewport {
           'no real terrain provider attached (keyless ellipsoid ground) — clamping to flat base 0',
         );
       }
+      // §TERRAIN-BASE-PROVENANCE (C12 §1.4) — this branch is a TRUE datum statement, not a
+      // fallback: with no elevation provider the rendered globe surface IS the WGS-84
+      // ellipsoid, so 0 is the real ground. Record it as such so it is never confused with
+      // the `unmeasured-fallback` below.
+      {
+        const res = resolveTerrainClampBase({
+          hasElevationProvider: false,
+          sampledHeightM: null,
+          sampleFailed: false,
+          lastKnownBaseM: this.formaTerrainBaseHeight,
+        });
+        this.formaTerrainBaseSource = res.source;
+        this.formaTerrainBaseMeasured = res.measured;
+      }
       this.formaTerrainSampledAt = { lat: sampleLat, lon: sampleLon };
       // §GLOBE-FIRST-FRAME-BASE — keyless / ellipsoid ground stays at flat base 0,
       // which is exactly what the initial frame used → it's already correct. Disarm
@@ -6251,25 +6301,68 @@ export class CesiumViewport {
     }
 
     const myToken = ++this.formaTerrainToken;
-    let sampledHeight = 0;
+    // §TERRAIN-BASE-PROVENANCE (C12 §1.4, §CONTEXT-DATA-HONESTY) — THE FAILURE-IS-NOT-A-ZERO FIX.
+    //
+    // This block previously set `sampledHeight = 0` on BOTH a rejected sample and a NaN
+    // result, then seated the massing there. That fabricated the WGS-84 ellipsoid as the
+    // ground AND threw away an already-measured base: on a high-elevation city (Burgos
+    // ≈ 912 m) a single transient rejection re-placed the building 912 m underground, while
+    // the only signal was a `warnTerrainOnce` that a benign keyless warning had usually
+    // already latched shut. "Sampled 0 m" and "sampling failed" were the same value —
+    // the exact collapse C12 §1.4 forbids and that the photoreal path already avoids
+    // via `resolveGlobeGroundAnchor`.
+    //
+    // Now: a real sample wins; a failure KEEPS the last known base (stale-but-measured beats
+    // fabricated-ellipsoid, and it matches what `ensureGroundBaseForContext` already does on
+    // its own catch) and is RECORDED as `unmeasured-fallback` so `contextDiag()` can tell the
+    // two apart in a live session. The seating policy is unchanged — this makes the failure
+    // legible, it does not newly hide or move the building.
+    let rawHeight: number | null = null;
+    let sampleFailed = false;
     try {
       const carto = Cesium.Cartographic.fromDegrees(sampleLon, sampleLat);
       const [result] = await Cesium.sampleTerrainMostDetailed(provider, [carto]);
       const h = result?.height;
-      sampledHeight = typeof h === 'number' && Number.isFinite(h) ? h : 0;
-      if (typeof h !== 'number' || !Number.isFinite(h)) {
-        this.warnTerrainOnce('sampled height was NaN/undefined — using base 0.');
+      if (typeof h === 'number' && Number.isFinite(h)) {
+        rawHeight = h;
+      } else {
+        sampleFailed = true;
+        this.warnTerrainOnce(
+          'sampled height was NaN/undefined — the ground at this centroid is UNMEASURED; ' +
+            `keeping the last known base ${this.formaTerrainBaseHeight.toFixed(2)} m rather than ` +
+            'fabricating ellipsoid 0.',
+        );
       }
     } catch (e) {
-      this.warnTerrainOnce('sampleTerrainMostDetailed rejected — using base 0: ' + String(e));
-      sampledHeight = 0;
+      sampleFailed = true;
+      this.warnTerrainOnce(
+        'sampleTerrainMostDetailed rejected — the ground at this centroid is UNMEASURED; ' +
+          `keeping the last known base ${this.formaTerrainBaseHeight.toFixed(2)} m rather than ` +
+          'fabricating ellipsoid 0: ' + String(e),
+      );
     }
+    const resolution = resolveTerrainClampBase({
+      hasElevationProvider: true,
+      sampledHeightM: rawHeight,
+      sampleFailed,
+      lastKnownBaseM: this.formaTerrainBaseHeight,
+    });
+    const sampledHeight = resolution.baseHeightM;
 
     // A newer placement started after us — let it own the clamp; bail.
     // §GLOBE-CRASH-GUARD — also bail if the viewer was disposed during the await.
     if (myToken !== this.formaTerrainToken || !this.isViewerLive()) return;
 
-    this.formaTerrainSampledAt = { lat: sampleLat, lon: sampleLon };
+    this.formaTerrainBaseSource = resolution.source;
+    this.formaTerrainBaseMeasured = resolution.measured;
+    // §TERRAIN-BASE-PROVENANCE — memoise the sample point ONLY when we actually measured it.
+    // The old code recorded the centroid unconditionally, so a FAILED sample was cached as
+    // "already clamped here" and the early-out at the top of this method then suppressed every
+    // subsequent attempt for that centroid — a transient network failure became permanent, and
+    // the terrain-attach path's `formaTerrainSampledAt = null` reset was the only escape.
+    if (resolution.measured) {
+      this.formaTerrainSampledAt = { lat: sampleLat, lon: sampleLon };
+    }
 
     // If the height is effectively unchanged from what we already placed at,
     // there is nothing to re-place (e.g. flat ellipsoid provider → 0 → 0).
@@ -6437,8 +6530,12 @@ export class CesiumViewport {
 
   /** Log the "terrain clamp degraded → base 0" message at most once. */
   private warnTerrainOnce(reason: string): void {
-    if (this.formaTerrainWarned) return;
-    this.formaTerrainWarned = true;
+    // §TERRAIN-DEGRADE-LATCH — latch PER REASON, not globally (see `formaTerrainWarned`).
+    // The key is the reason's leading clause, which is a stable literal at every call site
+    // (the variable tail carries the height / the caught error, which must not defeat the latch).
+    const key = reason.split(/[—:(]/, 1)[0]!.trim().slice(0, 80);
+    if (this.formaTerrainWarned.has(key)) return;
+    this.formaTerrainWarned.add(key);
     console.warn('[CesiumViewport][forma] terrain clamp degraded (' + reason + ').');
   }
 
@@ -6480,6 +6577,11 @@ export class CesiumViewport {
       out.formaTerrainEnabled = this.formaTerrainEnabled;
       out.formaTerrainCity = this.formaTerrainCity;
       out.formaTerrainBaseHeight = Number(this.formaTerrainBaseHeight.toFixed(2));
+      // §TERRAIN-BASE-PROVENANCE (C12 §1.4) — the base height ALONE cannot distinguish a real
+      // 0 m ground, an honest ellipsoid flat ground, and a failed sample. Report the provenance
+      // beside it so a live session can tell which one it is looking at.
+      out.formaTerrainBaseSource = this.formaTerrainBaseSource;
+      out.formaTerrainBaseMeasured = this.formaTerrainBaseMeasured;
       out.groundReliefAttached = this.groundReliefAttached();
       const provider = viewer?.terrainProvider;
       out.terrainProviderType = provider ? provider.constructor?.name ?? 'unknown' : 'none';
@@ -7352,6 +7454,9 @@ export class CesiumViewport {
       const h = result?.height;
       if (typeof h === 'number' && Number.isFinite(h)) {
         this.formaTerrainBaseHeight = h;
+        // §TERRAIN-BASE-PROVENANCE — a real measurement off the attached baked terrain.
+        this.formaTerrainBaseSource = 'terrain-sample';
+        this.formaTerrainBaseMeasured = true;
         this.formaTerrainSampledAt = { lat, lon };
         console.log(
           `[CTX-DIAG] seat-first: terrain ground sampled ${h.toFixed(1)} m at LAT ${lat.toFixed(5)} ` +
@@ -7371,7 +7476,13 @@ export class CesiumViewport {
         }
       }
     } catch (e) {
-      this.warnTerrainOnce('seat-first ground sample failed — using current base: ' + String(e));
+      // §TERRAIN-BASE-PROVENANCE — the base we return below is the LAST KNOWN one, which is the
+      // right call (never fabricate 0), but it is NOT a measurement of this site. Say so in the
+      // provenance so `contextDiag()` cannot report it as sampled ground.
+      this.formaTerrainBaseSource = 'unmeasured-fallback';
+      this.formaTerrainBaseMeasured = false;
+      this.warnTerrainOnce('seat-first ground sample failed — the ground here is UNMEASURED; ' +
+        `returning the last known base ${this.formaTerrainBaseHeight.toFixed(2)} m: ` + String(e));
     }
     return this.formaTerrainBaseHeight;
   }
@@ -12643,6 +12754,10 @@ export class CesiumViewport {
       // FORMA.4 — reset the terrain-clamp cache so the incoming project re-samples
       // ground height for ITS site.
       this.formaTerrainBaseHeight = 0;
+      // §TERRAIN-BASE-PROVENANCE — project switch: the previous site's provenance means
+      // nothing here. Back to the honest ellipsoid flat ground until this site is sampled.
+      this.formaTerrainBaseSource = 'ellipsoid-flat-ground';
+      this.formaTerrainBaseMeasured = true;
       this.formaTerrainSampledAt = null;
       this.formaTerrainToken++;
       // §TERRAIN-RENDER — forget the attached city + the per-session 404 memory so the
