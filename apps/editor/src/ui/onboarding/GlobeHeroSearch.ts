@@ -100,6 +100,23 @@ export interface GlobeHeroSearchOptions {
      * the stage chain, the camera, or the outcome `search()` resolves to.
      */
     readonly warmContextCache?: (lat: number, lon: number) => void;
+    /**
+     * §22 THE REVEAL GATE (PRD §17.4 / §17.7 open question 2) — fired AT MOST ONCE per
+     * successful `search()`, the moment the staged flight chain has reached its CLOSEST stage
+     * (`parcel`, `SITE_ENTRY_ALTITUDE_M.parcel`) AND the terminal `site.entry.select-parcel`
+     * hand-off intent has been accepted. That is this codebase's honest "camera arrived close"
+     * signal: the stage machine is the CAUSE and the camera is its projection
+     * (`siteEntryModel.ts`'s own invariant 3), so the terminal stage transition — not a height
+     * poll, not a timer — is what "we are at the parcel" means here.
+     *
+     * NOT fired on any failure path (empty query, no geocode match, a reducer refusal), so a
+     * user who never resolved a location never gets a split.
+     *
+     * Fire-and-forget by contract: `search()` neither awaits it nor lets it change the outcome,
+     * and a throw is swallowed — the reveal is presentation sequencing layered on top of a
+     * search that has already succeeded.
+     */
+    readonly onParcelArrival?: (picked: GlobeHeroSearchPicked) => void;
     /** Registry-derived coverage (`siteEntryCoverageEntries()`), forwarded verbatim — this module
      *  holds no jurisdiction data of its own (C60 §2). */
     readonly entries: readonly CoverageEntry[];
@@ -174,14 +191,23 @@ export class GlobeHeroSearch {
         }
     }
 
-    /** Dismiss the solo globe. Idempotent, safe to call more than once (e.g. once from the
-     *  Skip handler and again from the overlay's own teardown cleanup). */
-    dispose(): void {
+    /**
+     * Dismiss the solo globe. Idempotent, safe to call more than once (e.g. once from the
+     * Skip handler and again from the overlay's own teardown cleanup).
+     *
+     * §22 `keepGlobe` — after the reveal has mounted the site-authoring split, the SAME single
+     * Cesium viewport is re-parented into the split's RIGHT pane (`GISAreaLayout.ts`'s cesium
+     * mounter). Tearing the hero down normally would call `toggleGlobe(false)` →
+     * `CesiumViewport.setVisible(false)`, hiding the viewport the split is now showing — a black
+     * right pane. `keepGlobe: true` releases the hero's own state WITHOUT touching the globe,
+     * because ownership of it has transferred to the split. Default (`false`) is unchanged.
+     */
+    dispose(opts?: { keepGlobe?: boolean }): void {
         const span = _tracer.startSpan('pryzm.site-entry.globe-hero-search.dispose');
         try {
             if (this.disposed) return;
             this.disposed = true;
-            if (this.mounted) {
+            if (this.mounted && opts?.keepGlobe !== true) {
                 try {
                     this.opts.toggleGlobe(false);
                 } catch (e) {
@@ -276,15 +302,29 @@ export class GlobeHeroSearch {
                 return { ok: false, message: handoff.rejected ?? 'That location could not be selected.' };
             }
 
+            const picked: GlobeHeroSearchPicked = {
+                lat: best.lat,
+                lon: best.lon,
+                address: best.displayName,
+                ...(best.bbox ? { bbox: best.bbox } : {}),
+            };
+
+            // §22 — THE GATE. The chain is at the `parcel` stage and the hand-off was accepted:
+            // this is "the camera has arrived close". Everything the reveal does (seed the 2D
+            // frame → anchor the site → mount the split → fade) is the caller's, in the ORDER
+            // the §21 revert note requires — see `siteRevealSequence.ts`.
+            if (!this.disposed) {
+                try {
+                    this.opts.onParcelArrival?.(picked);
+                } catch (e) {
+                    console.warn('[globe-hero-search] onParcelArrival threw (search still succeeded):', e);
+                }
+            }
+
             return {
                 ok: true,
                 message: `Found: ${best.displayName}`,
-                picked: {
-                    lat: best.lat,
-                    lon: best.lon,
-                    address: best.displayName,
-                    ...(best.bbox ? { bbox: best.bbox } : {}),
-                },
+                picked,
             };
         } finally {
             span.end();

@@ -246,6 +246,12 @@ declare global {
          *  2D map disposes and the single Cesium viewer re-homes to `#container` + hides
          *  (never disposed). Idempotent. Registered by GISAreaLayout. */
         pryzmUnmountSiteAuthoringPanes?: () => void;
+        /** PRYZM-EARTH-ONBOARDING PRD §22 (§17.4 "Split-screen fades in") — bring the
+         *  just-mounted site-authoring split in with a CSS opacity transition instead of a hard
+         *  cut over the full-screen globe. Presentation only: it gates nothing, and the mount
+         *  itself schedules the same one-shot as a safety net. No-op when nothing is mounted.
+         *  Registered by GISAreaLayout. */
+        pryzmFadeInSiteAuthoringPanes?: () => void;
         /** O.2 — activate/deactivate the GIS (Cesium) view programmatically. The
          *  onboarding step controller's "Draw it on the map" path calls this to
          *  mount + activate GIS before `pryzmStartBoundaryDraw`. Mirrors the GIS

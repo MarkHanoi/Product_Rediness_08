@@ -69,6 +69,9 @@ import { geocodeAddress } from '../site/geocodeAddress.js';
 // card, driven by the EXISTING `siteEntryModel`/`SiteEntryStore` reducer instead of a bare
 // geocode-then-set-field call. See GlobeHeroSearch.ts's header for the full reuse rationale.
 import { GlobeHeroSearch } from './GlobeHeroSearch.js';
+// PRD §22 — the zoom-then-split reveal SEQUENCE (frame-seed → anchor → arm → mount → fade),
+// extracted DOM-free so the ordering the §21 revert note mandates is unit-assertable.
+import { runSiteRevealSequence, type SiteRevealTarget } from './siteRevealSequence.js';
 import { siteEntryCoverageEntries } from '../../engine/views/siteEntryCoverage';
 import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.js';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
@@ -263,6 +266,12 @@ export class OnboardingStepController {
      *  entry to `renderLocationStep()`, disposed the moment the step is left (skip, a resolved
      *  search, or overlay teardown) — the globe must not stay live once the flow has moved on. */
     private globeHero: GlobeHeroSearch | null = null;
+
+    /** PRD §22 — true once the zoom-then-split reveal has actually MOUNTED the site-authoring
+     *  split (2D GIS left · live 3D Site right). Drives two things: the hero must then be
+     *  released WITHOUT hiding the globe (the split now owns that viewport), and the site step
+     *  must not re-mount or tear down what is already up. */
+    private splitRevealed = false;
 
     /** Current step — drives the indicator + guards re-entry into generate. */
     private step: StepId = 'location';
@@ -533,6 +542,18 @@ export class OnboardingStepController {
                     /* best-effort prefetch — a cold cache later is not a regression */
                 });
             },
+            // PRD §22 — THE REVEAL GATE. The full-screen globe owns the whole screen for the
+            // ENTIRE flight (world → country → city → parcel); only when the staged chain has
+            // landed at its closest stage does the split appear, in the strict order the §21
+            // revert note requires. See `revealSplitAtParcel()`.
+            onParcelArrival: (picked) => {
+                this.revealSplitAtParcel({
+                    lat: picked.lat,
+                    lon: picked.lon,
+                    address: picked.address,
+                    ...(picked.bbox ? { bbox: picked.bbox } : {}),
+                });
+            },
             entries: siteEntryCoverageEntries(),
             geocode: geocodeAddress,
         });
@@ -575,8 +596,118 @@ export class OnboardingStepController {
      *  resolved search, empty-query-treated-as-skip) — the globe must not stay live once the
      *  flow has moved on to the plot step. Idempotent (`GlobeHeroSearch.dispose()` is). */
     private leaveLocationStep(): void {
-        this.globeHero?.dispose();
+        // PRD §22 — once the reveal has mounted the split, the SINGLE Cesium viewport has been
+        // re-parented into its RIGHT pane. Releasing the hero must NOT toggle the globe off, or
+        // the 3D Site pane the user just flew into goes black (`setVisible(false)`).
+        this.globeHero?.dispose(this.splitRevealed ? { keepGlobe: true } : undefined);
         this.globeHero = null;
+    }
+
+    // ── PRD §22: the zoom-then-split reveal ───────────────────────────────────
+
+    /**
+     * PRD §22 / §17.4 — the founder's choreography, at its gate.
+     *
+     * Called by `GlobeHeroSearch`'s `onParcelArrival` — i.e. AFTER the full-screen globe has
+     * flown the whole staged chain (world → country → city → parcel) and the terminal hand-off
+     * intent was accepted. Everything before this moment is one continuous full-screen zoom;
+     * this is the single point where the split appears.
+     *
+     * THE ORDER IS THE WHOLE POINT (§21 revert note; `runSiteRevealSequence` owns it):
+     *   1. seed the 2D pane's opening frame (`pryzmSetGeocodeFrame`) — else it opens at world zoom
+     *   2. anchor the site LOCATION ONLY (`dispatchSiteLocation`, never a boundary — C19 §1.4
+     *      keeps the user's own committed draw as the FIRST `site.setParcelBoundary`) — else the
+     *      3D pane has "no site location yet — cannot place massing" and renders empty
+     *   3. arm the one-shot early boundary listener — the mount AUTO-ARMS the draw tool
+     *      (`GISAreaLayout.ts:4309`) and the user has not yet chosen how to define their site, so
+     *      a boundary drawn/selected immediately must route to confirm, not vanish (§21.1 fdg. 2)
+     *   4. mount the ONE existing split (`pryzmMountSiteAuthoringPanes`, idempotent — P1)
+     *   5. fade it in (presentation only)
+     *
+     * If (1) or (2) cannot be done, NOTHING is mounted and the user simply stays on the
+     * full-screen globe — the pre-§21 behaviour the founder confirmed was correct.
+     */
+    private revealSplitAtParcel(target: SiteRevealTarget): void {
+        const w = window as unknown as {
+            pryzmSetGeocodeFrame?: (frame: { lat: number; lon: number; bbox?: [number, number, number, number] }) => void;
+            pryzmMountSiteAuthoringPanes?: () => void;
+            pryzmFadeInSiteAuthoringPanes?: () => void;
+        };
+        const result = runSiteRevealSequence(
+            {
+                seedGeocodeFrame: (frame) => {
+                    if (typeof w.pryzmSetGeocodeFrame !== 'function') return false;
+                    w.pryzmSetGeocodeFrame(frame);
+                    return true;
+                },
+                anchorSiteLocation: (t) => {
+                    const ctx = resolveSiteContext(this.runtime);
+                    if (!ctx) return false;
+                    dispatchSiteLocation(ctx, {
+                        latitude: t.lat,
+                        longitude: t.lon,
+                        siteAddress: t.address ?? null,
+                    });
+                    return true;
+                },
+                armBoundaryListener: () => this.armEarlySplitBoundaryListener(),
+                mountSplit: () => {
+                    if (typeof w.pryzmMountSiteAuthoringPanes !== 'function') {
+                        throw new Error('pryzmMountSiteAuthoringPanes is not wired');
+                    }
+                    w.pryzmMountSiteAuthoringPanes();
+                },
+                fadeInSplit: () => { w.pryzmFadeInSiteAuthoringPanes?.(); },
+            },
+            target,
+        );
+        if (result.mounted) {
+            this.splitRevealed = true;
+            console.log('[onboarding-step] §22 reveal: split mounted in order —', result.steps.join(' → '));
+        } else {
+            console.warn(
+                `[onboarding-step] §22 reveal: split NOT mounted (${result.stoppedBecause ?? 'mount failed'}) — ` +
+                'staying full-screen on the globe. Steps run:', result.steps.join(' → ') || '(none)',
+            );
+        }
+    }
+
+    /**
+     * PRD §22 (re-applying §21.1 finding 2, which the §21 revert kept as valid analysis) — a
+     * ONE-SHOT `site.parcel-boundary-set` listener armed the instant the split appears.
+     *
+     * WHY: mounting the split auto-arms the boundary-draw tool (and parcel select) in the left
+     * pane. At that moment the user has not yet answered "How do you want to set your plot?" —
+     * so a parcel they select, or a boundary they trace immediately, is a real, deliberate
+     * commit that must route to the generate-confirm step. Without this it fires into an empty
+     * bus and is silently lost.
+     *
+     * Shares the SAME `this.drawWaitCleanup` slot `armBoundaryCommitWait()` uses, so whichever
+     * is armed last wins and a commit can never double-fire (clicking "Draw it on the map"
+     * supersedes this listener with the full draw wait).
+     *
+     * DELIBERATELY NO WATCHDOG: the 60 s default-plot fallback belongs to an explicit draw
+     * session. A user reading the choice card is not drawing, and hijacking their flow with a
+     * forced default plot (which C19 §1.4 then locks immutable) is precisely the L-420 defect.
+     */
+    private armEarlySplitBoundaryListener(): void {
+        this.drawWaitCleanup?.();
+        this.drawWaitCleanup = null;
+
+        let settled = false;
+        const cleanup = (): void => {
+            try { sub?.dispose(); } catch { /* ignore */ }
+        };
+        const sub = this.runtime.events?.on('site.parcel-boundary-set', () => {
+            if (settled || this.disposed) return;
+            settled = true;
+            cleanup();
+            if (this.drawWaitCleanup === cleanup) this.drawWaitCleanup = null;
+            console.log('[onboarding-step] §22: boundary committed straight off the revealed split — routing to confirm.');
+            this.renderGenerateConfirmStep('drawn');
+        });
+        this.drawWaitCleanup = cleanup;
+        this.addCleanup(cleanup);
     }
 
     private async handleGeocode(
@@ -722,6 +853,11 @@ export class OnboardingStepController {
      * "Generate with AI?" question (rather than a silent auto-generate).
      */
     private useDefaultRectThenConfirm(): void {
+        // PRD §22 — disarm the early-split boundary listener FIRST. `createSiteFromRect` emits
+        // `site.parcel-boundary-set` SYNCHRONOUSLY, which would otherwise trip that listener into
+        // a redundant 'drawn'-labelled confirm a tick before this path's own 'default-plot' one.
+        try { this.drawWaitCleanup?.(); } catch { /* ignore */ }
+        this.drawWaitCleanup = null;
         const siteOk = this.createSite({
             ...(this.picked ? { lat: this.picked.lat, lon: this.picked.lon, address: this.picked.address } : {}),
             width: DEFAULT_PARCEL_WIDTH_M,

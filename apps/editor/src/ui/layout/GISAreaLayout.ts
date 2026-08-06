@@ -4270,6 +4270,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // dance. Single rAF (P3): neither renderer spins a new loop — Cesium keeps its
     // request-render mode, the map its own; the host only re-parents + reflows.
     // ════════════════════════════════════════════════════════════════════════
+    /** §22 — set by `mountSiteAuthoringPanes()` to the CURRENT shell's one-shot fade-in.
+     *  A no-op before any mount (and after an unmount) so the window hook is always safe. */
+    let fadeInSiteAuthoringPanes: () => void = () => { /* nothing mounted */ };
+
     const mountSiteAuthoringPanes = (): void => {
         if (siteAuthoringPanes && !siteAuthoringPanes.isDisposed) {
             console.log('[gis][panes] §L-412 site-authoring split already mounted.');
@@ -4302,6 +4306,32 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
 
         const shell = mountSiteAuthoringPaneShell({ parent: container, initialLeftFraction: 0.5 });
         siteAuthoringPanes = shell;
+
+        // §22 (PRYZM-EARTH-ONBOARDING PRD §17.4 "Split-screen FADES in") — the split must not
+        // hard-cut over the full-screen globe the user has just been flown across. Mount it
+        // transparent and let a CSS opacity transition bring it in. Deliberately the cheapest
+        // possible "nice transition": a CSS transition on ONE element — NOT camera-synchronised
+        // animation machinery, and NOT a new rAF loop (P3: `requestAnimationFrame` is the frame
+        // scheduler's alone; a CSS transition is the compositor's own, not ours).
+        //
+        // The opacity flip is scheduled on a single macrotask so the browser has painted the
+        // transparent frame first (setting it in the same task would skip the transition). A
+        // caller that never invokes `pryzmFadeInSiteAuthoringPanes` still gets a visible split —
+        // the same one-shot schedules itself here as a safety net, so a wiring gap can never
+        // leave an invisible pane shell on screen.
+        try {
+            shell.root.style.opacity = '0';
+            shell.root.style.transition = 'opacity 420ms ease';
+            const revealNow = (): void => {
+                try {
+                    if (siteAuthoringPanes === shell && !shell.isDisposed) shell.root.style.opacity = '1';
+                } catch { /* shell torn down mid-fade — nothing to reveal */ }
+            };
+            fadeInSiteAuthoringPanes = () => { setTimeout(revealNow, 0); };
+            fadeInSiteAuthoringPanes();
+        } catch (e) {
+            console.warn('[gis][panes] §22 fade-in setup failed (non-fatal, split still mounts):', e);
+        }
 
         // ── MapLibre mounter (LEFT pane) — the 2D draw/select surface ──
         const mapMounter: PaneRendererMounter = {
@@ -4435,6 +4465,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      *  hides; the map disposes) and removes the pane DOM. Idempotent. */
     const unmountSiteAuthoringPanes = (): void => {
         if (!siteAuthoringPanes) return;
+        fadeInSiteAuthoringPanes = () => { /* nothing mounted */ };
         try { siteAuthoringPanes.dispose(); } catch (e) { console.warn('[gis][panes] dispose failed:', e); }
         siteAuthoringPanes = null;
         siteAuthoringPaneLastFramedCentroid = null;
@@ -4460,6 +4491,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     window.pryzmMountSiteAuthoringPanes = () => {
         try { mountSiteAuthoringPanes(); }
         catch (e) { console.error('[gis][panes] pryzmMountSiteAuthoringPanes failed:', e); }
+    };
+    // §22 (PRD §17.4) — bring the just-mounted split in with a CSS opacity transition. Called by
+    // the onboarding reveal sequence as its LAST step (presentation only — it never gates
+    // anything, and the mount schedules the same one-shot itself as a safety net).
+    window.pryzmFadeInSiteAuthoringPanes = () => {
+        try { fadeInSiteAuthoringPanes(); }
+        catch (e) { console.warn('[gis][panes] §22 pryzmFadeInSiteAuthoringPanes failed (non-fatal):', e); }
     };
     window.pryzmUnmountSiteAuthoringPanes = () => {
         try { unmountSiteAuthoringPanes(); }

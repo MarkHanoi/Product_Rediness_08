@@ -1526,6 +1526,157 @@ open, and §19's bootstrap gates still bound how early any of this can happen.
 
 ---
 
-*End — PRYZM Earth Onboarding PRD, 2026-08-06 — §1-§19 + §21; §17.2's full table, the gated
-split-reveal (camera-synchronized fade), Milestone 0 profiling, L-631, and §19's P1-sequencing lever
+## §22 — Zoom-Then-Split Choreography Log (2026-08-06 — code changes)
+
+The founder's own sequence, built properly this time: **full-screen globe → search → one
+continuous full-screen zoom through the whole staged flight → at the closest stage, seed the 2D
+frame, anchor the site, mount the split, fade it in.** This is §17.4's target sequence and
+§17.7's open question 2 (what gates the reveal), answered — and it is §21 redone with the revert
+note's two preconditions treated as the contract rather than as an afterthought.
+
+### §22.1 — The gate signal, and why this one
+
+**Chosen gate: the stage machine's own terminal transition** — `GlobeHeroSearch.search()` fires a
+new optional `onParcelArrival(picked)` callback (`apps/editor/src/ui/onboarding/GlobeHeroSearch.ts`,
+inside `search()` immediately after the terminal `site.entry.select-parcel` dispatch is accepted
+and before the outcome is returned). At that point the reducer chain has issued every flight in
+the `world → country → city → parcel` chain and the hand-off intent has been accepted.
+
+Why this and not the two alternatives the brief listed in preference order:
+
+1. **A flyTo completion callback.** `CesiumViewport.flyToGeographic()`
+   (`apps/editor/src/ui/geospatial/CesiumViewport.ts:12664-12701`) does accept Cesium's
+   `complete`/`cancel` callbacks internally (`:12696`) but does **not** expose them — its
+   parameter object is `{lat, lon, altitudeM, pitchDeg, instant?}` and it returns `void`, and the
+   `GlobeCameraHost` interface the store talks to (`siteEntryStore.ts:87-95`) is structurally
+   identical by design. Surfacing a completion signal means changing `CesiumViewport` and the
+   `GlobeCameraHost`/`SiteEntryCameraPort` contract — both outside this pass's file ownership
+   (`apps/editor/src/engine/**` and `CesiumViewport` were explicitly excluded), and the second is
+   a C60 §4 port contract, not an implementation detail.
+2. **A camera-height read.** `viewer.camera.positionCartographic.height` is read in several
+   places inside `CesiumViewport` (e.g. `:6722`, `:7324`, `:7836`'s `camH=…m` log line) but is
+   never exposed on the public surface either, and — more decisively — `siteEntryModel.ts`'s own
+   header disqualifies height-sniffing by name: the altitude bands are **outputs, never inputs**
+   ("STAGE IS A CAUSE, NOT AN EFFECT. The camera is a PROJECTION of the stage"). Inferring
+   "we have arrived" from a live camera height would invert exactly the invariant that file
+   exists to hold. No timer poll was used (the brief forbade it and none was needed).
+
+**Honest gap on the "~300 m" figure.** The closest stage the shipped machine flies to is
+`parcel`, `SITE_ENTRY_ALTITUDE_M.parcel = 600` m (`siteEntryModel.ts:136-141`) — not 300 m.
+Lowering it is a one-constant edit, but that constant lives in `apps/editor/src/engine/views/`,
+which this pass was explicitly told not to touch, and it is also the altitude the existing
+`frameSiteLocation` hand-off matches (its own comment: chosen so the hand-off "is not a visible
+jump"), so changing it has a second consumer. Flagged, not silently done. The choreography is
+altitude-agnostic: whatever `SITE_ENTRY_ALTITUDE_M.parcel` says is where the reveal fires.
+
+### §22.2 — The sequence, and how each §21 constraint is satisfied
+
+New DOM-free module `apps/editor/src/ui/onboarding/siteRevealSequence.ts`
+(`runSiteRevealSequence(deps, target)`), wired by
+`OnboardingStepController.revealSplitAtParcel()`:
+
+| # | Step | Satisfies |
+|---|---|---|
+| 1 | `seedGeocodeFrame` → `window.pryzmSetGeocodeFrame({lat, lon, bbox})` | §21 revert note (a) — `getMapInitial()` (`GISAreaLayout.ts:231`) must already carry the frame before `SiteBoundaryMap2D` opens, or the left pane opens at world zoom. **If this cannot run, the sequence STOPS and nothing mounts.** |
+| 2 | `anchorSiteLocation` → `resolveSiteContext` + `dispatchSiteLocation` (location only, no boundary) | §21 revert note (b) — the 3D pane needs `site.location-changed` or it refuses with "no site location yet — cannot place massing". **If this cannot run, the sequence STOPS and nothing mounts.** C19 §1.4 is untouched: location-only anchoring sets NO boundary, so the user's committed draw is still the FIRST `site.setParcelBoundary` — the identical thing `startDrawThenGenerate()` already does at `:765-779`. |
+| 3 | `armBoundaryListener` → `armEarlySplitBoundaryListener()` | §21.1 finding 2 — armed BEFORE the mount, because the mount auto-arms the draw tool. |
+| 4 | `mountSplit` → `window.pryzmMountSiteAuthoringPanes()` | P1 / §21.1 finding 3 — the ONE existing, idempotent mount; no parallel path. |
+| 5 | `fadeInSplit` → `window.pryzmFadeInSiteAuthoringPanes()` | §17.4's "fades in". Presentation only; a failure here never un-mounts. |
+
+Steps 1–2 exactly mirror `startDrawThenGenerate()`'s proven order (anchor at `:765`, frame-seed at
+`:801-810`, mount at `:818-820`) — the reveal does not invent a second ordering, it lifts the
+working one to the earlier gate. The step list is returned as data (`result.steps`), which is what
+the regression tests assert against.
+
+**Globe hand-off.** `GlobeHeroSearch.dispose()` now takes an optional `{ keepGlobe: true }`, and
+`leaveLocationStep()` passes it once the split has been revealed. Without this the very next thing
+the location step does after a resolved search (dispose the hero → `toggleGlobe(false)` →
+`CesiumViewport.setVisible(false)`) would have hidden the single viewport the split had just
+re-parented into its right pane — a black 3D pane by a different route than §21's.
+
+**Fade.** `mountSiteAuthoringPanes()` (`GISAreaLayout.ts`) now mounts the shell root at
+`opacity: 0` with a `420 ms` CSS opacity transition and flips it on a single `setTimeout(…, 0)`
+(so the transparent frame is painted first). No rAF (P3), no camera-synchronised animation
+machinery — deliberately the cheapest safe transition, per the brief. The mount schedules the
+same one-shot itself, so a caller that never invokes the hook can never leave an invisible shell.
+
+**Skip path unchanged.** No location → no `onParcelArrival` → no reveal → the user lands on the
+choice card exactly as before, with no split. Asserted.
+
+### §22.3 — Cadastral-number search: a FLAGGED GAP, not covered
+
+Confirmed by reading the code, not assumed. The onboarding search box is wired to
+`geocodeAddress()` (`apps/editor/src/ui/site/geocodeAddress.ts`), a free-text OSM **Nominatim**
+`/search` query. A Spanish *referencia catastral* (e.g. `1234501DF3813C0001AB`) is not a
+Nominatim-resolvable place name, so **address and city are covered; a cadastral number is not.**
+The codebase's Catastro integration runs the other way round: `CatastroParcelProvider.ts` queries
+**by lat/lon** and returns `refcat` as an *output* (`:76-97`, `:150`) — there is no
+reference→coordinates lookup anywhere (grepped `refcat|Consulta_CPMRC|cadastral reference` across
+`apps/editor/src` and `packages/site-parcel-data/src`). Closing it means a new
+provider (Spain's OVC `Consulta_CPMRC`/`Consulta_DNPRC` returns coordinates for a RC) plus a
+query-shape router — a data-sourcing task, and per the brief this pass flags it rather than
+building a second geocoder.
+
+### §22.4 — The early-boundary listener, re-applied
+
+`armEarlySplitBoundaryListener()` (§21.1 finding 2's analysis, which the §21 revert kept as valid
+input): a one-shot `site.parcel-boundary-set` subscription stored in the SAME `this.drawWaitCleanup`
+slot `armBoundaryCommitWait()` uses, so whichever arms last wins and a commit can never
+double-fire; a boundary drawn or a parcel selected the instant the split appears — before the user
+has answered "How do you want to set your plot?" — routes to the generate-confirm step instead of
+firing into an empty bus. **No watchdog**, deliberately: the 60 s default-plot fallback belongs to
+an explicit draw session, and forcing a default plot on a user who is reading the choice card is
+the L-420 defect. `useDefaultRectThenConfirm()` disarms it before `createSite()`, because
+`createSiteFromRect` emits `site.parcel-boundary-set` synchronously and would otherwise render a
+redundant `'drawn'`-labelled confirm a tick before the `'default-plot'` one (§21.1 finding 4).
+
+### §22.5 — Files changed / added
+
+- **NEW** `apps/editor/src/ui/onboarding/siteRevealSequence.ts` — the ordering contract, DOM-free.
+- `apps/editor/src/ui/onboarding/GlobeHeroSearch.ts` — `onParcelArrival` gate hook;
+  `dispose({keepGlobe})`.
+- `apps/editor/src/ui/onboarding/OnboardingStepController.ts` — `revealSplitAtParcel()`,
+  `armEarlySplitBoundaryListener()`, `splitRevealed` flag, `leaveLocationStep()` keep-globe,
+  `useDefaultRectThenConfirm()` disarm.
+- `apps/editor/src/ui/layout/GISAreaLayout.ts` — fade-in on mount +
+  `window.pryzmFadeInSiteAuthoringPanes`.
+- `apps/editor/src/types/globals.d.ts` — the one new typed global (P4: no `(window as any)`).
+- **NEW** `apps/editor/__tests__/siteRevealSequence.test.ts` (11 tests),
+  **NEW** `apps/editor/__tests__/onboardingZoomThenSplitReveal.test.ts` (6 tests, happy-dom),
+  extended `apps/editor/__tests__/globeHeroSearch.test.ts` (+6 → 25).
+
+### §22.6 — Verification (actual runs)
+
+- `npx vitest run __tests__/siteRevealSequence.test.ts __tests__/globeHeroSearch.test.ts`
+  (from `apps/editor/`): **36 passed / 36**, 2 files.
+- `npx vitest run __tests__/onboardingZoomThenSplitReveal.test.ts`: **6 passed / 6**.
+- Onboarding-adjacent sweep (`globeHeroSearch`, `siteRevealSequence`,
+  `onboardingZoomThenSplitReveal`, `onboardingOverlayImportBranch`,
+  `projectHubAutoNamedOnboarding`, `resolveSeededTypologyId`): **6 files, 71 passed / 71**, 0
+  failures.
+- Root `npx tsc --skipLibCheck --noEmit`: **clean, exit 0, no diagnostics.** (The per-app
+  `tsc -p apps/editor/tsconfig.json` does report errors, but every one is pre-existing and in
+  files this pass never touched — `src/engine/BimService.ts`'s legacy `window.aiService` /
+  furniture-tool casts, unmodified in `git status`.)
+- NOT verified in a live browser this pass: the pixels — the fade's feel, and whether the split
+  appearing at the 600 m parcel stage reads as "close enough" to the founder's ~300 m. The unit
+  layer proves the ORDER and the gate, not the perception.
+
+### §22.7 — Deferred
+
+- **The ~300 m altitude** (§22.1) — a one-constant change in `siteEntryModel.ts`, out of this
+  pass's file ownership, with `frameSiteLocation`'s hand-off framing as a second consumer.
+- **Cadastral-reference lookup** (§22.3) — flagged gap, needs an OVC provider.
+- **Per-stage flight DURATIONS** — `flyToGeographic` hard-codes `duration: 1.6` s
+  (`CesiumViewport.ts:12696`); making the descent feel slower/longer means exposing a duration on
+  the camera port, i.e. a C60 §4 contract change. Not attempted.
+- Everything §21.4/§18.6 already lists: §17.2's full cache-warming table, Milestone 0 profiling,
+  L-631.
+
+*End §22 — 2026-08-06.*
+
+---
+
+*End — PRYZM Earth Onboarding PRD, 2026-08-06 — §1-§19 + §21-§22; §17.2's full table, Milestone 0
+profiling, L-631, §19's P1-sequencing lever, the ~300 m altitude and cadastral-reference search
 all remain open.*

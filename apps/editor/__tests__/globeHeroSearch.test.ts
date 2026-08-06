@@ -26,6 +26,7 @@ function harness(opts?: {
     geocode?: (q: string) => Promise<readonly GlobeHeroSearchGeocodeResult[]>;
     whenCameraHostReady?: () => Promise<void>;
     warmContextCache?: (lat: number, lon: number) => void;
+    onParcelArrival?: (picked: { lat: number; lon: number; address: string; bbox?: [number, number, number, number] }) => void;
 }) {
     const toggleCalls: boolean[] = [];
     const flights: SiteEntryCameraTarget[] = [];
@@ -51,6 +52,7 @@ function harness(opts?: {
         getCameraHost: () => host,
         ...(opts?.whenCameraHostReady ? { whenCameraHostReady: opts.whenCameraHostReady } : {}),
         ...(opts?.warmContextCache ? { warmContextCache: opts.warmContextCache } : {}),
+        ...(opts?.onParcelArrival ? { onParcelArrival: opts.onParcelArrival } : {}),
         entries: opts?.entries ?? [COVERED],
         geocode,
     });
@@ -274,6 +276,84 @@ describe('GlobeHeroSearch', () => {
         await hero.search('Córdoba');
         await hero.search('Córdoba again');
         expect(warmCalls).toEqual([[37.883, -4.78], [37.883, -4.78]]);
+    });
+
+    // §22 (PRD §17.4 / §17.7 Q2) — THE REVEAL GATE. The split may only appear once the staged
+    // flight has actually reached the closest (`parcel`) stage — never at search submit, never
+    // mid-flight, and never at all when the search failed.
+    it('search() fires onParcelArrival exactly once, AFTER the full flight chain has landed at the parcel stage', async () => {
+        const arrivals: Array<{ lat: number; lon: number; address: string }> = [];
+        let flightsAtArrival = -1;
+        const h = harness({
+            onParcelArrival: (p) => { arrivals.push(p); flightsAtArrival = h.flights.length; },
+        });
+        const outcome = await h.hero.search('Córdoba');
+        expect(outcome.ok).toBe(true);
+        expect(arrivals).toEqual([{ lat: 37.883, lon: -4.78, address: 'Córdoba, Spain' }]);
+        // All five flights (reset + 3 descends + the terminal hand-off) had already been issued.
+        expect(flightsAtArrival).toBe(5);
+    });
+
+    it('search() forwards the bbox to onParcelArrival (the 2D pane cannot fitBounds without it)', async () => {
+        const bbox: [number, number, number, number] = [-4.8, 37.87, -4.76, 37.9];
+        const arrivals: Array<{ bbox?: [number, number, number, number] }> = [];
+        const { hero } = harness({
+            geocode: async () => [{ lat: 37.883, lon: -4.78, displayName: 'Córdoba, Spain', bbox }],
+            onParcelArrival: (p) => arrivals.push(p),
+        });
+        await hero.search('Córdoba');
+        expect(arrivals).toHaveLength(1);
+        expect(arrivals[0]!.bbox).toEqual(bbox);
+    });
+
+    it('search() does NOT fire onParcelArrival on any failure path (no location ⇒ no split)', async () => {
+        const arrivals: unknown[] = [];
+        const empty = harness({ geocode: async () => [], onParcelArrival: () => arrivals.push(1) });
+        expect((await empty.hero.search('nowhere')).ok).toBe(false);
+
+        const threw = harness({
+            geocode: async () => { throw new Error('network down'); },
+            onParcelArrival: () => arrivals.push(1),
+        });
+        expect((await threw.hero.search('anywhere')).ok).toBe(false);
+
+        const blank = harness({ onParcelArrival: () => arrivals.push(1) });
+        expect((await blank.hero.search('   ')).ok).toBe(false);
+
+        expect(arrivals).toEqual([]);
+    });
+
+    it('search() swallows a throwing onParcelArrival — the search still succeeds', async () => {
+        const { hero } = harness({ onParcelArrival: () => { throw new Error('reveal boom'); } });
+        const outcome = await hero.search('Córdoba');
+        expect(outcome.ok).toBe(true);
+    });
+
+    it('a search that resolves after dispose() does NOT reveal a split the user has left behind', async () => {
+        const arrivals: unknown[] = [];
+        let release!: () => void;
+        const gate = new Promise<void>((r) => { release = r; });
+        const { hero } = harness({
+            geocode: async () => { await gate; return [{ lat: 1, lon: 2, displayName: 'Somewhere' }]; },
+            onParcelArrival: () => arrivals.push(1),
+        });
+        const pending = hero.search('Somewhere');
+        hero.dispose();          // e.g. the user hit Skip while the geocode was in flight
+        release();
+        expect((await pending).ok).toBe(false);
+        expect(arrivals).toEqual([]);
+    });
+
+    // §22 — the globe hand-off: once the split owns the viewport, releasing the hero must not
+    // hide it (that was a black 3D pane).
+    it('dispose({ keepGlobe: true }) releases the hero WITHOUT toggling the globe off', async () => {
+        const { hero, toggleCalls } = harness();
+        await hero.mount();
+        hero.dispose({ keepGlobe: true });
+        expect(toggleCalls).toEqual([true]);
+        // Still fully disposed — a later plain dispose() cannot resurrect the toggle either.
+        hero.dispose();
+        expect(toggleCalls).toEqual([true]);
     });
 
     it('search() never throws when getCameraHost() returns null (no globe mounted yet)', async () => {
