@@ -515,12 +515,25 @@ async function _refreshSiteScopedState(): Promise<void> {
     _suggestion = null;
     _updateSuggestionLabelVisibility();
 
+    // §NEARBY-HEIGHT-STALE-SUGGESTION-FIX (2026-08-06) — capture the key THIS call is computing
+    // for, so the result can be checked for staleness after the await below. Without this, a slow
+    // Overpass round-trip for an EARLIER parcel that resolves AFTER the admin has already switched
+    // to (and re-triggered a fetch for) a NEW parcel would land here and overwrite the dropdown/
+    // `_suggestion`/label with a suggestion computed for a site that is no longer the active one —
+    // exactly the "sometimes appears / looks like a different panel" symptom reported: the SAME
+    // singleton panel briefly (or not-so-briefly) shows a stale suggestion for the wrong parcel.
+    const requestKey = key;
+
     let suggestion: NearbyHeightSuggestion | null = null;
     try {
         suggestion = await suggestZoneFromNearbyHeights(lat, lon, KNOWN_CORDOBA_HEIGHT_OPTIONS);
     } catch (e) {
         console.warn('[ManualAdminZonePanel] height suggestion failed (non-fatal):', e);
     }
+    // A newer call has since taken over `_suggestionQueryKey` (the admin moved to a different
+    // parcel while this fetch was in flight) — this result is for a site that is no longer active.
+    // Discard it rather than let it stomp the newer parcel's own (possibly still-pending) state.
+    if (_suggestionQueryKey !== requestKey) return;
     if (!suggestion || !_zoneSelect) return; // no real samples — leave the placeholder exactly as today
 
     _suggestion = suggestion;

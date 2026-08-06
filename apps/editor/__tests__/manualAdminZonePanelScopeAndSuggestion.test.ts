@@ -10,7 +10,7 @@
 //      unaffected: dropdown stays at the blank placeholder, exactly as before this feature existed.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { SiteModelStore, siteCreate, siteSetParcelBoundary } from '@pryzm/stores';
+import { SiteModelStore, siteCreate, siteSetParcelBoundary, siteUpdateLocation } from '@pryzm/stores';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
     wireManualAdminZonePanelRuntime,
@@ -235,6 +235,95 @@ describe('ManualAdminZonePanel — §NEARBY-HEIGHT-SUGGESTION (Córdoba only)', 
         await flushMicrotasks(10);
 
         // Byte-identical to today: the placeholder (empty value) stays selected.
+        expect(selectEl().value).toBe('');
+        expect(suggestionLabelVisible()).toBe(false);
+    });
+
+    // §NEARBY-HEIGHT-STALE-SUGGESTION-FIX (2026-08-06) — founder-reported: the suggestion
+    // "sometimes appears, sometimes doesn't", which looked like a separate/inconsistent panel
+    // instance. Root cause: `_refreshSiteScopedState` applied whatever `suggestZoneFromNearbyHeights`
+    // resolved with NO check that the panel was still looking at the SAME parcel it started the
+    // fetch for. A slow Overpass round-trip for a parcel the admin has since navigated away from
+    // could land AFTER a newer, faster parcel's own (no-suggestion) result had already applied, and
+    // silently overwrite it — a real result for the WRONG, no-longer-active site.
+    it('does not let a slow suggestion fetch for an abandoned parcel overwrite a newer parcel already checked (stale-write race)', async () => {
+        // Unused-elsewhere coordinates — this module's per-bbox in-memory cache persists across
+        // tests in this file (see the note on the previous test), so every test needs its own point.
+        const OLD_PARCEL = { lat: 37.95, lon: -4.60 };
+        const NEW_PARCEL = { lat: 37.96, lon: -4.55 };
+
+        let overpassCallCount = 0;
+        let resolveSlowFetch: ((v: unknown) => void) | null = null;
+        globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input);
+            if (url.startsWith('/api/session/whoami')) {
+                return { ok: true, status: 200, json: async () => ({ isAdmin: true }) } as unknown as Response;
+            }
+            if (url.startsWith('/api/overpass')) {
+                overpassCallCount++;
+                if (overpassCallCount === 1) {
+                    // SLOW — the OLD (abandoned) parcel's fetch. Held open until manually resolved
+                    // below, WITH a real tagged footprint that would (if wrongly applied) select a zone.
+                    return new Promise((resolve) => {
+                        resolveSlowFetch = () => resolve({
+                            ok: true,
+                            status: 200,
+                            json: async () => ({
+                                elements: [
+                                    {
+                                        type: 'way', id: 101, tags: { building: 'yes', height: '12' },
+                                        geometry: [
+                                            { lat: OLD_PARCEL.lat + 0.0002, lon: OLD_PARCEL.lon + 0.0002 },
+                                            { lat: OLD_PARCEL.lat + 0.0003, lon: OLD_PARCEL.lon + 0.0002 },
+                                            { lat: OLD_PARCEL.lat + 0.0003, lon: OLD_PARCEL.lon + 0.0003 },
+                                            { lat: OLD_PARCEL.lat + 0.0002, lon: OLD_PARCEL.lon + 0.0003 },
+                                            { lat: OLD_PARCEL.lat + 0.0002, lon: OLD_PARCEL.lon + 0.0002 },
+                                        ],
+                                    },
+                                ],
+                            }),
+                        } as unknown as Response);
+                    });
+                }
+                // FAST — the NEW (currently active) parcel: a genuine no-data-gap (zero real samples).
+                return { ok: true, status: 200, json: async () => ({ elements: [] }) } as unknown as Response;
+            }
+            return { ok: false, status: 404, json: async () => ({}) } as unknown as Response;
+        }) as unknown as typeof globalThis.fetch;
+
+        const { rt, store } = buildRuntimeWithSite(OLD_PARCEL, true);
+        wireManualAdminZonePanelRuntime(rt);
+
+        // Admin opens the panel for the OLD parcel — kicks off the slow fetch, deliberately not
+        // awaited yet (mirrors a real slow Overpass round-trip while the admin keeps working).
+        const firstOpen = openManualAdminZonePanelIfAdmin(rt);
+        await flushMicrotasks(3); // let the slow overpass call actually fire, but stay unresolved
+        expect(overpassCallCount).toBe(1);
+
+        // Admin moves to a DIFFERENT parcel while that fetch is still in flight, and reopens the
+        // (same singleton) panel — the real "switch parcel quickly" scenario the founder described.
+        const site = store.getSite()!;
+        siteUpdateLocation(
+            { siteId: site.id, location: { latitude: NEW_PARCEL.lat, longitude: NEW_PARCEL.lon } },
+            store,
+        );
+        const secondOpen = openManualAdminZonePanelIfAdmin(rt);
+        await secondOpen;
+        await flushMicrotasks(5);
+
+        // The NEW parcel's genuine no-data-gap result is showing, as expected.
+        expect(selectEl().value).toBe('');
+        expect(suggestionLabelVisible()).toBe(false);
+
+        // NOW let the OLD parcel's slow fetch resolve — a real suggestion arrives, late, for a
+        // parcel that is no longer the active one.
+        resolveSlowFetch!(undefined);
+        await firstOpen;
+        await flushMicrotasks(10);
+
+        // Must STILL reflect the current (new) parcel's state — the late result for the abandoned
+        // parcel must never stomp it. Before the fix, this assertion failed: the dropdown would
+        // flip to the OLD parcel's suggested code (a real, but STALE, answer for the wrong site).
         expect(selectEl().value).toBe('');
         expect(suggestionLabelVisible()).toBe(false);
     });

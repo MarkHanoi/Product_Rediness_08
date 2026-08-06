@@ -156,6 +156,19 @@ function signedAreaXZ(ring: ReadonlyArray<XZPoint>): number {
 }
 
 /**
+ * §CLASSIFY-EDGES-RUN-GROUP (2026-08-06) — angular tolerance (degrees) for treating an edge as
+ * "the same boundary run" as its already-classified neighbour when growing the front/rear group
+ * below. A REAL cadastral ring routinely digitizes one physical street/rear boundary as several
+ * consecutive near-collinear edges (a kerb-line nudge, a survey vertex a few cm off dead-straight)
+ * — the founder's Córdoba `2947201UG4924N` parcel does exactly this: its street frontage and its
+ * rear boundary are each split into TWO consecutive edges whose outward normals differ by well
+ * under a degree from each other, while every genuine corner on that same ring turns ~90°. 30°
+ * sits an order of magnitude below the smallest real corner turn observed and an order of magnitude
+ * above the digitization noise this exists to absorb — conservative in both directions.
+ */
+const RUN_GROUP_COS_THRESHOLD = Math.cos((30 * Math.PI) / 180);
+
+/**
  * Classify each polygon edge as front / side / rear / unclassified by a simple,
  * deterministic compass heuristic so the C19 §1.6 per-edge setback check has
  * data AND the §2.7 invariant (`edgeClassifications.length === polygon.length`)
@@ -169,8 +182,30 @@ function signedAreaXZ(ring: ReadonlyArray<XZPoint>): number {
  * Edges where the heuristic is ambiguous fall back to 'unclassified'. There is
  * always exactly one classification per edge.
  *
- * NOTE: this is a placeholder for real frontage detection (which street the lot
- * faces — A.8.* / site-intelligence). Documented as browser-verify.
+ * §CLASSIFY-EDGES-RUN-GROUP (2026-08-06, real defect fixed) — ⚠ picking ONLY the single most-
+ * extremal edge as front (and only the single most-extremal as rear) is wrong on a real cadastral
+ * ring whenever that ring's actual street/rear boundary is digitized as MULTIPLE consecutive
+ * near-collinear edges rather than one clean segment — routine for real parcels, not a hypothetical.
+ * Confirmed on Córdoba OA-2 parcel `2947201UG4924N` (14-vertex real Catastro ring, PGOU Art. 13.6
+ * setbacks `{front: 0, side: 10.5, rear: 10.5}`): the true frontage there is two consecutive edges
+ * (their outward normals ~0.3° apart) and the true rear is likewise two consecutive edges — but the
+ * single-extremal-edge version of this function tagged only ONE edge of each pair `'front'`/`'rear'`
+ * and left its near-identical neighbour `'side'`, so that neighbour took the FULL 10.5 m side
+ * setback instead of the ordinance's actual 0 m/10.5 m front/rear treatment. On this parcel that
+ * turned a real, substantially larger buildable footprint into a near-degenerate sliver — not because
+ * the ordinance's own 10.5 m setbacks are unworkable here, but because half of the front/rear
+ * boundary was silently charged a setback that does not apply to it.
+ *
+ * THE FIX grows each extremal edge into its full contiguous RUN of near-collinear neighbours
+ * (`RUN_GROUP_COS_THRESHOLD`) before assigning `'front'`/`'rear'` — a strict generalisation of the
+ * old single-edge rule (a run degenerates to exactly one edge whenever every neighbour turns more
+ * than the threshold, which is what a clean rectangular/quadrilateral parcel already does, so this
+ * changes nothing for the common case). Growth stops at the first neighbour whose turn exceeds the
+ * threshold, so a genuine corner (~90° on every real parcel measured) never merges two different
+ * physical boundaries into one run. `'side'` remains the fallback for every other edge — this does
+ * NOT add real frontage detection (still no notion of which edge actually touches a street; that
+ * remains the documented A.8 / site-intelligence follow-up), it only prevents a single physical
+ * boundary from being split across two different setback treatments.
  */
 export function classifyEdges(
     polygon: ReadonlyArray<XZPoint>,
@@ -183,8 +218,9 @@ export function classifyEdges(
     // for that with `sign`.
     const sign = signedAreaXZ(polygon) >= 0 ? 1 : -1;
 
-    // For each edge, compute the outward unit normal's −Z component. The most
-    // negative Z (pointing "north"/front) is the front edge; most positive is rear.
+    // Full outward unit normal (nx, nz) per edge — the run-grouping walk below needs the WHOLE
+    // vector (adjacent-edge similarity), not just the Z component the front/rear pick itself uses.
+    const normalX: number[] = new Array(n).fill(0);
     const normalZ: number[] = new Array(n).fill(0);
     for (let i = 0; i < n; i++) {
         const p = polygon[i]!;
@@ -194,8 +230,8 @@ export function classifyEdges(
         const len = Math.hypot(ex, ez) || 1;
         // Outward normal for CCW ring is (edge rotated −90°): (ez, −ex).
         // Multiply by `sign` so CW rings get the correct outward direction.
-        const nz = (-ex / len) * sign;
-        normalZ[i] = nz;
+        normalX[i] = (ez / len) * sign;
+        normalZ[i] = (-ex / len) * sign;
     }
 
     let frontIdx = 0;
@@ -205,9 +241,39 @@ export function classifyEdges(
         if (normalZ[i]! > normalZ[rearIdx]!) rearIdx = i;   // most toward +Z
     }
 
+    const adjacentDot = (i: number, j: number): number =>
+        normalX[i]! * normalX[j]! + normalZ[i]! * normalZ[j]!;
+
+    /** Grow `seed` into its full contiguous run of near-collinear neighbouring edges. */
+    const growRun = (seed: number): Set<number> => {
+        const run = new Set<number>([seed]);
+        let cur = seed;
+        for (let k = 0; k < n; k++) {
+            const next = (cur + 1) % n;
+            if (run.has(next) || adjacentDot(cur, next) < RUN_GROUP_COS_THRESHOLD) break;
+            run.add(next);
+            cur = next;
+        }
+        cur = seed;
+        for (let k = 0; k < n; k++) {
+            const prev = (cur - 1 + n) % n;
+            if (run.has(prev) || adjacentDot(prev, cur) < RUN_GROUP_COS_THRESHOLD) break;
+            run.add(prev);
+            cur = prev;
+        }
+        return run;
+    };
+
+    const frontRun = growRun(frontIdx);
+    const rearRun = rearIdx === frontIdx ? new Set<number>() : growRun(rearIdx);
+    // Safety net (should not occur on any real simple polygon — front and rear grow from
+    // near-opposite normals — but never let a false-positive merge hand the SAME edge to both
+    // groups): front keeps it, rear yields.
+    for (const i of frontRun) rearRun.delete(i);
+
     const out: ParcelEdgeClassification[] = new Array(n).fill('side');
-    out[frontIdx] = 'front';
-    if (rearIdx !== frontIdx) out[rearIdx] = 'rear';
+    for (const i of frontRun) out[i] = 'front';
+    for (const i of rearRun) out[i] = 'rear';
     return out;
 }
 
