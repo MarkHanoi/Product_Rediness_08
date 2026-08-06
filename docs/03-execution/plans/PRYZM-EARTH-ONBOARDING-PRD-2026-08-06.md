@@ -1003,4 +1003,105 @@ pure reducer, and the existing geocoder — adding only presentation, per §9/§
 
 ---
 
-*End — PRYZM Earth Onboarding PRD, 2026-08-06 — PROPOSAL, zero code changes.*
+## §17 — Milestone 4/5 spec: Progressive Loading During Camera Flight (founder-authored, 2026-08-06)
+
+**Status: SPECIFIED, NOT STARTED.** Captured verbatim (lightly restructured) from the founder's own
+brief so it survives to whichever session picks this up — this section is a REQUIREMENT SPEC, not an
+implementation log; no code was touched for this section.
+
+**Why this is its own milestone, not a Milestone 2/3 add-on**: it spans FOUR subsystems that don't
+share an obvious sequencing point today (`CesiumViewport`, `GISAreaLayout`, `SiteBoundaryMap2D`,
+`CesiumThreeBridge`), requires new cache-warming/predictive-streaming machinery none of the four
+currently have, and its success criterion ("zero perceived loading after arrival") is exactly the kind
+of cross-subsystem timing claim that needs its own honest performance investigation (mirrors Milestone
+0's already-flagged need for real frame-budget profiling, §10) before any implementation — not a
+plausible-looking change bolted onto the search flow. Bundling it into Milestone 2/3 is precisely the
+"one PR touching multiple already-separately-governed subsystems" shape §10 rejects by name.
+
+### §17.1 — The non-negotiable requirement
+
+> The user should never arrive at the parcel and then wait 3–5 seconds for the GIS, parcels,
+> buildings, or planning layers to load. The camera flight is free loading time... The cinematic
+> flight is not just an animation — it is the application's opportunity to progressively prepare the
+> entire workspace... The objective is that, by the time the camera finishes its movement, the
+> complete site-authoring interface is already ready.
+
+### §17.2 — Progressive loading pipeline, by camera scale
+
+| Scale | Begin loading |
+|---|---|
+| Planet | Earth imagery, atmosphere, terrain, global labels |
+| Country/Regional | Local imagery, terrain tiles, road network, building tiles, administrative boundaries |
+| City | Parcel vector tiles, planning layers, existing GIS datasets, terrain mesh, photorealistic buildings, existing Cesium tiles, existing Three.js overlays |
+| Neighbourhood | Parcel geometry, neighbour parcels, site envelope, planning constraints, building heights, streets, trees, utilities (future), analysis layers (future) |
+| Parcel | Everything already in memory — the application simply REVEALS the interface. No loading indicators, no waiting, no spinner, no blocking. |
+
+### §17.3 — Existing components MUST be reused, not redesigned
+
+Once the camera reaches neighbourhood/parcel scale, transition into the EXISTING PRYZM Site
+Authoring interface — do NOT redesign this workflow or create a new parcel-selection interface.
+Specifically reuse, unmodified: the existing split-screen layout (2D GIS left / 3D Site right),
+existing parcel highlighting, existing parcel dimensions, existing envelope computation, existing
+planning overlays, existing camera behaviour, existing `CesiumViewport`, existing `GISAreaLayout`,
+existing `SiteBoundaryMap2D`. **The new feature only replaces everything BEFORE this stage** — this
+matches §1.3/§3.1's existing "do not duplicate the split" ruling exactly; §17 does not reopen that
+question, it reinforces it.
+
+### §17.4 — The target sequence
+
+```
+Dashboard → New Project → PRYZM Earth → Search → Fly to Location
+  → (progressive streaming begins) → Terrain loads → Buildings load
+  → Parcels load → Planning loads → GIS initializes
+  → Split-screen fades in (Left: 2D GIS · Right: 3D Site)
+  → Parcel selection → Define Site → Continue → Workspace
+```
+
+The split-screen must appear NATURALLY as the camera reaches the city — not as a hard cut the moment
+a location resolves (today's actual behavior, per Milestone 2/2-polish — see §15/§16). The founder's
+own framing: "the user should feel that they are gradually entering the professional GIS environment
+rather than switching applications."
+
+### §17.5 — Performance requirement: the camera flight IS the loading screen
+
+Never stop the camera to wait for data. Instead: predictively stream tiles, preload parcel data
+around the destination, initialize `GISAreaLayout` in the background, create the `CesiumViewport`
+before arrival, initialize Three.js overlays during the flight, warm planning/parcel/terrain/imagery
+caches. Goal: on arrival, the interface is already interactive — the user can click a parcel
+immediately.
+
+### §17.6 — Technical requirement: treat the flight as a background init pipeline
+
+While the camera is in motion: mount `CesiumViewport` off-screen if necessary, initialize
+`GISAreaLayout`, prepare `SiteBoundaryMap2D`, initialize `CesiumThreeBridge`, warm tile caches, load
+nearby parcel vectors, load planning layers, resolve terrain, attach photorealistic tiles, prepare
+parcel selection. By arrival, the existing GIS interface simply fades in — zero perceived loading
+after arrival.
+
+### §17.7 — Open questions this session did not resolve (flag before implementation starts)
+
+1. **Does the flight duration (today's `flyToGeographic` timing, §15's cinematic chain) leave enough
+   wall-clock time to actually warm these caches** on a realistic connection, or does the loading work
+   dominate and the "flight as loading screen" framing become aspirational rather than real? This is
+   exactly the kind of claim Milestone 0's frame-budget profiling (§10) was scoped to answer honestly
+   — do that investigation FIRST, on a live device, before committing to a specific pipeline shape.
+2. **What actually gates the split-screen reveal** — is it "all four subsystems report ready" (risk:
+   the slowest one holds up the whole reveal, defeating the point) or a race with a hard ceiling
+   (risk: reveals before data is real, reintroducing the loading-after-arrival the founder wants
+   eliminated)? Needs an explicit design decision, not an implicit one.
+3. **Terrain-in-Forma (L-631, standing founder-escalated conflict, §12 row 3)** intersects this
+   directly — "warm terrain caches" during flight is exactly the kind of work that conflict blocks a
+   clean answer for. Resolve L-631 before or alongside this milestone, not after.
+4. Relationship to Milestone 4 ("globe-click → descend + the lit coverage rectangle") and Milestone 5
+   ("progressive-streaming completeness — road network + vegetation as new data-sourcing projects,
+   also where terrain-in-Forma needs a founder decision") in the existing §10 roadmap: §17 is best read
+   as the concrete UX spec for what Milestones 4+5 together are FOR, not a new Milestone 7. Whoever
+   picks this up should fold §17 into 4/5's scope rather than tracking it separately.
+
+*End §17 — requirement spec only, 2026-08-06. No implementation attempted this pass (budget-constrained
+session; flagged for a dedicated future pass rather than a partial/rushed attempt at a
+four-subsystem, cross-cutting change).*
+
+---
+
+*End — PRYZM Earth Onboarding PRD, 2026-08-06 — PROPOSAL for §17; §1-§16 include shipped code changes.*
