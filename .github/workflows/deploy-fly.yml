@@ -108,6 +108,19 @@ jobs:
   # ───────────────────────────────────────────────────────────────────────────
   ci-gate:
     name: CI must be green for this SHA (§L-540-CI-GATE)
+    # §GATE-SKIP-WHEN-BYPASSED (2026-08-06) — when the bypass input is set, this job
+    # previously still claimed a hosted runner just to print a warning and exit 0.
+    # That made an EMERGENCY deploy need TWO sequential `ubuntu-latest` allocations
+    # instead of one, and on a saturated free-tier pool ("All GitHub-hosted runners
+    # with label [ubuntu-latest] are busy") it left the deploy queued behind a job
+    # that was, by construction, going to do nothing. Skipping the job outright costs
+    # zero runners and loses no audit trail: the bypass is still recorded in the run
+    # inputs, and `deploy` re-states it as a ::warning:: in the log.
+    #
+    # The gate KEEPS ITS TEETH on every normal run: with no bypass this job runs
+    # exactly as before, and `deploy`'s `if` below requires result == 'success'.
+    # A skipped job does NOT satisfy that condition — it is named explicitly.
+    if: github.event.inputs.bypass_ci_gate != 'true'
     runs-on: ubuntu-latest
     # The gated jobs (see REQUIRED_JOBS below) top out at ci.yml's `test-unit`
     # 30-min cap. 35 min here leaves the poll loop, not the runner, to report why
@@ -264,6 +277,18 @@ jobs:
     name: build (16GB runner) + deploy
     # §L-540-CI-GATE — THE LINE THAT DID NOT EXIST. Without it a red CI deployed.
     needs: ci-gate
+    # §GATE-SKIP-WHEN-BYPASSED — `needs:` alone would skip this job whenever ci-gate
+    # is skipped, so the bypass path needs an explicit condition. FAIL-CLOSED by
+    # construction: deploy runs ONLY when the gate genuinely succeeded, or when the
+    # human explicitly asked for the audited bypass. A gate that FAILED, ERRORED or
+    # was CANCELLED matches neither arm, so a red CI still cannot deploy — which is
+    # the invariant §L-540-CI-GATE exists to hold.
+    # NOTE the bracket syntax: the job id contains a hyphen, which the expression
+    # parser would otherwise read as the subtraction operator (`needs.ci - gate...`).
+    if: >-
+      ${{ !cancelled()
+          && ( needs['ci-gate'].result == 'success'
+               || github.event.inputs.bypass_ci_gate == 'true' ) }}
     runs-on: ubuntu-latest
     # Hard ceiling — building the full minified client on the runner (~10-15 min)
     # + image push + machine bounce. A 30-min cap catches a hang without burning
@@ -281,6 +306,16 @@ jobs:
       deployments: write
 
     steps:
+      # §GATE-SKIP-WHEN-BYPASSED — the skipped ci-gate job no longer prints its
+      # bypass warning, so re-state it here. The audit trail must survive the
+      # optimisation: a reader of THIS log must still see, without opening the run
+      # inputs, that the SHA shipped without a green CI.
+      - name: Announce CI-gate bypass (audit)
+        if: github.event.inputs.bypass_ci_gate == 'true'
+        run: |
+          echo "::warning::§L-540-CI-GATE BYPASSED by explicit workflow_dispatch input."
+          echo "Deploying ${{ github.sha }} WITHOUT a green CI. Recorded in the run inputs."
+
       - name: Check out code
         # actions/checkout@v5 runs on Node.js 24 — v4 (Node 20) is deprecated and will be
         # force-migrated 2026-06-16 / removed 2026-09-16 (GitHub runner Node-20 deprecation).
