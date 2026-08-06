@@ -1437,82 +1437,93 @@ export class WallFragmentBuilder {
                 nrm.push(a[3], a[4], a[5],  b[3], b[4], b[5],  c[3], c[4], c[5]);
             }
 
-            function outerVBot(s: Station): V6 { return [s.cx + s.nx * halfT, yBot, s.cz + s.nz * halfT,  s.nx, 0, s.nz]; }
-            function outerVTop(s: Station): V6 { return [s.cx + s.nx * halfT, yTop, s.cz + s.nz * halfT,  s.nx, 0, s.nz]; }
-            function innerVBot(s: Station): V6 { return [s.cx - s.nx * halfT, yBot, s.cz - s.nz * halfT, -s.nx, 0, -s.nz]; }
-            function innerVTop(s: Station): V6 { return [s.cx - s.nx * halfT, yTop, s.cz - s.nz * halfT, -s.nx, 0, -s.nz]; }
+            // §06-FIX / §STEP4: Read miter normals from the joinData parameter.
+            const curvedStartMN = joinData?.startMN ?? null;
+            const curvedEndMN   = joinData?.endMN   ?? null;
+
+            // §CURVED-STRAIGHT-FIX: exact quadratic-Bézier tangents at the arc endpoints
+            // (t=0: normalize(ctrl − start); t=1: normalize(end − ctrl)) — the same formula
+            // WallJoinResolver._wallDirAtJoin uses, so miter normal and projection direction
+            // come from identical tangents.
+            const _stDx = ctrl.x - start.x, _stDz = ctrl.z - start.z;
+            const _stL  = Math.sqrt(_stDx * _stDx + _stDz * _stDz) || 1;
+            const startTanX = _stDx / _stL, startTanZ = _stDz / _stL;
+            const _edDx = end.x - ctrl.x, _edDz = end.z - ctrl.z;
+            const _edL  = Math.sqrt(_edDx * _edDx + _edDz * _edDz) || 1;
+            const endTanX = _edDx / _edL, endTanZ = _edDz / _edL;
+
+            // ── §FIX-CURVED-WALL-MITER-WATERTIGHT (2026-08-06) — ONE corner table ──
+            //
+            // ROOT CAUSE of "curved wall has no plan poché": the §06-FIX miter
+            // projection moved the CAP QUAD onto the shared miter plane but left the
+            // outer/inner/top/bottom faces ending at the UNPROJECTED terminal-station
+            // corners — a slit at every join. Invisible in 3D (the neighbour covers
+            // the joint), fatal in plan: the true cut section (L-246) of a
+            // non-watertight solid is an OPEN chain, and PocheFillBuilder stitches
+            // CLOSED loops only, so a joined curved wall drew hollow while straight
+            // walls (buildMiterPrism projects the WHOLE end face) filled.
+            //
+            // FIX: compute each station's outer/inner corner ONCE, project the
+            // TERMINAL corners onto the miter plane, and have every face group AND
+            // the caps consume the SAME table — watertight by construction.
+            const outerPt: Array<[number, number]> = stations.map(s => [s.cx + s.nx * halfT, s.cz + s.nz * halfT]);
+            const innerPt: Array<[number, number]> = stations.map(s => [s.cx - s.nx * halfT, s.cz - s.nz * halfT]);
+            if (curvedStartMN) {
+                outerPt[0] = projectCapVertex(outerPt[0][0], outerPt[0][1], 0, 0, startTanX, startTanZ, curvedStartMN);
+                innerPt[0] = projectCapVertex(innerPt[0][0], innerPt[0][1], 0, 0, startTanX, startTanZ, curvedStartMN);
+            }
+            if (curvedEndMN) {
+                const sEnd = stations[n - 1];
+                outerPt[n - 1] = projectCapVertex(outerPt[n - 1][0], outerPt[n - 1][1], sEnd.cx, sEnd.cz, endTanX, endTanZ, curvedEndMN);
+                innerPt[n - 1] = projectCapVertex(innerPt[n - 1][0], innerPt[n - 1][1], sEnd.cx, sEnd.cz, endTanX, endTanZ, curvedEndMN);
+            }
+
+            function outerVBot(i: number): V6 { const s = stations[i]; return [outerPt[i][0], yBot, outerPt[i][1],  s.nx, 0, s.nz]; }
+            function outerVTop(i: number): V6 { const s = stations[i]; return [outerPt[i][0], yTop, outerPt[i][1],  s.nx, 0, s.nz]; }
+            function innerVBot(i: number): V6 { const s = stations[i]; return [innerPt[i][0], yBot, innerPt[i][1], -s.nx, 0, -s.nz]; }
+            function innerVTop(i: number): V6 { const s = stations[i]; return [innerPt[i][0], yTop, innerPt[i][1], -s.nx, 0, -s.nz]; }
 
             // Top face normal = (0,1,0), bottom = (0,-1,0)
-            function topOuter(s: Station): V6 { return [s.cx + s.nx * halfT, yTop, s.cz + s.nz * halfT, 0, 1, 0]; }
-            function topInner(s: Station): V6 { return [s.cx - s.nx * halfT, yTop, s.cz - s.nz * halfT, 0, 1, 0]; }
-            function botOuter(s: Station): V6 { return [s.cx + s.nx * halfT, yBot, s.cz + s.nz * halfT, 0, -1, 0]; }
-            function botInner(s: Station): V6 { return [s.cx - s.nx * halfT, yBot, s.cz - s.nz * halfT, 0, -1, 0]; }
+            function topOuter(i: number): V6 { return [outerPt[i][0], yTop, outerPt[i][1], 0, 1, 0]; }
+            function topInner(i: number): V6 { return [innerPt[i][0], yTop, innerPt[i][1], 0, 1, 0]; }
+            function botOuter(i: number): V6 { return [outerPt[i][0], yBot, outerPt[i][1], 0, -1, 0]; }
+            function botInner(i: number): V6 { return [innerPt[i][0], yBot, innerPt[i][1], 0, -1, 0]; }
 
             // ── outer curved face ─────────────────────────────────────────────────
             for (let i = 0; i < n - 1; i++) {
-                const A = stations[i], B = stations[i + 1];
                 // CCW winding from outside so stored outward normals are used as-is
                 // (not negated by DoubleSide back-face path which caused dark rendering)
-                pushTri(outerVBot(A), outerVTop(B), outerVTop(A));
-                pushTri(outerVBot(A), outerVBot(B), outerVTop(B));
+                pushTri(outerVBot(i), outerVTop(i + 1), outerVTop(i));
+                pushTri(outerVBot(i), outerVBot(i + 1), outerVTop(i + 1));
             }
 
             // ── inner curved face ─────────────────────────────────────────────────
             for (let i = 0; i < n - 1; i++) {
-                const A = stations[i], B = stations[i + 1];
                 // CCW winding from inside so stored inward normals are used as-is
-                pushTri(innerVBot(A), innerVTop(A), innerVTop(B));
-                pushTri(innerVBot(A), innerVTop(B), innerVBot(B));
+                pushTri(innerVBot(i), innerVTop(i), innerVTop(i + 1));
+                pushTri(innerVBot(i), innerVTop(i + 1), innerVBot(i + 1));
             }
 
             // ── top flat face — flat normal (0,1,0) so edges are hard ─────────────
             for (let i = 0; i < n - 1; i++) {
-                const A = stations[i], B = stations[i + 1];
-                pushTri(topInner(A), topOuter(A), topOuter(B));
-                pushTri(topInner(A), topOuter(B), topInner(B));
+                pushTri(topInner(i), topOuter(i), topOuter(i + 1));
+                pushTri(topInner(i), topOuter(i + 1), topInner(i + 1));
             }
 
             // ── bottom flat face — flat normal (0,-1,0) ───────────────────────────
             for (let i = 0; i < n - 1; i++) {
-                const A = stations[i], B = stations[i + 1];
-                pushTri(botInner(A), botOuter(B), botOuter(A));
-                pushTri(botInner(A), botInner(B), botOuter(B));
+                pushTri(botInner(i), botOuter(i + 1), botOuter(i));
+                pushTri(botInner(i), botInner(i + 1), botOuter(i + 1));
             }
 
-            // §06-FIX / §STEP4: Read miter normals from the joinData parameter.
-            // For curved walls these were previously ignored — perpendicular caps
-            // were always built. Now projectCapVertex() aligns cap vertices with
-            // the shared miter plane so the joint is flush with the adjoining wall.
-            const curvedStartMN = joinData?.startMN ?? null;
-            const curvedEndMN   = joinData?.endMN   ?? null;
-
             // ── start cap (i=0) ────────────────────────────────────────────────────
-            // Cap normal = −tangent at station 0.
-            // §06-FIX + §CURVED-STRAIGHT-FIX:
-            // Use the exact quadratic-Bézier tangent at t=0: normalize(ctrl − start).
-            // This is the same formula WallJoinResolver._wallDirAtJoin uses with
-            // adjustedPt=sharedPt (the post-trim endpoint), so the miter normal
-            // and the projection direction are computed from identical tangents,
-            // eliminating the tessellation-approximation mismatch that caused
-            // curved-vs-straight cap misalignment.
+            // §FIX-CURVED-WALL-MITER-WATERTIGHT: the cap consumes the SAME (already
+            // projected) terminal corners the face strips end on — no second projection.
             {
-                const s = stations[0];
-                // Exact Bézier tangent at start (t=0): normalize(ctrl − start), XZ only.
-                const _stDx = ctrl.x - start.x;
-                const _stDz = ctrl.z - start.z;
-                const _stL  = Math.sqrt(_stDx * _stDx + _stDz * _stDz) || 1;
-                const tanX  = _stDx / _stL;
-                const tanZ  = _stDz / _stL;
-                const cnx = -tanX;  // inward normal = negative tangent
-                const cnz = -tanZ;
-
-                let oX = s.cx + s.nx * halfT, oZ = s.cz + s.nz * halfT;
-                let iX = s.cx - s.nx * halfT, iZ = s.cz - s.nz * halfT;
-                if (curvedStartMN) {
-                    [oX, oZ] = projectCapVertex(oX, oZ, 0, 0, tanX, tanZ, curvedStartMN);
-                    [iX, iZ] = projectCapVertex(iX, iZ, 0, 0, tanX, tanZ, curvedStartMN);
-                }
-
+                const cnx = -startTanX;  // inward normal = negative tangent
+                const cnz = -startTanZ;
+                const [oX, oZ] = outerPt[0];
+                const [iX, iZ] = innerPt[0];
                 const oBo: V6 = [oX, yBot, oZ, cnx, 0, cnz];
                 const oTo: V6 = [oX, yTop, oZ, cnx, 0, cnz];
                 const iBo: V6 = [iX, yBot, iZ, cnx, 0, cnz];
@@ -1522,29 +1533,13 @@ export class WallFragmentBuilder {
             }
 
             // ── end cap (i=n-1) ───────────────────────────────────────────────────
-            // §06-FIX + §CURVED-STRAIGHT-FIX:
-            // Use the exact quadratic-Bézier tangent at t=1: normalize(end − ctrl).
-            // `end` here is wall.baseLine[1] which has been set to sharedPt by
-            // store.update() before buildWall() is called, matching the adjustedPt
-            // passed to _wallDirAtJoin() in WallJoinResolver for perfect consistency.
+            // `end` is wall.baseLine[1], set to sharedPt by store.update() before
+            // buildWall() — matching the adjustedPt passed to _wallDirAtJoin().
             {
-                const s = stations[n - 1];
-                // Exact Bézier tangent at end (t=1): normalize(end − ctrl), XZ only.
-                const _edDx = end.x - ctrl.x;
-                const _edDz = end.z - ctrl.z;
-                const _edL  = Math.sqrt(_edDx * _edDx + _edDz * _edDz) || 1;
-                const tanX  = _edDx / _edL;
-                const tanZ  = _edDz / _edL;
-                const cnx = tanX;  // outward normal = positive tangent
-                const cnz = tanZ;
-
-                let oX = s.cx + s.nx * halfT, oZ = s.cz + s.nz * halfT;
-                let iX = s.cx - s.nx * halfT, iZ = s.cz - s.nz * halfT;
-                if (curvedEndMN) {
-                    [oX, oZ] = projectCapVertex(oX, oZ, s.cx, s.cz, tanX, tanZ, curvedEndMN);
-                    [iX, iZ] = projectCapVertex(iX, iZ, s.cx, s.cz, tanX, tanZ, curvedEndMN);
-                }
-
+                const cnx = endTanX;  // outward normal = positive tangent
+                const cnz = endTanZ;
+                const [oX, oZ] = outerPt[n - 1];
+                const [iX, iZ] = innerPt[n - 1];
                 const oBo: V6 = [oX, yBot, oZ, cnx, 0, cnz];
                 const oTo: V6 = [oX, yTop, oZ, cnx, 0, cnz];
                 const iBo: V6 = [iX, yBot, iZ, cnx, 0, cnz];

@@ -1009,6 +1009,15 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         // into the mesh-building legacy store so a layered shell wall renders the
                         // façade colour on its exterior layer + white on its interior layer (per-face).
                         ...(ev.layers !== undefined ? { layers: ev.layers } : {}),
+                        // §FIX-WALL-CURVE-PLAN-VS-3D-CREATION (2026-08-06) — carry the quadratic-
+                        // Bézier curve descriptor into the mesh-building legacy store. ROOT CAUSE
+                        // of the plan-view "curved commits straight" defect: the bus-only plan path
+                        // relies on THIS mirror for both the 3D mesh (WallRebuildCoordinator) and
+                        // the plan projection, and the mirror never copied `curve` — so a curved
+                        // wall drawn in plan view rendered as its straight chord everywhere.
+                        // (3D-created curved walls only looked right because WallTool ALSO
+                        // dual-writes through the legacy CreateWallCommand, which stamps curve.)
+                        ...(ev.curve !== undefined ? { curve: ev.curve } : {}),
                     } as any);
                     console.log('[initTools] §P2.1: wall mirrored to legacy store', ev.wallId);
                 } catch (err) {

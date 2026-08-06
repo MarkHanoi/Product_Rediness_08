@@ -49,6 +49,10 @@ interface CommittedWall {
   systemTypeId?: string;
   materialColor?: string;
   layers?: ReadonlyArray<{ name: string; function: string; thickness: number; materialId?: string; materialColor?: string }>;
+  /** §FIX-WALL-CURVE-PLAN-VS-3D-CREATION (2026-08-06) — quadratic-Bézier curve
+   *  descriptor persisted by the wall.create chokepoint. Forwarded so the
+   *  initTools §P2.1 legacy-store mirror renders the arc (3D mesh + plan). */
+  curve?: { control: { x: number; y: number; z: number }; segments: number };
 }
 
 /**
@@ -154,6 +158,9 @@ export function wireCommandEventBridge(
             // §RESI-FACADE-INTERIOR-WHITE (2026-06-24) — forward the per-layer finish stack so the
             // legacy mirror builds a layered (per-face) wall.
             layers:       w.layers ?? p.layers,
+            // §FIX-WALL-CURVE-PLAN-VS-3D-CREATION (2026-08-06) — forward the curve descriptor so
+            // the legacy mirror builds the ARC, not the chord (plan-created curved walls drew straight).
+            curve:        w.curve ?? p.curve,
           });
           break;
         }
@@ -195,6 +202,9 @@ export function wireCommandEventBridge(
               // §RESI-FACADE-INTERIOR-WHITE (2026-06-24) — carry the per-layer finish stack through
               // the batch fan-out so layered (per-face) shell walls render correctly.
               layers:       w.layers ?? req.layers,
+              // §FIX-WALL-CURVE-PLAN-VS-3D-CREATION (2026-08-06) — carry the curve descriptor
+              // through the batch fan-out (same drop as the single-create case).
+              curve:        w.curve ?? req.curve,
             });
           }
           break;

@@ -342,6 +342,13 @@ export interface RuntimeEvents {
       readonly materialId?: string;
       readonly materialColor?: string;
     }>>;
+    // §FIX-WALL-CURVE-PLAN-VS-3D-CREATION (2026-08-06): quadratic-Bézier curve descriptor
+    // (the Wall schema's ONE curvature representation), forwarded so the initTools §P2.1
+    // legacy-store mirror builds the arc mesh + plan projection instead of the straight chord.
+    readonly curve?: Readonly<{
+      readonly control: Readonly<{ readonly x: number; readonly y: number; readonly z: number }>;
+      readonly segments: number;
+    }>;
   };
 
   // ── A25: Remaining-family typed domain events (C11 §5.2) ─────────────────

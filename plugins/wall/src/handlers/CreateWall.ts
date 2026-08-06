@@ -59,6 +59,14 @@ export interface CreateWallPayload {
    *  façade colour) + a `finish-interior` layer (white) reads coloured outside, white inside. Carried
    *  verbatim into `Wall.parse` (the schema validates each layer); absent ⇒ a plain single-colour wall. */
   readonly layers?: WallData['layers'];
+  /** §FIX-WALL-CURVE-PLAN-VS-3D-CREATION (2026-08-06) — quadratic-Bézier curve descriptor
+   *  (`{ control, segments }`, the ONE curvature representation the Wall schema defines).
+   *  Both tools already dispatch it (WallPlanToolHandler curved mode; WallTool CURVED_WALL),
+   *  but this payload never declared it, so the canonical handler dropped it on the floor —
+   *  a plan-view curved wall committed as STRAIGHT (the 3D path only looked right because
+   *  it dual-writes through the legacy CreateWallCommand, which does stamp `curve`).
+   *  Carried verbatim into `Wall.parse` (the schema validates); absent ⇒ straight wall. */
+  readonly curve?: WallData['curve'];
 }
 
 type WallHandlerStores = Readonly<{ wall: WallsState } & Record<string, unknown>>;
@@ -190,6 +198,11 @@ export class CreateWallHandler
         // dropped on the floor by the canonical handler, so NO bus-created wall has
         // ever carried a layer stack in the PRYZM3 store. This line is the fix.
         ...(resolvedLayers !== undefined ? { layers: resolvedLayers } : {}),
+        // §FIX-WALL-CURVE-PLAN-VS-3D-CREATION — PERSIST the curve descriptor. Same
+        // defect family as `layers` above (L-239): declared by callers, dropped here,
+        // so NO bus-created wall ever carried curvature in the PRYZM3 store and the
+        // bus-only plan path committed curved walls as straight. This line is the fix.
+        ...(cmd.curve !== undefined ? { curve: cmd.curve } : {}),
       }) as WallData;
     } catch (cause) {
       // `WallSchemaError` is thrown OUTWARD so the bus surfaces it as

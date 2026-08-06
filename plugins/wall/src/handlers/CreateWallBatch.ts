@@ -138,6 +138,9 @@ export class CreateWallBatchHandler
           ...(w.materialId !== undefined ? { materialId: w.materialId } : {}),
           ...(w.systemTypeId !== undefined ? { systemTypeId: w.systemTypeId } : {}),
           ...(resolved.layers !== undefined ? { layers: resolved.layers } : {}),
+          // §FIX-WALL-CURVE-PLAN-VS-3D-CREATION (2026-08-06) — same chokepoint rule as
+          // single wall.create: the curve descriptor is carried verbatim onto the instance.
+          ...(w.curve !== undefined ? { curve: w.curve } : {}),
         }) as WallData;
       } catch (cause) {
         throw new WallSchemaError(

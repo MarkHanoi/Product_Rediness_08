@@ -66,95 +66,127 @@ export function buildCurvedLayerGeometry(
     nrm.push(a[3], a[4], a[5], b[3], b[4], b[5], c[3], c[4], c[5]);
   }
 
-  function outerVBot(s: Station): V6 {
-    return [s.cx + s.nx * halfT, yBot, s.cz + s.nz * halfT, s.nx, 0, s.nz];
+  // ── §FIX-CURVED-WALL-MITER-WATERTIGHT (2026-08-06) — ONE corner table ──────
+  //
+  // ROOT CAUSE OF THE FOUNDER'S "curved wall has no plan poché" DEFECT: the §06-FIX
+  // miter projection was applied to the CAP QUAD ONLY, while the outer/inner/top/
+  // bottom faces still ENDED at the UNPROJECTED terminal-station corners. At every
+  // wall join the solid therefore had a slit between its faces and its (shifted)
+  // cap — invisible in 3D (the neighbour covers the joint) but fatal in plan: the
+  // true cut section (`buildPlanCutSectionGeometry`, L-246) of a non-watertight
+  // solid is an OPEN chain, `PocheFillBuilder` stitches CLOSED loops only, so a
+  // joined curved wall rendered as a hollow outline while straight walls (whose
+  // `buildMiterPrism` projects the WHOLE end face) filled correctly.
+  //
+  // THE FIX: compute each station's outer/inner corner ONCE, miter-project the
+  // TERMINAL corners, and have every face group AND the caps consume the SAME
+  // table — the solid is watertight by construction and the plan section closes.
+  const outerPt: Array<[number, number]> = layerStations.map(s => [s.cx + s.nx * halfT, s.cz + s.nz * halfT]);
+  const innerPt: Array<[number, number]> = layerStations.map(s => [s.cx - s.nx * halfT, s.cz - s.nz * halfT]);
+
+  // Cap tangents — exact Bézier tangents when provided (§CURVED-STRAIGHT-FIX:
+  // identical to WallJoinResolver._wallDirAtJoin), station chords otherwise.
+  let startTanX: number, startTanZ: number;
+  if (startCapTan) {
+    startTanX = startCapTan.x;
+    startTanZ = startCapTan.z;
+  } else {
+    const dtx = layerStations[1].cx - layerStations[0].cx;
+    const dtz = layerStations[1].cz - layerStations[0].cz;
+    const dl = Math.sqrt(dtx * dtx + dtz * dtz) || 1;
+    startTanX = dtx / dl;
+    startTanZ = dtz / dl;
   }
-  function outerVTop(s: Station): V6 {
-    return [s.cx + s.nx * halfT, yTop, s.cz + s.nz * halfT, s.nx, 0, s.nz];
-  }
-  function innerVBot(s: Station): V6 {
-    return [s.cx - s.nx * halfT, yBot, s.cz - s.nz * halfT, -s.nx, 0, -s.nz];
-  }
-  function innerVTop(s: Station): V6 {
-    return [s.cx - s.nx * halfT, yTop, s.cz - s.nz * halfT, -s.nx, 0, -s.nz];
+  let endTanX: number, endTanZ: number;
+  if (endCapTan) {
+    endTanX = endCapTan.x;
+    endTanZ = endCapTan.z;
+  } else {
+    const dtx = layerStations[n - 1].cx - layerStations[n - 2].cx;
+    const dtz = layerStations[n - 1].cz - layerStations[n - 2].cz;
+    const dl = Math.sqrt(dtx * dtx + dtz * dtz) || 1;
+    endTanX = dtx / dl;
+    endTanZ = dtz / dl;
   }
 
-  function topOuter(s: Station): V6 {
-    return [s.cx + s.nx * halfT, yTop, s.cz + s.nz * halfT, 0, 1, 0];
+  // §06-FIX + §CURVED-STRAIGHT-FIX + §FIX-CURVED-WALL-MITER-WATERTIGHT: project the
+  // TERMINAL corners onto the shared miter plane, in the corner table itself, so the
+  // face strips end exactly where the cap sits (flush joint, closed section).
+  if (startMN) {
+    outerPt[0] = projectCapVertex(outerPt[0][0], outerPt[0][1], 0, 0, startTanX, startTanZ, startMN);
+    innerPt[0] = projectCapVertex(innerPt[0][0], innerPt[0][1], 0, 0, startTanX, startTanZ, startMN);
   }
-  function topInner(s: Station): V6 {
-    return [s.cx - s.nx * halfT, yTop, s.cz - s.nz * halfT, 0, 1, 0];
+  if (endMN) {
+    const endOriginX = stations[n - 1].cx;
+    const endOriginZ = stations[n - 1].cz;
+    outerPt[n - 1] = projectCapVertex(outerPt[n - 1][0], outerPt[n - 1][1], endOriginX, endOriginZ, endTanX, endTanZ, endMN);
+    innerPt[n - 1] = projectCapVertex(innerPt[n - 1][0], innerPt[n - 1][1], endOriginX, endOriginZ, endTanX, endTanZ, endMN);
   }
-  function botOuter(s: Station): V6 {
-    return [s.cx + s.nx * halfT, yBot, s.cz + s.nz * halfT, 0, -1, 0];
+
+  function outerVBot(i: number): V6 {
+    const s = layerStations[i];
+    return [outerPt[i][0], yBot, outerPt[i][1], s.nx, 0, s.nz];
   }
-  function botInner(s: Station): V6 {
-    return [s.cx - s.nx * halfT, yBot, s.cz - s.nz * halfT, 0, -1, 0];
+  function outerVTop(i: number): V6 {
+    const s = layerStations[i];
+    return [outerPt[i][0], yTop, outerPt[i][1], s.nx, 0, s.nz];
+  }
+  function innerVBot(i: number): V6 {
+    const s = layerStations[i];
+    return [innerPt[i][0], yBot, innerPt[i][1], -s.nx, 0, -s.nz];
+  }
+  function innerVTop(i: number): V6 {
+    const s = layerStations[i];
+    return [innerPt[i][0], yTop, innerPt[i][1], -s.nx, 0, -s.nz];
+  }
+
+  function topOuter(i: number): V6 {
+    return [outerPt[i][0], yTop, outerPt[i][1], 0, 1, 0];
+  }
+  function topInner(i: number): V6 {
+    return [innerPt[i][0], yTop, innerPt[i][1], 0, 1, 0];
+  }
+  function botOuter(i: number): V6 {
+    return [outerPt[i][0], yBot, outerPt[i][1], 0, -1, 0];
+  }
+  function botInner(i: number): V6 {
+    return [innerPt[i][0], yBot, innerPt[i][1], 0, -1, 0];
   }
 
   // ── outer curved face ─────────────────────────────────────────────────
   for (let i = 0; i < n - 1; i++) {
-    const A = layerStations[i];
-    const B = layerStations[i + 1];
     // CCW winding from outside — normals point outward without DoubleSide negation
-    pushTri(outerVBot(A), outerVTop(B), outerVTop(A));
-    pushTri(outerVBot(A), outerVBot(B), outerVTop(B));
+    pushTri(outerVBot(i), outerVTop(i + 1), outerVTop(i));
+    pushTri(outerVBot(i), outerVBot(i + 1), outerVTop(i + 1));
   }
 
   // ── inner curved face ─────────────────────────────────────────────────
   for (let i = 0; i < n - 1; i++) {
-    const A = layerStations[i];
-    const B = layerStations[i + 1];
     // CCW winding from inside — normals point inward as stored
-    pushTri(innerVBot(A), innerVTop(A), innerVTop(B));
-    pushTri(innerVBot(A), innerVTop(B), innerVBot(B));
+    pushTri(innerVBot(i), innerVTop(i), innerVTop(i + 1));
+    pushTri(innerVBot(i), innerVTop(i + 1), innerVBot(i + 1));
   }
 
   // ── top flat face ─────────────────────────────────────────────────────
   for (let i = 0; i < n - 1; i++) {
-    const A = layerStations[i];
-    const B = layerStations[i + 1];
-    pushTri(topInner(A), topOuter(A), topOuter(B));
-    pushTri(topInner(A), topOuter(B), topInner(B));
+    pushTri(topInner(i), topOuter(i), topOuter(i + 1));
+    pushTri(topInner(i), topOuter(i + 1), topInner(i + 1));
   }
 
   // ── bottom flat face ──────────────────────────────────────────────────
   for (let i = 0; i < n - 1; i++) {
-    const A = layerStations[i];
-    const B = layerStations[i + 1];
-    pushTri(botInner(A), botOuter(B), botOuter(A));
-    pushTri(botInner(A), botInner(B), botOuter(B));
+    pushTri(botInner(i), botOuter(i + 1), botOuter(i));
+    pushTri(botInner(i), botInner(i + 1), botOuter(i + 1));
   }
 
   // ── start cap (i=0) ───────────────────────────────────────────────────
-  // §06-FIX + §CURVED-STRAIGHT-FIX: when startMN is present, project cap
-  // vertices along the arc tangent onto the shared miter plane.
-  // Prefer the exact Bézier tangent (startCapTan) when provided — this
-  // matches the formula used in WallJoinResolver._wallDirAtJoin so the
-  // miter normal and projection direction are always consistent.
+  // §FIX-CURVED-WALL-MITER-WATERTIGHT: the cap consumes the SAME (already
+  // projected) terminal corners the face strips end on — no second projection.
   {
-    const s = layerStations[0];
-    let tanX: number, tanZ: number;
-    if (startCapTan) {
-      tanX = startCapTan.x;
-      tanZ = startCapTan.z;
-    } else {
-      const dtx = layerStations[1].cx - s.cx;
-      const dtz = layerStations[1].cz - s.cz;
-      const dl = Math.sqrt(dtx * dtx + dtz * dtz) || 1;
-      tanX = dtx / dl;
-      tanZ = dtz / dl;
-    }
-    const cnx = -tanX;
-    const cnz = -tanZ;
-
-    let oX = s.cx + s.nx * halfT, oZ = s.cz + s.nz * halfT;
-    let iX = s.cx - s.nx * halfT, iZ = s.cz - s.nz * halfT;
-    if (startMN) {
-      [oX, oZ] = projectCapVertex(oX, oZ, 0, 0, tanX, tanZ, startMN);
-      [iX, iZ] = projectCapVertex(iX, iZ, 0, 0, tanX, tanZ, startMN);
-    }
-
+    const cnx = -startTanX;
+    const cnz = -startTanZ;
+    const [oX, oZ] = outerPt[0];
+    const [iX, iZ] = innerPt[0];
     const oBo: V6 = [oX, yBot, oZ, cnx, 0, cnz];
     const oTo: V6 = [oX, yTop, oZ, cnx, 0, cnz];
     const iBo: V6 = [iX, yBot, iZ, cnx, 0, cnz];
@@ -164,33 +196,11 @@ export function buildCurvedLayerGeometry(
   }
 
   // ── end cap (i=n-1) ───────────────────────────────────────────────────
-  // §06-FIX + §CURVED-STRAIGHT-FIX: same miter projection at end station.
-  // Prefer the exact Bézier tangent (endCapTan) when provided.
   {
-    const s = layerStations[n - 1];
-    let tanX: number, tanZ: number;
-    if (endCapTan) {
-      tanX = endCapTan.x;
-      tanZ = endCapTan.z;
-    } else {
-      const dtx = s.cx - layerStations[n - 2].cx;
-      const dtz = s.cz - layerStations[n - 2].cz;
-      const dl = Math.sqrt(dtx * dtx + dtz * dtz) || 1;
-      tanX = dtx / dl;
-      tanZ = dtz / dl;
-    }
-    const cnx = tanX;
-    const cnz = tanZ;
-
-    let oX = s.cx + s.nx * halfT, oZ = s.cz + s.nz * halfT;
-    let iX = s.cx - s.nx * halfT, iZ = s.cz - s.nz * halfT;
-    const endOriginX = stations[n - 1].cx;
-    const endOriginZ = stations[n - 1].cz;
-    if (endMN) {
-      [oX, oZ] = projectCapVertex(oX, oZ, endOriginX, endOriginZ, tanX, tanZ, endMN);
-      [iX, iZ] = projectCapVertex(iX, iZ, endOriginX, endOriginZ, tanX, tanZ, endMN);
-    }
-
+    const cnx = endTanX;
+    const cnz = endTanZ;
+    const [oX, oZ] = outerPt[n - 1];
+    const [iX, iZ] = innerPt[n - 1];
     const oBo: V6 = [oX, yBot, oZ, cnx, 0, cnz];
     const oTo: V6 = [oX, yTop, oZ, cnx, 0, cnz];
     const iBo: V6 = [iX, yBot, iZ, cnx, 0, cnz];
