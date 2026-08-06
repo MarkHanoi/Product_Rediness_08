@@ -22,6 +22,10 @@ export {
     deriveStairGeometry,
     stairHasAuthoredFlightGeometry,
     stairDerivedGeometryDiffers,
+    // §FIX-STAIR-AUTHORED-PARAM-DEAF — path-authored (polyline) stairs reconcile
+    // their landing depth + per-flight tread depth from the primitives too.
+    reconcilePathAuthoredStairLayout,
+    stairAuthoredLayoutDiffers,
 } from './StairParameterReconciler';
 export type { StairDerivedGeometry } from './StairParameterReconciler';
 export * from './StairTypeStore';

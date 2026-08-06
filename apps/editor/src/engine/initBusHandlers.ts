@@ -16,6 +16,20 @@ import {
   // that reaches the mesh rebuild for EXISTING placed elements — see ADR-0105).
   ChangeFurnitureTypeCommand,
   UpdateWallSystemTypeCommand,
+  // §FIX-HOSTED-TYPE-CHANGE (L-620) — the door/window branch of element.changeType.
+  // ADR-0105 left the openings on the plugin-bus 'door.setType'/'window.setType'
+  // handlers, which mutate the DETACHED plugin DTO store — the very defect it cured
+  // for walls. These legacy commands own the geometry doorStore/windowStore that
+  // DoorBuilder/WindowBuilder subscribe to. C15: id + host + void are preserved.
+  UpdateDoorSystemTypeCommand,
+  UpdateWindowSystemTypeCommand,
+  // §FIX-CEILING-TYPE-SWAP (L-621) — authored in command-registry with ZERO call
+  // sites until now; the panel was dispatching the detached plugin-bus handler.
+  UpdateCeilingLayersCommand,
+  // §FIX-PLUMBING-TYPE-SWAP (L-622) — the plumbing branch of element.changeType.
+  // Contract 39 §3 already names this command as the variant-swap owner; only the
+  // bus route was missing (the panel dispatched a verb whose payload never matched).
+  UpdatePlumbingParametersCommand,
   MovePlumbingCommand,
   // §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — the two remaining "double lie" Move buttons
   // (enabled on BOTH surfaces, inert on BOTH). Both legacy commands own the GEOMETRY store
@@ -630,10 +644,15 @@ export function initBusHandlers(
             validate: (cmd: any) => {
                 if (!cmd.elementId)   return 'elementId is required';
                 if (!cmd.elementType) return 'elementType is required';
-                // Walls accept an EMPTY newTypeId ("— Plain Wall —" detach); every
-                // other family requires a concrete target type id.
-                const isWall = String(cmd.elementType).toLowerCase() === 'wall';
-                if (!isWall && !cmd.newTypeId) return 'newTypeId is required';
+                // The LAYER-STACK families express "plain / no type" as an EMPTY
+                // newTypeId — the "— Plain Wall —" detach, and its floor / slab /
+                // ceiling equivalents, which carry the assembly in `layers` instead.
+                // Every other family (door, window, furniture) must name a concrete
+                // target type. Rejecting '' for floor/slab/ceiling would have made the
+                // detach path unreachable the moment those widgets were wired here.
+                const el = String(cmd.elementType).toLowerCase();
+                const layerStackFamily = el === 'wall' || el === 'floor' || el === 'slab' || el === 'ceiling';
+                if (!layerStackFamily && !cmd.newTypeId) return 'newTypeId is required';
                 return null;
             },
             fn: (cmd: any) => {
@@ -810,23 +829,121 @@ export function initBusHandlers(
                     return;
                 }
                 if (elType === 'door' || elType === 'window') {
-                    // Openings keep their clean plugin-bus type command (it updates
-                    // the door/window system type). We then nudge the HOST WALL to
-                    // rebuild so the opening's frame/leaf/glass re-render with the new
-                    // type's finish — the opening render map is resolved at wall-build
-                    // time. rebuildWalls() is the existing, safe re-queue entry point.
-                    const busType = elType === 'door' ? 'door.setType' : 'window.setType';
-                    const payload = elType === 'door'
-                        ? { doorId: cmd.elementId, systemTypeId: cmd.newTypeId }
-                        : { windowId: cmd.elementId, systemTypeId: cmd.newTypeId };
-                    window.runtime?.bus?.executeCommand(busType, payload)
-                        ?.then(() => {
-                            if (cmd.wallId) {
-                                try { window.__wallRebuildControl?.rebuildWalls?.([cmd.wallId]); }
-                                catch (e) { console.warn('[element.changeType] host-wall rebuild nudge failed:', e); }
-                            }
-                        })
-                        ?.catch((e: unknown) => console.warn(`[element.changeType] ${busType} failed:`, e));
+                    // §FIX-HOSTED-TYPE-CHANGE (L-620) — THE ROUTE THAT ACTUALLY LANDS.
+                    //
+                    // This branch used to dispatch the plugin-bus 'door.setType' /
+                    // 'window.setType' handlers. ADR-0105 identified that exact shape as
+                    // the wall defect it was written to cure — a handler that
+                    // produceCommands against the DETACHED plugin Immer DTO store — and
+                    // then left the openings on it, recording the dedicated legacy
+                    // commands as "not in scope". So for a PLACED door the DTO store had
+                    // no such record, canExecute returned "door not found: <id>", the bus
+                    // rejected, and the .then() — hence even the host-wall rebuild nudge —
+                    // never ran. (Independently, SetDoorTypeHandler never wrote
+                    // `systemTypeId` at all, and plugins/door DoorData has no such field.)
+                    //
+                    // Now routed like walls/floors/slabs/furniture: through the LEGACY
+                    // commandManager onto the geometry store the builders subscribe to.
+                    //   doorStore.update()   → 'update' → DoorBuilder   (systemTypeId is
+                    //   windowStore.update() → 'update' → WindowBuilder  deliberately NOT
+                    //   in _PROPERTY_ONLY_FIELDS, so the mesh fully rebuilds).
+                    // C15: the planner preserves id / openingId / host wallId and the
+                    // structural void, so the host wall's CSG opening is untouched and NO
+                    // wall store write happens.
+                    //
+                    // NO ring-buffer entry is pushed here — unlike furniture/floor/slab.
+                    // `buildUndoStoreMap()` deliberately OMITS 'door'/'window' because the
+                    // hosted two-part undo lives in the legacy command, and
+                    // §UNDO-CROSS-STACK-ORDER picks the newer of the two stacks, so this
+                    // (newer) commandManager entry wins over the opening's older ring
+                    // CREATE. Pushing a pair here would fork a second mutation path.
+                    if (elType === 'door') {
+                        _cmExec(new UpdateDoorSystemTypeCommand({
+                            doorId:       cmd.elementId,
+                            systemTypeId: cmd.newTypeId,
+                        }));
+                    } else {
+                        _cmExec(new UpdateWindowSystemTypeCommand({
+                            windowId:     cmd.elementId,
+                            systemTypeId: cmd.newTypeId,
+                        }));
+                    }
+                    // Re-queue the host wall so the reveal/lining around the opening is
+                    // re-resolved with the new type's frame depth. Kept from ADR-0105 —
+                    // the opening render map is resolved at wall-build time.
+                    if (cmd.wallId) {
+                        try { window.__wallRebuildControl?.rebuildWalls?.([cmd.wallId]); }
+                        catch (e) { console.warn('[element.changeType] host-wall rebuild nudge failed:', e); }
+                    }
+                    return;
+                }
+                if (elType === 'ceiling') {
+                    // §FIX-CEILING-TYPE-SWAP (L-621, mirrors §FIX-FLOOR-TYPE-SWAP L-106).
+                    // The panel used to dispatch 'ceiling.updateLayers' → the plugin-bus
+                    // UpdateCeilingLayersHandler, which produceCommands against the
+                    // DETACHED plugin Immer ceiling store. That store is populated ONLY
+                    // for plan-tool ceilings; the 3D CeilingTool and the project loader
+                    // write the LEGACY CeilingStore, so canExecute returned "ceiling not
+                    // found: <id>" — and even when it passed, its nextStates never
+                    // reached the legacy store CeilingPanelBuilder subscribes to.
+                    // UpdateCeilingLayersCommand (already authored in command-registry,
+                    // previously with ZERO call sites — authored-but-unwired) mutates the
+                    // legacy store → 'bim-ceiling-updated' → mesh rebuild, undoably.
+                    const cstore = (window as unknown as { ceilingStore?: { getById?(id: string): unknown } }).ceilingStore;
+                    const before = cstore?.getById?.(cmd.elementId);
+                    const oldData = before ? structuredClone(before) : undefined;
+
+                    _cmExec(new UpdateCeilingLayersCommand({
+                        ceilingId:    cmd.elementId,
+                        systemTypeId: cmd.newTypeId || null,
+                        layers:       (cmd.layers ?? []) as any,
+                        thickness:    cmd.thickness as number,
+                    }));
+
+                    const after = cstore?.getById?.(cmd.elementId);
+                    const newData = after ? structuredClone(after) : undefined;
+                    // Ring-buffer parity (§FIX-FURNITURE-TYPE-LIST-AND-UNDO L-68): the
+                    // ceiling store IS ring-covered in buildUndoStoreMap(), so without an
+                    // entry a ring-first Ctrl+Z would pop the ceiling's earlier CREATE.
+                    // Only push when the command actually mutated (a rejected canExecute
+                    // leaves data unchanged; a no-op pair is a phantom Ctrl+Z).
+                    const _sig = (d: any) => d ? JSON.stringify({ s: d.systemTypeId ?? null, t: d.thickness, l: d.layers }) : '';
+                    if (oldData && newData && _sig(oldData) !== _sig(newData)) {
+                        try {
+                            const rb = (window.runtime?.bus as unknown as { ringBuffer?: { push?(p: unknown): void } } | undefined)?.ringBuffer;
+                            const idPtr = toJsonPointer([cmd.elementId]);
+                            rb?.push?.({
+                                forward: { ops: [{ op: 'replace', path: idPtr, value: newData }] },
+                                inverse: { ops: [{ op: 'replace', path: idPtr, value: oldData }] },
+                                affectedStores: ['ceiling'],
+                            });
+                        } catch (e) {
+                            console.warn('[element.changeType] ceiling ring-buffer push failed (undo falls back to commandManager):', e);
+                        }
+                    }
+                    return;
+                }
+                if (elType === 'plumbing' || elType === 'plumbingfixture' || elType === 'plumbing_fixture') {
+                    // §FIX-PLUMBING-TYPE-SWAP (L-622). The panel used to dispatch
+                    // 'plumbing.setSystem' — which could NEVER have worked, on two counts
+                    // that TypeScript could not catch because the verb is absent from the
+                    // command-bus payload map:
+                    //   (a) PAYLOAD MISMATCH — the panel sent { id, toiletVariant,
+                    //       showerVariant }; SetPlumbingSystemHandler validates
+                    //       { plumbingId, systemTag } and rejected on the first field.
+                    //   (b) DETACHED STORE — even with the right payload it produceCommands
+                    //       against the plugin Immer store, which is NEVER populated: the
+                    //       3D PlumbingTool and both plan/drag paths all commit through the
+                    //       legacy CreatePlumbingFixtureCommand.
+                    // UpdatePlumbingParametersCommand is the proven owner (Contract 39
+                    // §3 names it) — legacy plumbingStore → PlumbingFragmentBuilder
+                    // .updateFixture(), undoable. Same uniform surface as every other
+                    // family; no bespoke verb forked alongside it.
+                    _cmExec(new UpdatePlumbingParametersCommand({
+                        id:            cmd.elementId,
+                        toiletVariant: cmd.toiletVariant,
+                        showerVariant: cmd.showerVariant,
+                    }));
                     return;
                 }
                 console.warn(`[element.changeType] no change-type route for elementType="${elType}" — ignored.`);

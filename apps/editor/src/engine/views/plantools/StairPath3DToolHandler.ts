@@ -62,15 +62,62 @@ export class StairPath3DToolHandler {
     private _restoreControls: (() => void) | null = null;
     /** SelectionManager enabled-state captured at activate() so we can restore it. */
     private _restoreSelection: (() => void) | null = null;
+    /**
+     * §FIX-STAIR-DUAL-VIEW-ACTIVATION — the API object this handler published to
+     * `window.stairPathTool`. Kept so `deactivate()` only clears the global when it
+     * still OWNS it: with plan + 3D armed in parallel (the fix), the plan handler
+     * publishes its own API when the pointer enters the plan pane, and its teardown
+     * on mouse-leave must not blank the relay the 3D sketch is still using.
+     */
+    private _publishedApi: unknown = null;
+    /**
+     * §FIX-STAIR-DUAL-VIEW-ACTIVATION — shape remembered across a plan-focus
+     * suspension so `resumeAfterPlanBlur()` restores the same sketch mode.
+     */
+    private _shape: 'I' | 'L' | 'U' | undefined;
+    /** True while suspended because the plan pane owns the pointer. */
+    private _suspendedForPlanFocus = false;
+    private _unsubPlanFocus: (() => void) | null = null;
+    private _unsubPlanBlur:  (() => void) | null = null;
 
     constructor(private _deps: StairPath3DDeps) {}
 
     /** True when the handler currently owns an active controller. */
     get active(): boolean { return this._ctrl !== null; }
 
+    /** True while suspended because the split-view plan pane has tool focus. */
+    get suspendedForPlanFocus(): boolean { return this._suspendedForPlanFocus; }
+
+    /**
+     * §FIX-STAIR-DUAL-VIEW-ACTIVATION — plan/3D focus arbitration.
+     *
+     * With both surfaces armed, the pane the pointer is over must own the sketch.
+     * `SvpPlanToolOverlay` already broadcasts exactly that on `mouseenter` /
+     * `mouseleave` (`svp:tool-focus` / `svp:tool-blur`), and `PlanViewToolOverlay`
+     * already consumes the same pair to pause/resume itself. We consume it verbatim
+     * — no new mechanism — so at most ONE `StairPathToolController` is live at a
+     * time. That matters concretely: the controller mounts singleton DOM by id
+     * (`#spt-param-panel`, `#spt-hud-bar`, `#spt-run-info`), so two live controllers
+     * would collide.
+     */
+    suspendForPlanFocus(): void {
+        if (this._suspendedForPlanFocus || !this._ctrl) return;
+        this._suspendedForPlanFocus = true;
+        this._teardown();
+    }
+
+    /** Re-arm the 3D sketch when the plan pane gives the pointer back. */
+    resumeAfterPlanBlur(): void {
+        if (!this._suspendedForPlanFocus) return;
+        this._suspendedForPlanFocus = false;
+        this.activate(this._shape);
+    }
+
     activate(shape?: 'I' | 'L' | 'U'): boolean {
         // Re-entrancy guard — destroy any prior controller first.
         this.deactivate();
+        this._shape = shape;
+        this._bindPlanFocusArbitration();
 
         const world = this._deps.getWorld();
         if (!world) {
@@ -182,7 +229,8 @@ export class StairPath3DToolHandler {
 
         // Parity with the plan handler — expose the public API global so the
         // ribbon param relays (window.stairPathTool.updateParams) still work.
-        window.stairPathTool = this._getPublicApi();
+        this._publishedApi = this._getPublicApi();
+        window.stairPathTool = this._publishedApi as typeof window.stairPathTool;
         window.runtime?.events?.emit('stair-path-tool:activated', {});
         console.log(`[StairPath3DToolHandler] activated in 3D (shape=${shape ?? 'free'}, groundY=${groundY})`);
         return true;
@@ -194,7 +242,37 @@ export class StairPath3DToolHandler {
         }
     }
 
+    /**
+     * Subscribe to the split-view plan pane's existing focus broadcast. Idempotent —
+     * `activate()` re-enters through `deactivate()`, which unbinds first.
+     */
+    private _bindPlanFocusArbitration(): void {
+        if (this._unsubPlanFocus || this._unsubPlanBlur) return;
+        const events = window.runtime?.events;
+        if (!events?.on) return;
+        const subFocus = events.on('svp:tool-focus', () => this.suspendForPlanFocus());
+        const subBlur  = events.on('svp:tool-blur',  () => this.resumeAfterPlanBlur());
+        this._unsubPlanFocus = subFocus ? () => subFocus.dispose() : null;
+        this._unsubPlanBlur  = subBlur  ? () => subBlur.dispose()  : null;
+    }
+
+    private _unbindPlanFocusArbitration(): void {
+        this._unsubPlanFocus?.(); this._unsubPlanFocus = null;
+        this._unsubPlanBlur?.();  this._unsubPlanBlur  = null;
+    }
+
     deactivate(): void {
+        this._unbindPlanFocusArbitration();
+        this._suspendedForPlanFocus = false;
+        this._teardown();
+    }
+
+    /**
+     * Tear down the live sketch (controller, canvas listeners, camera-controls and
+     * SelectionManager restores, published API) WITHOUT dropping the plan-focus
+     * arbitration subscription — so a suspension can be resumed.
+     */
+    private _teardown(): void {
         if (this._canvas) {
             // Removal options MUST match the capture flag used at add time.
             if (this._onPointerDown) this._canvas.removeEventListener('pointerdown', this._onPointerDown, { capture: true } as EventListenerOptions);
@@ -216,7 +294,13 @@ export class StairPath3DToolHandler {
             this._ctrl.destroy();
             this._ctrl = null;
         }
-        if (window.stairPathTool) window.stairPathTool = undefined;
+        // §FIX-STAIR-DUAL-VIEW-ACTIVATION — only clear the relay global if we still
+        // own it. The plan handler publishes its own API while the pointer is in the
+        // plan pane; blanking THAT would silently break the ribbon param relay.
+        if (this._publishedApi && window.stairPathTool === this._publishedApi) {
+            window.stairPathTool = undefined;
+        }
+        this._publishedApi = null;
         window.runtime?.events?.emit('stair-path-tool:deactivated', {});
     }
 

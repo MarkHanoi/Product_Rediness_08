@@ -2,7 +2,7 @@ import { Command, CommandType, CommandValidationResult, CommandResult, Serialize
 import { FurnitureData, FurnitureMaterial } from '@pryzm/geometry-furniture';
 import { KitchenCabinetConfig } from '@pryzm/geometry-furniture';
 import { WardrobeCabinetConfig } from '@pryzm/geometry-furniture';
-import { resolveFflOffset } from '@pryzm/core-app-model';
+import { resolveFloorSeatingDatum } from '../seating/SeatingDatumResolver';
 import * as THREE from '@pryzm/renderer-three/three';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
@@ -172,19 +172,13 @@ export class UpdateFurnitureParametersCommand implements Command {
         // item seated on the floor finish (matches CreateFurnitureCommand). The
         // baseOffset STACKS on the FFL baseline: worldY-datum = fflOffset + baseOffset.
         if (this.payload.baseOffset !== undefined) {
-            const bimManager = window.bimManager;
-            const level = bimManager.getLevelById(furniture.levelId);
-            if (level) {
-                const floorStore = (context.stores as any).floorStore;
-                const fflOffset =
-                    floorStore && typeof floorStore.getByLevel === 'function'
-                        ? resolveFflOffset(
-                              floorStore.getByLevel(furniture.levelId),
-                              { x: (newData.position as any).x, z: (newData.position as any).z },
-                          )
-                        : 0;
-                (newData.position as any).y = level.elevation + fflOffset + this.payload.baseOffset;
-            }
+            // §FIX-INTERIOR-FFL-SEATING — one chokepoint, no private FFL arithmetic.
+            const seat = resolveFloorSeatingDatum(
+                context,
+                furniture.levelId,
+                { x: (newData.position as any).x, z: (newData.position as any).z },
+            );
+            (newData.position as any).y = seat.y + this.payload.baseOffset;
         }
 
         // 🔥 CRITICAL FIX: Synchronize wardrobeConfig with updated dimensions

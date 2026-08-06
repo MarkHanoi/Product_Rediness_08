@@ -42,6 +42,13 @@ export {
     type DoorTypeBackfillPlan,
     type HostedTypeBackfillEntry,
 } from './DoorTypeBackfill';
+
+// §FIX-HOSTED-TYPE-CHANGE (L-620) — the properties-panel "Door Type" swap planner.
+export {
+    planDoorTypeChange,
+    PRESERVED_ON_TYPE_CHANGE as DOOR_PRESERVED_ON_TYPE_CHANGE,
+    type DoorTypeChangePlan,
+} from './DoorTypeChange';
 export { DoorBuilder } from './DoorBuilder';
 export { DoorDependencyTracker } from './DoorDependencyTracker';
 export { DoorLevelCleanupHandler } from './DoorLevelCleanupHandler';

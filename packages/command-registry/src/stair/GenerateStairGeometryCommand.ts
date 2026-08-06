@@ -7,7 +7,12 @@ import {
     CommandContext
 } from '../types';
 import type { StairData } from '@pryzm/geometry-stair';
-import { deriveStairGeometry, stairDerivedGeometryDiffers } from '@pryzm/geometry-stair';
+import {
+    deriveStairGeometry,
+    stairDerivedGeometryDiffers,
+    reconcilePathAuthoredStairLayout,
+    stairAuthoredLayoutDiffers,
+} from '@pryzm/geometry-stair';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -112,7 +117,37 @@ export class GenerateStairGeometryCommand implements Command {
     private _reconcileDerivedGeometry(ctx: CommandContext, stair: StairData): void {
         const levelHeight = this._resolveLevelHeight(ctx, stair);
         const derived = deriveStairGeometry(stair, levelHeight);
-        if (!derived) return; // authored per-flight geometry — leave untouched
+
+        if (!derived) {
+            // §FIX-STAIR-AUTHORED-PARAM-DEAF — PATH-AUTHORED stair (drawn with the
+            // stair-path tool; carries per-flight treadDepth / landing centre). This
+            // used to `return` outright, which is why the founder's width edit never
+            // fixed the landing and the tread-depth edit did nothing at all: NOTHING
+            // was reconciled, so the mesh rebuilt from creation-time fields.
+            //
+            // We must not re-split the drawn flights (that would discard the drawn
+            // footprint), but landing DEPTH, landing CENTRE, per-flight TREAD DEPTH
+            // and the flight START pins ARE functions of `width` / `treadDepth` and
+            // must follow them. `reconcilePathAuthoredStairLayout` re-runs the exact
+            // forward chain StairSolver2D + StairPathAdapter used at creation, so it
+            // is a no-op when nothing relevant changed.
+            const layout = reconcilePathAuthoredStairLayout(stair);
+            if (!layout) return;
+            if (!stairAuthoredLayoutDiffers(stair, layout)) return;
+
+            this._derivedSnapshot = {
+                flights: structuredClone(stair.flights),
+                landings: structuredClone(stair.landings),
+                riserCount: stair.riserCount,
+                riserHeight: stair.riserHeight,
+            };
+            ctx.stores.stairStore.update(this.stairId, {
+                flights: layout.flights,
+                landings: layout.landings,
+            });
+            return;
+        }
+
         if (!stairDerivedGeometryDiffers(stair, derived)) return; // already consistent
 
         this._derivedSnapshot = {

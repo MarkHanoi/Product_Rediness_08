@@ -260,6 +260,30 @@ shadow-dropped legacy command used to do.
   (`commandManager.dropEntriesForTargets(ids)`) so the user gets exactly ONE undo per action — no
   phantom no-op keypress. Dropping is by **subset** match on `targetIds` so unrelated multi-target
   commands are preserved.
+- **U-9 (target identity)** A command's `targetIds` MUST name **every element it creates**, not
+  only its host or parent. U-8 is an element-IDENTITY predicate, so a create that names only its
+  host is indistinguishable from that host's own dual-dispatch twin: undoing the host silently
+  deletes the child's entry from BOTH `history` and `redoStack`, and the child's creation becomes
+  invisible to undo AND redo. This was the live "Ctrl+Z jumps over the door/window I just placed"
+  bug (`CreateWallOpeningCommand` declared `targetIds = [wallId]`), and it is a property a whole
+  FAMILY of commands can have — audited host-only creators also included
+  `CreateWallOpeningsBatchCommand`, `CreateStairRailingCommand` (host = stair),
+  `DetectRoomFromWallsCommand` (host = walls) and `CreatePlanViewCommand` (host = level).
+  **Enforced at a chokepoint, not per command:** `CommandManagerImpl.execute()` unions
+  `CommandResult.affectedElementIds` into `command.targetIds` after every successful execute
+  (`_unionTargetIds`, §UNDO-TARGET-IDENTITY), so the invariant holds for the whole registry and
+  cannot be forgotten by a future command author. Widening `targetIds` only ever makes the
+  shadow-drop stricter, so it can never delete an entry it did not delete before. Gated by
+  `packages/command-registry/__tests__/createCommandTargetIdentity.test.ts`, which walks every
+  create command and fails if an executed command's `targetIds` omits an id it created.
+- **U-10 (cross-stack order)** While two undo stacks exist, both MUST carry a commit timestamp
+  (`PatchPair.timestamp` stamped by `CommandBus` at push; `Command.timestamp` at construction) and
+  `performUndo`/`performRedo` MUST order across them chronologically — undo reverts the NEWEST
+  pending entry, redo replays the OLDEST. A commandManager-ONLY tool path (3D door, window,
+  lighting, column, floor, ceiling, curtain-wall, lift, slab-opening, level) otherwise gets jumped
+  over by an older ring-buffer entry beneath it. The rule applies ONLY when the two top entries
+  concern DIFFERENT elements: an id overlap means a dual-dispatch twin — the same gesture in both
+  stacks — which MUST stay on the ring-buffer-first + U-8 path or it becomes a phantom keypress.
 
 ### §4.7 — Status (OI-054) — RESOLVED, with scoped follow-ups
 
@@ -317,9 +341,17 @@ secondary; all three are now closed by the unification:
 1. **Wall-delete cascade for hosted children.** Undoing a *wall* (whole-element remove) that still
    has door/window openings reverts the wall but does not yet remove the global door/window records
    for its children (the §P2.3 bridge only mirrors on create). The opening-level undo (B5) is done.
-2. **Cross-stack ordering.** The two stacks have independent cursors; `performRedo` mirrors the
-   last undo's stack (`_lastSource`) which covers "undo N then redo N (same stack)" but a
-   *mixed* undo sequence can mis-route. Single-timeline ordering is the ADR-0251 end-state.
+2. **Cross-stack ordering — CLOSED for the timestamped case (U-10).** Both stacks now carry a
+   commit timestamp (`PatchPair.timestamp` stamped by `CommandBus` at push; `Command.timestamp` at
+   construction — the same `Date.now()` clock), and `performUndo`/`performRedo` order across them
+   chronologically: undo reverts the newest pending entry, redo replays the oldest, with the
+   same-gesture (id-overlap) guard that keeps dual-dispatch twins on the U-8 path. `_lastSource`
+   remains ONLY as the fallback for the untimestamped case (pre-existing fixtures / entries pushed
+   before this shipped), where behaviour is unchanged: ring-buffer first, redo mirrors the last
+   undo's stack. Root cause it closed: a commandManager-ONLY 3D tool (door, window, lighting,
+   column, floor, ceiling, curtain-wall, lift, slab-opening) placed an element on top of a
+   ring-buffer entry, and ring-buffer-first undid the OLDER element beneath it. Single-timeline
+   ordering (one stack, no reconciliation at all) remains the ADR-0251 end-state.
 3. **L1 / Immer store divergence.** Adapter undo reverts the legacy (mesh + serialization) store
    but not the L1 Immer store. Harmless today (serialization reads the legacy store — same as the
    pre-existing 3D `CreateWallCommand.undo` behaviour), removed by U-7 store unification.

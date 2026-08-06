@@ -38,6 +38,24 @@
  *      project's expected set (a foreign element from the previous project).
  *   3. An element store holds an element whose id is NOT in the expected set.
  *   4. `window.floorPlanUnderlayTool` / `window._ifcServerUploadIds` survived.
+ *   5. §L-676 — a registered PROJECT-SCOPE PROBE reports that its live state
+ *      belongs to a DIFFERENT project than the one that just loaded.
+ *
+ * §L-676 — WHY (5) EXISTS. Surfaces 1–4 inspect the THREE scene, fifteen element
+ * stores and two window globals. That is the whole BIM half. The GIS/site half —
+ * `CesiumViewport` (placed massing, `formaMassingOrigin`, context layers, terrain
+ * datum), the C19 `SiteModelStore`, the `siteDispatch` module singletons
+ * (`_ltpAdapter`, `_lastEnvelope`, …) and the neighbour-footprint snapshot — is
+ * touched by NONE of them. The founder's reproduction is exact: a brand-new,
+ * zero-element project reported `✓ loaded clean` while Cesium was still framing
+ * the PREVIOUS project's placed building 697 km away. An audit that cannot fail
+ * on a real leak manufactures confidence (C13 §3.10).
+ *
+ * A probe does NOT enumerate symptoms. It answers ONE question — "which project
+ * does the state you are holding belong to?" — and the audit compares that answer
+ * to the project that just loaded. `null` means "holding nothing", which is always
+ * clean. This is why it has a zero false-positive rate on a legitimately-populated
+ * load: a correctly-restored GIS project answers with its OWN id.
  *
  * On detection
  * ────────────
@@ -80,6 +98,42 @@ export interface StoreElementIds {
     ids: readonly string[];
 }
 
+/**
+ * §L-676 (C13 §3.10) — a per-project surface that declares WHICH project the state
+ * it is currently holding belongs to.
+ *
+ * Implemented by every subsystem that survives a project switch as a singleton and
+ * therefore cannot be audited by id-set comparison (the GIS/site half: the Cesium
+ * viewport, the C19 site store, the site-dispatch module globals). The contract is
+ * deliberately one question wide:
+ *
+ *   - return `null`  → "I hold no per-project state" → always clean.
+ *   - return an id   → "the state I hold belongs to THIS project".
+ *
+ * The audit flags the surface iff the returned id differs from the project that
+ * just loaded. Probes MUST NOT throw; a throwing probe is reported as a leak of
+ * its own (a probe that cannot answer is not evidence of cleanliness — the
+ * "probe can be wrong three ways" lesson).
+ */
+export interface ProjectScopeProbe {
+    /** Stable identifier used in the leak report, e.g. `gis.cesiumViewport`. */
+    readonly scope: string;
+    /** The project whose state this surface currently holds, or null when empty. */
+    owningProjectId(): string | null;
+    /** Optional detail attached to the finding (what exactly is being held). */
+    describe?(): unknown;
+}
+
+/** One probe's answer, as consumed by the pure detector. */
+export interface ScopeProbeReading {
+    scope: string;
+    /** null ⇒ the surface holds nothing. */
+    owningProjectId: string | null;
+    detail?: unknown;
+    /** Set when `owningProjectId()` threw — itself a finding. */
+    error?: string;
+}
+
 export interface AuditInput {
     projectId: string;
     /**
@@ -94,6 +148,12 @@ export interface AuditInput {
     storeElements: Iterable<StoreElementIds>;
     /** Offender descriptions for surviving window singletons. */
     globals: readonly string[];
+    /**
+     * §L-676 — readings from the registered {@link ProjectScopeProbe}s. Optional so
+     * the existing BIM-only call sites and unit tests keep compiling; the runtime
+     * audit always supplies it.
+     */
+    scopeProbes?: Iterable<ScopeProbeReading>;
 }
 
 /**
@@ -101,7 +161,7 @@ export interface AuditInput {
  * Returns a report when a leak is found, else null.
  */
 export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
-    const { projectId, expectedIds, sceneObjects, storeElements, globals } = input;
+    const { projectId, expectedIds, sceneObjects, storeElements, globals, scopeProbes } = input;
     const idKnown = expectedIds !== null;
 
     let underlayCount = 0;
@@ -143,6 +203,24 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
         }
     }
 
+    // §L-676 — project-scope probes. A surface holding state that belongs to a
+    // DIFFERENT project than the one that just loaded is a leak, full stop. This
+    // check is INDEPENDENT of `expectedIds`: it works on an empty new project (the
+    // founder's reproduction) and on a fully-populated one, because it compares
+    // ownership, not contents.
+    const foreignScopes: Array<{ scope: string; owningProjectId: string; detail?: unknown }> = [];
+    const brokenProbes: Array<{ scope: string; error: string }> = [];
+    for (const reading of scopeProbes ?? []) {
+        if (reading.error != null) {
+            brokenProbes.push({ scope: reading.scope, error: reading.error });
+            continue;
+        }
+        const owner = reading.owningProjectId;
+        if (owner != null && owner !== projectId) {
+            foreignScopes.push({ scope: reading.scope, owningProjectId: owner, detail: reading.detail });
+        }
+    }
+
     const findings: IsolationLeakReport['findings'] = [];
     if (underlayCount > 0)        findings.push({ surface: 'scene.underlay',        count: underlayCount });
     if (ifcCount > 0)             findings.push({ surface: 'scene.ifc',             count: ifcCount });
@@ -150,6 +228,8 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     if (foreignSceneIds.length)   findings.push({ surface: 'scene.foreignElement',  count: foreignSceneIds.length, details: foreignSceneIds.slice(0, 20) });
     if (foreignStoreCount > 0)    findings.push({ surface: 'store.foreignElement',  count: foreignStoreCount, details: foreignStoreDetails });
     if (globals.length > 0)       findings.push({ surface: 'window.globals',        count: globals.length, details: globals });
+    if (foreignScopes.length)     findings.push({ surface: 'scope.foreignProject',   count: foreignScopes.length, details: foreignScopes });
+    if (brokenProbes.length)      findings.push({ surface: 'scope.probeFailed',      count: brokenProbes.length, details: brokenProbes });
 
     if (findings.length === 0) return null;
 
@@ -166,6 +246,63 @@ const AUDITED_STORE_GLOBALS: readonly string[] = [
     'plumbingStore', 'ceilingStore', 'floorStore', 'gridStore',
     'doorStore', 'windowStore',
 ];
+
+// ── §L-676 — project-scope probe registry ────────────────────────────────────
+//
+// A module-level registry (not a window global) so probe registration is a real
+// import-time dependency the type system can see, and so the GA gate can assert
+// that the GIS/site scopes are registered. Keyed by `scope` so HMR re-registration
+// replaces rather than duplicates.
+const _scopeProbes = new Map<string, ProjectScopeProbe>();
+
+/**
+ * Register a per-project surface with the isolation audit (C13 §3.10 — every
+ * stateful surface has a NAMED OWNER, and the audit enumerates owners).
+ *
+ * Call this from the same module that owns the state, at the point the owner is
+ * constructed. Returns an unregister disposer.
+ */
+export function registerProjectScopeProbe(probe: ProjectScopeProbe): () => void {
+    if (!probe?.scope) {
+        console.warn('[ProjectIsolationAudit] Refusing to register a probe with no scope name');
+        return () => { /* no-op */ };
+    }
+    _scopeProbes.set(probe.scope, probe);
+    return () => {
+        if (_scopeProbes.get(probe.scope) === probe) _scopeProbes.delete(probe.scope);
+    };
+}
+
+/** The scopes currently registered — used by tests and the C13 §3.10 owner gate. */
+export function listProjectScopeProbes(): readonly string[] {
+    return [..._scopeProbes.keys()];
+}
+
+/** Read every registered probe, converting a throw into a reportable finding. */
+export function readProjectScopeProbes(): ScopeProbeReading[] {
+    const out: ScopeProbeReading[] = [];
+    for (const probe of _scopeProbes.values()) {
+        try {
+            out.push({
+                scope: probe.scope,
+                owningProjectId: probe.owningProjectId(),
+                detail: probe.describe?.(),
+            });
+        } catch (e) {
+            out.push({
+                scope: probe.scope,
+                owningProjectId: null,
+                error: e instanceof Error ? e.message : String(e),
+            });
+        }
+    }
+    return out;
+}
+
+/** Test hook — drop every registered probe. */
+export function _resetProjectScopeProbesForTest(): void {
+    _scopeProbes.clear();
+}
 
 /** Read a window global by name. */
 function w<T = unknown>(name: string): T | undefined {
@@ -233,6 +370,7 @@ function runAudit(projectId: string, emptyHint: boolean): IsolationLeakReport | 
         sceneObjects: gatherSceneObjects(),
         storeElements: gatherStoreElements(),
         globals: gatherGlobalOffenders(),
+        scopeProbes: readProjectScopeProbes(),
     });
 }
 
@@ -269,7 +407,16 @@ export function installProjectIsolationAudit(): void {
         getFrameScheduler().scheduleOnce('project-isolation-audit', () => {
             const report = runAudit(projectId, emptyHint);
             if (!report) {
-                console.log(`[ProjectIsolationAudit] ✓ project ${projectId} loaded clean — no leftover state`);
+                // §L-676 — SAY WHAT WAS INSPECTED. The previous "✓ loaded clean" line
+                // was indistinguishable between "everything was checked and is clean"
+                // and "nothing that could have leaked was ever looked at" — which is
+                // exactly how the GIS leak survived. Name the scopes.
+                const scopes = listProjectScopeProbes();
+                console.log(
+                    `[ProjectIsolationAudit] ✓ project ${projectId} loaded clean — ` +
+                    `${AUDITED_STORE_GLOBALS.length} stores + scene + ${scopes.length} scope probe(s)` +
+                    (scopes.length > 0 ? ` [${scopes.join(', ')}]` : ' — ⚠ NO scope probes registered'),
+                );
                 return;
             }
             _leakHistory.push(report);

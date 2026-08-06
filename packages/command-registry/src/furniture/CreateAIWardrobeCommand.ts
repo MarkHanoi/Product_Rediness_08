@@ -2,6 +2,9 @@
   import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
   import { FurnitureData, FurnitureMaterial } from '@pryzm/geometry-furniture';
   import { WardrobeConfig } from '@pryzm/geometry-furniture';
+  // §FIX-INTERIOR-FFL-SEATING — finished-floor datum resolved at the shared
+  // chokepoint (C11 §5.4), never re-derived here as `level.elevation`.
+  import { resolveFloorSeatingDatum } from '../seating/SeatingDatumResolver';
 
   export interface CreateAIWardrobePayload {
       id: string;
@@ -37,13 +40,20 @@
           const level = context.bimManager.getLevelById(this.payload.levelId)!;
           context.bimManager.registerElement(this.payload.id, this.payload.levelId);
 
+          // §FIX-INTERIOR-FFL-SEATING — a wardrobe stands on the FINISHED floor.
+          const seat = resolveFloorSeatingDatum(
+              context,
+              this.payload.levelId,
+              { x: this.payload.position.x, z: this.payload.position.z },
+          );
+
           const data: FurnitureData = {
               id: this.payload.id,
               type: 'furniture',
               furnitureType: 'wardrobe',
               position: {
                   x: this.payload.position.x,
-                  y: level.elevation + this.payload.baseOffset,
+                  y: seat.y + this.payload.baseOffset,
                   z: this.payload.position.z,
               },
               rotation: {

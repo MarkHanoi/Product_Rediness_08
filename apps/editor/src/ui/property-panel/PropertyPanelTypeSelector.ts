@@ -110,13 +110,22 @@ export function _buildTypeSelector(
                 console.warn('[PropertyPanel] Ceiling type apply: no layers or thickness — plain ceiling reset not yet implemented');
                 return;
             }
-            window.runtime?.bus?.executeCommand('ceiling.updateLayers', {
-                ceilingId:    elementData.id,
-                systemTypeId: payload.systemTypeId,
+            // §FIX-CEILING-TYPE-SWAP (L-621, mirrors §FIX-FLOOR-TYPE-SWAP L-106) — route
+            // through the uniform 'element.changeType' command (ADR-0105), which for
+            // ceilings runs UpdateCeilingLayersCommand on the LEGACY CeilingStore — the
+            // store the 3D CeilingTool AND the project loader populate, and that
+            // CeilingPanelBuilder subscribes to via 'bim-ceiling-updated'. The previous
+            // 'ceiling.updateLayers' dispatch hit a DETACHED plugin Immer store, populated
+            // only for plan-tool ceilings → canExecute "ceiling not found" and the mesh
+            // never rebuilt. Mirrors wall/floor/slab/door/window.
+            window.runtime?.bus?.executeCommand('element.changeType', {
+                elementId:    elementData.id,
+                elementType:  'ceiling',
+                newTypeId:    payload.systemTypeId ?? '',
                 layers:       payload.layers,
                 thickness:    payload.thickness,
             })?.then(() => host.onRerender({ ...elementData, systemTypeId: payload.systemTypeId, layers: payload.layers }))
-              ?.catch((e: unknown) => console.warn('[PropertyPanel] ceiling.updateLayers failed:', e));
+              ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (ceiling) failed:', e));
         });
     }
 
@@ -200,8 +209,18 @@ export function _buildTypeSelector(
     if (elType === 'plumbingfixture' || elType === 'plumbing_fixture' || elType === 'plumbing') {
         return buildPlumbingTypeSelectorWidget(elementData, (payload) => {
             if (!payload.toiletVariant && !payload.showerVariant) return;
-            window.runtime?.bus?.executeCommand('plumbing.setSystem', {
-                id:            elementData.id,
+            // §FIX-PLUMBING-TYPE-SWAP (L-622) — the previous dispatch was
+            // 'plumbing.setSystem', which could never have applied: its handler validates
+            // { plumbingId, systemTag } (not { id, toiletVariant }) and then writes a
+            // DETACHED plugin Immer store that no plumbing creation path populates. The
+            // verb is not in the command-bus payload map, so TypeScript never caught the
+            // mismatch. Routed through the uniform 'element.changeType' (ADR-0105), which
+            // for plumbing runs UpdatePlumbingParametersCommand on the LEGACY
+            // plumbingStore → PlumbingFragmentBuilder.updateFixture() (Contract 39 §3).
+            window.runtime?.bus?.executeCommand('element.changeType', {
+                elementId:     elementData.id,
+                elementType:   'plumbing',
+                newTypeId:     payload.toiletVariant ?? payload.showerVariant ?? '',
                 toiletVariant: payload.toiletVariant,
                 showerVariant: payload.showerVariant,
             })?.then(() => {
@@ -209,7 +228,7 @@ export function _buildTypeSelector(
                 if (payload.toiletVariant) merged.toiletVariant = payload.toiletVariant;
                 if (payload.showerVariant) merged.showerVariant = payload.showerVariant;
                 host.onRerender(merged);
-            })?.catch((e: unknown) => console.warn('[PropertyPanel] plumbing.setSystem failed:', e));
+            })?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (plumbing) failed:', e));
         });
     }
 

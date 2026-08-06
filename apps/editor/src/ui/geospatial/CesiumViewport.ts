@@ -81,7 +81,12 @@ import { setNeighbourFootprints } from "../site/neighbourFootprintStore";
 // This is the SAME pure algorithm the ClimatePanel sun-path uses; FORMA.5 reads
 // it to drive the Cesium directional light (read-only consumer — SPEC §6).
 import { solarSample } from "@pryzm/climate-host";
-import { getCurrentSiteOrigin } from "../site/siteDispatch";
+import { getCurrentSiteOrigin, resolveActiveProjectId } from "../site/siteDispatch";
+// §L-676 (C13 §3.10 / C19 §1.11) — the project-isolation ownership surfaces. The viewport
+// registers itself as a NAMED OWNER of per-project state so `ClearProjectCommand` tears it
+// down on every load and `ProjectIsolationAudit` can SEE a GIS leak. See the constructor.
+import { projectScopeRegistry, registerProjectScopeProbe } from "@pryzm/core-app-model";
+import { trace } from "@opentelemetry/api";
 // §L-430 slice 2b — the scene(PROJECT-north) → ENU(TRUE-north) frame boundary, extracted
 // headless so it is unit-testable (this file is not). See sceneEnuFrame.ts for why.
 import { sceneXZToEnu } from "./sceneEnuFrame";
@@ -695,6 +700,11 @@ const BIM_DEFAULT_ROOF_COLOUR = '#c8a46e';
 // is ≥ 2× the old prod default (~115 m), covering a real neighbourhood, and is the
 // floor `siteMetricRadiusM()` clamps the massing-derived extent up to.
 const DEFAULT_SITE_METRIC_RADIUS_M = 240;
+
+/** §L-676 — the C13 scope name this viewport owns (registry key + audit probe key). */
+const GIS_CESIUM_SCOPE = 'gis.cesiumViewport';
+/** §L-676 — P8: the teardown emits a span so an isolation failure has an audit trail. */
+const _cesiumScopeTracer = trace.getTracer('pryzm.gis.projectScope');
 
 export class CesiumViewport {
   private container: HTMLDivElement;
@@ -1363,7 +1373,39 @@ export class CesiumViewport {
     // container intercepting pointer events / painting over the BIM view at mount.
     this.container.style.display = "none";
     this.readyPromise = new Promise<void>((resolve) => { this.resolveReady = resolve; });
+
+    // §L-676 (C13 §3.10) — REGISTER AS A NAMED OWNER OF PROJECT-SCOPED STATE.
+    //
+    // `GISAreaLayout` builds one viewport per tab and never disposes it on a
+    // project switch, so registration happens HERE, at the owner, rather than at
+    // the (project-lifecycle-unaware) call site. Two registrations, deliberately:
+    //
+    //   • `projectScopeRegistry` — makes `ClearProjectCommand.clearAll()` tear this
+    //     viewport down at the start of EVERY project load (C13 §5.4 chokepoint).
+    //   • `registerProjectScopeProbe` — gives `ProjectIsolationAudit` eyes on the
+    //     GIS half, so a surviving massing FAILS the audit instead of sailing past
+    //     it as "✓ loaded clean".
+    //
+    // Both are idempotent by key, so an HMR re-construct replaces rather than
+    // duplicates. The disposers are dropped on `dispose()` below.
+    this.projectScopeDisposers.push(
+      (() => {
+        projectScopeRegistry.register({
+          scopeName: GIS_CESIUM_SCOPE,
+          clear: () => this.resetProjectScopedState('project-switch'),
+        });
+        return () => { /* registry has no unregister; replacement is by scopeName */ };
+      })(),
+      registerProjectScopeProbe({
+        scope: GIS_CESIUM_SCOPE,
+        owningProjectId: () => this.getOwningProjectId(),
+        describe: () => this.describeProjectScopedState(),
+      }),
+    );
   }
+
+  /** §L-676 — disposers for the C13 scope registrations made in the constructor. */
+  private readonly projectScopeDisposers: Array<() => void> = [];
 
   /**
    * §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — resolves once the async GROUND CLAMP for
@@ -5209,6 +5251,7 @@ export class CesiumViewport {
       this.invalidateSiteMetricTextureCache();
     }
     this.formaMassingOrigin = { lat: originLat, lon: originLon, centroidEast, centroidNorth, areaM2 };
+    this.noteProjectScopeOwner(); // §L-676 — record WHICH project this placement belongs to.
 
     if (input.frameCentroid) {
       const preset = input.framePreset === 'plan' ? 'plan' : 'oblique';
@@ -7448,6 +7491,7 @@ export class CesiumViewport {
 
     this.clearContextBuildings();
     this.contextBuildingsAt = { lat, lon };
+    this.noteProjectScopeOwner(); // §L-676 — record WHICH project this context load belongs to.
 
     if (collection.features.length === 0) {
       this.warnContextOnce('no context footprints returned for this site (sparse/offline).');
@@ -12462,6 +12506,230 @@ export class CesiumViewport {
     }
   }
 
+  /**
+   * §L-676 (C13 §3.10 / C19 §1.11) — DROP EVERYTHING THIS VIEWPORT HOLDS ABOUT THE
+   * CURRENT PROJECT, without destroying the viewer.
+   *
+   * WHY THIS METHOD EXISTS. `GISAreaLayout.mountGISArea()` constructs exactly one
+   * `CesiumViewport` per TAB (`if (!cesiumViewport) cesiumViewport = new CesiumViewport(…)`)
+   * and never disposes it on a project switch — that file has no project-lifecycle
+   * listener at all. The entire per-project teardown therefore lived inside
+   * `dispose()`, which only ran at tab teardown. Result, exactly as reported: a
+   * brand-new zero-element project inherited the previous project's placed
+   * building, `formaMassingOrigin`, context layers and ground datum, so
+   * `site.location-changed` framed a building 697 km from the new address
+   * (§L-259 defect (ii)) while the globe simultaneously logged "nothing authored
+   * yet". Both lines were true — of two different projects.
+   *
+   * The teardown is extracted here rather than duplicated so the switch path and
+   * the dispose path CANNOT drift: `dispose()` calls this first, then does the
+   * viewer-lifetime work (subscriptions, handler, `viewer.destroy()`, DOM).
+   *
+   * `mode`:
+   *   - `'project-switch'` — the viewer STAYS LIVE. Tileset refs and the sun-
+   *     scrubber subscriptions belong to the live viewer/UI, so they are kept;
+   *     everything site-specific is dropped.
+   *   - `'dispose'`        — the viewer is about to be destroyed; drop those too.
+   *
+   * Synchronous, idempotent, never throws (C13 ProjectScopedStore contract).
+   */
+  public resetProjectScopedState(mode: 'project-switch' | 'dispose' = 'project-switch'): void {
+    const span = _cesiumScopeTracer.startSpan('pryzm.gis.cesiumViewport.resetProjectScope');
+    try {
+      span.setAttribute('pryzm.gis.mode', mode);
+      span.setAttribute('pryzm.gis.priorProjectId', this.owningProjectId ?? 'none');
+      span.setAttribute('pryzm.gis.hadPlacedMassing', this.formaMassingOrigin != null);
+
+      // §CESIUM-PERF-METRIC-TEXTURE-CACHE — release the cached heatmap textures so a
+      // disposed viewport doesn't retain their raster buffers.
+      try { this.siteMetricTextureCache.clear(); } catch { /* ignore */ }
+
+      // §CTX-QUERY-PANEL (L-592) / §CTX-USE-COLOUR (L-599) / §FACADE-STUDY-SUBJECT (L-596) — drop
+      // the DOM chrome and the entity-keyed maps. These hold Cesium.Entity references, so leaving
+      // them would retain a destroyed scene's objects across a project switch.
+      try { this.closeContextBuildingQuery(); } catch { /* ignore */ }
+      try {
+        this.contextFeatureByEntity.clear();
+        this.contextUseMaterialBackup.clear();
+        if (this.contextUseLegendEl) { this.contextUseLegendEl.remove(); this.contextUseLegendEl = null; }
+        this.setFacadeSubjectBadge(null);
+      } catch { /* ignore */ }
+
+      // FORMA.3 — drop any placed massing/boundary entities first.
+      try {
+        this.clearFormaMassing();
+      } catch (e) {
+        console.warn('[CesiumViewport] forma massing teardown failed:', e);
+      }
+      // §A.21.D49 — drop the real-model-on-globe primitive + revoke its blob URL so the
+      // incoming project starts clean.
+      try {
+        this.clearRealModelOnGlobe();
+      } catch (e) {
+        console.warn('[CesiumViewport] real-model-on-globe teardown failed:', e);
+      }
+      // FORMA.6 — drop the Forma study real-model primitive + revoke its blob URL.
+      try {
+        this.clearRealModelOnForma();
+      } catch (e) {
+        console.warn('[CesiumViewport] real-model-on-forma teardown failed:', e);
+      }
+      // §L-676 — THE ANCHOR THE FOUNDER SAW. While this is non-null,
+      // `hasFormaMassingPlaced()` answers true and every framing decision resolves
+      // against the PREVIOUS site's LTP-ENU origin.
+      this.formaMassingOrigin = null;
+      this.formaLastMassingInput = null;
+      this.formaStoreyBands = [];
+      this.formaVisibleLevels = null;
+      this.committedParcelLonLat = null;
+      this.lastContextCollection = null;
+      // A.21.D24 — drop all 3D climate overlays (sun-path/wind/heat) so they don't
+      // leak across project switches; the toggle state is reset to off.
+      try {
+        this.clearAllClimateOverlays();
+        this.climateOverlayOn = { sunPath: false, wind: false, heat: false };
+        this.climateOverlayDataset = null;
+        // §FORMA-FACADE-VISIBLE — reset the façade-analysis toggle + material-suppression
+        // flag so the incoming project starts with the normal building materials visible
+        // and the study OFF (the entities were dropped just above).
+        this.facadeAnalysisOn = false;
+        this.facadeSuppressingMassing = false;
+        this.facadeDrapingRealModel = false;
+        this.facadeAnalysisLastKey = null;
+      } catch (e) {
+        console.warn('[CesiumViewport] climate-overlay teardown failed:', e);
+      }
+      // §L-676 — the site-metric heatmap + façade study are per-site. Both clears
+      // also bump their build sequence and cancel their chunked work, so a frame
+      // scheduled for Project A cannot paint into Project B (C13 §3.6).
+      try {
+        this.clearSiteMetricOverlay();
+        this.siteMetricActive = null;
+        this.siteMetricRadiusOverrideM = null;
+        this.clearFacadeAnalysis();
+      } catch (e) {
+        console.warn('[CesiumViewport] site-metric/facade teardown failed:', e);
+      }
+      // MAP-DATA-OVERTURE — cancel + drop context buildings so they don't leak
+      // across project switches (the incoming project reloads them for its own site).
+      try {
+        this.contextBuildingsAbort?.abort();
+        this.contextBuildingsAbort = null;
+        if (this.contextPanRefreshTimer !== null) { clearTimeout(this.contextPanRefreshTimer); this.contextPanRefreshTimer = null; }
+        this.clearContextBuildings();
+        this.contextBuildingsAt = null;
+        this.contextLastLoadAtMs = 0;
+        // §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the standing sea layer is per-viewport too; cancel +
+        // drop it so it doesn't leak across a project switch.
+        this.contextSeaAbort?.abort();
+        this.contextSeaAbort = null;
+        this.clearContextSea();
+        this.contextSeaAt = null;
+        if (mode === 'dispose') {
+          // §A.21.D-GLOBE3 — re-detect photoreal tiles on the next mount (a re-mounted
+          // viewport re-loads its tileset), so the context-suppression decision is fresh.
+          this.photorealTilesActive = false;
+          // §GLOBE-TILE-CLAMP-FLUSH — drop the tileset ref (the primitive is destroyed with
+          // the viewer); a re-mounted viewport re-assigns it on tile load.
+          this.photorealTileset = null;
+          this.photorealTilesLoadedHookAttached = false;
+        }
+        // On a project switch the viewer — and therefore the tileset primitive and its
+        // load hook — is still live and still correct; only the SITE changed. Dropping
+        // the refs here would strand the hook and re-detect against a live tileset.
+      } catch (e) {
+        console.warn('[CesiumViewport] context-building teardown failed:', e);
+      }
+      // FORMA.4 — reset the terrain-clamp cache so the incoming project re-samples
+      // ground height for ITS site.
+      this.formaTerrainBaseHeight = 0;
+      this.formaTerrainSampledAt = null;
+      this.formaTerrainToken++;
+      // §TERRAIN-RENDER — forget the attached city + the per-session 404 memory so the
+      // new site re-resolves + re-attaches.
+      this.formaTerrainCity = null;
+      this.formaTerrainAttach.clear();
+      // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — the ground datum was measured at
+      // the PREVIOUS site and means nothing at the new one. Never let a stale "resolved"
+      // flag authorise anchoring at 0.
+      this.globeGroundResolved = false;
+      this.globeGroundSource = 'unresolved';
+      this.globeBuildingHiddenForGround = false;
+      // §GLOBE-FIRST-FRAME-BASE — clear any pending one-shot re-frame.
+      this.formaReframeOnBaseSettle = null;
+      // §GLOBE-FRAME-NO-JUMP — reset the per-open framing guards.
+      this.formaInitialReframeFired = false;
+      this.formaOffscreenRescueUsed = false;
+      this.formaUserMovedCamera = false;
+      this.formaProgrammaticFlyInFlight = false;
+      this.formaFlyToken++;
+      // §L-676 — cancel any in-flight glTF placement so a model exported for the OLD
+      // project cannot land on the globe after the switch (C13 §3.6).
+      this.realModelOnFormaToken++;
+      this.realModelOnGlobeToken++;
+      this.realDataKickedClimate.clear();
+      this.realDataKickedPop.clear();
+      this.formaSunLast = null;
+      this.formaSunLatLon = null;
+      if (mode === 'dispose') {
+        // FORMA.5 — drop sun observers so the scrubber UI doesn't leak across mounts.
+        // On a project switch the scrubber UI is still mounted and still ours; clearing
+        // its listeners would silently kill the control with nothing failing.
+        this.formaSunListeners.clear();
+      }
+      this.owningProjectId = null;
+    } catch (e) {
+      console.warn('[CesiumViewport] §L-676 resetProjectScopedState failed (non-fatal):', e);
+    } finally {
+      span.end();
+    }
+  }
+
+  /**
+   * §L-676 — the project whose GIS state this viewport currently holds, or `null`
+   * when it holds none. Read by the C13 isolation-audit scope probe, which flags a
+   * mismatch against the project that just loaded. Stamped whenever a massing /
+   * real model / context layer is seated for a site.
+   */
+  private owningProjectId: string | null = null;
+
+  /** §L-676 — record the project every subsequent per-project write belongs to. */
+  private noteProjectScopeOwner(): void {
+    try {
+      const rt = this.runtime ?? ((typeof window !== 'undefined')
+        ? (window.runtime as unknown as import('@pryzm/runtime-composer/types').PryzmRuntime | undefined) ?? null
+        : null);
+      const pid = rt ? resolveActiveProjectId(rt) : null;
+      if (typeof pid === 'string' && pid.length > 0) this.owningProjectId = pid;
+    } catch { /* ownership stamping must never break a render */ }
+  }
+
+  /** §L-676 — audit probe surface: which project's state is live here. */
+  public getOwningProjectId(): string | null {
+    const holdsSomething =
+      this.formaMassingOrigin != null ||
+      this.contextBuildingsAt != null ||
+      this.contextSeaAt != null ||
+      this.formaTerrainCity != null ||
+      this.committedParcelLonLat != null ||
+      this.globeGroundResolved;
+    return holdsSomething ? this.owningProjectId : null;
+  }
+
+  /** §L-676 — what the viewport is holding, for the leak report. Never throws. */
+  public describeProjectScopedState(): Record<string, unknown> {
+    return {
+      formaMassingOrigin: this.formaMassingOrigin
+        ? { lat: this.formaMassingOrigin.lat, lon: this.formaMassingOrigin.lon }
+        : null,
+      massingEntityCount: this.formaMassingEntities.length,
+      contextBuildingsAt: this.contextBuildingsAt ? { ...this.contextBuildingsAt } : null,
+      contextBuildingEntityCount: this.contextBuildingEntities.length,
+      terrainCity: this.formaTerrainCity,
+      globeGroundResolved: this.globeGroundResolved,
+    };
+  }
+
   public dispose(): void {
     console.log("Disposing Cesium...");
 
@@ -12471,108 +12739,9 @@ export class CesiumViewport {
     // leaving the user behind an eternal spinner (L-250: a hang is invisible to a cost test).
     try { this.notifyGroundSettled(false); } catch { /* best-effort */ }
 
-    // §CESIUM-PERF-METRIC-TEXTURE-CACHE — release the cached heatmap textures so a
-    // disposed viewport doesn't retain their raster buffers.
-    try { this.siteMetricTextureCache.clear(); } catch { /* ignore */ }
-
-    // §CTX-QUERY-PANEL (L-592) / §CTX-USE-COLOUR (L-599) / §FACADE-STUDY-SUBJECT (L-596) — drop
-    // the DOM chrome and the entity-keyed maps. These hold Cesium.Entity references, so leaving
-    // them would retain a destroyed scene's objects across a project switch.
-    try { this.closeContextBuildingQuery(); } catch { /* ignore */ }
-    try {
-      this.contextFeatureByEntity.clear();
-      this.contextUseMaterialBackup.clear();
-      if (this.contextUseLegendEl) { this.contextUseLegendEl.remove(); this.contextUseLegendEl = null; }
-      this.setFacadeSubjectBadge(null);
-    } catch { /* ignore */ }
-
-    // FORMA.3 — drop any placed massing/boundary entities first.
-    try {
-      this.clearFormaMassing();
-    } catch (e) {
-      console.warn('[CesiumViewport] forma massing dispose failed:', e);
-    }
-    // §A.21.D49 — drop the real-model-on-globe primitive + revoke its blob URL so a
-    // re-mounted viewport (project switch) starts clean.
-    try {
-      this.clearRealModelOnGlobe();
-    } catch (e) {
-      console.warn('[CesiumViewport] real-model-on-globe dispose failed:', e);
-    }
-    // FORMA.6 — drop the Forma study real-model primitive + revoke its blob URL.
-    try {
-      this.clearRealModelOnForma();
-    } catch (e) {
-      console.warn('[CesiumViewport] real-model-on-forma dispose failed:', e);
-    }
-    this.formaMassingOrigin = null;
-    // A.21.D24 — drop all 3D climate overlays (sun-path/wind/heat) so they don't
-    // leak across project switches; the toggle state is reset to off.
-    try {
-      this.clearAllClimateOverlays();
-      this.climateOverlayOn = { sunPath: false, wind: false, heat: false };
-      this.climateOverlayDataset = null;
-      // §FORMA-FACADE-VISIBLE — reset the façade-analysis toggle + material-suppression
-      // flag so a re-mounted viewport (project switch) starts with the normal building
-      // materials visible and the study OFF (the entities were dropped just above).
-      this.facadeAnalysisOn = false;
-      this.facadeSuppressingMassing = false;
-      this.facadeDrapingRealModel = false;
-    } catch (e) {
-      console.warn('[CesiumViewport] climate-overlay dispose failed:', e);
-    }
-    // MAP-DATA-OVERTURE — cancel + drop context buildings so they don't leak
-    // across project switches (a re-mounted viewport reloads them for the new site).
-    try {
-      this.contextBuildingsAbort?.abort();
-      this.contextBuildingsAbort = null;
-      if (this.contextPanRefreshTimer !== null) { clearTimeout(this.contextPanRefreshTimer); this.contextPanRefreshTimer = null; }
-      this.clearContextBuildings();
-      this.contextBuildingsAt = null;
-      // §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the standing sea layer is per-viewport too; cancel +
-      // drop it so it doesn't leak across a project switch (a re-mount reloads it for the new site).
-      this.contextSeaAbort?.abort();
-      this.contextSeaAbort = null;
-      this.clearContextSea();
-      this.contextSeaAt = null;
-      // §SITEFRAME-GROUND-RESEAT (L-632) → §CTX-BUILDINGS-RENDER-FIRST (L-635) — the terrain-settle
-      // re-seat listener is pulled, so there is no per-site listener/key to tear down here.
-      // §A.21.D-GLOBE3 — re-detect photoreal tiles on the next mount (a re-mounted
-      // viewport re-loads its tileset), so the context-suppression decision is fresh.
-      this.photorealTilesActive = false;
-      // §GLOBE-TILE-CLAMP-FLUSH — drop the tileset ref (the primitive is destroyed with
-      // the viewer); a re-mounted viewport re-assigns it on tile load.
-      this.photorealTileset = null;
-    } catch (e) {
-      console.warn('[CesiumViewport] context-building dispose failed:', e);
-    }
-    // FORMA.4 — reset the terrain-clamp cache so a re-mounted viewport (project
-    // switch) re-samples ground height for the new site.
-    this.formaTerrainBaseHeight = 0;
-    this.formaTerrainSampledAt = null;
-    this.formaTerrainToken++;
-    // §TERRAIN-RENDER — a re-mounted viewer starts on the default flat ellipsoid again; forget
-    // the attached city + the per-session 404 memory so the new site re-resolves + re-attaches.
-    this.formaTerrainCity = null;
-    this.formaTerrainAttach.clear();
-    // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — a re-mounted viewport has measured
-    // NOTHING: the ground datum is unknown again (and the tileset load hook belongs to the
-    // destroyed tileset). Never let a stale "resolved" flag authorise anchoring at 0.
-    this.globeGroundResolved = false;
-    this.globeGroundSource = 'unresolved';
-    this.globeBuildingHiddenForGround = false;
-    this.photorealTilesLoadedHookAttached = false;
-    // §GLOBE-FIRST-FRAME-BASE — clear any pending one-shot re-frame on dispose.
-    this.formaReframeOnBaseSettle = null;
-    // §GLOBE-FRAME-NO-JUMP — reset the per-open framing guards for a re-mounted viewport.
-    this.formaInitialReframeFired = false;
-    this.formaOffscreenRescueUsed = false;
-    this.formaUserMovedCamera = false;
-    this.formaProgrammaticFlyInFlight = false;
-    // FORMA.5 — drop sun observers so the scrubber UI doesn't leak across mounts.
-    this.formaSunListeners.clear();
-    this.formaSunLast = null;
-    this.formaSunLatLon = null;
+    // §L-676 — the per-project half of the teardown, shared with the project-switch
+    // path so the two can never drift.
+    this.resetProjectScopedState('dispose');
 
     // Drop the site.location-changed subscription so it doesn't leak across
     // project switches (a new CesiumViewport re-subscribes on its own mount).
@@ -12637,6 +12806,12 @@ export class CesiumViewport {
 
     if (this.container.parentElement) {
       this.container.parentElement.removeChild(this.container);
+    }
+
+    // §L-676 — drop the C13 scope registrations LAST, so a teardown that throws
+    // earlier still leaves the audit able to see this viewport.
+    for (const off of this.projectScopeDisposers.splice(0)) {
+      try { off(); } catch { /* ignore */ }
     }
   }
 

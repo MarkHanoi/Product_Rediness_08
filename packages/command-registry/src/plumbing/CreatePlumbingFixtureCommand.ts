@@ -5,6 +5,10 @@ import type { ToiletVariant } from '@pryzm/geometry-plumbing';
 import type { ShowerVariant } from '@pryzm/geometry-plumbing';
 import type { BathroomAccessoryVariant } from '@pryzm/geometry-plumbing';
 import { semanticGraphManager } from '@pryzm/core-app-model';
+import { stableCreatedId } from '../StableCreatedId';
+// §FIX-INTERIOR-FFL-SEATING — finished-floor datum resolved at the shared chokepoint
+// (C11 §5.4). A WC pan / bath / shower tray sits on the tiled floor, not the slab.
+import { resolveFloorSeatingDatum } from '../seating/SeatingDatumResolver';
 
 export interface CreatePlumbingFixturePayload {
     id?: string;
@@ -47,13 +51,24 @@ export class CreatePlumbingFixtureCommand implements Command {
     }
 
     execute(context: CommandContext): CommandResult {
-        const id = this.payload.id || crypto.randomUUID();
+        // §STABLE-CREATED-ID (C03 §2.6) — minted here on EVERY call, so each redo
+        // produced a DIFFERENT fixture id. Memoised on the command instance so
+        // redo restores the SAME id; a payload-supplied id still wins.
+        const id = stableCreatedId(this, 'plumbing', this.payload.id);
         const level = context.bimManager.getLevelById(this.payload.levelId);
         if (!level) throw new Error(`Level not found: ${this.payload.levelId}`);
 
         context.bimManager.registerElement(id, this.payload.levelId);
 
         const rotation = new THREE.Euler(this.payload.rotation.x, this.payload.rotation.y, this.payload.rotation.z);
+        // §FIX-INTERIOR-FFL-SEATING — bathrooms are the WORST case for this defect:
+        // they are almost always the thickest finish on the level (tile + bed), so a
+        // slab-datumed fixture is buried deepest exactly where the finish is deepest.
+        const seat = resolveFloorSeatingDatum(
+            context,
+            this.payload.levelId,
+            { x: this.payload.position.x, z: this.payload.position.z },
+        );
         const data: PlumbingFixtureData = {
             id,
             type: 'plumbing_fixture',
@@ -61,7 +76,7 @@ export class CreatePlumbingFixtureCommand implements Command {
             toiletVariant:    this.payload.fixtureType === 'toilet'    ? this.payload.toiletVariant    : undefined,
             showerVariant:    this.payload.fixtureType === 'shower'    ? this.payload.showerVariant    : undefined,
             accessoryVariant: this.payload.fixtureType === 'accessory' ? this.payload.accessoryVariant : undefined,
-            position: new THREE.Vector3(this.payload.position.x, level.elevation + (this.payload.baseOffset !== undefined ? this.payload.baseOffset : 0.2), this.payload.position.z),
+            position: new THREE.Vector3(this.payload.position.x, seat.y + (this.payload.baseOffset !== undefined ? this.payload.baseOffset : 0.2), this.payload.position.z),
             rotation,
             levelId: this.payload.levelId,
             levelName: level.name,

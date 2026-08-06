@@ -420,9 +420,49 @@ function fflPointInPolygon(point: { x: number; z: number }, polygon: readonly Fl
 }
 
 /**
+ * §FIX-INTERIOR-FFL-SEATING — STRICT position-dependent FFL query.
+ *
+ * Returns the FFL offset (metres above the level datum) of the floor finish that
+ * COVERS `point`, or `null` when no visible finish covers it. `null` is the
+ * honest "this spot is bare slab" answer and is DISTINCT from `0` (a finish whose
+ * top happens to sit exactly on the datum) — see the context-data-honesty rule:
+ * "absent" and "zero" must not be the same value.
+ *
+ * TIE-BREAK (normative): when several visible finishes cover the same point, the
+ * one with the GREATEST `boundary.baseOffset` wins — an element rests ON the
+ * topmost finish, never buried inside it. Ties on offset are resolved by taking
+ * the first in store order, which is stable because the store preserves creation
+ * order; the resulting Y is identical either way, so the choice is not observable.
+ *
+ * Pure: no I/O, no THREE, no DOM.
+ *
+ * @param floors floor finishes on the level.
+ * @param point  XZ plan position to probe.
+ */
+export function resolveFflOffsetAt(
+  floors: readonly FloorData[] | undefined | null,
+  point: { x: number; z: number },
+): number | null {
+  if (!floors || floors.length === 0) return null;
+  let best: number | null = null;
+  for (const f of floors) {
+    if (!f || !f.boundary || f.visible === false) continue;
+    if (!fflPointInPolygon(point, f.boundary.polygon)) continue;
+    const off = f.boundary.baseOffset ?? 0;
+    if (best === null || off > best) best = off;
+  }
+  return best;
+}
+
+/**
  * Resolve the FFL offset (metres, above the level datum) for a set of floor finishes
  * covering one level. See the section header for the selection rule. Returns 0 when
  * no visible finish applies (bare slab → datum is the FFL).
+ *
+ * NOTE: this is the LEVEL-WIDE query. It falls back to the greatest finish offset on
+ * the level when no finish covers `point`, which is right for "what is this level's
+ * FFL?" but WRONG for seating an individual element standing on bare slab. Element
+ * seating MUST use `resolveFflOffsetAt` (strict) — see §FIX-INTERIOR-FFL-SEATING.
  *
  * @param floors floor finishes on the item's level.
  * @param point  optional XZ plan position of the item (prefers the containing finish).
@@ -436,14 +476,8 @@ export function resolveFflOffset(
   if (candidates.length === 0) return 0;
 
   if (point) {
-    let best: number | undefined;
-    for (const f of candidates) {
-      if (fflPointInPolygon(point, f.boundary.polygon)) {
-        const off = f.boundary.baseOffset ?? 0;
-        if (best === undefined || off > best) best = off;
-      }
-    }
-    if (best !== undefined) return best;
+    const at = resolveFflOffsetAt(candidates, point);
+    if (at !== null) return at;
   }
 
   // No containing finish (or no probe) → the greatest FFL on the level.

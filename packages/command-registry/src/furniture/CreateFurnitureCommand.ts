@@ -1,9 +1,12 @@
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
+import { stableCreatedId } from '../StableCreatedId';
 import { FurnitureData, FurnitureType, FurnitureMaterial } from '@pryzm/geometry-furniture';
 import type { KitchenCabinetConfig } from '@pryzm/geometry-furniture';
 import type { WardrobeCabinetConfig } from '@pryzm/geometry-furniture';
-import { semanticGraphManager, resolveFflOffset } from '@pryzm/core-app-model';
+import { semanticGraphManager } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+// §FIX-INTERIOR-FFL-SEATING — the ONE finished-floor seating chokepoint (C11 §5.4).
+import { resolveFloorSeatingDatum } from '../seating/SeatingDatumResolver';
 
 export interface CreateFurniturePayload {
     id?: string;
@@ -81,7 +84,10 @@ export class CreateFurnitureCommand implements Command {
 
     execute(context: CommandContext): CommandResult {
         try {
-            const id = this.payload.id || crypto.randomUUID();
+            // §STABLE-CREATED-ID (C03 §2.6) — without a payload id this minted a NEW
+            // furniture id on every call, so redo restored a different element than
+            // undo removed. Memoised per command instance; a payload id still wins.
+            const id = stableCreatedId(this, 'furniture', this.payload.id);
             const level = context.bimManager.getLevelById(this.payload.levelId);
             if (!level) throw new Error(`Level not found: ${this.payload.levelId}`);
 
@@ -108,14 +114,18 @@ export class CreateFurnitureCommand implements Command {
             // the level has no finish (bare slab → datum IS the FFL). The mount
             // offset (baseOffset) then STACKS on top of this FFL baseline downstream
             // in FurnitureFragmentBuilder (worldY = position.y + baseOffset).
-            const floorStore = (context.stores as any).floorStore;
-            const fflOffset =
-                floorStore && typeof floorStore.getByLevel === 'function'
-                    ? resolveFflOffset(
-                          floorStore.getByLevel(this.payload.levelId),
-                          { x: this.payload.position.x, z: this.payload.position.z },
-                      )
-                    : 0;
+            //
+            // §FIX-INTERIOR-FFL-SEATING — this used to inline `resolveFflOffset` +
+            // its own floorStore lookup. That private copy is exactly what let the
+            // other six creation paths (AI element, AI wardrobe, plumbing, lighting,
+            // the D-FLE furnish batch) stay broken while this one was "fixed": C11
+            // §5.4's "convergence by coincidence". The arithmetic now lives at ONE
+            // chokepoint, `resolveFloorSeatingDatum`, which every path calls.
+            const seat = resolveFloorSeatingDatum(
+                context,
+                this.payload.levelId,
+                { x: this.payload.position.x, z: this.payload.position.z },
+            );
 
             const data: FurnitureData = {
                 id,
@@ -134,7 +144,7 @@ export class CreateFurnitureCommand implements Command {
                 position: {
                     x: this.payload.position.x,
                     // §FIX-FURNITURE-FFL-DEFAULT (L-87) — FFL, not slab top.
-                    y: level.elevation + fflOffset,
+                    y: seat.y,
                     z: this.payload.position.z,
                 },
                 rotation: {

@@ -71,6 +71,8 @@ export * from './doors/UpdateDoorLeafColorCommand';
 export * from './doors/UpdateDoorParameterCommand';
 export * from './doors/UpdateDoorSillHeightCommand';
 export * from './doors/UpdateDoorWidthCommand';
+// §FIX-HOSTED-TYPE-CHANGE (L-620)
+export * from './doors/UpdateDoorSystemTypeCommand';
 
 // ─── Floors ───────────────────────────────────────────────────────────────
 export * from './floors/CreateFloorCommand';
@@ -353,6 +355,8 @@ export * from './windows/UpdateWindowHeightCommand';
 export * from './windows/UpdateWindowParameterCommand';
 export * from './windows/UpdateWindowSillHeightCommand';
 export * from './windows/UpdateWindowWidthCommand';
+// §FIX-HOSTED-TYPE-CHANGE (L-620)
+export * from './windows/UpdateWindowSystemTypeCommand';
 
 // ── Sprint AP (2026-05-13) — UndoManager extracted from src/engine/ ──────────
 export { UndoManager, AddObjectCommand, undoManager } from './UndoManager.js';

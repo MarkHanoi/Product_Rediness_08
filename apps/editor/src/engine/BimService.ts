@@ -9,7 +9,7 @@ import { BimManager } from '@pryzm/core-app-model';
 import type { ViewMode } from '@pryzm/core-app-model';
 import { setStairToolConfig } from '@pryzm/geometry-stair';
 import type { IBimService } from '@pryzm/engine';
-import { shouldSketchStairIn3D } from './stairSketchRouting';
+import { activateStairSketchSurfaces } from './stairSketchRouting';
 
 export class BimService implements IBimService {
     private bimManager: BimManager;
@@ -323,20 +323,40 @@ export class BimService implements IBimService {
         // hosts the 3D sketch handler (SPEC-STAIR-3D-CREATION #101); every plan-like
         // mode ('Top' and the ceiling-plan family) authors the footprint via the
         // plan tool handlers below. See stairSketchRouting.ts for the full mode map.
+        //
+        // §FIX-STAIR-DUAL-VIEW-ACTIVATION — the routing above used to be EXCLUSIVE:
+        // when `shouldSketchStairIn3D` said "3D" this method returned WITHOUT ever
+        // arming the plan-tool path. In the founder's default layout (split view: 3D
+        // main viewport + plan pane) `ViewController.currentMode` is '3D', so the plan
+        // pane could NEVER author a stair — `StairPathPlanToolHandler` was authored,
+        // registered in `planToolHandlerRegistry`, and simply never dispatched.
+        //
+        // Both surfaces are now armed in parallel, exactly as every healthy element
+        // tool already does (PlanViewToolOverlay.attach() documents "the 3D placement
+        // tools that are armed in parallel"; `activateWallTool` above just calls
+        // `toolManager.activateWall()` while WallTool binds the 3D canvas). The canvas
+        // the pointer is over decides which handler receives the interaction. Both
+        // handlers commit through the SAME `CreateStairCommand` (C03 — one
+        // serialisable/undoable creation path with a stable element id).
         const viewMode = (window.viewController as { currentMode?: ViewMode } | undefined)?.currentMode;
         const cameraIsPerspective = window.world?.camera?.three?.isPerspectiveCamera === true;
-        if (shouldSketchStairIn3D(viewMode, cameraIsPerspective) && window.stairPath3DTool) {
-            if (window.stairPath3DTool.activate(shape)) return;
-            console.warn('[BimService] 3D stair activation declined — falling back to plan/legacy path');
-        }
-
         const toolManager = this.props.toolManager as any;
-        if (toolManager?.activateStairPath) {
-            toolManager.activateStairPath(shape ? { initialShape: shape } : undefined);
-            return;
-        }
 
-        this.createStair(shape ?? 'I');
+        activateStairSketchSurfaces(viewMode, cameraIsPerspective, {
+            arm3D: (s) => {
+                const tool = window.stairPath3DTool;
+                if (!tool) return false;
+                const ok = tool.activate(s) === true;
+                if (!ok) console.warn('[BimService] 3D stair activation declined — plan path still armed');
+                return ok;
+            },
+            armPlan: (s) => {
+                if (!toolManager?.activateStairPath) return false;
+                void toolManager.activateStairPath(s ? { initialShape: s } : undefined);
+                return true;
+            },
+            fallback: (s) => this.createStair(s),
+        }, shape);
     }
 
     /**

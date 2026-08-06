@@ -57,6 +57,15 @@ interface ResolvedSpan {
 export class StairPathPlanToolHandler implements PlanToolHandler {
     private _ctrl: StairPathToolController | null = null;
     private _pendingShapeHint: 'I' | 'L' | 'U' | null = null;
+    /**
+     * §FIX-STAIR-DUAL-VIEW-ACTIVATION — the API object published to
+     * `window.stairPathTool`, so teardown only clears the global when this handler
+     * still OWNS it. Plan and 3D are now armed in parallel (BimService), and this
+     * handler is torn down every time the pointer leaves the split-view plan pane;
+     * unconditionally blanking the global would kill the ribbon param relay of a
+     * 3D sketch that is still live.
+     */
+    private _publishedApi: unknown = null;
 
     constructor() {
         // Shape hints dispatched by ToolManager.activateStairPath(). The hint is a
@@ -175,7 +184,8 @@ export class StairPathPlanToolHandler implements PlanToolHandler {
 
         this._ctrl.activate();
 
-        window.stairPathTool = this._getPublicApi();
+        this._publishedApi = this._getPublicApi();
+        window.stairPathTool = this._publishedApi as typeof window.stairPathTool;
         window.runtime?.events?.emit('stair-path-tool:activated', {}); // F.events.10
     }
 
@@ -184,9 +194,10 @@ export class StairPathPlanToolHandler implements PlanToolHandler {
         this._ctrl?.destroy();
         this._ctrl = null;
 
-        if (window.stairPathTool) {
+        if (this._publishedApi && window.stairPathTool === this._publishedApi) {
             window.stairPathTool = undefined;
         }
+        this._publishedApi = null;
 
         window.runtime?.events?.emit('stair-path-tool:deactivated', {}); // F.events.10
     }

@@ -46,10 +46,18 @@ export class WindowDependencyTracker {
             //   We call `windowStore.touch(id)` for each hosted window, which
             //   re-emits an idempotent 'update' event that WindowBuilder picks
             //   up via its own subscription and rebuilds the mesh.
+            //
+            // §FIX-HOSTWALL-CASCADE-SET-REENTRANCY (L-250 / L-01 lineage) — the
+            // twin of the DoorDependencyTracker fix; see the long note there.
+            // `ids` is the LIVE index Set and `windowStore.touch()` synchronously
+            // re-enters this tracker's own window subscriber → `register()` →
+            // delete + re-add of the id being iterated → the `for…of` visits it
+            // again forever, inside `wallStore.update()`'s listener fan-out.
+            // Iterate a SNAPSHOT: finite by construction.
             if (event === 'update' && prev && this._wallGeometryChanged(prev, wall)) {
                 const ids = this.graph.get(wall.id);
                 if (ids && ids.size > 0) {
-                    for (const winId of ids) {
+                    for (const winId of [...ids]) {
                         try { windowStore.touch(winId); }
                         catch (err) { console.warn(`[WindowDependencyTracker] touch(${winId}) failed:`, err); }
                     }
@@ -78,6 +86,13 @@ export class WindowDependencyTracker {
     }
 
     private register(windowId: string, wallId: string): void {
+        // §FIX-HOSTWALL-CASCADE-SET-REENTRANCY — DEFENCE IN DEPTH. A
+        // re-registration that changes nothing must not mutate the index: the
+        // delete-then-re-add below is only meaningful on a genuine host-wall
+        // reassignment. Every idempotent `touch()` arrives already indexed under
+        // the same wall, so this early return removes the re-entrant Set churn at
+        // its source. (Twin of the DoorDependencyTracker guard.)
+        if (this.graph.get(wallId)?.has(windowId)) return;
         for (const set of this.graph.values()) set.delete(windowId);
         let bucket = this.graph.get(wallId);
         if (!bucket) {

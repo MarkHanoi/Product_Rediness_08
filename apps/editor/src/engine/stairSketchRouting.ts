@@ -44,7 +44,10 @@
  * alone cannot distinguish 3D from an elevation; only the view mode can.
  */
 
+import { trace } from '@opentelemetry/api';
 import type { ViewMode } from '@pryzm/core-app-model';
+
+const _tracer = trace.getTracer('@pryzm/editor.stair-sketch-routing', '0.1.0');
 
 /**
  * @param viewMode            The authoritative active view mode from
@@ -62,4 +65,86 @@ export function shouldSketchStairIn3D(
     // View mode unknown (exceptional): fall back to the camera. A perspective
     // camera is the 3D view in the common case.
     return cameraIsPerspective;
+}
+
+/**
+ * ─── §FIX-STAIR-DUAL-VIEW-ACTIVATION ─────────────────────────────────────────
+ *
+ * The surfaces a stair-tool activation must arm. C11 §element-creation pipeline.
+ *
+ * `shouldSketchStairIn3D` answers "does a 3D viewport host the sketch?". It was
+ * being used as an EXCLUSIVE router — when the answer was "yes", `BimService`
+ * returned WITHOUT arming the plan-tool path — and that is the regression the
+ * founder reported: in the default split-view layout (3D main viewport + plan
+ * pane) the authoritative `ViewController.currentMode` is `'3D'`, so the plan
+ * pane could never author a stair even though `StairPathPlanToolHandler` was
+ * fully authored and registered. Authored, but UNREACHABLE.
+ *
+ * Every healthy element tool arms BOTH surfaces in parallel — see
+ * `PlanViewToolOverlay.attach()` ("the 3D placement tools that are armed in
+ * parallel", L-129) and `BimService.activateWallTool`, which simply calls
+ * `toolManager.activateWall()` while `WallTool` binds the 3D canvas. Whichever
+ * canvas the pointer is over receives the interaction. The stair now does the
+ * same, through the ONE `CreateStairCommand` both handlers already dispatch (C03
+ * — one serialisable/undoable creation path, stable element id).
+ *
+ * The plan arm is unconditional: `ToolManager.activateStairPath()` only sets the
+ * active-tool state and notifies; overlays that are not attached (3D full-screen)
+ * simply no-op. The 3D arm stays gated on `shouldSketchStairIn3D` so we never
+ * bind the 3D sketch over an elevation/section camera (the L-217 regression class)
+ * and never disable camera-controls + SelectionManager for a hidden viewport.
+ */
+export interface StairSketchSurfaces {
+    /** Arm the 3D sketch handler. Returns true when it took ownership. */
+    arm3D(shape?: 'I' | 'L' | 'U'): boolean;
+    /** Arm the plan-tool path (ToolManager → every attached plan surface). Returns true when reachable. */
+    armPlan(shape?: 'I' | 'L' | 'U'): boolean;
+    /** Legacy modal route, used only when NEITHER surface could be armed. */
+    fallback(shape: 'I' | 'L' | 'U'): void;
+}
+
+export interface StairSketchActivation {
+    armed3D: boolean;
+    armedPlan: boolean;
+    usedFallback: boolean;
+}
+
+/**
+ * The single stair-tool activation chokepoint. Arms every surface that can host
+ * the sketch for the current layout, so the view UNDER THE CURSOR decides which
+ * handler receives the interaction rather than a pre-committed global guess.
+ *
+ * P8: emits `pryzm.stair.activate_sketch_surfaces`.
+ */
+export function activateStairSketchSurfaces(
+    viewMode: ViewMode | undefined,
+    cameraIsPerspective: boolean,
+    surfaces: StairSketchSurfaces,
+    shape?: 'I' | 'L' | 'U',
+): StairSketchActivation {
+    return _tracer.startActiveSpan('pryzm.stair.activate_sketch_surfaces', (span) => {
+        try {
+            const wants3D = shouldSketchStairIn3D(viewMode, cameraIsPerspective);
+            span.setAttribute('pryzm.stair.view_mode', viewMode ?? 'unknown');
+            span.setAttribute('pryzm.stair.wants_3d', wants3D);
+
+            const armed3D = wants3D ? surfaces.arm3D(shape) === true : false;
+            // ALWAYS arm the plan path — this is the fix. A 3D viewport being on
+            // screen does not mean the architect is drawing in it.
+            const armedPlan = surfaces.armPlan(shape) === true;
+
+            const usedFallback = !armed3D && !armedPlan;
+            if (usedFallback) surfaces.fallback(shape ?? 'I');
+
+            span.setAttribute('pryzm.stair.armed_3d', armed3D);
+            span.setAttribute('pryzm.stair.armed_plan', armedPlan);
+            span.setAttribute('pryzm.stair.used_fallback', usedFallback);
+            return { armed3D, armedPlan, usedFallback };
+        } catch (err) {
+            span.recordException(err as Error);
+            throw err;
+        } finally {
+            span.end();
+        }
+    });
 }

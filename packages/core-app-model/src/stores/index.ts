@@ -46,6 +46,12 @@ export type {
 export { DEFAULT_FINISH_THICKNESS_M, resolveFinishSeating } from './FloorTypes.js';
 // §FIX-FURNITURE-FFL-DEFAULT — Finished-Floor-Level offset resolver (value export).
 export { resolveFflOffset } from './FloorTypes.js';
+// §FIX-INTERIOR-FFL-SEATING — STRICT position-dependent FFL / CFL queries. These are
+// what element SEATING must use: they return `null` for "no finish covers this spot"
+// so the caller can fall back honestly to the structural datum instead of inheriting
+// some other room's finish height.
+export { resolveFflOffsetAt } from './FloorTypes.js';
+export { resolveCflOffsetAt } from './CeilingTypes.js';
 
 export {
     FLOOR_DEFAULTS, FLOOR_LAYER_COLORS, resolveFloorColor, resolveLayerColor,

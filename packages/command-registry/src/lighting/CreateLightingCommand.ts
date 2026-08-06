@@ -13,8 +13,13 @@
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { LightingData, LightingFixtureType } from '@pryzm/geometry-lighting';
 import { LightingRoomResolver } from '@pryzm/geometry-lighting';
-import { semanticGraphManager } from '@pryzm/core-app-model';
+import { semanticGraphManager, FLOOR_MOUNTED_FIXTURES } from '@pryzm/core-app-model';
+// §FIX-INTERIOR-FFL-SEATING — the ONE seating chokepoint (C11 §5.4). A floor lamp
+// stands on the finished FLOOR; a downlight/pendant hangs from the finished CEILING
+// SOFFIT. Both were previously computed in the TOOL off raw level geometry.
+import { resolveFloorSeatingDatum, resolveCeilingSeatingDatum } from '../seating/SeatingDatumResolver';
 import { DOMEventBus } from '@pryzm/event-bus';
+import { stableCreatedId } from '../StableCreatedId';
 const _bus = new DOMEventBus();
 
 export interface CreateLightingPayload {
@@ -28,6 +33,18 @@ export interface CreateLightingPayload {
     hostId?: string;
     tags?: string[];
     properties?: Record<string, string | number | boolean | null>;
+    /**
+     * §FIX-INTERIOR-FFL-SEATING — intent discriminator for `position.y` (C11 §5.4 ③).
+     *
+     * - `'auto'` (DEFAULT, and what an omitted field means): `position.y` is IGNORED
+     *   and the command derives it — floor-mounted fixtures seat on the FINISHED
+     *   FLOOR, everything else hangs from the FINISHED CEILING SOFFIT. A new tool
+     *   that says nothing therefore gets the CORRECT behaviour, not the legacy one.
+     * - `'explicit'`: `position.y` is stated geometry and is stored VERBATIM. Used by
+     *   the persistence-restore and project-import paths, which replay a Y the user
+     *   already has, and by any future tool that lets the user type an elevation.
+     */
+    seating?: 'auto' | 'explicit';
 }
 
 export class CreateLightingCommand implements Command {
@@ -53,7 +70,15 @@ export class CreateLightingCommand implements Command {
 
     execute(context: CommandContext): CommandResult {
         try {
-            const id = this.payload.id || `light_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            // §STABLE-CREATED-ID (C03 §2.6) — the id was minted here on EVERY call,
+            // so each redo produced a DIFFERENT fixture id: selection, marks,
+            // schedules and the semantic graph all pointed at the orphaned original.
+            // stableCreatedId memoises the first mint on this command instance, so
+            // redo restores the SAME id. A payload-supplied id still wins.
+            const id = stableCreatedId(
+                this, 'lighting', this.payload.id,
+                () => `light_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            );
 
             // Room binding — best-effort
             const roomId = this.payload.roomId
@@ -63,12 +88,29 @@ export class CreateLightingCommand implements Command {
                     this.payload.position.z,
                 ) ?? undefined;
 
+            // §FIX-INTERIOR-FFL-SEATING — "a downlight hangs from the ceiling, a floor
+            // lamp stands on the floor" is a rule about the KIND of fixture, so per
+            // C11 §5.4 it is derived HERE, not in the tool. `LightingPlanToolHandler`
+            // and `LightingLayoutExecutor` each carried their own copy computing
+            // `level.elevation` / `level.elevation + level.height` off RAW structure —
+            // so a floor lamp sank into the floor finish and a downlight was buried in
+            // the ceiling build-up. Both now fall out of the shared chokepoint.
+            const probe = { x: this.payload.position.x, z: this.payload.position.z };
+            const isFloorMounted = FLOOR_MOUNTED_FIXTURES.has(this.payload.fixtureType);
+            const seatY =
+                this.payload.seating === 'explicit'
+                    ? this.payload.position.y
+                    : (isFloorMounted
+                        ? resolveFloorSeatingDatum(context, this.payload.levelId, probe)
+                        : resolveCeilingSeatingDatum(context, this.payload.levelId, probe)
+                      ).y;
+
             const data: LightingData = {
                 id,
                 type: 'lighting',
                 levelId: this.payload.levelId,
                 fixtureType: this.payload.fixtureType,
-                position: { ...this.payload.position },
+                position: { x: this.payload.position.x, y: seatY, z: this.payload.position.z },
                 rotation: this.payload.rotation ? { ...this.payload.rotation } : undefined,
                 roomId,
                 hostId: this.payload.hostId,

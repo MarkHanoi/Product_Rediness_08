@@ -26,7 +26,13 @@ export type {
 export {
     installProjectIsolationAudit,
     getIsolationLeakHistory,
+    detectLeaks,
+    // §L-676 (C13 §3.10) — project-scope probes: the audit's GIS/site-side eyes.
+    registerProjectScopeProbe,
+    listProjectScopeProbes,
+    readProjectScopeProbes,
 } from './ProjectIsolationAudit.js';
+export type { ProjectScopeProbe, ScopeProbeReading } from './ProjectIsolationAudit.js';
 
 export {
     isMigrationComplete,

@@ -9,6 +9,7 @@ import {
 import { StairRailingConfig, RailingSide, BalusterShape, RailingType } from '@pryzm/geometry-stair';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { DOMEventBus } from '@pryzm/event-bus';
+import { stableCreatedId } from '../StableCreatedId';
 const _bus = new DOMEventBus();
 
 export interface CreateStairRailingInput {
@@ -76,7 +77,11 @@ export class CreateStairRailingCommand implements Command {
             return { success: false, affectedElementIds: [], info: [`Stair "${this.input.stairId}" not found`] };
         }
 
-        const railingId = crypto.randomUUID();
+        // §STABLE-CREATED-ID (C03 §2.6) — this minted a NEW railing id on every
+        // call, so redo restored a DIFFERENT railing than undo removed (the id the
+        // stair, selection and schedules referenced was orphaned). Memoised on the
+        // command instance so undo -> redo round-trips the SAME id.
+        const railingId = stableCreatedId(this, 'stairRailing');
         try {
             ctx.bimManager.registerElement(railingId, stair.baseLevelId);
             elementRegistry.registerSemantic(railingId, 'stair-railing');

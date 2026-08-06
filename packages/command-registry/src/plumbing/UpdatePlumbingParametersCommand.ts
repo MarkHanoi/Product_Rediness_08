@@ -4,6 +4,9 @@ import { PlumbingFixtureData, PlumbingFixtureType } from '@pryzm/geometry-plumbi
 import type { ToiletVariant } from '@pryzm/geometry-plumbing';
 import type { ShowerVariant } from '@pryzm/geometry-plumbing';
 import { DOMEventBus } from '@pryzm/event-bus';
+// §FIX-INTERIOR-FFL-SEATING — editing the mount offset must re-seat off the FINISHED
+// floor, otherwise the first offset edit silently drops the fixture to the slab.
+import { resolveFloorSeatingDatum } from '../seating/SeatingDatumResolver';
 const _bus = new DOMEventBus();
 
 /**
@@ -95,10 +98,15 @@ export class UpdatePlumbingParametersCommand implements Command {
         }
 
         if (this.payload.baseOffset !== undefined) {
-            const level = context.bimManager.getLevelById(fixture.levelId);
-            if (level) {
-                newData.position.y = level.elevation + this.payload.baseOffset;
-            }
+            // §FIX-INTERIOR-FFL-SEATING — re-seat off the FINISHED floor at the
+            // fixture's own plan position (it may have been moved into a room with a
+            // different finish since it was created).
+            const seat = resolveFloorSeatingDatum(
+                context,
+                fixture.levelId,
+                { x: newData.position.x, z: newData.position.z },
+            );
+            newData.position.y = seat.y + this.payload.baseOffset;
         }
 
         store.add(newData); // store.add performs a set/update

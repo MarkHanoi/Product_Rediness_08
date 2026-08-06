@@ -48,6 +48,13 @@ export {
     type WindowTypeBackfillPlan,
     type WindowTypeBackfillEntry,
 } from './WindowTypeBackfill';
+
+// §FIX-HOSTED-TYPE-CHANGE (L-620) — the properties-panel "Window Type" swap planner.
+export {
+    planWindowTypeChange,
+    PRESERVED_ON_TYPE_CHANGE as WINDOW_PRESERVED_ON_TYPE_CHANGE,
+    type WindowTypeChangePlan,
+} from './WindowTypeChange';
 export { WindowBuilder } from './WindowBuilder';
 export { WindowDependencyTracker } from './WindowDependencyTracker';
 export { WindowLevelCleanupHandler } from './WindowLevelCleanupHandler';

@@ -84,9 +84,10 @@ interface CommandManagerLike {
   undo?(): unknown;
   redo?(): unknown;
   dropEntriesForTargets?(ids: readonly string[]): number;
-  /** §UNDO-CROSS-STACK-ORDER — epoch-ms of the top undo/redo entry (read-only peeks). */
+  /** §UNDO-CROSS-STACK-ORDER — read-only peeks at the top entry (no cursor moves). */
   peekUndoTimestamp?(): number | null;
   peekRedoTimestamp?(): number | null;
+  peekUndoTargetIds?(): readonly string[];
 }
 
 function _rb(): RingBufferLike | undefined {
@@ -117,12 +118,33 @@ let _lastSource: 'ring-buffer' | 'commandManager' | null = null;
  * what a single-timeline stack (ADR-0251 end-state) would do. When either
  * timestamp is missing (legacy fixtures, pre-existing sessions) behaviour is
  * unchanged: ring-buffer first.
+ *
+ * SAME-GESTURE GUARD (load-bearing). The 8+ DUAL-DISPATCH tools (WallTool, Slab,
+ * Roof, Furniture, Plumbing, Stair, Handrail, Beam, Room, annotations) put ONE
+ * gesture in BOTH stacks, and the two halves are stamped microseconds apart in
+ * either order. Routing such a pair by timestamp would undo the legacy twin
+ * first and leave the ring-buffer entry behind as a phantom keypress — the very
+ * bug U-8 exists to kill. So the chronological rule applies ONLY when the two
+ * top entries are about DIFFERENT elements: if the legacy entry's `targetIds`
+ * intersect the ids in the ring buffer's top patch, they are the same gesture
+ * and the established ring-buffer-first + shadow-drop path handles it.
  */
-function _cmEntryIsNewer(pairTime: number | undefined, cm: CommandManagerLike | undefined): boolean {
+function _cmEntryIsNewer(
+  pair: PatchPair | null,
+  cm: CommandManagerLike | undefined,
+): boolean {
+  const pairTime = pair?.timestamp;
   if (typeof pairTime !== 'number') return false;
   if (!cm?.canUndo?.()) return false;
   const cmTime = cm.peekUndoTimestamp?.();
-  return typeof cmTime === 'number' && cmTime > pairTime;
+  if (typeof cmTime !== 'number' || cmTime <= pairTime) return false;
+  // Same-gesture (dual-dispatch twin) → never re-route.
+  const cmTargets = cm.peekUndoTargetIds?.() ?? [];
+  if (cmTargets.length > 0) {
+    const rbIds = new Set(_idsOf(pair));
+    if (cmTargets.some(id => rbIds.has(id))) return false;
+  }
+  return true;
 }
 
 /**
@@ -259,7 +281,7 @@ export function performUndo(): void {
         // across both stacks). This is what routes a commandManager-only hosted
         // door/window (ADD_OPENING) to its own undo instead of being jumped over
         // by the older ring-buffer entry beneath it. Cursor untouched — safe.
-        if (_cmEntryIsNewer(pair?.timestamp, cm)) {
+        if (_cmEntryIsNewer(pair, cm)) {
           cm?.undo?.();
           _lastSource = 'commandManager';
           span.setAttribute('pryzm.undo.path', 'commandManager-newer');

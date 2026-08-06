@@ -177,6 +177,11 @@ export class CommandManager {
                 return result;
             }
 
+            // §UNDO-TARGET-IDENTITY (C03 §4.6 U-9) — THE chokepoint that makes the
+            // U-8 shadow-drop safe for every command family at once. See
+            // `_unionTargetIds` for the full rationale.
+            this._unionTargetIds(command, result);
+
             // Non-undoable commands (e.g. automatic background operations like
             // ReDetectRoomsCommand) are executed but never pushed onto the undo
             // history stack.  This prevents phantom undo entries that force the
@@ -221,6 +226,65 @@ export class CommandManager {
                 info: ['Execution failed — state rolled back'],
                 error: err instanceof Error ? err.message : 'Unknown error'
             };
+        }
+    }
+
+    /**
+     * §UNDO-TARGET-IDENTITY (C03 §4.6 **U-9**) — union the elements a command
+     * ACTUALLY touched into its `targetIds`, at the single point every legacy
+     * command passes through.
+     *
+     * THE INVARIANT (U-9): *a command's `targetIds` MUST name every element it
+     * creates, not only its host or parent.*
+     *
+     * WHY IT MATTERS. The U-8 shadow-drop (`dropEntriesForTargets`) is an
+     * ELEMENT-IDENTITY predicate: after a ring-buffer undo it deletes every entry
+     * whose `targetIds` are a subset of the ids just reverted AND whose elements
+     * are all gone. A create command that names only its HOST therefore looks
+     * exactly like the host's own dual-dispatch twin — so undoing the host
+     * silently destroys the child's entry from `history` AND `redoStack`, and the
+     * child's creation becomes invisible to undo and redo. That is the
+     * founder-reported "Ctrl+Z jumps over the door/window" bug, and it is a
+     * property a whole FAMILY of commands can have. Audited instances at the time
+     * of writing: `CreateWallOpeningCommand` / `CreateWallOpeningsBatchCommand`
+     * (host = wall), `CreateStairRailingCommand` (host = stair),
+     * `DetectRoomFromWallsCommand` (host = walls), `CreatePlanViewCommand`
+     * (host = level).
+     *
+     * WHY HERE AND NOT PER COMMAND. `CommandResult.affectedElementIds` is already
+     * the authored answer to "which elements did this touch" — every command
+     * returns it, and for the host-only creators above it correctly names the
+     * CREATED element (the railing id, the room id, the view id) even when
+     * `targetIds` does not. Unioning it in at the one chokepoint every command
+     * flows through fixes the whole registry, keeps ONE undo path (C03 §4.5 U-5),
+     * and cannot be forgotten by a future command author. Per-command edits would
+     * be 60 copies of the same rule with no enforcement.
+     *
+     * DIRECTIONAL SAFETY. Widening `targetIds` can only make the shadow-drop
+     * STRICTER (a superset is a subset of fewer id sets, and every extra id must
+     * also be orphaned), so it can never delete an entry it did not delete
+     * before — it can only preserve entries that were being destroyed. The
+     * legitimate dual-dispatch drop is unaffected: for those commands
+     * `affectedElementIds` equals `targetIds` already.
+     *
+     * Mutates in place (several commands declare `readonly targetIds: string[]`
+     * — the binding is readonly, the array is not) and is fully defensive: any
+     * command with a non-array or frozen `targetIds` is left exactly as it was.
+     */
+    private _unionTargetIds(command: Command, result: CommandResult): void {
+        try {
+            const created = result.affectedElementIds;
+            if (!Array.isArray(created) || created.length === 0) return;
+            const targets = command.targetIds;
+            if (!Array.isArray(targets)) return;
+            const known = new Set(targets);
+            const missing = created.filter(id => typeof id === 'string' && id.length > 0 && !known.has(id));
+            if (missing.length === 0) return;
+            targets.push(...missing);
+        } catch (err) {
+            // A frozen/exotic targetIds must never break execution — the command
+            // already succeeded. Worst case the entry keeps its authored ids.
+            console.warn('[CommandManager] §UNDO-TARGET-IDENTITY: could not widen targetIds for', command.type, err);
         }
     }
 
@@ -536,6 +600,19 @@ export class CommandManager {
         const top = this.history[this.history.length - 1];
         const t = top?.command?.timestamp;
         return typeof t === 'number' && Number.isFinite(t) ? t : null;
+    }
+
+    /**
+     * The `targetIds` of the entry the next `undo()` would revert (empty when the
+     * history is empty). `performUndoRedo` intersects these with the ids in the
+     * ring buffer's top entry: an overlap means the two stacks hold the SAME
+     * gesture (a dual-dispatch twin), not two different actions, so the
+     * chronological ordering must NOT re-route it — see §UNDO-CROSS-STACK-ORDER.
+     */
+    peekUndoTargetIds(): readonly string[] {
+        const top = this.history[this.history.length - 1];
+        const t = top?.command?.targetIds;
+        return Array.isArray(t) ? t : [];
     }
 
     /** Epoch-ms of the entry the next `redo()` would re-apply, or null when empty. */

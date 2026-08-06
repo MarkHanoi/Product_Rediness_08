@@ -49,6 +49,8 @@ import { CreateWallsFromSlabCommand } from '@pryzm/command-registry';
 // ── Door commands ──────────────────────────────────────────────────────────────
 import { MoveDoorCommand } from '@pryzm/command-registry';
 import { UpdateDoorWidthCommand } from '@pryzm/command-registry';
+// §FIX-HOSTED-TYPE-CHANGE (L-620)
+import { UpdateDoorSystemTypeCommand } from '@pryzm/command-registry';
 import { UpdateDoorHeightCommand } from '@pryzm/command-registry';
 import { UpdateDoorSillHeightCommand } from '@pryzm/command-registry';
 import { UpdateDoorFireRatingCommand } from '@pryzm/command-registry';
@@ -59,6 +61,8 @@ import { UpdateDoorLeafColorCommand } from '@pryzm/command-registry';
 // ── Window commands ────────────────────────────────────────────────────────────
 import { MoveWindowCommand } from '@pryzm/command-registry';
 import { UpdateWindowWidthCommand } from '@pryzm/command-registry';
+// §FIX-HOSTED-TYPE-CHANGE (L-620)
+import { UpdateWindowSystemTypeCommand } from '@pryzm/command-registry';
 import { UpdateWindowHeightCommand } from '@pryzm/command-registry';
 import { UpdateWindowSillHeightCommand } from '@pryzm/command-registry';
 import { UpdateWindowFireRatingCommand } from '@pryzm/command-registry';
@@ -234,6 +238,9 @@ const REGISTRY = new Map<string, CommandFactory>([
     // ── Doors ────────────────────────────────────────────────────────────────
     ['MOVE_DOOR', (s) => new MoveDoorCommand(s.payload.doorId, s.payload.distance, s.payload.direction)],
     ['UPDATE_DOOR_WIDTH', (s) => new UpdateDoorWidthCommand(s.payload.doorId, s.payload.newValue)],
+    // §FIX-HOSTED-TYPE-CHANGE (L-620) — registered so the hosted type swap survives
+    // collaboration replay (same class of gap as §FURNITURE-UPDATE-REPLAY, ADR-0105).
+    ['UPDATE_DOOR_SYSTEM_TYPE', (s) => new UpdateDoorSystemTypeCommand(s.payload as any)],
     ['UPDATE_DOOR_HEIGHT', (s) => new UpdateDoorHeightCommand(s.payload.doorId, s.payload.newValue)],
     ['UPDATE_DOOR_SILL_HEIGHT', (s) => new UpdateDoorSillHeightCommand(s.payload.doorId, s.payload.newValue)],
     ['UPDATE_DOOR_FIRE_RATING', (s) => new UpdateDoorFireRatingCommand(s.payload.doorId, s.payload.newValue)],
@@ -244,6 +251,8 @@ const REGISTRY = new Map<string, CommandFactory>([
     // ── Windows ──────────────────────────────────────────────────────────────
     ['MOVE_WINDOW', (s) => new MoveWindowCommand(s.payload.windowId, s.payload.distance, s.payload.direction)],
     ['UPDATE_WINDOW_WIDTH', (s) => new UpdateWindowWidthCommand(s.payload.windowId, s.payload.newValue)],
+    // §FIX-HOSTED-TYPE-CHANGE (L-620)
+    ['UPDATE_WINDOW_SYSTEM_TYPE', (s) => new UpdateWindowSystemTypeCommand(s.payload as any)],
     ['UPDATE_WINDOW_HEIGHT', (s) => new UpdateWindowHeightCommand(s.payload.windowId, s.payload.newValue)],
     ['UPDATE_WINDOW_SILL_HEIGHT', (s) => new UpdateWindowSillHeightCommand(s.payload.windowId, s.payload.newValue)],
     ['UPDATE_WINDOW_FIRE_RATING', (s) => new UpdateWindowFireRatingCommand(s.payload.windowId, s.payload.newValue)],

@@ -248,7 +248,14 @@ export type {
 export {
     installProjectIsolationAudit,
     getIsolationLeakHistory,
+    detectLeaks,
+    // §L-676 (C13 §3.10) — project-scope probes: the audit's GIS/site-side eyes.
+    registerProjectScopeProbe,
+    listProjectScopeProbes,
+    readProjectScopeProbes,
+    _resetProjectScopeProbesForTest,
 } from './persistence/ProjectIsolationAudit.js';
+export type { ProjectScopeProbe, ScopeProbeReading } from './persistence/ProjectIsolationAudit.js';
 export {
     isMigrationComplete,
     runVGToIntentMigration,

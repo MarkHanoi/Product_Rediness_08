@@ -54,10 +54,33 @@ export class DoorDependencyTracker {
             //   own stored fields are unchanged. Re-emit a touch() so the
             //   DoorBuilder rebuilds the mesh at the new transform. See the
             //   matching block in WindowDependencyTracker for full rationale.
+            //
+            // §FIX-HOSTWALL-CASCADE-SET-REENTRANCY (L-250 / L-01 lineage — the
+            // "move a wall that hosts a door → the whole app freezes" hang).
+            //
+            // `ids` is the LIVE index Set. `doorStore.touch()` re-emits a door
+            // 'update' SYNCHRONOUSLY, which re-enters THIS tracker's own door
+            // subscriber (:38-41) → `register()` → which DELETES the door id from
+            // every bucket and RE-ADDS it. Deleting and re-inserting an element of
+            // a `Set` **while a `for…of` is iterating it** appends the element at
+            // the END of the iteration order, so the iterator visits it AGAIN —
+            // for a single hosted door that is an unbounded loop that never
+            // returns. It runs inside `wallStore.update()`'s synchronous listener
+            // fan-out, i.e. inside `UpdateWallBaselineCommand.execute()`, which is
+            // exactly why the founder's console ends on the CommandManager
+            // snapshot line with no error and no further output.
+            //
+            // A bare wall never reaches it (`ids` is empty), which is why the
+            // freeze is hosted-opening-specific.
+            //
+            // Fix: iterate a SNAPSHOT of the bucket — a plain array, finite by
+            // construction, that a re-entrant index mutation cannot extend. The
+            // set of doors to re-anchor is the set that was hosted when the wall
+            // moved; that is precisely the snapshot.
             if (event === 'update' && prev && this._wallGeometryChanged(prev, wall)) {
                 const ids = this.graph.get(wall.id);
                 if (ids && ids.size > 0) {
-                    for (const doorId of ids) {
+                    for (const doorId of [...ids]) {
                         try { doorStore.touch(doorId); }
                         catch (err) { console.warn(`[DoorDependencyTracker] touch(${doorId}) failed:`, err); }
                     }
@@ -78,6 +101,16 @@ export class DoorDependencyTracker {
     }
 
     private register(doorId: string, wallId: string): void {
+        // §FIX-HOSTWALL-CASCADE-SET-REENTRANCY — DEFENCE IN DEPTH (belt to the
+        // snapshot's braces above). A re-registration that changes nothing must
+        // not TOUCH the index at all: the delete-then-re-add below is only
+        // meaningful when the door actually moved host wall. Every `touch()`
+        // (the wall→door cascade, the builder re-anchor, an idempotent replay)
+        // arrives here with the door ALREADY indexed under the same wall, so
+        // this early return removes the re-entrant Set churn at its source —
+        // any future caller that iterates a live bucket is safe by construction,
+        // not merely by that caller's own discipline.
+        if (this.graph.get(wallId)?.has(doorId)) return;
         // Remove from any previous bucket (handles wallId reassignment).
         for (const set of this.graph.values()) set.delete(doorId);
         let bucket = this.graph.get(wallId);

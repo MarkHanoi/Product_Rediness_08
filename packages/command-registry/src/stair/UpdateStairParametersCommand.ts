@@ -7,6 +7,7 @@ import {
     CommandContext
 } from '../types';
 import { StairData, StairProperties, STAIR_CONSTRAINTS } from '@pryzm/geometry-stair';
+import { GenerateStairGeometryCommand } from './GenerateStairGeometryCommand';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -134,11 +135,44 @@ export class UpdateStairParametersCommand implements Command {
         stairStore.update(this.stairId, updatedStair);
         this.executed = true;
 
+        // §FIX-STAIR-AUTHORED-PARAM-DEAF — this command wrote the PRIMITIVES and
+        // stopped. Geometry regeneration lived only on the generic
+        // `UpdateElementParameterCommand` → ElementRebuildRegistry path, so the same
+        // parameter edited through THIS command (the stair param panel / AI route)
+        // left the derived fields and the 3D mesh stale — two rival update paths with
+        // different outcomes, which is what the founder's console showed
+        // (UPDATE_STAIR_PARAMETERS with no GenerateStairGeometryCommand after it).
+        //
+        // Route through the SAME single geometry command instead of forking a second
+        // pipeline (C11 — one element-creation/regeneration path). Undo is unaffected:
+        // this command restores a FULL StairData snapshot, which already contains the
+        // derived fields the rebuild recomputes.
+        if (this._geometryAffecting()) {
+            try {
+                const res = new GenerateStairGeometryCommand({ stairId: this.stairId }).execute(ctx);
+                if (!res.success) {
+                    console.warn('[UpdateStairParametersCommand] geometry rebuild failed:', res.info);
+                }
+            } catch (e) {
+                console.warn('[UpdateStairParametersCommand] geometry rebuild error:', e);
+            }
+        }
+
         _bus.emit('ai-model-update', {}); // F.events.17
 
         console.log(`[UpdateStairParametersCommand] Updated stair ${this.stairId}`, this.updates);
 
         return { success: true, affectedElementIds: [this.stairId], info: ['Stair parameters updated successfully'] };
+    }
+
+    /**
+     * True when at least one edited key feeds the stair's geometry. Mirrors the
+     * `geometryParams` set the ElementRebuildRegistry declares for `stair`, so both
+     * update paths agree on what triggers a rebuild.
+     */
+    private _geometryAffecting(): boolean {
+        const GEOMETRY_KEYS = ['width', 'riserHeight', 'treadDepth', 'typeId', 'properties'] as const;
+        return GEOMETRY_KEYS.some(k => this.updates[k] !== undefined);
     }
 
     undo(ctx: CommandContext): CommandResult {

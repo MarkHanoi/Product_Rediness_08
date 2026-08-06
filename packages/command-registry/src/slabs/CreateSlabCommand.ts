@@ -1,4 +1,5 @@
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
+import { stableCreatedId } from '../StableCreatedId';
 import { SlabData } from '@pryzm/geometry-slab';
 import { SlabSketch } from '@pryzm/geometry-slab';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
@@ -65,7 +66,11 @@ export class CreateSlabCommand implements Command {
                 'Always pass id: crypto.randomUUID() from the calling tool or batch command.'
             );
         }
-        const slabId = this.payload.id || crypto.randomUUID();
+        // §STABLE-CREATED-ID (C03 §2.6) — the last-resort fallback below is now
+        // memoised per command instance, so even when a tool forgets to inject an id
+        // (the warning above) undo -> redo still round-trips the SAME slab id
+        // instead of minting a fresh one on every redo.
+        const slabId = stableCreatedId(this, 'slab', this.payload.id);
 
         const targetLevelId = this.payload.levelId || context.projectContext.activeLevelId;
         if (!targetLevelId) {

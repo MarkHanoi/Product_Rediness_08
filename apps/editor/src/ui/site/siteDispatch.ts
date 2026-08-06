@@ -580,6 +580,96 @@ export function getCurrentSiteOrigin(): { lat: number; lon: number } | null {
     return _lastSiteOrigin ? { ..._lastSiteOrigin } : null;
 }
 
+// ── §L-676 (C13 §3.10 / C19 §1.11) — project ownership of the module singletons ──
+//
+// Every `let` in this module is an app-lifetime singleton. Before L-676 NOTHING
+// reset them on a project switch: `restoreSiteState` cleared exactly one
+// (`_lastSiteOrigin`) and only on the "no persisted site" branch. Project A's
+// LTP-ENU frame, buildable envelope, parcel query point and preview-hue flag all
+// carried into Project B, where they read as authoritative because nothing marks
+// them as foreign.
+//
+// The fix is ownership, not more clear() calls: the module records WHICH project
+// its state belongs to, the audit can therefore SEE a leak, and the C13 teardown
+// has one named owner to call.
+let _owningProjectId: string | null = null;
+
+/**
+ * Stamp the project every subsequent module-singleton write belongs to. Called at
+ * each site-dispatch write chokepoint; safe to call repeatedly.
+ */
+function noteSiteDispatchOwner(): void {
+    try {
+        const rt = (typeof window !== 'undefined')
+            ? (window.runtime as unknown as PryzmRuntime | undefined)
+            : undefined;
+        const pid = rt ? resolveActiveProjectId(rt) : null;
+        if (typeof pid === 'string' && pid.length > 0) _owningProjectId = pid;
+    } catch { /* ownership stamping must never break a dispatch */ }
+}
+
+/**
+ * §L-676 — the project whose site-dispatch state is currently live, or `null` when
+ * this module holds nothing. Read by the C13 isolation-audit scope probe.
+ */
+export function getSiteDispatchOwningProjectId(): string | null {
+    const holdsSomething =
+        _ltpAdapter !== null ||
+        _lastSiteOrigin !== null ||
+        _lastEnvelope !== null ||
+        _lastParcelQueryPoint !== null ||
+        _lastEnvelopeIsSuggestedPreview;
+    return holdsSomething ? _owningProjectId : null;
+}
+
+/** §L-676 — what the module is holding, for the leak report. Never throws. */
+export function describeSiteDispatchState(): Record<string, unknown> {
+    return {
+        ltpAdapter: _ltpAdapter !== null,
+        lastSiteOrigin: _lastSiteOrigin ? { ..._lastSiteOrigin } : null,
+        lastEnvelopeStatus: _lastEnvelope?.status ?? null,
+        lastParcelQueryPoint: _lastParcelQueryPoint ? { ..._lastParcelQueryPoint } : null,
+        lastEnvelopeIsSuggestedPreview: _lastEnvelopeIsSuggestedPreview,
+    };
+}
+
+/**
+ * §L-676 (C13 §4 teardown / C19 §1.11) — reset EVERY per-project module singleton
+ * in this file to its cold-boot value. The single named owner of this file's
+ * project scope; registered with `projectScopeRegistry` by `siteProjectScope.ts`
+ * so `ClearProjectCommand` runs it on every load, and invoked directly by the
+ * `pryzm-project-switch` teardown so it also runs BEFORE the incoming project's
+ * context is set (C13 §3.7).
+ *
+ * Synchronous, idempotent, never throws (C13 ProjectScopedStore contract).
+ */
+export function resetSiteDispatchProjectState(): void {
+    const span = _siteRestoreTracer.startSpan('pryzm.site.resetProjectState');
+    try {
+        span.setAttribute('pryzm.site.priorProjectId', _owningProjectId ?? 'none');
+        span.setAttribute('pryzm.site.hadLtpAdapter', _ltpAdapter !== null);
+        span.setAttribute('pryzm.site.hadEnvelope', _lastEnvelope !== null);
+        // The LTP-ENU adapter carries the PRIOR site's origin. Keeping it is the
+        // §L-259 defect (ii) mechanism: every scene→ENU conversion in the new
+        // project resolves against a frame anchored hundreds of km away.
+        _ltpAdapter = null;
+        _lastSiteOrigin = null;
+        _lastEnvelope = null;
+        _lastParcelQueryPoint = null;
+        _lastEnvelopeIsSuggestedPreview = false;
+        _riyadhDemoInputs = { plotClass: 'villa', streetWidth_m: null };
+        // The Danish Byggefelt producer owns a rate-limit queue + LRU keyed by
+        // bbox; dropping it cancels nothing in flight but stops Project B reading
+        // Project A's cached fields. Recreated lazily on first use.
+        _dkByggefeltProducer = null;
+        _owningProjectId = null;
+    } catch (e) {
+        console.warn('[gis] §L-676 resetSiteDispatchProjectState failed (non-fatal):', e);
+    } finally {
+        span.end();
+    }
+}
+
 // ── C58 — buildable-envelope transient cache (L-398 / L-402b) ────────────────
 //
 // ⚠ AMENDED by ADR-0270 option A / C58 §1.7a (L-451). This block previously read "the inset
@@ -892,6 +982,7 @@ function setLtpOriginIfSafe(ctx: SiteContext, lat: number, lon: number): void {
             console.log(`[gis] LTPENURebase.setOrigin → LAT ${lat} LON ${lon} (C19 §1.3).`);
         }
         _lastSiteOrigin = { lat, lon }; // §CESIUM-SITE-ORIGIN — for the Cesium fallback read.
+        noteSiteDispatchOwner(); // §L-676 — record WHICH project this frame belongs to.
     } catch (e) {
         // Origin-rebase is best-effort site intelligence; never block the location
         // dispatch (the lat/lon is still recorded on the Site for IFC export).
@@ -922,6 +1013,7 @@ function setLtpOriginForce(lat: number, lon: number): void {
             _ltpAdapter.setOrigin(lat, lon, 0);
         }
         _lastSiteOrigin = { lat, lon }; // §CESIUM-SITE-ORIGIN — for the Cesium fallback read.
+        noteSiteDispatchOwner(); // §L-676 — record WHICH project this frame belongs to.
         console.log(`[gis] LTPENURebase origin RESTORED → LAT ${lat} LON ${lon} (C19 §1.3, L-188).`);
     } catch (e) {
         console.warn('[gis] §FIX-GIS-SITE-STATE-NOT-PERSISTED — LTP origin restore failed (non-fatal):', e);
@@ -971,7 +1063,11 @@ export function restoreSiteState(
         // No persisted site (non-GIS project) → clear for project-switch isolation.
         if (!site) {
             store.reset();
-            _lastSiteOrigin = null;
+            // §L-676 — was `_lastSiteOrigin = null` ONLY. Every other module
+            // singleton (the LTP-ENU adapter, the buildable envelope, the parcel
+            // query point, the preview-hue flag) survived into the incoming
+            // project. Reset the whole scope through its single named owner.
+            resetSiteDispatchProjectState();
             span.setAttribute('pryzm.site.restored', false);
             return false;
         }
@@ -987,6 +1083,10 @@ export function restoreSiteState(
         }
 
         store.set(model);
+        // §L-676 — the snapshot names its own project; stamp ownership from the
+        // SNAPSHOT rather than from the ambient runtime, which may still be mid-
+        // transition. A restored site is never a leak of the project it declares.
+        _owningProjectId = model.projectId;
 
         const { latitude: lat, longitude: lon } = model.location;
         span.setAttribute('pryzm.site.lat', lat);
@@ -1105,7 +1205,7 @@ export function resolveSiteContext(
  * `window.projectContext.projectId` read is kept LAST purely as a future-proof
  * no-op (harmless if a projectId field is ever added there).
  */
-function resolveActiveProjectId(rt: PryzmRuntime): string | null {
+export function resolveActiveProjectId(rt: PryzmRuntime): string | null {
     const auditPid = rt.audit?.projectId;
     if (typeof auditPid === 'string' && auditPid.length > 0) return auditPid;
     const ctxPid = rt.projectContext?.projectId;
@@ -8131,6 +8231,7 @@ function computeAndCacheEstimatedEnvelope(
             boundary.edgeClassifications,
         );
         _lastEnvelope = envelope;
+        noteSiteDispatchOwner(); // §L-676 — record WHICH project this envelope belongs to.
         return envelope;
     } catch (e) {
         console.warn('[gis][c58] buildable-envelope solve failed (non-fatal):', e);
@@ -8282,6 +8383,7 @@ function dispatchEnvelope(
     jurisdictionRef: string,
 ): void {
     _lastEnvelope = envelope;
+    noteSiteDispatchOwner(); // §L-676 — record WHICH project this envelope belongs to.
     // §NEARBY-HEIGHT-SUGGESTION — every NORMAL dispatch (this function) is, by construction, a
     // reviewed/confirmed result — never the admin-only unreviewed auto-preview (that path is
     // `previewSuggestedZoneEnvelope`, which sets the flag `true` itself, right after calling this
