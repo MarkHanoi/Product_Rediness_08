@@ -7,7 +7,7 @@ import { deleteIfcImportedElement, isIfcImportedElement } from '@pryzm/file-form
 
 import { BimManager } from '@pryzm/core-app-model';
 import type { ViewMode } from '@pryzm/core-app-model';
-import { setStairToolConfig } from '@pryzm/geometry-stair';
+import { setStairToolConfig, type StairShapeChoice } from '@pryzm/geometry-stair';
 import type { IBimService } from '@pryzm/engine';
 import { activateStairSketchSurfaces } from './stairSketchRouting';
 
@@ -101,7 +101,22 @@ export class BimService implements IBimService {
         this.wallTool.switchDrawingMode(mode);
     }
 
-    activateSlabTool(mode: '2point' | 'polyline' | 'region' | 'hollow' | 'pickWalls') {
+    /**
+     * §FEAT-SLAB-DRAW-MODES (founder 2026-08-06) — the slab tool now accepts the
+     * WALL tool's drawing modes.
+     *
+     * `linear` / `ortho` / `curved` are POLYLINE SUB-MODES, exactly as they are
+     * for walls: all three enter POLYLINE_SLAB and differ only in how each click
+     * is constrained. The constraint itself is read from `slabModePicker` by the
+     * tool handlers (the `WallModePicker.getActiveMode()` contract), so switching
+     * mode mid-draw needs no re-activation.
+     *
+     * `polyline` is retained as an alias of `linear` so any caller that still
+     * asks for the old mode name keeps working unchanged.
+     */
+    activateSlabTool(
+        mode: 'linear' | 'ortho' | 'curved' | 'polyline' | '2point' | 'region' | 'hollow' | 'pickWalls',
+    ) {
         const toolManager = this.props.toolManager as any;
         if (toolManager?.activateSlab) {
             toolManager.activateSlab(mode);
@@ -110,9 +125,10 @@ export class BimService implements IBimService {
 
         if (mode === '2point') this.slabTool.enterSketchMode();
         else if (mode === 'hollow') this.slabTool.enterHollowMode();
-        else if (mode === 'polyline') this.slabTool.enterPolylineMode();
         else if (mode === 'region') this.slabTool.enterRegionMode();
         else if (mode === 'pickWalls') this.slabTool.enterPickWallsMode();
+        // linear / ortho / curved / polyline all draw a POLYLINE slab.
+        else this.slabTool.enterPolylineMode();
     }
 
     activateRoofTool(mode: '2point' | 'polyline' | 'region' | 'single_slope' | 'hip_roof' = '2point') {
@@ -232,7 +248,19 @@ export class BimService implements IBimService {
         }
     }
 
-    activateCeilingTool(typeId?: string) {
+    /**
+     * §FIX-FINISH-MODE-PLAN-UNREACHABLE (founder 2026-08-06) — `mode` is the
+     * DRAWING mode (linear / ortho / curved / rectangle / auto).
+     *
+     * It exists because "Auto Ceiling" used to be expressed ONLY as
+     * `window.ceilingTool.setMode('AUTO_FROM_ROOM')` — a field on the 3D tool
+     * INSTANCE. `CeilingPlanToolHandler` reads the mode from `ceilingModePicker`
+     * instead, so the 3D tool's AUTO was invisible to the plan surface and the
+     * plan tool silently stayed in polygon mode: AUTO was unreachable in plan
+     * view. The ToolsAreaLayout wrapper applies this argument to BOTH the 3D tool
+     * and the picker, so one activation puts every surface in the same mode.
+     */
+    activateCeilingTool(typeId?: string, _mode?: string) {
         // §C19-P14: Route through ToolManager so PlanViewToolOverlay receives 'ceiling'
         const tool = window.ceilingTool;
         if (tool && typeof tool.setSystemTypeId === 'function') tool.setSystemTypeId(typeId);
@@ -243,7 +271,17 @@ export class BimService implements IBimService {
         }
     }
 
-    activateFloorTool(typeId?: string) {
+    /**
+     * §FIX-FINISH-MODE-PLAN-UNREACHABLE (founder 2026-08-06) — see
+     * `activateCeilingTool`. The founder's named case: "FLOOR FINISH is NOT
+     * capable of being created in PLAN VIEW". The plan HANDLER was in fact
+     * registered all along (`planToolHandlerRegistry` → 'floor'); what was
+     * unreachable was its AUTO **mode**, because "Auto Floor" only ever wrote
+     * `window.floorTool.setMode('AUTO_FROM_ROOM')` — a 3D-tool instance field the
+     * plan handler cannot see (the same class of defect as L-255, which fixed the
+     * finish PARAMETERS by the same argument but left the MODE behind).
+     */
+    activateFloorTool(typeId?: string, _mode?: string) {
         // §C19-P14: Route through ToolManager so PlanViewToolOverlay receives 'floor'
         const tool = window.floorTool;
         if (tool && typeof tool.setSystemTypeId === 'function') tool.setSystemTypeId(typeId);
@@ -279,7 +317,7 @@ export class BimService implements IBimService {
         if (manager) manager.execute(command);
     }
 
-    activateStairPathTool(shape?: 'I' | 'L' | 'U') {
+    activateStairPathTool(shape?: StairShapeChoice) {
         // §FIX-STAIR-PLAN-CREATION-BLOCKED (L-243) — publish the ribbon's shape choice
         // to the single StairToolConfigStore chokepoint, so the plan tool, the 3D sketch
         // tool and any batch/AI path all author from the SAME resolved config (P2).

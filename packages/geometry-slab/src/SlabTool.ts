@@ -16,6 +16,11 @@ import { projectContext, PREVIEW_COLOR } from '@pryzm/core-app-model';
 import { DimensionPreview } from '@pryzm/geometry-wall';
 import { SlabPickWallsController } from './SlabPickWallsController.js';
 import { snapToAxisOrDiagonal } from './SlabSnapUtils.js';
+// §FEAT-SLAB-DRAW-MODES (founder 2026-08-06) — the ONE boundary path model, shared
+// with the plan-view slab handler and with the floor-finish / ceiling tools, so a
+// polyline slab drawn in 3D obeys the same ORTHO constraint and the same CURVED
+// arc gesture as one drawn in plan (C11 §3 — parity by construction).
+import { orthoConstrain, arcSegmentThroughMidpoint, type BoundaryDrawMode } from './boundaryPath.js';
 // §SLAB-REGION-CURVED — single shared, curve-aware region tracer (pure, THREE-free).
 // Both this 3D tool and the plan-view overlay (SlabPlanToolHandler) consume it so
 // curved/filleted-wall regions trace identically in both views.
@@ -95,6 +100,14 @@ export interface SlabToolDeps {
     getFastPathProjectorService?: () => any;
     /** Sprint Y dep-inversion: factory for SlabDimensionsEditor (UI layer — not importable from packages). */
     createDimensionsEditor?: (deps: { getSlabStore?: () => any; getCommandManager?: () => any }) => any;
+    /**
+     * §FEAT-SLAB-DRAW-MODES — the user's LINEAR / ORTHO / CURVED choice, resolved
+     * fresh on every click. Injected (never read from `window`, P4) by the editor
+     * from `activeSlabDrawMode`, the same store `SlabPlanToolHandler` reads, so
+     * the 3D and plan surfaces cannot disagree about the active constraint.
+     * Absent ⇒ LINEAR, i.e. exactly the pre-existing 3D behaviour.
+     */
+    getBoundaryDrawMode?: () => BoundaryDrawMode;
 }
 
 export class SlabTool {
@@ -114,7 +127,9 @@ export class SlabTool {
         previewLine: null as THREE.Line | null,
         closingLinePreview: null as THREE.Line | null,   // I4: closing edge ghost line
         previewFillMesh: null as THREE.Mesh | null,       // I5: translucent fill polygon
-        markers: [] as THREE.Mesh[]
+        markers: [] as THREE.Mesh[],
+        /** §FEAT-SLAB-DRAW-MODES — CURVED mode: the pending arc midpoint (3-click gesture). */
+        arcMidPoint: null as THREE.Vector3 | null,
     };
 
     private dimensionPreview: DimensionPreview | null = null;
@@ -786,6 +801,20 @@ export class SlabTool {
         }
     };
 
+    /**
+     * §FEAT-SLAB-DRAW-MODES — the user's active boundary constraint. Injected, so
+     * this class reads no `window` (P4) and the plan overlay and the 3D tool
+     * resolve the SAME store. Defaults to LINEAR: with no injection the 3D tool
+     * behaves exactly as it did before this change.
+     */
+    private _boundaryDrawMode(): BoundaryDrawMode {
+        try {
+            return this._deps.getBoundaryDrawMode?.() ?? 'linear';
+        } catch {
+            return 'linear';
+        }
+    }
+
     private addPolylinePoint(point: THREE.Vector3): void {
         const levelId = projectContext.activeLevelId;
         // W7 FIX §02 §1.3: Explicit fallback with error log — no silent ?? 0.
@@ -794,16 +823,59 @@ export class SlabTool {
         const snappedPoint = point.clone();
         snappedPoint.y = elevation;
 
-        // I2: Apply axis/angle snap relative to the last committed point.
-        // Shift held → bypass snap and commit the raw cursor position.
         const lastPt = this.polylineData.points[this.polylineData.points.length - 1];
-        if (lastPt && !this.shiftPressed) {
-            const snapped = snapToAxisOrDiagonal(
-                { x: lastPt.x,        y: lastPt.z },
-                { x: snappedPoint.x,  y: snappedPoint.z }
+        const drawMode = this._boundaryDrawMode();
+
+        // §FEAT-SLAB-DRAW-MODES — CURVED: vertex → arc MIDPOINT → arc END, the
+        // wall tool's 3-click gesture. The Bézier is tessellated into the polygon,
+        // so every downstream consumer (builders, exports, IFC) is unchanged.
+        if (drawMode === 'curved' && lastPt) {
+            if (!this.polylineData.arcMidPoint) {
+                this.polylineData.arcMidPoint = snappedPoint;
+                this.updatePolylinePreview();
+                const hud = document.getElementById('hud-step-text');
+                if (hud) hud.textContent = 'Curved · Click the arc END point';
+                return;
+            }
+            const run = arcSegmentThroughMidpoint(
+                { x: lastPt.x, z: lastPt.z },
+                { x: this.polylineData.arcMidPoint.x, z: this.polylineData.arcMidPoint.z },
+                { x: snappedPoint.x, z: snappedPoint.z },
             );
-            snappedPoint.x = snapped.x;
-            snappedPoint.z = snapped.y; // our {x,y} represents world {X,Z}
+            for (const v of run) {
+                this.polylineData.points.push(new THREE.Vector3(v.x, elevation, v.z));
+            }
+            this.polylineData.arcMidPoint = null;
+            this.updatePolylinePreview();
+            const hud = document.getElementById('hud-step-text');
+            if (hud) hud.textContent = `Curved · Points: ${this.polylineData.points.length} (Click start to close)`;
+            if (this.polylineData.points.length >= 3) {
+                const btns = document.getElementById('confirm-btns');
+                if (btns) btns.style.display = 'flex';
+            }
+            return;
+        }
+
+        // I2 / §FEAT-SLAB-DRAW-MODES: constrain relative to the last committed point.
+        //   ORTHO  → the WALL tool's 90° constraint (shared `orthoConstrain`).
+        //   LINEAR → the pre-existing 45°/90° assist, bit-identical to before.
+        // Shift held → bypass the constraint and commit the raw cursor position.
+        if (lastPt && !this.shiftPressed) {
+            if (drawMode === 'ortho') {
+                const v = orthoConstrain(
+                    { x: lastPt.x, z: lastPt.z },
+                    { x: snappedPoint.x, z: snappedPoint.z },
+                );
+                snappedPoint.x = v.x;
+                snappedPoint.z = v.z;
+            } else {
+                const snapped = snapToAxisOrDiagonal(
+                    { x: lastPt.x,        y: lastPt.z },
+                    { x: snappedPoint.x,  y: snappedPoint.z }
+                );
+                snappedPoint.x = snapped.x;
+                snappedPoint.z = snapped.y; // our {x,y} represents world {X,Z}
+            }
         }
 
         // Check for closing the loop
@@ -849,12 +921,29 @@ export class SlabTool {
         // W7 FIX §02 §1.3: Explicit fallback with error log — no silent ?? 0.
         const elevation = this.resolveElevationForPreview(levelId);
 
-        // I2: Apply axis/angle snap to the live hover point so the ghost line
-        // tracks the same position that would be committed on click.
+        // I2 / §FEAT-SLAB-DRAW-MODES: constrain the live hover point so the ghost
+        // line tracks the position that would ACTUALLY be committed on click.
         let displayHover = hoverPoint;
+        // CURVED with a pending midpoint: the ghost is the whole tessellated arc,
+        // not a straight rubber band — appended below as `arcTail`.
+        let arcTail: THREE.Vector3[] = [];
         if (hoverPoint && this.activeTool === 'POLYLINE_SLAB') {
             const lastPt = this.polylineData.points[this.polylineData.points.length - 1];
-            if (lastPt && !this.shiftPressed) {
+            const drawMode = this._boundaryDrawMode();
+            if (lastPt && drawMode === 'curved' && this.polylineData.arcMidPoint) {
+                arcTail = arcSegmentThroughMidpoint(
+                    { x: lastPt.x, z: lastPt.z },
+                    { x: this.polylineData.arcMidPoint.x, z: this.polylineData.arcMidPoint.z },
+                    { x: hoverPoint.x, z: hoverPoint.z },
+                ).map(v => new THREE.Vector3(v.x, elevation + 0.01, v.z));
+                displayHover = undefined;
+            } else if (lastPt && !this.shiftPressed && drawMode === 'ortho') {
+                const v = orthoConstrain(
+                    { x: lastPt.x,     z: lastPt.z },
+                    { x: hoverPoint.x, z: hoverPoint.z },
+                );
+                displayHover = new THREE.Vector3(v.x, hoverPoint.y, v.z);
+            } else if (lastPt && !this.shiftPressed && drawMode !== 'curved') {
                 const snapped = snapToAxisOrDiagonal(
                     { x: lastPt.x,       y: lastPt.z },
                     { x: hoverPoint.x,   y: hoverPoint.z }
@@ -868,6 +957,8 @@ export class SlabTool {
             pt.y = elevation + 0.01; // slight offset to avoid z-fighting
             return pt;
         });
+
+        for (const v of arcTail) points.push(v);
 
         // Add hover extension
         if (displayHover) {
@@ -980,6 +1071,9 @@ export class SlabTool {
 
     private clearPolyline(): void {
         this.polylineData.points = [];
+        // §FEAT-SLAB-DRAW-MODES — a pending arc midpoint must not survive a reset,
+        // or the next polyline's first click would be read as an arc END.
+        this.polylineData.arcMidPoint = null;
         if (this.polylineData.previewLine) {
             this.polylineData.previewLine.geometry.dispose();
             (this.polylineData.previewLine.material as THREE.Material).dispose();

@@ -26,7 +26,10 @@ import { createId } from '@pryzm/schemas';
 import { resolveRoomFinishBoundary, type RoomFinishWall } from '@pryzm/room-topology';
 // §FEAT-BOUNDARY-CURVE-DRAW (2026-08-06) — the ONE arc model for curved boundary
 // segments (wall-tool midpoint-Bézier semantics), shared with the 3D tools.
-import { arcSegmentThroughMidpoint } from '@pryzm/geometry-slab';
+// §FEAT-SLAB-DRAW-MODES (2026-08-06) — `orthoConstrain` is the WALL tool's
+// `_snapOrtho`, shared by slab / floor / ceiling. Replaces the private
+// dominant-axis projection this handler used to carry.
+import { arcSegmentThroughMidpoint, orthoConstrain } from '@pryzm/geometry-slab';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import type { CeilingPickerMode } from '@app/ui/CeilingModePicker';
 
@@ -199,12 +202,13 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
         return (picker?.getActiveMode?.() as CeilingPickerMode) ?? 'linear';
     }
 
+    /** §FEAT-SLAB-DRAW-MODES — the ONE ortho constraint (the wall tool's, verbatim). */
     private _orthoSnap(from: WorldPoint, to: WorldPoint): WorldPoint {
-        const dx = Math.abs(to.worldX - from.worldX);
-        const dz = Math.abs(to.worldZ - from.worldZ);
-        return dx >= dz
-            ? ({ worldX: to.worldX,   worldZ: from.worldZ } as WorldPoint)
-            : ({ worldX: from.worldX, worldZ: to.worldZ   } as WorldPoint);
+        const v = orthoConstrain(
+            { x: from.worldX, z: from.worldZ },
+            { x: to.worldX,   z: to.worldZ   },
+        );
+        return { worldX: v.x, worldZ: v.z } as WorldPoint;
     }
 
     private _commitFromRoomAt(pt: WorldPoint): void {

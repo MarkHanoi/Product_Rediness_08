@@ -61,7 +61,12 @@ import type { FloorPickerMode } from '@app/ui/FloorModePicker';
 // §FEAT-BOUNDARY-CURVE-DRAW (2026-08-06) — the ONE arc model for curved boundary
 // segments: the wall tool's midpoint-Bézier semantics + tessellation density, shared
 // with the 3D FloorTool/CeilingTool (no second arc representation).
-import { arcSegmentThroughMidpoint } from '@pryzm/geometry-slab';
+// §FEAT-SLAB-DRAW-MODES (2026-08-06) — `orthoConstrain` is the WALL tool's
+// `_snapOrtho`, lifted into geometry-slab so slab / floor / ceiling share it.
+// This handler used to carry a PRIVATE `_orthoSnap` that projected onto the
+// dominant axis instead of snapping the direction and preserving the radial
+// distance — visually orthogonal, numerically NOT what the wall tool commits.
+import { arcSegmentThroughMidpoint, orthoConstrain } from '@pryzm/geometry-slab';
 // §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — the SAME modal instance the 3D FloorTool is
 // given in initTools. Precedent for a plan handler using a UI service singleton:
 // AnnotationPlanToolHandlers → `pryzmAnnotationInput`. (Contract 21 §2 forbids a handler
@@ -246,12 +251,17 @@ export class FloorPlanToolHandler implements PlanToolHandler {
         return (picker?.getActiveMode?.() as FloorPickerMode) ?? 'linear';
     }
 
+    /**
+     * §FEAT-SLAB-DRAW-MODES — delegates to the ONE ortho constraint (the wall
+     * tool's, verbatim). Kept as a private adapter purely to translate between
+     * `WorldPoint` and the pure `{x,z}` the shared model speaks.
+     */
     private _orthoSnap(from: WorldPoint, to: WorldPoint): WorldPoint {
-        const dx = Math.abs(to.worldX - from.worldX);
-        const dz = Math.abs(to.worldZ - from.worldZ);
-        return dx >= dz
-            ? ({ worldX: to.worldX,   worldZ: from.worldZ } as WorldPoint)
-            : ({ worldX: from.worldX, worldZ: to.worldZ   } as WorldPoint);
+        const v = orthoConstrain(
+            { x: from.worldX, z: from.worldZ },
+            { x: to.worldX,   z: to.worldZ   },
+        );
+        return { worldX: v.x, worldZ: v.z } as WorldPoint;
     }
 
     private _commitFromRoomAt(pt: WorldPoint): void {

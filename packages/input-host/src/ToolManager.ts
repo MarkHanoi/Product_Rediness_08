@@ -38,6 +38,32 @@ import { drawingEditorService } from '@pryzm/core-app-model/views';
 
 export type ActiveTool = ToolName;
 
+/**
+ * §FEAT-DUAL-VIEW-CREATION-MATRIX (founder, 2026-08-06) — the tool keys this
+ * manager PUBLISHES via `activateTool(...)`, i.e. the set a 3D-surface activation
+ * can put on the wire. It is the 3D counterpart of `PLAN_TOOL_KEYS` in the editor's
+ * `planToolHandlerRegistry`, and the two together are the founder's creation matrix:
+ *
+ *   "ALL ELEMENTS SHOULD BE CAPABLE OF BEING CREATED BOTH IN PLAN VIEW AND IN 3D
+ *    VIEW, BY ANY MODE — INCLUDING AUTO."
+ *
+ * `apps/editor/.../elementCreationMatrix.spec.ts` asserts the declared matrix
+ * against this list, so a tool that gains a 3D activator without a plan handler
+ * (or vice versa) is a named, failing gap rather than a silent one.
+ *
+ * KEEP IN SYNC with the `activateTool('<key>', …)` call sites below. The spec
+ * cannot grep source, so this list is the contract; adding an `activateX` without
+ * adding its key here understates the 3D column.
+ */
+export const TOOL_MANAGER_TOOL_KEYS: readonly string[] = [
+    'angular-dimension', 'beam', 'callout-detail', 'ceiling', 'column', 'curtain-wall',
+    'diameter-dimension', 'door', 'door-tag', 'element-tag', 'elevation-mark', 'floor',
+    'furniture', 'grid', 'grid-bubble', 'keynote', 'level-tag', 'lift', 'linear-dim',
+    'opening', 'plumbing', 'radius-dimension', 'railing', 'revision-cloud', 'roof',
+    'room', 'section-mark', 'slab', 'slope-dimension', 'spot-elevation', 'stair',
+    'stair-path', 'text-note', 'wall', 'window', 'window-tag',
+] as const;
+
 interface ToolRegistration {
     tool: any;
     name: ToolName;
@@ -561,7 +587,21 @@ export class ToolManager {
         });
     }
 
-    async activateSlab(mode: 'sketch' | '2point' | 'polyline' | 'region' | 'hollow' | 'pickWalls' = 'sketch'): Promise<void> {
+    /**
+     * §FEAT-SLAB-DRAW-MODES (founder 2026-08-06) — `linear` / `ortho` / `curved`
+     * are the WALL tool's three drawing modes, now offered on the slab. They are
+     * POLYLINE SUB-MODES (exactly as they are for walls): all three enter the
+     * polyline slab and differ only in how each click is constrained, which the
+     * tools read from the shared `activeSlabDrawMode` store.
+     *
+     * Adding them here is REQUIRED, not cosmetic: `BimService.activateSlabTool`
+     * prefers this method when a ToolManager is present, so a mode this switch
+     * did not know would have fallen through to `default` and silently drawn a
+     * 2-point rectangle instead.
+     */
+    async activateSlab(
+        mode: 'sketch' | '2point' | 'polyline' | 'linear' | 'ortho' | 'curved' | 'region' | 'hollow' | 'pickWalls' = 'sketch',
+    ): Promise<void> {
         await this.activateTool('slab', async () => {
             if (this.slabTool) {
                 switch (mode) {
@@ -570,6 +610,9 @@ export class ToolManager {
                         await this.slabTool.enterSketchMode();
                         break;
                     case 'polyline':
+                    case 'linear':
+                    case 'ortho':
+                    case 'curved':
                         await this.slabTool.enterPolylineMode();
                         break;
                     case 'region':

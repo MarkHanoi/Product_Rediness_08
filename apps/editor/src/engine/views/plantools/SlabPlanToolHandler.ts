@@ -5,6 +5,15 @@ import { createId } from '@pryzm/schemas';
 // `curve` descriptor, so a region bounded by a curved/filleted wall never closed.
 // Delegating to the same tracer the 3D tool uses fixes curved-wall regions here too.
 import { findRegionAtPoint as traceRegionAtPoint } from '@pryzm/geometry-slab';
+// §FEAT-SLAB-DRAW-MODES (founder 2026-08-06) — "During SLAB creation … I want the
+// SAME OPTIONS as during WALL creation — ORTHO, LINEAR, CURVE". The polyline slab
+// now authors its boundary through the ONE shared path model that the floor-finish
+// and ceiling tools already use, so the ortho constraint and the 3-click arc
+// gesture are literally the same code, not a fourth transcription of them.
+import { BoundaryPathAuthor, type BoundaryDrawMode } from '@pryzm/geometry-slab';
+// The surface-independent mode store — NOT a picker instance and NOT `window`
+// (P4). See activeSlabDrawMode.ts for why (two panels each build their own picker).
+import { resolveActiveSlabDrawMode } from './activeSlabDrawMode';
 
 const SLAB_FILL_COLOR   = '#64748b';
 const SLAB_EDGE_COLOR   = '#475569';
@@ -30,12 +39,23 @@ export class SlabPlanToolHandler implements PlanToolHandler {
     /** Region mode: the detected closed-wall polygon (world XZ), or null. */
     private _candidateRegion: V2[] | null = null;
 
+    /**
+     * §FEAT-SLAB-DRAW-MODES — the shared linear/ortho/curved path state machine.
+     * Owns the boundary ONLY while the polyline family is active; the 2-point,
+     * region, hollow and pick-walls modes keep their own (unchanged) gestures.
+     */
+    private readonly _author = new BoundaryPathAuthor();
+
     activate(ctx: PlanToolDrawContext): void {
         this._ctx = ctx;
         this._slabPoints = [];
         this._cursorPt   = null;
         this._candidateRegion = null;
-        console.log('[SlabPlanToolHandler] activated — overlay ready, waiting for first click');
+        this._author.reset();
+        console.log(
+            '[SlabPlanToolHandler] activated — overlay ready, waiting for first click',
+            `drawMode=${this._drawMode()}`,
+        );
     }
 
     deactivate(): void {
@@ -43,6 +63,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         this._slabPoints = [];
         this._cursorPt   = null;
         this._candidateRegion = null;
+        this._author.reset();
         this._ctx        = null;
         console.log('[SlabPlanToolHandler] deactivated');
     }
@@ -54,7 +75,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
      * the user's partial polygon survives a temporary excursion to the toolbar.
      */
     hasActiveStroke(): boolean {
-        return this._slabPoints.length > 0;
+        return this._slabPoints.length > 0 || this._author.isDrawing;
     }
 
     onMouseMove(pt: WorldPoint): void {
@@ -106,7 +127,25 @@ export class SlabPlanToolHandler implements PlanToolHandler {
             }
         }
 
-        // ── Polyline / hollow modes ───────────────────────────────────────────
+        // ── POLYLINE family (LINEAR / ORTHO / CURVED) ─────────────────────────
+        // §FEAT-SLAB-DRAW-MODES — the shared author applies the wall tool's ortho
+        // constraint, or runs the wall tool's 3-click arc gesture, and yields the
+        // boundary vertices. LINEAR is bit-identical to the old behaviour.
+        if (this._getMode() === 'polyline') {
+            const drawMode = this._drawMode();
+            const outcome  = this._author.click(drawMode, { x: pt.worldX, z: pt.worldZ });
+            this._syncPointsFromAuthor();
+            this._cursorPt = pt;
+            this._drawPreview();
+            console.log(
+                `[SlabPlanToolHandler] ${outcome} (mode=${drawMode})`,
+                `worldX=${pt.worldX.toFixed(3)} worldZ=${pt.worldZ.toFixed(3)}`,
+                `total: ${this._slabPoints.length}`,
+            );
+            return;
+        }
+
+        // ── Hollow mode (unchanged raw polygon gesture) ───────────────────────
         this._slabPoints.push(pt);
         this._cursorPt = pt;
         this._drawPreview();
@@ -120,6 +159,13 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         const mode = this._getMode();
         console.log(`[SlabPlanToolHandler] double-click — mode=${mode} points=${this._slabPoints.length}`);
         if (mode === '2point' || mode === 'region') return;
+        // §FEAT-SLAB-DRAW-MODES — a PENDING ARC MIDPOINT blocks closing, so a
+        // double-click cannot eat the arc's END click (the same rule the floor and
+        // ceiling handlers apply).
+        if (mode === 'polyline') {
+            if (this._author.canClose()) this._commitSlab();
+            return;
+        }
         if (this._slabPoints.length >= 3) this._commitSlab();
     }
 
@@ -129,6 +175,20 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         if (mode === '2point' || mode === 'region') {
             if (e.key === 'Backspace' && this._slabPoints.length > 0) {
                 this._slabPoints.pop();
+                this._drawPreview();
+                return true;
+            }
+            return false;
+        }
+
+        if (mode === 'polyline') {
+            if (e.key === 'Enter' && this._author.canClose()) {
+                e.preventDefault();
+                this._commitSlab();
+                return true;
+            }
+            if (e.key === 'Backspace' && this._author.undo()) {
+                this._syncPointsFromAuthor();
                 this._drawPreview();
                 return true;
             }
@@ -152,6 +212,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         this._slabPoints = [];
         this._cursorPt   = null;
         this._candidateRegion = null;
+        this._author.reset();
         this._clearOverlay();
     }
 
@@ -223,6 +284,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         this._slabPoints = [];
         this._cursorPt   = null;
         this._candidateRegion = null;
+        this._author.reset();
         this._clearOverlay();
     }
 
@@ -277,6 +339,11 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         const curSc     = this._cursorPt
             ? planCanvas.worldToScreen(this._cursorPt.worldX, this._cursorPt.worldZ)
             : null;
+        // §FEAT-SLAB-DRAW-MODES — the trailing run: one point (linear), the
+        // ortho-constrained point, or the whole tessellated arc.
+        const trailSc = mode === '2point'
+            ? []
+            : this._trailingPoints().map(p => planCanvas.worldToScreen(p.worldX, p.worldZ));
 
         // ── 1. Translucent polygon fill (3+ points) ───────────────────────
         if (screenPts.length >= 3) {
@@ -285,7 +352,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
             ctx.beginPath();
             ctx.moveTo(screenPts[0].sx, screenPts[0].sy);
             for (let i = 1; i < screenPts.length; i++) ctx.lineTo(screenPts[i].sx, screenPts[i].sy);
-            if (curSc && mode !== '2point') ctx.lineTo(curSc.sx, curSc.sy);
+            for (const p of trailSc) ctx.lineTo(p.sx, p.sy);
             ctx.closePath();
             ctx.fill();
             ctx.globalAlpha = 1;
@@ -303,26 +370,27 @@ export class SlabPlanToolHandler implements PlanToolHandler {
             ctx.setLineDash([]);
         }
 
-        // ── 3. Rubber-band line: last point → cursor ──────────────────────
-        if (curSc && committedScreenPts.length >= 1 && mode !== '2point') {
+        // ── 3. Rubber-band run: last point → (ortho point | arc | cursor) ──
+        if (trailSc.length > 0 && committedScreenPts.length >= 1) {
             const last = committedScreenPts[committedScreenPts.length - 1];
             ctx.setLineDash([5, 4]);
             ctx.lineWidth   = 1.5;
             ctx.strokeStyle = SLAB_EDGE_COLOR;
             ctx.beginPath();
             ctx.moveTo(last.sx, last.sy);
-            ctx.lineTo(curSc.sx, curSc.sy);
+            for (const p of trailSc) ctx.lineTo(p.sx, p.sy);
             ctx.stroke();
             ctx.setLineDash([]);
         }
 
-        // ── 4. Closing-edge ghost (cursor → first point, 3+ points) ──────
-        if (curSc && screenPts.length >= 3 && mode !== '2point') {
+        // ── 4. Closing-edge ghost (trail end → first point, 3+ points) ────
+        if (trailSc.length > 0 && screenPts.length >= 3) {
+            const tail = trailSc[trailSc.length - 1];
             ctx.setLineDash([3, 3]);
             ctx.lineWidth   = 1;
             ctx.strokeStyle = SLAB_CLOSE_COLOR;
             ctx.beginPath();
-            ctx.moveTo(curSc.sx, curSc.sy);
+            ctx.moveTo(tail.sx, tail.sy);
             ctx.lineTo(screenPts[0].sx, screenPts[0].sy);
             ctx.stroke();
             ctx.setLineDash([]);
@@ -336,22 +404,21 @@ export class SlabPlanToolHandler implements PlanToolHandler {
             ctx.fill();
         }
 
+        // ── 5b. Pending arc-midpoint marker (CURVED mode) ────────────────
+        const arcMid = this._author.pendingArcMidpoint;
+        if (mode === 'polyline' && arcMid) {
+            const m = planCanvas.worldToScreen(arcMid.x, arcMid.z);
+            ctx.fillStyle = SLAB_EDGE_COLOR;
+            ctx.beginPath();
+            ctx.arc(m.sx, m.sy, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
         // ── 6. Cursor crosshair ──────────────────────────────────────────
         if (curSc) this._drawCrosshair(ctx, curSc.sx, curSc.sy, screenPts.length >= 2);
 
         // ── 7. Hint text ──────────────────────────────────────────────────
-        const twoPoint = mode === '2point';
-        const hint = twoPoint
-            ? committedScreenPts.length === 0
-                ? 'Click first slab corner'
-                : 'Click opposite corner to create slab  ·  Backspace to restart'
-            : committedScreenPts.length === 0
-                ? 'Click to start slab polygon'
-                : committedScreenPts.length < 3
-                    ? `${3 - committedScreenPts.length} more point${3 - committedScreenPts.length !== 1 ? 's' : ''} needed`
-                    : 'Dbl-click or Enter to close slab  ·  Backspace to undo';
-
-        this._drawHint(ctx, hint, cssW, cssH);
+        this._drawHint(ctx, this._hintText(mode, committedScreenPts.length, arcMid !== null), cssW, cssH);
         ctx.restore();
     }
 
@@ -499,11 +566,73 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         return 'polyline';
     }
 
+    /**
+     * §FEAT-SLAB-DRAW-MODES — the polyline CONSTRAINT, read fresh on every
+     * interaction (the `WallModePicker.getActiveMode()` contract), so the user can
+     * switch mid-draw without re-activating the tool.
+     *
+     * Defaults to LINEAR when the user never opened the picker — a slab activated
+     * from the flat create-panel list therefore behaves exactly as it did before
+     * this change, rather than silently acquiring a constraint nobody chose.
+     */
+    private _drawMode(): BoundaryDrawMode {
+        return resolveActiveSlabDrawMode();
+    }
+
+    /** Mirror the shared author's vertices into the commit/preview point list. */
+    private _syncPointsFromAuthor(): void {
+        this._slabPoints = this._author.points.map(v => ({
+            worldX: v.x, worldZ: v.z, screenX: 0, screenY: 0,
+        })) as WorldPoint[];
+    }
+
     private _getPreviewPoints(): WorldPoint[] {
         if (this._getMode() === '2point' && this._slabPoints.length === 1 && this._cursorPt) {
             return this._rectangleFromCorners(this._slabPoints[0], this._cursorPt);
         }
         return this._slabPoints;
+    }
+
+    /**
+     * §FEAT-SLAB-DRAW-MODES — the vertices between the last committed point and
+     * the cursor. LINEAR gives the cursor; ORTHO gives the 90°-constrained point
+     * the click would actually commit (so the ghost never lies about where the
+     * segment lands); CURVED with a pending midpoint gives the tessellated arc.
+     */
+    private _trailingPoints(): WorldPoint[] {
+        if (!this._cursorPt) return [];
+        if (this._getMode() !== 'polyline') return [this._cursorPt];
+        return this._author
+            .previewTail(this._drawMode(), { x: this._cursorPt.worldX, z: this._cursorPt.worldZ })
+            .map(v => ({ worldX: v.x, worldZ: v.z, screenX: 0, screenY: 0 })) as WorldPoint[];
+    }
+
+    /**
+     * §FEAT-SLAB-DRAW-MODES — the overlay hint. The polyline family now NAMES the
+     * active constraint, so the founder's screenshot ("Polyline Slab: Points: 2")
+     * can no longer be the whole story the UI tells about the mode it is in.
+     */
+    private _hintText(mode: SlabPlanMode, placed: number, arcPending: boolean): string {
+        if (mode === '2point') {
+            return placed === 0
+                ? 'Click first slab corner'
+                : 'Click opposite corner to create slab  ·  Backspace to restart';
+        }
+        if (mode === 'polyline') {
+            const drawMode = this._drawMode();
+            if (drawMode === 'curved' && placed > 0) {
+                return arcPending
+                    ? 'Curved · Click the arc END point  ·  Backspace to re-pick the midpoint'
+                    : `Curved · Click the arc MIDPOINT${placed >= 3 ? '  ·  Enter to close slab' : ''}`;
+            }
+            const label = drawMode === 'ortho' ? 'Orthogonal' : drawMode === 'curved' ? 'Curved' : 'Linear';
+            if (placed === 0) return `${label} · Click to start slab polygon`;
+            if (placed < 3)   return `${label} · ${3 - placed} more point${3 - placed !== 1 ? 's' : ''} needed`;
+            return `${label} · Dbl-click or Enter to close slab  ·  Backspace to undo`;
+        }
+        if (placed === 0) return 'Click to start slab polygon';
+        if (placed < 3)   return `${3 - placed} more point${3 - placed !== 1 ? 's' : ''} needed`;
+        return 'Dbl-click or Enter to close slab  ·  Backspace to undo';
     }
 
     private _rectangleFromCorners(a: WorldPoint, b: WorldPoint): WorldPoint[] {

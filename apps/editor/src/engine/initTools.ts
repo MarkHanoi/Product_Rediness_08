@@ -51,6 +51,8 @@ import { SlabTool } from '@pryzm/geometry-slab';
 import { CeilingTool } from '@pryzm/geometry-slab';
 import { FloorTool } from '@pryzm/geometry-slab';
 import { SlabDimensionsEditor } from '@app/ui/property-panel/SlabDimensionsEditor';
+// §FEAT-SLAB-DRAW-MODES — the surface-independent slab drawing-mode store.
+import { resolveActiveSlabDrawMode } from '@app/engine/views/plantools/activeSlabDrawMode';
 import { ElementCreationModal, getFloorFinishCreationModal } from '@app/ui/ElementCreationModal';
 import { PlumbingTool } from '@pryzm/geometry-plumbing';
 import { FurnitureTool } from '@pryzm/geometry-furniture';
@@ -790,6 +792,11 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         getWallTool:            () => wallTool,
         getUnselectAll:         () => unselectAll,
         createDimensionsEditor: (deps) => new SlabDimensionsEditor(deps),
+        // §FEAT-SLAB-DRAW-MODES (founder 2026-08-06) — the LINEAR / ORTHO / CURVED
+        // choice, from the SAME surface-independent store `SlabPlanToolHandler`
+        // reads, so a polyline slab drawn in 3D and one drawn in plan obey the same
+        // constraint. Injected (never a `window` read inside the package — P4).
+        getBoundaryDrawMode:    () => resolveActiveSlabDrawMode(),
     });
 
     const slabDependencyTracker = new SlabDependencyTracker(

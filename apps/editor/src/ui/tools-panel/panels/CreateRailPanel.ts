@@ -642,6 +642,17 @@ export class CreateRailPanel {
                         action: () => { if (!this._activateTool('stair', 'U')) service.activateStairPathTool('U'); },
                     },
                     {
+                        // §FIX-STAIR-SHAPE-DESYNC — the CURVED shape has always been
+                        // authorable in StairPathParamPanel but had no palette icon, so
+                        // it was unreachable from the ARCHITECTURE panel. The shape set
+                        // is now declared once in `STAIR_SHAPES` (@pryzm/geometry-stair);
+                        // this row is its palette face.
+                        label:    'Stair (C)',
+                        shortcut: 'Alt+Shift+C',
+                        icon:     PryzmIcons.pryzmStairC,
+                        action: () => { if (!this._activateTool('stair', 'C')) service.activateStairPathTool('C'); },
+                    },
+                    {
                         label:    'Handrail',
                         shortcut: 'Alt+H',
                         icon:     PryzmIcons.pryzmHandrail,
@@ -693,10 +704,9 @@ export class CreateRailPanel {
                         shortcut: 'Alt+Shift+C',
                         icon:     PryzmIcons.pryzmCeiling,
                         action: () => {
+                            // §FIX-FINISH-MODE-PLAN-UNREACHABLE — see 'Auto Floor'.
                             if (!this._activateTool('ceiling:auto')) {
-                                const t = window.ceilingTool; // TODO(E.ceiling.T): legacy ceilingTool — replace with runtime.tools.activate('ceiling', mode)
-                                if (t?.setMode) t.setMode('AUTO_FROM_ROOM');
-                                service.activateCeilingTool();
+                                service.activateCeilingTool(undefined, 'auto');
                             }
                         },
                     },
@@ -715,10 +725,13 @@ export class CreateRailPanel {
                         shortcut: 'Alt+Shift+F',
                         icon:     PryzmIcons.pryzmFloor,
                         action: () => {
+                            // §FIX-FINISH-MODE-PLAN-UNREACHABLE — pass the mode as an
+                            // ACTIVATION argument. Setting `floorTool.setMode()` here
+                            // put AUTO on the 3D tool instance only, so the plan
+                            // handler (which reads floorModePicker) never saw it and
+                            // AUTO was unreachable in plan view.
                             if (!this._activateTool('floor:auto')) {
-                                const t = window.floorTool; // TODO(E.floor.T): legacy floorTool — replace with runtime.tools.activate('floor', mode)
-                                if (t?.setMode) t.setMode('AUTO_FROM_ROOM');
-                                service.activateFloorTool();
+                                service.activateFloorTool(undefined, 'auto');
                             }
                         },
                     },
@@ -831,9 +844,13 @@ export class CreateRailPanel {
                         shortcut: 'Alt+S',
                         icon:     PryzmIcons.pryzmSlab,
                         action: () => {
+                            // §FEAT-SLAB-DRAW-MODES — linear / ortho / curved are
+                            // the wall tool's three modes, now offered on the slab.
                             this._slabModePicker.show({
+                                onLinear:    () => { if (!this._activateTool('slab', 'linear'))    service.activateSlabTool('linear'); },
+                                onOrtho:     () => { if (!this._activateTool('slab', 'ortho'))     service.activateSlabTool('ortho'); },
+                                onCurved:    () => { if (!this._activateTool('slab', 'curved'))    service.activateSlabTool('curved'); },
                                 on2Point:    () => { if (!this._activateTool('slab', '2point'))    service.activateSlabTool('2point'); },
-                                onPolyline:  () => { if (!this._activateTool('slab', 'polyline'))  service.activateSlabTool('polyline'); },
                                 onRegion:    () => { if (!this._activateTool('slab', 'region'))    service.activateSlabTool('region'); },
                                 onHollow:    () => { if (!this._activateTool('slab', 'hollow'))    service.activateSlabTool('hollow'); },
                                 onPickWalls: () => { if (!this._activateTool('slab', 'pickWalls')) service.activateSlabTool('pickWalls'); },

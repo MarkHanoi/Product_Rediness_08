@@ -1,3 +1,4 @@
+import type { StairShapeChoice } from '@pryzm/geometry-stair';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { WallDrawingMode } from '@pryzm/geometry-wall';
 import { WallModePicker, type WallPickerMode } from '../WallModePicker';
@@ -78,13 +79,18 @@ export function mountToolsArea(
         runtime.tools.register('curtain-wall',  (m?) => tm.activateCurtainWall?.(m ?? 'SINGLE'));
         runtime.tools.register('door',          (m?) => tm.activateDoor?.(m ?? 'single'));
         runtime.tools.register('window',        (m?) => tm.activateWindow?.(m ?? 'single'));
-        runtime.tools.register('stair',         (m?) => service.activateStairPathTool((m as 'I' | 'L' | 'U') ?? 'I'));
+        runtime.tools.register('stair',         (m?) => service.activateStairPathTool((m as StairShapeChoice) ?? 'I'));
         runtime.tools.register('handrail',      (m?) => service.activateHandrailTool(m));
         runtime.tools.register('ramp',          ()   => { const t = window.rampTool; if (t) t.activate?.(); else console.warn('[runtime.tools/ramp] rampTool not ready'); }); // TODO(E.6): legacy window.rampTool bridge — delete when plugins/ramp lands per §16.5
         runtime.tools.register('ceiling',       ()   => service.activateCeilingTool());
-        runtime.tools.register('ceiling:auto',  ()   => { window.ceilingTool?.setMode?.('AUTO_FROM_ROOM'); service.activateCeilingTool(); }); // TODO(E.7): legacy window.ceilingTool bridge — delete when plugins/ceiling lands per §16.5
+        // §FIX-FINISH-MODE-PLAN-UNREACHABLE (founder 2026-08-06) — the AUTO
+        // activators used to set the mode on `window.<x>Tool` (the 3D tool
+        // INSTANCE) only, which the PLAN handler cannot read: AUTO worked in 3D
+        // and was silently inert in plan view. The mode now goes through the ONE
+        // activation argument, which writes the 3D tool AND the picker.
+        runtime.tools.register('ceiling:auto',  ()   => service.activateCeilingTool(undefined, 'auto'));
         runtime.tools.register('floor',         ()   => service.activateFloorTool());
-        runtime.tools.register('floor:auto',    ()   => { window.floorTool?.setMode?.('AUTO_FROM_ROOM'); service.activateFloorTool(); }); // TODO(E.6.0): legacy window.floorTool bridge — delete when plugins/floor lands per §16.5
+        runtime.tools.register('floor:auto',    ()   => service.activateFloorTool(undefined, 'auto'));
         runtime.tools.register('room',          ()   => { const t = window.roomTool; if (t) t.activate?.(); else tm.activateRoom?.(); }); // TODO(E.16): legacy window.roomTool bridge — delete when plugins/room lands per §16.5
         runtime.tools.register('room:level',    ()   => {
             const t     = window.roomTool; // TODO(E.16): legacy window.roomTool bridge — delete when plugins/room lands per §16.5
@@ -270,18 +276,28 @@ export function mountToolsArea(
 
     // ─── Floor activation wrapper — show FloorDrawingHUD (Sprint §49) ────────
     const _origActivateFloor = service.activateFloorTool.bind(service);
-    service.activateFloorTool = (typeId?: string) => {
+    service.activateFloorTool = (typeId?: string, mode?: string) => {
         floorModePicker.dismiss();
         _origActivateFloor(typeId);
 
         const tool = window.floorTool; // TODO(E.6.T): legacy floorTool — replace with runtime.tools.activate('floor')
-        const initialMode: FloorPickerMode = floorModePicker.getActiveMode();
 
         const _switchFloor = (m: FloorPickerMode) => {
             tool?.setDrawingMode?.(floorPickerToToolMode(m));
             floorModePicker.setActiveMode(m);
             floorDrawingHUD.setMode(m);
         };
+
+        // §FIX-FINISH-MODE-PLAN-UNREACHABLE (founder 2026-08-06) — THE ONE PLACE a
+        // requested drawing mode is applied, and it writes BOTH surfaces: the 3D
+        // tool (`setDrawingMode`) AND the picker the PLAN handler reads
+        // (`setActiveMode`). "Auto Floor" used to write only the former, so AUTO
+        // was reachable in 3D and silently inert in plan view — the founder's
+        // "floor finish cannot be created in plan view". Any entry point that
+        // wants a mode now passes it here rather than reaching into the 3D tool.
+        if (mode) _switchFloor(mode as FloorPickerMode);
+
+        const initialMode: FloorPickerMode = floorModePicker.getActiveMode();
 
         if (floorDrawingHUD.isVisible?.()) {
             floorDrawingHUD.setMode(initialMode);
@@ -298,18 +314,23 @@ export function mountToolsArea(
 
     // ─── Ceiling activation wrapper — show CeilingDrawingHUD (Sprint §49) ────
     const _origActivateCeiling = service.activateCeilingTool.bind(service);
-    service.activateCeilingTool = (typeId?: string) => {
+    service.activateCeilingTool = (typeId?: string, mode?: string) => {
         ceilingModePicker.dismiss();
         _origActivateCeiling(typeId);
 
         const tool = window.ceilingTool; // TODO(E.7.T): legacy ceilingTool — replace with runtime.tools.activate('ceiling')
-        const initialMode: CeilingPickerMode = ceilingModePicker.getActiveMode();
 
         const _switchCeiling = (m: CeilingPickerMode) => {
             tool?.setDrawingMode?.(ceilingPickerToToolMode(m));
             ceilingModePicker.setActiveMode(m);
             ceilingDrawingHUD.setMode(m);
         };
+
+        // §FIX-FINISH-MODE-PLAN-UNREACHABLE — see the floor wrapper above. Applies
+        // the requested mode to the 3D tool AND the picker the plan handler reads.
+        if (mode) _switchCeiling(mode as CeilingPickerMode);
+
+        const initialMode: CeilingPickerMode = ceilingModePicker.getActiveMode();
 
         if (ceilingDrawingHUD.isVisible?.()) {
             ceilingDrawingHUD.setMode(initialMode);

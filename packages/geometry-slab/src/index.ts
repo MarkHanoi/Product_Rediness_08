@@ -30,6 +30,11 @@ export * from './SlabRegionTracer';
 // semantics + tessellation density (pure, THREE-free) ─────────────────────────
 export * from './boundaryArc';
 
+// ── §FEAT-SLAB-DRAW-MODES (2026-08-06) — the ONE path-authoring model (linear /
+// ortho / curved) shared by the slab, floor-finish and ceiling boundary tools,
+// carrying the WALL tool's ortho constraint verbatim (pure, THREE-free) ────────
+export * from './boundaryPath';
+
 // ── Fragment builder + edge-render mode ───────────────────────────────────────
 export * from './SlabFragmentBuilder';
 

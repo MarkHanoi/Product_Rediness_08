@@ -5,6 +5,9 @@ import * as PryzmIcons from '../icons/PryzmIcons';
 import { SlabModePicker } from '../SlabModePicker';
 import { resolveLevelIsolation } from '../../engine/inspect/LevelIsolationResolver';
 import { resolveNightBackground } from '../../engine/inspect/NightModeBackgroundResolver';
+// §FIX-LIGHT-NIGHT-CONTRIBUTION — the role stamped on artificial fixture lights,
+// which the environment dimmer below must skip.
+import { FIXTURE_LIGHT_ROLE } from '@pryzm/core-app-model';
 
 export type BAMLevelMode = 'stacked' | 'exploded' | 'solo';
 export type BAMWallCutMode = 'cutaway' | 'up' | 'down';
@@ -331,9 +334,13 @@ export class BottomActionMenu {
                 toolManager?.activateWindow?.('single');
                 break;
             case 'slab':
+                // §FEAT-SLAB-DRAW-MODES — linear / ortho / curved are the wall
+                // tool's three modes, offered here on the slab for the first time.
                 this._slabModePicker.show({
+                    onLinear: () => service.activateSlabTool('linear'),
+                    onOrtho: () => service.activateSlabTool('ortho'),
+                    onCurved: () => service.activateSlabTool('curved'),
                     on2Point: () => service.activateSlabTool('2point'),
-                    onPolyline: () => service.activateSlabTool('polyline'),
                     onRegion: () => service.activateSlabTool('region'),
                     onHollow: () => service.activateSlabTool('hollow'),
                     onPickWalls: () => service.activateSlabTool('pickWalls'),
@@ -657,10 +664,20 @@ export class BottomActionMenu {
         if (vp) vp.style.background = bg.hex;
 
         // Light intensity: dim by 62% for night, restore to saved original for day.
+        //
+        // §FIX-LIGHT-NIGHT-CONTRIBUTION (2026-08-06) — this traversal is the
+        // ENVIRONMENT dimmer: sun, ambient, hemisphere. It must NOT touch
+        // artificial FIXTURE lights. It previously multiplied them by 0.38 too,
+        // so "night" made the room's lamps 62% DIMMER — the exact opposite of
+        // what night mode has to do to artificial light, and a direct
+        // contributor to the black-room defect. Fixture lights carry
+        // FIXTURE_LIGHT_ROLE and are owned by LightingFragmentBuilder /
+        // LampBuilder, which apply FIXTURE_NIGHT_MULTIPLIER themselves.
         const scene = this._getScene();
         if (scene) {
             scene.traverse((obj: any) => {
                 if (!obj.isLight) return;
+                if (obj.userData?.role === FIXTURE_LIGHT_ROLE) return;
                 const light = obj as THREE.Light;
                 if (!this._savedLightIntensities.has(light)) {
                     this._savedLightIntensities.set(light, light.intensity);

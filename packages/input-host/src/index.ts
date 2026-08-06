@@ -279,6 +279,9 @@ export type { UnderlayScaleMode, UnderlayScaleHUDCallbacks } from './UnderlayRef
 export { UnderlayReferenceScaleTool } from './UnderlayReferenceScaleTool.js';
 export { UnderlayReferenceRotateTool } from './UnderlayReferenceRotateTool.js';
 export { ToolManager } from './ToolManager.js';
+// §FEAT-DUAL-VIEW-CREATION-MATRIX — the 3D-side tool-key set, asserted against the
+// declared element-creation matrix in apps/editor.
+export { TOOL_MANAGER_TOOL_KEYS } from './ToolManager.js';
 export type { ActiveTool } from './ToolManager.js';
 export type { OpeningDrawingMode } from './OpeningTool.js';
 export { OpeningTool } from './OpeningTool.js';
