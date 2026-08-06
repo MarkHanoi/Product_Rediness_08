@@ -89,6 +89,17 @@ export interface GlobeHeroSearchOptions {
      * additive, not a breaking signature change.
      */
     readonly whenCameraHostReady?: () => Promise<void>;
+    /**
+     * §17 Increment 1 (PRD §17.2 "City" row — "Parcel vector tiles, planning layers, existing
+     * GIS datasets... begin loading") — fired AT MOST ONCE per `search()`, the moment the
+     * descend chain reaches the `city` stage, i.e. while the camera is still mid-flight and well
+     * before the user has committed to a parcel. Optional and fire-and-forget BY CONTRACT: this
+     * module never awaits it and a throw/rejection is swallowed here as a defensive backstop even
+     * though every production wiring of this (see `OnboardingStepController.ts`) already wraps its
+     * own call in a non-throwing `.catch`. Pure optimisation — omitting it changes nothing about
+     * the stage chain, the camera, or the outcome `search()` resolves to.
+     */
+    readonly warmContextCache?: (lat: number, lon: number) => void;
     /** Registry-derived coverage (`siteEntryCoverageEntries()`), forwarded verbatim — this module
      *  holds no jurisdiction data of its own (C60 §2). */
     readonly entries: readonly CoverageEntry[];
@@ -220,6 +231,7 @@ export class GlobeHeroSearch {
             // The cinematic chain: one `descend` per intermediate stage, each a real reducer
             // transition producing exactly one `camera` effect (PRD §7 — never a bespoke tween).
             let guard = 0;
+            let warmedContextCache = false;
             while (this.store.getState().stage !== 'parcel') {
                 if (++guard > 8) {
                     // Cannot happen given SITE_ENTRY_STAGES has 4 members, but a reducer change
@@ -233,6 +245,19 @@ export class GlobeHeroSearch {
                 });
                 if (!step.ok) {
                     return { ok: false, message: step.rejected ?? 'That location could not be reached.' };
+                }
+                // §17 Increment 1 — the FIRST time the chain lands on `city`, kick off the
+                // background cache warm. `best.lat`/`best.lon` are the SAME coordinates every
+                // remaining stage (including the eventual `select-parcel` hand-off) will use, so
+                // this primes the exact cache key the real render-path fetch keys on later —
+                // see `OnboardingStepController.ts`'s wiring for which fetch this actually is.
+                if (!warmedContextCache && step.state.stage === 'city') {
+                    warmedContextCache = true;
+                    try {
+                        this.opts.warmContextCache?.(best.lat, best.lon);
+                    } catch (e) {
+                        console.warn('[globe-hero-search] warmContextCache threw:', e);
+                    }
                 }
             }
 

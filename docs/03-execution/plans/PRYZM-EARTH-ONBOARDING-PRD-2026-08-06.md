@@ -1104,4 +1104,153 @@ four-subsystem, cross-cutting change).*
 
 ---
 
-*End — PRYZM Earth Onboarding PRD, 2026-08-06 — PROPOSAL for §17; §1-§16 include shipped code changes.*
+## §18 — §17 Increment 1 Implementation Log (2026-08-06, fifth pass — code changes)
+
+This section is appended, not a rewrite, per C31 §1.2 discipline. It records §17 Increment 1 only
+(per this pass's own scoping instruction): **at most 1–2 concrete, safe, verifiable prefetch/init
+hooks**, triggered by the EXISTING `GlobeHeroSearch.search()` stage-reducer chain — not the full
+§17.2 cache-warming table, not the gated split-reveal, not Milestone 0 profiling, not L-631.
+
+### §18.1 — Investigation findings (grounded in code, cited)
+
+- **Country/city scale — is anything already free?** Yes, and nothing new was added there. At
+  world/country/city altitude, the mounted `CesiumViewport`'s own Cesium imagery/terrain providers
+  stream tiles for whatever is on screen the moment the camera arrives — this is Cesium's own
+  built-in behaviour (tile-based imagery/terrain providers fetch what's visible), not something
+  this codebase's application code drives or could meaningfully "start earlier" — there is no
+  additional PRYZM-owned fetch at this scale to hook. Inventing a fake "loading" step here would
+  contradict the task's own instruction not to fabricate work for something already free.
+- **City scale — is there an existing predictive-fetch target?** Yes: `fetchContextBuildingsNearAndFar`
+  / `fetchContextBuildings` (`apps/editor/src/ui/geospatial/contextBuildings.ts:883-951`) already
+  has exactly the shape needed — a per-bbox `cache: Map<string, ContextBuildingCollection>`
+  (`:490`) plus an `inFlight: Map<string, Promise<...>>` de-dup guard (`:494`, `:946-950`,
+  §CTX-ONE-READ-PER-BBOX/L-585) so a second caller with the SAME bbox key gets the in-flight
+  promise instead of starting a cold fetch. This machinery is not new — it is the exact mechanism
+  an EXISTING prefetch (§CTX-PREFETCH-ON-LOCATION, L-470, `CesiumViewport.ts:2930-2947`) already
+  uses, but that existing prefetch only fires on the `site.location-changed` event, which
+  `createSiteFromRect` (`OnboardingStepController.ts` site-step actions) does not emit until AFTER
+  the user has left the `location` step entirely (search resolved → `renderSiteStep()` →
+  eventually "Use selected parcel"/draw/default-rect calls `createSiteFromRect`,
+  `createSiteFromRect.ts:189-190`). That is several user-driven steps after the camera flight
+  itself. §17's ask — start this while the flight is still happening — was genuinely actionable.
+  A true cadastral-parcel vector-tile fetch (as opposed to building footprints) is jurisdiction-
+  specific (Spain Catastro WFS etc., `packages/site-parcel-data`) and was NOT hooked — out of scope
+  per this pass's "cheapest, safest hook" instruction; `fetchContextBuildings` is what
+  `FootprintParcelProvider.ts:55` itself already falls back to for "select parcel" today, so
+  warming its cache is the correct-shaped target, not a substitute for the real thing.
+- **Parcel scale — is there a second Cesium viewport to pre-warm?** No, confirmed precisely, per
+  the task's own framing. `renderLocationStep()` (`OnboardingStepController.ts:502-524`)
+  constructs `GlobeHeroSearch` and calls `.mount()` — which calls `toggleGlobe(true)` — the moment
+  the `location` step is entered, i.e. BEFORE the user has typed anything, let alone before
+  `search()` reaches the `parcel` stage. `toggleGlobe` resolves to `window.pryzmToggleGIS`
+  (`GISAreaLayout.ts:1217`), whose ONE construction site
+  (`GISAreaLayout.ts:390`, `new CesiumViewport(viewport, runtime ?? null)`) is idempotent on
+  repeat calls — the singleton is already live by the time `search()` even starts. Leaving the
+  `location` step (`leaveLocationStep()`, `OnboardingStepController.ts:561-564`) calls
+  `globeHero.dispose()`, which calls `toggleGlobe(false)` — `CesiumViewport.setVisible(false)`
+  (`CesiumViewport.ts:12443-12463`) only hides the canvas and un-hides the BIM canvases; it does
+  NOT tear down or reconstruct the Cesium viewer object. So entering the next (`site`) step does
+  **not** rebuild anything expensive — the singleton persists, exactly as C59 §2 invariant 1
+  requires. There is no second "site view" viewport to pre-warm, and nothing to build here beyond
+  what §15 already shipped (Milestone 2's `whenCameraHostReady` fix already ensures the singleton
+  is genuinely live before the very first camera frame).
+
+### §18.2 — What this pass built
+
+One hook, additive and optional:
+
+1. **`apps/editor/src/ui/onboarding/GlobeHeroSearch.ts`** — added an optional
+   `warmContextCache?: (lat: number, lon: number) => void` to `GlobeHeroSearchOptions`. Inside
+   `search()`'s existing `descend` loop, the FIRST time the reducer chain lands on the `city`
+   stage (`step.state.stage === 'city'`), this fires once with the geocode result's `lat`/`lon` —
+   the SAME coordinates every remaining stage (including the terminal `select-parcel` hand-off)
+   uses, so it primes the exact bbox key the real render-path fetch will key on later. Wrapped in
+   its own `try/catch` as a defensive backstop (the module never assumes an injected dependency is
+   well-behaved), on top of the fact that every production wiring of this already never throws by
+   its own contract. Every existing behaviour (the flight chain, altitudes, outcome shape, error
+   copy) is completely unchanged when this option is omitted — verified by the untouched existing
+   13 tests all still passing unmodified.
+2. **`apps/editor/src/ui/onboarding/OnboardingStepController.ts`** — imports
+   `fetchContextBuildingsNearAndFar` from `../geospatial/contextBuildings.js` and wires
+   `warmContextCache` to `(lat, lon) => { void fetchContextBuildingsNearAndFar(lat, lon).catch(() => {}); }`
+   — fire-and-forget, matching the exact idiom the existing L-470 prefetch already uses
+   (`CesiumViewport.ts:2945-2947`). This renders nothing, touches no entity, and only primes the
+   shared per-bbox cache in `contextBuildings.ts`; the later real reads (this file's own
+   `createSiteFromRect`/`site.location-changed` path, and `SiteBoundaryMap2D.ts:1243`) become cache
+   hits instead of cold fetches, for the identical bbox key, with zero new upstream query volume
+   (still one query per site — C12 §8 — just issued one flight-stage earlier).
+
+**Why this is safe / non-blocking**: `warmContextCache` is optional (omitting it is a no-op,
+verified by a dedicated test); every call site — inside `GlobeHeroSearch` and inside
+`OnboardingStepController`'s wiring — is wrapped so a throw/rejection is swallowed and never
+surfaces to the caller; it does not gate, delay, or branch the existing `descend`/`flyTo` chain in
+any way (it fires "alongside", not "before"); and `fetchContextBuildingsNearAndFar` itself is
+already documented as never-throwing (`contextBuildings.ts:874-876`). No new Cesium/viewport
+construction site (P1), no new `THREE` import (P2), no new `requestAnimationFrame` (P3), no new
+`(window as any)` (P4) — grepped all three touched files, none found. `GlobeHeroSearch.search()`
+already carries its P8 OTel span; no new exported function was added that lacks one.
+
+### §18.3 — Tests
+
+- `apps/editor/__tests__/globeHeroSearch.test.ts` — extended with 4 new cases (harness now accepts
+  an optional `warmContextCache` fake): fires exactly once with the geocoded lat/lon the moment the
+  chain reaches `city`; is a genuine no-op when the dependency is omitted; a throwing
+  `warmContextCache` does not fail the search; a second `search()` call fires it again (once per
+  search, not once ever). The file now has 20 `it(...)` cases total (§15.2 recorded 13 at
+  Milestone 2; the gap reflects both this pass's 4 new cases and cases added by the
+  `whenCameraHostReady` polish work reflected in the code's own "PRD §16" comments but never
+  logged as its own numbered doc section — not this pass's addition, re-counted here rather than
+  assumed).
+- Actual run, `npx vitest run __tests__/globeHeroSearch.test.ts` (from `apps/editor/`):
+  **20 passed / 20 total.**
+- Broader regression sweep, `npx vitest run __tests__/globeHeroSearch.test.ts
+  __tests__/onboardingOverlayImportBranch.test.ts __tests__/projectHubAutoNamedOnboarding.test.ts
+  __tests__/resolveSeededTypologyId.test.ts` (from `apps/editor/`): **49 passed / 49 total**, 4
+  files, 0 failures.
+
+### §18.4 — Typecheck
+
+- Root `npx tsc --skipLibCheck --noEmit`: **clean, exit 0**, no output.
+
+### §18.5 — Honest assessment
+
+This is a genuine, if modest, latency win — not a speculative one. It moves an EXISTING,
+already-proven prefetch (L-470) from firing at "user has committed to a parcel and clicked through
+the site step" to firing at "camera flight has reached city altitude", which per the flight's own
+staged `flyTo` chain is several real seconds and at least one full user decision earlier. Because
+the prefetch keys on the exact same lat/lon that the later real read uses, this is a literal cache
+hit, not an approximation — `fetchForBbox` (`contextBuildings.ts:904-951`) returns the cached
+value directly on a key match. That said, or honestly: this pass did **not** find much else safe
+to prefetch beyond this one hook without a materially bigger change. Country/city-scale
+imagery/terrain is already free via Cesium's own providers (nothing to add). A true cadastral-
+parcel-vector fetch is jurisdiction-specific and was correctly left out of this pass's scope. The
+"second Cesium viewport" the spec worried about pre-warming does not exist — the singleton is
+already mounted by the time any of this fires, which closes off what would otherwise have been the
+single highest-leverage hook in §17.2's table. So the honest framing is: **one real, verified,
+safe win was found and shipped; the rest of §17.2's table genuinely has no cheap, safe target in
+this codebase today** — the remaining wins (planning layers, terrain mesh, photorealistic
+buildings, cadastral parcels) all require either new jurisdiction-aware fetch code or the
+gated-reveal design decision §17.7 explicitly reserves for the founder, neither of which this pass
+was scoped to attempt.
+
+### §18.6 — What's left for a §17 Increment 2
+
+- **§17.7 open question 2 — what gates the split-screen reveal.** Not attempted (explicitly
+  out of scope this pass, needs the founder's own definition of "ready").
+- **The full §17.2 cache-warming table** — planning layers, terrain mesh, photorealistic
+  buildings, road network, vegetation. Per §18.5, most of these have no existing PRYZM-owned fetch
+  function to hook yet (would be new geodata-sourcing work per Milestone 5, not a hook-up).
+- **Milestone 0's live frame-budget profiling** (§10, §17.7 open question 1) — still needs a real
+  device; not attempted.
+- **L-631 (terrain-in-Forma)** — still open, still a founder decision, untouched by this pass.
+- A genuine cadastral-parcel (not building-footprint) predictive fetch, if a jurisdiction-aware
+  provider with the same cache/dedup shape as `contextBuildings.ts` gets built later — this pass's
+  `warmContextCache` hook point in `GlobeHeroSearch` would accept a second/replacement callback
+  with no further changes to the reducer-chain wiring.
+
+*End §18 — §17 Increment 1 implementation, 2026-08-06.*
+
+---
+
+*End — PRYZM Earth Onboarding PRD, 2026-08-06 — §1-§18 include shipped code changes; §17.2's full
+table, the gated split-reveal, Milestone 0 profiling, and L-631 remain open per §18.6.*

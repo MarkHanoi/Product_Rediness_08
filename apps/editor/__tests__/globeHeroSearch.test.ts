@@ -25,6 +25,7 @@ function harness(opts?: {
     entries?: readonly CoverageEntry[];
     geocode?: (q: string) => Promise<readonly GlobeHeroSearchGeocodeResult[]>;
     whenCameraHostReady?: () => Promise<void>;
+    warmContextCache?: (lat: number, lon: number) => void;
 }) {
     const toggleCalls: boolean[] = [];
     const flights: SiteEntryCameraTarget[] = [];
@@ -49,6 +50,7 @@ function harness(opts?: {
         toggleGlobe: (active) => toggleCalls.push(active),
         getCameraHost: () => host,
         ...(opts?.whenCameraHostReady ? { whenCameraHostReady: opts.whenCameraHostReady } : {}),
+        ...(opts?.warmContextCache ? { warmContextCache: opts.warmContextCache } : {}),
         entries: opts?.entries ?? [COVERED],
         geocode,
     });
@@ -233,6 +235,45 @@ describe('GlobeHeroSearch', () => {
         });
         expect(() => hero.mount()).not.toThrow();
         expect(() => hero.dispose()).not.toThrow();
+    });
+
+    // §17 Increment 1 (PRD §17.2 "City" row) — the background cache-warm hook.
+    it('search() calls warmContextCache exactly once, with the geocoded lat/lon, the moment the chain reaches the city stage', async () => {
+        const warmCalls: Array<[number, number]> = [];
+        const { hero } = harness({
+            warmContextCache: (lat, lon) => warmCalls.push([lat, lon]),
+        });
+        const outcome = await hero.search('Córdoba');
+        expect(outcome.ok).toBe(true);
+        expect(warmCalls).toEqual([[37.883, -4.78]]);
+    });
+
+    it('search() never calls warmContextCache when no warmContextCache dependency is supplied (optional, additive)', async () => {
+        const { hero } = harness();
+        const outcome = await hero.search('Córdoba');
+        expect(outcome.ok).toBe(true);
+        // No assertion target needed beyond "did not throw" — the point is the dependency is
+        // genuinely optional (mirrors `whenCameraHostReady`'s own optionality).
+    });
+
+    it('search() swallows a throwing warmContextCache without failing the search', async () => {
+        const { hero } = harness({
+            warmContextCache: () => {
+                throw new Error('cache warm boom');
+            },
+        });
+        const outcome = await hero.search('Córdoba');
+        expect(outcome.ok).toBe(true);
+    });
+
+    it('a second search() calls warmContextCache again (once per search, not once ever)', async () => {
+        const warmCalls: Array<[number, number]> = [];
+        const { hero } = harness({
+            warmContextCache: (lat, lon) => warmCalls.push([lat, lon]),
+        });
+        await hero.search('Córdoba');
+        await hero.search('Córdoba again');
+        expect(warmCalls).toEqual([[37.883, -4.78], [37.883, -4.78]]);
     });
 
     it('search() never throws when getCameraHost() returns null (no globe mounted yet)', async () => {

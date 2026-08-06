@@ -70,6 +70,7 @@ import { geocodeAddress } from '../site/geocodeAddress.js';
 // geocode-then-set-field call. See GlobeHeroSearch.ts's header for the full reuse rationale.
 import { GlobeHeroSearch } from './GlobeHeroSearch.js';
 import { siteEntryCoverageEntries } from '../../engine/views/siteEntryCoverage';
+import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.js';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
 import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/houseFromBoundary.js';
 import { generateResidentialFromBoundary } from '../residential-building/residentialFromBoundary.js';
@@ -516,6 +517,21 @@ export class OnboardingStepController {
             whenCameraHostReady: () => {
                 const w = window as unknown as { pryzmGetSiteEntryCameraHostReady?: () => Promise<void> };
                 try { return w.pryzmGetSiteEntryCameraHostReady?.() ?? Promise.resolve(); } catch { return Promise.resolve(); }
+            },
+            // §17 Increment 1 (PRD §17.2 "City" row) — the SAME cache/dedup mechanism
+            // §CTX-PREFETCH-ON-LOCATION (L-470, `CesiumViewport.ts:2930`) already uses to warm
+            // context buildings once a site is created, fired ONE STAGE EARLIER — the moment the
+            // camera flight reaches `city`, not the moment the user later commits to a parcel and
+            // `createSiteFromRect` runs. Same bbox key (same lat/lon throughout the chain — see
+            // `GlobeHeroSearch.search()`), so this is a pure latency win: whichever caller reads
+            // it next (this file's own `createSiteFromRect`/`site.location-changed` path, or
+            // `SiteBoundaryMap2D.ts:1243`) gets a cache hit instead of a cold fetch. Fire-and-
+            // forget, non-fatal by construction (`fetchContextBuildingsNearAndFar` never throws;
+            // the `.catch` below is a defensive backstop only).
+            warmContextCache: (lat, lon) => {
+                void fetchContextBuildingsNearAndFar(lat, lon).catch(() => {
+                    /* best-effort prefetch — a cold cache later is not a regression */
+                });
             },
             entries: siteEntryCoverageEntries(),
             geocode: geocodeAddress,
