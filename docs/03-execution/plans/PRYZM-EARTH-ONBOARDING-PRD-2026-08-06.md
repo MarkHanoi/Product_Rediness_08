@@ -1391,5 +1391,99 @@ or the PRD was touched except this section.
 
 ---
 
-*End — PRYZM Earth Onboarding PRD, 2026-08-06 — §1-§19; §17.2's full table, the gated split-reveal,
-Milestone 0 profiling, L-631, and §19's P1-sequencing lever all remain open.*
+## §21 — Early Split-Screen Mount Log (2026-08-06 — code changes)
+
+*(§20 is reserved by a concurrent pass working the bootstrap idle-deferral area; numbering kept
+non-colliding per the multi-agent shared-tree rule.)*
+
+**Trigger**: §17.4's target sequence — "GIS initializes → Split-screen fades in (Left: 2D GIS ·
+Right: 3D Site) → Parcel selection" — was not true of the shipped flow. Confirmed in
+`OnboardingStepController.ts`: the `location` step resolved into `renderSiteStep()`'s plain
+three-choice card ("How do you want to set your plot?") with NO split visible; the real
+§FEAT-MULTI-PANE-VIEW-SYSTEM split (L-412, C59 Phase 1b) mounted only if the user clicked
+"Draw it on the map" (`startDrawThenGenerate()`, which called `window.pryzmMountSiteAuthoringPanes()`).
+The founder's "gradually entering the professional GIS environment" was therefore gated behind one
+specific choice, not the step itself.
+
+### §21.1 — Investigation findings (all file:line verified this pass)
+
+1. **`pryzmMountSiteAuthoringPanes` DOES auto-arm the draw tool.** The window hook
+   (`GISAreaLayout.ts:4460`) wraps `mountSiteAuthoringPanes()` (`:4273`); its left-pane MapLibre
+   mounter is `mount: (paneEl) => { startBoundaryDraw({ parent: paneEl }); }` (`:4309`) —
+   mounting the split unconditionally opens the 2D map WITH the boundary-draw tool live
+   (parcel select included, via `parcelProvider`, `:276`). The comment at
+   `OnboardingStepController.ts:812-815` is accurate.
+2. **The commit listener was NOT part of the mount.** The map's own `onCommit` (`GISAreaLayout.ts:283`)
+   only logs; the actual flow progression rides the `site.parcel-boundary-set` runtime event, whose
+   ONLY onboarding subscriber was armed inside `armBoundaryCommitWait()` — reached solely from
+   `startDrawThenGenerate()` (armed at `:783-784`, deliberately BEFORE the mount at `:820`). So
+   mounting the split early WITHOUT also arming a listener would have produced exactly the feared
+   silent-loss bug: a live draw tool whose commit fires into an empty bus.
+3. **The mount is idempotent.** `mountSiteAuthoringPanes()` opens with
+   `if (siteAuthoringPanes && !siteAuthoringPanes.isDisposed) { log; return; }` (`GISAreaLayout.ts:4274-4277`),
+   and `startBoundaryDraw` guards `if (map2dHandle) { log 'already open'; return; }` (`:249-252`).
+   `startDrawThenGenerate()` calling the hook a second time down the draw path is a logged no-op —
+   no double-mount, no duplicate map, no re-flash.
+4. **The other two choice paths tolerate a pre-mounted split.** The default-footprint path
+   (`useDefaultRectThenConfirm()`) never touches GIS state — it authors the rect and renders confirm;
+   the split simply stays visible behind it (KEEP-BOUNDARY-VISIBLE already renders the confirm over a
+   live map on the draw path, so this is the established presentation). The overlay-PDF path
+   (`startOverlayImport()` → `pryzmStartSitePlanOverlayImport` = `startBoundaryDraw({ overlayOnly: true })`,
+   `GISAreaLayout.ts:1283`) hits the same `map2dHandle` guard: with the split's map already open the
+   overlay-only re-open is a no-op and the user proceeds via the map's own "Overlay plan / PDF"
+   button (the L-258 instruction banner already tells them to). Both paths' terminal transitions
+   route through `pryzmCloseBoundaryMap2D`, which is split-aware (`GISAreaLayout.ts:306-314` —
+   dismisses the whole split when it is live). One found interaction, closed in §21.2:
+   `createSiteFromRect` emits `site.parcel-boundary-set` synchronously, which would have tripped the
+   new early listener into a redundant 'drawn'-labelled confirm render a tick before the
+   default path's own 'default-plot' confirm.
+
+### §21.2 — What shipped (`apps/editor/src/ui/onboarding/OnboardingStepController.ts` only)
+
+- `enterSiteStepSplit()` — called first thing in `renderSiteStep()` (so ALL entries: geocode-resolved,
+  location-skipped, empty-query-skip, BACK-from-confirm, BACK-from-drawing). Calls
+  `window.pryzmMountSiteAuthoringPanes?.()` under try/catch (the file's established typed-cast idiom,
+  P4-clean), then arms the safety net below. Idempotency (finding 3) makes re-entry safe.
+- `armEarlySplitBoundaryListener()` — the finding-2 fix: a lightweight one-shot
+  `site.parcel-boundary-set` listener stored in the SAME `this.drawWaitCleanup` slot
+  `armBoundaryCommitWait()` uses, so whichever arms last wins and a commit can never double-fire. A
+  boundary drawn/selected straight off the early split (no "Draw" click) routes to the normal
+  generate-confirm step. Deliberately NO watchdog: the 60 s default-plot fallback belongs to an
+  explicit draw session, not to a user reading the choice card (it would hijack the other two paths).
+- `useDefaultRectThenConfirm()` now disarms that listener before `createSite()` (finding 4's
+  synchronous-emit interaction).
+- `leaveSiteStepSplit()` — symmetric teardown (cancel listener + `pryzmUnmountSiteAuthoringPanes`),
+  wired to the site step's "← Back" (to location) only; forward paths keep the split alive by design
+  and already own their teardown (`pryzmCloseBoundaryMap2D` at generate / not-now / landing).
+- P8 note: all additions are private methods on an existing class — no new exported functions, so no
+  new span obligation; no new module, no parallel mount path (P1 — the ONE existing
+  `pryzmMountSiteAuthoringPanes` is reused).
+
+### §21.3 — Verification
+
+- `apps/editor/__tests__/onboardingEarlySplitMount.test.ts` (new, happy-dom, mirrors
+  `onboardingOverlayImportBranch.test.ts`'s harness): 7 tests — mount-on-entry (choice card intact),
+  missing-hook degradation, early-commit routes to confirm, one-shot (no re-render on second emit),
+  "Draw" click supersedes with exactly ONE live listener, BACK-to-location unmounts + disarms.
+  `npx vitest run` (from `apps/editor/`): **16 passed** (7 new + the 9 pre-existing overlay-branch
+  regression tests, unchanged). Root `npx tsc --skipLibCheck --noEmit`: **exit 0, no errors**.
+- NOT verified in a live browser this pass: the visual result (split fading in behind the choice
+  card, Cesium right-pane load timing). The unit layer proves the wiring + listener lifecycle, not
+  the pixels.
+
+### §21.4 — Honest scope vs §17.4
+
+This closes "split appears at site-step entry for all three choices" — the split is now mounted the
+moment a location resolves or is skipped, one full choice earlier than before, and a parcel
+drawn/selected immediately is not lost. It does NOT deliver §17.4's full choreography: the split
+still appears as a mount at step entry, not a FADE synchronized with the camera reaching the city
+mid-flight ("appears naturally as the camera reaches the city") — that gated split-reveal remains
+open, and §19's bootstrap gates still bound how early any of this can happen.
+
+*End §21 — 2026-08-06.*
+
+---
+
+*End — PRYZM Earth Onboarding PRD, 2026-08-06 — §1-§19 + §21; §17.2's full table, the gated
+split-reveal (camera-synchronized fade), Milestone 0 profiling, L-631, and §19's P1-sequencing lever
+all remain open.*
