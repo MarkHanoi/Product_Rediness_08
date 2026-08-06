@@ -832,4 +832,175 @@ project - go directly to PRYZM EARTH."**
 
 ---
 
+## §15 — Milestone 2 Implementation Log (2026-08-06, fourth pass — code changes)
+
+This section is appended, not a rewrite, per C31 §1.2 discipline. It records Milestone 2 proper
+(§10): replacing the `location` step's plain text-input card with a real Cesium globe the search
+box floats over, reusing the existing `CesiumViewport` singleton, the existing `siteEntryModel`
+pure reducer, and the existing geocoder — adding only presentation, per §9/§10's scope.
+
+### §15.1 — Re-verification findings (what was actually found before touching code)
+
+- **The `location` step's prior implementation**: `OnboardingStepController.ts`'s
+  `renderLocationStep()` (was `:436-499`) built a plain DOM card — prompt, hint, a text
+  `<input data-testid="onboarding-location-input">`, a "Find location" submit button, a status
+  line, and a "Skip — no location" button — with NO Cesium/globe of any kind behind it.
+  `handleGeocode()` (was `:501-542`) called `geocodeAddress()` (OSM Nominatim, NOT Google — see
+  §12 conflict #6, already corrected) directly and set `this.picked` on the first result. This
+  confirmed the task brief's description exactly.
+- **`siteEntryModel.ts`/`SiteEntryStore`/`SiteEntryPanel`**: re-grepped
+  `siteEntryStore|SiteEntryStore|siteEntryModel|SiteEntryPanel|cesiumSiteEntryCameraPort|GlobeCameraHost`
+  across `apps/editor/src` excluding their own `engine/views/` directory — **zero consumers**,
+  confirming §13.1's finding still stands. `SiteEntryPanel.ts` (179 lines) IS genuinely fully
+  built — pure DOM chrome, zero copy/state of its own, every string from `describeSiteEntryPanel()`
+  — the PRD's "already built" claim for it holds. `siteEntryModel.ts` (790 lines, 38 of 39
+  `SiteEntryModel.test.ts` cases passing — the one failure is the pre-existing, out-of-scope
+  Murcia `es-30005-alcantarilla` jurisdiction-predicate defect, unrelated to this pass) and
+  `siteEntryStore.ts` (255 lines) are both complete, tested, production-shaped modules that were
+  simply never wired to a live UI. `GlobeHeroSearch` did not exist under any name — confirmed via
+  `grep -rn "GlobeHeroSearch"` returning nothing before this pass.
+- **The existing `CesiumViewport` mount path**: the ONE construction site is
+  `GISAreaLayout.ts:390`, `cesiumViewport = new CesiumViewport(viewport, runtime ?? null)`, inside
+  `toggleGIS(true)`'s lazy `Promise.all` import block (first activation only — idempotent on
+  repeat calls). `toggleGIS(true)` alone (without the separate `pryzmEnterSiteView` split-pane
+  entry point) already yields a **solo, full-screen** Cesium view: it mounts/shows the viewport
+  (`cesiumViewport.setVisible(true)`, `CesiumViewport.ts:12443`) which raises its z-index above
+  the BIM canvases and hides them (`setBimCanvasesHidden(true)`), and disables the Three.js camera
+  controls — exactly the "solo-paned" shape §10 Milestone 2 asks for, with no `SiteAuthoringPaneShell`/
+  `PaneHost` split needed. `toggleGIS` is exposed as the already-typed global `window.pryzmToggleGIS`
+  (`GISAreaLayout.ts:1217`), the SAME idiom `OnboardingStepController.ts` already uses for the
+  "Draw it on the map" path (`:704-738` in the pre-Milestone-2 file).
+- **The existing camera-fly + geocoder mechanisms**: `CesiumViewport.flyToGeographic()`
+  (`CesiumViewport.ts:12664-12701`) is a public method built FOR EXACTLY THIS (§FEAT-SITE-ENTRY-GLOBE,
+  L-593, C60 §4 — its own header says so): it takes `{lat, lon, altitudeM, pitchDeg, instant?}`,
+  guards a live viewer, and calls `viewer.camera.flyTo`/`setView` — the exact shape
+  `siteEntryStore.ts`'s `GlobeCameraHost` interface and `cesiumSiteEntryCameraPort()` adapter
+  (`siteEntryStore.ts:87-122`) already expect, structurally, with zero import edge to
+  `CesiumViewport` (by design, per that file's own comment). **No new camera/tween code was
+  needed anywhere.** The geocoder is `geocodeAddress()` (`ui/site/geocodeAddress.ts`) — OSM
+  Nominatim `fetch`+parse, already used by both the old `handleGeocode()` and the GIS rail's own
+  `siteGeocodeSearchBox.ts`; reused verbatim as an injected dependency, never re-implemented.
+
+### §15.2 — What this pass built
+
+1. **`apps/editor/src/ui/onboarding/GlobeHeroSearch.ts` (NEW, DOM-free)** — the thin composition
+   §9 calls for. A class with `mount()`/`dispose()`/`search(query)`, constructed with FOUR injected
+   dependencies (`toggleGlobe`, `getCameraHost`, `entries`, `geocode`) so it imports no `document`,
+   no `window`, and no Cesium — directly unit-testable under this app's node-environment vitest
+   config (mirrors `projectAutoName.ts`/`resolveSeededTypologyId.ts`'s established pattern).
+   Internally it owns ONE `SiteEntryStore` (mode `'open'`, not the shipped `'coverage-gated'`
+   default — see the decision below) wired to `cesiumSiteEntryCameraPort(getCameraHost)`.
+   `search()` resets the store, geocodes, then dispatches `site.entry.descend` in a loop (bounded
+   to 8 iterations as a defensive guard against a future reducer regression turning it infinite —
+   the real stage count is 4) until the `parcel` stage is reached, producing **one discrete
+   `flyTo` per intermediate stage** exactly as PRD §7 specifies ("a chain of discrete `flyTo`
+   calls... never a single continuous camera-path animation computed by application code"), then
+   dispatches the terminal `site.entry.select-parcel` hand-off intent. Every exported method
+   carries an OTel span (`pryzm.site-entry.globe-hero-search.*`, P8).
+2. **`apps/editor/src/types/globals.d.ts`** — added `pryzmGetSiteEntryCameraHost?: () => {
+   flyToGeographic(...): void } | null`, declared structurally (no import, matching the file's own
+   "inlined to avoid import cycles" convention) — the ONE new typed global this pass needed,
+   following the exact `pryzmToggleGIS` idiom (P4: no `(window as any)` anywhere in new code).
+3. **`apps/editor/src/ui/layout/GISAreaLayout.ts`** — one line,
+   `window.pryzmGetSiteEntryCameraHost = () => cesiumViewport;`, registered immediately after
+   `window.pryzmToggleGIS = ...`. A resolver over the existing closure variable, not a new
+   reference — returns the CURRENT viewport (survives a device-loss dispose+recreate) and `null`
+   before `toggleGIS(true)` has mounted one. This is the one bridge the PRD's own §9 diagram
+   assumed already existed ("owns no Cesium instance — resolves the SINGLETON via the existing
+   accessor") but which, on inspection, did not — `cesiumViewport` was a private closure variable
+   with no accessor. Adding it is the smallest possible fix consistent with C59 §2 invariant 1
+   ("no `new CesiumViewport(...)` outside its one construction site" — this adds no construction
+   site, only a read).
+4. **`apps/editor/src/ui/onboarding/OnboardingStepController.ts`** — `renderLocationStep()` now
+   constructs a `GlobeHeroSearch` (wiring its four dependencies to the `window.pryzmToggleGIS` /
+   `window.pryzmGetSiteEntryCameraHost` globals + `siteEntryCoverageEntries()` +
+   `geocodeAddress`) and calls `.mount()`, which shows the solo full-screen globe BEHIND the
+   existing floating search card (the card's own backdrop is a non-interactive `box-shadow`
+   scrim, per `onboardingStyles.ts:500` — never a pointer-capturing full-screen div — so the globe
+   stays draggable/zoomable underneath it with zero CSS changes needed). `handleGeocode()` now
+   calls `hero.search(q)` instead of `geocodeAddress()` directly, and uses the returned outcome's
+   `picked`/`message` in place of the old inline geocode-result handling. A new
+   `leaveLocationStep()` helper disposes the `GlobeHeroSearch` (toggles the globe back off,
+   restoring the BIM canvases) on every exit path from the step — Skip, an empty query treated as
+   skip, and a resolved search — plus a safety-net `dispose()` in `addCleanup()`. All existing
+   `data-testid`s (`onboarding-location-input`, `onboarding-location-status`,
+   `onboarding-location-skip`) and the DOM structure are unchanged, so the one existing test file
+   that exercises `OnboardingStepController` (`onboardingOverlayImportBranch.test.ts`, which mounts
+   directly at the `site` step and never touches `location`) is unaffected — verified by running it.
+5. **`apps/editor/__tests__/globeHeroSearch.test.ts` (NEW)** — 13 unit tests against
+   `GlobeHeroSearch` with fake `toggleGlobe`/`getCameraHost`/`geocode`: mount/dispose
+   idempotency and ordering, empty-query/no-match/thrown-geocoder failure copy, the
+   discrete-flight-chain shape (5 flights: the per-search `reset` re-affirm + 3 stage descends +
+   the terminal `select-parcel` confirmation — asserted with strictly-decreasing altitude across
+   the 3 real descend legs), picked-location/bbox forwarding, the deliberate `'open'`-mode
+   uncovered-location success case, a second search resetting rather than continuing mid-chain,
+   and that neither `mount()`/`dispose()` nor `search()` ever throw even when an injected
+   dependency does.
+
+### §15.3 — A decision this pass had to make that §9/§10 did not fully specify
+
+- **`SiteEntryStore` mode: `'open'`, not the shipped `'coverage-gated'` default.** §10's own text
+  says C60's shipped default is `'coverage-gated'` (world/country/city freely navigable, the ONE
+  hard gate being descent into the `parcel` stage at an uncovered point). Wiring `GlobeHeroSearch`
+  with that default would have been a **regression**: the pre-existing `location` step accepted
+  ANY geocoded address, covered or not, and handed it to `createSiteFromRect` — the honest "PRYZM
+  cannot answer here" refusal already happens correctly downstream, at generate/envelope time
+  (C58/C64), not at the anchoring step. `'open'` mode keeps the real reducer/camera machine
+  (stage transitions, the coverage lookup, the honest per-stage verdict a future `SiteEntryPanel`
+  mount could still render) while lifting the ONE gate that would otherwise have silently narrowed
+  what a user can anchor a site to. This is exactly the founder-relevant tradeoff C60 §5 documents
+  as "switching is this option and nothing else" — flagged here rather than silently defaulted.
+- **No `SiteEntryPanel` mount in this pass.** §9's component hierarchy lists `SiteEntryPanel`
+  (staged coverage copy — "PRYZM can answer in N jurisdictions", country/city pick lists, etc.) as
+  reused chrome. This pass does NOT mount it: `GlobeHeroSearch` drives the reducer headlessly and
+  reports only a `{ok, message}` outcome to the existing status line, so the location step keeps
+  its current minimal copy surface rather than gaining the full coverage-browsing panel. Reason:
+  `SiteEntryPanel` is built for a *browsable* world/country/city stage flow (click a country, click
+  a city, then a parcel) where the user navigates the panel's own action list — the current
+  `location` step is a *search-first* flow (type an address, get flown there in one gesture). Both
+  are legitimate per §4.1's "Living Earth (hero search)" row, but combining them (mount the panel
+  AND drive it from search) is a materially bigger interaction-design decision than "add only
+  presentation" scopes for this pass. Flagged as the sharpest deferred-polish item below.
+
+### §15.4 — Deliberately deferred to a follow-up polish pass
+
+- **Mounting `SiteEntryPanel` in the location step** (§15.3) — would add live coverage copy
+  ("PRYZM can answer in N jurisdictions…") to the globe backdrop; not attempted this pass.
+- **Free-look/click-to-descend on the globe itself** (clicking a lit region without typing a
+  search) — explicitly out of scope per the task brief (Milestone 4, the coverage-rectangle +
+  `ScreenSpaceEventHandler` click branch C60 §8 left undone).
+- **Cinematic atmosphere/lighting configuration** (§7: `scene.skyAtmosphere`,
+  `globe.showGroundAtmosphere`, time-of-day lighting) — `toggleGIS(true)`'s existing Cesium mount
+  uses whatever atmosphere/lighting config `CesiumViewport`'s constructor already sets up
+  (unmodified by this pass); no NEW atmosphere/cloud/lighting configuration was added. This is the
+  "full cinematic polish" the task brief explicitly permits deferring in favour of a working,
+  honest, reuse-first version — the globe IS real, textured, and rotatable, but its specific
+  lighting/atmosphere tuning for THIS onboarding moment was not art-directed in this pass.
+- **A live profile of the founder's WebGL-fallback frame budget with the globe + new toggle
+  behaviour** (§10 Milestone 0 / §8's flagged unknown) — still not run; this pass could not exceed
+  what static reading + unit tests can determine, per §8's own honesty note.
+- **Terrain-in-Forma (L-631, C12 §9)** — untouched, per the founder-escalated open conflict this
+  document does not re-decide (§12 conflict #3).
+
+### §15.5 — Verification
+
+- `apps/editor/__tests__/globeHeroSearch.test.ts`: **13/13 passing.**
+- Re-ran the full existing regression set most likely to interact with this change:
+  `globeHeroSearch.test.ts` + `onboardingOverlayImportBranch.test.ts` + `SiteEntryModel.test.ts` +
+  `SiteEntryStore.test.ts` + `projectHubAutoNamedOnboarding.test.ts` + `resolveSeededTypologyId.test.ts`
+  — **88/89 passing**; the one failure (`SiteEntryModel.test.ts`, the Murcia
+  `es-30005-alcantarilla` jurisdiction-predicate case) is the pre-existing, explicitly out-of-scope
+  Murcia rule-pack defect named in this session's own task brief ("known pre-existing unrelated
+  test failures — leave alone"), unrelated to any file this pass touched.
+- Root `npx tsc --skipLibCheck --noEmit`: **clean, exit 0.**
+- Grepped every file this pass touched for `import * as THREE` and `(window as any)`: **none
+  found** (P2/P4 intact). No exported function/method added without an OTel span (P8) —
+  `GlobeHeroSearch.mount/dispose/search` each carry one.
+- `git status --short` was checked before any edit; the only pre-existing changes were unrelated
+  (`.vs/`, `revit-addin/.../obj/` — build artifacts, untouched).
+
+*End addendum — Milestone 2 implementation, 2026-08-06.*
+
+---
+
 *End — PRYZM Earth Onboarding PRD, 2026-08-06 — PROPOSAL, zero code changes.*

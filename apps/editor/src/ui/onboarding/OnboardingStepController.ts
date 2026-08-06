@@ -64,6 +64,12 @@ import { resolveSiteContext, ensureSite, dispatchSiteLocation, dispatchClearParc
 // §L-401 slice 2 — the pure storey height-cap decision (C58 envelope → legal storey count).
 import { capStoreysToEnvelope } from '@pryzm/site-parcel-data';
 import { geocodeAddress } from '../site/geocodeAddress.js';
+// PRYZM-EARTH-ONBOARDING PRD Milestone 2 (§9/§10) — the `location` step's globe presentation
+// layer: a full-screen Cesium globe (the EXISTING singleton, re-shown solo) behind the search
+// card, driven by the EXISTING `siteEntryModel`/`SiteEntryStore` reducer instead of a bare
+// geocode-then-set-field call. See GlobeHeroSearch.ts's header for the full reuse rationale.
+import { GlobeHeroSearch } from './GlobeHeroSearch.js';
+import { siteEntryCoverageEntries } from '../../engine/views/siteEntryCoverage';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
 import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/houseFromBoundary.js';
 import { generateResidentialFromBoundary } from '../residential-building/residentialFromBoundary.js';
@@ -250,6 +256,12 @@ export class OnboardingStepController {
     private overlay: HTMLElement | null = null;
     private bodyEl: HTMLElement | null = null;
     private stepLabelEl: HTMLElement | null = null;
+
+    /** PRYZM-EARTH-ONBOARDING PRD Milestone 2 — the `location` step's globe presentation
+     *  (mounts the solo Cesium globe + drives the search through `SiteEntryStore`). Created on
+     *  entry to `renderLocationStep()`, disposed the moment the step is left (skip, a resolved
+     *  search, or overlay teardown) — the globe must not stay live once the flow has moved on. */
+    private globeHero: GlobeHeroSearch | null = null;
 
     /** Current step — drives the indicator + guards re-entry into generate. */
     private step: StepId = 'location';
@@ -446,7 +458,8 @@ export class OnboardingStepController {
 
         const hint = document.createElement('p');
         hint.className = 'os-hint';
-        hint.textContent = 'Enter a city or address so we can anchor your site on the map. You can skip this.';
+        hint.textContent =
+            'Search a city or address to fly the globe there, or drag it yourself. You can skip this.';
         body.appendChild(hint);
 
         const form = document.createElement('form');
@@ -482,6 +495,27 @@ export class OnboardingStepController {
         skipRow.appendChild(skip);
         body.appendChild(skipRow);
 
+        // PRYZM-EARTH-ONBOARDING PRD Milestone 2 — mount the solo Cesium globe BEHIND this
+        // card and hand the search box to it. `window.pryzmToggleGIS`/
+        // `window.pryzmGetSiteEntryCameraHost` are the SAME typed-global idiom this file
+        // already uses for `pryzmStartBoundaryDraw` below (§GIS-HANDOFF) — no new mechanism.
+        this.globeHero = new GlobeHeroSearch({
+            toggleGlobe: (active) => {
+                const w = window as unknown as { pryzmToggleGIS?: (a: boolean) => void };
+                try { w.pryzmToggleGIS?.(active); } catch { /* ignore */ }
+            },
+            getCameraHost: () => {
+                const w = window as unknown as {
+                    pryzmGetSiteEntryCameraHost?: () => import('../../engine/views/siteEntryStore').GlobeCameraHost | null;
+                };
+                try { return w.pryzmGetSiteEntryCameraHost?.() ?? null; } catch { return null; }
+            },
+            entries: siteEntryCoverageEntries(),
+            geocode: geocodeAddress,
+        });
+        this.globeHero.mount();
+        this.addCleanup(() => this.globeHero?.dispose());
+
         const onSubmit = (e: Event): void => {
             e.preventDefault();
             void this.handleGeocode(input.value, status, submit);
@@ -490,12 +524,21 @@ export class OnboardingStepController {
         skip.addEventListener('click', () => {
             console.log('[onboarding-step] location skipped (no location).');
             this.picked = null;
+            this.leaveLocationStep();
             this.renderSiteStep();
         });
         this.addCleanup(() => form.removeEventListener('submit', onSubmit));
 
         // Defer focus so the overlay is painted first.
         try { input.focus(); } catch { /* ignore */ }
+    }
+
+    /** Dismiss the globe presentation when the `location` step is left by any path (skip, a
+     *  resolved search, empty-query-treated-as-skip) — the globe must not stay live once the
+     *  flow has moved on to the plot step. Idempotent (`GlobeHeroSearch.dispose()` is). */
+    private leaveLocationStep(): void {
+        this.globeHero?.dispose();
+        this.globeHero = null;
     }
 
     private async handleGeocode(
@@ -507,6 +550,7 @@ export class OnboardingStepController {
         if (!q) {
             console.log('[onboarding-step] empty address — treating as skip.');
             this.picked = null;
+            this.leaveLocationStep();
             this.renderSiteStep();
             return;
         }
@@ -515,23 +559,26 @@ export class OnboardingStepController {
         status.textContent = 'Searching…';
         submitBtn.disabled = true;
         try {
-            const results = await geocodeAddress(q);
-            if (this.disposed) return;
-            if (results.length === 0) {
-                console.warn('[onboarding-step] geocode returned no results for', JSON.stringify(q));
-                status.textContent = 'No matches — check the spelling, or skip to use the default site.';
+            const hero = this.globeHero;
+            if (!hero) {
+                // Defensive — the step controller always sets this in renderLocationStep().
+                console.warn('[onboarding-step] handleGeocode: no GlobeHeroSearch mounted.');
+                status.textContent = 'Location lookup failed — you can skip to use the default site.';
                 submitBtn.disabled = false;
                 return;
             }
-            const best = results[0]!;
-            this.picked = {
-                lat: best.lat,
-                lon: best.lon,
-                address: best.displayName,
-                ...(best.bbox ? { bbox: best.bbox } : {}),
-            };
+            const outcome = await hero.search(q);
+            if (this.disposed) return;
+            if (!outcome.ok) {
+                console.warn('[onboarding-step] location search failed:', outcome.message);
+                status.textContent = outcome.message;
+                submitBtn.disabled = false;
+                return;
+            }
+            this.picked = outcome.picked;
             console.log('[onboarding-step] location resolved', this.picked);
-            status.textContent = `Found: ${best.displayName}`;
+            status.textContent = outcome.message;
+            this.leaveLocationStep();
             this.renderSiteStep();
         } catch (err) {
             console.warn('[onboarding-step] geocode threw (non-fatal) — allowing skip:', err);

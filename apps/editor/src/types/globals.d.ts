@@ -252,6 +252,22 @@ declare global {
          *  rail's "Activate Geospatial" checkbox (`props.gisToggle`). Registered by
          *  GISAreaLayout once the editor's GIS area mounts. */
         pryzmToggleGIS?: (active: boolean) => void;
+        /** PRYZM-EARTH-ONBOARDING PRD Milestone 2 (§9/§10) — resolve the ONE live Cesium
+         *  viewport as a `GlobeCameraHost` (structurally: `flyToGeographic()` only), for the
+         *  onboarding `location` step's `GlobeHeroSearch` to drive via `SiteEntryStore`'s
+         *  existing camera port (`cesiumSiteEntryCameraPort`). A resolver, not a reference, so
+         *  it always returns the CURRENT viewport (survives device-loss recreate) and returns
+         *  `null` before `pryzmToggleGIS(true)` has mounted one yet. Declared structurally here
+         *  (not imported from `CesiumViewport`) so this file adds no import edge along which a
+         *  second viewer could be constructed — mirrors `siteEntryStore.ts`'s own
+         *  `GlobeCameraHost` rationale. Registered by GISAreaLayout. */
+        pryzmGetSiteEntryCameraHost?: () => { flyToGeographic(target: {
+            lat: number;
+            lon: number;
+            altitudeM: number;
+            pitchDeg: number;
+            instant?: boolean;
+        }): void } | null;
         /** O.2 (zoom-to-address defect) — seed the 2D boundary map's `getMapInitial`
          *  frame from a geocode result captured OUTSIDE the GIS-rail search box (the
          *  onboarding location step has its own geocode path). Supplies lat/lon and,

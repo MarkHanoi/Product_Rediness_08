@@ -1216,6 +1216,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // so it works BEFORE Cesium has mounted — calling it kicks off the mount.
     window.pryzmToggleGIS = (active: boolean) => toggleGIS(active);
 
+    // PRYZM-EARTH-ONBOARDING PRD Milestone 2 (§9/§10) — resolve the ONE Cesium viewport as a
+    // `GlobeCameraHost` for `GlobeHeroSearch`/`SiteEntryStore`. A resolver over the closure
+    // variable (not a captured reference) so it always returns the CURRENT viewport, including
+    // across a device-loss dispose+recreate, and returns `null` before `toggleGIS(true)` has
+    // mounted one yet — mirrors the `pryzmToggleGIS` idiom directly above.
+    window.pryzmGetSiteEntryCameraHost = () => cesiumViewport;
+
     // O.2 (zoom-to-address defect) — let the onboarding location step seed the SAME
     // `lastGeocodeFrame` the GIS-rail search box populates via onFlyTo. The
     // onboarding flow geocodes through its OWN path (OnboardingStepController.
