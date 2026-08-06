@@ -168,3 +168,9 @@ client
 **/.cache
 tools/cordoba-ar-georef/out
 scratchpad
+# The remaining per-probe out/ dirs (~24MB): rule-pack research evidence written
+# by the tools/* probes. Verified 2026-08-06: ZERO runtime imports or file reads
+# of any `tools/` path across server.js, server/, packages/*/src, apps/*/src —
+# the only mentions are provenance comments. Excluded so the manual (non-CI)
+# deploy path has a context small enough to upload over a domestic uplink.
+tools/*/out
