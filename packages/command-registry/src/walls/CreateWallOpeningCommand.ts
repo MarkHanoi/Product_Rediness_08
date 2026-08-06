@@ -32,9 +32,18 @@ export class CreateWallOpeningCommand implements Command {
         // a single one-line warning instead of a red stack.
         if (!this.data || typeof this.data !== 'object') this.data = { wallId: '', openingData: {} };
         if (!this.data.openingData || typeof this.data.openingData !== 'object') this.data.openingData = {};
-        this.targetIds = [this.data.wallId];
         this.openingId = this.data.openingData.id || crypto.randomUUID();
         this.openingElementId = this.data.openingData.elementId || crypto.randomUUID();
+        // §UNDO-SHADOW-DROP-IDENTITY (C03 §4.6 U-8, C15 §2) — targetIds MUST name
+        // the CREATED opening element, not only the host wall. `performUndo`'s
+        // shadow-drop (`dropEntriesForTargets`) removes any entry whose targetIds
+        // are a SUBSET of the ids a ring-buffer undo just reverted; with
+        // targetIds=[wallId] alone, undoing the HOST WALL through the ring buffer
+        // silently destroyed this ADD_OPENING entry from history AND the redo
+        // stack — the door/window became invisible to undo/redo. Keeping wallId
+        // FIRST preserves every `targetIds[0]` host-wall consumer
+        // (ValidatePanel / AIPanel / FloorPlanBatchExecutor).
+        this.targetIds = [this.data.wallId, this.openingElementId];
         // Normalise so downstream code always sees stable IDs
         this.data.openingData.id = this.openingId;
         this.data.openingData.elementId = this.openingElementId;

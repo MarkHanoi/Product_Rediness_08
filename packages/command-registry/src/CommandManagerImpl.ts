@@ -519,6 +519,32 @@ export class CommandManager {
     canUndo(): boolean { return this.history.length > 0; }
     canRedo(): boolean { return this.redoStack.length > 0; }
 
+    // ------------------------------------------------------------------
+    // §UNDO-CROSS-STACK-ORDER (C03 §4.5 / §4.7 follow-up 2) — read-only peeks
+    // for the unified undo path (performUndoRedo.ts). The two undo stacks
+    // (this history vs the CommandBus ring buffer) have independent cursors;
+    // performUndo compares the TOP entry's commit time on each side and undoes
+    // the NEWER one first, so a commandManager-only action (e.g. a 3D-placed
+    // door/window ADD_OPENING) is not "jumped over" by an older ring-buffer
+    // entry. `command.timestamp` is `Date.now()` at construction — the same
+    // clock the ring buffer's PatchPair.timestamp uses at push.
+    // Read-only: neither method moves a cursor or mutates the stacks.
+    // ------------------------------------------------------------------
+
+    /** Epoch-ms of the entry the next `undo()` would revert, or null when empty. */
+    peekUndoTimestamp(): number | null {
+        const top = this.history[this.history.length - 1];
+        const t = top?.command?.timestamp;
+        return typeof t === 'number' && Number.isFinite(t) ? t : null;
+    }
+
+    /** Epoch-ms of the entry the next `redo()` would re-apply, or null when empty. */
+    peekRedoTimestamp(): number | null {
+        const top = this.redoStack[this.redoStack.length - 1];
+        const t = top?.command?.timestamp;
+        return typeof t === 'number' && Number.isFinite(t) ? t : null;
+    }
+
     clearHistory(): void {
         this.history = [];
         this.redoStack = [];

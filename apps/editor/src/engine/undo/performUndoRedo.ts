@@ -46,11 +46,18 @@
 //      commandManager.undo() — the path for legacy-only operations (levels,
 //      hosted door/window openings, auto room-tag annotations).
 //
-// CROSS-STACK ORDERING (known limitation → ADR-051): the two stacks have
-// independent cursors, so a redo after a *mixed* undo sequence can mis-route.
-// `_lastSource` mirrors the last undo's stack on the next redo, which covers the
-// dominant "undo N then redo N (same stack)" case. The true single-stack end
-// state is ADR-051 (one store, derived geometry, one timeline).
+// CROSS-STACK ORDERING (§UNDO-CROSS-STACK-ORDER — C03 §4.7 follow-up 2): the two
+// stacks have independent cursors. Both now carry commit timestamps
+// (`PatchPair.timestamp` stamped by CommandBus at push; `command.timestamp` at
+// construction), and performUndo/performRedo order across the stacks
+// chronologically — undo reverts the NEWEST pending entry, redo replays the
+// OLDEST. This is what a single timeline would do, and it fixes the
+// founder-reported "Ctrl+Z jumps over a just-created door/window" bug (a 3D
+// door is commandManager-ONLY, so ring-buffer-first undid the older wall
+// beneath it). When either timestamp is missing (legacy fixtures), behaviour
+// falls back to ring-buffer-first + `_lastSource` mirroring. The true
+// single-stack end state remains ADR-0251 (one store, derived geometry, one
+// timeline).
 //
 // CONTRACT: C03 §4 (undo architecture), C10 §2 / P8 (OTel span per exported fn).
 
@@ -77,6 +84,9 @@ interface CommandManagerLike {
   undo?(): unknown;
   redo?(): unknown;
   dropEntriesForTargets?(ids: readonly string[]): number;
+  /** §UNDO-CROSS-STACK-ORDER — epoch-ms of the top undo/redo entry (read-only peeks). */
+  peekUndoTimestamp?(): number | null;
+  peekRedoTimestamp?(): number | null;
 }
 
 function _rb(): RingBufferLike | undefined {
@@ -87,8 +97,33 @@ function _cm(): CommandManagerLike | undefined {
 }
 
 /** Tracks which stack the last undo came from so redo mirrors it (best-effort
- *  cross-stack ordering — see header). */
+ *  cross-stack ordering fallback when timestamps are unavailable — see header). */
 let _lastSource: 'ring-buffer' | 'commandManager' | null = null;
+
+/**
+ * §UNDO-CROSS-STACK-ORDER (C03 §4.5, closes the undo half of §4.7 follow-up 2).
+ *
+ * THE BUG THIS FIXES (founder-reported, hosted openings — C15): a 3D-placed
+ * door/window is commandManager-ONLY (`DoorTool`/`WindowTool` →
+ * `cm.execute(new CreateWallOpeningCommand(...))`, no bus dispatch), while the
+ * wall it sits in is a ring-buffer entry. Ring-buffer-FIRST routing then made
+ * Ctrl+Z undo the OLDER wall entry and "jump over" the newer door — and the
+ * shadow-drop pass destroyed the door's ADD_OPENING entry as a false twin.
+ *
+ * FIX: when BOTH stacks have an undoable entry and BOTH carry a commit
+ * timestamp (`PatchPair.timestamp`, stamped by CommandBus at push;
+ * `command.timestamp`, stamped at construction — the same Date.now() clock),
+ * undo the NEWER one first: reverse chronological order across stacks, exactly
+ * what a single-timeline stack (ADR-0251 end-state) would do. When either
+ * timestamp is missing (legacy fixtures, pre-existing sessions) behaviour is
+ * unchanged: ring-buffer first.
+ */
+function _cmEntryIsNewer(pairTime: number | undefined, cm: CommandManagerLike | undefined): boolean {
+  if (typeof pairTime !== 'number') return false;
+  if (!cm?.canUndo?.()) return false;
+  const cmTime = cm.peekUndoTimestamp?.();
+  return typeof cmTime === 'number' && cmTime > pairTime;
+}
 
 /**
  * Build the `{ storeKey → applyPatch-adapter }` map the ring-buffer applicator
@@ -219,6 +254,19 @@ export function performUndo(): void {
         const pair = rb.current?.() ?? null;
         const stores = pair?.affectedStores ?? [];
         const map = buildUndoStoreMap();
+        // §UNDO-CROSS-STACK-ORDER — if the legacy stack's top entry is NEWER than
+        // the ring buffer's top entry, undo it first (reverse chronological order
+        // across both stacks). This is what routes a commandManager-only hosted
+        // door/window (ADD_OPENING) to its own undo instead of being jumped over
+        // by the older ring-buffer entry beneath it. Cursor untouched — safe.
+        if (_cmEntryIsNewer(pair?.timestamp, cm)) {
+          cm?.undo?.();
+          _lastSource = 'commandManager';
+          span.setAttribute('pryzm.undo.path', 'commandManager-newer');
+          console.log('[Undo] commandManager undo (newer than ring-buffer top — cross-stack order)');
+          span.end();
+          return;
+        }
         if (_covered(stores, map)) {
           const ids = _idsOf(pair);               // capture BEFORE the cursor moves
           const inverseSide = rb.undoPatch?.();    // step cursor back + return inverse
@@ -309,8 +357,17 @@ export function performRedo(): void {
         return true;
       };
 
-      // Mirror the last undo's stack first; otherwise ring-buffer-first.
-      const order = _lastSource === 'commandManager'
+      // §UNDO-CROSS-STACK-ORDER — redo replays FORWARD chronological order: when
+      // both stacks have a pending redo and both carry commit timestamps, the
+      // OLDER entry replays first (the mirror of undo-newest-first). Without
+      // timestamps, fall back to mirroring the last undo's stack (_lastSource).
+      const rbNextTime = rb?.canRedo?.() ? (rb.peek?.() ?? null)?.timestamp : undefined;
+      const cmNextTime = cm?.canRedo?.() ? cm.peekRedoTimestamp?.() : null;
+      const haveBothTimes = typeof rbNextTime === 'number' && typeof cmNextTime === 'number';
+      const cmFirst = haveBothTimes
+        ? (cmNextTime as number) < (rbNextTime as number)
+        : _lastSource === 'commandManager';
+      const order = cmFirst
         ? [tryCommandManager, tryRingBuffer]
         : [tryRingBuffer, tryCommandManager];
       if (!order[0]!() && !order[1]!()) {

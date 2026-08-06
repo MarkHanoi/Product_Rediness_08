@@ -14,7 +14,7 @@ import { performUndo, performRedo, buildUndoStoreMap } from '../src/engine/undo/
 import { __resetUndoRestoreSnapshots } from '../src/engine/undo/elementUndoStoreAdapter.js';
 
 interface Op { op: 'add' | 'remove' | 'replace'; path: string; value?: unknown }
-interface Pair { forward: { ops: Op[] }; inverse: { ops: Op[] }; affectedStores: string[] }
+interface Pair { forward: { ops: Op[] }; inverse: { ops: Op[] }; affectedStores: string[]; timestamp?: number }
 
 /** Minimal live legacy store (Map-based, mesh-driving in prod). */
 function makeStore() {
@@ -41,14 +41,18 @@ function makeRingBuffer(pair: Pair | null) {
   };
 }
 
-function makeCommandManager(targetIds: string[][]) {
-  const entries = targetIds.map(ids => ({ targetIds: ids }));
+function makeCommandManager(targetIds: string[][], timestamps?: number[]) {
+  const entries = targetIds.map((ids, i) => ({ targetIds: ids, timestamp: timestamps?.[i] }));
   return {
     entries,
     undo: vi.fn(),
     redo: vi.fn(),
     canUndo: () => entries.length > 0,
     canRedo: () => false,
+    // §UNDO-CROSS-STACK-ORDER — the read-only peeks performUndoRedo uses to
+    // order the two stacks chronologically (CommandManagerImpl.peek*Timestamp).
+    peekUndoTimestamp: () => entries[entries.length - 1]?.timestamp ?? null,
+    peekRedoTimestamp: () => null,
     dropEntriesForTargets: vi.fn((ids: readonly string[]) => {
       const wanted = new Set(ids);
       const before = entries.length;
@@ -62,11 +66,12 @@ function makeCommandManager(targetIds: string[][]) {
 }
 
 const WALL_ID = 'wall_01KSDNXWM0510W2JHHHNYESK10';
-function wallPair(): Pair {
+function wallPair(timestamp?: number): Pair {
   return {
     forward: { ops: [{ op: 'add', path: '/' + WALL_ID, value: { id: WALL_ID, type: 'wall', levelId: 'L0' } }] },
     inverse: { ops: [{ op: 'remove', path: '/' + WALL_ID }] },
     affectedStores: ['wall'],
+    ...(timestamp === undefined ? {} : { timestamp }),
   };
 }
 
@@ -134,6 +139,69 @@ describe('performUndoRedo — unified undo routing (OI-054)', () => {
     performUndo();
 
     expect(cm.undo).toHaveBeenCalledTimes(1);
+  });
+
+  // ── §UNDO-CROSS-STACK-ORDER (C03 §4.5 / §4.7-2) ────────────────────────────
+  // The founder-reported bug: a 3D-placed door/window is a commandManager-ONLY
+  // entry (DoorTool/WindowTool → cm.execute(CreateWallOpeningCommand); no bus
+  // dispatch), sitting ON TOP of the ring-buffer entry for the wall beneath it.
+  // Ring-buffer-FIRST routing therefore undid the OLDER wall and "jumped over"
+  // the newer door. Both stacks now carry commit timestamps and undo takes the
+  // NEWEST pending entry across both.
+
+  it('REGRESSION: a NEWER commandManager entry (3D door) is undone before an older ring-buffer entry', () => {
+    const store = makeStore();
+    store.add({ id: WALL_ID, type: 'wall', levelId: 'L0' });
+    const cm = makeCommandManager([['door_1']], [2_000]);   // door placed AFTER the wall
+    const rb = makeRingBuffer(wallPair(1_000));             // wall pushed FIRST
+    install(rb, cm, store);
+
+    performUndo();
+
+    expect(cm.undo).toHaveBeenCalledTimes(1);               // the door was undone…
+    expect(rb.canUndo()).toBe(true);                        // …and the wall's cursor is untouched
+    expect(store.map.has(WALL_ID)).toBe(true);              // the wall is still there
+    expect(cm.dropEntriesForTargets).not.toHaveBeenCalled();
+  });
+
+  it('an OLDER commandManager entry does not pre-empt a newer ring-buffer entry', () => {
+    const store = makeStore();
+    store.add({ id: WALL_ID, type: 'wall', levelId: 'L0' });
+    const cm = makeCommandManager([['door_1']], [1_000]);   // door placed BEFORE the wall
+    const rb = makeRingBuffer(wallPair(2_000));
+    install(rb, cm, store);
+
+    performUndo();
+
+    expect(store.map.has(WALL_ID)).toBe(false);             // newest = the wall → reverted
+    expect(cm.undo).not.toHaveBeenCalled();
+  });
+
+  it('without timestamps the legacy ring-buffer-first routing is preserved (back-compat)', () => {
+    const store = makeStore();
+    store.add({ id: WALL_ID, type: 'wall', levelId: 'L0' });
+    const cm = makeCommandManager([['door_1']]);            // no timestamps on either side
+    install(makeRingBuffer(wallPair()), cm, store);
+
+    performUndo();
+
+    expect(store.map.has(WALL_ID)).toBe(false);
+    expect(cm.undo).not.toHaveBeenCalled();
+  });
+
+  it('redo replays chronologically: the OLDER pending entry (commandManager) goes first', () => {
+    const store = makeStore();
+    const cm = makeCommandManager([]);
+    cm.canRedo = () => true;
+    cm.peekRedoTimestamp = () => 1_000;                     // door redo is OLDER
+    const rb = makeRingBuffer(wallPair(2_000));
+    rb.undoPatch();                                          // park the ring buffer in "can redo"
+    install(rb, cm, store);
+
+    performRedo();
+
+    expect(cm.redo).toHaveBeenCalledTimes(1);
+    expect(store.map.has(WALL_ID)).toBe(false);              // ring buffer not consumed yet
   });
 
   it('redo re-applies the forward patch via the live store (re-adds the wall)', () => {

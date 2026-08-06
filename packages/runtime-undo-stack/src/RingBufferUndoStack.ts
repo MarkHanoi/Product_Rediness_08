@@ -51,6 +51,18 @@ export interface PatchPair {
   readonly inverse: PatchSide;
   /** Sprint A34 (C03 §4.1): store-routing metadata for Phase D undo/redo applicator. */
   readonly affectedStores?: readonly string[];
+  /**
+   * §UNDO-CROSS-STACK-ORDER (C03 §4.7 follow-up 2, L: hosted-opening undo
+   * skipped): epoch-ms the command committed (`Date.now()`, stamped by
+   * `CommandBus.executeCommand` at push time). `performUndoRedo` compares it
+   * against the legacy CommandManager's top-entry `command.timestamp` so a
+   * NEWER commandManager-only action (e.g. a 3D-placed door/window
+   * ADD_OPENING) is undone BEFORE an older ring-buffer entry — reverse
+   * chronological order across BOTH stacks. Optional for backwards
+   * compatibility (pre-existing fixtures omit it → ring-buffer-first
+   * behaviour is preserved).
+   */
+  readonly timestamp?: number;
 }
 
 export interface RingBufferUndoStackOptions {

@@ -53,7 +53,17 @@ export class CreateWallOpeningsBatchCommand implements Command {
 
     constructor(items: ReadonlyArray<WallOpeningBatchItem>) {
         this._commands = items.map((it) => new CreateWallOpeningCommand({ wallId: it.wallId, openingData: it.openingData }));
-        this.targetIds = Array.from(new Set(items.map((it) => it.wallId)));
+        // §UNDO-SHADOW-DROP-IDENTITY (C03 §4.6 U-8, C15 §2) — targetIds MUST name
+        // the CREATED opening elements, not only their host walls. With host ids
+        // alone, a ring-buffer undo of those walls made this whole batch entry a
+        // "subset + orphaned" match for `dropEntriesForTargets`, silently deleting
+        // it from history AND redo (the single-opening bug in
+        // CreateWallOpeningCommand, at batch scale). Host wall ids stay FIRST so
+        // every `targetIds[0]` host consumer is unaffected. Ids are pre-minted in
+        // the inner constructors, so they are stable across undo/redo.
+        const hostIds = Array.from(new Set(items.map((it) => it.wallId)));
+        const openingElementIds = this._commands.flatMap((c) => c.targetIds.slice(1));
+        this.targetIds = [...hostIds, ...openingElementIds];
     }
 
     /** Non-empty batch is valid; per-opening validity is re-checked at execute time

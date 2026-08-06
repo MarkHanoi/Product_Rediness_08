@@ -394,6 +394,10 @@ export class CommandBus {
               },
               // Sprint A34 — store routing metadata for Phase D undo/redo applicator.
               affectedStores: stores,
+              // §UNDO-CROSS-STACK-ORDER (C03 §4.7-2) — commit time so performUndoRedo
+              // can order this entry against the legacy CommandManager's stack
+              // (both are Date.now()-based) and undo in reverse chronological order.
+              timestamp: Date.now(),
             });
           } catch (err) {
             console.error('[CommandBus] RingBufferUndoStack push failed for type=' + record.type + ':', err);
