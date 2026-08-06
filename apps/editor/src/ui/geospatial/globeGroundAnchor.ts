@@ -389,6 +389,96 @@ export function resolveGroundSample(sampled: number | null | undefined, centroid
     return typeof sampled === 'number' && Number.isFinite(sampled) ? sampled : centroidBaseM;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────────────
+// §TERRAIN-BASE-PROVENANCE (L-584 honesty half, C12 §1.4 / §7.2) — the BAKED-TERRAIN
+// path's equivalent of the L-259 globe anchor above.
+//
+// THE DEFECT. `CesiumViewport.clampTerrainThenReplace` samples ONE point (the parcel
+// centroid) off the attached baked quantized-mesh terrain, and on ANY failure — the
+// promise rejecting, or a NaN/undefined height coming back — it assigned
+// `sampledHeight = 0` and seated the whole massing there. Three separate states
+// therefore collapsed onto the SAME VALUE:
+//
+//     (a) "no elevation provider is attached, so the ellipsoid IS the ground"  → 0
+//     (b) "terrain is attached and really did measure 0 m here"                → 0
+//     (c) "terrain is attached and the measurement FAILED"                     → 0
+//
+// (a) and (b) are true datum statements. (c) is a fabrication, and it is strictly
+// worse than it looks: it also DISCARDS an already-measured base. On Burgos
+// (ground ≈ 912 m) one transient sample rejection would have re-placed the building
+// at 0 — 912 m underground — with nothing but a single `console.warn` that a benign
+// earlier warning may already have latched away.
+//
+// C12 §1.4 / §1.6 already forbid exactly this ("a fabricated `0` … is forbidden";
+// the datum is RESOLVED or UNRESOLVED, never silently coerced). The photoreal path
+// obeys it via `resolveGlobeGroundAnchor`; the baked-terrain path did not. This
+// reduction closes that asymmetry with the SAME vocabulary.
+//
+// SCOPE — deliberately narrow. This makes the failure DISTINGUISHABLE and RECORDED; it
+// does NOT change the seating policy (no hold-hidden on this path) and it does NOT
+// touch WHERE the sample is taken. The centroid-vs-façade half of L-584 is a separate,
+// consciously deferred decision gated on terrain posting resolution
+// (`packages/site-parcel-data/src/geometry/facadeRasantDatum.ts` — which ships a hard
+// `terrain-posting-too-coarse` refusal precisely so it is not closed falsely).
+// ─────────────────────────────────────────────────────────────────────────────────────
+
+/** Where the baked-terrain clamp's `formaTerrainBaseHeight` actually came from. */
+export type TerrainBaseSource =
+    /** A real, finite `sampleTerrainMostDetailed` reading off the attached terrain. */
+    | 'terrain-sample'
+    /** No provider carries elevation data → the rendered globe surface IS the WGS-84
+     *  ellipsoid, so 0 is the TRUE ground. A datum statement, not a fallback. */
+    | 'ellipsoid-flat-ground'
+    /** A sample was ATTEMPTED against real terrain and FAILED (rejected / NaN). The
+     *  base is the last value we held — it is NOT a measurement of this site. */
+    | 'unmeasured-fallback';
+
+/** The baked-terrain clamp's resolved base, carrying its own provenance. */
+export interface TerrainBaseResolution {
+    readonly baseHeightM: number;
+    readonly source: TerrainBaseSource;
+    /** FALSE only for `unmeasured-fallback`. Callers must never present a false
+     *  `measured` base as "seated on real ground" (§CONTEXT-DATA-HONESTY). */
+    readonly measured: boolean;
+}
+
+export interface TerrainBaseInput {
+    /** True when `terrainProviderHasElevationData(viewer.terrainProvider)` — i.e. a real
+     *  `CesiumTerrainProvider` (with `availability`) is attached, not the default ellipsoid. */
+    readonly hasElevationProvider: boolean;
+    /** The height `sampleTerrainMostDetailed` returned, or null/undefined/NaN when it did not. */
+    readonly sampledHeightM: number | null | undefined;
+    /** True when the sample call itself REJECTED (threw), as opposed to resolving unusably. */
+    readonly sampleFailed: boolean;
+    /** The base currently held (`formaTerrainBaseHeight`). Retained on failure INSTEAD of
+     *  fabricating 0 — a stale-but-measured base is closer to the truth than the ellipsoid,
+     *  and it matches what `ensureGroundBaseForContext` already does on its own catch. */
+    readonly lastKnownBaseM: number;
+}
+
+/**
+ * §TERRAIN-BASE-PROVENANCE — reduce a baked-terrain sample attempt to a base height PLUS
+ * the provenance of that height. Total, pure, never throws.
+ *
+ *   • no elevation provider     → 0, `ellipsoid-flat-ground`, measured (a true statement)
+ *   • a finite sample           → that height, `terrain-sample`, measured
+ *   • rejected / NaN / missing  → `lastKnownBaseM`, `unmeasured-fallback`, NOT measured
+ *
+ * Note the last case never invents 0: fabricating the ellipsoid over a previously measured
+ * 912 m ground is the burial this exists to prevent.
+ */
+export function resolveTerrainClampBase(input: TerrainBaseInput): TerrainBaseResolution {
+    if (!input.hasElevationProvider) {
+        return { baseHeightM: 0, source: 'ellipsoid-flat-ground', measured: true };
+    }
+    const h = input.sampledHeightM;
+    if (!input.sampleFailed && typeof h === 'number' && Number.isFinite(h)) {
+        return { baseHeightM: h, source: 'terrain-sample', measured: true };
+    }
+    const last = Number.isFinite(input.lastKnownBaseM) ? input.lastKnownBaseM : 0;
+    return { baseHeightM: last, source: 'unmeasured-fallback', measured: false };
+}
+
 /**
  * §SITEFRAME-GROUND (T1) — the [lon,lat] ring's vertex-mean centroid, the single point a
  * footprint is ground-sampled at. A footprint is small against the terrain LOD, so one seat for
