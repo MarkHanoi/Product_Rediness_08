@@ -26,6 +26,9 @@ import { buildStairTypeSelectorWidget }     from './StairTypeSelectorWidget';
 import { buildPlumbingTypeSelectorWidget }  from './PlumbingTypeSelectorWidget';
 // §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — placed-furniture "Type" swap dropdown.
 import { buildFurnitureTypeSelectorWidget } from './FurnitureTypeSelectorWidget';
+// §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — placed-railing "Type" swap dropdown; the
+// HandrailTypeStore catalogue had no selection surface anywhere in the product.
+import { buildRailingTypeSelectorWidget }  from './RailingTypeSelectorWidget';
 
 // ── Host interface ────────────────────────────────────────────────────────────
 
@@ -190,9 +193,23 @@ export function _buildTypeSelector(
         return buildColumnTypeSelectorWidget(elementData, (payload) => {
             const updates: Record<string, any> = { profile: payload.profile, width: payload.width, depth: payload.depth };
             if (payload.steelProfileName !== undefined) updates.steelProfileName = payload.steelProfileName;
-            window.runtime?.bus?.executeCommand('column.update', { id: elementData.id, updates })
+            // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — was 'column.update', the 3D-gizmo MOVE
+            // bridge. The mutation landed, but that bridge only records a ring-buffer
+            // PatchPair when the caller opts in with `_recordUndo` + `_prev` (which the
+            // drag-end supplies and this widget did not) — and `column` IS ring-covered, so
+            // Ctrl+Z after a profile swap popped the column's CREATE and DELETED it (L-68).
+            // Routed onto the uniform 'element.changeType' surface, which runs the same
+            // UpdateColumnCommand and pushes the swap's ring entry unconditionally.
+            window.runtime?.bus?.executeCommand('element.changeType', {
+                elementId:        elementData.id,
+                elementType:      'column',
+                newTypeId:        payload.profile,
+                width:            payload.width,
+                depth:            payload.depth,
+                steelProfileName: payload.steelProfileName,
+            })
                 ?.then(() => host.onRerender({ ...elementData, ...updates }))
-                ?.catch((e: unknown) => console.warn('[PropertyPanel] column.update failed:', e));
+                ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (column) failed:', e));
         });
     }
 
@@ -200,9 +217,45 @@ export function _buildTypeSelector(
         return buildBeamTypeSelectorWidget(elementData, (payload) => {
             const updates: Record<string, any> = { sectionType: payload.sectionType, width: payload.width, depth: payload.depth };
             if (payload.steelProfileName !== undefined) updates.steelProfileName = payload.steelProfileName;
-            window.runtime?.bus?.executeCommand('beam.update', { beamId: elementData.id, updates })
+            // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — see the column branch above; identical
+            // defect ('beam.update' is the move bridge, `beam` is ring-covered).
+            window.runtime?.bus?.executeCommand('element.changeType', {
+                elementId:        elementData.id,
+                elementType:      'beam',
+                newTypeId:        payload.sectionType,
+                width:            payload.width,
+                depth:            payload.depth,
+                steelProfileName: payload.steelProfileName,
+            })
                 ?.then(() => host.onRerender({ ...elementData, ...updates }))
-                ?.catch((e: unknown) => console.warn('[PropertyPanel] beam.update failed:', e));
+                ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (beam) failed:', e));
+        });
+    }
+
+    if (elType === 'railing' || elType === 'handrail' || elType === 'guardrail') {
+        // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — railing/handrail had NO type selector at
+        // all, though HandrailTypeStore has shipped five built-in types since it was
+        // authored (authored-but-unwired, exactly as ceilings were in L-621). The widget
+        // resolves the HandrailTypeDefinition and passes its CONCRETE fields, mirroring how
+        // the wall/floor/slab widgets pass `layers` + `thickness`: HandrailData carries no
+        // `typeId`, so a railing type is materialised into the record, not referenced.
+        return buildRailingTypeSelectorWidget(elementData, (payload) => {
+            if (!payload.typeId) return;
+            window.runtime?.bus?.executeCommand('element.changeType', {
+                elementId:     elementData.id,
+                elementType:   'railing',
+                newTypeId:     payload.typeId,
+                height:        payload.height,
+                thickness:     payload.thickness,
+                baseOffset:    payload.baseOffset,
+                fillType:      payload.fillType,
+                railProfile:   payload.railProfile,
+                railDiameter:  payload.railDiameter,
+                postSpacing:   payload.postSpacing,
+                materialColor: payload.materialColor,
+            })
+                ?.then(() => host.onRerender({ ...elementData, ...payload }))
+                ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (railing) failed:', e));
         });
     }
 
@@ -260,9 +313,21 @@ export function _buildTypeSelector(
     if (elType === 'stair' || elType === 'stairs') {
         return buildStairTypeSelectorWidget(elementData, (payload) => {
             if (!payload.typeId) return;
-            window.runtime?.bus?.executeCommand('stair.updateParameters', { stairId: elementData.id, updates: { typeId: payload.typeId } })
+            // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — was 'stair.updateParameters'. Unlike the
+            // door/floor/slab/ceiling defects this one DID mutate (the plugin handler is
+            // itself a commandManager bridge to UpdateStairParametersCommand, which rebuilds
+            // the flight because `typeId` is in its GEOMETRY_KEYS) — but it declares
+            // `affectedStores: []` and returns empty patches, while `stair` IS covered by
+            // buildUndoStoreMap(). No ring entry ⇒ ring-first Ctrl+Z popped the stair's
+            // CREATE and deleted it (L-68). Routed onto the uniform surface, which runs the
+            // SAME legacy command and adds the swap's ring entry.
+            window.runtime?.bus?.executeCommand('element.changeType', {
+                elementId:   elementData.id,
+                elementType: 'stair',
+                newTypeId:   payload.typeId,
+            })
                 ?.then(() => host.onRerender({ ...elementData, typeId: payload.typeId }))
-                ?.catch((e: unknown) => console.warn('[PropertyPanel] stair.updateParameters failed:', e));
+                ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (stair) failed:', e));
         });
     }
 
