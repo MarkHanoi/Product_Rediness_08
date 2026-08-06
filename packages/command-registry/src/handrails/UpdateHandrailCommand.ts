@@ -11,6 +11,17 @@ export interface UpdateHandrailPayload {
     fillType?: string;
     railProfile?: string;
     /**
+     * §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — the two remaining fields a RAILING TYPE
+     * carries that this payload could not express. `HandrailTypeDefinition` declares
+     * `railDiameter` and `postSpacing`, `HandrailData` stores both, and
+     * HandrailFragmentBuilder reads both — but the update command stopped at
+     * height/thickness/fillType/railProfile, so swapping a railing to e.g. "Stainless
+     * Steel Handrail" would have applied a partial type (right profile, wrong rail
+     * diameter and post spacing). A materialised type must be materialised WHOLE.
+     */
+    railDiameter?: number;
+    postSpacing?: number;
+    /**
      * §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — the handrail's two-point baseline.
      *
      * This is what made handrail MOVE a "double lie" (enabled + inert on BOTH surfaces):
@@ -50,6 +61,19 @@ export class UpdateHandrailCommand implements Command {
             }
         }
 
+        // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — reject a non-finite / negative rail
+        // diameter or post spacing rather than writing NaN into the geometry store (which
+        // renders as an invisible or exploded rail with no error anywhere). `postSpacing`
+        // MAY be 0 — the built-in "Stair Handrail" type declares exactly that (no posts).
+        if (this.payload.railDiameter !== undefined
+            && !(Number.isFinite(this.payload.railDiameter) && this.payload.railDiameter > 0)) {
+            return { ok: false, reason: 'railDiameter must be a finite number greater than 0' };
+        }
+        if (this.payload.postSpacing !== undefined
+            && !(Number.isFinite(this.payload.postSpacing) && this.payload.postSpacing >= 0)) {
+            return { ok: false, reason: 'postSpacing must be a finite number >= 0' };
+        }
+
         // §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — reject a malformed baseline LOUDLY rather than
         // writing NaN endpoints into the geometry store (which renders as an invisible or
         // exploded rail with no error anywhere).
@@ -81,6 +105,10 @@ export class UpdateHandrailCommand implements Command {
         if (this.payload.baseOffset   !== undefined) updates.baseOffset   = this.payload.baseOffset;
         if (this.payload.fillType     !== undefined) updates.fillType     = this.payload.fillType as any;
         if (this.payload.railProfile  !== undefined) updates.railProfile  = this.payload.railProfile as any;
+        // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — see the payload doc: a railing type is
+        // materialised into the record, so every field the type declares must be written.
+        if (this.payload.railDiameter !== undefined) updates.railDiameter = this.payload.railDiameter;
+        if (this.payload.postSpacing  !== undefined) updates.postSpacing  = this.payload.postSpacing;
         // §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — deep-clone: the store keeps the reference, and a
         // shared array would let a later caller mutate the committed record in place (and
         // would make the ring-buffer inverse patch restore the NEW endpoints — a no-op undo).

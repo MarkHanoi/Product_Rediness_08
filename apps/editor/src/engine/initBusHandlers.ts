@@ -31,6 +31,14 @@ import {
   // bus route was missing (the panel dispatched a verb whose payload never matched).
   UpdatePlumbingParametersCommand,
   MovePlumbingCommand,
+  // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — the families element.changeType did NOT reach
+  // (stair, column, beam, railing/handrail, roof, lighting). Each is routed to the legacy
+  // command that owns the GEOMETRY store its fragment builder subscribes to, exactly as
+  // walls/floors/slabs/ceilings already are (ADR-0105). UpdateColumnCommand /
+  // UpdateBeamCommand / UpdateRoofCommand / UpdateHandrailCommand are already imported
+  // above for their move/material bridges — only these two are new imports.
+  UpdateStairParametersCommand,
+  UpdateLightingParametersCommand,
   // §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — the two remaining "double lie" Move buttons
   // (enabled on BOTH surfaces, inert on BOTH). Both legacy commands own the GEOMETRY store
   // (window.slabStore / window.handrailStore) that the fragment builders, the 2-D plan
@@ -327,6 +335,79 @@ export function initBusHandlers(
             (cmd as any)?.constructor?.name ?? 'unknown',
         );
     }
+
+    // ── §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — ring-buffer parity for a type swap ──
+    //
+    // Every `element.changeType` family runs its swap through the LEGACY commandManager
+    // (the only path whose ctx.stores ARE the geometry stores the fragment builders read —
+    // ADR-0105). commandManager records NO ring-buffer entry. But the unified undo
+    // (performUndoRedo) is RING-BUFFER-FIRST, and `buildUndoStoreMap()` COVERS every one of
+    // these stores (stair, column, beam, handrail, roof, lighting, plumbing, furniture,
+    // floor, slab, ceiling). With no swap entry on the ring, the ring's top is still the
+    // element's earlier CREATE — and §UNDO-CROSS-STACK-ORDER cannot rescue it, because the
+    // legacy entry's `targetIds` INTERSECT the create's ids (same element), which that rule
+    // reads as "same gesture, ring-first". So Ctrl+Z DELETES the element instead of
+    // restoring its previous type. That is exactly the L-68 furniture bug, once per family.
+    //
+    // This helper is the SINGLE expression of the fix the furniture (L-68), floor (L-106),
+    // slab and ceiling (L-621) branches each wrote out inline: snapshot the record before
+    // and after, and push ONE invertible whole-element `replace` PatchPair on the SAME id.
+    // applyRingBufferSide then routes the inverse through elementUndoStoreAdapter →
+    // `window.<x>Store.update(id, oldData)` → the store's own change event → mesh rebuild.
+    //
+    // The `changed` guard is mandatory (C16): a rejected `canExecute` leaves the record
+    // untouched, and a no-op PatchPair surfaces to the user as a phantom Ctrl+Z that
+    // appears to do nothing. Deep equality on the whole snapshot is the strictest form of
+    // that guard and needs no per-family version/signature knowledge.
+    //
+    // Not exported (module-local closure) — P8's "every NEW exported function adds ≥1 OTel
+    // span" does not apply; the bus already opens `pryzm.command.execute` per dispatch.
+    const _readRecord = (store: unknown, id: string): unknown => {
+        const s = store as { getById?(id: string): unknown; get?(id: string): unknown } | undefined;
+        try {
+            if (typeof s?.getById === 'function') return s.getById(id);
+            if (typeof s?.get === 'function')     return s.get(id);
+        } catch (e) {
+            console.warn('[element.changeType] store read failed:', e);
+        }
+        return undefined;
+    };
+
+    /**
+     * Run a type swap through `run()` and mirror it onto the ring buffer as ONE
+     * invertible whole-element replace on `id`, keyed by `storeKey` (which MUST be a key
+     * `buildUndoStoreMap()` covers, or the ring entry is skipped at undo time and the
+     * cursor is left where it was).
+     */
+    const _swapWithRingParity = (
+        storeGlobalName: string,
+        storeKey: string,
+        id: string,
+        run: () => void,
+    ): void => {
+        const store = (window as unknown as Record<string, unknown>)[storeGlobalName];
+        const before  = _readRecord(store, id);
+        const oldData = before ? structuredClone(before) : undefined;
+
+        run();
+
+        const after   = _readRecord(store, id);
+        const newData = after ? structuredClone(after) : undefined;
+
+        const changed = !!oldData && !!newData && JSON.stringify(oldData) !== JSON.stringify(newData);
+        if (!changed) return;
+        try {
+            const rb = (window.runtime?.bus as unknown as { ringBuffer?: { push?(p: unknown): void } } | undefined)?.ringBuffer;
+            const idPtr = toJsonPointer([id]);
+            rb?.push?.({
+                forward: { ops: [{ op: 'replace', path: idPtr, value: newData }] },
+                inverse: { ops: [{ op: 'replace', path: idPtr, value: oldData }] },
+                affectedStores: [storeKey],
+            });
+        } catch (e) {
+            console.warn(`[element.changeType] ${storeKey} ring-buffer push failed (undo falls back to commandManager):`, e);
+        }
+    };
 
     const __bridges: BridgeSpec[] = [
         // ── existing element update bridges (E.5.1–E.5.3) ──────────────────
@@ -939,11 +1020,146 @@ export function initBusHandlers(
                     // §3 names it) — legacy plumbingStore → PlumbingFragmentBuilder
                     // .updateFixture(), undoable. Same uniform surface as every other
                     // family; no bespoke verb forked alongside it.
-                    _cmExec(new UpdatePlumbingParametersCommand({
-                        id:            cmd.elementId,
-                        toiletVariant: cmd.toiletVariant,
-                        showerVariant: cmd.showerVariant,
-                    }));
+                    //
+                    // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — ring parity was MISSING here.
+                    // L-622 routed the dispatch correctly but stopped at the commandManager,
+                    // and `plumbing` IS covered by buildUndoStoreMap() — so a ring-first
+                    // Ctrl+Z after a variant swap popped the FIXTURE'S CREATE (deleting the
+                    // toilet) instead of restoring the previous variant. Same defect class as
+                    // L-68; closed with the same whole-element PatchPair.
+                    _swapWithRingParity('plumbingStore', 'plumbing', cmd.elementId, () => {
+                        _cmExec(new UpdatePlumbingParametersCommand({
+                            id:            cmd.elementId,
+                            toiletVariant: cmd.toiletVariant,
+                            showerVariant: cmd.showerVariant,
+                        }));
+                    });
+                    return;
+                }
+                if (elType === 'stair' || elType === 'stairs') {
+                    // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — stair.
+                    //
+                    // The Stair Type dropdown dispatched `stair.updateParameters`, whose
+                    // plugin handler (plugins/stair UpdateStairParametersHandler) is itself a
+                    // commandManager BRIDGE to UpdateStairParametersCommand — so unlike
+                    // door/floor/slab/ceiling the MUTATION did land: the legacy stairStore is
+                    // written and GenerateStairGeometryCommand rebuilds the flight geometry
+                    // (`typeId` is in that command's GEOMETRY_KEYS). What was missing was
+                    // (a) the uniform surface — AI, collaboration replay and the Data panel
+                    // all address type swaps as `element.changeType`, and stair alone was
+                    // unreachable that way — and (b) the ring entry: the handler declares
+                    // `affectedStores: []` and returns empty patches, while `stair` IS covered
+                    // by buildUndoStoreMap(), so Ctrl+Z after a stair type swap popped the
+                    // stair's CREATE. Both closed here without forking a second mutation path:
+                    // the SAME legacy command the plugin bridge already runs.
+                    _swapWithRingParity('stairStore', 'stair', cmd.elementId, () => {
+                        _cmExec(new UpdateStairParametersCommand({
+                            stairId: cmd.elementId,
+                            updates: { typeId: cmd.newTypeId },
+                        }));
+                    });
+                    return;
+                }
+                if (elType === 'column') {
+                    // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — column.
+                    //
+                    // A column's TYPE is its section profile (rectangular / circular / UC / UB
+                    // + the steel profile name), which is what ColumnTypeSelectorWidget
+                    // offers. The widget dispatched the `column.update` MOVE bridge directly:
+                    // the mutation landed (UpdateColumnCommand → legacy columnStore →
+                    // rebuild), but that bridge only emits a ring PatchPair when the caller
+                    // opts in with `_recordUndo` + `_prev`, which the gizmo drag-end supplies
+                    // and the type widget did not. `column` IS ring-covered → Ctrl+Z after a
+                    // profile swap deleted the column. Routed onto the uniform surface with
+                    // the same legacy command and unconditional ring parity.
+                    _swapWithRingParity('columnStore', 'column', cmd.elementId, () => {
+                        _cmExec(new UpdateColumnCommand({
+                            id: cmd.elementId,
+                            updates: {
+                                profile: cmd.newTypeId,
+                                ...(cmd.width  !== undefined ? { width:  cmd.width  } : {}),
+                                ...(cmd.depth  !== undefined ? { depth:  cmd.depth  } : {}),
+                                ...(cmd.steelProfileName !== undefined ? { steelProfileName: cmd.steelProfileName } : {}),
+                            } as any,
+                        }));
+                    });
+                    return;
+                }
+                if (elType === 'beam') {
+                    // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — beam. Mirrors the column branch
+                    // exactly: `sectionType` is the beam's type, the widget was dispatching
+                    // the `beam.update` move bridge without `_recordUndo`, and `beam` is
+                    // ring-covered → same phantom-delete Ctrl+Z.
+                    _swapWithRingParity('beamStore', 'beam', cmd.elementId, () => {
+                        _cmExec(new UpdateBeamCommand({
+                            beamId: cmd.elementId,
+                            updates: {
+                                sectionType: cmd.newTypeId,
+                                ...(cmd.width !== undefined ? { width: cmd.width } : {}),
+                                ...(cmd.depth !== undefined ? { depth: cmd.depth } : {}),
+                                ...(cmd.steelProfileName !== undefined ? { steelProfileName: cmd.steelProfileName } : {}),
+                            } as any,
+                        }));
+                    });
+                    return;
+                }
+                if (elType === 'railing' || elType === 'handrail' || elType === 'guardrail') {
+                    // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — railing / handrail.
+                    //
+                    // MISSING ENTIRELY: `HandrailTypeStore` has shipped five built-in types
+                    // (glass guardrail, stainless handrail, timber baluster, steel guardrail,
+                    // stair handrail) since the store was authored, and NOTHING could select
+                    // one — no property-panel widget, no bus verb, no command. Authored-but-
+                    // unwired, the exact pattern L-621 found for ceilings.
+                    //
+                    // HandrailData carries no `typeId`, so a railing type is MATERIALISED into
+                    // its fields rather than referenced (declared in the report, not papered
+                    // over): the widget resolves the HandrailTypeDefinition and passes the
+                    // concrete fields, mirroring how the wall/floor/slab widgets pass
+                    // `layers` + `thickness` instead of making the handler re-resolve them.
+                    // UpdateHandrailCommand owns the geometry handrailStore that
+                    // HandrailFragmentBuilder + the plan projector + persistence read.
+                    _swapWithRingParity('handrailStore', 'handrail', cmd.elementId, () => {
+                        _cmExec(new UpdateHandrailCommand({
+                            id: cmd.elementId,
+                            ...(cmd.height        !== undefined ? { height:        cmd.height        } : {}),
+                            ...(cmd.thickness     !== undefined ? { thickness:     cmd.thickness     } : {}),
+                            ...(cmd.baseOffset    !== undefined ? { baseOffset:    cmd.baseOffset    } : {}),
+                            ...(cmd.fillType      !== undefined ? { fillType:      cmd.fillType      } : {}),
+                            ...(cmd.railProfile   !== undefined ? { railProfile:   cmd.railProfile   } : {}),
+                            ...(cmd.railDiameter  !== undefined ? { railDiameter:  cmd.railDiameter  } : {}),
+                            ...(cmd.postSpacing   !== undefined ? { postSpacing:   cmd.postSpacing   } : {}),
+                            ...(cmd.materialColor !== undefined ? { materialColor: cmd.materialColor } : {}),
+                        }));
+                    });
+                    return;
+                }
+                if (elType === 'roof') {
+                    // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — roof.
+                    //
+                    // A roof's TYPE is `RoofData.roofType` (gable / hip / flat / shed / …).
+                    // There was no change-type route: only the `roof.update` bridge, reachable
+                    // from the generic parameter Apply, never from the uniform surface, and
+                    // never with a ring entry although `roof` IS ring-covered.
+                    _swapWithRingParity('roofStore', 'roof', cmd.elementId, () => {
+                        _cmExec(new UpdateRoofCommand(cmd.elementId, { roofType: cmd.newTypeId } as any));
+                    });
+                    return;
+                }
+                if (elType === 'lighting' || elType === 'light' || elType === 'lightfixture') {
+                    // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — lighting.
+                    //
+                    // A lighting element's TYPE is `LightingData.fixtureType` (downlight /
+                    // pendant / linear-LED / …). UpdateLightingParametersCommand is the proven
+                    // owner — legacy lightingStore + an explicit
+                    // `lightingFragmentBuilder.update(record)` so the fixture mesh is rebuilt
+                    // with the new type's geometry — and had no change-type call site.
+                    _swapWithRingParity('lightingStore', 'lighting', cmd.elementId, () => {
+                        _cmExec(new UpdateLightingParametersCommand({
+                            elementId: cmd.elementId,
+                            patch: { fixtureType: cmd.newTypeId } as any,
+                        }));
+                    });
                     return;
                 }
                 console.warn(`[element.changeType] no change-type route for elementType="${elType}" — ignored.`);
