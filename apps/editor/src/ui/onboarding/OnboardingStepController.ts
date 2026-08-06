@@ -522,6 +522,21 @@ export class OnboardingStepController {
         });
         void this.globeHero.mount();
         this.addCleanup(() => this.globeHero?.dispose());
+        // PRD §16 (Milestone 2 polish, founder-reported live) — a brand-new empty project's
+        // SplitViewManager AUTO-OPENS its 2D-plan pane on project-load (same mechanism the
+        // §L-412 site-authoring split already guards against below via `suppressAutoOpen()` —
+        // this is the identical race, just reached from the onboarding `location` step instead:
+        // the globe is meant to own the FULL screen at this stage; the auto-opened empty plan
+        // pane + its "View Properties" panel showed through beside it. Not restored on
+        // `leaveLocationStep()` — the `site` step that follows either goes straight into the
+        // real §L-412 split (which re-suppresses/re-arms this itself) or the BIM canvas, neither
+        // of which wants the STALE empty-project plan pane back.
+        try {
+            const svp = window as unknown as { splitViewManager?: { suppressAutoOpen?: () => void } };
+            svp.splitViewManager?.suppressAutoOpen?.();
+        } catch (e) {
+            console.warn('[onboarding-step] SVP suppressAutoOpen failed (non-fatal):', e);
+        }
 
         const onSubmit = (e: Event): void => {
             e.preventDefault();
