@@ -1391,10 +1391,39 @@ or the PRD was touched except this section.
 
 ---
 
-## §21 — Early Split-Screen Mount Log (2026-08-06 — code changes)
+## §20 — Bootstrap Idle-Defer Log (2026-08-06 — code changes; log written by the orchestrator)
 
-*(§20 is reserved by a concurrent pass working the bootstrap idle-deferral area; numbering kept
-non-colliding per the multi-agent shared-tree rule.)*
+The implementing pass was terminated by a transient API error after completing its code change and
+reporting a clean typecheck, but before appending this log — written by the orchestrator from the
+independently verified diff (read line-by-line; root `tsc` re-run clean; full safety argument is
+inline in `initUI.ts`'s own O.11 comment block, which the pass wrote before dying).
+
+**What changed** (`apps/editor/src/engine/initUI.ts` only): eight documentation/export subsystem
+*window-exposures* — Sheet Store, TitleBlock Store, Sheet Export Service, DXF Export Service
+(`init()` + exposure), Sheet Index Service, Schedule Store (+`seedDefaultSchedules()`), View
+Template Store, Phase Filter Store, plus `FastPathProjectorService` construction — moved out of
+`initUI()`'s eager path into `runDeferredDocSubsystems()`, scheduled via `requestIdleCallback`
+(4 s timeout; `setTimeout` fallback), re-scheduled on `pryzm-project-loaded` as belt-and-braces,
+idempotent, with a `window.__pryzmEnsureDocSubsystems` force-init escape hatch and a P8 span
+(`pryzm.bootstrap.docSubsystems`). Mirrors the established O.8 idiom (collaboration/CRDT idle
+deferral) — no new mechanism.
+
+**Safety basis** (verified claims, cited in the code comment): every deferred item is an exposure
+of an already-constructed module singleton (construction/seeding happens at module import
+regardless — e.g. `TitleBlockStore.ts:115`); internal engine code imports these singletons
+directly and never reads them via `window.*`; every UI reader (`ExportRailPanel`, sheet/template
+panels) reads lazily inside user-triggered handlers with not-ready guards already present;
+`ProjectLoader.ts:1697` re-seeds schedules on restore regardless; `FastPathProjectorService` was
+already only ever `null` at its one snapshot site (`initTools.ts:715` runs before this block).
+
+**Impact honesty**: shaves the doc/export cluster off `bootstrap()`'s critical path ahead of
+`pryzm-project-loaded` (which gates the onboarding globe, §19). Real but modest — the heavyweight
+items (builders, tools, scene) remain eager; §19's P1-sequencing blocker still bounds how early
+the globe can appear.
+
+---
+
+## §21 — Early Split-Screen Mount Log (2026-08-06 — code changes)
 
 **Trigger**: §17.4's target sequence — "GIS initializes → Split-screen fades in (Left: 2D GIS ·
 Right: 3D Site) → Parcel selection" — was not true of the shipped flow. Confirmed in

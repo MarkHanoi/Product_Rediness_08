@@ -370,6 +370,106 @@ async function waitForIfcSceneInteractive(modelId: string, scene: THREE.Scene, s
     return selectable.filter(obj => obj.userData?.modelId === modelId).length;
 }
 
+// ── O.11 (PERF 2026-08-06): defer non-essential documentation/export subsystem
+// exposure to idle ────────────────────────────────────────────────────────────
+// Mirrors the O.8 idiom (`initDataPlatform.ts` monitoring/advisory layer,
+// `engineLauncher.ts` CRDT/collaboration wiring) applied to a different cluster:
+// the Sheet/Schedule/TitleBlock/View-Template/Phase-Filter/DXF-export/
+// FastPathProjector "documentation" subsystems below. These are print-set /
+// drawing-register machinery — sheets, schedules, title blocks, DXF export, view
+// templates, phase filters, the plan-view fast-path projector — with no
+// plausible reader before the user opens a sheet/export/schedule panel. A solo
+// onboarding session heading to GENERATE (or the "+ New Project" globe) needs
+// none of it.
+//
+// Safety argument (verified 2026-08-06, see PRD §20):
+//   - Every item here is a `window.X = <already-constructed module singleton>`
+//     exposure, or one trivial method call. The actual construction/seeding
+//     already happened at MODULE IMPORT time — e.g. `titleBlockStore` seeds its
+//     A0/A1/A3 templates in its own constructor (`TitleBlockStore.ts:115`), and
+//     `scheduleStore.seedDefaultSchedules()` is re-invoked unconditionally by
+//     `ProjectLoader.ts:1697` on every project restore that has no serialized
+//     schedules, regardless of whether this block has run yet. Deferring the
+//     window-exposure changes nothing about internal engine logic, which always
+//     imports these singletons directly (`import { sheetStore } from
+//     '@pryzm/core-app-model'`, etc.) and never reads them via `window.*`.
+//   - Every UI reader of `window.dxfExportService` / `window.sheetStore` /
+//     `window.viewTemplateStore` (`ExportRailPanel.ts`, `ViewTemplateManagerPanel.ts`,
+//     `SheetsRailPanel.ts`) reads them lazily, inside a user-triggered action
+//     handler — never at panel-construction time. `ExportRailPanel._exportDxf()`
+//     already guards with "DXF export service is not ready. Please wait…" — the
+//     codebase already anticipates these being unready at click time.
+//   - `FastPathProjectorService` is snapshotted into `WallTool` at
+//     `initTools.ts:715-716`, which runs BEFORE this block (inside `initUI`)
+//     ever executes today — `WallTool` already only ever sees `null` here
+//     regardless of timing, so deferring construction further changes nothing.
+// Idempotent (`_docSubsystemsRan` guard) — safe to call any number of times.
+let _docSubsystemsRan = false;
+let _docSubsystemsCtx: { components: OBC.Components } | null = null;
+
+/** Force the deferred documentation/export subsystems to initialise NOW if they
+ * have not already. Idempotent. Exposed on `window.__pryzmEnsureDocSubsystems`
+ * so any future caller that hard-depends on one of them (sheet export, DXF
+ * export, schedules, …) can force-init early without waiting for the idle
+ * callback. */
+export function ensureDeferredDocSubsystems(): void {
+    if (_docSubsystemsRan || !_docSubsystemsCtx) return;
+    runDeferredDocSubsystems(_docSubsystemsCtx.components);
+}
+
+function runDeferredDocSubsystems(components: OBC.Components): void {
+    if (_docSubsystemsRan) return;
+    _docSubsystemsRan = true;
+
+    // P8 — OTel span for this deferred-init entry point (no-op tracer when none
+    // is wired, mirroring `initProjectOrigin.ts`'s `runtime.tracer` pattern).
+    const _span = (window as unknown as {
+        runtime?: { tracer?: { startSpan?: (n: string) => { end?: () => void } } };
+    }).runtime?.tracer?.startSpan?.('pryzm.bootstrap.docSubsystems') ?? null;
+
+    // ── Phase III — Sheet Store ───────────────────────────────────────────────
+    window.sheetStore = sheetStore; // TODO(TASK-08)
+    console.log('[main/deferred] Sheet Store initialized');
+
+    // ── Phase S1/S3 — TitleBlock Store (read-only, pre-seeded) ───────────────
+    window.titleBlockStore = titleBlockStore; // TODO(TASK-08)
+    console.log('[main/deferred] TitleBlock Store initialized (A0, A1, A3 templates seeded)');
+
+    // ── Phase S7 — Sheet Export Service ──────────────────────────────────────
+    window.sheetExportService = sheetExportService;
+    console.log('[main/deferred] Sheet Export Service initialized');
+
+    // ── DOC-3.2 — DXF Export Service ─────────────────────────────────────────
+    dxfExportService.init(components);
+    window.dxfExportService = dxfExportService;
+    console.log('[main/deferred] DXF Export Service initialized');
+
+    // ── Phase S8 — Sheet Index Service (Drawing Register) ────────────────────
+    window.sheetIndexService = sheetIndexService;
+    console.log('[main/deferred] Sheet Index Service initialized (Drawing Register ready)');
+
+    // ── Phase III — Schedule Store (expose and seed built-in schedules) ───────
+    window.scheduleStore = scheduleStore; // TODO(TASK-08)
+    scheduleStore.seedDefaultSchedules();
+    console.log('[main/deferred] Schedule Store initialized and default schedules seeded');
+
+    // ── Phase VII — View Template Store ───────────────────────────────────────
+    window.viewTemplateStore = viewTemplateStore; // TODO(TASK-08)
+    console.log('[main/deferred] View Template Store initialized');
+
+    // ── Phase VII — Phase Filter Store (seeds built-in filters automatically) ─
+    window.phaseFilterStore = phaseFilterStore; // TODO(TASK-08)
+    console.log('[main/deferred] Phase Filter Store initialized (built-ins seeded)');
+
+    // ── DOC-5.1 — Fast-Path Interactive Projector ──────────────────────────────
+    const fastPathProjectorService = new FastPathProjectorService();
+    window.fastPathProjectorService = fastPathProjectorService;
+    console.log('[main/deferred] FastPathProjectorService initialized (sub-50ms interactive projection)');
+
+    console.log('[EngineBootstrap] O.11: documentation/export subsystems deferred to idle (post-paint).');
+    _span?.end?.();
+}
+
 // ── initUI ────────────────────────────────────────────────────────────────────
 
 export async function initUI(p: UIParams): Promise<void> {
@@ -628,13 +728,27 @@ export async function initUI(p: UIParams): Promise<void> {
     window.visibilityRuleEngine = visibilityRuleEngine;
     console.log('[main] Visibility Rule Engine initialized');
 
-    // ── Phase III — Sheet Store ───────────────────────────────────────────────
-    window.sheetStore = sheetStore; // TODO(TASK-08)
-    console.log('[main] Sheet Store initialized');
-
-    // ── Phase S1/S3 — TitleBlock Store (read-only, pre-seeded) ───────────────
-    window.titleBlockStore = titleBlockStore; // TODO(TASK-08)
-    console.log('[main] TitleBlock Store initialized (A0, A1, A3 templates seeded)');
+    // ── Phase III — Sheet Store, TitleBlock Store, Sheet/DXF export, Sheet
+    //    Index, Schedule Store, View Template Store, Phase Filter Store,
+    //    FastPathProjectorService — DEFERRED (O.11). See `runDeferredDocSubsystems`
+    //    above this function for the full safety argument.
+    _docSubsystemsCtx = { components };
+    (window as unknown as { __pryzmEnsureDocSubsystems?: () => void })
+        .__pryzmEnsureDocSubsystems = ensureDeferredDocSubsystems;
+    {
+        const _scheduleDocSubsystems = () => ensureDeferredDocSubsystems();
+        const ric = window.requestIdleCallback as
+            | ((cb: () => void, opts?: { timeout: number }) => number) | undefined;
+        if (typeof ric === 'function') ric(_scheduleDocSubsystems, { timeout: 4000 });
+        else setTimeout(_scheduleDocSubsystems, 1500);
+        // Belt-and-braces: also (re-)schedule after the first project load, so the
+        // documentation subsystems are live well before the user reaches a sheet/
+        // export/schedule panel even if the browser never fires an idle callback.
+        window.runtime?.events?.on('pryzm-project-loaded', () => { // F.events.9
+            if (typeof ric === 'function') ric(_scheduleDocSubsystems, { timeout: 3000 });
+            else setTimeout(_scheduleDocSubsystems, 800);
+        });
+    }
 
     // ── Phase S4 — Sheet Editor Panel (LAZY — Plan §4 / §19.3 Phase 3) ─────
     // Constructor side-effects (7 sd:/vd:/svp: window listeners + panelManager
@@ -681,14 +795,9 @@ export async function initUI(p: UIParams): Promise<void> {
         console.log('[main] Sheet Editor Panel registered (lazy — loads on first use)');
     }
 
-    // ── Phase S7 — Sheet Export Service ──────────────────────────────────────
-    window.sheetExportService = sheetExportService;
-    console.log('[main] Sheet Export Service initialized');
+    // ── Phase S7 — Sheet Export Service — DEFERRED (O.11, see above) ─────────
 
-    // ── DOC-3.2 — DXF Export Service ─────────────────────────────────────────
-    dxfExportService.init(components);
-    window.dxfExportService = dxfExportService;
-    console.log('[main] DXF Export Service initialized');
+    // ── DOC-3.2 — DXF Export Service — DEFERRED (O.11, see above) ────────────
 
     // ── DOC-3.4 — PDF Export Service (LAZY — Contract 47 §9) ────────────────
     // jspdf (~477 KB) + svg2pdf.js + html2canvas (~201 KB transitive) ≈ 1 MB
@@ -733,27 +842,15 @@ export async function initUI(p: UIParams): Promise<void> {
         console.log('[main] PDF Export Service registered (lazy — loads on first use)');
     }
 
-    // ── Phase S8 — Sheet Index Service (Drawing Register) ────────────────────
-    window.sheetIndexService = sheetIndexService;
-    console.log('[main] Sheet Index Service initialized (Drawing Register ready)');
+    // ── Phase S8 — Sheet Index Service — DEFERRED (O.11, see above) ──────────
 
-    // ── Phase III — Schedule Store (expose and seed built-in schedules) ───────
-    window.scheduleStore = scheduleStore; // TODO(TASK-08)
-    scheduleStore.seedDefaultSchedules();
-    console.log('[main] Schedule Store initialized and default schedules seeded');
+    // ── Phase III — Schedule Store — DEFERRED (O.11, see above) ──────────────
 
-    // ── Phase VII — View Template Store ───────────────────────────────────────
-    window.viewTemplateStore = viewTemplateStore; // TODO(TASK-08)
-    console.log('[main] View Template Store initialized');
+    // ── Phase VII — View Template Store — DEFERRED (O.11, see above) ─────────
 
-    // ── Phase VII — Phase Filter Store (seeds built-in filters automatically) ─
-    window.phaseFilterStore = phaseFilterStore; // TODO(TASK-08)
-    console.log('[main] Phase Filter Store initialized (built-ins seeded)');
+    // ── Phase VII — Phase Filter Store — DEFERRED (O.11, see above) ──────────
 
-    // ── DOC-5.1 — Fast-Path Interactive Projector ──────────────────────────────
-    const fastPathProjectorService = new FastPathProjectorService();
-    window.fastPathProjectorService = fastPathProjectorService;
-    console.log('[main] FastPathProjectorService initialized (sub-50ms interactive projection)');
+    // ── DOC-5.1 — Fast-Path Interactive Projector — DEFERRED (O.11, see above) ─
 
     // ── Phase VII — Camera Persistence helper ─────────────────────────────────
     // Captures current Three.js camera state and stores it on the active ViewDefinition.
