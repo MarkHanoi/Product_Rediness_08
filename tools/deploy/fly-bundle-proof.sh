@@ -60,11 +60,27 @@ case "$GLB"   in *r2.dev/items/) check VITE_GLB_URL "$GLB" ok ;;
 case "$TILES" in *r2.dev/tiles/) check VITE_CONTEXT_TILES_URL "$TILES" ok ;;
                 *) check VITE_CONTEXT_TILES_URL "'$TILES' — not an R2 tiles URL (live Overpass)" bad ;; esac
 
+# ⚠ GIT_SHA IS NOT IN THE CLIENT BUNDLE. The first version of this script grepped
+# main.js for it and reported a FALSE FAILURE on a healthy deploy (2026-08-06,
+# v1204) — it would have caused a needless rollback. GIT_SHA/GIT_BRANCH/BUILT_AT/
+# RUN_NUMBER are RUNTIME env vars on the server (Dockerfile runtime-stage ARG
+# block, L159-166), read by `process.env` at request time and exposed at
+# GET /version. They carry no VITE_ prefix, so vite never inlines them.
+# Ask the server, not the bundle.
 if [ -n "$EXPECT_SHA" ]; then
-  if grep -q "$EXPECT_SHA" "$WORK/main.js" || grep -q "$EXPECT_SHA" "$WORK/index.html"; then
-    check GIT_SHA "$EXPECT_SHA present" ok
+  if curl -fsS --max-time 30 "$SITE/version" -o "$WORK/version.json"; then
+    ACTUAL_SHA="$(node -e '
+      const fs = require("fs");
+      try { process.stdout.write(JSON.parse(fs.readFileSync(process.argv[1],"utf8")).git_sha || ""); }
+      catch { process.stdout.write(""); }
+    ' "$WORK/version.json")"
+    if [ "$ACTUAL_SHA" = "$EXPECT_SHA" ]; then
+      check GIT_SHA "/version git_sha == $EXPECT_SHA" ok
+    else
+      check GIT_SHA "/version git_sha='$ACTUAL_SHA' != expected '$EXPECT_SHA'" bad
+    fi
   else
-    check GIT_SHA "$EXPECT_SHA NOT found — old bundle may still be served" bad
+    check GIT_SHA "could not fetch $SITE/version" bad
   fi
 fi
 
