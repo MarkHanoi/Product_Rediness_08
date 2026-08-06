@@ -1252,5 +1252,144 @@ was scoped to attempt.
 
 ---
 
-*End — PRYZM Earth Onboarding PRD, 2026-08-06 — §1-§18 include shipped code changes; §17.2's full
-table, the gated split-reveal, Milestone 0 profiling, and L-631 remain open per §18.6.*
+## §19 — Cesium Pre-warm Investigation Log (2026-08-06, sixth pass — investigation only, no code shipped)
+
+**Trigger**: founder tested live — after "+ New Project" the globe visibly takes several seconds to
+appear. A real console log shows the FULL BIM-engine boot (37 stores, all builder subsystems,
+`DefaultViewsManager`, every handler registration — hundreds of log lines) running to completion
+BEFORE `GIS toggle activated: true` fires and `CesiumViewport: Mount started` begins. This session's
+task was to apply the same idiom `ensureEngineWarm()`/O.14 uses — start an expensive subsystem early,
+in parallel with onboarding — to `CesiumViewport`.
+
+### §19.1 — Is `ensureEngineWarm()` actually analogous to what Cesium needs?
+
+`apps/editor/src/engine/engineWarmup.ts` (full file read). `ensureEngineWarm()` (`:92-105`) is called
+from `PlatformRouter.showOnboarding()` (`apps/editor/src/ui/platform/PlatformRouter.ts:645`) — the
+instant "+ New Project" is clicked, before any RAC step renders. What it actually warms, per its own
+header (`:1-57`) and body (`warmEngineModule()`, `:73-82`): **only** the dynamic-import MODULE
+download + ES-module evaluation of `@app/engine/engineLauncher` (the 2.6 MB Three.js/@thatopen/web-ifc
+chunk). It explicitly does **not** call `bootstrap()` — no Three.js world, no stores, no canvas mount.
+The header is blunt about why: `bootstrap()` "REQUIRES a live DOM canvas (`#container`) and an open
+project context... that do not exist during onboarding, so warming it early would be unsafe /
+impossible" (`:38-47`).
+
+This makes it only **partially** analogous to Cesium. The download-ahead half of the idiom (fetch the
+Cesium/`@pryzm/plugin-geospatial` bytes before they're needed) is genuinely reusable. But
+`CesiumViewport`'s expensive part is not a bytes-download — it's construction against a live DOM
+node (`document.getElementById('container')`, `GISAreaLayout.ts:356`) that itself does not exist
+until the BIM engine's own bootstrap has created it. Cesium's real bottleneck is structurally closer
+to `bootstrap()` itself (the thing `engineWarmup.ts` explicitly says CANNOT be warmed early) than to
+the engine-module download (the thing it safely can).
+
+### §19.2 — Critical architectural finding: `GISAreaLayout`/`mountGISArea` is scoped per-bootstrap, not per-app-session
+
+Traced the full call chain, file:line at each hop:
+
+1. `CesiumViewport`'s ONE construction site: `new CesiumViewport(viewport, runtime ?? null)`,
+   `apps/editor/src/ui/layout/GISAreaLayout.ts:405`, inside the `toggleGIS` closure (`:353`), inside
+   `mountGISArea(props, runtime)` (`:160`).
+2. `mountGISArea` is called from exactly one place: `Layout.ts:92` — `const gis =
+   mountGISArea(props, runtime);` inside `createMainLayout()` (`apps/editor/src/ui/Layout.ts:86`).
+3. `createMainLayout` is called from exactly one place: `apps/editor/src/engine/initUI.ts:2786`,
+   inside `initUI()` (`:375`).
+4. `initUI()` is one of the subsystem-init calls inside `bootstrap()`
+   (`apps/editor/src/engine/engineLauncher.ts:748`, `await initUI({...})`) — i.e. it is part of the
+   SAME full bootstrap sequence (37 stores, builders, tools, `DefaultViewsManager`, handler
+   registration) the founder's console log shows running to completion.
+5. `toggleGIS`'s first line (`GISAreaLayout.ts:356`) does `document.getElementById('container')` and
+   bails if not found — the BIM canvas element that `createMainLayout`/`initUI` themselves create as
+   part of the same bootstrap. There is no DOM host for Cesium to mount into before this point.
+6. The global that every caller (including the onboarding "hero globe") uses to trigger
+   `toggleGIS(true)` — `window.pryzmToggleGIS` — is assigned at `GISAreaLayout.ts:1243`
+   (`window.pryzmToggleGIS = (active) => toggleGIS(active);`), which is INSIDE `mountGISArea`'s own
+   body. It is `undefined` for the entire duration of bootstrap and only becomes callable once
+   `mountGISArea` has run once. Every call site that reaches for it does so via optional chaining
+   (`w.pryzmToggleGIS?.(active)` — `OnboardingStepController.ts:506`, `:821-823`, `:1013`, `:1056`;
+   `GISRailPanel.ts:105`) — a silent, correctly-defensive no-op if bootstrap hasn't run yet, not an
+   error.
+
+**Conclusion**: `GISAreaLayout` (and therefore `CesiumViewport`'s only construction site) is scoped
+**per-bootstrap**, i.e. effectively per-project-open on the live boot path, not per-app-session /
+available-immediately. It genuinely cannot exist before the BIM engine's own `initUI()` subsystem has
+run and created the `#container` DOM element.
+
+### §19.3 — Why §18.1's "singleton already live at the `location` step" finding does not contradict this
+
+§18.1 (this same PRD, same day, an earlier pass) found that the onboarding hero globe's `toggleGlobe`
+call (`GlobeHeroSearch.mount()` inside `renderLocationStep()`) fires "the moment the `location` step
+is entered... before the user has typed anything." That is true, but it answers a different question
+than this pass's — "early relative to what the user does *inside* the location step" versus "early
+relative to project bootstrap." Tracing when `renderLocationStep()` itself is invoked closes that gap:
+
+- `startOnboardingStepFlow()` (`OnboardingStepController.ts:157-163`) is documented at its own call
+  site as being invoked "AFTER the project is created + opened" (`:152`).
+- Its one caller, `apps/editor/src/ui/onboarding/briefBootstrap.ts:246`, only calls it from inside an
+  `onLoaded` handler subscribed to `pryzm-project-loaded` (`:230`) — i.e. `renderLocationStep()`
+  (and therefore the hero-globe `toggleGlobe(true)` call §18.1 examined) does not run until
+  `pryzm-project-loaded` has already fired.
+- `pryzm-project-loaded(empty:true)` for a brand-new project is emitted from
+  `PlatformShell.setProjectContext()` (`apps/editor/src/ui/platform/PlatformShell.ts:204-205`,
+  `:398-399`), and `setProjectContext()` is documented as being called by the composition-root glue
+  "after the engine is ready" (`PlatformShell.ts:122-126`) — confirmed in
+  `src/main.ts` (the P1 `workspaceMount.ensure()`/`show()` chain, `:277`, `:307`, `:379`,
+  `:547-577`): `ensure()` lazy-boots the engine (`bootstrap()`), and only once that resolves does
+  `show()` go on to call `runtime.workspace.surface.setProjectContext(...)`.
+
+So there are two independent gates stacked on top of each other, and either one alone would already
+block an earlier globe mount:
+
+- **Gate A** — `CesiumViewport`'s construction site does not exist as *callable code* until
+  `mountGISArea` has run once (§19.2), which only happens inside `initUI()`, itself only reached
+  partway through `bootstrap()`.
+- **Gate B** — even once Gate A closes, the onboarding flow's own trigger to call
+  `toggleGIS(true)` (`renderLocationStep()`) is not invoked until `pryzm-project-loaded` fires, which
+  is emitted only after `bootstrap()` has fully resolved AND `setProjectContext()` has run.
+
+§18.1 was correct about "location step relative to typing"; this pass adds "location step relative to
+bootstrap," which is the gate that actually produces the founder-reported delay.
+
+### §19.4 — Verdict: blocked without touching P1 sequencing
+
+Both gates terminate at the same place: `src/main.ts`'s `ensure()`/`bootstrap()`/`setProjectContext()`
+chain — exactly the P1 composition-root sequencing this task's own hard constraints forbid touching.
+There is no earlier hook in `PlatformShell`'s or `ProjectLoader`'s sequence that fires once the
+project's shell exists but before builder subsystems finish — `mountGISArea`/`createMainLayout` is
+itself one atomic step inside `initUI()`, which is itself one atomic step inside `bootstrap()`, and
+`pryzm-project-loaded` (the event every downstream consumer, including the onboarding step flow,
+keys off) is deliberately emitted only once that whole chain — plus the empty-snapshot load — has
+settled.
+
+**What would actually need to change, and why it's risky** (informational only, NOT attempted this
+pass):
+
+1. Split `initUI()`/`mountGISArea()` so the `CesiumViewport` construction site (and the `#container`
+   DOM element it needs) is created in an early phase of `bootstrap()`, ahead of store/builder/tool
+   init, rather than at its current position. This changes `bootstrap()`'s internal sequencing — the
+   exact thing P1 reserves to the composition root and this task was told not to touch. It also risks
+   subtle ordering bugs: several existing comments in `GISAreaLayout.ts` (`:416-433`, the `§L-446`
+   runtime-injection healing logic) already document that `runtime` can be `null` at `CesiumViewport`
+   construction time and self-heals later — reordering construction earlier could change which state
+   that healing logic sees first.
+2. Alternatively, decouple `pryzm-project-loaded` from "bootstrap fully done," e.g. an earlier
+   "project shell exists" event the onboarding step flow could listen for instead. This still doesn't
+   solve Gate A (the DOM host + `mountGISArea` call are still nested inside `initUI()`/`bootstrap()`),
+   so it would need to be paired with (1) anyway, and touches the same `pryzm-project-loaded`
+   contract at least a dozen other subsystems currently key off (`initCollaboration.ts`,
+   `initDataPlatform.ts`, `initScene.ts`, `initTools.ts`, `UnderlayPersistence.ts`,
+   `PlatformSaveController.ts`, several `dataworkbench` panels — all grepped, all listening for the
+   SAME event with the SAME "bootstrap is done" assumption baked in). Changing its meaning without
+   auditing every listener is a much bigger, riskier change than this pass's scope.
+
+Per this task's own instruction, this is the honest, complete finding: **no safe lever exists to mount
+`CesiumViewport` earlier without restructuring `bootstrap()`'s internal sequencing or the
+`pryzm-project-loaded` contract — both of which are P1 composition-root concerns explicitly out of
+scope for this pass.** No code was changed. `git status --short` at both the start and end of this
+pass shows only pre-existing, unrelated `.vs/`/`revit-addin` build noise — nothing in `apps/editor/src`
+or the PRD was touched except this section.
+
+*End §19 — investigation only, no code shipped, 2026-08-06.*
+
+---
+
+*End — PRYZM Earth Onboarding PRD, 2026-08-06 — §1-§19; §17.2's full table, the gated split-reveal,
+Milestone 0 profiling, L-631, and §19's P1-sequencing lever all remain open.*
