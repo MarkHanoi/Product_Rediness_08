@@ -169,7 +169,11 @@ function armCascadeTripWire(cap: number, trackers: Array<{ dispose(): void }>) {
 }
 
 function setup(rooms: number, tiltRad: number) {
-    const counters = { flushes: 0, builds: 0, committed: 0 };
+    const counters = { flushes: 0, builds: 0, committed: 0, doorRebuilds: 0, windowRebuilds: 0 };
+    // Which wall ids the coordinator asked the opening builders to re-anchor. The
+    // §HEAVY-LEVEL guard below asserts this is the MOVED wall only — the property that
+    // makes the cascade O(edited walls), not O(level).
+    const reanchored: string[] = [];
 
     (window as unknown as { runtime?: unknown }).runtime = {
         events: {
@@ -206,8 +210,8 @@ function setup(rooms: number, tiltRad: number) {
         wallTool: { getWallStore: () => store, getFragmentBuilder: () => builder },
         slabStore: { getAll: () => [] },
         bimManager: { getLevelById: () => ({ id: LEVEL_ID, elevation: 0 }) },
-        doorBuilder: { rebuildForWall: () => { /* seam */ } },
-        windowBuilder: { rebuildForWall: () => { /* seam */ } },
+        doorBuilder: { rebuildForWall: (id: string) => { counters.doorRebuilds++; reanchored.push(id); } },
+        windowBuilder: { rebuildForWall: () => { counters.windowRebuilds++; } },
         world: { camera: { three: null }, renderer: { three: { domElement: undefined } }, scene: { three: { add() {}, remove() {} } } },
     } as never);
 
@@ -236,7 +240,7 @@ function setup(rooms: number, tiltRad: number) {
         windowTracker.dispose();
     };
 
-    return { store, coord, counters, adapter, pumpUntilQuiet, dispose, trackers, ...plate };
+    return { store, coord, counters, adapter, pumpUntilQuiet, dispose, trackers, reanchored, ...plate };
 }
 
 /** The 3D-gizmo drag-commit: exactly what UpdateWallBaselineCommand.execute() writes. */
@@ -312,10 +316,20 @@ describe('§FIX-HOSTWALL-CASCADE-SET-REENTRANCY — moving a wall that hosts an 
         tracker.dispose();
     });
 
-    // A re-home (the ONLY case the delete-then-re-add in register() exists for)
-    // must still move the door between buckets — proving the defence-in-depth
-    // early return did not disable real index maintenance.
-    it('register() still re-homes a door when its host wall changes', () => {
+    // §FIX-HOSTWALL-TRACKER-REHOME-SEMANTICS — this test previously asserted that
+    // `doorStore.update('d1', { wallId: 'wallB' })` re-homes the door, and it FAILED on
+    // main: `DoorStore.update()` (and its `WindowStore` twin) pin identity —
+    //     merged = { ...existing, ...patch, id, wallId, openingId }  ← from `existing`
+    // — so a `wallId` in the patch is silently discarded. That pinning is CORRECT under
+    // C15: a hosted element is "fully owned by a single wall" (§1) and re-hosting has to
+    // rewrite BOTH walls' `openings[]` + `childrenIds` atomically (§6), which only the
+    // Remove/Add command pair can express (§8). A merge-patch cannot. The old test was
+    // asserting behaviour the contract forbids, so it could never have gone green.
+    //
+    // What the tracker's re-home path must actually survive is therefore tested here:
+    // (a) `update()` provably CANNOT move a door between hosts, and (b) the real
+    // re-home channel — remove-then-add — moves it exactly, leaving no stale bucket.
+    it('a door cannot be re-homed by update() (C15 identity pinning) and IS re-homed by remove+add', () => {
         const store = new WallStore(
             new ProjectContext(),
             makeLevelProvider() as unknown as ConstructorParameters<typeof WallStore>[1],
@@ -325,11 +339,71 @@ describe('§FIX-HOSTWALL-CASCADE-SET-REENTRANCY — moving a wall that hosts an 
         doorStore.add({ id: 'd1', openingId: 'o1', wallId: 'wallA', offset: 1, width: 0.9, height: 2.1, sillHeight: 0 } as never);
         expect(tracker.getDoorIdsForWall('wallA')).toEqual(['d1']);
 
+        // (a) Identity pinning — the patch is discarded by the STORE, so the tracker
+        // (which only ever sees the post-merge record) correctly keeps d1 on wallA.
         doorStore.update('d1', { wallId: 'wallB' } as never);
+        expect(doorStore.getById('d1')!.wallId).toBe('wallA');
+        expect(tracker.getDoorIdsForWall('wallA')).toEqual(['d1']);
+        expect(tracker.getDoorIdsForWall('wallB')).toEqual([]);
+
+        // (b) The real re-home channel (RemoveDoorCommand + AddDoorCommand, C15 §8).
+        doorStore.remove('d1');
         expect(tracker.getDoorIdsForWall('wallA')).toEqual([]);
+        doorStore.add({ id: 'd1', openingId: 'o1', wallId: 'wallB', offset: 1, width: 0.9, height: 2.1, sillHeight: 0 } as never);
+        expect(tracker.getDoorIdsForWall('wallA')).toEqual([]);   // no stale bucket entry
         expect(tracker.getDoorIdsForWall('wallB')).toEqual(['d1']);
 
         tracker.dispose();
+    });
+
+    // §FIX-HOSTWALL-TRACKER-INDEX-QUADRATIC — the tracker's own `wallId → Set<id>` index
+    // was maintained by SCANNING EVERY BUCKET on each register/unregister
+    // (`for (const set of this.graph.values()) set.delete(id)`). That is O(walls) per
+    // opening, so `bootstrap()` and the project-teardown `clear()` cascade were
+    // O(openings × walls) — measured on this harness pre-fix at 44.65 ms for 2000 doors
+    // and 213.97 ms for 4000 (4.8× for a 2× input: quadratic, on the main thread).
+    // The fix adds an `id → wallId` pointer so both are O(1).
+    //
+    // The guard is deliberately NOT a wall-clock assertion — a post-fix bootstrap is
+    // sub-millisecond, so a timing ratio would be pure noise. It COUNTS the work
+    // instead, by instrumenting `Set.prototype.delete` for the duration of the call.
+    // That is exactly the operation the removed bucket scan performed, so the count is
+    // a direct, deterministic measurement of the algorithm: N per opening pre-fix
+    // (≈N²/2 total), ZERO for a fresh bootstrap post-fix.
+    it('index maintenance is LINEAR in the opening count (pre-fix: quadratic bucket scan)', () => {
+        const store = new WallStore(
+            new ProjectContext(),
+            makeLevelProvider() as unknown as ConstructorParameters<typeof WallStore>[1],
+        );
+
+        const N = 800;                 // pre-fix this is ~320 000 Set.delete calls
+        doorStore.clear();
+        for (let i = 0; i < N; i++) {
+            doorStore.add({ id: `d${i}`, openingId: `o${i}`, wallId: `w${i}`, offset: 1, width: 0.9, height: 2.1, sillHeight: 0 } as never);
+        }
+
+        const tracker = new DoorDependencyTracker({ current: undefined }, store as never);
+
+        const realDelete = Set.prototype.delete;
+        let deletes = 0;
+        // Deliberate, scoped builtin patch — restored in the `finally` below.
+        Set.prototype.delete = function counted(this: Set<unknown>, v: unknown) { deletes++; return realDelete.call(this, v); };
+        const t0 = performance.now();
+        try { tracker.bootstrap(); }
+        finally { Set.prototype.delete = realDelete; }
+        const elapsed = performance.now() - t0;
+
+        // eslint-disable-next-line no-console
+        console.log(`[TRACKER-INDEX] bootstrap doors=${N} setDeletes=${deletes} elapsedMs=${elapsed.toFixed(2)} (pre-fix ≈${(N * (N - 1)) / 2})`);
+
+        // O(1) per registration ⇒ the total must stay proportional to N, never N².
+        expect(deletes).toBeLessThan(2 * N);
+        // …and the index it produced is still EXACT (the fast path must not skip work).
+        expect(tracker.getDoorIdsForWall('w0')).toEqual(['d0']);
+        expect(tracker.getDoorIdsForWall(`w${N - 1}`)).toEqual([`d${N - 1}`]);
+
+        tracker.dispose();
+        doorStore.clear();
     });
 
     // ── (2) THE FOUNDER'S GESTURE, END TO END ─────────────────────────────────
@@ -392,6 +466,105 @@ describe('§FIX-HOSTWALL-CASCADE-SET-REENTRANCY — moving a wall that hosts an 
         expect(after.openings![0]!.id).toBe(opBefore.id);
         expect(after.openings![0]!.offset).toBeCloseTo(opBefore.offset, 9);
         expect(windowStore.getById(opBefore.elementId!)).toBeDefined();
+
+        trip.dispose();
+        h.dispose();
+    });
+
+    // ── (3) §HEAVY-LEVEL-BOUNDED-CASCADE ──────────────────────────────────────
+    // The two gestures above each move a wall hosting ONE opening on a 24-wall
+    // plate. That proves TERMINATION, but not BOUNDEDNESS: a cascade that is
+    // O(level × openings) also terminates — it just freezes a real model. This
+    // test moves ONE wall carrying SIX openings on a ~220-wall level and pins the
+    // three quantities that a re-introduced storm would blow up:
+    //
+    //   · opening touches   — must be exactly the 6 openings on the MOVED wall
+    //                          (K, not all openings on the level)
+    //   · builder re-anchor — the MOVED wall plus its immediate adjacency, each
+    //                          visited AT MOST ONCE. MEASURED: 5 walls out of 220
+    //                          (§PERF-WALL-MOVE-INCREMENTAL-REBUILD / L-234 keeps the
+    //                          rebuild off the whole level; the neighbours are there
+    //                          because their MITRES change when the wall moves, which
+    //                          is required, not waste). Pre-§FIX-HOSTWALL-DOOR-INDEX
+    //                          each of those calls additionally ran a full-project door
+    //                          scan, so the cost was 5 × 32 rather than 5 × K.
+    //   · commit barriers   — exactly ONE per drag (ADR-061 coalescing)
+    //
+    // The touch and commit counts are exact equalities. The re-anchor count is
+    // asserted as "a bounded neighbourhood, no wall twice, and far below the level" —
+    // an exact number there would encode the join resolver's adjacency rule into a
+    // cascade test, which is not this test's subject.
+    it('BOUNDED: one wall with SIX openings on a heavy level costs O(K), not O(level)', () => {
+        const h = setup(10, TILT);                        // 220 walls, ~55 hosting an opening
+        h.pumpUntilQuiet();
+
+        const levelWallCount = h.wallIds.length;
+        const totalDoorsOnLevel = doorStore.getAll().length;
+        expect(levelWallCount).toBeGreaterThan(200);       // genuinely heavy
+        expect(totalDoorsOnLevel).toBeGreaterThan(20);     // many doors NOT on the moved wall
+
+        // Load the moved wall up with six openings — the founder's real case is a
+        // façade wall with a door and a run of windows, not a single opening.
+        // NOTE: they go in through `addOpening`, not a `update({ openings })` patch —
+        // C15 §6 requires `openings[*].elementId` and `childrenIds` to move in ONE
+        // atomic store transaction, and `WallStore.update()` rejects a direct openings
+        // patch precisely to enforce that. (Writing this test the wrong way is how the
+        // §WALL-AUDIT-2026-M8 assertion earns its keep.)
+        const wallId = h.doorWallIds[0]!;
+        const base = h.store.getById(wallId)!;
+        const seed = base.openings![0]!;                   // the plate's own door — keep it
+        const SIX: OpeningRec[] = [seed as OpeningRec];
+        for (let i = 1; i < 6; i++) {
+            const rec: OpeningRec = { id: `heavy_op_${i}`, elementId: `heavy_door_${i}`, type: 'door', offset: 0.3 + i * 0.6, width: 0.4, height: 2.1, sillHeight: 0 };
+            SIX.push(rec);
+            h.store.addOpening(wallId, rec as never);
+            doorStore.add({ id: rec.elementId, openingId: rec.id, wallId, offset: rec.offset, width: rec.width, height: rec.height, sillHeight: 0 } as never);
+        }
+        h.pumpUntilQuiet();                                // drain the opening-add work
+
+        // ── measure the MOVE only ────────────────────────────────────────────
+        const trip = armCascadeTripWire(64, h.trackers);
+        h.counters.flushes = 0; h.counters.committed = 0; h.counters.doorRebuilds = 0;
+        h.reanchored.length = 0;
+
+        dragCommit(h.store, wallId, 0.35, 0.11);
+        const r = h.pumpUntilQuiet();
+
+        const uniqueReanchored = new Set(h.reanchored);
+        // eslint-disable-next-line no-console
+        console.log(`[HEAVY] levelWalls=${levelWallCount} doorsOnLevel=${doorStore.getAll().length} openingsOnMovedWall=6 → ` +
+            `settled=${r.settled} flushes=${h.counters.flushes} committed=${h.counters.committed} ` +
+            `doorTouches=${trip.counts.door} doorRebuildForWall=${h.counters.doorRebuilds} uniqueWallsReanchored=${uniqueReanchored.size}`);
+
+        expect(trip.state.tripped).toBe(false);
+        expect(r.settled).toBe(true);
+
+        // ONE commit barrier for the whole gesture (room redetect + plan re-projection).
+        expect(h.counters.committed).toBe(1);
+
+        // The cascade touched exactly the SIX openings hosted on the moved wall —
+        // not the ~25 other doors on the level, and not one of them repeatedly.
+        expect(trip.counts.door).toBe(6);
+
+        // The re-anchor set is a bounded NEIGHBOURHOOD around the moved wall — it must
+        // contain the moved wall, must never revisit a wall, and must stay a small
+        // fraction of the level. This is the assertion that would have caught the
+        // original O(walls-rebuilt × all-openings) storm.
+        expect(uniqueReanchored.has(wallId)).toBe(true);
+        expect(h.counters.doorRebuilds).toBe(uniqueReanchored.size);   // no wall visited twice
+        expect(uniqueReanchored.size).toBeLessThanOrEqual(12);         // measured 5
+        expect(uniqueReanchored.size).toBeLessThan(levelWallCount / 10);
+
+        // C15 §2 — all six openings survive the host move with their offsets intact.
+        const after = h.store.getById(wallId)!;
+        expect(after.openings).toHaveLength(6);
+        for (let i = 0; i < 6; i++) {
+            expect(after.openings![i]!.elementId).toBe(SIX[i]!.elementId);
+            expect(after.openings![i]!.offset).toBeCloseTo(SIX[i]!.offset, 9);
+            expect(doorStore.getById(SIX[i]!.elementId)).toBeDefined();
+        }
+        // …and the wall genuinely moved (the guard is not passing on a no-op).
+        expect(after.baseLine[0].x).not.toBeCloseTo(base.baseLine[0].x, 6);
 
         trip.dispose();
         h.dispose();
