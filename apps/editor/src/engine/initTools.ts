@@ -2261,6 +2261,15 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         commandManager,
         getActiveLevelId: () => commandContext?.projectContext?.activeLevelId ?? null,
         getLevels: () => bimManager.getLevels(),
+        // §FIX-STAIR-3D-CONFIG-DEAF — the same toast channel StairPathPlanToolHandler
+        // uses, so an unsolvable sketch reaches the architect on BOTH surfaces
+        // instead of dying in the console on the 3D one.
+        onInvalid: (message: string) => {
+            window.runtime?.events?.emit('pryzm:toast', {
+                message: `Stair not placed — ${message}`,
+                severity: 'warning',
+            }); // F.events.15
+        },
     });
     window.stairPath3DTool = stairPath3DTool;
 

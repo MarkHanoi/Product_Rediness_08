@@ -9,6 +9,11 @@
  */
 
 import { PropertyDescriptor, PropertyInputType } from './types';
+// §FIX-STAIR-PANEL-BOUNDS-DRIFT — the stair rows below derive their min/max from the
+// ONE published constraint set instead of restating literals that can (and did) drift
+// away from it. `STAIR_CONSTRAINTS` is the same set `UpdateStairParametersCommand`
+// and `CreateStairCommand` validate against. Layer-legal: apps/* (L5) → geometry-stair (L2).
+import { STAIR_CONSTRAINTS, STAIR_MATERIALS, STAIR_NOSING_TYPES, STAIR_STRINGER_TYPES } from '@pryzm/geometry-stair';
 
 type SchemaEntry = Omit<PropertyDescriptor, 'key'>;
 
@@ -131,21 +136,66 @@ const SCHEMAS: Record<string, ElementSchema> = {
         id:              READONLY('Element ID', 'identity'),
         type:            READONLY('Element Type', 'identity'),
         mark:            TEXT('Mark', 'identity', 'global'),
-        width:           NUMBER('Width', 'definition', 'definition', true, { unit: 'm', min: 0.9, max: 5 }),
-        riserHeight:     NUMBER('Riser Height', 'definition', 'definition', true, { unit: 'm', min: 0.150, max: 0.220 }),
-        treadDepth:      NUMBER('Tread Depth', 'definition', 'definition', true, { unit: 'm', min: 0.220, max: 0.500 }),
+        // §FIX-STAIR-PANEL-BOUNDS-DRIFT — these three used to carry hand-written
+        // bounds that CONTRADICTED STAIR_CONSTRAINTS: riserHeight allowed up to
+        // 0.220 m against a MAX_RISER_HEIGHT of 0.190 m, and treadDepth allowed
+        // down to 0.220 m against a MIN_TREAD_DEPTH of 0.250 m. Because the panel
+        // commits through the GENERIC UpdateElementParameterCommand — which does not
+        // consult STAIR_CONSTRAINTS at all, only UpdateStairParametersCommand does —
+        // nothing downstream caught it: the panel was the only gate, and it was
+        // wrong. Deriving the bounds from the published set closes both the drift and
+        // the "two update paths, two validation regimes" split.
+        width:           NUMBER('Width', 'definition', 'definition', true, { unit: 'm', min: STAIR_CONSTRAINTS.MIN_WIDTH, max: 5 }),
+        riserHeight:     NUMBER('Riser Height', 'definition', 'definition', true, { unit: 'm', min: STAIR_CONSTRAINTS.MIN_RISER_HEIGHT, max: STAIR_CONSTRAINTS.MAX_RISER_HEIGHT }),
+        treadDepth:      NUMBER('Tread Depth', 'definition', 'definition', true, { unit: 'm', min: STAIR_CONSTRAINTS.MIN_TREAD_DEPTH, max: 0.500 }),
         riserCount:      READONLY('Riser Count', 'spatial'),
         baseLevelId:     READONLY('Base Level', 'spatial'),
         topLevelId:      READONLY('Top Level', 'spatial'),
         room:            READONLY('Room', 'spatial'),
         fireRating:      ENUM('Fire Rating', 'definition', 'definition', ['none', 'FR30', 'FR60', 'FR90', 'FR120']),
         accessibilityType: ENUM('Accessibility', 'definition', 'definition', ['standard', 'accessible']),
-        'properties.material':     ENUM('Material', 'definition', 'definition', ['concrete', 'wood', 'steel', 'marble']),
-        'properties.stringerType': ENUM('Stringer Type', 'definition', 'definition', ['none', 'closed', 'open', 'mono']),
-        'properties.nosingType':   ENUM('Nosing Type', 'definition', 'definition', ['none', 'standard', 'extended']),
+        // §FIX-STAIR-PANEL-ENUM-DRIFT — options come from the published unions, not
+        // restated literals. 'wood' used to be offered here and is NOT a StairMaterial
+        // (StairMaterialSchema rejects it); 'timber', 'glass' and 'composite' were
+        // unreachable; 'rounded' nosing was unreachable.
+        'properties.material':     ENUM('Material', 'definition', 'definition', [...STAIR_MATERIALS]),
+        'properties.stringerType': ENUM('Stringer Type', 'definition', 'definition', [...STAIR_STRINGER_TYPES]),
+        'properties.nosingType':   ENUM('Nosing Type', 'definition', 'definition', [...STAIR_NOSING_TYPES]),
         'properties.riserVisible': BOOL('Risers Visible', 'definition', 'definition'),
+        // §FIX-STAIR-PANEL-MISSING-ROWS — three StairProperties fields that the
+        // geometry DOES read but that no UI could reach: the only way to change them
+        // was to pick a different stair TYPE or issue a raw AI command.
+        //   nosingDepth       → StairMeshBuilder (nosing BoxGeometry Z extent)
+        //   stringerThickness → StairStringerBuilder (stringer section + side offset)
+        //   handrailHeight    → the railing configs' topRailHeight, propagated by
+        //                       GenerateStairGeometryCommand._syncRailingProperties
+        // They ride the same `properties` expansion and the same
+        // GenerateStairGeometryCommand rebuild as the rows above, so each one is
+        // wired end-to-end — no row is added here that the geometry cannot consume.
+        //
+        // DELIBERATELY NOT ADDED: `handrailLeft` / `handrailRight`. Those are read
+        // ONCE, by CreateStairCommand.proposeRailings(), to decide which railing
+        // records to create; after creation the railings are independent records in
+        // StairRailingStore and toggling the boolean would have to CREATE or DELETE
+        // one (CreateStairRailingCommand / a delete counterpart), not patch a field.
+        // Exposing them before that plumbing exists would manufacture exactly the
+        // dead control this pass is removing.
+        'properties.nosingDepth':       NUMBER('Nosing Depth', 'definition', 'definition', true, { unit: 'm', min: 0, max: 0.1 }),
+        'properties.stringerThickness': NUMBER('Stringer Thickness', 'definition', 'definition', true, { unit: 'm', min: 0.005, max: 0.3 }),
+        'properties.handrailHeight':    NUMBER('Handrail Height', 'definition', 'definition', true, { unit: 'm', min: STAIR_CONSTRAINTS.MIN_HANDRAIL_HEIGHT, max: STAIR_CONSTRAINTS.MAX_HANDRAIL_HEIGHT }),
         'properties.railingType':  ENUM('Handrail Type', 'definition', 'definition', ['none', 'flat-bar', 'glass-panel', 'circular']),
-        typeId:          TEXT('Type', 'definition', 'definition'),
+        // §FIX-STAIR-TYPEID-TWO-CONTROLS — this was an editable free-TEXT box for a
+        // field that names an entry in an enumerated catalogue (BUILT_IN_STAIR_TYPES),
+        // and the panel already renders `StairTypeSelectorWidget` — a <select> over that
+        // catalogue — for the same field. The two disagreed on more than affordance:
+        // the widget dispatches `stair.updateParameters` → UpdateStairParametersCommand,
+        // which resolves the chosen type's defaults into the stair; the text box
+        // dispatched `element.updateParameters` → UpdateElementParameterCommand, which
+        // writes the raw string and applies NO type defaults. Same user intent, two
+        // commands, two outcomes — and the text box would happily store a typeId that
+        // matches no type at all. The dropdown is the correct control; this row is now
+        // a read-only echo of it.
+        typeId:          READONLY('Type', 'definition'),
         ifcClass:        READONLY('IFC Class', 'metadata'),
         globalId:        READONLY('Global ID', 'metadata'),
     },

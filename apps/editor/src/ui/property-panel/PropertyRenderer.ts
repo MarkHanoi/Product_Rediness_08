@@ -198,8 +198,46 @@ function normalizeColor(val: any): string {
     return map[s.toLowerCase()] ?? '#888888';
 }
 
-function getNestedValue(obj: Record<string, any>, key: string): any {
+export function getNestedValue(obj: Record<string, any>, key: string): any {
     if (key in obj) return obj[key];
+
+    // ─── §FIX-STAIR-PROPS-DISPLAY-DEAF ────────────────────────────────────────
+    // Despite its name this helper never resolved a DOTTED path. The stair schema
+    // (PropertyDescriptorGenerator) is the only one that uses them —
+    // 'properties.material', 'properties.stringerType', 'properties.nosingType',
+    // 'properties.riserVisible', 'properties.railingType' — and for every one of those
+    // `key in obj` is false and no branch below matched, so the row rendered
+    // `undefined`:
+    //
+    //   • the enum <select> fell back to its FIRST option, so Stringer Type and Nosing
+    //     Type always READ 'none' and Material always read 'concrete', whatever the
+    //     stair actually was; and
+    //   • the 'Risers Visible' checkbox rendered UNCHECKED even though
+    //     DEFAULT_STAIR_PROPERTIES.riserVisible is `true` and the risers were drawn.
+    //
+    // The WRITE side of these keys works (UpdateElementParameterCommand expands
+    // `properties.*` before the store write), so this is the worse half of the
+    // authored-but-unreachable defect class: a control that is visible, editable and
+    // effective on change — and LIES about the current state until you touch it. Only
+    // keys the user edits enter the draft, so nothing was silently overwritten; the
+    // value SHOWN was simply wrong.
+    if (key.includes('.')) {
+        let cur: unknown = obj;
+        for (const seg of key.split('.')) {
+            if (cur === null || cur === undefined) return undefined;
+            cur = (cur as Record<string, unknown>)[seg];
+        }
+        return cur;
+    }
+
+    // §FIX-ELEMENT-MARK-UNHANDLED — a stair's mark lives at `properties.mark`
+    // (StairData has no top-level `mark`), so the Identity row rendered blank while the
+    // panel HEADER's own mark input — which already reads
+    // `elementData.properties?.mark ?? elementData.mark` — showed the real value. Two
+    // inputs bound to the SAME draft key ('mark') disagreeing on screen. Resolve the
+    // row the same way the header does.
+    if (key === 'mark') return obj.properties?.mark;
+
     if (key === 'ifcClass') return obj.ifcData?.ifcClass;
     if (key === 'globalId') return obj.ifcData?.guid;
     if (key === 'startX' && obj.baseLine) return obj.baseLine[0]?.x?.toFixed(3);

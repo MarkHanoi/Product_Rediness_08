@@ -1191,6 +1191,47 @@ export function initBusHandlers(
             },
         },
 
+        // ── §FIX-ELEMENT-MARK-UNHANDLED — element.updateMark had NO handler ─────
+        // `PropertyPanel.applyMarkUpdate()` and `PropertyInspectorApply` both dispatch
+        // `element.updateMark`, and `@pryzm/command-bus` DECLARES its payload
+        // (commands.ts: `'element.updateMark': { elementId, elementType?, newMark }`),
+        // but nothing ever registered a handler for it. `executeCommand` on an
+        // unregistered type resolves to undefined, so the await succeeded, the panel
+        // showed "✓ Applied" and the mark went nowhere. The Mark field is therefore a
+        // DEAD control on every element type that exposes it (wall / slab / column /
+        // beam / stair) — authored, dispatched, declared, unreachable. This is the same
+        // class the §R4-FIX above cured for `element.updateParameters`, and the cure is
+        // the same: route it through the ONE generic parameter command (P6 — commands
+        // are the only mutation path; undo comes free via its previous-value snapshot).
+        //
+        // STAIR is the one type whose mark does NOT live at the top level:
+        // `StairData` has no `mark` field — the canonical home is `properties.mark`
+        // (StairProperties.mark), which is also what PropertyPanel's header input READS
+        // (`elementData.properties?.mark ?? elementData.mark`). Writing a top-level
+        // `mark` would create a field the Zod schema does not describe and nothing reads.
+        // `UpdateElementParameterCommand`'s stair branch expands `properties.*` keys
+        // before the store write, so the dotted key lands in the right place.
+        {
+            type: 'element.updateMark',
+            stores: [] as const,
+            validate: (cmd) => (
+                !cmd.elementId ? 'elementId is required' :
+                typeof cmd.newMark !== 'string' ? 'newMark must be a string' :
+                null
+            ),
+            fn: (cmd) => {
+                const elType = (cmd.elementType ?? '').toLowerCase().trim();
+                const markKey = (elType === 'stair' || elType === 'stairs')
+                    ? 'properties.mark'
+                    : 'mark';
+                _cmExec(new UpdateElementParameterCommand({
+                    elementId:   cmd.elementId,
+                    elementType: elType,
+                    parameters:  { [markKey]: cmd.newMark },
+                }));
+            },
+        },
+
         {
             type: 'door.setOffset',
             stores: [] as const,

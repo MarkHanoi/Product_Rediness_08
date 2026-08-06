@@ -21,6 +21,7 @@ import {
     StairPathToolController,
     resolveStairVerticalSpan,
     DEFAULT_STOREY_HEIGHT,
+    getStairToolConfig,
     type StairSketchCoordinateProvider,
     type StairLevelOption,
 } from '@pryzm/geometry-stair';
@@ -49,6 +50,12 @@ interface StairPath3DDeps {
     getActiveLevelId: () => string | null | undefined;
     /** Level catalogue accessor (sorted ascending by elevation is NOT required). */
     getLevels: () => Array<{ id: string; name?: string; label?: string; elevation?: number; height?: number }>;
+    /**
+     * §FIX-STAIR-3D-CONFIG-DEAF — surface an invalid solve to the architect, the
+     * parity counterpart of `StairPathPlanToolHandler`'s `onInvalid` toast. Optional
+     * so existing wiring keeps compiling; when omitted the message is logged only.
+     */
+    onInvalid?: (message: string) => void;
 }
 
 export class StairPath3DToolHandler {
@@ -159,6 +166,27 @@ export class StairPath3DToolHandler {
         // run and both stay permanently off → the whole viewport goes dead
         // (no orbit, no selection). Wrap the setup so a throw always restores
         // controls + selection via deactivate().
+        // ─── §FIX-STAIR-3D-CONFIG-DEAF (dual-view parity) ─────────────────────
+        // This handler hard-coded `width: 1.2` and passed NO `typeId`, so a stair
+        // sketched in 3D silently discarded the width and stair TYPE the architect
+        // had just chosen — while the SAME sketch drawn in the plan pane honoured
+        // both (`StairPathPlanToolHandler` reads `ctx.stairConfig ?? getStairToolConfig()`).
+        // Two surfaces armed in parallel by `activateStairSketchSurfaces` produced
+        // DIFFERENT stairs depending only on which canvas the pointer was over.
+        //
+        // `StairToolConfigStore` is the documented single source of truth for exactly
+        // this ("EVERY creation path — plan, 3D, path-tool, batch, AI — inherits it by
+        // construction"), and `StairSetupPanel.onConfirm` / the ribbon already WRITE
+        // shape+width+typeId into it via `BimService`. The 3D sketch path was simply
+        // never wired to READ it — authored-but-unreachable, the L-243 P2 defect class
+        // reappearing on the one path that post-dates the fix.
+        //
+        // The 3D handler has no PlanToolDrawContext to receive DI through, so it reads
+        // the store directly (the same fallback the plan handler uses when ctx omits it).
+        // The explicit `shape` argument still wins — it is the ribbon click that caused
+        // this activation, and BimService has already published it to the store.
+        const stairConfig = getStairToolConfig();
+
         try {
         this._ctrl = new StairPathToolController({
             container:          document.body,
@@ -170,10 +198,17 @@ export class StairPath3DToolHandler {
             baseLevelElevation: lvl.baseLevelElevation,
             topLevelElevation:  lvl.topLevelElevation,
             levelOptions:       lvl.levels,
-            width:              1.2,
+            width:              stairConfig.width ?? 1.2,
+            typeId:             stairConfig.typeId,
             turnDirection:      'left',
             secondRunSide:      'left',
-            initialShape:       shape,
+            initialShape:       shape ?? stairConfig.shape,
+            // Parity with the plan handler: an invalid solve must SURFACE, not die in
+            // the console. Silence is the defect the plan path already fixed.
+            onInvalid: (message: string) => {
+                console.warn('[StairPath3DToolHandler] stair not placed —', message);
+                this._deps.onInvalid?.(message);
+            },
             onCancel: () => this.deactivate(),
             onComplete: () => this.deactivate(),
         });

@@ -20,6 +20,29 @@ export type StairNosingType = 'none' | 'standard' | 'extended' | 'rounded';
 
 export type StairStringerType = 'none' | 'closed' | 'open' | 'mono';
 
+// ─── §FIX-STAIR-PANEL-ENUM-DRIFT — the published option lists ────────────────
+//
+// The property panel used to restate these unions as string literals, and had
+// drifted away from two of the three:
+//   • Material offered 'wood', which is NOT a StairMaterial and is rejected by
+//     `StairMaterialSchema` — picking it wrote a value the Zod schema refuses on
+//     the next snapshot validation. Meanwhile the member that DOES exist for the
+//     same intent ('timber') and the 'glass' / 'composite' pair could never be
+//     chosen at all.
+//   • Nosing omitted 'rounded'.
+// Exporting the lists here — typed as the unions, so `tsc` fails the moment a union
+// member is added without updating the list — makes the UI structurally unable to
+// offer a value the schema forbids. `StairEnumParity.spec.ts` pins them to the Zod
+// enums so the schema and these lists can never drift apart either.
+export const STAIR_MATERIALS: readonly StairMaterial[] =
+    ['concrete', 'steel', 'timber', 'marble', 'glass', 'composite'] as const;
+
+export const STAIR_NOSING_TYPES: readonly StairNosingType[] =
+    ['none', 'standard', 'extended', 'rounded'] as const;
+
+export const STAIR_STRINGER_TYPES: readonly StairStringerType[] =
+    ['none', 'closed', 'open', 'mono'] as const;
+
 // ─── Flight ─────────────────────────────────────────────────────────────────
 
 export interface StairFlight {

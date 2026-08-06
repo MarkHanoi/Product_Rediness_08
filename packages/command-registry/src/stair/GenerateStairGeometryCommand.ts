@@ -6,7 +6,7 @@ import {
     SerializedCommand,
     CommandContext
 } from '../types';
-import type { StairData } from '@pryzm/geometry-stair';
+import type { StairData, StairRailingConfig } from '@pryzm/geometry-stair';
 import {
     deriveStairGeometry,
     stairDerivedGeometryDiffers,
@@ -81,9 +81,11 @@ export class GenerateStairGeometryCommand implements Command {
         // agreement so the rebuilt mesh reflects the new parameters.
         this._reconcileDerivedGeometry(ctx, stair);
 
-        // ── Propagate a changed railing TYPE to the railing configs ───────────────
-        // (Previously a bespoke stair branch inside UpdateElementParameterCommand.)
-        this._syncRailingType(ctx);
+        // ── Propagate the railing-bearing properties to the railing configs ───────
+        // (railingType was previously a bespoke stair branch inside
+        // UpdateElementParameterCommand; handrailHeight + material joined it under
+        // §FIX-STAIR-RAILING-PROPS-STRANDED.)
+        this._syncRailingProperties(ctx);
 
         // ── Authoritative 3D mesh rebuild ─────────────────────────────────────────
         // Read the latest stair (reconciliation above may have updated the store).
@@ -180,23 +182,48 @@ export class GenerateStairGeometryCommand implements Command {
     }
 
     /**
-     * When `properties.railingType` changed, propagate it to the railing configs in
-     * StairRailingStore so the railing rebuild (driven by `bim-stair-updated`) picks
-     * up the new type. No-op when the store or a railingType is absent.
+     * Propagate the stair's railing-bearing PROPERTIES to the railing configs in
+     * StairRailingStore, so the railing rebuild (driven by `bim-stair-updated`) picks
+     * them up. No-op when the store is absent.
+     *
+     * §FIX-STAIR-RAILING-PROPS-STRANDED — this used to sync `railingType` ONLY.
+     * `CreateStairCommand.proposeRailings()` seeds each railing's `topRailHeight` from
+     * `stair.properties.handrailHeight` and its `material` from
+     * `stair.properties.material`, and from that moment the two records diverge: the
+     * railing keeps its CREATION-TIME height and material for ever. So editing the
+     * stair's material changed the treads/risers/stringers but left the balustrade in
+     * the old material, and `handrailHeight` — a StairProperties field with a schema,
+     * a default and a code-compliance range in STAIR_CONSTRAINTS — could not affect
+     * anything at all after creation. Both are functions of the stair's properties and
+     * must follow them, exactly as `railingType` already did.
      */
-    private _syncRailingType(ctx: CommandContext): void {
+    private _syncRailingProperties(ctx: CommandContext): void {
         try {
             const stairRailingStore = ctx.stores.stairRailingStore;
             if (!stairRailingStore) return;
             const stair = ctx.stores.stairStore.get(this.stairId);
-            const railingType = stair?.properties?.railingType;
-            if (railingType === undefined) return;
+            const props = stair?.properties;
+            if (!props) return;
+
+            const patch: Partial<StairRailingConfig> = {};
+            if (props.railingType !== undefined)    patch.railingType   = props.railingType;
+            if (props.handrailHeight !== undefined) patch.topRailHeight = props.handrailHeight;
+            if (props.material !== undefined)       patch.material      = props.material;
+            if (Object.keys(patch).length === 0) return;
+
             const railings = stairRailingStore.getByStairId(this.stairId);
             railings.forEach(r => {
-                stairRailingStore.update?.(r.id, { railingType });
+                // Skip railings already in agreement. `StairRailingStore.update` emits
+                // `bim-stair-railing-updated` unconditionally, and this method runs on
+                // EVERY stair rebuild — so writing an unchanged value would rebuild every
+                // balustrade on every unrelated parameter edit. Same "only write when it
+                // differs" discipline as `stairAuthoredLayoutDiffers` above.
+                const differs = (Object.keys(patch) as Array<keyof StairRailingConfig>)
+                    .some(k => r[k] !== patch[k]);
+                if (differs) stairRailingStore.update?.(r.id, patch);
             });
         } catch (e) {
-            console.warn('[GenerateStairGeometryCommand] Railing type sync error:', e);
+            console.warn('[GenerateStairGeometryCommand] Railing property sync error:', e);
         }
     }
 
