@@ -4079,8 +4079,18 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             btn.type = 'button';
             btn.id = 'pryzm-site-view-launcher';
             btn.setAttribute('data-testid', 'site-view-launcher');
-            btn.textContent = '◉ 3D Site / Globe';
-            btn.title = 'Open the 3D site / globe view (true north + geolocation). Works from any 3D view.';
+            // PRYZM-EARTH-ONBOARDING PRD Milestone 1 (docs/03-execution/plans/
+            // PRYZM-EARTH-ONBOARDING-PRD-2026-08-06.md §10) — this always-on launcher
+            // IS "the user-facing GIS entry surface" the PRD asks to rename: it is the
+            // one button, present from any 3D view, that opens the single Cesium
+            // viewer at globe/site altitude (C59 §2 invariant 1 — globe and 3D Site are
+            // the SAME instance). Renamed '◉ 3D Site / Globe' → '◉ PRYZM Earth'. Other
+            // internal view-mode segment labels ("3D globe" / "3D Site" inside the
+            // BIM-view and Forma toggles below) are left as-is — they distinguish
+            // sibling view MODES from each other, not the product-facing entry name,
+            // and renaming them was not part of this scoped change.
+            btn.textContent = '◉ PRYZM Earth';
+            btn.title = 'Open PRYZM Earth — the 3D site / globe view (true north + geolocation). Works from any 3D view.';
             // §FIX-UI-LAYERING-ZINDEX-CONTRACT (L-149, C06 §7) — ROOT-CAUSE FIX for the
             // founder's "launcher renders BELOW / overlapping other UI". The pill was
             // `position:absolute` inside `#container` at `zIndex:'20'`; since #container
@@ -4106,11 +4116,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             btn.addEventListener('mouseleave', () => { btn.style.background = '#ffffff'; });
             btn.addEventListener('click', () => window.pryzmEnterSiteView?.('plan'));
             document.body.appendChild(btn);
-            console.log('[gis][site-view] always-on 3D Site launcher mounted (L-40, C06 §7 launcher layer).');
+            console.log('[gis][site-view] always-on PRYZM Earth launcher mounted (L-40, C06 §7 launcher layer).');
 
             // §FEAT-PLAN-VIEW-GIS (L-104) — the PLAN-VIEW companion launcher, stacked in the
-            // SAME bottom-left corner column just ABOVE the 3D Site pill (bottom:48px) — so the
-            // two site entries read as a deliberate pair: "◉ 3D Site / Globe" (3D) + "▦ Plan +
+            // SAME bottom-left corner column just ABOVE the PRYZM Earth pill (bottom:48px) — so the
+            // two site entries read as a deliberate pair: "◉ PRYZM Earth" (3D) + "▦ Plan +
             // Site" (orthographic plan on real-world GIS context, project north). Always-on,
             // idempotent, brand-styled (white + #6600FF), no overlap with the GPU toggle.
             if (!document.getElementById('pryzm-plan-gis-launcher')) {

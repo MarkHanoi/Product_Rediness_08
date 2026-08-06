@@ -644,4 +644,95 @@ A few claims above are worth pinning to exact lines for whoever implements next:
 
 ---
 
+---
+
+## §13 — Phase 1 Implementation Log (2026-08-06, second pass — code changes)
+
+This section is appended, not a rewrite, per C31 §1.2 discipline. It records what was
+re-verified before touching code, and exactly what this pass implemented (PRD Milestone 1 plus
+the label rename this session's task brief bundled into "Phase 1").
+
+### §13.1 — Re-verification findings (do not trust the prior pass's claims blind)
+
+- **The modal genuinely gates creation today, confirmed at the exact call sites**:
+  `ProjectHub.ts` — `#ph-new-btn` (sidebar), `#ph-card-new` (grid "+ New Project" tile), and
+  `#ph-mobile-new-btn` (mobile) all called `openNewModal()`, which shows `#ph-new-modal` and
+  requires the user to interact with it before `handleCreate('guided')` (bound to
+  `#ph-modal-create`) reads `#ph-new-name`/`#ph-new-description`/`#ph-new-type` and calls
+  `onStartOnboarding({ name, projectType })`. §1.1's characterisation stands: the modal's fields
+  are a *seed* for the RAC chat, not a blocking form for a blank create — but the modal itself
+  (open → type-or-not → click Create) is still a mandatory intermediate screen. Milestone 1
+  removes exactly that intermediate screen.
+- **`siteEntryModel.ts` is confirmed still UNWIRED** — re-grepped
+  `siteEntryStore|SiteEntryStore|siteEntryModel|SiteEntryPanel` across `apps/editor/src` excluding
+  its own `engine/views/` directory and its test files: zero consumers. §1.4's finding stands,
+  unchanged since the PRD's first pass.
+- **The label**: the single always-on GIS entry launcher (`GISAreaLayout.ts`, function
+  `mountSiteViewLauncher`, `id="pryzm-site-view-launcher"`, `data-testid="site-view-launcher"`)
+  read `'◉ 3D Site / Globe'` — this is the literal "user-facing GIS entry surface" the task asked
+  to rename (present from any 3D view, opens the one Cesium viewer at globe/site altitude, per
+  C59 §2 invariant 1). Renamed to `'◉ PRYZM Earth'`. Other view-mode SEGMENT labels inside
+  already-open panes (`'◉ 3D globe'` at `GISAreaLayout.ts:1027`, `'◉ 3D Site'` at `:1041`, the
+  `ctxLabel` `'3D Site'` at `:3611`) were deliberately left as-is — they distinguish sibling view
+  modes from each other once already inside the GIS/Forma surface, not the product-facing entry
+  point, and renaming them was not part of this scoped ask.
+
+### §13.2 — What this pass actually touched
+
+1. **`apps/editor/src/ui/platform/projectAutoName.ts` (NEW)** — exported, DOM-free
+   `generateUntitledSiteName(now?: Date): string` producing `"Untitled Site — YYYY-MM-DD HH:MM"`.
+   Isolated into its own file (rather than living inline in `ProjectHub.ts`) specifically so it
+   stays unit-testable under this app's node-environment vitest config — `ProjectHub.ts` itself
+   transitively imports DOM-constructing code at module scope (`AppTheme.ts` → `ViewTabBar.ts`
+   calls `document.createElement` in a constructor reached at import time) and is not importable
+   under `environment: 'node'`. OTel span per P8.
+2. **`apps/editor/src/ui/platform/ProjectHub.ts`** — added `startGuidedOnboardingDirect()`
+   (private method, OTel span): applies the same `EntitlementStore.canCreateProject` monetization
+   gate `handleCreate` already applies, generates a placeholder name via
+   `generateUntitledSiteName()`, and calls `this.callbacks.onStartOnboarding({ name })` directly —
+   same guarded fallback-to-blank-create-on-throw `handleCreate('guided')` already used. The three
+   "+ New Project" entry points (`#ph-new-btn`, `#ph-card-new` click + Enter-keydown,
+   `#ph-mobile-new-btn`) now call this instead of `openNewModal()`. **The modal
+   (`openNewModal`/`closeNewModal`/`handleCreate`) is NOT deleted** — it is simply no longer the
+   only path in, per the task's explicit instruction not to remove code that might be reused; no
+   other call site currently reuses it, but keeping it is zero-cost and reversible.
+3. **`apps/editor/src/ui/layout/GISAreaLayout.ts`** — renamed the always-on GIS entry launcher's
+   button text/title (`mountSiteViewLauncher`) from `'◉ 3D Site / Globe'` to `'◉ PRYZM Earth'`,
+   plus the adjacent code comments that quoted the old label.
+4. **`apps/editor/__tests__/projectHubAutoNamedOnboarding.test.ts` (NEW)** — 5 unit tests for
+   `generateUntitledSiteName` (exact format, zero-padding, determinism for a given `Date`,
+   default-to-now, non-blank guarantee). All passing.
+
+### §13.3 — Deliberately deferred (not attempted this pass)
+
+- **Wiring `siteEntryModel`/`SiteEntryStore` into `OnboardingStepController.ts`** — confirmed
+  unwired (§13.1), and the task brief asked for it conditionally ("if it genuinely is not wired
+  yet"). Deferred anyway: this PRD's own §10 sequences that wiring as **Milestone 2** — a
+  materially larger change (new `GlobeHeroSearch` component, a solo-paned Cesium camera-as-
+  projection-of-stage rewrite, staged panel copy review against C60 §3's no-invented-facts rule)
+  that the PRD itself explicitly warns against bundling with Milestone 1 ("Explicitly rejected as
+  a milestone shape... one PR touching multiple already-separately-governed subsystems"). Given
+  this session's own instruction to stay conservative and flag rather than guess when a change's
+  scope is ambiguous, this was left out. Re-verified finding (unwired) is recorded above so the
+  next pass does not have to re-derive it.
+- **RAC chat is still in the path between click and the `location` step.** The task brief's
+  phrasing ("transition directly into... the location step") reads as if the RAC role/typology
+  chat should be skipped entirely. It was not skipped: `PlatformRouter.showOnboarding()` only
+  bypasses the RAC panel when `seededTypologyId` is resolvable from a seeded `projectType`
+  (`showOnboarding` line ~720), and Milestone 1 deliberately does not guess a typology from
+  nothing — that would be exactly the kind of fabrication C60 §3 (and the land-first thesis in
+  PRD §0) argues against for the more consequential case of place-facts, and the same discipline
+  is applied here: PRYZM does not invent a building type before the user has said what they're
+  building, even to skip a screen faster. So today, after this change, clicking "+ New Project"
+  goes: no modal → RAC chat (role/typology, quick) → `location` step. Removing the RAC step
+  entirely is a separate, larger product decision (would need a typology-deferred generate path)
+  and is out of scope for Milestone 1.
+- **Milestone 3's "replace the placeholder name once location/parcel data resolves"** — not
+  implemented; `generateUntitledSiteName()`'s output is not currently overwritten later in the
+  flow. Flagged for whoever picks up Milestone 3.
+
+*End addendum — Phase 1 implementation, 2026-08-06.*
+
+---
+
 *End — PRYZM Earth Onboarding PRD, 2026-08-06 — PROPOSAL, zero code changes.*

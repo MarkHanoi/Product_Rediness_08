@@ -19,6 +19,7 @@
  * Class prefix: ph-  (Project Hub)
  */
 
+import { trace } from '@opentelemetry/api';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { injectAppTheme } from '../styles/AppTheme';
 import { PlatformUser, signOut } from './AuthModal';
@@ -31,11 +32,16 @@ import { apiFetch } from '@pryzm/core-app-model';
 import { OwnerSettingsPanel } from './OwnerSettingsPanel';
 import type { ProjectSummary } from '@pryzm/stores';
 import { renderShell as phRenderShell, renderSidebar as phRenderSidebar, sectionLabel as phSectionLabel, renderGrid as phRenderGrid } from './ProjectHubTemplates';
+import { generateUntitledSiteName } from './projectAutoName';
+
+const _tracer = trace.getTracer('pryzm.platform.projectHub');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 type SortKey = 'date' | 'name' | 'versions' | 'custom';
 type HubSection = 'all' | 'starred' | 'recent' | 'archived';
+
+export { generateUntitledSiteName };
 
 // ── Public interface ──────────────────────────────────────────────────────────
 
@@ -400,7 +406,7 @@ export class ProjectHub {
             mobileHamburger.setAttribute('aria-expanded', String(!isOpen));
         });
         backdrop.addEventListener('click', closeSidebar);
-        el.querySelector('#ph-mobile-new-btn')!.addEventListener('click', () => this.openNewModal());
+        el.querySelector('#ph-mobile-new-btn')!.addEventListener('click', () => this.startGuidedOnboardingDirect());
 
         // Auto-close sidebar on sidebar-item click (mobile UX)
         sidebar.addEventListener('click', (e) => {
@@ -508,7 +514,7 @@ export class ProjectHub {
         // above the `// Search filter` block.
 
         // New project button (sidebar CTA — primary)
-        el.querySelector('#ph-new-btn')?.addEventListener('click', () => this.openNewModal());
+        el.querySelector('#ph-new-btn')?.addEventListener('click', () => this.startGuidedOnboardingDirect());
 
         // §ADD-PEOPLE — Invite collaborators (sidebar CTA). Opens the members
         // flow: 0 projects → prompt to create one; 1 → straight to its members;
@@ -579,9 +585,9 @@ export class ProjectHub {
         const grid = el.querySelector('#ph-grid') as HTMLElement;
 
         // New project card
-        grid.querySelector('#ph-card-new')?.addEventListener('click', () => this.openNewModal());
+        grid.querySelector('#ph-card-new')?.addEventListener('click', () => this.startGuidedOnboardingDirect());
         grid.querySelector('#ph-card-new')?.addEventListener('keydown', (e) => {
-            if ((e as KeyboardEvent).key === 'Enter') this.openNewModal();
+            if ((e as KeyboardEvent).key === 'Enter') this.startGuidedOnboardingDirect();
         });
 
         // Project cards — open (click on card body, not menu btn)
@@ -1308,10 +1314,67 @@ export class ProjectHub {
 
     // ── New project modal ─────────────────────────────────────────────────────
 
-    private openNewModal(): void {
+    /**
+     * PRYZM-EARTH-ONBOARDING PRD Milestone 1 — no longer called by any "+ New
+     * Project" entry point (see `startGuidedOnboardingDirect`), but kept and
+     * made public (not deleted) in case a future surface wants the typed
+     * name/description/type form explicitly (e.g. an "advanced create" option).
+     * `public` also keeps `noUnusedLocals` (tsconfig.json) from flagging it —
+     * TS only flags unused *private* members, and turning this genuinely-dead
+     * private method invisible-but-present felt more misleading than exposing
+     * it honestly as an unused-today public API surface.
+     */
+    openNewModal(): void {
         const modal = this.el.querySelector('#ph-new-modal') as HTMLElement;
         modal.style.display = 'flex';
         setTimeout(() => (this.el.querySelector('#ph-new-name') as HTMLInputElement)?.focus(), 50);
+    }
+
+    /**
+     * PRYZM-EARTH-ONBOARDING PRD Milestone 1 — "+ New Project" no longer opens
+     * the name/description/type modal as a blocking gate (PRD §1.1, §10, §12
+     * conflict #1). Instead this auto-generates a placeholder name and hands off
+     * straight to the guided onboarding flow (`onStartOnboarding`) exactly as the
+     * modal's primary CTA used to, minus the typed fields. The modal itself is
+     * NOT deleted — `openNewModal`/`handleCreate`/`closeNewModal` stay intact and
+     * reachable (defensive: nothing else in this file references the modal
+     * directly today, but removing the machinery is a bigger, separately-scoped
+     * change than Milestone 1 asks for).
+     */
+    private startGuidedOnboardingDirect(): void {
+        const span = _tracer.startSpan('pryzm.platform.projectHub.startGuidedOnboardingDirect');
+        try {
+            // Same monetization gate `handleCreate` applies — a project-limit hit
+            // must still surface the upgrade prompt, not silently create.
+            const activeProjects = projectRepository.listProjects().filter(p => !p.isArchived);
+            if (!EntitlementStore.canCreateProject(activeProjects.length)) {
+                const plan = EntitlementStore.getUserPlan();
+                const limit = PLAN_LIMITS[plan]?.maxProjects ?? 3;
+                const msg = `You've reached the ${limit}-project limit on the ${getPlanDisplayName(plan)} plan.\n\nUpgrade to Architect for unlimited projects.`;
+                if (confirm(msg + '\n\nView upgrade options?')) {
+                    this.callbacks.onUpgrade?.();
+                }
+                return;
+            }
+
+            const name = generateUntitledSiteName();
+            if (this.callbacks.onStartOnboarding) {
+                console.log('[ProjectHub] New Project → guided onboarding, no modal (PRYZM Earth Milestone 1):', { name });
+                try {
+                    this.callbacks.onStartOnboarding({ name });
+                } catch (err) {
+                    // Never throw into the hub — fall back to a blank create, same
+                    // guard `handleCreate('guided')` already applies.
+                    console.error('[ProjectHub] onStartOnboarding threw — falling back to blank create:', err);
+                    void this._createViaRuntime(name, undefined, null);
+                }
+                return;
+            }
+            console.warn('[ProjectHub] guided onboarding requested but no onStartOnboarding callback — creating a blank project instead.');
+            void this._createViaRuntime(name, undefined, null);
+        } finally {
+            span.end();
+        }
     }
 
     private closeNewModal(): void {
