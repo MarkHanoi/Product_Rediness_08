@@ -85,6 +85,19 @@ export class PlanViewInteraction {
 
     private _pointerDownX = 0;
     private _pointerDownY = 0;
+    /**
+     * WITHIN-GESTURE click-vs-drag verdict: "the pointer has travelled far enough
+     * since the last press that this gesture is a DRAG, not a click."
+     *
+     * §FIX-PLAN-HOSTED-HANDLE-GRAB — this flag is scoped to ONE press→release cycle
+     * and MUST NOT survive into the next one. `_onMouseMove` promotes it from a
+     * window-level listener that fires on plain HOVER too (no button held), so
+     * between two clicks it is essentially always `true`. Two `mousedown` branches
+     * read it as a PRECONDITION for starting a new drag (the underlay grab and the
+     * element/handle grab), which meant the mere act of moving the pointer onto an
+     * affordance disarmed that affordance. It is therefore cleared at the TOP of
+     * `_onMouseDown` — a new press always begins a fresh gesture.
+     */
     private _isDragging = false;
     // §PERF-ELEV-CROP-DRAG-FLOW (L-222) — `preSpatial` / `preCrop` snapshot the
     // ViewDefinition state at pointer-DOWN. During the drag the live preview writes the
@@ -225,6 +238,27 @@ export class PlanViewInteraction {
     private _onMouseDown(e: MouseEvent): void {
         if (e.button !== 0) return;
         if (!this._canvas || !this._planCanvas) return;
+        // §FIX-PLAN-HOSTED-HANDLE-GRAB (founder, 2026-08-07) — "I see the new arrows,
+        // but I don't seem to be able to SELECT them and DRAG them."
+        //
+        // ROOT CAUSE. A press begins a NEW gesture, so the previous gesture's
+        // click-vs-drag verdict is stale by definition. It was only cleared at the
+        // BOTTOM of this handler, i.e. AFTER every hit-test branch had already read
+        // it — and `_onMouseMove` sets it on plain hover, with no button held. The
+        // §FEAT-PLAN-HOSTED-DRAG-HANDLES arrows only appear once the opening is
+        // SELECTED, so reaching for one is unavoidably click → move (≫ 5 px) → press;
+        // that move latched `_isDragging`, and the press then skipped the whole
+        // `hitTestDraggable` block. The affordance was painted and correct, its
+        // hit-region was real (`hitTestHostedHandle`, 12 px, tested first and winning
+        // over the wall linework) — the pointer simply never reached it. Same shape as
+        // L-693 / L-700: a mode LATCHED at one moment and read live at another.
+        //
+        // Clearing here (not at the bottom) restores the flag's stated scope: one
+        // press→release cycle. Nothing downstream regresses — the flag is read ONLY
+        // inside `_onMouseDown` (underlay + element grab preconditions) and
+        // `_onMouseUp` (suppress click-selection after a real drag), and in both cases
+        // the value that matters is the one produced by moves AFTER this press.
+        this._isDragging = false;
         const rect = this._canvas.getBoundingClientRect();
         const sx = e.clientX - rect.left;
         const sy = e.clientY - rect.top;
@@ -415,7 +449,10 @@ export class PlanViewInteraction {
 
         this._pointerDownX = e.clientX;
         this._pointerDownY = e.clientY;
-        this._isDragging = false;
+        // §FIX-PLAN-HOSTED-HANDLE-GRAB — `_isDragging` is cleared at the TOP of this
+        // handler now, so there is exactly ONE place per gesture that resets it and no
+        // branch can read a stale value. (The old reset lived here, below every
+        // hit-test, which is what made the drag handles unreachable.)
     }
 
     private _onMouseMove(e: MouseEvent): void {
@@ -575,6 +612,26 @@ export class PlanViewInteraction {
         // resize handles above win; the circle glyph reads as a grab target (move cursor) so
         // the translate gesture is discoverable without a renderer change.
         if (!toolActiveForScope && this._hitTestMarkOrigin(sx, sy)) {
+            this._canvas.style.cursor = 'grab';
+            if (this._hoveredElementId !== null) {
+                this._hoveredElementId = null;
+                this._planCanvas.setHoveredElementId(null);
+            }
+            this._planCanvas.clearSnapIndicator();
+            return;
+        }
+
+        // §FIX-PLAN-HOSTED-HANDLE-GRAB — hosted drag-arrow hover affordance. The arrows
+        // are the ONE affordance in this view that carried no cursor feedback, so a user
+        // reaching for one had nothing telling them the press would land. Uses the SAME
+        // `hitTestHostedHandle` the press uses, so the cursor cannot promise a grab the
+        // mousedown will not honour. Cheap: it returns immediately unless a hosted
+        // opening is currently selected. Gated on the tool predicate for the same reason
+        // the renderer is (PlanViewCanvas._renderHostedDragHandles) — while a creation
+        // tool owns the pointer the arrows are not drawn and must not be advertised.
+        if (!toolActiveForScope
+            && !window.__underlayScaleActive
+            && planElementDragController.hitTestHostedHandle(sx, sy, this._planCanvas)) {
             this._canvas.style.cursor = 'grab';
             if (this._hoveredElementId !== null) {
                 this._hoveredElementId = null;
