@@ -19,7 +19,6 @@
  * PlanViewCanvas render pipeline.
  */
 
-import { SetDoorOffsetCommand, SetWindowOffsetCommand } from '@pryzm/command-registry';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import type { Point3D } from '../types/GeometryDTO';
 import type { PlanViewCanvas } from './PlanViewCanvas';
@@ -37,6 +36,23 @@ import {
     computeHostedMoveDimensions,
     type HostedNeighbourOpening,
 } from '../geometry/hostedMoveDimensions';
+// §FEAT-PLAN-HOSTED-DRAG-HANDLES (founder, 2026-08-07) — the host-PARAMETER layer of
+// the hosted drag: arc-aware cursor→offset projection, the occupancy-clamped slide,
+// and the two-arrow affordance layout shared with the plan renderer. Same direct-file
+// import convention as the two dimension modules above (memory: SCC — no barrel access
+// at module load in core-app-model).
+import {
+    projectCursorToHostOffset,
+    resolveHostedSlide,
+    computeHostedHandleLayout,
+    hitTestHostedHandles,
+    type HostedDragHost,
+    type HostedHandleLayout,
+} from '../geometry/hostedDragParam';
+// Arc primitives for the constraint rail + dimension witnesses. `@pryzm/geometry-wall`
+// is the single owner of wall centreline maths (agent-8's §FEAT-HOSTED-ON-CURVED-WALL);
+// this module CALLS it and never reimplements it.
+import { wallCentreline, arcFrameAt } from '@pryzm/geometry-wall';
 
 const GRID_SNAP_M    = 0.1;   // 100 mm grid
 const DRAG_THRESHOLD = 4;     // px before drag activates
@@ -56,20 +72,74 @@ function gridSnap(v: number): number {
     return Math.round(v / GRID_SNAP_M) * GRID_SNAP_M;
 }
 
-/** Project point P onto segment AB, returns t ∈ [0,1]. */
-function projectOntoSegment(
-    px: number, pz: number,
-    ax: number, az: number,
-    bx: number, bz: number,
-): number {
-    const dx = bx - ax, dz = bz - az;
-    const lenSq = dx * dx + dz * dz;
-    if (lenSq < 1e-10) return 0;
-    return Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / lenSq));
-}
+// §FEAT-PLAN-HOSTED-DRAG-HANDLES — the former `projectOntoSegment` chord helper is
+// gone: hosted openings now project onto the host CENTRELINE via
+// `projectCursorToHostOffset` (arc-aware), and the wall branch never used it.
 
 function formatM(m: number): string {
     return m < 0.01 ? `${Math.round(m * 1000)} mm` : `${m.toFixed(2)} m`;
+}
+
+/**
+ * §FEAT-PLAN-HOSTED-DRAG-HANDLES — the host's CENTRELINE as a screen-space
+ * polyline. One point for a straight wall's two ends; the sampled arc for a
+ * curved one. This is the path the opening's single degree of freedom actually
+ * runs along, so it is what the constraint rail must trace.
+ */
+export function hostCentrelineScreenPath(
+    host: HostedDragHost,
+    toScreen: (wx: number, wz: number) => { sx: number; sy: number },
+): Array<{ sx: number; sy: number }> {
+    return wallCentreline(host).pts.map(p => toScreen(p.x, p.z));
+}
+
+/**
+ * §FEAT-PLAN-HOSTED-DRAG-HANDLES — draw the founder's two arrows.
+ *
+ * The plan reading of the 3-D gizmo idiom (`HostedElementDragController`'s amber
+ * rail with a cone at each end): a filled triangular head on a short stem, one at
+ * each end of the opening, pointing ALONG the host. Purple `#6600FF` is the app
+ * accent already used for plan selection (`_renderSelectionHighlights`) and for
+ * preview geometry, so the arrows read as "this selected thing is grabbable"
+ * rather than as a new, unexplained colour.
+ *
+ * Exported so the static (pre-drag) affordance in `PlanViewCanvas` and the live
+ * drag overlay draw the IDENTICAL glyph — the arrows must not change shape at the
+ * moment the user grabs them.
+ */
+export function drawHostedArrows(
+    ctx: CanvasRenderingContext2D,
+    layout: HostedHandleLayout,
+    color: string,
+): void {
+    const HEAD = 8;      // head length, px
+    const HALF = 4.5;    // head half-width, px
+
+    ctx.save();
+    for (const h of layout.handles) {
+        // Stem
+        ctx.beginPath();
+        ctx.moveTo(h.baseSx, h.baseSy);
+        ctx.lineTo(h.tipSx - h.dirSx * HEAD, h.tipSy - h.dirSy * HEAD);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        // Head — a triangle whose apex is the tip; `perp` is the screen normal.
+        const px = -h.dirSy;
+        const py = h.dirSx;
+        const bx = h.tipSx - h.dirSx * HEAD;
+        const by = h.tipSy - h.dirSy * HEAD;
+        ctx.beginPath();
+        ctx.moveTo(h.tipSx, h.tipSy);
+        ctx.lineTo(bx + px * HALF, by + py * HALF);
+        ctx.lineTo(bx - px * HALF, by - py * HALF);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+    }
+    ctx.restore();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -96,12 +166,34 @@ type DragState =
           kind: 'door' | 'window';
           elementId:    string;
           wallId:       string;
+          /** Opening width, metres — captured once; the drag never changes it. */
+          width:        number;
+          /**
+           * §OPENING-OFFSET-LEFTEDGE-UNIFY — LEFT-EDGE offsets, the canonical datum
+           * (`WallOccupancyStore.OpeningDims`, `SetDoorOffsetCommand`, C15 §2).
+           */
           prevOffset:   number;
           currentOffset:number;
-          wallA:        Point3D; wallB: Point3D;
-          wallLength:   number;
+          /**
+           * §FEAT-PLAN-HOSTED-DRAG-HANDLES — the HOST itself, not a pair of
+           * endpoints. Everything positional is derived from its CENTRELINE via
+           * `@pryzm/geometry-wall`'s arc parameterisation, so a curved host works
+           * unchanged (the chord would put the opening off the wall face).
+           */
+          host:         HostedDragHost;
+          /** Host CENTRELINE (arc) length, metres — the extent of the single DOF. */
+          hostLength:   number;
           startSx:      number; startSy: number;
           activated:    boolean;
+          /**
+           * Which affordance started the gesture. All three drive the SAME 1-D
+           * parameter edit — a hosted opening has one degree of freedom, so the
+           * grab point cannot change the MEANING of the drag, only its discovery.
+           */
+          grabbed:      'start' | 'end' | 'body';
+          /** Live constraint state — drives the red overlay while dragging. */
+          blocked:      boolean;
+          blockReason?: string;
       };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,15 +220,106 @@ export class PlanElementDragController {
         sx: number,
         sy: number,
         planCanvas: PlanViewCanvas,
-    ): { elementId: string; kind: 'wall' | 'door' | 'window' } | null {
+    ): { elementId: string; kind: 'wall' | 'door' | 'window'; grabbed?: 'start' | 'end' | 'body' } | null {
+        // §FEAT-PLAN-HOSTED-DRAG-HANDLES — the two arrows on the SELECTED opening
+        // are tested FIRST and win outright. They are a deliberate 12 px grab zone
+        // drawn on top of the plan linework, so without priority the wall segment
+        // underneath (8–10 px threshold) would frequently steal the gesture and the
+        // affordance would feel broken exactly where it is most visible.
+        //
+        // Placing this INSIDE hitTestDraggable — rather than adding a branch to
+        // PlanViewInteraction — is what preserves §FIX-PLAN-VIEW-PARITY (L-73): the
+        // main plan pane and the split-view pane both drive this one singleton, so
+        // both acquire the affordance from a single change and cannot diverge.
+        const handleHit = this.hitTestHostedHandle(sx, sy, planCanvas);
+        if (handleHit) return handleHit;
+
         const elementId = planCanvas.hitTest(sx, sy, 10);
         if (!elementId) return null;
         const ws = this._ws();
         if (!ws) return null;
-        if (ws.getDoor(elementId))   return { elementId, kind: 'door' };
-        if (ws.getWindow(elementId)) return { elementId, kind: 'window' };
+        if (ws.getDoor(elementId))   return { elementId, kind: 'door',   grabbed: 'body' };
+        if (ws.getWindow(elementId)) return { elementId, kind: 'window', grabbed: 'body' };
         if (ws.getById(elementId))   return { elementId, kind: 'wall' };
         return null;
+    }
+
+    /**
+     * §FEAT-PLAN-HOSTED-DRAG-HANDLES — resolve the currently-selected hosted
+     * opening (if any) together with its host wall. Shared by the hit-test and by
+     * `PlanViewCanvas`'s handle renderer, so the arrows drawn and the arrows
+     * grabbable are derived from ONE resolution of "what is selected".
+     *
+     * Returns `null` whenever no hosted opening is selected — in particular during
+     * an active drag, because the drag overlay then owns the feedback and leaving
+     * static arrows underneath it would double-draw the affordance.
+     */
+    resolveSelectedHosted(): {
+        elementId: string;
+        kind: 'door' | 'window';
+        host: HostedDragHost;
+        offset: number;
+        width: number;
+    } | null {
+        if (this._state) return null;                   // drag overlay owns the view
+        const ws = this._ws();
+        if (!ws) return null;
+
+        const sel = (window as unknown as {
+            selectionManager?: { selectedObject?: { userData?: { id?: string; elementUUID?: string } } };
+        }).selectionManager?.selectedObject?.userData;
+        const elementId = sel?.id ?? sel?.elementUUID;
+        if (!elementId) return null;
+
+        const door = ws.getDoor?.(elementId);
+        const win  = door ? undefined : ws.getWindow?.(elementId);
+        const el   = door ?? win;
+        if (!el) return null;
+
+        const host = ws.getById?.(el.wallId) as HostedDragHost | undefined;
+        if (!host?.baseLine) return null;
+        if (typeof el.offset !== 'number' || typeof el.width !== 'number') return null;
+
+        return {
+            elementId,
+            kind: door ? 'door' : 'window',
+            host,
+            offset: el.offset,
+            width:  el.width,
+        };
+    }
+
+    /**
+     * §FEAT-PLAN-HOSTED-DRAG-HANDLES — the affordance layout for the selected
+     * hosted opening, in this canvas's screen space, or `null` if there is none.
+     * This is the SINGLE definition of where the arrows are; `PlanViewCanvas`
+     * draws exactly what this returns and `hitTestHostedHandle` grabs exactly what
+     * this returns, so the visual and the interactive affordance cannot drift.
+     */
+    handleLayoutFor(planCanvas: PlanViewCanvas): HostedHandleLayout | null {
+        const sel = this.resolveSelectedHosted();
+        if (!sel) return null;
+        return computeHostedHandleLayout(
+            sel.host, sel.offset, sel.width,
+            (wx, wz) => planCanvas.worldToScreen(wx, wz),
+        );
+    }
+
+    /** §FEAT-PLAN-HOSTED-DRAG-HANDLES — did the pointer land on one of the arrows? */
+    hitTestHostedHandle(
+        sx: number,
+        sy: number,
+        planCanvas: PlanViewCanvas,
+    ): { elementId: string; kind: 'door' | 'window'; grabbed: 'start' | 'end' } | null {
+        const sel = this.resolveSelectedHosted();
+        if (!sel) return null;
+        const layout = computeHostedHandleLayout(
+            sel.host, sel.offset, sel.width,
+            (wx, wz) => planCanvas.worldToScreen(wx, wz),
+        );
+        const hit = hitTestHostedHandles(layout, sx, sy);
+        if (!hit) return null;
+        return { elementId: sel.elementId, kind: sel.kind, grabbed: hit.side };
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -144,7 +327,7 @@ export class PlanElementDragController {
     // ──────────────────────────────────────────────────────────────────────
 
     startDrag(
-        hit:       { elementId: string; kind: 'wall' | 'door' | 'window' },
+        hit:       { elementId: string; kind: 'wall' | 'door' | 'window'; grabbed?: 'start' | 'end' | 'body' },
         sx:        number,
         sy:        number,
         planCanvas:PlanViewCanvas,
@@ -184,23 +367,31 @@ export class PlanElementDragController {
         } else {
             const opening = hit.kind === 'door' ? ws.getDoor(hit.elementId) : ws.getWindow(hit.elementId);
             if (!opening) return false;
-            const wall = ws.getById(opening.wallId);
-            if (!wall)    return false;
-            const wLen = Math.hypot(
-                wall.baseLine[1].x - wall.baseLine[0].x,
-                wall.baseLine[1].z - wall.baseLine[0].z,
-            );
+            const wall = ws.getById(opening.wallId) as HostedDragHost | undefined;
+            if (!wall?.baseLine) return false;
+
+            // §FEAT-PLAN-HOSTED-DRAG-HANDLES — the host's extent is its CENTRELINE
+            // ARC length, not the chord between its endpoints. `resolveHostedSlide`
+            // reports it (via `wallCentrelineLength`) as a by-product of validating
+            // the opening's CURRENT position, so one call establishes both. For a
+            // straight wall the arc IS the chord and this is the previous number
+            // exactly — no straight-wall behaviour change.
+            const probe = resolveHostedSlide(wall, opening.offset, opening.width, hit.elementId);
+            if (!(probe.hostLength > 0)) return false;
+
             this._state = {
                 kind:          hit.kind,
                 elementId:     hit.elementId,
                 wallId:        opening.wallId,
+                width:         opening.width,
                 prevOffset:    opening.offset,
                 currentOffset: opening.offset,
-                wallA:         clonePt(wall.baseLine[0]),
-                wallB:         clonePt(wall.baseLine[1]),
-                wallLength:    wLen,
+                host:          wall,
+                hostLength:    probe.hostLength,
                 startSx:       sx, startSy: sy,
                 activated:     false,
+                grabbed:       hit.grabbed === 'start' || hit.grabbed === 'end' ? hit.grabbed : 'body',
+                blocked:       false,
             };
         }
 
@@ -321,25 +512,63 @@ export class PlanElementDragController {
         return dA <= dB ? 0 : 1;
     }
 
+    /**
+     * §FEAT-PLAN-HOSTED-DRAG-HANDLES — the 1-D parameter edit at the heart of the
+     * gesture. A hosted opening has exactly ONE degree of freedom, so this is not
+     * a constrained 2-D translation: the cursor is projected onto the host
+     * CENTRELINE and the result is a scalar `offset`.
+     *
+     * Three defects in the previous implementation are closed here.
+     *
+     * 1. ⚠ WRONG DATUM (the shipping bug behind "moving a door in plan is
+     *    difficult"). It clamped to `[width/2, wallLength − width/2]` and stored
+     *    that as `offset` — i.e. it treated `offset` as the opening's CENTRE.
+     *    The canonical datum is the LEFT EDGE: `WallOccupancyStore.OpeningDims`
+     *    documents "LEFT-EDGE offset", `canPlace` tests the interval
+     *    `[offset, offset + width]`, `clampToWall` clamps to
+     *    `[0, wallLength − width]`, and the 3-D controller subtracts `width/2`
+     *    from the projected centre (§OPENING-OFFSET-LEFTEDGE-UNIFY). So every
+     *    plan drag landed the opening HALF ITS WIDTH further along the wall than
+     *    the cursor, and near the far end pushed the span past the wall.
+     *
+     * 2. CHORD, NOT ARC. `projectOntoSegment` onto `baseLine[0]→baseLine[1]`
+     *    ignores `wall.curve`. On a curved host the opening left the wall face.
+     *
+     * 3. NO CONSTRAINT UNTIL DROP. Nothing consulted `WallOccupancyStore`, so the
+     *    preview wrote an overlapping offset into the store per mousemove and
+     *    `SetDoorOffsetCommand.canExecute` refused the commit on release —
+     *    leaving the store holding an illegal position with NO undo entry behind
+     *    it. `resolveHostedSlide` now clamps to the nearest legal offset, so the
+     *    previewed value is legal by construction and the commit cannot be
+     *    refused; `state.blocked` drives the red overlay so the user sees the
+     *    obstruction BEFORE releasing.
+     */
     private _moveDoorWindow(
         state:  Extract<DragState, { kind: 'door' | 'window' }>,
         worldX: number,
         worldZ: number,
         ws:     any,
     ): void {
-        const t = projectOntoSegment(worldX, worldZ, state.wallA.x, state.wallA.z, state.wallB.x, state.wallB.z);
-        const rawOffset  = t * state.wallLength;
-        const snapped    = gridSnap(rawOffset);
+        // Cursor grabs the opening's CENTRE → LEFT-EDGE offset (arc-aware).
+        const rawOffset = projectCursorToHostOffset(state.host, worldX, worldZ, state.width);
+        const snapped   = gridSnap(rawOffset);
 
-        const el = state.kind === 'door' ? ws.getDoor(state.elementId) : ws.getWindow(state.elementId);
-        if (!el) return;
+        // `state.currentOffset` makes a neighbouring opening act as a physical STOP
+        // rather than a magnet — see `resolveHostedSlide`'s `fromOffset`.
+        const slide = resolveHostedSlide(
+            state.host, snapped, state.width, state.elementId, state.currentOffset,
+        );
+        state.blocked = slide.blocked;
+        if (slide.reason) state.blockReason = slide.reason; else delete state.blockReason;
 
-        const halfW  = el.width / 2;
-        const clamped = Math.max(halfW, Math.min(snapped, state.wallLength - halfW));
-        state.currentOffset = clamped;
+        // No legal position anywhere on this host — hold the last legal offset.
+        if (slide.offset === null) return;
+        if (slide.offset === state.currentOffset) return;    // no-op frame; skip the store write
 
-        if (state.kind === 'door')   ws.updateDoor(state.elementId,   { offset: clamped });
-        else                         ws.updateWindow(state.elementId, { offset: clamped });
+        state.currentOffset = slide.offset;
+
+        if (state.kind === 'door')   ws.updateDoor(state.elementId,   { offset: slide.offset });
+        else                         ws.updateWindow(state.elementId, { offset: slide.offset });
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -375,9 +604,9 @@ export class PlanElementDragController {
             return;
         }
 
-        const cmdMgr = window.commandManager; // TODO(TASK-06)
-        if (!cmdMgr) {
-            console.warn('[PlanDrag] No commandManager — drag has no undo');
+        const bus = this._bus();
+        if (!bus) {
+            console.warn('[PlanDrag] No command bus — drag has no undo');
             // §FIX-WALLMOVE-REDETECT-DEFER — still drain deferred events so the wall settles.
             if (wasWallDrag) {
                 try { (window as unknown as { __wallRebuildControl?: { resumeAndFlushDeferredDrag?: () => void } }).__wallRebuildControl?.resumeAndFlushDeferredDrag?.(); }
@@ -399,9 +628,7 @@ export class PlanElementDragController {
             // so a plan move landed ONLY on the commandManager stack while a 3D-gizmo
             // move landed on the ring buffer — the two stacks have independent cursors
             // (ADR-051), so an interleaved plan+3D move sequence undid OUT OF ORDER.
-            (window as unknown as {
-                runtime?: { bus?: { executeCommand(type: string, payload: unknown): Promise<unknown> | undefined } };
-            }).runtime?.bus?.executeCommand('wall.updateBaseline', {
+            bus.executeCommand('wall.updateBaseline', {
                 wallId:       state.elementId,
                 newBaseLine:  state.currentBaseLine,
                 prevBaseLine: state.prevBaseLine,
@@ -409,17 +636,53 @@ export class PlanElementDragController {
             console.log('[PlanDrag] Wall committed Δ(',
                 (state.currentBaseLine[0].x - state.prevBaseLine[0].x).toFixed(3), ',',
                 (state.currentBaseLine[0].z - state.prevBaseLine[0].z).toFixed(3), ')');
-        } else if (state.kind === 'door') {
-            cmdMgr.execute( // TODO(TASK-06)
-                new SetDoorOffsetCommand(state.elementId, state.currentOffset, state.prevOffset),
-                { source: 'HUMAN_DIRECT' },
-            );
+            return;
+        }
+
+        // ── Hosted opening: ONE gesture ⇒ ONE undoable command ────────────────
+        // §FEAT-PLAN-HOSTED-DRAG-HANDLES. The whole drag coalesces here and
+        // nowhere else: `onMove` only mutates a live PREVIEW, and the single
+        // authoritative dispatch happens once, on release. `prevOffset` was
+        // captured at drag-START, so the command's inverse restores the exact
+        // pre-drag offset no matter how many mousemove frames occurred.
+        //
+        // §P6 / C14 §2.1 — dispatched through the BUS (`door.setOffset` /
+        // `window.setOffset`), which is the identical entry point the 3-D
+        // `HostedElementDragController.handleDragEnd` uses. Previously this branch
+        // called `window.commandManager.execute(new Set*OffsetCommand(...))`
+        // directly. That was:
+        //   • a live violation of the `check:commandmanager` CI ratchet, which
+        //     forbids `commandManager.execute()` anywhere under `packages/`
+        //     (this file is `packages/core-app-model/`) — the wall branch above
+        //     was migrated by §FIX-PLAN-WALL-MOVE-UNDO-UNIFY (L-51) and the two
+        //     opening branches were simply left behind; and
+        //   • a second dispatch shape for a mutation that already had one, so
+        //     plan and 3-D could drift. They are now the same call.
+        // The `door.setOffset` bus handler wraps the SAME Set*OffsetCommand
+        // (initBusHandlers), so `canExecute`, undo/redo idempotency and the
+        // WallOccupancyStore validation are all unchanged.
+        //
+        // A sub-threshold drag never reaches here (`state.activated` is false), so
+        // a plain click to select cannot emit a command.
+        if (state.currentOffset === state.prevOffset) {
+            // Blocked for the whole gesture, or dragged back to the start: nothing
+            // moved, so record nothing rather than an empty undo step.
+            return;
+        }
+
+        if (state.kind === 'door') {
+            bus.executeCommand('door.setOffset', {
+                doorId:     state.elementId,
+                newOffset:  state.currentOffset,
+                prevOffset: state.prevOffset,
+            })?.catch((e: unknown) => console.error('[PlanDrag] door.setOffset failed:', e));
             console.log('[PlanDrag] Door offset committed', state.prevOffset.toFixed(3), '→', state.currentOffset.toFixed(3));
         } else {
-            cmdMgr.execute( // TODO(TASK-06)
-                new SetWindowOffsetCommand(state.elementId, state.currentOffset, state.prevOffset),
-                { source: 'HUMAN_DIRECT' },
-            );
+            bus.executeCommand('window.setOffset', {
+                windowId:   state.elementId,
+                newOffset:  state.currentOffset,
+                prevOffset: state.prevOffset,
+            })?.catch((e: unknown) => console.error('[PlanDrag] window.setOffset failed:', e));
             console.log('[PlanDrag] Window offset committed', state.prevOffset.toFixed(3), '→', state.currentOffset.toFixed(3));
         }
     }
@@ -694,49 +957,71 @@ export class PlanElementDragController {
         state:     Extract<DragState, { kind: 'door' | 'window' }>,
         planCanvas:PlanViewCanvas,
     ): void {
-        const aSc = planCanvas.worldToScreen(state.wallA.x, state.wallA.z);
-        const bSc = planCanvas.worldToScreen(state.wallB.x, state.wallB.z);
+        const toScreen = (wx: number, wz: number) => planCanvas.worldToScreen(wx, wz);
 
-        // Constraint rail — amber dashed line
+        // §FEAT-PLAN-HOSTED-DRAG-HANDLES — the constraint rail follows the host
+        // CENTRELINE, not the chord. On a curved host a straight rail would promise
+        // travel through open air off the wall face; this traces exactly the path
+        // the 1 DOF actually permits. Straight host → a straight line, as before.
+        // (Same reasoning as the 3-D controller's `showConstraintRail`.)
+        const railLayout = computeHostedHandleLayout(
+            state.host, state.currentOffset, state.width, toScreen,
+        );
+        const rail = hostCentrelineScreenPath(state.host, toScreen);
+
+        // Blocked → the whole affordance goes red, so the user learns the opening
+        // cannot go there WHILE dragging rather than on release.
+        const railColor = state.blocked ? 'rgba(220, 38, 38, 0.75)' : 'rgba(255, 165, 0, 0.65)';
+        const ghostStroke = state.blocked ? 'rgba(220, 38, 38, 0.95)' : 'rgba(30, 144, 255, 0.9)';
+        const ghostFill   = state.blocked ? 'rgba(220, 38, 38, 0.15)' : 'rgba(30, 144, 255, 0.12)';
+
         ctx.save();
         ctx.beginPath();
-        ctx.moveTo(aSc.sx, aSc.sy);
-        ctx.lineTo(bSc.sx, bSc.sy);
-        ctx.strokeStyle = 'rgba(255, 165, 0, 0.65)';
+        rail.forEach((p, i) => (i === 0 ? ctx.moveTo(p.sx, p.sy) : ctx.lineTo(p.sx, p.sy)));
+        ctx.strokeStyle = railColor;
         ctx.lineWidth   = 2.5;
         ctx.setLineDash([6, 4]);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.restore();
 
-        // Wall endpoints
-        for (const pt of [aSc, bSc]) {
+        // Host ends
+        for (const pt of [rail[0], rail[rail.length - 1]]) {
+            if (!pt) continue;
             ctx.beginPath();
             ctx.arc(pt.sx, pt.sy, 4, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(255,165,0,0.8)';
+            ctx.strokeStyle = railColor;
             ctx.lineWidth   = 1.5;
             ctx.stroke();
         }
 
-        // Door/window ghost position
-        const ratio  = state.currentOffset / state.wallLength;
-        const doorSx = aSc.sx + (bSc.sx - aSc.sx) * ratio;
-        const doorSy = aSc.sy + (bSc.sy - aSc.sy) * ratio;
+        // Ghost of the opening at its live (always LEGAL) offset, drawn as the
+        // real span between its two edges rather than a nominal disc.
+        if (railLayout) {
+            const spanPx = Math.max(
+                8,
+                Math.hypot(railLayout.endSx - railLayout.startSx, railLayout.endSy - railLayout.startSy),
+            );
+            ctx.beginPath();
+            ctx.arc(railLayout.centreSx, railLayout.centreSy, spanPx / 2, 0, Math.PI * 2);
+            ctx.strokeStyle = ghostStroke;
+            ctx.lineWidth   = 2.5;
+            ctx.stroke();
+            ctx.fillStyle = ghostFill;
+            ctx.fill();
 
-        const wallPxLen   = Math.hypot(bSc.sx - aSc.sx, bSc.sy - aSc.sy);
-        const doorWidthPx = (state.wallLength > 0)
-            ? Math.max(6, (state.prevOffset > 0
-                ? ((this._ws()?.getDoor(state.elementId) ?? this._ws()?.getWindow(state.elementId))?.width ?? 0.9) / state.wallLength * wallPxLen
-                : 20))
-            : 20;
+            // Keep the two arrows visible THROUGH the drag — the affordance the
+            // user grabbed must not vanish under their cursor mid-gesture.
+            drawHostedArrows(ctx, railLayout, state.blocked ? '#DC2626' : '#6600FF');
 
-        ctx.beginPath();
-        ctx.arc(doorSx, doorSy, doorWidthPx / 2, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(30, 144, 255, 0.9)';
-        ctx.lineWidth   = 2.5;
-        ctx.stroke();
-        ctx.fillStyle = 'rgba(30, 144, 255, 0.12)';
-        ctx.fill();
+            if (state.blocked && state.blockReason) {
+                this._drawLabel(
+                    ctx, railLayout.centreSx, railLayout.centreSy - spanPx / 2 - 16,
+                    state.blockReason === 'Wall end' ? 'Wall end' : 'Blocked',
+                    '#DC2626',
+                );
+            }
+        }
 
         // §FEAT-HOSTED-MOVE-DIMENSIONS (founder L-30) — live ALONG-WALL set-out from
         // the moving opening's edges to the nearest reference on each side: the wall
@@ -748,20 +1033,32 @@ export class PlanElementDragController {
         // lerp between the two projected endpoints) and reuse the SAME blue dashed
         // `_drawDimensionLine`. Read-only transient preview — no store writes, no
         // commands; cleared automatically when the overlay is removed on end / cancel.
-        const ws   = this._ws();
-        const el   = ws?.getDoor(state.elementId) ?? ws?.getWindow(state.elementId);
-        const width = el?.width ?? 0;
+        // ⚠ DATUM ADAPTER. `computeHostedMoveDimensions` documents its `offset`
+        // inputs as CENTRE offsets and computes `leftEdge = offset − width/2` for
+        // BOTH the moving opening and its neighbours. The STORE, however, holds
+        // LEFT-EDGE offsets (§OPENING-OFFSET-LEFTEDGE-UNIFY;
+        // `WallOccupancyStore.OpeningDims`). The previous call site passed raw
+        // store offsets straight in, so every L-30 set-out gap was reported
+        // width/2 short on the start side and width/2 long on the end side.
+        // Convert left-edge → centre at the boundary, which is the module's actual
+        // contract. (Unifying that module onto the left-edge datum is the cleaner
+        // fix but would rewrite L-30's committed numeric test expectations; it is
+        // recorded as a follow-up rather than churned here.)
+        const toCentre = (leftEdge: number, w: number): number => leftEdge + w / 2;
 
-        const projectOffset = (offset: number): { sx: number; sy: number } => {
-            const t = state.wallLength > 0 ? offset / state.wallLength : 0;
-            return { sx: aSc.sx + (bSc.sx - aSc.sx) * t, sy: aSc.sy + (bSc.sy - aSc.sy) * t };
+        // Offsets are projected onto the host CENTRELINE, so a curved host's
+        // dimension witnesses land on the arc instead of the chord.
+        const projectOffset = (offsetLeftEdge: number): { sx: number; sy: number } => {
+            const f = arcFrameAt(state.host, offsetLeftEdge);
+            return toScreen(f.x, f.z);
         };
 
         const dims = computeHostedMoveDimensions({
-            offset:     state.currentOffset,
-            width,
-            wallLength: state.wallLength,
-            neighbours: this._collectHostedNeighbours(state.wallId, state.elementId),
+            offset:     toCentre(state.currentOffset, state.width),
+            width:      state.width,
+            wallLength: state.hostLength,
+            neighbours: this._collectHostedNeighbours(state.wallId, state.elementId)
+                .map(n => ({ offset: toCentre(n.offset, n.width), width: n.width })),
         });
         for (const d of dims) {
             const from = projectOffset(d.fromOffset);
@@ -884,6 +1181,17 @@ export class PlanElementDragController {
         return window.wallStore // TODO(TASK-08)
             ?? window.bimManager?.wallStore
             ?? null;
+    }
+
+    /**
+     * §P6 — the typed command bus, the ONLY mutation path out of this controller.
+     * Late-bound (the runtime is composed after this singleton is constructed),
+     * exactly like the 3-D `HostedElementDragController`'s `getBus` callback.
+     */
+    private _bus(): { executeCommand(type: string, payload: unknown): Promise<unknown> | undefined } | null {
+        return (window as unknown as {
+            runtime?: { bus?: { executeCommand(type: string, payload: unknown): Promise<unknown> | undefined } };
+        }).runtime?.bus ?? null;
     }
 }
 

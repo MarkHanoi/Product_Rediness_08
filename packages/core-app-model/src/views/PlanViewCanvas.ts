@@ -64,6 +64,11 @@ import { getDefaultSystemIntentId } from '../presentation/SystemIntents';
 import { floorPlanUnderlayRef } from './FloorPlanUnderlayRef';
 // Phase L — Lighting plan symbol overlay (placed fixtures)
 import { renderLightingSymbols } from './symbols/LightingPlanSymbolRenderer';
+// §FEAT-PLAN-HOSTED-DRAG-HANDLES (founder, 2026-08-07) — the two drag arrows on a
+// selected door/window. Direct file imports (not the barrel) to avoid barrel-at-
+// module-load coupling (memory: SCC). `PlanElementDragController` imports this file
+// TYPE-only, so this runtime edge introduces no module cycle.
+import { planElementDragController, drawHostedArrows } from './PlanElementDragController';
 
 export const DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM = 30;
 export const MINIMUM_PLAN_VIEW_CANVAS_FRUSTUM = 3;
@@ -630,6 +635,10 @@ export class PlanViewCanvas {
 
         // Phase 3 (Sprint 2): Selection and hover highlights rendered on top of linework.
         this._renderSelectionHighlights(ctx, drawing);
+
+        // §FEAT-PLAN-HOSTED-DRAG-HANDLES — after the highlight, so the arrows sit
+        // on top of the selection glow they belong to.
+        this._renderHostedDragHandles(ctx);
 
         this._drawSnapIndicator(ctx);
     }
@@ -1946,6 +1955,10 @@ export class PlanViewCanvas {
         const drawing = viewTechnicalDrawingCache.get(viewId);
         if (drawing) this._renderSelectionHighlights(ctx, drawing);
 
+        // §FEAT-PLAN-HOSTED-DRAG-HANDLES — the pipeline render path gets the same
+        // affordance as the legacy path above; both plan panes must agree (L-73).
+        this._renderHostedDragHandles(ctx);
+
         this._drawSnapIndicator(ctx);
     }
 
@@ -2126,6 +2139,53 @@ export class PlanViewCanvas {
             (wx, wz) => this.worldToScreen(wx, wz),
             { levelId: this._levelId, selectedId },
         );
+    }
+
+    /**
+     * §FEAT-PLAN-HOSTED-DRAG-HANDLES (founder, 2026-08-07) — the two drag arrows
+     * on the SELECTED hosted opening.
+     *
+     * The founder's report: "in PLAN VIEW moving elements is difficult — the user
+     * needs to click the MOVE button, then a first and second point … starting
+     * with DOORS and WINDOWS, which are the easy ones because they are HOSTED and
+     * can only move in line, add two arrows, as we have in 3D, so the user can
+     * DRAG them easily." A plan drag in fact already existed, but it was
+     * INVISIBLE: nothing on screen said the door symbol could be grabbed, so the
+     * only discoverable route was the move-tool + two-click flow. These arrows are
+     * that missing signal.
+     *
+     * ── Why this is a pure derived render, and owns no state ─────────────────
+     * The layout is recomputed from (selection, store) on every plan render and
+     * nothing is retained between frames. That is a deliberate design choice with
+     * three consequences worth stating:
+     *   • ADR-0297 §GPU-RESOURCE-LIFETIME does not apply — no THREE object,
+     *     texture or buffer is created or destroyed per selection; this is
+     *     Canvas2D immediate-mode drawing into the pass already running.
+     *   • `cb7187a4` (selection re-binds on element-root swap) needs no bespoke
+     *     poke — a rebuild after a drag simply renders again from the new store
+     *     state, and the arrows re-establish themselves.
+     *   • `6897f0cc` (project-scope isolation) needs no teardown: there is no
+     *     long-lived handle state to leak across a project switch. The probe is
+     *     that `resolveSelectedHosted()` returns null when the store no longer
+     *     holds the id, which is exactly what a project switch produces.
+     *
+     * Suppressed while a drag is live (`resolveSelectedHosted()` returns null),
+     * because `PlanElementDragController`'s overlay then draws the arrows itself
+     * on top, in its blocked/unblocked colour.
+     */
+    private _renderHostedDragHandles(ctx: CanvasRenderingContext2D): void {
+        if (this._viewType !== 'plan' && this._viewType !== 'ceiling-plan') return;
+        // A creation/edit tool owns the pointer — showing a grab affordance the
+        // tool will not honour would be a lie about what a click does.
+        if (window.toolManager?.isAnyToolActive?.()) return;
+
+        try {
+            const layout = planElementDragController.handleLayoutFor(this);
+            if (!layout) return;
+            drawHostedArrows(ctx, layout, 'rgba(102, 0, 255, 0.95)');
+        } catch {
+            // Never let a decorative affordance break the plan render pass.
+        }
     }
 
     private _renderSelectionHighlights(ctx: CanvasRenderingContext2D, drawing: object): void {

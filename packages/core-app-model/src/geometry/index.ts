@@ -30,3 +30,21 @@ export {
     computeWallMoveDimensions,
     classifyMovingWallAxis,
 } from './wallMoveDimensions.js';
+
+// ── §FEAT-PLAN-HOSTED-DRAG-HANDLES (founder, 2026-08-07) — host-parameter layer ──
+// beneath the plan-view two-arrow drag affordance for hosted doors/windows.
+export type {
+    HostedOccupant,
+    HostedDragHost,
+    HostedSlideResult,
+    HostedHandle,
+    HostedHandleLayout,
+    HostedHandleLayoutOptions,
+} from './hostedDragParam.js';
+export {
+    projectCursorToHostOffset,
+    resolveHostedSlide,
+    computeHostedHandleLayout,
+    hitTestHostedHandles,
+    HOSTED_HANDLE_HIT_PX,
+} from './hostedDragParam.js';

@@ -47,6 +47,7 @@
     "three": "^0.183.2",
     "@pryzm/renderer-three": "workspace:*",
     "@pryzm/frame-scheduler": "workspace:*",
+    "@pryzm/geometry-wall": "workspace:*",
     "@thatopen/components": "^3.4.2",
     "@thatopen/components-front": "^3.4.2",
     "zod": "*",
