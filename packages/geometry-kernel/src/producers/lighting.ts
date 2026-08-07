@@ -58,7 +58,14 @@ function rgbToHex(c: readonly [number, number, number]): string {
  */
 export function composeLightingMaterialKey(l: Lighting): string {
   const color = rgbToHex(l.color);
-  return `lighting|${l.kind}|${l.materialId ?? ''}|${color}|${l.intensity.toFixed(4)}|${l.range.toFixed(4)}|${l.isEmergency ? '1' : '0'}|body`;
+  // §FEAT-FIXTURE-PHOTOMETRY (2026-08-06) — the emission slot now carries the
+  // REAL photometry (lumens @ kelvin) rather than the derived renderer scalar.
+  // `intensity` became an optional explicit override on the schema, so an
+  // absent value must not crash the key; when present it still participates so
+  // an overridden fixture gets its own material.
+  const emission = `${l.lumens.toFixed(1)}@${l.kelvin.toFixed(0)}` +
+    (typeof l.intensity === 'number' ? `!${l.intensity.toFixed(4)}` : '');
+  return `lighting|${l.kind}|${l.materialId ?? ''}|${color}|${emission}|${l.range.toFixed(4)}|${l.isEmergency ? '1' : '0'}|body`;
 }
 
 export const produceLighting: LightingProducer = (l, _joinData, worldY) => {

@@ -61,11 +61,23 @@ describe('produceLighting — analytic parity (S26)', () => {
     expect(flagPart).toBe('1');
   });
 
-  it('case 6: material key encodes intensity + range', () => {
-    const l = make({ kind: 'downlight', intensity: 2.5, range: 8 });
+  // §FEAT-FIXTURE-PHOTOMETRY (2026-08-06) — the emission slot now carries REAL
+  // photometry (`<lumens>@<kelvin>`) rather than the derived renderer scalar,
+  // with an optional `!<intensity>` suffix when the element overrides it.
+  it('case 6: material key encodes photometry + range', () => {
+    const l = make({ kind: 'downlight', lumens: 650, kelvin: 3000, range: 8 });
     const k = composeLightingMaterialKey(l);
-    expect(k).toContain('|2.5000|');
+    expect(k).toContain('|650.0@3000|');
     expect(k).toContain('|8.0000|');
+  });
+
+  it('case 6b: an explicit intensity override still participates in the key', () => {
+    const l = make({ kind: 'downlight', intensity: 2.5, range: 8 });
+    expect(composeLightingMaterialKey(l)).toContain('!2.5000|');
+    // …and two fixtures differing ONLY in lumens get DIFFERENT material keys,
+    // so a brighter lamp cannot silently borrow a dimmer one's material.
+    expect(composeLightingMaterialKey(make({ kind: 'downlight', lumens: 400 })))
+      .not.toBe(composeLightingMaterialKey(make({ kind: 'downlight', lumens: 1600 })));
   });
 
   it('case 7: hash schema version is stamped', () => {
