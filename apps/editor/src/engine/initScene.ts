@@ -1126,6 +1126,35 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // disposing + re-projecting all N elements. Any failure falls through to the full
         // path below, so this is safe by construction.
         const isPlan = viewDef.viewType === 'plan' || viewDef.viewType === 'structural-plan';
+
+        // §DIAG-GRAFT-FALLTHROUGH (L-706) — SAY WHY THE O(1) PATH WAS NOT TAKEN.
+        //
+        // Founder, 2026-08-07: one new wall re-exports 40 elements and re-projects 36
+        // groups. An incremental-graft fast path EXISTS; the question that actually needs
+        // answering is why an edit does not use it. That question was unanswerable from
+        // the logs — the full path and the declined fast path are indistinguishable,
+        // because declining was silent. Each gate now names itself, so the reason is a
+        // fact in the log rather than an inference (ADR-0292).
+        const graftDecline =
+            !graftElementIds || graftElementIds.size === 0
+                ? 'no-graft-ids (ViewDependencyTracker marked this view COARSE: a delete, a '
+                  + 'non-pure-projection create such as door/window/furniture/stair/column/roof, '
+                  + 'a batch, or a §G3 stale-id fallback — see PLAN_INCREMENTAL_SAFE_TYPES)'
+            : !isPlan
+                ? `not-a-plan-view (viewType=${viewDef.viewType}; elevation/section have NO graft path at all — they always take the full pass)`
+            : models.length > 0
+                ? `ifc-models-present (${models.length}); graft covers native Source B only`
+            : window.__PRYZM_FLAGS__?.EDGE_PROJECTOR_NATIVE !== true
+                ? 'EDGE_PROJECTOR_NATIVE flag OFF'
+            : !viewTechnicalDrawingCache.has(viewId)
+                ? 'no-warm-drawing (cache empty — nothing to graft onto; this is the cold pass)'
+            : null;
+        if (graftDecline) {
+            console.log(
+                `[initScene] §DIAG-GRAFT-FALLTHROUGH viewId=${viewId} FULL re-projection because: ${graftDecline}`,
+            );
+        }
+
         if (graftElementIds && graftElementIds.size > 0 && isPlan && models.length === 0
             && window.__PRYZM_FLAGS__?.EDGE_PROJECTOR_NATIVE === true) {
             const warm = viewTechnicalDrawingCache.get(viewId);
@@ -1152,14 +1181,31 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                     } else {
                         nativeElementMeshExporter.releaseGroups(dirtyGroups, { disposeProxies: true });
                     }
-                    // Fell through (nothing grafted) → drop the stale warm drawing so the
-                    // full path below rebuilds cleanly.
-                    // §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705) — and RE-DECLARE the generation:
-                    // discarding the drawing bumps the counter, so continuing under
-                    // `genFromFlush` would supersede our own fallback pass before it starts.
-                    gen = viewTechnicalDrawingCache.restartProjection(viewId);
+                    // Fell through: nothing was grafted, so `warm` was NOT mutated and is
+                    // still a valid drawing of the pre-edit model.
+                    //
+                    // §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — KEEP IT ON SCREEN. Discarding it
+                    // here (the previous `restartProjection`) is what made the plan go white
+                    // for the width of the full re-projection that follows. Holding it costs
+                    // nothing: the full pass below commits under this fresh generation and
+                    // `set()` swaps atomically, releasing the displaced drawing (ADR-0297 L2).
+                    //
+                    // §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705) is PRESERVED and is the reason
+                    // this re-declares `gen` at all: the fallback pass must never run under
+                    // the generation `_flush` handed us, or it is stale before it starts.
+                    console.log(
+                        `[initScene] §DIAG-GRAFT-FALLTHROUGH viewId=${viewId} FULL re-projection because: ` +
+                        `graft produced nothing (the dirty elements contributed no linework to THIS view — ` +
+                        `cross-level change, or an element with no plan geometry)`,
+                    );
+                    gen = viewTechnicalDrawingCache.beginSwap(viewId);
                 } catch (err) {
-                    console.error(`[initScene] §FIX-PLAN-PROJECT-INCREMENTAL graft failed — full fallback for viewId=${viewId}:`, err);
+                    // ⚠ DIFFERENT CASE, DIFFERENT CHOICE. `projectElementsInto` mutates `warm`
+                    // in place, so a throw can leave it PARTIALLY grafted — a drawing we cannot
+                    // vouch for. This is the one place holding the last good drawing is not
+                    // clearly right, so this path still DISCARDS. It is also rare, unlike the
+                    // clean fall-through above which fires on ordinary edits.
+                    console.error(`[initScene] §FIX-PLAN-PROJECT-INCREMENTAL graft failed — full fallback (discarding a possibly half-grafted drawing) for viewId=${viewId}:`, err);
                     gen = viewTechnicalDrawingCache.restartProjection(viewId);
                 }
             }
@@ -1187,7 +1233,17 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             }
         }
 
-        if (models.length === 0 && nativeGroups.length === 0 && ifcSceneGroups.length === 0) return;
+        if (models.length === 0 && nativeGroups.length === 0 && ifcSceneGroups.length === 0) {
+            // §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — THE ONE CASE WHERE HOLDING IS WRONG.
+            // There is nothing to project, so the correct content is NOTHING. Under
+            // hold-last-good the cache still contains the pre-edit drawing, and simply
+            // returning would leave the user looking at geometry they just deleted. Blank
+            // it deliberately. (Previously the coarse `invalidate()` in _flush had already
+            // emptied the cache, so this early return was silently correct; now that the
+            // drawing is held, correctness has to be stated.)
+            viewTechnicalDrawingCache.invalidate(viewId);
+            return;
+        }
         try {
             // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — abandon this pass the moment a
             // newer generation for the same view is started. Without it the projection ran

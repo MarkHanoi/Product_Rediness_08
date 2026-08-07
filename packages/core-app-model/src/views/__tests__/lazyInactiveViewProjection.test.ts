@@ -26,6 +26,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // ── Mock the OBC-importing cache + the other singleton collaborators. ──────────
 const invalidate = vi.fn();
 const invalidateElement = vi.fn();
+const beginSwap = vi.fn((_viewId: string) => 1);
 const cacheGet = vi.fn(() => null);
 vi.mock('../ViewTechnicalDrawingCache', () => ({
     viewTechnicalDrawingCache: {
@@ -34,6 +35,11 @@ vi.mock('../ViewTechnicalDrawingCache', () => ({
         get: (viewId: string) => cacheGet(viewId),
         clear: () => {},
         beginProjection: () => 1,
+        // §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — the coarse flush path now takes its
+        // generation via `beginSwap` (take a generation, KEEP the drawing on screen)
+        // instead of `invalidate` + `beginProjection` (discard, then recompute into a
+        // blank view — the founder's white flash on every element create).
+        beginSwap: (viewId: string) => beginSwap(viewId),
         setIfCurrent: () => true,
     },
 }));
@@ -95,6 +101,7 @@ describe('§FIX-LAZY-INACTIVE-VIEW-PROJECTION — inactive views defer; only the
         vi.useFakeTimers();
         invalidate.mockClear();
         invalidateElement.mockClear();
+        beginSwap.mockClear();
         cacheGet.mockClear();
         _views = [PLAN, ...ALL_ELEVS];
         setDrag(false);

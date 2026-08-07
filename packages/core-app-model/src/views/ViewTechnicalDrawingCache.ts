@@ -85,6 +85,28 @@ export class ViewTechnicalDrawingCache {
     private readonly _lastAcceptedGen = new Map<string, number>();
 
     /**
+     * §PROBE-PLAN-BLANK-WINDOW (L-706) — `performance.now()` at the moment this view's
+     * cache became EMPTY, or `undefined` while a drawing is present.
+     *
+     * Founder, 2026-08-07: *"EVERY SINGLE TIME I CREATE AN ELEMENT ... THE COMPLETE PLAN
+     * VIEW OR ELEVATION DOES A SHORT COMPLETE REFRESH: IT GOES WHITE AND RENDERS AGAIN."*
+     *
+     * The white flash is not a timing accident, it is a PAIRED-OPERATION GAP: `invalidate()`
+     * discards the drawing, and only then does the pipeline start computing the replacement.
+     * Every frame in between has nothing to draw. This records the width of that gap so the
+     * claim is MEASURED rather than argued — there was previously no wall-clock
+     * instrumentation anywhere in this pipeline (ADR-0292: report nothing you cannot verify).
+     *
+     * A view that never goes empty never records anything, so once compute-then-swap is
+     * universal this probe falls silent by construction — which is itself the acceptance
+     * signal for the fix.
+     */
+    private readonly _blankSince = new Map<string, number>();
+
+    /** §PROBE-PLAN-BLANK-WINDOW (L-706) — cumulative blank time + count, per view. */
+    private readonly _blankStats = new Map<string, { count: number; totalMs: number; maxMs: number }>();
+
+    /**
      * §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705, ADR-0299) — consecutive stale-accepts per view.
      *
      * Reset ONLY by a generation-MATCHING accept (the healthy commit path) and by `clear()`
@@ -171,6 +193,54 @@ export class ViewTechnicalDrawingCache {
         if (previous && previous !== drawing) {
             this._releaseDrawingAtFrameBoundary(previous, viewId);
         }
+        this._closeBlankWindow(viewId, previous !== undefined);
+    }
+
+    /**
+     * §PROBE-PLAN-BLANK-WINDOW (L-706) — a drawing has just been installed. If the view
+     * was EMPTY, this closes the white-flash window and records how wide it was.
+     *
+     * `wasWarm === true` means the install was an ATOMIC SWAP (a drawing was already on
+     * screen and was replaced in place), which is the shape we are moving the pipeline
+     * towards; there is no window to close in that case and nothing is recorded.
+     */
+    private _closeBlankWindow(viewId: string, wasWarm: boolean): void {
+        const since = this._blankSince.get(viewId);
+        this._blankSince.delete(viewId);
+        if (wasWarm || since === undefined) return;
+
+        const blankMs = Math.max(0, performance.now() - since);
+        const s = this._blankStats.get(viewId) ?? { count: 0, totalMs: 0, maxMs: 0 };
+        s.count   += 1;
+        s.totalMs += blankMs;
+        s.maxMs    = Math.max(s.maxMs, blankMs);
+        this._blankStats.set(viewId, s);
+
+        console.log(
+            `[ViewTechnicalDrawingCache] §PROBE-PLAN-BLANK-WINDOW viewId=${viewId} ` +
+            `blankMs=${blankMs.toFixed(1)} (the view had NO drawing to render for this long — ` +
+            `the founder's white flash) blankCount=${s.count} avgMs=${(s.totalMs / s.count).toFixed(1)} ` +
+            `maxMs=${s.maxMs.toFixed(1)}`,
+        );
+        emitPlanViewMotionEvent('blank-window', {
+            'pryzm.plan_view.view_id':       viewId,
+            'pryzm.plan_view.blank_ms':      Math.round(blankMs),
+            'pryzm.plan_view.blank_count':   s.count,
+            'pryzm.plan_view.blank_max_ms':  Math.round(s.maxMs),
+        });
+    }
+
+    /**
+     * §PROBE-PLAN-BLANK-WINDOW (L-706) — measured white-flash statistics for a view.
+     * `count` is how many times this view has gone blank and come back; `totalMs` /
+     * `maxMs` are the accumulated and worst windows. Diagnostic only.
+     *
+     * ACCEPTANCE CRITERION for compute-then-swap: on a busy plan, drawing N elements in a
+     * row must leave `count` at 0. Any non-zero count is a paired-operation gap that is
+     * still discarding a drawing before its replacement exists.
+     */
+    blankWindowStats(viewId: string): { count: number; totalMs: number; maxMs: number } {
+        return { ...(this._blankStats.get(viewId) ?? { count: 0, totalMs: 0, maxMs: 0 }) };
     }
 
     /**
@@ -507,10 +577,57 @@ export class ViewTechnicalDrawingCache {
         const drawing = this._cache.get(viewId);
         if (drawing) {
             this._cache.delete(viewId);
+            // §PROBE-PLAN-BLANK-WINDOW (L-706) — THE VIEW IS NOW BLANK. Every frame from
+            // here until a drawing is installed renders nothing. Start the clock.
+            if (!this._blankSince.has(viewId)) this._blankSince.set(viewId, performance.now());
             // ADR-0297 L2 — detach now (the entry is gone), release at the frame boundary.
             this._releaseDrawingAtFrameBoundary(drawing, viewId);
             console.log(`[ViewTechnicalDrawingCache] invalidated viewId=${viewId}`);
         }
+    }
+
+    /**
+     * §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — declare a re-projection that KEEPS the current
+     * drawing on screen until its replacement is ready. Returns the new generation.
+     *
+     * This is the third and DEFAULT member of a family that must be chosen deliberately:
+     *
+     *   beginProjection(viewId)   — take a generation; say nothing about the drawing.
+     *   restartProjection(viewId) — DISCARD the drawing, then take a generation (L-705).
+     *   beginSwap(viewId)         — KEEP the drawing, take a generation, swap on commit.
+     *
+     * Founder, 2026-08-07: *"EVERY SINGLE TIME I CREATE AN ELEMENT ... THE COMPLETE PLAN
+     * VIEW OR ELEVATION DOES A SHORT COMPLETE REFRESH: IT GOES WHITE AND RENDERS AGAIN."*
+     *
+     * `invalidate()` and `restartProjection()` both DISCARD FIRST and recompute after, so
+     * the view has nothing to render for the whole width of the recompute. That gap is the
+     * white flash, and it is structural: no amount of making the recompute faster removes
+     * it, it only makes it narrower. **A view must not discard its current drawing until
+     * the replacement exists.**
+     *
+     * `beginSwap` inverts the order: bump the generation so in-flight older passes are
+     * rejected, but leave the warm drawing rendering every frame. When the new projection
+     * commits, `set()` installs it and releases the one it displaced (ADR-0297 L2) — one
+     * atomic swap, no frame in between with an empty cache.
+     *
+     * ⚠ THE ONE CASE THIS IS WRONG: when the correct new content is NOTHING (the last
+     * element on the level was deleted). Holding the last good drawing would then show
+     * geometry that no longer exists. Callers MUST `invalidate()` explicitly on the
+     * "nothing to project" path; the projection drivers do exactly that.
+     *
+     * This generalises the already-ratified §PERF-ELEV-CROP-DRAG-FLOW HOLD-LAST-GOOD
+     * (L-222) from the crop-drag path, where it was proven, to the element-edit path,
+     * where the founder is hitting it on every single create.
+     */
+    beginSwap(viewId: string): number {
+        const gen = this.beginProjection(viewId);
+        // P8 — every new exported entry point emits ≥1 span.
+        emitPlanViewMotionEvent('begin-swap', {
+            'pryzm.plan_view.view_id':    viewId,
+            'pryzm.plan_view.generation': gen,
+            'pryzm.plan_view.held_warm':  this._cache.has(viewId),
+        });
+        return gen;
     }
 
     /**
@@ -678,6 +795,9 @@ export class ViewTechnicalDrawingCache {
         // display history too (C13 isolation): the next project must not inherit
         // Project A's "already showed generation N" and refuse its own first drawing.
         this._lastAcceptedGen.clear();
+        // §PROBE-PLAN-BLANK-WINDOW (L-706) — per-project measurement; do not carry across.
+        this._blankSince.clear();
+        this._blankStats.clear();
         this._provisionalStaleViewIds.clear();  // §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124)
         this._consecutiveStaleAccepts.clear();  // §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705)
         this.staleElementIds.clear();

@@ -26,12 +26,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // ── Mock the OBC-importing cache + the other singleton collaborators. ──────────
 const invalidate = vi.fn();
 const invalidateElement = vi.fn();
+const beginSwap = vi.fn((_viewId: string) => 1);
 vi.mock('../ViewTechnicalDrawingCache', () => ({
     viewTechnicalDrawingCache: {
         invalidate: (viewId: string) => invalidate(viewId),
         invalidateElement: (viewId: string, elementId: string) => invalidateElement(viewId, elementId),
         clear: () => {},
         beginProjection: () => 1,
+        // §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — the coarse flush path now takes its
+        // generation via `beginSwap` (take a generation, KEEP the drawing on screen)
+        // instead of `invalidate` + `beginProjection` (discard, then recompute into a
+        // blank view — the founder's white flash on every element create).
+        beginSwap: (viewId: string) => beginSwap(viewId),
         setIfCurrent: () => true,
     },
 }));
@@ -77,6 +83,7 @@ describe('§FIX-WALLMOVE-PLAN-INCREMENTAL — plan re-projection deferral + incr
         vi.useFakeTimers();
         invalidate.mockClear();
         invalidateElement.mockClear();
+        beginSwap.mockClear();
         _views = [PLAN_VIEW];
         setDrag(false);
         tracker = new ViewDependencyTracker();
@@ -122,22 +129,42 @@ describe('§FIX-WALLMOVE-PLAN-INCREMENTAL — plan re-projection deferral + incr
         expect(invalidate).not.toHaveBeenCalled();
     });
 
-    it('a create of a NON-pure-projection type (door — has a symbol pass) takes the coarse invalidate', () => {
+    it('a create of a NON-pure-projection type (door — has a symbol pass) takes the coarse FULL pass, holding the drawing', () => {
         setDrag(false);
         tracker.registerElement('door-1', 'L0');
         _emitStoreEvent!({ elementId: 'door-1', elementType: 'door', operation: 'create' });
         vi.advanceTimersByTime(400);
-        expect(invalidate).toHaveBeenCalledTimes(1);
-        expect(invalidate).toHaveBeenCalledWith(PLAN_VIEW.id);
+        // §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — CONTRACT CHANGED, DELIBERATELY.
+        // This used to assert `invalidate(viewId)` — discard the drawing, THEN spend the
+        // whole re-projection computing its replacement into a blank view. That gap is
+        // the founder's 2026-08-07 report: *"every single time I create an element ... it
+        // goes white and renders again"*. The coarse path is still a FULL re-projection
+        // (nothing about the work changed, and `graftIds` is still undefined below); what
+        // changed is that the current drawing STAYS ON SCREEN until the replacement
+        // commits. `beginSwap` still bumps the generation, so an in-flight older pass is
+        // rejected exactly as before.
+        expect(beginSwap).toHaveBeenCalledTimes(1);
+        expect(beginSwap).toHaveBeenCalledWith(PLAN_VIEW.id);
+        expect(invalidate).not.toHaveBeenCalled();
         expect(invalidateElement).not.toHaveBeenCalled();
     });
 
-    it('a delete still takes the coarse whole-drawing invalidate', () => {
+    it('a delete still takes the coarse whole-drawing pass, holding the drawing until the replacement commits', () => {
         setDrag(false);
         _emitStoreEvent!({ elementId: 'wall-1', elementType: 'wall', operation: 'delete' });
         vi.advanceTimersByTime(400);
-        expect(invalidate).toHaveBeenCalledTimes(1);
-        expect(invalidate).toHaveBeenCalledWith(PLAN_VIEW.id);
+        // §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — CONTRACT CHANGED, DELIBERATELY.
+        // This used to assert `invalidate(viewId)` — discard the drawing, THEN spend the
+        // whole re-projection computing its replacement into a blank view. That gap is
+        // the founder's 2026-08-07 report: *"every single time I create an element ... it
+        // goes white and renders again"*. The coarse path is still a FULL re-projection
+        // (nothing about the work changed, and `graftIds` is still undefined below); what
+        // changed is that the current drawing STAYS ON SCREEN until the replacement
+        // commits. `beginSwap` still bumps the generation, so an in-flight older pass is
+        // rejected exactly as before.
+        expect(beginSwap).toHaveBeenCalledTimes(1);
+        expect(beginSwap).toHaveBeenCalledWith(PLAN_VIEW.id);
+        expect(invalidate).not.toHaveBeenCalled();
         expect(invalidateElement).not.toHaveBeenCalled();
     });
 });
@@ -150,6 +177,7 @@ describe('§FIX-PLAN-PROJECT-INCREMENTAL — graft-eligibility handed to the rep
         vi.useFakeTimers();
         invalidate.mockClear();
         invalidateElement.mockClear();
+        beginSwap.mockClear();
         _views = [PLAN_VIEW];
         setDrag(false);
         graftCalls = [];

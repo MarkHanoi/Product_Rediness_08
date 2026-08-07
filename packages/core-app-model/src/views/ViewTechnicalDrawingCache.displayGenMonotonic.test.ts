@@ -285,6 +285,117 @@ describe('ViewTechnicalDrawingCache — §FIX-PLAN-DISPLAY-GEN-MONOTONIC (INVARI
     });
 });
 
+// ── §FIX-PLAN-COMPUTE-THEN-SWAP / §PROBE-PLAN-BLANK-WINDOW (L-706) ───────────
+
+/**
+ * Founder, 2026-08-07: *"EVERY SINGLE TIME I CREATE AN ELEMENT — AND IN BUSY FLOOR PLANS
+ * THAT BECOMES MORE IMPORTANT — THE COMPLETE PLAN VIEW OR ELEVATION DOES A SHORT COMPLETE
+ * REFRESH: IT GOES WHITE AND RENDERS AGAIN."*
+ *
+ * The white flash is a PAIRED-OPERATION GAP: the drawing is discarded, and only then is
+ * the replacement computed. These tests assert the ordering property directly — a view
+ * must never be observably empty across a re-projection — rather than trying to assert
+ * anything about pixels or timing.
+ */
+describe('ViewTechnicalDrawingCache — §FIX-PLAN-COMPUTE-THEN-SWAP (the white flash)', () => {
+    let cache: ViewTechnicalDrawingCache;
+    beforeEach(() => { cache = new ViewTechnicalDrawingCache(); cache.clear(); });
+
+    it('beginSwap() keeps the current drawing renderable for the whole re-projection', () => {
+        const first = makeDrawing('first');
+        const g1 = cache.beginProjection(VIEW);
+        cache.setIfCurrent(VIEW, g1, asDrawing(first));
+
+        // A wall is created. The view is re-projected — but never emptied.
+        const g2 = cache.beginSwap(VIEW);
+        expect(cache.get(VIEW)).toBe(asDrawing(first));   // still on screen, mid-recompute
+        expect(cache.has(VIEW)).toBe(true);
+
+        const second = makeDrawing('second');
+        expect(cache.setIfCurrent(VIEW, g2, asDrawing(second))).toBe(true);
+        expect(cache.get(VIEW)).toBe(asDrawing(second));  // swapped atomically
+    });
+
+    it('THE FOUNDER BUG: 10 consecutive edits produce ZERO blank frames under beginSwap', () => {
+        const g0 = cache.beginProjection(VIEW);
+        cache.setIfCurrent(VIEW, g0, asDrawing(makeDrawing('initial')));
+
+        for (let i = 0; i < 10; i++) {
+            const gen = cache.beginSwap(VIEW);
+            // At every point during the re-projection the view has something to render.
+            expect(cache.has(VIEW)).toBe(true);
+            cache.setIfCurrent(VIEW, gen, asDrawing(makeDrawing(`edit-${i}`)));
+            expect(cache.has(VIEW)).toBe(true);
+        }
+
+        // The probe is the acceptance criterion: no blank window was ever opened.
+        expect(cache.blankWindowStats(VIEW).count).toBe(0);
+    });
+
+    it('CONTRAST — the old discard-then-recompute shape records a blank window (the probe works)', () => {
+        const g0 = cache.beginProjection(VIEW);
+        cache.setIfCurrent(VIEW, g0, asDrawing(makeDrawing('initial')));
+
+        // What restartProjection()/invalidate() do: throw the drawing away FIRST.
+        const gen = cache.restartProjection(VIEW);
+        expect(cache.has(VIEW)).toBe(false);          // ← the white frame lives here
+        cache.setIfCurrent(VIEW, gen, asDrawing(makeDrawing('rebuilt')));
+
+        const stats = cache.blankWindowStats(VIEW);
+        expect(stats.count).toBe(1);
+        expect(stats.maxMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it('a swap into a warm cache is NOT counted as a blank window', () => {
+        const g0 = cache.beginProjection(VIEW);
+        cache.setIfCurrent(VIEW, g0, asDrawing(makeDrawing('a')));
+        const g1 = cache.beginSwap(VIEW);
+        cache.setIfCurrent(VIEW, g1, asDrawing(makeDrawing('b')));
+        expect(cache.blankWindowStats(VIEW).count).toBe(0);
+    });
+
+    it('the cold first projection is a blank window, and that is legitimate — it is counted honestly', () => {
+        const gen = cache.beginSwap(VIEW);   // nothing warm to hold
+        expect(cache.has(VIEW)).toBe(false);
+        cache.setIfCurrent(VIEW, gen, asDrawing(makeDrawing('cold')));
+        // No prior drawing was ever discarded, so no invalidate() opened a window.
+        expect(cache.blankWindowStats(VIEW).count).toBe(0);
+    });
+
+    it('beginSwap still supersedes an in-flight older pass (it is a generation bump, not a no-op)', () => {
+        const g1 = cache.beginProjection(VIEW);
+        cache.setIfCurrent(VIEW, g1, asDrawing(makeDrawing('warm')));
+        const warmRef = cache.get(VIEW);
+
+        cache.beginSwap(VIEW);   // g2
+        // The g1-era pass completes late, into a NON-empty cache → rejected, never shown.
+        expect(cache.setIfCurrent(VIEW, g1, asDrawing(makeDrawing('late-older')))).toBe(false);
+        expect(cache.get(VIEW)).toBe(warmRef);
+    });
+
+    it('blank-window stats are per project (C13 isolation)', () => {
+        const g0 = cache.beginProjection(VIEW);
+        cache.setIfCurrent(VIEW, g0, asDrawing(makeDrawing('a')));
+        const g1 = cache.restartProjection(VIEW);
+        cache.setIfCurrent(VIEW, g1, asDrawing(makeDrawing('b')));
+        expect(cache.blankWindowStats(VIEW).count).toBe(1);
+
+        cache.clear();
+        expect(cache.blankWindowStats(VIEW).count).toBe(0);
+    });
+
+    it('INVARIANT D still holds under compute-then-swap', () => {
+        const g1 = cache.beginProjection(VIEW);
+        cache.setIfCurrent(VIEW, g1, asDrawing(makeDrawing('gen1')));
+        const g2 = cache.beginSwap(VIEW);
+        const g3 = cache.beginSwap(VIEW);
+        cache.setIfCurrent(VIEW, g3, asDrawing(makeDrawing('gen3')));
+        // g2 lands late into a warm cache → rejected outright, no regression possible.
+        expect(cache.setIfCurrent(VIEW, g2, asDrawing(makeDrawing('gen2')))).toBe(false);
+        expect(cache.lastAcceptedGeneration(VIEW)).toBe(g3);
+    });
+});
+
 // ── Blast-radius / scheduling invariants on the tracker ──────────────────────
 
 describe('ViewDependencyTracker — per-edit blast radius (SPEC-30 §9, C16 §8 B-5)', () => {

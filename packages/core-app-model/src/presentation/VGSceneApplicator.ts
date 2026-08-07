@@ -595,10 +595,21 @@ export class VGSceneApplicator {
             }
         }
 
+        // §DIAG-VG-APPLIED-UNITS (L-706) — `applied=18/14 layers` was NOT a bug, it was a
+        // UNITS MISMATCH in this one string, and it cost a founder-escalation to establish
+        // that. The numerator counts LAYER OBJECTS styled; the denominator counted VG
+        // CATEGORIES. Each of the 14 categories can contribute up to FOUR concrete layers
+        // — the base layer plus the `:cut` / `:proj` / `:beyond` sub-layers that
+        // EdgeProjectorService creates (DOC-4.2) — so the numerator legitimately ranges
+        // 0..56 and exceeding 14 means the drawing has sub-layers, not that anything was
+        // over-applied. Report both counts in their own units so the line can never again
+        // read as "applied more layers than exist".
+        const categoryCount = Object.keys(CATEGORY_TO_DXF_LAYER).length;
         console.log(
             `[VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — ` +
             `viewDefId=${viewDefId} modelId=${this.modelId} ` +
-            `applied=${appliedCount}/${Object.keys(CATEGORY_TO_DXF_LAYER).length} layers`,
+            `styledLayers=${appliedCount} (base + :cut/:proj/:beyond sub-layers) ` +
+            `across ${categoryCount} VG categories (max ${categoryCount * 4} layers)`,
         );
     }
 

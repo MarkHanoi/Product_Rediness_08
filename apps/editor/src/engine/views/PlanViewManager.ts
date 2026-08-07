@@ -560,18 +560,29 @@ export class PlanViewManager implements IPlanViewManager {
             // async completion + error fallback); false → fall through to the full path.
             if (this._tryIncrementalStale(viewDef, pending)) return;
 
-            viewTechnicalDrawingCache.invalidate(viewDef.id);
-            activePlanDrawingRef.drawing = null;
-            // §C-B2 (DAILY-USE-AUDIT 2026-05-20) — DO NOT reset _hasFitDrawing here.
-            // Architect was losing their working pan/zoom on every element commit
-            // because every store change emits a projection-stale event → reset →
-            // _render() fitToDrawing() overwrites their position. Fit-to-drawing is
-            // an INITIAL-ACTIVATION concern (already covered by activate() at line
-            // ~135 which resets the flag). Projection invalidation should re-project
-            // the drawing in place, never yank the camera. C04 §3.3 — per-view
-            // camera state is sticky across data mutations within the same view session.
+            // §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — THIS WAS THE WHITE FLASH.
+            //
+            // Founder, 2026-08-07: *"EVERY SINGLE TIME I CREATE AN ELEMENT ... THE COMPLETE
+            // PLAN VIEW OR ELEVATION DOES A SHORT COMPLETE REFRESH: IT GOES WHITE AND
+            // RENDERS AGAIN."* `invalidate()` disposed the drawing and `activePlanDrawingRef
+            // .drawing = null` blanked the canvas, and only THEN did `_ensureProjection`
+            // start exporting and projecting. Every frame in between rendered nothing.
+            //
+            // `_reprojectActiveViewDoubleBuffered` is ALREADY the correct shape — it was
+            // written for the crop drag (§PERF-ELEV-CROP-DRAG-FLOW, L-222) and its own
+            // comment says "HOLD the warm drawing: no invalidate()". The element-edit path
+            // simply never used it. Route through it instead of hand-rolling a second,
+            // blanking version of the same operation.
+            //
+            // `_scheduleDoubleBufferedReproject` coalesces to at most one reprojection per
+            // frame through the existing frame bus (P3 — no new loop), which also collapses
+            // a burst of edits that each used to trigger their own full pass.
+            //
+            // §C-B2 (DAILY-USE-AUDIT 2026-05-20) is PRESERVED by this route, not bypassed:
+            // `_hasFitDrawing` is still NOT reset, so the architect keeps their pan/zoom
+            // across an element commit. Drawing must never move the camera.
             this._lastRender = 0;
-            this._ensureProjection(viewDef);
+            this._scheduleDoubleBufferedReproject(viewDef);
         }, 30);
     }
 
@@ -650,10 +661,12 @@ export class PlanViewManager implements IPlanViewManager {
     /** §FIX-PLAN-PROJECT-INCREMENTAL — coarse whole-drawing invalidate + full reproject. */
     private _fullReprojectFallback(viewDef: ViewDefinition): void {
         if (this._viewDef?.id !== viewDef.id) return;
-        viewTechnicalDrawingCache.invalidate(viewDef.id);
-        activePlanDrawingRef.drawing = null;
+        // §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — do not blank on the way to a full pass.
+        // The double-buffered reproject holds the current drawing on screen and swaps it
+        // atomically when the replacement commits; the old invalidate + _ensureProjection
+        // pair emptied the cache first and left the canvas white for the whole recompute.
         this._lastRender = 0;
-        this._ensureProjection(viewDef);
+        this._scheduleDoubleBufferedReproject(viewDef);
     }
 
     /** Resolve planBelowDepthOffset from the view's assigned intent (default 1.20 m). */
@@ -972,14 +985,27 @@ export class PlanViewManager implements IPlanViewManager {
             }
         }
 
-        if (models.length === 0 && nativeGroups.length === 0 && ifcSceneGroups.length === 0) return;
+        if (models.length === 0 && nativeGroups.length === 0 && ifcSceneGroups.length === 0) {
+            // §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — THE ONE CASE WHERE HOLDING IS WRONG.
+            // Nothing to project means the correct content is NOTHING. Now that the
+            // element-edit path routes through this method (it previously invalidated
+            // first), simply returning would leave the user looking at geometry they just
+            // deleted. Blank deliberately, and drop the canvas reference with it.
+            viewTechnicalDrawingCache.invalidate(viewDef.id);
+            activePlanDrawingRef.drawing = null;
+            this._lastRender = 0;
+            return;
+        }
 
         const planBelowDepthOffset = this._resolvePlanBelowDepthOffset(viewDef);
 
         // HOLD the warm drawing: no invalidate() — the cache keeps rendering it while the
-        // fresh projection runs. beginProjection() only bumps the generation.
+        // fresh projection runs. beginSwap() only bumps the generation.
         const previous = viewTechnicalDrawingCache.get(viewDef.id) ?? null;
-        const projectionGen = viewTechnicalDrawingCache.beginProjection(viewDef.id);
+        // §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — name the intent. `beginSwap` is
+        // `beginProjection` plus the statement "the current drawing stays on screen until
+        // this commits", which is exactly what this method already did by hand.
+        const projectionGen = viewTechnicalDrawingCache.beginSwap(viewDef.id);
         this._edgeProjectorService.project(
             viewDef, models, nativeGroups, ifcSceneGroups, planBelowDepthOffset,
             () => viewTechnicalDrawingCache.currentGeneration(viewDef.id) !== projectionGen

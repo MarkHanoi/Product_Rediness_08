@@ -839,15 +839,38 @@ export class ViewDependencyTracker {
         // path); any view that took a coarse dirtying falls back to the whole-drawing
         // `invalidate`. This runs REGARDLESS of whether `onReprojectionNeeded` is wired,
         // so a headless / test build exercises the same decision.
+        // §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — the coarse branch NO LONGER DISCARDS THE
+        // DRAWING BEFORE ITS REPLACEMENT EXISTS.
+        //
+        // Founder, 2026-08-07: *"EVERY SINGLE TIME I CREATE AN ELEMENT ... THE COMPLETE
+        // PLAN VIEW OR ELEVATION DOES A SHORT COMPLETE REFRESH: IT GOES WHITE AND RENDERS
+        // AGAIN."* This line was the white flash. `invalidate()` disposed the drawing and
+        // emptied the cache, and only THEN did `onReprojectionNeeded` start exporting and
+        // projecting; every frame in between had nothing to render. That is a
+        // paired-operation gap, not a timing accident — making the projection faster only
+        // narrows it, it cannot close it.
+        //
+        // The coarse branch now HOLDS THE LAST GOOD DRAWING and swaps atomically on commit
+        // (`beginSwap` bumps the generation so in-flight older passes are still rejected;
+        // `set()` installs the replacement and releases the displaced drawing per
+        // ADR-0297 L2). This generalises §PERF-ELEV-CROP-DRAG-FLOW (L-222), where
+        // HOLD-LAST-GOOD was already proven on the crop-drag path, to the element-edit
+        // path where the founder hits it on every create.
+        //
+        // ⚠ The one case where holding is WRONG — the correct new content is NOTHING
+        // (the last element on the level was deleted) — is handled by the drivers, which
+        // invalidate explicitly on their "nothing to project" early return. Without that,
+        // a view would keep displaying geometry the user just deleted.
         const invalidateView = (viewId: string): void => {
             const elems = dirtyElementsByView.get(viewId);
             if (!viewsNeedingFull.has(viewId) && elems && elems.size > 0) {
                 for (const elementId of elems) {
                     viewTechnicalDrawingCache.invalidateElement(viewId, elementId);
                 }
-            } else {
-                viewTechnicalDrawingCache.invalidate(viewId);
             }
+            // Coarse: nothing to do here any more. The drawing stays warm and rendering;
+            // `_flush` takes the generation via `beginSwap()` immediately below, and the
+            // replacement swaps in when it commits.
         };
 
         // §FIX-PLAN-PROJECT-INCREMENTAL (L-65) — a view is offered the incremental
@@ -884,7 +907,10 @@ export class ViewDependencyTracker {
                 // path re-projects only those and grafts them back onto the warm drawing.
                 const graftIds = graftIdsForView(viewId);
                 invalidateView(viewId);
-                const gen = viewTechnicalDrawingCache.beginProjection(viewId);
+                // §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — take the generation WITHOUT
+                // discarding the drawing. The view keeps rendering its last good drawing
+                // for the whole width of the re-projection and swaps atomically on commit.
+                const gen = viewTechnicalDrawingCache.beginSwap(viewId);
                 try {
                     await this.onReprojectionNeeded!(viewId, gen, graftIds);
                 } catch (err) {
@@ -896,12 +922,19 @@ export class ViewDependencyTracker {
                 }
             }));
         } else {
-            // No projection callback wired yet — just invalidate the cache
-            // (incremental where the view's change set is element-scoped). Only the
-            // ACTIVE views are invalidated; deferred inactive views keep their warm
+            // No projection callback wired yet — apply the same invalidation decision the
+            // wired path applies, so a headless / test build exercises it identically.
+            // Only the ACTIVE views are touched; deferred inactive views keep their warm
             // cache until activation (§FIX-LAZY-INACTIVE-VIEW-PROJECTION).
+            //
+            // §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — `beginSwap` is part of that decision,
+            // not an artefact of the wired path: the coarse branch's whole behaviour is now
+            // "take a generation, keep the drawing". Omitting it here would make the two
+            // paths disagree, which is exactly the drift the original
+            // "runs REGARDLESS of whether onReprojectionNeeded is wired" note guards against.
             for (const viewId of activeToFlush) {
                 invalidateView(viewId);
+                if (!graftIdsForView(viewId)) viewTechnicalDrawingCache.beginSwap(viewId);
             }
         }
     }
