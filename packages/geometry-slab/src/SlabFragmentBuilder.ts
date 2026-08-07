@@ -1,6 +1,12 @@
 import * as THREE from '@pryzm/renderer-three/three';
-// §I2 — WebGPU-safe subtree disposal for the live slab-rebuild teardown.
-import { safeDisposeObject3D } from '@pryzm/renderer-three';
+// §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2) — a slab rebuild/removal
+// DETACHES its old subtree on the mutation tick and RELEASES the GPU resources
+// at the next frame boundary (drained by RenderPipelineManager.render). The
+// previous §I2 pattern disposed GPU buffers while the meshes were STILL PARENTED
+// to the scene — the exact inverted ordering behind the founder's
+// "setIndexBuffer … parameter 1 is not of type 'GPUBuffer'" hard stop on the
+// furniture path. Same seam, same rule (pattern: InstanceGroup.dispose()).
+import { detachAndReleaseChildren, scheduleGpuRelease } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { SlabData } from './SlabTypes';
 import { BimManager } from '@pryzm/core-app-model';
@@ -440,9 +446,11 @@ export class SlabFragmentBuilder {
             ? data.polygon.map(p => ({ x: p.x, y: p.y }))
             : undefined;
 
-        safeDisposeObject3D(root); // §I2 — WebGPU-safe subtree teardown
-
-        root.clear();
+        // §GPU-RESOURCE-LIFETIME (ADR-0297 L2) — detach NOW, release at the next
+        // frame boundary. WAS `safeDisposeObject3D(root); root.clear()` — a
+        // dispose-while-parented (invariant L2 violation): a frame encoded
+        // between the dispose and the rebuild drew destroyed buffers.
+        detachAndReleaseChildren(root);
 
         // ── Gizmo pivot: compute polygon centroid so TransformControls appears
         // at the visual centre of the slab, not at the project origin.
@@ -508,8 +516,19 @@ export class SlabFragmentBuilder {
                 const { mesh: lMesh, edges: lEdges } = SlabFragmentBuilder.createSlabMeshWithEdges(layerData, {}, this._deps);
                 // Shift sub-mesh up to the correct vertical band, and laterally to
                 // compensate for the root pivot being at the polygon centroid.
-                lMesh.position.set(childOffsetX, yBottom, childOffsetZ);
-                lEdges.position.set(childOffsetX, yBottom, childOffsetZ);
+                //
+                // §FIX-SLAB-LAYER-BOX-HALF-DROP (2026-08-07, found by the L-127
+                // dimensional-truth guard in SlabDetailLevel.test.ts): a polygon
+                // layer's geometry spans [0, t] so `yBottom` is its floor — but the
+                // BoxGeometry FALLBACK (no polygon) is CENTRED on its origin, so
+                // placing it at `yBottom` sank every box layer by t/2: the top face
+                // sat half the finish-layer low and the soffit half the structure
+                // low (90 mm on a 180 mm RC layer). Same box-vs-polygon offset rule
+                // the plain-slab branch below already applies.
+                const lIsBox = lMesh.geometry instanceof THREE.BoxGeometry;
+                const lY = lIsBox ? yBottom + layerThickness / 2 : yBottom;
+                lMesh.position.set(childOffsetX, lY, childOffsetZ);
+                lEdges.position.set(childOffsetX, lY, childOffsetZ);
                 // P1.4: Defer shadow flags during batch — post-batch _enableShadowsOnScene
                 // runs once at batch-end via batchCoordinator.setPostBatchCallback (P1.3).
                 if (batchCoordinator.isBatching) {
@@ -596,11 +615,14 @@ export class SlabFragmentBuilder {
 
         const root = this.slabRoots.get(id);
         if (root) {
-            safeDisposeObject3D(root); // §I2 — WebGPU-safe subtree teardown
-
+            // §GPU-RESOURCE-LIFETIME (ADR-0297 L2) — DETACH first (the scene can
+            // no longer reach the subtree), then queue the GPU release for the
+            // next frame boundary. WAS: dispose-while-parented, then
+            // scene.remove — a frame encoded in between drew destroyed buffers.
             this.scene.remove(root);
             this.slabRoots.delete(id);
             elementRegistry.unregister(id);
+            scheduleGpuRelease(root);
         }
     }
 
