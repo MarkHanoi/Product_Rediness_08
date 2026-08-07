@@ -323,6 +323,47 @@ export function latToTileY(lat: number, z: number): number {
     return Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z);
 }
 
+/**
+ * §CTX-ZOOM-FITS-EXTENT (L-662) — the FINEST zoom, no finer than `preferredZ` and no coarser than
+ * `minZoom`, whose tile fan-out for `bbox` fits inside `MAX_TILES_PER_FETCH`. PURE + testable.
+ *
+ * Returns `minZoom` when even that does not fit — the caller still refuses rather than truncating.
+ * See the call site for why a fixed per-layer zoom silently pushed the two widest layers
+ * (landuse ~8 km, water ~11 km) onto live Overpass.
+ */
+export function zoomForExtent(
+    bbox: TileBbox,
+    preferredZ: number,
+    minZoom: number,
+    cap: number = MAX_TILES_PER_FETCH,
+): number {
+    let z = preferredZ;
+    // ⚠ COUNT, DO NOT ENUMERATE. Asking `tilesCovering` how many tiles a bbox needs means
+    // ALLOCATING one object per tile just to read `.length` — and the whole point of this search is
+    // that the first zoom tried may need thousands. A hemisphere-wide bbox at z16 is ~10^9 tiles,
+    // which is an out-of-memory crash rather than a rejection: the guard against a nonsense extent
+    // would itself be the thing that took the tab down. `tileCountCovering` is the same arithmetic
+    // without the array.
+    while (z > minZoom && tileCountCovering(bbox, z) > cap) z--;
+    return z;
+}
+
+/**
+ * How many tiles `tilesCovering(bbox, z)` WOULD return, computed arithmetically — no allocation.
+ * PURE + testable, and the only safe way to ask the question for an extent that may be enormous.
+ */
+export function tileCountCovering(bbox: TileBbox, z: number): number {
+    const [w, s, e, n] = bbox;
+    const max = 2 ** z;
+    const x0 = Math.max(0, lonToTileX(Math.min(w, e), z));
+    const x1 = Math.min(max - 1, lonToTileX(Math.max(w, e), z));
+    // y grows SOUTHWARD, so the north edge gives the lower index.
+    const y0 = Math.max(0, latToTileY(Math.max(s, n), z));
+    const y1 = Math.min(max - 1, latToTileY(Math.min(s, n), z));
+    if (x1 < x0 || y1 < y0) return 0;
+    return (x1 - x0 + 1) * (y1 - y0 + 1);
+}
+
 /** Every tile covering `bbox` at zoom `z`, row-major. PURE + testable. */
 export function tilesCovering(bbox: TileBbox, z: number): Array<{ x: number; y: number }> {
     const [w, s, e, n] = bbox;
@@ -601,11 +642,15 @@ export async function readContextTileFeatures(
 
     const t0 = Date.now();
     let z = LAYER_ZOOM[layer];
+    // §CTX-ZOOM-FITS-EXTENT — the tileset's own floor, so the zoom search below can never ask for
+    // a level the archive does not carry.
+    let minZoom = 0;
     try {
         const header = await archive.getHeader();
         // Clamp to what the tileset ACTUALLY holds — a re-bake at a different zoom would otherwise
         // read tiles that do not exist and look exactly like "no context here".
         z = Math.min(z, header.maxZoom);
+        minZoom = header.minZoom;
         if (z < header.minZoom) {
             return { status: 'unavailable', reason: `zoom ${z} below tileset minZoom ${header.minZoom}` };
         }
@@ -616,14 +661,41 @@ export async function readContextTileFeatures(
     }
     if (signal?.aborted) return { status: 'aborted' };
 
+    // §CTX-ZOOM-FITS-EXTENT (L-662) — CHOOSE THE ZOOM FROM THE EXTENT, instead of reading every
+    // layer at a fixed z16 and giving up when the fan-out is too wide.
+    //
+    // THE DEFECT, from the founder's 2026-08-07 console:
+    //     §CTX-PMTILES-READER landuse: … bbox needs 1296 tiles at z16, over the 64 cap
+    //     §CTX-PMTILES-READER water:   … bbox needs 2401 tiles at z16, over the 64 cap
+    // — both then fell back to live Overpass, the third party this entire subsystem exists to
+    // remove. The two widest layers were therefore NEVER served from the baked tiles at all.
+    //
+    // ⚠ THIS IS NOT A CONSEQUENCE OF THE ONBOARDING FRAME, AND IT IS WORTH BEING PRECISE ABOUT
+    // THAT, because the obvious story ("a municipality-sized geocode bbox blew the cap") is wrong
+    // and would have sent the fix to the wrong file. These extents are DELIBERATE and are declared
+    // in `CesiumViewport`: `CONTEXT_WIDE_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 9` (0.072°, ~8 km
+    // radius — the city ground wash) and `CONTEXT_SEA_HALF_DEG = … * 12.5` (0.10°, ~11 km — the
+    // sea). At z16 a tile is ~450 m, so those spans need ~1,008 and ~1,900 tiles NO MATTER WHAT the
+    // user searched for. The cap was not being tripped by a bad bbox; it was being tripped by
+    // asking for 450-metre precision over 16–22 km of ground.
+    //
+    // And that precision is not wanted. Nobody needs building-scale geometry to tint 8 km of
+    // landuse or to draw a coastline. The bake carries z12–z16 (probed: `minZoom=12 maxZoom=16`),
+    // so the honest read is the COARSEST tile that still covers the request: at z13 landuse needs
+    // ~30 tiles and water ~48, both inside the cap, and both served from the baked tiles with no
+    // Overpass call. `buildings` at its 0.011° extent still resolves to z16 — the near path is
+    // byte-for-byte unchanged, which is the property that makes this safe.
+    //
+    // ⚠ THE CAP STILL BITES, AND MUST. If even the tileset's minimum zoom cannot cover the bbox
+    // inside the cap, this still refuses rather than truncating — a partial ring that LOOKS
+    // complete is the failure mode this whole subsystem exists to avoid.
+    z = zoomForExtent(bbox, z, minZoom);
     const tiles = tilesCovering(bbox, z);
     if (tiles.length === 0) return { status: 'ok', features: [], tilesRead: 0, ms: Date.now() - t0 };
     if (tiles.length > MAX_TILES_PER_FETCH) {
-        // Say so rather than silently truncating — a partial ring that LOOKS complete is the
-        // failure mode this whole subsystem exists to avoid.
         return {
             status: 'unavailable',
-            reason: `bbox needs ${tiles.length} tiles at z${z}, over the ${MAX_TILES_PER_FETCH} cap`,
+            reason: `bbox needs ${tiles.length} tiles even at the tileset's minimum z${z}, over the ${MAX_TILES_PER_FETCH} cap`,
         };
     }
 

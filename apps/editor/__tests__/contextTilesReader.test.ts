@@ -20,6 +20,8 @@ import {
     CONTEXT_TILESET_VERSION,
     clearContextTileArchives,
     contextTileCacheSize,
+    zoomForExtent,
+    tileCountCovering,
     type TileBbox,
     type ContextTileFeature,
 } from '../src/ui/geospatial/contextTiles';
@@ -298,5 +300,64 @@ describe('§CTX-TILE-DECODE-CACHE — one read per TILE', () => {
         __setContextTilesBaseUrl('https://a.test/');
         __setContextTilesBaseUrl('https://b.test/');
         expect(contextTileCacheSize()).toBe(0);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §CTX-ZOOM-FITS-EXTENT (L-662) — the two WIDEST context layers were never served from the baked
+// tiles at all. `landuse` (CONTEXT_WIDE_HALF_DEG, 0.072° ≈ 8 km radius) and `water`
+// (CONTEXT_SEA_HALF_DEG, 0.10° ≈ 11 km) need ~1,008 and ~1,900 tiles at the fixed z16, blew the
+// 64-tile cap on EVERY read, and fell back to live Overpass — the third party this subsystem
+// exists to remove.
+//
+// ⚠ THE CAUSE IS THE FIXED ZOOM, NOT A BAD BBOX. Those extents are declared constants; they are
+// that wide by design, for any search anywhere. Asking for 450-metre tiles across 16–22 km of
+// ground is the error. Verified against the real archive: at z13 landuse reads 30 tiles / 8,246
+// features and water 49 tiles / 5,283 features, both from the tiles, no Overpass call.
+describe('§CTX-ZOOM-FITS-EXTENT — precision is chosen to match the extent', () => {
+    const around = (halfDeg: number): TileBbox => {
+        const lat = 41.3888, lon = 2.159;
+        const k = 1 / Math.cos((lat * Math.PI) / 180);
+        return [lon - halfDeg * k, lat - halfDeg, lon + halfDeg * k, lat + halfDeg];
+    };
+
+    it('keeps the NEAR buildings extent at full z16 — the hot path must not regress', () => {
+        // CONTEXT_BBOX_FAR_HALF_DEG = 0.011 already fits the cap at z16.
+        expect(zoomForExtent(around(0.011), 16, 12)).toBe(16);
+    });
+
+    it('steps the 8 km landuse extent down until it fits, instead of refusing', () => {
+        const z = zoomForExtent(around(0.072), 16, 9);
+        expect(z).toBeLessThan(16);
+        expect(tileCountCovering(around(0.072), z)).toBeLessThanOrEqual(MAX_TILES_PER_FETCH);
+    });
+
+    it('steps the 11 km sea extent down until it fits', () => {
+        const z = zoomForExtent(around(0.1), 16, 8);
+        expect(tileCountCovering(around(0.1), z)).toBeLessThanOrEqual(MAX_TILES_PER_FETCH);
+    });
+
+    it('counts without enumerating — a huge extent must not allocate a tile per tile', () => {
+        // Arithmetic, so this is instant and allocation-free. Calling `tilesCovering` here would
+        // try to build ~10^9 objects and crash the process — which is what happened when this
+        // guard was first written: the protection against a nonsense extent WAS the crash.
+        expect(tileCountCovering([-90, -45, 90, 45], 16)).toBeGreaterThan(1e8);
+        expect(tileCountCovering(around(0.011), 16)).toBe(tilesCovering(around(0.011), 16).length);
+    });
+
+    it('never goes below the tileset floor, even when nothing fits', () => {
+        // A whole-hemisphere bbox cannot fit at any level; the reader must still refuse rather
+        // than read a level the archive does not carry.
+        expect(zoomForExtent([-90, -45, 90, 45], 16, 12)).toBe(12);
+    });
+
+    it('never returns FINER than asked — a coarse layer is not silently upgraded', () => {
+        expect(zoomForExtent(around(0.001), 13, 9)).toBe(13);
+    });
+
+    it('picks the FINEST zoom that fits, not merely any that fits', () => {
+        const z = zoomForExtent(around(0.072), 16, 9);
+        // One level finer must genuinely be over the cap, or we gave away precision for nothing.
+        expect(tileCountCovering(around(0.072), z + 1)).toBeGreaterThan(MAX_TILES_PER_FETCH);
     });
 });
