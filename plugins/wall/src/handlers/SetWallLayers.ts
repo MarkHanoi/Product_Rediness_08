@@ -1,7 +1,20 @@
 // SetWallLayersHandler — replace a wall's resolved layer composition (S10-T2).
 //
-// Mirrors `src/commands/walls/UpdateWallLayersCommand.ts:169`.  Used by
-// the inspector "Edit Layers…" dialog when the user customises a wall
+// ⚠ SCOPE, CORRECTED 2026-08-06 (§FIX-WALL-LAYER-EDIT-DETACHED-STORE): this handler writes
+// the PLUGIN Immer wall store ONLY. That store is DETACHED from the legacy `wallStore` that
+// WallFragmentBuilder, the plan projection and the IFC export all read — only `wall.created`
+// is mirrored across, never updates. So this handler is correct in isolation and invisible in
+// the viewport: the founder edited a layer thickness, the values were written faithfully, and
+// no geometry changed and no error was raised.
+//
+// The property-panel LAYERS editor therefore does NOT dispatch `wall.setLayers`; it routes
+// through `element.changeType` → `UpdateWallSystemTypeCommand` on the legacy store (the same
+// shape already used for floor, §FIX-FLOOR-TYPE-SWAP L-106, and slab, §FIX-SLAB-TYPE-SWAP).
+// This handler remains as the plugin-store surface for headless/SDK callers operating on the
+// PRYZM3 store. Anything that must be VISIBLE must go through the legacy route until the
+// plugin store is bridged for updates.
+//
+// Used by the inspector "Edit Layers…" dialog when the user customises a wall
 // AWAY from its catalogue defaults — the wall keeps `systemTypeId`
 // (so the inspector still shows the heritage) but `layers[]` is now
 // project-scoped.

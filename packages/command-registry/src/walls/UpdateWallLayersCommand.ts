@@ -13,13 +13,32 @@ export interface UpdateWallLayersInput {
     layers: WallLayer[];
     thickness: number;
     /**
-     * §03-WALL-THICKNESS-CONTRACT: When the wall belongs to a named WallSystemType
-     * (systemTypeId is set), saving a new layer stack also updates the type definition
-     * and propagates the change to ALL walls sharing that type. This ensures the
-     * type definition stays consistent with the instances and the user's intent is
-     * respected project-wide (not just for the selected wall).
+     * ⚠ CORRECTED 2026-08-06 (§FIX-WALL-LAYER-EDIT-DETACHED-STORE). The paragraph that
+     * previously stood here described wall layers as TYPE-owned — "saving a new layer stack
+     * also updates the type definition and propagates the change to ALL walls sharing that
+     * type". **That is not the model this codebase implements**, and this doc-block was the
+     * only artefact asserting it. Three subsystems say the opposite, in code:
      *
-     * When null/undefined, only the single wall instance is updated (custom/plain wall).
+     *   • `WallTypes.ts:254-259` — systemTypeId is heritage metadata, "NOT used for geometry".
+     *   • `CreateWallCommand.ts:179-190` — layers are `structuredClone`d and frozen onto the
+     *     INSTANCE at creation; the wall never re-reads the type.
+     *   • `UpdateSlabLayersCommand.ts:21-22` — the slab equivalent, and the working precedent,
+     *     states outright that the instance stack is "immune to future type edits".
+     *
+     * Layers are INSTANCE-owned. An outlier comment is how the next person re-derives the
+     * wrong model, so it is corrected here rather than left to be discovered again.
+     *
+     * ⚠ NOTE THE FALL-THROUGH BELOW: `execute()` computes
+     * `typeId = input.systemTypeId ?? wall.systemTypeId ?? null`, so passing `null` does NOT
+     * suppress propagation for a wall that carries a type — it falls through to the wall's own
+     * systemTypeId and propagates anyway. There is no "instance-only" value of this field.
+     * That is why the property-panel LAYERS editor does not route here at all; it dispatches
+     * `element.changeType` → `UpdateWallSystemTypeCommand`, which is instance-scoped by
+     * construction (no typeStore write, no sibling sweep).
+     *
+     * The propagation branch is retained for the TYPE-SWAP caller
+     * (`plugins/wall/src/handlers/UpdateWallSystemType.ts`), where re-stamping siblings from a
+     * changed type definition IS the intended operation. It is not the layer-edit path.
      */
     systemTypeId?: string | null;
 }
@@ -35,11 +54,12 @@ export interface UpdateWallLayersInput {
  *   must always equal sum(layers[i].thickness). It is therefore not directly editable
  *   in the property panel; it updates automatically when layers change.
  *
- * §03-WALL-THICKNESS-CONTRACT §2 (Type propagation):
- *   When a wall belongs to a WallSystemType (systemTypeId present), editing its
- *   layers also updates the type definition so the change propagates to ALL walls of
- *   that type. This preserves design intent at the type level. Individual walls can
- *   still override to a custom layer stack by clearing their systemTypeId first.
+ * §03-WALL-THICKNESS-CONTRACT §2 (Type propagation) — SCOPE CORRECTED 2026-08-06:
+ *   This command's propagation branch belongs to the TYPE-SWAP operation, not to layer
+ *   editing. Wall layers are INSTANCE-owned (see the note on `systemTypeId` above for the
+ *   three code sites that establish it). The property-panel LAYERS editor deliberately does
+ *   NOT route here — it dispatches `element.changeType` → `UpdateWallSystemTypeCommand`,
+ *   which writes exactly one wall.
  *
  * Contract §01 §2.1 — Must go through CommandManager, never wallStore.update() directly.
  * Contract §01 §2.7 — No direct builder calls; rebuild triggered via

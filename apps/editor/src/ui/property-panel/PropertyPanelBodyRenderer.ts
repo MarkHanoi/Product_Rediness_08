@@ -216,12 +216,35 @@ export function _renderElementToContainer(
                     const thickness = parseFloat(
                         layers.reduce((s: number, l: any) => s + (l.thickness ?? 0), 0).toFixed(6)
                     );
-                    window.runtime?.bus?.executeCommand('wall.setLayers', {
-                        id:           elementData.id,
+                    // §FIX-WALL-LAYER-EDIT-DETACHED-STORE (founder 2026-08-06) — route through
+                    // 'element.changeType' → UpdateWallSystemTypeCommand on the LEGACY WallStore
+                    // (the store WallFragmentBuilder + plan + IFC read). The previous
+                    // 'wall.setLayers' dispatch hit the DETACHED plugin Immer store: the handler
+                    // wrote the user's edited thicknesses faithfully (SetWallLayers.ts:118-124)
+                    // into a store NOTHING renders from, and only `wall.created` is mirrored to
+                    // the legacy store — so Save Layers updated the panel and changed no
+                    // geometry, with no error to show for it.
+                    //
+                    // This is the SAME defect class already fixed for floor (§FIX-FLOOR-TYPE-SWAP
+                    // L-106) and slab (§FIX-SLAB-TYPE-SWAP) — the plugin store is detached, not
+                    // the command. The slab branch below has claimed since it landed that it
+                    // "mirrors the wall layers editor's legacy route"; that was never true. It is
+                    // now, and the two branches are deliberately identical.
+                    //
+                    // INSTANCE-OWNED, and that is the model the code already implements:
+                    // `WallTypes.ts:254-259` ("systemTypeId … NOT used for geometry"),
+                    // `CreateWallCommand.ts:179-190` (structuredClone + freeze) and the slab
+                    // equivalent all treat `layers[]` as an instance-owned snapshot. Passing the
+                    // wall's CURRENT systemTypeId keeps the type heritage visible in the panel
+                    // while editing only this wall — `UpdateWallSystemTypeCommand` writes one
+                    // wall and never touches the type definition or its siblings.
+                    window.runtime?.bus?.executeCommand('element.changeType', {
+                        elementId:   elementData.id,
+                        elementType: 'wall',
+                        newTypeId:   elementData.systemTypeId ?? '',
                         layers,
                         thickness,
-                        systemTypeId: elementData.systemTypeId ?? null,
-                    })?.catch((e: Error) => console.error('[PropertyPanel] wall.setLayers failed:', e));
+                    })?.catch((e: Error) => console.error('[PropertyPanel] element.changeType (wall layers) failed:', e));
                 });
                 if (layersEditor) {
                     fullWidthWrap.appendChild(layersEditor);

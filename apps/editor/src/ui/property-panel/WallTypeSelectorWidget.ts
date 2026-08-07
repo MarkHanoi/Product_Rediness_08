@@ -174,6 +174,34 @@ export function buildWallTypeSelectorWidget(
 
         if (selectedId.startsWith('__')) return;
 
+        // §FIX-WALL-TYPE-APPLY-CLOBBERS-LAYER-EDITS (founder 2026-08-06, ADR-0299) —
+        // `buildPayload` ALWAYS re-resolves `layers` from the catalogue definition. When the
+        // selected type is the one the wall ALREADY has, that turns Apply into a silent reset
+        // of any per-layer thickness the user edited in the LAYERS table directly below — two
+        // save buttons a metre apart with opposite semantics, and the destructive one gives no
+        // indication it discarded anything.
+        //
+        // Layers are INSTANCE-owned (see the note at the wall layers editor in
+        // PropertyPanelBodyRenderer), so re-applying the SAME type is a no-op by definition:
+        // there is no type change to perform, and the instance's stack is not the type's to
+        // restore. Re-selecting a DIFFERENT type still re-stamps layers — that is what
+        // choosing a new assembly means, and the user chose it explicitly.
+        //
+        // ADR-0299: never discard user work silently. This does not discard it at all.
+        const currentTypeId = (elementData.systemTypeId ?? '') as string;
+        if (selectedId === currentTypeId) {
+            applyBtn.textContent = '✓ No change';
+            applyBtn.style.background = 'rgba(100,116,139,0.5)';
+            applyBtn.title =
+                'This wall already uses that type. Edit the LAYERS table below to change this ' +
+                'wall\'s assembly — Apply would otherwise reset it to the type default.';
+            setTimeout(() => {
+                applyBtn.textContent = 'Apply';
+                applyBtn.style.background = '';
+            }, 1800);
+            return;
+        }
+
         onApply(buildPayload(selectedId));
 
         // Visual feedback
