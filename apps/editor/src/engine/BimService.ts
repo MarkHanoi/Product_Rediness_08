@@ -10,6 +10,7 @@ import type { ViewMode } from '@pryzm/core-app-model';
 import { setStairToolConfig, type StairShapeChoice } from '@pryzm/geometry-stair';
 import type { IBimService } from '@pryzm/engine';
 import { activateStairSketchSurfaces } from './stairSketchRouting';
+import { setActiveRoofDrawMode } from './views/plantools/activeRoofDrawMode';
 
 export class BimService implements IBimService {
     private bimManager: BimManager;
@@ -132,6 +133,15 @@ export class BimService implements IBimService {
     }
 
     activateRoofTool(mode: '2point' | 'polyline' | 'region' | 'single_slope' | 'hip_roof' = '2point') {
+        // §FIX-ROOF-MODE-SURFACE-INDEPENDENT (L-699) — record the mode in the
+        // surface-independent store BEFORE activating either surface. This is the
+        // single chokepoint every roof entry point passes through (Create panel,
+        // Create rail, tools rail, `R` shortcut), so the plan overlay and the 3D
+        // RoofTool are configured from ONE activation argument instead of the plan
+        // handler reaching into `window.roofTool.activeTool` — which narrowed
+        // REGION / single_slope / hip_roof to RECTANGLE and made region roofs
+        // impossible in plan view. Exactly the cure L-693 built for floor/ceiling.
+        setActiveRoofDrawMode(mode);
         const tm = this.props.toolManager as any;
         if (tm?.activateRoof) {
             void tm.activateRoof(mode);

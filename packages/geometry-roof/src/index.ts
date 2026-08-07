@@ -36,3 +36,25 @@ export {
     canDecomposeConcave,
 } from './roofDecompose';
 export type { Rect2 } from './roofDecompose';
+
+// §FIX-ROOF-REGION-FOLLOWS-ARC (L-699) + §ROOF-ENGINE-STAGE-1 — the pure
+// (THREE-free, DOM-free, I/O-free) roof geometry primitives. These are the
+// foundation the staged roof engine is built on and are unit-tested on real
+// footprints; nothing here may acquire a THREE, DOM or store dependency.
+export {
+    sampleWallCentreline,
+    sampleWallChords,
+    isCurvedWall,
+    resolveCurveSegments,
+    DEFAULT_CURVE_SEGMENTS,
+} from './pure/wallCentreline';
+export type { CentrelineWall } from './pure/wallCentreline';
+export { offsetPolygon, offsetPolygonOrSelf, signedArea, dedupeRing } from './pure/polygonOffset';
+export type { OffsetResult } from './pure/polygonOffset';
+export {
+    pitchedRingsFromOffsets,
+    maxInwardOffset,
+    needsGeneralPitchedBuilder,
+    MAX_RINGS,
+} from './pure/pitchedFromOffsets';
+export type { PitchedRing, PitchedRingStack } from './pure/pitchedFromOffsets';

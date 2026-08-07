@@ -658,6 +658,17 @@ export interface RuntimeEvents {
     readonly overhang?: number;
     /** §P3.2-RF: roof slab thickness in metres. */
     readonly thickness?: number;
+    /**
+     * §FIX-ROOF-PLAN-SHAPE-HARDCODED (L-699) — roof pitch in RADIANS, as the L0
+     * `Roof` schema stores it.
+     *
+     * ⚠ It was absent, and the absence was structural: the legacy-store bridge in
+     * `initTools.ts` had no pitch to forward, so `RoofStore.slope` was always
+     * undefined and a roof created from the PLAN surface could never slope, no
+     * matter what the user selected. Optional and additive — an emitter that does
+     * not set it leaves the bridge on its previous defaults exactly as before.
+     */
+    readonly pitch?: number;
     /** §FT6 / BUG-6: base elevation offset (metres above level datum). Forwarded from
      *  CreateRoofCommand.payload.baseOffset so the roof mesh sits at the correct height.
      *  Falls back to 2.7 in the bridge when omitted (legacy behaviour). */

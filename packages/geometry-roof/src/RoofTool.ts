@@ -112,7 +112,24 @@ export class RoofTool {
         this._selectionManager?.setEnabled(false);
         this.cleanup();
         this.activeTool = 'REGION';
-        this._pendingRoofType = 'by_region';
+        // §FIX-ROOF-REGION-IS-A-MODE-NOT-A-FORM (L-699).
+        //
+        // This used to set `_pendingRoofType = 'by_region'`. Two things went wrong
+        // and they compounded into the founder's flat plane:
+        //
+        //  1. `by_region` is not a roof FORM, it is how the footprint was PICKED.
+        //     `RoofGeometryBuilder.generateByRegion` therefore has nothing to
+        //     build and emits a flat (or at best mono-pitch) plane.
+        //  2. `_showConfirmingPanel`'s `validPanelTypes` list did not contain
+        //     `by_region`, so the pre-select silently did nothing and the panel
+        //     fell back to its `selected` option — which is why the founder's log
+        //     read `type=gable` for a roof they had asked to build BY REGION.
+        //     A pre-select that cannot fail loudly is a pre-select that lies.
+        //
+        // Region mode now pre-selects a real form, and the user can change it in
+        // the confirming panel exactly as in the other modes. The staged engine
+        // plan retires `by_region` from the type union altogether.
+        this._pendingRoofType = 'gable';
         this._state = RoofToolState.DRAWING;
         this._setupToolUI('Region Roof', 'Click inside a closed wall area');
     }
@@ -415,6 +432,15 @@ export class RoofTool {
             const validPanelTypes = ['flat','shed','gable','hip','dutch','gambrel','mansard','barrel'];
             if (validPanelTypes.includes(this._pendingRoofType)) {
                 typeSelect.value = this._pendingRoofType;
+            } else {
+                // §FIX-ROOF-REGION-IS-A-MODE-NOT-A-FORM (L-699) — a pre-select the
+                // panel cannot honour must SAY SO. Silently keeping the default is
+                // how "By Region" became `type=gable` in the founder's log with no
+                // trace of the substitution anywhere.
+                console.warn(
+                    `[RoofTool] pending roof type "${this._pendingRoofType}" is not offered by the ` +
+                    `confirming panel — falling back to "${typeSelect.value}".`,
+                );
             }
         }
         if (slopeRow) slopeRow.style.display = typeSelect?.value === 'flat' ? 'none' : '';

@@ -13,9 +13,24 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+import { sampleWallChords } from './pure/wallCentreline.js';
 
 type Pt = [number, number];
 type Seg = [Pt, Pt];
+
+/**
+ * §FIX-ROOF-REGION-FOLLOWS-ARC (L-699) — a tessellated curved wall contributes
+ * `curve.segments` (default 16) chords instead of one, so a region bounded by a
+ * few curved walls easily exceeds the old hard cap of 50 loop vertices. The cap
+ * exists only to stop a pathological trace running away; it must scale with the
+ * tessellation, not with the wall COUNT.
+ *
+ * ⚠ The old value silently returned `null` — i.e. "no closed region here" —
+ * which is indistinguishable to the user from "you clicked outside a room". An
+ * absence produced by a limit is not an absence (§CONTEXT-DATA-HONESTY), so the
+ * detector now logs when it aborts on the cap.
+ */
+const MAX_LOOP_VERTICES = 2048;
 
 export class WallRegionDetector {
 
@@ -46,13 +61,26 @@ export class WallRegionDetector {
     // Private helpers
     // ──────────────────────────────────────────────────────────────────────────
 
+    /**
+     * §FIX-ROOF-REGION-FOLLOWS-ARC (L-699, founder 2026-08-07)
+     *
+     * ⚠ THE DEFECT THIS REPLACES: this method read ONLY `baseLine[0]` and
+     * `baseLine[1]`. For a CURVED wall those are the arc's ENDPOINTS — the CHORD —
+     * and `curve.control` was never consulted. So a roof drawn BY REGION over a
+     * room bounded by a curved wall was built on a boundary that ran straight
+     * across the bow. It did not fail; it produced a confident wrong footprint,
+     * which is why the symptom read as "the roof ignores the curved wall".
+     *
+     * A curved wall now contributes its `curve.segments` (default 16) chords,
+     * sampled by the SAME quadratic-Bézier parameterisation the room ring uses
+     * (`sampleWallChords` → see its file header on why that agreement matters).
+     * A straight wall still contributes exactly one chord, bit-identical to the
+     * previous behaviour — so no straight-walled region changes at all.
+     */
     private _extractSegments(walls: any[]): Seg[] {
         const segs: Seg[] = [];
         for (const w of walls) {
-            if (!w.baseLine || w.baseLine.length < 2) continue;
-            const a: Pt = [w.baseLine[0].x, w.baseLine[0].z];
-            const b: Pt = [w.baseLine[1].x, w.baseLine[1].z];
-            segs.push([a, b]);
+            for (const [a, b] of sampleWallChords(w)) segs.push([a, b]);
         }
         return segs;
     }
@@ -60,7 +88,21 @@ export class WallRegionDetector {
     private _buildClosedLoops(segments: Seg[]): Pt[][] {
         const points: Pt[]     = [];
         const adj              = new Map<number, number[]>();
-        const tolerance        = 0.05;
+        // §FIX-ROOF-REGION-FOLLOWS-ARC (L-699) — the node-merge tolerance was a
+        // fixed 50 mm, chosen when every segment was a whole wall. A tessellated
+        // arc of small radius produces chords SHORTER than that, and two ends of
+        // one chord would then merge into a single node (`u === v` → the chord is
+        // dropped) and silently break the loop. Scale the tolerance to the
+        // shortest chord present so it can never swallow a real segment, while
+        // keeping the historic 50 mm whenever the geometry is coarse enough.
+        let shortest = Infinity;
+        for (const [a, b] of segments) {
+            const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+            if (d > 1e-9 && d < shortest) shortest = d;
+        }
+        const tolerance = Number.isFinite(shortest)
+            ? Math.min(0.05, shortest * 0.4)
+            : 0.05;
 
         const getIdx = (p: Pt): number => {
             for (let i = 0; i < points.length; i++) {
@@ -137,7 +179,15 @@ export class WallRegionDetector {
             prevIdx = currIdx;
             currIdx = bestNeighbor;
 
-            if (loopIdxs.length > 50) return null;
+            if (loopIdxs.length > MAX_LOOP_VERTICES) {
+                // Report rather than return a silent "no region here" (L-699).
+                console.warn(
+                    `[WallRegionDetector] §FIX-ROOF-REGION-FOLLOWS-ARC loop trace aborted at ` +
+                    `${MAX_LOOP_VERTICES} vertices — treating as NO region. If this fires on a ` +
+                    `real room the cap, not the model, is the limit.`,
+                );
+                return null;
+            }
         }
 
         return loopIdxs.map(idx => points[idx]);

@@ -129,8 +129,14 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
 
         it('reports the LATENT mode-desync risks (the shape of the founder\'s AUTO bug)', () => {
             // A mode kept on a 3D tool instance is invisible to the plan handler.
-            // Roof is the last creation tool still doing this.
-            expect(modeDesyncRisks().map(c => c.tool)).toEqual(['roof']);
+            // §FIX-ROOF-MODE-SURFACE-INDEPENDENT (L-699) — roof was the last tool
+            // doing this and it is now on the shared store, so the list is EMPTY.
+            // ⚠ Tightened per this suite's own instruction ("if it shrinks, tighten
+            // this assertion"). An empty expectation is the strongest form: any new
+            // tool that adopts `tool-instance` fails here immediately, instead of
+            // being quietly appended to a list of known risks — which is how roof
+            // stayed declared-but-open long enough to reach the founder.
+            expect(modeDesyncRisks().map(c => c.tool)).toEqual([]);
         });
     });
 
@@ -145,6 +151,23 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
             expect(planHandlers['floor']).toBeDefined();
             // The mode must NOT live on the 3D tool instance — that was the defect.
             expect(floor.modeSource).toBe('shared');
+        });
+
+        it('ROOF is creatable in PLAN view in every declared mode, INCLUDING BY REGION', () => {
+            // §FIX-ROOF-MODE-SURFACE-INDEPENDENT (L-699). Founder, 2026-08-07:
+            // *"I created a roof BY REGION, but the region had a CURVED WALL within,
+            // and it could not cope with it."* The plan handler logged
+            // `mode: RECTANGLE` for that selection because its mode narrowing had
+            // only two branches.
+            const roof = creationCapability('roof')!;
+            expect(roof.views).toEqual(['plan', '3d']);
+            expect(creationModeIds('roof'))
+                .toEqual(['2point', 'polyline', 'region', 'single_slope', 'hip_roof']);
+            expect(roof.autoIn).toContain('plan');
+            expect(roof.autoIn).toContain('3d');
+            expect(planHandlers['roof']).toBeDefined();
+            // The mode must NOT live on the 3D tool instance — that was the defect.
+            expect(roof.modeSource).toBe('shared');
         });
 
         it('CEILING matches floor exactly — the same fix, the same shape', () => {

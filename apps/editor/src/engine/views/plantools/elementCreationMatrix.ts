@@ -257,10 +257,20 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
         { id: 'single_slope', key: 'S', label: 'Mono-pitch', description: 'Single sloping plane' },
         { id: 'hip_roof',     key: 'H', label: 'Hip',      description: 'Four-sided hipped roof' },
       ],
-      autoIn: ['plan', '3d'], modeSource: 'tool-instance',
-      gap: 'MODE DESYNC RISK — the roof mode is set on the 3D RoofTool instance ' +
-           '(enterRegionMode etc). Same shape as the floor AUTO defect: adopt the ' +
-           'activeSlabDrawMode pattern.' },
+      // §FIX-ROOF-MODE-SURFACE-INDEPENDENT (L-699) — CLOSED. This row declared
+      // `modeSource: 'tool-instance'` with a gap naming exactly this cure, and the
+      // defect then reproduced the founder's report on 2026-08-07: the plan
+      // handler read `window.roofTool.activeTool` through a two-branch ternary, so
+      // region / single_slope / hip_roof all collapsed to RECTANGLE and BY REGION
+      // was unreachable in plan view while this row claimed all five modes in both
+      // views. The mode is now an activation argument recorded once in
+      // `activeRoofDrawMode` and read identically by both surfaces.
+      autoIn: ['plan', '3d'], modeSource: 'shared',
+      gap: 'PARTIAL — mode and footprint reach both surfaces, but the roof TYPE, ' +
+           'slope, overhang and thickness are still chosen in the 3D tool\'s ' +
+           'confirming panel only; the plan surface derives them from the mode. ' +
+           'Closing this needs a RoofToolConfigStore (the StairToolConfigStore / ' +
+           'DoorToolConfigStore pattern) — staged engine plan, Stage 3.' },
     { tool: 'opening', label: 'Opening', views: ['plan', '3d'],
       modes: [
         { id: '2point',   key: '2', label: '2-Point',  description: 'Rectangular void by two corners' },

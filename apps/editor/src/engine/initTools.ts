@@ -1434,7 +1434,19 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     type:          'roof',
                     levelId:       ev.levelId ?? '',
                     footprint:     { polygon: localPolygon, centroid: [cx, cz] },
-                    roofType:      (ev.shape ?? 'flat') as any,
+                    // §FIX-ROOF-PLAN-SHAPE-HARDCODED (L-699) — translate the L0
+                    // schema's `shape` into the geometry package's `roofType`.
+                    // ⚠ `mono` and `shed` are the SAME roof and were spelled
+                    // differently in the two vocabularies, so `mono` fell through
+                    // `RoofGeometryBuilder.generate`'s switch to `default:` and
+                    // silently rendered FLAT. One line, one whole roof form lost.
+                    roofType:      (ev.shape === 'mono' ? 'shed' : (ev.shape ?? 'flat')) as any,
+                    // §FIX-ROOF-PLAN-SHAPE-HARDCODED (L-699) — pitch (RADIANS, L0
+                    // schema) → slope (rise/run, geometry package). Previously not
+                    // forwarded AT ALL, so every plan-created roof was slope-less.
+                    slope:         typeof ev.pitch === 'number' && ev.pitch > 0
+                        ? Math.tan(ev.pitch)
+                        : undefined,
                     overhang:      ev.overhang ?? 0.3,
                     // §FT6 / BUG-6 (MASTER-IMPL-PLAN-2026-05-18 TASK-06): pass ev.baseOffset
                     // so the caller-supplied value (e.g. from CreateRoofCommand.payload) is used.

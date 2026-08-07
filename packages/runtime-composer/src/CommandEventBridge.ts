@@ -807,6 +807,8 @@ export function wireCommandEventBridge(
             shape?: string;
             overhang?: number;
             thickness?: number;
+            /** §FIX-ROOF-PLAN-SHAPE-HARDCODED (L-699) — radians, per the L0 schema. */
+            pitch?: number;
           };
           events.emit('roof.created', {
             commandId:   record.id,
@@ -817,6 +819,7 @@ export function wireCommandEventBridge(
             shape:       p.shape,
             overhang:    p.overhang,
             thickness:   p.thickness,
+            pitch:       p.pitch,
           });
           break;
         }

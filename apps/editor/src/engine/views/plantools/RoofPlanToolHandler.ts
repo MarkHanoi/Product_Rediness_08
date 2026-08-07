@@ -1,11 +1,21 @@
 import { createId } from '@pryzm/schemas';
+import { WallRegionDetector } from '@pryzm/geometry-roof';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
+import { resolveActiveRoofDrawMode, roofTypeForMode, type RoofDrawMode } from './activeRoofDrawMode';
 
 // §PREVIEW-COLOR-UNIFY (2026-05-23, §41 / #100) — the roof plan preview used
 // indigo #6600ff, off-brand vs the unified PRYZM plan-preview purple #6600ff used
 // by the wall/window/door plan handlers. Aligned so every plan-view creation
 // preview shares one colour.
 const STROKE = '#6600ff';
+
+/**
+ * Default rise/run for a pitched roof created from the plan surface. Matches the
+ * 3D `RoofTool`'s confirming-panel default (`_selectedSlope = 0.3`) so the two
+ * surfaces agree until a shared roof-config store lands (staged engine plan,
+ * Stage 3 — the `StairToolConfigStore` / `DoorToolConfigStore` pattern).
+ */
+const ROOF_DEFAULT_SLOPE = 0.3;
 
 /**
  * Plan-view roof creation handler — supports RECTANGLE (2-point) and
@@ -24,19 +34,45 @@ export class RoofPlanToolHandler implements PlanToolHandler {
     private _ctx: PlanToolDrawContext | null = null;
     private _pts: WorldPoint[] = [];
     private _cursor: WorldPoint | null = null;
-    /** RECTANGLE = 2-point, POLYLINE = multi-point click-by-click */
-    private _mode: 'RECTANGLE' | 'POLYLINE' = 'RECTANGLE';
+    /**
+     * §FIX-ROOF-MODE-SURFACE-INDEPENDENT (L-699) — the user's mode, in the ONE
+     * vocabulary `elementCreationMatrix` declares. This used to be a private
+     * `'RECTANGLE' | 'POLYLINE'`, which is why three of the five declared modes
+     * were unreachable in plan view.
+     */
+    private _mode: RoofDrawMode = '2point';
+    private readonly _regionDetector = new WallRegionDetector();
 
     activate(ctx: PlanToolDrawContext): void {
         this._ctx    = ctx;
         this._pts    = [];
         this._cursor = null;
-        // Read the mode currently active on the 3D RoofTool so the mode selector
-        // in the Create panel affects both the 3D and plan-view handlers.
-        const rt = window.roofTool;
-        const at: string = rt?.activeTool ?? 'RECTANGLE';
-        this._mode = (at === 'POLYLINE') ? 'POLYLINE' : 'RECTANGLE';
+        // §FIX-ROOF-MODE-SURFACE-INDEPENDENT (L-699).
+        //
+        // ⚠ WHAT THIS REPLACES, because the shape of the old bug is the finding:
+        //     const at = window.roofTool?.activeTool ?? 'RECTANGLE';
+        //     this._mode = (at === 'POLYLINE') ? 'POLYLINE' : 'RECTANGLE';
+        // Two failures in two lines. It read the mode off the OTHER surface's tool
+        // instance (a `window` global, P4), and its ternary had only two branches —
+        // so REGION, single_slope and hip_roof all fell into the `else` and became
+        // RECTANGLE. The founder selected "By Region" and the plan handler logged
+        // `mode: RECTANGLE`. That was not a desync; region mode did not exist here.
+        //
+        // The mode is now an ACTIVATION ARGUMENT recorded once by
+        // `BimService.activateRoofTool` and read identically by both surfaces.
+        this._mode = resolveActiveRoofDrawMode();
         console.log('[RoofPlanToolHandler] Activated, mode:', this._mode);
+        if (this._isRegionMode() && !ctx.wallStore) {
+            console.warn(
+                '[RoofPlanToolHandler] region mode active but ctx.wallStore is absent — ' +
+                'region detection cannot run on this surface.',
+            );
+        }
+    }
+
+    /** The three modes that pick their footprint from an enclosed wall loop. */
+    private _isRegionMode(): boolean {
+        return this._mode === 'region' || this._mode === 'single_slope' || this._mode === 'hip_roof';
     }
 
     deactivate(): void {
@@ -48,15 +84,16 @@ export class RoofPlanToolHandler implements PlanToolHandler {
 
     onMouseMove(pt: WorldPoint): void {
         this._cursor = pt;
-        if (this._mode === 'RECTANGLE' && this._pts.length > 0) {
-            this._drawPreview();
-        } else if (this._mode === 'POLYLINE' && this._pts.length > 0) {
-            this._drawPreview();
-        }
+        if (this._isRegionMode()) return; // region mode is a single click, no rubber band
+        if (this._pts.length > 0) this._drawPreview();
     }
 
     onClick(pt: WorldPoint): void {
-        if (this._mode === 'RECTANGLE') {
+        if (this._isRegionMode()) {
+            this._commitRegion(pt);
+            return;
+        }
+        if (this._mode === '2point') {
             this._pts.push(pt);
             console.log('[RoofPlanToolHandler] Rectangle point', this._pts.length, pt);
             if (this._pts.length === 1) {
@@ -72,13 +109,13 @@ export class RoofPlanToolHandler implements PlanToolHandler {
     }
 
     onDoubleClick(_pt: WorldPoint): void {
-        if (this._mode === 'POLYLINE' && this._pts.length >= 3) {
+        if (this._mode === 'polyline' && this._pts.length >= 3) {
             this._commitPolyline();
         }
     }
 
     onKeyDown(e: KeyboardEvent): boolean {
-        if (this._mode === 'POLYLINE') {
+        if (this._mode === 'polyline') {
             if (e.key === 'Enter' && this._pts.length >= 3) {
                 e.preventDefault();
                 this._commitPolyline();
@@ -134,6 +171,44 @@ export class RoofPlanToolHandler implements PlanToolHandler {
         this._commit(c, worldPolygon);
     }
 
+    // ── Region commit (§FIX-ROOF-MODE-SURFACE-INDEPENDENT, L-699) ─────────────
+
+    /**
+     * BY REGION on the plan surface — previously impossible, because the mode
+     * could not reach this handler at all.
+     *
+     * Uses the SAME `WallRegionDetector` the 3D `RoofTool` uses, so a region roof
+     * drawn in plan and one drawn in 3D are built on the same boundary (C11 §3 —
+     * parity by construction, the defect class of L-213 / L-239 / L-240 / L-243 /
+     * L-255 / L-260). The detector now follows a curved wall's arc rather than its
+     * chord — see `WallRegionDetector._extractSegments`.
+     */
+    private _commitRegion(pt: WorldPoint): void {
+        const c = this._ctx;
+        if (!c) return;
+        const wallStore = c.wallStore;
+        if (!wallStore) {
+            console.error(
+                '[RoofPlanToolHandler] region mode: no wallStore in the plan tool context — ' +
+                'refusing rather than silently drawing a rectangle.',
+            );
+            return;
+        }
+        // The detector's only use of the hit point is its .x / .z, so a plain
+        // object satisfies it without importing THREE into apps/editor (P2).
+        const hit = { x: pt.worldX, y: 0, z: pt.worldZ } as unknown as Parameters<WallRegionDetector['detect']>[0];
+        const region = this._regionDetector.detect(hit, wallStore as unknown as { getAll(): unknown[] });
+        if (!region || region.length < 3) {
+            console.warn('[RoofPlanToolHandler] region mode: no closed wall region at', pt.worldX, pt.worldZ);
+            return;
+        }
+        console.log(
+            `[RoofPlanToolHandler] region mode: ${region.length}-vertex boundary detected ` +
+            `(mode=${this._mode})`,
+        );
+        this._commit(c, region as [number, number][]);
+    }
+
     // ── Shared commit logic ───────────────────────────────────────────────────
 
     /**
@@ -162,6 +237,27 @@ export class RoofPlanToolHandler implements PlanToolHandler {
         // (Old localPolygon removal: noUnusedLocals gate — see IMPL-PLAN-2026-05-17 §P3.2-RF.)
 
         const roofId = createId('roof');
+
+        // §FIX-ROOF-PLAN-SHAPE-HARDCODED (L-699) — `shape` was the literal
+        // `'flat'`. Every roof ever created from the plan surface was flat,
+        // whatever the user selected, which is why "roof cannot be sloped in plan"
+        // and "the mode is inert in plan" looked like one problem.
+        //
+        // ⚠ TWO VOCABULARIES MEET HERE AND THEY DO NOT AGREE. The L0 schema
+        // (`packages/schemas/src/elements/Roof.ts`) has `shape ∈ {flat, gable, hip,
+        // mono, mansard}` with `pitch` in RADIANS; `geometry-roof` has
+        // `roofType ∈ {flat, shed, gable, hip, dutch, gambrel, mansard, barrel,
+        // by_region}` with `slope` as a rise/run RATIO. Unifying them is an
+        // ADR-level change (staged engine plan, Stage 3) and is deliberately NOT
+        // attempted here. What IS done is an HONEST, TOTAL mapping over the set the
+        // plan modes can actually reach — `gable`, `hip`, `shed`→`mono`, `flat` —
+        // so no reachable selection is silently dropped.
+        const roofType = roofTypeForMode(this._mode);
+        const shape = roofType === 'shed' ? 'mono'
+            : (roofType === 'gable' || roofType === 'hip' || roofType === 'mansard') ? roofType
+            : 'flat';
+        const slope = shape === 'flat' ? 0 : ROOF_DEFAULT_SLOPE;
+
         // §P3.2-RF (IMPL-PLAN-2026-05-17): bus-primary dispatch with new CreateRoofPayload schema.
         // `boundary` is world-space Vec3[] (y=0 plane); the §P3.2-RF legacy bridge in initTools.ts
         // recomputes the centroid and local offsets for RoofFragmentBuilder → RoofStore.
@@ -170,11 +266,18 @@ export class RoofPlanToolHandler implements PlanToolHandler {
             id:       roofId,
             levelId,
             boundary: worldPolygon.map(([x, z]) => ({ x, y: 0, z })),
-            shape:    'flat',
+            shape,
+            // The schema stores pitch in RADIANS; the tool's UI and the geometry
+            // builders speak rise/run. atan() is the exact conversion, not an
+            // approximation — record it once, here, at the boundary between them.
+            pitch:    Math.atan(slope),
             overhang: 0.3,
             thickness: 0.2,
         })?.catch((e: Error) => console.error('[RoofPlanToolHandler] §P3.2-RF: roof.create failed:', e));
-        console.log('[RoofPlanToolHandler] §P3.2-RF: Roof dispatched', roofId, 'centroid:', [cx, cz]);
+        console.log(
+            `[RoofPlanToolHandler] §P3.2-RF: Roof dispatched ${roofId} mode=${this._mode} ` +
+            `shape=${shape} pitch=${Math.atan(slope).toFixed(4)}rad centroid=[${cx.toFixed(3)}, ${cz.toFixed(3)}]`,
+        );
 
         this._pts    = [];
         this._cursor = null;
@@ -186,7 +289,7 @@ export class RoofPlanToolHandler implements PlanToolHandler {
     private _drawPreview(): void {
         const c = this._ctx;
         if (!c || this._pts.length === 0) return;
-        if (this._mode === 'RECTANGLE') {
+        if (this._mode === '2point') {
             this._drawRectanglePreview(c);
         } else {
             this._drawPolylinePreview(c);

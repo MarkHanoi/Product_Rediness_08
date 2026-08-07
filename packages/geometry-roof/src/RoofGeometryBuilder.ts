@@ -2,6 +2,8 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { RoofData, SlopeArrow } from './RoofTypes.js';
 import { gableRidge, isConvexPolygon } from './roofRidgeAxis.js';
 import { decomposeInPrincipalFrame, rotatePolyXZ, rectToPolygon, type Pt2 } from './roofDecompose.js';
+import { offsetPolygonOrSelf, type Pt2 as OffsetPt2 } from './pure/polygonOffset.js';
+import { pitchedRingsFromOffsets, type PitchedRingStack } from './pure/pitchedFromOffsets.js';
 
 type Pt = [number, number]; // [x, z] in level-local space
 
@@ -43,14 +45,45 @@ export class RoofGeometryBuilder {
         // Convex footprints are UNCHANGED (skip this branch entirely → no regression).
         if (this._isPitched(data.roofType)) {
             const poly = this._resolvePolygon(data);
+
+            // §ROOF-ENGINE-STAGE-1 (L-699) — a TRACED boundary (region detection,
+            // or any footprint containing a tessellated curved wall) has far more
+            // vertices than the closed-form convex builders assume. `generateGable`
+            // lays ONE ridge across the whole ring and `_connectLevels` then matches
+            // each of ~30 eave vertices to its nearest of 2 ridge vertices; the
+            // result is not a gable, and `generateHip` is worse because its
+            // `_computeInradius` measures from the CENTROID, which need not even lie
+            // inside the polygon. Route these to the general offset builder, which
+            // makes no assumption about vertex count or edge direction.
+            //
+            // ⚠ Threshold, and why it is safe: 8 vertices. Every footprint the house
+            // generator produces (rectangles, L / T / U shells) has ≤ 8 and is
+            // therefore BIT-IDENTICAL to before. Only boundaries that were already
+            // producing a broken roof change.
+            if (poly.length > 8 && isConvexPolygon(poly.map(([x, z]) => ({ x, z })))) {
+                const traced = this._buildGeneralPitched(data, poly);
+                if (traced) return traced;
+            }
+
             if (poly.length >= 3 && !isConvexPolygon(poly.map(([x, z]) => ({ x, z })))) {
                 const concave = this._buildConcavePitched(data, poly);
                 if (concave) return concave;
-                // decomposition failed → fall through to flat-degrade (logged).
+                // §ROOF-ENGINE-STAGE-1 (L-699, founder 2026-08-07) — the rectilinear
+                // decomposition failed. This used to FLAT-DEGRADE, which is how a
+                // "By Region" roof over a room with a curved wall came out as a
+                // single flat plane: a tessellated arc is rectilinear in NO frame,
+                // so the gate could only ever refuse. A refusal that renders as a
+                // roof is the worst of both worlds.
+                //
+                // Fall through to the general offset-based pitched builder, which
+                // needs no rectilinearity and handles concave AND curved shells.
+                // Only a genuinely degenerate footprint reaches flat now.
+                const general = this._buildGeneralPitched(data, poly);
+                if (general) return general;
                 console.log(
                     `[geometry-roof] §DIAG-ROOF concave footprint verts=${poly.length} ` +
-                    `requestedKind=${data.roofType} chosenKind=flat (§ROOF-CONCAVE-DECOMPOSE: ` +
-                    `non-rectilinear / undecomposable → flat-degrade)`,
+                    `requestedKind=${data.roofType} chosenKind=flat ` +
+                    `(§ROOF-ENGINE-STAGE-1: footprint admits no inward offset → flat)`,
                 );
                 return this.generateFlat(data);
             }
@@ -217,6 +250,37 @@ export class RoofGeometryBuilder {
         // unchanged so the eave/ridge planes are preserved.
         if (angleRad !== 0) this._rotateGeometryXZ(merged, angleRad, cx, cz);
         return merged;
+    }
+
+    /**
+     * §ROOF-ENGINE-STAGE-1 — the GENERAL pitched builder: a real sloping roof over
+     * any simple polygon, convex or concave, straight-edged or tessellated-curved.
+     *
+     * Builds the surface height(p) = slope × distance(p, boundary) discretely, by
+     * progressive inward offsetting (see `pitchedFromOffsets.ts` for the method
+     * and its honest limits). Returns `null` only when the footprint admits no
+     * inward offset at all, i.e. it is genuinely degenerate — at which point the
+     * caller's flat fallback is the correct answer rather than a concealment.
+     *
+     * Overhang is applied here (the eave ring is offset OUTWARD first) so this
+     * method takes the raw footprint, matching `generateGable` / `generateHip`.
+     */
+    private static _buildGeneralPitched(data: Readonly<RoofData>, poly: Pt[]): THREE.BufferGeometry | null {
+        const slope = data.slope ?? 0.4;
+        if (!(slope > 0)) return null;
+
+        const eavePts = this._applyOverhang(poly, data.overhang ?? 0);
+        const stack   = pitchedRingsFromOffsets(eavePts as OffsetPt2[], slope, 8);
+        if (stack.rings.length < 2) return null;
+
+        console.log(
+            `[geometry-roof] §DIAG-ROOF §ROOF-ENGINE-STAGE-1 footprint verts=${poly.length} ` +
+            `requestedKind=${data.roofType} chosenKind=general-pitched rings=${stack.rings.length} ` +
+            `slope=${slope.toFixed(3)} peak=${stack.peakHeight.toFixed(3)}m` +
+            (stack.terminatedEarly ? ` ⚠ terminatedEarly (${stack.reason ?? 'unknown'}) — apex is a plateau` : ''),
+        );
+
+        return this._buildFromRingStack(stack, data.thickness);
     }
 
     /** Rotate a built roof geometry in the XZ plane about a pivot by `theta` rad
@@ -859,6 +923,81 @@ export class RoofGeometryBuilder {
     }
 
     /**
+     * §ROOF-ENGINE-STAGE-1 — build a pitched roof mesh from a `PitchedRingStack`.
+     *
+     * Every ring carries the SAME vertex count with a 1:1 index correspondence
+     * (enforced by `pitchedRingsFromOffsets`), so consecutive rings are joined by
+     * a plain quad strip — no nearest-vertex matching, and therefore none of the
+     * shearing `_connectLevels` can produce when two levels disagree on vertex
+     * count. The innermost ring is capped; the eave ring is extruded down by
+     * `thickness` for the soffit and fascia, exactly as `_buildMultiLevel` does,
+     * so material slots are unchanged (3 = shingle, 1 = soffit, 0 = fascia).
+     */
+    private static _buildFromRingStack(stack: PitchedRingStack, thickness: number): THREE.BufferGeometry {
+        const rings = stack.rings;
+        const positions: number[] = [];
+        const indices:   number[] = [];
+        const groups:    Group[]  = [];
+        let   cursor = 0;
+
+        const n = rings[0]!.polygon.length;
+        const ringBase: number[] = [];
+        for (const ring of rings) {
+            ringBase.push(positions.length / 3);
+            for (const [x, z] of ring.polygon) positions.push(x, ring.height, z);
+        }
+        const botBase = positions.length / 3;
+        for (const [x, z] of rings[0]!.polygon) positions.push(x, -thickness, z);
+
+        // ── Slope faces: ring k → ring k+1 (quad strip) → slot 3 ─────────────
+        const slopeStart = cursor;
+        for (let k = 0; k + 1 < rings.length; k++) {
+            const lo = ringBase[k]!;
+            const hi = ringBase[k + 1]!;
+            for (let i = 0; i < n; i++) {
+                const j = (i + 1) % n;
+                indices.push(lo + i, lo + j, hi + j);
+                indices.push(lo + i, hi + j, hi + i);
+                cursor += 6;
+            }
+        }
+        if (cursor > slopeStart) {
+            groups.push({ start: slopeStart, count: cursor - slopeStart, materialIndex: 3 });
+        }
+
+        // ── Cap the innermost ring → slot 3 ──────────────────────────────────
+        const top = rings[rings.length - 1]!;
+        if (top.polygon.length >= 3) {
+            const capStart = cursor;
+            const shape  = new THREE.Shape(top.polygon.map(([x, z]) => new THREE.Vector2(x, z)));
+            const triIdx = THREE.ShapeUtils.triangulateShape(shape.getPoints(), []);
+            const base   = ringBase[rings.length - 1]!;
+            for (const [i0, i1, i2] of triIdx) { indices.push(base + i0, base + i1, base + i2); cursor += 3; }
+            if (cursor > capStart) groups.push({ start: capStart, count: cursor - capStart, materialIndex: 3 });
+        }
+
+        // ── Soffit → slot 1 ──────────────────────────────────────────────────
+        const botStart = cursor;
+        const botShape = new THREE.Shape(rings[0]!.polygon.map(([x, z]) => new THREE.Vector2(x, z)));
+        const botTri   = THREE.ShapeUtils.triangulateShape(botShape.getPoints(), []);
+        for (const [i0, i1, i2] of botTri) { indices.push(botBase + i2, botBase + i1, botBase + i0); cursor += 3; }
+        groups.push({ start: botStart, count: cursor - botStart, materialIndex: 1 });
+
+        // ── Fascia (eave top → eave bottom) → slot 0 ─────────────────────────
+        const sideStart = cursor;
+        const eaveBase  = ringBase[0]!;
+        for (let i = 0; i < n; i++) {
+            const j = (i + 1) % n;
+            indices.push(eaveBase + i, botBase + i, eaveBase + j);
+            indices.push(botBase + i, botBase + j, eaveBase + j);
+            cursor += 6;
+        }
+        groups.push({ start: sideStart, count: cursor - sideStart, materialIndex: 0 });
+
+        return this._toGeo(positions, indices, groups);
+    }
+
+    /**
      * Connect two polygon levels with triangulated slope faces.
      * For each edge of the lower polygon, finds the nearest vertex/vertices of the
      * upper polygon and builds a triangle or quad face.
@@ -918,18 +1057,33 @@ export class RoofGeometryBuilder {
     }
 
     /**
-     * Expand polygon outward from its centroid by distance d.
-     * Centroid-based: works correctly for convex polygons.
+     * §ROOF-ENGINE-STAGE-1 (L-699) — expand the footprint outward by `d` metres
+     * along its EDGE NORMALS: a true parallel (Minkowski) offset.
+     *
+     * ⚠ WHAT THIS REPLACES: the previous implementation pushed every vertex `d`
+     * metres RADIALLY AWAY FROM THE CENTROID. That is not an offset, and its
+     * error is a function of shape — on a square a 300 mm overhang drew 212 mm;
+     * on an elongated footprint the eaves at the ends overshot while the long
+     * edges barely moved; on a CONCAVE footprint the re-entrant corner moved
+     * further INTO the notch; and on a tessellated arc every sample sat at a
+     * different radius, so the eave was a different curve rather than a parallel
+     * one. That last case is the founder's *"overhangs well outside the
+     * building"* on a curved-wall region (2026-08-07).
+     *
+     * Fail-safe by construction: if the offset degenerates the ORIGINAL polygon
+     * is returned (a roof is always produced) and the degradation is LOGGED —
+     * never silently substituted.
      */
     private static _applyOverhang(pts: Pt[], d: number): Pt[] {
         if (d <= 0) return pts;
-        const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length;
-        const cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
-        return pts.map(([x, z]): Pt => {
-            const dx = x - cx, dz = z - cz;
-            const len = Math.sqrt(dx * dx + dz * dz) || 1;
-            return [x + (dx / len) * d, z + (dz / len) * d];
-        });
+        const r = offsetPolygonOrSelf(pts as OffsetPt2[], d);
+        if (r.degenerate) {
+            console.warn(
+                `[geometry-roof] §DIAG-ROOF overhang offset degraded (verts=${pts.length} ` +
+                `d=${d}): ${r.reason ?? 'unknown'} — eave falls back to the footprint.`,
+            );
+        }
+        return r.polygon as Pt[];
     }
 
     /**
