@@ -1,5 +1,7 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
+// §CAM-FRAME-INVARIANT (L-742) — the single framing authority shared with ViewController.
+import { computeFitPose } from '@pryzm/core-app-model';
 
 /**
  * Registers default OBC views (3D, plans, elevations) and creates the
@@ -82,15 +84,34 @@ export function initViewSetup(params: { components: any; world: any; viewControl
             return;
         }
 
-        const center   = box.getCenter(new THREE.Vector3());
-        const size     = box.getSize(new THREE.Vector3());
-        const diagonal = size.length();
-        const distance = Math.min(Math.max(diagonal * 0.75, 8), 80);
-        const dir      = new THREE.Vector3(1, 0.65, 1).normalize();
-        const cameraPos = center.clone().addScaledVector(dir, distance);
+        // §CAM-FRAME-INVARIANT (L-742) — one framing authority. Fit All and 3D-view
+        // activation now compute the SAME pose through computeFitPose(). Previously this
+        // function used its own policy (distance clamped to [8, 80] m, far plane untouched)
+        // while ViewController used another (maxDim × 2, far plane left at 2000 m). Two
+        // disagreeing policies is what made Fit All the only thing that "brought the
+        // geometry back": its clamp kept the camera inside the far plane by accident, and
+        // its 80 m ceiling silently refused to fit anything bigger than a house.
+        const cam = world.camera.three as THREE.PerspectiveCamera;
+        const pose = computeFitPose(box, {
+            fovDeg: cam?.isPerspectiveCamera ? cam.fov : 60,
+            aspect: cam?.isPerspectiveCamera ? cam.aspect : 1,
+        });
+        if (!pose) {
+            console.warn('[zoomToAll] bounds could not be framed (empty/non-finite)');
+            return;
+        }
+        const { position: cameraPos, target: center, distance } = pose;
+
+        // The depth range travels WITH the pose — an honest fit of a large model sits
+        // outside the default 2000 m far plane and would otherwise render nothing.
+        if (cam?.isPerspectiveCamera) {
+            cam.near = pose.near;
+            cam.far  = pose.far;
+            cam.updateProjectionMatrix();
+        }
 
         const prevMax = world.camera.controls.maxDistance;
-        const animMax = Math.min(distance * 1.1, 150);
+        const animMax = distance * 1.1;
         if (world.camera.controls.maxDistance < animMax) {
             world.camera.controls.maxDistance = animMax;
         }
@@ -103,7 +124,9 @@ export function initViewSetup(params: { components: any; world: any; viewControl
         viewController.multiViewCameraManager.seedPerspectiveSlot(cameraPos, center);
 
         setTimeout(() => {
-            world.camera.controls.maxDistance = Math.min(Math.max(prevMax, distance), 150);
+            // Never re-clamp BELOW the distance we just fitted at, or the constraint pass
+            // would pull the camera back in and undo the fit on a large model.
+            world.camera.controls.maxDistance = Math.max(prevMax, animMax);
             (world as any)._reapplyCameraConstraints?.();
         }, 600);
     };

@@ -19,6 +19,8 @@ import {
 import { PlanViewInteraction } from './PlanViewInteraction';
 import { planViewToolOverlay } from './PlanViewToolOverlay';
 import { shouldSuppressAutoFrameWhileDrawing } from './autoframeGuard';
+// §SVP-FITALL-MIRROR-STARVED (L-743) — single owner of main-renderer visibility.
+import { mainRendererVisibility, MAIN_RENDERER_HIDE_CANVAS2D } from './mainRendererVisibility';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';
 import { OverridePanel } from '@app/ui/OverridePanel';
@@ -40,7 +42,6 @@ export class PlanViewManager implements IPlanViewManager {
     private _root: HTMLElement | null = null;
     private _canvas: HTMLCanvasElement | null = null;
     private _rendererContainer: HTMLElement | null = null;
-    private _rendererContainerDisplay = '';
     private _planCanvas: PlanViewCanvas | null = null;
     private _unregisterTick: (() => void) | null = null;
     private _planViewInteraction: PlanViewInteraction | null = null;
@@ -270,21 +271,28 @@ export class PlanViewManager implements IPlanViewManager {
         console.log('[PlanViewManager] Deactivated Canvas2D plan view');
     }
 
+    /**
+     * §SVP-FITALL-MIRROR-STARVED (L-743) — request (do not command) the hide.
+     *
+     * This used to set `container.style.display = 'none'` directly. That starved the split
+     * view's 3D mirror, which has no renderer of its own and blits the main canvas: with the
+     * main container hidden no frame is ever composited, so the pane froze and the founder's
+     * Fit All appeared to do nothing (it moved the camera correctly — there were simply no
+     * new pixels to mirror). Visibility now has ONE owner; SplitViewManager pins the renderer
+     * visible while it is mirroring, and that pin vetoes this hide.
+     */
     private _hideRendererContainer(): void {
         const dom = this._world.renderer?.three?.domElement as HTMLCanvasElement | undefined;
         const container = dom?.parentElement ?? document.getElementById('container');
         if (!container) return;
         this._rendererContainer = container;
-        this._rendererContainerDisplay = container.style.display;
-        container.style.display = 'none';
+        mainRendererVisibility.setContainer(container);
+        mainRendererVisibility.requestHide(MAIN_RENDERER_HIDE_CANVAS2D);
     }
 
     private _restoreRendererContainer(): void {
-        if (this._rendererContainer) {
-            this._rendererContainer.style.display = this._rendererContainerDisplay;
-        }
+        mainRendererVisibility.releaseHide(MAIN_RENDERER_HIDE_CANVAS2D);
         this._rendererContainer = null;
-        this._rendererContainerDisplay = '';
     }
 
     private _buildDOM(viewDef: ViewDefinition): void {
