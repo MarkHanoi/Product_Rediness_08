@@ -21,7 +21,7 @@
 //
 // The founder ratified: **GIS/boundary is SKIPPABLE — the user's choice** (§7.2).
 // O.7.1 SUPERSEDES the old "auto-generate on land" (§7.5): every path that used to
-// silently generate (drawn-boundary commit, default-plot skip, draw watchdog,
+// silently generate (drawn-boundary commit, default-plot skip,
 // "skip drawing") now routes through the CONFIRM step so the user chooses. The
 // default-rectangle path is kept as the no-GIS fallback; "Draw it on the map" is
 // the inviting default. Only a HARD ERROR (start threw) still auto-generates.
@@ -49,9 +49,17 @@
 // - NEVER throws into the caller: every step is try/guarded + logs
 //   `[onboarding-step]`; on any failure it falls back to the default rectangle +
 //   generates so the user always lands on a result.
-// - A 60 s WATCHDOG on the draw-wait: if the user never commits a boundary (or GIS
-//   never mounts), it falls back to the default rectangle + generates so the flow
-//   can't hang.
+// - §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR (ADR-0299): the draw-wait's idle timer OFFERS, it
+//   never AUTHORS. It used to commit a default 10 × 8 m rectangle as the user's parcel after
+//   60 s of "no interaction" and advance to the confirm step — inventing the one input the
+//   whole C19 → C58 → generator chain derives from, on evidence (idleness) that cannot tell
+//   "stuck" from "reading in another window" from "tab in the background". It now shows a
+//   dismissible hint pointing at the "Skip drawing — use a default plot" button the user
+//   already has, and only once the surface has been visible, ready and untouched.
+//   ⚠ CONSEQUENCE, STATED NOT HIDDEN: if GIS never wires up, the draw step no longer
+//   auto-resolves itself. The user is NOT stranded — "← Back" and "Skip drawing" are both in
+//   the banner throughout — but the flow will sit there rather than invent a plot. That is
+//   the intended trade (ADR-0299 §Consequences): a visible stall beats a silent fabrication.
 //
 // TYPOLOGY-AGNOSTIC
 // -----------------
@@ -72,6 +80,9 @@ import { GlobeHeroSearch } from './GlobeHeroSearch.js';
 // PRD §22 — the zoom-then-split reveal SEQUENCE (frame-seed → anchor → arm → mount → fade),
 // extracted DOM-free so the ordering the §21 revert note mandates is unit-assertable.
 import { runSiteRevealSequence, type SiteRevealTarget } from './siteRevealSequence.js';
+// §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR (ADR-0299) — the PURE draw-idle decision. It can return
+// `wait` or `offer` and nothing else: a watchdog may offer, it may never author domain data.
+import { decideDrawIdleAction, DRAW_IDLE_OFFER_MS as DRAW_IDLE_OFFER_MS_DEFAULT } from './drawIdleWatchdog.js';
 import { siteEntryCoverageEntries } from '../../engine/views/siteEntryCoverage';
 import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.js';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
@@ -113,9 +124,11 @@ const DEFAULT_PARCEL_DEPTH_M = 8;
  *  controller's own DEFAULT_RADIUS_M). */
 const OFFICE_DEFAULT_RADIUS_M = 22;
 
-/** How long to wait for the user to commit a drawn boundary before the watchdog
- *  falls back to the default rectangle + generates (so the flow can't hang). */
-const DRAW_WATCHDOG_MS = 60_000;
+/** §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR — `DRAW_WATCHDOG_MS` is gone. The idle timer no longer
+ *  authors a default rectangle, so there is no "fallback" interval to name; what remains is
+ *  `DRAW_IDLE_OFFER_MS` — how long a VISIBLE, READY, UNTOUCHED draw surface waits before it
+ *  OFFERS the escape hatch the user already has. See `drawIdleWatchdog.ts` for the rationale. */
+const DRAW_IDLE_OFFER_MS = DRAW_IDLE_OFFER_MS_DEFAULT;
 
 /** The narrowed location result we thread into `createSiteFromRect`. */
 interface PickedLocation {
@@ -733,9 +746,10 @@ export class OnboardingStepController {
      * is armed last wins and a commit can never double-fire (clicking "Draw it on the map"
      * supersedes this listener with the full draw wait).
      *
-     * DELIBERATELY NO WATCHDOG: the 60 s default-plot fallback belongs to an explicit draw
-     * session. A user reading the choice card is not drawing, and hijacking their flow with a
-     * forced default plot (which C19 §1.4 then locks immutable) is precisely the L-420 defect.
+     * DELIBERATELY NO IDLE TIMER: the default-plot escape hatch belongs to an explicit draw
+     * session. A user reading the choice card is not drawing. (§FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR
+     * has since removed the forced default plot from the draw session too — the L-420 defect
+     * this note anticipated turned out to be the founder-reported wedge.)
      */
     private armEarlySplitBoundaryListener(): void {
         this.drawWaitCleanup?.();
@@ -816,7 +830,7 @@ export class OnboardingStepController {
             // invoked, and every step in it is idempotent against the reveal having run (anchor,
             // frame-seed and `pryzmMountSiteAuthoringPanes` are all safe to repeat), so this is a
             // shortcut through the existing path rather than a second one. It swaps the wizard card
-            // for the slim docked drawing banner and arms the commit watchdog.
+            // for the slim docked drawing banner and arms the boundary-commit wait.
             //
             // ⚠ THE PANEL SURVIVES ON THE SKIP PATH BELOW, DELIBERATELY. With no location there is
             // nothing to fly to and no parcel to pick, so "⚡ Use a default footprint" is the only
@@ -953,15 +967,17 @@ export class OnboardingStepController {
     /**
      * The DRAW path — activate GIS, start the boundary-draw tool, set the Site
      * location/origin (so the draw tool projects lat/lon → site-XZ), then WAIT for
-     * the `site.parcel-boundary-set` event the draw tool fires on commit. A 60 s
-     * watchdog falls back to the default rectangle so the flow can't hang.
+     * the `site.parcel-boundary-set` event the draw tool fires on commit. §FIX-DRAW-
+     * WATCHDOG-MUST-NOT-AUTHOR: an idle window now OFFERS the default-plot escape hatch
+     * rather than committing one — the wait ends only when the user acts.
      *
      * §GIS-HANDOFF (needs browser verification): there is no clean runtime hook to
      * toggle GIS, so we use the established window-hook idiom — `pryzmToggleGIS`
      * (registered alongside `pryzmStartBoundaryDraw` in GISAreaLayout) to
      * mount/activate Cesium, then `pryzmStartBoundaryDraw` to begin the draw. Both
-     * are no-ops until the editor's GIS area has wired them; the watchdog covers
-     * that case. The draw tool reads the Site origin via getSiteOrigin() — so we
+     * are no-ops until the editor's GIS area has wired them; if they never wire, the draw
+     * banner's "← Back" / "Skip drawing" remain the user's (explicit) way out — nothing is
+     * auto-committed on their behalf. The draw tool reads the Site origin via getSiteOrigin() — so we
      * set the location on the Site FIRST (via createSiteFromRect's location path,
      * with width/depth 0-area-safe defaults that we immediately overwrite on draw).
      */
@@ -991,7 +1007,7 @@ export class OnboardingStepController {
             }
         }
 
-        // 2) Arm the boundary-set listener + watchdog BEFORE starting the draw so
+        // 2) Arm the boundary-set listener + idle offer BEFORE starting the draw so
         //    we never miss the commit event.
         this.renderDrawingStep();
         this.armBoundaryCommitWait();
@@ -1038,16 +1054,17 @@ export class OnboardingStepController {
                 // GISAreaLayout; poll briefly for pryzmStartBoundaryDraw, then call it.
                 this.startDrawWhenReady();
             } else {
-                console.warn('[onboarding-step] §GIS-HANDOFF: no GIS entry wired — the draw button on the GIS rail still works, watchdog will cover a no-show.');
+                console.warn('[onboarding-step] §GIS-HANDOFF: no GIS entry wired — the draw button on the GIS rail still works. §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR: nothing will auto-commit a plot; the banner’s ← Back / Skip drawing are the way out.');
             }
         } catch (err) {
-            console.warn('[onboarding-step] §GIS-HANDOFF threw — relying on watchdog:', err);
+            console.warn('[onboarding-step] §GIS-HANDOFF threw — the draw banner’s ← Back / Skip drawing remain the user’s way out (nothing auto-commits):', err);
         }
     }
 
     /**
      * §L-384 — arm the "boundary committed" wait: a `site.parcel-boundary-set` listener
-     * + a watchdog. On commit → the Confirm step; on timeout → a default plot + Confirm.
+     * + an idle timer. On commit → the Confirm step; on a genuinely idle window → an OFFER
+     * of the default-plot escape hatch (§FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR — never a commit).
      * Tracked in `this.drawWaitCleanup` so BACK / re-draw can cancel JUST this wait (not
      * the overlay's drag/resize cleanups). Re-armable — cancels any prior wait first, so
      * the confirm-step "← Back to drawing" re-draw can re-enter cleanly without double-firing.
@@ -1058,48 +1075,81 @@ export class OnboardingStepController {
         this.drawWaitCleanup = null;
 
         let settled = false;
-        const finish = (source: 'drawn' | 'watchdog'): void => {
+        const sub = this.runtime.events?.on('site.parcel-boundary-set', () => {
             if (settled) return;
             settled = true;
             cleanup();
-            if (source === 'watchdog') {
-                // O.7.1: a timed-out draw must NOT silently generate. Author a default
-                // plot so there's something to generate from + visible, then ASK.
-                console.warn(`[onboarding-step] draw watchdog fired (idle ${Math.round(DRAW_WATCHDOG_MS / 1000)}s, no interaction) — falling back to a default plot, then asking before generate.`);
-                this.toast('No boundary drawn — using a default plot.', 'info');
-                void this.fallbackDefaultRectToConfirm('watchdog');
-            } else {
-                // O.7.1: keep the drawn boundary visible on the map + ASK before generate.
-                console.log('[onboarding-step] boundary committed — keeping it visible + asking before generate.');
-                this.renderGenerateConfirmStep('drawn');
-            }
-        };
-        const sub = this.runtime.events?.on('site.parcel-boundary-set', () => finish('drawn'));
+            // O.7.1: keep the drawn boundary visible on the map + ASK before generate.
+            console.log('[onboarding-step] boundary committed — keeping it visible + asking before generate.');
+            this.renderGenerateConfirmStep('drawn');
+        });
 
-        // §L-420 (founder live-traced) — ACTIVITY-AWARE watchdog. The old blind timer
-        // force-committed a default plot even while the user was actively SELECTING /
-        // REVIEWING a real parcel (Catastro review legitimately takes >60 s), then LOCKED
-        // it immutable (C19 §1.4) — hijacking the real selection and blocking the later draw
-        // ("parcel-already-set"). Now the fallback fires ONLY after a FULL idle window with
-        // NO user interaction: any pointer/keyboard activity on the page re-arms it, so an
-        // engaged user is NEVER interrupted; only a genuinely abandoned draw (someone
-        // wandered off) falls back so the flow can't hang. The explicit "Skip drawing — use
-        // a default plot" button remains the deliberate user choice.
+        // §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR (ADR-0299, founder-reported) — THE IDLE TIMER NO
+        // LONGER AUTHORS ANYTHING.
+        //
+        // It used to call `fallbackDefaultRectToConfirm('watchdog')`: a 10 × 8 m rectangle at the
+        // geocode centre, committed as the user's parcel (C19 §1.4 — IMMUTABLE from that moment),
+        // labelled `source="default-plot"`, with the flow advanced to "Generate your apartment with
+        // AI?". Three things were wrong with that, and only the third had been noticed before:
+        //   1. A timer has NO EVIDENCE about where the user's land is. Inventing a parcel is
+        //      inventing the single input the whole C19 → C58 → generator chain derives from, and
+        //      presenting it as authored data (ADR-0299 §4).
+        //   2. Idleness cannot distinguish "stuck" from "reading a Catastro record in another
+        //      window" from "TAB IN THE BACKGROUND". In a hidden tab the signal is meaningless.
+        //   3. It locked the C19 one-shot, so the user's REAL parcel then hit `parcel-already-set`
+        //      — the wedge (see §FIX-BOUNDARY-COMMIT-REFUSE, the other half of this fix).
+        // Its own log line gave it away: "falling back to a default plot, THEN ASKING before
+        // generate". Asking after acting is not asking.
+        //
+        // What replaces it: `decideDrawIdleAction` (pure, unit-tested, and — deliberately — unable
+        // to express a commit) can only return `offer`. The offer is a NON-BLOCKING hint pointing
+        // at the "Skip drawing — use a default plot" button already in the draw banner. The user's
+        // click is what authors a plot. The listener above STAYS ARMED throughout, so drawing at
+        // any point still works. Lengthening the timeout was explicitly NOT the fix — the defect
+        // was what it did, not when.
         let lastActivityAt = Date.now();
+        let offered = false;
         const onActivity = (): void => { lastActivityAt = Date.now(); };
         const hasDoc = typeof document !== 'undefined';
+        // A tab returning to the foreground is a fresh start: the user has only now had a chance
+        // to look at the surface, so the idle clock restarts rather than expiring on arrival.
+        const onVisibility = (): void => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+                lastActivityAt = Date.now();
+            }
+        };
         if (hasDoc) {
             document.addEventListener('pointerdown', onActivity, true);
             document.addEventListener('keydown', onActivity, true);
+            document.addEventListener('visibilitychange', onVisibility, true);
         }
         let watchdog: ReturnType<typeof setTimeout>;
         const armWatchdog = (): void => {
             watchdog = setTimeout(() => {
-                if (settled) return;
-                // The user interacted within the window → defer, don't hijack an active user.
-                if (Date.now() - lastActivityAt < DRAW_WATCHDOG_MS) { armWatchdog(); return; }
-                finish('watchdog');
-            }, DRAW_WATCHDOG_MS);
+                if (settled || this.disposed) return;
+                const decision = decideDrawIdleAction({
+                    nowMs: Date.now(),
+                    lastActivityAtMs: lastActivityAt,
+                    drawSurfaceReadyAtMs: this.drawSurfaceReadyAtMs(),
+                    documentHidden: hasDoc && document.visibilityState === 'hidden',
+                    alreadyOffered: offered,
+                    idleWindowMs: DRAW_IDLE_OFFER_MS,
+                });
+                if (decision.action === 'offer') {
+                    offered = true;
+                    console.log(
+                        `[onboarding-step] §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR — the draw surface has been ` +
+                        `visible, ready and untouched for ${Math.round(DRAW_IDLE_OFFER_MS / 1000)}s. ` +
+                        'OFFERING the default-plot escape hatch (no parcel authored, nothing committed, ' +
+                        'the draw stays armed).',
+                    );
+                    this.showDefaultPlotOffer();
+                } else {
+                    console.log(`[onboarding-step] draw idle tick — waiting (${decision.because}).`);
+                }
+                // Keep ticking either way: the surface may become ready, or the tab may return.
+                armWatchdog();
+            }, DRAW_IDLE_OFFER_MS);
         };
         armWatchdog();
 
@@ -1109,10 +1159,55 @@ export class OnboardingStepController {
             if (hasDoc) {
                 document.removeEventListener('pointerdown', onActivity, true);
                 document.removeEventListener('keydown', onActivity, true);
+                document.removeEventListener('visibilitychange', onVisibility, true);
             }
         };
         this.drawWaitCleanup = cleanup;
         this.addCleanup(cleanup);
+    }
+
+    /**
+     * §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR — when did the draw surface become genuinely usable?
+     *
+     * `SiteBoundaryMap2D` stamps `window.pryzmBoundaryDrawSurfaceReadyAt` on its MapLibre `load`
+     * (the moment "[gis] map2d: ready" is logged) and clears it on dispose. `null` therefore means
+     * "there is nothing to draw on yet" — which is exactly the state the founder's tiles stall
+     * (`readiness NEVER ARRIVED at stage "tiles" … no progress for 25000 ms`) leaves the user in.
+     * The idle clock must not run then: a user cannot be idle on a surface that does not exist,
+     * and charging our load time to their patience is what made the old watchdog fire on people
+     * who had never been shown a map.
+     */
+    private drawSurfaceReadyAtMs(): number | null {
+        if (typeof window === 'undefined') return null;
+        const at = (window as unknown as { pryzmBoundaryDrawSurfaceReadyAt?: number }).pryzmBoundaryDrawSurfaceReadyAt;
+        return typeof at === 'number' && Number.isFinite(at) ? at : null;
+    }
+
+    /**
+     * §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR — the OFFER that replaced the silent commit.
+     *
+     * Non-blocking, additive, and reversible by ignoring it: a line of text appended to the draw
+     * banner drawing the eye to the "Skip drawing — use a default plot" button that is already
+     * sitting next to it. Nothing is dispatched, no parcel exists, the C19 one-shot is untouched
+     * and the boundary listener stays armed — so drawing, selecting a parcel, or going Back all
+     * still work exactly as they did a second earlier. Shown at most once per draw session.
+     *
+     * This is the whole of what a watchdog is entitled to do: draw attention to a choice, never
+     * make it. If the user is simply reading in another window, the worst case is a hint they
+     * never see — not a plot in Barcelona they never asked for.
+     */
+    private showDefaultPlotOffer(): void {
+        if (this.disposed || typeof document === 'undefined') return;
+        const body = this.bodyEl;
+        if (!body) return;
+        if (body.querySelector('[data-testid="onboarding-draw-idle-offer"]')) return;
+        const hint = document.createElement('p');
+        hint.className = 'os-hint';
+        hint.setAttribute('data-testid', 'onboarding-draw-idle-offer');
+        hint.textContent = 'Still deciding? You can start from a default 10 × 8 m plot and refine the site later — use “Skip drawing” below.';
+        // Insert ABOVE the footer so the buttons stay where the user last saw them.
+        const footer = body.querySelector('.os-footer');
+        if (footer) body.insertBefore(hint, footer); else body.appendChild(hint);
     }
 
     /**
@@ -1147,11 +1242,12 @@ export class OnboardingStepController {
      * Poll (bounded) for `window.pryzmStartBoundaryDraw` to appear after GIS
      * activation, then call it. GISAreaLayout registers it only once Cesium has
      * mounted (an async Promise.all), so a short poll bridges the gap. If it never
-     * appears, the draw watchdog still fires.
+     * appears, the draw banner's "← Back" / "Skip drawing" remain available (nothing
+     * auto-commits a plot — §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR).
      */
     private startDrawWhenReady(): void {
         let tries = 0;
-        const MAX_TRIES = 40; // 40 × 250 ms = 10 s — well inside the 60 s watchdog.
+        const MAX_TRIES = 40; // 40 × 250 ms = 10 s.
         const tick = (): void => {
             if (this.disposed) return;
             const start = (window as unknown as { pryzmStartBoundaryDraw?: () => void }).pryzmStartBoundaryDraw;
@@ -1161,7 +1257,7 @@ export class OnboardingStepController {
                 return;
             }
             if (++tries >= MAX_TRIES) {
-                console.warn('[onboarding-step] §GIS-HANDOFF: pryzmStartBoundaryDraw never appeared — relying on watchdog / manual GIS-rail draw.');
+                console.warn('[onboarding-step] §GIS-HANDOFF: pryzmStartBoundaryDraw never appeared — manual GIS-rail draw, or the banner’s ← Back / Skip drawing. Nothing auto-commits a plot.');
                 return;
             }
             const t = setTimeout(tick, 250);
@@ -1173,7 +1269,7 @@ export class OnboardingStepController {
     /**
      * §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-70) + §FEAT-SITE-OVERLAY-PLAN-UNDERLAY (L-71) —
      * the PDF/image IMPORT branch. This is DECOUPLED from the draw→generate flow: it opens
-     * the 2D map in OVERLAY-ONLY mode (no boundary draw, no watchdog, no generate-confirm),
+     * the 2D map in OVERLAY-ONLY mode (no boundary draw, no idle offer, no generate-confirm),
      * auto-opens the upload picker, and treats "✓ Finish" as the sole TERMINAL action →
      * the calibrated plan is dropped onto the PRYZM canvas as an axis-aligned underlay
      * (created by the overlay controller → SiteBoundaryMap2D → createPlanCanvasUnderlayFromSiteOverlay)
@@ -1380,7 +1476,7 @@ export class OnboardingStepController {
 
         useDefault.addEventListener('click', () => {
             console.log('[onboarding-step] user opted out of drawing — default plot, then ask before generate.');
-            // O.7.1: cancel the in-flight draw-wait listener/watchdog (we're leaving
+            // O.7.1: cancel the in-flight draw-wait listener/idle timer (we're leaving
             // the draw phase) so it can't fire the confirm a second time.
             for (const c of this.cleanups.splice(0)) { try { c(); } catch { /* ignore */ } }
             void this.fallbackDefaultRectToConfirm('user-skip-draw');
@@ -2510,7 +2606,9 @@ export class OnboardingStepController {
 
     /**
      * O.7.1 — default-rectangle fallback that ROUTES TO CONFIRM (not generate).
-     * Used by the draw watchdog + the "Skip drawing" escape hatch: authors a
+     * Used by the "Skip drawing" escape hatch ONLY — §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR
+     * removed the idle-timer caller, so every remaining caller is an explicit user click.
+     * Authors a
      * default plot (so there's a visible boundary to generate from) then surfaces
      * the generate-confirm step so the user still chooses. Guarded by `disposed`.
      */

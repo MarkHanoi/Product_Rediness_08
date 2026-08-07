@@ -233,6 +233,12 @@ declare global {
          *  boundary (site.replace) and re-arms the still-mounted 2D map for a fresh draw.
          *  Called by the onboarding "← Back to drawing" action. Registered by GISAreaLayout. */
         pryzmRearmBoundaryDraw?: () => void;
+        /** §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR (ADR-0299) — `Date.now()` at the moment the 2D
+         *  boundary-draw surface finished loading and became genuinely drawable (MapLibre `load`);
+         *  `undefined` while there is nothing to draw on. Stamped + cleared by SiteBoundaryMap2D.
+         *  The onboarding draw-idle timer starts its clock from THIS rather than from when its own
+         *  step rendered, so a slow tile/map load is never charged to the user's patience. */
+        pryzmBoundaryDrawSurfaceReadyAt?: number;
         /** §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412, C59 Phase 1b) — mount the site-authoring
          *  SPLIT: LEFT pane = the 2D site map (draw/select), RIGHT pane = the LIVE 3D Site
          *  (boundary + buildable envelope). The single Cesium viewer is RE-TARGETED into

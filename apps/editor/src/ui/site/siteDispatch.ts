@@ -1383,6 +1383,59 @@ export function dispatchSiteTrueNorth(ctx: SiteContext, thetaRad: number): boole
     return true;
 }
 
+/** §FIX-BOUNDARY-COMMIT-REFUSE — the verdict `canCommitParcelBoundary` returns. */
+export type ParcelCommitVerdict =
+    | { readonly ok: true }
+    | { readonly ok: false; readonly reason: 'parcel-already-set'; readonly message: string };
+
+const _siteCommitTracer = trace.getTracer('pryzm.site.commit');
+
+/**
+ * §FIX-BOUNDARY-COMMIT-REFUSE (ADR-0299 §Decision 1 + 2) — CAN a parcel boundary be
+ * committed right now? Asked by an authoring surface BEFORE it mutates anything.
+ *
+ * WHY THIS EXISTS. The C19 §1.4 parcel polygon is a one-shot: `site.setParcelBoundary`
+ * rejects a second commit with `parcel-already-set`. `SiteBoundaryMap2D.commit()` used to
+ * discover that only AFTER it had already rebased the LTP-ENU origin onto the new ring
+ * (`dispatchSiteLocation`) — a mutation that SUCCEEDS — and then froze its draw surface and
+ * fired `onCommit()` regardless. So a boundary authored by any OTHER path while that map is
+ * live (the onboarding draw watchdog's default plot, "Skip drawing", `createSiteFromRect`)
+ * left the user able to draw a parcel that was silently discarded, on a frame that had
+ * moved out from under the boundary still committed, with the surface frozen on the lie.
+ *
+ * ADR-0299's test — *"if the thing I am repairing were impossible by construction, would I
+ * notice?"* — is answered YES here: committing over an existing boundary IS impossible by
+ * construction, so this refuses it by name, before the first side effect, and names the ONE
+ * legal route (CLEAR-then-recreate via `dispatchClearParcelBoundary` / the map's "↺ Redraw
+ * boundary") rather than half-performing the commit.
+ *
+ * Pure read of the store — no mutation, no toast, no event. The CALLER decides how loudly to
+ * surface the refusal (the map logs + toasts + reveals its Redraw affordance).
+ */
+export function canCommitParcelBoundary(ctx: SiteContext): ParcelCommitVerdict {
+    const span = _siteCommitTracer.startSpan('pryzm.site.canCommitParcelBoundary');
+    try {
+        const site = ctx.store.getSite();
+        // No Site yet is FINE — `dispatchParcelBoundary` creates it (`ensureSite`).
+        const committedVertices = site?.parcel?.boundary?.polygon?.length ?? 0;
+        span.setAttribute('pryzm.site.committed_vertices', committedVertices);
+        if (committedVertices >= 1) {
+            span.setAttribute('pryzm.site.commit_verdict', 'parcel-already-set');
+            return {
+                ok: false,
+                reason: 'parcel-already-set',
+                message:
+                    'This site already has a committed parcel boundary (C19 §1.4 — the polygon is a ' +
+                    'one-shot). Use "↺ Redraw boundary" to clear it first, then draw or select again.',
+            };
+        }
+        span.setAttribute('pryzm.site.commit_verdict', 'ok');
+        return { ok: true };
+    } finally {
+        span.end();
+    }
+}
+
 /**
  * Author the parcel boundary via the pure `site.setParcelBoundary` handler,
  * emitting `site.parcel-boundary-set`. Creates the Site first if needed. The

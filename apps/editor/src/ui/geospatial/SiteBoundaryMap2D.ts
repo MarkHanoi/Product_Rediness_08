@@ -50,7 +50,7 @@ import {
     latLonToSceneXZ,
     type LatLon,
 } from '../site/boundaryProjection.js';
-import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation, dispatchSiteTrueNorth, dispatchClearParcelBoundary } from '../site/siteDispatch.js';
+import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation, dispatchSiteTrueNorth, dispatchClearParcelBoundary, canCommitParcelBoundary } from '../site/siteDispatch.js';
 // §L-536-THETA-RESET — the SAME pure derivation `dispatchParcelBoundary` uses, so the θ this
 // surface publishes cannot drift from the θ the ring is de-rotated by. See commit() below.
 import { deriveProjectNorthAngleFromParcel } from '../site/overlay/projectTrueNorth.js';
@@ -693,6 +693,11 @@ export function mountSiteBoundaryMap2D(
     // no further vertices can be added. The map is disposed ONLY later, at
     // generate-time, via dispose().
     let committed = false;
+    // §FIX-MAP2D-EXTERNAL-BOUNDARY-SYNC — true only for the duration of THIS map's own
+    // `commit()`. `dispatchParcelBoundary` emits `site.parcel-boundary-set` synchronously, so
+    // without this re-entrancy guard our own commit would trip the external-boundary listener
+    // and log a "committed WITHOUT going through this map" warning about ourselves.
+    let committingLocally = false;
     // A.8.c.g — the live snap target under the cursor (null = no snap; click uses
     // the raw lngLat). Updated on every mousemove while drawing.
     let snapTarget: SnapTarget | null = null;
@@ -2091,6 +2096,40 @@ export function mountSiteBoundaryMap2D(
         console.log('[gis] §L-384 draw re-armed after clear — ready to author a new boundary.');
     }
 
+    /**
+     * §FIX-MAP2D-EXTERNAL-BOUNDARY-SYNC (ADR-0299 §Decision 4) — THE STORE IS THE TRUTH.
+     *
+     * `committed` is a LOCAL flag that only this map's own `commit()` used to set. Any boundary
+     * authored elsewhere while this map is live — the onboarding draw watchdog, "Skip drawing",
+     * `createSiteFromRect`, a collaborator's sync — left the surface ARMED and LYING: the chip
+     * still read "Click two opposite corners", the select/draw toggle was still up, and the ONE
+     * affordance that can recover ("↺ Redraw boundary") was still hidden. That is the founder's
+     * screenshot — a surface in two states at once, with no way forward.
+     *
+     * This re-derives the local state from the C19 store and freezes if a boundary is committed,
+     * so the surface can never advertise an interaction it cannot honour. Idempotent (freezeDraw
+     * early-returns when already frozen) and safe to call from an event, from a refusal, or at
+     * mount time.
+     */
+    function syncCommittedFromStore(cause: string): void {
+        if (disposed || committed || committingLocally) return;
+        let committedVertices = 0;
+        try {
+            const ctx = resolveSiteContext(runtime ?? null);
+            committedVertices = ctx?.store.getSite()?.parcel?.boundary?.polygon?.length ?? 0;
+        } catch (e) {
+            console.warn('[gis] map2d §FIX-MAP2D-EXTERNAL-BOUNDARY-SYNC: store read failed (non-fatal):', e);
+            return;
+        }
+        if (committedVertices < 1) return;
+        console.warn(
+            `[gis] map2d §FIX-MAP2D-EXTERNAL-BOUNDARY-SYNC — a parcel boundary (${committedVertices} corners) was ` +
+            `committed WITHOUT going through this map (cause="${cause}"). Freezing the draw/select surface so it ` +
+            'stops offering an interaction C19 §1.4 will reject, and revealing "↺ Redraw boundary" as the way out.',
+        );
+        freezeDraw();
+    }
+
     function freezeDraw(): void {
         if (committed) return;
         committed = true;
@@ -2143,6 +2182,39 @@ export function mountSiteBoundaryMap2D(
         const ctx = resolveSiteContext(runtime);
         // No site context = a genuine failure; we can't set a boundary, so tear down.
         if (!ctx) { dispose(); return; }
+
+        // §FIX-BOUNDARY-COMMIT-REFUSE (ADR-0299 §Decision 1 + 2) — REFUSE BEFORE MUTATING.
+        // The C19 §1.4 parcel polygon is a one-shot. If something ELSE authored a boundary
+        // while this map was live (the onboarding draw watchdog's default plot, "Skip
+        // drawing", `createSiteFromRect`), this commit is impossible by construction — and
+        // everything below it mutates: `dispatchSiteLocation` REBASES the LTP-ENU origin onto
+        // the new ring and SUCCEEDS, `dispatchParcelBoundary` is then rejected, and the old
+        // code froze the surface + fired `onCommit()` anyway. That combination is the wedge
+        // the founder hit: the drawn parcel silently discarded, the frame moved out from under
+        // the boundary still committed, and the draw frozen on a commit that never happened.
+        //
+        // Refuse loudly, change NOTHING, stay armed, and surface the one legal route
+        // (CLEAR-then-recreate). `syncCommittedFromStore()` has normally already frozen this
+        // surface the moment the external boundary landed, so reaching here means the event
+        // never arrived — hence the console.error, not a quiet return.
+        const verdict = canCommitParcelBoundary(ctx);
+        if (!verdict.ok) {
+            console.error(
+                '[gis] map2d §FIX-BOUNDARY-COMMIT-REFUSE — REFUSING this commit: ' + verdict.message +
+                ' Nothing was mutated (no origin rebase, no boundary write). Reason=' + verdict.reason,
+            );
+            toast(
+                'This site already has a parcel boundary. Press “↺ Redraw boundary” to clear it, then draw or select again.',
+                'error',
+            );
+            // Make the way out visible — the external author never showed it (§L-384 normally
+            // reveals it in freezeDraw()). Without this the user has no affordance at all.
+            syncCommittedFromStore('refused-commit');
+            return;
+        }
+        // From here on the mutations are ours — suppress the external-boundary listener so it
+        // does not report our own synchronous `site.parcel-boundary-set` as somebody else's.
+        committingLocally = true;
 
         // §L-635 (C57 §1.3 / §4, C19 §1.3, C12 §1.5) — ORIGIN-ON-PARCEL. Anchor the LTP-ENU frame
         // origin to the PARCEL's own location (its first vertex, `parcelFrameOrigin`) and project the
@@ -2214,13 +2286,27 @@ export function mountSiteBoundaryMap2D(
             polygon: built.polygon,
             edgeClassifications: built.edgeClassifications,
         });
-        if (ok) {
-            const area = signedAreaAbs(built.polygon);
-            ctx.toast(
-                `Site boundary set — ${built.polygon.length} corners (~${area.toFixed(0)} m²).`,
-                'success',
+        // §FIX-BOUNDARY-COMMIT-REFUSE (ADR-0299 §Decision 2 — "callers MUST NOT log a recovery
+        // they did not perform"). `freezeDraw()` + `onCommit()` used to run UNCONDITIONALLY, so a
+        // rejected dispatch still froze the surface and advanced the onboarding flow to the
+        // "Generate with AI?" confirm — reporting a commit that did not happen. A failed dispatch
+        // now leaves the draw ARMED so the user can retry, and does NOT advance the host.
+        committingLocally = false;
+        if (!ok) {
+            console.error(
+                '[gis] map2d §FIX-BOUNDARY-COMMIT-REFUSE — site.setParcelBoundary dispatch FAILED. ' +
+                'NOT freezing the draw and NOT signalling onCommit: the boundary on screen is not ' +
+                'the committed one. The draw stays armed so the user can retry.',
             );
+            // The store is the truth — if something else did land a boundary, freeze honestly.
+            syncCommittedFromStore('failed-dispatch');
+            return;
         }
+        const area = signedAreaAbs(built.polygon);
+        ctx.toast(
+            `Site boundary set — ${built.polygon.length} corners (~${area.toFixed(0)} m²).`,
+            'success',
+        );
         // O.7.2.b — FREEZE, don't dispose: keep the cream map + boundary alive so the
         // "Generate with AI?" confirm step renders over a live plan map. The host
         // (onboarding flow) disposes the map only when the user picks "Generate".
@@ -2239,6 +2325,11 @@ export function mountSiteBoundaryMap2D(
         if (disposed) return;
         disposed = true;
         window.removeEventListener('keydown', keyListener);
+        // §FIX-MAP2D-EXTERNAL-BOUNDARY-SYNC — drop the boundary listener (leak-free teardown).
+        try { boundarySub?.dispose(); } catch { /* ignore */ }
+        boundarySub = null;
+        // §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR — a disposed map is not a drawable surface.
+        try { delete (window as unknown as { pryzmBoundaryDrawSurfaceReadyAt?: number }).pryzmBoundaryDrawSurfaceReadyAt; } catch { /* ignore */ }
         // A.21.D9 — remove all pooled dimension-label markers.
         for (const m of dimMarkers) { try { m.remove(); } catch { /* ignore */ } }
         dimMarkers.length = 0;
@@ -2260,6 +2351,23 @@ export function mountSiteBoundaryMap2D(
     // ── Wiring ────────────────────────────────────────────────────────────────
     closeBtn.addEventListener('click', () => cancel());
     window.addEventListener('keydown', keyListener);
+
+    // §FIX-MAP2D-EXTERNAL-BOUNDARY-SYNC — watch for a boundary committed by ANY other path
+    // while this surface is live, and freeze honestly the moment it lands. This is what
+    // stops the founder's "two states at once" screenshot from ever being reachable: the
+    // draw/select chrome comes down and "↺ Redraw boundary" comes up as soon as the C19
+    // one-shot is spent, whoever spent it. `committingLocally` suppresses our own commit.
+    // Also run ONCE at mount: the split can be re-mounted over an already-committed site.
+    let boundarySub: { dispose: () => void } | null = null;
+    try {
+        boundarySub = (runtime ?? null)?.events?.on(
+            'site.parcel-boundary-set',
+            () => syncCommittedFromStore('external-commit-event'),
+        ) ?? null;
+    } catch (e) {
+        console.warn('[gis] map2d §FIX-MAP2D-EXTERNAL-BOUNDARY-SYNC: could not subscribe (non-fatal):', e);
+    }
+    syncCommittedFromStore('mount');
 
     map.on('load', () => {
         installRingLayers();
@@ -2286,7 +2394,9 @@ export function mountSiteBoundaryMap2D(
         // "disarm": no vertex can ever be added, no boundary can ever be committed, and no
         // "Generate with AI?" confirm can ever be triggered from this map. (onClick also
         // early-returns on overlayOnly as belt-and-braces.) The draw-plot branch attaches as before.
-        if (!opts.overlayOnly) {
+        // §FIX-MAP2D-EXTERNAL-BOUNDARY-SYNC — `!committed` added: mounting over a site that
+        // ALREADY has a committed C19 boundary must not arm a draw the store will reject.
+        if (!opts.overlayOnly && !committed) {
             // §L-384 — factored so the RE-DRAW path (rearmDraw) can re-attach after a freeze.
             attachDrawHandlers();
         }
@@ -2350,6 +2460,14 @@ export function mountSiteBoundaryMap2D(
             console.warn('[site-overlay] controller mount failed (non-fatal):', err);
         }
 
+        // §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR (ADR-0299) — stamp the moment the draw surface
+        // became genuinely usable. The onboarding idle timer starts its clock from THIS, never
+        // from when its step rendered: charging our own load time (the observed 25 s tiles stall)
+        // to the user's patience is what made the old watchdog fire on people who had not yet
+        // been shown a map. Cleared in dispose() so a torn-down map never reads as ready.
+        if (!opts.overlayOnly) {
+            (window as unknown as { pryzmBoundaryDrawSurfaceReadyAt?: number }).pryzmBoundaryDrawSurfaceReadyAt = Date.now();
+        }
         console.log('[gis] map2d: ready — Forma minimal-vector boundary-draw map mounted');
     });
 
