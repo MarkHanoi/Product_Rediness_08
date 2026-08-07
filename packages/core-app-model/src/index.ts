@@ -616,6 +616,39 @@ export type {
 } from './lighting/LightingTypes.js';
 export { FLOOR_MOUNTED_FIXTURES, MIRROR_LIGHT_DEFAULTS, PENDANT_CLUSTER_DEFAULTS } from './lighting/LightingTypes.js';
 
+// ── §FEAT-FIXTURE-PHOTOMETRY (2026-08-06) ────────────────────────────────────
+// The single photometric authority for every artificial fixture (lumens/kelvin
+// per family, scene candela scale, day/night multipliers) and the bounded
+// live-light budget that keeps it affordable. Pure — no THREE, no DOM, no I/O.
+export type { FixturePhotometry, FurnitureLampKind, LightingConstructionForm } from './lighting/FixturePhotometry.js';
+export {
+    LIGHTING_FIXTURE_PHOTOMETRY,
+    FURNITURE_LAMP_PHOTOMETRY,
+    FALLBACK_PHOTOMETRY,
+    SCENE_CANDELA_PER_REAL_CANDELA,
+    FIXTURE_DAY_MULTIPLIER,
+    FIXTURE_NIGHT_MULTIPLIER,
+    FIXTURE_LIGHT_ROLE,
+    photometryForFixture,
+    photometryForFurnitureLamp,
+    constructionFormFor,
+    candelaFromLumens,
+    beamSolidAngleSr,
+    sceneIntensityFor,
+    lensEmissiveFor,
+    kelvinToLinearRgb,
+    kelvinToHex,
+} from './lighting/FixturePhotometry.js';
+
+export type { LightBudgetCandidate, LightBudgetSelection } from './lighting/LiveLightBudget.js';
+export {
+    LIVE_LIGHT_BUDGET_BY_TIER,
+    DEFAULT_LIVE_LIGHT_BUDGET,
+    liveLightBudgetForTier,
+    selectLiveLights,
+} from './lighting/LiveLightBudget.js';
+export type { SceneQualityTier } from './rendering/SceneQualityTierManager.js';
+
 export type { RenderLightingSymbolsOptions } from './views/symbols/LightingPlanSymbolRenderer.js';
 export { renderLightingSymbols } from './views/symbols/LightingPlanSymbolRenderer.js';
 
