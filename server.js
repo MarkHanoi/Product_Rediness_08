@@ -40,7 +40,7 @@ import {
 // M-CORS: centralised origin policy — shared by Express cors() and Socket.io
 import { expressCorsOptions, socketCorsOptions } from './server/corsPolicy.js';
 // M-HEADERS: helmet-powered security headers (C08 §4 — Phase 0 Task 0.1 DONE)
-import { helmetMiddleware, applyEmbedHeaders } from './server/securityHeaders.js';
+import { helmetMiddleware, applyEmbedHeaders, strictCspShadowMiddleware } from './server/securityHeaders.js';
 // C51 §3.1.2.2: CSP violation-report sink (evidence base for strict-CSP tightening)
 import { CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler } from './server/cspReport.js';
 // IP-A3 A.5.e: lead-capture sink for the RAC onboarding handoff
@@ -402,6 +402,14 @@ app.set('trust proxy', TRUST_PROXY_HOPS);
 // header set.  See server/securityHeaders.js for the complete header inventory.
 // Phase 0 Task 0.1 — DONE.
 app.use(helmetMiddleware);
+
+// §CSP-STRICT-SHADOW (C51 §3.1.2.2) — the strict target policy rides alongside the
+// enforced one as Content-Security-Policy-Report-Only, so the two remaining
+// blockers ('unsafe-eval', 'unsafe-inline' styles) can be narrowed from real
+// production traffic instead of a full-app run nobody could safely stage.
+// Report-only NEVER blocks; this is measurement, not enforcement. Prod-only —
+// see the middleware for why dev is excluded.
+app.use(strictCspShadowMiddleware);
 
 // PERF-FIX-#3: Enable gzip compression for all responses.
 // Compresses the 7.1 MB EngineBootstrap bundle to ~1.47 MB on the wire (~79% reduction).

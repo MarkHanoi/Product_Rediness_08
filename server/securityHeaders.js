@@ -232,9 +232,27 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
 const CONNECT_SRC = buildConnectSrc();
 
 // ── CSP: script-src ───────────────────────────────────────────────────────────
-// 'unsafe-eval' is required by Three.js shader compilation and Cesium's internal
-// eval() usage.  Tracked for removal in Phase J (ADR-047 WebGPU worker migration)
-// once the remaining shader-eval paths are eliminated.
+// ⚠ THE STATED JUSTIFICATION FOR 'unsafe-eval' IS AT LEAST PARTLY FALSE, AND THE
+// COMMENT THAT ASSERTED IT SURVIVED UNCHALLENGED BECAUSE NOBODY MEASURED IT.
+// This block previously read "'unsafe-eval' is required by Three.js shader
+// compilation". Three.js does NOT eval shaders — GLSL is handed to the driver via
+// `gl.shaderSource`/`gl.compileShader`, which is not script execution and is not
+// governed by script-src at all. Measured 2026-08-07 against the SHIPPED bundle:
+// the 1.87 MB `vendor-three-*.js` production chunk contains **zero** occurrences
+// of `eval(` or `new Function(`.
+//
+// That does NOT prove 'unsafe-eval' is removable — the claim has two halves and
+// only one is disproved. Cesium, the WASM/Draco/Basis decoders and the worker
+// chunks are not covered by that grep, a minifier can rename an eval alias, and a
+// static scan cannot see a dynamically-constructed call. See the
+// [[probe-can-be-wrong-three-ways]] discipline: a scan can be wrong about the
+// runtime, the property, or the system.
+//
+// So the enforced policy is UNCHANGED here and stays permissive. The evidence for
+// narrowing comes from STRICT_CSP_SHADOW_DIRECTIVES below, which ships the C51
+// §3.1.2 target policy in report-only mode against real production traffic. When
+// the shadow reports nothing for `script-src` over a representative window, this
+// list becomes ["'self'", "'wasm-unsafe-eval'", 'blob:'] — and not before.
 //
 // 'unsafe-inline' is granted ONLY in development for Vite HMR injected scripts.
 // ES module scripts loaded via <script type="module"> do not require it in prod.
@@ -284,6 +302,93 @@ const MAIN_CSP_DIRECTIVES = {
     // reasons (see crossOriginEmbedderPolicy/Opener/Resource below).
     ...(IS_PROD ? {} : { upgradeInsecureRequests: null }),
 };
+
+// ── CSP: the STRICT SHADOW policy (C51 §3.1.2 target, report-only) ───────────
+// §CSP-STRICT-SHADOW (C51 §3.1.2 / §3.1.2.2) — the two remaining blockers on the
+// contract's strict CSP are `script-src 'unsafe-eval'` and `style-src
+// 'unsafe-inline'`. Both have been "blocked on a full-app run" for months, which
+// is another way of saying nobody could safely try them: flipping either one in
+// ENFORCE mode on production risks a white screen for every user, and neither can
+// be cleared from a local run because localhost dev cannot exercise Cesium, the
+// WASM decoders and the worker chunks the way real traffic does.
+//
+// A second policy resolves that. A browser applies EVERY CSP header it receives:
+// `Content-Security-Policy` is enforced, `Content-Security-Policy-Report-Only` is
+// evaluated and reported but never blocks. Shipping the TARGET policy in the
+// report-only slot therefore measures the strict policy against real production
+// traffic at ZERO user risk — every violation report is a precise, located
+// statement of what the tightening would have broken.
+//
+// This is the contract's own instruction, not an invention: §3.1.2.2 exists so
+// script-src / style-src can be narrowed "from real production telemetry rather
+// than guesswork". It is also the standing §CONTEXT-DATA-HONESTY discipline —
+// ship the PROBE before the FIX, and never let "we found nothing" and "we did not
+// look" be the same value.
+//
+// ⚠ READ THE SILENCE CORRECTLY. Zero reports means "no user exercised the code
+// path that needs it", NOT "the directive is unnecessary". Before flipping either
+// directive into the enforced policy, confirm the window actually covered the
+// risky surfaces: open a Cesium 3D site view, load an IFC (WASM worker), run a
+// geometry batch, open the marketplace. Silence over a window that never ran
+// Cesium proves nothing about Cesium.
+const STRICT_CSP_SHADOW_DIRECTIVES = {
+    ...MAIN_CSP_DIRECTIVES,
+
+    // BLOCKER 1 — 'unsafe-eval' → 'wasm-unsafe-eval'. The narrower token permits
+    // WebAssembly compilation (the geometry kernel, IFC, Draco/Basis decoders)
+    // while refusing JS eval()/new Function(). If the WASM paths are the only real
+    // consumers, this reports clean and the enforced policy can adopt it.
+    scriptSrc: ["'self'", "'wasm-unsafe-eval'", 'blob:'],
+
+    // BLOCKER 2 — style-src 'self'. `injectAppTheme()` writes CSS-in-JS, which
+    // needs a nonce or hash migration before this can hold. Expect reports here
+    // FIRST; they name the exact injection sites that still need migrating, which
+    // is the work item this shadow is meant to scope.
+    styleSrc: ["'self'", 'https://fonts.googleapis.com'],
+
+    // Label the reports so the sink can tell a research datum from a live break.
+    reportUri: [`${CSP_REPORT_PATH}?policy=strict-shadow`],
+
+    // W3C CSP3 §2.5: browsers IGNORE upgrade-insecure-requests in a report-only
+    // policy and warn once per response. The enforced policy already carries it,
+    // so omitting it here costs nothing and keeps the console clean.
+    upgradeInsecureRequests: null,
+};
+
+/** Serialise a helmet-style directive map into a CSP header string. */
+function serialiseCspDirectives(directives) {
+    return Object.entries(directives)
+        .filter(([, v]) => v !== null && v !== undefined)
+        .map(([key, values]) => {
+            const name = key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+            const list = Array.isArray(values) ? values : [values];
+            return list.length ? `${name} ${list.join(' ')}` : name;
+        })
+        .join('; ');
+}
+
+const STRICT_CSP_SHADOW_HEADER = serialiseCspDirectives(STRICT_CSP_SHADOW_DIRECTIVES);
+
+/**
+ * §CSP-STRICT-SHADOW — emit the C51 §3.1.2 target policy in report-only mode
+ * alongside helmet's enforced policy.
+ *
+ * PRODUCTION ONLY, deliberately. In development helmet already delivers the MAIN
+ * policy as report-only (`reportOnly: !IS_PROD`); adding a second report-only
+ * header there would produce two interleaved streams from two different policies
+ * with no enforced policy at all — noise that teaches nothing.
+ *
+ * Exported for direct unit testing and mounted in `server.js` after helmet.
+ */
+export function strictCspShadowMiddleware(_req, res, next) {
+    if (IS_PROD) {
+        res.setHeader('Content-Security-Policy-Report-Only', STRICT_CSP_SHADOW_HEADER);
+    }
+    next();
+}
+
+/** Test-only accessor: the serialised shadow policy. */
+export const __strictCspShadowHeader = STRICT_CSP_SHADOW_HEADER;
 
 // ── CSP: embed-mode string ────────────────────────────────────────────────────
 // Used exclusively by applyEmbedHeaders() on the GET /embed route.

@@ -50,7 +50,6 @@ import {
     isStalled,
     tileReadinessVerdict,
     tileStreamFraction,
-    tileStreamSettled,
     tileStreamNote,
     viewActivationProgress,
     viewActivationStageLabel,

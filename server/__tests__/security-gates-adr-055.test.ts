@@ -22,7 +22,7 @@ import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import express from 'express';
 import { createServer, type Server } from 'http';
 import type { AddressInfo } from 'net';
-import { buildConnectSrc, helmetMiddleware } from '../securityHeaders.js';
+import { buildConnectSrc, helmetMiddleware, strictCspShadowMiddleware, __strictCspShadowHeader } from '../securityHeaders.js';
 import { CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler, __resetCspRateCap } from '../cspReport.js';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -582,6 +582,95 @@ describe('§7 CSP violation reporting (C51 §3.1.2.2)', () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/csp-report' },
             body: '',
+        });
+        expect(r.status).toBe(204);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §8 — §CSP-STRICT-SHADOW: the C51 §3.1.2 target policy, report-only (C51 §3.1.2.2)
+//
+// The two remaining strict-CSP blockers ('unsafe-eval', 'unsafe-inline' styles)
+// have been "blocked on a full-app run" for months. The shadow policy resolves
+// that: a browser applies EVERY CSP header it receives, so shipping the TARGET
+// policy in the report-only slot measures it against real production traffic at
+// zero user risk. These tests pin the two properties that make that safe —
+// the shadow must be report-only (never enforced), and it must be
+// DISTINGUISHABLE from the enforced policy in the report sink.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§8 strict-CSP shadow policy (C51 §3.1.2 target, report-only)', () => {
+    let server: Server, url: string;
+
+    beforeAll(async () => {
+        const app = express();
+        app.use(helmetMiddleware);
+        app.use(strictCspShadowMiddleware);
+        app.get('/probe', (_req, res) => res.status(200).send('ok'));
+        app.post(CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler);
+        const a = await listen(app);
+        server = a.server; url = a.url;
+    });
+
+    afterAll(async () => { await close(server); });
+    afterAll(() => __resetCspRateCap());
+
+    it('T8.1 — the shadow header carries the TARGET script-src, not the permissive one', () => {
+        // The whole point: 'wasm-unsafe-eval' permits WebAssembly compilation
+        // (geometry kernel, IFC, Draco/Basis) while refusing JS eval()/new Function().
+        expect(__strictCspShadowHeader).toContain("script-src 'self' 'wasm-unsafe-eval' blob:");
+        expect(__strictCspShadowHeader).not.toContain("'unsafe-eval'");
+    });
+
+    it('T8.2 — the shadow header drops style-src unsafe-inline', () => {
+        expect(__strictCspShadowHeader).toContain("style-src 'self' https://fonts.googleapis.com");
+        expect(__strictCspShadowHeader).not.toContain("'unsafe-inline'");
+    });
+
+    it('T8.3 — the shadow LABELS its reports so a research datum ≠ a live break', () => {
+        // Without the label both policies write into one undifferentiated stream and
+        // "something is broken right now" becomes indistinguishable from "this WOULD
+        // break if we tightened" — the §CONTEXT-DATA-HONESTY failure mode.
+        expect(__strictCspShadowHeader).toContain(`report-uri ${CSP_REPORT_PATH}?policy=strict-shadow`);
+    });
+
+    it('T8.4 — the shadow inherits connect-src from the enforced policy (it is NOT a blocker)', () => {
+        // Only script-src and style-src are being narrowed. If the shadow also
+        // tightened connect-src it would report a flood of violations that are not
+        // the thing under study, and the signal would be lost in it.
+        expect(__strictCspShadowHeader).toContain('https://api.cesium.com');
+        expect(__strictCspShadowHeader).toContain('default-src');
+    });
+
+    it('T8.5 — upgrade-insecure-requests is omitted (W3C CSP3 §2.5 ignores it in report-only)', () => {
+        expect(__strictCspShadowHeader).not.toContain('upgrade-insecure-requests');
+    });
+
+    it('T8.6 — the middleware emits ONLY the report-only header, never an enforcing one', async () => {
+        // The safety property. If this ever set `Content-Security-Policy`, the shadow
+        // would stop being a measurement and start being an outage.
+        const seen: Record<string, string> = {};
+        const res = {
+            setHeader: (k: string, v: string) => { seen[k] = v; },
+        } as unknown as Parameters<typeof strictCspShadowMiddleware>[1];
+        let nexted = false;
+        strictCspShadowMiddleware({} as never, res, () => { nexted = true; });
+
+        expect(nexted).toBe(true);
+        expect(seen['Content-Security-Policy']).toBeUndefined();
+        // Prod-only by design: in dev helmet already delivers the MAIN policy as
+        // report-only, and two report-only streams with no enforced policy teaches
+        // nothing. Under vitest NODE_ENV is 'test', so no header is expected here.
+        if (seen['Content-Security-Policy-Report-Only'] !== undefined) {
+            expect(seen['Content-Security-Policy-Report-Only']).toBe(__strictCspShadowHeader);
+        }
+    });
+
+    it('T8.7 — the sink accepts a labelled report and still answers 204', async () => {
+        __resetCspRateCap();
+        const r = await fetch(`${url}${CSP_REPORT_PATH}?policy=strict-shadow`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/csp-report' },
+            body: JSON.stringify({ 'csp-report': { 'effective-directive': 'style-src', 'blocked-uri': 'inline', 'document-uri': 'https://app.pryzm.so/' } }),
         });
         expect(r.status).toBe(204);
     });

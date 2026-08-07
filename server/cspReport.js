@@ -73,6 +73,18 @@ export function cspReportHandler(req, res) {
         _dropped = 0;
     }
 
+    // §CSP-SHADOW-POLICY-IS-LABELLED (C51 §3.1.2.2) — WHICH policy produced this
+    // report is the whole point of collecting it. Two policies now report to this
+    // one sink: the ENFORCED policy (a violation here is a real break, happening to
+    // real users right now) and the STRICT SHADOW policy (a violation here is the
+    // narrowing evidence — nothing broke, the report is telling us what WOULD break
+    // if we tightened). Folding them into one undifferentiated stream would make a
+    // live incident and a research datum the same value, which is exactly the
+    // overstatement ADR-0299 §CONTEXT-DATA-HONESTY forbids. The emitting policy
+    // labels itself via `?policy=` on its report-uri; anything unlabelled is the
+    // enforced policy, because that is the one that predates this parameter.
+    const policy = String(req.query?.policy || 'enforced').slice(0, 24);
+
     const body = req.body;
     const reports = Array.isArray(body) ? body : (body ? [body] : []);
     for (const rep of reports) {
@@ -80,7 +92,7 @@ export function cspReportHandler(req, res) {
         _logged++;
         const { directive, blocked, document } = normaliseReport(rep);
         // Structured + truncated; this is the evidence for C51 §3.1.2.2 narrowing.
-        console.warn(`[csp-report] directive=${trunc(directive, 40)} blocked=${trunc(blocked, 160)} doc=${trunc(document, 160)}`);
+        console.warn(`[csp-report] policy=${policy} directive=${trunc(directive, 40)} blocked=${trunc(blocked, 160)} doc=${trunc(document, 160)}`);
     }
 }
 
