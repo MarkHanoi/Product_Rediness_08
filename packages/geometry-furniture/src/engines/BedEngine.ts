@@ -44,6 +44,14 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import { MaterialService } from '../MaterialService';
+// §FEAT-FIXTURE-PHOTOMETRY (2026-08-06) — the float bed's integrated bedside
+// lamps are a fixture family and share the one photometric authority.
+import {
+    photometryForFurnitureLamp,
+    sceneIntensityFor,
+    kelvinToHex,
+    FIXTURE_LIGHT_ROLE,
+} from '@pryzm/core-app-model';
 
 // ──────────────────────────────────────────────────────────────────────────────
 //  Public types
@@ -718,16 +726,29 @@ export class BedEngine {
                 m.userData.role = 'lamp_shade';
                 root.add(m);
             }
-            // Real warm-white point light at the bulb position
+            // Real warm-white point light at the bulb position.
+            // §FEAT-FIXTURE-PHOTOMETRY (2026-08-06) — was a hard-coded
+            // `PointLight(0xffd9a0, 1.2, 4.0, 1.6)`. THREE r165+ reads that 1.2 as
+            // CANDELA, giving an irradiance of 0.3 at 2 m — below the scene's own
+            // ambient floor, so the lamp lit nothing. Colour, intensity, reach and
+            // decay now come from the one photometric table (300 lm @ 2400 K),
+            // and `decay` is a physical 2 rather than the arbitrary 1.6.
             {
-                const light = new THREE.PointLight(0xffd9a0, 1.2, 4.0, 1.6);
+                const photo = photometryForFurnitureLamp('bed_integrated');
+                const light = new THREE.PointLight(
+                    new THREE.Color(kelvinToHex(photo.kelvin)),
+                    sceneIntensityFor(photo, false),
+                    photo.reachM,
+                    2,
+                );
                 light.position.set(
                     xc,
                     wingTopY + baseH + stemH + shadeH * 0.45,
                     zc,
                 );
                 light.castShadow = false;
-                light.userData.role = 'lamp_light';
+                light.userData.role = FIXTURE_LIGHT_ROLE;
+                light.userData.lampKind = 'bed_integrated';
                 root.add(light);
             }
         }

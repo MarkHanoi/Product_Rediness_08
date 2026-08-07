@@ -2,6 +2,16 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { IFurnitureBuilder } from './IFurnitureBuilder';
 import { FurnitureData } from '../FurnitureTypes';
 import { MaterialService } from '../MaterialService';
+// §FEAT-FIXTURE-PHOTOMETRY (2026-08-06) — catalogue lamps are the SECOND fixture
+// family and were pure emissive meshes with no light source at all. They now
+// share the one photometric authority with the first-class lighting elements.
+import {
+    photometryForFurnitureLamp,
+    sceneIntensityFor,
+    kelvinToHex,
+    FIXTURE_LIGHT_ROLE,
+    type FurnitureLampKind,
+} from '@pryzm/core-app-model';
 
 /**
  * LampBuilder
@@ -10,6 +20,44 @@ import { MaterialService } from '../MaterialService';
  */
 export class LampBuilder implements IFurnitureBuilder {
     constructor(private materialService: MaterialService) {}
+
+    /**
+     * §FEAT-FIXTURE-PHOTOMETRY — attach the lamp's real emitter.
+     *
+     * The emitter ANCHOR is derived from the built geometry, not guessed: it is
+     * placed at the centroid of the SHADE volume, which is where a bulb actually
+     * sits and where the emissive shade mesh already is. Callers pass that
+     * height explicitly because only the build method knows it. For a catalogue
+     * model that supplies no emitter anchor of its own (a future GLB path), the
+     * correct fallback is the bounding-box centre of the highest emissive-tagged
+     * sub-mesh, and failing THAT, 85% of the model's height — never (0,0,0),
+     * which buries the emitter in the floor.
+     *
+     * §LAMP-NO-POINTLIGHT (founder 2026-06-19) removed these lights because
+     * KHR_lights_punctual nodes crashed the Cesium GLB export. That reason no
+     * longer holds: `GLBExporter` now strips every `isLight` child before export
+     * (packages/file-format/src/export/glb/GLBExporter.ts §"lights"), so the
+     * export is protected at the export boundary — the correct place — rather
+     * than by leaving the product's lamps unlit.
+     */
+    private attachEmitter(group: THREE.Group, kind: FurnitureLampKind, anchorY: number): void {
+        const photo = photometryForFurnitureLamp(kind);
+        // Day baseline. A furniture lamp has no day/night subscription of its own;
+        // the scene's night dimmer skips FIXTURE_LIGHT_ROLE lights, so the lamp
+        // holds its photometric output while everything around it darkens — which
+        // is exactly how a lamp behaves when the sun goes down.
+        const light = new THREE.PointLight(
+            new THREE.Color(kelvinToHex(photo.kelvin)),
+            sceneIntensityFor(photo, false),
+            photo.reachM,
+            2,                       // inverse-square; physical.
+        );
+        light.position.set(0, anchorY, 0);
+        light.castShadow = false;    // cube shadow maps exhaust the texture-unit cap.
+        light.userData.role = FIXTURE_LIGHT_ROLE;
+        light.userData.lampKind = kind;
+        group.add(light);
+    }
 
     build(data: FurnitureData): THREE.Group {
         const group = new THREE.Group();
@@ -81,6 +129,9 @@ export class LampBuilder implements IFurnitureBuilder {
         pole.position.set(0, height - shadeHeight - 0.1 * fixScale, 0);
         group.add(pole);
 
+        // §FEAT-FIXTURE-PHOTOMETRY — emitter at the drum-shade centroid.
+        this.attachEmitter(group, 'floor_standard', height - shadeHeight / 2);
+
         return group;
     }
 
@@ -120,18 +171,18 @@ export class LampBuilder implements IFurnitureBuilder {
         stem.position.set(0, baseH + stemH / 2, 0);
         group.add(stem);
 
-        // 3. Emissive conical shade (open-ended, like the float-bed lamp). The
-        //    emissive material IS the glow — no real THREE.PointLight is added.
-        //    §LAMP-NO-POINTLIGHT (founder 2026-06-19, Cesium crash): a point light
-        //    per bedside lamp (2+ per bedroom) flooded the Cesium "Real" GLB export
-        //    with KHR_lights_punctual nodes and crashed the globe on open. The
-        //    emissive shade gives the same glowing-lamp look and exports cleanly.
+        // 3. Emissive conical shade (open-ended, like the float-bed lamp).
         const shade = new THREE.Mesh(
             new THREE.CylinderGeometry(shadeRTop, shadeRBot, shadeH, 24, 1, true),
             shadeMat,
         );
         shade.position.set(0, baseH + stemH + shadeH / 2, 0);
         group.add(shade);
+
+        // §FEAT-FIXTURE-PHOTOMETRY — emitter at the cone-shade centroid, i.e.
+        // where the bulb is. See attachEmitter() for why §LAMP-NO-POINTLIGHT
+        // (the Cesium GLB crash) no longer justifies leaving this lamp unlit.
+        this.attachEmitter(group, 'bedside_table', baseH + stemH + shadeH / 2);
 
         return group;
     }
