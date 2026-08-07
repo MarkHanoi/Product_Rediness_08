@@ -22,6 +22,9 @@ import {
     contextTileCacheSize,
     zoomForExtent,
     tileCountCovering,
+    coalesceRanges,
+    __createRangeSourceForTest,
+    RANGE_COALESCE_MAX_GAP_BYTES,
     type TileBbox,
     type ContextTileFeature,
 } from '../src/ui/geospatial/contextTiles';
@@ -284,6 +287,171 @@ describe('§CTX-RANGE-URL-SOURCE — the range transport', () => {
         const r = await readContextTileFeatures('buildings', [2.16, 41.38, 2.18, 41.40]);
         // §CONTEXT-DATA-HONESTY — a broken read is `unavailable`, never `ok` with zero features.
         expect(r.status).toBe('unavailable');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §CTX-RANGE-COALESCE (L-716) — the founder's fourth "Opening the 3D Site — taking too long".
+//
+// MEASURED against the live R2 tileset (Barcelona Eixample, scratchpad/probe-ctx-coalesce.mjs):
+// one cold open issues 124 range requests carrying 1,002 KiB, and one range request measured
+// STRICTLY SERIALLY costs 197 ms (3,948 ms for roads' 20 tiles, against 613 ms concurrently).
+// 124 × 197 ms = 24.4 s, against the founder's observed 26–27 s. The bytes are not the problem —
+// one megabyte is 1.6 s even at 5 Mbit/s — the ROUND-TRIP COUNT is. Merging adjacent ranges takes
+// it to 18 requests for 1,274 KiB.
+//
+// These tests pin the PROPERTIES that make that safe: the merge arithmetic, the caps, the
+// slice-back correctness, and — the load-bearing one — that a failed span never costs a tile.
+describe('§CTX-RANGE-COALESCE — merge arithmetic', () => {
+    it('merges strictly adjacent ranges into one span with no extra bytes', () => {
+        const spans = coalesceRanges([{ offset: 0, length: 10 }, { offset: 10, length: 10 }], 0);
+        expect(spans).toHaveLength(1);
+        expect(spans[0]).toMatchObject({ offset: 0, length: 20 });
+        expect([...spans[0]!.members].sort()).toEqual([0, 1]);
+    });
+
+    it('bridges a gap up to the tolerance, and refuses to bridge one beyond it', () => {
+        const near = coalesceRanges([{ offset: 0, length: 10 }, { offset: 1_010, length: 10 }], 1_000);
+        expect(near).toHaveLength(1);
+        expect(near[0]!.length).toBe(1_020); // the 1,000 skipped bytes are the price of one round trip
+        const far = coalesceRanges([{ offset: 0, length: 10 }, { offset: 1_011, length: 10 }], 1_000);
+        expect(far).toHaveLength(2);
+    });
+
+    it('⚠ carries members as INDICES INTO THE INPUT, not into the sorted order', () => {
+        // Given out of order, so an implementation that returned sorted positions would pair a
+        // tile with another tile's bytes — silently, and only on archives that read backwards.
+        const spans = coalesceRanges([{ offset: 100, length: 10 }, { offset: 0, length: 10 }], 1_000);
+        expect(spans).toHaveLength(1);
+        expect(spans[0]!.offset).toBe(0);
+        expect([...spans[0]!.members]).toEqual([1, 0]);
+    });
+
+    it('splits rather than merging past the span ceiling — a nonsense merge must not pull a gigabyte', () => {
+        const spans = coalesceRanges(
+            [{ offset: 0, length: 600 }, { offset: 600, length: 600 }],
+            RANGE_COALESCE_MAX_GAP_BYTES,
+            1_000,
+        );
+        expect(spans).toHaveLength(2);
+    });
+
+    it('never invents or drops a range — every input is served by exactly one span', () => {
+        const ranges = Array.from({ length: 40 }, (_, i) => ({ offset: i * 5_000, length: 900 }));
+        const seen = coalesceRanges(ranges).flatMap((s) => [...s.members]).sort((a, b) => a - b);
+        expect(seen).toEqual(ranges.map((_, i) => i));
+    });
+
+    it('is a no-op shape for a single range — the header read must not grow a span', () => {
+        expect(coalesceRanges([{ offset: 0, length: 16_384 }])).toEqual([
+            { offset: 0, length: 16_384, members: [0] },
+        ]);
+    });
+});
+
+describe('§CTX-RANGE-COALESCE — the transport', () => {
+    interface Recorded { url: string; init: RequestInit | undefined }
+    let calls: Recorded[] = [];
+    let realFetch: typeof globalThis.fetch;
+    /** Fail every request whose range is exactly `"<start>:<length>"` — so a test can poison the
+     *  merged SPAN without also poisoning the individual re-issues it falls back to. */
+    let failRanges: Set<string>;
+
+    const rangeOf = (init: RequestInit | undefined): { start: number; end: number } => {
+        const h = (init?.headers ?? {}) as Record<string, string>;
+        const m = /bytes=(\d+)-(\d+)/.exec(h['range'] ?? '');
+        return { start: Number(m?.[1] ?? 0), end: Number(m?.[2] ?? 0) };
+    };
+
+    beforeEach(() => {
+        calls = [];
+        failRanges = new Set();
+        realFetch = globalThis.fetch;
+        globalThis.fetch = ((url: string, init?: RequestInit) => {
+            calls.push({ url: String(url), init });
+            const { start, end } = rangeOf(init);
+            const len = end - start + 1;
+            if (failRanges.has(`${start}:${len}`)) return Promise.resolve({ status: 500, headers: { get: () => null } });
+            // A body whose every byte equals (absoluteOffset % 251) — so a mis-sliced span is
+            // detectable by value, not just by length.
+            const buf = new Uint8Array(len);
+            for (let i = 0; i < len; i++) buf[i] = (start + i) % 251;
+            return Promise.resolve({
+                status: 206,
+                headers: { get: (h: string) => (h.toLowerCase() === 'content-length' ? String(len) : null) },
+                arrayBuffer: () => Promise.resolve(buf.buffer),
+            });
+        }) as unknown as typeof globalThis.fetch;
+    });
+
+    afterEach(() => { globalThis.fetch = realFetch; });
+
+    /** Drive the private transport the way pmtiles does, without a real archive. */
+    const source = (): { getBytes(o: number, l: number, s?: AbortSignal): Promise<{ data: ArrayBuffer }> } =>
+        __createRangeSourceForTest('https://tiles.test/buildings.pmtiles?v=X');
+
+    it('collapses a fan-out of adjacent ranges into ONE request — the 124→18 property', async () => {
+        const src = source();
+        // 30 adjacent 1 KiB ranges, issued the way `Promise.all(tiles.map(...))` issues them.
+        const wanted = Array.from({ length: 30 }, (_, i) => ({ offset: i * 1_024, length: 1_024 }));
+        const got = await Promise.all(wanted.map((r) => src.getBytes(r.offset, r.length)));
+        expect(calls).toHaveLength(1);
+        expect(got).toHaveLength(30);
+        // Every caller got ITS OWN bytes back, not the span's head.
+        for (let i = 0; i < wanted.length; i++) {
+            const first = new Uint8Array(got[i]!.data)[0];
+            expect(first).toBe(wanted[i]!.offset % 251);
+            expect(got[i]!.data.byteLength).toBe(1_024);
+        }
+    });
+
+    it('splits at a gap wider than the tolerance instead of pulling the whole archive', async () => {
+        const src = source();
+        await Promise.all([
+            src.getBytes(0, 1_024),
+            src.getBytes(50_000_000, 1_024),
+        ]);
+        expect(calls).toHaveLength(2);
+    });
+
+    it('⚠ a failed span RE-ISSUES its members individually — coalescing must never cost a tile', async () => {
+        const src = source();
+        failRanges.add('0:3072'); // poison the MERGED span, not the individual ranges
+        const got = await Promise.all([
+            src.getBytes(0, 1_024),
+            src.getBytes(1_024, 1_024),
+            src.getBytes(2_048, 1_024),
+        ]);
+        // 1 failed span + 3 individual re-issues = 4 requests, and NOT ONE TILE LOST. This is the
+        // property that makes the optimisation safe: the worst case is exactly today's behaviour.
+        expect(got.map((g) => g.data.byteLength)).toEqual([1_024, 1_024, 1_024]);
+        expect(new Uint8Array(got[2]!.data)[0]).toBe(2_048 % 251);
+        expect(calls).toHaveLength(4);
+    });
+
+    it('reports the failure honestly when the individual retry fails too — no empty success', async () => {
+        const src = source();
+        failRanges.add('0:2048').add('0:1024').add('1024:1024');
+        const results = await Promise.allSettled([src.getBytes(0, 1_024), src.getBytes(1_024, 1_024)]);
+        // §CONTEXT-DATA-HONESTY — a broken read REJECTS. It must never resolve with zero bytes,
+        // which the decoder would read as "this tile is empty".
+        expect(results.every((r) => r.status === 'rejected')).toBe(true);
+    });
+
+    it('drops a caller that aborted while the window was open — and fetches nothing for it', async () => {
+        const src = source();
+        const ac = new AbortController();
+        const p = src.getBytes(0, 1_024, ac.signal);
+        ac.abort();
+        await expect(p).rejects.toThrow(/abort/i);
+        expect(calls).toHaveLength(0);
+    });
+
+    it('never sends an AbortSignal on the wire — one caller must not empty a shared download', async () => {
+        const src = source();
+        const ac = new AbortController();
+        await Promise.all([src.getBytes(0, 1_024, ac.signal), src.getBytes(1_024, 1_024)]);
+        for (const c of calls) expect((c.init as { signal?: unknown } | undefined)?.signal).toBeUndefined();
     });
 });
 

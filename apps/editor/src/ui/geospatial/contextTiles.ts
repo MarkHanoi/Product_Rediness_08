@@ -430,7 +430,163 @@ export function tilesCovering(bbox: TileBbox, z: number): Array<{ x: number; y: 
  * `content-range: bytes 100000000-100019999/2399042929`, and so did the same-origin proxy (which
  * routes on `req.params.layer` and never reads the query string).
  */
+/**
+ * §CTX-RANGE-COALESCE (L-716) — the byte ranges a bbox needs are ADJACENT in the archive, so ask
+ * for the SPAN once instead of asking for each tile.
+ *
+ * ⚠ THIS IS THE FIX FOR THE 27-SECOND "Opening the 3D Site — taking too long", AND THE PREVIOUS
+ * THREE ATTEMPTS ALL AIMED AT THE READINESS PREDICATE INSTEAD. The founder's fourth occurrence
+ * finally named the cost directly:
+ *     §CTX-PMTILES-READER water:   … from 25 baked tile(s) in 26013 ms
+ *     §CTX-PMTILES-READER roads:   … from 25 baked tile(s) in 27213 ms
+ *     §CTX-PMTILES-READER landuse: … from 30 baked tile(s) in 27266 ms
+ *     §CTX-PMTILES-READER parks:   … from 25 baked tile(s) in 27609 ms
+ * — five layers, all finishing within 1.6 s of each other at ~27 s. And the same session's WARM
+ * re-reads were `water 8 ms · roads 64 ms · landuse 66 ms · buildings 22 ms`, three orders of
+ * magnitude faster, which proves the cost is network I/O and not parsing or geometry.
+ *
+ * MEASURED against the live R2 tileset (Barcelona Eixample, `scratchpad/probe-ctx-volume.mjs` and
+ * `probe-ctx-coalesce.mjs`, 2026-08-07):
+ *   • one cold 3D-Site open issues **124 range requests** carrying **1,002 KiB** in total;
+ *   • per-request latency, measured by fetching the same 20 tiles strictly one at a time:
+ *     3,948 ms / 20 = **197 ms**;
+ *   • 124 × 197 ms = **24.4 s**, against the founder's observed 26–27 s.
+ *
+ * ⚠ SO THE BOTTLENECK IS NEITHER BANDWIDTH NOR SERIALISATION IN *OUR* CODE, and getting that
+ * distinction right is the whole finding. One megabyte cannot take 27 s on any link the founder
+ * has (at 5 Mbit/s it is 1.6 s), and the reader already fans out with `Promise.all` — the same
+ * 20 tiles that take 3,948 ms serially take **613 ms** concurrently here, a ×6.4 speedup. What
+ * costs 27 s is paying a ROUND TRIP 124 times for one megabyte. Any queueing anywhere in the path
+ * — a per-host connection cap, a shared proxy, a congested uplink — multiplies straight into that
+ * count, which is exactly why all five layers land together: they are interleaved in one queue.
+ * The architecturally durable answer is therefore not "make the 124 requests faster" but
+ * **stop making 124 requests**.
+ *
+ * PMTiles orders tile data by Hilbert tile id, so the tiles covering one bbox occupy a nearly
+ * contiguous byte span. Measured collapse, per layer, at this gap tolerance:
+ *      buildings 36 → 5 · roads 21 → 4 · water 28 → 3 · parks 20 → 2 · landuse 19 → 4
+ *      TOTAL **124 → 18 requests**, payload 1,002 → 1,274 KiB.
+ * 272 KiB of skipped-over gap bytes to remove 106 round trips: at the measured 197 ms that is
+ * 24.4 s → 3.5 s in the queued case, and it leaves the already-fast concurrent case untouched.
+ *
+ * ⚠ COALESCING MUST NEVER LOSE DATA — it is an optimisation, and this subsystem's whole reason to
+ * exist is that a failure must not read as an empty city (§CONTEXT-DATA-HONESTY, L-467/469). A span
+ * bundles ~10 tiles into one request, so a span failure would drop ten tiles where today one tile
+ * fails alone. `flush()` therefore RE-ISSUES every member of a failed span individually before
+ * giving up, so the worst case degrades to exactly today's behaviour rather than to a hole.
+ */
+export const RANGE_COALESCE_MAX_GAP_BYTES = 64 * 1024;
+
+/**
+ * Hard ceiling on ONE coalesced request. Without it a sparse archive (a leaf directory megabytes
+ * away from its tile data) could merge into a span covering most of a 2.3 GB file — a request that
+ * would "work" and take the tab down, the same shape of catastrophe as the `MAX_TILES_PER_FETCH`
+ * fan-out guard. A span that would exceed this is split; the pieces are still far fewer than the
+ * individual ranges they replace.
+ */
+export const RANGE_COALESCE_MAX_SPAN_BYTES = 4 * 1024 * 1024;
+
+/** One requested byte range, tagged with its position in the caller's array. */
+export interface ByteRange { readonly offset: number; readonly length: number }
+
+/** A merged span plus the indices of the input ranges it serves. */
+export interface CoalescedSpan {
+    readonly offset: number;
+    readonly length: number;
+    readonly members: readonly number[];
+}
+
+/**
+ * §CTX-RANGE-COALESCE — merge byte ranges separated by no more than `maxGap` into single spans,
+ * never exceeding `maxSpan`. PURE + testable; the transport below is the only caller.
+ *
+ * ⚠ The returned `members` are indices into `ranges` AS GIVEN, not into the sorted order — the
+ * caller must be able to hand each waiting request its own slice back, and an ordering that only
+ * the sort knows about would silently pair a tile with another tile's bytes.
+ */
+export function coalesceRanges(
+    ranges: readonly ByteRange[],
+    maxGap: number = RANGE_COALESCE_MAX_GAP_BYTES,
+    maxSpan: number = RANGE_COALESCE_MAX_SPAN_BYTES,
+): CoalescedSpan[] {
+    const order = ranges.map((r, i) => ({ ...r, i })).sort((a, b) => a.offset - b.offset);
+    const out: Array<{ offset: number; length: number; members: number[] }> = [];
+    for (const r of order) {
+        const last = out[out.length - 1];
+        const merged = last ? Math.max(last.length, r.offset + r.length - last.offset) : 0;
+        if (last && r.offset - (last.offset + last.length) <= maxGap && merged <= maxSpan) {
+            last.length = merged;
+            last.members.push(r.i);
+        } else {
+            out.push({ offset: r.offset, length: r.length, members: [r.i] });
+        }
+    }
+    return out;
+}
+
+/** One caller waiting inside the current coalescing window. */
+interface PendingRange {
+    readonly offset: number;
+    readonly length: number;
+    readonly signal?: AbortSignal;
+    readonly resolve: (r: RangeResponse) => void;
+    readonly reject: (e: unknown) => void;
+}
+
+/**
+ * §CTX-RANGE-URL-SOURCE (L-661) — a PMTiles `Source` that gives every byte range its OWN URL and
+ * lets the browser cache it, and (L-716) COALESCES the ranges of one read into a handful of spans.
+ *
+ * MEASURED, not inferred (2026-08-06, Barcelona Eixample far extent, 36–42 tiles at z16):
+ *   • decode (VectorTile → toGeoJSON → ring filter, 13,339 features) ............   67 ms
+ *   • all range requests, DIRECT R2, issued concurrently .......................  798 ms
+ *   • all range requests, through our same-origin proxy, concurrently ..........  955 ms
+ *   • ONE range request, sequentially ..........................  273 ms (proxy) / 385 ms (R2)
+ *   • the same requests if SERIALIZED (sum of individual latencies) ...... 26,525–30,815 ms
+ * So neither the network volume (0.84 MB) nor the parse is capable of costing 80 s. The founder's
+ * 79,725 ms is ~1.9 s × 42 tiles — the signature of range requests running ONE AT A TIME. And the
+ * proxy is NOT the culprit: it measured FASTER than direct R2 here.
+ *
+ * ⚠ WHY THE LIBRARY SERIALIZES THEM. `pmtiles`' `FetchSource` sniffs the user agent and, on
+ * **Windows + any Chromium browser**, sets `cache: "no-store"` on every single range request:
+ *
+ *     const isWindows = userAgent.indexOf("Windows") > -1;
+ *     const isChromiumBased = /Chrome|Chromium|Edg|OPR|Brave/.test(userAgent);
+ *     if (isWindows && isChromiumBased) this.chromeWindowsNoCache = true;
+ *     …
+ *     } else if (this.chromeWindowsNoCache) { cache = "no-store"; }
+ *
+ * Every tile of every read therefore goes to the network, forever — which is exactly what the
+ * founder's log shows and is the single most diagnostic fact in it: the SECOND read of the same
+ * bbox cost 79,431 ms against the first's 79,725 ms. A read that had a warm HTTP cache could not
+ * possibly come back within 0.4% of the cold one. **There was no cache to hit.** On top of that,
+ * all 42 ranges address ONE URL, so they contend for a single browser cache entry instead of
+ * proceeding in parallel.
+ *
+ * THE FIX, and why it is a `Source` rather than a patch: `Source` is the library's own supported
+ * extension point (`getBytes` + `getKey`), so we replace the transport WITHOUT forking pmtiles or
+ * monkey-patching a vendor class. Each range gets a distinct, individually-cacheable URL
+ * (`…?v=<stamp>&r=<offset>-<length>`) and no `cache` override, which:
+ *   1. removes the single-cache-entry contention, so the ranges actually run concurrently;
+ *   2. restores normal HTTP caching, so a second read of the same tiles is served from disk;
+ *   3. keeps the §CONTEXT-CACHE-BUST version stamp in the URL, so a re-bake still invalidates
+ *      everything at once — the per-range suffix is ADDITIVE to the stamp, never a replacement.
+ *
+ * ⚠ The extra query parameter was VERIFIED against both backends before shipping, because a store
+ * that treated it as part of the object key would 404 every tile: R2 returned `206` with
+ * `content-range: bytes 100000000-100019999/2399042929`, and so did the same-origin proxy (which
+ * routes on `req.params.layer` and never reads the query string).
+ *
+ * ⚠ L-661 WAS NECESSARY AND NOT SUFFICIENT, which is why §CTX-RANGE-COALESCE sits on top of it.
+ * Removing `no-store` restored caching and concurrency, and the read still cost 27 s cold, because
+ * 124 individually-correct requests is itself the defect. See the §CTX-RANGE-COALESCE note above.
+ */
 class RangeUrlFetchSource implements Source {
+    /** Requests accumulated in the current coalescing window. */
+    private queue: PendingRange[] = [];
+    /** The scheduled flush, or null when the window is closed. */
+    private flushTimer: ReturnType<typeof setTimeout> | null = null;
+
     constructor(private readonly url: string) {}
 
     /** The archive identity for the library's internal directory cache — the range-less URL. */
@@ -438,12 +594,90 @@ class RangeUrlFetchSource implements Source {
         return this.url;
     }
 
-    async getBytes(offset: number, length: number, signal?: AbortSignal): Promise<RangeResponse> {
-        // Distinct URL per range — see the class note. The stamp is already on `this.url`.
+    /**
+     * Enqueue a range and let the window close before anything hits the network.
+     *
+     * ⚠ THE WINDOW IS A MACROTASK (`setTimeout(…, 0)`), NOT A MICROTASK, AND THAT IS LOAD-BEARING.
+     * `readContextTileFeatures` fans out with `Promise.all(tiles.map(loadTile))`, and each branch
+     * `await`s the cached header and directory promises before it reaches `getBytes`. Those awaits
+     * resolve on the MICROTASK queue of the current task, so a `queueMicrotask` flush would fire
+     * after the first branch and leave the other 34 to trickle out one window at a time — it would
+     * coalesce almost nothing while looking like it worked. A macrotask runs only once the whole
+     * microtask queue has drained, i.e. once every branch has queued its range.
+     */
+    getBytes(offset: number, length: number, signal?: AbortSignal): Promise<RangeResponse> {
+        return new Promise<RangeResponse>((resolve, reject) => {
+            this.queue.push({ offset, length, signal, resolve, reject });
+            if (this.flushTimer === null) {
+                this.flushTimer = setTimeout(() => { this.flushTimer = null; void this.flush(); }, 0);
+            }
+        });
+    }
+
+    /** Issue one request per coalesced span and hand every waiter its own slice. */
+    private async flush(): Promise<void> {
+        const batch = this.queue;
+        this.queue = [];
+        // ⚠ Drop callers that gave up while the window was open — fetching bytes nobody is waiting
+        // for is the waste this whole change exists to remove. An abort is NOT a failure
+        // (§L-579): the caller's own `signal?.aborted` check turns it into `status: 'aborted'`.
+        const live: PendingRange[] = [];
+        for (const p of batch) {
+            if (p.signal?.aborted) p.reject(new DOMException('Aborted', 'AbortError'));
+            else live.push(p);
+        }
+        if (live.length === 0) return;
+
+        const spans = coalesceRanges(live.map((p) => ({ offset: p.offset, length: p.length })));
+        await Promise.all(spans.map(async (span) => {
+            let bytes: { data: ArrayBuffer; etag?: string; cacheControl?: string; expires?: string };
+            try {
+                bytes = await this.fetchRange(span.offset, span.length);
+            } catch (spanError) {
+                // ⚠ NEVER LOSE A TILE TO THE OPTIMISATION. One failed span would otherwise take
+                // every tile it bundled with it, turning a transient blip into a visible hole in
+                // the massing — a failure rendered as "nothing is here", which is precisely the
+                // §CONTEXT-DATA-HONESTY defect this subsystem was built to end. Fall back to the
+                // pre-coalescing behaviour: one request per member, each failing on its own merits.
+                console.warn(
+                    `[contextTiles] §CTX-RANGE-COALESCE span ${span.offset}+${span.length} failed ` +
+                    `(${String((spanError as Error)?.message ?? spanError)}) — re-issuing its ` +
+                    `${span.members.length} range(s) individually so no tile is lost to the batch.`,
+                );
+                await Promise.all(span.members.map(async (i) => {
+                    const p = live[i]!;
+                    try { p.resolve(await this.fetchRange(p.offset, p.length)); }
+                    catch (e) { p.reject(e); }
+                }));
+                return;
+            }
+            for (const i of span.members) {
+                const p = live[i]!;
+                const start = p.offset - span.offset;
+                p.resolve({
+                    // ⚠ `slice`, never a view: `RangeResponse.data` is an ArrayBuffer the decoder
+                    // wraps directly, and handing out overlapping views of one buffer would let two
+                    // tiles' decodes read each other's bytes.
+                    data: bytes.data.slice(start, start + p.length),
+                    etag: bytes.etag,
+                    cacheControl: bytes.cacheControl,
+                    expires: bytes.expires,
+                });
+            }
+        }));
+    }
+
+    /** One real HTTP range request. Distinct URL per range — see the class note. */
+    private async fetchRange(
+        offset: number,
+        length: number,
+    ): Promise<{ data: ArrayBuffer; etag?: string; cacheControl?: string; expires?: string }> {
         const sep = this.url.includes('?') ? '&' : '?';
         const rangeUrl = `${this.url}${sep}r=${offset}-${length}`;
+        // ⚠ NO `signal`. A coalesced request serves several callers, so one caller's cancellation
+        // must not empty a download the others are awaiting — the same rule as §CTX-ONE-READ-PER-BBOX
+        // and the `tileInFlight` shared read. Callers that aborted were already rejected in `flush`.
         const resp = await fetch(rangeUrl, {
-            signal,
             headers: { range: `bytes=${offset}-${offset + length - 1}` },
         });
         if (resp.status >= 300) throw new Error(`Bad response code: ${resp.status}`);
@@ -792,6 +1026,15 @@ async function loadTile(
 
     tileInFlight.set(key, shared);
     return shared;
+}
+
+/**
+ * Test seam — build the §CTX-RANGE-COALESCE transport in isolation, so the batching, the slicing
+ * and the failed-span fallback can be pinned WITHOUT a synthetic PMTiles archive. Returning the
+ * `Source` interface keeps the class itself private.
+ */
+export function __createRangeSourceForTest(url: string): Source {
+    return new RangeUrlFetchSource(url);
 }
 
 /** Test/diagnostic helper — drop the cached archives (header + directory caches with them) AND the
