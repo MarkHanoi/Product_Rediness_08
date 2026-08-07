@@ -187,6 +187,78 @@ export interface AuditInput {
     sceneReadable?: boolean;
 }
 
+// ── §C13-SCENE-ID-KEY — the scene check must read the key the SCENE actually uses ──
+//
+// C13 §3.11 / ADR-0298 lineage, variant FIVE of one family: L-676 no owner →
+// L-694 wrong PROPERTY → L-711 incomplete expected set → L-713 unmodelled channel →
+// **L-7xx wrong property, on the SCENE surface.**
+//
+// The scene tripwire was gated on `userData.elementId != null && userData.elementType
+// != null`. Exactly ONE production builder stamps `elementId` on a scene root
+// (`StairMeshBuilder`, packages/geometry-stair/src/StairMeshBuilder.ts:154). Every other
+// family stamps `id`:
+//
+//   WallFragmentBuilder:822        { id, elementType:'wall',  type:'wall',  selectable }
+//   SlabFragmentBuilder:398        { id, type:'slab', elementType:'Slab', … }
+//   RoomBoundingLineBuilder:87     { id, type, levelId, version }
+//   BimGridRenderer:167            { elementType:'BimGrid', id }
+//   LevelVisualizer:241            { elementType:'LevelLine', id }
+//
+// So `scene.foreignElement` could only ever fire for STAIRS. Fourteen of the fifteen
+// audited families — including the walls the founder actually sees — were structurally
+// invisible to it, and the audit printed `✓ loaded clean` over a scene full of Project
+// A geometry. This is the C13 §3.10 failure verbatim: *a clean verdict that never
+// looked is worse than no verdict, because it manufactures confidence.*
+//
+// WHY THE POSITIVE CONTROL DID NOT CATCH IT (the load-bearing lesson):
+// `ProjectIsolationAudit.plantedLeak.test.ts` DOES plant a scene leak and DOES assert
+// the audit fails — but it plants `{ elementId, elementType }`, a shape that exists
+// nowhere except in the test. The control validated the detector against the
+// detector's own model of the world rather than against the world. A positive control
+// is only evidence when the thing it plants is the thing the system really produces;
+// the fixtures below are therefore copied verbatim from the builders, cited by
+// file:line, so a rename breaks the test rather than silently re-blinding the audit.
+
+/**
+ * The element id a scene object claims, reading BOTH keys the builders use.
+ * Returns null when the object carries no usable id.
+ */
+function sceneElementId(ud: Record<string, unknown>): string | null {
+    const raw = ud.elementId ?? ud.id;
+    return typeof raw === 'string' && raw.length > 0 ? raw : null;
+}
+
+/** The element type a scene object claims, reading BOTH keys the builders use. */
+function sceneElementType(ud: Record<string, unknown>): unknown {
+    return ud.elementType ?? ud.type;
+}
+
+/**
+ * Scene objects that legitimately carry an id + type but are NEVER in a snapshot's
+ * expected id set. DECLARED, not sniffed — each exemption is a written decision, in
+ * the diff, for the same reason `declaredProjectScopes.uncounted` is:
+ *
+ *  • `isProjectOrigin`  — the always-on ProjectOrigin datum (C11: a project singleton,
+ *    auto-created at world origin, never user-drawn, never serialized as an element).
+ *    It is NOT unowned: `initProjectOrigin` registers the `projectOrigin` scope and
+ *    re-seeds it on every switch, so it is torn down by a named owner and must not
+ *    also be accused here.
+ *  • `isPreview`        — transient tool-preview ghosts. Not project state; swept by
+ *    the `bim-project-cleared` handler in `initTools.ts`.
+ *  • `role: 'hit-proxy'`— invisible pick proxies parented under an element root; they
+ *    mirror their parent's id and would only ever double-count it.
+ *
+ * NOTE what is deliberately NOT exempt: LEVEL lines. Levels are serialized project
+ * state, so the honest fix is to put them in the EXPECTATION (`ProjectLoader` now
+ * pushes `snapshot.levels`, exactly as §L-711 did for `snapshot.lighting`) rather
+ * than to blind the audit to them.
+ */
+function isExemptSceneSingleton(ud: Record<string, unknown>): boolean {
+    return ud.isProjectOrigin === true
+        || ud.isPreview === true
+        || ud.role === 'hit-proxy';
+}
+
 /**
  * PURE leak detector — no window, no THREE, no I/O. Unit-testable in isolation.
  * Returns a report when a leak is found, else null.
@@ -201,7 +273,9 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     let underlayCount = 0;
     let ifcCount = 0;
     let dxfCount = 0;
-    const foreignSceneIds: string[] = [];
+    // §C13-SCENE-ID-KEY — deduped so a wall's root + its N part meshes (which all
+    // carry the SAME id) count as ONE foreign element, not N.
+    const foreignSceneIdSet = new Set<string>();
 
     for (const obj of sceneObjects) {
         const ud = (obj.userData ?? {}) as Record<string, unknown>;
@@ -217,11 +291,14 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
             dxfCount += 1;
         }
         // A BIM element whose id is NOT part of the loaded project is foreign.
-        if (idKnown && ud.elementId != null && ud.elementType != null) {
-            const id = String(ud.elementId);
-            if (!expectedIds!.has(id)) foreignSceneIds.push(id);
+        if (idKnown && !isExemptSceneSingleton(ud)) {
+            const id = sceneElementId(ud);
+            if (id !== null && sceneElementType(ud) != null && !expectedIds!.has(id)) {
+                foreignSceneIdSet.add(id);
+            }
         }
     }
+    const foreignSceneIds = [...foreignSceneIdSet];
 
     // Store-level foreign elements (id-based; skipped when expectation unknown).
     const foreignStoreDetails: Array<{ store: string; ids: string[] }> = [];

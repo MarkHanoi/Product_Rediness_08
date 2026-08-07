@@ -242,6 +242,38 @@ describe('§L-676 — a DELIBERATELY PLANTED cross-project leak FAILS the audit 
             .toEqual(['wall_A9_LEAKED']);
     });
 
+    // §C13-SCENE-ID-KEY — THE POSITIVE CONTROL THAT WAS NOT ONE.
+    //
+    // The test directly above plants `{ elementId, elementType }`. That shape is
+    // produced by exactly ONE production builder (`StairMeshBuilder.ts:154`). Walls,
+    // slabs, doors, windows, room-bounding lines, grids and level datums all stamp
+    // `id` — see the `§C13-SCENE-ID-KEY` block in ProjectIsolationAudit.ts for the
+    // file:line census. So the control above passed against a world the app does not
+    // build, and `scene.foreignElement` was structurally unable to fire for fourteen
+    // of the fifteen audited families while the audit printed `✓ loaded clean`.
+    //
+    // This test plants the shape `WallFragmentBuilder.ts:822` actually writes, through
+    // the REAL runtime path (real bus, real `window.scene` gather, real frame pump).
+    // If someone re-narrows the id read, THIS is the test that goes red.
+    it('SCENE: a foreign WALL left in the scene with the REAL builder userData shape is reported', () => {
+        W().scene = fakeScene([
+            // WallFragmentBuilder.ts:822 — the committed wall root, verbatim.
+            { name: 'wall_A9', userData: { id: 'wall_A9_LEAKED', elementType: 'wall', type: 'wall', selectable: true } },
+            // …and its part meshes, which repeat the same id (WallFragmentBuilder.ts:1693).
+            { name: 'part', userData: { id: 'wall_A9_LEAKED', parentId: 'wall_A9_LEAKED', elementType: 'WallPart' } },
+        ]);
+        plantFullStoreCoverage();
+        expectElements('proj-B', []);
+
+        const report = loadProject('proj-B', { empty: true });
+
+        expect(surfaces(report)).toContain('scene.foreignElement');
+        const f = report!.findings.find(s => s.surface === 'scene.foreignElement')!;
+        expect(f.details).toEqual(['wall_A9_LEAKED']);
+        expect(f.count).toBe(1);   // deduped across root + parts
+        expect(leakEvents).toHaveLength(1);
+    });
+
     it('SCENE: an underlay / IFC / DXF import surviving a fresh load is reported', () => {
         W().scene = fakeScene([
             { name: 'FloorPlanUnderlay_A', userData: { isFloorPlanUnderlay: true } },

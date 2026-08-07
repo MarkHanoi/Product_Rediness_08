@@ -239,6 +239,52 @@ its filename to LISTENER_ALLOWLIST in this script with a justification comment.
     console.log(`✓ No dead project-lifecycle DOM listeners.`);
 }
 
+/* ────────────────────────────────────────────────────────────────────────── *
+ * 5c. §C13-SCENE-ID-KEY — the scene tripwire must read the key the SCENE uses.
+ *
+ * C13 §3.10/§3.11 lineage: L-676 (no owner) → L-694 (wrong PROPERTY) →
+ * L-711 (incomplete expected set) → L-713 (unmodelled channel) → this, which is
+ * "wrong property" again, on the SCENE surface.
+ *
+ * `ProjectIsolationAudit.detectLeaks` gated its `scene.foreignElement` check on
+ * `userData.elementId`. Exactly one production builder stamps that key
+ * (StairMeshBuilder); walls, slabs, doors, windows, room-bounding lines, grids
+ * and level datums all stamp `userData.id`. The check was therefore dead for
+ * fourteen of fifteen families while the audit logged `✓ loaded clean` — and the
+ * planted-leak "positive control" did not catch it, because it planted the
+ * detector's own shape rather than the builders'.
+ *
+ * A unit test can be deleted; this gate makes the narrowing itself fail CI.
+ * ────────────────────────────────────────────────────────────────────────── */
+const AUDIT_FILE = path.join(
+    ROOT, 'packages/core-app-model/src/persistence/ProjectIsolationAudit.ts',
+);
+if (!fs.existsSync(AUDIT_FILE)) {
+    failed = true;
+    console.error(`\n✗ §C13-SCENE-ID-KEY — ProjectIsolationAudit.ts not found at ${AUDIT_FILE}`);
+} else {
+    const auditSrc = fs.readFileSync(AUDIT_FILE, 'utf8');
+    const readsBothIds   = /ud\.elementId\s*\?\?\s*ud\.id/.test(auditSrc);
+    const readsBothTypes = /ud\.elementType\s*\?\?\s*ud\.type/.test(auditSrc);
+    if (!readsBothIds || !readsBothTypes) {
+        failed = true;
+        console.error(`
+✗ §C13-SCENE-ID-KEY — ProjectIsolationAudit no longer reads both scene keys.
+
+    userData id   read via 'ud.elementId ?? ud.id':      ${readsBothIds ? 'ok' : 'MISSING'}
+    userData type read via 'ud.elementType ?? ud.type':  ${readsBothTypes ? 'ok' : 'MISSING'}
+
+Production builders stamp scene roots with 'id'/'type' (WallFragmentBuilder,
+SlabFragmentBuilder, RoomBoundingLineBuilder, BimGridRenderer, LevelVisualizer);
+only StairMeshBuilder stamps 'elementId'. Narrowing the read to one key blinds
+the scene.foreignElement tripwire to almost every element family, and the audit
+then reports '✓ loaded clean' over a scene full of the previous project.
+`);
+    } else {
+        console.log(`✓ §C13-SCENE-ID-KEY — the scene tripwire reads both userData keys.`);
+    }
+}
+
 if (failed) process.exit(1);
 console.log(`\n✓ Project isolation is intact.\n`);
 process.exit(0);

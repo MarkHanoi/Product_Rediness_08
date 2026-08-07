@@ -2262,6 +2262,18 @@ export class ProjectLoader {
                 // trains the reader to discount a P0 line. (§CONTEXT-DATA-HONESTY: the
                 // audit's model and the world disagreed, and the model won the log.)
                 __pushIds(s.lighting);
+                // §C13-SCENE-ID-KEY — `levels`, for the same COMPLETENESS reason as
+                // `lighting` above (§L-711), surfaced by the same widening.
+                //
+                // `LevelVisualizer` stamps every level datum line + label with
+                // `{ elementType: 'LevelLine', id: level.id }` (LevelVisualizer.ts:241/290)
+                // and `snapshot.levels` is serialized, restored one-for-one project state —
+                // not derived. It was absent from this list only because the scene check was
+                // gated on `userData.elementId`, which no level line carries, so nothing
+                // ever asked. Now that the check reads `id` as well, omitting levels would
+                // make the audit accuse every legitimately-restored storey. Incomplete
+                // expectations do not weaken an audit quietly; they make it cry wolf.
+                __pushIds(s.levels);
                 (globalThis as unknown as {
                     __pryzmLoadedProjectExpectation?: { projectId: string; elementIds: string[] };
                 }).__pryzmLoadedProjectExpectation = {
