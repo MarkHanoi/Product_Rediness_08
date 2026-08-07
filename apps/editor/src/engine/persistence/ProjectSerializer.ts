@@ -81,6 +81,8 @@ import { sheetStore } from '@pryzm/core-app-model';
 import { scheduleStore } from '@pryzm/core-app-model';
 import { userMaterialStore } from '@pryzm/core-app-model'; // #105 Materials Repository
 import { annotationStore } from '@pryzm/plugin-annotations';
+// §ANN-TYPE-PERSIST — custom annotation system types (the Revit Type/Instance split).
+import { annotationSystemTypeStore } from '@pryzm/plugin-annotations';
 // ANNOTATION-SYSTEM-AUDIT-2026 A4 / B8 / B9 — additional annotation slices
 import { constraintStore } from '@pryzm/plugin-annotations';
 import { annotationVisibilityStore } from '@pryzm/plugin-annotations';
@@ -338,6 +340,15 @@ export interface ProjectSnapshot {
      * ANNOTATION-SYSTEM-AUDIT-2026 A4 — ConstraintRecord persistence.
      * Locked-dimension constraint records derived from annotations.
      * Optional for backward compat with pre-A4 snapshots.
+     */
+    /**
+     * §ANN-TYPE-PERSIST — user-created annotation system types. Built-ins are code and
+     * are never serialised. Optional for backward compat with pre-§ANN-TYPE snapshots.
+     */
+    annotationSystemTypes?: { version: 1; types: any[] };
+    /**
+     * ANNOTATION-SYSTEM-AUDIT-2026 A4 — ConstraintRecord persistence.
+     * Locked-dimension constraint records derived from annotations.
      */
     annotationConstraints?: {
         version: 1;
@@ -1099,6 +1110,15 @@ export class ProjectSerializer {
                 return (snap.annotations.length > 0 || snap.dimensions.length > 0)
                     ? snap as ProjectSnapshot['annotations']
                     : undefined;
+            })(),
+
+            // §ANN-TYPE-PERSIST — CUSTOM annotation system types. Built-ins are code and
+            // are NOT emitted; re-emitting them would fork them on every load. This is the
+            // hole `stairTypeStore` still has (custom stair types are silently lost on
+            // save/load) and it was closed for annotations before shipping, not after.
+            annotationSystemTypes: (() => {
+                const snap = annotationSystemTypeStore.serialize();
+                return snap.types.length > 0 ? snap as ProjectSnapshot['annotationSystemTypes'] : undefined;
             })(),
 
             // ANNOTATION-SYSTEM-AUDIT-2026 A4 — ConstraintRecord persistence.

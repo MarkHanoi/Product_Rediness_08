@@ -79,6 +79,8 @@ import { requirementStore, assetCatalogStore, buildDefaultAssetCatalog } from '@
 // prod build, can trigger a lazy-chunk fetch). Pull them into this static import so
 // no dynamic import fires during load; the restore logic is unchanged.
 import { annotationStore, constraintStore, annotationVisibilityStore, obcAnnotationAdapter } from '@pryzm/plugin-annotations';
+// §ANN-TYPE-PERSIST — custom annotation system types.
+import { annotationSystemTypeStore } from '@pryzm/plugin-annotations';
 import { ClearProjectCommand } from '@pryzm/command-registry';
 // §FIX-EMPTY-LOAD-HANG (L-108) — statically import the (small, idempotent) view-
 // template migration. It only reads live @pryzm/core-app-model stores (already in
@@ -1910,6 +1912,12 @@ export class ProjectLoader {
             }
 
             // §ANN-A2 — Restore Annotation store from snapshot
+            // §ANN-TYPE-PERSIST — restore CUSTOM annotation system types BEFORE the
+            // annotations that point at them, so no element loads with a dangling
+            // `systemTypeId` and silently falls back to a default presentation.
+            if ((snapshot as any).annotationSystemTypes) {
+                annotationSystemTypeStore.deserialize((snapshot as any).annotationSystemTypes);
+            }
             if ((snapshot as any).annotations) {
                 annotationStore.deserialize((snapshot as any).annotations);
                 const annSnap = (snapshot as any).annotations as { annotations?: any[]; dimensions?: any[] };
