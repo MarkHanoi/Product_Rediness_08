@@ -32,7 +32,7 @@
  * to `WallJoinResolver.clashFreeFootprints.test.ts` so the two files' numbers are comparable.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
 import { WallJoinResolver } from '../src/WallJoinResolver';
 import { resolveJunctions, type WallInput, type Pt2 } from '../src/JunctionResolverV2';
@@ -116,6 +116,39 @@ function overlapMm2(p: readonly Pt[], q: readonly Pt[]): number {
 
 /** Shared-mitre-edge sampler noise floor. See clashFreeFootprints.test.ts for the derivation. */
 const CLEAN_MM2 = 300;
+
+/**
+ * GAP measurement — the OTHER way a junction fails, and the one the clash sampler is blind to.
+ *
+ * A junction can be wrong in two directions: doubled solid (overlap) or uncovered material
+ * (a sliver / notch at the vertex). Measuring only overlap can call a notched junction clean.
+ *
+ * THE PREDICATE: within a disc of radius `r <= min(halfThickness)` about the junction vertex,
+ * a correct N-way junction is COVERED COMPLETELY by the union of its incident walls. Proof for
+ * the general case: every point within `halfT` of the vertex is within `halfT` of some incident
+ * wall's centreline (the centrelines all pass through the vertex), i.e. inside that wall's
+ * lateral band; and near the vertex no wall's END cap can exclude it, because the caps are the
+ * mitre planes that meet AT the vertex. So any uncovered cell inside that disc is a real hole.
+ *
+ * Returns uncovered area in mm².
+ */
+function gapAtVertexMm2(polys: readonly (readonly Pt[])[], vx: number, vz: number, r: number): number {
+    const S = 0.001;
+    let miss = 0;
+    for (let x = vx - r; x <= vx + r; x += S) {
+        for (let z = vz - r; z <= vz + r; z += S) {
+            if ((x - vx) ** 2 + (z - vz) ** 2 > r * r) continue;
+            let covered = false;
+            for (const p of polys) if (p.length >= 3 && inPoly(x, z, p)) { covered = true; break; }
+            if (!covered) miss++;
+        }
+    }
+    return miss * S * S * 1e6;
+}
+/** Sampler noise floor for the gap predicate: the disc boundary is quantised at 1 mm, so a
+ *  perfectly-covered disc still registers a few boundary cells. Measured ≤ 13 mm² on a known-
+ *  good 2-wall L; a real notch measures thousands. */
+const NO_GAP_MM2 = 100;
 
 function polygonAreaMm2(poly: readonly Pt[]): number {
     let a = 0;
@@ -256,6 +289,177 @@ describe('§FIX-LAYERED-WALL-V2-PARITY — buildWallLayerBands inherits the V2 n
         const whole = polygonAreaMm2(guestFp.polygon);
         const sum = bands.reduce((s, b) => s + polygonAreaMm2(b.polygon), 0);
         expect(sum).toBeLessThanOrEqual(whole * 1.001);
+    });
+});
+
+// ─── 3. THE 3-WALL JUNCTION — a third wall into an already-mitred pair ────────────────────
+//
+// The founder: "THE TRIM ON THE THIRD WALL JOINING TWO ALREADY-CREATED (WELL MITRED, JOINED)
+// WALLS DOESN'T SEAT PROPERLY." A solver correct for 2 walls is not thereby correct for 3, so
+// this block measures the 3-wall case in BOTH directions and across creation orders.
+//
+// RESULT (numbers in the assertions): the whole-junction ring sweep is clean in both
+// directions and is order-independent; the per-wall mitre-plane projection doubles solid by
+// ~9 940 mm² in every order. The failure mode is OVERLAP, not gap — the gap predicate reads
+// ~0 in every configuration, including the broken ones.
+
+describe('§FIX-LAYERED-WALL-V2-PARITY — the 3-wall junction, measured both ways', () => {
+
+    const THIRD: WallInput[] = [
+        { id: 'A', start: { x: 0, z: 0 }, end: { x: 6, z: 0 }, thickness: T },
+        { id: 'B', start: { x: 0, z: 0 }, end: { x: 0, z: 6 }, thickness: T },
+        { id: 'C', start: { x: 0, z: 0 }, end: { x: 3, z: 3 }, thickness: GUEST_T },
+    ];
+    const v2Polys = (order: number[]): Map<string, readonly Pt[]> => {
+        const inputs = order.map(i => THIRD[i]!);
+        const fps = buildAllFootprints(inputs, resolveJunctions(inputs));
+        return new Map(fps.map(f => [f.id, f.polygon]));
+    };
+    const worstOverlap = (m: Map<string, readonly Pt[]>): number => {
+        const ids = [...m.keys()];
+        let worst = 0;
+        for (let i = 0; i < ids.length; i++) {
+            for (let j = i + 1; j < ids.length; j++) worst = Math.max(worst, overlapMm2(m.get(ids[i]!)!, m.get(ids[j]!)!));
+        }
+        return worst;
+    };
+
+    it('V2 — the 3-wall junction is clean in BOTH directions (no doubled solid, no notch)', () => {
+        const m = v2Polys([0, 1, 2]);
+        expect(worstOverlap(m), 'doubled solid').toBeLessThan(CLEAN_MM2);
+        expect(gapAtVertexMm2([...m.values()], 0, 0, 0.10), 'uncovered sliver at the vertex')
+            .toBeLessThan(NO_GAP_MM2);
+    });
+
+    it('V2 — the solve is ORDER-INDEPENDENT (the cluster is re-solved, not applied incrementally)', () => {
+        // The third wall arrives AFTER the other two are committed. If the junction were solved
+        // incrementally, permuting the inputs would move the geometry. It does not.
+        const key = (m: Map<string, readonly Pt[]>): string =>
+            [...m.entries()].sort(([a], [b]) => a.localeCompare(b))
+                .map(([id, p]) => `${id}:${p.map(v => `${v.x.toFixed(9)},${v.z.toFixed(9)}`).join('|')}`).join(';');
+        expect(key(v2Polys([2, 0, 1])), 'order C,A,B').toBe(key(v2Polys([0, 1, 2])));
+        expect(key(v2Polys([1, 2, 0])), 'order B,C,A').toBe(key(v2Polys([0, 1, 2])));
+    });
+
+    it('MEASURED-OPEN — the LEGACY path doubles solid at the 3-wall junction, in every order', () => {
+        // The layered wall took THIS path before the buildWallLayerBands wiring. Same root as
+        // the 2-wall case above: a per-wall plane projection solves this-wall-against-ONE-
+        // neighbour, so the third arrival is cut on a plane that is not the junction's.
+        for (const order of [[0, 1, 2], [2, 0, 1], [1, 2, 0]]) {
+            const walls = order.map(i => {
+                const w = THIRD[i]!;
+                return mk([w.start.x, w.start.z], [w.end.x, w.end.z], w.thickness);
+            });
+            const res = WallJoinResolver.resolveLevel(walls) as unknown as Map<string, {
+                baseLine: [THREE.Vector3, THREE.Vector3];
+                startMN: { nx: number; nz: number } | null;
+                endMN: { nx: number; nz: number } | null;
+            }>;
+            const fps = walls.map(w => legacyFootprint(res.get(w.id)!, w.thickness));
+            let worst = 0;
+            for (let i = 0; i < fps.length; i++) {
+                for (let j = i + 1; j < fps.length; j++) worst = Math.max(worst, overlapMm2(fps[i]!, fps[j]!));
+            }
+            // Magnitude is context-dependent (2 520 mm² here; 9 940 mm² for the same geometry
+            // in a standalone file — the legacy resolver consumes `metadata.createdAt`
+            // ordering, so "which wall yields" shifts with creation order). The DEFECT is
+            // order-independent, so that is what is pinned. Same caveat as the dead-zone block.
+            expect(worst, `legacy 3-wall order ${order.join('')} — doubled solid`).toBeGreaterThan(1000);
+        }
+    });
+});
+
+// ─── 4. MEASURED-OPEN — the NEAR-JUNCTION DEAD ZONE (a SEPARATE defect, V2 does not fix it) ──
+//
+// Everything above is about a wall that co-terminates EXACTLY on the junction vertex. A wall
+// whose endpoint lands NEAR the vertex but not on it is a different defect, and the V2 pipeline
+// does NOT answer it — measured below. This matters because the 3D creation path produces
+// exactly such endpoints: `WallIntentResolver.resolveHitToAnchor` captures within 0.30 m and
+// projects onto a wall CENTRELINE (or a ±halfT face offset) without any endpoint/junction snap,
+// where the plan path snaps to the junction node itself (PlanSnapEngine priority 210).
+//
+// MECHANISM (measured per-arm, and it is precise): `§FIX-WALL-3RD-AT-LCORNER-IMMUTABLE`
+// (JunctionResolverV2.ts ~:741-755) correctly FREEZES the committed L and extracts the near
+// newcomer into its own T-junction — but it butts it against ONE host only, `hostIdx` = the
+// most-perpendicular arm. The newcomer near a corner is inside BOTH arms' solids. Measured at
+// (0.02, 0) with 0.30 m arms and a 0.20 m guest: C∩A = 0 mm² (butted clean to the chosen host)
+// while C∩B = 7 548 mm² (the other arm is never considered). The overlap scales with proximity
+// to the vertex — 7 548 / 4 360 / 1 012 mm² at 20 / 50 / 100 mm — and vanishes at 150 mm =
+// the host half-thickness, where the ordinary T pass takes over. That annulus is the dead zone.
+//
+// ── CLOSED 2026-08-07 (founder-authorised) ────────────────────────────────────────────────
+// The construction first proposed here — admit the newcomer into the frozen corner's junction
+// and sweep all three arms about the FROZEN vertex — was MEASURED and REJECTED: it is a perfect
+// partition (0 doubled / 0 uncovered) but it MOVES BOTH COMMITTED ARMS (A loses 10,748 mm², B
+// loses 10,468 mm² as their inner mitre re-targets the guest). That is right for an exact-vertex
+// Y, where all three arms are solved TOGETHER FOR THE FIRST TIME, and wrong here: a newcomer
+// arriving at an ALREADY-COMMITTED corner conforms to it, it does not remodel it.
+//
+// The shipped fix keeps the L-146 freeze and CLIPS the guest instead — it is seated at the
+// frozen vertex with every frozen arm entered as a PASSTHROUGH BARRIER, so the arms clip the
+// guest without the sweep ever writing into their own footprints. Doubled solid → 0 mm² across
+// the whole dead zone with the arms byte-identical. The full lock lives in
+// `junctionResolverV2.nearJunctionDeadZone.test.ts`; these cases now assert the CLOSED state and
+// keep the defect reachable behind the escape hatch so the mechanism stays documented.
+//
+// ⚠ The "unexplained measurement discrepancy" recorded below was REFUTED: `resolveJunctions` is
+// pure (7,548 mm² at every stage, fresh or after any prior solve). The real mechanism is a
+// LEAKED GLOBAL `__pryzm*` BEHAVIOUR FLAG from a neighbouring suite, which masquerades as solver
+// non-determinism. See `junctionResolverV2.solverPurity.test.ts`.
+
+describe('§NEAR-JUNCTION-DEAD-ZONE — CLOSED (assert the FIX; defect reachable via the hatch)', () => {
+    const hatch = () => (globalThis as { __pryzmWallV2NearJunctionDeadZone?: boolean });
+    afterEach(() => { delete hatch().__pryzmWallV2NearJunctionDeadZone; });
+
+    const deadZone = (sx: number, sz: number): { cA: number; cB: number } => {
+        const inputs: WallInput[] = [
+            { id: 'A', start: { x: 0, z: 0 }, end: { x: 6, z: 0 }, thickness: T },
+            { id: 'B', start: { x: 0, z: 0 }, end: { x: 0, z: 6 }, thickness: T },
+            { id: 'C', start: { x: sx, z: sz }, end: { x: 3, z: 3 }, thickness: GUEST_T },
+        ];
+        const fps = buildAllFootprints(inputs, resolveJunctions(inputs));
+        const m = new Map(fps.map(f => [f.id, f.polygon]));
+        return { cA: overlapMm2(m.get('C')!, m.get('A')!), cB: overlapMm2(m.get('C')!, m.get('B')!) };
+    };
+
+    // ⚠ UNEXPLAINED MEASUREMENT DISCREPANCY — recorded, not smoothed over.
+    // The identical inputs measure cB = 7 548 mm² in a standalone file (reproduced twice, in
+    // two separate probe files, and NOT an id-keyed cache — verified by re-running the same
+    // ids before and after an exact-vertex solve, which changed nothing), but cB = 1 300 mm²
+    // when the same helper runs after the earlier describes in THIS file. `resolveJunctions`
+    // reads several `globalThis` feature flags (JunctionResolverV2.ts:172-359) and no test
+    // here sets them, so the coupling is not yet identified. Until it is, these assertions
+    // pin the MECHANISM (the asymmetry: clean against the chosen host, dirty against the
+    // other arm) rather than a magnitude that is demonstrably context-dependent. The
+    // discrepancy is itself a finding and is reported separately — a junction solve whose
+    // result depends on what ran before it would be a serious defect in its own right.
+    it('the guest near the vertex is now clipped by BOTH arms of the frozen corner', () => {
+        const { cA, cB } = deadZone(0.02, 0);
+        expect(cA, 'butted clean to the chosen host arm').toBeLessThan(CLEAN_MM2);
+        expect(cB, 'the OTHER arm now clips the guest too — the dead zone is closed')
+            .toBeLessThan(CLEAN_MM2);
+    });
+
+    it('the escape hatch restores the defect — the asymmetric, un-clipped other arm', () => {
+        hatch().__pryzmWallV2NearJunctionDeadZone = false;
+        const { cA, cB } = deadZone(0.02, 0);
+        expect(cA, 'butted clean to the chosen host arm').toBeLessThan(CLEAN_MM2);
+        expect(cB, 'the OTHER arm of the frozen corner is never considered — the DEFECT')
+            .toBeGreaterThan(CLEAN_MM2);
+        expect(cB / Math.max(cA, 1), 'the defect is ASYMMETRIC — that is the mechanism')
+            .toBeGreaterThan(10);
+    });
+
+    it('the whole former dead zone is clean, in and out of the band', () => {
+        expect(deadZone(0.02, 0).cB, 'former dead zone — now clipped').toBeLessThan(CLEAN_MM2);
+        expect(deadZone(0.15, 0).cB, 'at halfT — claimed by the T pass, clean').toBeLessThan(CLEAN_MM2);
+        expect(deadZone(0.30, 0).cB, 'well clear — clean').toBeLessThan(CLEAN_MM2);
+    });
+
+    it('the EXACT vertex is sound — which is why the fix is to admit, not to nudge', () => {
+        const { cA, cB } = deadZone(0, 0);
+        expect(cA).toBeLessThan(CLEAN_MM2);
+        expect(cB).toBeLessThan(CLEAN_MM2);
     });
 });
 

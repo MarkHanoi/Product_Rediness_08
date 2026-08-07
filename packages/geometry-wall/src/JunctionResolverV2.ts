@@ -310,6 +310,17 @@ function thirdAtLCornerImmutableEnabled(): boolean {
         .__pryzmWallV2ThirdAtLCornerImmutable !== false;
 }
 
+// §NEAR-JUNCTION-DEAD-ZONE (founder 2026-08-07) — the DOUBLED-SOLID hole left by the
+// §FIX-WALL-3RD-AT-LCORNER-IMMUTABLE (L-146) T-seat. See the block comment on the guard pass.
+//
+/** Escape hatch: set `__pryzmWallV2NearJunctionDeadZone = false` to restore the pre-fix
+ *  single-host T-seat, where a near-corner newcomer is solved against ONE arm only and
+ *  drives up to 7,548 mm² of DOUBLED SOLID through the arm it was not seated on. Default ON. */
+function nearJunctionDeadZoneEnabled(): boolean {
+    return (globalThis as { __pryzmWallV2NearJunctionDeadZone?: boolean })
+        .__pryzmWallV2NearJunctionDeadZone !== false;
+}
+
 // §FIX-WALL-LCORNER-COLLINEAR-STEP (founder 2026-08-06) — the EXACTLY-ON-THE-VERTEX hole in
 // the §FIX-WALL-3RD-AT-LCORNER-IMMUTABLE (L-146) guard. See the block comment on the guard
 // pass in `detectJunctions`.
@@ -735,12 +746,100 @@ function detectJunctions(walls: readonly WallInput[], opts: Required<ResolveOpti
             const cornerSet = new Set<EndpointRef>(cornerRefs);
             const newcomers = refs.filter(r => !cornerSet.has(r));
             if (newcomers.length === 0) continue;             // exact N-way Y (all tight) — leave as-is
-            // Seat each near newcomer as its OWN T-junction, butting the most-perpendicular frozen
-            // corner arm (a collinear arm would give a degenerate parallel butt). Foot on the host
-            // segment; NEVER moves the baseline.
+            // ── §NEAR-JUNCTION-DEAD-ZONE (founder 2026-08-07) ─────────────────────────────
+            // A newcomer joining a COMMITTED junction CONFORMS to it; it does not remodel it.
+            //
+            // THE DEFECT the plain single-host T-seat below leaves behind. Seating the newcomer
+            // against the MOST-PERPENDICULAR arm solves it against ONE arm only. Near a corner the
+            // newcomer is inside the solid of BOTH arms, so the arm it was NOT seated on never
+            // clips it: measured 7,548 mm² of DOUBLED SOLID (walls A/B 300 mm at the origin, a
+            // 200 mm newcomer at 45°, start 20 mm off the vertex). The dead zone runs from the
+            // vertex out to the host half-thickness — 452 mm² still doubled at 115 mm.
+            //
+            // WHY NOT THE EXACT-VERTEX Y. The obvious construction — admit the newcomer and sweep
+            // all three arms about the frozen vertex — measures a perfect partition (0 mm² doubled,
+            // 0 mm² uncovered) but MOVES BOTH COMMITTED ARMS (measured: A loses 10,748 mm², B loses
+            // 10,468 mm² as their inner mitre re-targets the newcomer). That is legitimate for a
+            // Y — but only because there all three arms are being solved TOGETHER, FOR THE FIRST
+            // TIME. A near newcomer arriving at an ALREADY-COMMITTED corner is a different problem:
+            // the corner is authored history and the guest is the only party with freedom left.
+            // Resolving the two with the same construction was the category error. (It would also
+            // contradict the byte-identical lock in junctionResolverV2.thirdAtLCornerImmutable.)
+            //
+            // THE CONSTRUCTION. Seat the newcomer at the FROZEN CORNER VERTEX and enter EVERY
+            // frozen arm as a PASSTHROUGH BARRIER. Barriers take part in the angular ring and
+            // clip the guest, but the sweep NEVER writes into a passthrough's own footprint — so
+            // the committed arms are byte-identical BY CONSTRUCTION, not by assertion, while the
+            // guest is clipped by whichever arm face it actually meets. No tolerance, no epsilon,
+            // no nudge: the clip is the exact half-plane of each arm's offset face-line, and both
+            // arm centrelines pass through the vertex, so the barriers are anchored correctly.
+            // The junction carries a passthrough, so §WALL-BODY-INNER-FACE already suppresses the
+            // guest's centreline pivot — a clean flat butt with no arrow-spike tongue.
+            //
+            // APPLICABILITY GATE (geometric, not tolerance-based). A passthrough contributes TWO
+            // barrier directions — the arm's body AND its mirror, which past a wall END is
+            // fictitious solid. That is harmless only while the guest's angular neighbours are
+            // the two REAL arm bodies, i.e. while the guest points INTO the convex sector the
+            // corner encloses. Outside that sector (a guest heading into the reflex quadrant) a
+            // fictitious mirror would become adjacent and clip against solid that is not there,
+            // so we fall back to the single-host T-seat unchanged. Restricted to 2-arm corners:
+            // an N-way frozen corner has no single convex sector and keeps the existing seat.
+            //
+            // RELATION TO §FIX-WALL-PREVIEW-COMMIT-LENGTH-LOCK: that fix is the CAUSE fix — the
+            // plan tool now commits the point the preview drew, so a wall aimed at a corner lands
+            // ON it and far fewer walls enter this band at all. This clip is the BACKSTOP for the
+            // ones that still do (free placement, imported/generated geometry, drifted shells).
+            const cornerArmIdx = [...new Set(cornerRefs.map(r => r.wallIdx))];
+            // The vertex the frozen corner actually mitres about: the crossing of the two arm
+            // centrelines (what `refineLJunctionPivot` pins for the arms-only junction), falling
+            // back to the tight group's centroid when the arms are parallel/degenerate.
+            const cornerVertex: Pt2 = (() => {
+                const c = centroid(cornerRefs.map(r => posOf(r)));
+                if (cornerArmIdx.length !== 2) return c;
+                const [i0, i1] = cornerArmIdx as [number, number];
+                const w0 = walls[i0]!, w1 = walls[i1]!;
+                const d0 = unit(sub(w0.end, w0.start)), d1 = unit(sub(w1.end, w1.start));
+                if (Math.abs(d0.x * d1.z - d0.z * d1.x) < PIVOT_REFINE_MIN_SIN) return c;
+                const x = intersectLines(w0.start, d0, w1.start, d1);
+                return x ?? c;
+            })();
+            /** Is `d` strictly inside the convex sector spanned by the two arms' away-dirs? */
+            const inConvexSector = (d: Pt2): boolean => {
+                if (cornerArmIdx.length !== 2) return false;
+                const arms = cornerRefs
+                    .filter((r, k) => cornerRefs.findIndex(q => q.wallIdx === r.wallIdx) === k)
+                    .map(r => awayDir(r));
+                if (arms.length !== 2) return false;
+                const [a, b] = arms as [Pt2, Pt2];
+                const crossAB = a.x * b.z - a.z * b.x;
+                if (crossAB === 0) return false;                 // collinear arms: no sector
+                // ADR-0299 §RECOVERY-MUST-REFUSE — REFUSE the barrier seat where the clip cannot
+                // be well-posed rather than emitting a sliver. A guest NEAR-COLLINEAR with an arm
+                // has offset face-lines that are near-parallel to that arm's: §V2-NEAR-PARALLEL-CAP
+                // skips the pair, the ring never closes on that side, and the guest would come back
+                // asymmetrically capped (the stray-diagonal shape §FIX-WALL-LCORNER-COLLINEAR-STEP
+                // documents). That configuration falls back to the single-host T-seat, which is
+                // well-posed there. Reuses the sibling block's ring-collinearity constant — the
+                // same threshold the sweep itself uses to decide a pair yields no corner, not a
+                // new tolerance invented here.
+                for (const arm of [a, b]) {
+                    if (Math.abs(arm.x * d.z - arm.z * d.x) < RING_COLLINEAR_SIN) return false;
+                }
+                const sA = Math.sign(a.x * d.z - a.z * d.x);
+                const sB = Math.sign(d.x * b.z - d.z * b.x);
+                const s  = Math.sign(crossAB);
+                return sA === s && sB === s;                      // strictly between a and b
+            };
+            // Seat each near newcomer. NEVER moves a baseline — detection frame only.
             for (const G of newcomers) {
                 const eG = posOf(G);
                 const dG = awayDir(G);
+                if (nearJunctionDeadZoneEnabled() && inConvexSector(dG)) {
+                    extra.push({ point: cornerVertex, realEndpoints: [G], passthroughWalls: cornerArmIdx });
+                    continue;
+                }
+                // Fallback: the original single-host T-seat against the most-perpendicular arm
+                // (a collinear arm would give a degenerate parallel butt). Foot on the host segment.
                 let hostIdx = -1;
                 let bestAbsDot = Infinity;
                 for (const H of cornerRefs) {
