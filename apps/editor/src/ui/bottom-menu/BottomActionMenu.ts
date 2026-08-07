@@ -2,7 +2,12 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { WallDrawingMode } from '@pryzm/geometry-wall';
 import * as PryzmIcons from '../icons/PryzmIcons';
-import { SlabModePicker } from '../SlabModePicker';
+// §FEAT-PERSISTENT-MODE-BAR (2026-08-07) — the slab's pre-flight launcher menu is
+// gone: every one of its entries re-activated the tool and wiped the in-progress
+// polyline. The slab now activates immediately and carries the wall's persistent
+// DrawingModeBar, from which every mode is reachable MID-DRAW.
+// §FEAT-PERSISTENT-MODE-BAR — the slab's shared, surface-independent mode store.
+import { resolveActiveSlabDrawMode } from '@app/engine/views/plantools/activeSlabDrawMode';
 import { resolveLevelIsolation } from '../../engine/inspect/LevelIsolationResolver';
 import { resolveNightBackground } from '../../engine/inspect/NightModeBackgroundResolver';
 // §FIX-LIGHT-NIGHT-CONTRIBUTION — the role stamped on artificial fixture lights,
@@ -110,7 +115,6 @@ export class BottomActionMenu {
     private _sectionBoxActive = false;
     private _pendingKey: string | null = null;
     private _pendingTimer: ReturnType<typeof setTimeout> | null = null;
-    private readonly _slabModePicker = new SlabModePicker();
     private readonly _originalVisibility = new Map<THREE.Object3D, boolean>();
     // §WALL-CUTAWAY-XRAY (2026-06-24) — original wall materials captured when the
     // Wall-Cutaway (x-ray) toggle turns ON, so OFF restores them exactly. Keyed by
@@ -334,17 +338,14 @@ export class BottomActionMenu {
                 toolManager?.activateWindow?.('single');
                 break;
             case 'slab':
-                // §FEAT-SLAB-DRAW-MODES — linear / ortho / curved are the wall
-                // tool's three modes, offered here on the slab for the first time.
-                this._slabModePicker.show({
-                    onLinear: () => service.activateSlabTool('linear'),
-                    onOrtho: () => service.activateSlabTool('ortho'),
-                    onCurved: () => service.activateSlabTool('curved'),
-                    on2Point: () => service.activateSlabTool('2point'),
-                    onRegion: () => service.activateSlabTool('region'),
-                    onHollow: () => service.activateSlabTool('hollow'),
-                    onPickWalls: () => service.activateSlabTool('pickWalls'),
-                });
+                // §FEAT-PERSISTENT-MODE-BAR (founder 2026-08-07) — "I would like
+                // EXACTLY THE SAME PANEL as the wall." The wall activates IMMEDIATELY
+                // and shows a persistent bar; the slab used to open a blocking
+                // pre-flight menu first, and every one of its entries re-activated the
+                // tool (destroying any in-progress polyline). Activate straight away in
+                // the mode last chosen — every mode, including 2-Point / By Region /
+                // Hollow / Pick Walls, stays reachable from the bar, mid-draw.
+                service.activateSlabTool(resolveActiveSlabDrawMode());
                 return;
             case 'floor':
                 if (service?.activateFloorTool) service.activateFloorTool();

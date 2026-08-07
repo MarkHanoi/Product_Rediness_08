@@ -11,6 +11,15 @@ import { FloorModePicker } from '../FloorModePicker';
 import { FloorDrawingHUD } from '../FloorDrawingHUD';
 import { CeilingDrawingHUD } from '../CeilingDrawingHUD';
 import { WallDrawingHUD } from '../WallDrawingHUD';
+// §FEAT-PERSISTENT-MODE-BAR (founder 2026-08-07) — the ONE in-draw mode bar, and the
+// slab's declared mode list + shared mode store that drive it.
+import { DrawingModeBar } from '../DrawingModeBar';
+import { creationModes } from '@app/engine/views/plantools/elementCreationMatrix';
+import {
+    setActiveSlabDrawMode,
+    resolveActiveSlabDrawMode,
+} from '@app/engine/views/plantools/activeSlabDrawMode';
+import { isBoundaryDrawMode } from '@pryzm/geometry-slab';
 import type { FloorPickerMode } from '../FloorModePicker';
 import type { CeilingPickerMode } from '../CeilingModePicker';
 import type { UIProps } from '../Layout';
@@ -117,6 +126,9 @@ export function mountToolsArea(
     window.ceilingModePicker = ceilingModePicker; // TODO(E.7.T): legacy ceilingModePicker — replace with runtime.tools.activate('ceiling', mode)
     const floorDrawingHUD   = new FloorDrawingHUD();
     const ceilingDrawingHUD = new CeilingDrawingHUD();
+    // §FEAT-PERSISTENT-MODE-BAR — the slab's in-draw mode bar (the wall's control,
+    // shared component, slab's own declared modes).
+    const slabDrawingBar    = new DrawingModeBar();
     const wallDrawingHUD   = new WallDrawingHUD();
 
     // ── By Slab helper — shared by WallModePicker (legacy) and WallDrawingHUD ─
@@ -270,10 +282,26 @@ export function mountToolsArea(
         }
         if (toolName === 'floor')   floorDrawingHUD.dismiss();
         if (toolName === 'ceiling') ceilingDrawingHUD.dismiss();
+        // §FEAT-PERSISTENT-MODE-BAR — the slab bar lives for the whole session and
+        // is torn down only when the tool itself deactivates (ESC / tool switch).
+        if (toolName === 'slab')    slabDrawingBar.dismiss();
         if (toolName === 'door')   doorModePicker.dismiss();
         if (toolName === 'window') windowModePicker.dismiss();
     });
 
+    // ─── Slab activation wrapper — §FEAT-PERSISTENT-MODE-BAR (founder 2026-08-07)
+    //
+    // "The slab creation works great — but the UI/UX is not as expected. I would
+    //  like EXACTLY THE SAME PANEL as the wall. I want the user, DURING CREATION,
+    //  to be able to change from linear to curved to ortho etc."
+    //
+    // The slab had no in-draw bar at all: its only mode control was a PRE-FLIGHT
+    // launcher menu whose buttons call `activateSlabTool`, which routes through
+    // `ToolManager.activateTool` → `deactivateAllInternal()` and DESTROYS the
+    // in-progress polyline. Switching mode meant starting the slab over.
+    //
+    // The bar below is the wall's control, from the same component and the same
+    // `.wdh-*` styles, driven by the slab's own seven declared modes.
     // ─── Floor activation wrapper — show FloorDrawingHUD (Sprint §49) ────────
     const _origActivateFloor = service.activateFloorTool.bind(service);
     service.activateFloorTool = (typeId?: string, mode?: string) => {
@@ -345,14 +373,55 @@ export function mountToolsArea(
         }
     };
 
-    // ─── Slab Pre-Draw in Property Panel ─────────────────────────────────────
+    // ─── Slab Pre-Draw in Property Panel + §FEAT-PERSISTENT-MODE-BAR ─────────
+    //
+    // "The slab creation works great — but the UI/UX is not as expected. I would
+    //  like EXACTLY THE SAME PANEL as the wall. I want the user, DURING CREATION,
+    //  to be able to change from linear to curved to ortho etc." (founder 2026-08-07)
+    //
+    // The slab had no in-draw mode control at all: its only one was a PRE-FLIGHT
+    // launcher menu whose every entry called `activateSlabTool`, which routes through
+    // `ToolManager.activateTool` → `deactivateAllInternal()` and DESTROYS the
+    // in-progress polyline. Switching mode meant starting the slab over. The bar below
+    // is the WALL's control — same `DrawingModeBar` component, same `.wdh-*` styles —
+    // driven by the slab's own seven declared modes.
     const _origActivateSlab = service.activateSlabTool.bind(service);
-    service.activateSlabTool = (mode: '2point' | 'polyline' | 'region' | 'hollow' | 'pickWalls') => {
-        _origActivateSlab(mode);
+    service.activateSlabTool = (mode?: Parameters<BimService['activateSlabTool']>[0]) => {
+        _origActivateSlab(mode as never);
+        if (isBoundaryDrawMode(mode)) setActiveSlabDrawMode(mode);
         props.inspector.showSlabPreDraw?.(props.slabTool);
+
+        if (slabDrawingBar.isVisible()) {
+            slabDrawingBar.setMode(resolveActiveSlabDrawMode());
+        } else {
+            slabDrawingBar.show({
+                label: 'Slab:',
+                modes: creationModes('slab'),
+                initialMode: resolveActiveSlabDrawMode(),
+                onSelect: (id) => {
+                    if (isBoundaryDrawMode(id)) {
+                        // THE POINT OF THE WHOLE CHANGE: linear/ortho/curved are polyline
+                        // SUB-modes, so a switch writes ONLY the shared store. Both slab
+                        // surfaces re-read it on the next interaction, so the new mode
+                        // applies to the very next click and the vertices already placed
+                        // SURVIVE. Never call activateSlabTool here.
+                        setActiveSlabDrawMode(id);
+                        return;
+                    }
+                    // A slab-specific FAMILY mode (2-Point / By Region / Hollow / Pick
+                    // Walls) is a different GESTURE, not a constraint on the same one, so
+                    // it legitimately re-enters the tool — a half-drawn polyline cannot
+                    // continue as a rectangle. This is the one sanctioned reset.
+                    _origActivateSlab(id as never);
+                    slabDrawingBar.setMode(resolveActiveSlabDrawMode());
+                },
+            });
+        }
+
         const escHandler = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 props.inspector.hide?.();
+                slabDrawingBar.dismiss();
                 window.removeEventListener('keydown', escHandler);
             }
         };

@@ -24,7 +24,12 @@
 
 import type { ToolsRailController } from '../ToolsRailController';
 import type { ToolsPanelProps, CreateLayer } from '../ToolsPanelTypes';
-import { SlabModePicker } from '../../SlabModePicker';
+// §FEAT-PERSISTENT-MODE-BAR (2026-08-07) — the slab's pre-flight launcher menu is
+// gone: every one of its entries re-activated the tool and wiped the in-progress
+// polyline. The slab now activates immediately and carries the wall's persistent
+// DrawingModeBar, from which every mode is reachable MID-DRAW.
+// §FEAT-PERSISTENT-MODE-BAR — the slab's shared, surface-independent mode store.
+import { resolveActiveSlabDrawMode } from '@app/engine/views/plantools/activeSlabDrawMode';
 import { HandrailModePicker } from '../../HandrailModePicker';
 import { ColumnModePicker } from '../../ColumnModePicker';
 import { BeamModePicker } from '../../BeamModePicker';
@@ -72,7 +77,6 @@ const MAX_OPEN_SECTIONS = 2;
 export class CreateRailPanel {
     private _navStack: CreateLayer[] = [];
 
-    private readonly _slabModePicker     = new SlabModePicker();
     private readonly _handrailModePicker = new HandrailModePicker();
     private readonly _columnModePicker   = new ColumnModePicker();
     private readonly _beamModePicker     = new BeamModePicker();
@@ -844,17 +848,13 @@ export class CreateRailPanel {
                         shortcut: 'Alt+S',
                         icon:     PryzmIcons.pryzmSlab,
                         action: () => {
-                            // §FEAT-SLAB-DRAW-MODES — linear / ortho / curved are
-                            // the wall tool's three modes, now offered on the slab.
-                            this._slabModePicker.show({
-                                onLinear:    () => { if (!this._activateTool('slab', 'linear'))    service.activateSlabTool('linear'); },
-                                onOrtho:     () => { if (!this._activateTool('slab', 'ortho'))     service.activateSlabTool('ortho'); },
-                                onCurved:    () => { if (!this._activateTool('slab', 'curved'))    service.activateSlabTool('curved'); },
-                                on2Point:    () => { if (!this._activateTool('slab', '2point'))    service.activateSlabTool('2point'); },
-                                onRegion:    () => { if (!this._activateTool('slab', 'region'))    service.activateSlabTool('region'); },
-                                onHollow:    () => { if (!this._activateTool('slab', 'hollow'))    service.activateSlabTool('hollow'); },
-                                onPickWalls: () => { if (!this._activateTool('slab', 'pickWalls')) service.activateSlabTool('pickWalls'); },
-                            });
+                            // §FEAT-PERSISTENT-MODE-BAR (founder 2026-08-07) — activate
+                            // immediately in the last-chosen mode and let the persistent
+                            // bar carry every mode, exactly as the wall does. The old
+                            // pre-flight menu re-activated the tool on every pick, which
+                            // wiped any in-progress polyline.
+                            const slabMode = resolveActiveSlabDrawMode();
+                            if (!this._activateTool('slab', slabMode)) service.activateSlabTool(slabMode);
                         },
                     },
                     {
