@@ -28,6 +28,7 @@ import {
     isStalled,
     tileStreamFraction,
     viewActivationProgress,
+    VIEW_ACTIVATION_STALL_MS,
 } from '../src/ui/overlays/loadingProgress';
 import { beginViewActivationLoading } from '../src/ui/geospatial/viewActivationLoading';
 
@@ -82,6 +83,7 @@ function makeSignals(overrides: Partial<{
     hasRealTileProvider: () => boolean;
 }> = {}) {
     const navCalls: boolean[] = [];
+    const renderPumps: number[] = [];
     let emit: ((p: { pending: number; processing: number; tilesLoaded: boolean }) => void) | null = null;
     const signals = {
         whenViewerReady: () => overrides.viewerReady ?? Promise.resolve(),
@@ -95,8 +97,15 @@ function makeSignals(overrides: Partial<{
             overrides.groundSettled ??
             Promise.resolve({ settled: true, source: 'photoreal-tile-clamp', baseHeightM: 706.9 }),
         setNavigationEnabled: (on: boolean) => { navCalls.push(on); },
+        // §TILES-NEED-A-FRAME (L-715) — the gate must DRIVE the scene it waits on.
+        requestRender: () => { renderPumps.push(Date.now()); },
     };
-    return { signals, navCalls, emitTiles: (p: typeof TILES_DONE) => emit?.(p) };
+    return {
+        signals,
+        navCalls,
+        renderPumps,
+        emitTiles: (p: typeof TILES_DONE) => emit?.(p),
+    };
 }
 
 /** Flush the microtask queue enough times for the readiness chain's awaits to settle. */
@@ -462,5 +471,90 @@ describe('§TILES-PROVIDER-READY (L-714) — one stuck tile must not hold the vi
         // Presenting partial context as complete is an overstatement about real land.
         expect(tileStreamNote(snap(1, 0, true), 20)).toMatch(/still filling in/i);
         expect(tileStreamNote(snap(0, 0, true), 20)).not.toMatch(/still filling in/i);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §TILES-NEED-A-FRAME (L-715) — the actual defect, after three fixes to the predicate.
+//
+// `CesiumViewport` runs `requestRenderMode: true`. Cesium retires tile work only DURING A RENDER,
+// and auto-requests renders on camera move / tileset load. While the entry flight descends, frames
+// happen and tiles retire; the moment the camera PARKS the scene goes quiescent and any remaining
+// tile freezes. The readiness poll read the counters but never asked for a frame — so it was
+// waiting on progress it had itself prevented, and the 25 s watchdog was the ONLY reachable
+// outcome, on every new project. The predicate was never wrong; it was reading a thermometer in a
+// room with the heating off.
+describe('§TILES-NEED-A-FRAME — the gate drives the scene it is waiting on', () => {
+    const STUCK = { pending: 1, processing: 0, tilesLoaded: false, providerLoaded: false };
+
+    const start = (signals: unknown, clock: ReturnType<typeof makeClock>) => {
+        const { surface, state } = makeFakeSurface();
+        const overlay = new LoadingOverlayController(() => surface);
+        const handle = beginViewActivationLoading({
+            target: 'site',
+            signals: signals as never,
+            overlay,
+            onRetry: () => {},
+            now: clock.now,
+            setInterval: clock.setInterval,
+            clearInterval: clock.clearInterval,
+        });
+        return { handle, state };
+    };
+
+    it('PUMPS a frame on every watchdog tick while the tiles gate is open', async () => {
+        const clock = makeClock();
+        const { signals, renderPumps } = makeSignals({ tiles: () => STUCK as typeof TILES_DONE });
+        start(signals, clock);
+        await flush();
+        const before = renderPumps.length;
+        clock.advance(1000);
+        clock.advance(1000);
+        clock.advance(1000);
+        // Three ticks, three frames requested. Without them the stuck tile can NEVER retire,
+        // because under requestRenderMode nothing else is driving the scene once the camera parks.
+        expect(renderPumps.length - before).toBeGreaterThanOrEqual(3);
+    });
+
+    it('pumps BEFORE it samples — reading a counter you have not driven is the whole bug', async () => {
+        const clock = makeClock();
+        const order: string[] = [];
+        const { signals } = makeSignals({
+            tiles: () => { order.push('sample'); return STUCK as typeof TILES_DONE; },
+        });
+        (signals as { requestRender: () => void }).requestRender = () => { order.push('pump'); };
+        start(signals, clock);
+        await flush();
+        order.length = 0;
+        clock.advance(1000);
+        expect(order.slice(0, 2)).toEqual(['pump', 'sample']);
+    });
+
+    it('is OPTIONAL — a producer that cannot pump keeps working rather than throwing', async () => {
+        const clock = makeClock();
+        const { signals } = makeSignals({ tiles: () => STUCK as typeof TILES_DONE });
+        delete (signals as Partial<typeof signals>).requestRender;
+        const { state } = start(signals, clock);
+        await flush();
+        expect(() => clock.advance(1000)).not.toThrow();
+        expect(state.error).toBeNull();
+    });
+
+    it('§STALL-REPORT-NAMES-ITS-CAUSE — the stall log distinguishes STUCK from STARVED', async () => {
+        const clock = makeClock();
+        const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            const { signals } = makeSignals({ tiles: () => STUCK as typeof TILES_DONE });
+            start(signals, clock);
+            await flush();
+            clock.advance(VIEW_ACTIVATION_STALL_MS + 1000);
+            const said = spy.mock.calls.map((c) => c.join(' ')).join(' | ');
+            // A generic "no progress" line is what cost four rounds. The report must carry the
+            // evidence needed to tell a frozen network from a scene nobody is rendering.
+            expect(said).toMatch(/framesPumped=/);
+            expect(said).toMatch(/renderPumpWired=true/);
+            expect(said).toMatch(/pending=1/);
+            expect(said).toMatch(/STARVED/);
+        } finally { spy.mockRestore(); }
     });
 });

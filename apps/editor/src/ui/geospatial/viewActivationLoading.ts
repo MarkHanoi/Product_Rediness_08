@@ -88,6 +88,35 @@ export interface ViewActivationSignals {
     whenGroundSettled(): Promise<{ settled: boolean; source: string; baseHeightM: number }>;
     /** CesiumViewport.setNavigationEnabled() — THE INPUT GATE. */
     setNavigationEnabled(on: boolean): void;
+    /**
+     * §TILES-NEED-A-FRAME (L-715) — `scene.requestRender()`. ⚠ THE READINESS GATE MUST DRIVE THE
+     * SCENE IT IS WAITING ON, AND THIS IS WHY THREE PREVIOUS FIXES DID NOTHING.
+     *
+     * `CesiumViewport` runs `requestRenderMode: true` (§CESIUM-PERF-REQUEST-RENDER-MODE, deliberate
+     * — it stops ~60 wasted idle redraws a second). In that mode Cesium renders ONLY on demand, and
+     * **tile work is retired DURING A RENDER**: a tile that has downloaded still needs a frame to be
+     * processed and for the counters to fall. Cesium auto-requests a render on camera move, tileset
+     * load and imagery change — so while the entry flight is descending, frames happen and tiles
+     * retire. The moment the camera PARKS the scene goes quiescent, rendering stops, and any
+     * remaining tile work freezes exactly where it is.
+     *
+     * That is the founder's `19 / 20`: the descent retired nineteen, the camera parked, and the
+     * twentieth had no frame in which to finish. The readiness poll reads the counters but never
+     * asked for a frame, so polling could NEVER unstick it — the watchdog was the only reachable
+     * outcome, on every new project.
+     *
+     * ⚠ SO THE PREDICATE WAS NEVER THE DEFECT. The counter, the L-713 grace period and the L-714
+     * provider verdict all reported truthfully that nothing was progressing, because nothing was:
+     * we were reading a thermometer in a room with the heating off. A gate that waits on tile
+     * progress under `requestRenderMode` MUST pump the scene, or it is waiting on work it has
+     * itself prevented.
+     *
+     * P3 is not at risk: `requestRender()` sets a flag consumed by Cesium's EXISTING loop — it
+     * schedules no `requestAnimationFrame`, and this is called from the watchdog's existing 1 s
+     * timer, not a new one. Optional + default-safe: an older producer simply keeps the previous
+     * (broken-but-unchanged) behaviour rather than throwing.
+     */
+    requestRender?(): void;
 }
 
 export interface ViewActivationHandle {
@@ -182,6 +211,9 @@ export function beginViewActivationLoading(
     /** §TILES-PROVIDER-READY (L-714) — when the PROVIDER most recently reported the current view
      *  loaded, or null while it does not. Drives the grace period in `tileStreamSettled`. */
     let tilesLoadedSince: number | null = null;
+    /** §STALL-REPORT-NAMES-ITS-CAUSE (L-715) — how many frames the gate pumped, and what the
+     *  counters last read, so a stall report can distinguish STUCK from STARVED. */
+    let framesPumped = 0;
     /** The last tile snapshot seen, so the stall watchdog can tell SETTLED from STUCK. */
     let lastTileSnapshot: TileStreamSnapshot | null = null;
     let currentNote = '';
@@ -237,9 +269,35 @@ export function beginViewActivationLoading(
     const failActivation = (message: string): void => {
         if (finished || failed) return;
         failed = true;
+        // §STALL-REPORT-NAMES-ITS-CAUSE (L-715, ADR-0299 / §CONTEXT-DATA-HONESTY) — ⚠ A DIAGNOSTIC
+        // THAT CANNOT TELL "STUCK" FROM "STARVED" IS WHY THIS TOOK FOUR ROUNDS. The old line said
+        // only "no progress for 25000 ms", which is true of a frozen network, a stuck queue entry,
+        // AND a scene nobody is rendering — three different bugs, one indistinguishable message. So
+        // the report now states WHICH signal was waiting, its LAST OBSERVED VALUE, WHEN it last
+        // changed, and whether we were driving the scene at all. A fifth occurrence must arrive
+        // already carrying its own cause.
+        const snap = lastTileSnapshot;
+        const diag = [
+            `stage="${stage}"`,
+            `stageFraction=${stageFraction.toFixed(3)}`,
+            `msSinceLastAdvance=${Math.round(now() - lastAdvanceAt)}`,
+            `framesPumped=${framesPumped}`,
+            `renderPumpWired=${typeof signals.requestRender === 'function'}`,
+            snap
+                ? `tiles{pending=${snap.pending} processing=${snap.processing} ` +
+                  `tilesLoaded=${snap.tilesLoaded} providerLoaded=${snap.providerLoaded ?? 'n/a'} ` +
+                  `peakOutstanding=${peakOutstanding}}`
+                : 'tiles{no snapshot ever observed}',
+        ].join(' ');
         console.error(
             `[viewActivationLoading] §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY ${target} — readiness ` +
-            `NEVER ARRIVED at stage "${stage}" (no progress for ${stallMs} ms): ${message}`,
+            `NEVER ARRIVED (no progress for ${stallMs} ms): ${message}
+` +
+            `  §STALL-REPORT-NAMES-ITS-CAUSE ${diag}
+` +
+            '  Read it as: outstanding>0 with framesPumped>0 means the tiles are genuinely not ' +
+            'arriving (STUCK); outstanding>0 with renderPumpWired=false means nothing was driving ' +
+            'the scene, so the tiles could not retire (STARVED — §TILES-NEED-A-FRAME, L-715).',
         );
         session.fail({
             title: `${TITLES[target]} — taking too long`,
@@ -388,7 +446,13 @@ export function beginViewActivationLoading(
         if (finished || failed) return;
         // Poll the tile counters (see the requestRenderMode note in the header).
         if (onTileSample) {
+            // §TILES-NEED-A-FRAME (L-715) — ⚠ PUMP BEFORE YOU SAMPLE. Under `requestRenderMode`
+            // tile work is retired during a RENDER, so a gate that only reads counters is waiting
+            // on progress it is itself preventing once the camera parks. Request the frame first,
+            // then read what it produced.
+            try { signals.requestRender?.(); } catch { /* viewer gone */ }
             try { onTileSample(signals.sampleTileLoadProgress()); } catch { /* poll unavailable */ }
+            framesPumped++;
         }
         if (finished || failed) return;
         // §TILES-SETTLED-IS-NOT-STALLED (L-713) — ⚠ NEVER call a SETTLED view stalled. During the

@@ -1576,6 +1576,26 @@ export class CesiumViewport {
   }
 
   /**
+   * §TILES-NEED-A-FRAME (L-715) — ask the scene for ONE frame.
+   *
+   * Exists so the (Cesium-free) readiness gate can DRIVE the scene it is waiting on. Under
+   * `requestRenderMode: true` Cesium retires tile work only during a render; once the entry
+   * flight parks the camera the scene is quiescent, rendering stops, and an outstanding tile
+   * freezes where it is. A gate that only READS the counters is then waiting on progress it has
+   * itself prevented — the founder's `19 / 20 tiles`, deterministically, on every new project.
+   *
+   * P3: this schedules NO `requestAnimationFrame`. `scene.requestRender()` sets a flag that
+   * Cesium's existing loop consumes on its next tick. Guarded like every other viewer accessor so
+   * a call landing after disposal is a no-op rather than a throw.
+   */
+  public requestSceneRender(): void {
+    try {
+      if (!this.isViewerLive()) return;
+      this.viewer?.scene?.requestRender();
+    } catch { /* viewer gone mid-teardown */ }
+  }
+
+  /**
    * §SS-FIX-FORMA-TILES-READINESS-KEYLESS-GATE (L-327) — does this viewport have a REAL tile /
    * terrain provider that will actually STREAM tiles? The view-activation loading overlay gates
    * its `tiles` stage on Cesium's streaming counters reaching zero; on a keyless-ellipsoid

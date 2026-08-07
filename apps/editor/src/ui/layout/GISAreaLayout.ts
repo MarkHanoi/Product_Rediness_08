@@ -983,6 +983,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     cesiumViewport?.whenGroundSettled?.() ??
                     Promise.resolve({ settled: true, source: 'no-viewport', baseHeightM: 0 }),
                 setNavigationEnabled: (on: boolean) => { cesiumViewport?.setNavigationEnabled?.(on); },
+                // §TILES-NEED-A-FRAME (L-715) — let the readiness gate DRIVE the scene it is
+                // waiting on. Under `requestRenderMode: true` tile work is only retired during a
+                // render, so once the entry flight parks the camera the scene goes quiescent and
+                // any outstanding tile freezes — the founder's 19/20, on every new project.
+                requestRender: () => { cesiumViewport?.requestSceneRender?.(); },
             },
         });
         activeViewActivation = handle;
