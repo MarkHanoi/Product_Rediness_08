@@ -98,7 +98,15 @@ export class PhotorealisticRenderer {
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.0;
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        // §FIX-SHADOW-SAMPLER-TYPE-PARITY — PCFSoftShadowMap is deprecated in three
+        // r183 and, worse, absent from `shadowMapTypeDefines`: a material compiled
+        // while it is the live type gets SHADOWMAP_TYPE_BASIC (plain `sampler2D`)
+        // while the depth texture is allocated in comparison mode → the
+        // "Mismatch between texture format and sampler type (…shadow)" flood.
+        // PCF is what the deprecation shim runs anyway; naming it directly removes
+        // the poisoned-compile window. Full chain: ShadowQualityUpgrader.ts
+        // QUALITY_CONFIGS comment.
+        renderer.shadowMap.type = THREE.PCFShadowMap;
 
         const hdriManager = new HDRIEnvironmentManager(renderer);
 

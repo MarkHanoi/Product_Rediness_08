@@ -51,11 +51,51 @@ interface ShadowQualityConfig {
     normalBias:       number;   // Normal-offset bias — reduces self-shadowing
 }
 
+// §FIX-SHADOW-SAMPLER-TYPE-PARITY (founder P0 session, 2026-08-07) — the shadow
+// type must be one the INSTALLED three actually compiles, or intended and actual
+// diverge and shaders bind the wrong sampler class.
+//
+// THE 216× FLOOD THIS CLOSES:
+//   GL_INVALID_OPERATION: glDrawElements: Mismatch between texture format and
+//   sampler type (signed/unsigned/float/shadow)   ×216, then
+//   "WebGL: too many errors, no more errors will be reported"
+//
+// CAUSAL CHAIN, traced through the installed three@0.183.2 (every step cited):
+//   1. These configs wrote `renderer.shadowMap.type = THREE.PCFSoftShadowMap`.
+//   2. SHADER SIDE — a material compiled while that value is live snapshots it
+//      (WebGLPrograms.js:345) and looks it up in `shadowMapTypeDefines`
+//      (WebGLProgram.js:345-347), which in r183 has entries ONLY for PCFShadowMap
+//      and VSMShadowMap. PCFSoft falls through to 'SHADOWMAP_TYPE_BASIC' — the
+//      shader declares plain `sampler2D` shadow samplers (non-comparison).
+//   3. TEXTURE SIDE — at the next shadow render, THREE's deprecation shim runs
+//      FIRST ("PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead.",
+//      WebGLShadowMap.js:98-103, the exact warning in the founder's log), then
+//      allocates the depth texture under PCF rules: `compareFunction =
+//      LessEqualCompare` (WebGLShadowMap.js:260-265) → the driver sets
+//      TEXTURE_COMPARE_MODE = COMPARE_REF_TO_TEXTURE (WebGLTextures.js:645-648).
+//   4. THE HEALING RECOMPILE NEVER FIRES — `_previousType` initialises to PCF
+//      (WebGLShadowMap.js:88-89) and the shim resets `this.type` to PCF BEFORE the
+//      `typeChanged` check (line 130), so `typeChanged === false` and the
+//      "materials need recompilation because sampler types change" traverse
+//      (THREE's own comment, line 132) is skipped.
+//
+//   Net: a COMPARE_REF_TO_TEXTURE depth texture sampled through a plain
+//   `sampler2D` — the driver rejects every such draw, shadows die, and the error
+//   channel drowns ("too many errors"). Only materials compiled DURING the
+//   PCFSoft window are poisoned, which is why the founder saw 216 occurrences and
+//   not every draw: the scene is a mix of poisoned and healthy programs.
+//
+// FIX: name PCFShadowMap — the type three r183 actually runs (the shim substitutes
+// it anyway; PCFSoft has not been a distinct shader path since the deprecation).
+// Intended == actual from the first write, so no compile window exists in which
+// `shadowMapType` names a define that does not exist. Visual delta: none — every
+// prior session was ALREADY rendering PCF after the shim; the "soft" look comes
+// from `shadow.radius`, which we keep setting per tier.
 const QUALITY_CONFIGS: Record<ShadowQualityLevel, ShadowQualityConfig> = {
     standard: {
         mapWidth:    512,
         mapHeight:   512,
-        shadowType:  THREE.PCFSoftShadowMap,
+        shadowType:  THREE.PCFShadowMap, // §FIX-SHADOW-SAMPLER-TYPE-PARITY
         radius:      1,
         bias:        -0.0001,
         normalBias:  0.02,
@@ -63,7 +103,7 @@ const QUALITY_CONFIGS: Record<ShadowQualityLevel, ShadowQualityConfig> = {
     high: {
         mapWidth:    2048,
         mapHeight:   2048,
-        shadowType:  THREE.PCFSoftShadowMap,
+        shadowType:  THREE.PCFShadowMap, // §FIX-SHADOW-SAMPLER-TYPE-PARITY
         radius:      4,
         bias:        -0.00005,
         normalBias:  0.03,
@@ -71,7 +111,7 @@ const QUALITY_CONFIGS: Record<ShadowQualityLevel, ShadowQualityConfig> = {
     ultra: {
         mapWidth:    4096,
         mapHeight:   4096,
-        shadowType:  THREE.PCFSoftShadowMap,
+        shadowType:  THREE.PCFShadowMap, // §FIX-SHADOW-SAMPLER-TYPE-PARITY
         radius:      8,
         bias:        -0.00002,
         normalBias:  0.04,
