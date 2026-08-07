@@ -67,6 +67,7 @@ registerProjectScopeProbe({
 // projection (`getSiteOrigin`) and the 3D-Site render frame (`getFormaOrigin`), so the ring and the
 // ENU frame are always built about ONE origin (closes the residual translation shift).
 import { resolveSiteFrameOrigin } from '../site/boundaryProjection';
+import { resolveSiteFramingExtent } from '../site/siteFramingExtent';
 // §PARCEL-SELECT (L-380 P1 → L-613) — the real cadastral parcel data source for the map's
 // "Select parcel" mode. `defaultParcelProvider` is now the PER-JURISDICTION REGISTRY
 // (`parcelRegistry.ts`): a click routes to the right OPEN national cadastre — Catastro (ES),
@@ -277,15 +278,37 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     const getMapInitial = (): { lat: number; lon: number; bbox?: [number, number, number, number]; zoom?: number } | undefined => {
         // Prefer the last geocoded frame (carries the bbox → the 2D map fits the
         // exact plot, not a coarse point). Fall back to the Site location point.
-        if (lastGeocodeFrame) {
-            console.log(
-                '[gis] getMapInitial: opening 2D map at geocode frame; fitBounds target =',
-                lastGeocodeFrame.bbox ?? `point(${lastGeocodeFrame.lat},${lastGeocodeFrame.lon}) @ z17`,
-            );
-            return { lat: lastGeocodeFrame.lat, lon: lastGeocodeFrame.lon, bbox: lastGeocodeFrame.bbox, zoom: 17 };
-        }
-        const o = getSiteOrigin();
-        return o ? { lat: o.lat, lon: o.lon, zoom: 17 } : undefined;
+        // §SITE-FRAMING-EXTENT (founder 2026-08-07: "2D GIS view is TOO ZOOMED OUT — and the 3D
+        // Site is TOO ZOOMED IN. They need to be COHERENT") — ⚠ FIT THE SITE, NOT THE GEOCODE BBOX.
+        //
+        // This returned the RAW Nominatim bbox, and `fitBounds` did exactly what it was told with
+        // it. For a city-level result ("Barcelona") that bbox is the MUNICIPALITY, so the left pane
+        // opened on the whole metropolitan area — Sant Cugat to El Prat — while the right pane sat
+        // at 20 m range on the placed building. Two panes, two different objects, three orders of
+        // magnitude apart. `fitBounds` caps `maxZoom: 18` so a tiny bbox cannot over-zoom, but
+        // there was no FLOOR, which is the half that was missing.
+        //
+        // `resolveSiteFramingExtent` is now the ONE authority: it keeps a geocode bbox that is
+        // already site-scale, rejects one that is administrative, prefers a committed boundary over
+        // both, and always yields a usable extent. The 3D camera derives from the same value via
+        // `altitudeForHalfSpan`, so the panes cannot drift apart again without the extent itself
+        // being wrong — one thing to reason about instead of two.
+        const anchor = lastGeocodeFrame ?? getSiteOrigin();
+        if (!anchor) return undefined;
+        const extent = resolveSiteFramingExtent({
+            anchor: { lat: anchor.lat, lon: anchor.lon },
+            geocodeBbox: lastGeocodeFrame?.bbox ?? null,
+        });
+        console.log(
+            `[gis] §SITE-FRAMING-EXTENT getMapInitial: framing the SITE (source=${extent.source}, ` +
+            `±${Math.round(extent.halfSpanM)} m); fitBounds target =`, extent.bbox,
+        );
+        return {
+            lat: extent.centreLat,
+            lon: extent.centreLon,
+            bbox: extent.bbox as [number, number, number, number],
+            zoom: 17,
+        };
     };
 
     // A.8.c.f — open the Hektar-style 2D cream/shadow boundary-draw map overlay

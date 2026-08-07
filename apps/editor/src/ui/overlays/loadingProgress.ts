@@ -122,7 +122,40 @@ export const VIEW_ACTIVATION_PLAN: readonly StagePlanEntry[] = [
 /** Scale used for the absolute {completed,total} the surface consumes. */
 export const VIEW_ACTIVATION_TOTAL = 1000;
 
+/**
+ * The user-facing label for a stage, INCLUDING ITS POSITION IN THE SEQUENCE.
+ *
+ * §STAGE-LABEL-CARRIES-ITS-SCOPE (founder 2026-08-07) — the founder saw
+ * `"Streaming terrain & 3D tiles… 45 / 45 tiles"` above a bar reading **60 %** and reasonably read
+ * it as broken.
+ *
+ * ⚠ NEITHER NUMBER WAS WRONG. `viewActivationProgress('tiles', 1)` is `0.15 + 0.45 = 0.60`, which
+ * is exactly right: tiles are done, and `content` (0.25) and `anchor` (0.15) have not started. The
+ * defect is that TWO DIFFERENT DENOMINATORS were shown side by side with nothing to say they
+ * measure different things — "45 / 45" is STAGE-local, "60 %" is WHOLE-ACTIVATION. Read together
+ * they look like a contradiction, and a progress indicator that appears to contradict itself is
+ * worse than one that says less.
+ *
+ * Naming the step ("step 2 of 4") gives the stage-local counter a visible scope, so the two
+ * readings compose instead of competing. ⚠ Fixing this by rescaling the bar to the stage would be
+ * the wrong repair — the bar's job is the whole activation, and a bar that hit 100 % three times
+ * before finishing would be the worse lie.
+ */
 export function viewActivationStageLabel(stage: ViewActivationStage): string {
+    const index = VIEW_ACTIVATION_PLAN.findIndex((s) => s.stage === stage);
+    if (index < 0) return 'Ready';
+    return `${VIEW_ACTIVATION_PLAN[index]!.label} (step ${index + 1} of ${VIEW_ACTIVATION_PLAN.length})`;
+}
+
+/**
+ * The stage's bare label, with no step counter — for embedding in PROSE.
+ *
+ * ⚠ Exists so the step counter cannot leak into a sentence. The stall message reads
+ * `…stopped responding while ${…}`, and interpolating the UI label there would produce
+ * "stopped responding while placing your building… (step 3 of 4)". The step counter is a property
+ * of the PROGRESS SURFACE, not of the stage's name.
+ */
+export function viewActivationStageText(stage: ViewActivationStage): string {
     return VIEW_ACTIVATION_PLAN.find((s) => s.stage === stage)?.label ?? 'Ready';
 }
 
@@ -157,6 +190,54 @@ export interface TileStreamSnapshot {
     readonly processing: number;
     /** Cesium's own "everything for this view is loaded" flag. */
     readonly tilesLoaded: boolean;
+}
+
+/**
+ * §TILES-SETTLED-IS-NOT-STALLED (L-713, founder 2026-08-07) — how long Cesium's own
+ * `tilesLoaded` flag must hold true, with a residual counter that is NOT draining, before we
+ * believe the flag over the counter.
+ *
+ * ⚠ WHY THIS CONSTANT HAS TO EXIST. The completion test was `tilesLoaded && outstanding === 0` —
+ * Cesium's authoritative "everything for this view is loaded" flag ANDed with a secondary counter,
+ * so a counter that never reaches zero vetoes a definitive completion signal. The founder's log is
+ * the proof: `tilesLoaded=true renderedTerrainTiles=7 camH=663m` WHILE the gate reported
+ * `no progress for 25000 ms`. Terrain had demonstrably loaded and was rendering; the gate could not
+ * see it, and the 25 s watchdog fired a "map tiles have stopped streaming" error over a working view.
+ *
+ * ⚠ AND THE WATCHDOG COULD NOT TELL THE DIFFERENCE, WHICH IS THE DEEPER FAULT. `advance()` only
+ * refreshes `lastAdvanceAt` when the fraction STRICTLY INCREASES, so a fraction that has stopped
+ * rising because streaming FINISHED is indistinguishable from one that stopped because streaming
+ * STUCK. A "no progress for 25 s" test fails identically for *finished* and *stalled* — the same
+ * failure-and-success-are-the-same-value shape as the §CONTEXT-DATA-HONESTY family (L-422/457/467).
+ *
+ * ⚠ THE NAIVE FIX — "just trust `tilesLoaded`" — IS WRONG, and the AND was not arbitrary.
+ * `tilesLoaded` is transiently TRUE before streaming begins, so trusting it unconditionally
+ * dismisses the overlay instantly and re-opens L-259 (the building placed before terrain loaded,
+ * ending up ~50 m underground). The flag is only meaningful once it has HELD. Hence a grace period
+ * rather than a straight swap: unambiguous completion (`outstanding === 0`) still settles
+ * immediately; a stuck residual counter settles only after the flag has been continuously true for
+ * this long, which a genuinely still-streaming view will not do.
+ */
+export const TILE_SETTLE_GRACE_MS = 3_000;
+
+/**
+ * Has tile streaming SETTLED? `tilesLoadedForMs` is how long `snapshot.tilesLoaded` has been
+ * continuously true (0 when it is false). PURE + testable.
+ *
+ * Returns true on either of two honest answers:
+ *   • `tilesLoaded` AND nothing outstanding — unambiguous, settles at once;
+ *   • `tilesLoaded` sustained for `TILE_SETTLE_GRACE_MS` while a residual counter refuses to
+ *     drain — believe Cesium's own flag rather than fail a view that is visibly rendering.
+ */
+export function tileStreamSettled(
+    snapshot: TileStreamSnapshot,
+    tilesLoadedForMs: number,
+    graceMs: number = TILE_SETTLE_GRACE_MS,
+): boolean {
+    if (!snapshot.tilesLoaded) return false;
+    const outstanding = Math.max(0, snapshot.pending) + Math.max(0, snapshot.processing);
+    if (outstanding === 0) return true;
+    return tilesLoadedForMs >= graceMs;
 }
 
 /**

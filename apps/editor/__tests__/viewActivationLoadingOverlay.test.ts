@@ -362,7 +362,15 @@ describe('L-270 · view activation — dismiss on the REAL readiness signal', ()
 
         clock.advance(30_000); // 30 s frozen at the tiles stage
         expect(state.error).not.toBeNull();
-        expect(state.error?.message).toMatch(/map tiles have stopped streaming/i);
+        // §STALL-COPY-DOES-NOT-BLAME-THE-USER — assert the PROPERTY, not the wording: the message
+        // must name what we observed (tiles stopped arriving) and must NOT send the user off to
+        // debug a working network. The stall this fires on was our own doing (landuse/water
+        // falling back to same-origin Overpass, measured at 47 s and 6.9 s / 17 MB against the very
+        // origin Cesium streams terrain from), and the founder's connection was demonstrably fine —
+        // the same session pulled thousands of footprints from R2 in milliseconds. Same class as
+        // ADR-0292's crash modal blaming the user's GPU driver; the rule is ADR-0299.
+        expect(state.error?.message).toMatch(/tiles stopped arriving/i);
+        expect(state.error?.message).not.toMatch(/check your connection/i);
         expect(state.error?.actions.map((a) => a.label)).toEqual(['Try again', 'Continue anyway']);
         state.error?.actions[1].onClick();
         await handle.done;
@@ -383,5 +391,52 @@ describe('L-270 · view activation — dismiss on the REAL readiness signal', ()
         expect(state.visible).toBe(false);
         expect(navCalls.at(-1)).toBe(true);
         await handle.done;
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §TILES-SETTLED-IS-NOT-STALLED (L-713, founder 2026-08-07) — the startup blocker.
+//
+// The founder's log: `tilesLoaded=true renderedTerrainTiles=7 camH=663m` WHILE the gate reported
+// `readiness NEVER ARRIVED at stage "tiles" (no progress for 25000 ms)` and the card blamed their
+// connection. Terrain had loaded and was rendering; the gate could not see it.
+//
+// TWO causes, both of the failure-and-success-are-the-same-value shape:
+//   1. the completion test ANDed Cesium's authoritative `tilesLoaded` with a residual counter, so
+//      a counter that never drains VETOES a definitive completion signal;
+//   2. `lastAdvanceAt` only refreshes on a strictly-INCREASING fraction, so a bar that stopped
+//      rising because streaming FINISHED is indistinguishable from one that stopped because it
+//      STUCK — a "no progress for 25 s" test fails identically for both.
+import { tileStreamSettled, TILE_SETTLE_GRACE_MS } from '../src/ui/overlays/loadingProgress';
+
+describe('§TILES-SETTLED-IS-NOT-STALLED — settled and stalled are different answers', () => {
+    const snap = (pending: number, processing: number, tilesLoaded: boolean) =>
+        ({ pending, processing, tilesLoaded });
+
+    it('settles AT ONCE when nothing is outstanding — the unambiguous case is unchanged', () => {
+        expect(tileStreamSettled(snap(0, 0, true), 0)).toBe(true);
+    });
+
+    it('does NOT settle merely because tilesLoaded is transiently true before streaming begins', () => {
+        // ⚠ This is why the fix is a grace period and not "just trust the flag". Cesium reports
+        // tilesLoaded=true before any request is issued; trusting it there dismisses the overlay
+        // instantly and re-opens L-259 (building placed before terrain → ~50 m underground).
+        expect(tileStreamSettled(snap(12, 3, true), 0)).toBe(false);
+    });
+
+    it('BELIEVES the flag once it has held, even with a residual counter that never drains', () => {
+        // The founder's case: Cesium says loaded, 7 terrain tiles rendered, a stuck counter.
+        expect(tileStreamSettled(snap(7, 0, true), TILE_SETTLE_GRACE_MS)).toBe(true);
+        expect(tileStreamSettled(snap(7, 0, true), TILE_SETTLE_GRACE_MS - 1)).toBe(false);
+    });
+
+    it('never settles while tiles are genuinely not loaded, however long we wait', () => {
+        // A real stall must still reach the watchdog — this fix must not silence it.
+        expect(tileStreamSettled(snap(40, 5, false), 60_000)).toBe(false);
+        expect(tileStreamSettled(snap(0, 0, false), 60_000)).toBe(false);
+    });
+
+    it('treats negative/garbage counters as zero rather than settling on nonsense', () => {
+        expect(tileStreamSettled(snap(-5, -5, true), 0)).toBe(true);
     });
 });

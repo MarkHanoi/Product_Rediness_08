@@ -49,9 +49,11 @@ import {
     VIEW_ACTIVATION_STALL_MS,
     isStalled,
     tileStreamFraction,
+    tileStreamSettled,
     tileStreamNote,
     viewActivationProgress,
     viewActivationStageLabel,
+    viewActivationStageText,
     type TileStreamSnapshot,
     type ViewActivationStage,
 } from '@app/ui/overlays/loadingProgress';
@@ -177,6 +179,11 @@ export function beginViewActivationLoading(
     let stageFraction = 0;
     let lastAdvanceAt = now();
     let peakOutstanding = 0;
+    /** §TILES-SETTLED-IS-NOT-STALLED (L-713) — when Cesium's `tilesLoaded` most recently became
+     *  true, or null while it is false. Drives the grace period in `tileStreamSettled`. */
+    let tilesLoadedSince: number | null = null;
+    /** The last tile snapshot seen, so the stall watchdog can tell SETTLED from STUCK. */
+    let lastTileSnapshot: TileStreamSnapshot | null = null;
     let currentNote = '';
     let finished = false;
     let failed = false;
@@ -275,11 +282,18 @@ export function beginViewActivationLoading(
     const consumeTileSnapshot = (snap: TileStreamSnapshot): boolean => {
         const outstanding = Math.max(0, snap.pending) + Math.max(0, snap.processing);
         if (outstanding > peakOutstanding) peakOutstanding = outstanding;
+        lastTileSnapshot = snap;
         currentNote = tileStreamNote(snap, peakOutstanding);
         const f = tileStreamFraction(snap, peakOutstanding);
         if (f === null) session.setIndeterminate(currentNote);
         else if (stage === 'tiles') advance('tiles', f);
-        return snap.tilesLoaded && outstanding === 0;
+        // §TILES-SETTLED-IS-NOT-STALLED (L-713) — track how long Cesium's own `tilesLoaded` has
+        // held, so a residual counter that never drains cannot veto a definitive completion.
+        // See `tileStreamSettled` for why the flag is trusted only once it has HELD (L-259).
+        if (!snap.tilesLoaded) tilesLoadedSince = null;
+        else if (tilesLoadedSince === null) tilesLoadedSince = now();
+        const heldMs = tilesLoadedSince === null ? 0 : now() - tilesLoadedSince;
+        return tileStreamSettled(snap, heldMs);
     };
 
     const waitForTiles = (): Promise<void> =>
@@ -373,11 +387,35 @@ export function beginViewActivationLoading(
             try { onTileSample(signals.sampleTileLoadProgress()); } catch { /* poll unavailable */ }
         }
         if (finished || failed) return;
+        // §TILES-SETTLED-IS-NOT-STALLED (L-713) — ⚠ NEVER call a SETTLED view stalled. During the
+        // tiles stage the bar stops rising for two opposite reasons — streaming FINISHED, or
+        // streaming STUCK — and `lastAdvanceAt` cannot tell them apart, because it only refreshes
+        // on a strictly-increasing fraction. Cesium's own `tilesLoaded` flag is the discriminator,
+        // and the founder's log is exactly this case: `tilesLoaded=true renderedTerrainTiles=7`
+        // while this watchdog reported no progress and blamed the network.
+        if (stage === 'tiles' && lastTileSnapshot?.tilesLoaded === true) return;
         if (isStalled(now(), lastAdvanceAt, stallMs)) {
+            // §STALL-COPY-DOES-NOT-BLAME-THE-USER (ADR-0299 honest copy; same class as ADR-0292,
+            // where a crash modal blamed the user's GPU driver for our own resource bug).
+            //
+            // ⚠ THE OLD COPY SAID "Check your connection", AND IT WAS MEASURABLY WRONG. The stall
+            // this fires on was OUR OWN doing: `landuse` and `water` blew the 64-tile cap, fell
+            // back to live Overpass through our SAME-ORIGIN `/api/overpass`, and those two requests
+            // measured 47,266 ms and 6,894 ms / 17.38 MB against the very origin Cesium streams its
+            // terrain from (`/api/context-tiles/terrain/…`). They saturated the browser's
+            // per-origin connection pool, so the tile requests never started and the counters sat
+            // flat until this watchdog tripped. The founder's connection was fine throughout — the
+            // same session pulled thousands of footprints from R2 in milliseconds.
+            //
+            // Telling that user to check their connection sends them to debug a network that is
+            // working, for a problem we caused. We do not know the cause at this point in the code,
+            // so the honest copy states WHAT WE OBSERVED and offers the choice, and claims nothing
+            // about why. (§CTX-ZOOM-FITS-EXTENT removed the mechanism above; this copy is what the
+            // user should see if a stall ever happens again for some other reason.)
             failActivation(
                 stage === 'tiles'
-                    ? 'The map tiles have stopped streaming. Check your connection and try again.'
-                    : `The 3D view stopped responding while ${viewActivationStageLabel(stage).toLowerCase()}`,
+                    ? 'The map tiles stopped arriving, so the 3D view may be incomplete. You can retry, or continue and let them finish loading in the background.'
+                    : `The 3D view stopped responding while ${viewActivationStageText(stage).toLowerCase()}`,
             );
         }
     }, 1000);
