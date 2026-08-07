@@ -20,7 +20,11 @@ import { snapToAxisOrDiagonal } from './SlabSnapUtils.js';
 // with the plan-view slab handler and with the floor-finish / ceiling tools, so a
 // polyline slab drawn in 3D obeys the same ORTHO constraint and the same CURVED
 // arc gesture as one drawn in plan (C11 §3 — parity by construction).
-import { orthoConstrain, arcSegmentThroughMidpoint, type BoundaryDrawMode } from './boundaryPath.js';
+import { orthoConstrain, type BoundaryDrawMode } from './boundaryPath.js';
+// The arc primitive lives in boundaryArc; boundaryPath consumes it internally but
+// does not re-export it. FloorTool and CeilingTool already import it from the
+// primitive directly — this keeps all three siblings on the same path.
+import { arcSegmentThroughMidpoint } from './boundaryArc.js';
 // §SLAB-REGION-CURVED — single shared, curve-aware region tracer (pure, THREE-free).
 // Both this 3D tool and the plan-view overlay (SlabPlanToolHandler) consume it so
 // curved/filleted-wall regions trace identically in both views.
