@@ -1935,6 +1935,73 @@ export class RenderPipelineManager implements IViewSwitchListener {
     }
 
     /**
+     * §FIX-ONCE-IMPORT-EVERYWHERE (ADR-0297 / ADR-0302) — the narrow, correct entry
+     * point for a VIEWPORT GEOMETRY CHANGE.
+     *
+     * ── The rule this imports ────────────────────────────────────────────────
+     * ADR-0297 established that `onProjectSwitch()` is a PROJECT-LIFECYCLE lever and
+     * must not be borrowed for other purposes; `ViewportCrashGuardRecoveryLever.test.ts:79`
+     * pins "NEVER via onProjectSwitch()" for the RECOVERY case. The RESIZE
+     * subscription was simply never audited under the same rule. It is the same
+     * defect, one call-site over — so the rule is imported here rather than
+     * re-derived a third time.
+     *
+     * ── What was wrong ──────────────────────────────────────────────────────
+     * `initScene.ts` routed every viewport-geometry change — a `window.resize`
+     * listener AND a `ResizeObserver` on `#container` — into `onProjectSwitch()`.
+     * So opening the property inspector, toggling a sidebar, dragging a panel,
+     * opening devtools, browser zoom, a CSS transition on a neighbour, or the split
+     * view mounting during project load each ran `_reconcileRenderSize()` **plus**
+     * `scheduleShadowRebuild()` — a full pipeline dispose + `createScenePass()`
+     * recomposition, with WebGPU submits paused for its duration (measured at
+     * 1,862 ms on the founder's 445-mesh project). The founder's Cesium log shows
+     * the container oscillating 677 → 678 → 677 px, each oscillation taking that
+     * path. A 1-pixel reflow was buying a multi-second shadow reconstruction.
+     *
+     * ── What a resize ACTUALLY requires: only this ───────────────────────────
+     * I checked rather than assumed, because the comment on
+     * {@link _renderSizeReconcileArmed} claims "the app's own resize path is intact"
+     * and that claim is what made this look safe for so long.
+     *
+     *   • The renderer's backing store must follow the canvas — that is
+     *     `_reconcileRenderSize()`, which re-applies `setSize` so the colour targets
+     *     AND the shared `depthBuffer` reallocate from ONE size read (L-312A).
+     *   • The TSL post-processing targets need NOTHING here. `PassNode.updateBefore`
+     *     (three/src/nodes/display/PassNode.js:788-794) calls `renderer.getSize()`
+     *     and `this.setSize(...)` on EVERY frame, cascading to
+     *     `renderTarget.setSize(...)`. Our `OutlinePass`/`ZonePass` are TSL node
+     *     compositions over `pass(...)` and own no independently-sized targets.
+     *     So every post-FX target re-derives from the renderer size on the next
+     *     frame, automatically.
+     *   • The shadow map needs NOTHING here. A shadow map's resolution is
+     *     `light.shadow.mapSize`, which is a function of QUALITY TIER, not of
+     *     viewport size. Reallocating it on resize was never buying correctness —
+     *     and reallocating it is precisely the operation that destroyed a
+     *     ShadowDepthTexture mid-submit (§GPU-RESOURCE-LIFETIME).
+     *
+     * Hence: reconcile the size, and nothing else. No pipeline rebuild, no shadow
+     * rebuild, no submit pause. Cheap enough to run on every ResizeObserver tick.
+     *
+     * Safe to call before `bind()` and on the WebGL path (both no-op).
+     *
+     * @returns true if a corrective `setSize` was issued (i.e. real drift was
+     *          found), false when the renderer already matched the canvas — so a
+     *          caller can log honestly instead of claiming work it did not do.
+     */
+    onViewportResize(): boolean {
+        try {
+            return this._reconcileRenderSize();
+        } catch (err: unknown) {
+            // A resize must never be able to break the frame loop.
+            console.warn(
+                '[RenderPipelineManager] onViewportResize — size reconcile failed (non-fatal):',
+                err instanceof Error ? err.message : err,
+            );
+            return false;
+        }
+    }
+
+    /**
      * Call when the user switches projects (Socket.io project-switch event).
      * Clears stale Object3D references, disposes outline GPU targets,
      * and rebuilds the pipeline with outlines re-activated so selection
