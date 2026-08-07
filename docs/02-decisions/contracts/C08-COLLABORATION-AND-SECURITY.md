@@ -89,6 +89,35 @@ PRYZM uses **Yjs CRDT + server linearization**. The sync contract:
 
 Real-time cursors and user-joined/left events MUST be relayed via Socket.io with server-authoritative `displayName` enrichment. The client MUST NOT send its own `displayName` — the server resolves it from `pryzm_users` and injects it.
 
+### §3.5 — Remote command replay: a collaborative command MUST be reconstructible, and reconstruction MUST NOT guess (§ANN-REMOTE-FACTORY, 2026-08-07, `73edb837`)
+
+`RemoteCommandDispatcher` reaches the command bus only AFTER
+`CommandRegistry.create()` returns a reconstructed Command. **There are therefore TWO
+registries that must agree, and nothing enforced their agreement**: the wire carries
+SCREAMING_SNAKE `CommandType` keys resolved by the `CommandRegistry` factory table, while
+the bus handlers live in the dotted-verb namespace — handlers can exist and work locally
+while being **unreachable on replay**. That is how every remote collaborator's annotation
+edit was silently dropped (factory missing ⇒ `create()` returns null ⇒ the peer's edit
+discards with a toast), the same failure class previously fixed piecemeal for furniture
+and stairs (a `§FIX-ONCE-IMPORT-EVERYWHERE` instance, ADR-0306).
+
+Binding rules:
+
+1. **Every `CommandType` a peer can emit MUST have a `CommandRegistry` factory.** Debt as
+   measured 2026-08-07: `CommandType` has **266** members; `REGISTRY` had **110 keys (109
+   valid)** ⇒ 157 missing, 7 closed by `73edb837` ⇒ **150 remaining**. One registered key
+   (`UPDATE_WALL_BASELINE_WIDTH`) is not a `CommandType` member at all — a dead key.
+   ⚠ **Nothing ratchets the 150** — there is no GA gate and no debt JSON counting it; a
+   number computed by audit is not a ratchet. MEASURED-OPEN.
+2. **A factory MUST DISCRIMINATE, never guess** (ADR-0299): reconstructing the WRONG
+   command and replaying it as the peer's edit is worse than dropping it. Where one
+   `CommandType` serves two classes, the wire payload must carry a discriminator (e.g.
+   `payload.elements` plural ⇒ many; `payloadKind: 'presentation'` — additive,
+   back-compatible).
+3. **A command whose `serialize()` does not put its constructor arguments on the wire MUST
+   stay a reported miss**, not gain a fabricating factory (`UPDATE_CONSTRAINT` emits
+   `payload: {}`; fix `serialize()` first).
+
 ---
 
 ## §4 — Rate Limiting

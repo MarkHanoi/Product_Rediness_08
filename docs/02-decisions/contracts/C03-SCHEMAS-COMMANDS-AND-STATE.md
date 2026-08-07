@@ -397,6 +397,40 @@ property edits (hosted two-part undo — §4.7 follow-up 1); `section.create` (`
 `structural.create` (`['structural']`) have no `window.<x>Store`, so they rely on the legacy
 fallback; `level` is Path-A by design. These do not regress the covered set above.
 
+**Adapter call-arity is part of the contract (§ANN-UNDO-ARITY, 2026-08-07, `352edcfe`).**
+`elementUndoStoreAdapter` drives field-level inverse patches through
+`store.update(id, { [field]: value })` — **two arguments**. A store bound into
+`buildUndoStoreMap()` MUST accept that call shape. The annotation store took a single
+merged object, so the adapter's id landed in `partial`, the guard logged "id not found"
+and returned: **undo silently did nothing while the ring-buffer cursor still advanced**
+(the keypress was consumed). Whole-element ops (`add`/`remove`) happened to match, so
+create-undo worked and field-undo did not — which is why an audit that read the (correct)
+mapping in `performUndoRedo.ts` cleared undo: *reading a mapping is not exercising a
+call*. A store that cannot resolve an id MUST refuse (log, no mutation), never
+half-write; a redo handed a flat ledger record MUST lift it to a canonical element
+loudly, never store it verbatim (an element with no `geometry2D`/`type` renders nothing,
+which to the user is "redo did nothing").
+
+### §4.9 — Annotations have ONE element store (2026-08-07, `73b9d474`)
+
+Annotations have ONE element store: the subsystem `annotationStore`. The schema-level
+`ctx.stores.annotation` (`AnnotationsState`) is a DERIVED PATCH LEDGER that exists only
+to give the ring buffer an immutable before/after pair; it is never an element source.
+Reading it to render, persist, export, tag, schedule or select is a defect. Every
+`annotation.*` handler decides existence against the canonical store and projects its
+mutation there through `canonicalAnnotationSink`.
+
+Supporting rules (same commit family):
+
+- The `annotation.*` bus verbs remain the public mutation API (P6) but terminate in the
+  canonical store; the ledger is back-filled (`mirrorRecordFor`) so patch pairs describe
+  a real before/after. `assertNotARead()` states the boundary in code.
+- Every annotation element carries a `systemTypeId`, stamped by `makeAnnotationElement` —
+  the single chokepoint all 27+ families are born through (`§ANN-TYPE`,
+  `AnnotationSystemTypeStore`, shaped identically to Door/Wall/FloorSystemTypeStore).
+- `annotation.update` is the general merge-semantic update verb (`§ANN-UPDATE-VERB`); an
+  update carrying no field to change is REFUSED rather than reported done (ADR-0299).
+
 ---
 
 ## §6 — `level.add` Command Bus Type Contract

@@ -153,6 +153,63 @@ The audit MUST span stores, graphs, caches, registries and undo — **not only t
 
 **Why**: the pre-L-224 audit inspected the scene graph and two `window` globals. It touched **none** of the 37 registered stores. A stale schedule, sheet, view-template or annotation carried from Project A sailed past it as "✓ loaded clean" — a clean verdict that never looked is worse than no verdict, because it manufactures confidence. An audit that enumerates **symptoms** always lags the code; one that enumerates **owners** fails loudly the moment a 38th store appears with no clear-path.
 
+### §3.11 — Isolation probes are DECLARED, not discovered (ADR-0298, binding)
+
+Per **ADR-0298** (`§PROBE-SET-DECLARED`, implemented `372e0c95`): the isolation audit
+checks a **declared expected probe set** (`declaredProjectScopes.ts`), not whatever
+happened to register. A DECLARED owner that did not answer is a violation
+(`scope.probeMissing`) as loud as a registered owner reporting foreign state — "clean"
+means "every required owner answered". Each declaration carries `resets`, `counts` and
+written `uncounted` justifications, and the gate
+(`tools/ga-gate/check-declared-project-scopes.ts`) enforces
+`resets ⊆ counts ∪ uncounted` with a shrink-only debt baseline.
+
+### §3.12 — The event channel is project-scoped state (binding; L-713, `da4559d8`)
+
+**A leak can live in an undelivered message, not only in a held value.** The store event
+bus (`StoreEventBus`) and its queued/buffered events are project-scoped state, declared as
+such (Declaration v3 `events.storeBus` — the first declared surface that is a **CHANNEL**,
+not a value; fourth variant of one family: L-676 no owner → L-694 wrong property → L-711
+incomplete expected set → L-713 unmodelled channel).
+
+Binding rules:
+
+1. **The outgoing project's teardown events MUST NOT cross into the incoming project.**
+   The observed leak: the incoming project's `beginBatch()` bracket (opened by
+   `ProjectLoader`) was open while the OUTGOING project's teardown ran inside it
+   (`ClearProjectCommand` → `projectScopeRegistry.clearAll()` → per-element `delete`
+   events), so 74 buffered deletes of destroyed elements were flushed into the new
+   project's subscribers. The bracket was never unbalanced — the leak was cross-project
+   CONTENT inside a correctly-paired bracket.
+2. **`StoreEventBus.suppressDuring(reason, fn)`** — a lexical region whose emits are
+   dropped, COUNTED (`lastSuppression`) and logged. `ClearProjectCommand`'s body runs
+   inside it. Dropping is correct here, not a shortcut: the clear resets
+   `elementRegistry` FIRST, so every event it then emits names an element nothing can
+   resolve, and every `storeEventBus` subscriber is a derived index the clear resets
+   wholesale anyway. The per-store `subscribe()` channel used for mesh teardown is
+   untouched.
+3. **The "No Event Drops" guarantee (Master Architecture §9 / STR-04 §9.1) has exactly
+   TWO declared exceptions**, both fenced, both counted:
+   `discardBatch()` (the C13 teardown of an open bracket) and `suppressDuring()` (above).
+   Any third drop site is a violation; add it here by amendment or do not write it.
+4. **Bracket state is owned by the bus, not by a coordinator's shadow flag**
+   (`§C13-BUS-QUEUE-OWNER`): `BatchCoordinator.forceReset()` gates `discardBatch()` on the
+   BUS's own state, so a bracket opened directly by `ProjectLoader` is visible to the C13
+   teardown. `discardBatch()` also drops a stray buffer left at depth 0 by
+   `endBatchYielded()`.
+5. **A stale id after a clear is REFUSED, not repaired** (`§C13-STALE-AFTER-CLEAR`,
+   ADR-0299 §RECOVERY-MUST-REFUSE): `ElementRegistry` records `lastClearedAt` /
+   `clearedSince(t)`; `ViewDependencyTracker` distinguishes an undo/redo stale id from a
+   cross-project one and refuses the latter — no views dirtied, logged as
+   `[C13 VIOLATION]`, counted. (The old fallback coarse-invalidated every non-3D view of
+   the new project 74 times and was the only thing between this leak and a founder
+   report.)
+6. **Attribution honesty**: the probe cannot attribute a queued event
+   (`StoreChangeEvent` has no `projectId`), so it answers
+   `'<in-flight-events-unattributed>'` rather than filing an unknown as a clean. Owners
+   whose teardown fires inside another owner's bracket declare `ownsTeardown: false` +
+   a required `teardownOwner`, gate-enforced.
+
 ---
 
 ## §4 — The normative teardown sequence

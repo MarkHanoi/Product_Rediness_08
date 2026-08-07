@@ -55,29 +55,56 @@ interface RendererHandle {
 
 ### §2.2 — FrameScheduler API
 
+> ⚠ **Drift note — this section previously described an API that never shipped; corrected
+> 2026-08-07.** The contract declared `onFrame(cb, priority)` with
+> `FramePriority = 'physics' | 'update' | 'render' | 'post'`. No such API exists anywhere
+> in the codebase. The section below describes the API `packages/frame-scheduler/` has
+> actually shipped (`FrameScheduler.ts`, `types.ts`); the invariants (§2.1, single rAF;
+> the no-backward-mutation rule in §2.3) were and remain binding.
+
+The real API (`packages/frame-scheduler/src/FrameScheduler.ts`):
+
 ```ts
-interface FrameScheduler {
-  onFrame(callback: FrameCallback, priority?: FramePriority): Unsubscribe;
-  scheduleOnce(callback: FrameCallback): void;
-  pause(): void;
-  resume(): void;
-}
-type FrameCallback = (dt: number, elapsed: number) => void;
-type FramePriority = 'physics' | 'update' | 'render' | 'post';
+// Per-frame subscription — id-keyed, priority-ordered. Mirrors PRYZM 1's
+// UnifiedFrameLoop.addTickListener shape. Duplicate ids are refused.
+addTickListener(id: string, cb: TickListenerCallback, priority: TickPriority): TickListenerDisposer;
+
+// One-shot: runs on the NEXT frame at the given phase, then auto-unsubscribes.
+// `reason` is a human-readable label (minted into a unique internal id).
+scheduleOnce(reason: string, cb: TickListenerCallback, priority: TickPriority = 'post-render'): TickListenerDisposer;
+
+// Thin wrapper: scheduleOnce(phase, cb, phase).
+schedule(phase: TickPriority, cb: TickListenerCallback): TickListenerDisposer;
+
+type TickPriority = 'pre-render' | 'render' | 'post-render' | 'overlay';
 ```
 
-- `onFrame` subscribes for every frame at the given priority tier (physics → update → render → post).
-- `scheduleOnce` runs the callback on the next frame and automatically unsubscribes.
-- `pause` / `resume` control the rAF loop for background tabs and test isolation.
+Two **distinct** priority vocabularies exist and MUST NOT be conflated:
+
+- **`TickPriority`** (above) — the per-frame *phase* a tick listener runs in.
+- **`Priority`** — a separate queue-class enum (see `types.ts`, `PRIORITIES` /
+  `isPriority`) used for budgeted background work, paired with
+  **`getBatchBudget(key): BudgetToken | null`** — the mechanism by which batched work
+  requests a per-frame time budget instead of running unbounded.
+
+Non-visual work MUST NOT ride the frame bus as its only driver: the frame bus stops when
+rendering stops, and `§PROGRESS-SCHEDULER` (`602f286a`) exists precisely because progress
+work died with it (`progressScheduler.ts` is the sanctioned path).
 
 ### §2.3 — Priority tiers (execution order per frame)
 
-1. **physics** — physics integration and input sampling.
-2. **update** — element/scene state updates, command replay.
-3. **render** — THREE scene commit + `renderer.render()`.
-4. **post** — screenshot capture, perf sampling, telemetry flush.
+> Corrected 2026-08-07 alongside §2.2 — the tiers below are the shipped `TickPriority`
+> order (`TICK_PRIORITIES`), not the never-shipped physics/update/render/post ladder.
+
+1. **pre-render** — input sampling, element/scene state updates that must precede the commit.
+2. **render** — THREE scene commit + `renderer.render()`.
+3. **post-render** — work that reads the completed frame (screenshot capture, perf sampling, telemetry flush). Default phase for `scheduleOnce`.
+4. **overlay** — 2D overlay/HUD painting on top of the completed frame.
 
 A callback MUST NOT mutate state in a tier that has already executed in the current frame.
+Listener errors are isolated (one throwing listener cannot kill the frame), and entries
+added during iteration run on the NEXT frame — the "next frame" contract that
+`scheduleOnce`/`schedule` document.
 
 ---
 
@@ -94,6 +121,56 @@ A callback MUST NOT mutate state in a tier that has already executed in the curr
 
 - All THREE object creation/destruction MUST go through the scene committer. No plugin or UI component MAY add objects to the THREE scene directly.
 - The committer MUST be idempotent: calling it twice with the same store snapshot MUST produce the same scene state with no extra allocations.
+
+> ⚠ **Status: declared-but-unenforced debt (measured 2026-08-07).** The first invariant is
+> violated at scale today: **~86 direct `.add(` sites** put objects into the THREE scene
+> without the committer, including **~15 core BIM fragment/element builders** (walls,
+> slabs, stairs, roofs, furniture, …). No CI gate counts these sites, which is how the
+> number got to 86 silently. The invariant is deliberately KEPT — it is the end-state the
+> architecture converges on — but until a migration exists, code review must not cite
+> this clause as if it described the present.
+>
+> The pragmatic bridge is the **`SceneDeltaChannel`** (ADR-0302 §1): rather than forcing
+> all creation through the committer first, the scene publishes a per-frame mesh delta so
+> consumers stop re-deriving "what is in the scene" — which removes the O(scene) cost that
+> makes the direct-add sites harmful, independent of who added the mesh. Migration of the
+> ~86 direct-add sites to the committer is future work and needs (a) a ratchet gate on the
+> site count, shrink-only, and (b) a per-builder migration plan. An invariant nobody
+> enforces is tolerable only while it is loud about it — hence this note.
+
+### §3.1.1 — Per-edit cost is proportional to the edit (ADR-0302, binding)
+
+Per **ADR-0302 `§EDIT-COST-IS-PROPORTIONAL`**:
+
+- The scene publishes a per-frame **mesh delta** (added/removed since the last drain),
+  drained once by the frame scheduler; consumers process **only the delta**.
+- **Steady-state per-edit `scene.traverse()` count MUST be zero**, and it is an asserted
+  metric, not an aspiration. A consumer that believes it needs a global answer MUST
+  justify it in code; the one legitimate global — the tier's mesh count — is a counter
+  maintained by the channel, exact, never sampled.
+- Resize is not a project switch (ADR-0302 §2; `§RESIZE-IS-NOT-A-PROJECT-SWITCH`,
+  `7131835c`/`4f75386a`).
+- One owner per GPU resource, ordered against in-flight submits (ADR-0302 §3;
+  §GPU-RESOURCE-LIFETIME below).
+- Any cap, LOD drop, sampling limit or tier de-escalation MUST be declared/logged
+  (ADR-0302 §4).
+
+### §3.1.2 — §GPU-RESOURCE-LIFETIME (ADR-0297, binding)
+
+Folded from ADR-0297's "C04 amendment" section, as amended 2026-08-07:
+
+1. **L1 Ownership** — a GPU resource handed out by a cache is owned by that cache and MUST
+   NOT be released by an element teardown; ownership is recorded ON the resource.
+2. **L2 Ordering** — a GPU resource may be released only after every `Object3D`
+   referencing it is detached AND the frame that last referenced it has finished
+   submitting: **detach on your own tick, release at the frame boundary**
+   (`scheduleGpuRelease`). A `setTimeout(0)` is a guess at a frame boundary, not the frame
+   boundary.
+3. `RenderPipelineManager.render()` is the **sole drain point** for deferred GPU releases.
+4. A render failure MUST be classified before it is retried; a retry that cannot repair
+   the fault class is a defect. A recovery MUST refuse a fault it cannot reach (e.g. a
+   light-owned `LightShadow.map`) rather than burn a reconstruction that cannot work.
+5. Error suppression MUST be accounted and escalate on a burst.
 
 ### §3.2 — GPU picking ID-buffer requirement (Amendment — Wave A15 S121, 2026-05-03)
 

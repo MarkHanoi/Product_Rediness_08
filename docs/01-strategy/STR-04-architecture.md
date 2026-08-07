@@ -348,6 +348,28 @@ Every binding architectural rule lives in a numbered contract. The suite is inde
 
 The CANONICAL suite (C01–C18) is enforced today. The DRAFT suite (C19–C49) is the published implementation roadmap.
 
+### §9.1 — The "No Event Drops" guarantee — amended 2026-08-07
+
+Code throughout `packages/core-app-model` (`StoreEventBus.ts`, `BatchCoordinator.ts`)
+cites a *"Master Architecture Contract §9 — No Event Drops"* guarantee. This subsection is
+that guarantee's canonical home:
+
+> **Every `emit()` on the store event bus eventually reaches all subscribers.** Batching
+> may DEFER delivery (`endBatchYielded()` delivers across yields), never drop it.
+
+**Amendment (2026-08-07, L-713 / commit `da4559d8`): the guarantee has exactly TWO
+declared exceptions, and may never acquire an undeclared third:**
+
+1. **`discardBatch()`** — the C13 teardown of an open bracket on project switch/load
+   (C13 §5.4 lineage).
+2. **`StoreEventBus.suppressDuring(reason, fn)`** — a lexical region whose emits are
+   dropped, **counted** (`lastSuppression`) and logged; used by `ClearProjectCommand` so
+   the outgoing project's teardown events cannot cross into the incoming project.
+
+Both exceptions drop only events that can no longer be resolved (the registry is already
+cleared) or that belong to a project being destroyed; both are fenced and accounted.
+Binding detail: **C13 §3.12** ("the event channel is project-scoped state").
+
 ---
 
 ## §10 — Cross-cutting subsystems (by contract)
