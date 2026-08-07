@@ -7,6 +7,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { GlobeHeroSearch, type GlobeHeroSearchGeocodeResult } from '../src/ui/onboarding/GlobeHeroSearch.js';
 import type { CoverageEntry, SiteEntryCameraTarget } from '../src/engine/views/siteEntryModel';
+import { SITE_ENTRY_FLIGHT_DURATION_S } from '../src/engine/views/siteEntryModel';
 import type { GlobeCameraHost } from '../src/engine/views/siteEntryStore';
 
 const COVERED: CoverageEntry = {
@@ -31,6 +32,9 @@ function harness(opts?: {
     const toggleCalls: boolean[] = [];
     const flights: SiteEntryCameraTarget[] = [];
     const host: GlobeCameraHost = {
+        // §REVEAL-FLIGHT-COMPLETE — the port returns a promise that settles when the flight is no
+        // longer in progress. An already-resolved one models "the tween finished instantly", which
+        // keeps these tests synchronous-ish while still exercising the awaited-leg path.
         flyToGeographic: (t) => {
             flights.push({
                 lat: t.lat,
@@ -39,7 +43,9 @@ function harness(opts?: {
                 pitchDeg: t.pitchDeg,
                 stage: 'world', // overwritten per-assertion where relevant; flights[] order is what matters
                 instant: t.instant ?? false,
+                durationS: t.durationS ?? 0,
             });
+            return Promise.resolve();
         },
     };
     const geocode =
@@ -365,5 +371,101 @@ describe('GlobeHeroSearch', () => {
         });
         const outcome = await hero.search('Córdoba');
         expect(outcome.ok).toBe(true);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §REVEAL-FLIGHT-COMPLETE — the staged descent must actually REACH THE SCREEN.
+//
+// The chain was already three discrete reducer transitions producing three camera effects, and
+// the test above asserts that. What it could not catch is that all three were dispatched in a
+// SYNCHRONOUS loop, so `viewer.camera.flyTo` cancelled each leg with the next one and the user saw
+// only the final city→parcel flight. Issuing a flight and rendering a flight are different things;
+// these tests pin the second by making each leg's completion controllable.
+describe('§REVEAL-FLIGHT-COMPLETE — each leg is awaited, so the descent is seen and not skipped', () => {
+    /** A camera host whose flights only finish when the test says so. */
+    function pacedHost() {
+        const releases: Array<() => void> = [];
+        const flights: Array<{ altitudeM: number; durationS?: number }> = [];
+        const host: GlobeCameraHost = {
+            flyToGeographic: (t) => {
+                flights.push({ altitudeM: t.altitudeM, ...(t.durationS !== undefined ? { durationS: t.durationS } : {}) });
+                return new Promise<void>((resolve) => { releases.push(resolve); });
+            },
+        };
+        return { host, releases, flights };
+    }
+
+    it('does not start the NEXT leg until the current one has settled', async () => {
+        const { host, releases, flights } = pacedHost();
+        const hero = new GlobeHeroSearch({
+            toggleGlobe: () => {},
+            getCameraHost: () => host,
+            entries: [COVERED],
+            geocode: async () => [{ lat: 37.883, lon: -4.78, displayName: 'Cordoba, Spain' }],
+        });
+        const running = hero.search('Cordoba');
+        const drain = async (): Promise<void> => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
+
+        // ⚠ ASSERT THE DELTA, NOT AN ABSOLUTE COUNT. The chain opens with a `site.entry.reset`
+        // flight back to the world view which is deliberately NOT awaited — in production it
+        // overlaps the geocode round-trip, so awaiting it would add dead time to every search.
+        // What must hold is the pairwise property: while a leg is in the air, no further leg is
+        // issued. That is exactly what the synchronous `while` loop violated, and it is
+        // independent of how many flights precede the descent.
+        await drain();
+        let seen = flights.length;
+        expect(seen).toBeGreaterThan(0);
+
+        for (let leg = 0; leg < 3; leg++) {
+            const before = flights.length;
+            await drain();
+            // Nothing new may appear while the current leg is still flying.
+            expect(flights.length).toBe(before);
+            // ⚠ POP, NOT SHIFT — release the flight that is actually IN THE AIR (the most recent),
+            // not the un-awaited reset still sitting at the head of the queue.
+            releases.pop()!();
+            await drain();
+            expect(flights.length).toBe(before + 1);
+            seen = flights.length;
+        }
+
+        for (let k = 0; k < 20; k++) { releases.pop()?.(); await drain(); }
+        await running;
+        // FIVE flights total, measured: reset + 3 descent legs + the terminal select-parcel
+        // confirmation. Not the four-stages-so-three-legs arithmetic that looks obvious.
+        expect(flights.length).toBe(5);
+        // Monotonic descent — no leg is ever further from the ground than the one before it.
+        const alts = flights.map((f) => f.altitudeM);
+        expect(alts).toEqual([...alts].sort((a, b) => b - a));
+        expect(new Set(alts).size).toBe(4);
+    });
+
+    it('carries the MODEL-declared duration to the camera, not a viewport-local constant', async () => {
+        const { host, releases, flights } = pacedHost();
+        const hero = new GlobeHeroSearch({
+            toggleGlobe: () => {},
+            getCameraHost: () => host,
+            entries: [COVERED],
+            geocode: async () => [{ lat: 37.883, lon: -4.78, displayName: 'Córdoba, Spain' }],
+        });
+        const running = hero.search('Córdoba');
+        for (let i = 0; i < 20; i++) { releases.shift()?.(); await Promise.resolve(); }
+        await running;
+        expect(flights.length).toBeGreaterThan(0);
+        for (const f of flights) expect(f.durationS).toBe(SITE_ENTRY_FLIGHT_DURATION_S);
+        // ⚠ THE FOUNDER'S ASK, AS AN ASSERTION: "take 3–4 seconds". The awaited legs are
+        // sequential, so the total descent is (flights × duration) — and this is the guard that
+        // would have caught calibrating the constant against an assumed leg count rather than the
+        // measured flight count (3 legs × 1.3 s "looks" like 3.9 s but actually shipped 6.5 s).
+        const totalS = flights.length * SITE_ENTRY_FLIGHT_DURATION_S;
+        expect(totalS).toBeGreaterThanOrEqual(3);
+        expect(totalS).toBeLessThanOrEqual(4);
+    });
+
+    it('exposes a flight-settled signal that resolves when nothing is flying', async () => {
+        const { hero } = harness();
+        // Nothing has flown yet — the gate must not hang the reveal on a descent that never began.
+        await expect(hero.whenFlightSettled()).resolves.toBeUndefined();
     });
 });

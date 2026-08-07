@@ -52,11 +52,17 @@ import {
  * The camera the store drives. The production implementation is a thin adapter over the
  * ONE `CesiumViewport` (`flyToGeographic`); tests pass a recorder.
  *
- * ⚠ It takes a fully-resolved target and returns nothing: the port may not decide WHERE
- * to look, only how to get there. Framing is the model's job (`cameraForState`).
+ * ⚠ It takes a fully-resolved target: the port may not decide WHERE to look, only how to get
+ * there. Framing is the model's job (`cameraForState`), and since §REVEAL-FLIGHT-COMPLETE so is
+ * the PACING (`target.durationS`).
+ *
+ * §REVEAL-FLIGHT-COMPLETE — it now returns a promise that settles when the flight is no longer in
+ * progress. That is the whole point: the reveal choreography can sequence on the camera rather
+ * than guess with a timer. It resolves on cancellation too — see `CesiumViewport.flyToGeographic`
+ * for why a superseded flight must not become a rejection.
  */
 export interface SiteEntryCameraPort {
-    flyTo(target: SiteEntryCameraTarget): void;
+    flyTo(target: SiteEntryCameraTarget): Promise<void>;
 }
 
 /**
@@ -91,7 +97,8 @@ export interface GlobeCameraHost {
         altitudeM: number;
         pitchDeg: number;
         instant?: boolean;
-    }): void;
+        durationS?: number;
+    }): Promise<void>;
 }
 
 /**
@@ -108,14 +115,18 @@ export function cesiumSiteEntryCameraPort(
             const host = resolveHost();
             if (!host) {
                 console.warn('[site-entry] no globe mounted — camera target dropped.', target.stage);
-                return;
+                // §REVEAL-FLIGHT-COMPLETE — a dropped target is a SETTLED flight, not a pending
+                // one. Returning a never-resolving promise here would hang any caller awaiting the
+                // descent on exactly the path where no globe exists to watch.
+                return Promise.resolve();
             }
-            host.flyToGeographic({
+            return host.flyToGeographic({
                 lat: target.lat,
                 lon: target.lon,
                 altitudeM: target.altitudeM,
                 pitchDeg: target.pitchDeg,
                 instant: target.instant,
+                durationS: target.durationS,
             });
         },
     };
@@ -154,6 +165,16 @@ export class SiteEntryStore {
     private readonly ctx: SiteEntryContext;
     private camera: SiteEntryCameraPort | null;
     private site: SiteEntrySitePort | null;
+    /**
+     * §REVEAL-FLIGHT-COMPLETE — the most recent camera flight this store issued, so a caller can
+     * sequence the descent (`await store.whenFlightSettled()`) instead of guessing with a timer.
+     *
+     * ⚠ SCOPED TO THE STORE INSTANCE, DELIBERATELY. One store per entry session, so this dies with
+     * the session and cannot leak a stale promise into the next project — the failure mode that
+     * `6897f0cc` had to go back and fix for the globe layout. There is no module-level camera state
+     * here and none should be added.
+     */
+    private lastFlight: Promise<void> = Promise.resolve();
 
     constructor(opts: SiteEntryStoreOptions) {
         this.ctx = { entries: opts.entries, mode: opts.mode ?? 'coverage-gated' };
@@ -195,7 +216,26 @@ export class SiteEntryStore {
      * `instant` (a `setView`, not a tween) because a mount is not a navigation.
      */
     frameCurrent(): void {
-        this.camera?.flyTo(cameraForState(this._state, true));
+        this.trackFlight(this.camera?.flyTo(cameraForState(this._state, true)));
+    }
+
+    /**
+     * §REVEAL-FLIGHT-COMPLETE — settles when the flight this store most recently issued is no
+     * longer in progress. Resolves immediately when nothing is flying.
+     *
+     * ⚠ "SETTLED" IS NOT "ARRIVED". A superseded or cancelled flight settles too (see
+     * `CesiumViewport.flyToGeographic`), because callers need to know when to stop waiting, and a
+     * promise that only resolved on arrival would hang forever the moment a user touched the globe.
+     */
+    whenFlightSettled(): Promise<void> {
+        return this.lastFlight;
+    }
+
+    /** Record a flight, swallowing rejection: a camera failure must never become an unhandled
+     *  rejection in a caller that is only sequencing on it. */
+    private trackFlight(flight: Promise<void> | void): void {
+        if (!flight) return;
+        this.lastFlight = flight.catch(() => { /* a refused camera does not strand the flow */ });
     }
 
     /**
@@ -218,7 +258,8 @@ export class SiteEntryStore {
         for (const effect of reduced.effects) {
             if (effect.kind === 'camera') {
                 try {
-                    this.camera?.flyTo(effect.target);
+                    // §REVEAL-FLIGHT-COMPLETE — remember the leg so the descent can be awaited.
+                    this.trackFlight(this.camera?.flyTo(effect.target));
                 } catch (e) {
                     // A camera that refuses must not strand the flow — the stage is the
                     // truth, the camera is its projection and can be re-framed.

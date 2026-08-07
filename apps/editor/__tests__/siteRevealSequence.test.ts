@@ -199,3 +199,87 @@ describe('§REVEAL-CONTENT-READY — the split waits for CONTENT, never for a cl
         expect(result.steps).not.toContain('await-content-ready');
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §REVEAL-FLIGHT-COMPLETE — the OTHER half of the gate. Content-readiness alone would cut to the
+// split mid-descent; the founder asked for the zoom to happen and THEN the transition. So the
+// reveal fires when the LATER of {content, flight} lands.
+describe('§REVEAL-FLIGHT-COMPLETE — the reveal waits for BOTH gates', () => {
+    function gate() {
+        let release!: () => void;
+        const promise = new Promise<void>((r) => { release = r; });
+        return { promise, release };
+    }
+
+    it('waits for the FLIGHT even when the content is already warm', async () => {
+        const flight = gate();
+        const { deps, calls } = harness({
+            awaitContentReady: () => Promise.resolve('warm'),
+            awaitFlightComplete: () => flight.promise,
+        });
+        const running = runSiteRevealSequence(deps, TARGET);
+        for (let i = 0; i < 6; i++) await Promise.resolve();
+        // Content is ready, but the camera is still descending — cutting now would interrupt
+        // the very zoom the founder asked for.
+        expect(calls).not.toContain('mount');
+        flight.release();
+        expect((await running).mounted).toBe(true);
+        expect(calls).toContain('mount');
+    });
+
+    it('waits for the CONTENT even when the flight has already landed', async () => {
+        const content = gate();
+        const { deps, calls } = harness({
+            awaitContentReady: () => content.promise,
+            awaitFlightComplete: () => Promise.resolve(),
+        });
+        const running = runSiteRevealSequence(deps, TARGET);
+        for (let i = 0; i < 6; i++) await Promise.resolve();
+        expect(calls).not.toContain('mount');
+        content.release();
+        expect((await running).mounted).toBe(true);
+    });
+
+    it('starts BOTH gates concurrently — the flight is observed even if the content resolves first', async () => {
+        const order: string[] = [];
+        const { deps } = harness({
+            awaitContentReady: () => { order.push('content-started'); return Promise.resolve(); },
+            awaitFlightComplete: () => { order.push('flight-started'); return Promise.resolve(); },
+        });
+        await runSiteRevealSequence(deps, TARGET);
+        // Sequential awaiting would only start the flight gate after the content settled; both
+        // must be in flight before either is awaited.
+        expect(order).toEqual(['content-started', 'flight-started']);
+    });
+
+    it('records both gate steps, between the arm and the mount', async () => {
+        const { deps } = harness({
+            awaitContentReady: () => Promise.resolve(),
+            awaitFlightComplete: () => Promise.resolve(),
+        });
+        const result = await runSiteRevealSequence(deps, TARGET);
+        expect(result.steps).toEqual([
+            'seed-geocode-frame', 'anchor-site-location', 'arm-boundary-listener',
+            'await-content-ready', 'await-flight-complete', 'mount-split', 'fade-in-split',
+        ]);
+    });
+
+    it('reveals when the user CANCELS the flight — an overridden animation must not hold the split hostage', async () => {
+        // The port resolves on cancel as well as completion, so a user who grabs the globe
+        // mid-descent gets their split at once. This is why the gate is not a minimum duration.
+        const { deps, calls } = harness({
+            awaitContentReady: () => Promise.resolve(),
+            awaitFlightComplete: () => Promise.resolve(), // settled early == cancelled
+        });
+        expect((await runSiteRevealSequence(deps, TARGET)).mounted).toBe(true);
+        expect(calls).toContain('mount');
+    });
+
+    it('reveals anyway when the flight gate REJECTS (a refused camera must not strand the user)', async () => {
+        const { deps } = harness({
+            awaitContentReady: () => Promise.resolve(),
+            awaitFlightComplete: () => Promise.reject(new Error('no globe')),
+        });
+        expect((await runSiteRevealSequence(deps, TARGET)).mounted).toBe(true);
+    });
+});

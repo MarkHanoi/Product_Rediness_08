@@ -94,6 +94,24 @@ export interface SiteRevealDeps {
      * Optional: when absent the reveal mounts immediately, which is exactly the pre-gate behaviour.
      */
     readonly awaitContentReady?: () => Promise<unknown>;
+    /**
+     * §REVEAL-FLIGHT-COMPLETE (founder 2026-08-06: "START ZOOMING … SLOWLY … take 3–4 seconds,
+     * THEN transition to the split view") — THE OTHER HALF OF THE GATE.
+     *
+     * Content-readiness alone is not the founder's ask. If the data lands at t≈2.7 s and the camera
+     * is still descending until t≈3.9 s, cutting to the split on content alone interrupts the very
+     * zoom that was requested. So the reveal waits for BOTH, and the transition happens when the
+     * LATER of the two finishes — which is the honest reading of "keep that loading in the
+     * background … then transition".
+     *
+     * ⚠ THIS IS NOT A MINIMUM DURATION AND MUST NOT BECOME ONE. It settles when the flight is no
+     * longer in progress, INCLUDING when the user grabs the globe and cancels it (see
+     * `CesiumViewport.flyToGeographic`). A user who interrupts the cinematic gets their split
+     * immediately; they do not get held hostage to an animation they just overrode.
+     *
+     * Optional: when absent only the content gates, which is the §REVEAL-CONTENT-READY behaviour.
+     */
+    readonly awaitFlightComplete?: () => Promise<unknown>;
     /** `window.pryzmMountSiteAuthoringPanes()` — the ONE existing split mount (idempotent). */
     readonly mountSplit: () => void;
     /** Presentation-only fade. Never gates; a throw here does not un-mount the split. */
@@ -105,6 +123,7 @@ export type SiteRevealStep =
     | 'anchor-site-location'
     | 'arm-boundary-listener'
     | 'await-content-ready'
+    | 'await-flight-complete'
     | 'mount-split'
     | 'fade-in-split';
 
@@ -196,14 +215,24 @@ export async function runSiteRevealSequence(
         // §CTX-RANGE-URL-SOURCE / §CTX-TILE-DECODE-CACHE (same day) that bring the far-extent read
         // to ~1.4 s cold and ~0 warm, which fits inside the staged flight the user is already
         // watching. The two changes are one feature: the fix makes the choreography honest.
-        if (deps.awaitContentReady) {
+        // ⚠ BOTH GATES ARE STARTED BEFORE EITHER IS AWAITED. `Promise.all` over the two calls —
+        // not `await content; await flight` — because the second form would only begin observing
+        // the flight after the content resolved, and a flight that finished in between would be
+        // observed as "already settled" only by luck of ordering. Concurrent by construction:
+        // the reveal fires when the LATER of the two lands, which is the whole choreography.
+        if (deps.awaitContentReady || deps.awaitFlightComplete) {
             try {
-                await deps.awaitContentReady();
+                await Promise.all([
+                    deps.awaitContentReady?.(),
+                    deps.awaitFlightComplete?.(),
+                ]);
             } catch (e) {
-                // Ready-enough. See the dep's note: a failed context read must not strand the user.
-                console.warn('[site-reveal] awaitContentReady rejected — revealing anyway (non-fatal):', e);
+                // Ready-enough. See the deps' notes: neither a failed context read nor a refused
+                // camera may strand the user on the globe.
+                console.warn('[site-reveal] a reveal gate rejected — revealing anyway (non-fatal):', e);
             }
-            steps.push('await-content-ready');
+            if (deps.awaitContentReady) steps.push('await-content-ready');
+            if (deps.awaitFlightComplete) steps.push('await-flight-complete');
         }
 
         // 4) The ONE existing mount (P1 — no parallel mount path; idempotent).

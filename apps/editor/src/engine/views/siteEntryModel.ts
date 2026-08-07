@@ -140,6 +140,45 @@ export const SITE_ENTRY_ALTITUDE_M: Readonly<Record<SiteEntryStage, number>> = {
     parcel: 600,
 };
 
+/**
+ * §REVEAL-FLIGHT-COMPLETE (founder 2026-08-06: "START ZOOMING IN THE MAIN VIEW EARTH GLOBE SLOWLY
+ * to the location, take 3–4 seconds") — DECLARED duration of ONE stage leg, seconds.
+ *
+ * ⚠ THE FOUNDER WAS NOT SEEING 4.8 s OF FLIGHT, HE WAS SEEING 1.6 s, AND THAT IS WHY IT FELT
+ * ABRUPT. The descent is three legs (world→country→city→parcel), and the per-leg duration was
+ * hard-coded at 1.6 s inside `CesiumViewport.flyToGeographic`, so the arithmetic looked like 4.8 s.
+ * But `GlobeHeroSearch.search()` dispatched all three descends in a SYNCHRONOUS `while` loop, and
+ * each `camera.flyTo` cancels the one before it. The user therefore saw a single 1.6 s flight from
+ * world altitude to the parcel — the two intermediate stages were computed, framed and immediately
+ * superseded. The staged chain existed in the state machine and never reached the screen.
+ *
+ * The fix is to AWAIT each leg (now possible: `flyToGeographic` returns a promise), which makes the
+ * declared duration mean what it says.
+ *
+ * ⚠ THE VALUE IS DERIVED FROM THE MEASURED FLIGHT COUNT, NOT FROM THE STAGE COUNT — and those are
+ * not the same number, which is the trap. "Four stages, so three legs" is the obvious arithmetic
+ * and it is wrong: instrumenting a real `search()` shows **FIVE** flights, because the chain also
+ * pans at world altitude before descending and issues a terminal confirmation reframe:
+ *
+ *     1. 20,000,000 m   world      — pan across the globe to the target, still at world altitude
+ *     2.  1,200,000 m   country
+ *     3.     18,000 m   city       — the §CTX-PREFETCH-ON-LOCATION warm-up fires here
+ *     4.        600 m   parcel
+ *     5.        600 m   parcel     — the terminal `select-parcel` confirmation
+ *
+ * 5 × 0.75 s = **3.75 s**, in the middle of the founder's "take 3–4 seconds". Had this been set
+ * from the assumed three legs it would have shipped at 6.5 s — nearly double the ask, and it would
+ * have looked like a deliberate choice. ⚠ IF THE REDUCER'S EFFECT CHAIN CHANGES, RE-MEASURE: this
+ * constant is calibrated against a flight COUNT it does not itself control.
+ *
+ * ⚠ WHY THIS LIVES IN THE MODEL AND NOT IN THE VIEWPORT. `cameraForState` already owns WHERE the
+ * camera looks, on the stated principle that framing is the model's job and the port "may not decide
+ * WHERE to look, only how to get there" (`siteEntryStore.ts`). Pacing is the same kind of decision —
+ * a declared property of a stage transition, not an implementation detail of one renderer. Leaving
+ * it hard-coded in the viewport is precisely how it came to be invisible.
+ */
+export const SITE_ENTRY_FLIGHT_DURATION_S = 0.75;
+
 /** DECLARED camera pitch per stage, degrees (negative = looking down). */
 export const SITE_ENTRY_PITCH_DEG: Readonly<Record<SiteEntryStage, number>> = {
     world: -90,
@@ -222,6 +261,11 @@ export interface SiteEntryCameraTarget {
     readonly stage: SiteEntryStage;
     /** True for the first framing after a mount — the port should `setView`, not glide. */
     readonly instant: boolean;
+    /**
+     * §REVEAL-FLIGHT-COMPLETE — how long this leg should take, seconds. Ignored when `instant`.
+     * Declared here so the pacing of the descent is a property of the model, like the framing.
+     */
+    readonly durationS: number;
 }
 
 export type SiteEntryEffect =
@@ -353,6 +397,7 @@ export function cameraForState(state: SiteEntryState, instant = false): SiteEntr
         pitchDeg: SITE_ENTRY_PITCH_DEG[state.stage],
         stage: state.stage,
         instant,
+        durationS: SITE_ENTRY_FLIGHT_DURATION_S,
     };
 }
 

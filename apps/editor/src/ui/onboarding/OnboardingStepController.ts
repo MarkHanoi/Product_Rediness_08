@@ -282,6 +282,13 @@ export class OnboardingStepController {
      */
     private contextWarm: Promise<unknown> | null = null;
 
+    /**
+     * §REVEAL-FLIGHT-COMPLETE — the in-progress reveal, held so `handleGeocode` can await it
+     * before tearing the location step down. See the note at `onParcelArrival`. Never rejects
+     * (`revealSplitAtParcel` handles its own failures), so awaiting it can only resolve.
+     */
+    private revealInFlight: Promise<void> | null = null;
+
     /** Current step — drives the indicator + guards re-entry into generate. */
     private step: StepId = 'location';
     private picked: PickedLocation | null = null;
@@ -569,7 +576,14 @@ export class OnboardingStepController {
             // reveal. §REVEAL-CONTENT-READY made the reveal async (it now waits on the context
             // load); the globe keeps flying underneath it, which IS the choreography.
             onParcelArrival: (picked) => {
-                void this.revealSplitAtParcel({
+                // §REVEAL-FLIGHT-COMPLETE — ⚠ HOLD THE PROMISE. `handleGeocode` must await this
+                // before `leaveLocationStep()`, which disposes the hero and — unless
+                // `splitRevealed` is already true — hides the globe the split is about to
+                // re-parent (the §22 "black 3D pane" hazard, by a different route). The reveal
+                // became asynchronous when it started gating on readiness, so the flag is no
+                // longer set by the time `search()` returns; without this handle the teardown
+                // races the mount it is supposed to follow.
+                this.revealInFlight = this.revealSplitAtParcel({
                     lat: picked.lat,
                     lon: picked.lon,
                     address: picked.address,
@@ -680,6 +694,10 @@ export class OnboardingStepController {
                 // ran (a search that skipped the city stage, or an older bundle without the hook)
                 // `contextWarm` is null and the reveal mounts immediately — no stall, no timer.
                 awaitContentReady: () => this.contextWarm ?? Promise.resolve(),
+                // §REVEAL-FLIGHT-COMPLETE — the other gate: the staged descent the user is
+                // watching. Settles on cancellation too, so a user who grabs the globe mid-flight
+                // gets their split at once instead of waiting out an animation they overrode.
+                awaitFlightComplete: () => this.globeHero?.whenFlightSettled() ?? Promise.resolve(),
                 mountSplit: () => {
                     if (typeof w.pryzmMountSiteAuthoringPanes !== 'function') {
                         throw new Error('pryzmMountSiteAuthoringPanes is not wired');
@@ -776,6 +794,14 @@ export class OnboardingStepController {
             this.picked = outcome.picked;
             console.log('[onboarding-step] location resolved', this.picked);
             status.textContent = outcome.message;
+            // §REVEAL-FLIGHT-COMPLETE — let the reveal finish before tearing the hero down.
+            // `leaveLocationStep()` disposes the globe hero and only passes `keepGlobe` once
+            // `splitRevealed` is true; with an async reveal that flag is set inside the promise
+            // below, so disposing first would hide the viewport the split has just adopted.
+            if (this.revealInFlight) {
+                await this.revealInFlight;
+                if (this.disposed) return;
+            }
             this.leaveLocationStep();
             // §UX-NO-SETUP-PANEL (founder 2026-08-06: "REMOVE THIS PANEL (Set up your project).
             // Go for DRAW IN THE MAP by default") — a RESOLVED location goes straight to the map.

@@ -13046,6 +13046,21 @@ export class CesiumViewport {
    * not a decision. C12: degrees + ellipsoid metres only; no ENU frame is assumed.
    * P3: `flyTo` is Cesium's own tween on the existing viewer render loop; nothing here
    * schedules a rAF.
+   *
+   * §REVEAL-FLIGHT-COMPLETE — RETURNS A PROMISE that settles when the flight is over, so a
+   * caller can sequence on the camera instead of guessing with a timer.
+   *
+   * ⚠ IT RESOLVES ON `cancel` AS WELL AS `complete`, AND THAT IS DELIBERATE. The promise means
+   * "this flight is no longer in progress", not "the camera reached the target". A superseded
+   * flight, a disposed viewer and an invalid target all resolve. Rejecting on cancel would turn
+   * every ordinary supersession — the user grabbing the globe mid-descent, a newer search — into
+   * an unhandled rejection, and any `await` on it into a path that strands the flow. Nothing
+   * downstream is entitled to assume arrival: the stage is the truth and the camera is its
+   * projection (see the header on why altitude is an OUTPUT, never an INPUT).
+   *
+   * ⚠ STILL NO NEW rAF (P3). Cesium's `flyTo` tweens on the existing viewer render loop; this
+   * change only observes the completion callbacks that call already accepted. Do not "fix" this
+   * later by polling the camera or driving the tween yourself.
    */
   public flyToGeographic(target: {
     lat: number;
@@ -13053,15 +13068,17 @@ export class CesiumViewport {
     altitudeM: number;
     pitchDeg: number;
     instant?: boolean;
-  }): void {
+    /** §REVEAL-FLIGHT-COMPLETE — seconds; the model declares it (`SITE_ENTRY_FLIGHT_DURATION_S`). */
+    durationS?: number;
+  }): Promise<void> {
     // §GLOBE-CRASH-GUARD — same gate as frameSiteLocation: a settle that lands after
     // disposal must no-op rather than touch a destroyed camera.
-    if (!this.isViewerLive()) return;
+    if (!this.isViewerLive()) return Promise.resolve();
     const viewer = this.viewer;
-    if (!viewer) return;
+    if (!viewer) return Promise.resolve();
     if (!Number.isFinite(target.lat) || !Number.isFinite(target.lon) || !Number.isFinite(target.altitudeM)) {
       console.warn('[CesiumViewport][site-entry] flyToGeographic: invalid target — ignored.', target);
-      return;
+      return Promise.resolve();
     }
     const destination = Cesium.Cartesian3.fromDegrees(target.lon, target.lat, target.altitudeM);
     const orientation = {
@@ -13071,19 +13088,36 @@ export class CesiumViewport {
     };
     if (target.instant) {
       viewer.camera.setView({ destination, orientation });
-      return;
+      return Promise.resolve();
     }
     // §GLOBE-FRAME-NO-JUMP-2 — this is OUR programmatic motion, not the user grabbing
     // the camera; token-gate it so a superseded flight's `cancel` cannot clear the flag
     // out from under a newer one (see frameSiteLocation for the full rationale).
     const token = this.beginProgrammaticFly();
-    const clear = (): void => { this.endProgrammaticFly(token); };
-    try {
-      viewer.camera.flyTo({ destination, orientation, duration: 1.6, complete: clear, cancel: clear });
-    } catch (e) {
-      clear();
-      console.warn('[CesiumViewport][site-entry] flyToGeographic failed:', e);
-    }
+    return new Promise<void>((resolve) => {
+      // ⚠ SETTLE EXACTLY ONCE. Cesium calls `complete` OR `cancel`, but a defensive latch costs
+      // nothing and a double-resolve here would be invisible until it desynchronised a caller
+      // that sequences on it.
+      let settled = false;
+      const clear = (): void => {
+        this.endProgrammaticFly(token);
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      try {
+        viewer.camera.flyTo({
+          destination,
+          orientation,
+          duration: target.durationS ?? 1.6,
+          complete: clear,
+          cancel: clear,
+        });
+      } catch (e) {
+        console.warn('[CesiumViewport][site-entry] flyToGeographic failed:', e);
+        clear();
+      }
+    });
   }
 
   /**

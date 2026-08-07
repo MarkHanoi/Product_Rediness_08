@@ -202,6 +202,18 @@ export class GlobeHeroSearch {
      * right pane. `keepGlobe: true` releases the hero's own state WITHOUT touching the globe,
      * because ownership of it has transferred to the split. Default (`false`) is unchanged.
      */
+    /**
+     * §REVEAL-FLIGHT-COMPLETE — settles when the camera descent this hero drove is no longer in
+     * flight. The reveal choreography gates on it alongside the content load, so the split appears
+     * when BOTH the zoom has landed and the data is ready — never on a timer.
+     *
+     * Delegates to the store, which owns the flight (one store per entry session, so nothing here
+     * outlives the session). Resolves immediately when nothing is flying.
+     */
+    whenFlightSettled(): Promise<void> {
+        return this.store.whenFlightSettled();
+    }
+
     dispose(opts?: { keepGlobe?: boolean }): void {
         const span = _tracer.startSpan('pryzm.site-entry.globe-hero-search.dispose');
         try {
@@ -285,6 +297,26 @@ export class GlobeHeroSearch {
                         console.warn('[globe-hero-search] warmContextCache threw:', e);
                     }
                 }
+                // §REVEAL-FLIGHT-COMPLETE — ⚠ AWAIT THE LEG. THIS LOOP IS WHY THE FOUNDER SAW A
+                // 1.6-SECOND JUMP INSTEAD OF THE STAGED DESCENT.
+                //
+                // Every iteration issues exactly one `camera` effect, and `viewer.camera.flyTo`
+                // CANCELS whatever is already flying. Dispatching all three descends synchronously
+                // therefore started and immediately superseded world→country and country→city; only
+                // the final city→parcel leg was ever rendered. The intermediate stages were
+                // computed, framed, and thrown away one microtask later. The chain existed in the
+                // state machine and never reached the screen — which is exactly what "takes too
+                // long / feels abrupt" looks like from the outside.
+                //
+                // ⚠ THE WARM-UP IS FIRED BEFORE THIS AWAIT, NOT AFTER, and the order is load-bearing.
+                // §CTX-PREFETCH-ON-LOCATION starts at the `city` stage; if it were kicked off after
+                // the leg completed it would start a whole leg later and eat straight into the
+                // overlap this choreography exists to create. Fired here, the warm-up begins at
+                // t≈1.5 s (two legs in) and the context read (~1.4 s since §CTX-RANGE-URL-SOURCE)
+                // finishes around t≈2.9 s, while the five-flight descent lands at t≈3.75 s — the
+                // split is ready BEFORE the camera stops, which is exactly the founder's ask.
+                await this.store.whenFlightSettled();
+                if (this.disposed) return { ok: false, message: 'Search cancelled.' };
             }
 
             // The ONE hand-off intent (C19 §1.3/§1.4) — closes the entry flow's own state
