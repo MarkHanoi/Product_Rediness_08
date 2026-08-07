@@ -226,7 +226,16 @@
       "Bash(pnpm --filter @pryzm/site-parcel-data run typecheck)",
       "Bash(curl:*)",
       "Bash(node -e \"import\\('./regionalNorms.mjs'\\).then\\(m=>{console.log\\(Object.keys\\(m.REGIONAL_NORMS\\)\\); console.log\\(JSON.stringify\\(m.registryCoverage\\(\\),null,1\\)\\);}\\)\")",
-      "Bash(node -e \"import\\('./regionalNorms.mjs'\\).then\\(m=>{console.log\\('regions:',Object.keys\\(m.REGIONAL_NORMS\\).join\\(' '\\)\\); console.log\\(JSON.stringify\\(m.registryCoverage\\(\\),null,1\\)\\);}\\).catch\\(e=>console.log\\('ERR',e.message\\)\\)\")"
+      "Bash(node -e \"import\\('./regionalNorms.mjs'\\).then\\(m=>{console.log\\('regions:',Object.keys\\(m.REGIONAL_NORMS\\).join\\(' '\\)\\); console.log\\(JSON.stringify\\(m.registryCoverage\\(\\),null,1\\)\\);}\\).catch\\(e=>console.log\\('ERR',e.message\\)\\)\")",
+      "PowerShell(Start-Sleep -Seconds 8; $tok = \\(\"protocol=https`nhost=github.com`n\" | git credential fill | Where-Object {$_ -match '^password='}\\).Substring\\(9\\); $runs = \\(Invoke-RestMethod -Uri \"https://api.github.com/repos/MarkHanoi/Product_Rediness_08/actions/workflows/deploy-fly.yml/runs?per_page=3\" -Headers @{Authorization=\"token $tok\"}\\).workflow_runs; $runs | Select-Object id, status, conclusion, head_sha, created_at | Format-Table -AutoSize)",
+      "PowerShell($tok = \\(\"protocol=https`nhost=github.com`n\" | git credential fill | Where-Object {$_ -match '^password='}\\).Substring\\(9\\); $deadline = \\(Get-Date\\).AddMinutes\\(9\\); do { Start-Sleep -Seconds 20; $run = Invoke-RestMethod -Uri \"https://api.github.com/repos/MarkHanoi/Product_Rediness_08/actions/runs/31126571893\" -Headers @{Authorization=\"token $tok\"}; Write-Output \"$\\(\\(Get-Date\\).ToString\\('HH:mm:ss'\\)\\) $\\($run.status\\) $\\($run.conclusion\\)\" } while \\($run.status -ne 'completed' -and \\(Get-Date\\) -lt $deadline\\); Write-Output \"FINAL: $\\($run.status\\) / $\\($run.conclusion\\)\")",
+      "PowerShell($tok = \\(\"protocol=https`nhost=github.com`n\" | git credential fill | Where-Object {$_ -match '^password='}\\).Substring\\(9\\); $run = Invoke-RestMethod -Uri \"https://api.github.com/repos/MarkHanoi/Product_Rediness_08/actions/runs/31126571893\" -Headers @{Authorization=\"token $tok\"}; Write-Output \"run: $\\($run.status\\) / $\\($run.conclusion\\)\"; $jobs = \\(Invoke-RestMethod -Uri \"https://api.github.com/repos/MarkHanoi/Product_Rediness_08/actions/runs/31126571893/jobs\" -Headers @{Authorization=\"token $tok\"}\\).jobs; $jobs | Select-Object name, status, conclusion, started_at | Format-Table -AutoSize)",
+      "Bash(NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit -p tsconfig.json)",
+      "Bash(grep -iE \"curve|tessell|_c\\\\$|\\\\`\\\\\\\\\\\\$\\\\{.*_c\")",
+      "Bash(cd /c/ClaudeWorktrees/Product_Rediness_08/b1-snaplevel/packages/snapping/src/providers && sed -n '32,45p' WallJoinSnapProvider.ts)",
+      "Read(//c/ClaudeWorktrees/Product_Rediness_08/b1-snaplevel/packages/snapping/src/providers/**)",
+      "Bash(sed -i \"s|from 'pmtiles'|from '../node_modules/.pnpm/pmtiles@4.4.1/node_modules/pmtiles/dist/esm/index.js'|\" scratchpad/probe-ctx-volume.mjs)",
+      "Bash(node scratchpad/probe-ctx-volume.mjs)"
     ],
     "deny": [
       "Bash(rm -rf *)",
@@ -248,7 +257,8 @@
     ],
     "defaultMode": "auto",
     "additionalDirectories": [
-      "c:\\Users\\LENOVO\\.claude\\projects\\c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08\\memory"
+      "c:\\Users\\LENOVO\\.claude\\projects\\c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08\\memory",
+      "C:\\ClaudeWorktrees\\Product_Rediness_08\\b2-perf\\packages\\geometry-slab\\__tests__"
     ]
   }
 }
