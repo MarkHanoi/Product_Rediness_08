@@ -558,3 +558,112 @@ describe('§TILES-NEED-A-FRAME — the gate drives the scene it is waiting on', 
         } finally { spy.mockRestore(); }
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §GATE-OBSERVED-TILES-LOADED + §STALL-CLOCK-PAUSES-WHILE-HIDDEN — the gate must MEASURE its own
+// observation of success, and must not blame the tiles for time the browser froze the scene.
+//
+// "The tiles loaded" (visible in someone else's log) and "the gate observed the tiles loaded" are
+// DIFFERENT CLAIMS. Five rounds proved the first repeatedly while the second went unmeasured — so
+// the gate now records the first moment it sees providerLoaded=true, and every stall report says
+// whether that moment ever happened (`everSawProviderLoaded`). Separately, a hidden tab suspends
+// rAF: Cesium's loop cannot run and no tile can retire, so the stall clock pauses (and names the
+// forgiven time) instead of firing an untrue "tiles stopped arriving" over browser throttling.
+describe('§GATE-OBSERVED-TILES-LOADED / §STALL-CLOCK-PAUSES-WHILE-HIDDEN', () => {
+    const STUCK2 = { pending: 1, processing: 0, tilesLoaded: false, providerLoaded: false };
+
+    const startWith = (
+        signals: unknown,
+        clock: ReturnType<typeof makeClock>,
+        isPageHidden?: () => boolean,
+    ) => {
+        const { surface, state } = makeFakeSurface();
+        const overlay = new LoadingOverlayController(() => surface);
+        const handle = beginViewActivationLoading({
+            target: 'site',
+            signals: signals as never,
+            overlay,
+            onRetry: () => {},
+            now: clock.now,
+            setInterval: clock.setInterval,
+            clearInterval: clock.clearInterval,
+            isPageHidden,
+        });
+        return { handle, state };
+    };
+
+    it('logs a ONE-SHOT proof line the first time the gate itself observes providerLoaded=true', async () => {
+        const clock = makeClock();
+        const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        try {
+            let loaded = false;
+            const { signals } = makeSignals({
+                tiles: () => (loaded
+                    ? { pending: 0, processing: 0, tilesLoaded: true, providerLoaded: true }
+                    : STUCK2) as typeof TILES_DONE,
+            });
+            startWith(signals, clock);
+            await flush();
+            const saidBefore = spy.mock.calls.map((c) => c.join(' ')).join(' | ');
+            expect(saidBefore).not.toMatch(/GATE-OBSERVED-TILES-LOADED/);
+            loaded = true;
+            clock.advance(1000);
+            clock.advance(1000); // a second observation must NOT log again (one-shot)
+            const lines = spy.mock.calls
+                .map((c) => c.join(' '))
+                .filter((l) => /GATE-OBSERVED-TILES-LOADED/.test(l));
+            expect(lines).toHaveLength(1);
+            expect(lines[0]).toMatch(/providerLoaded=true/);
+        } finally { spy.mockRestore(); }
+    });
+
+    it('the stall report carries everSawProviderLoaded=never when the gate NEVER saw success', async () => {
+        const clock = makeClock();
+        const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            const { signals } = makeSignals({ tiles: () => STUCK2 as typeof TILES_DONE });
+            startWith(signals, clock);
+            await flush();
+            clock.advance(VIEW_ACTIVATION_STALL_MS + 1000);
+            const said = spy.mock.calls.map((c) => c.join(' ')).join(' | ');
+            expect(said).toMatch(/everSawProviderLoaded=never/);
+            expect(said).toMatch(/msSinceSnapshotChange=\d+/);
+            expect(said).toMatch(/stallPausedHiddenMs=0/);
+        } finally { spy.mockRestore(); }
+    });
+
+    it('PAUSES the stall clock while the page is hidden — browser throttling is not a tile failure', async () => {
+        const clock = makeClock();
+        const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            let hidden = true;
+            const { signals } = makeSignals({ tiles: () => STUCK2 as typeof TILES_DONE });
+            const { state } = startWith(signals, clock, () => hidden);
+            await flush();
+            // Twice the stall window elapses ENTIRELY hidden — no stall may fire.
+            for (let i = 0; i < 50; i++) clock.advance(1000);
+            expect(state.error).toBeNull();
+            // Page becomes visible: a genuine freeze must still fail, a full stallMs later.
+            hidden = false;
+            for (let i = 0; i < 24; i++) clock.advance(1000);
+            expect(state.error).toBeNull(); // 24 s visible — not yet
+            clock.advance(2000);
+            expect(state.error).not.toBeNull(); // ≥25 s visible with zero progress — honest stall
+            const said = spy.mock.calls.map((c) => c.join(' ')).join(' | ');
+            expect(said).toMatch(/stallPausedHiddenMs=50000/);
+        } finally { spy.mockRestore(); }
+    });
+
+    it('a hidden pause never DELAYS readiness — completion still dismisses the overlay explicitly', async () => {
+        const clock = makeClock();
+        let hidden = true;
+        const { signals } = makeSignals(); // tiles complete immediately
+        const { handle, state } = startWith(signals, clock, () => hidden);
+        handle.contentIssued();
+        await flush();
+        clock.advance(1000);
+        await flush();
+        expect(state.visible).toBe(false); // dismissed by the readiness chain, not by any timer
+        expect(state.error).toBeNull();
+    });
+});

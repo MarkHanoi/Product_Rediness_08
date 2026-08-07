@@ -172,6 +172,21 @@ export interface ViewActivationLoadingOptions {
     readonly setInterval?: (cb: () => void, ms: number) => unknown;
     readonly clearInterval?: (handle: unknown) => void;
     readonly stallMs?: number;
+    /**
+     * §STALL-CLOCK-PAUSES-WHILE-HIDDEN (L-715 follow-up) — is the page currently hidden?
+     *
+     * When the tab is hidden the browser suspends `requestAnimationFrame`, so Cesium's loop never
+     * consumes the pump's `requestRender()` flag and NOTHING can retire tile work — "no progress"
+     * is then a fact about the BROWSER'S THROTTLING, not about the tiles. A stall watchdog that
+     * keeps counting through that window fires a "map tiles stopped arriving" error over a load
+     * that was never allowed to run (§CONTEXT-DATA-HONESTY: starved and stuck must not share a
+     * message). The watchdog therefore PAUSES its stall clock while this returns true, and the
+     * total paused time is named in the stall report.
+     *
+     * Default reads `document.visibilityState` (guarded — DOM-free test environments fall back to
+     * "visible"). Injectable as a test seam like the clock.
+     */
+    readonly isPageHidden?: () => boolean;
 }
 
 /**
@@ -191,6 +206,13 @@ export function beginViewActivationLoading(
         setInterval: setTimer = (cb: () => void, ms: number) => globalThis.setInterval(cb, ms),
         clearInterval: clearTimer = (h: unknown) => globalThis.clearInterval(h as never),
         stallMs = VIEW_ACTIVATION_STALL_MS,
+        isPageHidden = () => {
+            try {
+                return typeof document !== 'undefined' && document.visibilityState === 'hidden';
+            } catch {
+                return false;
+            }
+        },
     } = opts;
 
     const session: LoadingSession = overlay.begin(`view-activation:${target}`, {
@@ -216,6 +238,17 @@ export function beginViewActivationLoading(
     let framesPumped = 0;
     /** The last tile snapshot seen, so the stall watchdog can tell SETTLED from STUCK. */
     let lastTileSnapshot: TileStreamSnapshot | null = null;
+    /** §GATE-OBSERVED-TILES-LOADED — when the gate FIRST saw the provider report loaded, or null
+     *  if it never has. This is the evidence field: "the tiles were loaded" and "the gate saw
+     *  the tiles loaded" are different claims, and five rounds were spent proving the first while
+     *  the second stayed unmeasured. A stall report with `everSawProviderLoaded=never` says the
+     *  gate's window into the scene is broken; one with a timestamp says the chain after it is. */
+    let firstProviderLoadedAt: number | null = null;
+    /** When any field of the tile snapshot last CHANGED (identity of the gate's own observations). */
+    let lastSnapshotChangeAt: number | null = null;
+    /** §STALL-CLOCK-PAUSES-WHILE-HIDDEN — stall-clock time forgiven while the page was hidden. */
+    let stallPausedHiddenMs = 0;
+    let lastWatchdogTickAt = now();
     let currentNote = '';
     let finished = false;
     let failed = false;
@@ -283,6 +316,13 @@ export function beginViewActivationLoading(
             `msSinceLastAdvance=${Math.round(now() - lastAdvanceAt)}`,
             `framesPumped=${framesPumped}`,
             `renderPumpWired=${typeof signals.requestRender === 'function'}`,
+            // §GATE-OBSERVED-TILES-LOADED — did the GATE ever see the provider report loaded?
+            // "The tiles loaded" (someone else's log) and "the gate observed the tiles loaded"
+            // are different claims; only the second one this field measures can dismiss the overlay.
+            `everSawProviderLoaded=${firstProviderLoadedAt === null ? 'never' : `${Math.round(now() - firstProviderLoadedAt)}ms-ago`}`,
+            `msSinceSnapshotChange=${lastSnapshotChangeAt === null ? 'n/a' : Math.round(now() - lastSnapshotChangeAt)}`,
+            `stallPausedHiddenMs=${Math.round(stallPausedHiddenMs)}`,
+            `pageHiddenNow=${(() => { try { return isPageHidden(); } catch { return false; } })()}`,
             snap
                 ? `tiles{pending=${snap.pending} processing=${snap.processing} ` +
                   `tilesLoaded=${snap.tilesLoaded} providerLoaded=${snap.providerLoaded ?? 'n/a'} ` +
@@ -297,7 +337,9 @@ export function beginViewActivationLoading(
 ` +
             '  Read it as: outstanding>0 with framesPumped>0 means the tiles are genuinely not ' +
             'arriving (STUCK); outstanding>0 with renderPumpWired=false means nothing was driving ' +
-            'the scene, so the tiles could not retire (STARVED — §TILES-NEED-A-FRAME, L-715).',
+            'the scene, so the tiles could not retire (STARVED — §TILES-NEED-A-FRAME, L-715); ' +
+            'everSawProviderLoaded=never with tiles visibly rendered means the gate is not ' +
+            'observing the scene it gates (report THAT, it is a different bug than slow tiles).',
         );
         session.fail({
             title: `${TITLES[target]} — taking too long`,
@@ -340,6 +382,18 @@ export function beginViewActivationLoading(
     const consumeTileSnapshot = (snap: TileStreamSnapshot): boolean => {
         const outstanding = Math.max(0, snap.pending) + Math.max(0, snap.processing);
         if (outstanding > peakOutstanding) peakOutstanding = outstanding;
+        // §GATE-OBSERVED-TILES-LOADED — record when the gate's OWN observations change, so a
+        // stall report can show whether its window into the scene was live or frozen.
+        const prev = lastTileSnapshot;
+        if (
+            prev === null ||
+            prev.pending !== snap.pending ||
+            prev.processing !== snap.processing ||
+            prev.tilesLoaded !== snap.tilesLoaded ||
+            (prev.providerLoaded ?? null) !== (snap.providerLoaded ?? null)
+        ) {
+            lastSnapshotChangeAt = now();
+        }
         lastTileSnapshot = snap;
         currentNote = tileStreamNote(snap, peakOutstanding);
         const f = tileStreamFraction(snap, peakOutstanding);
@@ -352,6 +406,18 @@ export function beginViewActivationLoading(
         // made this dead code: that field is `pending===0 && processing===0 && …`, so it can never
         // be true while a counter is stuck, and the grace branch was unreachable.
         const providerSaysLoaded = snap.providerLoaded ?? snap.tilesLoaded;
+        if (providerSaysLoaded && firstProviderLoadedAt === null) {
+            firstProviderLoadedAt = now();
+            // §GATE-OBSERVED-TILES-LOADED — the one-shot PROOF that the gate saw success with its
+            // own eyes. Five rounds established that the tiles complete; none established that
+            // THIS observer ever read them complete. If a future stall report arrives WITHOUT
+            // this line preceding it, the gate's predicate/object is the defect, not the tiles.
+            console.log(
+                `[viewActivationLoading] §GATE-OBSERVED-TILES-LOADED ${target} — the readiness ` +
+                `gate itself observed providerLoaded=true (pending=${snap.pending} ` +
+                `processing=${snap.processing} tilesLoaded=${snap.tilesLoaded}); grace timer starts.`,
+            );
+        }
         if (!providerSaysLoaded) tilesLoadedSince = null;
         else if (tilesLoadedSince === null) tilesLoadedSince = now();
         const heldMs = tilesLoadedSince === null ? 0 : now() - tilesLoadedSince;
@@ -444,6 +510,25 @@ export function beginViewActivationLoading(
     // ── the STALL watchdog — never a fixed deadline, only a progress-freeze detector ──
     watchdog = setTimer(() => {
         if (finished || failed) return;
+        // §STALL-CLOCK-PAUSES-WHILE-HIDDEN — a hidden tab suspends rAF, so Cesium's loop never
+        // runs and NO tile work can retire: "no progress" there is the browser's throttling, not
+        // a tile failure, and counting it toward the stall would fire an untrue "tiles stopped
+        // arriving" report the moment the founder tabs back in. Forgive hidden time by sliding
+        // `lastAdvanceAt` forward by exactly the interval that was hidden (never past `now`), and
+        // NAME the forgiven total in the stall report. Sampling + pumping continue as normal —
+        // only the failure clock pauses, so a genuine stall still fires once the page is visible
+        // for a full `stallMs` with no progress.
+        {
+            const tick = now();
+            const dt = Math.max(0, tick - lastWatchdogTickAt);
+            lastWatchdogTickAt = tick;
+            let hidden = false;
+            try { hidden = isPageHidden(); } catch { /* treat as visible */ }
+            if (hidden && dt > 0) {
+                stallPausedHiddenMs += dt;
+                lastAdvanceAt = Math.min(tick, lastAdvanceAt + dt);
+            }
+        }
         // Poll the tile counters (see the requestRenderMode note in the header).
         if (onTileSample) {
             // §TILES-NEED-A-FRAME (L-715) — ⚠ PUMP BEFORE YOU SAMPLE. Under `requestRenderMode`
