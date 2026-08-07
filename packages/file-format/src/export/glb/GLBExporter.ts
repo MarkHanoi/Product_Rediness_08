@@ -1,5 +1,62 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { GLTFExporter } from '@pryzm/renderer-three';
+import { trace } from '@opentelemetry/api';
+
+const tracer = trace.getTracer('@pryzm/file-format');
+
+/**
+ * §FIX-IFC-IN-CESIUM (L-696) — triangle budget for the "REAL" full-fidelity GLB
+ * placed on the Cesium 3D-Site / 3D-Globe views.
+ *
+ * Rationale for the number: a native PRYZM building exports ~50–150 k triangles
+ * (the founder's 31-wall house was 56 roots / 1.19 MB). A mid-size imported IFC
+ * is 300–400 k. Cesium loads the GLB as a single non-tiled `Model` primitive on
+ * the SAME page as the WebGPU BIM canvas, so the whole payload is resident GPU
+ * memory in a second context — measured practical ceiling before frame-time and
+ * upload stalls become user-visible is ~1.5 M triangles / roughly 40–60 MB.
+ *
+ * ⚠ This is a BUDGET, not a decimator. PRYZM has no mesh-simplification stage
+ * today, so the honest degradation for an over-budget model is to decline the
+ * REAL representation and keep the MASSING one — the split that already exists
+ * (ADR-0093 / SPEC-FORMA-SITE-VIEW). Inventing a third, silently-degraded
+ * "REAL but wrong" mode would misrepresent the model on a legal/feasibility
+ * surface. A future real LOD stage is tracked as the follow-up in the L-696 ADR.
+ */
+export const REAL_GLB_TRIANGLE_BUDGET = 1_500_000;
+
+/**
+ * Count the triangles that a set of export roots would contribute to the GLB.
+ *
+ * Indexed geometry counts `index.count / 3`; non-indexed counts
+ * `position.count / 3`. Exported as a pure helper so the budget is assertable
+ * in unit tests without the DOM-bound GLTFExporter.
+ */
+export function countExportTriangles(roots: readonly THREE.Object3D[]): number {
+  return tracer.startActiveSpan('pryzm.glb.countExportTriangles', (span): number => {
+    try {
+      let triangles = 0;
+      for (const root of roots) {
+        root.traverse((child) => {
+          const mesh = child as THREE.Mesh;
+          if (!mesh.isMesh || !mesh.geometry) return;
+          const geo = mesh.geometry as THREE.BufferGeometry;
+          const index = geo.getIndex?.();
+          if (index) {
+            triangles += Math.floor(index.count / 3);
+            return;
+          }
+          const pos = geo.getAttribute?.('position');
+          if (pos) triangles += Math.floor(pos.count / 3);
+        });
+      }
+      span.setAttribute('pryzm.glb.export_roots', roots.length);
+      span.setAttribute('pryzm.glb.triangles', triangles);
+      return triangles;
+    } finally {
+      span.end();
+    }
+  });
+}
 
 /**
  * §A.21.D56 — Clone a source element and BAKE its full scene-world transform.
@@ -52,6 +109,12 @@ export const NON_BUILDING_EXPORT_ELEMENT_TYPES = new Set<string>([
   'gridline',
   'axis',        // any origin/axis helper line
   'datum',
+  // §FIX-IFC-IN-CESIUM (L-696) — IfcSpace is a volumetric ROOM SOLID, not a
+  // building element: baking it produces opaque blocks that swallow the walls
+  // it bounds. IFC meshes now carry `elementType`, so this entry is what keeps
+  // the imported model's spaces out of the REAL GLB. No native PRYZM scene mesh
+  // uses 'space' as its elementType, so this is IFC-only in practice.
+  'space',
 ]);
 
 /**
@@ -267,7 +330,7 @@ function applyFormaWhiteOverride(
  */
 export async function exportFragmentsToGLB(
   scene: THREE.Scene,
-  options?: { formaWhite?: boolean | FormaWhitePalette },
+  options?: { formaWhite?: boolean | FormaWhitePalette; triangleBudget?: number },
 ): Promise<string> {
   console.log("🚀 Starting GLB Export (Hierarchy preserved)...");
 
@@ -293,6 +356,22 @@ export async function exportFragmentsToGLB(
   const elementsToExport = selectElementsForExport(scene);
 
   console.log(`📊 Found ${elementsToExport.length} root elements to export.`);
+
+  // §FIX-IFC-IN-CESIUM (L-696) — enforce the REAL-GLB triangle budget BEFORE the
+  // expensive clone+serialise pass. Returning '' makes the caller keep the
+  // MASSING representation (every call site already branches on a falsy url),
+  // which is the documented REAL-vs-MASSING split rather than a new third mode.
+  const triangleBudget = options?.triangleBudget ?? REAL_GLB_TRIANGLE_BUDGET;
+  const triangleCount = countExportTriangles(elementsToExport);
+  if (triangleCount > triangleBudget) {
+    console.warn(
+      `⚠ §FIX-IFC-IN-CESIUM — REAL GLB declined: ${triangleCount.toLocaleString()} triangles ` +
+        `exceeds the ${triangleBudget.toLocaleString()} budget. Keeping the massing study. ` +
+        `(No mesh-decimation/LOD stage exists yet — see the L-696 ADR follow-up.)`,
+    );
+    return '';
+  }
+  console.log(`📐 Export payload: ${triangleCount.toLocaleString()} triangles (budget ${triangleBudget.toLocaleString()}).`);
 
   // ------------------------------------------------------------
   // ✅ Clone elements AND BAKE THEIR FULL WORLD TRANSFORM (§A.21.D56)

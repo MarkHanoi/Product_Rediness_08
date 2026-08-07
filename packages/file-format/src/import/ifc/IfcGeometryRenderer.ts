@@ -194,6 +194,14 @@ export class IfcGeometryRenderer {
                 psets:       elementPsets,
                 source:      'ifc-import',
                 selectable:  true,
+                // §FIX-IFC-IN-CESIUM (L-696) — `elementType` is the SINGLE contract
+                // that `GLBExporter.selectElementsForExport()` keys on to decide what
+                // gets baked into the "REAL" full-fidelity GLB placed on the Cesium
+                // 3D-Site / 3D-Globe views. IFC meshes previously carried only `type`,
+                // so they were invisible to that exporter — which is precisely why an
+                // imported IFC never appeared on either Cesium view. Lower-cased to
+                // match the case-insensitive overlay-suppression set.
+                elementType: String(elementType).toLowerCase(),
             };
 
             group.add(mesh);

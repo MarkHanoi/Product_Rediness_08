@@ -3286,9 +3286,37 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // skip re-export only when something IS on screen). Reset on fidelity→massing.
     let formaRealPlaced = false;
 
+    // §FIX-IFC-IN-CESIUM (L-696) — an IMPORTED IFC is authored building geometry
+    // too, but it lives ONLY in the THREE scene (IfcGeometryRenderer adds a group
+    // with `userData.source === 'ifc-import'`); it is never registered in the
+    // wall/slab/roof/stair stores that every getForma* reader queries. Without
+    // this reader an IFC-only project reports "no authored building", so the REAL
+    // GLB is never exported and the model is invisible on 3D Site and 3D Globe —
+    // the founder's reported symptom. Counting meshes (not groups) also gives the
+    // signature something that changes when a second model is imported.
+    const countIfcSceneMeshes = (): number => {
+        try {
+            const scene = props.world?.scene?.three as { children?: unknown[] } | undefined;
+            if (!scene?.children) return 0;
+            let meshes = 0;
+            for (const obj of scene.children as Array<{
+                userData?: { source?: string };
+                traverse?: (cb: (o: { type?: string }) => void) => void;
+            }>) {
+                if (obj?.userData?.source !== 'ifc-import') continue;
+                obj.traverse?.((child) => {
+                    if ((child as { isMesh?: boolean }).isMesh) meshes++;
+                });
+            }
+            return meshes;
+        } catch {
+            return 0;
+        }
+    };
+
     const computeBuildingSignature = (): string => {
         try {
-            return buildingGeometrySignature({
+            return `${countIfcSceneMeshes()}|` + buildingGeometrySignature({
                 walls: getFormaWalls(),
                 openings: getFormaOpenings(),
                 slabCount: getFormaSlabs().length,
@@ -3319,11 +3347,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // then instantly vanishes. Keep the massing + envelope study on screen until a real
             // building actually exists; the swap resumes automatically once walls/slabs/roofs/
             // stairs are authored (this reader path is the SAME one the massing render uses).
+            // §FIX-IFC-IN-CESIUM (L-696) — an imported IFC counts as an authored
+            // building even when no NATIVE element exists (see countIfcSceneMeshes).
             const hasAuthoredBuilding =
                 getFormaWalls().length > 0 ||
                 getFormaSlabs().length > 0 ||
                 getFormaRoofs().length > 0 ||
-                getFormaStairs().length > 0;
+                getFormaStairs().length > 0 ||
+                countIfcSceneMeshes() > 0;
             if (!hasAuthoredBuilding) {
                 console.log(
                     '[gis][forma6] no authored building yet — keeping the massing + buildable-envelope ' +

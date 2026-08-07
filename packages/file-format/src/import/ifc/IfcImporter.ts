@@ -26,6 +26,7 @@
 import * as WEBIFC from 'web-ifc';
 import { debug } from '@pryzm/core-app-model';
 import type { IfcElementRecord } from './IfcModelStore';
+import { resolveLengthUnitScale, type IfcLengthUnitRecord } from './IfcUnitScale';
 
 // ── Result Types ─────────────────────────────────────────────────────────────
 
@@ -65,7 +66,15 @@ export interface IfcStoreyRecord {
     /** Stable PRYZM-side ID (`level-ifc-<expressID>`). */
     id: string;
     name: string;
-    /** Elevation in metres, as reported by IFCBUILDINGSTOREY.Elevation. */
+    /**
+     * Elevation in **METRES**.
+     *
+     * §FIX-IFC-STOREY-UNIT-SCALE (L-695) — `IFCBUILDINGSTOREY.Elevation` is a
+     * raw STEP scalar in the project's declared length unit (millimetres for
+     * every Revit export). It is multiplied by the resolved LENGTHUNIT scale
+     * here so that every consumer downstream sees metres, matching the
+     * geometry that web-ifc already normalises to metres in WASM.
+     */
     elevation: number;
 }
 
@@ -114,6 +123,13 @@ export interface IfcImportResult {
      * undefined → CRS extraction was not attempted (pre-P1.7 result objects).
      */
     crsRecord?: CrsRecord | null;
+    /**
+     * §FIX-IFC-STOREY-UNIT-SCALE (L-695) — metres per file unit as resolved
+     * from IfcUnitAssignment. 1 for a metre-based file, 1e-3 for a Revit
+     * millimetre export. Surfaced so a regression is visible in the import
+     * report rather than only in downstream geometry.
+     */
+    lengthUnitScale?: number;
     stats: {
         totalSpaces: number;
         totalStoreys: number;
@@ -152,9 +168,18 @@ const IFC_PHYSICAL_TYPES: Array<[number | undefined, string, string]> = [
 export class IfcImporter {
     private api: WEBIFC.IfcAPI;
     private initialized = false;
+    private readonly wasmPath: string | null;
 
-    constructor() {
+    /**
+     * @param options.wasmPath  Directory holding the web-ifc `.wasm` binary.
+     *   Defaults to the browser-served `/wasm/` (absolute). Pass `null` to skip
+     *   `SetWasmPath` entirely and let web-ifc resolve the binary next to its
+     *   own module — the correct behaviour under Node (tests, server-side
+     *   parsing), where an absolute `/wasm/` URL does not exist.
+     */
+    constructor(options?: { wasmPath?: string | null }) {
         this.api = new WEBIFC.IfcAPI();
+        this.wasmPath = options?.wasmPath === undefined ? '/wasm/' : options.wasmPath;
     }
 
     /** Expose the underlying IfcAPI so callers can share it (e.g. with IfcGeometryRenderer). */
@@ -164,7 +189,7 @@ export class IfcImporter {
 
     async init(): Promise<void> {
         if (this.initialized) return;
-        this.api.SetWasmPath('/wasm/', true);
+        if (this.wasmPath !== null) this.api.SetWasmPath(this.wasmPath, true);
         await this.api.Init(undefined, true);
         this.initialized = true;
         debug('[IfcImporter] WebIFC initialized.');
@@ -249,15 +274,22 @@ export class IfcImporter {
         const parentBuildingId = hierarchyNodes.find(n => n.type === 'building')?.id;
         const storeyRecords: IfcStoreyRecord[] = [];
 
+        // §FIX-IFC-STOREY-UNIT-SCALE (L-695) — metres per file unit. `GetLine`
+        // returns RAW STEP scalars in file units (mm for Revit exports) while
+        // `GetGeometry` is already normalised to metres by web-ifc's WASM. This
+        // factor therefore applies to GetLine scalars ONLY — never to geometry.
+        const lengthUnitScale = this._readLengthUnitScale(modelID);
+
         for (const lineID of storeyLines) {
             try {
                 const storey = this.api.GetLine(modelID, lineID, false);
                 const levelId = `level-ifc-${lineID}`;
                 storeyIdMap.set(lineID, levelId);
                 const name = this.extractLabel(storey.Name) ?? `Level ${lineID}`;
-                const elevation = typeof storey.Elevation?.value === 'number'
+                const rawElevation = typeof storey.Elevation?.value === 'number'
                     ? storey.Elevation.value
                     : (typeof storey.Elevation === 'number' ? storey.Elevation : 0);
+                const elevation = rawElevation * lengthUnitScale;
                 hierarchyNodes.push({
                     id: levelId,
                     name,
@@ -438,6 +470,7 @@ export class IfcImporter {
             pryzmExported: isPryzmExported,
             schemaVersion: 3,
             crsRecord,
+            lengthUnitScale,
             stats: {
                 totalSpaces: spaceLines.size(),
                 totalStoreys: storeyLines.size(),
@@ -447,6 +480,133 @@ export class IfcImporter {
                 recoveredTemplateAssignments,
             },
         };
+    }
+
+    /**
+     * §FIX-IFC-STOREY-UNIT-SCALE (L-695) — read the project's LENGTHUNIT and
+     * return metres per file unit.
+     *
+     * Resolution order (IFC4 §8.15): the length unit is looked up through
+     * `IfcProject.UnitsInContext` when that link is readable, and falls back to
+     * a whole-model scan of `IfcUnitAssignment` and then of bare `IfcSIUnit` /
+     * `IfcConversionBasedUnit` entities. Any failure degrades to 1.0 (metres),
+     * which is the IFC default AND the only safe no-op.
+     *
+     * @returns metres per file unit — 1e-3 for a MILLI-prefixed metre.
+     */
+    private _readLengthUnitScale(modelID: number): number {
+        const records: IfcLengthUnitRecord[] = [];
+
+        const readUnit = (unitId: number): void => {
+            if (!unitId) return;
+            let line: any;
+            try { line = this.api.GetLine(modelID, unitId, false); } catch { return; }
+            if (!line) return;
+
+            const unitType = this.extractEnum(line.UnitType);
+            if (unitType && unitType.toUpperCase() !== 'LENGTHUNIT') return;
+
+            // IfcSIUnit carries Name (METRE) + optional Prefix (MILLI).
+            const name = this.extractEnum(line.Name);
+            if (name) {
+                records.push({
+                    kind: 'SI',
+                    unitType: unitType ?? 'LENGTHUNIT',
+                    name,
+                    prefix: this.extractEnum(line.Prefix) ?? undefined,
+                });
+                return;
+            }
+
+            // IfcConversionBasedUnit — ConversionFactor is an IfcMeasureWithUnit.
+            if (line.ConversionFactor != null) {
+                const mwuId = typeof line.ConversionFactor === 'number'
+                    ? line.ConversionFactor
+                    : line.ConversionFactor?.value;
+                let conversionFactor: number | undefined;
+                let conversionUnitScale = 1;
+                try {
+                    const mwu = this.api.GetLine(modelID, mwuId, false);
+                    const vc = mwu?.ValueComponent;
+                    const v = typeof vc === 'number' ? vc : vc?.value;
+                    if (typeof v === 'number') conversionFactor = v;
+                    // UnitComponent is normally a plain METRE IfcSIUnit; honour a prefix if present.
+                    const ucId = typeof mwu?.UnitComponent === 'number'
+                        ? mwu.UnitComponent
+                        : mwu?.UnitComponent?.value;
+                    if (ucId) {
+                        const uc = this.api.GetLine(modelID, ucId, false);
+                        const p = this.extractEnum(uc?.Prefix);
+                        if (p) {
+                            conversionUnitScale = resolveLengthUnitScale([
+                                { kind: 'SI', unitType: 'LENGTHUNIT', name: 'METRE', prefix: p },
+                            ]);
+                        }
+                    }
+                } catch { /* leave undefined — resolver falls back to 1.0 */ }
+                records.push({
+                    kind: 'CONVERSION',
+                    unitType: unitType ?? 'LENGTHUNIT',
+                    conversionFactor,
+                    conversionUnitScale,
+                });
+            }
+        };
+
+        const readAssignment = (assignmentId: number): void => {
+            try {
+                const ua = this.api.GetLine(modelID, assignmentId, false);
+                const units: number[] = Array.isArray(ua?.Units)
+                    ? ua.Units.map((u: any) => (typeof u === 'number' ? u : u?.value)).filter(Boolean)
+                    : [];
+                for (const u of units) readUnit(u);
+            } catch { /* fall through to the broader scans */ }
+        };
+
+        // 1 — the correct link: IfcProject.UnitsInContext.
+        try {
+            const projectIds = this.api.GetLineIDsWithType(modelID, WEBIFC.IFCPROJECT);
+            for (const pid of projectIds) {
+                const proj = this.api.GetLine(modelID, pid, false);
+                const uaId = typeof proj?.UnitsInContext === 'number'
+                    ? proj.UnitsInContext
+                    : proj?.UnitsInContext?.value;
+                if (uaId) readAssignment(uaId);
+            }
+        } catch { /* fall through */ }
+
+        // 2 — fallback: any IfcUnitAssignment in the file.
+        if (records.length === 0) {
+            try {
+                for (const id of this.api.GetLineIDsWithType(modelID, (WEBIFC as any).IFCUNITASSIGNMENT)) {
+                    readAssignment(id);
+                }
+            } catch { /* fall through */ }
+        }
+
+        // 3 — last resort: bare IfcSIUnit entities declaring LENGTHUNIT.
+        if (records.length === 0) {
+            try {
+                for (const id of this.api.GetLineIDsWithType(modelID, (WEBIFC as any).IFCSIUNIT)) {
+                    readUnit(id);
+                }
+            } catch { /* fall through */ }
+        }
+
+        const scale = resolveLengthUnitScale(records);
+        debug(`[IfcImporter] LENGTHUNIT scale = ${scale} m per file unit (${records.length} length-unit record(s))`);
+        return scale;
+    }
+
+    /**
+     * Extract an IFC enumeration / label token. web-ifc returns enums as
+     * `{ type: 3, value: 'MILLI' }`; a plain string is also accepted.
+     */
+    private extractEnum(val: any): string | undefined {
+        if (val == null) return undefined;
+        if (typeof val === 'string') return val;
+        if (typeof val.value === 'string') return val.value;
+        return undefined;
     }
 
     /**
