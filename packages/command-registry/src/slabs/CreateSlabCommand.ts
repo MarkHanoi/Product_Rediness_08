@@ -4,6 +4,13 @@ import { SlabData } from '@pryzm/geometry-slab';
 import { SlabSketch } from '@pryzm/geometry-slab';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { semanticGraphManager } from '@pryzm/core-app-model';
+// §FIX-STAIR-SLAB-OPENING-SYMMETRY — the stair-void invariant has ONE owner; this
+// command is its slab-side caller (see StairSlabOpeningReconciler for the rule).
+import {
+    reconcileStairOpeningsForSlab,
+    removeStairOpenings,
+    type StairOpeningCarve,
+} from '../stair/StairSlabOpeningReconciler';
 
 export interface CreateSlabPayload {
     id?: string;
@@ -29,7 +36,11 @@ export interface CreateSlabPayload {
 }
 
 export class CreateSlabCommand implements Command {
-    readonly affectedStores = ["slab", "level"] as const;
+    // §FIX-STAIR-SLAB-OPENING-SYMMETRY — creating a slab over an existing stair
+    // now also writes an `opening`, so the scope must say so (C16: a command
+    // declares every store it mutates). `CreateStairCommand` already declares the
+    // mirror scope `[stair, opening, slab]`.
+    readonly affectedStores = ["slab", "level", "opening"] as const;
     readonly id: string;
     readonly type = CommandType.CREATE_SLAB;
     readonly timestamp: number;
@@ -38,6 +49,12 @@ export class CreateSlabCommand implements Command {
     // M5 §SLAB-SYSTEM-AUDIT-2026: Stable mark generated on first execute() and
     // reused on every subsequent redo so the mark does not change across cycles.
     private _stableMark?: string;
+    /**
+     * §FIX-STAIR-SLAB-OPENING-SYMMETRY — auto-openings this slab carved for stairs
+     * that already existed beneath it, retained so `undo()` removes them with the
+     * slab (P6: the opening is undoable as part of the command that produced it).
+     */
+    private _stairCarves: StairOpeningCarve[] = [];
 
     constructor(private payload: CreateSlabPayload) {
         this.id = `cmd-slab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -156,10 +173,34 @@ export class CreateSlabCommand implements Command {
         this.createdId = slabId;
         this.targetIds = [slabId];
 
+        // ── §FIX-STAIR-SLAB-OPENING-SYMMETRY ─────────────────────────────────
+        // The stair-void invariant is symmetric in time: a stair authored BEFORE
+        // its slab must get its void the moment the slab appears. Previously only
+        // the slab-first direction was implemented (inside CreateStairCommand),
+        // so the founder's `CREATE_SLABS_ON_ALL_FLOORS` laid two slabs over levels
+        // that already hosted stairs and carved nothing.
+        //
+        // Cost is O(stairs on this level) and ends in ONE slabStore.triggerRebuild
+        // for the whole set, so this stays a single SlabFragmentBuilder pass inside
+        // the BatchCoordinator window the caller already opened — never one rebuild
+        // per hole.
+        try {
+            this._stairCarves = reconcileStairOpeningsForSlab(context, slabId, targetLevelId);
+        } catch (err) {
+            // Non-fatal: a slab must still be created if the reconcile fails.
+            console.warn('[CreateSlabCommand] stair-opening reconcile failed (non-fatal):', err);
+            this._stairCarves = [];
+        }
+
         return {
             success: true,
-            affectedElementIds: [slabId],
-            info: [`Slab created on level ${targetLevelId}`]
+            affectedElementIds: [slabId, ...this._stairCarves.map(c => c.openingId)],
+            info: [
+                `Slab created on level ${targetLevelId}`,
+                ...(this._stairCarves.length > 0
+                    ? [`Carved ${this._stairCarves.length} stair opening(s)`]
+                    : []),
+            ]
         };
     }
 
@@ -167,6 +208,12 @@ export class CreateSlabCommand implements Command {
         if (!this.createdId) return { success: false, affectedElementIds: [] };
 
         // §01 §2.1 — Undo removes from both spatial authority and semantic registry.
+        // §FIX-STAIR-SLAB-OPENING-SYMMETRY — drop the auto-openings this slab
+        // carved BEFORE the slab itself, so no opening is ever left hosted on a
+        // slab that no longer exists.
+        removeStairOpenings(context, this._stairCarves);
+        this._stairCarves = [];
+
         context.bimManager.unregisterElement(this.createdId);
         elementRegistry.unregister(this.createdId);
 

@@ -9,10 +9,10 @@ import {
 import { StairData, StairShape, STAIR_CONSTRAINTS, DEFAULT_STAIR_PROPERTIES, Vec3 } from '@pryzm/geometry-stair';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { semanticGraphManager } from '@pryzm/core-app-model';
-import { computeStairFootprintRect, worldXZToSlabLocal } from '@pryzm/geometry-stair';
 import { LevelTraversalPolicy } from '@pryzm/geometry-stair';
-import type { OpeningData } from '@pryzm/core-app-model';
-import { stairAutoOpeningId } from './stairOpeningId';
+// §FIX-STAIR-SLAB-OPENING-SYMMETRY — the footprint maths, the host-slab choice
+// and the `opening-stair-<id>` convention all moved to the ONE invariant owner.
+import { carveStairOpening } from './StairSlabOpeningReconciler';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -417,85 +417,28 @@ export class CreateStairCommand implements Command {
      * matching the convention used by OpeningTool / SlabFragmentBuilder.
      */
     private createAutoOpening(ctx: CommandContext): void {
-        const stores = ctx.stores as any;
-        const slabStore = stores.slabStore;
-        const openingStore = stores.openingStore;
-        if (!slabStore || !openingStore) {
-            if (!__pryzmGenOrLoadActive()) console.log('[CreateStairCommand] Auto-opening skipped: slabStore/openingStore not available');
-            return;
-        }
-
-        // Pick the slab on the top level. If multiple slabs exist on that
-        // level we punch the one closest (in plan) to the stair top — the
-        // intuitive choice when stairs land in a building with several slabs.
-        const candidates = slabStore.getAll().filter(
-            (s: any) => s.levelId === this.input.topLevelId
-        );
-        if (candidates.length === 0) {
-            if (!__pryzmGenOrLoadActive()) console.log(
-                `[CreateStairCommand] Auto-opening skipped: no slab on top level "${this.input.topLevelId}"`
-            );
-            return;
-        }
-
-        const rect = computeStairFootprintRect({
-            shape: this.input.shape,
-            width: this.input.width,
-            treadDepth: this.input.treadDepth,
+        // §FIX-STAIR-SLAB-OPENING-SYMMETRY — the carve itself now lives in
+        // `StairSlabOpeningReconciler`, because the SAME invariant must also be
+        // satisfied in the opposite direction (a slab created ABOVE an existing
+        // stair). Keeping the maths here and copying it into the slab path would
+        // give one invariant two implementations that can drift; this command now
+        // reconciles ONE stair through the shared owner, and `CreateSlabCommand`
+        // reconciles every stair on the new slab's level through the same code.
+        const carve = carveStairOpening(ctx, {
+            id:            this.createdStairId!,
+            shape:         this.input.shape,
+            width:         this.input.width,
+            treadDepth:    this.input.treadDepth,
             startPosition: this.input.startPosition,
-            flights: this.input.flights,
-            landings: this.input.landings,
+            flights:       this.input.flights,
+            landings:      this.input.landings,
+            topLevelId:    this.input.topLevelId,
         });
-        if (!rect) {
-            console.warn('[CreateStairCommand] Auto-opening skipped: degenerate stair footprint');
-            return;
-        }
-
-        // Centroid of the stair rect — used to pick the nearest slab.
-        const cx = (rect[0].x + rect[1].x + rect[2].x + rect[3].x) / 4;
-        const cz = (rect[0].z + rect[1].z + rect[2].z + rect[3].z) / 4;
-        let host = candidates[0];
-        if (candidates.length > 1) {
-            let bestD2 = Infinity;
-            for (const s of candidates) {
-                const dx = s.position.x - cx;
-                const dz = s.position.z - cz;
-                const d2 = dx * dx + dz * dz;
-                if (d2 < bestD2) { bestD2 = d2; host = s; }
-            }
-        }
-
-        const profile = rect.map(p => worldXZToSlabLocal(p, host.position));
-        // §FIX-STAIR-DELETE-LEAVES-HOLE (L-298) — id via the shared convention so
-        // DeleteStairCommand can find and heal this exact opening on a straight delete.
-        const openingId = stairAutoOpeningId(this.createdStairId!);
-
-        const opening: OpeningData = {
-            id: openingId,
-            type: 'opening',
-            hostId: host.id,
-            levelId: this.input.topLevelId,
-            parentId: host.id,
-            profile,
-            baseOffset: 0,
-            properties: {},
-        };
-
-        try {
-            ctx.bimManager.registerElement(openingId, this.input.topLevelId);
-        } catch (e: any) {
-            console.warn('[CreateStairCommand] bimManager.registerElement(opening) failed:', e?.message);
-        }
-        elementRegistry.registerSemantic(openingId, 'opening');
-        openingStore.add(opening);
-        // Mirror CreateOpeningCommand: trigger slab geometry re-projection.
-        slabStore.triggerRebuild(host.id);
-
-        this.createdOpeningId = openingId;
-        this.createdOpeningHostSlabId = host.id;
-
+        if (!carve) return;
+        this.createdOpeningId = carve.openingId;
+        this.createdOpeningHostSlabId = carve.hostSlabId;
         if (!__pryzmGenOrLoadActive()) console.log(
-            `[CreateStairCommand] Auto-opening ${openingId} created on slab ${host.id} ` +
+            `[CreateStairCommand] Auto-opening ${carve.openingId} created on slab ${carve.hostSlabId} ` +
             `(top level "${this.input.topLevelId}")`
         );
     }
