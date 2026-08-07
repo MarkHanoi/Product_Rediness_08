@@ -3343,6 +3343,22 @@ app.delete('/api/projects/:id', authMiddleware, async (req, res) => {
     }
 });
 
+/**
+ * §FIX-THUMBNAIL-DURABILITY — maximum length of a stored preview `data:` URL.
+ *
+ * MIRRORED BY `packages/core-app-model/src/preview/thumbnailBudget.ts`
+ * (`THUMBNAIL_MAX_CHARS`). `apps/editor/__tests__/thumbnailDurability.test.ts`
+ * reads THIS file and asserts the two literals agree, so drifting one without
+ * the other fails CI instead of silently reintroducing a class of previews the
+ * client happily caches and the server always refuses.
+ *
+ * WHY A CEILING AT ALL — `projects.thumbnail` is TEXT that rides in the
+ * project-list projection, so every byte here is paid on every hub sync,
+ * multiplied by up to 50 projects. 64 KB caps that at ~3.2 MB worst case
+ * (~0.5–1 MB in practice at the observed 10–20 KB per WebP preview).
+ */
+const THUMBNAIL_MAX_CHARS = 65536;
+
 // ── PATCH /api/projects/:id/thumbnail ────────────────────────────────────────
 //   Stores a project's preview thumbnail (base64 WebP) server-side so it
 //   is visible on any browser/session without having to open the model first.
@@ -3361,18 +3377,41 @@ app.patch('/api/projects/:id/thumbnail', authMiddleware, async (req, res) => {
     if (typeof thumbnail !== 'string' || !thumbnail.startsWith('data:image/')) {
         return res.status(400).json({ error: 'thumbnail must be a data: image string' });
     }
-    // Enforce ~50 KB ceiling (base64 ~= 4/3 × binary; 400×225 WebP @ 0.72 ≈ 5–20 KB)
-    if (thumbnail.length > 65536) {
-        return res.status(413).json({ error: 'thumbnail too large (max ~50 KB)' });
+    // §FIX-THUMBNAIL-DURABILITY — the ceiling is now a NAMED constant that the
+    // client shares (packages/core-app-model/src/preview/thumbnailBudget.ts
+    // THUMBNAIL_MAX_CHARS, guarded by a test that reads this file). Before, the
+    // number lived only here: the capture path emitted one unbounded
+    // `toDataURL` and the uploader was fire-and-forget, so every over-budget
+    // preview 413'd into a `console.warn`, lived on in the client's IndexedDB
+    // cache for the session, and vanished for good at sign-out. Rejecting is
+    // still correct — the fix is that the client now encodes to fit, and this
+    // log makes any remaining rejection findable instead of silent.
+    if (thumbnail.length > THUMBNAIL_MAX_CHARS) {
+        console.warn(
+            `[PATCH /api/projects/:id/thumbnail] §FIX-THUMBNAIL-DURABILITY rejected ${thumbnail.length} chars ` +
+            `(ceiling ${THUMBNAIL_MAX_CHARS}) for project ${id} — the client's encode ladder failed to fit the budget.`,
+        );
+        return res.status(413).json({
+            error: `thumbnail too large (${thumbnail.length} chars; max ${THUMBNAIL_MAX_CHARS})`,
+            code: 'thumbnail_too_large',
+            maxChars: THUMBNAIL_MAX_CHARS,
+        });
     }
     try {
         const supabase = await getSupabaseClient();
         if (supabase) {
-            const { error } = await supabase
+            // §FIX-THUMBNAIL-DURABILITY — `.select('id')` so a ZERO-row update is
+            // OBSERVABLE. Without it PostgREST reports success for an update that
+            // matched nothing (wrong owner, or the row lives in the OTHER store —
+            // this route prefers Supabase while `GET /api/v1/projects` reads
+            // Postgres, so a split deployment would silently write previews the
+            // hub can never read). Now that case is a 404, not a fake `ok: true`.
+            const { data, error } = await supabase
                 .from('projects')
                 .update({ thumbnail })
                 .eq('id', id)
-                .eq('owner_id', userId);
+                .eq('owner_id', userId)
+                .select('id');
             if (error) {
                 // Detect missing column — user needs to apply the schema migration manually.
                 if (error.message?.includes('thumbnail') || error.code === 'PGRST204') {
@@ -3381,18 +3420,35 @@ app.patch('/api/projects/:id/thumbnail', authMiddleware, async (req, res) => {
                 }
                 return res.status(500).json({ error: error.message });
             }
-            return res.json({ ok: true });
+            if (!Array.isArray(data) || data.length === 0) {
+                console.warn(`[PATCH /api/projects/:id/thumbnail] §FIX-THUMBNAIL-DURABILITY supabase update matched 0 rows for project ${id} (owner ${userId}) — NOT stored.`);
+                return res.status(404).json({ error: 'Project not found.', code: 'project_not_found' });
+            }
+            return res.json({ ok: true, stored: 'supabase' });
         }
         if (getPgPool()) {
-            await pgUpdateProjectThumbnail(id, userId, thumbnail);
-            return res.json({ ok: true });
+            // §FIX-THUMBNAIL-DURABILITY — honour the boolean. This previously
+            // discarded the result and always answered `ok: true`, so a PATCH that
+            // matched no row reported that the preview was durably stored when
+            // nothing had been written at all.
+            const stored = await pgUpdateProjectThumbnail(id, userId, thumbnail);
+            if (!stored) {
+                console.warn(`[PATCH /api/projects/:id/thumbnail] §FIX-THUMBNAIL-DURABILITY pg update matched 0 rows for project ${id} (owner ${userId}) — NOT stored.`);
+                return res.status(404).json({ error: 'Project not found.', code: 'project_not_found' });
+            }
+            return res.json({ ok: true, stored: 'pg' });
         }
         // In-memory fallback
         const proj = pgProjectStore.imGetProject(id); // §STORE-UNIFY — single in-memory authority
         if (!proj) return res.status(404).json({ error: 'Project not found.' });
         if (proj.ownerId !== userId) return res.status(403).json({ error: 'Forbidden' });
         proj.thumbnail = thumbnail;
-        return res.json({ ok: true });
+        // §FIX-THUMBNAIL-DURABILITY — name the tier that accepted the write, the
+        // way server/ifcStorageService.js records `complete` vs
+        // `complete_db_fallback`. The in-memory store does NOT survive a server
+        // restart, so a caller must be able to tell this apart from a durable
+        // write rather than reading an identical `{ ok: true }`.
+        return res.json({ ok: true, stored: 'in-memory', durable: false });
     } catch (err) {
         console.error('[PATCH /api/projects/:id/thumbnail]', err);
         res.status(500).json({ error: 'Internal server error.' });

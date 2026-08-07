@@ -34,6 +34,9 @@
 
 import type * as OBC from '@thatopen/components';
 import { syncStateEngine }         from '@pryzm/core-app-model';
+// §FIX-THUMBNAIL-DURABILITY — the capture must fit the durable column's ceiling,
+// or the preview never leaves this browser. See preview/thumbnailBudget.ts.
+import { fitThumbnailToBudget, THUMBNAIL_MAX_CHARS } from '@pryzm/core-app-model';
 import { ProjectSerializer }       from './persistence/ProjectSerializer';
 import type { ProjectStores }      from './persistence/ProjectSerializer';
 import { ProjectLoader }           from './persistence/ProjectLoader';
@@ -237,8 +240,55 @@ export function initPersistence(params: {
                 ctx.fillRect(0, 0, dstW, dstH);
                 ctx.globalCompositeOperation = 'source-over';
 
-                const dataUrl = thumb.toDataURL('image/webp', 0.72);
-                console.log(`[captureThumbnail] Thumbnail captured: ${dstW}×${dstH}px, ~${Math.round(dataUrl.length / 1024)}KB`);
+                // §FIX-THUMBNAIL-DURABILITY — encode DOWN A LADDER until the
+                // payload fits the durable column's ceiling, instead of emitting a
+                // single `toDataURL('image/webp', 0.72)` and hoping.
+                //
+                // This is a root-cause leg of "previews disappear after logout →
+                // login". `PATCH /api/projects/:id/thumbnail` refuses anything over
+                // THUMBNAIL_MAX_CHARS with HTTP 413, and the uploader is
+                // fire-and-forget, so an over-budget capture was accepted by the
+                // local IndexedDB cache (origin quota: hundreds of MB), looked
+                // perfect all session, and was then destroyed by the sign-out purge
+                // with NO durable copy ever written. The size is not hypothetical:
+                // `toDataURL` silently falls back to PNG on any canvas that cannot
+                // ENCODE WebP, and a 400×225 PNG of a shaded 3D view is routinely
+                // 150–300 KB of base64 — several times the ceiling.
+                const encodeAt = (attempt: { quality: number; scale: number }): string | null => {
+                    if (attempt.scale >= 1) return thumb.toDataURL('image/webp', attempt.quality);
+                    const w = Math.max(1, Math.round(dstW * attempt.scale));
+                    const h = Math.max(1, Math.round(dstH * attempt.scale));
+                    const small = document.createElement('canvas');
+                    small.width = w;
+                    small.height = h;
+                    const sctx = small.getContext('2d');
+                    if (!sctx) return null;
+                    // `thumb` already carries the opaque backdrop composited above,
+                    // so a straight downsample preserves it.
+                    sctx.drawImage(thumb, 0, 0, w, h);
+                    return small.toDataURL('image/webp', attempt.quality);
+                };
+
+                const fit = fitThumbnailToBudget(encodeAt);
+                if (!fit.dataUrl) {
+                    // §CONTEXT-DATA-HONESTY — do NOT return a payload the server
+                    // will refuse, and do NOT report this as "nothing to capture".
+                    // Say which of the two failures happened, and how far over
+                    // budget we were, so the ladder can be extended rather than the
+                    // symptom re-diagnosed from a blank card months later.
+                    console.error(
+                        `[captureThumbnail] §FIX-THUMBNAIL-DURABILITY could not encode within the ${THUMBNAIL_MAX_CHARS}-char ` +
+                        `server ceiling after ${fit.attempts} attempt(s) — reason=${fit.reason}` +
+                        (fit.chars > 0 ? `, smallest candidate ${fit.chars} chars` : '') +
+                        '. Keeping the last good thumbnail; NO preview will be stored for this save.',
+                    );
+                    return null;
+                }
+                const dataUrl = fit.dataUrl;
+                console.log(
+                    `[captureThumbnail] Thumbnail captured: ${dstW}×${dstH}px @ quality ${fit.accepted?.quality}/scale ${fit.accepted?.scale}, ` +
+                    `~${Math.round(dataUrl.length / 1024)}KB (${fit.attempts} encode attempt(s), budget ${Math.round(THUMBNAIL_MAX_CHARS / 1024)}KB)`,
+                );
                 return dataUrl;
             } catch (err) {
                 console.error('[captureThumbnail] Unexpected error:', err);

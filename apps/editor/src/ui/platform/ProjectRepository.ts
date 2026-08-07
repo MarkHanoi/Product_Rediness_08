@@ -273,6 +273,46 @@ function _serializeIndex(index: ProjectMeta[]): string {
     return JSON.stringify(index.map(_stripThumbnailForIndex));
 }
 
+/**
+ * §FIX-THUMBNAIL-DURABILITY — probe the local thumbnail cache HONESTLY.
+ *
+ * `getThumbnailCacheStore().getSync()` can only answer "here are bytes" or
+ * `undefined`, and every existing caller wraps it in a bare `try {} catch {}`
+ * that collapses a THROWN read into the same `undefined` as a clean miss (see
+ * `_rehydrateThumbnail` directly below). That is the §CONTEXT-DATA-HONESTY
+ * failure at the storage layer: an instrument failure reported as a negative
+ * observation. The reconciliation planner must NOT decide to back-fill the
+ * server — or to conclude a preview never existed — on the strength of a read
+ * it could not actually perform, so it needs the two cases separated.
+ *
+ * @returns `{ failed: false, value }` on a successful read (`value` undefined
+ *          means genuinely absent); `{ failed: true }` when the read threw and
+ *          nothing at all is known.
+ */
+export function probeCachedThumbnail(projectId: string): { value?: string; failed: boolean } {
+    try {
+        const value = getThumbnailCacheStore().getSync(projectId);
+        return value ? { value, failed: false } : { failed: false };
+    } catch {
+        return { failed: true };
+    }
+}
+
+/**
+ * §FIX-THUMBNAIL-DURABILITY — seed the local IndexedDB cache with bytes read
+ * back from the durable server column, so the (synchronous) card render finds
+ * them on the next paint and in every later session in this browser.
+ *
+ * This is the leg that makes sign-out survivable: `signOut()` deletes the
+ * `pryzm-project-thumbnails` database by design (§AUTH-SESSION-LEAK — the
+ * security fix stays), and this re-populates it from the server on the next hub
+ * sync. Fire-and-forget and never throws: a failed seed degrades to "fetch it
+ * from the server again next sync", not to a lost preview.
+ */
+export function seedCachedThumbnail(projectId: string, dataUrl: string): void {
+    try { getThumbnailCacheStore().put(projectId, dataUrl); } catch { /* non-fatal — the durable server copy remains */ }
+}
+
 /** Rehydrate `thumbnail` on a meta read back from the index, from the IDB mirror. */
 function _rehydrateThumbnail(meta: ProjectMeta): ProjectMeta {
     if (meta.thumbnail) return meta; // legacy inline value (pre-migration) — keep it

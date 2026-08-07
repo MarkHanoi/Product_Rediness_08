@@ -23,7 +23,15 @@ import { trace } from '@opentelemetry/api';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { injectAppTheme } from '../styles/AppTheme';
 import { PlatformUser, signOut } from './AuthModal';
-import { projectRepository, versionRepository, ProjectMeta, warmThumbnailCache, warmVersionCache } from './ProjectRepository';
+import { projectRepository, versionRepository, ProjectMeta, warmThumbnailCache, warmVersionCache, probeCachedThumbnail, seedCachedThumbnail } from './ProjectRepository';
+// §FIX-THUMBNAIL-DURABILITY — thumbnail residency is reconciled on EVERY sync,
+// independently of the metadata-freshness gate below. See thumbnailReconcile.ts
+// for the full evidence chain; in short: sign-out deletes the IndexedDB preview
+// cache by design, the (non-pryzm-prefixed) metadata index survives it, and the
+// old code could only adopt the durable server copy inside the freshness gate —
+// which is false for exactly the unchanged projects whose cache was just wiped.
+import { planThumbnailReconcile, describeThumbnailResolution } from './thumbnailReconcile';
+import { uploadProjectThumbnail, describeUploadOutcome } from './thumbnailUpload';
 import { EntitlementStore } from '@pryzm/core-app-model';
 import { getPlanDisplayName, PLAN_LIMITS } from '@pryzm/core-app-model';
 import { ProjectMemberPanel, ProjectMember } from './ProjectMemberPanel';
@@ -189,6 +197,44 @@ export class ProjectHub {
             // Snapshot the local index ONCE (was re-read per iteration before).
             const localById = new Map(projectRepository.listProjects().map(lp => [lp.id, lp]));
 
+            // ── §FIX-THUMBNAIL-DURABILITY — reconcile preview residency FIRST, ──
+            // for EVERY server row, before and independently of the
+            // metadata-freshness gate below.
+            //
+            // This is the actual fix for "previews disappear after logout →
+            // login". Thumbnail bytes live only in IndexedDB
+            // (`pryzm-project-thumbnails`, §HUB-THUMBNAIL-STORAGE) and
+            // `signOut()` deletes every pryzm-prefixed IDB database by design
+            // (§AUTH-SESSION-LEAK — that security fix stays). The metadata index
+            // `bim-projects-index` is NOT pryzm-prefixed, so it survives with
+            // `updatedAt` still equal to the server's `updated_at` — which is
+            // exactly why names, timestamps and version counts came back correct
+            // while every preview was blank. The ONLY code that could re-adopt
+            // the durable server copy used to sit inside
+            // `existing.updatedAt < lastModifiedAt`, false for every unchanged
+            // project, so the row was skipped whole and the preview never
+            // returned. Residency is a property of the local CACHE, not of
+            // metadata freshness; per C05 the server is authoritative for
+            // durable project state and the client store is a cache that must be
+            // reconstructible from it.
+            const thumbPlan = planThumbnailReconcile(summaries, probeCachedThumbnail);
+            const resolvedThumbById = new Map<string, string | undefined>();
+            for (const r of thumbPlan) {
+                resolvedThumbById.set(r.projectId, r.value);
+                // Server had it, cache did not → repopulate the cache so the
+                // synchronous card render finds it on the next paint.
+                if (r.seedLocalCache && r.value) seedCachedThumbnail(r.projectId, r.value);
+                // Cache had it, the durable column did not → push it up. Self-heals
+                // every project whose original upload was lost (413 / plan-gated /
+                // offline at capture time) WITHOUT the user reopening the model, so
+                // the NEXT sign-out is survivable.
+                if (r.backfillToServer && r.value) {
+                    void uploadProjectThumbnail(r.projectId, r.value).then(outcome => {
+                        console.log(`[ProjectHub] §FIX-THUMBNAIL-DURABILITY back-fill ${r.projectId}: ${describeUploadOutcome(outcome)}`);
+                    });
+                }
+            }
+
             // ── Add / update entries from the server ──────────────────────────
             for (const s of summaries) {
                 if (!s.id || !s.name) continue;
@@ -196,11 +242,11 @@ export class ProjectHub {
                 const serverUpdatedAt = Date.parse(s.lastModifiedAt);
                 const lastModifiedAt = Number.isFinite(serverUpdatedAt) ? serverUpdatedAt : Date.now();
                 if (!existing || existing.updatedAt < lastModifiedAt) {
-                    // Thumbnail priority: local > server.
-                    // If there is no local thumbnail yet but the server has one (captured
-                    // from a previous session or another browser), use the server's copy.
-                    const serverThumbnail = s.thumbnailUrl ?? undefined;
-                    const resolvedThumbnail = existing?.thumbnail ?? serverThumbnail;
+                    // §FIX-THUMBNAIL-DURABILITY — take the value the reconciliation
+                    // pass already resolved (local cache > durable server column)
+                    // rather than re-deriving it from `existing.thumbnail`, which is
+                    // itself only a rehydration of the same cache.
+                    const resolvedThumbnail = resolvedThumbById.get(s.id);
                     upserts.push({
                         id: s.id,
                         name: s.name,
@@ -219,7 +265,15 @@ export class ProjectHub {
                         projectType:  existing?.projectType,
                         cdeSummary:   existing?.cdeSummary,
                     });
-                    console.log(`[ProjectHub] Synced project "${s.name}" (${s.id}) — thumbnail: ${existing?.thumbnail ? 'local' : serverThumbnail ? 'from server' : 'none'}`);
+                    // §FIX-THUMBNAIL-DURABILITY / §CONTEXT-DATA-HONESTY — the old
+                    // line said `thumbnail: none`, which could not distinguish
+                    // "never captured", "cache purged but the server has it",
+                    // "server value unusable" and "the cache read threw". That
+                    // ambiguity is what made this bug take a founder report to
+                    // find. The resolution now names the SOURCE, and on absence
+                    // the REASON, and on repair the action being taken.
+                    const _res = thumbPlan.find(r => r.projectId === s.id);
+                    console.log(`[ProjectHub] Synced project "${s.name}" (${s.id}) — thumbnail: ${_res ? describeThumbnailResolution(_res) : 'absent (not-in-plan)'}`);
                 }
             }
 
@@ -248,10 +302,32 @@ export class ProjectHub {
                 deleteIds.push(lp.id);
             }
 
+            // §FIX-THUMBNAIL-DURABILITY / §CONTEXT-DATA-HONESTY — one census line
+            // for the WHOLE plan, so projects the freshness gate skipped (exactly
+            // the ones whose purged preview was just restored) are still visible
+            // in the console. Without this, a fully-restored hub would log
+            // nothing at all and the repair would be unobservable.
+            const _seeded = thumbPlan.filter(r => r.seedLocalCache).length;
+            const _backfilled = thumbPlan.filter(r => r.backfillToServer).length;
+            const _absent = thumbPlan.filter(r => r.source === 'absent');
+            console.log(
+                `[ProjectHub] §FIX-THUMBNAIL-DURABILITY thumbnails: ${thumbPlan.length} row(s) — ` +
+                `${thumbPlan.filter(r => r.source === 'local-cache').length} from local cache, ` +
+                `${thumbPlan.filter(r => r.source === 'server').length} from the durable server column ` +
+                `(${_seeded} seeded into the local cache), ${_backfilled} backfilled to the server, ` +
+                `${_absent.length} absent [${[...new Set(_absent.map(r => r.reason))].join(', ') || 'n/a'}]`,
+            );
+
             if (upserts.length > 0 || deleteIds.length > 0) {
                 projectRepository.saveProjectsBatch(upserts, deleteIds);
                 console.log(`[ProjectHub] Synced with server: ${summaries.length} project(s)`);
                 this.refreshSidebar();
+                this.refreshGrid();
+            } else if (_seeded > 0) {
+                // The metadata index is unchanged (this IS the logout→login case:
+                // timestamps identical, so nothing to upsert) but previews were
+                // just restored into the cache the card render reads. Repaint, or
+                // the restored thumbnails would not appear until the next reload.
                 this.refreshGrid();
             }
         } catch (err) {

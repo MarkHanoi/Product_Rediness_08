@@ -761,6 +761,22 @@ export {
     createFootprintLine,
 } from './preview/PreviewStyle.js';
 
+// ── §FIX-THUMBNAIL-DURABILITY — project-preview payload budget ──────────────
+// Single declaration of the `PATCH /api/projects/:id/thumbnail` ceiling plus
+// the encode ladder that keeps a capture inside it, so a preview can actually
+// REACH its durable per-user home (`projects.thumbnail`) instead of living only
+// in a client cache that sign-out deletes by design.
+export type {
+    ThumbnailEncodeAttempt,
+    ThumbnailFitFailure,
+    ThumbnailFitResult,
+} from './preview/thumbnailBudget.js';
+export {
+    THUMBNAIL_MAX_CHARS,
+    THUMBNAIL_ENCODE_LADDER,
+    fitThumbnailToBudget,
+} from './preview/thumbnailBudget.js';
+
 // ── §FEAT-PLACEMENT-SPACEBAR-ROTATE (ADR-0105) — shared SPACE-to-rotate state ──
 // Single source of truth for one-click placement pre-rotation (furniture, GLB
 // carousel drops, plumbing, lighting, …). Each placement tool constructs ONE

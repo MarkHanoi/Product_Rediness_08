@@ -296,12 +296,32 @@ export async function getProject(projectId, userId) {
     return result.rows[0] ?? null;
 }
 
+/**
+ * Store a project's preview in the durable per-owner column.
+ *
+ * §FIX-THUMBNAIL-DURABILITY — RETURNS whether a row was actually written.
+ *
+ * This used to `await query(...)` and discard the result, and the route
+ * answered `{ ok: true }` unconditionally. So a PATCH that matched ZERO rows —
+ * wrong owner, project absent from this store, id drift — reported SUCCESS
+ * while storing nothing, and the client had no way to know its preview was
+ * never persisted. "Write succeeded" and "write hit nothing" were the same
+ * value, which is the §CONTEXT-DATA-HONESTY failure this whole bug is an
+ * instance of. The caller now turns a 0-row result into a 404 instead.
+ *
+ * NOTE: `updated_at = NOW()` is deliberate and retained — a new preview is a
+ * change to the project's presented state, and the hub's reconciliation no
+ * longer depends on that timestamp for thumbnail residency.
+ *
+ * @returns {Promise<boolean>} true when exactly the owner's row was updated.
+ */
 export async function updateProjectThumbnail(projectId, userId, thumbnail) {
-    await query(
+    const result = await query(
         `UPDATE projects SET thumbnail = $1, updated_at = NOW()
          WHERE id = $2 AND owner_id = $3`,
         [thumbnail, projectId, userId]
     );
+    return (result?.rowCount ?? 0) > 0;
 }
 
 export async function upsertProject(projectId, name, userId) {

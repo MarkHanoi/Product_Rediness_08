@@ -23,9 +23,11 @@ import {
     formatStorageUsageReport,
     largestStorageConsumer,
 } from './StorageQuotaDiagnostics';
+// §FIX-THUMBNAIL-DURABILITY — the single client-side writer of the durable
+// `projects.thumbnail` column, with a discriminated outcome instead of a warn.
+import { uploadProjectThumbnail, describeUploadOutcome } from './thumbnailUpload';
 import { SaveOrchestrator } from './SaveOrchestrator';
 import { ServerSyncQueue } from './ServerSyncQueue';
-import { apiFetch } from '@pryzm/core-app-model';
 import { EntitlementStore } from '@pryzm/core-app-model';
 import { Feature } from '@pryzm/core-app-model';
 import { UiPreferences } from '../UiPreferences';
@@ -485,19 +487,20 @@ export class PlatformSaveController {
      * LONGTASK from each wall-creation cycle.
      */
     private _uploadThumbnailToServer(projectId: string, thumbnail: string): void {
-        if (this.syncQueue?.isPlanRejected?.() === true) return;
-        apiFetch(`/api/projects/${projectId}/thumbnail`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ thumbnail }),
-        }).then(res => {
-            if (res.ok) {
-                console.log(`[PlatformSaveController] Thumbnail uploaded to server for project ${projectId}`);
-            } else {
-                console.warn(`[PlatformSaveController] Thumbnail upload failed (${res.status}) for project ${projectId}`);
-            }
-        }).catch(err => {
-            console.warn('[PlatformSaveController] Thumbnail upload error (non-fatal):', err);
+        // §FIX-THUMBNAIL-DURABILITY — delegate to the single client-side writer of
+        // the durable column so "skipped", "refused as too large", "server said
+        // no" and "stored" stop being the same observation (§CONTEXT-DATA-HONESTY).
+        // A `plan-gated` skip in particular is NOT a failure — but it does mean the
+        // preview is client-cache-only and WILL be destroyed by the next sign-out,
+        // and the log now says exactly that instead of returning silently.
+        // Any preview lost here is re-uploaded by the hub's back-fill pass on the
+        // next sync (ProjectHub §FIX-THUMBNAIL-DURABILITY), so a single missed
+        // PATCH is no longer permanent.
+        void uploadProjectThumbnail(projectId, thumbnail, {
+            planGated: this.syncQueue?.isPlanRejected?.() === true,
+        }).then(outcome => {
+            const line = `[PlatformSaveController] Thumbnail for project ${projectId}: ${describeUploadOutcome(outcome)}`;
+            if (outcome.ok) console.log(line); else console.warn(line);
         });
     }
 
