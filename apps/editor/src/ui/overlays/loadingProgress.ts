@@ -196,6 +196,102 @@ export interface TileStreamSnapshot {
      * cannot supply it degrades to the strict counter behaviour rather than silently settling.
      */
     readonly providerLoaded?: boolean;
+    /**
+     * §READINESS-TERMS-ARE-SEPARABLE (L-716) — the SEPARATE terms behind `providerLoaded`, each
+     * with its own applicability. Optional: a producer that cannot decompose degrades to the
+     * aggregate exactly as before.
+     */
+    readonly terms?: readonly TileReadinessTermSnapshot[];
+    /** §FRAMES-REQUESTED-ARE-NOT-FRAMES-RENDERED (L-716) — `scene.frameState.frameNumber`. */
+    readonly frameNumber?: number;
+}
+
+/** One named, separately-applicable term of the tile-readiness conjunction. */
+export interface TileReadinessTermSnapshot {
+    readonly name: string;
+    readonly applicable: boolean;
+    readonly value: boolean;
+    readonly why: string;
+}
+
+/**
+ * §READINESS-MUST-BE-SATISFIABLE (L-716) — how long a COMPLETELY FROZEN snapshot (nothing
+ * outstanding, no field changing) may persist, while frames are demonstrably being drawn, before
+ * the gate concludes its remaining term is UNSATISFIABLE rather than slow.
+ *
+ * ⚠ WHY A GATE MAY CONCLUDE THIS AT ALL. With `pending === 0 && processing === 0` every tile the
+ * scene asked for has arrived. If a readiness term is STILL false after that, and frames are being
+ * drawn (so the term has had every opportunity to update), the term is not lagging — it cannot
+ * move. Continuing to hold the user behind a spinner then asserts "still loading" about work that
+ * has finished, which is the same overstatement §CONTEXT-DATA-HONESTY forbids. The gate stops
+ * waiting and SAYS SO, naming the term; it does not silently pretend the term went true.
+ *
+ * ⚠ AND WHY IT MAY NOT CONCLUDE IT WHEN FRAMES ARE NOT BEING DRAWN. A frozen snapshot with no
+ * frames rendered is STARVED, not unsatisfiable — the terms never got a chance. Those two must
+ * never collapse into one verdict; collapsing them is exactly what cost the first five rounds.
+ */
+export const UNSATISFIABLE_TERM_MS = 8_000;
+
+/**
+ * The gate's verdict on the tiles stage — the ONE place "complete", "stuck", "starved" and
+ * "unsatisfiable" are told apart. PURE: every input is a value, so all four branches are testable
+ * without a browser, a viewer or a clock.
+ */
+export type TileReadinessVerdict =
+    /** Work is genuinely in flight (or too early to judge) — keep waiting. */
+    | { readonly kind: 'streaming' }
+    /** Complete. The tiles stage may settle. */
+    | { readonly kind: 'settled' }
+    /**
+     * Nothing outstanding, frames ARE being drawn, and an applicable term is still false and
+     * frozen — it cannot become true in this configuration. Settle the stage WITH DISCLOSURE.
+     */
+    | { readonly kind: 'unsatisfiable'; readonly terms: readonly string[] }
+    /**
+     * Nothing has changed and NOTHING IS BEING DRAWN despite the gate requesting frames. The
+     * terms never had a chance to update. This is not a tile failure and must never be reported
+     * as one.
+     */
+    | { readonly kind: 'starved' };
+
+export interface TileReadinessEvidence {
+    /** How long the whole snapshot has been byte-for-byte unchanged. */
+    readonly msSinceSnapshotChange: number;
+    /** Frames the gate REQUESTED via the L-715 pump. */
+    readonly framesPumped: number;
+    /** Frames the scene actually DREW (frameNumber advances). Undefined → not observable. */
+    readonly framesRendered: number | undefined;
+    /** How long the provider has continuously reported loaded (drives the L-713 grace period). */
+    readonly providerLoadedForMs: number;
+}
+
+/**
+ * §READINESS-MUST-BE-SATISFIABLE (L-716) — classify the tiles stage from evidence alone.
+ *
+ * ⚠ THE ORDER OF THESE BRANCHES IS THE CONTRACT. Success first (never call a finished load
+ * anything else); then genuine in-flight work; then STARVED before UNSATISFIABLE, because a term
+ * that was never given a frame has not been shown to be unsatisfiable — only unobserved.
+ */
+export function tileReadinessVerdict(
+    snapshot: TileStreamSnapshot,
+    evidence: TileReadinessEvidence,
+    unsatisfiableMs: number = UNSATISFIABLE_TERM_MS,
+): TileReadinessVerdict {
+    if (tileStreamSettled(snapshot, evidence.providerLoadedForMs)) return { kind: 'settled' };
+    const outstanding = Math.max(0, snapshot.pending) + Math.max(0, snapshot.processing);
+    // Real work in flight — nothing to diagnose, the load is simply not finished.
+    if (outstanding > 0) return { kind: 'streaming' };
+    // Nothing outstanding, yet not settled. Give the snapshot a chance to move before judging.
+    if (evidence.msSinceSnapshotChange < unsatisfiableMs) return { kind: 'streaming' };
+    // Frozen. Was the scene even being drawn? Requested frames are not rendered frames.
+    if (evidence.framesPumped > 0 && evidence.framesRendered === 0) return { kind: 'starved' };
+    // Frozen, drawn, nothing outstanding → name the applicable terms that refuse to move.
+    const stuck = (snapshot.terms ?? [])
+        .filter((t) => t.applicable && !t.value)
+        .map((t) => `${t.name} (${t.why})`);
+    if (stuck.length > 0) return { kind: 'unsatisfiable', terms: stuck };
+    // No decomposed terms available (older producer) — the aggregate alone is frozen-false.
+    return { kind: 'unsatisfiable', terms: ['providerLoaded (no decomposed terms reported)'] };
 }
 
 /**

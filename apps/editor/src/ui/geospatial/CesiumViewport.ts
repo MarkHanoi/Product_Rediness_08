@@ -337,6 +337,35 @@ export interface GroundSettleSignal {
   readonly baseHeightM: number;
 }
 
+/**
+ * §READINESS-TERMS-ARE-SEPARABLE (L-716) — ONE named term of the tile-readiness conjunction,
+ * reported SEPARATELY so the consumer can never again be told only the AND of them.
+ *
+ * ⚠ THIS TYPE EXISTS BECAUSE AGGREGATION HID THE SAME DEFECT TWICE. `providerLoaded` was
+ * `globeLoaded && tilesetLoaded`, and a false AND names nothing: it cannot say WHICH side is
+ * false, nor whether that side is even APPLICABLE to this configuration. The founder's sixth
+ * report was `pending=0 processing=0 tilesLoaded=false` — nothing outstanding, the work finished,
+ * and the flag never flipped, with the snapshot frozen for 92 s. That is an UNSATISFIABLE
+ * conjunction, not a slow load, and the readiness predicate had no vocabulary to say so.
+ *
+ * `applicable` is the whole point. Cesium's `Cesium3DTileset._tilesLoaded` initialises FALSE and
+ * is assigned ONLY inside a render-pass update, which `updateForPass` skips entirely for a hidden
+ * tileset — so an attached-but-hidden tileset reports `tilesLoaded === false` for ever, with zero
+ * pending and zero processing. Including such a term in readiness does not make the gate "wait";
+ * it makes the gate UNSATISFIABLE, and an unsatisfiable gate can only ever time out. A term that
+ * does not apply must be EXCLUDED explicitly and named in the report — never left permanently false.
+ */
+export interface TileReadinessTerm {
+  /** Which term: the globe surface, or the photoreal 3D tileset. */
+  readonly name: 'globe' | 'tileset';
+  /** Does this term apply in THIS configuration? Inapplicable terms are excluded from readiness. */
+  readonly applicable: boolean;
+  /** The term's own verdict (meaningful only when `applicable`). */
+  readonly value: boolean;
+  /** The OBJECT IDENTITY + reason behind the two fields above — the evidence, not the conclusion. */
+  readonly why: string;
+}
+
 /** §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — Cesium's OWN tile-streaming counters. */
 export interface TileLoadProgress {
   /** Tile/imagery requests in flight (network). */
@@ -355,8 +384,29 @@ export interface TileLoadProgress {
    * turned L-713's grace period into DEAD CODE (`tilesLoaded` true ⇒ outstanding 0 ⇒ the grace
    * branch is unreachable). Two genuinely independent signals had been collapsed into one boolean
    * at the producer, so no amount of care at the consumer could tell them apart again.
+   *
+   * §READINESS-TERMS-ARE-SEPARABLE (L-716) — this is now the AND of the APPLICABLE `terms` below
+   * (an inapplicable term is excluded, not counted false). Read `terms` when you need to know WHY.
    */
   readonly providerLoaded: boolean;
+  /**
+   * §READINESS-TERMS-ARE-SEPARABLE (L-716) — the terms behind `providerLoaded`, each with its own
+   * applicability, value and object identity. Optional so an older consumer degrades to the
+   * aggregate rather than breaking.
+   */
+  readonly terms?: readonly TileReadinessTerm[];
+  /**
+   * §FRAMES-REQUESTED-ARE-NOT-FRAMES-RENDERED (L-716) — `scene.frameState.frameNumber`.
+   *
+   * ⚠ THE L-715 PUMP COUNTS REQUESTS, NOT RENDERS. `framesPumped=43` proves only that the gate
+   * CALLED `requestRender()` 43 times; under `requestRenderMode` Cesium can decline to draw (a
+   * zero-sized or hidden canvas makes `CesiumWidget` skip `scene.render` outright), and every
+   * counter, queue and `tilesLoaded` flag then stays frozen exactly where it was — indistinguishable
+   * at the consumer from a network that stopped. This field lets the gate compare frames REQUESTED
+   * with frames actually DRAWN, which is the difference between "the tiles stopped arriving" and
+   * "nobody is drawing the scene". Optional/undefined on a viewer that cannot report it.
+   */
+  readonly frameNumber?: number;
 }
 
 /**
@@ -848,6 +898,19 @@ export class CesiumViewport {
    *  exact plot bbox, so the event-driven point-flyTo doesn't override the better
    *  extent framing with a redundant second flight. One-shot. */
   private suppressNextLocationFly = false;
+  /** §STARTUP-LOCATION-IDEMPOTENT (founder 2026-08-07, 5–10× startup) — the coordinates of the
+   *  last `site.location-changed` event this subscriber actually HANDLED. A later event carrying
+   *  the SAME point (the θ-publish from `dispatchSiteTrueNorth` at parcel commit is the main
+   *  producer — same lat/lon, only `trueNorth` changed) is a no-op here: same spot ⇒ the sun,
+   *  the metric caches and the camera are already right, and the FORCED context reload it used
+   *  to trigger re-rendered thousands of entities for nothing (the founder-logged
+   *  "site.location-changed → flying camera" ×2 with identical coordinates). Cleared on
+   *  project-scope reset so a new project at the same address handles fresh. */
+  private lastLocationHandled: { lat: number; lon: number } | null = null;
+  /** §STARTUP-CTX-COALESCE — the context load currently in flight, so an identical request
+   *  JOINS it instead of aborting + restarting it (the "context read 2–3× + cancelled" churn).
+   *  Cleared when the load settles and on project-scope reset. */
+  private contextLoadInFlight: { lat: number; lon: number; promise: Promise<void> } | null = null;
 
   // ---- mount/ready signal (replaces the fragile 400ms timer in callers) ----
   /** Resolves once `mount()` has fully constructed the Cesium viewer. Callers
@@ -1673,27 +1736,76 @@ export class CesiumViewport {
         processing += Math.max(0, stats.numberOfTilesProcessing ?? 0);
       }
     } catch { /* tileset gone */ }
-    let globeLoaded = true;
+    // §READINESS-TERMS-ARE-SEPARABLE (L-716) — build each term with its APPLICABILITY, its own
+    // value and the object identity behind both. An inapplicable term is EXCLUDED from readiness,
+    // never folded in as `false`: a term that cannot become true does not make the gate patient,
+    // it makes the gate unsatisfiable, and an unsatisfiable gate can only ever time out.
+    const terms: TileReadinessTerm[] = [];
     try {
-      const g = this.viewer?.scene?.globe as { tilesLoaded?: boolean } | undefined;
-      // `globe.show === false` in Forma mode → its tiles are irrelevant, treat as loaded.
-      const globeShown = this.viewer?.scene?.globe?.show !== false;
-      globeLoaded = !globeShown || (g?.tilesLoaded ?? true);
+      const g = this.viewer?.scene?.globe as
+        | { tilesLoaded?: boolean; show?: boolean; _surface?: unknown } | undefined;
+      const shown = g?.show !== false;
+      // The globe term applies only when the globe surface exists AND is shown. A hidden globe
+      // (Forma massing study) streams nothing, so waiting on its queues is waiting on nothing.
+      terms.push({
+        name: 'globe',
+        applicable: !!g && shown,
+        value: g?.tilesLoaded ?? true,
+        why: !g
+          ? 'no globe on this scene'
+          : !shown
+            ? 'globe.show===false → hidden, streams nothing (EXCLUDED)'
+            : `globe.tilesLoaded=${g.tilesLoaded ?? 'undefined'} surface=${g._surface ? 'present' : 'ABSENT'}`,
+      });
+    } catch (e) {
+      terms.push({ name: 'globe', applicable: false, value: true, why: `probe threw: ${String(e)} (EXCLUDED)` });
+    }
+    try {
+      const ts = this.photorealTileset as unknown as
+        | { tilesLoaded?: boolean; show?: boolean; ready?: boolean } | null;
+      const shown = ts?.show !== false;
+      // ⚠ THE UNSATISFIABLE CASE, NAMED. `Cesium3DTileset._tilesLoaded` initialises FALSE and is
+      // assigned ONLY inside a render-pass update; `updateForPass` returns early for a hidden
+      // tileset, so an attached-but-hidden tileset reports `tilesLoaded===false` FOREVER while
+      // reporting zero pending and zero processing. That is precisely the founder's frozen
+      // `pending=0 processing=0 tilesLoaded=false`. Hidden ⇒ inapplicable ⇒ excluded + disclosed.
+      terms.push({
+        name: 'tileset',
+        applicable: !!ts && shown,
+        value: ts?.tilesLoaded ?? true,
+        why: !ts
+          ? 'no photoreal tileset attached (EXCLUDED)'
+          : !shown
+            ? 'tileset.show===false → never updated by a render pass, so tilesLoaded can NEVER ' +
+              'flip true (EXCLUDED — an unsatisfiable term is not a term)'
+            : `tileset.tilesLoaded=${ts.tilesLoaded ?? 'undefined'} active=${this.photorealTilesActive}`,
+      });
+    } catch (e) {
+      terms.push({ name: 'tileset', applicable: false, value: true, why: `probe threw: ${String(e)} (EXCLUDED)` });
+    }
+    // Readiness is defined over the APPLICABLE terms only. No applicable terms → there is nothing
+    // to stream and nothing to wait for; saying "not loaded" there would be a claim about work
+    // that does not exist.
+    const applicable = terms.filter((t) => t.applicable);
+    const providerLoaded = applicable.every((t) => t.value);
+    let frameNumber: number | undefined;
+    try {
+      const fn = (this.viewer?.scene as unknown as { frameState?: { frameNumber?: number } } | undefined)
+        ?.frameState?.frameNumber;
+      if (typeof fn === 'number' && Number.isFinite(fn)) frameNumber = fn;
     } catch { /* viewer gone */ }
-    let tilesetLoaded = true;
-    try {
-      const ts = this.photorealTileset as unknown as { tilesLoaded?: boolean } | null;
-      tilesetLoaded = ts?.tilesLoaded ?? true;
-    } catch { /* tileset gone */ }
     return {
       pending,
       processing,
-      tilesLoaded: pending === 0 && processing === 0 && globeLoaded && tilesetLoaded,
+      tilesLoaded: pending === 0 && processing === 0 && providerLoaded,
       // §TILES-PROVIDER-READY (L-714) — Cesium's own answer, kept SEPARATE from our counters so a
       // stuck queue entry cannot veto it. `globe.tilesLoaded` already means "everything for the
       // current view is loaded", which is coverage of the current frustum — the readiness question
       // we actually want answered. See the field's note for why collapsing the two was fatal.
-      providerLoaded: globeLoaded && tilesetLoaded,
+      // §READINESS-TERMS-ARE-SEPARABLE (L-716) — now the AND of the APPLICABLE terms only.
+      providerLoaded,
+      terms,
+      frameNumber,
     };
   }
 
@@ -3060,8 +3172,34 @@ export class CesiumViewport {
       if (this.suppressNextLocationFly) {
         // GISAreaLayout's geocode onFlyTo already framed the exact plot bbox.
         this.suppressNextLocationFly = false;
+        // §STARTUP-LOCATION-IDEMPOTENT — the caller framed THESE coordinates; record them so a
+        // duplicate emit for the same point is recognised as such below.
+        this.lastLocationHandled = { lat: loc.latitude, lon: loc.longitude };
         console.log('[CesiumViewport] site.location-changed: bbox framing already done by caller — skipping point flyTo.');
         return;
+      }
+      // §STARTUP-LOCATION-IDEMPOTENT (founder 2026-08-07, 5–10× startup) — SAME POINT ⇒ NO-OP.
+      // Everything this handler does is a function of the coordinates (sun anchor, metric-cache
+      // key, camera target, context bbox); an event carrying the point we already handled —
+      // chiefly the θ-only publish from `dispatchSiteTrueNorth` at parcel commit — would re-fly
+      // the camera to where it is going anyway and FORCE a full context re-render (thousands of
+      // entities + a 6,000-point terrain batch re-sample) that changes nothing on screen.
+      // ε 1e-7° ≈ 1 cm. The parcel-boundary-set framing render (not this handler) owns the
+      // commit-time repaint, so nothing the commit needs is skipped here.
+      {
+        const last = this.lastLocationHandled;
+        if (
+          last &&
+          Math.abs(last.lat - loc.latitude) < 1e-7 &&
+          Math.abs(last.lon - loc.longitude) < 1e-7
+        ) {
+          console.log(
+            '[CesiumViewport] §STARTUP-LOCATION-IDEMPOTENT — site.location-changed with ' +
+              'unchanged coordinates (θ-only or duplicate emit); skipping re-fly + context re-render.',
+          );
+          return;
+        }
+        this.lastLocationHandled = { lat: loc.latitude, lon: loc.longitude };
       }
       console.log(
         `[CesiumViewport] site.location-changed → flying camera to LAT ${loc.latitude} LON ${loc.longitude}.`
@@ -3227,6 +3365,10 @@ export class CesiumViewport {
     }
     this.formaTerrainCity = null;
     this.formaTerrainSampledAt = null;
+    // §STARTUP-TERRAIN-SAMPLE-REUSE — relief heights die with the relief: `sampleGround` reads
+    // this cache BEFORE it checks the provider, so stale entries would seat the flat study at
+    // the detached city's elevations.
+    this.contextGroundCache.clear();
     this.formaTerrainBaseHeight = 0;
     // §TERRAIN-BASE-PROVENANCE — the base just went back to the ellipsoid, which on this
     // path is the TRUE flat ground (not a failed sample). Reset the provenance with it so a
@@ -6811,23 +6953,45 @@ export class CesiumViewport {
    * No-op on the flat/keyless path (fallback base is already exact there). Never throws.
    */
   private async sampleContextGroundsBatch(centroids: ReadonlyArray<{ lat: number; lon: number }>): Promise<void> {
-    this.contextGroundCache.clear();
     const viewer = this.viewer;
     if (!viewer || centroids.length === 0) return;
     const provider = viewer.terrainProvider as Cesium.TerrainProvider | undefined;
     if (!provider || !this.terrainProviderHasElevationData(provider)) return; // flat/keyless → base is exact.
+    // §STARTUP-TERRAIN-SAMPLE-REUSE (founder 2026-08-07, 5–10× startup) — THE CACHE IS KEPT
+    // ACROSS LOADS, AND ONLY THE MISSING POINTS ARE SAMPLED. This method used to `clear()` on
+    // entry, so EVERY context pass — including a duplicate render for the same site — re-asked
+    // the terrain provider for all ~6,000 footprint heights. The ground under a footprint does
+    // not change between passes; a lat/lon key is globally unique, so retention is safe. The
+    // cache IS cleared where its answers genuinely die: `detachBakedTerrain()` (heights of a
+    // detached relief must not seat a flat study — `sampleGround` consults this cache before it
+    // checks the provider) and `resetProjectScopedState()` (a new project must not inherit a
+    // prior city's ground). A pan samples only its newly-visible footprints.
+    const missing = centroids.filter(
+      (c) => !this.contextGroundCache.has(`${c.lat.toFixed(6)},${c.lon.toFixed(6)}`),
+    );
+    if (missing.length === 0) {
+      console.log(
+        `[CTX-DIAG] §STARTUP-TERRAIN-SAMPLE-REUSE — all ${centroids.length} footprint grounds ` +
+          'already sampled this session; no terrain round-trip.',
+      );
+      return;
+    }
     try {
-      const cartos = centroids.map((c) => Cesium.Cartographic.fromDegrees(c.lon, c.lat));
+      const cartos = missing.map((c) => Cesium.Cartographic.fromDegrees(c.lon, c.lat));
       const sampled = await Cesium.sampleTerrainMostDetailed(provider, cartos);
       let ok = 0;
       for (let i = 0; i < sampled.length; i++) {
         const h = sampled[i]?.height;
         if (typeof h === 'number' && Number.isFinite(h)) {
-          this.contextGroundCache.set(`${centroids[i].lat.toFixed(6)},${centroids[i].lon.toFixed(6)}`, h);
+          this.contextGroundCache.set(`${missing[i].lat.toFixed(6)},${missing[i].lon.toFixed(6)}`, h);
           ok++;
         }
       }
-      console.log(`[CTX-DIAG] per-footprint terrain: sampleTerrainMostDetailed resolved ${ok}/${centroids.length} real ground heights (getHeight is unusable in Forma).`);
+      console.log(
+        `[CTX-DIAG] per-footprint terrain: sampleTerrainMostDetailed resolved ${ok}/${missing.length} ` +
+          `real ground heights (${centroids.length - missing.length} reused from cache; ` +
+          'getHeight is unusable in Forma).',
+      );
     } catch (e) {
       console.warn('[CTX-DIAG] per-footprint terrain batch-sample failed — falling back to centroid base:', e);
     }
@@ -7596,7 +7760,41 @@ export class CesiumViewport {
     return this.formaTerrainBaseHeight;
   }
 
-  public async loadContextBuildings(lat: number, lon: number, force = false): Promise<void> {
+  public loadContextBuildings(lat: number, lon: number, force = false): Promise<void> {
+    // §STARTUP-CTX-COALESCE (founder 2026-08-07, 5–10× startup) — AN IDENTICAL LOAD ALREADY IN
+    // FLIGHT IS JOINED, NOT ABORTED. The un-coalesced method below cancels any in-flight load
+    // and restarts (correct for a NEW location — a pan, a different site), but the startup
+    // pipeline used to reach it 2–3× for the SAME coordinates (massing render, the
+    // `site.location-changed` subscriber, mode engagement), and each duplicate aborted a
+    // half-done fetch/placement and re-ran the whole pass — the founder-logged "context read
+    // 2–3× + cancelled" churn, thousands of entities re-placed for nothing. Joining returns the
+    // in-flight promise so every caller still gets a settle signal. `force` is deliberately
+    // moot on a join: force exists to defeat the entities-already-placed early-out, and an
+    // in-flight load means placement has not settled yet.
+    const running = this.contextLoadInFlight;
+    if (
+      running &&
+      Math.abs(running.lat - lat) < 1e-6 &&
+      Math.abs(running.lon - lon) < 1e-6
+    ) {
+      console.log(
+        '[CTX-DIAG] §STARTUP-CTX-COALESCE — identical context load already in flight; joining ' +
+          'it instead of aborting + restarting.',
+      );
+      return running.promise;
+    }
+    const promise = this.loadContextBuildingsUncoalesced(lat, lon, force);
+    const entry = { lat, lon, promise };
+    this.contextLoadInFlight = entry;
+    void promise
+      .catch(() => { /* never rejects by construction; belt-and-braces for the field clear */ })
+      .then(() => {
+        if (this.contextLoadInFlight === entry) this.contextLoadInFlight = null;
+      });
+    return promise;
+  }
+
+  private async loadContextBuildingsUncoalesced(lat: number, lon: number, force = false): Promise<void> {
     const viewer = this.viewer;
     if (!viewer) return;
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
@@ -12840,6 +13038,13 @@ export class CesiumViewport {
         this.clearContextBuildings();
         this.contextBuildingsAt = null;
         this.contextLastLoadAtMs = 0;
+        // §STARTUP-LOCATION-IDEMPOTENT / §STARTUP-CTX-COALESCE / §STARTUP-TERRAIN-SAMPLE-REUSE —
+        // per-project memos: a new project at the same address must handle its location fresh,
+        // must not join the old project's in-flight load, and must not inherit a prior city's
+        // per-footprint ground heights.
+        this.lastLocationHandled = null;
+        this.contextLoadInFlight = null;
+        this.contextGroundCache.clear();
         // §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the standing sea layer is per-viewport too; cancel +
         // drop it so it doesn't leak across a project switch.
         this.contextSeaAbort?.abort();

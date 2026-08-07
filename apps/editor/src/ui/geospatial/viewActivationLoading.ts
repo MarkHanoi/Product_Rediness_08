@@ -48,15 +48,28 @@ import type { LoadingOverlayController, LoadingSession } from '@app/ui/overlays/
 import {
     VIEW_ACTIVATION_STALL_MS,
     isStalled,
+    tileReadinessVerdict,
     tileStreamFraction,
     tileStreamSettled,
     tileStreamNote,
     viewActivationProgress,
     viewActivationStageLabel,
     viewActivationStageText,
+    VIEW_ACTIVATION_TOTAL,
     type TileStreamSnapshot,
     type ViewActivationStage,
 } from '@app/ui/overlays/loadingProgress';
+
+/**
+ * §READINESS-TERMS-ARE-SEPARABLE (L-716) — a stable signature of the decomposed terms, so a term
+ * flipping counts as an observation CHANGE even when the aggregate `providerLoaded` does not move.
+ * Treating the aggregate as the only observable is what made the founder's snapshot look frozen
+ * for 92 s when its parts may well have been moving underneath.
+ */
+function termsSignature(snap: TileStreamSnapshot | null): string {
+    if (!snap?.terms) return '';
+    return snap.terms.map((t) => `${t.name}:${t.applicable ? 'A' : '-'}${t.value ? '1' : '0'}`).join(',');
+}
 
 export type ViewActivationTarget = 'globe' | 'site';
 
@@ -249,6 +262,14 @@ export function beginViewActivationLoading(
     /** §STALL-CLOCK-PAUSES-WHILE-HIDDEN — stall-clock time forgiven while the page was hidden. */
     let stallPausedHiddenMs = 0;
     let lastWatchdogTickAt = now();
+    /** §FRAMES-REQUESTED-ARE-NOT-FRAMES-RENDERED (L-716) — frames the scene actually DREW, counted
+     *  from `frameNumber` advances. `framesPumped` counts only what the gate ASKED FOR; under
+     *  `requestRenderMode` Cesium may decline to draw (hidden/zero-sized canvas), and then every
+     *  term freezes with no tile ever at fault. Undefined while the producer cannot report it. */
+    let framesRendered: number | undefined;
+    let lastFrameNumber: number | null = null;
+    /** §READINESS-MUST-BE-SATISFIABLE (L-716) — the terms the gate concluded cannot ever go true. */
+    let unsatisfiableTerms: readonly string[] = [];
     let currentNote = '';
     let finished = false;
     let failed = false;
@@ -320,6 +341,11 @@ export function beginViewActivationLoading(
             // "The tiles loaded" (someone else's log) and "the gate observed the tiles loaded"
             // are different claims; only the second one this field measures can dismiss the overlay.
             `everSawProviderLoaded=${firstProviderLoadedAt === null ? 'never' : `${Math.round(now() - firstProviderLoadedAt)}ms-ago`}`,
+            // §FRAMES-REQUESTED-ARE-NOT-FRAMES-RENDERED (L-716) — requested vs actually drawn.
+            `framesRendered=${framesRendered ?? 'not-observable'}`,
+            // §READINESS-TERMS-ARE-SEPARABLE (L-716) — NEVER report only the AND of the terms.
+            `terms=[${(snap?.terms ?? []).map((t) =>
+                `${t.name}{applicable=${t.applicable} value=${t.value} why="${t.why}"}`).join(' ') || 'none reported'}]`,
             `msSinceSnapshotChange=${lastSnapshotChangeAt === null ? 'n/a' : Math.round(now() - lastSnapshotChangeAt)}`,
             `stallPausedHiddenMs=${Math.round(stallPausedHiddenMs)}`,
             `pageHiddenNow=${(() => { try { return isPageHidden(); } catch { return false; } })()}`,
@@ -390,9 +416,18 @@ export function beginViewActivationLoading(
             prev.pending !== snap.pending ||
             prev.processing !== snap.processing ||
             prev.tilesLoaded !== snap.tilesLoaded ||
-            (prev.providerLoaded ?? null) !== (snap.providerLoaded ?? null)
+            (prev.providerLoaded ?? null) !== (snap.providerLoaded ?? null) ||
+            // §READINESS-TERMS-ARE-SEPARABLE (L-716) — a term flipping IS a change, even when the
+            // aggregate does not move. Aggregating is what made this snapshot look frozen before.
+            termsSignature(prev) !== termsSignature(snap)
         ) {
             lastSnapshotChangeAt = now();
+        }
+        // §FRAMES-REQUESTED-ARE-NOT-FRAMES-RENDERED (L-716) — count frames actually DRAWN.
+        if (typeof snap.frameNumber === 'number') {
+            if (lastFrameNumber === null) framesRendered = framesRendered ?? 0;
+            else if (snap.frameNumber > lastFrameNumber) framesRendered = (framesRendered ?? 0) + 1;
+            lastFrameNumber = snap.frameNumber;
         }
         lastTileSnapshot = snap;
         currentNote = tileStreamNote(snap, peakOutstanding);
@@ -421,7 +456,41 @@ export function beginViewActivationLoading(
         if (!providerSaysLoaded) tilesLoadedSince = null;
         else if (tilesLoadedSince === null) tilesLoadedSince = now();
         const heldMs = tilesLoadedSince === null ? 0 : now() - tilesLoadedSince;
-        return tileStreamSettled(snap, heldMs);
+        // §READINESS-MUST-BE-SATISFIABLE (L-716) — the FOUR-WAY verdict. `tileStreamSettled` alone
+        // could only say yes/no, so "finished", "stuck", "starved" and "can never be true" all
+        // arrived here as the same `false` and left as the same 25 s timeout.
+        const verdict = tileReadinessVerdict(snap, {
+            msSinceSnapshotChange: lastSnapshotChangeAt === null ? 0 : now() - lastSnapshotChangeAt,
+            framesPumped,
+            framesRendered,
+            providerLoadedForMs: heldMs,
+        });
+        if (verdict.kind === 'unsatisfiable' && unsatisfiableTerms.length === 0) {
+            unsatisfiableTerms = verdict.terms;
+            // ⚠ SAY IT OUT LOUD. The gate is releasing the tiles stage WITHOUT its terms going
+            // true, because they cannot go true — every tile the scene asked for has arrived and
+            // frames are being drawn. That is a defensible release, but only if it is DISCLOSED:
+            // silently settling here would be indistinguishable from the success path, and the
+            // next person would have no way to find this.
+            console.warn(
+                `[viewActivationLoading] §READINESS-MUST-BE-SATISFIABLE ${target} — releasing the ` +
+                'tiles gate on an UNSATISFIABLE term. Nothing is outstanding (pending=' +
+                `${snap.pending} processing=${snap.processing}) and the scene IS being drawn ` +
+                `(framesRendered=${framesRendered ?? 'n/a'} of ${framesPumped} requested), yet ` +
+                `these applicable terms are frozen false: ${verdict.terms.join('; ')}. A term that ` +
+                'cannot become true does not make the gate patient — it makes the gate ' +
+                'unsatisfiable, and an unsatisfiable gate can only ever time out. Releasing with ' +
+                'disclosure instead of holding the user behind a spinner over completed work.',
+            );
+            // The user-visible note must not claim completeness we do not have (§CONTEXT-DATA-HONESTY).
+            currentNote = 'map layer reported incomplete — opening anyway';
+            session.setProgress(
+                viewActivationProgress('tiles', 1).completed,
+                VIEW_ACTIVATION_TOTAL,
+                currentNote,
+            );
+        }
+        return verdict.kind === 'settled' || verdict.kind === 'unsatisfiable';
     };
 
     const waitForTiles = (): Promise<void> =>
@@ -565,10 +634,26 @@ export function beginViewActivationLoading(
             // so the honest copy states WHAT WE OBSERVED and offers the choice, and claims nothing
             // about why. (§CTX-ZOOM-FITS-EXTENT removed the mechanism above; this copy is what the
             // user should see if a stall ever happens again for some other reason.)
+            //
+            // §MESSAGE-MUST-MATCH-THE-EVIDENCE (L-716) — ⚠ "The map tiles stopped arriving" is a
+            // CLAIM ABOUT THE TILES, and it has now been made to the founder six times over tiles
+            // that had demonstrably arrived. It may only be said when the evidence supports it:
+            // something was actually outstanding. When nothing is outstanding and the scene is not
+            // being drawn, the true statement is about the DRAWING, not the tiles — and saying the
+            // wrong one sends the user to debug their network for a problem in our render loop.
+            const snapNow = lastTileSnapshot;
+            const outstandingNow = snapNow
+                ? Math.max(0, snapNow.pending) + Math.max(0, snapNow.processing)
+                : 0;
+            const notBeingDrawn = framesPumped > 0 && framesRendered === 0;
             failActivation(
-                stage === 'tiles'
-                    ? 'The map tiles stopped arriving, so the 3D view may be incomplete. You can retry, or continue and let them finish loading in the background.'
-                    : `The 3D view stopped responding while ${viewActivationStageText(stage).toLowerCase()}`,
+                stage !== 'tiles'
+                    ? `The 3D view stopped responding while ${viewActivationStageText(stage).toLowerCase()}`
+                    : notBeingDrawn
+                        ? 'The 3D view is not being drawn — the map data is not the problem. You can retry, or continue and use the view as it is.'
+                        : outstandingNow > 0
+                            ? 'The map tiles stopped arriving, so the 3D view may be incomplete. You can retry, or continue and let them finish loading in the background.'
+                            : 'The 3D view did not finish opening, though the map data it asked for did arrive. You can retry, or continue and use the view as it is.',
             );
         }
     }, 1000);
