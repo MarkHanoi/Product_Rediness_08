@@ -14,6 +14,56 @@ import { AnnotationElement, DimensionElement } from './AnnotationTypes';
 import { storeEventBus } from '@pryzm/core-app-model';
 import { validateAnnotationParameters } from './AnnotationParametersSchema';
 
+/**
+ * §ANN-UNDO-ARITY — the flat `AnnotationsState` ledger record shape (see
+ * `handlers/canonicalAnnotationSink.ts`). Declared here, not imported, because the sink
+ * imports THIS module; a cycle would evaluate a barrel at module load (the SCC failure).
+ */
+interface FlatLedgerRecord {
+    id: string;
+    viewId?: string;
+    kind?: string;
+    systemTypeId?: string;
+    anchor?: { x: number; y: number; z: number };
+    text?: string;
+    rotation?: number;
+    textHeightMm?: number;
+    color?: string;
+    hostElementId?: string;
+}
+
+function _isFlatLedgerRecord(r: unknown): r is FlatLedgerRecord {
+    if (!r || typeof r !== 'object') return false;
+    const o = r as Record<string, unknown>;
+    // A canonical element ALWAYS has `type` + `geometry2D`; a ledger record never does.
+    return typeof o['id'] === 'string' && (o['type'] === undefined || o['geometry2D'] === undefined);
+}
+
+function _liftLedgerRecord(r: FlatLedgerRecord): AnnotationElement {
+    const anchor = r.anchor ?? { x: 0, y: 0, z: 0 };
+    const now = Date.now();
+    return {
+        id: r.id,
+        type: (r.kind ?? 'text-note') as AnnotationElement['type'],
+        systemTypeId: r.systemTypeId,
+        ownerViewId: r.viewId ?? '',
+        references: [],
+        geometry2D: { modelPoints: [anchor], offset: 0 },
+        style: {
+            ...(r.textHeightMm !== undefined ? { textSizeMm: r.textHeightMm } : {}),
+            ...(r.color !== undefined ? { textColor: r.color, lineColor: r.color } : {}),
+        },
+        parameters: {
+            ...(r.text !== undefined ? { text: r.text } : {}),
+            ...(r.rotation !== undefined ? { rotation: r.rotation } : {}),
+            ...(r.hostElementId !== undefined ? { targetElementId: r.hostElementId } : {}),
+        },
+        isDriving: false,
+        createdAt: now,
+        updatedAt: now,
+    };
+}
+
 type AnnotationEventType = 'add' | 'update' | 'remove';
 type AnnotationEventListener = (type: AnnotationEventType, ann: AnnotationElement) => void;
 
@@ -31,7 +81,21 @@ export class AnnotationStore {
 
     // ── CRUD ─────────────────────────────────────────────────────────────────
 
-    add(element: AnnotationElement): void {
+    add(record: AnnotationElement | FlatLedgerRecord): void {
+        // §ANN-UNDO-ARITY — a REDO can hand this store the flat `AnnotationsState` ledger
+        // record carried in the forward patch rather than the canonical element (the undo
+        // adapter prefers its own snapshot, but that stash is per-session module state and
+        // is empty on a redo whose undo happened before a reload). Storing the flat shape
+        // verbatim produces an element with no `geometry2D` and no `type`: it renders
+        // nothing, exports nothing, and looks to the user exactly like "redo did nothing".
+        // Lift it, and SAY so — a silent coercion is how the two shapes drifted apart.
+        const element = _isFlatLedgerRecord(record) ? _liftLedgerRecord(record) : record;
+        if (element !== record) {
+            console.warn(
+                `[AnnotationStore] add(): §ANN-UNDO-ARITY lifted a flat ledger record to a ` +
+                `canonical AnnotationElement — ${element.id} (${element.type})`,
+            );
+        }
         if (this._data.has(element.id)) {
             console.warn(`[AnnotationStore] add(): id already exists — ${element.id}`);
             return;
@@ -51,7 +115,34 @@ export class AnnotationStore {
         this._notify('add', element);
     }
 
-    update(partial: Partial<AnnotationElement> & { id: string }): void {
+    /**
+     * §ANN-UNDO-ARITY — accepts BOTH call shapes:
+     *   update({ id, ...patch })     — the subsystem's own callers
+     *   update(id, patch)            — `elementUndoStoreAdapter`, i.e. Ctrl+Z
+     *
+     * THE DEFECT THIS CLOSES, and it is the one the founder reported as "annotations
+     * don't undo". `buildUndoStoreMap()` binds the store key `'annotation'` to THIS
+     * store, and `elementUndoStoreAdapter` drives field-level patches through
+     * `store.update(id, { field: value })` — TWO arguments. Every other element store in
+     * PRYZM has that signature; this one took a single merged object. So the adapter's
+     * `id` string landed in `partial`, `partial.id` was `undefined`, the guard below
+     * logged "id not found" and RETURNED — the undo silently did nothing while the undo
+     * stack cursor had already advanced. Whole-element undo (remove/add) worked, which
+     * is exactly why a store-level audit concluded "undo is innocent": it inspected the
+     * mapping, which was correct, and not the call, which was not.
+     */
+    update(
+        partialOrId: (Partial<AnnotationElement> & { id: string }) | string,
+        patch?: Partial<AnnotationElement>,
+    ): void {
+        const partial: Partial<AnnotationElement> & { id: string } =
+            typeof partialOrId === 'string'
+                ? { ...(patch ?? {}), id: partialOrId }
+                : partialOrId;
+        if (typeof partial?.id !== 'string') {
+            console.warn('[AnnotationStore] update(): called with no id', partialOrId, patch);
+            return;
+        }
         const existing = this._data.get(partial.id);
         if (!existing) {
             console.warn(`[AnnotationStore] update(): id not found — ${partial.id}`);

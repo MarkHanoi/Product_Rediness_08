@@ -127,3 +127,50 @@ describe('§ANN-SEED — five demo annotations when a project has none', () => {
     expect(outcome.reason).toMatch(/command system not ready/);
   });
 });
+
+describe('§ANN-UNDO-ARITY — the canonical store speaks the undo adapter\'s dialect', () => {
+  beforeEach(() => annotationStore.clear());
+  afterEach(() => annotationStore.clear());
+
+  const el = () => ({
+    id: 'annotation_UNDO1', type: 'text-note' as const, systemTypeId: 'at-note-3.5mm-charcoal',
+    ownerViewId: 'v', references: [], geometry2D: { modelPoints: [{ x: 0, y: 0, z: 0 }], offset: 0 },
+    style: { textSizeMm: 3.5 }, parameters: { text: 'before' }, isDriving: false,
+    createdAt: 1, updatedAt: 1,
+  });
+
+  it('update(id, patch) — the TWO-ARG shape elementUndoStoreAdapter calls — applies', () => {
+    annotationStore.add(el());
+    // This is verbatim what `elementUndoStoreAdapter` does for a field-level patch.
+    (annotationStore.update as unknown as (id: string, p: Record<string, unknown>) => void)(
+      'annotation_UNDO1', { parameters: { text: 'after' } },
+    );
+    expect(annotationStore.getById('annotation_UNDO1')!.parameters.text,
+      'field-level undo silently did nothing — the arity defect').toBe('after');
+  });
+
+  it('update({id, ...patch}) — the ONE-ARG shape — still applies', () => {
+    annotationStore.add(el());
+    annotationStore.update({ id: 'annotation_UNDO1', parameters: { text: 'after' } });
+    expect(annotationStore.getById('annotation_UNDO1')!.parameters.text).toBe('after');
+  });
+
+  it('update() with no resolvable id refuses instead of corrupting a record', () => {
+    annotationStore.add(el());
+    (annotationStore.update as unknown as (p: unknown) => void)({ parameters: { text: 'x' } });
+    expect(annotationStore.getById('annotation_UNDO1')!.parameters.text).toBe('before');
+  });
+
+  it('add() lifts a FLAT ledger record so a redo restores something that renders', () => {
+    annotationStore.add({
+      id: 'annotation_FLAT1', viewId: 'v2', kind: 'keynote',
+      anchor: { x: 3, y: 0, z: 4 }, text: 'flat', textHeightMm: 5, color: '#6600ff',
+    } as never);
+    const back = annotationStore.getById('annotation_FLAT1')!;
+    expect(back.type).toBe('keynote');
+    expect(back.ownerViewId).toBe('v2');
+    expect(back.geometry2D.modelPoints[0]).toEqual({ x: 3, y: 0, z: 4 });
+    expect(back.style.textSizeMm).toBe(5);
+    expect(back.parameters.text).toBe('flat');
+  });
+});
