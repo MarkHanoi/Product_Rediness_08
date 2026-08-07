@@ -65,6 +65,10 @@
  */
 
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
+import {
+    DECLARED_PROJECT_SCOPE_SET_VERSION,
+    DECLARED_SCOPES_REQUIRING_PRESENCE,
+} from './declaredProjectScopes';
 
 export interface IsolationLeakReport {
     timestamp: string;
@@ -162,6 +166,18 @@ export interface AuditInput {
      */
     unreadableStores?: readonly string[];
     /**
+     * ADR-0298 §2 — the scope names that MUST have answered this run, from the
+     * DECLARED expected probe set. A declared name with no reading is a finding
+     * (`scope.probeMissing`), exactly as loud as a registered probe reporting
+     * foreign state: *"expected probe `gis.cesiumViewport` did not register"* is a
+     * failure, never a silent absence.
+     *
+     * Optional so the pure-detector unit tests and the BIM-only call sites keep
+     * compiling; the runtime audit always supplies it. Defaults to "expect
+     * nothing", which reproduces the pre-ADR-0298 discovered-population behaviour.
+     */
+    declaredScopes?: readonly string[];
+    /**
      * §CONTEXT-DATA-HONESTY — false when the THREE scene could not be traversed.
      * `sceneObjects: []` alone cannot express the difference between "the scene is
      * empty" and "there was no scene to look at". Defaults to `true` so existing
@@ -177,7 +193,7 @@ export interface AuditInput {
 export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     const {
         projectId, expectedIds, sceneObjects, storeElements, globals, scopeProbes,
-        unreadableStores = [], sceneReadable = true,
+        unreadableStores = [], sceneReadable = true, declaredScopes = [],
     } = input;
     const idKnown = expectedIds !== null;
 
@@ -227,7 +243,9 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     // ownership, not contents.
     const foreignScopes: Array<{ scope: string; owningProjectId: string; detail?: unknown }> = [];
     const brokenProbes: Array<{ scope: string; error: string }> = [];
+    const answered = new Set<string>();
     for (const reading of scopeProbes ?? []) {
+        answered.add(reading.scope);
         if (reading.error != null) {
             brokenProbes.push({ scope: reading.scope, error: reading.error });
             continue;
@@ -238,6 +256,15 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
         }
     }
 
+    // ADR-0298 §2 — DECLARED-BUT-ABSENT. The audit's population is now the DECLARED
+    // set, not the set of things that happened to register. A declared owner that did
+    // not answer is a finding: "nothing registered" and "the owner was never wired"
+    // are the same value, and this family has now produced four bugs out of failing to
+    // distinguish them. `DECLARED_SCOPES_REQUIRING_PRESENCE` deliberately contains only
+    // the owners whose absence is UNPROVEN (instance-scope registration); a module-scope
+    // owner that never loaded provably holds nothing and is not reported here.
+    const missingDeclared = declaredScopes.filter(s => !answered.has(s));
+
     const findings: IsolationLeakReport['findings'] = [];
     if (underlayCount > 0)        findings.push({ surface: 'scene.underlay',        count: underlayCount });
     if (ifcCount > 0)             findings.push({ surface: 'scene.ifc',             count: ifcCount });
@@ -247,6 +274,7 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     if (globals.length > 0)       findings.push({ surface: 'window.globals',        count: globals.length, details: globals });
     if (foreignScopes.length)     findings.push({ surface: 'scope.foreignProject',   count: foreignScopes.length, details: foreignScopes });
     if (brokenProbes.length)      findings.push({ surface: 'scope.probeFailed',      count: brokenProbes.length, details: brokenProbes });
+    if (missingDeclared.length)   findings.push({ surface: 'scope.probeMissing',     count: missingDeclared.length, details: { expected: missingDeclared, declarationVersion: DECLARED_PROJECT_SCOPE_SET_VERSION } });
 
     // §CONTEXT-DATA-HONESTY — a surface the audit COULD NOT INSPECT is not a clean
     // surface. Every check above turns "found nothing" into "clean"; that inference
@@ -426,6 +454,9 @@ function runAudit(projectId: string, emptyHint: boolean): IsolationLeakReport | 
         unreadableStores: unreadable,
         globals: gatherGlobalOffenders(),
         scopeProbes: readProjectScopeProbes(),
+        // ADR-0298 §2 — the audit is checked against the DECLARATION, not against
+        // whatever registered.
+        declaredScopes: DECLARED_SCOPES_REQUIRING_PRESENCE,
     });
 }
 
@@ -466,11 +497,17 @@ export function installProjectIsolationAudit(): void {
                 // was indistinguishable between "everything was checked and is clean"
                 // and "nothing that could have leaked was ever looked at" — which is
                 // exactly how the GIS leak survived. Name the scopes.
+                // ADR-0298 — `✓ clean` now means "every subsystem we REQUIRE to answer,
+                // answered, and none holds foreign state" — not "nobody who spoke up is
+                // dirty". Name the declaration it was checked against, and its version,
+                // so a log line from the field can be tied to the list in force.
                 const scopes = listProjectScopeProbes();
                 console.log(
                     `[ProjectIsolationAudit] ✓ project ${projectId} loaded clean — ` +
-                    `${AUDITED_STORE_GLOBALS.length} stores + scene + ${scopes.length} scope probe(s)` +
-                    (scopes.length > 0 ? ` [${scopes.join(', ')}]` : ' — ⚠ NO scope probes registered'),
+                    `${AUDITED_STORE_GLOBALS.length} stores + scene + all ` +
+                    `${DECLARED_SCOPES_REQUIRING_PRESENCE.length} DECLARED scope probe(s) answered ` +
+                    `(declaration v${DECLARED_PROJECT_SCOPE_SET_VERSION})` +
+                    (scopes.length > 0 ? ` [${scopes.join(', ')}]` : ''),
                 );
                 return;
             }

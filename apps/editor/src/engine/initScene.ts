@@ -113,6 +113,12 @@ import { viewDependencyTracker } from '@pryzm/core-app-model';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { nativeElementMeshExporter } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry'; // §L-325 render/projection-registry isolation teardown
+// §L-711 (ADR-0298) — the DECLARED list of element types that are constructed during a
+// load rather than restored from the snapshot, so the §L-325 audit can tell a real
+// unaccounted root from a legitimately-derived one instead of calling both "foreign".
+import { LOAD_DERIVED_ELEMENT_TYPES } from '@pryzm/core-app-model';
+// §L-711 — a C13 violation must be VISIBLE to the person it affects, not only to a console.
+import { showToast } from '@app/ui/platform/PlatformToastSystem';
 // Phase 6 — EdgeProjectorService is lazy-loaded. The module is ~1 870 LOC and
 // transitively pulls 11 plan-symbol builders + the OBC EdgeProjector +
 // TechnicalDrawings APIs into the static graph. Plan / section / elevation
@@ -1334,22 +1340,93 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 }
                 if (!expected) return;
                 const roots = elementRegistry.getAllRoots();
-                const foreign = roots.filter(r => !expected!.has(r.id)).map(r => r.id);
+                // §L-711 — CARRY THE TYPE. The predecessor mapped straight to `r.id`, so
+                // the report was a list of opaque uuids under a sentence that ASSERTED
+                // their provenance ("from a prior project"). On live `096e12b4` that
+                // sentence was false: the session was fresh, there was no prior project,
+                // and the three roots were the project's own restored LIGHTING fixtures,
+                // missing from `__pryzmLoadedProjectExpectation` (fixed in ProjectLoader).
+                // A tripwire that names a cause it did not measure is the same defect
+                // class it exists to catch — so it now reports what it can SEE (the
+                // registry's own storeType) and stops narrating what it cannot.
+                const unexpected = roots.filter(r => !expected!.has(r.id));
+                const derived = unexpected.filter(r => r.storeType != null
+                    && LOAD_DERIVED_ELEMENT_TYPES.includes(r.storeType));
+                const foreign = unexpected.filter(r => !derived.includes(r));
+                const fmt = (rs: typeof roots): Array<{ id: string; storeType: string }> =>
+                    rs.slice(0, 20).map(r => ({ id: r.id, storeType: r.storeType ?? 'unregistered' }));
                 if (foreign.length === 0) {
-                    console.log(`[L325-RenderRegistryAudit] ✓ project ${projectId} — elementRegistry holds ${roots.length} root(s), all in the loaded snapshot (${expected.size} expected)`);
+                    console.log(
+                        `[L325-RenderRegistryAudit] ✓ project ${projectId} — elementRegistry holds ` +
+                        `${roots.length} root(s); ${expected.size} declared by the snapshot, ` +
+                        `${derived.length} legitimately load-derived (C13 §3.10), 0 unaccounted.`,
+                    );
                     return;
                 }
+                // ADR-0298 / C13 §3.10 — WHAT A LOAD-TIME VIOLATION MUST DO.
+                //
+                // Previously: one console.error and the load continued. A detector that
+                // writes a P0 correctness violation to a console the user never opens is
+                // not a detector, it is a comment. Three things now happen, in order of
+                // increasing cost, and NONE of them is an automatic repair:
+                //
+                //   1. REPORT WITH EVIDENCE — ids AND storeTypes, so the next reader can
+                //      tell a leak from an expectation gap without guessing (above).
+                //   2. ONE PLACE TO LOOK — push onto `window.__pryzmIsolationLeaks`, the
+                //      same buffer the data-side ProjectIsolationAudit writes to, so the
+                //      two halves of C13 do not need two debugging habits.
+                //   3. TELL THE USER — they are editing a document that may contain
+                //      another project's geometry. That is not a developer's fact.
+                //
+                // Deliberately NOT auto-repairing (i.e. unregistering the offending roots
+                // + purging NME/culling). Repair acts on the audit's MODEL of what is
+                // foreign, and this very defect proved that model can be wrong: on
+                // `096e12b4` an auto-repair would have deleted three of the user's own
+                // light fixtures from the render registry and reported success. L-694's
+                // lesson inverted — do not let an unverified model take destructive
+                // action. The repair belongs at the teardown chokepoint, where the set
+                // being cleared is "everything", not at the audit, where it is "whatever
+                // we believe is foreign".
                 console.error(
                     `[C13 VIOLATION] §L-325 render-registry isolation leak on load of ${projectId}: ` +
-                    `elementRegistry holds ${roots.length} root(s) but the snapshot declared ${expected.size} — ` +
-                    `${foreign.length} FOREIGN root(s) from a prior project (NME/culling will re-project them):`,
-                    foreign.slice(0, 20),
+                    `elementRegistry holds ${roots.length} root(s); the snapshot declared ${expected.size} ` +
+                    `and ${derived.length} are load-derived — ${foreign.length} root(s) are UNACCOUNTED FOR. ` +
+                    `NME/culling will re-project them. Types are from the registry itself; ` +
+                    `provenance is NOT measured here:`,
+                    { unaccounted: fmt(foreign), loadDerived: fmt(derived) },
                 );
                 try {
+                    const buf = (window as unknown as { __pryzmIsolationLeaks?: unknown[] });
+                    (buf.__pryzmIsolationLeaks ??= []).push({
+                        timestamp: new Date().toISOString(),
+                        projectId,
+                        findings: [{
+                            surface: 'renderRegistry.unaccountedRoot',
+                            count: foreign.length,
+                            details: { registryRootCount: roots.length, expectedCount: expected.size, unaccounted: fmt(foreign) },
+                        }],
+                    });
+                } catch { /* the leak buffer must never break a load */ }
+                try {
                     window.dispatchEvent(new CustomEvent('pryzm-render-registry-isolation-leak', {
-                        detail: { projectId, registryRootCount: roots.length, expectedCount: expected.size, foreignIds: foreign.slice(0, 50) },
+                        detail: {
+                            projectId,
+                            registryRootCount: roots.length,
+                            expectedCount: expected.size,
+                            derivedCount: derived.length,
+                            foreignIds: foreign.slice(0, 50).map(r => r.id),
+                            foreign: fmt(foreign),
+                        },
                     }));
                 } catch { /* DOM dispatch must never throw past this guard */ }
+                try {
+                    showToast(
+                        `Project isolation warning: ${foreign.length} element(s) in this session are not part ` +
+                        `of this project's saved data. Save to a new version before continuing.`,
+                        'error',
+                        15000,
+                    );
+                } catch { /* a missing toast host must never break a load */ }
             } catch (e) {
                 console.warn('[initScene] §L-325 render-registry audit failed (non-fatal):', e);
             }

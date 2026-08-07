@@ -2209,6 +2209,23 @@ export class ProjectLoader {
                 __pushIds(s.furniture); __pushIds(s.handrails); __pushIds(s.curtainWalls);
                 __pushIds(s.plumbing);  __pushIds(s.ceilings); __pushIds(s.floors);
                 __pushIds(s.grids);     __pushIds(s.doors);    __pushIds(s.windows);
+                // §L-711 (ADR-0298 — COMPLETENESS, not presence) — `lighting`.
+                //
+                // `§PERSIST-LIGHTING` added `snapshot.lighting` to the serializer AND a
+                // restore loop at Step 10b of this file, but never to THIS list. Every
+                // restored fixture therefore registered an `elementRegistry` root with an
+                // id outside the expected set, and the §L-325 render-registry audit
+                // reported it verbatim as "N FOREIGN root(s) FROM A PRIOR PROJECT" —
+                // in a fresh session, on live `096e12b4`, where no prior project existed.
+                //
+                // Lighting is NOT derived state: it is authored, serialized and restored
+                // one-for-one, so C13 §3.10's deliberate exclusion of redetected rooms /
+                // room-bounding-lines / annotations does not cover it. The expectation was
+                // simply incomplete, and an incomplete expectation does not weaken the
+                // audit quietly — it makes it accuse the innocent, which is worse: it
+                // trains the reader to discount a P0 line. (§CONTEXT-DATA-HONESTY: the
+                // audit's model and the world disagreed, and the model won the log.)
+                __pushIds(s.lighting);
                 (globalThis as unknown as {
                     __pryzmLoadedProjectExpectation?: { projectId: string; elementIds: string[] };
                 }).__pryzmLoadedProjectExpectation = {

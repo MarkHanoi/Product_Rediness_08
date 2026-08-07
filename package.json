@@ -18,7 +18,7 @@
     "dev": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local server.js",
     "start": "node --env-file-if-exists=.env ./dist/index.cjs",
     "migrate": "node --env-file-if-exists=.env scripts/migrate/migrate.mjs",
-    "check:isolation": "node scripts/check/check-project-isolation.mjs && node scripts/check/check-storage-isolation.mjs",
+    "check:isolation": "node scripts/check/check-project-isolation.mjs && node scripts/check/check-storage-isolation.mjs && tsx tools/ga-gate/check-declared-project-scopes.ts",
     "check:commandmanager": "node scripts/check/ci-check-no-commandmanager.mjs",
     "check:write-route-auth": "tsx tools/ga-gate/check-write-route-auth.ts",
     "check:cesium-gizmo": "node scripts/check/check-no-cesium-gizmo.mjs",

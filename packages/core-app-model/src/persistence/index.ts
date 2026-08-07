@@ -34,6 +34,16 @@ export {
 } from './ProjectIsolationAudit.js';
 export type { ProjectScopeProbe, ScopeProbeReading } from './ProjectIsolationAudit.js';
 
+// ── ADR-0298 §PROBE-SET-DECLARED — the declared expected probe set ──────────
+export {
+    DECLARED_PROJECT_SCOPES,
+    DECLARED_PROJECT_SCOPE_NAMES,
+    DECLARED_PROJECT_SCOPE_SET_VERSION,
+    DECLARED_SCOPES_REQUIRING_PRESENCE,
+    LOAD_DERIVED_ELEMENT_TYPES,
+} from './declaredProjectScopes.js';
+export type { DeclaredProjectScope, ProjectScopePresence } from './declaredProjectScopes.js';
+
 export {
     isMigrationComplete,
     runVGToIntentMigration,

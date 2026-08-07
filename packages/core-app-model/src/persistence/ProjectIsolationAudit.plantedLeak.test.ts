@@ -37,6 +37,7 @@ import {
     _resetProjectScopeProbesForTest,
     type IsolationLeakReport,
 } from './ProjectIsolationAudit';
+import { DECLARED_SCOPES_REQUIRING_PRESENCE } from './declaredProjectScopes';
 
 // ── test harness ─────────────────────────────────────────────────────────────
 
@@ -126,6 +127,18 @@ function expectElements(projectId: string, elementIds: string[]): void {
 
 const surfaces = (r: IsolationLeakReport | null): string[] => (r?.findings ?? []).map(f => f.surface);
 
+/**
+ * ADR-0298 §2 — register every DECLARED owner answering "I hold nothing".
+ *
+ * A test that plants a leak in one declared owner overwrites that one probe by key,
+ * so the remaining four stay clean and each failure still names exactly one cause.
+ */
+function plantDeclaredProbesClean(): void {
+    for (const scope of DECLARED_SCOPES_REQUIRING_PRESENCE) {
+        registerProjectScopeProbe({ scope, owningProjectId: () => null });
+    }
+}
+
 beforeEach(() => {
     _resetProjectIsolationAuditForTest();
     _resetProjectScopeProbesForTest();
@@ -143,6 +156,13 @@ beforeEach(() => {
     // one surface at a time so each failure names exactly one cause.
     W().scene = fakeScene([]);
     plantFullStoreCoverage();
+    // ADR-0298 §2 — the baseline world must also satisfy the DECLARED probe set.
+    // The runtime audit now checks reality against `declaredProjectScopes.ts` rather
+    // than against whatever registered, so a harness that stands up no owners is no
+    // longer a clean world — it is a world with five unregistered declared owners,
+    // which is precisely the founder's 096e12b4 finding. Stand them up, answering
+    // `null` ("I hold nothing"); individual tests still contaminate one at a time.
+    plantDeclaredProbesClean();
 
     leakEvents = [];
     onLeak = (e: Event) => leakEvents.push((e as CustomEvent<IsolationLeakReport>).detail);

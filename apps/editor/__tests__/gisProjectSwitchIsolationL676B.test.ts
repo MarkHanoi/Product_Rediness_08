@@ -301,6 +301,9 @@ describe('§L-676-B — a throwing teardown step cannot abort the rest, and cann
     beforeEach(() => {
         _resetSiteProjectScopeForTest();
         _resetProjectScopeProbesForTest();
+        // ADR-0298 §2 — `missing` is now a reportable state, so each test must start
+        // from an EMPTY registry or a neighbour's registration satisfies its expectation.
+        projectScopeRegistry._resetForTest();
         resetSiteDispatchProjectState();
         logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
         errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -339,11 +342,35 @@ describe('§L-676-B — a throwing teardown step cannot abort the rest, and cann
     });
 
     it('a clean teardown DOES print complete, and names what it cleared', () => {
+        // ADR-0298 §2 — "clean" now requires the DECLARED GIS owners to have been
+        // reachable too, so stand them up before asserting completion.
+        for (const scopeName of GIS_SWITCH_SCOPES) {
+            projectScopeRegistry.register({ scopeName, clear: () => { /* no-op */ } });
+        }
         const report = runSiteProjectTeardown('project-switch', null);
         expect(report.failures).toHaveLength(0);
+        expect(report.missing).toHaveLength(0);
         const said = logSpy.mock.calls.map(c => String(c[0])).join('\n');
         expect(said).toContain('teardown complete');
         expect(said).toContain('site.dispatch');
+    });
+
+    it('ADR-0298 §2 — a DECLARED owner that never registered demotes the verdict; ' +
+       '"complete" MUST NOT print alongside an unreachable owner', () => {
+        // The founder's 096e12b4 log, reproduced: gis.areaLayout registered,
+        // gis.cesiumViewport never constructed. The predecessor warned about the
+        // missing owner and then logged "teardown complete" three lines later.
+        projectScopeRegistry.register({ scopeName: 'gis.areaLayout', clear: () => { /* no-op */ } });
+
+        const report = runSiteProjectTeardown('project-switch', null);
+
+        expect(report.failures).toHaveLength(0);          // nothing THREW …
+        expect(report.missing).toEqual(['gis.cesiumViewport']); // … but one owner was unreachable.
+        const said = logSpy.mock.calls.map(c => String(c[0])).join('\n');
+        expect(said).not.toContain('teardown complete');
+        const errors = errSpy.mock.calls.map(c => String(c[0])).join('\n');
+        expect(errors).toContain('teardown INCOMPLETE');
+        expect(errors).toContain('gis.cesiumViewport');
     });
 });
 
@@ -351,6 +378,9 @@ describe('§L-676-B — the switch teardown reaches the GIS owners registered el
     beforeEach(() => {
         _resetSiteProjectScopeForTest();
         _resetProjectScopeProbesForTest();
+        // ADR-0298 §2 — `missing` is now a reportable state, so each test must start
+        // from an EMPTY registry or a neighbour's registration satisfies its expectation.
+        projectScopeRegistry._resetForTest();
         resetSiteDispatchProjectState();
         vi.spyOn(console, 'log').mockImplementation(() => {});
         vi.spyOn(console, 'warn').mockImplementation(() => {});

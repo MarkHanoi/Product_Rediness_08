@@ -125,6 +125,18 @@ class ProjectScopeRegistryImpl {
         return { cleared, failures, missing };
     }
 
+    /**
+     * TEST HOOK — drop every registration.
+     *
+     * ADR-0298 §2 made "a declared scope with no registered owner" a REPORTABLE
+     * state, so a suite that asserts on `missing` needs a way to establish an
+     * empty registry; without it, a registration made by one test silently
+     * satisfies the next one's expectation. Never called from production code.
+     */
+    _resetForTest(): void {
+        this._scopes.clear();
+    }
+
     reseedAll(): void {
         for (const store of this._scopes.values()) {
             if (typeof store.reseed !== 'function') continue;

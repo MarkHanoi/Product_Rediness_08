@@ -16,6 +16,7 @@
  *   7.  check-otel-spans.ts                  — 184/184 handler OTel spans (S03/C10)
  *   8.  check-ctrl-z-wired.ts               — Ctrl-Z ring-buffer wired (C03/Wave36)
  *   9.  check-project-isolation.ts           — C13 project-isolation anchors (Wave35)
+ *   9b. check-declared-project-scopes.ts     — ADR-0298 declared isolation-probe set (C13 §3.10)
  *   10. check-no-commandmanager.ts           — cmdMgr alias + literal ratchet (OI-046 / Phase E.5.x)
  *   11. check-no-workspacemountbridge.ts     — workspace bridge (D.4) elimination (Phase 2 Task 2.2)
  *   12. check-per-package-compile.ts         — per-package tsc --noEmit (Phase H · C01 §5 · Task 7.2)
@@ -62,6 +63,7 @@ const GATES: Gate[] = [
   { name: 'otel-spans (S03/C10)',                     script: 'check-otel-spans.ts' },
   { name: 'ctrl-z-wired (C03/Wave36)',                script: 'check-ctrl-z-wired.ts' },
   { name: 'project-isolation-gate (C13/Wave35)',      script: 'check-project-isolation.ts' },
+  { name: 'declared-project-scopes (ADR-0298)',        script: 'check-declared-project-scopes.ts' },
   { name: 'no-commandmanager (OI-046/Phase E.5.x)',  script: 'check-no-commandmanager.ts' },
   { name: 'no-workspacemountbridge (Phase2/Task2.2)', script: 'check-no-workspacemountbridge.ts' },
   { name: 'per-package-compile (Phase H/Task7.2)',    script: 'check-per-package-compile.ts' },

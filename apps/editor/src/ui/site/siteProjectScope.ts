@@ -55,6 +55,7 @@ import { trace } from '@opentelemetry/api';
 import {
     projectScopeRegistry,
     registerProjectScopeProbe,
+    DECLARED_PROJECT_SCOPES,
     type ProjectScopedStore,
 } from '@pryzm/core-app-model';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
@@ -98,10 +99,16 @@ export const SITE_PROJECT_SCOPES: readonly string[] = [
  * registry (`clearScopes`) rather than importing them, so there is still exactly
  * one owner and one clear body per surface (C13 §3.10).
  */
-export const GIS_SWITCH_SCOPES: readonly string[] = [
-    'gis.cesiumViewport',
-    'gis.areaLayout',
-];
+export const SITE_PROJECT_SCOPE_MODULE = 'apps/editor/src/ui/site/siteProjectScope.ts';
+
+export const GIS_SWITCH_SCOPES: readonly string[] = DECLARED_PROJECT_SCOPES
+    // ADR-0298 §4 — DERIVED FROM THE DECLARATION, not hand-maintained beside it. Every
+    // declared scope whose owning module is NOT this file is, by definition, a scope this
+    // switch listener must reach through the registry. A new declared owner elsewhere is
+    // therefore torn down at switch time the moment it is declared — there is no second
+    // list to forget, which is the §L-676 → L-694 failure mode in miniature.
+    .filter(s => s.module !== SITE_PROJECT_SCOPE_MODULE)
+    .map(s => s.scope);
 
 /** Resolve the live runtime without hard-coupling to `window` in tests. */
 function resolveRuntime(explicit?: PryzmRuntime | null): PryzmRuntime | null {
@@ -152,6 +159,17 @@ export function buildSiteProjectScopes(
 export interface SiteTeardownReport {
     readonly cleared: readonly string[];
     readonly failures: ReadonlyArray<{ scope: string; error: string }>;
+    /**
+     * ADR-0298 §2 — declared GIS owners with NO registered owner at teardown time.
+     *
+     * These are `instance-scope` registrations (see `declaredProjectScopes.ts`), so
+     * their absence is UNPROVEN: "the viewport was never constructed" and "the
+     * viewport exists but its registration never ran" are the same value here. A
+     * teardown that could not reach a declared owner did not complete, and must
+     * not say it did — which is exactly what the founder's `096e12b4` log did:
+     * `1 GIS scope(s) had NO registered owner … teardown complete`, two lines apart.
+     */
+    readonly missing: readonly string[];
 }
 
 /**
@@ -196,15 +214,6 @@ export function runSiteProjectTeardown(
         for (const f of gis.failures) {
             failures.push({ scope: f.scope, error: f.error instanceof Error ? f.error.message : String(f.error) });
         }
-        if (gis.missing.length > 0) {
-            // Not a leak by itself (the viewport may never have been constructed in this
-            // tab), but it IS a coverage loss, and coverage loss reported as success is
-            // how this bug survived a "fix". Say it.
-            console.warn(
-                `[siteProjectScope] §L-676-B ${gis.missing.length} GIS scope(s) had NO registered owner ` +
-                `at switch time — NOT torn down here: [${gis.missing.join(', ')}].`,
-            );
-        }
         span.setAttribute('pryzm.site.gisScopesMissing', gis.missing.length);
 
         // §L-676-B — A COMPLETION MESSAGE THAT CANNOT FAIL IS A LIE.
@@ -215,22 +224,31 @@ export function runSiteProjectTeardown(
         // TypeError: … 'usedTimes'` — i.e. the one visible piece of evidence that the
         // teardown had partially failed was immediately overwritten by a claim that it
         // had succeeded. State what actually ran, and say so loudly when it didn't.
+        //
+        // ADR-0298 §2 — AND A MISSING DECLARED OWNER IS NOT A COMPLETION EITHER.
+        // The predecessor of this line NAMED the unreachable owner in a `console.warn`
+        // and then logged "teardown complete" three lines later. Naming a coverage
+        // loss and then reporting success is the same lie in two parts: the reader
+        // takes the summary. `missing` now demotes the verdict, exactly as a throw does.
         span.setAttribute('pryzm.site.scopesCleared', cleared.length);
         span.setAttribute('pryzm.site.scopesFailed', failures.length);
-        if (failures.length === 0) {
+        const complete = failures.length === 0 && gis.missing.length === 0;
+        if (complete) {
             console.log(
                 `[siteProjectScope] §L-676 GIS/site teardown complete (${reason}) — ` +
                 `${cleared.length} scope(s) cleared [${cleared.join(', ')}].`,
             );
         } else {
             console.error(
-                `[siteProjectScope] §L-676 GIS/site teardown INCOMPLETE (${reason}) — ` +
+                `[siteProjectScope] §L-676 / ADR-0298 GIS/site teardown INCOMPLETE (${reason}) — ` +
                 `${cleared.length} cleared [${cleared.join(', ') || 'none'}], ` +
-                `${failures.length} FAILED:`,
+                `${failures.length} FAILED, ` +
+                `${gis.missing.length} DECLARED owner(s) UNREACHABLE ` +
+                `[${gis.missing.join(', ') || 'none'}] — an unreachable owner is not a clean one:`,
                 failures,
             );
         }
-        return { cleared, failures };
+        return { cleared, failures, missing: gis.missing };
     } finally {
         span.end();
     }
