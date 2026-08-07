@@ -53,9 +53,23 @@ A per-frame **mesh-delta channel** — meshes added and removed since the last d
 
 Resize MUST call only what resize requires. Rebuilding the pipeline, reallocating the shadow map, or resetting outline references from a container resize is forbidden.
 
+> **Implemented 2026-08-07** (`§RESIZE-IS-NOT-A-PROJECT-SWITCH`, L-750): `4f75386a` adds
+> `RenderPipelineManager.onViewportResize()` (only `_reconcileRenderSize()`); `7131835c`
+> reroutes the `ResizeObserver` subscription to it. Verified: post-FX targets need nothing
+> (PassNode re-derives from `renderer.getSize()` every frame) and the shadow map needs
+> nothing (its resolution is a function of quality TIER, not viewport size — and
+> reallocating it is the very operation that destroys a `ShadowDepthTexture` mid-submit).
+> Pinned incl. the founder's 677→678→677 px oscillation: two `setSize` calls, ZERO shadow
+> rebuilds.
+
 ### 3. One owner per GPU resource
 
 Where two subsystems can independently reallocate one GPU resource — as the quality tier and the resize lever both can for the shadow map — that resource MUST have a single owner that orders the free against in-flight submits. **A destroyed texture reaching a submit is the signature of two owners and no ordering**, and it has produced an unrecoverable `phase=error` crash on a real 167-element project.
+
+> **Implemented 2026-08-07** (free side): `da27ea8d` routes the shadow-target release
+> through `scheduleGpuRelease()`, drained by the frame owner at the top of `render()` —
+> see ADR-0297 §Amendments (2026-08-07) for the full mechanism and the refusal for
+> light-owned shadow maps.
 
 ### 4. A behaviour change under load MUST be declared
 

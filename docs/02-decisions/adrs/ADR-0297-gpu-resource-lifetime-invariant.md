@@ -112,9 +112,60 @@ Corroborating evidence from the same session: `bindTexture: attempt to use a del
 
 ## C04 amendment (to be folded into the contract)
 
+> Folded into C04 §7 (`§GPU-RESOURCE-LIFETIME`) on 2026-08-07.
+
 New **§GPU-RESOURCE-LIFETIME**, normative:
 
 1. **L1 Ownership** and **L2 Ordering**, verbatim as above.
 2. `RenderPipelineManager.render()` is the **sole drain point** for deferred GPU releases.
 3. *A render failure must be classified before it is retried; a retry that cannot repair the fault class is a defect, not a mitigation.*
 4. *Error suppression must be accounted and must escalate on a burst; silent suppression of a resource-lifetime symptom is itself a defect.*
+
+---
+
+## Amendments (2026-08-07) — the holes this ADR left open, closed
+
+The founder still lost the scene after `3508baae` shipped. Three L2 (ordering) gaps, none
+in a place this ADR looked, all closed by `7bccefd5` (re-landed as `e56f2972` after an
+interim revert) and `da27ea8d`:
+
+1. **The instancing renderer, not just the builders** (`7bccefd5`). This ADR enumerated
+   element BUILDERS; a furniture type change re-registers under a NEW geometry hash and
+   `InstanceGroup.dispose()` destroyed the old group's index buffers synchronously inside
+   `execute()` — beneath EVERY instanced element class (hence the identical crash on stair
+   railings). `InstanceGroup.dispose()` now defers the GPU free to the frame boundary;
+   slot bookkeeping still clears immediately.
+2. **Detection must not depend on the fault throwing** (`7bccefd5`). A WebGPU VALIDATION
+   error (`Destroyed texture … used in a submit`) does not throw and does not reject —
+   `render()` returned normally and the user got a blank viewport with no error.
+   `RenderPipelineManager` now subscribes to `GPUDevice.uncapturederror` and routes it
+   through the SAME `isDestroyedGpuResourceError` classifier and the SAME
+   one-reconstruction policy. Coalescing is per-channel.
+3. **A `setTimeout(…, 0)` is a GUESS at a frame boundary** (`da27ea8d`,
+   `§GPU-RESOURCE-LIFETIME` free side). `ShadowQualityUpgrader._deferReleaseShadowMap`
+   disposed the old shadow target on a macrotask: (a) a WebGPU `Queue.submit()` is
+   asynchronous, so a macrotask can fire mid-submit; (b) it consulted NOTHING — it fired
+   straight through the pipeline's own shadow-rebuild guard, two drivers reallocating one
+   resource with no ordering (exactly ADR-0302 §3). The release now goes through
+   `scheduleGpuRelease()` (which gained a render-target branch, checked BEFORE texture),
+   drained by `RenderPipelineManager.render()` at the TOP of a frame — the one instant at
+   which the previous frame is fully submitted and the next has not begun encoding.
+4. **The one-reconstruction policy now REFUSES what it cannot repair** (`da27ea8d`,
+   ADR-0299 applied to our own recovery). A light's `LightShadow.map` is owned by the
+   LIGHT and reallocated by THREE's shadow pass — unreachable from `_rebuildPipeline()`,
+   so the "ONE immediate reconstruction" burned a multi-second rebuild and failed anyway,
+   twice. `isShadowResourceError()` classifies it and the handler DECLINES the
+   reconstruction, failing loudly at once. A pipeline-owned target still earns its one
+   reconstruction.
+5. **The forbidden lever, pinned where it is actually called** (`7bccefd5`). This ADR
+   forbade recovery via `onProjectSwitch()` but pinned the rule only inside
+   `RenderPipelineManager`; `ViewportCrashGuard` went on calling it. New
+   `recoverFromRenderFailure()` drives the real rebuild and returns `false` when there is
+   nothing to rebuild. The same never-audited-under-the-rule failure also held for
+   **resize**: the `ResizeObserver` → `onProjectSwitch()` subscription rebuilt the whole
+   pipeline (submits paused, 834–1 862 ms) on every panel toggle — that is
+   **`§RESIZE-IS-NOT-A-PROJECT-SWITCH`**, governed by **ADR-0302 §2** (one owner per GPU
+   resource: ADR-0302 §3) and implemented by `7131835c` + `4f75386a`
+   (`RenderPipelineManager.onViewportResize()` does only `_reconcileRenderSize()`).
+   Both are `§FIX-ONCE-IMPORT-EVERYWHERE` instances (ADR-0306): a rule about a lever must
+   be audited at every caller of the lever.
