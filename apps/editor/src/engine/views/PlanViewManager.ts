@@ -7,6 +7,9 @@ import type { EdgeProjectorService } from './EdgeProjectorService';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 import type { IPlanViewManager } from '@pryzm/views';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
+// §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — leaf module by design: a value import
+// from EdgeProjectorService here would defeat its Phase 6 lazy load.
+import { isProjectionSuperseded } from './projectionCancellation';
 import { PLAN_INCREMENTAL_SAFE_TYPES } from '@pryzm/core-app-model';
 import { activePlanDrawingRef } from '@pryzm/core-app-model';
 import { nativeElementMeshExporter } from '@pryzm/core-app-model';
@@ -836,7 +839,11 @@ export class PlanViewManager implements IPlanViewManager {
         const planBelowDepthOffset = this._resolvePlanBelowDepthOffset(viewDef);
 
         const projectionGen = viewTechnicalDrawingCache.beginProjection(viewDef.id);
-        this._edgeProjectorService.project(viewDef, models, nativeGroups, ifcSceneGroups, planBelowDepthOffset).then(drawing => {
+        this._edgeProjectorService.project(
+            viewDef, models, nativeGroups, ifcSceneGroups, planBelowDepthOffset,
+            () => viewTechnicalDrawingCache.currentGeneration(viewDef.id) !== projectionGen
+                || this._viewDef?.id !== viewDef.id,
+        ).then(drawing => {
             if (!this._active || this._viewDef?.id !== viewDef.id) {
                 // §F.1 — view deactivated while EPS was running; release proxy groups.
                 // §G1-T3 — disposeProxies: true disposes non-shared proxy geometries.
@@ -866,6 +873,9 @@ export class PlanViewManager implements IPlanViewManager {
             console.log(`[PlanViewManager] Projection cached for Canvas2D plan view "${viewDef.id}"`);
         }).catch(err => {
             nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
+            // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — cancellation is the intended
+            // outcome, not a failure; never log it as an error.
+            if (isProjectionSuperseded(err)) return;
             console.error(`[PlanViewManager] EdgeProjectorService.project() failed for plan view "${viewDef.id}":`, err);
         });
     }
@@ -970,7 +980,11 @@ export class PlanViewManager implements IPlanViewManager {
         // fresh projection runs. beginProjection() only bumps the generation.
         const previous = viewTechnicalDrawingCache.get(viewDef.id) ?? null;
         const projectionGen = viewTechnicalDrawingCache.beginProjection(viewDef.id);
-        this._edgeProjectorService.project(viewDef, models, nativeGroups, ifcSceneGroups, planBelowDepthOffset).then(drawing => {
+        this._edgeProjectorService.project(
+            viewDef, models, nativeGroups, ifcSceneGroups, planBelowDepthOffset,
+            () => viewTechnicalDrawingCache.currentGeneration(viewDef.id) !== projectionGen
+                || this._viewDef?.id !== viewDef.id,
+        ).then(drawing => {
             if (!this._active || this._viewDef?.id !== viewDef.id) {
                 nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
                 this._disposeRejectedDrawing(drawing);
@@ -1000,6 +1014,9 @@ export class PlanViewManager implements IPlanViewManager {
             if (previous && previous !== drawing) this._disposeRejectedDrawing(previous);
         }).catch(err => {
             nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
+            // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — cancellation is the intended
+            // outcome, not a failure; never log it as an error.
+            if (isProjectionSuperseded(err)) return;
             console.error(`[PlanViewManager] §PERF-ELEV-CROP-DRAG-FLOW double-buffered reproject failed for "${viewDef.id}":`, err);
         });
     }
@@ -1052,7 +1069,10 @@ export class PlanViewManager implements IPlanViewManager {
         }
 
         const projectionGen = viewTechnicalDrawingCache.beginProjection(viewDef.id);
-        this._edgeProjectorService.project(viewDef, models, nativeGroups, ifcSceneGroups, planBelowDepthOffsetSV).then(drawing => {
+        this._edgeProjectorService.project(
+            viewDef, models, nativeGroups, ifcSceneGroups, planBelowDepthOffsetSV,
+            () => viewTechnicalDrawingCache.currentGeneration(viewDef.id) !== projectionGen,
+        ).then(drawing => {
             const accepted = viewTechnicalDrawingCache.setIfCurrent(viewDef.id, projectionGen, drawing);
             if (!accepted) {
                 // §F.1 — superseded split-view projection; release proxy groups.
@@ -1070,6 +1090,9 @@ export class PlanViewManager implements IPlanViewManager {
             console.log(`[PlanViewManager] Split-view reprojection complete for "${viewDef.id}"`);
         }).catch(err => {
             nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
+            // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — cancellation is the intended
+            // outcome, not a failure; never log it as an error.
+            if (isProjectionSuperseded(err)) return;
             console.error(`[PlanViewManager] Split-view projection failed for "${viewDef.id}":`, err);
         });
     }

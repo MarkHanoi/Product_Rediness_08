@@ -122,6 +122,9 @@ import { elementRegistry } from '@pryzm/core-app-model/element-registry'; // §L
 // See Phase 6 STATUS in §18.2 for the full consumer audit (8 call sites,
 // all of them already either await-style or fire-and-forget setters).
 import type { EdgeProjectorService } from './views/EdgeProjectorService';
+// §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — leaf module by design: a value import from
+// EdgeProjectorService here would defeat the Phase 6 lazy load of the projector.
+import { isProjectionSuperseded } from './views/projectionCancellation';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { ifcProjectionStore } from '@pryzm/core-app-model';
 import { frustumCullingService } from '@pryzm/core-app-model/rendering';
@@ -1009,9 +1012,11 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             nativeMeshGroups:     Parameters<EdgeProjectorService['project']>[2],
             ifcSceneGroups?:      Parameters<EdgeProjectorService['project']>[3],
             planBelowDepthOffset?: Parameters<EdgeProjectorService['project']>[4],
+            // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — forwarded through the lazy façade.
+            isSuperseded?:         Parameters<EdgeProjectorService['project']>[5],
         ): ReturnType<EdgeProjectorService['project']> => {
             return _ensureEdgeProjectorService().then(svc =>
-                svc.project(viewDef, models, nativeMeshGroups, ifcSceneGroups, planBelowDepthOffset),
+                svc.project(viewDef, models, nativeMeshGroups, ifcSceneGroups, planBelowDepthOffset, isSuperseded),
             );
         },
         // §FIX-PLAN-PROJECT-INCREMENTAL (L-65) — incremental graft forwarded through
@@ -1164,7 +1169,15 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
 
         if (models.length === 0 && nativeGroups.length === 0 && ifcSceneGroups.length === 0) return;
         try {
-            const drawing = await edgeProjectorService.project(viewDef, models, nativeGroups, ifcSceneGroups);
+            // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — abandon this pass the moment a
+            // newer generation for the same view is started. Without it the projection ran
+            // to completion and was rejected by setIfCurrent() at the very end; the
+            // founder's 2026-08-06 log shows THREE complete plan projections discarded per
+            // wall drawn ("Stale projection rejected — staleGen=2/3/4 currentGen=5").
+            const drawing = await edgeProjectorService.project(
+                viewDef, models, nativeGroups, ifcSceneGroups, 0,
+                () => viewTechnicalDrawingCache.currentGeneration(viewId) !== gen,
+            );
 
             // DOC-1.5f: only commit to cache if this generation is still current.
             // If the user moved a wall again while this projection was in flight,
@@ -1190,6 +1203,10 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         } catch (err) {
             // §G1-T3 — disposeProxies: true disposes non-shared proxy geometries.
             nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
+            // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — cancellation is the SUCCESSFUL
+            // outcome of "stop computing what nobody can display", not a failure. Logging
+            // it as an error would put a red line in the console on every wall drawn.
+            if (isProjectionSuperseded(err)) return;
             console.error(`[initScene] DOC-1.4/1.8: Re-projection failed for viewId=${viewId} gen=${gen}`, err);
         }
     };

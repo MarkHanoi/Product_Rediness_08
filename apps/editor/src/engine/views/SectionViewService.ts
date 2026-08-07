@@ -1,6 +1,8 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import type { EdgeProjectorService } from './EdgeProjectorService';
+// §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — leaf module by design (keeps the projector lazy).
+import { isProjectionSuperseded } from './projectionCancellation';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 import type { ISectionViewService } from '@pryzm/views';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
@@ -179,7 +181,14 @@ export class SectionViewService implements ISectionViewService {
         // L-703), with none of the guard the plan path has. Take a generation before the
         // await and commit through `setIfCurrent`, which enforces INVARIANT D.
         const projectionGen = viewTechnicalDrawingCache.beginProjection(viewDef.id);
-        this._edgeProjectorService!.project(viewDef, models, nativeGroups, ifcSceneGroups).then(drawing => {
+        this._edgeProjectorService!.project(
+            viewDef, models, nativeGroups, ifcSceneGroups, 0,
+            // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — a section is the most expensive
+            // view in the product (no level filter: it exports every element on every
+            // level), so finishing one that is already superseded is the single largest
+            // block of pure waste in the pipeline.
+            () => viewTechnicalDrawingCache.currentGeneration(viewDef.id) !== projectionGen,
+        ).then(drawing => {
             if (!viewTechnicalDrawingCache.setIfCurrent(viewDef.id, projectionGen, drawing)) {
                 // Superseded by a newer section projection — release the proxy groups and
                 // the rejected drawing rather than leaking both (§F.1 / §G1-T3, ADR-0297).
@@ -212,6 +221,9 @@ export class SectionViewService implements ISectionViewService {
             // Release native groups on error to avoid memory leak (§02 §4.3).
             // §G1-T3: disposeProxies: true ensures EdgesGeometry is freed on the GPU.
             nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
+            // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — an abandoned pass is the
+            // intended outcome, not a failure.
+            if (isProjectionSuperseded(err)) return;
             console.error('[SectionViewService] DOC-1.9: projection failed:', err);
         });
     }

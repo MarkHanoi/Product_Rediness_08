@@ -104,6 +104,13 @@ const DEFAULT_NEAR_OFFSET = 1.2;
  */
 const EPS_VERBOSE = false;
 
+// §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — the cancellation signal lives in a leaf
+// module so the drivers that must recognise it can import it eagerly without pulling this
+// lazily loaded 3,700-line projector into the main bundle. Re-exported here so existing
+// `from './EdgeProjectorService'` call sites resolve it too.
+import { ProjectionSupersededError } from './projectionCancellation';
+export { ProjectionSupersededError, isProjectionSuperseded } from './projectionCancellation';
+
 /**
  * DOC-1.13 — Projection layer names per ISO 13567.
  *
@@ -2072,6 +2079,22 @@ export class EdgeProjectorService {
      *                          PRYZM's custom IfcGeometryRenderer does NOT register models in
      *                          OBC FragmentsManager. Passed by PlanViewManager when IFC is enabled.
      *                          MUST NOT be cleared after projection — they are live scene objects.
+     * @param isSuperseded      §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — optional
+     *                          predicate polled at each chunk-yield boundary. When it
+     *                          returns true this projection has already lost its race and
+     *                          its result can never be displayed, so the pass ABANDONS
+     *                          rather than finishing work that will be discarded.
+     *                          Rejects with a `ProjectionSupersededError`; callers must
+     *                          treat that as an expected outcome, not an error.
+     *
+     *                          WHY: `ViewTechnicalDrawingCache.setIfCurrent()` rejects a
+     *                          superseded projection only AFTER it has run to completion.
+     *                          The founder's log shows three complete plan projections
+     *                          discarded per wall drawn ("Stale projection rejected —
+     *                          staleGen=2/3/4 currentGen=5"). Nothing cancelled them; they
+     *                          were computed in full and then thrown away. Omitting this
+     *                          argument preserves exactly the old run-to-completion
+     *                          behaviour.
      * @returns                 A populated TechnicalDrawing.
      */
     async project(
@@ -2080,6 +2103,7 @@ export class EdgeProjectorService {
         nativeMeshGroups:     THREE.Group[],
         ifcSceneGroups:       THREE.Group[] = [],
         planBelowDepthOffset: number = 0,
+        isSuperseded?:        () => boolean,
     ): Promise<OBC.TechnicalDrawing> {
 
         const direction               = this.getDirectionForView(viewDef);
@@ -3071,6 +3095,26 @@ export class EdgeProjectorService {
                     await new Promise<void>(resolve =>
                         getFrameScheduler().scheduleOnce('eps-chunk-yield', () => resolve(), 'pre-render'),
                     );
+
+                    // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — the chunk boundary is
+                    // the ONLY safe cancellation point in this loop: every per-group temp
+                    // geometry has been disposed by the `finally` above, so abandoning
+                    // here leaks nothing. If a newer generation was started while we were
+                    // yielded, everything from this point on is guaranteed to be rejected
+                    // by `setIfCurrent`, so computing it is pure waste. Cancel instead.
+                    if (isSuperseded?.() === true) {
+                        console.log(
+                            `[EdgeProjectorService] §PERF-PROJECTION-CANCEL-SUPERSEDED — abandoning ` +
+                            `viewId=${viewId} after ${_chunkGroupIdx}/${nativeMeshGroups.length} group(s); ` +
+                            `a newer generation superseded this pass.`,
+                        );
+                        // Release the half-built drawing here — nobody downstream will ever
+                        // receive it, so no caller can be relied on to free it (ADR-0297 L2:
+                        // the lines added so far are not attached to any render graph, and
+                        // the frame that could have referenced them never happened).
+                        try { drawing.onDisposed.trigger(); } catch { /* best-effort */ }
+                        throw new ProjectionSupersededError(viewId, _chunkGroupIdx, nativeMeshGroups.length);
+                    }
                 }
             }
 
