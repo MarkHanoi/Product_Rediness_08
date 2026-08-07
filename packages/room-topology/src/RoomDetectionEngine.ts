@@ -90,6 +90,10 @@ import { WallStore } from '@pryzm/geometry-wall';
 import { CurtainWallStore } from '@pryzm/geometry-curtain-wall';
 import { buildWallGraph, splitWallsAtCrossings } from './WallIntersectionResolver';
 import { PathResolver } from '@pryzm/geometry-wall';
+// §FIX-CURVED-WALL-PRETRIM-FRAME / §REFUSE-SAME-PARENT-REACH (2026-08-07) — sample a
+// curved wall's arc in the PRE-TRIM frame it was authored in and clip to the post-trim
+// span, and refuse to "recover" one sub-segment onto another of the SAME wall.
+import { tessellateCurvedWallForTopology, baseWallId } from './curvedWallTessellation';
 import { computeTopology } from './PlanarTopologyEngine';
 import {
   RoomData,
@@ -221,10 +225,66 @@ export class RoomDetectionEngine {
     const wallGraphInput: Array<{ wallUUID: string; start: THREE.Vector3; end: THREE.Vector3 }> = [];
     for (const wall of walls) {
       if (wall.curve) {
-        const wStart = new THREE.Vector3(wall.baseLine[0].x, wall.baseLine[0].y ?? levelElevation, wall.baseLine[0].z);
-        const wEnd   = new THREE.Vector3(wall.baseLine[1].x, wall.baseLine[1].y ?? levelElevation, wall.baseLine[1].z);
-        const ctrl   = new THREE.Vector3(wall.curve.control.x, wall.curve.control.y ?? levelElevation, wall.curve.control.z);
-        const pts    = PathResolver.toPolyline({ kind: 'Arc', start: wStart, end: wEnd, control: ctrl }, wall.curve.segments ?? 16);
+        // §FIX-CURVED-WALL-PRETRIM-FRAME (founder 2026-08-07, reported 3×) — THE ARC
+        // MUST BE SAMPLED IN THE FRAME IT WAS AUTHORED IN.
+        //
+        // This used to fit a quadratic Bézier through `wall.baseLine` — the POST-TRIM
+        // endpoints the WallJoinResolver shortened — while still passing the PRE-TRIM
+        // `wall.curve.control`. Mixing the two frames yields a DIFFERENT CURVE from the
+        // authored arc: pinned at the ends, diverging most mid-span (>150 mm at an
+        // ordinary trim — see curvedWallPretrimFrame.test.ts). That is what produced
+        // "§DIAG-ROOM-LOOP BREAK … EXCEEDS hostSnap 200mm" and then a
+        // §DIAG-PARTITION-REACH "recovery" that wrote a STRAIGHT CHORD into the room
+        // ring — the thin diagonal line across a curved room in the founder's
+        // floor-finish screenshots. The finish was innocent; the RING was wrong.
+        //
+        // `WallFragmentBuilder` already solved exactly this (§V2-PRETRIM-FIX,
+        // 2026-05-27, also from an architect screenshot) by reading the archived
+        // pre-trim baseline; room detection simply never adopted it. Using the SAME
+        // `_sourceBaseLine ?? baseLine` fallback means the 3D wall mesh and the room
+        // ring finally walk the same curve.
+        //
+        // The trim is still HONOURED: the sampled arc is CLIPPED to the post-trim
+        // span, so the wall meets its neighbours exactly where the resolver put it —
+        // only the shape BETWEEN the ends is restored. An untrimmed wall (no
+        // `_sourceBaseLine`) is bit-identical to the previous behaviour.
+        const srcBL = (wall as unknown as {
+          _sourceBaseLine?: ReadonlyArray<{ x: number; y?: number; z: number }>;
+        })._sourceBaseLine;
+        const yFor = (p: { y?: number }) => p.y ?? levelElevation;
+        const ctrl = new THREE.Vector3(wall.curve.control.x, wall.curve.control.y ?? levelElevation, wall.curve.control.z);
+
+        const tessellated = tessellateCurvedWallForTopology(
+          {
+            baseLine: [
+              { x: wall.baseLine[0].x, y: yFor(wall.baseLine[0]), z: wall.baseLine[0].z },
+              { x: wall.baseLine[1].x, y: yFor(wall.baseLine[1]), z: wall.baseLine[1].z },
+            ],
+            sourceBaseLine: srcBL && srcBL.length >= 2
+              ? [
+                  { x: srcBL[0].x, y: yFor(srcBL[0]), z: srcBL[0].z },
+                  { x: srcBL[1].x, y: yFor(srcBL[1]), z: srcBL[1].z },
+                ]
+              : null,
+            control: { x: ctrl.x, y: ctrl.y, z: ctrl.z },
+            segments: wall.curve.segments ?? 16,
+          },
+          // Injected sampler — keeps the helper THREE-free and unit-testable while
+          // the arc maths stays PathResolver's, so there is no second arc model.
+          (s, e, c, segments) => PathResolver
+            .toPolyline(
+              {
+                kind: 'Arc',
+                start: new THREE.Vector3(s.x, s.y ?? levelElevation, s.z),
+                end: new THREE.Vector3(e.x, e.y ?? levelElevation, e.z),
+                control: new THREE.Vector3(c.x, c.y ?? levelElevation, c.z),
+              },
+              segments,
+            )
+            .map(p => ({ x: p.x, y: p.y, z: p.z })),
+        );
+
+        const pts = tessellated.map(p => new THREE.Vector3(p.x, p.y ?? levelElevation, p.z));
         for (let i = 0; i < pts.length - 1; i++) {
           wallGraphInput.push({ wallUUID: `${wall.id}_c${i}`, start: pts[i], end: pts[i + 1] });
         }
@@ -696,6 +756,31 @@ export class RoomDetectionEngine {
           else if (de < ds && de > CORNER_CONNECTED_TOL_M) { tx = o.end.x; tz = o.end.z; gap = de; }
         }
         if (gap <= 0 || gap > REACH_MAX_M) continue;
+        // §REFUSE-SAME-PARENT-REACH (2026-08-07) — a sub-segment may NEVER be
+        // reconnected onto another sub-segment of the SAME wall.
+        //
+        // Sub-segments of one wall are emitted as consecutive `pts[i] → pts[i+1]` of a
+        // single polyline, so `_cN.end` IS `_cN+1.start` BY CONSTRUCTION. A gap between
+        // two of them is therefore not a gap to be closed — it is proof that something
+        // upstream corrupted the geometry (it was §FIX-CURVED-WALL-PRETRIM-FRAME: an arc
+        // sampled in a mixed pre/post-trim frame). "Recovering" it invents a straight
+        // chord across the wall's own curve, which is exactly the diagonal line the
+        // founder reported in three separate sessions.
+        //
+        // This refusal is the point: a recovery that silently repairs a symptom DESTROYS
+        // THE EVIDENCE FOR THE DEFECT. Refusing loudly here is what turns a plausible-
+        // looking wrong ring into a diagnosable one.
+        if (baseWallId(o.wallUUID) === baseWallId(own.wallUUID)) {
+          console.error(
+            `[RoomDetectionEngine] §REFUSE-SAME-PARENT-REACH guest=${own.wallUUID}.${ep.side} ` +
+            `would reach onto host=${o.wallUUID} — the SAME parent wall ` +
+            `(${baseWallId(o.wallUUID)}), across a ${(gap * 1000).toFixed(0)}mm gap. ` +
+            `Adjacent sub-segments of one wall share endpoints by construction, so this ` +
+            `gap means the wall's own tessellation is CORRUPT — upstream geometry bug. ` +
+            `REFUSING: closing it would invent a straight chord across the wall's curve.`,
+          );
+          continue;
+        }
         const gdx = (tx - ep.x) / gap, gdz = (tz - ep.z) / gap;
         if (Math.abs(gdx * aux + gdz * auz) < REACH_COLLINEAR_MIN) continue;   // (b) collinear
         cands.push({ fx: tx, fz: tz, gap, hostUUID: o.wallUUID });

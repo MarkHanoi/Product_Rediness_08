@@ -158,7 +158,6 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
         });
 
         it('SLAB, FLOOR and CEILING all offer the WALL tool\'s three modes', () => {
-            const wall = creationCapability('wall')!;
             for (const key of ['slab', 'floor', 'ceiling']) {
                 const cap = creationCapability(key)!;
                 for (const mode of ['linear', 'ortho', 'curved']) {

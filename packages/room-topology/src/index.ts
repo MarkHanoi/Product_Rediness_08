@@ -19,6 +19,9 @@ export { TopologyEventBus, topologyEventBus, TopologyLayer, topologyLayer } from
 
 export * from './RoomTypes';
 export * from './RoomPolygonUtils';
+// §FIX-CURVED-WALL-PRETRIM-FRAME (2026-08-07) — pre-trim-frame arc sampling + the
+// same-parent reach guard. Pure maths, THREE-free.
+export * from './curvedWallTessellation';
 export * from './roomSnapshotUtils';
 // ADR-0069 (GR4) — graph-authoritative RoomData factory (engine spec → RoomData).
 export { roomDataFromGraphSpec } from './roomFromGraphSpec';
