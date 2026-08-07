@@ -27,7 +27,9 @@ export class LightingPlacementTool {
   private readonly screenToWorld: LightingScreenToWorld;
   private readonly levelId: () => string;
   private readonly kind: LightingData['kind'];
-  private readonly intensity: number;
+  // §FEAT-FIXTURE-PHOTOMETRY (2026-08-06) — undefined means "no explicit
+  // override"; brightness then derives from the schema's `lumens` default.
+  private readonly intensity: number | undefined;
   private readonly range: number;
 
   constructor(deps: LightingPlacementToolDeps) {
@@ -37,7 +39,7 @@ export class LightingPlacementTool {
     this.screenToWorld = deps.screenToWorld;
     this.levelId = deps.levelId ?? (() => '');
     this.kind = deps.kind ?? 'downlight';
-    this.intensity = deps.intensity ?? 1;
+    this.intensity = deps.intensity;
     this.range = deps.range ?? 6;
   }
 

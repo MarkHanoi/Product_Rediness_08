@@ -70,7 +70,12 @@ export class CreateLightingHandler
       thickness: cmd.thickness ?? 0.05,
       dropLength: cmd.dropLength ?? 0,
       range: cmd.range ?? 6,
-      intensity: cmd.intensity ?? 1,
+      // §FEAT-FIXTURE-PHOTOMETRY (2026-08-06) — `intensity` is now an OPTIONAL
+      // explicit override on the schema; when the caller does not supply one it
+      // must stay absent so the committer derives brightness from `lumens`.
+      // (`?? 1` here would stamp every fixture with the physically negligible
+      // legacy 1 candela and defeat the photometry path.)
+      intensity: cmd.intensity,
       color: cmd.color ?? [1, 1, 1],
       isEmergency: cmd.isEmergency ?? false,
       rotation: cmd.rotation ?? 0,

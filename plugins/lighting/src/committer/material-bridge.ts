@@ -1,7 +1,12 @@
 // material-bridge — lighting MaterialKey → THREE.MeshStandardMaterial.
 //
 // Material key shape (from producers/lighting.ts):
-//   `lighting|<kind>|<materialId>|<color>|<intensity>|<range>|<emergency>|body`
+//   `lighting|<kind>|<materialId>|<color>|<emission>|<range>|<emergency>|body`
+//
+// §FEAT-FIXTURE-PHOTOMETRY (2026-08-06) — slot 4 was `<intensity>` (a derived
+// renderer scalar) and is now `<lumens>@<kelvin>[!<intensity>]`, the REAL
+// photometry with an optional explicit-override suffix. Slot INDICES are
+// unchanged, so `colorOfLightingMaterialKey` (slot 3) is unaffected.
 
 import * as THREE from '@pryzm/renderer-three/three';
 

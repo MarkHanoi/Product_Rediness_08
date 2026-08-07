@@ -26,7 +26,30 @@ const GEOMETRY_FIELDS = [
   'dropLength', 'levelId',
 ] as const;
 const MATERIAL_FIELDS = ['materialId'] as const;
-const LIGHT_FIELDS = ['intensity', 'range', 'color', 'isEmergency'] as const;
+const LIGHT_FIELDS = ['intensity', 'lumens', 'kelvin', 'range', 'color', 'isEmergency'] as const;
+
+/**
+ * §FEAT-FIXTURE-PHOTOMETRY (2026-08-06) — derive the renderer intensity from the
+ * DTO's real luminous flux instead of trusting the legacy `intensity` scalar,
+ * whose default of 1 candela is physically negligible (THREE r165+ reads it as
+ * candela with 1/d² falloff → 0.16 at 2.5 m, below the scene's ambient floor).
+ *
+ * `scene_cd = (lumens / 4π) × SCENE_CANDELA_PER_REAL_CANDELA`
+ *
+ * KNOWN DEBT: the canonical implementation is
+ * `@pryzm/core-app-model` → `lighting/FixturePhotometry.ts` (`sceneIntensityFor`).
+ * This L7 plugin may not import L-below-SDK packages and `@pryzm/plugin-sdk` does
+ * not re-export it, so the two-line derivation is repeated here rather than
+ * adding an illegal dependency edge. The proper fix is a small pure photometry
+ * package below the SDK; that needs an ADR and is out of this pass's scope.
+ * NOTE: this committer is not currently wired into the editor runtime.
+ */
+const SCENE_CANDELA_PER_REAL_CANDELA = 1 / 8;
+
+function sceneIntensity(dto: LightingData): number {
+  if (typeof dto.intensity === 'number') return dto.intensity;   // explicit override
+  return (Math.max(0, dto.lumens) / (4 * Math.PI)) * SCENE_CANDELA_PER_REAL_CANDELA;
+}
 
 export interface LightingCommitterStats {
   rebuilds: number;
@@ -86,7 +109,7 @@ export class LightingCommitter implements PrimitiveCommitter<LightingData, THREE
     mesh.userData.elementId = id;
     mesh.userData.primitiveType = 'lighting';
 
-    const light = new THREE.PointLight(colorTuple(dto.color), dto.intensity, dto.range);
+    const light = new THREE.PointLight(colorTuple(dto.color), sceneIntensity(dto), dto.range);
     light.userData.elementId = id;
     light.userData.role = 'lighting.point';
 
@@ -138,7 +161,7 @@ export class LightingCommitter implements PrimitiveCommitter<LightingData, THREE
 
     if (lightChanged) {
       entry.light.color = colorTuple(dto.color);
-      entry.light.intensity = dto.intensity;
+      entry.light.intensity = sceneIntensity(dto);
       entry.light.distance = dto.range;
       entry.light.userData.isEmergency = dto.isEmergency;
       this.stats.lightUpdates += 1;
