@@ -2,6 +2,8 @@ import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 // §CAM-FRAME-INVARIANT (L-742) — the single framing authority shared with ViewController.
 import { computeFitPose } from '@pryzm/core-app-model';
+// §FIX-GIZMO-IN-BOUNDS (L-749) — ONE authority for "is this part of the model".
+import { SceneObjectClassifier } from '@pryzm/scene-committer';
 
 /**
  * Registers default OBC views (3D, plans, elevations) and creates the
@@ -61,23 +63,45 @@ export function initViewSetup(params: { components: any; world: any; viewControl
         const _tmp = new THREE.Box3();
         let hasGeometry = false;
 
-        world.scene.three.traverse((obj: THREE.Object3D) => {
-            if (!(obj instanceof THREE.Mesh)) return;
-            if (!obj.visible || obj.userData.isPreview || obj.userData.isHelper) return;
-            const t = (obj.userData?.elementType || obj.userData?.type || '').toLowerCase();
-            if (!BIM_TYPES_FIT.has(t)) return;
-            _tmp.setFromObject(obj);
-            if (!_tmp.isEmpty()) { box.union(_tmp); hasGeometry = true; }
-        });
+        // §FIX-GIZMO-IN-BOUNDS (L-749) — classification is SHARED, not re-implemented.
+        //
+        // Both passes below used to filter with `obj.userData.isPreview || isHelper` only.
+        // The TransformControls axis handles carry EMPTY userData (the founder's probe:
+        // `elementType=∅ id=∅ userDataKeys=[∅]`), so they passed straight through — and
+        // each is a ~1,575 km three.js helper line.
+        //
+        // In the FIRST pass that was harmless: the `BIM_TYPES_FIT` allow-list rejected
+        // them for having no element type. In the FALLBACK pass — which runs precisely
+        // when there is no BIM geometry, i.e. the founder's brand-new project with a
+        // boundary and no walls — there is no allow-list, so the gizmo WAS the geometry
+        // it found. `computeFitPose` then honestly framed a 3,152 km box and flew the
+        // camera to megametres: the boundary "appears briefly, then it's gone", and the
+        // white 3D screen.
+        //
+        // Routing both passes through `SceneObjectClassifier` is the actual fix: two
+        // independent notions of "is this part of the model" is what let the gizmo be
+        // excluded here and included there. One authority, ancestry-aware.
+        // gridRoot is null here: this traversal only visits `THREE.Mesh`, and the OBC grid
+        // is line geometry, so it was never in this population and nothing changes by
+        // passing null. The helper/control exclusion below does not depend on it.
+        const gridRoot: THREE.Object3D | null = null;
 
-        if (!hasGeometry) {
+        const collect = (requireBimType: boolean): void => {
             world.scene.three.traverse((obj: THREE.Object3D) => {
                 if (!(obj instanceof THREE.Mesh)) return;
-                if (!obj.visible || obj.userData.isPreview || obj.userData.isHelper) return;
+                if (!obj.visible) return;
+                if (SceneObjectClassifier.shouldExcludeFromBounds(obj, gridRoot)) return;
+                if (requireBimType) {
+                    const t = (obj.userData?.elementType || obj.userData?.type || '').toLowerCase();
+                    if (!BIM_TYPES_FIT.has(t)) return;
+                }
                 _tmp.setFromObject(obj);
                 if (!_tmp.isEmpty()) { box.union(_tmp); hasGeometry = true; }
             });
-        }
+        };
+
+        collect(true);
+        if (!hasGeometry) collect(false);
 
         if (!hasGeometry || box.isEmpty()) {
             console.warn('[zoomToAll] No geometry found in scene');

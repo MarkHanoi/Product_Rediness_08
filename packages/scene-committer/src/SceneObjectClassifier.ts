@@ -29,19 +29,83 @@ export class SceneObjectClassifier {
     }
 
     /**
-     * Returns true if `obj` is a Three.js helper, transform control plane/gizmo,
-     * or any object explicitly tagged userData.isHelper = true.
+     * Object `type` strings for controls/helpers whose ENTIRE SUBTREE is non-model.
+     *
+     * Matched on `.type` rather than `instanceof` because three's controls live in
+     * `examples/jsm` (not the core namespace this module imports) and because a
+     * production bundle MINIFIES the constructor — the founder's probe reported
+     * `ctor=ze`. `.type` is set explicitly by three and survives minification.
+     */
+    private static readonly HELPER_SUBTREE_TYPES: ReadonlySet<string> = new Set([
+        'TransformControls',
+        'TransformControlsGizmo',
+        'TransformControlsPlane',
+        'Box3Helper',
+        'BoxHelper',
+        'ArrowHelper',
+        'PlaneHelper',
+        'SkeletonHelper',
+        'HemisphereLightHelper',
+        'AxesHelper',
+        'GridHelper',
+        'CameraHelper',
+        'DirectionalLightHelper',
+        'PointLightHelper',
+        'SpotLightHelper',
+    ]);
+
+    /**
+     * Returns true if `obj` is — OR DESCENDS FROM — a Three.js helper, a transform
+     * control, or anything explicitly tagged `userData.isHelper = true`.
+     *
+     * ── §FIX-GIZMO-IN-BOUNDS (L-749) — why the ancestry walk ────────────────────
+     *
+     * This test used to look ONLY at `obj` itself. `obj.type === 'TransformControlsGizmo'`
+     * therefore excluded the gizmo NODE and none of its children — and the children are
+     * where the geometry is. The founder's diagnostic probe caught it:
+     *
+     *   23 object(s) over 1 km. Top contributors:
+     *     #1 extent=1575838m verts=19 box=[-1575838,-525279,-525279 → 0,525279,525279]
+     *        ctor=ze type=Mesh name="X" elementType=∅ id=∅ userDataKeys=[∅]
+     *        ancestry: Object3D ← TransformControlsGizmo ← Object3D ← Scene
+     *
+     * Those are the axis handles ("X", "Y", "Z") — three.js draws them as effectively
+     * infinite picker/helper lines, ~1,575 km each. Their own `.type` is plain `'Mesh'`,
+     * their `userData` is empty, and they carry no `elementType` and no `id`, so EVERY
+     * filter keyed on element identity sails straight past them. They have been in the
+     * scene on every project since transform controls were first constructed.
+     *
+     * This one defect produced a chain of symptoms that each looked independent: scene
+     * bounds ~3,152 km across → default camera framing at 6,542 km → a 14 m near plane
+     * that sliced walls the user walked up to (L-747) → and, on a project with no walls,
+     * `zoomToAll`'s fallback pass flying the camera to megametres (the "white 3D screen").
+     *
+     * The lesson generalises past this one object, which is why the check is now a
+     * SUBTREE test over a TYPE SET rather than another special case: **controls and
+     * helpers are part of the bounds population, and nothing about element identity will
+     * ever exclude them.** They are not elements; they must be excluded structurally.
+     *
+     * O(depth) — a handful of steps; the same shape as {@link isGridObject}.
      */
     static isHelperObject(obj: THREE.Object3D): boolean {
-        return obj instanceof THREE.AxesHelper ||
-               obj instanceof THREE.GridHelper ||
-               obj instanceof THREE.CameraHelper ||
-               obj instanceof THREE.DirectionalLightHelper ||
-               obj instanceof THREE.PointLightHelper ||
-               obj instanceof THREE.SpotLightHelper ||
-               obj.type === 'TransformControlsPlane' ||
-               obj.type === 'TransformControlsGizmo' ||
-               obj.userData?.isHelper === true;
+        let current: THREE.Object3D | null = obj;
+        // Bounded walk: a scene graph deeper than this is pathological, and an
+        // unbounded loop on a cyclic graph would hang the render path.
+        for (let hops = 0; current && hops < 64; current = current.parent, hops++) {
+            if (current.userData?.isHelper === true) return true;
+            if (SceneObjectClassifier.HELPER_SUBTREE_TYPES.has(current.type)) return true;
+            // `instanceof` still catches core helpers whose `.type` three leaves as the
+            // base class name (e.g. some helpers report 'LineSegments').
+            if (current instanceof THREE.AxesHelper ||
+                current instanceof THREE.GridHelper ||
+                current instanceof THREE.CameraHelper ||
+                current instanceof THREE.DirectionalLightHelper ||
+                current instanceof THREE.PointLightHelper ||
+                current instanceof THREE.SpotLightHelper) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

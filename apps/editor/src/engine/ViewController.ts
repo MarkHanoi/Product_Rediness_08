@@ -360,7 +360,10 @@ export class ViewController implements IViewController {
         );
 
         // ADR-0299 — verify, do not assume. Same predicate, same standard as activation.
-        cam.updateMatrixWorld();
+        // §CAM-VERIFY-AFTER-FLUSH — `setLookAt` defers the camera write to the controls'
+        // next update; read it before that and you verify the OLD pose.
+        try { controls.update?.(0); } catch { /* older controls flush on their own */ }
+        cam.updateMatrixWorld(true);
         if (!boundsFramedByCamera(cam, bounds)) {
             throw new Error(
                 `[ViewController] zoomToFit — fitted to dist=${pose.distance.toFixed(1)}m but the model ` +
@@ -1170,7 +1173,17 @@ export class ViewController implements IViewController {
         // `boundsFramedByCamera` includes the apparent-size floor
         // (MIN_FRAMED_SCREEN_FRACTION), so "technically inside the frustum but
         // sub-pixel" — exactly the founder's state — is a FAILURE, not a pass.
-        cam.updateMatrixWorld();
+        // ⚠ FLUSH THE CONTROLS BEFORE READING THE CAMERA (§CAM-VERIFY-AFTER-FLUSH).
+        // `camera-controls.setLookAt(..., false)` does NOT write `camera.position`
+        // synchronously — it stores the goal and raises an internal dirty flag; the
+        // camera is moved in `controls.update(delta)` on the next frame. Verifying
+        // immediately therefore inspected the PRE-FIT camera and reported a failure for a
+        // fit that had actually worked — the founder's log shows exactly that false
+        // negative ("auto-frame RAN BUT DID NOT WORK … dist=60.7m") for a correct 39×33 m
+        // site fit. A verification that reads stale state is worse than none: it cries
+        // wolf on the good path and would mask the real failure it exists to catch.
+        try { controls.update?.(0); } catch { /* older controls flush on their own */ }
+        cam.updateMatrixWorld(true);
         if (!boundsFramedByCamera(cam, bounds)) {
             console.error(
                 '[ViewController] §CAM-FRAME-INVARIANT (ADR-0299) — auto-frame RAN BUT DID NOT WORK: ' +
